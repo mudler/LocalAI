@@ -7,6 +7,7 @@ import Button from '../components/ui/Button'
 import Callout from '../components/ui/Callout'
 import EmptyState from '../components/ui/EmptyState'
 import LoadError from '../components/ui/LoadError'
+import { TabPanel, Tabs } from '../components/ui'
 import { SkeletonRows } from '../components/Skeleton'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -117,7 +118,7 @@ const whatText = (c, t) => {
 function TrashList({ ws, t, onPurge }) {
   const empty = ws.trash.length === 0 && ws.trashTotals.files + ws.trashTotals.folders === 0
   return (
-    <section className="ws-trash" aria-labelledby="ws-tab-trash">
+    <section className="ws-trash">
       <div className="ws-trash__bar">
         <p className="ws-trash__summary" data-testid="ws-trash-summary">
           {empty ? t('trash.empty') : t('trash.summary', { what: whatText(ws.trashTotals, t) })}
@@ -764,17 +765,17 @@ export default function Workspace() {
           </div>
         </header>
 
-        <div className="ws-tabs" role="tablist" aria-label={t('tabs.label')}>
-          {['files', 'trash', 'history', 'shared'].map((k) => (
-            <button
-              key={k} type="button" role="tab" aria-selected={tab === k} id={`ws-tab-${k}`}
-              className={`ws-tab${tab === k ? ' ws-tab--on' : ''}`} onClick={() => setTab(k)}
-            >
-              {t(`tabs.${k}`)}
-              {k === 'trash' && ws.trash.length > 0 && <span className="ws-tab__count" aria-label={t('tabs.trashCount', { count: ws.trash.length })}>{ws.trash.length}</span>}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('tabs.label')}
+          idPrefix="ws"
+          value={tab}
+          onChange={setTab}
+          items={['files', 'trash', 'history', 'shared'].map(k => ({
+            id: k,
+            label: t(`tabs.${k}`),
+            ...(k === 'trash' && ws.trash.length > 0 ? { count: ws.trash.length, countLabel: t('tabs.trashCount', { count: ws.trash.length }) } : {}),
+          }))}
+        />
 
         {ws.error && (
           <Callout
@@ -786,7 +787,7 @@ export default function Workspace() {
         )}
 
         {tab === 'files' && (
-          <section className="ws-files" aria-labelledby="ws-tab-files" data-drop={dropActive || undefined}>
+          <section className="ws-files" role="tabpanel" id="ws-panel-files" aria-labelledby="ws-tab-files" data-drop={dropActive || undefined}>
             <div className="ws-bar">
               {picked.length > 0 ? (
                 <div className="ws-selbar" role="toolbar" aria-label={t('select.bar')} data-testid="ws-selection-bar">
@@ -904,9 +905,13 @@ export default function Workspace() {
             )}
           </section>
         )}
-        {tab === 'trash' && <TrashList ws={ws} t={t} onPurge={(p) => { ws.clearPurged(); setPurging(p) }} />}
-        {tab === 'history' && <HistoryList ws={ws} t={t} />}
-        {tab === 'shared' && <SharedFolders />}
+        {tab !== 'files' && (
+          <TabPanel idPrefix="ws" value={tab} flush>
+            {tab === 'trash' && <TrashList ws={ws} t={t} onPurge={(p) => { ws.clearPurged(); setPurging(p) }} />}
+            {tab === 'history' && <HistoryList ws={ws} t={t} />}
+            {tab === 'shared' && <SharedFolders />}
+          </TabPanel>
+        )}
       </div>
 
       {preview && tab === 'files' && !searching && (

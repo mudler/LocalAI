@@ -196,7 +196,7 @@ export default function AgentJobs() {
           {error && <LoadError title={t('load.triggersStale')} error={error} onRetry={fetchData} />}
           {proposals.length > 0 && (
             <section className="aj-sec" aria-labelledby="aj-prop-h" data-testid="proposals">
-              <div className="aj-sec__head"><h2 className="ag-eyebrow" id="aj-prop-h">{t('chats:triggersPage.proposals')}</h2></div>
+              <div className="aj-sec__head"><h2 className="ag-label" id="aj-prop-h">{t('chats:triggersPage.proposals')}</h2></div>
               <p className="ag-note">{t('chats:triggersPage.proposalsNote')}</p>
               <div className="ag-runs">
                 {proposals.map(p => (

@@ -233,8 +233,7 @@
 .sw-leave__item[data-kind="blocked"] .lai-icon { color: var(--dk-error-text); }
 .sw-leave__item[data-kind="reload"] .lai-icon { color: var(--dk-warn-text); }
 
-.sw-tabs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
-.sw-tab__n { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
+.sw-tabs { align-self: flex-start; max-width: 100%; }
 .sw-rep { margin-left: var(--dk-space-2); }
 .sw-loglinks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--dk-space-2); }
 .sw-loglinks li { display: flex; align-items: baseline; gap: var(--dk-space-3); font-size: var(--dk-text-13); }

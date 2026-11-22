@@ -5,7 +5,7 @@ import SearchableSelect from './SearchableSelect'
 import { nodesApi, backendsApi } from '../utils/api'
 import Icon from './Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button } from './ui'
+import { Button, StatusChip, Tag } from './ui'
 import { summarizeInstall } from '../utils/nodeInstallSummary'
 
 // NodeInstallPicker is the single multi-node install surface used both from
@@ -428,9 +428,9 @@ export default function NodeInstallPicker({
           <Icon name="settings" className="text-primary" />
           Install <span className="text-mono">{backend.name}</span>
           {backend.isMeta ? (
-            <span className="badge badge-info text-xs">Auto-resolving</span>
+            <Tag tone="accent">Auto-resolving</Tag>
           ) : (
-            <span className="badge badge-warning text-xs">Hardware-specific</span>
+            <Tag tone="warn">Hardware-specific</Tag>
           )}
         </span>
       )}
@@ -441,7 +441,7 @@ export default function NodeInstallPicker({
               <>
                 {doneCount} of {totalAttempted} done
                 {errorCount > 0 && (
-                  <> · <span className="badge badge-error text-xs">{errorCount} failed</span></>
+                  <> · <StatusChip tone="error" label={`${errorCount} failed`} /></>
                 )}
               </>
             ) : (
@@ -622,35 +622,25 @@ export default function NodeInstallPicker({
                         </td>
                         <td>
                           {rowState?.status === 'installing' ? (
-                            <span className="badge badge-info">
-                              <Icon name="spinner" spin className="icon-before" />Installing
-                            </span>
+                            <StatusChip status="installing" label="Installing" />
                           ) : rowState?.status === 'done' ? (
-                            <span className="badge badge-success">
-                              <Icon name="check" className="icon-before" />Installed
-                            </span>
+                            <StatusChip tone="ok" icon="check" label="Installed" />
                           ) : rowState?.status === 'error' ? (
                             <button
                               type="button"
-                              className="badge badge-error nip-help"
+                              className="nip-err"
                               title={rowState.error}
                               aria-describedby={`err-${node.id}`}
                             >
-                              <Icon name="warning" className="icon-before" />Failed
+                              <StatusChip status="failed" label="Failed" />
                               <span id={`err-${node.id}`} className="sr-offscreen">{rowState.error}</span>
                             </button>
                           ) : suit === 'installed' ? (
-                            <span className="badge chip-neutral">
-                              Installed
-                            </span>
+                            <StatusChip tone="idle" label="Installed" />
                           ) : suit === 'override' ? (
-                            <span className="badge badge-warning">
-                              <Icon name="alert-circle" className="icon-before" />Override
-                            </span>
+                            <StatusChip tone="warn" icon="alert-circle" label="Override" />
                           ) : (
-                            <span className="badge badge-success badge-success--soft">
-                              Compatible
-                            </span>
+                            <StatusChip tone="ok" label="Compatible" />
                           )}
                         </td>
                       </tr>

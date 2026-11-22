@@ -84,7 +84,7 @@ export function OutputBlock({ label, text, tone, testId }) {
   return (
     <div className="aj-out" data-tone={tone}>
       <div className="aj-out__head">
-        <span className="ag-eyebrow">{label}</span>
+        <span className="ag-label">{label}</span>
         <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm aj-out__copy" onClick={copy} aria-live="polite">
           <Icon name={copied ? 'check' : 'copy'} className="ui-btn__icon" />
           <span className="ui-btn__label">{copied ? t('actions.copied') : t('actions.copy')}</span>

@@ -13,7 +13,7 @@ import {
 } from '../../utils/addWorker'
 import { nodeConnections } from '../../utils/workerRoster'
 import { P2P_SETTINGS_PATH } from '../p2p/P2PTabs'
-import { Button, Callout, Segmented, StatusChip } from '../ui'
+import { Button, Callout, Segmented, StatusChip, Tabs } from '../ui'
 import Icon from '../Icon'
 import CommandBlock from './CommandBlock'
 import ConnectionChips from './ConnectionChips'
@@ -110,13 +110,7 @@ function CommandTabs({ minted, expired, revealed, addToast }) {
   return (
     <div className="aw-cmd" data-testid="command-tabs" data-expired={expired ? 'true' : undefined}>
       <div className="aw-cmd__bar">
-        <div className="dk-tabs" role="tablist" aria-label={t('add.tabs.label')}>
-          {COMMAND_TABS.map(entry => (
-            <button key={entry.id} type="button" role="tab" id={`aw-tab-${entry.id}`} className="dk-tab" aria-selected={tab === entry.id} aria-controls="aw-tabpanel" onClick={() => setTab(entry.id)} data-testid={`tab-${entry.id}`}>
-              {t(`add.tabs.${entry.id}`)}
-            </button>
-          ))}
-        </div>
+        <Tabs label={t('add.tabs.label')} idPrefix="aw" panelId="aw-tabpanel" value={tab} onChange={setTab} itemTestId="tab-" items={COMMAND_TABS.map(entry => ({ id: entry.id, label: t(`add.tabs.${entry.id}`) }))} />
       </div>
       <div id="aw-tabpanel" role="tabpanel" aria-labelledby={`aw-tab-${tab}`} className="aw-cmd__panel">
         {current.alt && (

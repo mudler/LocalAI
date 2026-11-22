@@ -37,7 +37,7 @@ import React from 'react'
 import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, PageHeader } from '../components/ui'
+import { Button, Callout, PageHeader, StatusChip, Tag } from '../components/ui'
 import SideSheet from '../components/SideSheet'
 import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
 import RemotesView from '../components/remotes/RemotesView'
@@ -63,6 +63,8 @@ import './models-ledger.css'
 // The ledger pages through the gallery thirty rows at a time: enough for the
 // groups to mean something, few enough that a page of estimates arrives fast.
 const PAGE_SIZE = 30
+// The status chip tone of a variant's fit verdict (utils/remoteModels.js).
+const FIT_CHIP_TONE = { success: 'ok', warning: 'warn', error: 'error' }
 
 // How many estimates to have in flight at once. See the fetch effect: this
 // exists to leave connections free for whatever the user clicks next.
@@ -1922,23 +1924,17 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       </span>
                       <span className="variant-row__size">{variantSizeLabel(v, t)}</span>
                       <span className="variant-row__status">
-                        {isAuto && (
-                          <span className="badge badge-success">
-                            <Icon name="check-circle" /> {t('variants.autoSelected')}
-                          </span>
-                        )}
-                        {v.fitNote && <span className={`badge badge-${v.fitTone}`}>{v.fitNote}</span>}
-                        {v.recommended && !isAuto && <span className="badge badge-info">{t('remote.recommended')}</span>}
-                        {!v.fits && !v.fitNote && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
-                        {v.is_base && !isAuto && <span className="badge badge-info">{t('variants.base')}</span>}
+                        {isAuto && <StatusChip tone="ok" icon="check-circle" label={t('variants.autoSelected')} />}
+                        {v.fitNote && <StatusChip tone={FIT_CHIP_TONE[v.fitTone] || 'idle'} label={v.fitNote} />}
+                        {v.recommended && !isAuto && <Tag tone="accent">{t('remote.recommended')}</Tag>}
+                        {!v.fits && !v.fitNote && <StatusChip tone="warn" label={t('variants.doesNotFit')} />}
+                        {v.is_base && !isAuto && <Tag>{t('variants.base')}</Tag>}
                         {/* The room the detail row has over the dropdown is
                             spent here: "DFLASH" names nothing to a user who
                             has not met it, whereas the spelled-out feature
                             says why this build is worth choosing. */}
                         {(v.features || []).map(f => (
-                          <span key={f} className="badge badge-info">
-                            <Icon name="bolt" /> {variantFeatureLabel(f, t)}
-                          </span>
+                          <Tag key={f} tone="accent" icon="bolt">{variantFeatureLabel(f, t)}</Tag>
                         ))}
                       </span>
                       <Icon name={variantChoice ? (variantChoice.chosen === v.model ? 'check-circle' : 'circle') : 'download'} className="variant-row__action" />

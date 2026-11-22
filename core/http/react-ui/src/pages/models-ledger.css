@@ -213,8 +213,7 @@
 }
 .models-filters__context .dk-range-wrap { flex: 1; min-width: 0; }
 
-.ledger-states { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.ledger-states .dk-seg { gap: var(--dk-space-2); }
+.ledger-states { max-width: 100%; }
 
 .ledger-banner {
   flex: none;
@@ -571,7 +570,6 @@ tr[data-selected="true"] .ledger-mark {
   color: var(--dk-muted);
 }
 .ledger__pane .resource-row__detail-grid dd { margin: 0; font-size: var(--dk-text-13); min-width: 0; overflow-wrap: anywhere; }
-.ledger__pane .badge-row { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
 
 /* --- Empty ---------------------------------------------------------------- */
 
@@ -721,14 +719,9 @@ tr[data-selected="true"] .ledger-mark {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-accent-text) 40%, transparent);
 }
 
-/* Density and state segments share one height. */
+/* The density segment. */
 .models-page .ledger-density { padding: 4px; }
 .models-page .ledger-density .dk-seg { width: 40px; height: 36px; }
-.models-page .ledger-states { padding: 4px; gap: var(--dk-space-1); }
-.models-page .ledger-states .dk-seg { height: 36px; padding: 0 var(--dk-space-4); gap: var(--dk-space-2); }
-.models-page .ledger-states .dk-seg[aria-selected="true"] {
-  box-shadow: var(--dk-shadow-rest), inset 0 0 0 1px var(--dk-edge), inset 0 -2px 0 var(--dk-accent);
-}
 
 .models-page .ledger-bar { margin-bottom: var(--dk-space-3); min-height: 32px; }
 
@@ -738,7 +731,6 @@ tr[data-selected="true"] .ledger-mark {
   .models-page .ledger-refine .filter-bar-group__toggle { min-height: 44px; }
   .models-page .ledger-facets .dk-chip { height: 40px; }
   .models-page .ledger-density .dk-seg { width: 44px; height: 40px; }
-  .models-page .ledger-states .dk-seg { height: 40px; }
 }
 
 /* --- Narrow ---------------------------------------------------------------- */

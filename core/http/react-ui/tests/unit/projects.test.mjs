@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import {
   MEMORY_INDEX, filterProjects, isProjectsOff, memoryFileError, projectCounts, projectFilesPath,
   defaultsCount, cleanDefaults, APPLIED_LISTS, DEFAULT_LISTS, addChip, startChatBody, whenAgo,
-  PULLED_MAX, NO_PROJECT, composerProjects, pulledChoices, withPulled, projectNames, chatsInProject, homeProject, pulledProjects, pulledState, projectFolderLink, pickStartModel, isBusy, wrapKey,
+  PULLED_MAX, NO_PROJECT, composerProjects, pulledChoices, withPulled, projectNames, chatsInProject, homeProject, pulledProjects, pulledState, projectFolderLink, pickStartModel, isBusy,
 } from '../../src/utils/projects.js'
 import { navBuiltins, primaryDestinations } from '../../src/utils/navigationModel.js'
 import { NAV_BUILTIN_IDS, readItems, sections } from '../../src/utils/nav.js'
@@ -182,14 +182,6 @@ test('isBusy reads the busy refusal of a running turn', () => {
   assert.equal(isBusy({ status: 409, body: { error: { type: 'projects_off' } } }), false)
   assert.equal(isBusy({ status: 500 }), false)
   assert.equal(isBusy(null), false)
-})
-
-test('wrapKey moves a tab index with the arrow, Home and End keys', () => {
-  assert.equal(wrapKey('ArrowRight', 4, 5), 0)
-  assert.equal(wrapKey('ArrowLeft', 0, 5), 4)
-  assert.equal(wrapKey('Home', 3, 5), 0)
-  assert.equal(wrapKey('End', 1, 5), 4)
-  assert.equal(wrapKey('x', 1, 5), -1)
 })
 
 test('APPLIED_LISTS covers all five default lists, since chats apply them all', () => {

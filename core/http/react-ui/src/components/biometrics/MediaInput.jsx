@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMediaCapture } from '../../hooks/useMediaCapture'
 import { fileToBase64 } from '../../utils/api'
 import Icon from '../Icon'
+import { TabPanel, Tabs } from '../ui'
 
 // MediaInput — one control, three ways to supply a sample.
 // mode: 'image' | 'audio'. onChange receives null | { base64, dataUrl, mime, source }.
@@ -134,22 +135,21 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
     >
       {label && <label className="form-label" htmlFor={inputId}>{label}</label>}
 
-      <div className="biometrics-mediainput__tabs" role="tablist" aria-label={`${label || 'Media'} source`}>
-        <button type="button" role="tab" aria-selected={tab === 'file'}
-          className={`biometrics-mediainput__tab ${tab === 'file' ? 'active' : ''}`}
-          onClick={() => setTab('file')}>
-          <Icon name="upload" /> Upload
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'live'}
-          className={`biometrics-mediainput__tab ${tab === 'live' ? 'active' : ''}`}
-          onClick={() => setTab('live')}>
-          <Icon name={mode === 'image' ? 'camera' : 'mic'} />
-          {mode === 'image' ? ' Webcam' : ' Record'}
-        </button>
-      </div>
+      <Tabs
+        variant="pill"
+        className="biometrics-mediainput__tabs"
+        label={`${label || 'Media'} source`}
+        idPrefix={`${idPrefix}-${mode}-src`}
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'file', label: 'Upload', icon: 'upload' },
+          { id: 'live', label: mode === 'image' ? 'Webcam' : 'Record', icon: mode === 'image' ? 'camera' : 'mic' },
+        ]}
+      />
 
       {tab === 'file' && (
-        <div className="biometrics-mediainput__body">
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="file" flush className="biometrics-mediainput__body">
           <input
             ref={fileRef}
             id={inputId}
@@ -161,11 +161,11 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
           {mode === 'image' && (
             <p className="form-hint"><Icon name="clipboard" /> Paste an image from the clipboard</p>
           )}
-        </div>
+        </TabPanel>
       )}
 
       {tab === 'live' && (
-        <div className="biometrics-mediainput__body">
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="live" flush className="biometrics-mediainput__body">
           {!cap.supported && <UnsupportedNotice mode={mode} />}
           {cap.supported && !cap.active && (
             <button type="button" className="btn btn-secondary btn-full" onClick={cap.start}>
@@ -202,7 +202,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
           {cap.error && (
             <p className="biometrics-mediainput__error" role="alert">{cap.error}</p>
           )}
-        </div>
+        </TabPanel>
       )}
 
       {value && (

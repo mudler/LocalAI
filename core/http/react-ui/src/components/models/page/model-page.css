@@ -96,7 +96,6 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 /* --- Tabs ------------------------------------------------------------------ */
 
 .modelpage-tabs { margin-top: var(--dk-space-4); flex: none; }
-.modelpage-tabs .dk-hubtab-count { margin-left: var(--dk-space-2); }
 .modelpage-panel {
   flex: 1 0 auto;
   min-width: 0;

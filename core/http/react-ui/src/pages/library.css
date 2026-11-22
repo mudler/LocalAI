@@ -156,7 +156,6 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-addmenu__done { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); color: var(--dk-muted); }
 
 /* ---- Tabs and panes ------------------------------------------------------- */
-.lib-tabs { border-bottom: 1px solid var(--dk-edge); }
 .lib-section { display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .lib-section + .lib-section { padding-top: var(--dk-space-2); }
 .lib-section h3 { margin: 0; }

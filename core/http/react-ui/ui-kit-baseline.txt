@@ -35,6 +35,5 @@ checkbox src/components/files/FileList.jsx 2
 checkbox src/components/settings/AddonUpgradeSettings.jsx 1
 toggle src/components/ConfigFieldRenderer.jsx 1
 toggle src/components/FailoverTargetsEditor.jsx 1
-toggle src/components/FilterBar.jsx 1
 toggle src/components/ProxyVisionSwitch.jsx 1
 toggle src/pages/Models.jsx 1

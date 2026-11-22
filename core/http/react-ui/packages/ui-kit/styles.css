@@ -6,6 +6,8 @@
      4. vendor/components.css  the dk-* component classes (dk-btn, dk-switch, ...)
      5. css/defaults.css       the product tokens kit.css reads (--sp-*, --fs-*, ...)
      6. css/kit.css            the rules of the kit components and the icons
+     7. css/tabs.css           the icon and count of a tab, the vertical list
+     8. css/tag.css            the tag
    Load the Geist fonts yourself (@fontsource-variable/geist); without them the
    system font is used. To get the web UI's exact look, load the files one by
    one in the order README.md gives, with the web UI's theme.css in place of
@@ -16,3 +18,5 @@
 @import './vendor/components.css';
 @import './css/defaults.css';
 @import './css/kit.css';
+@import './css/tabs.css';
+@import './css/tag.css';

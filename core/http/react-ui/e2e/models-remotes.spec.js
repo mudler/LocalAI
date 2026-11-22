@@ -126,15 +126,15 @@ test.describe('Installed: remote models', () => {
   test('the Remote filter counts the remote rows and filters to them', async ({ page }) => {
     await open(page)
     await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
-    const tab = (name) => page.getByRole('tab', { name: new RegExp(`^${name}`) })
+    const tab = (name) => page.getByTestId('ledger-states').getByRole('button', { name: new RegExp(`^${name}`) })
     await expect(tab('Remote')).toContainText('3')
     // After Distributed.
-    const names = await page.locator('.ledger-states [role="tab"]').allTextContents()
+    const names = await page.getByTestId('ledger-states').getByRole('button').allTextContents()
     expect(names.findIndex(n => n.startsWith('Remote'))).toBe(names.findIndex(n => n.startsWith('Distributed')) + 1)
     await tab('Remote').click()
     await expect(page).toHaveURL(/state=remote/)
     await expect(rows(page)).toHaveCount(3)
-    await expect(tab('Remote')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab('Remote')).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('a remote row has a mark, its remote, "Remote" for a size, and no Load or Stop', async ({ page }) => {
@@ -164,7 +164,7 @@ test.describe('Installed: remote models', () => {
     await expect(r.locator('.ledger-state')).toHaveAttribute('data-state', 'unavailable')
     await expect(r.locator('.ledger-state')).toContainText('Unavailable upstream')
     await expect(r.locator('.dk-dot--warn')).toHaveCount(1)
-    await expect(page.getByRole('tab', { name: /^All/ })).toContainText('16')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^All/ })).toContainText('16')
   })
 
   test('a local model still has Load', async ({ page }) => {
@@ -283,7 +283,7 @@ test.describe('Remotes tab', () => {
     await page.getByTestId('remote-view').click()
     await expect(page).toHaveURL(/view=installed/)
     await expect(page).toHaveURL(/state=remote/)
-    await expect(page.getByRole('tab', { name: /^Remote/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^Remote/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('with no remote the tab says so and offers the sheet', async ({ page }) => {
