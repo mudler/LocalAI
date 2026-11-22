@@ -148,6 +148,52 @@ func revokeAPIKeyHandler(db *gorm.DB, onRevoke func(ctx context.Context, ownerID
 	}
 }
 
+// AdminListUsersHandler answers GET /api/auth/admin/users. Mount it behind the
+// admin check: besides the account it carries two admin-only fields, when the
+// person was last active (lastActiveAt, null until they made an authenticated
+// request) and how many API keys they hold (apiKeyCount, a number, never the
+// keys or their names).
+func AdminListUsersHandler(db *gorm.DB) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var users []auth.User
+		if err := db.Order("created_at ASC").Find(&users).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
+		}
+
+		// Admin-only fields: when a person was last active and how many API
+		// keys they hold (a count, never the keys).
+		keyCounts, err := auth.CountAPIKeysByUser(db)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
+		}
+
+		result := make([]map[string]any, 0, len(users))
+		for _, u := range users {
+			entry := map[string]any{
+				"id":        u.ID,
+				"email":     u.Email,
+				"name":      u.Name,
+				"avatarUrl": u.AvatarURL,
+				"role":      u.Role,
+				"status":    u.Status,
+				"provider":  u.Provider,
+				"createdAt": u.CreatedAt,
+				// null until the person makes an authenticated request.
+				"lastActiveAt": u.LastActiveAt,
+				"apiKeyCount":  keyCounts[u.ID],
+			}
+			entry["permissions"] = auth.GetPermissionMapForUser(db, &u)
+			entry["allowed_models"] = auth.GetModelAllowlist(db, u.ID)
+			if quotas, err := auth.GetQuotaStatuses(db, u.ID); err == nil && len(quotas) > 0 {
+				entry["quotas"] = quotas
+			}
+			result = append(result, entry)
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{"users": result})
+	}
+}
+
 // RegisterAuthRoutes registers authentication-related API routes.
 func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	appConfig := app.ApplicationConfig()
@@ -891,34 +937,7 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 	}, adminMw)
 
 	// GET /api/auth/admin/users - list all users
-	e.GET("/api/auth/admin/users", func(c echo.Context) error {
-		var users []auth.User
-		if err := db.Order("created_at ASC").Find(&users).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to list users"})
-		}
-
-		result := make([]map[string]any, 0, len(users))
-		for _, u := range users {
-			entry := map[string]any{
-				"id":        u.ID,
-				"email":     u.Email,
-				"name":      u.Name,
-				"avatarUrl": u.AvatarURL,
-				"role":      u.Role,
-				"status":    u.Status,
-				"provider":  u.Provider,
-				"createdAt": u.CreatedAt,
-			}
-			entry["permissions"] = auth.GetPermissionMapForUser(db, &u)
-			entry["allowed_models"] = auth.GetModelAllowlist(db, u.ID)
-			if quotas, err := auth.GetQuotaStatuses(db, u.ID); err == nil && len(quotas) > 0 {
-				entry["quotas"] = quotas
-			}
-			result = append(result, entry)
-		}
-
-		return c.JSON(http.StatusOK, map[string]any{"users": result})
-	}, adminMw)
+	e.GET("/api/auth/admin/users", AdminListUsersHandler(db), adminMw)
 
 	// PUT /api/auth/admin/users/:id/role - change user role
 	e.PUT("/api/auth/admin/users/:id/role", func(c echo.Context) error {

@@ -236,7 +236,7 @@ To restore access:
    [Private catalog service]({{% relref "/addons/contract-reference/packages-and-runtime#private-catalog-service" %}}) and
    [Library sources](#library-sources)).
 2. Grant the `addons` feature to each user who should keep them, in
-   **Settings → Users and keys** (see [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})
+   **Administration → Access → Users** (see [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})
    for the same screen). The calls the pages make still need the user's own
    features: `images` for an image, `audio_speech` for speech, and so on.
 
@@ -252,7 +252,7 @@ administrator and sees every installed add-on.
 > packages). With authentication on, the add-on pages need the `addons` feature,
 > which is off by default and is not granted at the upgrade, so users who used
 > Studio or Talk lose access until an administrator grants `addons` to them in
-> **Settings → Users and keys**.
+> **Administration → Access → Users**.
 
 ## Install from a file
 

@@ -11,7 +11,7 @@ Run chats on a server. Grant chat features to users, switch parts off, choose wh
 ## Permissions
 
 With authentication on, an administrator grants features to each user in
-**Settings → Users and keys**. Plain chats are on by default. The parts that run
+**Administration → Access → Users**. Plain chats are on by default. The parts that run
 without a person, or reach the outside world, are off by default for a user, and an
 administrator always has all of them:
 
