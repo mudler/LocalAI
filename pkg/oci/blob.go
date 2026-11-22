@@ -91,7 +91,7 @@ func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader 
 	}
 	defer func() { _ = reader.Close() }()
 
-	fs, err := os.Create(dst)
+	fs, err := os.Create(dst) // #nosec G304 -- dst is the download path the caller builds under its models folder
 	if err != nil {
 		return err
 	}
@@ -156,7 +156,7 @@ var ErrNotGGUF = fmt.Errorf("this model is not a GGUF file")
 // file that does not is removed, so a wrong download is never mistaken for a
 // model.
 func CheckGGUF(path string) error {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is the model file the importer just downloaded
 	if err != nil {
 		return err
 	}
