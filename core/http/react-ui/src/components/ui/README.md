@@ -551,7 +551,8 @@ group, keywords, disabled, title, selected, closes, rich }`.
 Keyboard: ArrowDown on the trigger opens the menu. In the menu the focus is in
 the filter box (or the list); ArrowUp and ArrowDown move the active row and
 wrap, Home and End go to the ends when the filter is empty, Enter picks the
-active row, Escape closes and returns focus to the trigger, Tab closes. A click
+active row, Escape closes and returns focus to the trigger, and Tab moves to a
+button of the footer or, when the focus leaves the menu, closes it. A click
 outside closes. The pure rules are in `listPickerModel.js`
 (`tests/unit/listpicker.test.mjs`); `e2e/list-picker.spec.js` drives the
 catalog example.

@@ -557,7 +557,7 @@ function ChatPage() {
         }
         return
       }
-      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, .chat-mcp-dropdown-menu, [role="dialog"], [role="alertdialog"]')
+      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, [role="dialog"], [role="alertdialog"]')
       // An Escape that a popover or a sheet already used to close itself must
       // not also stop the turn.
       if (e.key === 'Escape' && !overlay && !e.defaultPrevented) {

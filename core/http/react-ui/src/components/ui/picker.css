@@ -134,7 +134,10 @@
   color: var(--color-text-secondary);
   cursor: pointer;
 }
-.home-menu__item[data-active="true"] { background: var(--dk-hover); color: var(--dk-text); }
+/* The menu's surface is a tint of the card, and in the dark theme the hover
+   token is the same colour as that tint, so the active row adds some text
+   colour to it to stay visible in both themes. */
+.home-menu__item[data-active="true"] { background: color-mix(in srgb, var(--dk-text) 10%, var(--dk-hover)); color: var(--dk-text); }
 .home-menu__item[data-blocked="true"] { opacity: .55; cursor: not-allowed; }
 .home-menu__item code { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); background: none; padding: 0; white-space: nowrap; }
 .home-menu__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); }

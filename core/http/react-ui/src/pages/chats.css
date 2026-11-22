@@ -533,7 +533,7 @@
 
 /* ---- Composer foot: the context meter, the sub-agents ---- */
 .cx-foot .cx-ctx { height: auto; padding: 0; font-weight: 500; }
-.cx-subagents__list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.cx-subagents__list { display: grid; align-content: start; gap: 2px; padding: var(--sp-1); }
 .cx-subagents__row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 10px; border-radius: var(--dk-radius-1); }
 .cx-subagents__row:hover { background: var(--dk-hover); }
 .cx-subagents__title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
