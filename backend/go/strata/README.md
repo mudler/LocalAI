@@ -8,7 +8,8 @@ the target accelerator, the Strata Python files the backend uses, and a Python r
 
 Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
 including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
-that check is still open.
+that check is still open. The Hy4-Flash family has the same status: its unit tests use the stub engine, and its tokenizer and
+chat-template path was checked against the real Section 0 of an SQ-64 build file, but no Hy4 engine has loaded a model through this backend.
 
 `make test-extra-backend-strata` runs the shared gRPC suite (`tests/e2e-backends`) against the built backend with a stub engine
 (`e2e/stub_engine.py`) and a synthetic tokenizer pack (`e2e/make_pack.py`). It needs Python 3 with `regex` and `jinja2`.
@@ -34,7 +35,7 @@ renders the prompt with the model's own chat template.
 |---|---|---|
 | `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
 | `strata_root` | no. Set by the image (env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
-| `family` | no | `qwen` (default). `deepseek41` is refused at load: Strata v0.2.15 removed DeepSeek V4.1. |
+| `family` | no | `qwen` (default) or `hy4` (Tencent Hy4-Flash, see "Hy4-Flash"). `deepseek41` is refused at load: Strata v0.2.15 removed DeepSeek V4.1. |
 | `python` | no | Python executable. Default `python3`. |
 | `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
 | `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
@@ -58,6 +59,35 @@ settings are ignored: the engine decides placement from the free memory, and the
 engine arguments.
 
 The engine is started as `<engine_path> --pack <pack> [file flags] [--max-context N] [--gpu N] [--vision] [engine_args] --serve`.
+
+## Hy4-Flash
+
+Tencent Hy4-Flash runs on its own engine program, `strata-hy4`, that speaks the same `--serve` line protocol with a short
+list of flags and a stricter parser (an unknown flag or `GEN` key is an error). Set `family:hy4`. The backend image carries
+the Hy4 engine packages in `engines-hy4/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=hy4`, which
+the backend sets for this family.
+
+A Hy4 model is a build file (`Hy4-Flash-SQ-64.strata`, `-96` or `-128`), the Engram file all builds share and an optional
+vision file. There is no pack. The tokenizer and the chat template are inside the build file; on the first load the backend
+reads that section, runs Strata's `tools/hy4_tokenizer.py` on it and keeps the result next to the build file
+(`<build>.tokenizer/`, made again if the file changes). The engine is started as
+`<engine_path> --native <build> --engram <file> --max-context N [--vision <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dfly2] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <build>` and asks for `--draft dfly2` and `--vision` only when the engine
+reports `drafter=dfly2` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `hy4`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The build file. |
+| `engram` | no | The Engram file. Default `Hy4-Flash-Engram-Q8.strata`, looked up next to the build file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dfly2` or `auto` (default), or `off`. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 131072. Pictures are files: the backend writes each to a scratch file, adds one `image=<path>` key per picture to the
+`GEN` line (spaces and `%` in the path escaped) and removes the files after the request. The prompt carries one image placeholder per
+picture and the engine expands it, so there is no encoder program and no `GENI`. The model's reasoning and tool calls are tagged tokens;
+the helper uses Strata's `serve/hy4_dialect.py` and the parser class the Strata server uses for this template. `logprobs`
+are refused: the engine has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, `ple_gguf`, ...) do not apply to this family.
 
 ## Model files
 
