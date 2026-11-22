@@ -170,21 +170,8 @@
 .ledger-density { margin-left: auto; }
 .ledger-density .dk-seg { width: 36px; padding: 0; justify-content: center; }
 
-/* The backend select is the shared component with inline styles; here it takes
-   the kit's control look so it sits level with the search field. */
+/* The backend filter is a ListPicker chip. */
 .models-filters__backend { flex: 0 0 auto; min-width: 0; }
-.models-filters__backend > div { min-width: 170px !important; }
-.models-filters__backend button.input {
-  height: 40px;
-  padding: 0 var(--dk-space-3) !important;
-  border: 1px solid var(--dk-control-edge) !important;
-  border-radius: var(--dk-radius-2) !important;
-  background: var(--dk-card) !important;
-  color: var(--dk-text) !important;
-  font: var(--dk-weight-regular) var(--dk-text-13) / 1 var(--dk-font-body) !important;
-}
-.models-filters__backend button.input:hover { background: var(--dk-hover) !important; }
-.models-filters__backend button.input .lai-icon { font-size: 14px !important; }
 
 /* Facets: one row that scrolls sideways instead of wrapping into a block. */
 .ledger-controls__row--facets { flex-wrap: nowrap; }
@@ -821,7 +808,7 @@ tr[data-selected="true"] .ledger-mark {
     justify-content: space-between;
     gap: var(--sp-3);
   }
-  .models-filters__sheet[data-open="true"] .models-filters__backend > div { width: 100%; }
+  .models-filters__sheet[data-open="true"] .models-filters__backend > .list-picker { width: 100%; }
   .models-filters__sheet[data-open="true"] .ledger-refine { flex-direction: column; align-items: stretch; }
   .models-filters__sheet[data-open="true"] .ledger-density { margin-left: 0; align-self: flex-start; }
   .models-filters__sheet[data-open="true"] .ledger-facets { flex-wrap: wrap; overflow: visible; padding: 0; mask-image: none; }

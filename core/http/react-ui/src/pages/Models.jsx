@@ -1358,6 +1358,7 @@ export default function Models() {
                 value={backendFilter}
                 onChange={(v) => { setBackendFilter(v); setPage(1) }}
                 options={allBackends}
+                variant="chip"
                 placeholder={t('filters.allBackends')}
                 allOption={t('filters.allBackends')}
                 searchPlaceholder={t('filters.searchBackends')}
