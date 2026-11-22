@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "路由",
     "peer": "对等节点 ID"
   },
   "splitServer": {

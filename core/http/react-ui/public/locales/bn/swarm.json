@@ -176,21 +176,11 @@
   "nodes": {
     "title": "ওয়ার্কার",
     "filter": "দেখাও",
-    "all": "সব",
-    "needs": "মনোযোগ প্রয়োজন",
-    "reasons": "কারণসমূহ",
-    "density": "সারি ঘনত্ব",
-    "comfortable": "আरामদায়ক",
-    "compact": "সংক্ষিপ্ত",
     "view": "দেখুন",
     "list": "তালিকা",
     "map": "মানচিত্র",
     "running": "মডেলগুলো চালানো",
     "add": "একটি নোড যোগ করুন",
-    "search": "নোড অনুসন্ধান করুন",
-    "searchPlaceholder": "নাম, ঠিকানা, লেবেল অনুসন্ধান করুন…",
-    "filterState": "অবস্থা ফিল্টার করুন",
-    "anyState": "যে কোনো রাজ্য",
     "filterType": "ফিল্টার ধরন",
     "anyType": "যে কোনো ধরনের",
     "group": "গ্রুপ নোডসমূহ",
@@ -200,7 +190,6 @@
     "stale": "নোড তালিকা রিফ্রেশ করা যায়নি। আপনি যা দেখছেন তা হল শেষ পাঠ।",
     "retry": "আবার চেষ্টা করুন",
     "sort": "নোডগুলো সাজাও",
-    "sortBy": "ক্রম: {{by}}",
     "sortDirection": "সর্ট অর্ডার উল্টান"
   },
   "first": {
@@ -210,7 +199,6 @@
   "table": {
     "caption": "নোডসমূহ তাদের অবস্থা, মেমরি এবং মডেলসহ",
     "node": "নোড",
-    "role": "ভূমিকা",
     "state": "রাজ্য",
     "memory": "GPU and memory",
     "models": "মডেলসমূহ",
@@ -222,15 +210,9 @@
     "select": "{{name}}নির্বাচন করুন",
     "selectGroup": "{{name}} গ্রুপ নির্বাচন করুন",
     "noMatch": "বর্তমান দৃশ্যের সাথে কোনো নোডই মেলে না।",
-    "noAddress": "কোনও ঠিকানা নেই",
     "approve": "অনুমোদন করুন {{name}}",
     "noReading": "পড়তে পারবেন না",
-    "memoryAria": "ব্যবহৃত{{used}}, {{total}} শতাংশ {{percent}}",
-    "gpu": "GPU",
-    "cpuOnly": "CPU শুধুমাত্র · সিস্টেম মেমরি",
-    "ramLine": "RAM {{used}} / {{total}}",
-    "groupCount_one": "{{count}} নোড · {{selected}} নির্বাচিত",
-    "groupCount_other": "{{count}} নোড · {{selected}} নির্বাচিত"
+    "memoryAria": "ব্যবহৃত{{used}}, {{total}} শতাংশ {{percent}}"
   },
   "bulk": {
     "label": "নির্বাচিত নোডসমূহ",
@@ -521,7 +503,6 @@
     "close": "বন্ধ করুন",
     "model": "মডেল",
     "modelPlaceholder": "মডেল বা এলিয়াস অনুসন্ধান করতে টাইপ করুন, অথবা একটি নাম পেস্ট করুন…",
-    "aliasOf": "{{target}}-এর ছদ্মনাম",
     "aliasNote": "{{name}} is an alias for {{target}}. This rule applies to whichever model the alias points at, and follows it if you repoint it.",
     "how": "কতগুলো অনুলিপি",
     "mode": {
@@ -572,8 +553,7 @@
       "shortfall": "{{count}} এই নোডগুলো তাদের রেপ্লিকা ক্যাপের অধীনে ধারণ করতে পারে তার চেয়ে বেশি রেপ্লিকা।",
       "placement": "চাহিদামতো {{count}}-এর মিলিত নোডগুলির একটিতে লোড হবে: {{nodes}}।",
       "how": "নোড তালিকা এবং লেবেল থেকে এই ব্রাউজারে এটি কাজ করেছে। সcheduler মডেল লোড করার সময় ফ্রি মেমরি এবং ডিস্কও পরীক্ষা করে।"
-    },
-    "pickerEmpty": "কোনও মডেল মেলে না। \"{{name}}\" যেমন টাইপ করা হয়েছে, তেমনই ব্যবহৃত হয়েছে।"
+    }
   },
   "failover": {
     "lede": "ফেইলওভার চেইন টার্গেটগুলোর ক্রমবদ্ধ তালিকা থেকে একটি মডেল নাম পরিবেশন করে এবং অনুরোধগুলো পরবর্তী সুস্থ টার্গেটে স্থানান্তরিত করে। যখন কোনো কর্মী উত্তর দেওয়া বন্ধ করে, রাউটার এবং হেলথ মনিটর ইতিমধ্যেই তার চারপাশ দিয়ে পুনঃনির্দেশ করে।",
@@ -694,19 +674,6 @@
     "allMerged": "সব একীভূত",
     "mergedTitle": "প্রতিটি রেপ্লিকার একটি আন্তঃলিভড টাইমলাইন, যাতে সেগুলো পাশাপাশি তুলনা করা যায়।"
   },
-  "hero": {
-    "label": "বহরের স্বাস্থ্য",
-    "ringAria": "{{healthy}} এবং {{total}} নোডগুলো সুস্থ",
-    "healthy": "{{healthy}} এর {{total}}",
-    "healthyLabel_one": "নোড সুস্থ",
-    "healthyLabel_other": "নোডগুলো সুস্থ",
-    "vram": "VRAM",
-    "ram": "RAM",
-    "models": "মডেলগুলো চালানো",
-    "attention_one": "{{count}}-এ মনোযোগ প্রয়োজন",
-    "attention_other": "{{count}} মনোযোগ প্রয়োজন",
-    "allClear": "কোনো নোডেরই মনোযোগের প্রয়োজন নেই"
-  },
   "row": {
     "noHeartbeat": "হৃদস্পন্দন নেই",
     "idle": "কোনও মডেল লোড হয়নি",
@@ -714,7 +681,6 @@
     "cpuNode": "CPU · {{ram}} RAM",
     "vram": "VRAM {{percent}}%",
     "ram": "RAM {{percent}}%",
-    "sparkAria": "গত {{count}} রিডিংগুলোর উপর লোড, এখন {{percent}} শতাংশ",
     "selectAll": "এই পৃষ্ঠায় সবকিছু নির্বাচন করুন",
     "groupNodes_one": "{{count}} node",
     "groupNodes_other": "{{count}} nodes",
@@ -743,7 +709,6 @@
     "logs": "লগসমূহ",
     "open": "পূর্ণ পৃষ্ঠা খুলুন",
     "close": "বিবরণ বন্ধ করুন",
-    "route": "রুট",
     "peer": "Peer ID"
   },
   "route": {

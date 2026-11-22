@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "Rota",
     "peer": "ID de par"
   },
   "splitServer": {

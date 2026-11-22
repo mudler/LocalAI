@@ -176,21 +176,11 @@
   "nodes": {
     "title": "Workers",
     "filter": "Show",
-    "all": "All",
-    "needs": "Needs attention",
-    "reasons": "Reasons",
-    "density": "Row density",
-    "comfortable": "Comfortable",
-    "compact": "Compact",
     "view": "View",
     "list": "List",
     "map": "Map",
     "running": "Running models",
     "add": "Add a node",
-    "search": "Search nodes",
-    "searchPlaceholder": "Search name, address, label…",
-    "filterState": "Filter state",
-    "anyState": "Any state",
     "filterType": "Filter type",
     "anyType": "Any type",
     "group": "Group nodes",
@@ -200,7 +190,6 @@
     "stale": "The node list could not be refreshed. What you see is the last reading.",
     "retry": "Try again",
     "sort": "Sort nodes",
-    "sortBy": "Sort: {{by}}",
     "sortDirection": "Reverse the sort order"
   },
   "first": {
@@ -210,7 +199,6 @@
   "table": {
     "caption": "Nodes with their state, memory and models",
     "node": "Node",
-    "role": "Role",
     "state": "State",
     "memory": "GPU and memory",
     "models": "Models",
@@ -222,15 +210,9 @@
     "select": "Select {{name}}",
     "selectGroup": "Select {{name}} group",
     "noMatch": "No nodes match the current view.",
-    "noAddress": "No address",
     "approve": "Approve {{name}}",
     "noReading": "No reading",
-    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent",
-    "gpu": "GPU",
-    "cpuOnly": "CPU only · system memory",
-    "ramLine": "RAM {{used}} / {{total}}",
-    "groupCount_one": "{{count}} node · {{selected}} selected",
-    "groupCount_other": "{{count}} nodes · {{selected}} selected"
+    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent"
   },
   "bulk": {
     "label": "Selected nodes",
@@ -521,7 +503,6 @@
     "close": "Close",
     "model": "Model",
     "modelPlaceholder": "Type to search models or aliases, or paste a name…",
-    "aliasOf": "alias of {{target}}",
     "aliasNote": "{{name}} is an alias for {{target}}. This rule applies to whichever model the alias points at, and follows it if you repoint it.",
     "how": "How many replicas",
     "mode": {
@@ -572,8 +553,7 @@
       "shortfall": "{{count}} more replicas than these nodes can hold under their replica cap.",
       "placement": "would load on demand on one of {{count}} matching nodes: {{nodes}}.",
       "how": "Worked out in this browser from the node list and labels. The scheduler also checks free memory and disk when it loads a model."
-    },
-    "pickerEmpty": "No model matches. \"{{name}}\" is used as typed."
+    }
   },
   "failover": {
     "lede": "A failover chain serves one model name from an ordered list of targets and moves requests to the next healthy one. When a worker stops answering, the router and the health monitor already reroute around it.",
@@ -694,19 +674,6 @@
     "allMerged": "All merged",
     "mergedTitle": "An interleaved timeline of every replica, to compare them side by side"
   },
-  "hero": {
-    "label": "Fleet health",
-    "ringAria": "{{healthy}} of {{total}} nodes healthy",
-    "healthy": "{{healthy}} of {{total}}",
-    "healthyLabel_one": "node healthy",
-    "healthyLabel_other": "nodes healthy",
-    "vram": "VRAM",
-    "ram": "RAM",
-    "models": "Running models",
-    "attention_one": "{{count}} needs attention",
-    "attention_other": "{{count}} need attention",
-    "allClear": "No node needs attention"
-  },
   "row": {
     "noHeartbeat": "No heartbeat",
     "idle": "No models loaded",
@@ -714,7 +681,6 @@
     "cpuNode": "CPU · {{ram}} RAM",
     "vram": "VRAM {{percent}}%",
     "ram": "RAM {{percent}}%",
-    "sparkAria": "Load over the last {{count}} readings, now {{percent}} percent",
     "selectAll": "Select all on this page",
     "groupNodes_one": "{{count}} node",
     "groupNodes_other": "{{count}} nodes",
@@ -743,7 +709,6 @@
     "logs": "Logs",
     "open": "Open full page",
     "close": "Close details",
-    "route": "Route",
     "peer": "Peer ID"
   },
   "route": {

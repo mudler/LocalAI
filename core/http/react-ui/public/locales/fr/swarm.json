@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "Route",
     "peer": "ID de pair"
   },
   "splitServer": {

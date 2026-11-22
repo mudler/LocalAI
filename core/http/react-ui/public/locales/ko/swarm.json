@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "경로",
     "peer": "피어 ID"
   },
   "splitServer": {

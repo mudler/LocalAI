@@ -120,12 +120,15 @@ test.describe('Swarm nodes: the roster', () => {
     await expect(rowOf(page, 'legacy')).toBeVisible()
     await expect(rowOf(page, 'atlas')).toHaveCount(0)
 
-    // Only the reasons that apply are offered.
-    await expect(page.getByRole('button', { name: /^Low models disk/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: /^Not answering/ })).toBeVisible()
-    await page.getByRole('button', { name: /^Not answering/ }).click()
+    // Only the reasons that apply are offered, in the Filters popover.
+    await page.getByTestId('admin-filters-button').click()
+    const reason = page.getByLabel('Needs attention for')
+    await expect(reason.locator('option', { hasText: 'Low models disk' })).toHaveCount(1)
+    await reason.selectOption({ label: 'Not answering (1)' })
     await expect(rowOf(page, 'legacy')).toBeVisible()
     await expect(rowOf(page, 'borealis')).toHaveCount(0)
+    await reason.selectOption('')
+    await page.keyboard.press('Escape')
 
     await page.getByRole('button', { name: /^All/ }).click()
     await expect(rows(page)).toHaveCount(3)
@@ -144,27 +147,31 @@ test.describe('Swarm nodes: the roster', () => {
     await page.goto('/app/nodes')
     await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
 
-    await page.getByRole('searchbox', { name: 'Search nodes' }).fill('legacy')
+    await page.getByRole('searchbox', { name: 'Search workers' }).fill('legacy')
     await expect(rows(page)).toHaveCount(1)
     await expect(rowOf(page, 'legacy')).toBeVisible()
-    await page.getByRole('searchbox', { name: 'Search nodes' }).fill('')
+    await page.getByRole('searchbox', { name: 'Search workers' }).fill('')
 
-    await page.getByLabel('Filter state').selectOption('pending')
+    await page.getByRole('button', { name: /^Pending/ }).click()
     await expect(rows(page)).toHaveCount(1)
     await expect(rowOf(page, 'borealis')).toBeVisible()
-    await page.getByLabel('Filter state').selectOption('')
+    await page.getByRole('button', { name: /^All/ }).click()
+    await page.getByTestId('admin-filters-button').click()
     await page.getByLabel('Filter type').selectOption('agent')
     await expect(rows(page)).toHaveCount(1)
     await page.getByLabel('Filter type').selectOption('')
+    await page.keyboard.press('Escape')
 
     const names = () => rows(page).evaluateAll(list => list.map(item => item.getAttribute('data-entity')))
     expect(await names()).toEqual(['atlas', 'borealis', 'legacy'])
     await page.getByRole('button', { name: 'Reverse the sort order' }).click()
     await expect.poll(names).toEqual(['legacy', 'borealis', 'atlas'])
-    await page.getByLabel('Sort nodes').selectOption('status')
-    await expect(page.getByLabel('Sort nodes')).toHaveValue('status')
+    await page.locator('.admin-filters__sort select').selectOption('status')
+    await expect(page.locator('.admin-filters__sort select')).toHaveValue('status')
 
+    await page.getByTestId('admin-filters-button').click()
     await page.getByLabel('Group nodes').selectOption('label:zone')
+    await page.keyboard.press('Escape')
     await expect(page.getByText('Unlabelled', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'east' })).toBeVisible()
   })
@@ -177,7 +184,7 @@ test.describe('Swarm nodes: the roster', () => {
     await expect(page.getByText('Page 1 of 20')).toBeVisible()
     await page.getByRole('button', { name: 'Next page' }).click()
     await expect(page.getByText('Page 2 of 20')).toBeVisible()
-    await page.getByRole('searchbox', { name: 'Search nodes' }).fill('worker-0000')
+    await page.getByRole('searchbox', { name: 'Search workers' }).fill('worker-0000')
     await expect(page.getByText('Page 1 of 1')).toBeVisible()
   })
 
@@ -221,22 +228,7 @@ test.describe('Swarm nodes: the roster', () => {
   })
 })
 
-test.describe('Swarm nodes: load history and the inspector', () => {
-  const withHistory = [
-    { ...baseNodes[0], load_history: [20, 35, 50, 62, 58] },
-    { ...baseNodes[0], id: 'one', name: 'one-sample', load_history: [40] },
-    { ...baseNodes[0], id: 'none', name: 'no-history' },
-  ]
-
-  test('draws a line only for a node with at least two readings', async ({ page }) => {
-    await mockNodes(page, withHistory)
-    await page.goto('/app/nodes')
-    await expect(rows(page)).toHaveCount(3, { timeout: 15_000 })
-    await expect(rowOf(page, 'atlas').getByRole('img', { name: /Load over the last 5 readings, now 58 percent/ })).toBeVisible()
-    await expect(rowOf(page, 'one-sample').locator('.sw-spark')).toHaveCount(0)
-    await expect(rowOf(page, 'no-history').locator('.sw-spark')).toHaveCount(0)
-  })
-
+test.describe('Swarm nodes: the inspector', () => {
   test('shows the node in the inspector and drains it after a confirmation', async ({ page }) => {
     await mockNodes(page, [baseNodes[0]])
     const drains = []
@@ -301,7 +293,7 @@ test.describe('Swarm nodes: bulk actions', () => {
     })
     await page.goto('/app/nodes')
     await page.getByRole('checkbox', { name: 'Select page' }).check()
-    await page.getByRole('searchbox', { name: 'Search nodes' }).fill('worker-1')
+    await page.getByRole('searchbox', { name: 'Search workers' }).fill('worker-1')
     await expect(page.getByText('12 selected')).toBeVisible()
     await page.getByRole('button', { name: 'Drain selected' }).evaluate(button => {
       button.click()
@@ -427,8 +419,7 @@ test.describe('Swarm nodes: first run, errors and a phone', () => {
     await mockNodes(page, [])
     await page.goto('/app/nodes')
     await expect(page.getByRole('heading', { name: 'No workers registered yet' })).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('command-block')).toContainText('LOCALAI_REGISTER_TO')
-    await expect(page.getByRole('status').filter({ hasText: 'Listening for a worker' })).toBeVisible()
+    await expect(page.getByTestId('swarm-first-run').getByRole('link', { name: 'Add worker' }).last()).toHaveAttribute('href', '/app/nodes/add')
   })
 
   test('keeps the last list and says so when a refresh fails', async ({ page }) => {
@@ -457,7 +448,7 @@ test.describe('Swarm nodes: first run, errors and a phone', () => {
     const approve = page.getByRole('button', { name: 'Approve borealis' })
     const box = await approve.boundingBox()
     expect(box.x + box.width).toBeLessThanOrEqual(390)
-    await expect(page.getByRole('link', { name: 'Add a node' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Add worker' })).toBeVisible()
     // The inspector is a sheet here, opened by a row.
     await expect(page.getByTestId('node-inspector')).toHaveCount(0)
     await rowOf(page, 'atlas').getByRole('button', { name: /^atlas/ }).click()

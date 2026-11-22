@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "Rute",
     "peer": "Peer ID"
   },
   "splitServer": {

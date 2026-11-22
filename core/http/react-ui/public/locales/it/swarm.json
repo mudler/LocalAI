@@ -191,7 +191,6 @@
     }
   },
   "inspector": {
-    "route": "Percorso",
     "peer": "Peer ID"
   },
   "splitServer": {
