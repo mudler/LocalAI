@@ -183,18 +183,18 @@ test.describe('Failover on a cluster', () => {
   })
 
   test('shows how the lost node was connected, from what it reported', async ({ page }) => {
-    const nodes = clusterNodes().map(node => (node.id === 'n-gpu2' ? { ...node, attached: 'tunnel', peer_id: '12D3KooWQx8tR2vN6mHcR8yLdQe5Gh6iKoPzTz1', tunnel_transport: 'p2p', tunnel_path: 'relayed', tunnel_limited: true } : node))
+    const nodes = clusterNodes().map(node => (node.id === 'n-gpu2' ? { ...node, attached: 'tunnel', peer_id: '12D3KooWQx8tR2vN6mHcR8yLdQe5Gh6iKoPzTz1', tunnel_transport: 'p2p', tunnel_path: 'relayed', tunnel_limited: true, route_state: [{ route: 'heartbeat', state: 'down', reason: 'the heartbeat is stale' }, { route: 'tunnel', transport: 'p2p', state: 'down', reason: 'the tunnel is gone' }] } : node))
     await mockSwarm(page, { nodes, chains: [] })
     await page.goto('/app/failover')
     const connections = page.getByTestId('failover-lost-connections')
     await expect(connections).toContainText('gpu-box-2', { timeout: 15_000 })
-    await expect(connections).toContainText('Connection:')
     await expect(connections.getByTestId('connections')).toContainText('P2P')
-    await expect(connections.getByTestId('connections')).toContainText('relayed')
+    await expect(connections.getByTestId('connections')).toContainText('the tunnel is gone')
   })
 
   test('a lost node that reported nothing about its connection shows no connection line', async ({ page }) => {
-    await mockSwarm(page, { chains: [] })
+    const nodes = clusterNodes().map(node => { const { route_state: _unused, ...rest } = node; return rest })
+    await mockSwarm(page, { nodes, chains: [] })
     await page.goto('/app/failover')
     await expect(page.getByTestId('failover-lost')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('failover-lost-connections')).toHaveCount(0)
