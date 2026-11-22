@@ -591,8 +591,17 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 			return ctx.Err()
 		}
 	}
+	// A chat reply streams the parsed content as Message, as the llama.cpp
+	// backend does. With the raw text, LocalAI's stream worker falls back to it
+	// for any chunk whose ChatDelta has no content (a tool call, held text) and
+	// streams tool-call markup and reasoning as content.
+	parsed := opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0
 	res, err := s.run(ctx, opts, func(raw string, d *pb.ChatDelta) error {
-		r := &pb.Reply{Message: []byte(raw)}
+		msg := raw
+		if parsed && d != nil {
+			msg = d.Content
+		}
+		r := &pb.Reply{Message: []byte(msg)}
 		if d != nil {
 			r.ChatDeltas = []*pb.ChatDelta{d}
 		}
@@ -602,6 +611,19 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 		return err
 	}
 	return put(res.usage())
+}
+
+// PredictRich and PredictStreamRich make Strata a grpc.AIModelRich as well.
+// The gRPC server's PredictStream only looks for AIModelRichContext inside its
+// AIModelRich check (pkg/grpc/server.go), so without these a streamed request
+// takes the legacy text-only PredictStream below and loses the ChatDeltas
+// (tool calls, reasoning) the output parser produced.
+func (s *Strata) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
+	return s.PredictRichContext(context.Background(), opts)
+}
+
+func (s *Strata) PredictStreamRich(opts *pb.PredictOptions, out chan<- *pb.Reply) error {
+	return s.PredictStreamRichContext(context.Background(), opts, out)
 }
 
 // Legacy entry points, for callers that do not use the rich interface.
