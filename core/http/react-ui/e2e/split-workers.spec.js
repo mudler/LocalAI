@@ -226,7 +226,7 @@ test.describe('Add a node: model-split worker', () => {
     await mockSwarm(page, { nodes: splitServerNodes() })
     const log = await mockSplit(page)
     await page.goto('/app/nodes/add?join=shard')
-    await expect(page.getByRole('radio', { name: 'Model-split worker' })).toHaveAttribute('aria-checked', 'true', { timeout: 15_000 })
+    await expect(page.getByTestId('add-back-to-worker')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('Make the invite first: the command carries its link.')).toBeVisible()
     await page.getByTestId('split-engine-mlx').click()
     await page.getByTestId('split-name').fill('mac-studio-3')
