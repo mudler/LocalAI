@@ -49,7 +49,7 @@ function Sentence({ rule, t }) {
 // preview of what the draft would do. Deleting waits a few seconds so it can be
 // taken back. `embedded` is the Rules view of the Placement page, which draws
 // the title.
-export default function Scheduling({ embedded = false }) {
+export default function Scheduling({ embedded = false, newRequest = 0 }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
   const [params, setParams] = useSearchParams()
@@ -81,6 +81,12 @@ export default function Scheduling({ embedded = false }) {
     setSheet({ editing: false, initial: { model_name: model, min_replicas: Number(params.get('min')) || 2, max_replicas: 0 } })
     setParams(current => { const next = new URLSearchParams(current); next.delete('new'); next.delete('min'); return next }, { replace: true })
   }, [params, setParams])
+
+  // The page's primary action (Placement draws it in the header) asks for a
+  // new rule: each press raises the counter.
+  useEffect(() => {
+    if (newRequest > 0) setSheet({ editing: false, initial: undefined })
+  }, [newRequest])
 
   const labels = useMemo(() => labelIndex(nodes), [nodes])
   const ready = nodeStatus === 'ready'
@@ -133,11 +139,13 @@ export default function Scheduling({ embedded = false }) {
 
       <div className="sw-bar sw-bar--lede">
         <p className="sw-note">{t('rules.lede')}</p>
-        <div className="sw-bar__acts">
-          <button type="button" className="dk-btn dk-btn--primary" onClick={() => setSheet({ editing: false, initial: undefined })}>
-            <Icon name="plus" /> {t('rules.new')}
-          </button>
-        </div>
+        {!embedded && (
+          <div className="sw-bar__acts">
+            <button type="button" className="dk-btn dk-btn--primary" onClick={() => setSheet({ editing: false, initial: undefined })}>
+              <Icon name="plus" /> {t('rules.new')}
+            </button>
+          </div>
+        )}
       </div>
 
       <section className="sw-section" aria-labelledby="sw-rules-h">

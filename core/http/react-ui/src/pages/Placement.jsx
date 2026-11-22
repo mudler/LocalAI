@@ -1,10 +1,12 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import AdminPage from '../components/admin/AdminPage'
 import Scheduling from './Scheduling'
 import Failover from './Failover'
 import { useHubAuth } from '../components/hub/useHubAuth'
+import { Button } from '../components/ui'
 
 const VIEWS = [
   { id: 'rules', to: '/app/scheduling', labelKey: 'placement.views.rules' },
@@ -16,8 +18,13 @@ const VIEWS = [
 // target stops answering. The view is the route, so a link opens it.
 export default function Placement({ view = 'rules' }) {
   const { t } = useTranslation('swarm')
+  // "New rule" is the page's one primary action and belongs to the Rules view.
+  const [newRule, setNewRule] = useState(0)
+  const action = view === 'rules'
+    ? <Button variant="primary" icon="plus" onClick={() => setNewRule(n => n + 1)} data-testid="placement-new-rule">{t('rules.new')}</Button>
+    : null
   return (
-    <AdminPage title={t('placement.title')} supporting={t('placement.supporting')} width="full" data-testid="placement-page">
+    <AdminPage title={t('placement.title')} supporting={t('placement.supporting')} action={action} width="full" data-testid="placement-page">
       <nav className="dk-tabs placement-tabs" aria-label={t('placement.views.label')} data-testid="placement-views">
         {VIEWS.map(v => (
           <Link key={v.id} to={v.to} className="dk-tab" data-testid={`placement-view-${v.id}`} aria-current={v.id === view ? 'page' : undefined}>
@@ -25,7 +32,7 @@ export default function Placement({ view = 'rules' }) {
           </Link>
         ))}
       </nav>
-      {view === 'failover' ? <Failover embedded /> : <Scheduling embedded />}
+      {view === 'failover' ? <Failover embedded /> : <Scheduling embedded newRequest={newRule} />}
     </AdminPage>
   )
 }

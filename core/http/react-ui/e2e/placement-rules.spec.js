@@ -13,7 +13,7 @@ test.describe('Placement rules: the list', () => {
     await mockSwarm(page)
     await page.goto('/app/scheduling')
     await expect(rule(page)).toHaveCount(5, { timeout: 15_000 })
-    await expect(rule(page).nth(0)).toContainText('qwen3-8b-instruct keeps 2 to 3 replicas on nodes with gpu=4090. It is routed by prefix cache.')
+    await expect(rule(page).nth(0)).toContainText('qwen3-8b-instruct keeps 2 to 3 replicas on nodes with gpu=4090. Its policy is prefix cache.')
     await expect(rule(page).nth(1)).toContainText('llama-3.3-70b-q4 runs as one replica on a node with gpu=4090.')
     await expect(rule(page).nth(3)).toContainText('bge-m3 runs on every node with role=edge.')
     await expect(rule(page).nth(0)).toContainText('Auto-scaling')
@@ -203,7 +203,7 @@ test.describe('Placement rules: delete with undo', () => {
     const log = await mockSwarm(page)
     await page.goto('/app/scheduling')
     await page.getByRole('button', { name: 'Delete kokoro-82m' }).click()
-    await page.getByRole('link', { name: 'Nodes', exact: true }).click()
+    await page.getByRole('link', { name: 'Workers', exact: true }).click()
     await expect.poll(() => log.filter(entry => entry.method === 'DELETE').length).toBe(1)
   })
 

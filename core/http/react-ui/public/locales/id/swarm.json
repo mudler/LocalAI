@@ -235,5 +235,20 @@
       "rules": "Aturan",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "Kebijakannya adalah prefix cache.",
+    "byRound": "Kebijakannya adalah round robin.",
+    "kind": {
+      "inactive": "Hanya kebijakan"
+    },
+    "route": {
+      "default": "Kebijakan default",
+      "prefix_cache": "Kebijakan prefix cache",
+      "round_robin": "Kebijakan round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Koneksi:"
   }
 }
