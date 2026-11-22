@@ -1,20 +1,18 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { adminUsersApi } from '../../utils/api'
-import { filterUsers, filterCounts, accessSummary, initialOf, userState, USER_FILTERS } from '../../utils/access'
-import LoadingSpinner from '../LoadingSpinner'
+import { filterUsers, filterCounts, accessInfo, accessText, initialOf, userState, USER_FILTERS } from '../../utils/access'
+import { relativeTime } from '../../utils/p2p'
 import ActionMenu from '../ActionMenu'
 import Dialog from '../Dialog'
 import HomeUndoToast from '../home/HomeUndoToast'
 import AccessSheet from './AccessSheet'
 import Icon from '../Icon'
 import AdminFilterBar from '../admin/AdminFilterBar'
-import { Button } from '../ui'
-
-const FILTER_LABELS = { all: 'All', pending: 'Pending', admins: 'Admins', disabled: 'Disabled' }
-const STATE_LABELS = { active: 'Active', pending: 'Pending', disabled: 'Disabled' }
+import { SummaryStrip } from '../admin/AdminPage'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../ui'
 
 const FALLBACK_FEATURES = {
   api_features: [
@@ -40,20 +38,19 @@ const FALLBACK_FEATURES = {
   general_features: [{ key: 'fine_tuning', label: 'Fine-Tuning', default: false }],
 }
 
+const time = (v) => (v ? new Date(v).getTime() : 0)
 const SORTERS = {
   name: (a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || ''),
   provider: (a, b) => (a.provider || '').localeCompare(b.provider || ''),
   role: (a, b) => (a.role || '').localeCompare(b.role || ''),
   status: (a, b) => (a.status || '').localeCompare(b.status || ''),
-  created: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+  created: (a, b) => time(a.createdAt) - time(b.createdAt),
+  // Most recent first on the first press; a person never seen sorts last.
+  lastActive: (a, b) => time(b.lastActiveAt) - time(a.lastActiveAt),
+  keys: (a, b) => (b.apiKeyCount || 0) - (a.apiKeyCount || 0),
 }
 
-const SORT_OPTIONS = [
-  { id: 'name', label: 'Name' },
-  { id: 'role', label: 'Role' },
-  { id: 'status', label: 'Status' },
-  { id: 'provider', label: 'Sign-in' },
-]
+const SORT_IDS = ['name', 'role', 'status', 'provider', 'lastActive', 'keys']
 
 function Avatar({ user }) {
   return user.avatarUrl
@@ -61,16 +58,25 @@ function Avatar({ user }) {
     : <span className="us-avatar us-avatar--initial" aria-hidden="true">{initialOf(user)}</span>
 }
 
+const stateTone = (state) => (state === 'active' ? 'active' : state === 'pending' ? 'warn' : 'muted')
+
 // The people who can sign in: filter, search, sort, approve or disable, and
 // open one person's access. Role, password reset and delete sit in the row's
-// menu. Every call is the one the page made before.
-export default function UsersPanel({ addToast, registrationMode, initialQuery = '' }) {
-  const { t } = useTranslation('auth')
+// menu. `Last active` and `Keys` are read from the list: the server sends them
+// to administrators only.
+export default function UsersPanel({ addToast, registrationMode, initialQuery = '', onInvite }) {
+  const { t, i18n } = useTranslation('admin')
+  const { t: ta } = useTranslation('auth')
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
+  const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [loadedAt, setLoadedAt] = useState(null)
   const [query, setQuery] = useState(initialQuery)
   const [filter, setFilter] = useState('all')
+  const [provider, setProvider] = useState('')
+  const [accessFilter, setAccessFilter] = useState('')
   const [sort, setSort] = useState({ key: null, dir: 'asc' })
   const [editingUser, setEditingUser] = useState(null)
   const [featureMeta, setFeatureMeta] = useState(null)
@@ -90,12 +96,15 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     try {
       const data = await adminUsersApi.list()
       setUsers(Array.isArray(data) ? data : data.users || [])
+      setLoadError(null)
+      setLoadedAt(Date.now())
     } catch (err) {
-      addToast(`Failed to load users: ${err.message}`, 'error')
+      setLoadError(err)
     } finally {
+      setLoaded(true)
       setLoading(false)
     }
-  }, [addToast])
+  }, [])
 
   const fetchFeatures = useCallback(async () => {
     try {
@@ -112,15 +121,16 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
 
   const isSelf = (u) => currentUser && (u.id === currentUser.id || u.email === currentUser.email)
   const label = (u) => u.name || u.email
+  const stateLabel = (state) => t(`users.state.${state}`)
 
   const setStatus = async (u, status, { undoable } = {}) => {
     try {
       await adminUsersApi.setStatus(u.id, status)
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, status } : x))
-      if (undoable) setUndo({ id: Date.now(), user: u, from: u.status, text: `Disabled ${label(u)}. Undo sets them back to active.` })
-      else addToast(`${status === 'active' ? 'Approved' : 'Disabled'} ${label(u)}`, 'success')
+      if (undoable) setUndo({ id: Date.now(), user: u, from: u.status, text: t('users.toast.disabledUndo', { name: label(u) }) })
+      else addToast(t(status === 'active' ? 'users.toast.approved' : 'users.toast.disabled', { name: label(u) }), 'success')
     } catch (err) {
-      addToast(`Failed to ${status === 'active' ? 'approve' : 'disable'} user: ${err.message}`, 'error')
+      addToast(t(status === 'active' ? 'users.toast.approveFailed' : 'users.toast.disableFailed', { message: err.message }), 'error')
     }
   }
 
@@ -131,9 +141,9 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     try {
       await adminUsersApi.setStatus(entry.user.id, entry.from === 'disabled' ? 'active' : entry.from)
       setUsers(prev => prev.map(x => x.id === entry.user.id ? { ...x, status: entry.from === 'disabled' ? 'active' : entry.from } : x))
-      addToast(`${label(entry.user)} is active again`, 'success')
+      addToast(t('users.toast.restored', { name: label(entry.user) }), 'success')
     } catch (err) {
-      addToast(`Failed to restore user: ${err.message}`, 'error')
+      addToast(t('users.toast.restoreFailed', { message: err.message }), 'error')
     }
   }
 
@@ -142,9 +152,9 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     try {
       await adminUsersApi.setRole(u.id, role)
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role } : x))
-      addToast(`${label(u)} is now ${role}`, 'success')
+      addToast(t('users.toast.roleChanged', { name: label(u), role: t(`users.role.${role}`) }), 'success')
     } catch (err) {
-      addToast(`Failed to update role: ${err.message}`, 'error')
+      addToast(t('users.toast.roleFailed', { message: err.message }), 'error')
     }
   }
 
@@ -154,10 +164,10 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     try {
       await adminUsersApi.delete(u.id)
       setUsers(prev => prev.filter(x => x.id !== u.id))
-      addToast('User deleted', 'success')
+      addToast(t('users.toast.deleted'), 'success')
       setDeleting(null)
     } catch (err) {
-      addToast(`Failed to delete user: ${err.message}`, 'error')
+      addToast(t('users.toast.deleteFailed', { message: err.message }), 'error')
     } finally {
       setDeleteBusy(false)
     }
@@ -170,25 +180,32 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     setResetBusy(true)
     try {
       await adminUsersApi.resetPassword(resetUser.id, newPassword, acknowledgeWeak)
-      addToast(`Password reset for ${label(resetUser)}`, 'success')
+      addToast(t('users.toast.passwordReset', { name: label(resetUser) }), 'success')
       setResetUser(null)
       setNewPassword('')
       setWeakWarning('')
       setAcknowledgeWeak(false)
     } catch (err) {
       if (err.body?.overridable) setWeakWarning(err.body.error || err.message)
-      else addToast(`Failed to reset password: ${err.message}`, 'error')
+      else addToast(t('users.toast.resetFailed', { message: err.message }), 'error')
     } finally {
       setResetBusy(false)
     }
   }
 
   const counts = useMemo(() => filterCounts(users), [users])
-  const filtered = useMemo(() => filterUsers(users, { query, filter }), [users, query, filter])
+  const providers = useMemo(() => [...new Set(users.map(u => u.provider || 'local'))].sort(), [users])
+  const filtered = useMemo(
+    () => filterUsers(users, { query, filter, provider, access: accessFilter, featureMeta }),
+    [users, query, filter, provider, accessFilter, featureMeta],
+  )
   const rows = useMemo(() => (
     sort.key ? [...filtered].sort((a, b) => sort.dir === 'asc' ? SORTERS[sort.key](a, b) : SORTERS[sort.key](b, a)) : filtered
   ), [filtered, sort])
   const toggleSort = (key) => setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+  const narrowed = !!(query || filter !== 'all' || provider || accessFilter)
+  const clearFilters = () => { setQuery(''); setFilter('all'); setProvider(''); setAccessFilter('') }
+  const lang = i18n.language
 
   const sortTh = (key, text, className) => (
     <th scope="col" className={className} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
@@ -199,11 +216,11 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
   )
 
   const menuItems = (u) => [
-    { key: 'access', icon: 'shield', label: 'Edit access', hidden: u.role === 'admin', onClick: () => setEditingUser(u) },
-    { key: 'role', icon: u.role === 'admin' ? 'arrow-down' : 'arrow-up', label: u.role === 'admin' ? 'Make user' : 'Make admin', onClick: () => toggleRole(u) },
-    { key: 'password', icon: 'key', label: 'Reset password', hidden: !!u.provider && u.provider !== 'local', onClick: () => openReset(u) },
+    { key: 'access', icon: 'shield', label: t('users.menu.editAccess'), hidden: u.role === 'admin', onClick: () => setEditingUser(u) },
+    { key: 'role', icon: u.role === 'admin' ? 'arrow-down' : 'arrow-up', label: u.role === 'admin' ? t('users.menu.makeUser') : t('users.menu.makeAdmin'), onClick: () => toggleRole(u) },
+    { key: 'password', icon: 'key', label: t('users.menu.resetPassword'), hidden: !!u.provider && u.provider !== 'local', onClick: () => openReset(u) },
     { divider: true },
-    { key: 'delete', icon: 'trash', label: 'Delete…', danger: true, onClick: () => { setDeleting(u); setTyped('') } },
+    { key: 'delete', icon: 'trash', label: t('users.menu.delete'), danger: true, onClick: () => { setDeleting(u); setTyped('') } },
   ]
 
   const handlePermissionSave = (userId, perms, models, quotas) => {
@@ -212,105 +229,168 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
 
   const sheetActions = (u) => (
     <>
-      <p className="us-eyebrow">Account</p>
+      <p className="us-eyebrow">{t('users.sheet.account')}</p>
       <div className="us-account-acts">
         {(!u.provider || u.provider === 'local') && (
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => { setEditingUser(null); openReset(u) }}>Reset password</button>
+          <Button size="sm" onClick={() => { setEditingUser(null); openReset(u) }}>{t('users.menu.resetPassword')}</Button>
         )}
-        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => { setEditingUser(null); toggleRole(u) }}>Make admin</button>
-        <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" onClick={() => { setEditingUser(null); setDeleting(u); setTyped('') }}>Delete…</button>
+        <Button size="sm" onClick={() => { setEditingUser(null); toggleRole(u) }}>{u.role === 'admin' ? t('users.menu.makeUser') : t('users.menu.makeAdmin')}</Button>
+        <Button size="sm" variant="danger" onClick={() => { setEditingUser(null); setDeleting(u); setTyped('') }}>{t('users.menu.delete')}</Button>
       </div>
     </>
   )
 
   const deleteName = deleting ? label(deleting) : ''
+  const activeCount = users.filter(u => userState(u) === 'active').length
+  const waitingCount = users.filter(u => userState(u) === 'pending').length
+  const filtersSet = (provider ? 1 : 0) + (accessFilter ? 1 : 0)
+  const firstLoad = !loaded && loading
+  const failedFirst = loaded && loadError && users.length === 0
 
   return (
     <div className="us" data-testid="users-panel">
+      {users.length > 0 && (
+        <SummaryStrip
+          label={t('users.summary.label')}
+          items={[
+            { key: 'total', label: t('users.summary.total'), value: users.length, unit: t('users.summary.totalUnit') },
+            { key: 'active', label: t('users.summary.active'), value: activeCount, unit: t('users.summary.activeUnit') },
+            { key: 'waiting', label: t('users.summary.waiting'), value: waitingCount, unit: t('users.summary.waitingUnit'), tone: waitingCount ? 'warn' : undefined },
+            { key: 'admins', label: t('users.summary.admins'), value: counts.admins, unit: t('users.summary.adminsUnit', { count: users.length }) },
+          ]}
+        />
+      )}
+
       <AdminFilterBar
-        search={{ value: query, onChange: setQuery, label: 'Search by name or email', placeholder: 'Search name or email' }}
+        search={{ value: query, onChange: setQuery, label: t('users.search.label'), placeholder: t('users.search.placeholder') }}
         chips={{
-          label: 'Filter users',
+          label: t('users.filters.label'),
           value: filter,
           onChange: setFilter,
-          options: USER_FILTERS.map(f => ({ id: f, label: FILTER_LABELS[f], count: f !== 'all' || counts.all ? counts[f] : undefined })),
+          options: USER_FILTERS.map(f => ({ id: f, label: t(`users.filters.${f}`), count: f !== 'all' || counts.all ? counts[f] : undefined })),
+        }}
+        filters={{
+          count: filtersSet,
+          children: (
+            <>
+              <label className="admin-filters__field">
+                <span>{t('users.popover.signIn')}</span>
+                <span className="dk-select-wrap">
+                  <select className="dk-select" value={provider} onChange={e => setProvider(e.target.value)} data-testid="users-filter-provider">
+                    <option value="">{t('users.popover.any')}</option>
+                    {providers.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </span>
+              </label>
+              <label className="admin-filters__field">
+                <span>{t('users.popover.access')}</span>
+                <span className="dk-select-wrap">
+                  <select className="dk-select" value={accessFilter} onChange={e => setAccessFilter(e.target.value)} data-testid="users-filter-access">
+                    <option value="">{t('users.popover.any')}</option>
+                    <option value="custom">{t('users.popover.custom')}</option>
+                  </select>
+                </span>
+              </label>
+            </>
+          ),
         }}
         sort={{
-          label: 'Sort',
+          label: t('users.sort.label'),
           value: sort.key || 'name',
           onChange: key => setSort({ key, dir: 'asc' }),
-          options: SORT_OPTIONS,
+          options: SORT_IDS.map(id => ({ id, label: t(`users.sort.${id}`) })),
         }}
-        extra={<Button variant="ghost" icon="refresh" aria-label="Refresh users" onClick={fetchUsers} disabled={loading} />}
+        extra={<Button variant="ghost" icon="refresh" aria-label={t('users.refresh')} onClick={fetchUsers} disabled={loading} />}
       />
 
-      {loading && users.length === 0 ? (
-        <div className="ak-loading"><LoadingSpinner size="lg" /></div>
+      {loadError && users.length > 0 && (
+        <LoadError
+          title={t('users.error.stale')} error={loadError} nothingChanged={false} onRetry={fetchUsers} testId="users-stale-error"
+        >
+          {loadedAt ? <> {t('users.error.staleNote', { when: new Date(loadedAt).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) })}</> : null}
+        </LoadError>
+      )}
+
+      {firstLoad ? (
+        <SkeletonRows count={4} label={t('users.loading')} testId="users-loading" />
+      ) : failedFirst ? (
+        <LoadError title={t('users.error.title')} error={loadError} onRetry={fetchUsers} testId="users-load-error" />
+      ) : users.length === 0 ? (
+        <EmptyState
+          icon="users" testId="users-empty" level={3}
+          title={t('users.empty.title')} body={t('users.empty.body')}
+          actions={onInvite ? <Button variant="primary" icon="plus" onClick={onInvite}>{t('users.invite')}</Button> : null}
+        />
       ) : rows.length === 0 ? (
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="users" /></div>
-          <h3 className="dk-empty-title">{query || filter !== 'all' ? 'No matching users' : 'No users'}</h3>
-          <p className="dk-empty-text">{query || filter !== 'all' ? 'Try a different search or filter.' : 'No registered users found.'}</p>
-          {(query || filter !== 'all') && <button type="button" className="dk-btn dk-btn--secondary" onClick={() => { setQuery(''); setFilter('all') }}>Clear filters</button>}
-        </div>
+        <EmptyState
+          variant="no-results" icon="users" testId="users-no-match" level={3}
+          title={t('users.noMatch.title')} body={t('users.noMatch.body')}
+          actions={<Button onClick={clearFilters}>{t('users.noMatch.clear')}</Button>}
+        />
       ) : (
-        <div className="dk-table-wrap dk-table-wrap--flat" role="region" aria-label="Users" tabIndex={0}>
+        <div className="dk-table-wrap dk-table-wrap--flat" role="region" aria-label={t('users.region')} tabIndex={0}>
           <table className="dk-table" data-testid="users-table" aria-busy={loading || undefined}>
-            <caption className="dk-sr-only">Users with sign-in method, role, access and status</caption>
+            <caption className="dk-sr-only">{t('users.caption')}</caption>
             <thead>
               <tr>
-                {sortTh('name', 'User')}
-                {sortTh('provider', 'Sign-in', 'dk-hide-phone')}
-                {sortTh('role', 'Role', 'dk-hide-phone')}
-                <th scope="col" className="dk-hide-phone">Access</th>
-                {sortTh('status', 'Status', 'dk-hide-phone')}
-                <th scope="col"><span className="dk-sr-only">Actions</span></th>
+                {sortTh('name', t('users.columns.user'))}
+                {sortTh('role', t('users.columns.role'), 'dk-hide-phone')}
+                <th scope="col" className="dk-hide-phone">{t('users.columns.access')}</th>
+                {sortTh('status', t('users.columns.status'), 'dk-hide-phone')}
+                {sortTh('lastActive', t('users.columns.lastActive'), 'dk-hide-phone')}
+                {sortTh('keys', t('users.columns.keys'), 'dk-hide-phone dk-num')}
+                <th scope="col"><span className="dk-sr-only">{t('users.columns.actions')}</span></th>
               </tr>
             </thead>
             <tbody>
               {rows.map(u => {
                 const state = userState(u)
                 const self = isSelf(u)
+                const info = accessInfo(u, featureMeta)
+                const accessLabel = accessText(t, info)
                 return (
                   <tr key={u.id} data-row data-user={u.email}>
                     <td>
                       <div className="us-who">
                         <Avatar user={u} />
                         <div className="us-who__text">
-                          <span className="dk-table-name">{u.name || '(no name)'}{self && <span className="us-you">you</span>}<span className={`dk-badge us-role-phone${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{u.role}</span></span>
-                          <span className="dk-table-sub">{u.email}</span>
-                          <span className="us-state us-state-phone" data-state={state === 'active' ? 'active' : state === 'pending' ? 'warn' : 'muted'}>{STATE_LABELS[state]}</span>
+                          <span className="dk-table-name">{u.name || t('users.noName')}{self && <span className="us-you">{t('users.you')}</span>}<span className={`dk-badge us-role-phone${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</span></span>
+                          <span className="dk-table-sub">{u.email} {'\u00b7'} {u.provider || 'local'}</span>
+                          <span className="us-state us-state-phone" data-state={stateTone(state)}>{stateLabel(state)}</span>
                         </div>
                       </div>
                     </td>
-                    <td className="dk-hide-phone"><span className="dk-badge">{u.provider || 'local'}</span></td>
-                    <td className="dk-hide-phone"><span className={`dk-badge${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{u.role}</span></td>
+                    <td className="dk-hide-phone"><span className={`dk-badge${u.role === 'admin' ? ' dk-badge--accent' : ''}`}>{t(`users.role.${u.role === 'admin' ? 'admin' : 'user'}`)}</span></td>
                     <td className="dk-hide-phone">
                       {u.role === 'admin' ? (
-                        <span className="us-access">{accessSummary(u, featureMeta)}</span>
+                        <span className="us-access">{accessLabel}</span>
                       ) : (
-                        <button type="button" className="us-access us-access--button" onClick={() => setEditingUser(u)} aria-label={`Edit access for ${label(u)}`} title="Edit access">
-                          {accessSummary(u, featureMeta)}
+                        <button type="button" className="us-access us-access--button" onClick={() => setEditingUser(u)} aria-label={t('users.editAccessFor', { name: label(u) })} title={t('users.menu.editAccess')}>
+                          {accessLabel}
                         </button>
                       )}
                     </td>
                     <td className="dk-hide-phone">
-                      <span className="us-state" data-state={state === 'active' ? 'active' : state === 'pending' ? 'warn' : 'muted'}>{STATE_LABELS[state]}</span>
-                      <span className="dk-table-sub dk-hide-phone">{u.createdAt ? `Created ${new Date(u.createdAt).toLocaleDateString()}` : ''}</span>
+                      <span className="us-state" data-state={stateTone(state)}>{stateLabel(state)}</span>
+                      <span className="dk-table-sub">{u.createdAt ? t('users.created', { date: new Date(u.createdAt).toLocaleDateString(lang) }) : ''}</span>
                     </td>
+                    <td className="dk-hide-phone" data-testid="user-last-active">
+                      {u.lastActiveAt
+                        ? <span title={new Date(u.lastActiveAt).toLocaleString(lang)}>{relativeTime(u.lastActiveAt, lang)}</span>
+                        : <span className="us-never">{t('users.never')}</span>}
+                    </td>
+                    <td className="dk-hide-phone dk-num" data-testid="user-key-count">{u.apiKeyCount > 0 ? u.apiKeyCount : <span className="us-never">{'\u2013'}</span>}</td>
                     <td className="dk-num">
                       {!self && (
                         <div className="us-acts">
                           {state !== 'active' ? (
-                            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => setStatus(u, 'active')} title="Approve user">
-                              {state === 'disabled' ? 'Enable' : 'Approve'}
-                            </button>
+                            <Button size="sm" variant="primary" onClick={() => setStatus(u, 'active')} title={t('users.approve')}>
+                              {state === 'disabled' ? t('users.enable') : t('users.approveShort')}
+                            </Button>
                           ) : (
-                            <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => setStatus(u, 'disabled', { undoable: true })} title="Disable user" aria-label={`Disable ${label(u)}`}>
-                              <Icon name="ban" />
-                            </button>
+                            <Button size="sm" variant="ghost" icon="ban" onClick={() => setStatus(u, 'disabled', { undoable: true })} title={t('users.disable')} aria-label={t('users.disableFor', { name: label(u) })} />
                           )}
-                          <ActionMenu items={menuItems(u)} ariaLabel={`Actions for ${label(u)}`} />
+                          <ActionMenu items={menuItems(u)} ariaLabel={t('users.actionsFor', { name: label(u) })} />
                         </div>
                       )}
                     </td>
@@ -322,8 +402,14 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
         </div>
       )}
 
-      {registrationMode && (
-        <p className="us-foot" data-testid="registration-mode">{t('registration.label', { mode: registrationMode })} {t(`registration.${registrationMode}`, { defaultValue: '' })}</p>
+      {users.length > 0 && (
+        <p className="us-foot" data-testid="users-count">
+          {t('users.showing', { shown: rows.length, total: users.length })}
+          {registrationMode && <span data-testid="registration-mode"> {ta('registration.label', { mode: registrationMode })} {ta(`registration.${registrationMode}`, { defaultValue: '' })}</span>}
+        </p>
+      )}
+      {users.length === 0 && registrationMode && (
+        <p className="us-foot" data-testid="registration-mode">{ta('registration.label', { mode: registrationMode })} {ta(`registration.${registrationMode}`, { defaultValue: '' })}</p>
       )}
 
       {editingUser && featureMeta && (
@@ -335,19 +421,19 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
 
       {resetUser && (
         <Dialog
-          title="Reset Password" labelId="us-reset-title" onClose={() => setResetUser(null)} pending={resetBusy}
-          description={`Set a new password for ${label(resetUser)}. All existing sessions will be invalidated.`}
+          title={t('users.reset.title')} labelId="us-reset-title" onClose={() => setResetUser(null)} pending={resetBusy}
+          description={t('users.reset.description', { name: label(resetUser) })}
           foot={<>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setResetUser(null)} disabled={resetBusy}>Cancel</button>
-            <button type="button" className="dk-btn dk-btn--primary" onClick={confirmReset} disabled={resetBusy || newPassword.length === 0}>
-              {resetBusy ? 'Resetting...' : 'Reset Password'}
-            </button>
+            <Button onClick={() => setResetUser(null)} disabled={resetBusy}>{t('users.cancel')}</Button>
+            <Button variant="primary" onClick={confirmReset} disabled={resetBusy || newPassword.length === 0}>
+              {resetBusy ? t('users.reset.busy') : t('users.reset.confirm')}
+            </Button>
           </>}
         >
           <div className="dk-field">
-            <label className="dk-label" htmlFor="us-reset-pw">New password</label>
+            <label className="dk-label" htmlFor="us-reset-pw">{t('users.reset.label')}</label>
             <input
-              id="us-reset-pw" type="password" className="dk-input" placeholder="New password (min 12 characters)" value={newPassword} autoComplete="new-password"
+              id="us-reset-pw" type="password" className="dk-input" placeholder={t('users.reset.placeholder')} value={newPassword} autoComplete="new-password"
               onChange={e => { setNewPassword(e.target.value); setWeakWarning(''); setAcknowledgeWeak(false) }}
               onKeyDown={e => { if (e.key === 'Enter' && newPassword.length > 0) confirmReset() }}
             />
@@ -357,7 +443,7 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
               <p className="us-weak__text">{weakWarning}</p>
               <label className="dk-choice">
                 <input type="checkbox" className="dk-check" checked={acknowledgeWeak} onChange={e => setAcknowledgeWeak(e.target.checked)} />
-                Use this password anyway
+                {t('users.reset.anyway')}
               </label>
             </div>
           )}
@@ -366,17 +452,17 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
 
       {deleting && (
         <Dialog
-          role="alertdialog" title="Delete User" labelId="us-delete-title" onClose={() => setDeleting(null)} pending={deleteBusy}
-          description="This also removes their sessions and API keys. It cannot be undone."
+          role="alertdialog" title={t('users.delete.title')} labelId="us-delete-title" onClose={() => setDeleting(null)} pending={deleteBusy}
+          description={t('users.delete.description')}
           foot={<>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setDeleting(null)} disabled={deleteBusy}>Cancel</button>
-            <button type="button" className="dk-btn dk-btn--danger" onClick={confirmDelete} disabled={deleteBusy || typed.trim() !== deleteName}>
-              {deleteBusy ? 'Deleting...' : 'Delete'}
-            </button>
+            <Button onClick={() => setDeleting(null)} disabled={deleteBusy}>{t('users.cancel')}</Button>
+            <Button variant="danger" onClick={confirmDelete} disabled={deleteBusy || typed.trim() !== deleteName}>
+              {deleteBusy ? t('users.delete.busy') : t('users.delete.confirm')}
+            </Button>
           </>}
         >
           <div className="dk-field">
-            <label className="dk-label" htmlFor="us-delete-name">Type <span className="dk-mono">{deleteName}</span> to confirm</label>
+            <label className="dk-label" htmlFor="us-delete-name"><Trans t={t} i18nKey="users.delete.type" values={{ name: deleteName }} components={{ n: <span className="dk-mono" /> }} /></label>
             <input id="us-delete-name" className="dk-input" value={typed} autoComplete="off" onChange={e => setTyped(e.target.value)} />
           </div>
         </Dialog>
@@ -385,7 +471,7 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
       {undo && (
         <HomeUndoToast
           key={undo.id} duration={8000} testId="user-undo-toast" message={undo.text}
-          undoLabel="Undo" dismissLabel="Dismiss" onUndo={undoDisable} onExpire={() => setUndo(null)}
+          undoLabel={t('users.undo')} dismissLabel={t('users.dismiss')} onUndo={undoDisable} onExpire={() => setUndo(null)}
         />
       )}
     </div>

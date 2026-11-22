@@ -158,7 +158,7 @@ export const operateHub = {
       labelKey: 'admin.groups.access',
       items: [
         { path: '/app/users', labelKey: 'items.users', icon: 'users', adminOnly: true, authOnly: true, signal: { key: 'pendingUsers', kind: 'count' } },
-        { path: '/app/users', query: 'tab=keys', labelKey: 'items.apiKeys', icon: 'key', adminOnly: true, authOnly: true },
+        { path: '/app/api-keys', labelKey: 'items.apiKeys', icon: 'key', adminOnly: true, authOnly: true },
         { path: '/app/chats-admin', labelKey: 'items.chatsAdmin', icon: 'chat', adminOnly: true, feature: 'chats' },
       ],
     },

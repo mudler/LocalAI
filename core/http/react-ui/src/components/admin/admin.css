@@ -179,6 +179,7 @@
 .admin-filters__search { flex: 1 1 220px; max-width: 320px; min-width: 0; }
 .admin-filters__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .admin-filters__panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 240px; padding: var(--sp-1); }
+.admin-filters__field { display: flex; flex-direction: column; gap: var(--sp-1); color: var(--dk-muted); font-size: var(--fs-small); }
 .admin-filters__end { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin-left: auto; }
 .admin-filters__sort { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); font-size: var(--fs-small); }
 @media (max-width: 639px) {

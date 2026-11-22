@@ -38,6 +38,12 @@ test.describe('Users tab — single-user no-auth mode', () => {
     await expect(usersLink).toHaveCount(0)
   })
 
+  test('direct navigation to /app/api-keys redirects to /app', async ({ page }) => {
+    await page.goto('/app/api-keys')
+    await page.waitForURL(/\/app(?!\/api-keys)/, { timeout: 5000 })
+    expect(page.url()).not.toMatch(/api-keys/)
+  })
+
   test('direct navigation to /app/users redirects to /app', async ({ page }) => {
     await page.goto('/app/users')
     // RequireAuthEnabled performs the redirect synchronously, but the URL
@@ -65,9 +71,11 @@ test.describe('Users tab — auth on', () => {
   })
 
   test('the Access group lists Users and API keys when auth is on', async ({ page }) => {
-    // With auth on and an admin viewer the Access group lists Users.
+    // With auth on and an admin viewer the Access group lists Users and API keys,
+    // each on its own page.
     await page.goto('/app/settings')
-    const usersLink = page.locator('[data-testid="admin-nav"] a[data-admin-item="/app/users"]')
-    await expect(usersLink).toHaveCount(2)
+    const nav = page.locator('[data-testid="admin-nav"]')
+    await expect(nav.locator('a[data-admin-item="/app/users"]')).toHaveCount(1)
+    await expect(nav.locator('a[data-admin-item="/app/api-keys"]')).toHaveCount(1)
   })
 })
