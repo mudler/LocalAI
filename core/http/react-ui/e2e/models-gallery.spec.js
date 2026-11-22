@@ -130,12 +130,12 @@ test.describe("Models Gallery - Backend Features", () => {
   test("selecting a model names its backend in the pane", async ({ page }) => {
     await railItem(page, "llama-model").click();
     await expect(
-      page.locator(PANE).locator(".dk-badge", { hasText: "llama-cpp" }).first(),
+      page.locator(PANE).locator(".ui-tag", { hasText: "llama-cpp" }).first(),
     ).toBeVisible();
 
     await railItem(page, "whisper-model").click();
     await expect(
-      page.locator(PANE).locator(".dk-badge", { hasText: /^whisper$/ }).first(),
+      page.locator(PANE).locator(".ui-tag", { hasText: /^whisper$/ }).first(),
     ).toBeVisible();
   });
 

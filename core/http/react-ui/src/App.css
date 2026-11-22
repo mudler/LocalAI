@@ -4126,7 +4126,8 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   display: flex;
   gap: var(--spacing-xs);
 }
-.biometrics-mediainput__controls .btn { flex: 1; min-height: 40px; }
+.biometrics-mediainput__controls .dk-btn { flex: 1; min-height: 40px; }
+.biometrics-mediainput__start { width: 100%; }
 
 .biometrics-mediainput__meter {
   display: flex;

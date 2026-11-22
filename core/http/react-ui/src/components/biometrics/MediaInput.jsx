@@ -168,7 +168,7 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
         <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="live" flush className="biometrics-mediainput__body">
           {!cap.supported && <UnsupportedNotice mode={mode} />}
           {cap.supported && !cap.active && (
-            <Button className="btn-full" icon={mode === 'image' ? 'camera' : 'mic'} onClick={cap.start}>
+            <Button className="biometrics-mediainput__start" icon={mode === 'image' ? 'camera' : 'mic'} onClick={cap.start}>
               {mode === 'image' ? 'Start webcam' : 'Enable microphone'}
             </Button>
           )}
