@@ -24,6 +24,8 @@ type searchOwner struct {
 	mu         sync.Mutex
 	app        apps.App
 	dispatched []contract.Request
+	// payload is the answer of the search tool. Zero: one Pirate Face row.
+	payload json.RawMessage
 }
 
 func (o *searchOwner) Apps(context.Context, contract.Actor) (apps.List, error) {
@@ -36,6 +38,9 @@ func (o *searchOwner) Dispatch(_ context.Context, _ contract.Actor, r contract.R
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.dispatched = append(o.dispatched, r)
+	if o.payload != nil {
+		return contract.Result{Payload: o.payload}, nil
+	}
 	return contract.Result{Payload: json.RawMessage(`{"results":[{"id":"acme/Peer","uri":"pirateface://acme/Peer","magnet":"magnet:?xt=urn:btih:abc","seeders":6}]}`)}, nil
 }
 
@@ -141,5 +146,42 @@ var _ = Describe("the model search backend over the chats broker", func() {
 		Expect(r.Providers[0].OK).To(BeTrue())
 		Expect(r.Providers[1].OK).To(BeFalse())
 		Expect(owner.dispatched).To(BeEmpty())
+	})
+})
+
+// The Ollama add-on behind the real broker: its manifest, the tool arguments
+// the host builds from it, and the row checks of the host for an ollama:// row.
+var _ = Describe("the Ollama search add-on over the chats broker", func() {
+	It("sends the filters and the sort, and shows an ollama:// row", func() {
+		raw, err := os.ReadFile("../../addons/ollama-search/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		m, err := contract.ParseManifest(raw)
+		Expect(err).NotTo(HaveOccurred())
+		owner := &searchOwner{
+			app: apps.App{ID: "ollama-search", Name: "ollama-search", Generation: 1, Enabled: true, State: "running",
+				Tools: m.Capabilities.Tools, ToolDefinitions: m.Capabilities.ToolDefinitions, Provides: m.Capabilities.Provides, ModelSearch: m.Capabilities.ModelSearch},
+			payload: json.RawMessage(`{"results":[{"id":"qwen3","title":"qwen3","uri":"ollama://qwen3","url":"https://ollama.com/library/qwen3","downloads":100,"tags":["tools","8b"]}]}`),
+		}
+		broker := func() studio.AddonTools {
+			return &studioAddons{adapter: addontools.NewChatToolAdapter(owner), mode: auth.AddonModeLocalOwner, ids: func() []string { return nil }}
+		}
+		s := modelsearch.NewSearcher(modelsearch.Options{CacheTTL: -1})
+		s.Register(builtinStub{})
+		host := modelsearch.NewHost(s, modelSearchBackend{broker: broker}, &stringKV{})
+
+		r := host.Search(context.Background(), "ann", modelsearch.Query{Text: "qwen", Sort: "latest", Filters: map[string]map[string]string{"ollama": {"tools": "true"}}}, nil)
+		Expect(r.Providers).To(HaveLen(2))
+		Expect(r.Providers[1].OK).To(BeTrue(), r.Providers[1].Error)
+		Expect(r.Providers[1].Dropped).To(BeZero())
+		Expect(r.Results).To(HaveLen(2))
+		Expect(r.Results[1].Provider).To(Equal("ollama"))
+		Expect(r.Results[1].URI).To(Equal("ollama://qwen3"))
+		Expect(r.Results[1].HasVariants).To(Equal(m.Capabilities.ModelSearch.Source.HasVariants))
+		Expect(owner.dispatched).To(HaveLen(1))
+		var sent map[string]any
+		Expect(json.Unmarshal(owner.dispatched[0].Arguments, &sent)).To(Succeed())
+		Expect(sent).To(HaveKeyWithValue("tool", "search"))
+		Expect(sent).To(HaveKeyWithValue("sort", "latest"))
+		Expect(sent["filters"]).To(Equal(map[string]any{"tools": true}))
 	})
 })
