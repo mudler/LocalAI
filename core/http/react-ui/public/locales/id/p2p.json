@@ -1,6 +1,6 @@
 {
   "title": "Berbagi",
-  "supporting": "Perangkat, remote, dan node yang menjangkau server ini lewat P2P, serta undangan yang mengizinkan mereka masuk.",
+  "supporting": "Perangkat dan remote yang terhubung ke server ini lewat P2P, serta undangan yang mengizinkan mereka masuk.",
   "loadStatusFailed": "Tidak dapat membaca status P2P.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "Semua model",
     "some_one": "{{count}} model",
     "some_other": "{{count}} model"
+  },
+  "sharing": {
+    "on": "Berbagi aktif",
+    "address": "Alamat berbagi Anda",
+    "copy": "Salin",
+    "addressCopied": "Alamat berbagi disalin",
+    "addressCopyFailed": "Alamat berbagi tidak dapat disalin",
+    "settings": "Mode dan relay ada di pengaturan P2P",
+    "workersNote": "Worker yang bergabung lewat P2P ada di Workers.",
+    "workersLink": "Buka Workers"
   }
 }

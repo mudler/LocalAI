@@ -208,6 +208,8 @@ export const API_CONFIG = {
     nodeVramBudget: (id) => `/api/nodes/${id}/vram-budget`,
     nodeSplitServer: (id) => `/api/nodes/${id}/split-server`,
     clusterSettings: '/api/cluster/settings',
+    clusterJoinTokens: '/api/cluster/join-tokens',
+    clusterJoinToken: (id) => `/api/cluster/join-tokens/${encodeURIComponent(id)}`,
     nodesScheduling: '/api/nodes/scheduling',
     nodesModels: '/api/nodes/models',
     nodesSchedulingModel: (model) => `/api/nodes/scheduling/${encodeURIComponent(model)}`,

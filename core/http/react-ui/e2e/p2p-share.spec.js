@@ -3,7 +3,7 @@ import { adminGroup } from './admin-nav.js'
 import { mockHome } from './home-fixtures.js'
 import { mockRecommended, recommendedAnswer } from './recommended-fixtures.js'
 import { mockRemotes, LOCALAI_MODELS, remote } from './remotes-fixtures.js'
-import { DEVICE_PEER, REMOTE_PEER, mockAdmin, mockP2PShare, remoteInviteLink } from './p2p-share-fixtures.js'
+import { DEVICE_PEER, REMOTE_PEER, deviceRows, mockAdmin, mockP2PShare, pendingInviteRows, remoteInviteLink } from './p2p-share-fixtures.js'
 
 // Swarm, P2P, "Devices and invites": the pending invites and the paired
 // devices, the Share dialog (kind, link, QR code, what the link carries, its
@@ -421,4 +421,90 @@ test.describe('First run: connect other machines', () => {
     await expect(page.getByTestId('home-step-share-noauth')).toContainText('Authentication is off.')
     await expect(page.getByTestId('home-step-share-link')).toHaveCount(0)
   })
+})
+
+// Sharing is what other people hold on this server. A worker that joined over
+// P2P is a worker of the cluster: it is on Workers, and the page says so.
+test.describe('Sharing: no cluster workers', () => {
+  const workerDevice = { id: 'd-w1', kind: 'worker', label: 'gpu-box-1', peer_id: '12D3KooWWw1rN6mHcR8yLdQe5Gh6iKoPzWw1', created_at: new Date(Date.now() - 3_600_000).toISOString(), last_seen_at: new Date(Date.now() - 60_000).toISOString(), status: 'active', online: true, path: { kind: 'direct', limited: false } }
+  const splitDevice = { ...workerDevice, id: 'd-w2', kind: 'split', label: 'split-1' }
+  const workerInvite = { id: 'inv-w', kind: 'worker', label: 'gpu-box-2', created_at: new Date().toISOString(), created_by: 'u1', expires_at: new Date(Date.now() + 300_000).toISOString(), status: 'pending' }
+
+  async function openSharing(page, { distributed = true, devices = [...deviceRows(), workerDevice, splitDevice], invites = [...pendingInviteRows(), workerInvite] } = {}) {
+    await page.route('**/api/features', route => route.fulfill({ json: { distributed, p2p: true } }))
+    await mockAdmin(page)
+    await mockP2PShare(page, { devices, invites })
+    await page.goto('/app/p2p')
+    await expect(page.getByTestId('p2p-page')).toBeVisible({ timeout: 15_000 })
+  }
+
+  test('the title is Sharing, in the header with the breadcrumb and the one primary action', async ({ page }) => {
+    await openSharing(page)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Sharing')
+    const header = page.locator('.page-header')
+    await expect(header.getByTestId('admin-crumbs')).toContainText('Sharing')
+    await expect(header.locator('.dk-btn--primary')).toHaveCount(1)
+    await expect(header.getByTestId('p2p-share-open')).toBeVisible()
+  })
+
+  test('devices and invites of kind worker and split are not listed', async ({ page }) => {
+    await openSharing(page)
+    await expect(page.getByTestId('p2p-device-d-1')).toBeVisible()
+    await expect(page.getByTestId('p2p-device-d-w1')).toHaveCount(0)
+    await expect(page.getByTestId('p2p-device-d-w2')).toHaveCount(0)
+    await expect(page.getByTestId('p2p-invite-inv-w')).toHaveCount(0)
+    // Five devices of other people stay counted; the workers are not in the count.
+    await expect(page.getByTestId('p2p-devices')).toContainText('5 active')
+    await expect(page.getByTestId('p2p-devices')).not.toContainText('gpu-box-1')
+  })
+
+  test('a note says workers that joined over P2P are on Workers, and links there', async ({ page }) => {
+    await openSharing(page)
+    const note = page.getByTestId('p2p-workers-note')
+    await expect(note).toContainText('Workers that joined over P2P are on Workers.')
+    await expect(page.getByTestId('p2p-workers-link')).toHaveAttribute('href', '/app/nodes')
+    await expect(page.getByTestId('p2p-workers-link')).toHaveText('Go to Workers')
+  })
+
+  test('a single server with no worker rows shows no note', async ({ page }) => {
+    await openSharing(page, { distributed: false, devices: deviceRows(), invites: pendingInviteRows() })
+    await expect(page.getByTestId('p2p-devices')).toBeVisible()
+    await expect(page.getByTestId('p2p-workers-note')).toHaveCount(0)
+  })
+
+  test('a single server that has worker rows still says where they went', async ({ page }) => {
+    await openSharing(page, { distributed: false })
+    await expect(page.getByTestId('p2p-workers-note')).toBeVisible()
+  })
+
+  test('keeps the share state, the invites with their expiry, the grants and the revoke', async ({ page }) => {
+    await openSharing(page)
+    await expect(page.getByTestId('p2p-share-state')).toContainText('Sharing is on')
+    await expect(page.getByTestId('p2p-share-address')).toHaveText('12D3KooWRk…Xk9')
+    await expect(page.getByTestId('p2p-settings-link')).toHaveAttribute('href', '/app/p2p/settings')
+    await expect(page.getByTestId('p2p-invite-inv-1')).toContainText(/\d+:\d\d/)
+    await expect(page.getByTestId('p2p-grant-d-6')).toHaveText('2 models')
+    await expect(page.getByTestId('p2p-device-revoke-d-2')).toBeVisible()
+  })
+
+  test('the P2P settings and federation sub-routes still open', async ({ page }) => {
+    await openSharing(page)
+    await page.getByTestId('p2p-tabs').getByRole('link', { name: 'Federation' }).click()
+    await expect(page).toHaveURL(/\/app\/p2p\/federation$/)
+    await page.getByTestId('p2p-tabs').getByRole('link', { name: 'Settings' }).click()
+    await expect(page).toHaveURL(/\/app\/p2p\/settings$/)
+  })
+
+  for (const theme of ['light', 'dark']) {
+    for (const [name, viewport] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
+      test(`${theme} ${name}: nothing scrolls sideways`, async ({ page }) => {
+        await page.setViewportSize(viewport)
+        await page.addInitScript((value) => { try { localStorage.setItem('localai-theme', value) } catch { /* private window */ } }, theme)
+        await openSharing(page)
+        await expect(page.getByTestId('p2p-devices')).toBeVisible()
+        await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
+      })
+    }
+  }
 })

@@ -59,12 +59,12 @@ test('Traffic is folded and holds its seven pages; its group is the owner on one
   assert.equal(view({}, '/app/traffic').current, 'traffic:/app/traffic')
 })
 
-test('Access: users and API keys are two items of one route, told apart by the query', () => {
+test('Access: users and API keys are two pages', () => {
   const f = { chats: true }
-  assert.deepEqual(view(f, '/app/users').items.access, ['/app/users', '/app/users?tab=keys', '/app/chats-admin'])
+  assert.deepEqual(view(f, '/app/users').items.access, ['/app/users', '/app/api-keys', '/app/chats-admin'])
   assert.equal(view(f, '/app/users').current, 'access:/app/users')
   assert.equal(view(f, '/app/users', '?tab=invites').current, 'access:/app/users')
-  assert.equal(view(f, '/app/users', '?tab=keys').current, 'access:/app/users?tab=keys')
+  assert.equal(view(f, '/app/api-keys').current, 'access:/app/api-keys')
 })
 
 test('gates: no sign-in hides Users and API keys, a server without chats hides Chats of all users, a non-admin sees nothing', () => {

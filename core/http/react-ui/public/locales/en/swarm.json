@@ -176,21 +176,10 @@
   "nodes": {
     "title": "Workers",
     "filter": "Show",
-    "all": "All",
-    "needs": "Needs attention",
-    "reasons": "Reasons",
-    "density": "Row density",
-    "comfortable": "Comfortable",
-    "compact": "Compact",
     "view": "View",
     "list": "List",
     "map": "Map",
     "running": "Running models",
-    "add": "Add a node",
-    "search": "Search nodes",
-    "searchPlaceholder": "Search name, address, label…",
-    "filterState": "Filter state",
-    "anyState": "Any state",
     "filterType": "Filter type",
     "anyType": "Any type",
     "group": "Group nodes",
@@ -200,7 +189,6 @@
     "stale": "The node list could not be refreshed. What you see is the last reading.",
     "retry": "Try again",
     "sort": "Sort nodes",
-    "sortBy": "Sort: {{by}}",
     "sortDirection": "Reverse the sort order"
   },
   "first": {
@@ -210,7 +198,6 @@
   "table": {
     "caption": "Nodes with their state, memory and models",
     "node": "Node",
-    "role": "Role",
     "state": "State",
     "memory": "GPU and memory",
     "models": "Models",
@@ -222,15 +209,9 @@
     "select": "Select {{name}}",
     "selectGroup": "Select {{name}} group",
     "noMatch": "No nodes match the current view.",
-    "noAddress": "No address",
     "approve": "Approve {{name}}",
     "noReading": "No reading",
-    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent",
-    "gpu": "GPU",
-    "cpuOnly": "CPU only · system memory",
-    "ramLine": "RAM {{used}} / {{total}}",
-    "groupCount_one": "{{count}} node · {{selected}} selected",
-    "groupCount_other": "{{count}} nodes · {{selected}} selected"
+    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent"
   },
   "bulk": {
     "label": "Selected nodes",
@@ -454,18 +435,18 @@
     "heading": "Rules",
     "emptyTitle": "No placement rules yet",
     "empty": "Add a rule to keep a model on certain nodes, to keep replicas running, or to run it on every node.",
-    "byPrefix": "It is routed by prefix cache.",
-    "byRound": "It is routed round robin.",
+    "byPrefix": "Its policy is prefix cache.",
+    "byRound": "Its policy is round robin.",
     "kind": {
       "placement": "Placement",
       "autoscale": "Auto-scaling",
       "spread": "Spread",
-      "inactive": "Routing only"
+      "inactive": "Policy only"
     },
     "route": {
-      "default": "Default routing",
-      "prefix_cache": "Prefix cache routing",
-      "round_robin": "Round robin routing"
+      "default": "Default policy",
+      "prefix_cache": "Prefix cache policy",
+      "round_robin": "Round robin policy"
     },
     "placedOn": "Now placed on",
     "notLoaded": "Not loaded now",
@@ -521,7 +502,6 @@
     "close": "Close",
     "model": "Model",
     "modelPlaceholder": "Type to search models or aliases, or paste a name…",
-    "aliasOf": "alias of {{target}}",
     "aliasNote": "{{name}} is an alias for {{target}}. This rule applies to whichever model the alias points at, and follows it if you repoint it.",
     "how": "How many replicas",
     "mode": {
@@ -572,8 +552,7 @@
       "shortfall": "{{count}} more replicas than these nodes can hold under their replica cap.",
       "placement": "would load on demand on one of {{count}} matching nodes: {{nodes}}.",
       "how": "Worked out in this browser from the node list and labels. The scheduler also checks free memory and disk when it loads a model."
-    },
-    "pickerEmpty": "No model matches. \"{{name}}\" is used as typed."
+    }
   },
   "failover": {
     "lede": "A failover chain serves one model name from an ordered list of targets and moves requests to the next healthy one. When a worker stops answering, the router and the health monitor already reroute around it.",
@@ -608,21 +587,10 @@
     "single_other": "{{count}} models run on a single replica.",
     "singleSub": "If its node goes away, it stops until that node returns or a load lands elsewhere.",
     "addRule": "Run 2 replicas",
-    "singleMore": "and {{count}} more."
+    "singleMore": "and {{count}} more.",
+    "lostConnection": "Connection:"
   },
   "add": {
-    "back": "All nodes",
-    "title": "Add a node",
-    "sub": "Run one command on the machine you want to add. It appears here by itself.",
-    "join": {
-      "title": "How should it join?",
-      "worker": "Registered worker",
-      "shard": "Model-split worker",
-      "workerSub": "The worker registers with this instance and waits for your approval. It needs the message bus and the database that distributed mode uses.",
-      "shardSub": "A machine that lends its memory so one big model runs across machines (llama.cpp or MLX). It is not a cluster node: no backends, no placement rules.",
-      "instanceNote": "Another LocalAI instance that should take a share of the requests is not a node: add it as a remote, then group it under",
-      "instanceLink": "Federation"
-    },
     "distributed": {
       "title": "Turn on distributed mode first",
       "sub": "This install runs on one machine. Start it with distributed mode, then add workers.",
@@ -630,55 +598,10 @@
       "docsLink": "distributed mode documentation"
     },
     "run": {
-      "title": "Run this on the new machine",
       "hardware": "Hardware",
       "how": "Run with",
       "docker": "Docker",
-      "cli": "CLI",
-      "kind": "Worker type",
-      "backend": "Backend worker",
-      "agent": "Agent worker",
-      "dev": "Dev",
-      "devTitle": "Use development (master) images instead of stable releases",
-      "tokenNote": "Set TOKEN to the registration token from the server configuration. This page never shows it.",
-      "inviteFirst": "Make an invite first. The command holds the invite link.",
-      "joinNote": "The link works once. The worker keeps its identity, so a restart with the same command needs no new invite."
-    },
-    "wait": {
-      "title": "Waiting for the machine",
-      "foundTitle": "A machine arrived",
-      "listening": "Listening for a worker. This page updates when one registers.",
-      "open": "Open node",
-      "stuck": "Nothing arrives? Check that the machine reaches the message bus and that the token matches.",
-      "checkPeer": "Check the peer ID with the person who runs the machine before you approve.",
-      "joinStuck": "Nothing arrives? Behind strict NAT the node can take a minute to find a path. Check that the invite has not expired."
-    },
-    "connect": {
-      "title": "How should it connect?",
-      "url": "Server address",
-      "p2p": "P2P invite",
-      "urlSub": "The node dials the address of this server with the registration token. It uses the carrier of the cluster: NATS, or the WebSocket tunnel.",
-      "p2pSub": "The node joins from any network with a one-time invite. It finds this server by its peer ID and connects directly, by hole punching, or through your relay. It needs no open port and no registration token.",
-      "order": "Order in this cluster: NATS, then WebSocket, then P2P. A node that joins over P2P always uses its tunnel."
-    },
-    "invite": {
-      "title": "Make an invite",
-      "needsShare": "Worker invites need P2P in mode Connect and share.",
-      "settings": "Open P2P settings",
-      "name": "Node name (optional)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Make invite",
-      "ready": "Invite ready",
-      "single": "Single use",
-      "expires": "expires in",
-      "pass": "relay pass on {{relay}}",
-      "again": "New invite",
-      "warn": {
-        "no_relay": "This server has no relay. A node behind strict NAT cannot connect.",
-        "open_relay": "The invite names an open relay, which anyone can use.",
-        "relay_unreachable": "The relay did not answer, so the invite has no relay pass.",
-        "no_public_addr": "This server has no public address. The node connects by hole punching or through a relay."
-      }
+      "cli": "CLI"
     }
   },
   "nodeLogs": {
@@ -694,19 +617,6 @@
     "allMerged": "All merged",
     "mergedTitle": "An interleaved timeline of every replica, to compare them side by side"
   },
-  "hero": {
-    "label": "Fleet health",
-    "ringAria": "{{healthy}} of {{total}} nodes healthy",
-    "healthy": "{{healthy}} of {{total}}",
-    "healthyLabel_one": "node healthy",
-    "healthyLabel_other": "nodes healthy",
-    "vram": "VRAM",
-    "ram": "RAM",
-    "models": "Running models",
-    "attention_one": "{{count}} needs attention",
-    "attention_other": "{{count}} need attention",
-    "allClear": "No node needs attention"
-  },
   "row": {
     "noHeartbeat": "No heartbeat",
     "idle": "No models loaded",
@@ -714,7 +624,6 @@
     "cpuNode": "CPU · {{ram}} RAM",
     "vram": "VRAM {{percent}}%",
     "ram": "RAM {{percent}}%",
-    "sparkAria": "Load over the last {{count}} readings, now {{percent}} percent",
     "selectAll": "Select all on this page",
     "groupNodes_one": "{{count}} node",
     "groupNodes_other": "{{count}} nodes",
@@ -724,7 +633,6 @@
   },
   "inspector": {
     "label": "Selected node",
-    "kicker": "Node",
     "empty": "Choose a node to see its details.",
     "vram": "VRAM",
     "ram": "RAM",
@@ -743,28 +651,7 @@
     "logs": "Logs",
     "open": "Open full page",
     "close": "Close details",
-    "route": "Route",
     "peer": "Peer ID"
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Direct",
-      "hole_punched": "Hole-punched",
-      "relayed": "Via a relay"
-    },
-    "limited": "Limited",
-    "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it.",
-    "heartbeat": "Heartbeat",
-    "tunnel": "Tunnel",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "live",
-      "reconnecting": "reconnecting",
-      "down": "down"
-    }
   },
   "splitServer": {
     "label": "Split server",

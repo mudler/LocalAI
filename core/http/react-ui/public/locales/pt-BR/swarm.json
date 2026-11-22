@@ -130,68 +130,9 @@
     "title": "Workers"
   },
   "add": {
-    "connect": {
-      "title": "Como ele deve se conectar?",
-      "url": "Endereço do servidor",
-      "p2p": "Convite P2P",
-      "urlSub": "O nó chama o endereço deste servidor com o token de registro. Ele usa o transporte do cluster: NATS ou o túnel WebSocket.",
-      "p2pSub": "O nó entra de qualquer rede com um convite de uso único. Ele encontra este servidor pelo ID de par e se conecta diretamente, por hole punching ou pelo seu relay. Não precisa de porta aberta nem de token de registro.",
-      "order": "Ordem neste cluster: NATS, depois WebSocket, depois P2P. Um nó que entra por P2P sempre usa o seu túnel."
-    },
-    "invite": {
-      "title": "Criar um convite",
-      "needsShare": "Convites de worker precisam de P2P no modo Conectar e compartilhar.",
-      "settings": "Abrir as configurações de P2P",
-      "name": "Nome do nó (opcional)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Criar convite",
-      "ready": "Convite pronto",
-      "single": "Uso único",
-      "expires": "expira em",
-      "pass": "passe de relay em {{relay}}",
-      "again": "Novo convite",
-      "warn": {
-        "no_relay": "Este servidor não tem relay. Um nó atrás de NAT restrito não consegue se conectar.",
-        "open_relay": "O convite indica um relay aberto, que qualquer pessoa pode usar.",
-        "relay_unreachable": "O relay não respondeu, então o convite não tem passe de relay.",
-        "no_public_addr": "Este servidor não tem endereço público. O nó se conecta por hole punching ou por um relay."
-      }
-    },
-    "run": {
-      "inviteFirst": "Crie um convite primeiro. O comando contém o link do convite.",
-      "joinNote": "O link funciona uma vez. O worker guarda a sua identidade, então reiniciar com o mesmo comando não precisa de um novo convite."
-    },
-    "wait": {
-      "checkPeer": "Confira o ID de par com a pessoa que opera a máquina antes de aprovar.",
-      "joinStuck": "Nada chega? Atrás de NAT restrito o nó pode levar um minuto para achar um caminho. Confira se o convite não expirou."
-    },
-    "join": {
-      "instanceNote": "Outra instância do LocalAI que deve atender parte das solicitações não é um nó: adicione-a como remoto e depois agrupe-a em",
-      "instanceLink": "Federação"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Direto",
-      "hole_punched": "Hole punching",
-      "relayed": "Por um relay"
-    },
-    "limited": "Limitado",
-    "limitedHint": "O relay limita os dados ou o tempo desta conexão. Arquivos de modelo não passam por ele.",
-    "heartbeat": "Heartbeat",
-    "tunnel": "Túnel",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "ativa",
-      "reconnecting": "reconectando",
-      "down": "caída"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "Rota",
     "peer": "ID de par"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "Regras",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "A política dele é prefix cache.",
+    "byRound": "A política dele é round robin.",
+    "kind": {
+      "inactive": "Só política"
+    },
+    "route": {
+      "default": "Política padrão",
+      "prefix_cache": "Política de prefix cache",
+      "round_robin": "Política de round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Conexão:"
   }
 }

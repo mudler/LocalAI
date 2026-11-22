@@ -130,68 +130,9 @@
     "title": "Worker"
   },
   "add": {
-    "connect": {
-      "title": "Wie soll er sich verbinden?",
-      "url": "Serveradresse",
-      "p2p": "P2P-Einladung",
-      "urlSub": "Der Knoten wählt die Adresse dieses Servers mit dem Registrierungstoken an. Er nutzt den Carrier des Clusters: NATS oder den WebSocket-Tunnel.",
-      "p2pSub": "Der Knoten tritt aus jedem Netz mit einer Einmal-Einladung bei. Er findet diesen Server über seine Peer-ID und verbindet sich direkt, per Hole Punching oder über dein Relay. Er braucht keinen offenen Port und kein Registrierungstoken.",
-      "order": "Reihenfolge in diesem Cluster: NATS, dann WebSocket, dann P2P. Ein Knoten, der über P2P beitritt, nutzt immer seinen Tunnel."
-    },
-    "invite": {
-      "title": "Einladung erstellen",
-      "needsShare": "Worker-Einladungen brauchen P2P im Modus „Verbinden und teilen“.",
-      "settings": "P2P-Einstellungen öffnen",
-      "name": "Knotenname (optional)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Einladung erstellen",
-      "ready": "Einladung bereit",
-      "single": "Einmalig",
-      "expires": "läuft ab in",
-      "pass": "Relay-Pass auf {{relay}}",
-      "again": "Neue Einladung",
-      "warn": {
-        "no_relay": "Dieser Server hat kein Relay. Ein Knoten hinter strengem NAT kann sich nicht verbinden.",
-        "open_relay": "Die Einladung nennt ein offenes Relay, das jeder nutzen kann.",
-        "relay_unreachable": "Das Relay hat nicht geantwortet, daher hat die Einladung keinen Relay-Pass.",
-        "no_public_addr": "Dieser Server hat keine öffentliche Adresse. Der Knoten verbindet sich per Hole Punching oder über ein Relay."
-      }
-    },
-    "run": {
-      "inviteFirst": "Erstelle zuerst eine Einladung. Der Befehl enthält den Einladungslink.",
-      "joinNote": "Der Link funktioniert einmal. Der Worker behält seine Identität, daher braucht ein Neustart mit demselben Befehl keine neue Einladung."
-    },
-    "wait": {
-      "checkPeer": "Prüfe die Peer-ID mit der Person, die die Maschine betreibt, bevor du freigibst.",
-      "joinStuck": "Kommt nichts an? Hinter strengem NAT kann der Knoten eine Minute brauchen, um einen Weg zu finden. Prüfe, ob die Einladung abgelaufen ist."
-    },
-    "join": {
-      "instanceNote": "Eine weitere LocalAI-Instanz, die einen Teil der Anfragen übernehmen soll, ist kein Knoten: Füge sie als Gegenstelle hinzu und gruppiere sie dann unter",
-      "instanceLink": "Föderation"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Direkt",
-      "hole_punched": "Hole Punching",
-      "relayed": "Über ein Relay"
-    },
-    "limited": "Begrenzt",
-    "limitedHint": "Das Relay begrenzt die Daten oder die Dauer dieser Verbindung. Modelldateien laufen nicht darüber.",
-    "heartbeat": "Heartbeat",
-    "tunnel": "Tunnel",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "aktiv",
-      "reconnecting": "verbindet neu",
-      "down": "getrennt"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "Route",
     "peer": "Peer-ID"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "Regeln",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "Die Richtlinie ist Prefix-Cache.",
+    "byRound": "Die Richtlinie ist Round Robin.",
+    "kind": {
+      "inactive": "Nur Richtlinie"
+    },
+    "route": {
+      "default": "Standardrichtlinie",
+      "prefix_cache": "Prefix-Cache-Richtlinie",
+      "round_robin": "Round-Robin-Richtlinie"
+    }
+  },
+  "failover": {
+    "lostConnection": "Verbindung:"
   }
 }

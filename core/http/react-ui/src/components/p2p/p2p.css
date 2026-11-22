@@ -4,6 +4,8 @@
 .p2p-page { display: grid; gap: var(--sp-5); align-content: start; min-width: 0; }
 .p2p-tabs { margin-top: 0; }
 
+.p2p-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.p2p-state__label { color: var(--dk-muted); font-size: var(--text-sm); }
 .p2p-section { display: grid; gap: var(--sp-3); min-width: 0; }
 .p2p-section__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
 .p2p-h2 { margin: 0; font-size: var(--fs-lead); font-weight: 600; color: var(--dk-text); }

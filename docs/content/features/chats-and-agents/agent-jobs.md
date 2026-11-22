@@ -11,7 +11,7 @@ A **task** is a saved prompt template. A **job** is one run of a task. It runs i
 A job is an ordinary chat with origin `job`, so you can open it from **All chats** and read its transcript.
 
 {{% callout style="note" %}}
-The API needs the `mcp_jobs` feature, which is off by default for a user. An administrator has it always and can grant it to a user under **Users and keys**. See [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}}). `LOCALAI_DISABLE_CHATS` turns the jobs off with the rest of the chats. The examples below assume no authentication. When auth is on, add `-H "Authorization: Bearer $API_KEY"` to every call.
+The API needs the `mcp_jobs` feature, which is off by default for a user. An administrator has it always and can grant it to a user under **Administration → Access → Users**. See [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}}). `LOCALAI_DISABLE_CHATS` turns the jobs off with the rest of the chats. The examples below assume no authentication. When auth is on, add `-H "Authorization: Bearer $API_KEY"` to every call.
 {{% /callout %}}
 
 ## A task

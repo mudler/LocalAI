@@ -64,10 +64,9 @@ const (
 
 var allowed = []entry{
 	{ui + "utils/agentPresets.js", "'memory'", "the switch group of the built-in memory in the agent presets"},
-	// The word mail in plain text: an example of what a run reads and the
-	// envelope glyph of an empty list. Neither names the Mail add-on.
+	// The word mail in plain text: an example of what a run reads. It does not
+	// name the Mail add-on.
 	{"core/services/studio/triggertools.go", "Mail from the last 24 hours", "an example of what a scheduled run reads"},
-	{ui + "components/users/InvitesPanel.jsx", `name="mail"`, "the envelope glyph of the empty invitations list"},
 
 	// Third-party services: the login, the release source, the token issuer.
 	{"core/cli/run.go", "GitHub OAuth App", "help of the GitHub OAuth login: GitHub the service, not the add-on"},

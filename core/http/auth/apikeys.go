@@ -125,6 +125,27 @@ func ListAPIKeys(db *gorm.DB, userID string) ([]UserAPIKey, error) {
 	return keys, nil
 }
 
+// CountAPIKeysByUser returns how many user keys each person holds, by user
+// id, in one query. Client keys are not counted: the list a person sees does
+// not hold them either. It returns counts only, never a key or its name.
+func CountAPIKeysByUser(db *gorm.DB) (map[string]int64, error) {
+	var rows []struct {
+		UserID string
+		N      int64
+	}
+	if err := db.Model(&UserAPIKey{}).
+		Select("user_id, COUNT(*) AS n").
+		Where("kind IS NULL OR kind <> ?", KeyKindClient).
+		Group("user_id").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, r := range rows {
+		out[r.UserID] = r.N
+	}
+	return out, nil
+}
+
 // RevokeAPIKey deletes an API key. Only the owner can revoke their own key.
 func RevokeAPIKey(db *gorm.DB, keyID, userID string) error {
 	result := db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&UserAPIKey{})

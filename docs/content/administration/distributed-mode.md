@@ -73,7 +73,7 @@ A NATS server is optional. A frontend reads the NATS address from the `nats.url`
 
 A frontend reads the NATS address at start. To add a NATS server or to move to another one, store the address (see [Save a NATS address](#save-a-nats-address)) and restart the frontends. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect, and it is not ready until it is connected.
 
-The *Cluster transport* panel of the Nodes page shows the broadcast bus of the frontend that serves the page (**NATS connected** or **PostgreSQL**), the live frontends, the workers with the state of each of their routes, the NATS address settings and the [carrier weights](#carrier-weights).
+The Workers page shows the broadcast bus of the frontend that serves the page in a pill under its title (**NATS connected · 2 frontends**, or **PostgreSQL**). The **Cluster settings** button opens a side sheet with the live frontends, the NATS address settings, the [carrier weights](#carrier-weights) and the joining choice. The same form is the **Cluster** group of Settings, which shows only when distributed mode is on.
 
 ### How a frontend picks the route of a worker
 
@@ -81,7 +81,7 @@ Every worker reports in its heartbeat the routes it was given, the routes it hol
 
 An MCP tool call that does not name an agent worker goes to an agent worker on NATS first (the queue group), and to an agent worker that holds a tunnel when no agent worker on NATS takes it. A call that names an agent worker goes on the routes of that worker: the NATS subject of the node (`mcp.<node>.tools.execute`, `mcp.<node>.discovery`), or its tunnel.
 
-The Nodes page shows the route of each node: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, and for P2P the path (direct, hole-punched or relayed, and *limited* when the relay limits the data or the time of a connection).
+The Workers page lists every machine of the cluster in one roster, with a chip for each connection it holds: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, each with its state. A P2P chip says the path (direct, hole-punched or relayed, with the round trip when it is known) and is marked *Limited* when the relay limits the data or the time of a connection. A connection that fails is a warning chip with the reason the worker gave. The inspector beside the roster shows the health of each connection of the chosen worker. A model-split worker is a row of the same roster, marked *Model-split*.
 
 ## Prerequisites
 
@@ -486,7 +486,7 @@ This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-u
 | `--register-to` | `LOCALAI_REGISTER_TO` | *(empty)* | Frontend URL for self-registration. Required unless `--join` is given |
 | `--join` | `LOCALAI_JOIN` | *(empty)* | Join the cluster over P2P with a worker invite link instead of `--register-to` and a registration token. See [Workers over P2P](#workers-over-p2p) |
 | `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of the worker: of a worker that joins with `--join`, and of the host that [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) attached to this node connect to. Keep it: the frontend knows the worker by it |
-| `--split-server` | `LOCALAI_SPLIT_SERVER` | `false` | Declare this worker a split server: it may serve [model-split workers]({{% relref "/administration/p2p-model-split" %}}#split-servers). An administrator can also turn it on or off on the Nodes page; that choice wins over the flag |
+| `--split-server` | `LOCALAI_SPLIT_SERVER` | `false` | Declare this worker a split server: it may serve [model-split workers]({{% relref "/administration/p2p-model-split" %}}#split-servers). An administrator can also turn it on or off on the Workers page; that choice wins over the flag |
 | `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | TCP and QUIC on every interface, random ports | Listen addresses of the P2P host of the worker. Model-split workers attached to this node connect to it; a fixed, open port gives them a direct path |
 | `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | *(public bootstrap peers)* | Peers the P2P host connects to at start, addresses that end in `/p2p/<peer ID>` |
 | `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
@@ -530,7 +530,7 @@ After it joined, the worker holds **its own credential**. The frontend returns i
 
 #### Add a worker
 
-Mint a token on the Nodes page (**Add worker**), or with the API:
+On the Workers page, press **Add worker**. Choose the connections (NATS is offered when it is set up, P2P when sharing is on), then copy the command of the tab that fits: the install script, Docker, Docker Compose, Kubernetes or a manual start. The page mints the token for you, hides it on the page, and puts it in the command when you copy. It counts down to the expiry, lets you choose how many workers may use the token and for how long, and waits for the worker to appear in the roster. Or mint a token with the API:
 
 ```bash
 curl -s -X POST http://frontend:8080/api/cluster/join-tokens \
@@ -551,7 +551,7 @@ The answer holds the plain token once, and a ready-to-copy command for each way 
 
 The three scripts are public, but each answers only for a token that exists and is not expired, revoked or used up (otherwise `404`, the same for every case). Serving a script does not spend the token. The query `routes=nats,websocket` limits the connections of the worker within what the token allows. A script holds the token: do not share it. The shell script never prints the token and never puts it on a command line.
 
-To remove a worker that the install script set up, see the note it prints at the end: `systemctl disable --now localai-worker`, remove `/etc/localai/worker.env`, the unit and the state directory, and delete the node on the Nodes page.
+To remove a worker that the install script set up, see the note it prints at the end: `systemctl disable --now localai-worker`, remove `/etc/localai/worker.env`, the unit and the state directory, and delete the worker on the Workers page.
 
 The scripts use the installer at `https://localai.io/install.sh` and `https://localai.io/install.ps1`. For a host with no internet access, serve a copy and set `LOCALAI_INSTALL_URL` before you run the script.
 
@@ -572,7 +572,7 @@ These routes are not exposed as tools of the LocalAI Assistant: a token is a cre
 
 A worker on another network (a laptop, a machine behind NAT, a box at another site) can join with a one-time **worker invite** instead of a URL and the registration token. The frontend must run P2P in mode `share` (Connect and share; see [P2P]({{%relref "administration/p2p" %}})).
 
-1. On the **Nodes** page, open **Add a node**, choose **Compute node** and **P2P invite**, and make an invite. The API is `POST /api/p2p/invites` with `{"kind": "worker"}`. A worker invite has no QR code.
+1. On the **Workers** page, press **Add worker**, choose **P2P** and continue: the page makes the invite. The API is `POST /api/p2p/invites` with `{"kind": "worker"}`. A worker invite has no QR code.
 2. On the new machine, run the command that the page shows:
 
    ```bash
@@ -1069,7 +1069,7 @@ A node is healthy while one of its `nats` or `tunnel` routes is live:
 
 A worker sends no heartbeat while it holds no route, so a worker that loses its only route goes stale and is marked `offline` after `--stale-node-threshold`. Each frontend that runs the health checks counts the grace on its own. A frontend that has not checked the node for three check intervals starts the grace again, which delays the mark.
 
-`GET /api/nodes` and `GET /api/nodes/{id}` return `route_state` for each node: a list of `{route, transport, state, reason}` entries, where `route` is `heartbeat`, `nats` or `tunnel`, `transport` is `websocket` or `p2p` for the tunnel, and `state` is `live`, `reconnecting` or `down`. The LocalAI Assistant tool `list_nodes` returns the same list as `routes`. On the Nodes page, the **Attached over** column of the worker table shows one chip per route with its state, and the reason when you point at it.
+`GET /api/nodes` and `GET /api/nodes/{id}` return `route_state` for each node: a list of `{route, transport, state, reason}` entries, where `route` is `heartbeat`, `nats` or `tunnel`, `transport` is `websocket` or `p2p` for the tunnel, and `state` is `live`, `reconnecting` or `down`. The LocalAI Assistant tool `list_nodes` returns the same list as `routes`. On the Workers page, the **Connections** column of the roster shows one chip per route with its state, and the reason when you point at it.
 
 ### Heartbeat writes and stale-node detection
 
@@ -1716,7 +1716,7 @@ Notes:
 
 ## Cluster settings
 
-The cluster settings are shared by every frontend through the database: the NATS addresses and the [carrier weights](#carrier-weights). Read and store them with the `local-ai cluster settings` command, the admin API, or the *Cluster transport* panel of the Nodes page.
+The cluster settings are shared by every frontend through the database: the NATS addresses and the [carrier weights](#carrier-weights). Read and store them with the `local-ai cluster settings` command, the admin API, or the Cluster settings of the Workers page.
 
 ### Save a NATS address
 
@@ -1770,7 +1770,7 @@ local-ai cluster settings set --carrier-weight p2p=default   # put the default b
 local-ai cluster settings                                      # show the weights in force
 ```
 
-The same fields are in `PUT /api/cluster/settings` (`carrier_weights`), in the **Carrier weights** form of the NATS settings on the Nodes page, and in the Assistant tools `get_carrier_weights` and `set_carrier_weights`.
+The same fields are in `PUT /api/cluster/settings` (`carrier_weights`), in the **Connection preference** sliders of the cluster settings, and in the Assistant tools `get_carrier_weights` and `set_carrier_weights`.
 
 State mode (see the distributed state rules): the weights are shared cluster settings in the database. Each frontend keeps what it read for up to 2 seconds, so two frontends can disagree for that long after a change. Nothing else is held in memory.
 
@@ -1853,7 +1853,7 @@ Upgrade the frontends and the workers **together**. A release with worker routes
 - **Removed with this release:** the `/api/cluster/carrier` route, the `local-ai cluster carrier` command, the `--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain` flags, the `switch.*` cluster settings and the `localai_carrier_*` metrics. Each worker holds the routes its operator gives it, and the frontends listen on every bus they have.
 - **The database is cleaned at start.** A frontend drops the `cluster_carrier` table, the `ready_epoch`, `ready_reason`, `availability` and `availability_at` columns of the `instances` table, the `attached_epoch` column of `backend_nodes`, and the stored `switch.*` settings. Nothing reads them.
 - **Rollback to an earlier release is not supported.** Downgrade the frontends and the workers together only to a release that has worker routes.
-- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_settings`, `instances`, `node_connections`, and `bus_messages`; one write per frontend per heartbeat; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the *Cluster transport* panel of the Nodes page.
+- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_settings`, `instances`, `node_connections`, and `bus_messages`; one write per frontend per heartbeat; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the Cluster settings of the Workers page.
 
 ## Observability
 
@@ -1926,7 +1926,7 @@ The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 
 
 **Node shows as unhealthy or offline:**
 - The HealthMonitor marks nodes offline when heartbeats are missed. Check network connectivity between worker and frontend.
-- A node that is `unhealthy` with a fresh heartbeat has no live route. Look at its `route_state` (the **Attached over** column of the Nodes page, or `GET /api/nodes`): the reason of each `down` route is the one the worker reported, for example `nats: connecting` for a NATS server it cannot reach, or a tunnel that is gone. The node becomes `healthy` again as soon as one route is live.
+- A node that is `unhealthy` with a fresh heartbeat has no live route. Look at its `route_state` (the **Connections** column of the Workers page, or `GET /api/nodes`): the reason of each `down` route is the one the worker reported, for example `nats: connecting` for a NATS server it cannot reach, or a tunnel that is gone. The node becomes `healthy` again as soon as one route is live.
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 

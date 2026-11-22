@@ -41,14 +41,13 @@ test.describe('Admin page template', () => {
     await signIn(page)
     await mockOperate(page)
     await page.goto('/app/users')
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Users and keys')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Users')
     const header = page.locator('.page-header')
     await expect(header.getByTestId('admin-crumbs')).toContainText('Access')
     await expect(page.locator('.page-header .dk-btn--primary')).toHaveCount(1)
     await header.getByRole('button', { name: 'Invite someone' }).click()
-    await expect(page).toHaveURL(/tab=invites/)
-    // The action belongs to the people view only.
-    await expect(header.getByRole('button', { name: 'Invite someone' })).toHaveCount(0)
+    await expect(page.getByTestId('invite-sheet')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/users$/)
   })
 
   test('Users: search, chips with counts and the sort sit in the filter bar', async ({ page }) => {

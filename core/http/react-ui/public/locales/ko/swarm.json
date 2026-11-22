@@ -130,68 +130,9 @@
     "title": "워커"
   },
   "add": {
-    "connect": {
-      "title": "어떻게 연결할까요?",
-      "url": "서버 주소",
-      "p2p": "P2P 초대",
-      "urlSub": "노드가 등록 토큰으로 이 서버의 주소에 연결합니다. 클러스터의 캐리어(NATS 또는 WebSocket 터널)를 사용합니다.",
-      "p2pSub": "노드가 어느 네트워크에서든 일회용 초대로 참여합니다. 피어 ID로 이 서버를 찾아 직접, 홀 펀칭으로, 또는 내 릴레이를 통해 연결합니다. 열린 포트와 등록 토큰이 필요 없습니다.",
-      "order": "이 클러스터의 순서: NATS, 그다음 WebSocket, 그다음 P2P. P2P로 참여한 노드는 항상 자신의 터널을 사용합니다."
-    },
-    "invite": {
-      "title": "초대 만들기",
-      "needsShare": "워커 초대에는 P2P 모드가 “연결 및 공유”여야 합니다.",
-      "settings": "P2P 설정 열기",
-      "name": "노드 이름(선택)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "초대 만들기",
-      "ready": "초대 준비됨",
-      "single": "일회용",
-      "expires": "만료까지",
-      "pass": "{{relay}}의 릴레이 패스",
-      "again": "새 초대",
-      "warn": {
-        "no_relay": "이 서버에는 릴레이가 없습니다. 엄격한 NAT 뒤의 노드는 연결할 수 없습니다.",
-        "open_relay": "초대에 누구나 쓸 수 있는 공개 릴레이가 들어 있습니다.",
-        "relay_unreachable": "릴레이가 응답하지 않아 초대에 릴레이 패스가 없습니다.",
-        "no_public_addr": "이 서버에는 공인 주소가 없습니다. 노드는 홀 펀칭이나 릴레이로 연결합니다."
-      }
-    },
-    "run": {
-      "inviteFirst": "먼저 초대를 만드세요. 명령에 초대 링크가 들어갑니다.",
-      "joinNote": "링크는 한 번만 작동합니다. 워커가 자신의 ID를 보관하므로 같은 명령으로 다시 시작해도 새 초대가 필요 없습니다."
-    },
-    "wait": {
-      "checkPeer": "승인하기 전에 머신을 운영하는 사람과 피어 ID를 확인하세요.",
-      "joinStuck": "아무것도 오지 않나요? 엄격한 NAT 뒤에서는 노드가 경로를 찾는 데 1분 정도 걸릴 수 있습니다. 초대가 만료되지 않았는지 확인하세요."
-    },
-    "join": {
-      "instanceNote": "요청의 일부를 처리할 다른 LocalAI 인스턴스는 노드가 아닙니다. 원격으로 추가한 다음 다음 위치에서 그룹으로 묶으세요:",
-      "instanceLink": "연합"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "직접",
-      "hole_punched": "홀 펀칭",
-      "relayed": "릴레이 경유"
-    },
-    "limited": "제한됨",
-    "limitedHint": "릴레이가 이 연결의 데이터나 시간을 제한합니다. 모델 파일은 이 경로로 전송되지 않습니다.",
-    "heartbeat": "하트비트",
-    "tunnel": "터널",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "연결됨",
-      "reconnecting": "재연결 중",
-      "down": "끊김"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "경로",
     "peer": "피어 ID"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "규칙",
       "failover": "페일오버"
     }
+  },
+  "rules": {
+    "byPrefix": "정책은 프리픽스 캐시입니다.",
+    "byRound": "정책은 라운드 로빈입니다.",
+    "kind": {
+      "inactive": "정책만"
+    },
+    "route": {
+      "default": "기본 정책",
+      "prefix_cache": "프리픽스 캐시 정책",
+      "round_robin": "라운드 로빈 정책"
+    }
+  },
+  "failover": {
+    "lostConnection": "연결:"
   }
 }

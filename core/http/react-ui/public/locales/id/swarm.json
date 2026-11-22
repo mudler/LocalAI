@@ -130,68 +130,9 @@
     "title": "Worker"
   },
   "add": {
-    "connect": {
-      "title": "Bagaimana node terhubung?",
-      "url": "Alamat server",
-      "p2p": "Undangan P2P",
-      "urlSub": "Node menghubungi alamat server ini dengan token registrasi. Node memakai carrier klaster: NATS, atau tunnel WebSocket.",
-      "p2pSub": "Node bergabung dari jaringan mana pun dengan undangan sekali pakai. Node menemukan server ini lewat peer ID-nya dan terhubung langsung, lewat hole punching, atau lewat relay Anda. Tidak perlu port terbuka dan tidak perlu token registrasi.",
-      "order": "Urutan di klaster ini: NATS, lalu WebSocket, lalu P2P. Node yang bergabung lewat P2P selalu memakai tunnel-nya."
-    },
-    "invite": {
-      "title": "Buat undangan",
-      "needsShare": "Undangan worker memerlukan P2P dalam mode Hubungkan dan bagikan.",
-      "settings": "Buka pengaturan P2P",
-      "name": "Nama node (opsional)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Buat undangan",
-      "ready": "Undangan siap",
-      "single": "Sekali pakai",
-      "expires": "kedaluwarsa dalam",
-      "pass": "pass relay di {{relay}}",
-      "again": "Undangan baru",
-      "warn": {
-        "no_relay": "Server ini tidak punya relay. Node di balik NAT ketat tidak bisa terhubung.",
-        "open_relay": "Undangan ini menyebut relay terbuka, yang bisa dipakai siapa saja.",
-        "relay_unreachable": "Relay tidak menjawab, jadi undangan ini tidak punya pass relay.",
-        "no_public_addr": "Server ini tidak punya alamat publik. Node terhubung lewat hole punching atau lewat relay."
-      }
-    },
-    "run": {
-      "inviteFirst": "Buat undangan terlebih dahulu. Perintahnya berisi tautan undangan.",
-      "joinNote": "Tautan hanya berlaku sekali. Worker menyimpan identitasnya, jadi restart dengan perintah yang sama tidak memerlukan undangan baru."
-    },
-    "wait": {
-      "checkPeer": "Cocokkan peer ID dengan orang yang menjalankan mesin sebelum Anda menyetujui.",
-      "joinStuck": "Tidak ada yang masuk? Di balik NAT ketat, node bisa butuh satu menit untuk menemukan jalur. Pastikan undangan belum kedaluwarsa."
-    },
-    "join": {
-      "instanceNote": "Instans LocalAI lain yang perlu menangani sebagian permintaan bukan node: tambahkan sebagai remote, lalu kelompokkan di",
-      "instanceLink": "Federasi"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Langsung",
-      "hole_punched": "Hole punching",
-      "relayed": "Lewat relay"
-    },
-    "limited": "Terbatas",
-    "limitedHint": "Relay membatasi data atau waktu koneksi ini. File model tidak melewatinya.",
-    "heartbeat": "Detak",
-    "tunnel": "Terowongan",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "aktif",
-      "reconnecting": "menyambung ulang",
-      "down": "terputus"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "Rute",
     "peer": "Peer ID"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "Aturan",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "Kebijakannya adalah prefix cache.",
+    "byRound": "Kebijakannya adalah round robin.",
+    "kind": {
+      "inactive": "Hanya kebijakan"
+    },
+    "route": {
+      "default": "Kebijakan default",
+      "prefix_cache": "Kebijakan prefix cache",
+      "round_robin": "Kebijakan round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Koneksi:"
   }
 }

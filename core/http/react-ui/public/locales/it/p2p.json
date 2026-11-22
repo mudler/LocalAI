@@ -1,6 +1,6 @@
 {
   "title": "Condivisione",
-  "supporting": "Dispositivi, remoti e nodi che raggiungono questo server via P2P, e gli inviti che li fanno entrare.",
+  "supporting": "Dispositivi e client remoti che raggiungono questo server tramite P2P, e gli inviti che permettono loro di entrare.",
   "loadStatusFailed": "Impossibile leggere lo stato di P2P.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "Tutti i modelli",
     "some_one": "{{count}} modello",
     "some_other": "{{count}} modelli"
+  },
+  "sharing": {
+    "on": "Condivisione attiva",
+    "address": "Il tuo indirizzo di condivisione",
+    "copy": "Copia",
+    "addressCopied": "Indirizzo di condivisione copiato",
+    "addressCopyFailed": "Impossibile copiare l'indirizzo di condivisione",
+    "settings": "Modalità e relay nelle impostazioni P2P",
+    "workersNote": "I worker entrati tramite P2P sono in Workers.",
+    "workersLink": "Vai a Workers"
   }
 }

@@ -19,7 +19,7 @@ Turn on user authentication to get accounts. See [Authentication]({{% relref "/a
 - **Admin**: manages models, backends, settings, users and add-ons. The first user who signs in is an admin.
 - **User**: uses the inference endpoints and the web interface. A user cannot change server settings.
 
-New people join in one of three ways, set by the registration mode: `open` (anyone), `approval` (an admin approves, and this is the default) or `invite` (an admin gives a single-use invite link, `/invite/<code>`). An admin creates invite links in **Settings > Users and keys**.
+New people join in one of three ways, set by the registration mode: `open` (anyone), `approval` (an admin approves, and this is the default) or `invite` (an admin gives a single-use invite link, `/invite/<code>`). An admin creates invite links in **Administration > Access > Users** with **Invite someone**.
 
 ## Features per user
 
@@ -29,7 +29,7 @@ An administrator switches parts of LocalAI on or off for each user. Some feature
 |---|---|
 | `collections`, `localai_assistant`, `agents`, `triggers`, `connectors`, `mcp_jobs`, `pages`, `addons`, `fine_tuning`, `quantization` | The API features, such as `chats`, `images`, `audio_speech` and `embeddings` |
 
-Administrators always have every feature. To change a user, open **Settings > Users and keys** and edit the permissions of the user. A feature that is off hides its pages and refuses its routes.
+Administrators always have every feature. To change a user, open **Administration > Access > Users** and edit the permissions of the user. A feature that is off hides its pages and refuses its routes.
 
 ## What is yours
 

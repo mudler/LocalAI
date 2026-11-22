@@ -1276,6 +1276,12 @@ export const clusterApi = {
     method: 'PUT',
     body: JSON.stringify(settings),
   }),
+  // Join tokens: mint one (the answer holds the plain token and the commands,
+  // once), list them, revoke one. Admin only; 503 on a frontend that is not
+  // distributed.
+  mintJoinToken: (body) => postJSON(API_CONFIG.endpoints.clusterJoinTokens, body),
+  joinTokens: () => fetchJSON(API_CONFIG.endpoints.clusterJoinTokens),
+  revokeJoinToken: (id) => fetchJSON(API_CONFIG.endpoints.clusterJoinToken(id), { method: 'DELETE' }),
 }
 
 export const nodesApi = {

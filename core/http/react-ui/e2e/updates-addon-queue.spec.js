@@ -62,7 +62,7 @@ test.describe('Updates: add-on upgrades on the shared queue', () => {
     await expect(button).toContainText('Update 3 ready')
     await button.click()
     // Leave the page right after the click: the Updates page unmounts.
-    await page.getByRole('link', { name: 'Home' }).first().click()
+    await page.getByRole('link', { name: 'Back to LocalAI' }).click()
     await expect(page).not.toHaveURL(/\/app\/updates/)
     await expect.poll(() => posts.map(p => p.id).sort(), { timeout: 10_000 }).toEqual(['mail', 'notes', 'tables'])
     // Each has its own operation identity, named in the confirm header.
@@ -74,7 +74,7 @@ test.describe('Updates: add-on upgrades on the shared queue', () => {
     await setup(page)
     await page.goto('/app/updates')
     await page.getByTestId('updates-update-ready').click()
-    await page.getByRole('link', { name: 'Home' }).first().click()
+    await page.getByRole('link', { name: 'Back to LocalAI' }).click()
     await page.goto('/app/updates')
     for (const id of IDS) {
       const row = rowOf(page, TITLES[id])

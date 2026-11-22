@@ -1,6 +1,6 @@
 {
   "title": "공유",
-  "supporting": "P2P로 이 서버에 접속하는 기기, 원격, 노드와 이들을 들여보내는 초대입니다.",
+  "supporting": "P2P로 이 서버에 접속하는 기기와 원격 연결, 그리고 이들이 참여하도록 허용하는 초대입니다.",
   "loadStatusFailed": "P2P 상태를 읽을 수 없습니다.",
   "tabs": {
     "label": "P2P",
@@ -420,5 +420,15 @@
     "all": "모든 모델",
     "some_one": "모델 {{count}}개",
     "some_other": "모델 {{count}}개"
+  },
+  "sharing": {
+    "on": "공유 사용 중",
+    "address": "내 공유 주소",
+    "copy": "복사",
+    "addressCopied": "공유 주소 복사됨",
+    "addressCopyFailed": "공유 주소를 복사할 수 없습니다",
+    "settings": "P2P 설정에서 모드와 릴레이 변경",
+    "workersNote": "P2P로 연결된 워커는 Workers 페이지에 있습니다.",
+    "workersLink": "Workers로 이동"
   }
 }

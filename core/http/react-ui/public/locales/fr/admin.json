@@ -109,7 +109,152 @@
   },
   "users": {
     "title": "Utilisateurs",
-    "subtitle": "Gérer les utilisateurs enregistrés, les rôles et les invitations"
+    "subtitle": "Les personnes qui peuvent se connecter et ce que chacune peut utiliser.",
+    "invite": "Inviter quelqu'un",
+    "summary": {
+      "label": "Utilisateurs en un coup d'œil",
+      "total": "Utilisateurs",
+      "totalUnit": "au total",
+      "active": "Actifs",
+      "activeUnit": "peuvent se connecter",
+      "waiting": "En attente d'approbation",
+      "waitingUnit": "inscriptions",
+      "admins": "Administrateurs",
+      "adminsUnit": "sur {{count}}"
+    },
+    "filters": {
+      "label": "Filtrer les utilisateurs",
+      "all": "Tous",
+      "pending": "En attente",
+      "admins": "Administrateurs",
+      "disabled": "Désactivés",
+      "inactive": "Inactifs depuis 30 j+"
+    },
+    "popover": {
+      "signIn": "Méthode de connexion",
+      "access": "Accès",
+      "any": "Tous",
+      "custom": "Accès personnalisé"
+    },
+    "search": {
+      "label": "Rechercher par nom ou e-mail",
+      "placeholder": "Rechercher un nom ou un e-mail"
+    },
+    "sort": {
+      "label": "Trier",
+      "name": "Nom",
+      "role": "Rôle",
+      "status": "Statut",
+      "provider": "Connexion",
+      "lastActive": "Dernière activité",
+      "keys": "Clés API"
+    },
+    "refresh": "Actualiser les utilisateurs",
+    "loading": "Chargement des utilisateurs",
+    "region": "Utilisateurs",
+    "caption": "Utilisateurs avec rôle, accès, statut, dernière activité et clés API",
+    "columns": {
+      "user": "Utilisateur",
+      "role": "Rôle",
+      "access": "Accès",
+      "status": "Statut",
+      "lastActive": "Dernière activité",
+      "keys": "Clés",
+      "actions": "Actions"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "utilisateur"
+    },
+    "state": {
+      "active": "Actif",
+      "pending": "En attente",
+      "disabled": "Désactivé"
+    },
+    "access": {
+      "all": "Accès complet",
+      "default": "Accès par défaut",
+      "models_one": "{{count}} modèle seulement",
+      "models_other": "{{count}} modèles seulement",
+      "more_one": "{{count}} fonctionnalité en plus",
+      "more_other": "{{count}} fonctionnalités en plus",
+      "fewer_one": "{{count}} fonctionnalité en moins",
+      "fewer_other": "{{count}} fonctionnalités en moins",
+      "limits_one": "{{count}} limite",
+      "limits_other": "{{count}} limites"
+    },
+    "noName": "(sans nom)",
+    "you": "vous",
+    "created": "Créé le {{date}}",
+    "never": "Jamais",
+    "approve": "Approuver l'utilisateur",
+    "approveShort": "Approuver",
+    "enable": "Activer",
+    "disable": "Désactiver l'utilisateur",
+    "disableFor": "Désactiver {{name}}",
+    "editAccessFor": "Modifier l'accès de {{name}}",
+    "actionsFor": "Actions pour {{name}}",
+    "showing": "{{shown}} sur {{total}} affichés.",
+    "cancel": "Annuler",
+    "undo": "Annuler l'action",
+    "dismiss": "Fermer",
+    "menu": {
+      "editAccess": "Modifier l'accès",
+      "makeAdmin": "Passer admin",
+      "makeUser": "Passer utilisateur",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "delete": "Supprimer…"
+    },
+    "sheet": {
+      "account": "Compte",
+      "activity": "Activité",
+      "apiKeys": "Clés API"
+    },
+    "empty": {
+      "title": "Aucun utilisateur pour l'instant",
+      "body": "Les personnes apparaissent ici lorsqu'elles s'inscrivent ou acceptent une invitation."
+    },
+    "noMatch": {
+      "title": "Aucun utilisateur correspondant",
+      "body": "Essayez une autre recherche ou un autre filtre.",
+      "clear": "Effacer les filtres"
+    },
+    "error": {
+      "title": "Impossible de charger les utilisateurs.",
+      "stale": "Impossible de joindre le serveur.",
+      "staleNote": "La liste ci-dessous date de {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} approuvé",
+      "disabled": "{{name}} désactivé",
+      "approveFailed": "Échec de l'approbation : {{message}}",
+      "disableFailed": "Échec de la désactivation : {{message}}",
+      "disabledUndo": "{{name}} désactivé. Annuler le réactive.",
+      "restored": "{{name}} est de nouveau actif",
+      "restoreFailed": "Échec de la restauration : {{message}}",
+      "roleChanged": "{{name}} est maintenant {{role}}",
+      "roleFailed": "Échec de la mise à jour du rôle : {{message}}",
+      "deleted": "Utilisateur supprimé",
+      "deleteFailed": "Échec de la suppression : {{message}}",
+      "passwordReset": "Mot de passe réinitialisé pour {{name}}",
+      "resetFailed": "Échec de la réinitialisation du mot de passe : {{message}}"
+    },
+    "reset": {
+      "title": "Réinitialiser le mot de passe",
+      "description": "Définissez un nouveau mot de passe pour {{name}}. Toutes les sessions existantes seront invalidées.",
+      "label": "Nouveau mot de passe",
+      "placeholder": "Nouveau mot de passe (12 caractères min.)",
+      "confirm": "Réinitialiser le mot de passe",
+      "busy": "Réinitialisation…",
+      "anyway": "Utiliser quand même ce mot de passe"
+    },
+    "delete": {
+      "title": "Supprimer l'utilisateur",
+      "description": "Ses sessions et ses clés API seront aussi supprimées. Cette action est irréversible.",
+      "type": "Saisissez <n>{{name}}</n> pour confirmer",
+      "confirm": "Supprimer",
+      "busy": "Suppression…"
+    }
   },
   "usage": {
     "title": "Utilisation",
@@ -210,5 +355,56 @@
       }
     },
     "addonSettings": "Paramètres de {{name}}"
+  },
+  "invites": {
+    "title": "Inviter quelqu'un",
+    "description": "Créez un lien qui permet à une personne de s'inscrire. Le lien reste valable jusqu'à son expiration.",
+    "close": "Fermer",
+    "lifetime": "Nouveau lien d'invitation valable",
+    "life": {
+      "24": "1 jour",
+      "168": "7 jours",
+      "720": "30 jours"
+    },
+    "generate": "Générer le lien d'invitation",
+    "created": "Lien d'invitation créé",
+    "createFailed": "Échec de la création de l'invitation : {{message}}",
+    "copiedToast": "URL d'invitation copiée dans le presse-papiers",
+    "copyFailed": "Échec de la copie de l'URL",
+    "copyUrl": "Copier l'URL d'invitation",
+    "copy": "Copier",
+    "revoked": "Invitation révoquée",
+    "revokeFailed": "Échec de la révocation de l'invitation : {{message}}",
+    "loading": "Chargement des invitations",
+    "loadFailed": "Impossible de charger les invitations.",
+    "region": "Invitations",
+    "caption": "Liens d'invitation avec leur créateur et leur utilisateur",
+    "empty": {
+      "title": "Aucun lien d'invitation.",
+      "body": "Générez-en un pour permettre à quelqu'un de s'inscrire."
+    },
+    "columns": {
+      "link": "Lien d'invitation",
+      "createdBy": "Créé par",
+      "usedBy": "Utilisé par",
+      "expires": "Expire le",
+      "actions": "Actions"
+    },
+    "state": {
+      "open": "Disponible",
+      "used": "Utilisé",
+      "expired": "Expiré"
+    },
+    "revoke": "Révoquer",
+    "revokeTitle": "Révoquer l'invitation",
+    "revokeDialog": {
+      "title": "Révoquer l'invitation",
+      "description": "Le lien cesse de fonctionner immédiatement. Les personnes déjà inscrites avec ce lien conservent leur compte.",
+      "body": "Révoquer le lien d'invitation qui commence par {{prefix}} ?"
+    }
+  },
+  "apiKeys": {
+    "title": "Clés API",
+    "subtitle": "Vos propres clés pour les programmes qui appellent ce serveur."
   }
 }

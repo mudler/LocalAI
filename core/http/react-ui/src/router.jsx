@@ -163,6 +163,7 @@ const Prometheus = page(null, () => import('./pages/Prometheus'))
 // eslint-disable-next-line no-unused-vars
 const TracePage = page(null, () => import('./pages/TracePage'))
 const Users = page('users', () => import('./pages/Users'))
+const ApiKeys = page('api-keys', () => import('./pages/ApiKeys'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
 const Account = page('account', () => import('./pages/Account'))
 const Addons = page('addons', () => import('./pages/Addons'))
@@ -360,6 +361,7 @@ const appChildren = [
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'api-keys', element: <RequireAuthEnabled><Admin><ApiKeys /></Admin></RequireAuthEnabled> },
       { path: 'chats-admin', element: <Admin><ServerSwitch name="chats" to="/app/operate"><ChatsAdmin /></ServerSwitch></Admin> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
       { path: 'failover', element: <Admin><FailoverEntry /></Admin> },

@@ -1,56 +1,69 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useOutletContext } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { nodesApi } from '../utils/api'
-import { filterNodes, paginateNodes, runBounded, sortNodes, summarizeFleet } from '../utils/nodeFleet'
-import { DISTRIBUTED_COMMAND, attentionOf, memoryOf, updateTargets } from '../utils/swarm'
+import { paginateNodes, runBounded, sortNodes } from '../utils/nodeFleet'
+import { DISTRIBUTED_COMMAND, attentionOf, memoryOf, updateTargets, updateTargetsForNode } from '../utils/swarm'
+import { chipCounts, isSplit, matchesChip, matchesQuery, rosterSummary, splitAsRow } from '../utils/workerRoster'
 import { useNodeList, usePhone, useReplicas } from '../hooks/useSwarm'
+import { useClusterSettings } from '../hooks/useClusterSettings'
+import { useSplitManagement } from '../hooks/useSplitManagement'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
 import { useUpdates } from '../contexts/UpdatesContext'
 import { entriesFromPairs } from '../utils/nodeUpdates'
 import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
-import { Button, Callout, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, Segmented, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SideSheet from '../components/SideSheet'
+import AdminPage from '../components/admin/AdminPage'
+import AdminFilterBar from '../components/admin/AdminFilterBar'
 import LocalMachineView from '../components/nodes/LocalMachineView'
-import ClusterTransport from '../components/nodes/ClusterTransport'
-import AddNodeFlow from '../components/swarm/AddNodeFlow'
+import ClusterSheet from '../components/cluster/ClusterSheet'
 import CommandBlock from '../components/swarm/CommandBlock'
+import ConnectivityPill from '../components/swarm/ConnectivityPill'
+import FleetStrip from '../components/swarm/FleetStrip'
 import NodeMap from '../components/swarm/NodeMap'
-import FleetHero from '../components/swarm/FleetHero'
-import NodeInspector from '../components/swarm/NodeInspector'
-import NodeList from '../components/swarm/NodeList'
 import RunningModels from '../components/swarm/RunningModels'
+import WorkerInspector, { SplitInspector } from '../components/swarm/WorkerInspector'
+import WorkerRoster from '../components/swarm/WorkerRoster'
 import SplitWorkers from '../components/swarm/SplitWorkers'
+import { SplitCallout, SplitDialogs } from '../components/swarm/SplitParts'
 import Icon from '../components/Icon'
 import './swarm.css'
 import './swarm-nodes.css'
 
-const STATUSES = ['healthy', 'draining', 'pending', 'unhealthy', 'offline']
+const CHIPS = ['all', 'healthy', 'attention', 'offline', 'pending']
 const SORTS = [['name', 'table.node'], ['status', 'table.state'], ['_memory', 'table.memory'], ['model_count', 'table.models'], ['_seen', 'table.lastSeen'], ['version', 'table.version']]
 const ATTENTION_FILTERS = ['pending', 'down', 'lowVram', 'lowRam', 'lowDisk']
+const TYPES = ['backend', 'agent', 'model-split']
 
-// The distributed install, seen as a roster of nodes, a map of them, or the
-// models running across them. A single install never reaches this page's
-// cluster view: it shows the machine instead, with the way to add more.
+// The workers of the cluster as one roster: every machine, whatever way it
+// connects, with the connections it holds and their state, and the inspector of
+// the chosen one beside it. A header with the connectivity of the frontends and
+// two buttons: the cluster settings (a side sheet) and Add worker. The roster
+// is also drawn as a map of the workers, or as the models running across them.
+// A single install never reaches the cluster view: it shows the machine
+// instead, with the way to add more.
 export default function Nodes() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
+  const { t: tc } = useTranslation('cluster')
   const summary = useOperateSummary()
   const { nodes, status: loadStatus, refetch } = useNodeList()
   const replicas = useReplicas()
+  const cluster = useClusterSettings({ enabled: loadStatus === 'ready' })
+  const m = useSplitManagement({ addToast, nodes: loadStatus === 'ready' ? nodes : undefined, enabled: loadStatus === 'ready' })
   const phone = usePhone()
   // Below this width the inspector is a sheet that a chosen row opens, not a column.
   const stacked = usePhone('(max-width: 1199px)')
 
   const [view, setView] = useState('list')
   const [query, setQuery] = useState('')
-  const [state, setState] = useState('')
+  const [chip, setChip] = useState('all')
   const [type, setType] = useState('')
   const [groupBy, setGroupBy] = useState('none')
-  const [needsOnly, setNeedsOnly] = useState(false)
-  const [reason, setReason] = useState(null)
+  const [reason, setReason] = useState('')
   const [sort, setSort] = useState({ key: 'name', direction: 'asc' })
   const [page, setPage] = useState(1)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
@@ -62,6 +75,7 @@ export default function Nodes() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmNode, setConfirmNode] = useState(null)
   const [oneBusy, setOneBusy] = useState(false)
+  const [clusterOpen, setClusterOpen] = useState(false)
 
   // Phones do not draw the map: a tangle of lines is no use at 390 px.
   const shownView = phone && view === 'map' ? 'list' : view
@@ -81,7 +95,9 @@ export default function Nodes() {
   }, [nodes, loadStatus])
 
   const reasons = useMemo(() => attentionOf(nodes), [nodes])
-  const fleet = useMemo(() => summarizeFleet(nodes), [nodes])
+  const nodeNames = useMemo(() => new Map(nodes.map(node => [node.id, node.name])), [nodes])
+  // Every machine of the cluster: the nodes and the model-split workers.
+  const allRows = useMemo(() => [...nodes, ...m.split.workers.map(worker => splitAsRow(worker, nodeNames))], [nodes, m.split.workers, nodeNames])
   const modelsByNode = useMemo(() => {
     if (replicas.state !== 'loaded') return null
     const map = new Map()
@@ -91,32 +107,32 @@ export default function Nodes() {
     }
     return map
   }, [replicas.rows, replicas.state])
+  const strip = useMemo(() => rosterSummary(allRows, reasons, modelsByNode), [allRows, reasons, modelsByNode])
   const runningCount = useMemo(() => {
     if (replicas.state !== 'loaded') return nodes.reduce((sum, node) => sum + (node.model_count || 0), 0)
     return new Set(replicas.rows.filter(row => !row.state || row.state === 'loaded').map(row => row.model_name)).size
   }, [nodes, replicas.rows, replicas.state])
   const labelKeys = useMemo(() => [...new Set(nodes.flatMap(node => Object.keys(node.labels || {})))].sort(), [nodes])
   const reasonCounts = useMemo(() => Object.fromEntries(ATTENTION_FILTERS.map(key => [key, [...reasons.values()].filter(list => list.includes(key)).length])), [reasons])
+  const counts = useMemo(() => chipCounts(allRows, reasons), [allRows, reasons])
 
-  const filtered = useMemo(() => {
-    const base = filterNodes(nodes, { query, statuses: state ? [state] : [], types: type ? [type] : [] })
-    if (!needsOnly) return base
-    return base.filter(node => {
-      const why = reasons.get(node.id)
-      return why && (!reason || why.includes(reason))
-    })
-  }, [nodes, query, state, type, needsOnly, reason, reasons])
+  const filtered = useMemo(() => allRows.filter(row => (
+    matchesChip(row, chip, reasons)
+    && matchesQuery(row, query, modelsByNode?.get(row.id))
+    && (!type || (row.node_type || 'backend') === type)
+    && (!reason || reasons.get(row.id)?.includes(reason))
+  )), [allRows, chip, query, type, reason, reasons, modelsByNode])
   const ordered = useMemo(() => {
-    const keyed = filtered.map(node => ({ ...node, _memory: memoryOf(node)?.total ?? null, _seen: Date.parse(node.last_heartbeat) || null }))
+    const keyed = filtered.map(row => ({ ...row, _memory: isSplit(row) ? row.total_ram : memoryOf(row)?.total ?? null, _seen: Date.parse(row.last_heartbeat) || null }))
     return sortNodes(keyed, sort)
   }, [filtered, sort])
   const pagination = useMemo(() => paginateNodes(ordered, page), [ordered, page])
 
   useEffect(() => { if (pagination.page !== page) setPage(pagination.page) }, [page, pagination.page])
-  useEffect(() => { setPage(1) }, [query, state, type, needsOnly, reason, groupBy])
+  useEffect(() => { setPage(1) }, [query, chip, type, reason, groupBy])
 
-  // The wide layout always shows a node: the one chosen, else the first.
-  const inspected = ordered.find(node => node.id === activeId) || (stacked ? null : pagination.items[0] || null)
+  // The wide layout always shows a worker: the one chosen, else the first.
+  const inspected = ordered.find(row => row.id === activeId) || (stacked ? null : pagination.items[0] || null)
   const inspect = id => { setActiveId(id); if (stacked) setSheetOpen(true) }
 
   const runOne = async (node, action, toastKey) => {
@@ -181,146 +197,165 @@ export default function Nodes() {
   // nodes one after another and shows each result.
   const updates = useUpdates()
   const [updatePlan, setUpdatePlan] = useState(null)
-  const updateBackends = () => {
-    if (targets.pairs.length === 0) return
-    setUpdatePlan(entriesFromPairs({
-      pairs: targets.pairs,
-      items: updates && updates.snapshot ? updates.snapshot.items : [],
-      nodes,
-      upgrades: summary?.upgrades,
-    }))
-  }
+  const planFor = pairs => setUpdatePlan(entriesFromPairs({
+    pairs,
+    items: updates && updates.snapshot ? updates.snapshot.items : [],
+    nodes,
+    upgrades: summary?.upgrades,
+  }))
+  const updateBackends = () => { if (targets.pairs.length > 0) planFor(targets.pairs) }
+  const inspectedNodeTargets = useMemo(
+    () => (inspected && !isSplit(inspected) ? updateTargetsForNode({ upgrades: summary?.upgrades, nodes, nodeId: inspected.id }) : null),
+    [inspected, summary?.upgrades, nodes],
+  )
+
+  const cta = (
+    <>
+      <Button icon="settings" onClick={() => setClusterOpen(true)} data-testid="cluster-settings-open">{tc('sheet.title')}</Button>
+      <Button variant="primary" icon="plus" to="/app/nodes/add" data-testid="add-worker">{tc('page.add')}</Button>
+    </>
+  )
+  const clusterSheet = clusterOpen ? <ClusterSheet onClose={() => setClusterOpen(false)} /> : null
+
   if (loadStatus === 'loading') return <div className="page page--wide sw-page"><SkeletonRows /></div>
   if (loadStatus === 'single') {
     return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} extra={<SplitWorkers addToast={addToast} />} />
   }
-  if (loadStatus === 'ready' && nodes.length === 0) {
+  if (loadStatus === 'ready' && allRows.length === 0) {
     return (
-      <div className="page page--wide sw-page" data-testid="swarm-first-run">
-        <header className="sw-head">
-          <h1 className="sw-title">{t('first.title')}</h1>
-          <p className="sw-note">{t('first.sub')}</p>
-        </header>
-        <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
-        <ClusterTransport nodes={nodes} />
-        <SplitWorkers addToast={addToast} />
-      </div>
+      <AdminPage
+        title={t('nodes.title')} width="full" action={cta} sheet={clusterSheet} data-testid="swarm-first-run"
+        supporting={<ConnectivitySupporting text={tc('page.supportingEmpty')} settings={cluster.data} />}
+      >
+        <EmptyState
+          title={t('first.title')} body={t('first.sub')} icon="nodes"
+          actions={<Button variant="primary" icon="plus" to="/app/nodes/add">{tc('page.add')}</Button>}
+        />
+      </AdminPage>
     )
   }
 
-  const attentionCount = reasons.size
+  const inspector = inspected && (isSplit(inspected)
+    ? <SplitInspector worker={inspected._split} m={m} />
+    : (
+      <WorkerInspector
+        node={inspected}
+        nodes={nodes}
+        onChanged={refetch}
+        addToast={addToast}
+        rows={replicas.rows.filter(row => row.node_id === inspected.id)}
+        reasons={reasons.get(inspected.id)}
+        weights={cluster.data}
+        busy={oneBusy}
+        updates={inspectedNodeTargets?.pairs.length || 0}
+        onUpdate={() => planFor(inspectedNodeTargets.pairs)}
+        onApprove={() => runOne(inspected, 'approve', 'toast.approvedOne')}
+        onDrain={() => setConfirmNode({ node: inspected, action: 'drain' })}
+        onResume={() => runOne(inspected, 'resume', 'toast.resumed')}
+        onRemove={() => setConfirmNode({ node: inspected, action: 'delete' })}
+      />
+    ))
+
   const updateLabel = targets.backends.length === 1
     ? t('update.named', { backend: targets.backends[0], count: targets.nodeIds.length })
     : t('update.many', { count: targets.nodeIds.length })
-  const inspector = inspected && (
-    <NodeInspector
-      node={inspected}
-      nodes={nodes}
-      onChanged={refetch}
-      addToast={addToast}
-      rows={replicas.rows.filter(row => row.node_id === inspected.id)}
-      reasons={reasons.get(inspected.id)}
-      busy={oneBusy}
-      onApprove={() => runOne(inspected, 'approve', 'toast.approvedOne')}
-      onDrain={() => setConfirmNode({ node: inspected, action: 'drain' })}
-      onResume={() => runOne(inspected, 'resume', 'toast.resumed')}
-      onRemove={() => setConfirmNode({ node: inspected, action: 'delete' })}
-    />
+  const filterCount = [type, groupBy !== 'none', reason].filter(Boolean).length
+  const select = (label, value, onChange, children) => (
+    <label className="wk-filter">
+      <span>{label}</span>
+      <span className="dk-select-wrap"><select className="dk-select" value={value} onChange={event => onChange(event.target.value)}>{children}</select></span>
+    </label>
   )
 
   return (
-    <div className="page page--wide sw-page" data-testid="swarm-nodes">
-      <h1 className="dk-sr-only">{t('nodes.title')}</h1>
-
+    <AdminPage
+      title={t('nodes.title')}
+      width="full"
+      className="wk-page"
+      data-testid="swarm-nodes"
+      action={cta}
+      sheet={clusterSheet}
+      supporting={<ConnectivitySupporting text={tc('page.supporting', { online: strip.online, total: strip.total })} settings={cluster.data} />}
+      summary={<FleetStrip summary={strip} />}
+    >
       {loadStatus === 'error' && (
         <Callout tone="error" role="alert" title={t('nodes.stale')} actions={<Button size="sm" icon="refresh" onClick={refetch}>{t('nodes.retry')}</Button>} />
       )}
+      <SplitCallout m={m} />
 
-      <FleetHero summary={fleet} running={runningCount} attention={attentionCount} />
-      <ClusterTransport nodes={nodes} />
-
-      <div className="sw-bar">
-        <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>
-          <button type="button" role="radio" aria-checked={shownView === 'list'} className="dk-seg" onClick={() => setView('list')}><Icon name="list" /> {t('nodes.list')} <span className="sw-chip__n">{nodes.length}</span></button>
-          {!phone && <button type="button" role="radio" aria-checked={shownView === 'map'} className="dk-seg" onClick={() => setView('map')}><Icon name="nodes" /> {t('nodes.map')}</button>}
-          <button type="button" role="radio" aria-checked={shownView === 'models'} className="dk-seg" onClick={() => setView('models')}><Icon name="layers" /> {t('nodes.running')} <span className="sw-chip__n">{runningCount}</span></button>
-        </div>
-        <div className="sw-bar__acts">
-          {targets.pairs.length > 0 && (
-            <Button icon="arrow-up" onClick={updateBackends} data-testid="bulk-update">{updateLabel}</Button>
-          )}
-          <div className="sw-chips" role="group" aria-label={t('nodes.filter')}>
-            <button type="button" className="dk-chip" aria-pressed={!needsOnly} onClick={() => { setNeedsOnly(false); setReason(null) }}>
-              {t('nodes.all')} <span className="sw-chip__n">{nodes.length}</span>
-            </button>
-            <button type="button" className="dk-chip" aria-pressed={needsOnly} onClick={() => setNeedsOnly(true)}>
-              {t('nodes.needs')} <span className="sw-chip__n">{attentionCount}</span>
-            </button>
-          </div>
-          <Button variant="primary" icon="plus" to="/app/nodes/add">{t('nodes.add')}</Button>
-        </div>
-      </div>
-
-      {needsOnly && shownView === 'list' && (
-        <div className="sw-chips" role="group" aria-label={t('nodes.reasons')}>
-          {ATTENTION_FILTERS.filter(key => reasonCounts[key] > 0 || reason === key).map(key => (
-            <button key={key} type="button" className="dk-chip dk-chip--sm" aria-pressed={reason === key} onClick={() => setReason(reason === key ? null : key)}>
-              {t(`attention.${key}Filter`)} <span className="sw-chip__n">{reasonCounts[key]}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <AdminFilterBar
+        search={{ value: query, onChange: setQuery, label: tc('page.search'), placeholder: tc('page.searchPlaceholder') }}
+        chips={{
+          label: t('nodes.filter'), value: chip, onChange: setChip,
+          options: CHIPS.map(id => ({ id, label: tc(`page.chip.${id}`), count: counts[id] })),
+        }}
+        filters={{
+          count: filterCount,
+          children: (
+            <>
+              {select(t('nodes.filterType'), type, setType, (
+                <>
+                  <option value="">{t('nodes.anyType')}</option>
+                  {TYPES.map(value => <option key={value} value={value}>{tc(`page.type.${value}`)}</option>)}
+                </>
+              ))}
+              {select(t('nodes.group'), groupBy, setGroupBy, (
+                <>
+                  <option value="none">{t('nodes.noGroup')}</option>
+                  <option value="node_type">{t('nodes.groupType')}</option>
+                  {labelKeys.map(key => <option key={key} value={`label:${key}`}>{t('nodes.groupLabel', { key })}</option>)}
+                </>
+              ))}
+              {select(tc('page.reason'), reason, setReason, (
+                <>
+                  <option value="">{tc('page.anyReason')}</option>
+                  {ATTENTION_FILTERS.filter(key => reasonCounts[key] > 0 || reason === key).map(key => <option key={key} value={key}>{t(`attention.${key}Filter`)} ({reasonCounts[key]})</option>)}
+                </>
+              ))}
+            </>
+          ),
+        }}
+        sort={{
+          value: sort.key, onChange: key => setSort({ key, direction: 'asc' }),
+          options: SORTS.map(([key, label]) => ({ id: key, label: t(label) })),
+        }}
+        extra={(
+          <>
+            <Button
+              size="sm" icon="arrow-up" aria-label={t('nodes.sortDirection')} aria-pressed={sort.direction === 'desc'}
+              className="wk-sortdir" data-dir={sort.direction}
+              onClick={() => setSort(current => ({ ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }))}
+            />
+            {targets.pairs.length > 0 && <Button size="sm" icon="arrow-up" onClick={updateBackends} data-testid="bulk-update">{updateLabel}</Button>}
+            <Segmented
+              mode="radio" label={t('nodes.view')} value={shownView} onChange={setView}
+              options={[
+                { id: 'list', label: t('nodes.list') },
+                ...(phone ? [] : [{ id: 'map', label: t('nodes.map') }]),
+                { id: 'models', label: t('nodes.running'), count: runningCount },
+              ]}
+            />
+          </>
+        )}
+      />
 
       {shownView === 'list' && (
         <>
-          <div className="sw-filters">
-            <div className="dk-input-icon sw-search">
-              <Icon name="search" className="dk-icon" />
-              <input className="dk-input" type="search" aria-label={t('nodes.search')} placeholder={t('nodes.searchPlaceholder')} value={query} onChange={event => setQuery(event.target.value)} />
-            </div>
-            <select className="dk-select" aria-label={t('nodes.filterState')} value={state} onChange={event => setState(event.target.value)}>
-              <option value="">{t('nodes.anyState')}</option>
-              {STATUSES.map(value => <option key={value} value={value}>{t(`state.${value === 'unhealthy' ? 'down' : value}`)}</option>)}
-            </select>
-            <select className="dk-select" aria-label={t('nodes.filterType')} value={type} onChange={event => setType(event.target.value)}>
-              <option value="">{t('nodes.anyType')}</option>
-              <option value="backend">backend</option>
-              <option value="agent">agent</option>
-            </select>
-            <select className="dk-select" aria-label={t('nodes.group')} value={groupBy} onChange={event => setGroupBy(event.target.value)}>
-              <option value="none">{t('nodes.noGroup')}</option>
-              <option value="node_type">{t('nodes.groupType')}</option>
-              {labelKeys.map(key => <option key={key} value={`label:${key}`}>{t('nodes.groupLabel', { key })}</option>)}
-            </select>
-            <select className="dk-select" aria-label={t('nodes.sort')} value={sort.key} onChange={event => setSort({ key: event.target.value, direction: 'asc' })}>
-              {SORTS.map(([key, label]) => <option key={key} value={key}>{t('nodes.sortBy', { by: t(label) })}</option>)}
-            </select>
-            <button
-              type="button"
-              className="dk-btn dk-btn--secondary dk-btn--icon sw-sortdir"
-              aria-label={t('nodes.sortDirection')}
-              aria-pressed={sort.direction === 'desc'}
-              onClick={() => setSort(current => ({ ...current, direction: current.direction === 'asc' ? 'desc' : 'asc' }))}
-            >
-              <Icon name="arrow-up" className="sw-sortdir__icon" data-dir={sort.direction} />
-            </button>
-          </div>
-
           {selectedIds.size > 0 && (
             <div className="sw-selection" role="group" aria-label={t('bulk.label')}>
               <strong aria-live="polite">{t('bulk.selected', { count: selectedIds.size })}</strong>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={bulkRunning} onClick={() => runBulk('drain')}>{t('bulk.drain')}</button>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={bulkRunning} onClick={() => runBulk('resume')}>{t('bulk.resume')}</button>
-              <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" disabled={bulkRunning} onClick={() => setConfirmRemove(true)}>{t('bulk.remove')}</button>
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={bulkRunning} onClick={() => setSelectedIds(new Set())}>{t('bulk.clear')}</button>
+              <Button size="sm" disabled={bulkRunning} onClick={() => runBulk('drain')}>{t('bulk.drain')}</Button>
+              <Button size="sm" disabled={bulkRunning} onClick={() => runBulk('resume')}>{t('bulk.resume')}</Button>
+              <Button size="sm" variant="danger" disabled={bulkRunning} onClick={() => setConfirmRemove(true)}>{t('bulk.remove')}</Button>
+              <Button size="sm" variant="ghost" disabled={bulkRunning} onClick={() => setSelectedIds(new Set())}>{t('bulk.clear')}</Button>
               <span className="sw-count" aria-live="polite">{t('bulk.inView', { count: ordered.length })}</span>
             </div>
           )}
 
           <div className="sw-split">
             <div className="dk-card sw-roster">
-              <NodeList
-                nodes={pagination.items}
+              <WorkerRoster
+                rows={pagination.items}
                 reasons={reasons}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
@@ -333,13 +368,13 @@ export default function Nodes() {
               />
               <div className="sw-pager">
                 <span>{t('pager.page', { page: pagination.page, total: pagination.totalPages })}</span>
-                <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-label={t('pager.previousAria')} disabled={pagination.page === 1} onClick={() => setPage(value => value - 1)}>{t('pager.previous')}</button>
-                <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-label={t('pager.nextAria')} disabled={pagination.page === pagination.totalPages} onClick={() => setPage(value => value + 1)}>{t('pager.next')}</button>
+                <Button size="sm" aria-label={t('pager.previousAria')} disabled={pagination.page === 1} onClick={() => setPage(value => value - 1)}>{t('pager.previous')}</Button>
+                <Button size="sm" aria-label={t('pager.nextAria')} disabled={pagination.page === pagination.totalPages} onClick={() => setPage(value => value + 1)}>{t('pager.next')}</Button>
               </div>
             </div>
             {!stacked && (
               <aside className="dk-card sw-inspector" aria-label={t('inspector.label')}>
-                {inspector || <p className="sw-insp__empty">{t('inspector.empty')}</p>}
+                {inspector || <p className="wk-insp__empty">{t('inspector.empty')}</p>}
               </aside>
             )}
           </div>
@@ -353,15 +388,14 @@ export default function Nodes() {
 
       {shownView === 'map' && (
         <>
-          <NodeMap nodes={needsOnly ? nodes.filter(node => reasons.has(node.id)) : nodes} rows={replicas.state === 'loaded' ? replicas.rows : null} />
+          <NodeMap nodes={chip === 'attention' ? nodes.filter(node => reasons.has(node.id)) : nodes} rows={replicas.state === 'loaded' ? replicas.rows : null} />
           <p className="sw-note sw-note--quiet">{t('map.note')}</p>
         </>
       )}
 
       {shownView === 'models' && <RunningModels nodes={nodes} replicas={replicas} addToast={addToast} />}
 
-      <SplitWorkers addToast={addToast} />
-
+      <SplitDialogs m={m} addToast={addToast} />
       <ConfirmDialog
         open={confirmRemove}
         title={t('bulk.removeTitle')}
@@ -391,7 +425,17 @@ export default function Nodes() {
           onSettled={() => { refetch(); summary?.refresh?.() }}
         />
       )}
-    </div>
+    </AdminPage>
+  )
+}
+
+// The sentence under the title, with the connectivity of the frontends beside it.
+function ConnectivitySupporting({ text, settings }) {
+  return (
+    <span className="wk-supporting">
+      <span>{text}</span>
+      <ConnectivityPill settings={settings} />
+    </span>
   )
 }
 

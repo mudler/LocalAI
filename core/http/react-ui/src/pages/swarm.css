@@ -199,6 +199,9 @@
 .sw-banner[data-level="error"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .sw-banner[data-level="warn"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .sw-banner strong { font-weight: var(--dk-weight-bold); }
+.sw-banner__routes { display: flex; flex-wrap: wrap; gap: var(--dk-space-1) var(--dk-space-4); margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; font-size: var(--dk-text-13); }
+.sw-banner__routes li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+.sw-banner__label { color: inherit; }
 .sw-banner__more { margin-top: var(--dk-space-2) !important; }
 .sw-banner .dk-link { color: inherit; text-decoration: underline; }
 

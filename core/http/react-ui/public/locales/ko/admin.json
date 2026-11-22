@@ -182,7 +182,152 @@
   },
   "users": {
     "title": "사용자",
-    "subtitle": "등록된 사용자, 역할, 초대를 관리합니다"
+    "subtitle": "로그인할 수 있는 사람과 각자가 사용할 수 있는 기능입니다.",
+    "invite": "사용자 초대",
+    "summary": {
+      "label": "사용자 요약",
+      "total": "사용자",
+      "totalUnit": "전체",
+      "active": "활성",
+      "activeUnit": "로그인 가능",
+      "waiting": "승인 대기",
+      "waitingUnit": "가입 요청",
+      "admins": "관리자",
+      "adminsUnit": "전체 {{count}}명 중"
+    },
+    "filters": {
+      "label": "사용자 필터",
+      "all": "전체",
+      "pending": "대기 중",
+      "admins": "관리자",
+      "disabled": "비활성",
+      "inactive": "30일 이상 미사용"
+    },
+    "popover": {
+      "signIn": "로그인 방식",
+      "access": "접근 권한",
+      "any": "모두",
+      "custom": "사용자 지정 권한"
+    },
+    "search": {
+      "label": "이름 또는 이메일로 검색",
+      "placeholder": "이름 또는 이메일 검색"
+    },
+    "sort": {
+      "label": "정렬",
+      "name": "이름",
+      "role": "역할",
+      "status": "상태",
+      "provider": "로그인",
+      "lastActive": "마지막 활동",
+      "keys": "API 키"
+    },
+    "refresh": "사용자 새로 고침",
+    "loading": "사용자 불러오는 중",
+    "region": "사용자",
+    "caption": "역할, 접근 권한, 상태, 마지막 활동, API 키가 표시된 사용자 목록",
+    "columns": {
+      "user": "사용자",
+      "role": "역할",
+      "access": "접근 권한",
+      "status": "상태",
+      "lastActive": "마지막 활동",
+      "keys": "키",
+      "actions": "작업"
+    },
+    "role": {
+      "admin": "관리자",
+      "user": "사용자"
+    },
+    "state": {
+      "active": "활성",
+      "pending": "대기 중",
+      "disabled": "비활성"
+    },
+    "access": {
+      "all": "전체 접근",
+      "default": "기본 접근",
+      "models_one": "모델 {{count}}개만",
+      "models_other": "모델 {{count}}개만",
+      "more_one": "기능 {{count}}개 추가",
+      "more_other": "기능 {{count}}개 추가",
+      "fewer_one": "기능 {{count}}개 제외",
+      "fewer_other": "기능 {{count}}개 제외",
+      "limits_one": "제한 {{count}}개",
+      "limits_other": "제한 {{count}}개"
+    },
+    "noName": "(이름 없음)",
+    "you": "나",
+    "created": "{{date}} 생성",
+    "never": "없음",
+    "approve": "사용자 승인",
+    "approveShort": "승인",
+    "enable": "활성화",
+    "disable": "사용자 비활성화",
+    "disableFor": "{{name}} 비활성화",
+    "editAccessFor": "{{name}} 접근 권한 편집",
+    "actionsFor": "{{name}} 작업",
+    "showing": "{{total}}명 중 {{shown}}명 표시.",
+    "cancel": "취소",
+    "undo": "실행 취소",
+    "dismiss": "닫기",
+    "menu": {
+      "editAccess": "접근 권한 편집",
+      "makeAdmin": "관리자로 지정",
+      "makeUser": "일반 사용자로 지정",
+      "resetPassword": "비밀번호 재설정",
+      "delete": "삭제…"
+    },
+    "sheet": {
+      "account": "계정",
+      "activity": "활동",
+      "apiKeys": "API 키"
+    },
+    "empty": {
+      "title": "아직 사용자가 없습니다",
+      "body": "가입하거나 초대를 수락하면 여기에 표시됩니다."
+    },
+    "noMatch": {
+      "title": "일치하는 사용자가 없습니다",
+      "body": "다른 검색어나 필터를 사용해 보세요.",
+      "clear": "필터 지우기"
+    },
+    "error": {
+      "title": "사용자를 불러올 수 없습니다.",
+      "stale": "서버에 연결할 수 없습니다.",
+      "staleNote": "아래 목록은 {{when}} 기준입니다."
+    },
+    "toast": {
+      "approved": "{{name}} 승인됨",
+      "disabled": "{{name}} 비활성화됨",
+      "approveFailed": "사용자 승인 실패: {{message}}",
+      "disableFailed": "사용자 비활성화 실패: {{message}}",
+      "disabledUndo": "{{name}} 비활성화됨. 실행 취소하면 다시 활성화됩니다.",
+      "restored": "{{name}} 다시 활성화됨",
+      "restoreFailed": "사용자 복원 실패: {{message}}",
+      "roleChanged": "{{name}} 역할: {{role}}",
+      "roleFailed": "역할 변경 실패: {{message}}",
+      "deleted": "사용자 삭제됨",
+      "deleteFailed": "사용자 삭제 실패: {{message}}",
+      "passwordReset": "{{name}} 비밀번호 재설정됨",
+      "resetFailed": "비밀번호 재설정 실패: {{message}}"
+    },
+    "reset": {
+      "title": "비밀번호 재설정",
+      "description": "{{name}}의 새 비밀번호를 설정합니다. 기존 세션은 모두 무효화됩니다.",
+      "label": "새 비밀번호",
+      "placeholder": "새 비밀번호 (12자 이상)",
+      "confirm": "비밀번호 재설정",
+      "busy": "재설정 중…",
+      "anyway": "그래도 이 비밀번호 사용"
+    },
+    "delete": {
+      "title": "사용자 삭제",
+      "description": "이 사용자의 세션과 API 키도 함께 삭제됩니다. 되돌릴 수 없습니다.",
+      "type": "확인하려면 <n>{{name}}</n>을(를) 입력하세요",
+      "confirm": "삭제",
+      "busy": "삭제 중…"
+    }
   },
   "usage": {
     "title": "사용량",
@@ -339,5 +484,56 @@
       }
     },
     "addonSettings": "{{name}} 설정"
+  },
+  "invites": {
+    "title": "사용자 초대",
+    "description": "한 사람이 가입할 수 있는 링크를 만듭니다. 링크는 만료 전까지 사용할 수 있습니다.",
+    "close": "닫기",
+    "lifetime": "새 초대 링크 유효 기간",
+    "life": {
+      "24": "1일",
+      "168": "7일",
+      "720": "30일"
+    },
+    "generate": "초대 링크 만들기",
+    "created": "초대 링크가 만들어짐",
+    "createFailed": "초대 생성 실패: {{message}}",
+    "copiedToast": "초대 URL을 클립보드에 복사함",
+    "copyFailed": "URL 복사 실패",
+    "copyUrl": "초대 URL 복사",
+    "copy": "복사",
+    "revoked": "초대 취소됨",
+    "revokeFailed": "초대 취소 실패: {{message}}",
+    "loading": "초대 불러오는 중",
+    "loadFailed": "초대를 불러올 수 없습니다.",
+    "region": "초대",
+    "caption": "초대 링크와 만든 사람 및 사용한 사람",
+    "empty": {
+      "title": "초대 링크가 없습니다.",
+      "body": "링크를 만들어 누군가 가입하도록 하세요."
+    },
+    "columns": {
+      "link": "초대 링크",
+      "createdBy": "생성자",
+      "usedBy": "사용자",
+      "expires": "만료",
+      "actions": "작업"
+    },
+    "state": {
+      "open": "사용 가능",
+      "used": "사용됨",
+      "expired": "만료됨"
+    },
+    "revoke": "취소",
+    "revokeTitle": "초대 취소",
+    "revokeDialog": {
+      "title": "초대 취소",
+      "description": "링크는 즉시 작동을 멈춥니다. 이미 이 링크로 가입한 사람의 계정은 유지됩니다.",
+      "body": "{{prefix}}(으)로 시작하는 초대 링크를 취소할까요?"
+    }
+  },
+  "apiKeys": {
+    "title": "API 키",
+    "subtitle": "이 서버를 호출하는 프로그램용 개인 키입니다."
   }
 }

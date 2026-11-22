@@ -182,7 +182,152 @@
   },
   "users": {
     "title": "Pengguna",
-    "subtitle": "Kelola pengguna terdaftar, peran, dan undangan"
+    "subtitle": "Orang yang bisa masuk dan apa saja yang boleh mereka gunakan.",
+    "invite": "Undang seseorang",
+    "summary": {
+      "label": "Ringkasan pengguna",
+      "total": "Pengguna",
+      "totalUnit": "seluruhnya",
+      "active": "Aktif",
+      "activeUnit": "bisa masuk",
+      "waiting": "Menunggu persetujuan",
+      "waitingUnit": "pendaftaran",
+      "admins": "Admin",
+      "adminsUnit": "dari {{count}}"
+    },
+    "filters": {
+      "label": "Saring pengguna",
+      "all": "Semua",
+      "pending": "Menunggu",
+      "admins": "Admin",
+      "disabled": "Dinonaktifkan",
+      "inactive": "Tidak aktif 30+ hari"
+    },
+    "popover": {
+      "signIn": "Metode masuk",
+      "access": "Akses",
+      "any": "Apa saja",
+      "custom": "Akses kustom"
+    },
+    "search": {
+      "label": "Cari berdasarkan nama atau email",
+      "placeholder": "Cari nama atau email"
+    },
+    "sort": {
+      "label": "Urutkan",
+      "name": "Nama",
+      "role": "Peran",
+      "status": "Status",
+      "provider": "Masuk",
+      "lastActive": "Terakhir aktif",
+      "keys": "Kunci API"
+    },
+    "refresh": "Segarkan pengguna",
+    "loading": "Memuat pengguna",
+    "region": "Pengguna",
+    "caption": "Pengguna dengan peran, akses, status, aktivitas terakhir, dan kunci API",
+    "columns": {
+      "user": "Pengguna",
+      "role": "Peran",
+      "access": "Akses",
+      "status": "Status",
+      "lastActive": "Terakhir aktif",
+      "keys": "Kunci",
+      "actions": "Tindakan"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "pengguna"
+    },
+    "state": {
+      "active": "Aktif",
+      "pending": "Menunggu",
+      "disabled": "Dinonaktifkan"
+    },
+    "access": {
+      "all": "Akses penuh",
+      "default": "Akses default",
+      "models_one": "hanya {{count}} model",
+      "models_other": "hanya {{count}} model",
+      "more_one": "{{count}} fitur tambahan",
+      "more_other": "{{count}} fitur tambahan",
+      "fewer_one": "{{count}} fitur lebih sedikit",
+      "fewer_other": "{{count}} fitur lebih sedikit",
+      "limits_one": "{{count}} batas",
+      "limits_other": "{{count}} batas"
+    },
+    "noName": "(tanpa nama)",
+    "you": "Anda",
+    "created": "Dibuat {{date}}",
+    "never": "Belum pernah",
+    "approve": "Setujui pengguna",
+    "approveShort": "Setujui",
+    "enable": "Aktifkan",
+    "disable": "Nonaktifkan pengguna",
+    "disableFor": "Nonaktifkan {{name}}",
+    "editAccessFor": "Ubah akses {{name}}",
+    "actionsFor": "Tindakan untuk {{name}}",
+    "showing": "Menampilkan {{shown}} dari {{total}}.",
+    "cancel": "Batal",
+    "undo": "Urungkan",
+    "dismiss": "Tutup",
+    "menu": {
+      "editAccess": "Ubah akses",
+      "makeAdmin": "Jadikan admin",
+      "makeUser": "Jadikan pengguna",
+      "resetPassword": "Atur ulang kata sandi",
+      "delete": "Hapus…"
+    },
+    "sheet": {
+      "account": "Akun",
+      "activity": "Aktivitas",
+      "apiKeys": "Kunci API"
+    },
+    "empty": {
+      "title": "Belum ada pengguna",
+      "body": "Pengguna akan muncul di sini saat mereka mendaftar atau menerima undangan."
+    },
+    "noMatch": {
+      "title": "Tidak ada pengguna yang cocok",
+      "body": "Coba pencarian atau filter lain.",
+      "clear": "Hapus filter"
+    },
+    "error": {
+      "title": "Pengguna tidak dapat dimuat.",
+      "stale": "Tidak dapat terhubung ke server.",
+      "staleNote": "Daftar di bawah berasal dari {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} disetujui",
+      "disabled": "{{name}} dinonaktifkan",
+      "approveFailed": "Gagal menyetujui pengguna: {{message}}",
+      "disableFailed": "Gagal menonaktifkan pengguna: {{message}}",
+      "disabledUndo": "{{name}} dinonaktifkan. Urungkan untuk mengaktifkannya kembali.",
+      "restored": "{{name}} aktif kembali",
+      "restoreFailed": "Gagal memulihkan pengguna: {{message}}",
+      "roleChanged": "{{name}} sekarang {{role}}",
+      "roleFailed": "Gagal memperbarui peran: {{message}}",
+      "deleted": "Pengguna dihapus",
+      "deleteFailed": "Gagal menghapus pengguna: {{message}}",
+      "passwordReset": "Kata sandi {{name}} telah diatur ulang",
+      "resetFailed": "Gagal mengatur ulang kata sandi: {{message}}"
+    },
+    "reset": {
+      "title": "Atur ulang kata sandi",
+      "description": "Atur kata sandi baru untuk {{name}}. Semua sesi yang ada akan dibatalkan.",
+      "label": "Kata sandi baru",
+      "placeholder": "Kata sandi baru (minimal 12 karakter)",
+      "confirm": "Atur ulang kata sandi",
+      "busy": "Mengatur ulang…",
+      "anyway": "Tetap gunakan kata sandi ini"
+    },
+    "delete": {
+      "title": "Hapus pengguna",
+      "description": "Sesi dan kunci API mereka juga akan dihapus. Tindakan ini tidak dapat dibatalkan.",
+      "type": "Ketik <n>{{name}}</n> untuk mengonfirmasi",
+      "confirm": "Hapus",
+      "busy": "Menghapus…"
+    }
   },
   "usage": {
     "title": "Penggunaan",
@@ -339,5 +484,56 @@
       }
     },
     "addonSettings": "Pengaturan {{name}}"
+  },
+  "invites": {
+    "title": "Undang seseorang",
+    "description": "Buat tautan yang memungkinkan satu orang mendaftar. Tautan berlaku sampai kedaluwarsa.",
+    "close": "Tutup",
+    "lifetime": "Tautan undangan baru berlaku selama",
+    "life": {
+      "24": "1 hari",
+      "168": "7 hari",
+      "720": "30 hari"
+    },
+    "generate": "Buat tautan undangan",
+    "created": "Tautan undangan dibuat",
+    "createFailed": "Gagal membuat undangan: {{message}}",
+    "copiedToast": "URL undangan disalin ke papan klip",
+    "copyFailed": "Gagal menyalin URL",
+    "copyUrl": "Salin URL undangan",
+    "copy": "Salin",
+    "revoked": "Undangan dicabut",
+    "revokeFailed": "Gagal mencabut undangan: {{message}}",
+    "loading": "Memuat undangan",
+    "loadFailed": "Undangan tidak dapat dimuat.",
+    "region": "Undangan",
+    "caption": "Tautan undangan beserta pembuat dan pengguna tautan",
+    "empty": {
+      "title": "Belum ada tautan undangan.",
+      "body": "Buat satu tautan agar seseorang bisa mendaftar."
+    },
+    "columns": {
+      "link": "Tautan undangan",
+      "createdBy": "Dibuat oleh",
+      "usedBy": "Digunakan oleh",
+      "expires": "Kedaluwarsa",
+      "actions": "Tindakan"
+    },
+    "state": {
+      "open": "Tersedia",
+      "used": "Digunakan",
+      "expired": "Kedaluwarsa"
+    },
+    "revoke": "Cabut",
+    "revokeTitle": "Cabut undangan",
+    "revokeDialog": {
+      "title": "Cabut undangan",
+      "description": "Tautan langsung berhenti berfungsi. Orang yang sudah mendaftar dengan tautan ini tetap memiliki akun mereka.",
+      "body": "Cabut tautan undangan yang diawali {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "Kunci API",
+    "subtitle": "Kunci pribadi Anda untuk program yang memanggil server ini."
   }
 }

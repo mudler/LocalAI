@@ -14,6 +14,9 @@ import AddonUpgradeSettings from '../components/settings/AddonUpgradeSettings'
 import ConnectorFilesSettings from '../components/settings/ConnectorFilesSettings'
 import OwnerBuiltinToolsSection from '../components/settings/OwnerBuiltinToolsSection'
 import PendingBar from '../components/settings/PendingBar'
+import ClusterSettings from '../components/cluster/ClusterSettings'
+import { useHubAuth } from '../components/hub/useHubAuth'
+import { matchSections } from '../utils/clusterSettings'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
 import { useAddonsWithSettings } from '../addons/useAddonRegistry'
@@ -36,6 +39,10 @@ const UNDO_MS = 10000
 // The Add-ons group is not a group of runtime settings: it lists the add-ons
 // that have settings, each a link to the Settings tab of its details.
 const ADDONS_GROUP = 'addons'
+// The Cluster group draws the cluster settings form, which keeps its own
+// settings and saves itself (see components/cluster). It exists only when the
+// cluster is enabled, and it sits after "Swarm and sharing" in the rail.
+const CLUSTER_GROUP = 'cluster'
 
 function AddonsGroup({ items }) {
   const { t, i18n } = useTranslation('admin')
@@ -134,6 +141,9 @@ function MemoryNow({ resources, settings, onRefresh }) {
 export default function Settings() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('cluster')
+  const { features, featuresLoaded } = useHubAuth()
+  const clusterOn = features.distributed === true
   const branding = useBranding()
   const [settings, setSettings] = useState(null)
   const [initial, setInitial] = useState(null)
@@ -148,9 +158,13 @@ export default function Settings() {
   // server settings of its feature use it, with the block's id as the hash.
   const [group, setGroup] = useState(() => {
     const asked = params.get('group')
-    return asked === ADDONS_GROUP || GROUPS.some(g => g.id === asked) ? asked : GROUPS[0].id
+    return asked === ADDONS_GROUP || asked === CLUSTER_GROUP || GROUPS.some(g => g.id === asked) ? asked : GROUPS[0].id
   })
   const [query, setQuery] = useState('')
+  // A link to the Cluster group on a server that has no cluster opens the first group.
+  useEffect(() => {
+    if (featuresLoaded && !clusterOn && group === CLUSTER_GROUP) setGroup(GROUPS[0].id)
+  }, [featuresLoaded, clusterOn, group])
   const [showDiff, setShowDiff] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [history, setHistory] = useState(loadHistory)
@@ -320,9 +334,23 @@ export default function Settings() {
   const changedFromDefault = withDefaults.filter(f => isChanged(f, settings)).length
   const showAddons = addonSettings.length > 0
   const onAddons = group === ADDONS_GROUP && showAddons
+  const onCluster = group === CLUSTER_GROUP && clusterOn
+  // The sections of the cluster form that a search finds.
+  const clusterFound = searching && clusterOn ? matchSections(query, id => `${tc(`${id}.title`)} ${tc('group.title')}`) : []
+  const shown = results.length + clusterFound.length
   const pageFields = FIELDS.filter(f => !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons')).length
-  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
+  const groupFields = onAddons || onCluster ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
   const active = GROUPS.find(g => g.id === group) || GROUPS[0]
+  const clusterButton = clusterOn && (
+    <button
+      key={CLUSTER_GROUP} type="button" className="st-group"
+      aria-current={!searching && onCluster ? 'true' : undefined}
+      data-group={CLUSTER_GROUP}
+      onClick={() => { setQuery(''); setGroup(CLUSTER_GROUP) }}
+    >
+      <span className="st-group__label">{tc('group.title')}</span>
+    </button>
+  )
 
   const countFor = (g) => FIELDS.filter(f => f.group === g.id && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons') && isChanged(f, settings)).length
   const draftIn = (g) => FIELDS.some(f => f.group === g.id && pendingKeys.has(f.key))
@@ -363,9 +391,9 @@ export default function Settings() {
 
       <div className="st-layout">
         <nav className="st-groups" aria-label="Setting groups">
-          {GROUPS.map(g => {
+          {GROUPS.flatMap(g => {
             const n = countFor(g)
-            return (
+            const button = (
               <button
                 key={g.id} type="button" className="st-group"
                 aria-current={!searching && group === g.id ? 'true' : undefined}
@@ -377,6 +405,7 @@ export default function Settings() {
                 {n > 0 && <span className="st-group__count" title={`${n} changed from default`}>{n}<span className="dk-sr-only"> changed from default</span></span>}
               </button>
             )
+            return g.id === 'swarm' && clusterButton ? [button, clusterButton] : [button]
           })}
           {showAddons && (
             <button
@@ -395,21 +424,34 @@ export default function Settings() {
           {searching ? (
             <section aria-label="Search results">
               <h2 className="st-h2" data-testid="settings-results-title">
-                {results.length === 0 ? 'No settings found' : `${results.length} ${results.length === 1 ? 'setting' : 'settings'} for “${query.trim()}”`}
-                {results.length > 0 && <span className="st-sub">across all groups</span>}
+                {shown === 0 ? 'No settings found' : `${shown} ${shown === 1 ? 'setting' : 'settings'} for “${query.trim()}”`}
+                {shown > 0 && <span className="st-sub">across all groups</span>}
               </h2>
-              {results.length === 0 ? (
+              {shown === 0 ? (
                 <EmptyState
                   variant="no-results"
                   body={<>Nothing matches. Try a word from the setting&apos;s name, its description, its key, or the section it used to be in, such as {OLD_SECTIONS.watchdog}.</>}
                   actions={<Button variant="ghost" size="sm" onClick={() => setQuery('')}>Clear search</Button>}
                 />
               ) : (
-                <div className="st-list" data-testid="settings-results">{results.map(f => renderField(f, true))}</div>
+                <>
+                  {results.length > 0 && <div className="st-list" data-testid="settings-results">{results.map(f => renderField(f, true))}</div>}
+                  {clusterFound.length > 0 && (
+                    <div className="st-cluster-results" data-testid="settings-cluster-results">
+                      <h3 className="st-h3">{tc('group.title')}</h3>
+                      <ClusterSettings sections={clusterFound} />
+                    </div>
+                  )}
+                </>
               )}
             </section>
           ) : onAddons ? (
             <AddonsGroup items={addonSettings} />
+          ) : onCluster ? (
+            <section aria-labelledby="st-group-title" data-testid="settings-cluster">
+              <h2 className="st-h2" id="st-group-title">{tc('group.title')}<span className="st-sub">{tc('group.hint')}</span></h2>
+              <ClusterSettings />
+            </section>
           ) : (
             <section aria-labelledby="st-group-title">
               <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
@@ -417,7 +459,7 @@ export default function Settings() {
               {group === 'backends' && settings.addon_host_settings_authority && <ConnectorFilesSettings />}
               {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
               {group === 'access' && (
-                <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>
+                <p className="st-note">Sign-in, users, invites and per-user API keys are under Access when authentication is on.</p>
               )}
               {group === 'tools' && (settings.addon_host_settings_authority
                 ? <OwnerBuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />

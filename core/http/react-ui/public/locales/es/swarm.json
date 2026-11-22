@@ -130,68 +130,9 @@
     "title": "Workers"
   },
   "add": {
-    "connect": {
-      "title": "¿Cómo debe conectarse?",
-      "url": "Dirección del servidor",
-      "p2p": "Invitación P2P",
-      "urlSub": "El nodo llama a la dirección de este servidor con el token de registro. Usa el transporte del clúster: NATS o el túnel WebSocket.",
-      "p2pSub": "El nodo se une desde cualquier red con una invitación de un solo uso. Encuentra este servidor por su ID de par y se conecta directamente, con perforación NAT o a través de tu relay. No necesita un puerto abierto ni un token de registro.",
-      "order": "Orden en este clúster: NATS, luego WebSocket, luego P2P. Un nodo que se une por P2P siempre usa su túnel."
-    },
-    "invite": {
-      "title": "Crear una invitación",
-      "needsShare": "Las invitaciones de worker necesitan P2P en modo Conectar y compartir.",
-      "settings": "Abrir los ajustes de P2P",
-      "name": "Nombre del nodo (opcional)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Crear invitación",
-      "ready": "Invitación lista",
-      "single": "Un solo uso",
-      "expires": "caduca en",
-      "pass": "pase de relay en {{relay}}",
-      "again": "Nueva invitación",
-      "warn": {
-        "no_relay": "Este servidor no tiene relay. Un nodo detrás de un NAT estricto no puede conectarse.",
-        "open_relay": "La invitación nombra un relay abierto, que cualquiera puede usar.",
-        "relay_unreachable": "El relay no respondió, así que la invitación no tiene pase de relay.",
-        "no_public_addr": "Este servidor no tiene dirección pública. El nodo se conecta con perforación NAT o a través de un relay."
-      }
-    },
-    "run": {
-      "inviteFirst": "Primero crea una invitación. El comando contiene el enlace de la invitación.",
-      "joinNote": "El enlace funciona una vez. El worker conserva su identidad, así que reiniciar con el mismo comando no necesita una invitación nueva."
-    },
-    "wait": {
-      "checkPeer": "Comprueba el ID de par con la persona que maneja la máquina antes de aprobar.",
-      "joinStuck": "¿No llega nada? Detrás de un NAT estricto el nodo puede tardar un minuto en encontrar un camino. Comprueba que la invitación no haya caducado."
-    },
-    "join": {
-      "instanceNote": "Otra instancia de LocalAI que deba atender parte de las solicitudes no es un nodo: añádela como remoto y agrúpala después en",
-      "instanceLink": "Federación"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Directa",
-      "hole_punched": "Perforación NAT",
-      "relayed": "Por un relay"
-    },
-    "limited": "Limitada",
-    "limitedHint": "El relay limita los datos o el tiempo de esta conexión. Los archivos de modelo no pasan por él.",
-    "heartbeat": "Latido",
-    "tunnel": "Túnel",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "activa",
-      "reconnecting": "reconectando",
-      "down": "caída"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "Ruta",
     "peer": "ID de par"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "Reglas",
       "failover": "Conmutación por error"
     }
+  },
+  "rules": {
+    "byPrefix": "Su política es prefix cache.",
+    "byRound": "Su política es round robin.",
+    "kind": {
+      "inactive": "Solo política"
+    },
+    "route": {
+      "default": "Política predeterminada",
+      "prefix_cache": "Política de prefix cache",
+      "round_robin": "Política de round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Conexión:"
   }
 }

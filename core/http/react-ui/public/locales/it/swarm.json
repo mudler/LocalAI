@@ -130,68 +130,9 @@
     "title": "Worker"
   },
   "add": {
-    "connect": {
-      "title": "Come deve collegarsi?",
-      "url": "Indirizzo del server",
-      "p2p": "Invito P2P",
-      "urlSub": "Il nodo chiama l’indirizzo di questo server con il token di registrazione. Usa il trasporto del cluster: NATS o il tunnel WebSocket.",
-      "p2pSub": "Il nodo entra da qualsiasi rete con un invito monouso. Trova questo server dal suo peer ID e si collega in diretta, con l’hole punching o tramite il tuo relay. Non servono porte aperte né token di registrazione.",
-      "order": "Ordine in questo cluster: NATS, poi WebSocket, poi P2P. Un nodo che entra via P2P usa sempre il suo tunnel."
-    },
-    "invite": {
-      "title": "Crea un invito",
-      "needsShare": "Gli inviti per i worker richiedono P2P in modalità Collega e condividi.",
-      "settings": "Apri le impostazioni P2P",
-      "name": "Nome del nodo (facoltativo)",
-      "namePlaceholder": "gpu-box-5",
-      "make": "Crea invito",
-      "ready": "Invito pronto",
-      "single": "Monouso",
-      "expires": "scade tra",
-      "pass": "pass del relay su {{relay}}",
-      "again": "Nuovo invito",
-      "warn": {
-        "no_relay": "Questo server non ha un relay. Un nodo dietro un NAT rigido non può collegarsi.",
-        "open_relay": "L’invito indica un relay aperto, che chiunque può usare.",
-        "relay_unreachable": "Il relay non ha risposto, quindi l’invito non ha un pass del relay.",
-        "no_public_addr": "Questo server non ha un indirizzo pubblico. Il nodo si collega con l’hole punching o tramite un relay."
-      }
-    },
-    "run": {
-      "inviteFirst": "Crea prima un invito. Il comando contiene il link dell’invito.",
-      "joinNote": "Il link funziona una volta. Il worker conserva la sua identità, quindi un riavvio con lo stesso comando non richiede un nuovo invito."
-    },
-    "wait": {
-      "checkPeer": "Verifica il peer ID con chi gestisce la macchina prima di approvare.",
-      "joinStuck": "Non arriva niente? Dietro un NAT rigido il nodo può impiegare un minuto a trovare un percorso. Controlla che l’invito non sia scaduto."
-    },
-    "join": {
-      "instanceNote": "Un'altra istanza LocalAI che deve servire una parte delle richieste non è un nodo: aggiungila come remoto, poi raggruppala in",
-      "instanceLink": "Federazione"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "Diretto",
-      "hole_punched": "Hole punching",
-      "relayed": "Tramite relay"
-    },
-    "limited": "Limitato",
-    "limitedHint": "Il relay limita i dati o la durata di questa connessione. I file dei modelli non passano da lì.",
-    "heartbeat": "Heartbeat",
-    "tunnel": "Tunnel",
-    "chip": "{{route}}: {{state}}",
-    "state": {
-      "live": "attiva",
-      "reconnecting": "in riconnessione",
-      "down": "interrotta"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "Percorso",
     "peer": "Peer ID"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "Regole",
       "failover": "Failover"
     }
+  },
+  "rules": {
+    "byPrefix": "La sua policy è prefix cache.",
+    "byRound": "La sua policy è round robin.",
+    "kind": {
+      "inactive": "Solo policy"
+    },
+    "route": {
+      "default": "Policy predefinita",
+      "prefix_cache": "Policy prefix cache",
+      "round_robin": "Policy round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Connessione:"
   }
 }

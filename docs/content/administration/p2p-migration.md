@@ -108,7 +108,7 @@ Before, a worker started with the token and the server found it on the
 network. Now each worker pairs with the server with its own invite.
 
 1. On the server, set `--p2p-mode share`.
-2. Open **Nodes**, **Add a node**, choose **Model-split worker**, pick the
+2. Open **Workers**, press **Add worker**, choose **Model-split worker**, pick the
    engine (llama.cpp or MLX) and make an invite.
 3. On the worker, run the command that the page shows, for example:
 

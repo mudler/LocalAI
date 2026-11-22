@@ -182,7 +182,152 @@
   },
   "users": {
     "title": "Benutzer",
-    "subtitle": "Registrierte Benutzer, Rollen und Einladungen verwalten"
+    "subtitle": "Personen, die sich anmelden können, und was jede davon nutzen darf.",
+    "invite": "Person einladen",
+    "summary": {
+      "label": "Benutzer im Überblick",
+      "total": "Benutzer",
+      "totalUnit": "insgesamt",
+      "active": "Aktiv",
+      "activeUnit": "kann sich anmelden",
+      "waiting": "Wartet auf Freigabe",
+      "waitingUnit": "Registrierungen",
+      "admins": "Admins",
+      "adminsUnit": "von {{count}}"
+    },
+    "filters": {
+      "label": "Benutzer filtern",
+      "all": "Alle",
+      "pending": "Ausstehend",
+      "admins": "Admins",
+      "disabled": "Deaktiviert",
+      "inactive": "Inaktiv seit 30+ Tagen"
+    },
+    "popover": {
+      "signIn": "Anmeldemethode",
+      "access": "Zugriff",
+      "any": "Beliebig",
+      "custom": "Benutzerdefinierter Zugriff"
+    },
+    "search": {
+      "label": "Nach Name oder E-Mail suchen",
+      "placeholder": "Name oder E-Mail suchen"
+    },
+    "sort": {
+      "label": "Sortieren",
+      "name": "Name",
+      "role": "Rolle",
+      "status": "Status",
+      "provider": "Anmeldung",
+      "lastActive": "Zuletzt aktiv",
+      "keys": "API-Schlüssel"
+    },
+    "refresh": "Benutzer aktualisieren",
+    "loading": "Benutzer werden geladen",
+    "region": "Benutzer",
+    "caption": "Benutzer mit Rolle, Zugriff, Status, letzter Aktivität und API-Schlüsseln",
+    "columns": {
+      "user": "Benutzer",
+      "role": "Rolle",
+      "access": "Zugriff",
+      "status": "Status",
+      "lastActive": "Zuletzt aktiv",
+      "keys": "Schlüssel",
+      "actions": "Aktionen"
+    },
+    "role": {
+      "admin": "Admin",
+      "user": "Benutzer"
+    },
+    "state": {
+      "active": "Aktiv",
+      "pending": "Ausstehend",
+      "disabled": "Deaktiviert"
+    },
+    "access": {
+      "all": "Voller Zugriff",
+      "default": "Standardzugriff",
+      "models_one": "nur {{count}} Modell",
+      "models_other": "nur {{count}} Modelle",
+      "more_one": "{{count}} zusätzliche Funktion",
+      "more_other": "{{count}} zusätzliche Funktionen",
+      "fewer_one": "{{count}} Funktion weniger",
+      "fewer_other": "{{count}} Funktionen weniger",
+      "limits_one": "{{count}} Limit",
+      "limits_other": "{{count}} Limits"
+    },
+    "noName": "(ohne Namen)",
+    "you": "du",
+    "created": "Erstellt {{date}}",
+    "never": "Nie",
+    "approve": "Benutzer freigeben",
+    "approveShort": "Freigeben",
+    "enable": "Aktivieren",
+    "disable": "Benutzer deaktivieren",
+    "disableFor": "{{name}} deaktivieren",
+    "editAccessFor": "Zugriff für {{name}} bearbeiten",
+    "actionsFor": "Aktionen für {{name}}",
+    "showing": "Zeigt {{shown}} von {{total}}.",
+    "cancel": "Abbrechen",
+    "undo": "Rückgängig",
+    "dismiss": "Schließen",
+    "menu": {
+      "editAccess": "Zugriff bearbeiten",
+      "makeAdmin": "Zum Admin machen",
+      "makeUser": "Zum Benutzer machen",
+      "resetPassword": "Passwort zurücksetzen",
+      "delete": "Löschen…"
+    },
+    "sheet": {
+      "account": "Konto",
+      "activity": "Aktivität",
+      "apiKeys": "API-Schlüssel"
+    },
+    "empty": {
+      "title": "Noch keine Benutzer",
+      "body": "Personen erscheinen hier, sobald sie sich registrieren oder eine Einladung annehmen."
+    },
+    "noMatch": {
+      "title": "Keine passenden Benutzer",
+      "body": "Versuche eine andere Suche oder einen anderen Filter.",
+      "clear": "Filter zurücksetzen"
+    },
+    "error": {
+      "title": "Die Benutzer konnten nicht geladen werden.",
+      "stale": "Der Server ist nicht erreichbar.",
+      "staleNote": "Die Liste unten stammt von {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} freigegeben",
+      "disabled": "{{name}} deaktiviert",
+      "approveFailed": "Freigabe fehlgeschlagen: {{message}}",
+      "disableFailed": "Deaktivieren fehlgeschlagen: {{message}}",
+      "disabledUndo": "{{name}} deaktiviert. Rückgängig machen aktiviert sie wieder.",
+      "restored": "{{name}} ist wieder aktiv",
+      "restoreFailed": "Wiederherstellen fehlgeschlagen: {{message}}",
+      "roleChanged": "{{name}} ist jetzt {{role}}",
+      "roleFailed": "Rolle konnte nicht aktualisiert werden: {{message}}",
+      "deleted": "Benutzer gelöscht",
+      "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
+      "passwordReset": "Passwort für {{name}} zurückgesetzt",
+      "resetFailed": "Zurücksetzen des Passworts fehlgeschlagen: {{message}}"
+    },
+    "reset": {
+      "title": "Passwort zurücksetzen",
+      "description": "Lege ein neues Passwort für {{name}} fest. Alle bestehenden Sitzungen werden ungültig.",
+      "label": "Neues Passwort",
+      "placeholder": "Neues Passwort (mind. 12 Zeichen)",
+      "confirm": "Passwort zurücksetzen",
+      "busy": "Wird zurückgesetzt…",
+      "anyway": "Dieses Passwort trotzdem verwenden"
+    },
+    "delete": {
+      "title": "Benutzer löschen",
+      "description": "Damit werden auch seine Sitzungen und API-Schlüssel entfernt. Das kann nicht rückgängig gemacht werden.",
+      "type": "Zur Bestätigung <n>{{name}}</n> eingeben",
+      "confirm": "Löschen",
+      "busy": "Wird gelöscht…"
+    }
   },
   "usage": {
     "title": "Nutzung",
@@ -316,5 +461,56 @@
       }
     },
     "addonSettings": "Einstellungen von {{name}}"
+  },
+  "invites": {
+    "title": "Person einladen",
+    "description": "Erstelle einen Link, mit dem sich eine Person registrieren kann. Der Link funktioniert bis zu seinem Ablauf.",
+    "close": "Schließen",
+    "lifetime": "Neuer Einladungslink gültig für",
+    "life": {
+      "24": "1 Tag",
+      "168": "7 Tage",
+      "720": "30 Tage"
+    },
+    "generate": "Einladungslink erstellen",
+    "created": "Einladungslink erstellt",
+    "createFailed": "Einladung konnte nicht erstellt werden: {{message}}",
+    "copiedToast": "Einladungs-URL in die Zwischenablage kopiert",
+    "copyFailed": "URL konnte nicht kopiert werden",
+    "copyUrl": "Einladungs-URL kopieren",
+    "copy": "Kopieren",
+    "revoked": "Einladung widerrufen",
+    "revokeFailed": "Widerruf der Einladung fehlgeschlagen: {{message}}",
+    "loading": "Einladungen werden geladen",
+    "loadFailed": "Die Einladungen konnten nicht geladen werden.",
+    "region": "Einladungen",
+    "caption": "Einladungslinks mit Angabe, wer sie erstellt und verwendet hat",
+    "empty": {
+      "title": "Keine Einladungslinks.",
+      "body": "Erstelle einen Link, damit sich jemand registrieren kann."
+    },
+    "columns": {
+      "link": "Einladungslink",
+      "createdBy": "Erstellt von",
+      "usedBy": "Verwendet von",
+      "expires": "Läuft ab",
+      "actions": "Aktionen"
+    },
+    "state": {
+      "open": "Verfügbar",
+      "used": "Verwendet",
+      "expired": "Abgelaufen"
+    },
+    "revoke": "Widerrufen",
+    "revokeTitle": "Einladung widerrufen",
+    "revokeDialog": {
+      "title": "Einladung widerrufen",
+      "description": "Der Link funktioniert sofort nicht mehr. Personen, die sich bereits damit registriert haben, behalten ihre Konten.",
+      "body": "Den Einladungslink widerrufen, der mit {{prefix}} beginnt?"
+    }
+  },
+  "apiKeys": {
+    "title": "API-Schlüssel",
+    "subtitle": "Deine eigenen Schlüssel für Programme, die diesen Server aufrufen."
   }
 }

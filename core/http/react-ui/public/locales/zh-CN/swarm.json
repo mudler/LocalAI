@@ -130,68 +130,9 @@
     "title": "工作节点"
   },
   "add": {
-    "connect": {
-      "title": "它应如何连接？",
-      "url": "服务器地址",
-      "p2p": "P2P 邀请",
-      "urlSub": "节点使用注册令牌连接此服务器的地址。它使用集群的载体：NATS 或 WebSocket 隧道。",
-      "p2pSub": "节点可从任何网络通过一次性邀请加入。它通过对等节点 ID 找到此服务器，并直接连接、通过打洞连接或经由你的中继连接。无需开放端口，也无需注册令牌。",
-      "order": "此集群中的顺序：NATS，然后 WebSocket，然后 P2P。通过 P2P 加入的节点始终使用自己的隧道。"
-    },
-    "invite": {
-      "title": "创建邀请",
-      "needsShare": "工作节点邀请需要 P2P 处于“连接并共享”模式。",
-      "settings": "打开 P2P 设置",
-      "name": "节点名称（可选）",
-      "namePlaceholder": "gpu-box-5",
-      "make": "创建邀请",
-      "ready": "邀请已就绪",
-      "single": "一次性",
-      "expires": "剩余",
-      "pass": "{{relay}} 上的中继通行证",
-      "again": "新邀请",
-      "warn": {
-        "no_relay": "此服务器没有中继。位于严格 NAT 之后的节点无法连接。",
-        "open_relay": "该邀请指定了一个任何人都能使用的开放中继。",
-        "relay_unreachable": "中继没有响应，因此该邀请没有中继通行证。",
-        "no_public_addr": "此服务器没有公网地址。节点将通过打洞或中继连接。"
-      }
-    },
-    "run": {
-      "inviteFirst": "请先创建邀请。命令中包含邀请链接。",
-      "joinNote": "该链接只能使用一次。工作节点会保留自己的身份，因此用相同命令重启时无需新邀请。"
-    },
-    "wait": {
-      "checkPeer": "批准之前，请与运行该机器的人核对对等节点 ID。",
-      "joinStuck": "没有节点到达？在严格 NAT 之后，节点可能需要一分钟才能找到路径。请检查邀请是否已过期。"
-    },
-    "join": {
-      "instanceNote": "需要分担部分请求的另一个 LocalAI 实例不是节点：请将其添加为远程，然后在此处分组：",
-      "instanceLink": "联邦"
-    }
-  },
-  "route": {
-    "nats": "NATS",
-    "websocket": "WebSocket",
-    "p2p": "P2P",
-    "path": {
-      "direct": "直连",
-      "hole_punched": "打洞",
-      "relayed": "经由中继"
-    },
-    "limited": "受限",
-    "limitedHint": "中继限制了此连接的数据量或时长。模型文件不会经由它传输。",
-    "heartbeat": "心跳",
-    "tunnel": "隧道",
-    "chip": "{{route}}：{{state}}",
-    "state": {
-      "live": "在线",
-      "reconnecting": "重连中",
-      "down": "断开"
-    }
+    "run": {}
   },
   "inspector": {
-    "route": "路由",
     "peer": "对等节点 ID"
   },
   "splitServer": {
@@ -235,5 +176,20 @@
       "rules": "规则",
       "failover": "故障转移"
     }
+  },
+  "rules": {
+    "byPrefix": "其策略为前缀缓存。",
+    "byRound": "其策略为轮询。",
+    "kind": {
+      "inactive": "仅策略"
+    },
+    "route": {
+      "default": "默认策略",
+      "prefix_cache": "前缀缓存策略",
+      "round_robin": "轮询策略"
+    }
+  },
+  "failover": {
+    "lostConnection": "连接："
   }
 }
