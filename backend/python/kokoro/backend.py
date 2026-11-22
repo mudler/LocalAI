@@ -75,7 +75,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 print(f"Generated audio segment {i}: gs={gs}, ps={ps}", file=sys.stderr)
             # Merges the audio segments and writes them to the destination
             speech = torch.cat(speechs, dim=0)
-            sf.write(request.dst, speech, 24000)
+            # Distributed workers hand us a staging file with no extension, so the
+            # format has to be explicit: soundfile cannot infer it from the path.
+            sf.write(request.dst, speech, 24000, format="WAV")
 
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
