@@ -110,7 +110,14 @@ const ListPicker = forwardRef(function ListPicker(
     if (next !== null) { e.preventDefault(); setActive(next) }
     else if (e.key === 'Enter') { e.preventDefault(); if (active < n) pick(rows[active]) }
     else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true) }
-    else if (e.key === 'Tab') close()
+  }
+
+  // Tab closes the menu once the focus leaves it, so a button in the footer
+  // can still take the focus. A blur to nothing (a click on the menu's own
+  // padding) keeps it open; a click outside closes it through mousedown.
+  const onMenuBlur = (e) => {
+    const next = e.relatedTarget
+    if (next && menuRef.current && !menuRef.current.contains(next)) close()
   }
 
   const current = !multiple && value != null && value !== '' ? items.find(i => i.id === value) : null
@@ -170,7 +177,7 @@ const ListPicker = forwardRef(function ListPicker(
         )}
       </div>
       {open && (
-        <div ref={menuRef} className={`home-menu ${menuClassName}`.trim()} id={menuId} data-align={alignEnd ? 'end' : undefined} onKeyDown={onMenuKey} data-testid={testId ? `${testId}-menu` : undefined}>
+        <div ref={menuRef} className={`home-menu ${menuClassName}`.trim()} id={menuId} data-align={alignEnd ? 'end' : undefined} onKeyDown={onMenuKey} onBlur={onMenuBlur} data-testid={testId ? `${testId}-menu` : undefined}>
           {showFilter && (
             <input
               ref={filterRef}
