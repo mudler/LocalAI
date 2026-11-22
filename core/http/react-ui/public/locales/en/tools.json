@@ -461,7 +461,7 @@
       "title": "Your account cannot quantize",
       "text": "Quantization is a separate permission, and this account does not have it."
     },
-    "admin": "An administrator can turn it on under Access, Users.",
+    "admin": "An administrator can turn it on under Users and keys.",
     "askAdmin": "Ask an administrator to turn it on for your account.",
     "back": "Go to Home"
   }
