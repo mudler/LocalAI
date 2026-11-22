@@ -307,7 +307,7 @@
   box-shadow: inset 0 0 0 1px var(--dk-edge);
   color: transparent;
 }
-.ledger-mark .lai-icon { font-size: 12px; }
+.ledger-mark .lai-icon { font-size: var(--fs-meta); }
 tr[data-selected="true"] .ledger-mark {
   background: var(--dk-accent);
   box-shadow: none;
@@ -326,7 +326,7 @@ tr[data-selected="true"] .ledger-mark {
 /* The ellipsis has to sit on the text itself: it does not apply to the text
    inside a flex container. */
 .ledger-name__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ledger-name__pin { flex: none; display: inline-flex; color: var(--dk-muted); font-size: 13px; }
+.ledger-name__pin { flex: none; display: inline-flex; color: var(--dk-muted); font-size: var(--fs-small); }
 .ledger-table .dk-table-sub { max-width: none; }
 .ledger-origin {
   flex: none;
@@ -395,7 +395,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-group__count { margin-left: auto; font-family: var(--font-sans); font-weight: var(--dk-weight-regular); font-variant-numeric: tabular-nums; }
 
 /* Skeleton rows keep the table's own shape while the gallery loads. */
-.ledger-skeleton .dk-skeleton, .zero-pane__hero .dk-skeleton { display: block; height: 12px; border-radius: 6px; background: var(--dk-hover); }
+.ledger-skeleton .dk-skeleton, .zero-pane__hero .dk-skeleton { display: block; height: 12px; border-radius: var(--r-sm); background: var(--dk-hover); }
 .zero-pane__hero .dk-skeleton--title { width: 60%; height: 24px; }
 .ledger-skeleton__name { width: 55%; margin-bottom: 8px; }
 .ledger-skeleton__sub { width: 35%; height: 10px !important; }
@@ -442,7 +442,7 @@ tr[data-selected="true"] .ledger-mark {
 }
 .ledger-fit[data-fit="spill"] .ledger-fit__words { color: var(--dk-warn-text); }
 .ledger-fit[data-fit="over"] .ledger-fit__words { color: var(--dk-error-text); }
-.ledger-fit__icon { font-size: 12px; }
+.ledger-fit__icon { font-size: var(--fs-meta); }
 
 /* --- Inspector ----------------------------------------------------------- */
 
@@ -518,7 +518,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger__pane .discover__chart-axis { border-top-color: var(--dk-control-edge); }
 .ledger__pane .discover__chart-axis span { color: var(--dk-muted); }
 .ledger__pane .discover__chart-col:hover .discover__chart-bar { filter: none; background: var(--dk-accent-text); }
-.ledger__pane .discover__chart-col:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: 4px; }
+.ledger__pane .discover__chart-col:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--r-xs); }
 .ledger__pane .discover__chart-verdict--ok { color: var(--dk-ok-text); }
 .ledger__pane .discover__chart-verdict--warn { color: var(--dk-warn-text); }
 .ledger__pane .discover__chart-verdict--bad { color: var(--dk-error-text); }
@@ -653,7 +653,7 @@ tr[data-selected="true"] .ledger-mark {
   cursor: pointer;
   text-align: left;
 }
-.ledger-protected__toggle:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: 6px; }
+.ledger-protected__toggle:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--r-sm); }
 
 .ledger-effect { justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: var(--dk-space-3); }
 .ledger-effect__text { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; font-size: var(--dk-text-13); }
@@ -894,7 +894,7 @@ body:has(.ledger-veil) .dk-toast-region { left: calc((100% - min(480px, 100%)) /
 .dk-chip__tag {
   padding: 1px 6px;
   border: 1px solid var(--dk-edge);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font: var(--dk-weight-semibold) 10px / 1.4 var(--dk-font-body);
   letter-spacing: .06em;
   text-transform: uppercase;

@@ -20,5 +20,5 @@
 /* The chart is drawn in a 640 unit box that shrinks with the screen. On a phone
    the same type would be too small to read, so it is drawn larger. */
 @media (max-width: 640px) {
-  .vramchart .dk-chart-value, .vramchart .vramchart__tick, .vramchart .dk-chart-threshold-label { font-size: 17px; }
+  .vramchart .dk-chart-value, .vramchart .vramchart__tick, .vramchart .dk-chart-threshold-label { font-size: var(--fs-lead); }
 }
