@@ -15,7 +15,7 @@ import { authorOf, isPageName } from '../utils/pages'
 import { folderLabel, refreshSharedPages } from '../hooks/useSharedPages'
 import { SendAsk } from './PageView'
 import './pages.css'
-import { Button } from '../components/ui'
+import { Button, EmptyState } from '../components/ui'
 
 const MAX_ASKS = 3
 const POLL = 30_000
@@ -214,12 +214,14 @@ export default function SharedPageView() {
     const key = status === 'off' ? 'shared.off' : status === 'notfound' ? 'shared.gone' : 'view.failed'
     return (
       <div className="page page--medium pg-page" data-testid="page-view">
-        <div className="empty-state" data-testid={`shared-${status}`}>
-          <h1 className="empty-state-title">{t(key, { message: error })}</h1>
-          <div className="empty-state__actions">
+        <EmptyState
+          variant="unavailable"
+          title={t(key, { message: error })}
+          testId={`shared-${status}`}
+          actions={<>
             <Button icon="arrow-left" to="/app/pages">{t('view.back')}</Button>
-          </div>
-        </div>
+          </>}
+        />
       </div>
     )
   }

@@ -15,6 +15,7 @@ import { systemApi } from '../../utils/api'
 import { buildCleanupPlan, totalSize, UNDO_MS } from '../../utils/cleanupPlan'
 import { diskEntry } from '../../utils/modelStorage'
 import { gbLabel } from '../../utils/modelLedger'
+import { Button, EmptyState } from '../ui'
 
 const TIERS = ['safe', 'probably', 'call']
 
@@ -322,30 +323,18 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
             {removalPending && <span className="ledger-effect__wait">{t('cleanup.effect.pending')}</span>}
           </div>
           {chosen.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSelected(new Set())}>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               {t('cleanup.clear')}
-            </button>
+            </Button>
           )}
           {chosen.length === 0 && plan.groups.safe.length > 0 && (
-            <button
-              type="button"
-              className="dk-btn dk-btn--secondary dk-btn--sm"
-              data-testid="cleanup-pick-safe"
-              onClick={() => setSelected(new Set(plan.groups.safe.map(item => item.id)))}
-            >
+            <Button variant="secondary" size="sm" data-testid="cleanup-pick-safe" onClick={() => setSelected(new Set(plan.groups.safe.map(item => item.id)))}>
               {t('cleanup.pickSafe', { count: plan.groups.safe.length })}
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="dk-btn dk-btn--danger"
-            data-testid="cleanup-remove"
-            disabled={chosen.length === 0 || removalPending || checking}
-            aria-busy={checking || undefined}
-            onClick={review}
-          >
-            <Icon name="trash" /> {t('cleanup.remove', { count: chosen.length })}
-          </button>
+          <Button variant="danger" icon="trash" data-testid="cleanup-remove" disabled={chosen.length === 0 || removalPending || checking} aria-busy={checking || undefined} onClick={review}>
+            {t('cleanup.remove', { count: chosen.length })}
+          </Button>
         </>
       )}
     >
@@ -404,10 +393,12 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
       )}
 
       {ready && modelCount === 0 && (
-        <div className="dk-empty">
-          <h3 className="dk-empty-title">{t('cleanup.empty.title')}</h3>
-          <p className="dk-empty-text">{t('cleanup.empty.text')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          title={t('cleanup.empty.title')}
+          level={3}
+          body={t('cleanup.empty.text')}
+        />
       )}
 
       {ready && TIERS.map(tier => {

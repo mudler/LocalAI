@@ -30,7 +30,7 @@ import {
   CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
-import { Segmented, Tag } from '../components/ui'
+import { Button, EmptyState, Segmented, Tag } from '../components/ui'
 import { remoteIndex, remoteSubline } from '../utils/remotes'
 import { useUpdates } from '../contexts/UpdatesContext'
 import { modelIndicator, modelRowsByName } from '../utils/modelUpdates'
@@ -376,20 +376,20 @@ export default function InstalledModels({
     return (
       <>
         {!model.remote && !model.disabled && !running && (
-          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={e => { e.stopPropagation(); handleLoad(model.id) }} disabled={pending}>
+          <Button variant="primary" size="sm" onClick={e => { e.stopPropagation(); handleLoad(model.id) }} disabled={pending}>
             <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
             {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
-          </button>
+          </Button>
         )}
         {!model.remote && running && (
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={e => { e.stopPropagation(); handleStop(model.id) }} disabled={pending}>
-            <Icon name="stop" /> {t('lifecycle.actions.stop')}
-          </button>
+          <Button variant="secondary" size="sm" icon="stop" onClick={e => { e.stopPropagation(); handleStop(model.id) }} disabled={pending}>
+            {t('lifecycle.actions.stop')}
+          </Button>
         )}
         {model.disabled && (
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={e => { e.stopPropagation(); handleToggleState(model.id, true) }} disabled={pending}>
-            <Icon name="toggle-on" /> {t('lifecycle.actions.enable')}
-          </button>
+          <Button variant="secondary" size="sm" icon="toggle-on" onClick={e => { e.stopPropagation(); handleToggleState(model.id, true) }} disabled={pending}>
+            {t('lifecycle.actions.enable')}
+          </Button>
         )}
         <span onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
           <ActionMenu
@@ -457,25 +457,19 @@ export default function InstalledModels({
         ]}
         actions={(
           <>
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost dk-btn--sm"
-              onClick={() => onOpen?.(selectedModel.id)}
-              data-testid="inspector-open-page"
-              aria-keyshortcuts="o"
-            >
-              <Icon name="arrow-right" /> {t('page.openDetails')}
-            </button>
+            <Button variant="ghost" size="sm" icon="arrow-right" onClick={() => onOpen?.(selectedModel.id)} data-testid="inspector-open-page" aria-keyshortcuts="o">
+              {t('page.openDetails')}
+            </Button>
             {!selectedModel.remote && !selectedModel.disabled && !running && (
-              <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
+              <Button variant="primary" size="sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
                 <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
                 {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
-              </button>
+              </Button>
             )}
             {!selectedModel.remote && running && (
-              <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => handleStop(selectedModel.id)} disabled={pending}>
-                <Icon name="stop" /> {t('lifecycle.actions.stop')}
-              </button>
+              <Button variant="secondary" size="sm" icon="stop" onClick={() => handleStop(selectedModel.id)} disabled={pending}>
+                {t('lifecycle.actions.stop')}
+              </Button>
             )}
             <ActionMenu
               ariaLabel={t('lifecycle.actions.forModel', { model: selectedModel.id })}
@@ -547,9 +541,9 @@ export default function InstalledModels({
           </div>
           <div className="ledger-controls__end">
             {disk && (
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={onOpenCleanup} data-testid="installed-cleanup">
-                <Icon name="broom" /> {t('disk.freeUp')}
-              </button>
+              <Button variant="ghost" size="sm" icon="broom" onClick={onOpenCleanup} data-testid="installed-cleanup">
+                {t('disk.freeUp')}
+              </Button>
             )}
             <div className="dk-segmented ledger-density" role="group" aria-label={t('ledger.density.label')}>
               <button type="button" className="dk-seg" aria-pressed={density === 'comfortable'} aria-label={t('ledger.density.comfortable')} title={t('ledger.density.comfortable')} onClick={() => onDensity('comfortable')}>
@@ -559,10 +553,10 @@ export default function InstalledModels({
                 <Icon name="equals" />
               </button>
             </div>
-            <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={handleReload} disabled={pendingActions.has('models')}>
+            <Button variant="secondary" size="sm" onClick={handleReload} disabled={pendingActions.has('models')}>
               <Icon name={pendingActions.has('models') ? 'spinner' : 'refresh'} spin={Boolean(pendingActions.has('models'))} />
               {pendingActions.has('models') ? t('lifecycle.actions.reloading') : t('lifecycle.actions.reload')}
-            </button>
+            </Button>
           </div>
         </div>
         <div className="ledger-controls__row">
@@ -581,9 +575,9 @@ export default function InstalledModels({
         <div className="ledger-banner ledger-banner--error" role="alert">
           <Icon name="alert-circle" />
           <span>{t('lifecycle.errors.loadList', { message: loadError })}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => refetch()}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={() => refetch()}>
+            {t('ledger.retry')}
+          </Button>
         </div>
       )}
       {actionErrors.models && (
@@ -594,30 +588,35 @@ export default function InstalledModels({
       )}
 
       {!firstLoad && models.length === 0 && !loadError ? (
-        <div className="dk-empty ledger-empty ledger-empty--page" data-testid="installed-empty">
-          <div className="dk-empty-icon"><Icon name="brain" /></div>
-          <h2 className="dk-empty-title">{t('lifecycle.empty.title')}</h2>
-          <p className="dk-empty-text">{t('lifecycle.empty.text')}</p>
-          <div className="ledger-empty__actions">
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => navigate('/app/models')}>
-              <Icon name="store" /> {t('lifecycle.empty.explore')}
-            </button>
-            <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/import-model')}>
-              <Icon name="upload" /> {t('lifecycle.empty.import')}
-            </button>
-          </div>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="brain"
+          title={t('lifecycle.empty.title')}
+          body={t('lifecycle.empty.text')}
+          testId="installed-empty"
+          actions={<>
+            <Button variant="primary" size="sm" icon="store" onClick={() => navigate('/app/models')}>
+            {t('lifecycle.empty.explore')}
+            </Button>
+            <Button variant="secondary" size="sm" icon="upload" onClick={() => navigate('/app/import-model')}>
+            {t('lifecycle.empty.import')}
+            </Button>
+          </>}
+        />
       ) : (
         <div className={`ledger ledger--installed${selectedModel ? ' ledger--detail' : ' ledger--solo'}`} data-testid="installed-models">
           <div className="ledger__table-col">
             {!firstLoad && visibleModels.length === 0 ? (
-              <div className="dk-empty ledger-empty">
-                <Icon name="filter" />
-                <p className="dk-empty-text">{t('lifecycle.empty.noMatches')}</p>
-                <button className="dk-btn dk-btn--ghost dk-btn--sm" onClick={onClearFilters}>
+              <EmptyState
+                variant="no-results"
+                icon="filter"
+                body={t('lifecycle.empty.noMatches')}
+                actions={<>
+                  <Button variant="ghost" size="sm" onClick={onClearFilters}>
                   {t('lifecycle.empty.clear')}
-                </button>
-              </div>
+                  </Button>
+                </>}
+              />
             ) : (
               <div className="dk-table-wrap ledger-wrap" role="region" aria-label={t('lifecycle.views.installed')} data-testid="installed-models-rail">
                 <table className={`dk-table ledger-table ledger-table--installed${density === 'compact' ? ' dk-table--compact' : ''}`} aria-busy={firstLoad || undefined}>

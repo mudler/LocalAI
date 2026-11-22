@@ -5,7 +5,7 @@ import SearchableSelect from './SearchableSelect'
 import { nodesApi, backendsApi } from '../utils/api'
 import Icon from './Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, StatusChip, Tag } from './ui'
+import { Button, EmptyState, StatusChip, Tag } from './ui'
 import { summarizeInstall } from '../utils/nodeInstallSummary'
 
 // NodeInstallPicker is the single multi-node install surface used both from
@@ -482,15 +482,17 @@ export default function NodeInstallPicker({
         )}
 
         {noNodes ? (
-          <div className="empty-state">
-            <div className="empty-state-icon"><Icon name="server" /></div>
-            <h3 className="empty-state-title">No backend nodes available</h3>
-            <p className="empty-state-text">
-              Approve pending workers or register new ones.
-              {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}
-            </p>
-            <Button size="sm" icon="network" href="/app/nodes">Manage nodes</Button>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="server"
+            title="No backend nodes available"
+            level={3}
+            body={<>Approve pending workers or register new ones.
+              {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}</>}
+            actions={<>
+              <Button size="sm" icon="network" href="/app/nodes">Manage nodes</Button>
+            </>}
+          />
         ) : (
           <>
             {/* Filter row */}

@@ -431,10 +431,10 @@ test.describe("Models Gallery - Empty State", () => {
 
     await chatBtn.click();
 
-    await expect(page.locator(".dk-empty-title")).toHaveText(
+    await expect(page.locator(".ui-empty__title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".dk-empty-text")).toHaveText(
+    await expect(page.locator(".ui-empty__body")).toHaveText(
       "No models match your current search or filters.",
     );
 
@@ -1267,10 +1267,10 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   }) => {
     await facet(page, "chat").click();
 
-    await expect(page.locator(".dk-empty-title")).toHaveText(
+    await expect(page.locator(".ui-empty__title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".dk-empty-text")).toHaveText(
+    await expect(page.locator(".ui-empty__body")).toHaveText(
       "No models match your current search or filters.",
     );
     // The chip is applied server-side over every build the gallery holds, and
@@ -1278,7 +1278,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // nothing matched rather than that the collapse swallowed the matches.
     // Pointing at the toggle would send the user to a control that cannot
     // change this result.
-    await expect(page.locator(".empty-state-hint")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty-hint")).toHaveCount(0);
   });
 
   test("the empty state does not blame the collapse for a search", async ({
@@ -1289,7 +1289,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await searchBox(page).fill("nothing-matches-this");
     await expect(page.getByTestId("gallery-empty")).toBeVisible();
 
-    await expect(page.locator(".empty-state-hint")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty-hint")).toHaveCount(0);
   });
 
   test("clear filters returns to the collapsed browsing view", async ({

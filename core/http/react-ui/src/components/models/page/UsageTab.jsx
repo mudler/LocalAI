@@ -7,6 +7,7 @@ import { diskEntry, filesOf } from '../../../utils/modelStorage'
 // eslint-disable-next-line no-unused-vars
 import NodeDistributionChip from '../../NodeDistributionChip'
 import Icon from '../../Icon'
+import { EmptyState } from '../../ui'
 
 const MISSING = ['requests', 'ttft', 'loads', 'changes']
 
@@ -97,11 +98,14 @@ export default function UsageTab({ view }) {
         <div className="modelpage-section-head">
           <h2 className="modelpage-section-title" id="modelpage-usage-h">{t('page.usage.title')}</h2>
         </div>
-        <div className="dk-empty modelpage-usage__empty" data-testid="usage-empty">
-          <div className="dk-empty-icon"><Icon name="chart-bar" /></div>
-          <h3 className="dk-empty-title">{t('page.usage.emptyTitle')}</h3>
-          <p className="dk-empty-text">{t('page.usage.emptyText')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="chart-bar"
+          title={t('page.usage.emptyTitle')}
+          level={3}
+          body={t('page.usage.emptyText')}
+          testId="usage-empty"
+        />
         <ul className="modelpage-usage__missing" aria-label={t('page.usage.missingLabel')} data-testid="usage-missing">
           {MISSING.map(key => (
             <li key={key}>

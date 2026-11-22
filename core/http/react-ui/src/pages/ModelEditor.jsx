@@ -20,7 +20,7 @@ import PlacementSection from '../components/models/placement/PlacementSection'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
-import { Button } from '../components/ui'
+import { Button, EmptyState } from '../components/ui'
 
 const SECTION_ICONS = {
   general: 'settings', llm: 'cpu', parameters: 'sliders',
@@ -505,7 +505,13 @@ export default function ModelEditor() {
   const showTemplateSelector = isCreateMode && !selectedTemplate
 
   if (loading) return <div className="page page--medium loading-center"><LoadingSpinner size="lg" /></div>
-  if (metaError) return <div className="page page--medium"><div className="empty-state"><p className="empty-state-text">Failed to load config metadata: {metaError}</p></div></div>
+  if (metaError) {
+    return (
+      <div className="page page--medium">
+        <EmptyState variant="unavailable" body={`Failed to load config metadata: ${metaError}`} />
+      </div>
+    )
+  }
 
   const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
     : backState ? backState.fromLabel
@@ -718,11 +724,14 @@ export default function ModelEditor() {
               {activeSections.length === 0 && (
                 // .loading-center is a flex row, which set the icon, the title and
                 // the text side by side with no gap; this is a stacked empty state.
-                <div className="dk-empty" data-testid="editor-no-fields">
-                  <div className="dk-empty-icon"><Icon name="sliders" /></div>
-                  <h3 className="dk-empty-title">{t('forms.empty.title')}</h3>
-                  <p className="dk-empty-text">{t('forms.empty.text')}</p>
-                </div>
+                <EmptyState
+                  variant="first-run"
+                  icon="sliders"
+                  title={t('forms.empty.title')}
+                  level={3}
+                  body={t('forms.empty.text')}
+                  testId="editor-no-fields"
+                />
               )}
 
               {activeSections.map(s => {

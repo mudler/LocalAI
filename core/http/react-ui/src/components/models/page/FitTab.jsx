@@ -7,6 +7,7 @@ import MemoryBar from '../MemoryBar'
 // eslint-disable-next-line no-unused-vars
 import VramChart from './VramChart'
 import { fitWords, memorySegments } from './fitFacts'
+import { EmptyState } from '../../ui'
 
 // Fit and memory: will this build run here, at which context length, and how
 // the memory is spent. Every figure is the server's estimate for the build and
@@ -52,11 +53,14 @@ export default function FitTab({ view }) {
       )}
 
       {estimateState.status === 'unavailable' && (
-        <div className="dk-empty modelpage-fit__none" data-testid="fit-unavailable">
-          <div className="dk-empty-icon"><Icon name="info" /></div>
-          <h3 className="dk-empty-title">{t('page.fit.unavailableTitle')}</h3>
-          <p className="dk-empty-text">{installed ? t('page.fit.unavailableInstalled') : t('page.fit.unavailableText')}</p>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="info"
+          title={t('page.fit.unavailableTitle')}
+          level={3}
+          body={installed ? t('page.fit.unavailableInstalled') : t('page.fit.unavailableText')}
+          testId="fit-unavailable"
+        />
       )}
 
       {estimateState.status === 'ready' && (

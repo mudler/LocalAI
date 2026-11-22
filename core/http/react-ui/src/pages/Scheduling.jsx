@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, nodesApi } from '../utils/api'
 import { labelIndex } from '../utils/nodeLabelSuggestions'
@@ -10,6 +10,7 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import RuleSheet from '../components/swarm/RuleSheet'
 import Icon from '../components/Icon'
 import './swarm.css'
+import { Button, EmptyState } from '../components/ui'
 
 const UNDO_MS = 6000
 const MATRIX_NODES = 8
@@ -141,9 +142,9 @@ export default function Scheduling({ embedded = false, newRequest = 0 }) {
         <p className="sw-note">{t('rules.lede')}</p>
         {!embedded && (
           <div className="sw-bar__acts">
-            <button type="button" className="dk-btn dk-btn--primary" onClick={() => setSheet({ editing: false, initial: undefined })}>
-              <Icon name="plus" /> {t('rules.new')}
-            </button>
+            <Button variant="primary" icon="plus" onClick={() => setSheet({ editing: false, initial: undefined })}>
+              {t('rules.new')}
+            </Button>
           </div>
         )}
       </div>
@@ -151,11 +152,14 @@ export default function Scheduling({ embedded = false, newRequest = 0 }) {
       <section className="sw-section" aria-labelledby="sw-rules-h">
         <h2 className="sw-h2" id="sw-rules-h">{t('rules.heading')} <span className="sw-count dk-mono">{visible.length}</span></h2>
         {loaded && visible.length === 0 ? (
-          <div className="dk-empty" data-testid="rules-empty">
-            <div className="dk-empty-icon"><Icon name="pin" /></div>
-            <h3 className="dk-empty-title">{t('rules.emptyTitle')}</h3>
-            <p className="dk-empty-text">{t('rules.empty')}</p>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="pin"
+            title={t('rules.emptyTitle')}
+            level={3}
+            body={t('rules.empty')}
+            testId="rules-empty"
+          />
         ) : (
           <ol className="sw-rules">
             {visible.map(rule => {

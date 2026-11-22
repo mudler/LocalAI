@@ -146,7 +146,6 @@
 .activity-section__title { margin: 0; display: flex; align-items: baseline; gap: var(--dk-space-2); font-size: var(--dk-text-17); font-weight: var(--dk-weight-bold); }
 .activity-section__count { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
 .activity-note { margin: 0; font-size: var(--dk-text-12); color: var(--dk-muted); }
-.activity-empty { padding: var(--dk-space-6) var(--dk-space-4); }
 
 .operation-card { border-bottom: 1px solid var(--dk-edge); }
 .operation-card__main { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-2); }
@@ -394,7 +393,6 @@
 .lg-line__stream { flex: none; width: 3ch; color: var(--dk-muted); text-transform: uppercase; font-size: 11px; line-height: 1.8; }
 .lg-line[data-stream="stderr"] .lg-line__stream, .lg-line[data-stream="stderr"] .lg-line__text { color: var(--dk-error-text); }
 .lg-line__text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dk-text); }
-.lg-empty { padding: var(--dk-space-6) var(--dk-space-4); }
 .lg-processes { max-width: 560px; }
 
 /* ---- Phone --------------------------------------------------------------- */

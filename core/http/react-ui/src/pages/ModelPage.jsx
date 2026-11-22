@@ -24,7 +24,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import Popover from '../components/Popover'
 import Icon from '../components/Icon'
-import { Tabs } from '../components/ui'
+import { Button, EmptyState, Tabs } from '../components/ui'
 import { modelUseCases } from './InstalledModels'
 // eslint-disable-next-line no-unused-vars
 import OverviewTab from '../components/models/page/OverviewTab'
@@ -219,9 +219,9 @@ export default function ModelPage() {
   const offline = !loadingPage && !installed && gallery.status === 'error'
 
   const backButton = (
-    <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={goBack} data-testid="model-page-back" aria-keyshortcuts="Escape">
-      <Icon name="arrow-left" /> {t('page.back')}
-    </button>
+    <Button variant="ghost" size="sm" icon="arrow-left" onClick={goBack} data-testid="model-page-back" aria-keyshortcuts="Escape">
+      {t('page.back')}
+    </Button>
   )
 
   if (loadingPage) {
@@ -242,10 +242,17 @@ export default function ModelPage() {
     return (
       <div className="page page--wide page--app modelpage" data-testid="model-page" data-state="missing">
         <div className="modelpage-top">{backButton}</div>
-        <div className="dk-empty modelpage-empty" data-testid="model-page-missing">
-          <div className="dk-empty-icon"><Icon name="search" /></div>
-          <h1 className="dk-empty-title">{t('page.missing.title', { id })}</h1>
-          <p className="dk-empty-text">{t('page.missing.text')}</p>
+        <EmptyState
+          variant="unavailable"
+          icon="search"
+          title={t('page.missing.title', { id })}
+          body={t('page.missing.text')}
+          testId="model-page-missing"
+          className="modelpage-empty"
+          actions={(
+            <Button size="sm" icon="arrow-left" onClick={goBack}>{t('page.missing.back')}</Button>
+          )}
+        >
           {gallery.matches.length > 0 && (
             <ul className="modelpage-matches" aria-label={t('page.missing.closest')}>
               {gallery.matches.map(m => {
@@ -258,10 +265,7 @@ export default function ModelPage() {
               })}
             </ul>
           )}
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={goBack}>
-            <Icon name="arrow-left" /> {t('page.missing.back')}
-          </button>
-        </div>
+        </EmptyState>
       </div>
     )
   }
@@ -275,18 +279,18 @@ export default function ModelPage() {
             <h1 className="modelpage-name dk-mono">{id}</h1>
           </div>
           <div className="modelpage-primary">
-            <button type="button" className="dk-btn dk-btn--primary" disabled data-testid="model-page-install">
-              <Icon name="download" /> {t('actions.install')}
-            </button>
+            <Button variant="primary" icon="download" disabled data-testid="model-page-install">
+              {t('actions.install')}
+            </Button>
             <span className="modelpage-primary__sub">{t('page.offline.installDisabled')}</span>
           </div>
         </header>
         <div className="ledger-banner ledger-banner--error" role="alert" data-testid="model-page-offline">
           <Icon name="alert-circle" />
           <span><strong>{t('ledger.offline.title')}</strong> {t('page.offline.text')}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={gallery.reload}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={gallery.reload}>
+            {t('ledger.retry')}
+          </Button>
         </div>
       </div>
     )
@@ -397,9 +401,9 @@ export default function ModelPage() {
         <div className="ledger-banner ledger-banner--error" role="alert" data-testid="model-page-offline">
           <Icon name="alert-circle" />
           <span><strong>{t('ledger.offline.title')}</strong> {t('page.offline.installedOnly')}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={gallery.reload}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={gallery.reload}>
+            {t('ledger.retry')}
+          </Button>
         </div>
       )}
       {installedError && !installed && (
@@ -449,9 +453,9 @@ export default function ModelPage() {
               <div className="modelpage-install__foot">
                 <span className="modelpage-primary__sub">{bytesLine}</span>
                 {installOp?.cancellable && (
-                  <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => cancelOperation(installOp.jobID)} data-testid="model-page-cancel">
+                  <Button variant="ghost" size="sm" onClick={() => cancelOperation(installOp.jobID)} data-testid="model-page-cancel">
                     {t('page.install.cancel')}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -459,19 +463,19 @@ export default function ModelPage() {
             <>
               <div className="modelpage-primary__row">
                 {!profile.disabled && !running && (
-                  <button type="button" className="dk-btn dk-btn--primary" disabled={pending} onClick={() => actions.load(id)} data-testid="model-page-load">
+                  <Button variant="primary" disabled={pending} onClick={() => actions.load(id)} data-testid="model-page-load">
                     <Icon name={pending ? 'spinner' : 'bolt'} spin={pending} /> {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
-                  </button>
+                  </Button>
                 )}
                 {running && (
-                  <button type="button" className="dk-btn dk-btn--secondary" disabled={pending} onClick={() => actions.stop(id)} data-testid="model-page-stop">
-                    <Icon name="stop" /> {t('lifecycle.actions.stop')}
-                  </button>
+                  <Button variant="secondary" icon="stop" disabled={pending} onClick={() => actions.stop(id)} data-testid="model-page-stop">
+                    {t('lifecycle.actions.stop')}
+                  </Button>
                 )}
                 {profile.disabled && (
-                  <button type="button" className="dk-btn dk-btn--secondary" disabled={pending} onClick={() => actions.toggleState(id, true)} data-testid="model-page-enable">
-                    <Icon name="toggle-on" /> {t('lifecycle.actions.enable')}
-                  </button>
+                  <Button variant="secondary" icon="toggle-on" disabled={pending} onClick={() => actions.toggleState(id, true)} data-testid="model-page-enable">
+                    {t('lifecycle.actions.enable')}
+                  </Button>
                 )}
                 <ActionMenu
                   ariaLabel={t('lifecycle.actions.forModel', { model: id })}
@@ -487,19 +491,14 @@ export default function ModelPage() {
             <>
               <div className="modelpage-primary__row">
                 {failedOp ? (
-                  <button type="button" className="dk-btn dk-btn--primary" onClick={retryInstall} data-testid="model-page-install">
-                    <Icon name="refresh" /> {t('ledger.retry')}
-                  </button>
+                  <Button variant="primary" icon="refresh" onClick={retryInstall} data-testid="model-page-install">
+                    {t('ledger.retry')}
+                  </Button>
                 ) : (
                   <div className="modelpage-split">
-                    <button
-                      type="button"
-                      className="dk-btn dk-btn--primary modelpage-split__main"
-                      onClick={() => install(build && build !== id ? build : undefined)}
-                      data-testid="model-page-install"
-                    >
-                      <Icon name="download" /> {installLabel}
-                    </button>
+                    <Button variant="primary" icon="download" className="modelpage-split__main" onClick={() => install(build && build !== id ? build : undefined)} data-testid="model-page-install">
+                      {installLabel}
+                    </Button>
                     {variants.length > 1 && (
                       <BuildChooser variants={variants} build={build} autoBuild={autoBuild} onPick={setPickedBuild} t={t} />
                     )}

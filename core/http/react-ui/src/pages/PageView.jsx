@@ -11,7 +11,7 @@ import { refreshPages, usePages } from '../hooks/usePages'
 import { usePageLinks } from '../hooks/usePageLinks'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import Switch from '../components/ui/Switch'
-import { Button } from '../components/ui'
+import { Button, EmptyState } from '../components/ui'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -289,13 +289,15 @@ export default function PageView() {
   if (status === 'notfound' || status === 'error') {
     return (
       <div className="page page--medium pg-page" data-testid="page-view">
-        <div className="empty-state" data-testid={status === 'notfound' ? 'page-not-found' : 'page-error'}>
-          <h1 className="empty-state-title">{status === 'notfound' ? t('view.notFound', { name }) : t('view.failed', { message: error })}</h1>
-          <div className="empty-state__actions">
+        <EmptyState
+          variant="unavailable"
+          title={status === 'notfound' ? t('view.notFound', { name }) : t('view.failed', { message: error })}
+          testId={status === 'notfound' ? 'page-not-found' : 'page-error'}
+          actions={<>
             <Button icon="arrow-left" to="/app/pages">{t('view.back')}</Button>
             {status === 'error' && <Button variant="primary" onClick={() => load()}>{t('retry')}</Button>}
-          </div>
-        </div>
+          </>}
+        />
       </div>
     )
   }

@@ -571,23 +571,6 @@ tr[data-selected="true"] .ledger-mark {
 }
 .ledger__pane .resource-row__detail-grid dd { margin: 0; font-size: var(--dk-text-13); min-width: 0; overflow-wrap: anywhere; }
 
-/* --- Empty ---------------------------------------------------------------- */
-
-.ledger-empty {
-  flex: 1;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: var(--dk-space-2);
-  padding: var(--dk-space-6) var(--dk-space-4);
-  border: 1px solid var(--dk-edge);
-  border-radius: var(--dk-radius-3);
-  background: var(--dk-card);
-  text-align: center;
-}
-.ledger-empty--page { margin-top: var(--dk-space-3); min-height: 280px; }
-.ledger-empty__actions { display: flex; gap: var(--dk-space-2); margin-top: var(--dk-space-2); }
-
 /* --- Cleanup sheet --------------------------------------------------------- */
 
 .ledger-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: 0; }

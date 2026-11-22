@@ -37,7 +37,7 @@ import React from 'react'
 import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, PageHeader, StatusChip, Tag } from '../components/ui'
+import { Button, Callout, EmptyState, PageHeader, StatusChip, Tag } from '../components/ui'
 import SideSheet from '../components/SideSheet'
 import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
 import RemotesView from '../components/remotes/RemotesView'
@@ -1139,30 +1139,38 @@ export default function Models() {
   if (remote && visibleModels.length === 0 && !remoteBusy) {
     if (noLatest(remote.id)) {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-hint">
-          <div className="dk-empty-icon"><Icon name="search" /></div>
-          <h2 className="dk-empty-title">{t('remote.hint.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{t('remote.noLatest', { source: sourceLabel })}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="search"
+          title={t('remote.hint.title', { source: sourceLabel })}
+          body={t('remote.noLatest', { source: sourceLabel })}
+          testId="remote-hint"
+        />
       )
     } else if (remoteFailed) {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-unavailable">
-          <div className="dk-empty-icon"><Icon name="cloud" /></div>
-          <h2 className="dk-empty-title">{t('remote.failed.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{remoteSearch.error || t('remote.failed.text')}</p>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setRemoteReload(n => n + 1)}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="cloud"
+          title={t('remote.failed.title', { source: sourceLabel })}
+          body={remoteSearch.error || t('remote.failed.text')}
+          testId="remote-unavailable"
+          actions={<>
+            <Button variant="secondary" size="sm" icon="refresh" onClick={() => setRemoteReload(n => n + 1)}>
+            {t('ledger.retry')}
+            </Button>
+          </>}
+        />
       )
     } else {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-empty">
-          <div className="dk-empty-icon"><Icon name="search" /></div>
-          <h2 className="dk-empty-title">{t('remote.none.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{remoteRows.length > 0 ? t('remote.none.fits') : ggufOnly ? t('remote.none.gguf') : t('remote.none.text')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="search"
+          title={t('remote.none.title', { source: sourceLabel })}
+          body={remoteRows.length > 0 ? t('remote.none.fits') : ggufOnly ? t('remote.none.gguf') : t('remote.none.text')}
+          testId="remote-empty"
+        />
       )
     }
   }
@@ -1266,9 +1274,9 @@ export default function Models() {
         onChanged={() => setRefreshToken(n => n + 1)}
         extraChips={sources.map(src => ({ id: src.id, label: sourceName(src), tag: src.p2p ? t('remote.p2p') : '' }))}
         extraActions={(installedSources.length > 1 || missingSources.length > 0 || sources.length === 0) && (
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
-            <Icon name="cloud" /> {t('remote.sourcesButton')}
-          </button>
+          <Button variant="ghost" size="sm" icon="cloud" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
+            {t('remote.sourcesButton')}
+          </Button>
         )}
         extraPicked={remote?.id || ''}
         onExtraPick={pickSource}
@@ -1278,7 +1286,7 @@ export default function Models() {
           {sources.length === 0 ? t('remote.noSources') : t('remote.missingHint', { sources: missingSources.map(id => t(`remote.sources.${id}`, { defaultValue: id })).join(', ') })}
           {' '}
           {sources.length === 0
-            ? <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</button>
+            ? <Button variant="ghost" size="sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</Button>
             : <Link to="/addons">{t('remote.missingInstall')}</Link>}
         </p>
       )}
@@ -1508,18 +1516,26 @@ export default function Models() {
             loadError ? (
               // The list could not be fetched, which is not the same as an empty
               // gallery. The banner above holds the reason and the way out.
-              <div className="dk-empty ledger-empty" data-testid="gallery-unavailable">
-                <div className="dk-empty-icon"><Icon name="cloud" /></div>
-                <h2 className="dk-empty-title">{t('ledger.offline.emptyTitle')}</h2>
-                <p className="dk-empty-text">{t('ledger.offline.emptyText')}</p>
-              </div>
+              <EmptyState
+                variant="unavailable"
+                icon="cloud"
+                title={t('ledger.offline.emptyTitle')}
+                body={t('ledger.offline.emptyText')}
+                testId="gallery-unavailable"
+              />
             ) : (
-            <div className="dk-empty ledger-empty" data-testid="gallery-empty">
-              <div className="dk-empty-icon"><Icon name="search" /></div>
-              <h2 className="dk-empty-title">{t('empty.title')}</h2>
-              <p className="dk-empty-text">
-                {librarySource ? t('empty.library', { name: librarySource.name }) : filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
-              </p>
+            <EmptyState
+              variant="no-results"
+              icon="search"
+              title={t('empty.title')}
+              body={librarySource ? t('empty.library', { name: librarySource.name }) : filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
+              testId="gallery-empty"
+              actions={filtersActive && (
+                <Button variant="secondary" size="sm" icon="close" onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}>
+                  {t('search.clearFilters')}
+                </Button>
+              )}
+            >
               {/* Only the fits filter can leave the collapse to blame. The term,
                   the chips and the backend are applied server-side over every build
                   the gallery holds, and a match there is always reported as some
@@ -1529,17 +1545,9 @@ export default function Models() {
                   judges that entry's own size: the build that fits can still be
                   filtered out along with a parent that does not. */}
               {collapseVariants && fitsFilter && (
-                <p className="empty-state-hint dk-empty-text">{t('empty.collapsedVariantsHint')}</p>
+                <p className="ui-empty__body" data-testid="gallery-empty-hint">{t('empty.collapsedVariantsHint')}</p>
               )}
-              {filtersActive && (
-                <button
-                  className="dk-btn dk-btn--secondary dk-btn--sm"
-                  onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
-                >
-                  <Icon name="close" /> {t('search.clearFilters')}
-                </button>
-              )}
-            </div>
+            </EmptyState>
             )
           )}
           {(remote || firstLoad || visibleModels.length > 0 || onlineHasContent) && (
@@ -1583,15 +1591,9 @@ export default function Models() {
 
           {remote && !remoteEmpty && canLoadMore(remoteSearch.results, remoteLimit) && (
             <div className="ledger-more">
-              <button
-                type="button"
-                className="dk-btn dk-btn--secondary dk-btn--sm"
-                data-testid="remote-load-more"
-                disabled={remoteBusy}
-                onClick={() => setRemoteLimit(nextLimit)}
-              >
+              <Button variant="secondary" size="sm" data-testid="remote-load-more" disabled={remoteBusy} onClick={() => setRemoteLimit(nextLimit)}>
                 {remoteBusy ? <Icon name="spinner" spin /> : <Icon name="plus" />} {t('remote.loadMore')}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -2003,14 +2005,10 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           {files.length > 0 && (
             <DetailRow label={t('detail.files')}>
               <div>
-                <button
-                  className="dk-btn dk-btn--secondary dk-btn--sm"
-                  aria-expanded={expandedFiles}
-                  onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}
-                >
+                <Button variant="secondary" size="sm" aria-expanded={expandedFiles} onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}>
                   <Icon name={`chevron-${expandedFiles ? 'down' : 'right'}`} />
                   {t('detail.fileCount', { count: files.length })}
-                </button>
+                </Button>
                 {expandedFiles && (
                   <div className="dk-table-wrap ledger-files">
                     <table className="dk-table dk-table--compact">
@@ -2225,29 +2223,23 @@ function DiscoverDetail({
           ) : model.installed ? (
             <>
               {openUseCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={name} label={t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${useCase.labelKey}`) })} className="dk-btn dk-btn--primary dk-btn--sm" />)}
-              <button className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onManage(name)}>
-                <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
-              </button>
+              <Button variant="ghost" size="sm" icon="sliders" onClick={() => onManage(name)}>
+                {t('lifecycle.actions.manageInstallation')}
+              </Button>
             </>
           ) : failed ? (
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onRetry(name, failed)} data-testid="discover-install">
-              <Icon name="refresh" /> {t('ledger.retry')}
-            </button>
+            <Button variant="primary" size="sm" icon="refresh" onClick={() => onRetry(name, failed)} data-testid="discover-install">
+              {t('ledger.retry')}
+            </Button>
           ) : (
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} disabled={!!installBlocked} title={installBlocked || undefined} data-testid="discover-install">
-              <Icon name="download" /> {t('actions.install')}
-            </button>
+            <Button variant="primary" size="sm" icon="download" onClick={() => onInstall(name)} disabled={!!installBlocked} title={installBlocked || undefined} data-testid="discover-install">
+              {t('actions.install')}
+            </Button>
           )}
           {onOpenPage && (
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost dk-btn--sm"
-              onClick={() => onOpenPage(name)}
-              data-testid="inspector-open-page"
-              aria-keyshortcuts="o"
-            >
-              <Icon name="arrow-right" /> {t('page.openDetails')}
-            </button>
+            <Button variant="ghost" size="sm" icon="arrow-right" onClick={() => onOpenPage(name)} data-testid="inspector-open-page" aria-keyshortcuts="o">
+              {t('page.openDetails')}
+            </Button>
           )}
         </>
       )}
