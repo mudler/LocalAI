@@ -82,6 +82,13 @@ the experts into RAM when there is room.
 | `qwen3.8-flash-next-ista-iq3_xxs` | ISTA-DASLab IQ3_XXS | 77 GB | about 47 GB |
 | `qwen3.8-flash-next-ista-iq3_s` | ISTA-DASLab IQ3_S, the best quality | 85 GB | about 55 GB |
 | `qwen3.8-flash-next-coder-iq1_m` | ISTA-DASLab Coder IQ1_M, half the experts, for code | 59 GB | about 32 GB of RAM |
+| `qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1` | Unsloth UD-IQ1_M (Dynamic v3.1), the smallest download | 68 GB | about 45 GB |
+| `qwen3.8-flash-next-unsloth-ud-q2_0-v3.1` | Unsloth UD-Q2_0 (v3.1) | 71 GB | about 47 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1` | Unsloth UD-IQ2_XS (v3.1) | 76 GB | about 52 GB |
+| `qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1` | Unsloth UD-Q2_K_XL (v3.1) | 80 GB | about 56 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1` | Unsloth UD-IQ3_XXS (v3.1) | 84 GB | about 60 GB |
+| `qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1` | Unsloth UD-Q3_K_XL (v3.1) | 90 GB | about 66 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1` | Unsloth UD-IQ4_XS (v3.1), a newer file than the one below | 94 GB | about 70 GB |
 | `qwen3.8-flash-next-unsloth-ud-iq4_xs` | Unsloth UD-IQ4_XS | 95 GB | about 72 GB for all experts |
 | `qwen3.8-flash-next-unsloth-ud-q4_k_xl` | Unsloth UD-Q4_K_XL | 112 GB | about 88 GB |
 | `qwen3.8-flash-next-unsloth-ud-q5_k_xl` | Unsloth UD-Q5_K_XL | 159 GB | about 108 GB |
@@ -96,7 +103,10 @@ the experts into RAM when there is room.
 | `qwen3.8-flash-next-nvfp4-nvidia` | NVIDIA's NVFP4 checkpoint, ready Strata pack | 129 GB | about 80 GB of RAM |
 
 The ISTA-DASLab, Unsloth and Gyro files are those of the Hugging Face repositories of the same
-names. The Unsloth and Gyro files need the
+names. The `-v3.1` entries are the Unsloth "Dynamic v3.1" files of 2026-11-04. They are new builds, not
+re-uploads of the older entries, and the Hugging Face files of those older entries stay pinned
+as they were. Upstream Strata has run some of these sets on real hardware; LocalAI has not run
+them yet. The Unsloth and Gyro files need the
 pack tool's `--compat-bf16` option, which the entries set. NVFP4 packs run on NVIDIA GPUs only.
 The MTP draft layer is not configured in any entry. The context size is 32768 tokens by
 default; set `context_size` for more. For less RAM with the Unsloth files, add
