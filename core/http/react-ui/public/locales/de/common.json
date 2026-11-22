@@ -206,5 +206,12 @@
       "unavailable": "Teilen hat nicht geantwortet. Versuchen Sie es gleich noch einmal.",
       "generic": "Etwas ist schiefgelaufen."
     }
+  },
+  "picker": {
+    "filter": "Filtern",
+    "loading": "Wird geladen",
+    "empty": "Noch nichts zur Auswahl",
+    "noMatch": "Keine Treffer",
+    "clear": "Leeren"
   }
 }

@@ -863,6 +863,21 @@
 .ui-slider__box { flex: none; width: 6rem; text-align: right; }
 .ui-slider[data-unset] .ui-slider__range { opacity: .55; }
 
+/* ---- Select: the compact size for a row ------------------------------------ */
+/* `dk-select-wrap--sm` around a `dk-select`: the height of a sm button, for a
+   choice inside a list row (the access of one member). It keeps the width of
+   its longest option instead of filling the row. */
+.dk-select-wrap--sm { display: inline-block; flex: none; max-width: 100%; }
+.dk-select-wrap--sm > .dk-select {
+  width: auto;
+  max-width: 100%;
+  height: var(--ctl-h-sm);
+  padding-left: var(--sp-2);
+  padding-right: var(--sp-8);
+  font-size: var(--fs-small);
+}
+.dk-select-wrap--sm::after { right: var(--sp-2); }
+
 /* ---- Icons ------------------------------------------------------------- */
 /* The Icon component (src/Icon.jsx) draws the kit's outline set inline. The
    kit draws on a 24 unit grid with a 2 unit margin, so at 1em the mark looks

@@ -206,5 +206,12 @@
       "unavailable": "共享没有响应。请稍后重试。",
       "generic": "出现问题。"
     }
+  },
+  "picker": {
+    "filter": "筛选",
+    "loading": "正在加载",
+    "empty": "暂无可选项",
+    "noMatch": "没有匹配项",
+    "clear": "清除"
   }
 }

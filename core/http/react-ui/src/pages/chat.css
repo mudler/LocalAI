@@ -1065,9 +1065,6 @@ button.cx-step__head:hover,
 .cx-keys__foot { display: flex; justify-content: flex-end; margin-top: 16px; }
 
 /* ---- Model list rows: loaded state, what it can do, how it fits ---------------- */
-.home-menu__item--rich { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
-.home-menu__item--rich .home-dot { margin-top: 6px; }
-.home-menu__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .home-menu__item .home-menu__caps { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--dk-muted); font-family: var(--font-mono); font-size: 12px; }
 .home-menu__caps .lai-icon { width: 14px; height: 14px; }
 .home-menu__state { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: auto; text-align: right; white-space: nowrap; }

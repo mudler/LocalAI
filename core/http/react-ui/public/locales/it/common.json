@@ -206,5 +206,12 @@
       "unavailable": "La condivisione non ha risposto. Riprova tra poco.",
       "generic": "Qualcosa è andato storto."
     }
+  },
+  "picker": {
+    "filter": "Filtra",
+    "loading": "Caricamento",
+    "empty": "Ancora niente da scegliere",
+    "noMatch": "Nessun risultato",
+    "clear": "Cancella"
   }
 }

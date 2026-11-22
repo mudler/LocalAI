@@ -34,7 +34,8 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 |---|---|---|
 | An action | `Button` | `primary` for the one main action of a region; `secondary`, `ghost`, `danger` and `danger-ghost` for the rest. |
 | Text | `dk-input` | One line of text. |
-| A choice from a list | `dk-select` in `dk-select-wrap` | A native list of options. |
+| A choice from a short, fixed list | `dk-select` in `dk-select-wrap` | A native list of options (see "Native select or ListPicker"). |
+| A choice from a long list, rich rows, several picks, or a chip in a toolbar | `ListPicker` | A trigger and a menu with a filter box, groups and keyboard. |
 | A number in a range (a sampling value) | `Slider` | A range with a number box and a reset; "not set" is its own state. Applies when the form is saved. |
 | A setting that applies at once | `Switch` | On or off, no Save. |
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
@@ -407,6 +408,98 @@ These are classes of the vendored kit, not React components. Put them in a
   once, use `Switch`.
 - A raw `<input type="checkbox">` with no `dk-check` is a violation of
   `lint:ui-kit`.
+- A select inside a list row (the access of one member, the mode of one
+  resource) uses the compact size: `dk-select-wrap dk-select-wrap--sm`. It has
+  the height of a `sm` button and the width of its longest option.
+
+## Native select or ListPicker
+
+One rule for a choice from a list:
+
+- Use a native `dk-select` in `dk-select-wrap` when the options are a short
+  list that the person reads at a glance (about 8 or fewer, such as an access
+  mode, a time range, or a project of a form), every option is one line of
+  plain text, and one value is chosen. The browser gives the keyboard, the
+  phone picker and the form behaviour for free.
+- Use `ListPicker` when one of these is true: the list can be long or comes
+  from data that grows (models, backends, agents in a toolbar), so a filter box
+  helps; a row needs more than plain text (a mono id, tags, a dot, a second
+  line); several values can be chosen; or the trigger is a chip in a toolbar or
+  the composer, not a form field.
+- Never style a native `select` with a page class or `dk-input`, and never
+  write a new dropdown. `SearchableSelect` is ListPicker with the old props;
+  new code uses `ListPicker`.
+
+## ListPicker
+
+```jsx
+import { ListPicker } from '../components/ui'
+
+<ListPicker
+  ariaLabel="Backend" variant="field" icon="server"
+  items={[
+    { id: 'llama-cpp', label: 'llama-cpp', mono: true, group: 'Text', tags: ['GPU'] },
+    { id: 'whisper', label: 'whisper', mono: true, group: 'Audio', description: 'Speech to text' },
+  ]}
+  noneLabel="Auto" value={backend} onChange={setBackend}
+/>
+```
+
+A trigger and a menu: the menu has a filter box, the rows and an optional
+footer. It is the picker of the Home composer (`ModelPicker` draws it), and the
+look of every menu of a chip.
+
+| Prop | Notes |
+|---|---|
+| `items` | The rows (shape below). |
+| `value`, `onChange(value)` | An id; with `multiple`, an array of ids. A pick in a single choice closes the menu and returns focus to the trigger. |
+| `multiple` | Several picks: the menu stays open, a chosen row shows a check, the trigger shows the picked labels and a count. `showCount={false}` hides the count. |
+| `variant` | `chip` (default): the compact chip (`--ctl-h-sm`) for a toolbar. `field`: a form control with `--ctl-h` that fills its field. |
+| `icon`, `placeholder` | The trigger's icon and its text when nothing is chosen. |
+| `ariaLabel`, `labelledBy`, `id` | The trigger's name. With `ariaLabel`, the chosen text is its description. With a visible `<label htmlFor={id}>`, pass `id`. `label` names the listbox when it differs. |
+| `noneLabel` | A first row that empties the value (`''`, or `[]`). It stays on top while filtering. |
+| `clearable`, `clearLabel` | A button beside the trigger that empties a single choice. |
+| `filter`, `filterFrom` | `true` always shows the filter box, `false` never; left out, it shows from `filterFrom` rows (8). |
+| `filterLabel`, `filterPlaceholder` | The words of the filter box. |
+| `filterItems(items, query)` | Your own filter; it can add rows (a "use what I typed" row). The default matches the label, the secondary text, the description, the id and `keywords`. |
+| `groups` | `{ [group]: heading }`. A row with `group` starts a block with its heading when the row before has another group. Without an entry, the group itself is the heading. |
+| `heading` | One heading over the whole list. |
+| `loading`, `loadingText` | A loading row. |
+| `empty`, `emptyText`, `noMatchText` | The row when nothing is shown: `emptyText` when the list is empty (`empty` overrides that test), `noMatchText` when the filter matches nothing. |
+| `disabled`, `invalid`, `openable` | `openable={false}` keeps a trigger enabled but the menu closed. |
+| `renderRow(row, { selected, active, index })` | Your own row content inside the `option`. |
+| `onPick(row)` | Replaces the default pick: you call `onChange`. A row with `closes` closes a multiple menu. |
+| `before`, `footer` | Content over the trigger (chips of the picks) and under the list. |
+| `triggerContent`, `triggerClassName`, `triggerProps` | Your own trigger content (the caret is always drawn), an extra class, and attributes for the button. |
+| `className`, `menuClassName`, `style` | Extra classes on the root and the menu. |
+| `testId` | `data-testid` of the trigger; the menu is `<testId>-menu` and the count `<testId>-count`. |
+| `onOpen` | Called when the menu opens. |
+
+The ref has `open()`, `close()` and `focus()`.
+
+A row: `{ id, label, key, mono, secondary, description, icon, dot, tags,
+group, keywords, disabled, title, selected, closes, rich }`.
+
+- `mono` draws the label in mono (an id). `secondary` is short text at the end
+  (a size, "warm"). `description` is a second line.
+- `dot`: `true` a green dot (loaded, running), `false` the empty dot (cold).
+  Leave it out for no dot.
+- `tags`: strings or `{ label, kind, title }`. `kind="alias"` is the accent tag.
+- `disabled` keeps the row but it cannot be chosen (`aria-disabled`).
+- `selected` overrides the check that `value` gives.
+
+Keyboard: ArrowDown on the trigger opens the menu. In the menu the focus is in
+the filter box (or the list); ArrowUp and ArrowDown move the active row and
+wrap, Home and End go to the ends when the filter is empty, Enter picks the
+active row, Escape closes and returns focus to the trigger, Tab closes. A click
+outside closes. The pure rules are in `listPickerModel.js`
+(`tests/unit/listpicker.test.mjs`); `e2e/list-picker.spec.js` drives the
+catalog example.
+
+The CSS is `picker.css` in this folder, loaded by `main.jsx` before
+`App.css`. The class names (`.home-chip`, `.home-menu*`, `.home-pick*`,
+`.home-dot`) keep the prefix of the page they started on, and pickers that do
+not use the component yet draw the same classes.
 
 ## SideSheet
 

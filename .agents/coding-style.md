@@ -134,7 +134,8 @@ link and the translated words. `tests/unit/uikitpackage.test.mjs` checks these
 rules.
 
 - Use the kit for every button (`Button`), text input (`dk-input`), select
-  (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
+  (`dk-select` for a short fixed list, `ListPicker` for a long or rich list,
+  several picks or a chip; the rule is in the kit README), switch (`Switch`), checkbox (`<input type="checkbox"
   className="dk-check">`), segmented control (`Segmented`), pill
   (`StatusChip`), callout (`Callout`), pane (`SidePane`) and sheet
   (`SideSheet`). Do not write a new one. Do not restyle one with a page class:

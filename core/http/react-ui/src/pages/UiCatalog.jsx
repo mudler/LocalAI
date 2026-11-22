@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
-  Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
+  Button, Callout, EmptyState, ListPicker, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
   Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
@@ -144,6 +144,62 @@ function FormControls() {
           <input type="checkbox" className="dk-check" checked={checked} onChange={e => setChecked(e.target.checked)} />
           <span>Keep the run history</span>
         </label>
+      </div>
+    </Section>
+  )
+}
+
+const PICK_BACKENDS = [
+  { id: 'llama-cpp', label: 'llama-cpp', mono: true, group: 'Text', secondary: 'GGUF', tags: [{ label: 'default', kind: 'alias' }] },
+  { id: 'vllm', label: 'vllm', mono: true, group: 'Text', secondary: 'CUDA' },
+  { id: 'mlx', label: 'mlx', mono: true, group: 'Text', disabled: true, tags: ['not on this host'] },
+  { id: 'whisper', label: 'whisper', mono: true, group: 'Audio', description: 'Speech to text, many languages' },
+  { id: 'piper', label: 'piper', mono: true, group: 'Audio', description: 'Text to speech, fast on a CPU' },
+  { id: 'kokoro', label: 'kokoro', mono: true, group: 'Audio', description: 'Text to speech, natural voices' },
+  { id: 'stablediffusion', label: 'stablediffusion', mono: true, group: 'Image' },
+  { id: 'diffusers', label: 'diffusers', mono: true, group: 'Image' },
+]
+const PICK_TOOLS = [
+  { id: 'web', label: 'Web search', icon: 'globe', dot: true },
+  { id: 'files', label: 'Files', icon: 'folder', dot: true },
+  { id: 'memory', label: 'Memory', icon: 'brain', dot: false },
+]
+
+function Pickers() {
+  const [backend, setBackend] = useState('')
+  const [tools, setTools] = useState(['web'])
+  const [mode, setMode] = useState('read')
+  return (
+    <Section id="picker" title="ListPicker" note="A choice from a long list, rows with more than text, several picks, or a chip in a toolbar. A filter box from 8 rows, groups, and the keyboard: arrows, Home, End, Enter, Escape. For a short fixed list in a form, use the native select.">
+      <div className="ui-cat__stack ui-cat__form">
+        <div className="dk-field">
+          <span className="dk-label" id="cat-pick-backend-label">Backend</span>
+          <ListPicker
+            variant="field" icon="server" labelledBy="cat-pick-backend-label" testId="cat-pick-backend"
+            items={PICK_BACKENDS} value={backend} onChange={setBackend}
+            noneLabel="Automatic" placeholder="Automatic" filterLabel="Filter backends" noMatchText="No backend matches."
+          />
+        </div>
+        <div className="ui-cat__cell">
+          <ListPicker
+            icon="wrench" ariaLabel="Tools" testId="cat-pick-tools" multiple
+            items={PICK_TOOLS} value={tools} onChange={setTools} placeholder="No tools"
+          />
+          <ListPicker
+            ariaLabel="Empty list" testId="cat-pick-empty" items={[]} value="" placeholder="Nothing yet" openable
+            emptyText="No backends are installed."
+          />
+          <ListPicker ariaLabel="Disabled" testId="cat-pick-disabled" items={PICK_TOOLS} value="web" disabled />
+        </div>
+        <div className="ui-cat__cell">
+          <span className="dk-select-wrap dk-select-wrap--sm">
+            <select className="dk-select" aria-label="Access" value={mode} onChange={e => setMode(e.target.value)} data-testid="cat-select-sm">
+              <option value="read">Can read</option>
+              <option value="write">Can edit</option>
+            </select>
+          </span>
+          <Button size="sm">A sm button</Button>
+        </div>
       </div>
     </Section>
   )
@@ -454,6 +510,7 @@ export default function UiCatalog() {
       <Chips />
       <Switches />
       <FormControls />
+      <Pickers />
       <Segments />
       <Sliders />
       <Callouts />

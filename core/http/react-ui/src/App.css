@@ -3832,14 +3832,6 @@ button.collapsible-header:focus-visible {
 /* The confirm button is the same danger wash as every other danger button. */
 
 /* Shared small controls */
-.home-dot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dk-ok);
-}
-.home-dot--cold { background: transparent; box-shadow: inset 0 0 0 1.75px var(--dk-control-edge); }
 .home-spinner {
   flex: none;
   width: 14px;
@@ -4388,16 +4380,14 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   .home-row:hover .home-row__count,
   .home-row:focus-within .home-row__count { display: inline; }
   .home-row__delete { opacity: 1; pointer-events: auto; top: 22px; margin-top: -16px; right: 6px; }
-  .home-menu { min-width: 0; width: calc(100vw - 48px); }
   .home-nodes li { grid-template-columns: 12px minmax(0, 1fr) auto; }
   .home-nodes .home-bar { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-menu, .dk-cmdlist.home-slash, .home-strip__body, .home-connect__body { animation: none; }
+  .dk-cmdlist.home-slash, .home-strip__body, .home-connect__body { animation: none; }
   .home-row__open, .home-row--leaving .home-row__open { transition: background var(--dk-dur-1) var(--dk-ease-out); }
   .home-row--leaving .home-row__open { transform: none; }
   .home-send-btn:active:not(:disabled),
-  .home-chip:active:not(:disabled),
   .home-ghost:active,
   .home-primary:active:not(:disabled),
   .home-secondary:active:not(:disabled),
