@@ -287,9 +287,7 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	} else {
 		hf := hfapi.NewClient()
 
-		hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
-		hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
-		hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
+		hfrepoID := huggingFaceRepoID(uri)
 
 		hfDetails, err = hf.GetModelDetails(hfrepoID)
 		if err != nil {
@@ -350,6 +348,35 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 
 	modelConfig, _, err = matchImporters(details)
 	return modelConfig, err
+}
+
+// huggingFaceRepoID turns the ways users write a Hugging Face repository
+// reference into the "owner/name" ID the Hub API takes. It accepts the
+// huggingface:// and hf:// schemes, http(s) URLs, and the same hosts without a
+// scheme (for example "huggingface.co/owner/name", as copied from a browser
+// address bar). A trailing slash, a "/tree/<ref>" suffix, a query string and a
+// fragment are dropped. Anything else is returned unchanged.
+func huggingFaceRepoID(uri string) string {
+	id := strings.TrimSpace(uri)
+	for _, prefix := range []string{
+		"huggingface://", "hf://",
+		"https://huggingface.co/", "http://huggingface.co/",
+		"https://www.huggingface.co/", "http://www.huggingface.co/",
+		"https://hf.co/", "http://hf.co/",
+		"huggingface.co/", "www.huggingface.co/", "hf.co/",
+	} {
+		if rest, ok := strings.CutPrefix(id, prefix); ok {
+			id = rest
+			break
+		}
+	}
+	if i := strings.IndexAny(id, "?#"); i >= 0 {
+		id = id[:i]
+	}
+	if i := strings.Index(id, "/tree/"); i >= 0 {
+		id = id[:i]
+	}
+	return strings.TrimRight(id, "/")
 }
 
 // matchImporters runs the importer registry on details that are already

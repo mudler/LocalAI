@@ -582,7 +582,12 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		defer s.llm.Unlock()
 	}
 
-	if rich, ok := s.llm.(AIModelRich); ok {
+	// Same dispatch order as Predict: a backend that implements only
+	// AIModelRichContext must not fall back to the text-only PredictStream,
+	// which drops ChatDeltas (tool calls, reasoning).
+	withCtx, hasCtx := s.llm.(AIModelRichContext)
+	rich, hasRich := s.llm.(AIModelRich)
+	if hasCtx || hasRich {
 		replyChan := make(chan *pb.Reply)
 		done := make(chan bool)
 		go func() {
@@ -599,7 +604,7 @@ func (s *server) PredictStream(in *pb.PredictOptions, stream pb.Backend_PredictS
 		// the channel and return when finished; closing is the host's
 		// concern so impls don't have to remember `defer close(...)`.
 		var err error
-		if withCtx, ok := s.llm.(AIModelRichContext); ok {
+		if hasCtx {
 			err = withCtx.PredictStreamRichContext(stream.Context(), in, replyChan)
 		} else {
 			err = rich.PredictStreamRich(in, replyChan)

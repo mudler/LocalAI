@@ -9,15 +9,15 @@ aliases = ["/features/strata/"]
 [Strata](https://github.com/Niko1221/Strata) runs very large mixture-of-experts models, such as a 125B Qwen, on one machine with a GPU, a lot of RAM and a lot of disk. Strata is a separate project. LocalAI wraps it in the experimental `strata` backend, which starts the Strata engine as a child process and talks to it over the engine's line protocol.
 
 {{% callout style="warning" %}}
-This backend is experimental. LocalAI's tests have not run the gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The speed, memory and quality figures on this page are Strata's own.
+This backend is experimental. LocalAI's tests have not run the Qwen gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The Hy4-Flash entries have not been run on real hardware either: the backend was tested against a stub engine and against the real tokenizer data of the model file. The speed, memory and quality figures on this page are Strata's own.
 {{% /callout %}}
 
-Qwen entries take text and images.
+Qwen entries and Tencent Hy4-Flash take text and images.
 
 ## What you need
 
 - A GPU from the [supported hardware](#supported-hardware) list.
-- RAM and disk as listed for the model in [Models](#models). Even the smallest entry downloads about 24 GB, and the largest ones more than 250 GB.
+- RAM and disk as listed for the model in [Models](#models). Even the smallest entry downloads about 24 GB, and the largest ones more than 250 GB. Tencent Hy4-Flash needs at least 64 GiB of RAM and about 130 GB of disk.
 - An SSD or NVMe drive for the larger entries, because the n-gram table is read from disk.
 
 ## Installing
@@ -46,7 +46,10 @@ NVIDIA Jetson (JetPack 6, CUDA 12 on arm64), other AMD GPU families, and Intel M
 those hosts `local-ai backends install strata` reports that no variant fits the machine.
 
 The images are large because each engine package carries its own GPU runtime libraries
-(CUDA, ROCm or oneAPI). The ROCm image carries four engines, one per GPU family.
+(CUDA, ROCm or oneAPI). The ROCm image carries four engines, one per GPU family. Each image
+also carries the same set of engines for Tencent Hy4-Flash, which runs on its own engine program
+(`strata-hy4`) and has its own packages; the launcher picks the one that matches the card, as it
+does for the Qwen engine. Upstream publishes the Hy4-Flash engine for the same targets as above.
 
 ## Licensing
 
@@ -82,6 +85,13 @@ the experts into RAM when there is room.
 | `qwen3.8-flash-next-ista-iq3_xxs` | ISTA-DASLab IQ3_XXS | 77 GB | about 47 GB |
 | `qwen3.8-flash-next-ista-iq3_s` | ISTA-DASLab IQ3_S, the best quality | 85 GB | about 55 GB |
 | `qwen3.8-flash-next-coder-iq1_m` | ISTA-DASLab Coder IQ1_M, half the experts, for code | 59 GB | about 32 GB of RAM |
+| `qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1` | Unsloth UD-IQ1_M (Dynamic v3.1), the smallest download | 68 GB | about 45 GB |
+| `qwen3.8-flash-next-unsloth-ud-q2_0-v3.1` | Unsloth UD-Q2_0 (v3.1) | 71 GB | about 47 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1` | Unsloth UD-IQ2_XS (v3.1) | 76 GB | about 52 GB |
+| `qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1` | Unsloth UD-Q2_K_XL (v3.1) | 80 GB | about 56 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1` | Unsloth UD-IQ3_XXS (v3.1) | 84 GB | about 60 GB |
+| `qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1` | Unsloth UD-Q3_K_XL (v3.1) | 90 GB | about 66 GB |
+| `qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1` | Unsloth UD-IQ4_XS (v3.1), a newer file than the one below | 94 GB | about 70 GB |
 | `qwen3.8-flash-next-unsloth-ud-iq4_xs` | Unsloth UD-IQ4_XS | 95 GB | about 72 GB for all experts |
 | `qwen3.8-flash-next-unsloth-ud-q4_k_xl` | Unsloth UD-Q4_K_XL | 112 GB | about 88 GB |
 | `qwen3.8-flash-next-unsloth-ud-q5_k_xl` | Unsloth UD-Q5_K_XL | 159 GB | about 108 GB |
@@ -96,7 +106,10 @@ the experts into RAM when there is room.
 | `qwen3.8-flash-next-nvfp4-nvidia` | NVIDIA's NVFP4 checkpoint, ready Strata pack | 129 GB | about 80 GB of RAM |
 
 The ISTA-DASLab, Unsloth and Gyro files are those of the Hugging Face repositories of the same
-names. The Unsloth and Gyro files need the
+names. The `-v3.1` entries are the Unsloth "Dynamic v3.1" files of 2026-11-04. They are new builds, not
+re-uploads of the older entries, and the Hugging Face files of those older entries stay pinned
+as they were. Upstream Strata has run some of these sets on real hardware; LocalAI has not run
+them yet. The Unsloth and Gyro files need the
 pack tool's `--compat-bf16` option, which the entries set. NVFP4 packs run on NVIDIA GPUs only.
 The MTP draft layer is not configured in any entry. The context size is 32768 tokens by
 default; set `context_size` for more. For less RAM with the Unsloth files, add
@@ -117,11 +130,50 @@ from the GGUF file (`pack_tool:tokenizer`).
 | `qwen3.6-35b-a3b-ud-q6_k_xl-strata` | Unsloth UD-Q6_K_XL | 34 GB | about 44 GB |
 | `qwen3.6-35b-a3b-q8_0-strata` | Unsloth Q8_0 | 39 GB | about 52 GB |
 
+**Tencent Hy4-Flash** (220B parameters, 12B active per token, 1M tokens of context, text and
+images in, Tencent Hy License 1.0). Strata publishes three quantizations of it as `.strata` files
+(not GGUF) with a shared Engram file that is read from disk while the model answers, and a small vision file.
+A model entry downloads the build, the Engram file and the vision file. The three entries use one
+directory, so the Engram and vision files are downloaded once and shared. There is no pack to build: the
+backend reads the tokenizer and the chat template from the build file on the first load (seconds).
+
+```bash
+local-ai models install hy4-flash-sq-64-strata
+```
+
+| Gallery name | Made for | Download | Memory in use |
+|---|---|---|---|
+| `hy4-flash-sq-64-strata` | 64 GiB of RAM and a GPU with 8 GiB or more | about 130 GB | about 59.4 GiB |
+| `hy4-flash-sq-96-strata` | 96 GiB of RAM, close to the full model | about 157 GB | about 85.1 GiB |
+| `hy4-flash-sq-128-strata` | 128 GiB of RAM, the closest to the full model | about 181 GB | about 107.5 GiB |
+
+The download is the build plus the 67.6 GB Engram file and the 0.93 GB vision file. Memory in use is
+RAM and GPU memory together. All figures in this table are the model author's and Strata's own, not
+measured by LocalAI. Use a fast SSD or NVMe drive: the Engram file is read at random while the
+model answers. The entries set a context of 131072 tokens, Strata's default for this model; lower
+`context_size` on a card with little memory. Speculative decoding (DFly2) is built into the engine
+and is on by default. Strata's recommended sampling is temperature 0.9, top_p 1.0 and no top_k; the entries
+set it. The reasoning effort of a request can be `none`, or any of the usual words, which the backend
+maps to the model's `no_think`, `high` and `max`.
+
+Options of the Hy4-Flash entries (set in `options:`; the backend README lists all options):
+
+| Option | Meaning |
+|---|---|
+| `family:hy4` | Selects the Hy4-Flash engine and file layout. |
+| `native`, `engram`, `vision` | The build file, the Engram file and the vision file, relative to the model directory. `vision:off` turns images off; the other two are required. |
+| `drafter` | `dfly2` (default) or `off`. The drafter is used only if the engine says it has one. |
+| `vram_experts_gb`, `ram_experts_gb` | Engine flags that cap how many gigabytes of experts go to the card and to RAM. Strata's own launcher computes them for a card; the entries set none, so the engine decides. Set them if the model does not fit your card. |
+
+The engine takes no `logprobs` and no logit bias, and the backend refuses a request for them.
+
 **Licences.** Qwen3.8-Flash-Next models are under the Qwen Community License 1.0: free use, but it
 asks for a separate licence from Qwen if you run a Model as a Service or AI Work Assistant
 business with it, and for the model name to be shown in products above its user and revenue
 limits. Swift 1.5 adds UkisAI's Swift Open License 1.0. The NVIDIA checkpoint adds the NVIDIA
-Open Model License Agreement. Qwen3.6 is Apache 2.0. Read the `LICENSE` file of the repository
+Open Model License Agreement. Qwen3.6 is Apache 2.0. Tencent Hy4-Flash is under the Tencent Hy
+License 1.0, derived from Apache 2.0 with extra commercial terms for very large Model as a
+Service businesses. Read the `LICENSE` file of the repository
 before you offer a model to other people. The ISTA-DASLab model cards also carry an Apache 2.0
 tag; their text says the weights inherit the base model's licence, and the entries follow the
 text.
@@ -148,12 +200,14 @@ changes the placeholder used between LocalAI and Strata.
 
 ## Limits
 
-The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. Qwen entries support images, logprobs, tool calls and reasoning. The backend README has the full list.
+The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. Qwen entries support images, logprobs, tool calls and reasoning. Hy4-Flash supports images, tool calls and reasoning, and no logprobs. The backend README has the full list.
 
 ## Versions
 
 Upstream versions each platform on its own, and a release doesn't always hold every package. One release can have the NVIDIA engine at one version and another platform's engine at an older one. Mixed versions are normal.
 
 `backend/go/strata/Makefile` pins every package on its own: the release tag it comes from, its version and its SHA-256 (`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>` and `STRATA_ENGINE_SHA256_<package>`). The download URL is built from the package's own tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release, and the backend's Python modules are fetched at that commit.
+
+The Hy4-Flash engine packages have their own pins of the same kind (`STRATA_HY4_TAG_<package>`, `STRATA_HY4_VERSION_<package>` and `STRATA_HY4_SHA256_<package>`), and the same job moves them.
 
 A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script `.github/bump_strata.sh`) takes each package from the newest release that has it and opens one pull request when any pin changes. If a package is missing from the newest release, the job takes it from an older one and logs a notice. If a package is in no release, it keeps its pin and prints a warning. The job fails when a SHA-256 in the release's `SHA256SUMS.txt` differs from the digest GitHub computed for the uploaded file. The pull request lists each package that changed, with its old and new tag and version. The backend speaks an unversioned line protocol, so review each bump against the backend README.

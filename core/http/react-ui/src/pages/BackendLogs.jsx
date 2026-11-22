@@ -451,15 +451,24 @@ function BackendLogsRouter({ modelId }) {
 // each a link to its log. Reached from a backend's "Logs" link.
 function LogProcessList() {
   const { t } = useTranslation('operate')
+  const { enabled: distributedMode, loading: probing, nodes } = useDistributedMode()
   const [processes, setProcesses] = useState(null)
   const [error, setError] = useState('')
   useEffect(() => {
+    if (probing) return undefined
     let cancelled = false
-    backendLogsApi.listModels()
-      .then(list => { if (!cancelled) setProcesses(Array.isArray(list) ? list : []) })
+    // A cluster frontend has no /api/backend-logs (inference runs on the
+    // workers), so the processes are the models the workers have loaded.
+    // One unreachable worker does not hide the others.
+    const list = distributedMode
+      ? Promise.all((nodes || []).map(node => nodesApi.getModels(node.id).catch(() => [])))
+        .then(perNode => [...new Set(perNode.flat().map(m => m?.model_name).filter(Boolean))])
+      : backendLogsApi.listModels()
+    list
+      .then(ids => { if (!cancelled) setProcesses(Array.isArray(ids) ? ids : []) })
       .catch(err => { if (!cancelled) { setError(err.message); setProcesses([]) } })
     return () => { cancelled = true }
-  }, [])
+  }, [probing, distributedMode, nodes])
 
   return (
     <div className="page page--wide op-page lg" data-testid="logs-processes">

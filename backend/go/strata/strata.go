@@ -47,12 +47,19 @@ type Strata struct {
 	startEngine  func(engineConfig) (*engine, error)
 	buildPack    func(packBuild) error
 	newTokenizer func(python, strataRoot, pack, family string, timeout time.Duration) (Tokenizer, error)
+
+	// Hy4 seams: the tokenizer from the model file, and the engine's --info.
+	prepareHy4Tokenizer func(hy4TokenizerJob) error
+	probeHy4Info        func(enginePath, native string, env []string) (map[string]string, error)
 }
 
 func NewStrata() *Strata {
 	return &Strata{
 		startEngine: startEngine,
 		buildPack:   runPackBuild,
+
+		prepareHy4Tokenizer: prepareHy4Tokenizer,
+		probeHy4Info:        probeHy4Info,
 		newTokenizer: func(python, root, pack, family string, timeout time.Duration) (Tokenizer, error) {
 			return newHelperTokenizer(python, root, pack, family, timeout)
 		},
@@ -80,6 +87,12 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 	}
 
+	if c.hy4 != nil {
+		if err := s.prepareHy4(&c); err != nil {
+			return err
+		}
+	}
+
 	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.family, c.readyTimeout)
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
@@ -101,13 +114,14 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	switch {
 	case eosIDs != nil:
 	default:
-		eosIDs = defaultEOS(tok)
+		eosIDs = defaultEOS(tok, c.family)
 	}
 	for _, id := range eosIDs {
 		s.eos[id] = true
 	}
 	s.padID, s.startID, s.padLiteral = -1, -1, nil
-	if c.vision != nil {
+	// Hy4: the engine reads pictures itself, so there is no encoder to start.
+	if c.hy4 == nil && c.vision != nil {
 		s.vision = newImageEncoder(*c.vision)
 		if ids, err := tok.Encode(imagePadText, true); err == nil && len(ids) == 1 {
 			s.padID = ids[0]
@@ -117,23 +131,52 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 		s.padLiteral, _ = tok.Encode(imagePadText, false)
 	}
-	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil)
+	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision))
 	return nil
 }
 
-// defaultEOS finds the end-of-turn tokens of the Qwen family by name, and
+// defaultEOS finds the end-of-turn tokens of the model family by name, and
 // falls back to their known ids.
-func defaultEOS(tok Tokenizer) []int {
+func defaultEOS(tok Tokenizer, family string) []int {
+	names, fallback := []string{"<|endoftext|>", "<|im_end|>"}, defaultEOSIDs
+	if family == familyHy4 {
+		names, fallback = hy4EOSTexts, defaultHy4EOSIDs
+	}
 	var out []int
-	for _, t := range []string{"<|endoftext|>", "<|im_end|>"} {
+	for _, t := range names {
 		if ids, err := tok.Encode(t, true); err == nil && len(ids) == 1 {
 			out = append(out, ids[0])
 		}
 	}
 	if len(out) == 0 {
-		return defaultEOSIDs
+		return fallback
 	}
 	return out
+}
+
+// prepareHy4 makes the tokenizer directory from the model file and asks the
+// engine what it can do. It sets the pack the tokenizer helper reads.
+func (s *Strata) prepareHy4(c *loadConfig) error {
+	h := c.hy4
+	if c.strataRoot == "" {
+		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
+	}
+	pack := hy4PackDir(h.native)
+	if err := s.prepareHy4Tokenizer(hy4TokenizerJob{native: h.native, pack: pack, python: c.python, strataRoot: c.strataRoot}); err != nil {
+		return fmt.Errorf("strata: cannot make the tokenizer from %s: %w", filepath.Base(h.native), err)
+	}
+	c.pack = pack
+	var info map[string]string
+	if h.wantDrafter || h.vision != "" {
+		var err error
+		if info, err = s.probeHy4Info(c.enginePath, h.native, c.env); err != nil {
+			xlog.Warn("strata: cannot ask the engine what it supports", "error", err)
+		}
+	}
+	for _, n := range h.applyInfo(info) {
+		xlog.Info("strata: " + n)
+	}
+	return nil
 }
 
 func (s *Strata) freeLocked() {
@@ -284,7 +327,11 @@ func (s *Strata) preparePrompt(tok Tokenizer, opts *pb.PredictOptions) (prepared
 		if got := strings.Count(text, marker); got != n {
 			return p, fmt.Errorf("the prompt has %d image markers (%s) for %d images", got, marker, n)
 		}
-		text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
+		if s.cfg.hy4 != nil {
+			text = strings.ReplaceAll(text, marker, hy4ImageStartText+hy4ImagePadText+hy4ImageEndText)
+		} else {
+			text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
+		}
 		p.Images = opts.GetImages()
 	}
 	ids, err := tok.Encode(text, true)
@@ -434,8 +481,24 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	if len(p.IDs) == 0 {
 		return res, errors.New("strata: empty prompt")
 	}
-	embFile, release, err := s.expandImages(vis, &p)
-	if err != nil {
+	var (
+		embFile   string
+		imageKeys []string
+		release   = func() {}
+	)
+	if s.cfg.hy4 != nil {
+		if logprobsK(opts) >= 0 {
+			return res, errors.New("strata: logprobs are not supported by the Hy4-Flash engine")
+		}
+		if len(p.Images) > 0 {
+			if !s.cfg.hy4.useVision {
+				return res, errors.New("strata: this model cannot read images: the vision file is missing or the engine does not support it")
+			}
+			if imageKeys, release, err = hy4ImageKeys(p.Images); err != nil {
+				return res, fmt.Errorf("strata: %w", err)
+			}
+		}
+	} else if embFile, release, err = s.expandImages(vis, &p); err != nil {
 		return res, err
 	}
 	defer release()
@@ -505,7 +568,7 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 		return nil
 	}
 
-	greq := genRequest{MaxNew: maxNew, Keys: samplingKeys(opts), IDs: ids, Embeddings: embFile}
+	greq := genRequest{MaxNew: maxNew, Keys: append(samplingKeys(opts), imageKeys...), IDs: ids, Embeddings: embFile}
 	if k >= 0 {
 		greq.Logprobs = &k
 	}
@@ -591,8 +654,17 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 			return ctx.Err()
 		}
 	}
+	// A chat reply streams the parsed content as Message, as the llama.cpp
+	// backend does. With the raw text, LocalAI's stream worker falls back to it
+	// for any chunk whose ChatDelta has no content (a tool call, held text) and
+	// streams tool-call markup and reasoning as content.
+	parsed := opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0
 	res, err := s.run(ctx, opts, func(raw string, d *pb.ChatDelta) error {
-		r := &pb.Reply{Message: []byte(raw)}
+		msg := raw
+		if parsed && d != nil {
+			msg = d.Content
+		}
+		r := &pb.Reply{Message: []byte(msg)}
 		if d != nil {
 			r.ChatDeltas = []*pb.ChatDelta{d}
 		}
@@ -602,6 +674,19 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 		return err
 	}
 	return put(res.usage())
+}
+
+// PredictRich and PredictStreamRich make Strata a grpc.AIModelRich as well.
+// The gRPC server's PredictStream only looks for AIModelRichContext inside its
+// AIModelRich check (pkg/grpc/server.go), so without these a streamed request
+// takes the legacy text-only PredictStream below and loses the ChatDeltas
+// (tool calls, reasoning) the output parser produced.
+func (s *Strata) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
+	return s.PredictRichContext(context.Background(), opts)
+}
+
+func (s *Strata) PredictStreamRich(opts *pb.PredictOptions, out chan<- *pb.Reply) error {
+	return s.PredictStreamRichContext(context.Background(), opts, out)
 }
 
 // Legacy entry points, for callers that do not use the rich interface.

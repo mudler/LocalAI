@@ -18,10 +18,12 @@ import (
 // backend drops them from the output. Override with the eos_ids option.
 var defaultEOSIDs = []int{248044, 248046}
 
-// Model families. Qwen is the only one Strata still serves. Strata v0.2.15
-// removed DeepSeek V4.1, so family:deepseek41 is refused at load.
+// Model families. Qwen runs on the Strata engine ("strata"). Hy4 is Tencent
+// Hy4-Flash, which runs on its own engine program ("strata-hy4"); see hy4.go.
+// Strata v0.2.15 removed DeepSeek V4.1, so family:deepseek41 is refused at load.
 const (
 	familyQwen       = "qwen"
+	familyHy4        = "hy4"
 	familyDeepSeek41 = "deepseek41"
 )
 
@@ -48,8 +50,12 @@ type loadConfig struct {
 	// build is set when the pack does not exist yet and must be made from the
 	// GGUF files before the engine starts (the pack_gguf option).
 	build *packBuild
-	// family is familyQwen.
+	// family is familyQwen or familyHy4.
 	family string
+
+	// hy4 is set for the Hy4 family: the files of a .strata model and the
+	// options of the strata-hy4 engine. Nil for every other family.
+	hy4 *hy4Config
 
 	// noPackFlag leaves --pack off the engine command line: the engine path
 	// of this model reads the GGUF as it is and takes only the tokenizer.
@@ -71,6 +77,9 @@ var fileOptions = []struct{ option, flag string }{
 // engineArgs is the command line before --serve. User arguments come last so
 // they can override what the options chose.
 func (c loadConfig) engineArgs() []string {
+	if c.hy4 != nil {
+		return c.hy4EngineArgs()
+	}
 	var args []string
 	if !c.noPackFlag {
 		args = append(args, "--pack", c.pack)
@@ -208,10 +217,12 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	c.family = familyQwen
 	switch f := kv["family"]; f {
 	case "", familyQwen:
+	case familyHy4:
+		c.family = familyHy4
 	case familyDeepSeek41:
 		return c, errors.New("strata: family:deepseek41 is not supported: Strata v0.2.15 removed DeepSeek V4.1")
 	default:
-		return c, fmt.Errorf("strata: family %q must be %s", f, familyQwen)
+		return c, fmt.Errorf("strata: family %q must be %s or %s", f, familyQwen, familyHy4)
 	}
 	envName := "STRATA_ENGINE_PATH"
 	c.enginePath = kv["engine_path"]
@@ -227,6 +238,10 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	}
 	c.enginePath = enginePath
 
+	if c.family == familyHy4 {
+		return parseHy4(c, kv, opts)
+	}
+
 	pack, dirs, err := planPack(&c, opts, kv)
 	if err != nil {
 		return c, err
@@ -234,15 +249,7 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	c.pack = pack
 	dirs = append([]string{pack}, dirs...)
 
-	c.strataRoot = kv["strata_root"]
-	if c.strataRoot == "" {
-		c.strataRoot = os.Getenv("STRATA_ROOT")
-	}
-	c.python = kv["python"]
-	c.mediaMarker = kv["media_marker"]
-	if v := kv["engine_args"]; v != "" {
-		c.extraArgs = strings.Fields(v)
-	}
+	parseRuntime(&c, kv)
 	for _, fo := range fileOptions {
 		if v := kv[fo.option]; v != "" {
 			p, err := resolve(v, dirs...)
@@ -259,11 +266,37 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 		c.extraArgs = append([]string{"--mmap-experts"}, c.extraArgs...)
 	}
 
+	if err := parseTimeouts(&c, kv); err != nil {
+		return c, err
+	}
+
+	if err := parseVision(&c, kv, opts, dirs); err != nil {
+		return c, err
+	}
+	return c, nil
+}
+
+// parseRuntime reads the options every family shares: where the Strata Python
+// files are, the Python to run, the image marker and the extra engine arguments.
+func parseRuntime(c *loadConfig, kv map[string]string) {
+	c.strataRoot = kv["strata_root"]
+	if c.strataRoot == "" {
+		c.strataRoot = os.Getenv("STRATA_ROOT")
+	}
+	c.python = kv["python"]
+	c.mediaMarker = kv["media_marker"]
+	if v := kv["engine_args"]; v != "" {
+		c.extraArgs = strings.Fields(v)
+	}
+}
+
+// parseTimeouts reads the two timeouts and the end-of-turn ids.
+func parseTimeouts(c *loadConfig, kv map[string]string) error {
 	c.readyTimeout = 15 * time.Minute
 	if v := kv["ready_timeout"]; v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad ready_timeout %q", v)
+			return fmt.Errorf("strata: bad ready_timeout %q", v)
 		}
 		c.readyTimeout = d
 	}
@@ -271,7 +304,7 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	if v := kv["stop_timeout"]; v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad stop_timeout %q", v)
+			return fmt.Errorf("strata: bad stop_timeout %q", v)
 		}
 		c.stopTimeout = d
 	}
@@ -280,16 +313,13 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 		for _, f := range strings.Split(v, ",") {
 			n, err := strconv.Atoi(strings.TrimSpace(f))
 			if err != nil {
-				return c, fmt.Errorf("strata: bad eos_ids entry %q", f)
+				return fmt.Errorf("strata: bad eos_ids entry %q", f)
 			}
 			c.eos = append(c.eos, n)
 		}
 	}
 
-	if err := parseVision(&c, kv, opts, dirs); err != nil {
-		return c, err
-	}
-	return c, nil
+	return nil
 }
 
 // parseVision enables images when the model has an mmproj file and the
