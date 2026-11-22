@@ -36,7 +36,7 @@ test.describe('Placement rules: the list', () => {
     await expect(rule(page).nth(2)).toContainText('c runs up to 4 replicas on any healthy node.')
     await expect(rule(page).nth(3)).toContainText('d runs on every healthy node.')
     await expect(rule(page).nth(4)).toContainText('e has no placement of its own')
-    await expect(rule(page).nth(4)).toContainText('Round robin routing')
+    await expect(rule(page).nth(4)).toContainText('Round robin policy')
   })
 
   test('shows where each model is loaded now, from the loaded replicas', async ({ page }) => {
@@ -203,7 +203,7 @@ test.describe('Placement rules: delete with undo', () => {
     const log = await mockSwarm(page)
     await page.goto('/app/scheduling')
     await page.getByRole('button', { name: 'Delete kokoro-82m' }).click()
-    await page.getByRole('link', { name: 'Workers', exact: true }).click()
+    await page.getByRole('link', { name: /^Workers/ }).click()
     await expect.poll(() => log.filter(entry => entry.method === 'DELETE').length).toBe(1)
   })
 
