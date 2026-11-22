@@ -14,9 +14,6 @@ btn src/components/RouterCandidatesEditor.jsx 4
 btn src/components/RouterPoliciesEditor.jsx 2
 btn src/components/biometrics/EmbeddingInspector.jsx 1
 btn src/components/biometrics/MediaInput.jsx 5
-btn src/components/chat/AgentPicker.jsx 1
-btn src/components/chat/SubAgentsMenu.jsx 1
-btn src/components/chat/SwitchList.jsx 1
 btn src/components/files/PreviewBody.jsx 1
 btn src/components/nodes/CapacityEditor.jsx 6
 btn src/components/nodes/KeyValueChips.jsx 1
