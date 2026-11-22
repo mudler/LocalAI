@@ -39,7 +39,7 @@ import ReportsTo from '../components/agents/ReportsTo'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch } from '../components/ui'
+import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch, Tabs } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
@@ -842,25 +842,30 @@ function PreviewSheet({ tab, onTab, task, next, diff, isNew, saving, onSave, onC
           </button>
         </div>
         <div className="dk-sheet-body">
-          <div className="dk-tabs ag-sheet-tabs" role="tablist" aria-label={t('jobs.edit.previewTitle')}>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'prompt'} onClick={() => onTab('prompt')}>{t('jobs.edit.tabPrompt')}</button>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'changes'} onClick={() => onTab('changes')}>
-              {t('jobs.edit.tabChanges')}{diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-          </div>
+          <Tabs
+            className="ag-sheet-tabs"
+            label={t('jobs.edit.previewTitle')}
+            idPrefix="task-preview"
+            value={tab}
+            onChange={onTab}
+            items={[
+              { id: 'prompt', label: t('jobs.edit.tabPrompt') },
+              { id: 'changes', label: t('jobs.edit.tabChanges'), ...(diff.length > 0 ? { count: diff.length } : {}) },
+            ]}
+          />
           {tab === 'prompt' ? (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="task-preview-prompt">
+            <div className="dk-tabpanel" role="tabpanel" id="task-preview-panel-prompt" aria-labelledby="task-preview-tab-prompt" data-testid="task-preview-prompt">
               <p className="ag-note ag-note--bottom">{t('jobs.edit.promptAsSent')}</p>
               {task.prompt.trim() ? <pre className="aj-prompt">{task.prompt}</pre> : <p className="ag-note">{t('jobs.edit.emptyPrompt')}</p>}
               {next && (
                 <div className="aj-context">
-                  <span className="ag-eyebrow">{t('jobs.task.schedule')}</span>
+                  <span className="ag-label">{t('jobs.task.schedule')}</span>
                   <p className="ag-sec__text">{next}</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="task-preview-changes">
+            <div className="dk-tabpanel" role="tabpanel" id="task-preview-panel-changes" aria-labelledby="task-preview-tab-changes" data-testid="task-preview-changes">
               {diff.length === 0 ? (
                 <p className="ag-note">{isNew ? t('jobs.edit.nothingSet') : t('jobs.edit.noChanges')}</p>
               ) : (

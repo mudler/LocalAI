@@ -30,7 +30,7 @@ export default function ModelUpdateCard({ row, model }) {
       </div>
       {detail && <p className="mu-model__line">{detail.text}</p>}
       {(row.state === 'ready' || row.state === 'failed' || row.state === 'cleanup') && (
-        <div className="badge-row">
+        <div className="hstack">
           {row.state === 'ready' && (
             <Button size="sm" icon="arrow-up" disabled={pending} onClick={() => model.actions.upgrade(row)} data-testid="model-card-upgrade">{t('model.action.upgrade')}</Button>
           )}
@@ -44,7 +44,7 @@ export default function ModelUpdateCard({ row, model }) {
         </div>
       )}
       {canAdopt(row) && (
-        <div className="badge-row">
+        <div className="hstack">
           <Button size="sm" icon="link" busy={pending} disabled={pending} onClick={() => model.actions.adopt(row)} aria-label={t('model.action.adoptNamed', { name: row.name })} data-testid="model-card-adopt">{t('model.action.adopt')}</Button>
         </div>
       )}

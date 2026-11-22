@@ -181,7 +181,7 @@ export default function AgentWizard() {
           </section>
 
           <aside className="aw-rail" aria-label={t('wizard.rail.title')} data-testid="wizard-rail">
-            <p className="ag-eyebrow">{t('wizard.rail.title')}</p>
+            <p className="ag-label">{t('wizard.rail.title')}</p>
             <h3 className="ag-h3 aw-rail__name" data-testid="wizard-rail-name">{form.name.trim() || t('wizard.rail.unnamed')}</h3>
             <dl className="aw-rail__list">
               <div><dt>{t('wizard.rail.abilities')}</dt><dd data-testid="wizard-rail-level">{levelName}</dd></div>

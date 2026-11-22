@@ -24,6 +24,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import Popover from '../components/Popover'
 import Icon from '../components/Icon'
+import { Tabs } from '../components/ui'
 import { modelUseCases } from './InstalledModels'
 // eslint-disable-next-line no-unused-vars
 import OverviewTab from '../components/models/page/OverviewTab'
@@ -210,23 +211,6 @@ export default function ModelPage() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
-
-  // Tab list as a roving group: arrows, Home and End.
-  const onTabKeyDown = (e) => {
-    // The roving position is the tab that has focus, which is what the reader
-    // is looking at, and cannot lag a render the way the selected tab can.
-    const focused = e.target.closest?.('[role="tab"]')?.id?.replace('modelpage-tab-', '')
-    const index = Math.max(0, tabs.findIndex(item => item.id === (focused || tab)))
-    let next = index
-    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length
-    else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = tabs.length - 1
-    else return
-    e.preventDefault()
-    goTab(tabs[next].id)
-    document.getElementById(`modelpage-tab-${tabs[next].id}`)?.focus()
-  }
 
   // --- states that replace the page ------------------------------------------------
   const knownInstalledList = !installedLoading || installedList.length > 0
@@ -539,26 +523,16 @@ export default function ModelPage() {
         </div>
       )}
 
-      <div className="dk-tabs modelpage-tabs" role="tablist" aria-label={t('page.tabs.label')} onKeyDown={onTabKeyDown}>
-        {tabs.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            id={`modelpage-tab-${item.id}`}
-            aria-controls="modelpage-panel"
-            aria-selected={tab === item.id}
-            aria-keyshortcuts={String(index + 1)}
-            tabIndex={tab === item.id ? 0 : -1}
-            className="dk-tab"
-            data-testid={`model-page-tab-${item.id}`}
-            onClick={() => goTab(item.id)}
-          >
-            {item.label}
-            {item.count ? <span className="dk-hubtab-count">{item.count}</span> : null}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="modelpage-tabs"
+        label={t('page.tabs.label')}
+        idPrefix="modelpage"
+        panelId="modelpage-panel"
+        value={tab}
+        onChange={goTab}
+        itemTestId="model-page-tab-"
+        items={tabs.map((item, index) => ({ id: item.id, label: item.label, count: item.count || undefined, keyshortcuts: String(index + 1) }))}
+      />
 
       <div className="modelpage-panel" role="tabpanel" id="modelpage-panel" aria-labelledby={`modelpage-tab-${tab}`} tabIndex={0} data-testid={`model-page-panel-${tab}`}>
         {tab === 'overview' && <OverviewTab view={view} />}

@@ -1,12 +1,12 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { profileApi, usageApi } from '../utils/api'
 import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, useLoad } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, Tabs, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab, NavigationTab, SlotsTab, StringsTab } from '../components/wellknown/SettingsTabs'
 import DefaultsTab from '../components/wellknown/DefaultsTab'
@@ -260,7 +260,6 @@ export default function Account() {
   const tabs = TABS.filter(x => (authEnabled || x.files) && (!x.files || filesTabs))
   const first = tabs[0]?.id
   const tab = tabs.some(x => x.id === params.get('tab')) ? params.get('tab') : first
-  const refs = useRef({})
 
   if (tabs.length === 0) {
     return (
@@ -270,17 +269,7 @@ export default function Account() {
     )
   }
 
-  const select = (id, focus = false) => {
-    setParams(id === first ? {} : { tab: id }, { replace: true })
-    if (focus) refs.current[id]?.focus()
-  }
-  const onKey = (e) => {
-    const i = tabs.findIndex(x => x.id === tab)
-    if (e.key === 'ArrowRight') { e.preventDefault(); select(tabs[(i + 1) % tabs.length].id, true) }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + tabs.length - 1) % tabs.length].id, true) }
-    else if (e.key === 'Home') { e.preventDefault(); select(tabs[0].id, true) }
-    else if (e.key === 'End') { e.preventDefault(); select(tabs[tabs.length - 1].id, true) }
-  }
+  const select = (id) => setParams(id === first ? {} : { tab: id }, { replace: true })
 
   return (
     <Page className={`ac-page${WIDE_TABS.has(tab) ? ' ac-page--wide' : ''}`} data-testid="account-page">
@@ -290,17 +279,7 @@ export default function Account() {
         actions={authEnabled ? <span className="ac-me">{user?.name || user?.email} · {user?.role}</span> : null}
       />
 
-      <div className="dk-tabs" role="tablist" aria-label={t('account.title')} onKeyDown={onKey}>
-        {tabs.map(x => (
-          <button
-            key={x.id} ref={el => { refs.current[x.id] = el }} type="button" role="tab" id={`ac-tab-${x.id}`}
-            className="dk-tab" aria-selected={tab === x.id} aria-controls={`ac-panel-${x.id}`} tabIndex={tab === x.id ? 0 : -1}
-            onClick={() => select(x.id)}
-          >
-            {t(x.labelKey)}
-          </button>
-        ))}
-      </div>
+      <Tabs label={t('account.title')} idPrefix="ac" value={tab} onChange={select} items={tabs.map(x => ({ id: x.id, label: t(x.labelKey) }))} />
 
       <div className="dk-tabpanel" role="tabpanel" id={`ac-panel-${tab}`} aria-labelledby={`ac-tab-${tab}`}>
         {tab === 'profile' && <ProfileTab addToast={addToast} />}

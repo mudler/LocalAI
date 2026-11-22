@@ -30,7 +30,7 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, LoadError, Page, Segmented, SkeletonRows } from '../components/ui'
+import { Button, Callout, LoadError, Page, Segmented, SkeletonRows, Tabs } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 // eslint-disable-next-line no-unused-vars
@@ -913,19 +913,24 @@ function PreviewSheet({ tab, onTab, payload, diff, isEdit, saving, onSave, onClo
           </button>
         </div>
         <div className="dk-sheet-body">
-          <div className="dk-tabs ag-sheet-tabs" role="tablist" aria-label={t('create.previewTitle')}>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'config'} onClick={() => onTab('config')}>{t('create.tabConfig')}</button>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'changes'} onClick={() => onTab('changes')}>
-              {t('create.tabChanges')}{diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-          </div>
+          <Tabs
+            className="ag-sheet-tabs"
+            label={t('create.previewTitle')}
+            idPrefix="agent-preview"
+            value={tab}
+            onChange={onTab}
+            items={[
+              { id: 'config', label: t('create.tabConfig') },
+              { id: 'changes', label: t('create.tabChanges'), ...(diff.length > 0 ? { count: diff.length } : {}) },
+            ]}
+          />
           {tab === 'config' ? (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="agent-preview-config">
+            <div className="dk-tabpanel" role="tabpanel" id="agent-preview-panel-config" aria-labelledby="agent-preview-tab-config" data-testid="agent-preview-config">
               <p className="ag-note ag-note--bottom">{t('create.configNote')}</p>
               <pre className="ag-pre">{json}</pre>
             </div>
           ) : (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="agent-preview-changes">
+            <div className="dk-tabpanel" role="tabpanel" id="agent-preview-panel-changes" aria-labelledby="agent-preview-tab-changes" data-testid="agent-preview-changes">
               {diff.length === 0 ? (
                 <p className="ag-note">{isEdit ? t('create.noChanges') : t('create.nothingSet')}</p>
               ) : (

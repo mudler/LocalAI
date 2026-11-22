@@ -1934,25 +1934,7 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-origin-banner { margin: 8px 16px 0; justify-content: flex-start; flex-wrap: wrap; }
 .cx-origin-banner .cx-link { margin-left: auto; }
 
-.ac-tabs { margin-bottom: 16px; }
-.ac-tabs .dk-tab { display: inline-flex; align-items: center; gap: 8px; }
-.ac-tab__count {
-  color: var(--dk-muted);
-  font-size: var(--fs-meta);
-  font-variant-numeric: tabular-nums;
-}
-.ac-tab__wait {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--dk-warn-wash);
-  color: var(--dk-warn-text);
-  font-size: var(--fs-meta);
-  font-weight: 700;
-  line-height: 18px;
-  text-align: center;
-}
+.ac-tabs { margin-bottom: var(--sp-4); }
 .ac-intro, .ac-empty { margin: 0 0 16px; color: var(--dk-muted); font-size: var(--fs-small); }
 .ac-empty { padding: 28px 16px; text-align: center; }
 .ac-kind { margin-bottom: 28px; }

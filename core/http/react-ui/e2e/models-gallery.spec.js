@@ -608,7 +608,7 @@ test.describe("Models Gallery - Variant picker", () => {
     const unfit = detail.locator(".variant-row--unfit");
     await expect(unfit).toHaveCount(1);
     await expect(unfit).toContainText("llama-model-f16");
-    await expect(unfit.locator(".badge-warning")).toHaveText("Does not fit");
+    await expect(unfit.locator(".ui-chip--warn")).toHaveText("Does not fit");
     // Auto-selected still answers "what do I get if I just hit Install".
     await expect(
       detail.locator(".variant-row", { hasText: "llama-model-q8" }),
@@ -701,13 +701,13 @@ test.describe("Models Gallery - Variant picker", () => {
     await expect(
       page
         .locator(".variant-row", { hasText: "llama-model-q8" })
-        .locator(".badge", { hasText: "Faster: DFlash" }),
+        .locator(".ui-tag", { hasText: "Faster: DFlash" }),
     ).toBeVisible();
     // A build declaring no feature carries no feature badge at all.
     await expect(
       page
         .locator(".variant-row", { hasText: "llama-model-mlx" })
-        .locator(".badge", { hasText: "Faster" }),
+        .locator(".ui-tag", { hasText: "Faster" }),
     ).toHaveCount(0);
   });
 

@@ -10,11 +10,11 @@ import { relativeDate } from '../../utils/fileBrowser'
 import {
   failed, filterItems, groupByDay, iconOf, linkDisabled, reasonText, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
-import { nextTab, openingTab } from '../../utils/opsActivity'
+import { openingTab } from '../../utils/opsActivity'
 import ActionMenu from '../ActionMenu'
 import ActivityTab from './ActivityTab'
 import Icon from '../Icon'
-import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows, Tabs } from '../ui'
 import './inbox.css'
 
 // How long a notification that just came in keeps its highlight.
@@ -158,13 +158,6 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
   const pickTab = (next) => { setConfirm(''); setTab(next) }
   const tabLabels = { notifications: t('inbox.tabs.notifications'), activity: t('inbox.tabs.activity') }
   const activityBadge = ops.failed ? ops.failedCount : ops.count
-  const onTabKey = (e) => {
-    const next = nextTab(tab, e.key)
-    if (!next) return
-    e.preventDefault()
-    pickTab(next)
-    document.getElementById(`${titleId}-tab-${next}`)?.focus()
-  }
 
   // Beside the sidebar, the bottom edge on the entry that opened it. The
   // numbers go in as custom properties so the stylesheet owns the layout; on a
@@ -329,27 +322,20 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
             </span>
           </div>
           {tabs && (
-            <div className="nx-tabs" role="tablist" aria-label={t('inbox.tabs.label')} data-testid="inbox-tabs" onKeyDown={onTabKey}>
-              {['notifications', 'activity'].map((id) => (
-                <button
-                  key={id}
-                  id={`${titleId}-tab-${id}`}
-                  type="button"
-                  role="tab"
-                  className="nx-tab"
-                  aria-selected={tab === id}
-                  aria-controls={`${titleId}-pane-${id}`}
-                  tabIndex={tab === id ? 0 : -1}
-                  data-testid={`inbox-tab-${id}`}
-                  onClick={() => pickTab(id)}
-                >
-                  {tabLabels[id]}
-                  {id === 'activity' && activityBadge > 0 && (
-                    <span className={`nx-tab__n${ops.failed ? ' nx-tab__n--failed' : ''}`} data-testid="inbox-tab-activity-count" aria-hidden="true">{activityBadge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              className="nx-tabs"
+              label={t('inbox.tabs.label')}
+              idPrefix={titleId}
+              value={tab}
+              onChange={pickTab}
+              testId="inbox-tabs"
+              itemTestId="inbox-tab-"
+              items={['notifications', 'activity'].map(id => ({
+                id,
+                label: tabLabels[id],
+                ...(id === 'activity' && activityBadge > 0 ? { count: activityBadge, countTone: ops.failed ? 'error' : 'accent', countHidden: true, countTestId: 'inbox-tab-activity-count' } : {}),
+              }))}
+            />
           )}
         </header>
         {onNotifications && (inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-tools">
@@ -392,7 +378,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
           // undo does not become final by a click on a tab.
           <div
             className="nx-body"
-            {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-activity`, 'aria-labelledby': `${titleId}-tab-activity` } : {})}
+            {...(tabs ? { role: 'tabpanel', id: `${titleId}-panel-activity`, 'aria-labelledby': `${titleId}-tab-activity` } : {})}
             hidden={onNotifications}
             data-testid="inbox-pane-activity"
           >
@@ -401,7 +387,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
         )}
         {onNotifications && <div
           className="nx-body"
-          {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-notifications`, 'aria-labelledby': `${titleId}-tab-notifications` } : {})}
+          {...(tabs ? { role: 'tabpanel', id: `${titleId}-panel-notifications`, 'aria-labelledby': `${titleId}-tab-notifications` } : {})}
         >
           {waiting.count > 0 && (
             <button

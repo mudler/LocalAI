@@ -30,6 +30,7 @@ import {
   CAP_VAD, CAP_SCORE, CAP_DECISIONS,
 } from '../utils/capabilities'
 import Icon from '../components/Icon'
+import { Segmented, Tag } from '../components/ui'
 import { remoteIndex, remoteSubline } from '../utils/remotes'
 import { useUpdates } from '../contexts/UpdatesContext'
 import { modelIndicator, modelRowsByName } from '../utils/modelUpdates'
@@ -485,21 +486,15 @@ export default function InstalledModels({
         )}
       >
         {(aliasTargets[selectedModel.id] || selectedModel.source === 'registry-only' || chain) && (
-          <div className="badge-row">
+          <div className="ui-tags">
             {selectedModel.source === 'registry-only' && (
-              <span className="dk-badge dk-badge--warn" title={t('lifecycle.detail.adoptedHint')}>
-                <Icon name="ghost" /> {t('lifecycle.detail.adopted')}
-              </span>
+              <Tag tone="warn" icon="ghost" title={t('lifecycle.detail.adoptedHint')}>{t('lifecycle.detail.adopted')}</Tag>
             )}
             {aliasTargets[selectedModel.id] && (
-              <span className="dk-badge" title={t('lifecycle.detail.aliasTitle', { target: aliasTargets[selectedModel.id] })}>
-                <Icon name="swap" /> {t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}
-              </span>
+              <Tag tone="accent" icon="swap" title={t('lifecycle.detail.aliasTitle', { target: aliasTargets[selectedModel.id] })}>{t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}</Tag>
             )}
             {chain && (
-              <span className="dk-badge" title={t('lifecycle.detail.chainTitle', { target: chain.active })}>
-                <Icon name="shuffle" /> {t('lifecycle.detail.chain', { target: chain.active })}
-              </span>
+              <Tag icon="shuffle" title={t('lifecycle.detail.chainTitle', { target: chain.active })}>{t('lifecycle.detail.chain', { target: chain.active })}</Tag>
             )}
           </div>
         )}
@@ -507,7 +502,7 @@ export default function InstalledModels({
         {useCases.length > 0 && (
           <div>
             <span className="detail-pane__label">{t('lifecycle.open.title')}</span>
-            <div className="badge-row">
+            <div className="hstack">
               {useCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={selectedModel.id} label={t(`lifecycle.open.${useCase.labelKey}`)} />)}
             </div>
           </div>
@@ -571,21 +566,14 @@ export default function InstalledModels({
           </div>
         </div>
         <div className="ledger-controls__row">
-          <div className="dk-segmented ledger-states" role="tablist" aria-label={t('lifecycle.installed.filterLabel')}>
-            {filters.map(f => (
-              <button
-                key={f.key}
-                type="button"
-                role="tab"
-                className="dk-seg"
-                aria-selected={state === f.key}
-                onClick={() => onStateChange(f.key)}
-              >
-                <span>{f.label}</span>
-                <span className="ledger-facet__count">{f.count}</span>
-              </button>
-            ))}
-          </div>
+          <Segmented
+            className="ledger-states"
+            label={t('lifecycle.installed.filterLabel')}
+            value={state}
+            onChange={onStateChange}
+            testId="ledger-states"
+            options={filters.map(f => ({ id: f.key, label: f.label, count: f.count }))}
+          />
         </div>
       </div>
 
@@ -829,7 +817,7 @@ function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, d
 
         {tags.length > 0 && (<>
           <dt>{t('lifecycle.detail.tags')}</dt>
-          <dd><div className="badge-row">{tags.map(tag => <span key={tag} className="dk-badge">{tag}</span>)}</div></dd>
+          <dd><div className="hstack">{tags.map(tag => <span key={tag} className="dk-badge">{tag}</span>)}</div></dd>
         </>)}
 
         {urls.length > 0 && (<>
@@ -858,7 +846,7 @@ function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, d
         {sharing.length > 0 && (<>
           <dt>{t('lifecycle.detail.sharesFiles')}</dt>
           <dd>
-            <div className="badge-row">
+            <div className="hstack">
               {sharing.map(item => (
                 <button
                   key={item.model}
