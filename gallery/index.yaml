@@ -6213,7 +6213,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: 8e286354e3a1c7d0435ae4eb2768e83d775840abdadfd214c876e5f54cb570a7
+      sha256: 8554c2bf6c0873415e847516e4f5fb0ebd8bf1606e3b0555b8fad4ba846b0163
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -14655,7 +14655,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
-      sha256: 7827805ae9f2d20cc71e46bf05d9cb045e222d3fa0429363c324bbf6d3cab959
+      sha256: d713d93d5c9fc5ee4c3e9db1f04577d58eca4c9af6379de9e55c43cecd7c5491
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
   overrides:
     backend: llama-cpp
@@ -14696,7 +14696,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
-      sha256: d4cc4c9fffaa356db8b49cfaba9233609cfb29b4dd89d827665210dc1cc8dbbb
+      sha256: dad34ec5cb8da3147ad8666bde0d59c4c7845e5d070a8011b29108326d741a06
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
   overrides:
     backend: llama-cpp
