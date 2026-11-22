@@ -86,7 +86,7 @@ export default function WorkerRoster({
           <span className="wk-row__sub" title={sub}>{sub}</span>
         </button>
         <div className="wk-row__state">
-          <StatusChip tone={TONE[state.level]} dot>{t(`state.${state.key}`)}</StatusChip>
+          <StatusChip tone={TONE[state.level]} dot title={t(`state.${state.key}`)}>{t(`state.${state.key}`)}</StatusChip>
           {why.filter(reason => reason.startsWith('low')).map(reason => (
             <StatusChip key={reason} tone="warn">{t(`attention.${reason}`)}</StatusChip>
           ))}

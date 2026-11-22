@@ -20,7 +20,7 @@
 
 .wk-list__head, .wk-row {
   display: grid;
-  grid-template-columns: 20px minmax(0, 1.2fr) 116px minmax(0, 1.5fr) 112px 68px;
+  grid-template-columns: 20px minmax(0, 1.2fr) 148px minmax(0, 1.5fr) 112px 68px;
   align-items: center;
   column-gap: var(--dk-space-3);
   padding: 0 var(--dk-space-4);
@@ -56,6 +56,8 @@
 .wk-row__name { font-size: var(--fs-small); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; min-width: 0; }
 .wk-row__sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-meta); color: var(--dk-muted); }
 .wk-row__state { display: flex; flex-wrap: wrap; gap: var(--dk-space-1); min-width: 0; }
+.wk-row__state .ui-chip { max-width: 100%; }
+.wk-row__state .ui-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wk-row__conns { min-width: 0; }
 .wk-row__use { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wk-row__fig, .wk-row__none { font-size: var(--fs-meta); color: var(--dk-muted); }
@@ -70,7 +72,7 @@
 .wk-chip .ui-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wk-chip__detail { font-weight: 400; }
 
-@container (max-width: 760px) {
+@container (max-width: 700px) {
   .wk-list__head { display: flex; }
   .wk-head__main, .wk-head__state, .wk-head__conns, .wk-head__use, .wk-head__seen { display: none; }
   .wk-head__all { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
