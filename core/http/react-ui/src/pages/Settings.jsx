@@ -4,7 +4,7 @@ import { Link, Navigate, useLocation, useOutletContext, useSearchParams } from '
 import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
-import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
+import { Button, EmptyState, LoadError, SearchField, SkeletonRows } from '../components/ui'
 import { HubHeader } from '../components/hub/HubHeader'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -374,15 +374,11 @@ export default function Settings() {
       <HubHeader supporting={<p className="st-lede">{t('settings.subtitle')}. Edits wait here until you apply them.</p>} />
 
       <div className="st-bar">
-        <div className="dk-input-icon st-search">
-          <Icon name="search" className="dk-icon" />
-          <input
-            ref={searchRef} className="dk-input" type="search" value={query}
-            aria-label={`Search all ${pageFields} settings`} placeholder={`Search all ${pageFields} settings`}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }}
-          />
-        </div>
+        <SearchField
+          ref={searchRef} className="st-search" value={query} onChange={setQuery}
+          label={`Search all ${pageFields} settings`}
+          onKeyDown={e => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }}
+        />
         <p className="st-bar__count" data-testid="settings-changed-count">
           <strong className="st-bar__n">{changedFromDefault}</strong> changed from default
         </p>

@@ -6,7 +6,7 @@ import Icon from '../components/Icon'
 import Callout from '../components/ui/Callout'
 import EmptyState from '../components/ui/EmptyState'
 import LoadError from '../components/ui/LoadError'
-import { Button, TabPanel, Tabs } from '../components/ui'
+import { Button, SearchField, TabPanel, Tabs } from '../components/ui'
 import { SkeletonRows } from '../components/Skeleton'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -798,11 +798,10 @@ export default function Workspace() {
                 <>
                   <Breadcrumb path={ws.path} onOpen={openFolder} drop={dropTarget} t={t} />
                   <form className="ws-search" role="search" onSubmit={(e) => { e.preventDefault(); if (query.trim()) { setSearched(query.trim()); ws.search(query) } }}>
-                    <Icon name="search" className="ws-search__icon" />
-                    <input
-                      ref={searchRef} className="input ws-search__input" type="search" aria-label={t('search.label')} placeholder={t('search.placeholder')}
+                    <SearchField
+                      ref={searchRef} label={t('search.label')} placeholder={t('search.placeholder')}
                       value={query}
-                      onChange={(e) => { setQuery(e.target.value); if (!e.target.value) { ws.clearSearch(); setSearched('') } }}
+                      onChange={(text) => { setQuery(text); if (!text) { ws.clearSearch(); setSearched('') } }}
                       onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery(''); ws.clearSearch(); setSearched('') } }}
                     />
                   </form>

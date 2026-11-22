@@ -126,15 +126,6 @@ button.ws-crumb:focus-visible { outline: 2px solid var(--focus-ring-color); outl
 .ws-crumb__home { flex: none; }
 
 .ws-search { position: relative; flex: 0 1 280px; min-width: 160px; }
-.ws-search__icon {
-  position: absolute;
-  left: var(--sp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-.ws-search__input { width: 100%; height: var(--ctl-h); padding-left: calc(var(--sp-3) * 2 + 1em); }
 
 .ws-views {
   flex: none;

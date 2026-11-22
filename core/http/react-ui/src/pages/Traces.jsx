@@ -12,7 +12,7 @@ import BackendTraceDetail from '../components/traffic/BackendTraceDetail'
 import Icon from '../components/Icon'
 import LoadingSpinner from '../components/LoadingSpinner'
 import './traffic.css'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, SearchField } from '../components/ui'
 
 const PAGE_SIZE = DEFAULT_TRACE_PAGE_SIZE
 // A request this slow is marked, not only long.
@@ -292,10 +292,7 @@ export default function Traces() {
             <button type="button" className="dk-chip" aria-pressed={state === 'failed'} onClick={() => setFilterState('failed')}>{t('traces.failed')} <span className="tf-count">{counts.failed}</span></button>
             <button type="button" className="dk-chip" aria-pressed={state === 'slow'} onClick={() => setFilterState('slow')}>{t('traces.slow')} <span className="tf-count">{counts.slow}</span></button>
           </div>}
-          <div className="dk-input-icon tf-search">
-            <Icon name="search" className="dk-icon" />
-            <input className="dk-input" type="search" aria-label={t('traces.search')} placeholder={t('traces.search')} value={query} onChange={e => setQuery(e.target.value)} />
-          </div>
+          <SearchField className="tf-search" label={t('traces.search')} value={query} onChange={setQuery} />
         </div>
       )}
 

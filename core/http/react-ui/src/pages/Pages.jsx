@@ -7,7 +7,7 @@ import PageHeader from '../components/PageHeader'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PageShareDialog from '../components/pages/PageShareDialog'
-import { Button } from '../components/ui'
+import { Button, SearchField } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { authorOf, pageIndexPath } from '../utils/pages'
@@ -291,8 +291,7 @@ export default function Pages() {
             <h2 className="pg-group" id="pg-yours">{t('yours')} <span className="pg-group__count">{pages.length}</span></h2>
             {pages.length > FILTER_FROM && (
               <div className="pg-filter">
-                <label className="pg-sr" htmlFor="pg-filter">{t('filter')}</label>
-                <input id="pg-filter" className="dk-input" type="search" placeholder={t('filter')} value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="pages-filter" />
+                <SearchField id="pg-filter" label={t('filter')} value={filter} onChange={setFilter} testId="pages-filter" />
               </div>
             )}
             <ul className="pg-list" aria-label={t('card.list')}>
