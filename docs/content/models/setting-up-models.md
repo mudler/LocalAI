@@ -229,6 +229,15 @@ local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 ```
 
+An `ollama://` import works like this:
+
+- The model must be a GGUF file. LocalAI reads the first bytes of the weights before the download and again after it, and refuses anything else with "this model is not a GGUF file".
+- The model name is `<name>-<tag>`, so `ollama://qwen3:8b` becomes `qwen3-8b`. A `library/` prefix is dropped, a `user/model:tag` model becomes `user-model-tag`, and the tag `latest` adds nothing to the name. The weights are saved as `<name>.gguf`.
+- The sampling defaults the model's author published (`temperature`, `top_k`, `top_p`, `min_p`, `repeat_penalty`, `seed`, `num_predict` as `max_tokens`, and `stop` as `stopwords`) become the defaults of the model. Other keys, including `num_ctx`, are ignored. The import preferences `temperature`, `top_k`, `top_p`, `min_p`, `repeat_penalty`, `seed`, `max_tokens` and `stopwords` take priority over them.
+- A vision model's projector is downloaded as a second file, `<name>-mmproj.gguf`, and set as `mmproj`.
+- The chat template stays the one inside the GGUF file. LocalAI does not import the Ollama template, system prompt or license.
+- A model or tag that does not exist, or a manifest without model weights, fails the import with an error that names the model.
+
 ### Standard OCI Registry
 
 ```bash
@@ -252,6 +261,8 @@ To run models via URI, specify a URI to a model file or a configuration file whe
 {{% callout style="note" %}}
 When using `file://` URLs, the path must point to a file within your models directory (specified by `MODELS_PATH`). Files outside this directory are rejected for security reasons.
 {{% /callout %}}
+
+Every blob that LocalAI downloads from an OCI or Ollama registry is checked against its sha256 digest and size. A download that fails the check, or fails for any other reason, leaves no partial file behind.
 
 Configuration files can be used to customize the model defaults and settings. For advanced configurations, refer to the [Customize Models section]({{% relref "/start/customize-model" %}}).
 

@@ -121,6 +121,11 @@ func HFOwnerRepoFromURI(uri string) (owner, repo string, ok bool) {
 	for _, pfx := range []string{"https://huggingface.co/", "huggingface://", "hf://"} {
 		stripped = strings.TrimPrefix(stripped, pfx)
 	}
+	// Any other scheme (ollama://, oci://, file://) is not an HF URI. Without
+	// this, "ollama://qwen3:8b" parses as owner "ollama:" and repo "/qwen3:8b".
+	if strings.Contains(stripped, "://") {
+		return "", "", false
+	}
 	parts := strings.SplitN(stripped, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", false
