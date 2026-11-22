@@ -15186,7 +15186,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Repository uri: huggingface://owner/repo or pirateface://owner/repo",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or ollama://name[:tag]",
                         "name": "uri",
                         "in": "query",
                         "required": true
@@ -15240,7 +15240,7 @@ const docTemplate = `{
         },
         "/api/models/remote/files": {
             "get": {
-                "description": "Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
+                "description": "Reads one repository of Hugging Face or Pirate Face, or one model tag of the Ollama registry, and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
                 "tags": [
                     "models"
                 ],
@@ -15248,7 +15248,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo, ollama://name[:tag] or a huggingface.co url",
                         "name": "uri",
                         "in": "query",
                         "required": true

@@ -18,6 +18,10 @@ var _ = DescribeTable("RepoOfURI",
 	Entry("hf scheme", "hf://acme/tiny", "acme/tiny"),
 	Entry("resolve url", "https://huggingface.co/acme/tiny/resolve/main/a.gguf", "acme/tiny"),
 	Entry("pirateface", "pirateface://acme/tiny/a.gguf", "acme/tiny"),
+	Entry("ollama bare name", "ollama://Qwen3", "library/qwen3:latest"),
+	Entry("ollama name and tag", "ollama://qwen3:8b", "library/qwen3:8b"),
+	Entry("ollama user model", "ollama://user/model:tag", "user/model:tag"),
+	Entry("ollama bad name", "ollama://a b", ""),
 	Entry("a bare path is not a repository reference", "acme/tiny", ""),
 	Entry("a file path", "models/llama.gguf", ""),
 	Entry("oci", "oci://acme/tiny", ""),
@@ -69,6 +73,19 @@ var _ = Describe("EnrichSearch", func() {
 		Expect(r.InstalledName).To(Equal("m"))
 		Expect(r.HasVariants).To(BeTrue())
 		Expect(r.Downloads).To(Equal(int64(5)))
+	})
+
+	It("matches an installed Ollama model through the row uri, whatever the row id says", func() {
+		resp := modelsearch.Response{Results: []modelsearch.Result{
+			{Provider: "ollama", ID: "Qwen3 (8B)", URI: "ollama://qwen3:8b"},
+			{Provider: "ollama", ID: "Qwen3 (4B)", URI: "ollama://qwen3:4b"},
+		}}
+		remotemodel.EnrichSearch(&resp, remotemodel.NewInstalledIndex([]config.ModelConfig{
+			{Name: "qwen3-8b", DownloadFiles: []config.File{{URI: "ollama://library/qwen3:8b"}}},
+		}))
+		Expect(resp.Results[0].Installed).To(BeTrue())
+		Expect(resp.Results[0].InstalledName).To(Equal("qwen3-8b"))
+		Expect(resp.Results[1].Installed).To(BeFalse())
 	})
 
 	It("takes the variants hint from the row the host set from its source, not from the source ID", func() {

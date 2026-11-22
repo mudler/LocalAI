@@ -147,6 +147,16 @@ var _ = Describe("magnet, .torrent and pirateface:// URIs", func() {
 		)
 	})
 
+	DescribeTable("AllowedSearchURI",
+		func(uri string, want bool) { Expect(AllowedSearchURI(uri)).To(Equal(want)) },
+		Entry("huggingface", "huggingface://acme/m", true),
+		Entry("ollama", "ollama://qwen3:8b", true),
+		Entry("ollama in capitals", "OLLAMA://qwen3", true),
+		Entry("ollama with nothing after the scheme", "ollama://", false),
+		Entry("oci is not offered by a search", "oci://registry/x", false),
+		Entry("ftp", "ftp://example.org/x", false),
+	)
+
 	Describe("file names", func() {
 		It("names the file of a pirateface:// URI", func() {
 			Expect(URI("pirateface://acme/m/sub/model.gguf").FilenameFromUrl()).To(Equal("model.gguf"))

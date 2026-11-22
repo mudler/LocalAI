@@ -95,6 +95,58 @@ var _ = Describe("remote model routes", func() {
 	})
 	AfterEach(func() { hf.Close() })
 
+	Describe("an Ollama model", func() {
+		var reg *httptest.Server
+		BeforeEach(func() {
+			reg = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v2/library/qwen3/manifests/8b" {
+					http.NotFound(w, r)
+					return
+				}
+				_, _ = w.Write([]byte(`{"schemaVersion":2,"layers":[
+				 {"mediaType":"application/vnd.ollama.image.model","digest":"sha256:aa11","size":5200000000},
+				 {"mediaType":"application/vnd.ollama.image.projector","digest":"sha256:ff66","size":851000000},
+				 {"mediaType":"application/vnd.ollama.image.template","digest":"sha256:bb22","size":1500}]}`))
+			}))
+			in := modelsearch.NewInspector(modelsearch.InspectorOptions{
+				OllamaBase: reg.URL, Client: reg.Client(),
+				ReadMeta: func(stdContext, string) (*vram.GGUFMeta, error) {
+					return &vram.GGUFMeta{BlockCount: 36, EmbeddingLength: 4096, HeadCount: 32, HeadCountKV: 8, MaximumContextLength: 40960}, nil
+				},
+			})
+			e.GET("/api/models/ollama/files", RemoteModelFilesEndpoint(in, cl))
+			e.GET("/api/models/ollama/estimate", RemoteModelEstimateEndpoint(in))
+		})
+		AfterEach(func() { reg.Close() })
+
+		It("lists the model and projector layers", func() {
+			rec := get("/api/models/ollama/files?uri=ollama://qwen3:8b")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var out map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			Expect(out["provider"]).To(Equal("ollama"))
+			Expect(out["size_known"]).To(BeTrue())
+			files := out["files"].([]any)
+			Expect(files).To(HaveLen(2))
+			Expect(files[1].(map[string]any)["kind"]).To(Equal("mmproj"))
+			Expect(out["variants"].([]any)).To(HaveLen(1))
+		})
+
+		It("estimates the model layer", func() {
+			rec := get("/api/models/ollama/estimate?uri=ollama://qwen3:8b&contexts=8192")
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var out map[string]any
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			Expect(out["sizeBytes"]).To(BeNumerically("==", 5_200_000_000))
+			Expect(out["source"]).To(Equal("gguf-header"))
+		})
+
+		It("answers 404 for a tag the registry does not have and 400 for a bad name", func() {
+			Expect(get("/api/models/ollama/files?uri=ollama://qwen3:nope").Code).To(Equal(http.StatusNotFound))
+			Expect(get("/api/models/ollama/files?uri=ollama://a/../b").Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+
 	Describe("files", func() {
 		It("returns variants, licence, description and the backend of a dry run", func() {
 			rec := get("/api/models/remote/files?uri=huggingface://acme/Tiny-GGUF")

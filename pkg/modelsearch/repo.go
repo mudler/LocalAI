@@ -23,7 +23,7 @@ import (
 
 var (
 	// ErrBadRepo means the uri names no repository the Inspector understands.
-	ErrBadRepo = errors.New("not a Hugging Face or Pirate Face repository uri")
+	ErrBadRepo = errors.New("not a Hugging Face, Pirate Face or Ollama repository uri")
 	// ErrRepoNotFound means the provider has no such repository, or it is
 	// private. Hugging Face answers 401 for both.
 	ErrRepoNotFound = errors.New("repository not found")
@@ -41,12 +41,20 @@ type RepoRef struct {
 }
 
 // ParseRepoURI reads the uris search results carry (huggingface://owner/repo,
-// pirateface://owner/repo), plus hf:// and https://huggingface.co/owner/repo.
-// A file path after the repository is ignored.
+// pirateface://owner/repo, ollama://name[:tag]), plus hf:// and
+// https://huggingface.co/owner/repo. A file path after a Hugging Face or Pirate
+// Face repository is ignored.
 func ParseRepoURI(uri string) (RepoRef, error) {
 	uri = strings.TrimSpace(uri)
 	if uri == "" {
 		return RepoRef{}, ErrBadRepo
+	}
+	if rest, ok := cutPrefixFold(uri, downloader.OllamaPrefix); ok {
+		id, err := parseOllamaName(rest)
+		if err != nil {
+			return RepoRef{}, ErrBadRepo
+		}
+		return RepoRef{Provider: OllamaName, ID: id}, nil
 	}
 	if downloader.URI(uri).LooksLikePirateFace() {
 		ref, err := downloader.ParsePirateFaceURI(uri)
@@ -149,6 +157,9 @@ type RepoFiles struct {
 
 	// hfBase is the site the file urls of the estimate point at.
 	hfBase string
+	// fileURLs maps a file path to the address its header is read from, for
+	// a provider whose files do not live under hfBase (Ollama).
+	fileURLs map[string]string
 }
 
 // WeightBytes sums the weight files that a plain import downloads: the
@@ -184,6 +195,8 @@ type InspectorOptions struct {
 	MaxEntries int
 	// MaxConcurrent bounds upstream calls running at once. Default 4.
 	MaxConcurrent int
+	// OllamaBase is the Ollama registry root; default https://registry.ollama.ai.
+	OllamaBase string
 	// PirateFace looks a repository up on the Pirate Face index. Default
 	// downloader.LookupPirateFace. This is the only call to the site's /api
 	// the Inspector makes, and never from a search.
@@ -226,6 +239,10 @@ func NewInspector(o InspectorOptions) *Inspector {
 		o.HFBase = "https://huggingface.co"
 	}
 	o.HFBase = strings.TrimRight(o.HFBase, "/")
+	if o.OllamaBase == "" {
+		o.OllamaBase = ollamaRegistry
+	}
+	o.OllamaBase = strings.TrimRight(o.OllamaBase, "/")
 	if o.Client == nil {
 		o.Client = newHTTPClient()
 	}
@@ -362,6 +379,8 @@ func (i *Inspector) fetch(ctx context.Context, ref RepoRef) (*RepoFiles, error) 
 	switch ref.Provider {
 	case PirateFaceName:
 		return i.fetchPirateFace(ctx, ref)
+	case OllamaName:
+		return i.fetchOllama(ctx, ref)
 	default:
 		return i.fetchHuggingFace(ctx, ref, "")
 	}
@@ -871,6 +890,9 @@ func (i *Inspector) Estimate(ctx context.Context, uri, file string, contexts []u
 }
 
 func fileURL(rf *RepoFiles, p string) string {
+	if u, ok := rf.fileURLs[p]; ok {
+		return u
+	}
 	rev := rf.Revision
 	if rev == "" {
 		rev = "main"
