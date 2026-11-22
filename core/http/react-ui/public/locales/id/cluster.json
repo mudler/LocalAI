@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Cara frontend dan worker terhubung"
+  },
+  "unavailable": {
+    "title": "Server ini bukan bagian dari cluster",
+    "body": "Pengaturan cluster muncul saat mode terdistribusi diaktifkan."
+  },
+  "loadFailed": "Pengaturan cluster tidak dapat dimuat.",
+  "sheet": {
+    "title": "Pengaturan cluster",
+    "description": "Cara frontend dan worker terhubung. Perubahan sampai ke setiap frontend dalam hitungan detik.",
+    "close": "Tutup pengaturan cluster",
+    "openSettings": "Buka di Pengaturan",
+    "done": "Selesai"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "Frontend mendengarkan di setiap bus yang bisa mereka jangkau. Mereka menerbitkan pesan lewat NATS selama NATS dapat dijangkau, dan lewat PostgreSQL jika tidak.",
+    "state": {
+      "nats": "NATS terhubung",
+      "postgres": "PostgreSQL",
+      "unknown": "Tidak diketahui"
+    },
+    "publishing": {
+      "nats": "Menerbitkan lewat NATS",
+      "postgres": "Menerbitkan lewat PostgreSQL",
+      "unknown": "Tidak diketahui"
+    },
+    "unreachable": "NATS sudah dikonfigurasi, tetapi frontend ini tidak dapat menjangkaunya. Frontend menyiarkan lewat PostgreSQL dan belum siap sampai NATS kembali tersedia.",
+    "noReplica": "Tidak ada frontend aktif yang melapor.",
+    "replicas": "Frontend",
+    "unknownVersion": "versi tidak diketahui",
+    "workers": "Worker tidak pernah terhubung ke PostgreSQL. Mereka berkomunikasi dengan frontend lewat koneksi di bawah ini."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Saat disimpan, sistem memeriksa apakah frontend ini dapat menjangkau server NATS. Frontend memakai alamat baru setelah dimulai ulang.",
+    "state": {
+      "connected": "Dapat dijangkau",
+      "unreachable": "Tidak dapat dijangkau",
+      "off": "Belum diatur"
+    },
+    "url": "Alamat NATS",
+    "urlHint": "Frontend terhubung ke sini.",
+    "workerUrl": "Alamat yang diberikan ke worker",
+    "workerUrlHint": "Hanya jika worker menjangkau NATS di alamat yang berbeda. Kosong berarti memakai alamat di atas.",
+    "save": "Simpan",
+    "saved": "Tersimpan. Mulai ulang frontend untuk memakai alamat baru.",
+    "savedReachable": "Tersimpan. Frontend ini dapat menjangkau server NATS. Mulai ulang frontend untuk memakai alamat baru.",
+    "failed": "Pengaturan tidak tersimpan."
+  },
+  "weights": {
+    "title": "Preferensi koneksi",
+    "note": "Worker dapat bergabung lewat NATS, WebSocket, atau P2P, sekaligus. Jika dua worker sama-sama cocok untuk sebuah permintaan, worker yang dijangkau lewat koneksi dengan bobot lebih tinggi yang akan dipilih. Bobot tidak pernah mengalahkan kecocokan. 0 berarti: gunakan hanya jika tidak ada yang lain yang cocok.",
+    "about": {
+      "nats": "Paling cepat. Worker menghubungi message bus.",
+      "websocket": "Berfungsi di mana saja. Worker menghubungi server ini.",
+      "p2p": "Tautan undangan. Mungkin melewati relay."
+    },
+    "sliderLabel": "Bobot {{connection}}",
+    "resetOne": "Kembali ke default, {{value}}",
+    "default": "Default {{value}}",
+    "error": {
+      "empty": "Masukkan bilangan bulat dari 0 sampai 1000.",
+      "whole": "Gunakan bilangan bulat dari 0 sampai 1000.",
+      "range": "Bobot berkisar dari 0 sampai 1000."
+    },
+    "live": "Jika dua worker sama-sama cocok, {{sentence}}.",
+    "wins": "{{winner}} lebih diutamakan daripada {{loser}}",
+    "ties": "{{a}} dan {{b}} seri",
+    "apply": "Terapkan bobot",
+    "useDefaults": "Gunakan default",
+    "saved": "Tersimpan. Setiap frontend memakai bobot baru dalam beberapa detik.",
+    "defaultsBack": "Bobot default sudah dikembalikan. Setiap frontend memakainya dalam beberapa detik.",
+    "failed": "Bobot tidak tersimpan."
+  },
+  "joining": {
+    "title": "Bergabung",
+    "note": "Cara worker baru diterima saat bergabung dengan token bergabung.",
+    "autoApprove": "Setujui worker secara otomatis",
+    "autoApproveHint": "Nonaktif secara default. Worker yang bergabung dengan token menunggu persetujuan Anda. Token yang Anda buat dapat memilih pengaturan lain.",
+    "autoApproveOn": "Siapa pun yang memegang token bergabung yang valid akan bergabung tanpa persetujuan Anda. Gunakan token berumur pendek dan sekali pakai.",
+    "failed": "Pengaturan tidak tersimpan."
+  }
+}

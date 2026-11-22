@@ -1,0 +1,37 @@
+/* ==========================================================================
+   Cluster settings: the form of the Workers sheet and of the Cluster group of
+   Settings. Sections stack and divide by a hairline, the weights are three
+   sliders, and the joining switch sits beside its words.
+   ========================================================================== */
+
+.cl { display: flex; flex-direction: column; min-width: 0; }
+.cl-section { display: flex; flex-direction: column; gap: var(--dk-space-3); padding: var(--dk-space-5) 0; border-top: 1px solid var(--dk-edge); min-width: 0; }
+.cl-section:first-child { padding-top: 0; border-top: 0; }
+.cl-section__head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; }
+.cl-section__title { margin: 0; font-size: var(--fs-body); font-weight: 600; }
+.cl-note { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+
+.cl-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-card); }
+.cl-list__row { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; padding: var(--dk-space-3); min-width: 0; }
+.cl-list__row + .cl-list__row { border-top: 1px solid var(--dk-edge); }
+.cl-list__name { font-weight: 600; font-size: var(--fs-small); }
+.cl-list__meta { flex: 1; min-width: 0; color: var(--dk-muted); font-size: var(--fs-meta); overflow-wrap: anywhere; }
+
+.cl-form { display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.cl-field { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; }
+.cl-label { font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); }
+.cl-hint { font-size: var(--fs-meta); color: var(--dk-muted); }
+.cl-error { color: var(--dk-error-text); }
+.cl-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); }
+.cl-result { margin: 0; flex: 1 1 14rem; min-width: 0; font-size: var(--fs-small); color: var(--dk-ok-text); overflow-wrap: anywhere; }
+.cl-result--error { color: var(--dk-error-text); }
+
+.cl-weights { display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.cl-weight { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; }
+.cl-weight__head { display: flex; align-items: baseline; gap: var(--dk-space-3); flex-wrap: wrap; }
+.cl-live { margin: 0; padding: var(--dk-space-3); border-radius: var(--r-md); background: var(--dk-accent-wash); color: var(--dk-accent-text); font-size: var(--fs-small); font-weight: 600; }
+
+.cl-switch { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-4); }
+.cl-switch__words { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; }
+
+.cl-open { margin-right: auto; align-self: center; font-size: var(--fs-small); }

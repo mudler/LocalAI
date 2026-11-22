@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Como os frontends e os workers se conectam"
+  },
+  "unavailable": {
+    "title": "Este servidor não faz parte de um cluster",
+    "body": "As configurações do cluster aparecem quando o modo distribuído está ativado."
+  },
+  "loadFailed": "Não foi possível carregar as configurações do cluster.",
+  "sheet": {
+    "title": "Configurações do cluster",
+    "description": "Como os frontends e os workers se conectam. As alterações chegam a todos os frontends em poucos segundos.",
+    "close": "Fechar as configurações do cluster",
+    "openSettings": "Abrir em Configurações",
+    "done": "Concluído"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "Os frontends escutam em todos os barramentos que conseguem alcançar. Eles publicam no NATS enquanto ele estiver acessível e, caso contrário, no PostgreSQL.",
+    "state": {
+      "nats": "NATS conectado",
+      "postgres": "PostgreSQL",
+      "unknown": "Desconhecido"
+    },
+    "publishing": {
+      "nats": "Publicando no NATS",
+      "postgres": "Publicando no PostgreSQL",
+      "unknown": "Desconhecido"
+    },
+    "unreachable": "O NATS está configurado, mas este frontend não o alcança. Ele transmite pelo PostgreSQL e só fica pronto quando o NATS voltar.",
+    "noReplica": "Nenhum frontend ativo informado.",
+    "replicas": "Frontends",
+    "unknownVersion": "versão desconhecida",
+    "workers": "Os workers nunca se conectam ao PostgreSQL. Eles se comunicam com os frontends pelas conexões abaixo."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Ao salvar, verifica-se se este frontend alcança o servidor NATS. Os frontends usam um novo endereço depois de reiniciar.",
+    "state": {
+      "connected": "Acessível",
+      "unreachable": "Não acessível",
+      "off": "Não definido"
+    },
+    "url": "Endereço do NATS",
+    "urlHint": "Os frontends se conectam aqui.",
+    "workerUrl": "Endereço informado aos workers",
+    "workerUrlHint": "Somente se os workers alcançarem o NATS em outro endereço. Vazio significa usar o endereço acima.",
+    "save": "Salvar",
+    "saved": "Salvo. Reinicie os frontends para usar o novo endereço.",
+    "savedReachable": "Salvo. Este frontend alcança o servidor NATS. Reinicie os frontends para usar o novo endereço.",
+    "failed": "As configurações não foram salvas."
+  },
+  "weights": {
+    "title": "Preferência de conexão",
+    "note": "Um worker pode entrar pelo NATS, pelo WebSocket ou pelo P2P, todos ao mesmo tempo. Se dois workers servirem igualmente bem a uma requisição, vence o que for alcançado pela conexão com o peso maior. O peso nunca se sobrepõe à adequação. 0 significa: usar somente quando nenhum outro servir.",
+    "about": {
+      "nats": "Mais rápido. Os workers se conectam ao barramento de mensagens.",
+      "websocket": "Funciona em qualquer lugar. Os workers se conectam a este servidor.",
+      "p2p": "Link de convite. Pode passar por um relay."
+    },
+    "sliderLabel": "Peso de {{connection}}",
+    "resetOne": "Voltar ao padrão, {{value}}",
+    "default": "Padrão {{value}}",
+    "error": {
+      "empty": "Digite um número inteiro de 0 a 1000.",
+      "whole": "Use um número inteiro de 0 a 1000.",
+      "range": "Um peso vai de 0 a 1000."
+    },
+    "live": "Se dois workers servirem igualmente bem, {{sentence}}.",
+    "wins": "{{winner}} vence {{loser}}",
+    "ties": "{{a}} e {{b}} empatam",
+    "apply": "Aplicar pesos",
+    "useDefaults": "Usar padrões",
+    "saved": "Salvo. Todos os frontends usam os novos pesos em poucos segundos.",
+    "defaultsBack": "Os pesos padrão voltaram. Todos os frontends os usam em poucos segundos.",
+    "failed": "Os pesos não foram salvos."
+  },
+  "joining": {
+    "title": "Entrada",
+    "note": "Como um novo worker é aceito quando entra com um token de entrada.",
+    "autoApprove": "Aprovar workers automaticamente",
+    "autoApproveHint": "Desativado por padrão. Um worker que entra com um token aguarda a sua aprovação. Um token que você gerar pode escolher de outra forma.",
+    "autoApproveOn": "Qualquer pessoa com um token de entrada válido entra sem a sua aprovação. Use tokens de curta duração e de uso único.",
+    "failed": "A configuração não foi salva."
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Clúster",
+    "hint": "Cómo se conectan los frontends y los workers"
+  },
+  "unavailable": {
+    "title": "Este servidor no forma parte de un clúster",
+    "body": "La configuración del clúster aparece cuando el modo distribuido está activado."
+  },
+  "loadFailed": "No se pudo cargar la configuración del clúster.",
+  "sheet": {
+    "title": "Configuración del clúster",
+    "description": "Cómo se conectan los frontends y los workers. Los cambios llegan a todos los frontends en pocos segundos.",
+    "close": "Cerrar la configuración del clúster",
+    "openSettings": "Abrir en Configuración",
+    "done": "Listo"
+  },
+  "bus": {
+    "title": "Difusión",
+    "note": "Los frontends escuchan en todos los buses a los que pueden acceder. Publican en NATS mientras sea accesible, y en PostgreSQL en caso contrario.",
+    "state": {
+      "nats": "NATS conectado",
+      "postgres": "PostgreSQL",
+      "unknown": "Desconocido"
+    },
+    "publishing": {
+      "nats": "Publicando en NATS",
+      "postgres": "Publicando en PostgreSQL",
+      "unknown": "Desconocido"
+    },
+    "unreachable": "NATS está configurado, pero este frontend no lo alcanza. Difunde a través de PostgreSQL y no estará listo hasta que NATS vuelva a estar disponible.",
+    "noReplica": "No se ha informado de ningún frontend activo.",
+    "replicas": "Frontends",
+    "unknownVersion": "versión desconocida",
+    "workers": "Los workers nunca se conectan a PostgreSQL. Se comunican con los frontends a través de las conexiones de abajo."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Al guardar se comprueba que este frontend alcanza el servidor NATS. Los frontends usan una dirección nueva después de reiniciarse.",
+    "state": {
+      "connected": "Accesible",
+      "unreachable": "No accesible",
+      "off": "No configurado"
+    },
+    "url": "Dirección de NATS",
+    "urlHint": "Los frontends se conectan aquí.",
+    "workerUrl": "Dirección que se da a los workers",
+    "workerUrlHint": "Solo si los workers alcanzan NATS en una dirección distinta. Si está vacío, se usa la dirección de arriba.",
+    "save": "Guardar",
+    "saved": "Guardado. Reinicie los frontends para usar la nueva dirección.",
+    "savedReachable": "Guardado. Este frontend alcanza el servidor NATS. Reinicie los frontends para usar la nueva dirección.",
+    "failed": "No se guardó la configuración."
+  },
+  "weights": {
+    "title": "Preferencia de conexión",
+    "note": "Un worker puede unirse por NATS, WebSocket o P2P, todos a la vez. Si dos workers encajan igual de bien con una solicitud, gana el que se alcanza por la conexión con mayor peso. El peso nunca supera a la idoneidad. 0 significa: usar solo cuando nada más encaje.",
+    "about": {
+      "nats": "El más rápido. Los workers se conectan al bus de mensajes.",
+      "websocket": "Funciona en cualquier lugar. Los workers se conectan a este servidor.",
+      "p2p": "Enlace de invitación. Puede pasar por un relay."
+    },
+    "sliderLabel": "Peso de {{connection}}",
+    "resetOne": "Volver al valor predeterminado, {{value}}",
+    "default": "Predeterminado {{value}}",
+    "error": {
+      "empty": "Introduzca un número entero de 0 a 1000.",
+      "whole": "Use un número entero de 0 a 1000.",
+      "range": "El peso va de 0 a 1000."
+    },
+    "live": "Si dos workers encajan igual, {{sentence}}.",
+    "wins": "{{winner}} gana a {{loser}}",
+    "ties": "{{a}} y {{b}} empatan",
+    "apply": "Aplicar pesos",
+    "useDefaults": "Usar valores predeterminados",
+    "saved": "Guardado. Todos los frontends usan los nuevos pesos en pocos segundos.",
+    "defaultsBack": "Se han restaurado los pesos predeterminados. Todos los frontends los usan en pocos segundos.",
+    "failed": "No se guardaron los pesos."
+  },
+  "joining": {
+    "title": "Incorporación",
+    "note": "Cómo se admite a un worker nuevo cuando se une con un token de incorporación.",
+    "autoApprove": "Aprobar workers automáticamente",
+    "autoApproveHint": "Desactivado por defecto. Un worker que se une con un token espera a que usted lo apruebe. Un token que cree puede elegir otra cosa.",
+    "autoApproveOn": "Cualquiera que tenga un token de incorporación válido se une sin su aprobación. Use tokens de corta duración y de un solo uso.",
+    "failed": "No se guardó la configuración."
+  }
+}

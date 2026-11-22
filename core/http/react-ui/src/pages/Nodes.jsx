@@ -14,7 +14,7 @@ import { Button, Callout, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import SideSheet from '../components/SideSheet'
 import LocalMachineView from '../components/nodes/LocalMachineView'
-import ClusterTransport from '../components/nodes/ClusterTransport'
+import ClusterSheet from '../components/cluster/ClusterSheet'
 import AddNodeFlow from '../components/swarm/AddNodeFlow'
 import CommandBlock from '../components/swarm/CommandBlock'
 import NodeMap from '../components/swarm/NodeMap'
@@ -37,6 +37,7 @@ const ATTENTION_FILTERS = ['pending', 'down', 'lowVram', 'lowRam', 'lowDisk']
 export default function Nodes() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
+  const { t: tc } = useTranslation('cluster')
   const summary = useOperateSummary()
   const { nodes, status: loadStatus, refetch } = useNodeList()
   const replicas = useReplicas()
@@ -62,6 +63,7 @@ export default function Nodes() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [confirmNode, setConfirmNode] = useState(null)
   const [oneBusy, setOneBusy] = useState(false)
+  const [clusterOpen, setClusterOpen] = useState(false)
 
   // Phones do not draw the map: a tangle of lines is no use at 390 px.
   const shownView = phone && view === 'map' ? 'list' : view
@@ -202,7 +204,6 @@ export default function Nodes() {
           <p className="sw-note">{t('first.sub')}</p>
         </header>
         <AddNodeFlow nodes={nodes} single={false} addToast={addToast} onApproved={refetch} />
-        <ClusterTransport nodes={nodes} />
         <SplitWorkers addToast={addToast} />
       </div>
     )
@@ -237,7 +238,6 @@ export default function Nodes() {
       )}
 
       <FleetHero summary={fleet} running={runningCount} attention={attentionCount} />
-      <ClusterTransport nodes={nodes} />
 
       <div className="sw-bar">
         <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>
@@ -257,6 +257,7 @@ export default function Nodes() {
               {t('nodes.needs')} <span className="sw-chip__n">{attentionCount}</span>
             </button>
           </div>
+          <Button icon="settings" onClick={() => setClusterOpen(true)} data-testid="cluster-settings-open">{tc('sheet.title')}</Button>
           <Button variant="primary" icon="plus" to="/app/nodes/add">{t('nodes.add')}</Button>
         </div>
       </div>
@@ -361,6 +362,8 @@ export default function Nodes() {
       {shownView === 'models' && <RunningModels nodes={nodes} replicas={replicas} addToast={addToast} />}
 
       <SplitWorkers addToast={addToast} />
+
+      {clusterOpen && <ClusterSheet onClose={() => setClusterOpen(false)} />}
 
       <ConfirmDialog
         open={confirmRemove}

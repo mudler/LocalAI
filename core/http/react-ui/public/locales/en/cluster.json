@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "How frontends and workers connect"
+  },
+  "unavailable": {
+    "title": "This server is not part of a cluster",
+    "body": "The cluster settings appear when distributed mode is on."
+  },
+  "loadFailed": "Could not load the cluster settings.",
+  "sheet": {
+    "title": "Cluster settings",
+    "description": "How frontends and workers connect. Changes reach every frontend within seconds.",
+    "close": "Close cluster settings",
+    "openSettings": "Open in Settings",
+    "done": "Done"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "Frontends listen on every bus they can reach. They publish on NATS while it is reachable, and on PostgreSQL otherwise.",
+    "state": {
+      "nats": "NATS connected",
+      "postgres": "PostgreSQL",
+      "unknown": "Unknown"
+    },
+    "publishing": {
+      "nats": "Publishing on NATS",
+      "postgres": "Publishing on PostgreSQL",
+      "unknown": "Unknown"
+    },
+    "unreachable": "NATS is configured, but this frontend does not reach it. It broadcasts over PostgreSQL and is not ready until NATS is back.",
+    "noReplica": "No live frontend reported.",
+    "replicas": "Frontends",
+    "unknownVersion": "unknown version",
+    "workers": "Workers never connect to PostgreSQL. They talk to the frontends over the connections below."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Saving checks that this frontend reaches the NATS server. The frontends use a new address after a restart.",
+    "state": {
+      "connected": "Reachable",
+      "unreachable": "Not reachable",
+      "off": "Not set"
+    },
+    "url": "NATS address",
+    "urlHint": "Frontends connect here.",
+    "workerUrl": "Address given to workers",
+    "workerUrlHint": "Only if workers reach NATS at a different address. Empty means the address above.",
+    "save": "Save",
+    "saved": "Saved. Restart the frontends to use the new address.",
+    "savedReachable": "Saved. This frontend reaches the NATS server. Restart the frontends to use the new address.",
+    "failed": "The settings were not saved."
+  },
+  "weights": {
+    "title": "Connection preference",
+    "note": "A worker can join over NATS, WebSocket or P2P, all at once. If two workers fit a request equally well, the one reached over the connection with the higher weight gets it. A weight never beats fit. 0 means: use only when nothing else fits.",
+    "about": {
+      "nats": "Fastest. Workers dial the message bus.",
+      "websocket": "Works anywhere. Workers dial this server.",
+      "p2p": "Invite link. May go through a relay."
+    },
+    "sliderLabel": "{{connection}} weight",
+    "resetOne": "Back to the default, {{value}}",
+    "default": "Default {{value}}",
+    "error": {
+      "empty": "Enter a whole number from 0 to 1000.",
+      "whole": "Use a whole number from 0 to 1000.",
+      "range": "A weight is from 0 to 1000."
+    },
+    "live": "If two workers fit equally, {{sentence}}.",
+    "wins": "{{winner}} wins over {{loser}}",
+    "ties": "{{a}} and {{b}} tie",
+    "apply": "Apply weights",
+    "useDefaults": "Use defaults",
+    "saved": "Saved. Every frontend uses the new weights within a few seconds.",
+    "defaultsBack": "The default weights are back. Every frontend uses them within a few seconds.",
+    "failed": "The weights were not saved."
+  },
+  "joining": {
+    "title": "Joining",
+    "note": "How a new worker is let in when it joins with a join token.",
+    "autoApprove": "Approve workers automatically",
+    "autoApproveHint": "Off by default. A worker that joins with a token waits for you to approve it. A token you mint can still choose otherwise.",
+    "autoApproveOn": "Anyone who holds a valid join token joins without your approval. Keep tokens short-lived and single-use.",
+    "failed": "The setting was not saved."
+  }
+}

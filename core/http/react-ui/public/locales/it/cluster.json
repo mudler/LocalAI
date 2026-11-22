@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Come frontend e worker si connettono"
+  },
+  "unavailable": {
+    "title": "Questo server non fa parte di un cluster",
+    "body": "Le impostazioni del cluster compaiono quando la modalità distribuita è attiva."
+  },
+  "loadFailed": "Impossibile caricare le impostazioni del cluster.",
+  "sheet": {
+    "title": "Impostazioni del cluster",
+    "description": "Come frontend e worker si connettono. Le modifiche arrivano a ogni frontend in pochi secondi.",
+    "close": "Chiudi le impostazioni del cluster",
+    "openSettings": "Apri in Impostazioni",
+    "done": "Fatto"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "I frontend ascoltano su ogni bus che riescono a raggiungere. Pubblicano su NATS quando è raggiungibile, altrimenti su PostgreSQL.",
+    "state": {
+      "nats": "NATS connesso",
+      "postgres": "PostgreSQL",
+      "unknown": "Sconosciuto"
+    },
+    "publishing": {
+      "nats": "Pubblicazione su NATS",
+      "postgres": "Pubblicazione su PostgreSQL",
+      "unknown": "Sconosciuto"
+    },
+    "unreachable": "NATS è configurato, ma questo frontend non lo raggiunge. Trasmette tramite PostgreSQL e non è pronto finché NATS non torna disponibile.",
+    "noReplica": "Nessun frontend attivo ha risposto.",
+    "replicas": "Frontend",
+    "unknownVersion": "versione sconosciuta",
+    "workers": "I worker non si connettono mai a PostgreSQL. Comunicano con i frontend tramite le connessioni qui sotto."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Il salvataggio verifica che questo frontend raggiunga il server NATS. I frontend usano un nuovo indirizzo dopo un riavvio.",
+    "state": {
+      "connected": "Raggiungibile",
+      "unreachable": "Non raggiungibile",
+      "off": "Non impostato"
+    },
+    "url": "Indirizzo NATS",
+    "urlHint": "I frontend si connettono qui.",
+    "workerUrl": "Indirizzo fornito ai worker",
+    "workerUrlHint": "Da compilare solo se i worker raggiungono NATS a un indirizzo diverso. Se vuoto, si usa l'indirizzo sopra.",
+    "save": "Salva",
+    "saved": "Salvato. Riavvia i frontend per usare il nuovo indirizzo.",
+    "savedReachable": "Salvato. Questo frontend raggiunge il server NATS. Riavvia i frontend per usare il nuovo indirizzo.",
+    "failed": "Le impostazioni non sono state salvate."
+  },
+  "weights": {
+    "title": "Preferenza di connessione",
+    "note": "Un worker può unirsi tramite NATS, WebSocket o P2P, tutti insieme. Se due worker sono ugualmente adatti a una richiesta, vince quello raggiunto tramite la connessione con il peso più alto. Il peso non batte mai l'idoneità. 0 significa: usa solo quando nient'altro è adatto.",
+    "about": {
+      "nats": "Il più veloce. I worker si collegano al message bus.",
+      "websocket": "Funziona ovunque. I worker si collegano a questo server.",
+      "p2p": "Link di invito. Può passare da un relay."
+    },
+    "sliderLabel": "Peso {{connection}}",
+    "resetOne": "Torna al valore predefinito, {{value}}",
+    "default": "Predefinito {{value}}",
+    "error": {
+      "empty": "Inserisci un numero intero da 0 a 1000.",
+      "whole": "Usa un numero intero da 0 a 1000.",
+      "range": "Un peso va da 0 a 1000."
+    },
+    "live": "Se due worker sono ugualmente adatti, {{sentence}}.",
+    "wins": "{{winner}} batte {{loser}}",
+    "ties": "{{a}} e {{b}} sono pari",
+    "apply": "Applica i pesi",
+    "useDefaults": "Usa i valori predefiniti",
+    "saved": "Salvato. Ogni frontend usa i nuovi pesi in pochi secondi.",
+    "defaultsBack": "I pesi predefiniti sono di nuovo attivi. Ogni frontend li usa in pochi secondi.",
+    "failed": "I pesi non sono stati salvati."
+  },
+  "joining": {
+    "title": "Accesso",
+    "note": "Come viene accettato un nuovo worker quando si unisce con un token di accesso.",
+    "autoApprove": "Approva automaticamente i worker",
+    "autoApproveHint": "Disattivato per impostazione predefinita. Un worker che si unisce con un token attende la tua approvazione. Un token che crei può comunque scegliere diversamente.",
+    "autoApproveOn": "Chiunque possieda un token di accesso valido si unisce senza la tua approvazione. Usa token a breve durata e monouso.",
+    "failed": "L'impostazione non è stata salvata."
+  }
+}

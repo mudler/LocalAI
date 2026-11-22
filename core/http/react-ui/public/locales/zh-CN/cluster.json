@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "集群",
+    "hint": "前端和工作节点如何连接"
+  },
+  "unavailable": {
+    "title": "此服务器不属于任何集群",
+    "body": "启用分布式模式后，将显示集群设置。"
+  },
+  "loadFailed": "无法加载集群设置。",
+  "sheet": {
+    "title": "集群设置",
+    "description": "前端和工作节点如何连接。更改会在几秒内同步到每个前端。",
+    "close": "关闭集群设置",
+    "openSettings": "在设置中打开",
+    "done": "完成"
+  },
+  "bus": {
+    "title": "广播",
+    "note": "前端会监听其可以访问的每一条总线。只要 NATS 可以访问，就通过 NATS 发布；否则通过 PostgreSQL 发布。",
+    "state": {
+      "nats": "NATS 已连接",
+      "postgres": "PostgreSQL",
+      "unknown": "未知"
+    },
+    "publishing": {
+      "nats": "通过 NATS 发布",
+      "postgres": "通过 PostgreSQL 发布",
+      "unknown": "未知"
+    },
+    "unreachable": "已配置 NATS，但此前端无法访问它。它通过 PostgreSQL 广播，在 NATS 恢复之前不会就绪。",
+    "noReplica": "没有报告在线的前端。",
+    "replicas": "前端",
+    "unknownVersion": "版本未知",
+    "workers": "工作节点从不连接 PostgreSQL。它们通过下方的连接与前端通信。"
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "保存时会检查此前端能否访问 NATS 服务器。前端重启后会使用新地址。",
+    "state": {
+      "connected": "可访问",
+      "unreachable": "不可访问",
+      "off": "未设置"
+    },
+    "url": "NATS 地址",
+    "urlHint": "前端连接到此地址。",
+    "workerUrl": "提供给工作节点的地址",
+    "workerUrlHint": "仅当工作节点通过不同地址访问 NATS 时填写。留空则使用上方的地址。",
+    "save": "保存",
+    "saved": "已保存。请重启前端以使用新地址。",
+    "savedReachable": "已保存。此前端可以访问 NATS 服务器。请重启前端以使用新地址。",
+    "failed": "设置未保存。"
+  },
+  "weights": {
+    "title": "连接偏好",
+    "note": "工作节点可以同时通过 NATS、WebSocket 或 P2P 加入。如果两个工作节点同样适合某个请求，则通过权重更高的连接到达的那个会被选中。权重永远不会超过适配度。0 表示：仅在没有其他合适的工作节点时使用。",
+    "about": {
+      "nats": "最快。工作节点连接到消息总线。",
+      "websocket": "随处可用。工作节点连接到此服务器。",
+      "p2p": "邀请链接。可能经过中继。"
+    },
+    "sliderLabel": "{{connection}} 权重",
+    "resetOne": "恢复默认值 {{value}}",
+    "default": "默认 {{value}}",
+    "error": {
+      "empty": "请输入 0 到 1000 之间的整数。",
+      "whole": "请使用 0 到 1000 之间的整数。",
+      "range": "权重范围为 0 到 1000。"
+    },
+    "live": "如果两个工作节点同样适合，{{sentence}}。",
+    "wins": "{{winner}} 优先于 {{loser}}",
+    "ties": "{{a}} 与 {{b}} 持平",
+    "apply": "应用权重",
+    "useDefaults": "使用默认值",
+    "saved": "已保存。每个前端会在几秒内使用新权重。",
+    "defaultsBack": "已恢复默认权重。每个前端会在几秒内使用它们。",
+    "failed": "权重未保存。"
+  },
+  "joining": {
+    "title": "加入",
+    "note": "新工作节点使用加入令牌加入时，如何获准加入。",
+    "autoApprove": "自动批准工作节点",
+    "autoApproveHint": "默认关闭。使用令牌加入的工作节点需要等待您批准。您生成的令牌可以另行设置。",
+    "autoApproveOn": "任何持有有效加入令牌的人都无需您的批准即可加入。请使用短期有效且只能使用一次的令牌。",
+    "failed": "设置未保存。"
+  }
+}

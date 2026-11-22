@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Comment les frontends et les workers se connectent"
+  },
+  "unavailable": {
+    "title": "Ce serveur ne fait pas partie d'un cluster",
+    "body": "Les paramètres du cluster apparaissent lorsque le mode distribué est activé."
+  },
+  "loadFailed": "Impossible de charger les paramètres du cluster.",
+  "sheet": {
+    "title": "Paramètres du cluster",
+    "description": "Comment les frontends et les workers se connectent. Les modifications atteignent chaque frontend en quelques secondes.",
+    "close": "Fermer les paramètres du cluster",
+    "openSettings": "Ouvrir dans les Paramètres",
+    "done": "Terminé"
+  },
+  "bus": {
+    "title": "Diffusion",
+    "note": "Les frontends écoutent sur chaque bus qu'ils peuvent atteindre. Ils publient sur NATS tant qu'il est accessible, sinon sur PostgreSQL.",
+    "state": {
+      "nats": "NATS connecté",
+      "postgres": "PostgreSQL",
+      "unknown": "Inconnu"
+    },
+    "publishing": {
+      "nats": "Publication sur NATS",
+      "postgres": "Publication sur PostgreSQL",
+      "unknown": "Inconnu"
+    },
+    "unreachable": "NATS est configuré, mais ce frontend ne peut pas l'atteindre. Il diffuse via PostgreSQL et n'est pas prêt tant que NATS n'est pas de nouveau disponible.",
+    "noReplica": "Aucun frontend actif signalé.",
+    "replicas": "Frontends",
+    "unknownVersion": "version inconnue",
+    "workers": "Les workers ne se connectent jamais à PostgreSQL. Ils communiquent avec les frontends par les connexions ci-dessous."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "L'enregistrement vérifie que ce frontend atteint le serveur NATS. Les frontends utilisent une nouvelle adresse après un redémarrage.",
+    "state": {
+      "connected": "Accessible",
+      "unreachable": "Non accessible",
+      "off": "Non défini"
+    },
+    "url": "Adresse NATS",
+    "urlHint": "Les frontends se connectent ici.",
+    "workerUrl": "Adresse transmise aux workers",
+    "workerUrlHint": "Seulement si les workers atteignent NATS à une autre adresse. Vide signifie l'adresse ci-dessus.",
+    "save": "Enregistrer",
+    "saved": "Enregistré. Redémarrez les frontends pour utiliser la nouvelle adresse.",
+    "savedReachable": "Enregistré. Ce frontend atteint le serveur NATS. Redémarrez les frontends pour utiliser la nouvelle adresse.",
+    "failed": "Les paramètres n'ont pas été enregistrés."
+  },
+  "weights": {
+    "title": "Préférence de connexion",
+    "note": "Un worker peut rejoindre le cluster par NATS, WebSocket ou P2P, en même temps. Si deux workers conviennent également à une requête, c'est celui atteint par la connexion au poids le plus élevé qui est choisi. Un poids ne l'emporte jamais sur l'adéquation. 0 signifie : utiliser seulement si aucun autre ne convient.",
+    "about": {
+      "nats": "Le plus rapide. Les workers se connectent au bus de messages.",
+      "websocket": "Fonctionne partout. Les workers se connectent à ce serveur.",
+      "p2p": "Lien d'invitation. Peut passer par un relais."
+    },
+    "sliderLabel": "Poids {{connection}}",
+    "resetOne": "Revenir à la valeur par défaut, {{value}}",
+    "default": "Par défaut : {{value}}",
+    "error": {
+      "empty": "Saisissez un nombre entier de 0 à 1000.",
+      "whole": "Utilisez un nombre entier de 0 à 1000.",
+      "range": "Un poids va de 0 à 1000."
+    },
+    "live": "Si deux workers conviennent également, {{sentence}}.",
+    "wins": "{{winner}} l'emporte sur {{loser}}",
+    "ties": "{{a}} et {{b}} sont à égalité",
+    "apply": "Appliquer les poids",
+    "useDefaults": "Utiliser les valeurs par défaut",
+    "saved": "Enregistré. Chaque frontend utilise les nouveaux poids en quelques secondes.",
+    "defaultsBack": "Les poids par défaut sont rétablis. Chaque frontend les utilise en quelques secondes.",
+    "failed": "Les poids n'ont pas été enregistrés."
+  },
+  "joining": {
+    "title": "Adhésion",
+    "note": "Comment un nouveau worker est admis lorsqu'il rejoint le cluster avec un jeton d'adhésion.",
+    "autoApprove": "Approuver automatiquement les workers",
+    "autoApproveHint": "Désactivé par défaut. Un worker qui rejoint avec un jeton attend votre approbation. Un jeton que vous générez peut accepter une autre règle.",
+    "autoApproveOn": "Toute personne disposant d'un jeton d'adhésion valide rejoint sans votre approbation. Utilisez des jetons de courte durée et à usage unique.",
+    "failed": "Le paramètre n'a pas été enregistré."
+  }
+}

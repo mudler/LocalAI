@@ -1,0 +1,87 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Wie sich Frontends und Worker verbinden"
+  },
+  "unavailable": {
+    "title": "Dieser Server ist nicht Teil eines Clusters",
+    "body": "Die Cluster-Einstellungen erscheinen, wenn der verteilte Modus aktiv ist."
+  },
+  "loadFailed": "Die Cluster-Einstellungen konnten nicht geladen werden.",
+  "sheet": {
+    "title": "Cluster-Einstellungen",
+    "description": "Wie sich Frontends und Worker verbinden. Änderungen erreichen jedes Frontend innerhalb weniger Sekunden.",
+    "close": "Cluster-Einstellungen schließen",
+    "openSettings": "In den Einstellungen öffnen",
+    "done": "Fertig"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "Frontends hören auf jedem Bus, den sie erreichen können. Sie veröffentlichen über NATS, solange es erreichbar ist, andernfalls über PostgreSQL.",
+    "state": {
+      "nats": "NATS verbunden",
+      "postgres": "PostgreSQL",
+      "unknown": "Unbekannt"
+    },
+    "publishing": {
+      "nats": "Veröffentlichung über NATS",
+      "postgres": "Veröffentlichung über PostgreSQL",
+      "unknown": "Unbekannt"
+    },
+    "unreachable": "NATS ist konfiguriert, aber dieses Frontend erreicht es nicht. Es sendet über PostgreSQL und ist erst bereit, wenn NATS wieder erreichbar ist.",
+    "noReplica": "Kein aktives Frontend gemeldet.",
+    "replicas": "Frontends",
+    "unknownVersion": "unbekannte Version",
+    "workers": "Worker verbinden sich nie mit PostgreSQL. Sie kommunizieren über die folgenden Verbindungen mit den Frontends."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Beim Speichern wird geprüft, ob dieses Frontend den NATS-Server erreicht. Die Frontends verwenden nach einem Neustart eine neue Adresse.",
+    "state": {
+      "connected": "Erreichbar",
+      "unreachable": "Nicht erreichbar",
+      "off": "Nicht festgelegt"
+    },
+    "url": "NATS-Adresse",
+    "urlHint": "Frontends verbinden sich hier.",
+    "workerUrl": "Adresse für Worker",
+    "workerUrlHint": "Nur wenn Worker NATS unter einer anderen Adresse erreichen. Leer bedeutet: die Adresse oben.",
+    "save": "Speichern",
+    "saved": "Gespeichert. Starten Sie die Frontends neu, um die neue Adresse zu verwenden.",
+    "savedReachable": "Gespeichert. Dieses Frontend erreicht den NATS-Server. Starten Sie die Frontends neu, um die neue Adresse zu verwenden.",
+    "failed": "Die Einstellungen wurden nicht gespeichert."
+  },
+  "weights": {
+    "title": "Verbindungspräferenz",
+    "note": "Ein Worker kann sich gleichzeitig über NATS, WebSocket oder P2P anmelden. Wenn zwei Worker für eine Anfrage gleich gut passen, erhält der Worker mit der Verbindung des höheren Gewichts den Zuschlag. Ein Gewicht setzt sich nie über die Eignung hinweg. 0 bedeutet: nur verwenden, wenn nichts anderes passt.",
+    "about": {
+      "nats": "Am schnellsten. Worker verbinden sich mit dem Nachrichtenbus.",
+      "websocket": "Funktioniert überall. Worker verbinden sich mit diesem Server.",
+      "p2p": "Einladungslink. Kann über ein Relay laufen."
+    },
+    "sliderLabel": "Gewicht {{connection}}",
+    "resetOne": "Zurück zum Standard, {{value}}",
+    "default": "Standard {{value}}",
+    "error": {
+      "empty": "Geben Sie eine ganze Zahl von 0 bis 1000 ein.",
+      "whole": "Verwenden Sie eine ganze Zahl von 0 bis 1000.",
+      "range": "Ein Gewicht liegt zwischen 0 und 1000."
+    },
+    "live": "Wenn zwei Worker gleich gut passen, {{sentence}}.",
+    "wins": "{{winner}} gewinnt gegen {{loser}}",
+    "ties": "{{a}} und {{b}} sind gleichauf",
+    "apply": "Gewichte übernehmen",
+    "useDefaults": "Standardwerte verwenden",
+    "saved": "Gespeichert. Jedes Frontend verwendet die neuen Gewichte innerhalb weniger Sekunden.",
+    "defaultsBack": "Die Standardgewichte sind wieder aktiv. Jedes Frontend verwendet sie innerhalb weniger Sekunden.",
+    "failed": "Die Gewichte wurden nicht gespeichert."
+  },
+  "joining": {
+    "title": "Beitritt",
+    "note": "Wie ein neuer Worker zugelassen wird, wenn er mit einem Beitritts-Token beitritt.",
+    "autoApprove": "Worker automatisch genehmigen",
+    "autoApproveHint": "Standardmäßig aus. Ein Worker, der mit einem Token beitritt, wartet auf Ihre Genehmigung. Ein von Ihnen erstelltes Token kann dies anders regeln.",
+    "autoApproveOn": "Wer ein gültiges Beitritts-Token besitzt, tritt ohne Ihre Genehmigung bei. Verwenden Sie kurzlebige Tokens, die nur einmal genutzt werden können.",
+    "failed": "Die Einstellung wurde nicht gespeichert."
+  }
+}
