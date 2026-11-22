@@ -128,8 +128,10 @@ var _ = Describe("features", func() {
 			}
 			last = r
 		}
-		if raw.String() != text {
-			Fail(fmt.Sprintf("raw %q", raw.String()))
+		// A streamed chat reply's Message is the parsed content, not the raw text
+		// (reasoning and tool-call markup stay out of it).
+		if raw.String() != "The answer is 42." {
+			Fail(fmt.Sprintf("message %q", raw.String()))
 		}
 		if withData < 5 {
 			Fail(fmt.Sprintf("deltas were not incremental: %d chunks", withData))
