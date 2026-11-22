@@ -7,10 +7,11 @@ import StatusPill from '../components/StatusPill'
 import useFailoverChains from '../hooks/useFailoverChains'
 import { relative } from '../components/FailoverChainStatus'
 import { useNodeList, useReplicas, useRules } from '../hooks/useSwarm'
-import { isDown, isPlaceable, leavePreview, nodeRoute, singleReplicaModels } from '../utils/swarm'
+import { isDown, isPlaceable, leavePreview, singleReplicaModels } from '../utils/swarm'
+import { nodeConnections } from '../utils/workerRoster'
 import { timeAgo } from '../components/nodes/nodeStatus'
 import LeaveList from '../components/swarm/LeaveList'
-import NodeRoute from '../components/swarm/NodeRoute'
+import ConnectionChips from '../components/swarm/ConnectionChips'
 import Icon from '../components/Icon'
 import './swarm.css'
 
@@ -63,13 +64,13 @@ export default function Failover({ embedded = false }) {
             {ts('failover.lostSub', { when: lost[0].last_heartbeat ? timeAgo(lost[0].last_heartbeat) : ts('detail.never') })}{' '}
             <Link className="dk-link" to={`/app/nodes/${encodeURIComponent(lost[0].id)}`}>{ts('failover.openNode')}</Link>
           </p>
-          {lost.some(n => nodeRoute(n)) && (
+          {lost.some(n => nodeConnections(n).length > 0) && (
             <ul className="sw-banner__routes" data-testid="failover-lost-connections">
-              {lost.filter(n => nodeRoute(n)).map(n => (
+              {lost.filter(n => nodeConnections(n).length > 0).map(n => (
                 <li key={n.id}>
                   <span className="dk-mono">{n.name}</span>
                   <span className="sw-banner__label">{ts('failover.lostConnection')}</span>
-                  <NodeRoute node={n} />
+                  <ConnectionChips connections={nodeConnections(n)} />
                 </li>
               ))}
             </ul>

@@ -189,8 +189,8 @@ test.describe('Failover on a cluster', () => {
     const connections = page.getByTestId('failover-lost-connections')
     await expect(connections).toContainText('gpu-box-2', { timeout: 15_000 })
     await expect(connections).toContainText('Connection:')
-    await expect(connections.getByTestId('node-route')).toContainText('P2P')
-    await expect(connections.getByTestId('node-route')).toContainText('Via a relay')
+    await expect(connections.getByTestId('connections')).toContainText('P2P')
+    await expect(connections.getByTestId('connections')).toContainText('relayed')
   })
 
   test('a lost node that reported nothing about its connection shows no connection line', async ({ page }) => {
