@@ -1,4 +1,4 @@
-// Small pure helpers for the Users and keys pages: what a user can reach in a
+// Small pure helpers for the Users and API keys pages: what a user can reach in a
 // few words, the filters over the user list, the state of an invite and of an
 // API key. They read only what the auth endpoints return.
 

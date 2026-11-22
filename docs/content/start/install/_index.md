@@ -45,7 +45,7 @@ The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon)
 
 ### Install a worker
 
-The script has a worker mode that installs the binary and then a service that runs `local-ai worker` and joins a cluster. You normally do not type this yourself: an admin mints a join token on the Nodes page (**Add worker**), and the page gives you a command such as `curl -fsSL 'https://ai.example.com/join.sh?t=...' | sudo sh`, which runs this mode. See [Join tokens]({{% relref "/administration/distributed-mode" %}}#join-tokens).
+The script has a worker mode that installs the binary and then a service that runs `local-ai worker` and joins a cluster. You normally do not type this yourself: an admin mints a join token on the Workers page (**Add worker**), and the page gives you a command such as `curl -fsSL 'https://ai.example.com/join.sh?t=...' | sudo sh`, which runs this mode. See [Join tokens]({{% relref "/administration/distributed-mode" %}}#join-tokens).
 
 ```bash
 LOCALAI_REGISTER_TO=https://ai.example.com LOCALAI_JOIN_TOKEN=ljt_... sudo -E sh install.sh --worker
@@ -61,7 +61,7 @@ Run it as root. It writes a systemd unit on Linux (a launchd daemon on macOS, no
 | `LOCALAI_WORKER_NAME` | The node name. The default is the host name. |
 | `LOCALAI_WORKER_DIR` | The state directory (models, backends, credential). The default is `/var/lib/local-ai` on Linux. |
 
-To remove the worker: `sudo systemctl disable --now localai-worker`, then remove `/etc/localai/worker.env`, `/etc/systemd/system/localai-worker.service` and the state directory, and delete the node on the Nodes page.
+To remove the worker: `sudo systemctl disable --now localai-worker`, then remove `/etc/localai/worker.env`, `/etc/systemd/system/localai-worker.service` and the state directory, and delete the worker on the Workers page.
 
 ## Container
 

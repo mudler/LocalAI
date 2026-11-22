@@ -459,7 +459,7 @@ export default function Settings() {
               {group === 'backends' && settings.addon_host_settings_authority && <ConnectorFilesSettings />}
               {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
               {group === 'access' && (
-                <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>
+                <p className="st-note">Sign-in, users, invites and per-user API keys are under Access when authentication is on.</p>
               )}
               {group === 'tools' && (settings.addon_host_settings_authority
                 ? <OwnerBuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />

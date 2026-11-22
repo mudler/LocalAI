@@ -34,7 +34,7 @@ revoke each worker alone.
 
 ## Add a worker
 
-1. Open **Nodes**, then **Add a node**, then **Model-split worker**.
+1. Open **Workers**, press **Add worker**, then choose **Model-split worker**.
 2. Choose the engine: **llama.cpp RPC** or **MLX (Apple Silicon)**.
 3. In a cluster, choose the backend node that the worker is attached to.
 4. Optionally give the worker a name, then choose **Make invite**. The invite
