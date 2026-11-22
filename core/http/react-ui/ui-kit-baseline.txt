@@ -1,15 +1,2 @@
 btn src/components/biometrics/MediaInput.jsx 1
 btn src/pages/UiCatalog.jsx 7
-checkbox src/components/ConfigFieldRenderer.jsx 1
-checkbox src/components/NodeInstallPicker.jsx 2
-checkbox src/components/Toggle.jsx 1
-checkbox src/components/TriggerActs.jsx 1
-checkbox src/components/addons/InstallDialog.jsx 1
-checkbox src/components/addons/RecoveryPanel.jsx 3
-checkbox src/components/catalog/SourcesView.jsx 2
-checkbox src/components/files/FileList.jsx 2
-checkbox src/components/settings/AddonUpgradeSettings.jsx 1
-toggle src/components/ConfigFieldRenderer.jsx 1
-toggle src/components/FailoverTargetsEditor.jsx 1
-toggle src/components/ProxyVisionSwitch.jsx 1
-toggle src/pages/Models.jsx 1
