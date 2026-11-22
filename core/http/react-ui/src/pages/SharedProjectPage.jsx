@@ -193,7 +193,6 @@ export default function SharedProjectPage() {
           )}
 
         <Tabs
-          className="pj-tabs"
           label={t('tabs.label')}
           idPrefix="shared"
           value={tab}

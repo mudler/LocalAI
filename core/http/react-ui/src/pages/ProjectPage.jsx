@@ -248,7 +248,6 @@ export default function ProjectPage() {
             <div className="pj-tabswrap" data-start={tabsEdge.start || undefined} data-end={tabsEdge.end || undefined} data-testid="project-tabs-wrap">
             <button type="button" className="pj-tabsmore pj-tabsmore--start" tabIndex={-1} aria-hidden="true" onClick={() => scrollTabs(-1)} data-testid="project-tabs-prev"><Icon name="chevron-left" /></button>
             <Tabs
-              className="pj-tabs"
               listRef={tabsRef}
               onScroll={measureTabs}
               label={t('tabs.label')}

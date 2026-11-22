@@ -92,7 +92,6 @@ export function Chip({ to, icon, children, mono = false, count, title, warn = fa
       mono={mono}
       title={title}
       testId={testId}
-      className="ag-chip"
     >
       <span className="ag-chip__text">{children}</span>
       {count != null && <span className="ag-chip__count">{count}</span>}
