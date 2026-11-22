@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import SearchableSelect from './SearchableSelect'
-import Icon from './Icon'
+import { Button } from './ui'
+import './listeditors.css'
 
 // Editor for a pattern detector's pii_detection.patterns: a list of
 // operator-defined secret patterns. Value is an array of
@@ -30,7 +31,7 @@ export default function PatternListEditor({ value, onChange }) {
   const add = () => onChange([...rows, emptyPattern()])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+    <div className="le">
       <div className="text-meta">
         Restricted regex: literals, <code>[…]</code> classes, <code>\w \d \s</code>, <code>?*+{'{m,n}'}</code>, anchors.
         Each pattern must contain a fixed literal run of ≥3 characters (e.g. <code>sk-prefix-</code>);
@@ -45,21 +46,19 @@ export default function PatternListEditor({ value, onChange }) {
       )}
 
       {rows.map((r, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={i} className="le__row">
           <input
-            className="input"
+            className="dk-input le__in le__in--name"
             value={r.name || ''}
             placeholder="Name (group), e.g. INTERNAL_TOKEN"
             onChange={e => update(i, { name: e.target.value })}
-            style={{ flex: '1 1 180px', minWidth: 150, fontSize: '0.8125rem' }}
             aria-label="Pattern name"
           />
           <input
-            className="input input-mono"
+            className="dk-input le__in le__in--match"
             value={r.match || ''}
             placeholder="match, e.g. tok-[A-Za-z0-9]{32,64}"
             onChange={e => update(i, { match: e.target.value })}
-            style={{ flex: '2 1 240px', minWidth: 200, fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}
             aria-label="Pattern match"
           />
           <SearchableSelect
@@ -67,10 +66,10 @@ export default function PatternListEditor({ value, onChange }) {
             onChange={v => update(i, { action: v })}
             options={ACTION_OPTIONS}
             placeholder="Action..."
-            style={{ flex: '1 1 200px', minWidth: 180 }}
+            className="le__select le__select--action"
           />
           <input
-            className="input"
+            className="dk-input le__in le__in--num"
             type="number"
             min={0}
             value={r.min_len || 0}
@@ -87,21 +86,15 @@ export default function PatternListEditor({ value, onChange }) {
               if (parsed < 0) e.target.value = String(n)
               update(i, { min_len: n })
             }}
-            style={{ width: 80, fontSize: '0.8125rem' }}
             aria-label="Minimum length"
           />
-          <button type="button" className="btn btn-secondary btn-sm"
-            onClick={() => remove(i)}
-            style={{ padding: '2px 8px', fontSize: '0.75rem' }}
-            aria-label="Remove pattern">
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} aria-label="Remove pattern" />
         </div>
       ))}
 
-      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <Icon name="plus" /> Add pattern
-      </button>
+      <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+        Add pattern
+      </Button>
     </div>
   )
 }

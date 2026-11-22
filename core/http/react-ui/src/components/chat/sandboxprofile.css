@@ -25,7 +25,7 @@
   gap: var(--sp-2);
   padding: var(--sp-2);
   border: 1px solid var(--color-border-divider);
-  border-radius: var(--radius-md, 8px);
+  border-radius: var(--r-md);
 }
 .chat-sandbox-profile__warn { color: var(--color-text-primary); }
 .chat-sandbox-profile__actions { display: flex; gap: var(--sp-2); }

@@ -8,7 +8,7 @@ import { saveBlob } from '../utils/download'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented, Tabs, Tag } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
@@ -373,8 +373,8 @@ export default function Skills() {
                           metaTestId={`skill-used-${s.name}`}
                           end={(
                             <>
-                              {s.new && <span className="dk-badge" data-testid={`skill-new-${s.name}`} title={t('card.newTitle')}>{t('card.new')}</span>}
-                              <span className="dk-badge" data-testid={`skill-badge-${s.name}`}>{badgeOf(t, s)}</span>
+                              {s.new && <Tag testId={`skill-new-${s.name}`} title={t('card.newTitle')}>{t('card.new')}</Tag>}
+                              <Tag testId={`skill-badge-${s.name}`}>{badgeOf(t, s)}</Tag>
                             </>
                           )}
                           menu={menuFor(s)}
@@ -501,28 +501,7 @@ function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEd
         </>
       )}
 
-      <div className="dk-tabs lib-tabs" role="tablist" aria-label={t('pane.tabs')}>
-        {tabs.map(id => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            id={`skill-tab-${id}`}
-            aria-controls={`skill-panel-${id}`}
-            aria-selected={tab === id}
-            tabIndex={tab === id ? 0 : -1}
-            className="dk-tab"
-            onClick={() => setTab(id)}
-            onKeyDown={(e) => {
-              const i = tabs.indexOf(id)
-              const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i + tabs.length - 1) % tabs.length] : null
-              if (next) { e.preventDefault(); setTab(next); document.getElementById(`skill-tab-${next}`)?.focus() }
-            }}
-          >
-            {t(`pane.tab.${id}`)}
-          </button>
-        ))}
-      </div>
+      <Tabs label={t('pane.tabs')} idPrefix="skill" value={tab} onChange={setTab} items={tabs.map(id => ({ id, label: t(`pane.tab.${id}`) }))} />
 
       <div className="dk-tabpanel lib-section" role="tabpanel" id={`skill-panel-${tab}`} aria-labelledby={`skill-tab-${tab}`} tabIndex={0}>
         {detail.phase === 'loading' ? (

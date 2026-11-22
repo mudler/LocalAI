@@ -26,17 +26,19 @@ export default function AgentProjectField({ list, value, onChange, disabled = fa
   return (
     <div className="dk-field" data-testid="agent-project-field">
       <label className="dk-label" htmlFor={id}>{t('projectField.label')}</label>
-      <select
-        id={id} className="dk-input" value={value || ''} disabled={disabled}
-        aria-describedby={`${id}-help`}
-        onChange={(e) => pick(e.target.value)}
-        data-testid="agent-project-select"
-      >
-        {allowNone && <option value="">{t('projectField.none')}</option>}
-        {!allowNone && !value && <option value="" disabled>{t('projectField.choose')}</option>}
-        {options.map((p) => <option key={p.id} value={p.id}>{archived(p) ? t('projectField.archivedName', { name: p.name }) : p.name}</option>)}
-        <option value={CREATE_PROJECT}>{t('projectField.create')}</option>
-      </select>
+      <div className="dk-select-wrap">
+        <select
+          id={id} className="dk-select" value={value || ''} disabled={disabled}
+          aria-describedby={`${id}-help`}
+          onChange={(e) => pick(e.target.value)}
+          data-testid="agent-project-select"
+        >
+          {allowNone && <option value="">{t('projectField.none')}</option>}
+          {!allowNone && !value && <option value="" disabled>{t('projectField.choose')}</option>}
+          {options.map((p) => <option key={p.id} value={p.id}>{archived(p) ? t('projectField.archivedName', { name: p.name }) : p.name}</option>)}
+          <option value={CREATE_PROJECT}>{t('projectField.create')}</option>
+        </select>
+      </div>
       <p className="ag-note" id={`${id}-help`}>{help || t('projectField.help')}</p>
       {creating && (
         // The sheet is a portal, so its form would submit the form this field

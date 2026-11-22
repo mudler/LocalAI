@@ -301,13 +301,13 @@ function SourceEditor({ kinds, draft, onSave, onClose, saving, t }) {
         )}
         {addon && (
           <label className="cat-check">
-            <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} />
+            <input type="checkbox" className="dk-check" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} />
             <span>{t('libraries.fields.enabled')}</span>
           </label>
         )}
         {addon && (
           <label className="cat-check">
-            <input type="checkbox" checked={form.requireSignature} onChange={e => set({ requireSignature: e.target.checked })} />
+            <input type="checkbox" className="dk-check" checked={form.requireSignature} onChange={e => set({ requireSignature: e.target.checked })} />
             <span>{t('libraries.fields.requireSignature')}</span>
           </label>
         )}

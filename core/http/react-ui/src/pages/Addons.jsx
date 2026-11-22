@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { Button, Page, PageHeader } from '../components/ui'
+import { Button, Page, PageHeader, Tabs } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
@@ -39,7 +39,6 @@ export default function Addons() {
   const manage = resolveManage(params, isAdmin)
   const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
   const tabs = visibleTabs(isAdmin)
-  const refs = useRef({})
   // Host access is read once here: the tab shows how many approvals wait, and
   // the list of add-ons shows the same banners.
   const grants = useHostGrants({ enabled: Boolean(isAdmin) })
@@ -83,19 +82,6 @@ export default function Addons() {
     })
   }, [setParams])
 
-  const onKeyDown = (e) => {
-    const index = tabs.indexOf(tab)
-    let next = index
-    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length
-    else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = tabs.length - 1
-    else return
-    e.preventDefault()
-    select(tabs[next])
-    refs.current[tabs[next]]?.focus()
-  }
-
   // Add-ons and Pages are one family: installed software here, pages a person
   // or an agent made on the Pages screen. Say where the other kind lives.
   const pagesNote = hasFeature('chats') && hasFeature('pages')
@@ -116,26 +102,18 @@ export default function Addons() {
       />
 
       {tabs.length > 1 && (
-        <div className="ad-tabs" role="tablist" aria-label={t('tabs.label')} onKeyDown={onKeyDown}>
-          {tabs.map(id => (
-            <button
-              key={id}
-              ref={el => { refs.current[id] = el }}
-              type="button"
-              role="tab"
-              id={`ad-tab-${id}`}
-              className="ad-tab"
-              aria-selected={tab === id}
-              aria-controls={tab === id ? `ad-panel-${id}` : undefined}
-              tabIndex={tab === id ? 0 : -1}
-              onClick={() => select(id)}
-            >
-              {t(`tabs.${id}`)}
-              {id === 'apps' && summary && summary.count > 0 && <span className="ad-tab__count">{summary.count}</span>}
-              {id === 'access' && waiting > 0 && <span className="ad-tab__count ad-tab__count--warn" data-testid="access-waiting" aria-label={t('hostAccess.tabWaiting', { count: waiting })}>{waiting}</span>}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('tabs.label')}
+          idPrefix="ad"
+          value={tab}
+          onChange={select}
+          items={tabs.map(id => ({
+            id,
+            label: t(`tabs.${id}`),
+            ...(id === 'apps' && summary && summary.count > 0 ? { count: summary.count } : {}),
+            ...(id === 'access' && waiting > 0 ? { count: waiting, countTone: 'warn', countTestId: 'access-waiting', countLabel: t('hostAccess.tabWaiting', { count: waiting }) } : {}),
+          }))}
+        />
       )}
 
       {isAdmin && <AddonQueue queue={queue} />}

@@ -183,15 +183,3 @@ export function recentTitle(rec, t) {
   return t(`inbox.ops.recent.${kind}`, { name: nameOf(rec) })
 }
 
-// The tab a key moves to from `current`, or '' for a key that is not a tab
-// key. Two tabs, so the arrows wrap and Home and End are the two ends.
-const TABS = ['notifications', 'activity']
-export function nextTab(current, key) {
-  const at = TABS.indexOf(current)
-  if (at < 0) return ''
-  if (key === 'ArrowRight') return TABS[(at + 1) % TABS.length]
-  if (key === 'ArrowLeft') return TABS[(at - 1 + TABS.length) % TABS.length]
-  if (key === 'Home') return TABS[0]
-  if (key === 'End') return TABS[TABS.length - 1]
-  return ''
-}

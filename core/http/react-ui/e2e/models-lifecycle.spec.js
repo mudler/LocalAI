@@ -146,7 +146,7 @@ test.describe('Models lifecycle', () => {
 
     const search = page.getByRole('textbox', { name: 'Search installed models' })
     await search.fill('beta')
-    await page.getByRole('tab', { name: /^Idle/ }).click()
+    await page.getByTestId('ledger-states').getByRole('button', { name: /^Idle/ }).click()
     await page.locator('[data-entity="beta"]').click()
 
     await expect(page).toHaveURL(/[?&]q=beta/)
@@ -157,7 +157,7 @@ test.describe('Models lifecycle', () => {
     await page.goBack()
     await expect(page).not.toHaveURL(/[?&]model=beta/)
     await expect(search).toHaveValue('beta')
-    await expect(page.getByRole('tab', { name: /^Idle/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^Idle/ })).toHaveAttribute('aria-pressed', 'true')
 
     await page.goForward()
     await expect(page).toHaveURL(/[?&]model=beta/)
@@ -168,7 +168,7 @@ test.describe('Models lifecycle', () => {
     await page.goto('/app/models?view=installed&q=remote&state=distributed&model=remote-model')
 
     await expect(page.getByRole('textbox', { name: 'Search installed models' })).toHaveValue('remote')
-    await expect(page.getByRole('tab', { name: /^Distributed/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^Distributed/ })).toHaveAttribute('aria-pressed', 'true')
     await expect(installedPane(page)).toContainText('remote-model')
     await expect(installedPane(page)).toContainText('Worker one')
   })

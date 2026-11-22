@@ -13,7 +13,7 @@ export default function AddonUpgradeSettings() {
   const client = useMemo(() => createHostSettingsClient({ api: createAddonsApi({ base: apiUrl }) }), [])
   const owner = useHostSettings(client, 'automatic-upgrades')
   return <section aria-label={t('settings.addonUpdates.label')} data-testid="owner-upgrade-settings">
-    <label><input type="checkbox" checked={owner.draft?.auto_upgrade_addons ?? false}
+    <label><input type="checkbox" className="dk-check" checked={owner.draft?.auto_upgrade_addons ?? false}
       disabled={!owner.snapshot || owner.busy || !!owner.error}
       onChange={e => owner.setDraft({ ...owner.draft, auto_upgrade_addons: e.target.checked })} /> {t('settings.autoUpgradeAddons')}</label>
     <p>{t('settings.addonUpdates.note')}</p>

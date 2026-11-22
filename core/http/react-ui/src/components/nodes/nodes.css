@@ -1,0 +1,10 @@
+/* Node capacity editor: one row per setting (icon, label, value, hint). */
+.cap-row { display: flex; align-items: flex-start; gap: var(--sp-4); }
+.cap-row__icon { margin-top: var(--sp-1); color: var(--dk-muted); }
+.cap-row__body { flex: 1; min-width: 0; }
+.cap-row__line { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.cap-row__label { font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); }
+.cap-row__input { font-family: var(--font-mono); font-size: var(--fs-small); }
+.cap-row__input--num { width: 72px; }
+.cap-row__input--text { width: 140px; }
+.cap-row__hint { margin-top: var(--sp-1); font-size: var(--fs-meta); line-height: var(--lh-small); color: var(--dk-muted); }

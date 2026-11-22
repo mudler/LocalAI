@@ -107,7 +107,6 @@
 .sf-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .sf-field:first-child { grid-column: 1 / -1; }
 .sf-field__label { font-size: var(--text-xs); color: var(--color-text-secondary); }
-.sf-field .input { width: 100%; }
 
 .sf-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .sf-member {
@@ -128,7 +127,6 @@
   overflow-wrap: anywhere;
 }
 .sf-member__note { font-size: var(--text-xs); color: var(--color-text-muted); }
-.sf-member__mode { width: auto; min-width: 104px; height: var(--ctl-h-sm); padding-top: 0; padding-bottom: 0; }
 
 .sf-sr {
   position: absolute; width: 1px; height: 1px; overflow: hidden;

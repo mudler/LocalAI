@@ -24,17 +24,17 @@ test.describe('Model editor', () => {
     await expect(page.locator('.toast')).toHaveCount(0)
   })
 
-  test('"No fields configured" stacks the icon, the title and the text', async ({ page }) => {
+  test('"No fields configured" puts the icon before the title and the text under it', async ({ page }) => {
     await mockLedger(page)
     await mockPlacement(page, { configs: { bare: '{}\n' } })
     await page.goto('/app/model-editor/bare')
     const empty = page.getByTestId('editor-no-fields')
     await expect(empty).toBeVisible({ timeout: 15_000 })
     await expect(empty.getByRole('heading', { name: 'No fields configured' })).toBeVisible()
-    const icon = await empty.locator('.dk-empty-icon').boundingBox()
-    const title = await empty.locator('.dk-empty-title').boundingBox()
-    const text = await empty.locator('.dk-empty-text').boundingBox()
-    expect(icon.y + icon.height).toBeLessThanOrEqual(title.y + 1)
+    const icon = await empty.locator('.ui-empty__icon').boundingBox()
+    const title = await empty.locator('.ui-empty__title').boundingBox()
+    const text = await empty.locator('.ui-empty__body').boundingBox()
+    expect(icon.x + icon.width).toBeLessThanOrEqual(title.x + 1)
     expect(title.y + title.height).toBeLessThanOrEqual(text.y + 1)
     await expect(page.locator('.toast')).toHaveCount(0)
   })

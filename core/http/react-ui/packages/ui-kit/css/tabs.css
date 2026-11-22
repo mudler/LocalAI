@@ -1,0 +1,10 @@
+/* ---- Tabs ----------------------------------------------------------------- */
+/* The look is the vendored kit's .dk-tabs / .dk-tab (underline) and
+   .dk-segmented / .dk-seg (pill). This adds the icon and count of a tab and
+   the vertical list. */
+.ui-tabs__icon { width: 16px; height: 16px; flex: none; }
+.ui-tabs__count { flex: none; }
+.ui-tabs[aria-orientation="vertical"] { flex-direction: column; align-items: stretch; border-bottom: 0; }
+.ui-tabs[aria-orientation="vertical"] > .dk-tab { justify-content: flex-start; border-radius: var(--r-sm); }
+.ui-tabs[aria-orientation="vertical"] > .dk-tab::after { display: none; }
+.ui-tabs[aria-orientation="vertical"] > .dk-tab[aria-selected="true"] { background: var(--dk-hover); }

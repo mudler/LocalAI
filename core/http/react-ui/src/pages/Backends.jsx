@@ -28,7 +28,7 @@ import BackendFilters from '../components/operate/BackendFilters'
 import SideSheet from '../components/SideSheet'
 import { InstallSteps } from '../components/addons/AddonBits'
 import HomeUndoToast from '../components/home/HomeUndoToast'
-import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
+import { Button, EmptyState, LoadError, SkeletonRows, Tag } from '../components/ui'
 import Icon from '../components/Icon'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
@@ -684,7 +684,7 @@ export default function Backends() {
       {b.tags?.length > 0 && (
         <>
           <dt>{t('backends.facts.tags')}</dt>
-          <dd className="bk-tags">{b.tags.map(tag => <span key={tag} className="dk-badge">{tag}</span>)}</dd>
+          <dd className="bk-tags">{b.tags.map(tag => <Tag key={tag}>{tag}</Tag>)}</dd>
         </>
       )}
       {b.urls?.length > 0 && (
@@ -746,7 +746,7 @@ export default function Backends() {
     } else if (!installEnabled) {
       action = b.installed
         ? catalogMenu
-        : <span className="dk-badge" title={t('backends.installDisabledTitle')}><Icon name="lock" /> {t('backends.installDisabledShort')}</span>
+        : <Tag icon="lock" title={t('backends.installDisabledTitle')}>{t('backends.installDisabledShort')}</Tag>
     } else if (state.kind === 'failed') {
       action = <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={isNodeScoped ? targetBusy(targetNode.id, name) : busy} onClick={() => isNodeScoped ? handleInstallOnTarget(name) : handleInstall(name)} aria-label={t('backends.retryLabel', { name })}>{t('backends.retry')}</button>
     } else if (isNodeScoped) {
@@ -887,7 +887,7 @@ export default function Backends() {
         ? <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => cancelling.request(state.jobID)} aria-label={t('backends.cancelLabel', { name })}>{t('backends.cancel')}</button>
         : null
     } else if (b.IsSystem) {
-      action = <span className="dk-badge" title={t('backends.protectedTitle')}><Icon name="lock" /> {t('backends.protected')}</span>
+      action = <Tag icon="lock" title={t('backends.protectedTitle')}>{t('backends.protected')}</Tag>
     } else if (!installEnabled) {
       // Update and reinstall acquire; delete does not.
       action = (

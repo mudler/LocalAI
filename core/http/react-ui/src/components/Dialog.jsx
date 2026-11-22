@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import Icon from './Icon'
+import { pushLayer } from '../utils/modalLayers'
 
 // The kit's dialog as one component: portal, dialog roles, focus moved in and
 // returned, Tab kept inside, Escape and a click on the veil to close. Use
@@ -13,8 +14,22 @@ import Icon from './Icon'
 //   closeLabel           accessible name of the close button
 //   wide                 the kit's wide panel (720px) for a body with a lot to say
 //   bodyClass            an extra class on the scrolling body, for a dialog that styles its scroll area
-export default function Dialog({ title, description, foot, onClose, role = 'dialog', pending = false, closeLabel = 'Close', testId, labelId = 'dialog-title', wide = false, bodyClass = '', children }) {
-  const ref = useRef(null)
+//   bodyId, describedBy  an id on the body, and the id that describes the dialog
+//                        (a confirmation names its message)
+//   className            an extra class on the panel (never a width: use `wide`)
+//   panelRef, panelProps a ref to the panel, and extra attributes on it
+//                        (tabIndex, data-*) for a dialog that moves focus itself
+//   closeTestId          a test id on the close button
+//   ariaLabel            the accessible name of a dialog with no title: it
+//                        draws no head (the content brings its own heading)
+//   closable             false drops the close button of the head: a
+//                        confirmation closes with its Cancel button
+//
+// The dialog is a modal layer (utils/modalLayers): over a side sheet or a
+// pane only the dialog answers Escape and Tab, and the sheet stays open.
+export default function Dialog({ title, description, foot, onClose, role = 'dialog', pending = false, closeLabel = 'Close', testId, labelId = 'dialog-title', wide = false, bodyClass = '', bodyId, describedBy, className = '', closable = true, ariaLabel, panelRef, panelProps, closeTestId, children }) {
+  const ownRef = useRef(null)
+  const ref = panelRef || ownRef
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   const pendingRef = useRef(pending)
@@ -22,11 +37,18 @@ export default function Dialog({ title, description, foot, onClose, role = 'dial
 
   useEffect(() => {
     const opener = document.activeElement
+    const layer = pushLayer()
     const dialog = ref.current
-    const field = dialog?.querySelector('.dk-dialog-body input:not([disabled]), .dk-dialog-body select, .dk-dialog-body textarea')
-    ;(dialog?.querySelector('[data-autofocus]') || field || dialog?.querySelector('.dk-dialog-foot .dk-btn--primary, .dk-dialog-foot .dk-btn, button'))?.focus()
+    const field = dialog?.querySelector('.dk-dialog-body input:not([disabled]), .dk-dialog-body select:not([disabled]), .dk-dialog-body textarea:not([disabled])')
+    ;(dialog?.querySelector('[data-autofocus]:not([disabled])') || field || dialog?.querySelector('.dk-dialog-foot .dk-btn--primary:not([disabled]), .dk-dialog-foot .dk-btn:not([disabled]), button:not([disabled])'))?.focus()
+    // Nothing to focus yet (every action waits on a check): the panel holds the
+    // focus, so Escape and Tab still belong to the dialog.
+    if (dialog && !dialog.contains(document.activeElement)) dialog.focus()
     const onKey = (e) => {
+      if (!layer.isTop()) return
       if (e.key === 'Escape') {
+        // An open list or menu inside the dialog takes its own Escape first.
+        if (e.target?.closest?.('[role="listbox"], [role="menu"]') || e.target?.getAttribute?.('aria-expanded') === 'true') return
         e.preventDefault(); e.stopPropagation()
         if (!pendingRef.current) closeRef.current()
         return
@@ -42,26 +64,34 @@ export default function Dialog({ title, description, foot, onClose, role = 'dial
     document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('keydown', onKey, true)
+      layer.pop()
       if (opener && document.contains(opener)) opener.focus?.()
     }
+    // Once per open: `ref` is a ref object that never changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const headless = title == null && !closable
   return createPortal(
     <div className="dk-veil" data-state="open" onMouseDown={() => { if (!pending) onClose() }}>
       <div
-        ref={ref} className={wide ? 'dk-dialog dk-dialog--wide' : 'dk-dialog'} role={role} aria-modal="true" aria-labelledby={labelId}
-        data-state="open" data-testid={testId} onMouseDown={e => e.stopPropagation()}
+        ref={ref} className={`dk-dialog${wide ? ' dk-dialog--wide' : ''}${className ? ` ${className}` : ''}`} role={role} aria-modal="true" aria-labelledby={headless ? undefined : labelId} aria-label={headless ? ariaLabel : undefined} aria-describedby={describedBy}
+        tabIndex={-1} data-state="open" data-testid={testId} {...panelProps} onMouseDown={e => e.stopPropagation()}
       >
-        <div className="dk-dialog-head">
+        {!headless && <div className="dk-dialog-head">
           <div>
             <h3 className="dk-dialog-title" id={labelId}>{title}</h3>
             {description && <p className="dk-dialog-desc">{description}</p>}
           </div>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={closeLabel} disabled={pending} onClick={onClose}>
-            <Icon name="close" />
-          </button>
-        </div>
-        <div className={bodyClass ? `dk-dialog-body ${bodyClass}` : 'dk-dialog-body'}>{children}</div>
+          {closable && (
+            <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={closeLabel} disabled={pending} onClick={onClose} data-testid={closeTestId}>
+              <Icon name="close" />
+            </button>
+          )}
+        </div>}
+        {children != null && children !== false && (
+          <div id={bodyId} className={bodyClass ? `dk-dialog-body ${bodyClass}` : 'dk-dialog-body'}>{children}</div>
+        )}
         {foot && <div className="dk-dialog-foot">{foot}</div>}
       </div>
     </div>,

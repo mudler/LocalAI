@@ -13,6 +13,7 @@ import Icon from '../../Icon'
 // eslint-disable-next-line no-unused-vars
 import MemoryBar from '../MemoryBar'
 import { fitWords, memorySegments } from './fitFacts'
+import { Tag } from '../../ui'
 
 // The answer to "should I use this": three plain statements in one strip. Fit on
 // this machine, what the model does, and what happens next (install it, or its
@@ -200,7 +201,7 @@ export default function OverviewTab({ view }) {
                 </dd>
               </>
             )}
-            {entry?.trustRemoteCode && (<><dt>{t('detail.warning')}</dt><dd><span className="dk-badge dk-badge--error"><Icon name="alert-circle" /> {t('detail.requiresTrustRemoteCode')}</span></dd></>)}
+            {entry?.trustRemoteCode && (<><dt>{t('detail.warning')}</dt><dd><Tag tone="error" icon="alert-circle">{t('detail.requiresTrustRemoteCode')}</Tag></dd></>)}
           </dl>
         </section>
 
@@ -228,7 +229,7 @@ export default function OverviewTab({ view }) {
                 {onDisk?.missing.length > 0 && (
                   <>
                     <dt>{t('lifecycle.detail.missingFiles')}</dt>
-                    <dd data-testid="overview-missing"><span className="dk-badge dk-badge--warn">{t('lifecycle.detail.missingCount', { count: onDisk.missing.length })}</span></dd>
+                    <dd data-testid="overview-missing"><Tag tone="warn">{t('lifecycle.detail.missingCount', { count: onDisk.missing.length })}</Tag></dd>
                   </>
                 )}
                 {profile.pinned && (<><dt>{t('lifecycle.detail.pinned')}</dt><dd>{t('lifecycle.detail.yes')}</dd></>)}

@@ -296,6 +296,60 @@ test.describe('UI primitives', () => {
     await expect(shell).toHaveCount(0, { timeout: 15_000 })
   })
 
+  test('Tabs: one tab stop, arrows, Home and End move the selection, disabled is skipped', async ({ page }) => {
+    await openCatalog(page)
+    const list = page.getByTestId('cat-tabs')
+    const tab = (id) => page.getByTestId(`cat-tab-${id}`)
+    await list.scrollIntoViewIfNeeded()
+    await expect(list).toHaveAttribute('role', 'tablist')
+    await expect(list.getByRole('tab')).toHaveCount(4)
+    const state = async () => page.evaluate(() => [...document.querySelectorAll('[data-testid="cat-tabs"] [role=tab]')]
+      .map(b => `${b.dataset.tab}:${b.getAttribute('aria-selected')}:${b.tabIndex}`))
+    expect(await state()).toEqual(['overview:true:0', 'files:false:-1', 'locked:false:-1', 'access:false:-1'])
+    await expect(page.getByTestId('cat-tabpanel')).toHaveAttribute('aria-labelledby', 'cat-tabs-tab-overview')
+    await expect(tab('access')).toHaveAccessibleName('Access 2 waiting')
+
+    await tab('overview').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(tab('files')).toBeFocused()
+    await expect(tab('files')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('cat-tabpanel')).toHaveAttribute('id', 'cat-tabs-panel-files')
+    await page.keyboard.press('ArrowRight')
+    await expect(tab('access')).toBeFocused()
+    await page.keyboard.press('ArrowRight')
+    await expect(tab('overview')).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(tab('access')).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(tab('overview')).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(tab('overview')).toBeFocused()
+    expect(await state()).toEqual(['overview:true:0', 'files:false:-1', 'locked:false:-1', 'access:false:-1'])
+    await page.keyboard.press('Tab')
+    await expect(page.getByTestId('cat-tabpanel')).toBeFocused()
+
+    const pill = page.getByTestId('cat-tabs-pill')
+    await expect(pill).toHaveClass(/dk-segmented/)
+    await pill.getByRole('tab', { name: 'Record' }).click()
+    await expect(pill.getByRole('tab', { name: 'Record' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  for (const theme of ['light', 'dark']) {
+    test(`tags: 20 px and 4.5:1 text in ${theme}`, async ({ page }) => {
+      await openCatalog(page, { theme })
+      const tags = page.getByTestId('tags').locator('.ui-tag')
+      expect(await tags.count()).toBe(6)
+      const read = await tags.evaluateAll(els => els.map(el => {
+        const cs = getComputedStyle(el)
+        return { text: el.textContent, fg: cs.color, bg: cs.backgroundColor, h: el.getBoundingClientRect().height }
+      }))
+      for (const c of read) {
+        expect(c.h).toBe(20)
+        expect(contrastOf(c.fg, c.bg), `${c.text} ${c.fg} on ${c.bg}`).toBeGreaterThanOrEqual(4.5)
+      }
+    })
+  }
+
   test('Segmented radio mode: one tab stop, arrows and Home/End move the choice, disabled is skipped', async ({ page }) => {
     await openCatalog(page)
     const group = page.getByTestId('cat-segmented-radio')

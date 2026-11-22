@@ -13,6 +13,7 @@ import OperationCard from '../components/OperationCard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import Icon from '../components/Icon'
 import './operate.css'
+import { Button, EmptyState } from '../components/ui'
 
 const FILTERS = [
   { id: 'all', labelKey: 'activity.filter.all' },
@@ -148,9 +149,9 @@ export default function Activity() {
       title={t('activity.title')}
       supporting={supporting}
       action={history.length > 0 ? (
-        <button type="button" className="dk-btn dk-btn--ghost" onClick={clearHistory}>
+        <Button variant="ghost" onClick={clearHistory}>
           {t('activity.clearHistory')}
-        </button>
+        </Button>
       ) : null}
     >
       <AdminFilterBar
@@ -216,14 +217,9 @@ export default function Activity() {
                 <span className="activity-row__when">{timeOfDay(record.finishedAt)}</span>
                 <span className="activity-row__acts">
                   {record.outcome === 'cancelled' && record.taskType !== 'deletion' && record.taskType !== 'staging' && !record.isAddon && (
-                    <button
-                      type="button"
-                      className="dk-btn dk-btn--ghost dk-btn--sm activity-row__resume"
-                      title={t('activity.startAgainTitle')}
-                      onClick={() => startAgain(record)}
-                    >
+                    <Button variant="ghost" size="sm" className="activity-row__resume" title={t('activity.startAgainTitle')} onClick={() => startAgain(record)}>
                       {t('activity.startAgain')}
-                    </button>
+                    </Button>
                   )}
                   <Link className="dk-link activity-row__action" to={record.isAddon ? '/app/addons' : record.isBackend ? '/app/backends' : '/app/models'}>
                     {record.isAddon ? t('activity.viewInAddons') : record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
@@ -241,20 +237,26 @@ export default function Activity() {
           the line above them counts those same three, is simply false. */}
       {liveOps.length === 0 && failing.length === 0 && records.length === 0 && (
         filter === 'all' ? (
-          <div className="dk-empty activity-empty">
-            <div className="dk-empty-icon"><Icon name="download" /></div>
-            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyTitle')}</h2>
-            <p className="dk-empty-text activity-empty__body">{t('activity.emptyBody')}</p>
-            <Link className="dk-btn dk-btn--primary" to="/app/models">{t('activity.browseModels')}</Link>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="download"
+            title={t('activity.emptyTitle')}
+            body={t('activity.emptyBody')}
+            actions={<>
+              <Button variant="primary" to="/app/models">{t('activity.browseModels')}</Button>
+            </>}
+          />
         ) : (
-          <div className="dk-empty activity-empty activity-empty--filtered">
-            <div className="dk-empty-icon"><Icon name="filter" /></div>
-            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyFiltered')}</h2>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setFilter('all')}>
+          <EmptyState
+            variant="no-results"
+            icon="filter"
+            title={t('activity.emptyFiltered')}
+            actions={<>
+              <Button variant="secondary" onClick={() => setFilter('all')}>
               {t('activity.showAll')}
-            </button>
-          </div>
+              </Button>
+            </>}
+          />
         )
       )}
 

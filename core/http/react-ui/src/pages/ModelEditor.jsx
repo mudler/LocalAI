@@ -20,6 +20,7 @@ import PlacementSection from '../components/models/placement/PlacementSection'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
+import { Button, EmptyState } from '../components/ui'
 
 const SECTION_ICONS = {
   general: 'settings', llm: 'cpu', parameters: 'sliders',
@@ -504,7 +505,13 @@ export default function ModelEditor() {
   const showTemplateSelector = isCreateMode && !selectedTemplate
 
   if (loading) return <div className="page page--medium loading-center"><LoadingSpinner size="lg" /></div>
-  if (metaError) return <div className="page page--medium"><div className="empty-state"><p className="empty-state-text">Failed to load config metadata: {metaError}</p></div></div>
+  if (metaError) {
+    return (
+      <div className="page page--medium">
+        <EmptyState variant="unavailable" body={`Failed to load config metadata: ${metaError}`} />
+      </div>
+    )
+  }
 
   const backPage = isCreateMode && selectedTemplate ? t('actions.templates')
     : backState ? backState.fromLabel
@@ -524,29 +531,29 @@ export default function ModelEditor() {
           </p>
         </div>
         <div className="hstack">
-          <button className="btn btn-secondary" onClick={() => {
+          <Button icon="arrow-left" onClick={() => {
             if (isCreateMode && selectedTemplate) { setSelectedTemplate(null); setValues({}); setActiveFieldPaths(new Set()) }
             else if (backState) navigate(backState.from)
             else navigate(isCreateMode ? '/app/models' : '/app/models?view=installed')
           }}>
-            <Icon name="arrow-left" /> {t('actions.backTo', {page: backPage})}
-          </button>
+            {t('actions.backTo', {page: backPage})}
+          </Button>
           {/* Adding a model from a file or a Hugging Face repository is the
               import flow; it starts here as well as from the models list. */}
           {showTemplateSelector && (
-            <button className="btn btn-secondary" data-testid="add-model-import" onClick={() => navigate('/app/import-model')}>
-              <Icon name="upload" /> {tModels('actions.importModel')}
-            </button>
+            <Button icon="upload" data-testid="add-model-import" onClick={() => navigate('/app/import-model')}>
+              {tModels('actions.importModel')}
+            </Button>
           )}
           {!showTemplateSelector && tab === 'interactive' && (
-            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
-            </button>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
+              {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
+            </Button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
-            <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleYamlSave} disabled={saving || !isDirty}>
-              {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
-            </button>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleYamlSave} disabled={saving || !isDirty}>
+              {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
+            </Button>
           )}
         </div>
       </div>
@@ -585,9 +592,7 @@ export default function ModelEditor() {
             <div className="me-warn">
               <Icon name="warning" />
               <span>{t('actions.switchWarning')}</span>
-              <button
-                className="btn btn-secondary ml-auto pill-tiny"
-                onClick={() => {
+              <Button className="ml-auto" onClick={() => {
                   if (tab === 'yaml') {
                     setYamlText(savedYamlText)
                   } else {
@@ -597,10 +602,9 @@ export default function ModelEditor() {
                   }
                   setTabSwitchWarning(false)
                   setTab(tab === 'yaml' ? 'interactive' : 'yaml')
-                }}
-              >
+                }}>
                 {t('actions.discardAndSwitch')}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -720,11 +724,14 @@ export default function ModelEditor() {
               {activeSections.length === 0 && (
                 // .loading-center is a flex row, which set the icon, the title and
                 // the text side by side with no gap; this is a stacked empty state.
-                <div className="dk-empty" data-testid="editor-no-fields">
-                  <div className="dk-empty-icon"><Icon name="sliders" /></div>
-                  <h3 className="dk-empty-title">{t('forms.empty.title')}</h3>
-                  <p className="dk-empty-text">{t('forms.empty.text')}</p>
-                </div>
+                <EmptyState
+                  variant="first-run"
+                  icon="sliders"
+                  title={t('forms.empty.title')}
+                  level={3}
+                  body={t('forms.empty.text')}
+                  testId="editor-no-fields"
+                />
               )}
 
               {activeSections.map(s => {

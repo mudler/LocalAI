@@ -207,5 +207,12 @@
       "unavailable": "Le partage n'a pas répondu. Réessayez dans un instant.",
       "generic": "Une erreur s'est produite."
     }
+  },
+  "picker": {
+    "filter": "Filtrer",
+    "loading": "Chargement",
+    "empty": "Rien à choisir pour l’instant",
+    "noMatch": "Aucun résultat",
+    "clear": "Effacer"
   }
 }

@@ -5,6 +5,7 @@ import Callout from '../ui/Callout'
 import SearchField from '../ui/SearchField'
 import SkippedList from './SkippedList'
 import { MAX_ADOPT, filterModels, missingModels, resultParts, usecasesOf } from '../../utils/remotes'
+import { Tag } from '../ui'
 
 // How many models make the list long enough to need a search box.
 const SEARCH_FROM = 12
@@ -52,7 +53,7 @@ export default function RemoteChooseStep({ remote }) {
               <input type="checkbox" className="dk-check" checked={ticked.includes(m.id)} onChange={() => remote.toggle(m.id)} />
               <span className="remotes-model__id">{m.id}</span>
               <span className="remotes-model__uses">
-                {usecasesOf(remote.kind, m).map(u => <span key={u} className="dk-badge">{usecaseLabel(u)}</span>)}
+                {usecasesOf(remote.kind, m).map(u => <Tag key={u}>{usecaseLabel(u)}</Tag>)}
               </span>
             </label>
           </li>

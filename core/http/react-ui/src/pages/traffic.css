@@ -59,8 +59,6 @@
 .tf-error > span, .tf-error > div { flex: 1; min-width: 0; }
 .tf-error .tf-note-line { color: inherit; }
 .tf-error-text { color: var(--dk-error-text); }
-.tf-empty { padding-block: var(--dk-space-6); }
-.tf-empty__acts { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }
 .tf-badge {
   display: inline-block;
   padding: 1px 8px;

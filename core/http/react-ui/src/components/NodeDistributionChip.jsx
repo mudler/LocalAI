@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import Popover from './Popover'
-import Icon from './Icon'
+import { StatusChip, Tag } from './ui'
 
 // NodeDistributionChip shows where something is installed/loaded across a
 // cluster. Used by both Manage → Backends (per-row Nodes column, data =
@@ -43,19 +43,19 @@ export default function NodeDistributionChip({
   // where seeing the names directly is more useful than a summary.
   if (list.length <= compactThreshold) {
     return (
-      <div className="badge-row">
+      <div className="ui-tags">
         {list.map(n => {
           const status = getStatus(n)
-          const variant = status === 'healthy' ? 'badge-success'
-            : status === 'draining' ? 'badge-info'
-            : 'badge-warning'
+          const tone = status === 'healthy' ? 'ok'
+            : status === 'draining' ? 'accent'
+            : 'warn'
           const title = context === 'models'
             ? `${getName(n)} — ${getState(n)} (${status})`
             : `${getName(n)} — ${status}${getVersion(n) ? ` · v${getVersion(n)}` : ''}`
           return (
-            <span key={n.node_id ?? n.NodeID ?? getName(n)} className={`badge ${variant}`} title={title}>
-              <Icon name="server" /> {getName(n)}
-            </span>
+            <Tag key={n.node_id ?? n.NodeID ?? getName(n)} tone={tone} icon="server" title={title}>
+              {getName(n)}
+            </Tag>
           )
         })}
       </div>
@@ -71,23 +71,24 @@ export default function NodeDistributionChip({
     return s !== 'healthy' && s !== 'draining'
   }).length
   const drift = context === 'backends' ? countDrift(list) : 0
-  const severity = offline > 0 || drift > 0 ? 'badge-warning' : 'badge-info'
+  const tone = offline > 0 || drift > 0 ? 'warn' : 'accent'
 
   return (
     <>
-      <button
+      <Tag
+        as="button"
         ref={triggerRef}
         type="button"
-        className={`badge ${severity} chip-trigger`}
+        tone={tone}
+        icon="server"
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
       >
-        <Icon name="server" />
-        {' '}on {total} node{total === 1 ? '' : 's'}
+        on {total} node{total === 1 ? '' : 's'}
         {offline > 0 ? ` · ${offline} offline` : ''}
         {drift > 0 ? ` · ${drift} drift` : ''}
-      </button>
+      </Tag>
       <Popover
         anchor={triggerRef}
         open={open}
@@ -96,8 +97,8 @@ export default function NodeDistributionChip({
       >
         <div className="popover__header">
           <strong>Installed on {total} node{total === 1 ? '' : 's'}</strong>
-          {offline > 0 && <span className="badge badge-warning">{offline} offline</span>}
-          {drift > 0 && <span className="badge badge-warning">{drift} drift</span>}
+          {offline > 0 && <StatusChip tone="warn" label={`${offline} offline`} />}
+          {drift > 0 && <StatusChip tone="warn" label={`${drift} drift`} />}
         </div>
         <div className="popover__scroll">
           <table className="table popover__table">
@@ -116,9 +117,7 @@ export default function NodeDistributionChip({
                 <tr key={n.node_id ?? n.NodeID ?? getName(n)}>
                   <td className="cell-mono">{getName(n)}</td>
                   <td>
-                    <span className={`badge ${getStatus(n) === 'healthy' ? 'badge-success' : 'badge-warning'}`}>
-                      {getStatus(n)}
-                    </span>
+                    <StatusChip tone={getStatus(n) === 'healthy' ? 'ok' : 'warn'} label={getStatus(n)} dot />
                   </td>
                   {context === 'models' ? (
                     <td className="cell-mono">{getState(n) || '—'}</td>

@@ -7,6 +7,7 @@ import { diskEntry, filesOf } from '../../../utils/modelStorage'
 // eslint-disable-next-line no-unused-vars
 import NodeDistributionChip from '../../NodeDistributionChip'
 import Icon from '../../Icon'
+import { EmptyState, Tag } from '../../ui'
 
 const MISSING = ['requests', 'ttft', 'loads', 'changes']
 
@@ -55,7 +56,7 @@ function FilesOnDisk({ view }) {
                     <td className="dk-table-id dk-mono modelpage-files__path">{f.path}</td>
                     <td className="dk-num">{f.missing ? '\u2014' : formatBytes(f.size)}</td>
                     <td>
-                      {f.missing && <span className="dk-badge dk-badge--warn">{t('storage.status.missing')}</span>}
+                      {f.missing && <Tag tone="warn">{t('storage.status.missing')}</Tag>}
                       {!f.missing && f.others.length > 0 && (
                         <span className="modelpage-files__shared">
                           {t('page.files.sharedWith')}{' '}
@@ -97,11 +98,14 @@ export default function UsageTab({ view }) {
         <div className="modelpage-section-head">
           <h2 className="modelpage-section-title" id="modelpage-usage-h">{t('page.usage.title')}</h2>
         </div>
-        <div className="dk-empty modelpage-usage__empty" data-testid="usage-empty">
-          <div className="dk-empty-icon"><Icon name="chart-bar" /></div>
-          <h3 className="dk-empty-title">{t('page.usage.emptyTitle')}</h3>
-          <p className="dk-empty-text">{t('page.usage.emptyText')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="chart-bar"
+          title={t('page.usage.emptyTitle')}
+          level={3}
+          body={t('page.usage.emptyText')}
+          testId="usage-empty"
+        />
         <ul className="modelpage-usage__missing" aria-label={t('page.usage.missingLabel')} data-testid="usage-missing">
           {MISSING.map(key => (
             <li key={key}>
@@ -109,7 +113,7 @@ export default function UsageTab({ view }) {
                 <strong>{t(`page.usage.missing.${key}.name`)}</strong>
                 <span className="dk-hint">{t(`page.usage.missing.${key}.why`)}</span>
               </span>
-              <span className="dk-badge">{t('page.usage.notRecorded')}</span>
+              <Tag>{t('page.usage.notRecorded')}</Tag>
             </li>
           ))}
         </ul>

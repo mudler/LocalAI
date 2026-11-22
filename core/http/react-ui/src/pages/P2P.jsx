@@ -7,7 +7,7 @@ import AdminPage from '../components/admin/AdminPage'
 import { useHubAuth } from '../components/hub/useHubAuth'
 import P2PTabs, { P2P_SETTINGS_PATH } from '../components/p2p/P2PTabs'
 import ShareInstanceDialog from '../components/p2p/ShareInstanceDialog'
-import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChip, useLoad } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Notice, SkeletonRows, StatusChip, Tag, useLoad } from '../components/ui'
 import { copyToClipboard } from '../utils/clipboard'
 import { p2pNetApi } from '../utils/api'
 import {
@@ -316,7 +316,7 @@ function DevicePath({ device }) {
   return (
     <span className="p2p-path">
       <StatusChip tone={pathTone(path)} dot>{t(`devices.path.${key}`, { relay })}</StatusChip>
-      {path.limited && <span className="dk-badge" title={t('devices.path.limitedHint')}>{t('devices.path.limited')}</span>}
+      {path.limited && <Tag title={t('devices.path.limitedHint')}>{t('devices.path.limited')}</Tag>}
       {rtt && <span className="p2p-cell-sub">{rtt}</span>}
     </span>
   )

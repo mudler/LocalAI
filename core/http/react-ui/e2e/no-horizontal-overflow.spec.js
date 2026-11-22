@@ -23,7 +23,7 @@ const WIDTHS = [360, 390, 768]
 // (the Settings tabs outgrow 390 px with a wider font). The agent editor nav
 // is one row of chips that scrolls inside itself on a phone, and so is the
 // add-ons tab strip (it first overflowed at 360, the width added here).
-const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups', '.dk-hubtabs', '.aed-nav', '.ad-tabs']
+const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups', '.dk-hubtabs', '.aed-nav', '.dk-tabs']
 
 const join = (n, s) => Array.from({ length: n }, (_, i) => `${s}${i}`).join('_')
 const WORD = join(9, 'unbroken_name_segment')

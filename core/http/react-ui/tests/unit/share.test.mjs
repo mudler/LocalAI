@@ -223,6 +223,7 @@ function dialog() {
     Button: ({ children, disabled, ...rest }) => React.createElement('button', { disabled, 'aria-label': rest['aria-label'] }, children),
     Callout: ({ children, testId }) => React.createElement('div', { 'data-testid': testId }, children),
     EmptyState: ({ title, body, testId }) => React.createElement('div', { 'data-testid': testId }, title, ' ', body),
+    SearchField: ({ label, testId }) => React.createElement('input', { type: 'search', 'aria-label': label, 'data-testid': testId }),
   }).ShareDialog
 }
 

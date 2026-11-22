@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import Icon from './Icon'
+import { Button } from './ui'
+import './listeditors.css'
 
 // RouterPoliciesEditor renders the label vocabulary the score
 // classifier ranks for each request. The shape mirrors
@@ -36,9 +37,9 @@ export default function RouterPoliciesEditor({ value, onChange }) {
   const add = () => onChange([...items, { label: '', description: '' }])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', width: '100%' }}>
+    <div className="le">
       {items.length === 0 && (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', padding: 'var(--spacing-sm) 0' }}>
+        <div className="le__hint">
           No policies defined. Add at least one — the classifier needs a label vocabulary to rank over,
           and candidates reference these labels.
         </div>
@@ -54,13 +55,9 @@ export default function RouterPoliciesEditor({ value, onChange }) {
         />
       ))}
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm self-start"
-        onClick={add}
-      >
-        <Icon name="plus" /> Add policy
-      </button>
+      <Button size="sm" icon="plus" className="self-start" onClick={add}>
+        Add policy
+      </Button>
     </div>
   )
 }
@@ -68,15 +65,7 @@ export default function RouterPoliciesEditor({ value, onChange }) {
 function PolicyRow({ row, duplicate, onChange, onRemove }) {
   return (
     <div
-      className="card"
-      style={{
-        padding: 'var(--spacing-sm)',
-        display: 'grid',
-        gridTemplateColumns: '180px 1fr auto',
-        gap: 'var(--spacing-sm)',
-        alignItems: 'center',
-        border: '1px solid ' + (duplicate ? 'var(--color-warning)' : 'var(--color-border)'),
-      }}
+      className={`card le__policy${duplicate ? ' is-duplicate' : ''}`}
     >
       <input
         className="input text-mono text-sm"
@@ -93,14 +82,7 @@ function PolicyRow({ row, duplicate, onChange, onRemove }) {
         value={row?.description || ''}
         onChange={(e) => onChange((r) => ({ ...r, description: e.target.value }))}
       />
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm"
-        onClick={onRemove}
-        title="Remove policy"
-      >
-        <Icon name="trash" />
-      </button>
+      <Button icon="trash" size="sm" onClick={onRemove} title="Remove policy" />
     </div>
   )
 }

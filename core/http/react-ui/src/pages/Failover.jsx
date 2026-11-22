@@ -14,6 +14,7 @@ import LeaveList from '../components/swarm/LeaveList'
 import ConnectionChips from '../components/swarm/ConnectionChips'
 import Icon from '../components/Icon'
 import './swarm.css'
+import { Button, EmptyState } from '../components/ui'
 
 const POLICY = ['notAnswering', 'requests', 'replicas', 'back']
 
@@ -104,12 +105,16 @@ export default function Failover({ embedded = false }) {
         {loading ? (
           <div className="sw-loading"><LoadingSpinner /></div>
         ) : chains.length === 0 ? (
-          <div className="dk-empty">
-            <div className="dk-empty-icon"><Icon name="shuffle" /></div>
-            <h3 className="dk-empty-title">{t('failover.overview.empty.title')}</h3>
-            <p className="dk-empty-text">{t('failover.overview.empty.text')}</p>
-            <Link className="dk-btn dk-btn--primary" to="/app/model-editor?template=failover">{t('failover.overview.empty.cta')}</Link>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="shuffle"
+            title={t('failover.overview.empty.title')}
+            level={3}
+            body={t('failover.overview.empty.text')}
+            actions={<>
+              <Button variant="primary" to="/app/model-editor?template=failover">{t('failover.overview.empty.cta')}</Button>
+            </>}
+          />
         ) : (
           <div className="dk-table-wrap sw-wrap">
             <table className="dk-table sw-table">

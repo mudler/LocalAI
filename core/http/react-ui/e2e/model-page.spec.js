@@ -192,7 +192,7 @@ test.describe('Model page - walking and going back', () => {
     await page.keyboard.press('Escape')
     await expect(page).toHaveURL(/view=installed&state=running/)
     await expect(installedRows(page)).toHaveCount(2)
-    await expect(page.getByRole('tab', { name: /^Running/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^Running/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('coming back does not read the gallery again', async ({ page }) => {

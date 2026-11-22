@@ -77,7 +77,7 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
         <section className="mcp-section" aria-labelledby="mcp-sec-tools">
           <h3 className="mcp-section__title" id="mcp-sec-tools">
             {t('mcpPage.details.tools')}
-            {tools && <span className="ad-tab__count">{tools.length}</span>}
+            {tools && <span className="dk-badge dk-badge--count">{tools.length}</span>}
           </h3>
           {!tools && <p className="mcp-section__text">{t('mcpPage.details.toolsUnknown')}</p>}
           {tools && tools.length === 0 && <p className="mcp-section__text">{t('mcpPage.details.toolsNone')}</p>}

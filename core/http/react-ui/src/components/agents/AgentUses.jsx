@@ -100,13 +100,15 @@ function Resources({ a, choice, onResource }) {
               <span>{x.name || x.id}</span>
               {x.gone && <span className="au-tag">{t('create.uses.res.gone')}</span>}
             </label>
-            <select
-              className="au-res__mode" aria-label={t('create.uses.res.access', { name: x.name || x.id })} disabled={!mode}
-              value={mode || 'read'} onChange={(e) => onResource(a.id, x.id, e.target.value)} data-testid="agent-addon-resource-mode"
-            >
-              <option value="read">{t('create.uses.res.read')}</option>
-              <option value="write" disabled={x.role === 'viewer'}>{t('create.uses.res.write')}</option>
-            </select>
+            <span className="dk-select-wrap dk-select-wrap--sm">
+              <select
+                className="dk-select" aria-label={t('create.uses.res.access', { name: x.name || x.id })} disabled={!mode}
+                value={mode || 'read'} onChange={(e) => onResource(a.id, x.id, e.target.value)} data-testid="agent-addon-resource-mode"
+              >
+                <option value="read">{t('create.uses.res.read')}</option>
+                <option value="write" disabled={x.role === 'viewer'}>{t('create.uses.res.write')}</option>
+              </select>
+            </span>
           </span>
         )
       })}

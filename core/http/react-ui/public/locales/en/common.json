@@ -207,5 +207,12 @@
       "unavailable": "Sharing did not answer. Try again in a moment.",
       "generic": "Something went wrong."
     }
+  },
+  "picker": {
+    "filter": "Filter",
+    "loading": "Loading",
+    "empty": "Nothing to choose yet",
+    "noMatch": "No matches",
+    "clear": "Clear"
   }
 }

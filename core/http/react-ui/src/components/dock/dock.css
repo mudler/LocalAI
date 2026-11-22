@@ -137,21 +137,6 @@
   background: var(--dk-card);
   font-size: var(--dk-text-12);
 }
-.pd-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--dk-space-1);
-  max-width: 100%;
-  padding: 2px var(--dk-space-2);
-  border: 1px solid var(--dk-edge);
-  border-radius: var(--dk-radius-pill);
-  color: var(--dk-muted);
-  font-weight: var(--dk-weight-semibold);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pd-pill--accent { border-color: var(--dk-accent); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 .pd-strip__ask {
   display: inline-flex;
   align-items: center;

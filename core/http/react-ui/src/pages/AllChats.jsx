@@ -18,7 +18,7 @@ import AutomatedChats from '../components/AutomatedChats'
 import ChatsList from '../components/ChatsList'
 import ConfirmDialog from '../components/ConfirmDialog'
 import HomeUndoToast from '../components/home/HomeUndoToast'
-import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows, Tabs } from '../components/ui'
 import './chat.css'
 import '../components/projects/projectchat.css'
 
@@ -161,35 +161,24 @@ export default function AllChats() {
         )}
       />
       {state.status === 'ready' && showTabs && (
-        <div className="dk-tabs ac-tabs" role="tablist" aria-label={t('allChats.tabsLabel')} data-testid="all-chats-tabs">
-          {['mine', 'automated'].map(id => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              id={`all-chats-tab-${id}`}
-              aria-controls={`all-chats-panel-${id}`}
-              aria-selected={tab === id}
-              tabIndex={tab === id ? 0 : -1}
-              className="dk-tab"
-              data-testid={`all-chats-tab-${id}`}
-              onClick={() => setTab(id)}
-              onKeyDown={(e) => {
-                if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
-                e.preventDefault()
-                const next = id === 'mine' ? 'automated' : 'mine'
-                setTab(next)
-                document.getElementById(`all-chats-tab-${next}`)?.focus()
-              }}
-            >
-              {t(`allChats.tab.${id}`)}
-              <span className="ac-tab__count" data-testid={`all-chats-count-${id}`}>{id === 'mine' ? mineAll.length : automatedChats.length}</span>
-              {id === 'automated' && waiting > 0 && (
-                <span className="ac-tab__wait" data-testid="all-chats-waiting" title={t('allChats.automated.waitingCount', { count: waiting })} aria-label={t('allChats.automated.waitingCount', { count: waiting })}>{waiting}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          className="ac-tabs"
+          label={t('allChats.tabsLabel')}
+          idPrefix="all-chats"
+          value={tab}
+          onChange={setTab}
+          testId="all-chats-tabs"
+          itemTestId="all-chats-tab-"
+          items={['mine', 'automated'].map(id => ({
+            id,
+            label: t(`allChats.tab.${id}`),
+            count: id === 'mine' ? mineAll.length : automatedChats.length,
+            countTestId: `all-chats-count-${id}`,
+            after: id === 'automated' && waiting > 0 && (
+              <span className="dk-badge dk-badge--count dk-badge--warn" data-testid="all-chats-waiting" title={t('allChats.automated.waitingCount', { count: waiting })} aria-label={t('allChats.automated.waitingCount', { count: waiting })}>{waiting}</span>
+            ),
+          }))}
+        />
       )}
       {state.status === 'loading' && <SkeletonRows count={6} />}
       {state.status === 'error' && (

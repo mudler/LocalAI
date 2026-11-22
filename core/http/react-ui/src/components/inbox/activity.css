@@ -107,45 +107,11 @@
 .nx-seeall .dk-btn { color: var(--color-text-secondary); }
 .nx-seeall .dk-btn:hover { color: var(--dk-text); }
 
-/* The tab bar: primary navigation of the panel. Labels start on the gutter
-   (the first tab has no side padding, so it lines up with the title above),
-   the active one carries an accent underline that sits on the head's border. */
-.nx-tabs { display: flex; gap: var(--sp-5); margin-bottom: -1px; }
-.nx-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--ctl-h);
-  padding: 0;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: none;
-  color: var(--dk-muted);
-  font: inherit;
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
-}
-.nx-tab[aria-selected="true"] { border-bottom-color: var(--dk-accent); color: var(--dk-text); }
-.nx-tab:hover { color: var(--dk-text); }
-.nx-tab:not([aria-selected="true"]):hover { border-bottom-color: var(--dk-edge); }
-.nx-tab:focus-visible { outline: none; border-radius: var(--r-sm); box-shadow: var(--focus-ring); }
-.nx-tab__n {
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--dk-accent-wash);
-  color: var(--dk-accent-text);
-  font-size: var(--fs-meta);
-  font-variant-numeric: tabular-nums;
-  line-height: 18px;
-  text-align: center;
-}
-.nx-tab__n--failed { background: var(--dk-error-wash); color: var(--dk-error-text); }
+/* The tab bar (the kit's Tabs) sits on the head's border: the first label
+   lines up with the title above, and the list draws no second rule. */
+.nx-tabs { margin: 0 0 -1px calc(-1 * var(--sp-3)); border-bottom: 0; }
 
 @media (max-width: 639px) {
-  .nx-tab { min-height: 44px; }
   .nx-op { min-height: 64px; }
   .nx-op--recent { min-height: 44px; }
   .nx-op__acts .dk-btn, .nx-op__act, .nx-seeall .dk-btn { min-height: 44px; }

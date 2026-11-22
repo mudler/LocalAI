@@ -121,7 +121,7 @@ test.describe('Failover overview', () => {
     await mockFailover(page, [])
     await page.goto('/app/failover')
 
-    await expect(page.locator('.dk-empty')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.ui-empty')).toBeVisible({ timeout: 10_000 })
     const cta = page.getByRole('link', { name: /create a failover chain/i })
     await expect(cta).toHaveAttribute('href', '/app/model-editor?template=failover')
   })

@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
-import Button from '../components/ui/Button'
 import Callout from '../components/ui/Callout'
 import EmptyState from '../components/ui/EmptyState'
 import LoadError from '../components/ui/LoadError'
+import { Button, SearchField, TabPanel, Tabs } from '../components/ui'
 import { SkeletonRows } from '../components/Skeleton'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -117,17 +117,14 @@ const whatText = (c, t) => {
 function TrashList({ ws, t, onPurge }) {
   const empty = ws.trash.length === 0 && ws.trashTotals.files + ws.trashTotals.folders === 0
   return (
-    <section className="ws-trash" aria-labelledby="ws-tab-trash">
+    <section className="ws-trash">
       <div className="ws-trash__bar">
         <p className="ws-trash__summary" data-testid="ws-trash-summary">
           {empty ? t('trash.empty') : t('trash.summary', { what: whatText(ws.trashTotals, t) })}
         </p>
-        <button
-          type="button" className="btn btn-danger btn-sm" data-testid="ws-empty-trash"
-          disabled={empty || ws.busy} onClick={() => onPurge({ all: true })}
-        >
-          <Icon name="trash" /> {t('trash.emptyAll')}
-        </button>
+        <Button variant="danger" size="sm" icon="trash" data-testid="ws-empty-trash" disabled={empty || ws.busy} onClick={() => onPurge({ all: true })}>
+          {t('trash.emptyAll')}
+        </Button>
       </div>
       {ws.purged && (
         <div className="ws-notice ws-trash__done" role="status" data-testid="ws-trash-done">
@@ -144,15 +141,12 @@ function TrashList({ ws, t, onPurge }) {
               <span className="ws-row__size" data-testid="ws-trash-size">{whatText(e, t)}</span>
               <span className="ws-row__size">{new Date(e.at).toLocaleString()}</span>
               <span className="ws-row__actions">
-                <button type="button" className="btn btn-secondary btn-sm" disabled={ws.busy} onClick={() => ws.restore(e.rev)}>
-                  <Icon name="undo" /> {t('trash.restore')}
-                </button>
-                <button
-                  type="button" className="btn btn-danger-ghost btn-sm" data-testid="ws-purge" disabled={ws.busy}
-                  aria-label={t('trash.purgeNamed', { name: e.paths.join(', ') })} onClick={() => onPurge({ entry: e })}
-                >
-                  <Icon name="trash" /> {t('trash.purge')}
-                </button>
+                <Button size="sm" icon="undo" disabled={ws.busy} onClick={() => ws.restore(e.rev)}>
+                  {t('trash.restore')}
+                </Button>
+                <Button variant="danger-ghost" size="sm" icon="trash" data-testid="ws-purge" disabled={ws.busy} aria-label={t('trash.purgeNamed', { name: e.paths.join(', ') })} onClick={() => onPurge({ entry: e })}>
+                  {t('trash.purge')}
+                </Button>
               </span>
             </li>
           ))}
@@ -177,9 +171,9 @@ function HistoryList({ ws, t }) {
           <span className="ws-row__size">{new Date(h.at).toLocaleString()}</span>
           <span className="ws-row__actions">
             {h.kind !== 'undo' && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => ws.restore(h.rev)}>
-                <Icon name="undo" /> {t('history.undo')}
-              </button>
+              <Button size="sm" icon="undo" onClick={() => ws.restore(h.rev)}>
+                {t('history.undo')}
+              </Button>
             )}
           </span>
         </li>
@@ -764,17 +758,17 @@ export default function Workspace() {
           </div>
         </header>
 
-        <div className="ws-tabs" role="tablist" aria-label={t('tabs.label')}>
-          {['files', 'trash', 'history', 'shared'].map((k) => (
-            <button
-              key={k} type="button" role="tab" aria-selected={tab === k} id={`ws-tab-${k}`}
-              className={`ws-tab${tab === k ? ' ws-tab--on' : ''}`} onClick={() => setTab(k)}
-            >
-              {t(`tabs.${k}`)}
-              {k === 'trash' && ws.trash.length > 0 && <span className="ws-tab__count" aria-label={t('tabs.trashCount', { count: ws.trash.length })}>{ws.trash.length}</span>}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('tabs.label')}
+          idPrefix="ws"
+          value={tab}
+          onChange={setTab}
+          items={['files', 'trash', 'history', 'shared'].map(k => ({
+            id: k,
+            label: t(`tabs.${k}`),
+            ...(k === 'trash' && ws.trash.length > 0 ? { count: ws.trash.length, countLabel: t('tabs.trashCount', { count: ws.trash.length }) } : {}),
+          }))}
+        />
 
         {ws.error && (
           <Callout
@@ -786,7 +780,7 @@ export default function Workspace() {
         )}
 
         {tab === 'files' && (
-          <section className="ws-files" aria-labelledby="ws-tab-files" data-drop={dropActive || undefined}>
+          <section className="ws-files" role="tabpanel" id="ws-panel-files" aria-labelledby="ws-tab-files" data-drop={dropActive || undefined}>
             <div className="ws-bar">
               {picked.length > 0 ? (
                 <div className="ws-selbar" role="toolbar" aria-label={t('select.bar')} data-testid="ws-selection-bar">
@@ -804,11 +798,10 @@ export default function Workspace() {
                 <>
                   <Breadcrumb path={ws.path} onOpen={openFolder} drop={dropTarget} t={t} />
                   <form className="ws-search" role="search" onSubmit={(e) => { e.preventDefault(); if (query.trim()) { setSearched(query.trim()); ws.search(query) } }}>
-                    <Icon name="search" className="ws-search__icon" />
-                    <input
-                      ref={searchRef} className="input ws-search__input" type="search" aria-label={t('search.label')} placeholder={t('search.placeholder')}
+                    <SearchField
+                      ref={searchRef} label={t('search.label')} placeholder={t('search.placeholder')}
                       value={query}
-                      onChange={(e) => { setQuery(e.target.value); if (!e.target.value) { ws.clearSearch(); setSearched('') } }}
+                      onChange={(text) => { setQuery(text); if (!text) { ws.clearSearch(); setSearched('') } }}
                       onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery(''); ws.clearSearch(); setSearched('') } }}
                     />
                   </form>
@@ -904,9 +897,13 @@ export default function Workspace() {
             )}
           </section>
         )}
-        {tab === 'trash' && <TrashList ws={ws} t={t} onPurge={(p) => { ws.clearPurged(); setPurging(p) }} />}
-        {tab === 'history' && <HistoryList ws={ws} t={t} />}
-        {tab === 'shared' && <SharedFolders />}
+        {tab !== 'files' && (
+          <TabPanel idPrefix="ws" value={tab} flush>
+            {tab === 'trash' && <TrashList ws={ws} t={t} onPurge={(p) => { ws.clearPurged(); setPurging(p) }} />}
+            {tab === 'history' && <HistoryList ws={ws} t={t} />}
+            {tab === 'shared' && <SharedFolders />}
+          </TabPanel>
+        )}
       </div>
 
       {preview && tab === 'files' && !searching && (

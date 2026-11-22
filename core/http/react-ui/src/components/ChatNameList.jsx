@@ -3,6 +3,7 @@ import Icon from './Icon'
 import { addEntry, removeEntry } from '../utils/chatAgents'
 import '../pages/chatskills.css'
 import '../pages/chatauto.css'
+import { Button } from './ui'
 
 // A list of names that an agent grants: chips, and a field with suggestions. A
 // name that is not in the suggestions is still allowed: the server decides what
@@ -33,7 +34,7 @@ export default function NameList({ label, hint, value, onChange, suggestions, te
         <datalist id={listId}>
           {(suggestions || []).filter((s) => !value.includes(s)).map((s) => <option key={s} value={s} />)}
         </datalist>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={add} disabled={!text.trim()}>+</button>
+        <Button size="sm" onClick={add} disabled={!text.trim()}>+</Button>
       </div>
     </div>
   )

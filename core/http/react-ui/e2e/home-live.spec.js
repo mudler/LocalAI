@@ -288,7 +288,7 @@ test.describe('Live on Home', () => {
     const seen = await server(page, { agents: [{ id: 'a1', name: 'Reviewer', model: '' }] })
     await open(page)
     await page.getByTestId('chat-agent-picker').getByRole('button').click()
-    await page.getByRole('radio', { name: 'Reviewer' }).click()
+    await page.getByRole('option', { name: /^Reviewer/ }).click()
     await page.getByTestId('chat-effort-button').click()
     await page.getByTestId('chat-effort-low').click()
     await live(page).click()

@@ -14,7 +14,7 @@ import Icon from '../components/Icon'
 import LoadingSpinner from '../components/LoadingSpinner'
 import AdminPage from '../components/admin/AdminPage'
 import AdminFilterBar from '../components/admin/AdminFilterBar'
-import { Button } from '../components/ui'
+import { Button, EmptyState } from '../components/ui'
 import './traffic.css'
 
 // Estimated cost is opt-in and entirely local. LocalAI has no price of its own;
@@ -193,7 +193,7 @@ export default function Usage() {
         <div className="tf-error" role="alert">
           <Icon name="alert-circle" />
           <span>{t('usage.error', { message: String(usage.error.message || usage.error) })}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={usage.reload}>{t('retry')}</button>
+          <Button variant="secondary" size="sm" onClick={usage.reload}>{t('retry')}</Button>
         </div>
       )}
 
@@ -239,17 +239,19 @@ export default function Usage() {
                 <span className="dk-label">{t('usage.priceCompletion')}</span>
                 <input className="dk-input dk-input--mono" type="number" min="0" step="0.01" placeholder="0.00" value={pricing.completion || ''} onChange={e => setPricing({ ...pricing, completion: Number(e.target.value) || 0 })} />
               </label>
-              {costOn && <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setPricing({ prompt: 0, completion: 0 })}><Icon name="close" /> {t('usage.clearPricing')}</button>}
+              {costOn && <Button variant="ghost" icon="close" onClick={() => setPricing({ prompt: 0, completion: 0 })}>{t('usage.clearPricing')}</Button>}
               <p className="tf-note-line">{t('usage.pricingNote')}</p>
             </div>
           )}
 
           {rows.length === 0 && !usage.error ? (
-            <div className="dk-empty tf-empty" data-testid="usage-empty">
-              <Icon name="chart-bar" className="dk-empty-icon" />
-              <h2 className="dk-empty-title">{query || model ? t('usage.noMatch') : t('usage.emptyTitle')}</h2>
-              <p className="dk-empty-text">{query || model ? t('usage.noMatchText') : t('usage.emptyText')}</p>
-            </div>
+            <EmptyState
+              variant={query || model ? 'no-results' : 'first-run'}
+              icon="chart-bar"
+              title={query || model ? t('usage.noMatch') : t('usage.emptyTitle')}
+              body={query || model ? t('usage.noMatchText') : t('usage.emptyText')}
+              testId="usage-empty"
+            />
           ) : (
             <>
               <p className="tf-summary" data-testid="usage-summary">
@@ -299,8 +301,8 @@ export default function Usage() {
                       <button type="button" className="dk-switch" role="switch" aria-checked={compact} aria-label={t('usage.compact')} onClick={() => setCompact(v => !v)} />
                       <span>{t('usage.compact')}</span>
                     </label>
-                    <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={exportCsv}><Icon name="download" /> {t('usage.exportCsv')}</button>
-                    <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={exportJson}><Icon name="download" /> {t('usage.exportJson')}</button>
+                    <Button variant="secondary" size="sm" icon="download" onClick={exportCsv}>{t('usage.exportCsv')}</Button>
+                    <Button variant="secondary" size="sm" icon="download" onClick={exportJson}>{t('usage.exportJson')}</Button>
                   </div>
                 </div>
                 <div className="dk-table-wrap" data-testid="usage-table">

@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { SearchField } from '../ui'
 import { Fragment, useId, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -100,17 +101,12 @@ export default function RunningModels({ nodes, replicas, addToast }) {
   return (
     <div className="sw-models">
       <div className="sw-models__head">
-        <div className="dk-input-icon sw-search">
-          <Icon name="search" className="dk-icon" />
-          <input
-            className="dk-input"
-            type="search"
-            aria-label={t('models.search')}
-            placeholder={t('models.search')}
-            value={query}
-            onChange={event => { setQuery(event.target.value); setPage(1) }}
-          />
-        </div>
+        <SearchField
+          className="sw-search"
+          label={t('models.search')}
+          value={query}
+          onChange={text => { setQuery(text); setPage(1) }}
+        />
         <span className="sw-count" aria-live="polite">{t('models.inView', { count: ordered.length })}</span>
       </div>
       <div className="dk-table-wrap sw-wrap">
