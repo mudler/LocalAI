@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import SearchableSelect from './SearchableSelect'
 import { Button } from './ui'
+import './listeditors.css'
 
 // Editor for a detector model's pii_detection.entity_actions map:
 // entity-group name -> action. The value is an object {GROUP: action};
@@ -51,7 +52,7 @@ export default function EntityActionListEditor({ value, onChange }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+    <div className="le">
       <datalist id={datalistId}>
         {COMMON_GROUPS.map(g => <option key={g} value={g} />)}
       </datalist>
@@ -64,14 +65,13 @@ export default function EntityActionListEditor({ value, onChange }) {
       )}
 
       {entries.map(([group, action], i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div key={i} className="le__row">
           <input
-            className="input"
+            className="dk-input le__in le__in--group"
             list={datalistId}
             value={group}
             placeholder="Entity group (e.g. PASSWORD)"
             onChange={e => update(i, e.target.value, action)}
-            style={{ flex: '1 1 220px', minWidth: 180, fontSize: '0.8125rem' }}
             aria-label="Entity group"
           />
           <SearchableSelect
@@ -79,7 +79,7 @@ export default function EntityActionListEditor({ value, onChange }) {
             onChange={v => update(i, group, v)}
             options={ACTION_OPTIONS}
             placeholder="Action..."
-            style={{ flex: '1 1 240px', minWidth: 220 }}
+            className="le__select le__select--entity"
           />
           <Button icon="close" size="sm" onClick={() => remove(i)} aria-label="Remove entity action" />
         </div>
