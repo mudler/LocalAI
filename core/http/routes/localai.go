@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/application"
@@ -576,7 +577,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 
 	RegisterFeatureRoutes(router, appConfig, app)
 
-	router.GET("/system", localai.SystemInformations(cl, ml, appConfig, monitoring.NewLocalProcessSampler()), adminMiddleware)
+	router.GET("/system", localai.SystemInformations(cl, ml, appConfig, monitoring.NewLocalProcessSampler(), func(ctx context.Context) ([]nodes.NodeModel, error) {
+		// Resolved per request: distributed services are wired during startup.
+		if d := app.Distributed(); d != nil && d.Registry != nil {
+			return d.Registry.ListAllLoadedModels(ctx)
+		}
+		return nil, nil
+	}), adminMiddleware)
 
 	// misc
 	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)
