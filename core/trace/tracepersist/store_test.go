@@ -43,6 +43,28 @@ var _ = Describe("Store", func() {
 		}))
 	})
 
+	It("skips a file it cannot read and still loads the rest", func() {
+		if os.Geteuid() == 0 {
+			Skip("file modes do not restrict root")
+		}
+		dir := GinkgoT().TempDir()
+		store, err := tracepersist.New[record](dir, 3)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(store.Append("1", record{ID: "1", Value: "first"})).To(Succeed())
+		Expect(store.Append("2", record{ID: "2", Value: "second"})).To(Succeed())
+		// A file left by an earlier run under another user is not readable.
+		locked := filepath.Join(dir, "00000000000000000003.json")
+		Expect(os.WriteFile(locked, []byte(`{"id":"3"}`), 0o000)).To(Succeed())
+
+		records, err := store.Load()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(Equal([]record{
+			{ID: "1", Value: "first"},
+			{ID: "2", Value: "second"},
+		}))
+	})
+
 	It("evicts the oldest records on disk", func() {
 		dir := GinkgoT().TempDir()
 		store, err := tracepersist.New[record](dir, 2)
