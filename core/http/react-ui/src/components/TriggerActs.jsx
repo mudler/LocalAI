@@ -48,7 +48,7 @@ export function ActsEditor({ value, onChange, agentGrants, writes = '', lock = '
         {rows.map((g) => (
           <label key={g.name} className="ag-grants__row" data-testid="trigger-act" data-act={g.name} data-blocked={g.blocked || undefined}>
             <input
-              type="checkbox"
+              type="checkbox" className="dk-check"
               checked={g.on}
               disabled={!!lock || (g.blocked && !g.on)}
               onChange={(e) => onChange(actsAfter(value, g.name, e.target.checked))}

@@ -374,12 +374,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
       railItem(page, "stablediffusion-model"),
     ).toBeVisible();
 
-    // The shared <Toggle> visually hides its native input (opacity:0;w:0;h:0),
-    // so .check() can't interact with it directly — click the visible track.
-    await page
-      .locator("label.filter-bar-group__toggle", { hasText: "Fits in GPU" })
-      .locator(".toggle__track")
-      .click();
+    await page.getByRole("switch", { name: "Fits in GPU" }).click();
 
     await expect(
       railItem(page, "stablediffusion-model"),
@@ -392,10 +387,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
   });
 
   test("fits filter state persists after reload", async ({ page }) => {
-    await page
-      .locator("label.filter-bar-group__toggle", { hasText: "Fits in GPU" })
-      .locator(".toggle__track")
-      .click();
+    await page.getByRole("switch", { name: "Fits in GPU" }).click();
     await page.reload();
     await expect(page.getByLabel("Fits in GPU")).toBeChecked();
   });
@@ -1078,7 +1070,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   // by clicking the visible track.
   const collapseToggle = (page) => page.getByLabel("One row per model");
   const flipCollapse = (page) =>
-    page.getByTestId("models-collapse-variants").locator(".toggle__track").click();
+    page.getByTestId("models-collapse-variants").getByRole("switch").click();
 
   test("the collapse toggle sits in the refinements band, on by default", async ({
     page,

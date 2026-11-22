@@ -148,7 +148,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
             <Callout tone="warn" testId="install-file-downgrade" title={t('file.relation.downgradeTitle')}>
               <p>{t('file.relation.downgrade', { installed: local.installedVersion, version: local.version })}</p>
               <label>
-                <input type="checkbox" checked={downgrade} onChange={(e) => setDowngrade(e.target.checked)} data-testid="install-file-downgrade-confirm" />
+                <input type="checkbox" className="dk-check" checked={downgrade} onChange={(e) => setDowngrade(e.target.checked)} data-testid="install-file-downgrade-confirm" />
                 {' '}{t('file.relation.downgradeConfirm')}
               </label>
             </Callout>

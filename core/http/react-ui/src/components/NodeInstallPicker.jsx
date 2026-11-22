@@ -550,7 +550,7 @@ export default function NodeInstallPicker({
                   <tr>
                     <th className="w-28">
                       <input
-                        type="checkbox"
+                        type="checkbox" className="dk-check"
                         aria-label="Select all visible"
                         checked={filteredNodes.length > 0 && filteredNodes.every(n => selected.has(n.id))}
                         onChange={(e) => {
@@ -586,7 +586,7 @@ export default function NodeInstallPicker({
                       <tr key={node.id}>
                         <td>
                           <input
-                            type="checkbox"
+                            type="checkbox" className="dk-check"
                             aria-label={`Select ${node.name}`}
                             aria-disabled={rowState?.status === 'installing'}
                             checked={isSel}

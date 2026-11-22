@@ -1,7 +1,6 @@
 import { useFormContext } from '../contexts/FormContext'
 import { useState } from 'react'
 import SettingRow from './SettingRow'
-import Toggle from './Toggle'
 import SearchableSelect from './SearchableSelect'
 import ModelPicker from './ModelPicker'
 import AutocompleteInput from './AutocompleteInput'
@@ -13,7 +12,7 @@ import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 import FailoverTargetsEditor from './FailoverTargetsEditor'
 import Icon from './Icon'
-import { Button } from './ui'
+import { Button, Switch } from './ui'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -188,7 +187,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   if (component === 'toggle') {
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
-        <Toggle checked={!!value} onChange={handleChange} />
+        <Switch checked={!!value} label={field.label} onChange={handleChange} />
       </SettingRow>
     )
   }
@@ -457,7 +456,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
         <div className="stack stack--xs">
           {(field.options || []).map(opt => (
             <label key={opt.value} className="cfr-radio">
-              <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
+              <input type="checkbox" className="dk-check" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
               {opt.label || opt.value}
             </label>
           ))}

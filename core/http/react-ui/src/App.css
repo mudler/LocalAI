@@ -1148,67 +1148,6 @@ input[type="range"] {
   accent-color: var(--color-primary);
 }
 
-/* Toggle switch */
-.toggle {
-  position: relative;
-  display: inline-block;
-  width: 38px;
-  height: 22px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.toggle input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-.toggle__track {
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-full);
-  background: var(--color-toggle-off);
-  transition: background-color var(--dk-dur-1) ease;
-}
-.toggle__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-secondary);
-  box-shadow: var(--shadow-subtle);
-  transition: transform var(--dk-dur-2) var(--dk-ease-spring);
-}
-.toggle--on .toggle__track {
-  background: var(--color-toggle-on);
-}
-.toggle--on .toggle__thumb {
-  transform: translateX(16px);
-  background: var(--color-primary-text);
-}
-.toggle:active:not(.toggle--disabled) .toggle__thumb {
-  transform: scale(var(--dk-press-scale));
-}
-.toggle--on:active:not(.toggle--disabled) .toggle__thumb {
-  transform: translateX(16px) scale(var(--dk-press-scale));
-}
-.toggle:hover:not(.toggle--disabled):not(.toggle--on) .toggle__track {
-  background: color-mix(in srgb, var(--color-toggle-off) 85%, var(--dk-text));
-}
-.toggle--on:hover:not(.toggle--disabled) .toggle__track {
-  background: var(--color-primary-hover);
-}
-.toggle:has(input:focus-visible) .toggle__track {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
-}
-.toggle--disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
 /* Inputs — card surface, control-edge border, accent focus ring */
 .input {
   background: var(--color-bg-secondary);

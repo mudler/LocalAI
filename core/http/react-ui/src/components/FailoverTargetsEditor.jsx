@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import ModelPicker from './ModelPicker'
-import Toggle from './Toggle'
 import Icon from './Icon'
-import { Button } from './ui'
+import { Button, Switch } from './ui'
 
 // FailoverTargetsEditor renders the ordered member list of a failover
 // chain. Each row binds a downstream model plus a warm flag that keeps a
@@ -118,7 +117,7 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
           placeholder="target model..."
         />
         <span className="hstack hstack--xs">
-          <Toggle checked={!!row?.warm} onChange={(v) => onChange((r) => ({ ...r, warm: v }))} />
+          <Switch checked={!!row?.warm} label="Warm" onChange={(v) => onChange((r) => ({ ...r, warm: v }))} />
           <span className="text-meta">Warm</span>
         </span>
         <Button icon="trash" size="sm" onClick={onRemove} title="Remove target" />

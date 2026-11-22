@@ -18,7 +18,6 @@ import { modelBudget } from '../utils/modelBudget'
 import { UNDO_MS } from '../utils/cleanupPlan'
 import { diskState, fitFor, fitStyle, leavesFree, gbLabel, gbNumber } from '../utils/modelLedger'
 import SearchableSelect from '../components/SearchableSelect'
-import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
 // eslint-disable-next-line no-unused-vars
 import ExploreTable from '../components/models/ExploreTable'
@@ -37,7 +36,7 @@ import React from 'react'
 import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, EmptyState, PageHeader, StatusChip, Tag } from '../components/ui'
+import { Button, Callout, EmptyState, PageHeader, StatusChip, Switch, Tag } from '../components/ui'
 import SideSheet from '../components/SideSheet'
 import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
 import RemotesView from '../components/remotes/RemotesView'
@@ -1384,8 +1383,9 @@ export default function Models() {
                 them. */}
             {!remote && (
               <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
-                <Toggle
+                <Switch
                   checked={collapseVariants}
+                  label={t('filters.collapseVariants')}
                   onChange={(v) => { setCollapseVariants(v); setPage(1) }}
                 />
                 <span>{t('filters.collapseVariants')}</span>
@@ -1393,7 +1393,7 @@ export default function Models() {
             )}
             {sectionIds.length > 0 && (
               <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
-                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
+                <Switch checked={ggufOnly} label={t('remote.ggufOnly')} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
                 <span>{t('remote.ggufOnly')}</span>
               </label>
             )}
@@ -1412,7 +1412,7 @@ export default function Models() {
             )}
             {totalGpuMemory > 0 && (
               <label className="filter-bar-group__toggle">
-                <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+                <Switch checked={fitsFilter} label={hasGpu ? t('filters.fitsGpu') : t('filters.fitsMemory')} onChange={setFitsFilter} />
                 <span>{hasGpu ? t('filters.fitsGpu') : t('filters.fitsMemory')}</span>
               </label>
             )}
