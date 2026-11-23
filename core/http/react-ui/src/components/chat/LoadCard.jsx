@@ -23,7 +23,6 @@ export default function LoadCard({ model, progress }) {
       {progress && (
         <ul className="cx-phase">
           <li>
-            <Icon name="spinner" spin />
             <span data-testid="chat-load-phase">{progress.label}</span>
             {progress.total > 0 && (
               <small>{t('load.bytes', { sent: gbNumber(progress.sent), total: gbLabel(progress.total) })}</small>
