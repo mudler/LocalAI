@@ -43185,6 +43185,10 @@ const docTemplate = `{
         "upgraderun.NodeState": {
             "type": "object",
             "properties": {
+                "error_key": {
+                    "description": "ErrorKey is the failure code of the upgrade on this node, when its\nphase is error or rolled_back.",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
