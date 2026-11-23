@@ -2072,6 +2072,13 @@ definitions:
         type: boolean
       downloaded_size:
         type: string
+      error_key:
+        description: |-
+          ErrorKey is the stable code of a failed backend upgrade (the string
+          of a gallery.UpgradeFailureCode), next to the text of the failure. It
+          is empty for every other outcome. Readers branch on it, never on the
+          message.
+        type: string
       file_name:
         type: string
       file_size:
@@ -31246,11 +31253,20 @@ paths:
       - backends
   /backends/upgrade/{name}:
     post:
+      description: Refused before anything is queued when the backend is not installed
+        (404, code not_installed), has no pending upgrade (409, code no_update), or
+        when the optional expected_to (the available version or digest, as a query
+        parameter or a JSON field) is no longer the available build (409, code stale).
       parameters:
       - description: Backend name
         in: path
         name: name
         required: true
+        type: string
+      - description: The version or digest the caller wants; refused with code stale
+          when it is no longer the available one
+        in: query
+        name: expected_to
         type: string
       responses:
         "200":
@@ -31259,6 +31275,17 @@ paths:
             $ref: '#/definitions/schema.BackendResponse'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: The backend is not installed (code not_installed)
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: The backend has no pending upgrade (code no_update) or the
+            requested build is no longer the available one (code stale)
           schema:
             additionalProperties: true
             type: object

@@ -280,6 +280,18 @@ var _ = Describe("Backend API Routes", func() {
 				Expect(response["statusUrl"]).NotTo(BeEmpty())
 			})
 
+			It("refuses a backend that is not installed before queuing anything", func() {
+				req := httptest.NewRequest(http.MethodPost, "/api/backends/upgrade/no-such-backend", nil)
+				rec := httptest.NewRecorder()
+
+				upgradeApp.ServeHTTP(rec, req)
+
+				Expect(rec.Code).To(Equal(http.StatusNotFound))
+				var response map[string]any
+				Expect(json.Unmarshal(rec.Body.Bytes(), &response)).To(Succeed())
+				Expect(response["code"]).To(Equal("not_installed"))
+			})
+
 			It("should upgrade the backend and update metadata", func() {
 				req := httptest.NewRequest(http.MethodPost, "/api/backends/upgrade/test-upgrade-backend", nil)
 				req.Header.Set("Content-Type", "application/json")

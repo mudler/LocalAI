@@ -1824,6 +1824,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/backends/updates", localai.BackendUpdatesEndpoint(updates), adminMiddleware)
 	app.POST("/api/backends/updates/check", localai.CheckBackendUpdatesEndpoint(updates), adminMiddleware)
 
+	// Refuses an upgrade that cannot run before it is queued. A nil checker
+	// (no application) leaves only the installed check.
+	var upgradeChecker localai.UpgradeInfoProvider
+	if applicationInstance != nil {
+		upgradeChecker = applicationInstance.UpgradeChecker()
+	}
+	upgradeGuard := localai.NewBackendUpgradeGuard(galleryService, upgradeChecker)
+
 	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
 		backendName := c.Param("name")
 		backendName, err := url.QueryUnescape(backendName)
@@ -1831,6 +1839,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend name",
 			})
+		}
+
+		expectedTo, err := localai.ExpectedToOf(c)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+		if refusal := upgradeGuard.Check(backendName, "", expectedTo); refusal != nil {
+			return refusal.Write(c)
 		}
 
 		id, err := uuid.NewUUID()

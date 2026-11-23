@@ -19402,6 +19402,7 @@ const docTemplate = `{
         },
         "/backends/upgrade/{name}": {
             "post": {
+                "description": "Refused before anything is queued when the backend is not installed (404, code not_installed), has no pending upgrade (409, code no_update), or when the optional expected_to (the available version or digest, as a query parameter or a JSON field) is no longer the available build (409, code stale).",
                 "tags": [
                     "backends"
                 ],
@@ -19413,6 +19414,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The version or digest the caller wants; refused with code stale when it is no longer the available one",
+                        "name": "expected_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -19424,6 +19431,20 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Backend installation is disabled on this server (code backend_install_disabled)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "The backend is not installed (code not_installed)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "The backend has no pending upgrade (code no_update) or the requested build is no longer the available one (code stale)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -24071,6 +24092,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "downloaded_size": {
+                    "type": "string"
+                },
+                "error_key": {
+                    "description": "ErrorKey is the stable code of a failed backend upgrade (the string\nof a gallery.UpgradeFailureCode), next to the text of the failure. It\nis empty for every other outcome. Readers branch on it, never on the\nmessage.",
                     "type": "string"
                 },
                 "file_name": {

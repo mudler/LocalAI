@@ -224,6 +224,40 @@ previous list stays. Callers that arrive during a check share it. A call within
 installs nothing. The older `POST /backends/upgrades/check` still only starts a
 check and returns the cache at once.
 
+**Starting an upgrade.** `POST /backends/upgrade/{name}` (alias
+`POST /api/backends/upgrade/{name}`) and `POST /api/nodes/{id}/backends/upgrade`
+answer at once when the request cannot do anything, and queue nothing. The body
+is `{"error": "...", "code": "..."}`:
+
+| Status | `code` | Meaning |
+|---|---|---|
+| `404` | `not_installed` | The backend is not installed (on that node, for the node route). |
+| `409` | `no_update` | The backend is installed but has nothing to upgrade to: no newer build in the last check, or a backend that the system provides. |
+| `409` | `stale` | The request named a build with `expected_to` and it is no longer the available one. |
+
+`expected_to` is optional. It is the version or the digest that the caller saw
+in the update list, in the query or in a JSON body field of the same name. Use it
+to be sure that the upgrade is the one you looked at. A request without it
+upgrades to whatever is available. Before the first successful check finishes
+there is no list to compare with, so a backend that is installed is accepted. The
+list comes from the last check, which can be several hours old: a build that was
+published after it is not seen as pending until the next check.
+
+An upgrade that fails after it started ends the job with an `error_key` next to
+the `error` text in the status of the job (`GET /backends/jobs/{id}`):
+
+| `error_key` | The step that failed |
+|---|---|
+| `download` | The new build could not be fetched or staged. |
+| `verify` | A checksum or signature check refused the new build, or its content is not a runnable backend. |
+| `swap` | The new build could not be moved into place. The installed build is restored. |
+| `start` | Reserved. The new build was moved into place but did not start. |
+| `not_installed`, `no_update`, `stale` | As above, when the request was accepted and the state changed before the job ran. |
+| `unknown` | Any other failure. |
+
+Read the `error_key`, not the text: the text can change. Cancelled jobs have no
+`error_key`, and neither has a failed install.
+
 Limits:
 
 - **Library backends are those of the host.** The library comparison reads the
