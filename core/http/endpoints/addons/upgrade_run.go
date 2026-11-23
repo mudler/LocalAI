@@ -1,0 +1,309 @@
+// SPDX-License-Identifier: MIT
+package addons
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"sync"
+
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/http/auth"
+	managerpkg "github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+// An upgrade run (core/services/upgraderun) upgrades an add-on through the
+// same path as POST /api/addons/{id}/upgrade: the owner records the upgrade
+// for the administrator who asked (update-queue, with the pinned digests and
+// every check of the explicit upgrade), and the operation queue runs it for
+// that administrator (update-run-queued), when the pins are checked again.
+// Nothing here acts as a system identity, and nothing skips a check: an item
+// the explicit upgrade would refuse is refused, with the owner's type.
+
+// RunConfirmID is the value of the confirmation header (X-LocalAI-Confirm) a
+// browser sends with a request that starts or retries an upgrade run. A run
+// whose request did not come from the administrator's own browser session
+// with this header skips its add-on items (error key not_human_surface), as
+// the explicit upgrade refuses such a request.
+const RunConfirmID = "upgrade-run"
+
+// Error keys of an add-on item that the host gives. The owner's refusal types
+// (stale_installed, candidate_changed, upgrade_conflict, ...) and failure
+// codes (upgrade_failed, approval_required, ...) pass through unchanged.
+const (
+	// RunErrNotHumanSurface: the run was not requested from the
+	// administrator's own browser session.
+	RunErrNotHumanSurface = "not_human_surface"
+	// RunErrForbidden: the run has no add-on identity, or the owner refused
+	// the identity.
+	RunErrForbidden = "forbidden"
+	// RunErrUnavailable: the add-on owner did not answer.
+	RunErrUnavailable = "unavailable"
+)
+
+// runActor is the actor of a run as it is stored in the run (Run.Actor).
+type runActor struct {
+	User       string `json:"user"`
+	Credential string `json:"credential,omitempty"`
+	Mode       string `json:"mode,omitempty"`
+	// Human is set when the request came from the administrator's own
+	// browser session with the confirmation header.
+	Human bool `json:"human,omitempty"`
+}
+
+// EncodeRunActor writes the actor of a run. The credential is the reference
+// the add-on owner checks (a session or key id, never a secret).
+func EncodeRunActor(a contract.Actor, human bool) string {
+	b, _ := json.Marshal(runActor{User: a.UserID, Credential: a.CredentialID, Mode: a.Mode, Human: human})
+	return string(b)
+}
+
+// DecodeRunActor reads an actor written by EncodeRunActor. ok is false for an
+// actor that carries no add-on identity (a plain user id).
+func DecodeRunActor(s string) (a contract.Actor, human bool, ok bool) {
+	var r runActor
+	if s == "" || s[0] != '{' || json.Unmarshal([]byte(s), &r) != nil || r.User == "" || r.Mode == "" {
+		return contract.Actor{}, false, false
+	}
+	return contract.Actor{UserID: r.User, CredentialID: r.Credential, Mode: r.Mode}, r.Human, true
+}
+
+// RunActorUser is the user an actor of a run names, for display: the
+// credential reference stays on the server.
+func RunActorUser(s string) string {
+	if a, _, ok := DecodeRunActor(s); ok {
+		return a.UserID
+	}
+	return s
+}
+
+// RunPrincipal is the actor of a run requested through c: the add-on actor of
+// the caller, with the browser session check of the explicit upgrade, when
+// the caller is an add-on administrator; otherwise the plain user id, which
+// upgrades backends and models only (its add-on items are skipped).
+func RunPrincipal(c echo.Context, db *gorm.DB, mode string) string {
+	user := ""
+	if u := auth.GetUser(c); u != nil {
+		user = u.ID
+	}
+	s := resolve([]Option{WithOwnership(mode)})
+	a, e := actor(c, db, s)
+	if e != nil || administrator(c, db, a, s) != nil {
+		return user
+	}
+	return EncodeRunActor(a, humanSurface(c, s, a, RunConfirmID))
+}
+
+// QueuedUpgrader starts the add-on items of upgrade runs
+// (upgraderun.AddonUpgrader).
+type QueuedUpgrader struct {
+	Gateway func() *gateway.Gateway
+	Queue   func() *galleryop.GalleryService
+	// OpCache lists the operation in /api/operations; nil does not.
+	OpCache func() *galleryop.OpCache
+
+	mu sync.Mutex
+	// recorded are upgrades the upgrade route already recorded with the
+	// operation ID of its caller, waiting for the run of one item that
+	// route starts: the run runs that record instead of making a second one.
+	recorded map[string]string
+}
+
+func recordedKey(a contract.Actor, addonID, expected, candidate string) string {
+	return a.UserID + "\x00" + a.CredentialID + "\x00" + addonID + "\x00" + expected + "\x00" + candidate
+}
+
+func (u *QueuedUpgrader) expect(key, opID string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.recorded == nil {
+		u.recorded = map[string]string{}
+	}
+	u.recorded[key] = opID
+}
+
+func (u *QueuedUpgrader) take(key string) string {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	opID := u.recorded[key]
+	delete(u.recorded, key)
+	return opID
+}
+
+func (u *QueuedUpgrader) gateway() *gateway.Gateway {
+	if u.Gateway == nil {
+		return nil
+	}
+	return u.Gateway()
+}
+
+func (u *QueuedUpgrader) queue() *galleryop.GalleryService {
+	if u.Queue == nil {
+		return nil
+	}
+	return u.Queue()
+}
+
+// retryableRefusal says whether a run that retries an item the owner refused
+// can succeed: a moved installed package or candidate is read fresh by the
+// retry, a conflict or an incompatible release is not.
+func retryableRefusal(kind string) bool {
+	switch kind {
+	case "stale_installed", "candidate_changed", "check_failed":
+		return true
+	}
+	return false
+}
+
+// StartAddonUpgrade records the upgrade on the owner as the run's actor and
+// queues it. See the comment at the top of this file.
+func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addonID, expectedDigest, candidateDigest string) (string, error) {
+	a, human, ok := DecodeRunActor(actorText)
+	if actorText == managerpkg.AutoUpgradeActor.UserID {
+		// The owner's own automatic upgrade; the owner decides what it may do.
+		a, human, ok = managerpkg.AutoUpgradeActor, false, true
+	}
+	if !ok {
+		return "", &upgraderun.StartError{ErrorKey: RunErrForbidden, Skip: true,
+			Err: errors.New("the run was not requested by an add-on administrator; upgrade the add-on from its page")}
+	}
+	if !human && a != managerpkg.AutoUpgradeActor {
+		return "", &upgraderun.StartError{ErrorKey: RunErrNotHumanSurface, Skip: true,
+			Err: errors.New("an add-on upgrade needs your own browser session; upgrade the add-on from its page")}
+	}
+	g, q := u.gateway(), u.queue()
+	if g == nil || q == nil {
+		return "", &upgraderun.StartError{ErrorKey: RunErrUnavailable, Retryable: true, Err: errors.New("add-on upgrades are not available on this server")}
+	}
+	if expectedDigest == "" || candidateDigest == "" {
+		return "", &upgraderun.StartError{ErrorKey: "operation_conflict", Err: errors.New("the installed and the candidate digest are required")}
+	}
+	opID := u.take(recordedKey(a, addonID, expectedDigest, candidateDigest))
+	if opID == "" {
+		opID = "run-" + uuid.NewString()
+		args, _ := json.Marshal(struct {
+			ExpectedDigest  string `json:"expectedDigest"`
+			CandidateDigest string `json:"candidateDigest"`
+		}{expectedDigest, candidateDigest})
+		out, e := g.Dispatch(ctx, a, contract.Request{AddonID: addonID, OperationID: opID, Action: gateway.ActionUpdateQueue, Arguments: args})
+		if e != nil {
+			if gateway.StatusFor(e) == http.StatusServiceUnavailable {
+				return "", &upgraderun.StartError{ErrorKey: RunErrUnavailable, Retryable: true, Err: errors.New("the add-on owner did not answer")}
+			}
+			return "", &upgraderun.StartError{ErrorKey: RunErrForbidden, Err: errors.New("the add-on owner refused the upgrade for this account")}
+		}
+		var env gateway.UpdateEnvelope
+		if json.Unmarshal(out.Payload, &env) != nil {
+			return "", &upgraderun.StartError{ErrorKey: RunErrUnavailable, Retryable: true, Err: errors.New("unreadable answer of the add-on owner")}
+		}
+		if env.Error != nil {
+			return "", &upgraderun.StartError{ErrorKey: env.Error.Type, Retryable: retryableRefusal(env.Error.Type), Err: errors.New(env.Error.Message)}
+		}
+		var st managerpkg.OperationStatus
+		if json.Unmarshal(env.Data, &st) != nil || st.Phase != "accepted" {
+			return "", &upgraderun.StartError{ErrorKey: "operation_conflict", Err: fmt.Errorf("the add-on owner did not accept the upgrade (%s)", st.Phase)}
+		}
+	}
+	var opcache addonOpCache
+	if u.OpCache != nil {
+		if oc := u.OpCache(); oc != nil {
+			opcache = oc
+		}
+	}
+	return enqueueRecordedUpgrade(g, q, opcache, a, addonID, opID), nil
+}
+
+// WithUpgradeRuns makes POST /api/addons/{id}/upgrade start an upgrade run of
+// one item through upgrader, when runs returns a service. Without it, or
+// while runs returns nil, the route queues the upgrade directly.
+func WithUpgradeRuns(runs func() *upgraderun.Service, upgrader *QueuedUpgrader) Option {
+	return func(s *settings) { s.runs, s.upgrader = runs, upgrader }
+}
+
+// afterRefusal is a typed answer of an afterUpdate step.
+type afterRefusal struct {
+	status  int
+	kind    string
+	message string
+}
+
+func (r *afterRefusal) Error() string { return r.kind + ": " + r.message }
+
+// runStartWait bounds how long the upgrade route waits for its run to queue
+// the operation; a variable so tests can shorten it.
+var runStartWait = upgraderun.DefaultStartWait
+
+// ctxUpdateRequest holds the decoded body of an update mutation, for the
+// step that runs after the owner answered.
+const ctxUpdateRequest = "addon.update.request"
+
+// runUpgrade hands an upgrade the owner recorded under the caller's
+// operation ID to a run of one item, and answers as queueUpgrade does, with
+// the run added. A run that cannot start drops the record, so the add-on is
+// free again.
+func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.Service, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, error) {
+	var view map[string]any
+	if json.Unmarshal(status, &view) != nil {
+		return nil, errors.New("unreadable operation status")
+	}
+	// A repeated request answers the recorded operation and queues nothing.
+	if phase, _ := view["Phase"].(string); phase != "accepted" {
+		return status, nil
+	}
+	ctx := c.Request().Context()
+	req, _ := c.Get(ctxUpdateRequest).(*UpgradeRequest)
+	if req == nil {
+		return queueUpgrade(g, s, a, id, opID, status)
+	}
+	key := recordedKey(a, id, req.ExpectedDigest, req.CandidateDigest)
+	s.upgrader.expect(key, opID)
+	drop := func() {
+		s.upgrader.take(key)
+		_, _ = g.Dispatch(context.WithoutCancel(ctx), a, contract.Request{AddonID: id, OperationID: opID, Action: gateway.ActionUpdateDropQueued, Arguments: json.RawMessage(`{}`)})
+	}
+	run, item, err := svc.StartOne(ctx, EncodeRunActor(a, true), upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: id, ExpectedTo: req.CandidateDigest}, upgraderun.SourceManual, runStartWait)
+	switch upgraderun.CodeOf(err) {
+	case "":
+	case upgraderun.CodeRunActive:
+		drop()
+		return nil, &afterRefusal{status: http.StatusConflict, kind: upgraderun.CodeRunActive, message: "Another upgrade run is running. Wait for it to end, or cancel it, and upgrade again"}
+	case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked, upgraderun.CodeStale:
+		// The run's check does not list the add-on as the owner just did
+		// (the check is older, or this frontend does not list add-ons): the
+		// owner accepted the upgrade, so queue it as before.
+		s.upgrader.take(key)
+		return queueUpgrade(g, s, a, id, opID, status)
+	default:
+		drop()
+		return nil, err
+	}
+	if err != nil {
+		drop()
+		return nil, err
+	}
+	// The actor names the user only; the credential reference it carries
+	// stays on the server.
+	run.Actor = RunActorUser(run.Actor)
+	view["run"] = run
+	switch {
+	case item.JobID != "":
+		view["jobId"] = item.JobID
+	case item.Phase.Terminal():
+		drop()
+		kind := item.ErrorKey
+		if kind == "" {
+			kind = "upgrade_failed"
+		}
+		return nil, &afterRefusal{status: http.StatusConflict, kind: kind, message: item.Error}
+	}
+	return json.Marshal(view)
+}
