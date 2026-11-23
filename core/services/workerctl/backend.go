@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/sanitize"
 )
 
 // BackendInstallRequest is the payload for a backend.install control request.
@@ -258,6 +260,29 @@ func (r *BackendInstallRequest) UnmarshalJSON(data []byte) error {
 	*r = BackendInstallRequest(decoded.wire)
 	r.EnvVars = decoded.EnvVars
 	return nil
+}
+
+// Sanitize bounds and cleans the free-text fields of a reply on receipt.
+// The worker bounds Cause and RestartError itself, but the frontend must not
+// trust that: a compromised or an older worker can send megabytes, markup or
+// a credential, which would reach the operation status, the run item, the
+// database and the context of the assistant. Each of Error, Cause and
+// RestartError keeps its last CauseLimit bytes (BoundCause) and is then
+// cleaned as every run text is (sanitize.Text).
+func (r *BackendUpgradeReply) Sanitize() {
+	if r == nil {
+		return
+	}
+	r.Error = boundReplyText(r.Error)
+	r.Cause = boundReplyText(r.Cause)
+	r.RestartError = boundReplyText(r.RestartError)
+}
+
+func boundReplyText(s string) string {
+	if s == "" {
+		return s
+	}
+	return sanitize.Text(BoundCause(s), CauseLimit)
 }
 
 // CauseLimit bounds BackendUpgradeReply.Cause in bytes.

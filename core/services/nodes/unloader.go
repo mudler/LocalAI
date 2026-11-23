@@ -400,6 +400,7 @@ func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, na
 			galleryop.ErrWorkerStillInstalling, target, nodeID, backendType, err)
 	}
 	if err == nil {
+		reply.Sanitize()
 		a.dropStoppedReplicaRows(nodeID, "backend.upgrade", backendType, reply.StoppedProcessKeys, reply.ReportsStoppedProcesses)
 	}
 	return reply, err

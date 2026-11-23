@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -289,6 +290,24 @@ var _ = Describe("A mixed fleet through the route table", func() {
 			Expect(ok).To(BeTrue(), id)
 			Expect(last.Status).To(Equal(galleryop.NodeStatusRolledBack), id)
 			Expect(last.ErrorKey).To(Equal("start"), id)
+		}
+	})
+
+	It("bounds and cleans an oversized, markup-laden reply on every route", func() {
+		junk := "<script>alert(1)</script>\x1b[31m https://user:pass@host/x Bearer abc /home/alice/.config/k.pem\n"
+		big := strings.Repeat(junk, 4000)
+		natsID, wsID, p2pID := upgradeFleet(workerctl.BackendUpgradeReply{Code: "<b>pwn</b>", Error: big, Cause: big, RestartError: big})
+		commands := carrier.NewCommands(table)
+		for _, id := range []string{natsID, wsID, p2pID} {
+			reply, err := commands.UpgradeBackend(id, "vllm", "[]", "", "", "", 0, "", nil)
+			Expect(err).ToNot(HaveOccurred(), id)
+			for _, s := range []string{reply.Error, reply.Cause, reply.RestartError} {
+				Expect(len(s)).To(BeNumerically("<=", workerctl.CauseLimit+len("…")), id)
+				for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+					Expect(s).NotTo(ContainSubstring(bad), id)
+				}
+			}
+			Expect(gallery.UpgradeCodeOf(nodes.UpgradeReplyError(reply))).To(Equal(gallery.UpgradeFailureUnknown), id)
 		}
 	})
 

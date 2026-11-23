@@ -746,6 +746,10 @@ func UpgradeReplyError(reply *workerctl.BackendUpgradeReply) error {
 	if reply.Success {
 		return nil
 	}
+	// The reply may come from an adapter that did not clean it on receipt.
+	clean := *reply
+	clean.Sanitize()
+	reply = &clean
 	code := gallery.UpgradeFailureCode(reply.Code)
 	if !knownUpgradeCode(code) {
 		code = gallery.UpgradeFailureUnknown

@@ -132,7 +132,10 @@ item `rolled_back` with the key `start`. An operation whose worker reply never
 came ends the item `unconfirmed`, and a fresh check decides as above. In a
 cluster, `nodes` lists the result of each node: `id`, `name`, `phase`
 (`success`, `error`, `rolled_back`, `unconfirmed`, or a phase of a node that
-still runs), `progress`, `message` and `error_key`.
+still runs), `progress`, `message` and `error_key`. The frontend does not trust
+the text a worker sends: it keeps at most the last 512 bytes of the error, the
+cause and the restart error of each reply and cleans them as below, and a code
+it does not know becomes `unknown`.
 
 ## Cancel, retry and dismiss
 
