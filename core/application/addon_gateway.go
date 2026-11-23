@@ -710,6 +710,17 @@ func (l lateStudioAddons) AddonSkills(ctx context.Context, user string) ([]studi
 	return nil, nil
 }
 
+// AddonShadowers forwards to the broker when it lists the add-ons that replace
+// a built-in chat tool in any state. Without it the chats see only the add-ons
+// whose tools a discovery lists, and miss one that is stopped or cut by the
+// tool cap.
+func (l lateStudioAddons) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.ShadowLister); ok {
+		return g.AddonShadowers(ctx, user)
+	}
+	return nil, nil
+}
+
 // AddonContextFiles forwards to the broker when it knows the context files of
 // the add-ons.
 func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([]studio.AddonContextSet, error) {

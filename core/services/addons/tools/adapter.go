@@ -865,20 +865,29 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	if err != nil {
 		return nil, err
 	}
-	var out []ToolDefinition
+	// The apps list is ordered by add-on ID, so a plain cap would drop the
+	// tools of whichever add-ons sort last, however many are installed. A tool
+	// that replaces a built-in chat tool is what lets a chat run commands or
+	// reach the web at all: it is admitted first, then the rest in order.
+	var replacing, others []ToolDefinition
 	for _, a := range list {
-		if l, ok := t.listingOf(a); ok && len(out) < MaxTools {
-			out = append(out, resourceListingDefinition(a, l))
+		if l, ok := t.listingOf(a); ok {
+			others = append(others, resourceListingDefinition(a, l))
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
 				continue
 			}
-			if def, ok := definition(a, d); ok && len(out) < MaxTools {
-				out = append(out, def)
+			if def, ok := definition(a, d); ok {
+				if def.Shadows != "" {
+					replacing = append(replacing, def)
+				} else {
+					others = append(others, def)
+				}
 			}
 		}
 	}
+	out := append(replacing[:min(len(replacing), MaxTools)], others[:min(len(others), max(0, MaxTools-len(replacing)))]...)
 	slices.SortFunc(out, func(x, y ToolDefinition) int { return strings.Compare(x.Name, y.Name) })
 	return out, nil
 }

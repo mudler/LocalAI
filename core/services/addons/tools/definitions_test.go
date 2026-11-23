@@ -187,6 +187,52 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 	})
 })
 
+var _ = Describe("The tool cap of one discovery", func() {
+	ctx := context.Background()
+	// filler is an add-on with n read tools, named so that it sorts before
+	// the sandbox: the apps list is ordered by ID.
+	filler := func(id string, n int) apps.App {
+		a := apps.App{ID: id, Generation: 1, Enabled: true, State: "running"}
+		for i := range n {
+			name := fmt.Sprintf("read-%d", i)
+			a.Tools = append(a.Tools, name)
+			a.ToolDefinitions = append(a.ToolDefinitions, contract.ToolDefinition{Name: name, Kind: contract.ToolKindRead, Description: "Read.",
+				InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)})
+		}
+		return a
+	}
+	// sandboxApp is the packaged Sandbox add-on as the owner lists it.
+	sandboxApp := func() apps.App {
+		raw, err := os.ReadFile("../../../../addons/sandbox/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		m, err := contract.ParseManifest(raw)
+		Expect(err).NotTo(HaveOccurred())
+		return apps.App{ID: "sandbox", Title: "Sandbox", Generation: 23, Enabled: true, State: "running", Tools: m.Capabilities.Tools,
+			ToolDefinitions: m.Capabilities.ToolDefinitions, Shadows: contract.ShadowedTools(m.Capabilities.ToolDefinitions)}
+	}
+	It("still offers the add-on that replaces bash when earlier add-ons fill the cap", func() {
+		list := []apps.App{}
+		for _, id := range []string{"aaa", "bbb", "ccc", "ddd", "eee"} {
+			list = append(list, filler(id, 16)) // 80 tools, more than MaxTools
+		}
+		list = append(list, sandboxApp())
+		f := &fake{list: apps.List{Apps: list}}
+		defs, err := tools.NewChatToolAdapter(f).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(defs)).To(BeNumerically("<=", tools.MaxTools))
+		var bash *tools.ToolDefinition
+		for i, d := range defs {
+			if d.AddonID == "sandbox" && d.Tool == "bash" {
+				bash = &defs[i]
+			}
+		}
+		Expect(bash).NotTo(BeNil(), "the replacement of a built-in tool is never dropped by the cap")
+		Expect(bash.Shadows).To(Equal("bash"))
+		Expect(bash.Execution).NotTo(BeNil())
+		Expect(bash.Execution.Class).To(Equal(contract.ExecutionClassCommands))
+	})
+})
+
 var _ = Describe("The execution descriptor of a commands tool", func() {
 	ctx := context.Background()
 	schema := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
