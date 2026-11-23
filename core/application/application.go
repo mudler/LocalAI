@@ -216,6 +216,8 @@ type Application struct {
 	notifyPusher          *notify.Pusher                    // browser push of the notifier; nil when there is nowhere to keep subscriptions
 	studioLocks           []*advisorylock.HeldLock          // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop  context.CancelFunc
+	bindingCapsStop       context.CancelFunc // stops the one-time permissions migration of the connector bindings
+	bindingCapsDone       chan struct{}      // closed when that migration returned
 	studioProvider        *provider.Provider
 	studioService         *studio.Service
 	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
@@ -766,6 +768,13 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioConnectorsStop != nil {
 			a.studioConnectorsStop()
+		}
+		// The migration writes the connector store under DataPath: it ends
+		// before Shutdown returns, so whoever removes the directory next does
+		// not race its last write.
+		if a.bindingCapsStop != nil {
+			a.bindingCapsStop()
+			<-a.bindingCapsDone
 		}
 		if a.studioConnectors != nil {
 			a.studioConnectors.Close()
