@@ -119,7 +119,7 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(live[0].Params).To(HaveKeyWithValue("progress", BeNumerically("==", 60)))
 	})
 
-	It("closes the live row and posts the end row once", func() {
+	It("replaces the live row with the end row, so the run is one item, and posts the end once", func() {
 		build("admin")
 		r := runOf("r1", upgraderun.SourceAuto, upgraderun.RunRunning,
 			runItem("a", upgraderun.PhaseRunning, 30), runItem("b", upgraderun.PhaseQueued, 0))
@@ -129,10 +129,7 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		local(r)
 		local(r)
 		live, end := rows("admin")
-		Expect(live).To(HaveLen(1))
-		Expect(live[0].Read).To(BeTrue())
-		Expect(live[0].Params).To(HaveKeyWithValue("progress", BeNumerically("==", 100)))
-		Expect(live[0].Params).To(HaveKeyWithValue("source", "auto"))
+		Expect(live).To(BeEmpty(), "the live row is removed: one item for each run")
 		Expect(end).To(HaveLen(1), "a replayed end is silent")
 		Expect(end[0].Params).To(Equal(map[string]any{"run": "r1", "total": 2, "updated": 2, "failed": 0, "source": "auto"}))
 		Expect(end[0].Read).To(BeFalse())
@@ -142,7 +139,8 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(f.pushed).To(HaveLen(1), "only the end")
 		clk.fire()
 		live, _ = rows("admin")
-		Expect(live[0].Read).To(BeTrue(), "no timer reopens the row after the end")
+		Expect(live).To(BeEmpty(), "no timer brings the live row back after the end")
+		Expect(list(f, "admin")).To(HaveLen(1))
 	})
 
 	It("counts every item that needs attention and names the first one", func() {
@@ -203,11 +201,18 @@ var _ = Describe("the notifications of an upgrade run", func() {
 
 	It("tells each administrator and nobody else", func() {
 		build("admin1", "admin2")
-		r := runOf("r1", upgraderun.SourceManual, upgraderun.RunFinished, runItem("a", upgraderun.PhaseUpdated, 100))
+		r := runOf("r1", upgraderun.SourceManual, upgraderun.RunRunning, runItem("a", upgraderun.PhaseRunning, 10))
 		local(r)
 		for _, who := range []string{"admin1", "admin2"} {
 			live, end := rows(who)
 			Expect(live).To(HaveLen(1))
+			Expect(end).To(BeEmpty())
+		}
+		r.State, r.Items[0].Phase = upgraderun.RunFinished, upgraderun.PhaseUpdated
+		local(r)
+		for _, who := range []string{"admin1", "admin2"} {
+			live, end := rows(who)
+			Expect(live).To(BeEmpty())
 			Expect(end).To(HaveLen(1))
 		}
 		Expect(list(f, "guest")).To(BeEmpty())
@@ -215,11 +220,18 @@ var _ = Describe("the notifications of an upgrade run", func() {
 
 	It("keeps the rows of two runs apart", func() {
 		build("admin")
-		local(runOf("r1", upgraderun.SourceManual, upgraderun.RunFinished, runItem("a", upgraderun.PhaseUpdated, 100)))
-		local(runOf("r2", upgraderun.SourceAuto, upgraderun.RunFinished, runItem("b", upgraderun.PhaseUpdated, 100)))
+		local(runOf("r1", upgraderun.SourceManual, upgraderun.RunRunning, runItem("a", upgraderun.PhaseRunning, 10)))
+		local(runOf("r2", upgraderun.SourceAuto, upgraderun.RunRunning, runItem("b", upgraderun.PhaseRunning, 10)))
 		live, end := rows("admin")
 		Expect(live).To(HaveLen(2))
-		Expect(end).To(HaveLen(2))
+		Expect(end).To(BeEmpty())
+		// The end of one run removes its own live row only.
+		local(runOf("r1", upgraderun.SourceManual, upgraderun.RunFinished, runItem("a", upgraderun.PhaseUpdated, 100)))
+		live, end = rows("admin")
+		Expect(live).To(HaveLen(1))
+		Expect(live[0].Params).To(HaveKeyWithValue("run", "r2"))
+		Expect(end).To(HaveLen(1))
+		Expect(end[0].Params).To(HaveKeyWithValue("run", "r1"))
 	})
 
 	It("does nothing without a notification center", func() {

@@ -171,8 +171,8 @@ server can retry the item; **Details** shows the server's own words.
 result from the page.
 
 Each run also has one item in the notification center: it shows the progress
-while the run is active and the result when it ended, and it opens the run on
-this page. The footer of the notification center has **Open Updates** with the
+while the run is active, and when the run ends it is replaced by the result.
+It opens the run on this page. The footer of the notification center has **Open Updates** with the
 number of updates, for administrators.
 
 In a cluster, a backend that more than one node has shows a **Nodes** action.

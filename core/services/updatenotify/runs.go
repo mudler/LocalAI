@@ -15,10 +15,10 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// Codes and keys of the inbox items of an upgrade run. A run has one live row
-// for each administrator, edited in place while the run goes on, and one end
-// row that tells its outcome once. The UI words both from the params
-// (utils/inbox.js).
+// Codes and keys of the inbox items of an upgrade run. A run has one item in
+// the inbox of each administrator: while it goes on, the live row, edited in
+// place; when it ends, the live row is removed and the end row tells the
+// outcome once. The UI words both from the params (utils/inbox.js).
 const (
 	CodeRun    = "updates.run"
 	CodeRunEnd = "updates.run.end"
@@ -46,7 +46,8 @@ const maxRunErrorRunes = 160
 // the end of an operation is announced only at its end), at most once for
 // each Interval; the last
 // change of a burst is written when the interval ends. When the run ends, the
-// live row is closed and read, and one end row is posted once (notify.ModeOnce).
+// live row is removed and one end row is posted once (notify.ModeOnce), so
+// the run is one item in the inbox at every moment.
 type RunNotifier struct {
 	Emitter *Emitter
 	// Context bounds the writes; nil means context.Background.
@@ -101,7 +102,7 @@ func (n *RunNotifier) RunChanged(c upgraderun.Change) {
 			st.stop = nil
 		}
 		st.last, st.pending = now, nil
-		n.writeLive(run, false)
+		n.writeLive(run)
 		return
 	}
 	st.pending = &run
@@ -125,7 +126,7 @@ func (n *RunNotifier) flush(id string) {
 	}
 	run := *st.pending
 	st.pending, st.last = nil, n.now()
-	n.writeLive(run, false)
+	n.writeLive(run)
 }
 
 func (n *RunNotifier) now() time.Time {
@@ -157,16 +158,20 @@ func (n *RunNotifier) ctx() context.Context {
 	return context.Background()
 }
 
-func (n *RunNotifier) writeLive(run upgraderun.Run, closing bool) {
-	if err := n.Emitter.runLive(n.ctx(), run, closing); err != nil {
+func (n *RunNotifier) writeLive(run upgraderun.Run) {
+	if err := n.Emitter.runLive(n.ctx(), run); err != nil {
 		xlog.Warn("Could not write the live notification of an upgrade run", "run", run.ID, "error", err)
 	}
 }
 
+// writeEnd posts the end row first, so the run is never missing from the
+// inbox, and then removes the live row.
 func (n *RunNotifier) writeEnd(run upgraderun.Run) {
-	n.writeLive(run, true)
 	if err := n.Emitter.runEnd(n.ctx(), run); err != nil {
 		xlog.Warn("Could not write the end notification of an upgrade run", "run", run.ID, "error", err)
+	}
+	if err := n.Emitter.runRetire(n.ctx(), run); err != nil {
+		xlog.Warn("Could not remove the live notification of an upgrade run", "run", run.ID, "error", err)
 	}
 }
 
@@ -235,14 +240,9 @@ func (e *Emitter) eachAdmin(ctx context.Context, fn func(svc *notify.Service, pr
 	return errors.Join(errs...)
 }
 
-// runLive writes the live row of a run for each administrator. With closing,
-// the row says the run is over (full progress, nothing running or queued) and
-// is marked read: the end row carries the news.
-func (e *Emitter) runLive(ctx context.Context, run upgraderun.Run, closing bool) error {
+// runLive writes the live row of a run for each administrator.
+func (e *Emitter) runLive(ctx context.Context, run upgraderun.Run) error {
 	c := countRun(run)
-	if closing {
-		c.progress, c.running, c.queued = 100, 0, 0
-	}
 	n := notify.Notification{
 		Key: keyRun + run.ID, Ids: []string{run.ID},
 		Kind: notify.KindRunEnded, Status: notify.StatusOK, Source: notify.SourceSystem,
@@ -254,8 +254,6 @@ func (e *Emitter) runLive(ctx context.Context, run upgraderun.Run, closing bool)
 		},
 	}
 	switch {
-	case closing:
-		n.Body = "The run is over."
 	case c.running > 0:
 		n.Body = plural(c.running, "update is running", "updates are running")
 		if c.queued > 0 {
@@ -268,14 +266,23 @@ func (e *Emitter) runLive(ctx context.Context, run upgraderun.Run, closing bool)
 	}
 	return e.eachAdmin(ctx, func(svc *notify.Service, p string) error {
 		n.Principal = p
-		got, _, err := svc.Upsert(ctx, n, notify.ModeSetQuiet)
-		if err != nil {
-			return err
-		}
-		if closing && got.ID != 0 {
-			return svc.MarkRead(ctx, p, []int64{got.ID})
-		}
-		return nil
+		_, _, err := svc.Upsert(ctx, n, notify.ModeSetQuiet)
+		return err
+	})
+}
+
+// runRetire removes the live row of a run that ended, for each administrator:
+// a keyed row whose set is empty is removed (see notify.Decide). The end row
+// is then the only item of the run.
+func (e *Emitter) runRetire(ctx context.Context, run upgraderun.Run) error {
+	n := notify.Notification{
+		Key: keyRun + run.ID, Kind: notify.KindRunEnded, Status: notify.StatusOK, Source: notify.SourceSystem,
+		Code: CodeRun, Link: RunLink(run.ID),
+	}
+	return e.eachAdmin(ctx, func(svc *notify.Service, p string) error {
+		n.Principal = p
+		_, _, err := svc.Upsert(ctx, n, notify.ModeSetQuiet)
+		return err
 	})
 }
 

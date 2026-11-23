@@ -189,22 +189,27 @@ upgrade routes below queue their upgrade directly, as before.
 
 ## Notifications of a run
 
-Every run has two items in the inbox of each administrator. The frontend that
-runs the run writes them, so a cluster writes one set for each run.
+Every run is one item in the inbox of each administrator. The frontend that
+runs the run writes it, so a cluster writes one item for each run.
 
-- **The live item** (code `updates.run`, key `updates.run.<id>`). It is
-  created when the run starts and edited in place on every change, so it never
-  grows into a list. It never notifies (no browser push, no connectors), not
-  even when it is created. It writes at most once every 1.5 seconds for each run; the
-  last change of a burst is always written. It links to the run
-  (`/app/updates?run=<id>`). When the run ends, it is closed (progress 100)
-  and marked read.
-- **The end item** (code `updates.run.end`, key `updates.run.end.<id>`). It is
-  written once, when the run ends, and notifies once (browser push and
-  connectors). It says how many items were updated and how many need
-  attention: failed, rolled back, unconfirmed or skipped. When any needs
-  attention, it is a failure and names the first one with its error. The error
-  is one line, cut to 160 characters, without server paths or credentials.
+- **While the run runs: the live item** (code `updates.run`, key
+  `updates.run.<id>`). It is created when the run starts and edited in place
+  on every change, so it never grows into a list. It never notifies (no
+  browser push, no connectors), not even when it is created. It writes at most
+  once every 1.5 seconds for each run; the last change of a burst is always
+  written. It links to the run (`/app/updates?run=<id>`).
+- **When the run ended: the end item** (code `updates.run.end`, key
+  `updates.run.end.<id>`). It is written once, when the run ends, and notifies
+  once (browser push and connectors). Then the live item is removed, so the
+  end item is the only item of the run. It says how many items were updated
+  and how many need attention. When any needs attention, it is a failure and
+  names the first one with its error. The error is one line, cut to 160
+  characters, without server paths or credentials.
+
+An item needs attention when it `failed`, `rolled_back`, stayed
+`unconfirmed`, or was `skipped` with an error key (for example `held`,
+`edited_keys` or `not_human_surface`). A `cancelled` item does not: a person
+asked for it. The result at the top of the Updates page counts the same items.
 
 The operations of the items do not write their own "installed", "upgraded" or
 "failed" items: the two items of the run replace them. An operation started
