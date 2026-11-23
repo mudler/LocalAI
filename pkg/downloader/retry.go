@@ -99,3 +99,26 @@ func waitBeforeRetry(ctx context.Context, attempt int) error {
 		return nil
 	}
 }
+
+// ErrIntegrity marks a download that fetched bytes the caller must not trust:
+// a checksum that does not match, or an image whose signature policy refused
+// it. Callers use it to tell a failed verification from a failed transfer.
+var ErrIntegrity = errors.New("integrity check failed")
+
+// integrityError keeps the message of the failure it wraps, like
+// transientError, and only adds the classification.
+type integrityError struct{ err error }
+
+func (e *integrityError) Error() string { return e.err.Error() }
+
+func (e *integrityError) Unwrap() error { return e.err }
+
+func (e *integrityError) Is(target error) bool { return target == ErrIntegrity }
+
+// asIntegrity marks err as a failed integrity check. A nil error stays nil.
+func asIntegrity(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &integrityError{err: err}
+}

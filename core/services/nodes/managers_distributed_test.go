@@ -30,7 +30,6 @@ type scriptedMessagingClient struct {
 	replies                    map[string][]byte
 	errs                       map[string]error
 	calls                      []requestCall
-	matchedReplies             map[string][]matchedReply
 	scheduledProgressPublishes []scheduledProgressPublish
 	subscribes                 []string
 }
@@ -43,17 +42,6 @@ type scriptedMessagingClient struct {
 type scheduledProgressPublish struct {
 	subject string
 	events  []workerctl.BackendInstallProgressEvent
-}
-
-// matchedReply lets a test script a canned reply that only fires when the
-// inbound request matches a predicate. Used by scriptReplyMatching to
-// distinguish "install Force=true" (the fallback) from "install Force=false"
-// on the same subject.
-type matchedReply struct {
-	pred        func(workerctl.BackendInstallRequest) bool
-	reply       []byte
-	fallback    []byte
-	fallbackErr error
 }
 
 func newScriptedMessagingClient() *scriptedMessagingClient {
@@ -87,58 +75,10 @@ func (s *scriptedMessagingClient) scriptNoResponders(subject string) {
 	s.errs[subject] = nats.ErrNoResponders
 }
 
-// scriptReplyMatching is like scriptReply but the canned reply only fires
-// when the inbound request payload matches `pred(req)`. Lets tests
-// differentiate "install with Force=true" from "install Force=false" on
-// the same subject — useful for asserting the rolling-update fallback
-// path actually sets Force=true on its retry.
-//
-// If `pred` returns false (or the unmarshal of the payload into the
-// predicate's expected type fails), the subject falls through to whatever
-// was scripted before (or to the unscripted default ErrNoResponders).
-func (s *scriptedMessagingClient) scriptReplyMatching(subject string, pred func(workerctl.BackendInstallRequest) bool, reply workerctl.BackendInstallReply) {
-	raw, err := json.Marshal(reply)
-	Expect(err).ToNot(HaveOccurred())
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	prev := s.replies[subject] // may be nil — that's fine
-	prevErr := s.errs[subject] // may be nil — that's fine
-	if s.matchedReplies == nil {
-		s.matchedReplies = map[string][]matchedReply{}
-	}
-	s.matchedReplies[subject] = append(s.matchedReplies[subject], matchedReply{
-		pred:        pred,
-		reply:       raw,
-		fallback:    prev,
-		fallbackErr: prevErr,
-	})
-}
-
 func (s *scriptedMessagingClient) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.calls = append(s.calls, requestCall{Subject: subject, Data: data, Timeout: timeout})
-
-	// Predicate-matched replies take precedence over flat scriptReply.
-	if matchers, ok := s.matchedReplies[subject]; ok {
-		var req workerctl.BackendInstallRequest
-		_ = json.Unmarshal(data, &req)
-		for _, m := range matchers {
-			if m.pred(req) {
-				return m.reply, nil
-			}
-		}
-		// No predicate matched — fall through to the recorded fallback
-		// (whatever was scripted before scriptReplyMatching took over).
-		if matchers[0].fallback != nil {
-			return matchers[0].fallback, nil
-		}
-		if matchers[0].fallbackErr != nil {
-			return nil, matchers[0].fallbackErr
-		}
-		// No fallback either — default to ErrNoResponders.
-		return nil, nats.ErrNoResponders
-	}
 
 	if err, ok := s.errs[subject]; ok && err != nil {
 		return nil, err
@@ -880,27 +820,26 @@ var _ = Describe("DistributedBackendManager", func() {
 			})
 		})
 
-		// Rolling-update fallback: pre-2026-05-08 workers don't subscribe to
-		// backend.upgrade, so the adapter reports ErrNoRoute and the manager
-		// re-fires the legacy backend.install Force=true on the same node.
-		// Drop these specs once the fallback path itself is removed (see
-		// managers_distributed.go UpgradeBackend godoc for the deprecation).
-		Context("rolling-update fallback", func() {
-			It("falls back to backend.install Force=true when upgrade returns ErrNoRoute", func() {
+		Context("a worker that does not serve backend.upgrade", func() {
+			It("fails the upgrade and never sends a forced install", func() {
 				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 
 				// Old worker: no subscriber on backend.upgrade.
 				mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
-				// Fallback re-fires legacy backend.install with Force=true.
-				mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
-					func(req workerctl.BackendInstallRequest) bool { return req.Force },
-					workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
-				Expect(mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)).To(Succeed())
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("no route"), "the no-route stays visible")
+
+				mc.mu.Lock()
+				defer mc.mu.Unlock()
+				for _, call := range mc.calls {
+					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n.ID)), "no legacy install is sent")
+				}
 			})
 
-			It("returns the upgrade error when it is not ErrNoRoute", func() {
+			It("returns the error of the worker when it refuses the upgrade", func() {
 				n := registerHealthyBackend("worker-bad", "10.0.0.1:50051")
 				scriptInstalled("vllm-development", n.ID)
 

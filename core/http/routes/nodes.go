@@ -65,7 +65,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 // backend install path (POST /:id/backends/install). That handler enqueues a
 // ManagementOp on the gallery channel rather than blocking on a NATS reply, so
 // the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, options ...localai.RegisterOption) {
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, upgrades localai.UpgradeInfoProvider, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
@@ -97,7 +97,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// Upgrade is a distinct route (not install) because the worker's
 	// backend.install handler short-circuits when the backend already exists
 	// on disk; only the Upgrade op path force-reinstalls.
-	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig), middleware.RequireBackendInstallEnabled(appConfig))
+	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig, localai.NewBackendUpgradeGuard(galleryService, upgrades)), middleware.RequireBackendInstallEnabled(appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 
 	// Model management on workers

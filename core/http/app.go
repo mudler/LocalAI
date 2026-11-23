@@ -707,7 +707,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	} else {
 		routes.RegisterJoinScriptRoutes(e, nil, nil)
 	}
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, registerOpts...)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, application.UpgradeChecker(), registerOpts...)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

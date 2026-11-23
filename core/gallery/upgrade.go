@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -294,11 +295,11 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	installed, ok := installedBackends.Get(backendName)
 	if !ok {
-		return fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound)
+		return WithUpgradeCode(UpgradeFailureNotInstalled, fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound))
 	}
 
 	if installed.IsSystem {
-		return fmt.Errorf("system backend %q cannot be upgraded via gallery", backendName)
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("system backend %q cannot be upgraded via gallery", backendName))
 	}
 
 	// If this is a meta backend, recursively upgrade the concrete backend it points to
@@ -317,7 +318,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	galleryEntry := FindGalleryElement(galleryBackends, backendName)
 	if galleryEntry == nil {
-		return fmt.Errorf("no gallery entry found for backend %q", backendName)
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("no gallery entry found for backend %q", backendName))
 	}
 
 	// Resolve integrity options (cosign verifier for OCI URIs, strict-mode
@@ -327,7 +328,7 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// — see backendDownloadOptions in backends.go.
 	downloadOpts, err := backendDownloadOptions(galleryEntry, requireIntegrity)
 	if err != nil {
-		return fmt.Errorf("upgrade %q: %w", backendName, err)
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade %q: %w", backendName, err))
 	}
 	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
 
@@ -341,19 +342,19 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	// Step 1: Download the new backend into the tmp directory
 	if err := os.MkdirAll(tmpPath, 0750); err != nil {
-		return fmt.Errorf("failed to create upgrade tmp dir: %w", err)
+		return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to create upgrade tmp dir: %w", err))
 	}
 
 	uri := downloader.URI(galleryEntry.URI)
 	if uri.LooksLikeDir() {
 		if err := cp.Copy(string(uri), tmpPath); err != nil {
 			os.RemoveAll(tmpPath)
-			return fmt.Errorf("failed to copy backend from directory: %w", err)
+			return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to copy backend from directory: %w", err))
 		}
 	} else {
 		if err := uri.DownloadFileWithContext(ctx, tmpPath, galleryEntry.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
 			os.RemoveAll(tmpPath)
-			return fmt.Errorf("failed to download backend: %w", err)
+			return downloadUpgradeError(ctx, err)
 		}
 	}
 
@@ -361,23 +362,23 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	newRunFile := filepath.Join(tmpPath, runFile)
 	if _, err := os.Stat(newRunFile); os.IsNotExist(err) {
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("upgrade validation failed: run.sh not found in new backend")
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade validation failed: run.sh not found in new backend"))
 	}
 
 	// Step 3: Atomic swap — rename current to backup, then tmp to current
-	if err := os.Rename(backendPath, backupPath); err != nil {
+	if err := renameBackend(backendPath, backupPath); err != nil {
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("failed to move current backend to backup: %w", err)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move current backend to backup: %w", err))
 	}
 
-	if err := os.Rename(tmpPath, backendPath); err != nil {
+	if err := renameBackend(tmpPath, backendPath); err != nil {
 		// Restore backup on failure
 		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
 		if restoreErr := os.Rename(backupPath, backendPath); restoreErr != nil {
 			xlog.Error("Failed to restore backup", "error", restoreErr)
 		}
 		os.RemoveAll(tmpPath)
-		return fmt.Errorf("failed to move new backend into place: %w", err)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move new backend into place: %w", err))
 	}
 
 	// Step 4: Write updated metadata, preserving alias from old metadata
@@ -424,3 +425,22 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	xlog.Info("Backend upgraded successfully", "backend", backendName, "version", galleryEntry.Version)
 	return nil
 }
+
+// downloadUpgradeError classifies a failed download of an upgrade. A
+// cancelled context keeps its own error, because callers read it as a stop
+// and not as a failure. A refused checksum or signature is a verify failure;
+// everything else is a failed transfer.
+func downloadUpgradeError(ctx context.Context, err error) error {
+	wrapped := fmt.Errorf("failed to download backend: %w", err)
+	if ctx.Err() != nil {
+		return wrapped
+	}
+	if errors.Is(err, downloader.ErrIntegrity) {
+		return WithUpgradeCode(UpgradeFailureVerify, wrapped)
+	}
+	return WithUpgradeCode(UpgradeFailureDownload, wrapped)
+}
+
+// renameBackend moves a backend directory. A var so a spec can fail the swap
+// without a filesystem that refuses a rename.
+var renameBackend = os.Rename

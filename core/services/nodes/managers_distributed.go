@@ -577,10 +577,10 @@ func (d *DistributedBackendManager) InstallBackend(ctx context.Context, op *gall
 // worker has no platform variant for a linux-only backend) and leaves a
 // forever-retrying pending_backend_ops row.
 //
-// Rolling-update fallback: when a worker returns ErrNoRoute on
-// backend.upgrade, we try the legacy backend.install Force=true path so a
-// new master + old worker still converges. Drop the fallback once every
-// worker in the fleet is on 2026-05-08 or newer.
+// A worker that does not serve backend.upgrade answers ErrNoRoute, and that
+// is an error of the upgrade: there is no fallback to a forced install. A
+// worker that old has to be upgraded with the frontend (see the rolling
+// upgrade notes of distributed mode).
 func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *galleryop.ManagementOp[gallery.GalleryBackend, any], progressCb galleryop.ProgressCallback) error {
 	if d.systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, op.GalleryElementName)
@@ -595,7 +595,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	}
 	entry, ok := installed[name]
 	if !ok || len(entry.Nodes) == 0 {
-		return fmt.Errorf("backend %q is not installed on any node", name)
+		return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on any node", name))
 	}
 	targetNodeIDs := make(map[string]bool, len(entry.Nodes))
 	for _, n := range entry.Nodes {
@@ -607,7 +607,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	// and leaves a forever-retrying pending_backend_ops row.
 	if op.TargetNodeID != "" {
 		if !targetNodeIDs[op.TargetNodeID] {
-			return fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID)
+			return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID))
 		}
 		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
 	}
@@ -641,18 +641,6 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 		}
 		reply, err := d.adapter.UpgradeBackend(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
 		if err != nil {
-			// Rolling-update fallback: an older worker doesn't know
-			// backend.upgrade. Try the legacy install-with-force path.
-			if errors.Is(err, ErrNoRoute) {
-				instReply, instErr := d.adapter.InstallBackendForce(node.ID, name, string(galleriesJSON), "", "", "", 0, opID, onProgressArg)
-				if instErr != nil {
-					return instErr
-				}
-				if !instReply.Success {
-					return fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
-				}
-				return nil
-			}
 			return err
 		}
 		if !reply.Success {

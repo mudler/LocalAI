@@ -30,6 +30,7 @@ type GalleryOperationRecord struct {
 	TotalBytes         int64     `json:"total_bytes,omitempty"`
 	Message            string    `gorm:"type:text" json:"message,omitempty"`
 	Error              string    `gorm:"type:text" json:"error,omitempty"`
+	ErrorKey           string    `gorm:"size:32" json:"error_key,omitempty"` // stable code of a failed backend upgrade
 	FileName           string    `gorm:"size:512" json:"file_name,omitempty"`
 	TotalFileSize      string    `gorm:"size:32" json:"total_file_size,omitempty"`
 	DownloadedFileSize string    `gorm:"size:32" json:"downloaded_file_size,omitempty"`
@@ -168,11 +169,19 @@ func (s *GalleryStore) UpdateProgress(id string, progress float64, message, down
 // and that then succeeded would be recorded as completed while still carrying
 // "stale operation reaped" as its error.
 func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
+	return s.UpdateStatusWithKey(id, status, errMsg, "")
+}
+
+// UpdateStatusWithKey is UpdateStatus that also records the stable code of the
+// failure (error_key), so a replica that reads the row later has it. Like the
+// error text it is written unconditionally: a corrected outcome drops it.
+func (s *GalleryStore) UpdateStatusWithKey(id, status, errMsg, errKey string) error {
 	updates := map[string]any{
 		"status":      status,
 		"cancellable": false,
 		"updated_at":  time.Now(),
 		"error":       errMsg,
+		"error_key":   errKey,
 	}
 	return s.db.Model(&GalleryOperationRecord{}).
 		Where("id = ? AND status NOT IN ?", id, settledStatuses).

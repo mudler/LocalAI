@@ -235,7 +235,7 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 			if op.Cancelled {
 				status = "cancelled"
 			}
-			if err := store.UpdateStatus(s, status, errMsg); err != nil {
+			if err := store.UpdateStatusWithKey(s, status, errMsg, op.ErrorKey); err != nil {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
@@ -660,12 +660,12 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 	if !g.appConfig.OpaqueErrors {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: e, Processed: true, Message: "error: " + e.Error()})
+			g.UpdateStatus(id, &OpStatus{Error: e, ErrorKey: string(gallery.UpgradeCodeOf(e)), Processed: true, Message: "error: " + e.Error()})
 		}
 	} else {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), Processed: true})
+			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), ErrorKey: string(gallery.UpgradeCodeOf(e)), Processed: true})
 		}
 	}
 
@@ -834,6 +834,10 @@ func (g *GalleryService) runBackendOp(op *ManagementOp[gallery.GalleryBackend, a
 		}
 	}
 	err := runOpHandler(func() error { return g.backendHandler(op, systemState) })
+	if err != nil && op.Upgrade {
+		// A panic leaves the handler without its own code.
+		err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, err)
+	}
 	if err != nil {
 		updateError(op.ID, err)
 	} else if g.OnBackendOpCompleted != nil {
@@ -988,6 +992,7 @@ func (g *GalleryService) Hydrate() error {
 		if op.Error != "" {
 			st.Error = errors.New(op.Error)
 		}
+		st.ErrorKey = op.ErrorKey
 		g.statuses[op.ID] = st
 	}
 	xlog.Info("Hydrated gallery service statuses from store", "count", len(ops))

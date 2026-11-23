@@ -428,24 +428,14 @@ func (rc *ReplicaReconciler) drainPendingBackendOp(ctx context.Context, op Pendi
 	case OpBackendUpgrade:
 		// Pending-op drain for admin upgrade — fires backend.upgrade so
 		// the slow re-pull doesn't head-of-line-block install traffic on
-		// the same worker. Falls back to the legacy backend.install
-		// Force=true path on ErrNoRoute for old workers that
-		// don't subscribe to backend.upgrade yet (rolling-update window).
+		// the same worker. A worker with no route for it is an error of the
+		// op, handled below like any other op with no route.
 		// Reconciler retries are background reconciliation with no live
 		// admin watching a progress bar, so opID/onProgress are empty —
 		// the adapter skips the progress subscription entirely.
 		reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 		if err != nil {
-			if errors.Is(err, ErrNoRoute) {
-				instReply, instErr := rc.adapter.InstallBackendForce(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
-				if instErr != nil {
-					applyErr = instErr
-				} else if !instReply.Success {
-					applyErr = fmt.Errorf("upgrade (legacy fallback) failed: %s", instReply.Error)
-				}
-			} else {
-				applyErr = err
-			}
+			applyErr = err
 		} else if !reply.Success {
 			applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
 		}

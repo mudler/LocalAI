@@ -110,10 +110,6 @@ func (f *fakeCommands) HasRemoteModel(context.Context, string) (bool, error) {
 }
 func (f *fakeCommands) InstallTimeout() time.Duration { f.rec("InstallTimeout"); return time.Minute }
 func (f *fakeCommands) DeleteModelFiles(string) error { f.rec("DeleteModelFiles"); return nil }
-func (f *fakeCommands) InstallBackendForce(string, string, string, string, string, string, int, string, func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
-	f.rec("InstallBackendForce")
-	return &workerctl.BackendInstallReply{}, nil
-}
 
 // fakeFiles is a carrier.FileCarrier that only records the call.
 type fakeFiles struct{ recorder }
