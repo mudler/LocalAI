@@ -23,6 +23,7 @@ import (
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/services/p2pnet"
 	"github.com/mudler/LocalAI/core/services/p2ppair"
+	"github.com/mudler/LocalAI/core/services/p2ppair/pairclient"
 )
 
 // shareServer is an application in mode share with an auth database, serving
@@ -147,6 +148,47 @@ var _ = Describe("P2P layer in mode share", func() {
 			_, _, err := get(client, server, "/api/models")
 			return err
 		}).Should(HaveOccurred())
+	})
+
+	It("redeems an invite over its local addresses alone: no relay, no discovery, no addresses given by hand", func() {
+		a, server := shareServer()
+		// The test host listens on loopback, which stands for the private
+		// address of a real machine.
+		a.p2p().isLANAddr = func(m p2pnet.Multiaddr) bool {
+			ip, err := p2pnet.AddrIP(m)
+			return err == nil && ip.IsLoopback()
+		}
+
+		m, err := a.P2P().MintInvite(context.Background(), "admin", p2papi.MintRequest{Kind: "device", Label: "laptop", Relays: p2papi.RelayChoice{Mode: "none"}})
+		Expect(err).ToNot(HaveOccurred())
+		link, err := p2ppair.ParseLink(m.Link)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(link.Addrs).ToNot(BeEmpty())
+		Expect(link.Relays).To(BeEmpty())
+
+		By("redeeming from a host that has no listener, no discovery and only the link")
+		h, err := p2pnet.New(context.Background(), p2pnet.Config{
+			IdentityPath: filepath.Join(GinkgoT().TempDir(), "id.key"), ListenAddrs: []string{},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(h.Close)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		res, err := pairclient.Redeem(ctx, h, link, pairclient.Request{Name: "laptop", Platform: "linux"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Phrase).ToNot(BeEmpty())
+		Expect(res.Server.PeerID).To(Equal(server.host.ID().String()))
+	})
+
+	It("leaves the local addresses out of an invite that asks for it", func() {
+		a, _ := shareServer()
+		a.p2p().isLANAddr = func(p2pnet.Multiaddr) bool { return true }
+		m, err := a.P2P().MintInvite(context.Background(), "admin", p2papi.MintRequest{Kind: "device", Label: "laptop", Relays: p2papi.RelayChoice{Mode: "none"}, OmitLANAddrs: true})
+		Expect(err).ToNot(HaveOccurred())
+		link, err := p2ppair.ParseLink(m.Link)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(link.Addrs).To(BeEmpty())
+		Expect(m.Warnings).To(ContainElement("no_public_addr"))
 	})
 
 	It("issues a client key for a remote invite and revokes it with the device", func() {

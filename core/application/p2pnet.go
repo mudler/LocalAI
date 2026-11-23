@@ -69,6 +69,9 @@ type p2pNet struct {
 	relayFactory func(relayManagerConfig) (relayManager, error)
 	// reloadInterval overrides p2pReloadInterval in tests.
 	reloadInterval time.Duration
+	// isLANAddr overrides p2pnet.IsLANAddr in tests, which have no private
+	// address to listen on.
+	isLANAddr func(p2pnet.Multiaddr) bool
 	// nodeRegistry overrides the node registry of distributed mode in tests.
 	nodeRegistry splitNodeRegistry
 }
@@ -322,6 +325,7 @@ func (rt *p2pRuntime) startShare() error {
 	pcfg := p2ppair.Config{
 		ServerPeer: rt.host.ID(),
 		Addrs:      rt.linkAddrs,
+		LANAddrs:   rt.lanAddrs,
 		Relays:     rt,
 		Limiter:    rt.limit,
 	}
@@ -427,6 +431,28 @@ func (rt *p2pRuntime) linkAddrs() []p2pnet.Multiaddr {
 		}
 	}
 	return out
+}
+
+// lanAddrs are the addresses of the local networks of the host: private,
+// not loopback or link-local, TCP before QUIC. They let a device on the same
+// network redeem an invite with no relay and no multicast discovery.
+func (rt *p2pRuntime) lanAddrs() []p2pnet.Multiaddr {
+	isLAN := rt.net.isLANAddr
+	if isLAN == nil {
+		isLAN = p2pnet.IsLANAddr
+	}
+	var tcp, other []p2pnet.Multiaddr
+	for _, a := range rt.host.Addrs() {
+		if !isLAN(a) || isCircuit(a) {
+			continue
+		}
+		if _, err := a.ValueForProtocol(p2pnet.ProtocolTCP); err == nil {
+			tcp = append(tcp, a)
+		} else {
+			other = append(other, a)
+		}
+	}
+	return append(tcp, other...)
 }
 
 func (rt *p2pRuntime) reloadLoop() {
