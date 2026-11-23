@@ -44,17 +44,19 @@ Rules:
 
 ## Backgrounds
 
-`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent. Same shape, every key optional; layers stack picture over gradient over colour:
+`homeBackground` (behind Home) and `chatBackground` (behind the chat view) in `LocalAI/ui.json` are independent. Same shape, every key optional; layers stack video over picture over gradient over colour:
 
 ```json
 {"homeBackground": {"image": "Pictures/sky.jpg", "fit": "cover", "opacity": 0.9, "blur": 4, "overlay": 0.4}}
 {"chatBackground": {"gradient": {"from": "#0f172a", "to": "#3b82f6", "angle": 135}}}
 {"homeBackground": {"color": "#1e293b"}}
+{"chatBackground": {"video": "Videos/loop.mp4", "image": "Pictures/poster.jpg", "overlay": 0.85}}
 ```
 
 - `color`, `gradient` (`from`, `to`, `angle`), `fit`, `opacity`, `blur`, `overlay`: values and ranges in `schemas/ui.schema.json`. Write no CSS.
 - `image`: the path of a picture in the user's files, relative to the home, with no leading slash (`Pictures/sky.jpg`, not `/Pictures/sky.jpg`). Only `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif` and `.avif`. No `..`, no address (`https://`, `data:`), no backslash. A path the user cannot read shows nothing; check the file exists first.
-- Raise `overlay` (a veil, 0 to 1) for a busy or bright picture.
+- `video`: the path of a video in the user's files, same rules as `image`, with `.mp4`, `.webm` or `.mov`. It plays muted, in a loop, behind the page, and pauses while the tab is hidden. With `image` also set, the picture is the still frame shown before the video plays and when the system asks for reduced motion. `fit`, `opacity`, `blur` and `overlay` apply to it as to a picture. Prefer a short, small, looping clip.
+- Raise `overlay` (a veil, 0 to 1) for a busy or bright picture or video.
 - To remove a background, delete its key (a save with `null` does the same).
 
 ## Default models

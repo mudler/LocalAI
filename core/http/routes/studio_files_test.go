@@ -166,6 +166,25 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(img.Header().Get("Content-Disposition")).To(HavePrefix("inline"))
 	})
 
+	It("serves a video inline with its type and byte ranges, so a background can play and seek", func() {
+		body := "0123456789abcdef"
+		for name, want := range map[string]string{"loop.mp4": "video/mp4", "loop.webm": "video/webm", "loop.mov": "video/quicktime"} {
+			Expect(s.putFile("alice", "/"+name, body).Code).To(Equal(http.StatusOK))
+			rec := s.do("alice", http.MethodGet, "/api/chats/files/content?path="+q("/"+name)+"&inline=1", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), name)
+			Expect(rec.Header().Get("Content-Type")).To(Equal(want), name)
+			Expect(rec.Header().Get("Content-Disposition")).To(HavePrefix("inline"), name)
+			Expect(rec.Header().Get("Accept-Ranges")).To(Equal("bytes"), name)
+		}
+		req := s.request("alice", http.MethodGet, "/api/chats/files/content?path="+q("/loop.mp4")+"&inline=1", nil)
+		req.Header.Set("Range", "bytes=4-7")
+		rec := httptest.NewRecorder()
+		s.e.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusPartialContent))
+		Expect(rec.Header().Get("Content-Range")).To(Equal("bytes 4-7/16"))
+		Expect(rec.Body.String()).To(Equal("4567"))
+	})
+
 	It("serves an inline PDF for the preview pane with the same sandbox as every other type", func() {
 		Expect(s.putFile("alice", "/doc.pdf", "%PDF-1.4\n%%EOF\n").Code).To(Equal(http.StatusOK))
 		rec := s.do("alice", http.MethodGet, "/api/chats/files/content?path="+q("/doc.pdf")+"&inline=1", nil)

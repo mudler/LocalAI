@@ -45,7 +45,7 @@
     "homeBackground": {
       "type": "object",
       "title": "Home background",
-      "description": "The look behind the Home page: a colour, a gradient or a picture from your files. Layers stack in that order. Only Home changes.",
+      "description": "The look behind the Home page: a colour, a gradient, a picture or a video from your files. Layers stack in that order; a video covers the picture, which becomes its still frame. Only Home changes.",
       "properties": {
         "color": {
           "type": "string",
@@ -68,17 +68,23 @@
           "maxLength": 400,
           "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
         },
-        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture." },
+        "video": {
+          "type": "string",
+          "description": "The path of a video in your files, without a leading slash, such as Videos/loop.mp4. An mp4, webm or mov file. It plays muted and in a loop; if image is also set, the image shows before it plays and while motion is reduced. No .. and no address.",
+          "maxLength": 400,
+          "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
+        },
+        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture or video." },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "How strong the background is, 0 to 1. Default 1." },
         "blur": { "type": "integer", "minimum": 0, "maximum": 40, "description": "Blur in pixels. Default 0." },
-        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.55 for a picture, 0.35 for a gradient, 0 for a colour." }
+        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.55 for a picture or a video, 0.35 for a gradient, 0 for a colour." }
       },
       "x-ui": { "widget": "background" }
     },
     "chatBackground": {
       "type": "object",
       "title": "Chat background",
-      "description": "The look behind the chat view: a colour, a gradient or a picture from your files. Layers stack in that order. Only the chat changes.",
+      "description": "The look behind the chat view: a colour, a gradient, a picture or a video from your files. Layers stack in that order; a video covers the picture, which becomes its still frame. Only the chat changes.",
       "properties": {
         "color": {
           "type": "string",
@@ -101,10 +107,16 @@
           "maxLength": 400,
           "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
         },
-        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture." },
+        "video": {
+          "type": "string",
+          "description": "The path of a video in your files, without a leading slash, such as Videos/loop.mp4. An mp4, webm or mov file. It plays muted and in a loop; if image is also set, the image shows before it plays and while motion is reduced. No .. and no address.",
+          "maxLength": 400,
+          "pattern": "^$|^[^/\\\\:?#][^\\\\:?#]*$"
+        },
+        "fit": { "enum": ["cover", "contain"], "description": "cover fills the page; contain shows the whole picture or video." },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "description": "How strong the background is, 0 to 1. Default 1." },
         "blur": { "type": "integer", "minimum": 0, "maximum": 40, "description": "Blur in pixels. Default 0." },
-        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.8 for a picture, 0.6 for a gradient, 0 for a colour." }
+        "overlay": { "type": "number", "minimum": 0, "maximum": 1, "description": "A veil in the colour of the theme that keeps the text readable, 0 to 1. Default 0.8 for a picture or a video, 0.6 for a gradient, 0 for a colour." }
       },
       "x-ui": { "widget": "background" }
     },

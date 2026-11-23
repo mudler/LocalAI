@@ -300,7 +300,8 @@
         "none": "없음",
         "color": "색",
         "gradient": "그라데이션",
-        "image": "이미지"
+        "image": "이미지",
+        "video": "동영상"
       },
       "color": "배경색",
       "from": "시작",
@@ -309,6 +310,11 @@
       "imagePath": "내 파일에 있는 이미지 경로",
       "choose": "이미지 선택",
       "imageBad": "내 파일에 있는 png, jpg, webp, gif 또는 avif 파일의 경로를 앞의 슬래시와 .. 없이 입력하세요.",
+      "videoPath": "내 파일 속 동영상 경로",
+      "chooseVideo": "동영상 선택",
+      "videoBad": "앞에 슬래시 없이, ..도 없이, 내 파일 속 mp4, webm 또는 mov 파일 경로를 사용하세요.",
+      "posterPath": "동영상이 재생되기 전에 보이는 정지 이미지 경로(선택)",
+      "posterHint": "Pictures/poster.jpg (선택 사항인 정지 이미지)",
       "fit": "맞춤",
       "fits": {
         "cover": "페이지 채우기",
@@ -320,6 +326,7 @@
       "clear": "배경 제거",
       "pickFailed": "폴더를 읽을 수 없습니다.",
       "pickEmpty": "이미지나 폴더가 없습니다.",
+      "pickEmptyVideo": "여기에는 동영상이나 폴더가 없습니다.",
       "pickClose": "닫기"
     },
     "nav": {

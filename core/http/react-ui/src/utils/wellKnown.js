@@ -479,6 +479,7 @@ export function formatMetric(value) {
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 const BG_IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)$/i
+const BG_VIDEO_EXT = /\.(mp4|webm|mov)$/i
 
 // backgroundImagePath says whether p may be the image of a background: a relative
 // path of a picture in the home, with no leading slash, no .. or . segment, no
@@ -486,10 +487,20 @@ const BG_IMAGE_EXT = /\.(png|jpe?g|webp|gif|avif)$/i
 // rule (BackgroundImageOK in Go); this one keeps a bad value from being sent
 // or shown.
 export function backgroundImagePath(p) {
+  return backgroundPath(p, BG_IMAGE_EXT)
+}
+
+// backgroundVideoPath is the same rule for the video of a background, with a
+// video extension (mp4, webm or mov). Go twin: BackgroundVideoOK.
+export function backgroundVideoPath(p) {
+  return backgroundPath(p, BG_VIDEO_EXT)
+}
+
+function backgroundPath(p, ext) {
   if (typeof p !== 'string' || p === '' || p.length > 400) return false
   if (p.startsWith('/') || /[\\:?#\u0000-\u001f\u007f]/.test(p)) return false
   if (p.split('/').some(seg => seg === '' || seg === '.' || seg === '..')) return false
-  return BG_IMAGE_EXT.test(p)
+  return ext.test(p)
 }
 
 const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : undefined)
@@ -501,11 +512,11 @@ const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) ? Math
 // text, so its veils are stronger than the ones of Home.
 export const BACKGROUND_KEYS = ['homeBackground', 'chatBackground']
 export const BACKGROUND_VEIL = {
-  homeBackground: { image: 0.55, gradient: 0.35, color: 0 },
-  chatBackground: { image: 0.8, gradient: 0.6, color: 0 },
+  homeBackground: { video: 0.55, image: 0.55, gradient: 0.35, color: 0 },
+  chatBackground: { video: 0.8, image: 0.8, gradient: 0.6, color: 0 },
 }
 
-// backgroundVeil is the default veil of a kind (image, gradient, color) for a key.
+// backgroundVeil is the default veil of a kind (video, image, gradient, color) for a key.
 export function backgroundVeil(key, kind) {
   return (BACKGROUND_VEIL[key] || BACKGROUND_VEIL.homeBackground)[kind] ?? 0
 }
@@ -524,11 +535,12 @@ export function background(data, key) {
     out.gradient = { from: g.from, to: g.to, angle: Math.round(num(g.angle, 0, 360) ?? 180) }
   }
   if (backgroundImagePath(v.image)) out.image = v.image
-  if (!out.color && !out.gradient && !out.image) return null
+  if (backgroundVideoPath(v.video)) out.video = v.video
+  if (!out.color && !out.gradient && !out.image && !out.video) return null
   out.fit = v.fit === 'contain' ? 'contain' : 'cover'
   out.opacity = num(v.opacity, 0, 1) ?? 1
   out.blur = Math.round(num(v.blur, 0, 40) ?? 0)
-  out.overlay = num(v.overlay, 0, 1) ?? backgroundVeil(key, out.image ? 'image' : out.gradient ? 'gradient' : 'color')
+  out.overlay = num(v.overlay, 0, 1) ?? backgroundVeil(key, out.video ? 'video' : out.image ? 'image' : out.gradient ? 'gradient' : 'color')
   return out
 }
 
@@ -538,22 +550,26 @@ export const chatBackground = (data) => background(data, 'chatBackground')
 // backgroundStyle turns a background (as background returns it) into the
 // inline styles of the layers: art (colour, gradient and picture, with opacity
 // and blur) and scrim (the veil in the colour of the page). imageUrl turns the
-// path of the picture into the address that serves it.
+// path of the picture into the address that serves it. With a video, the
+// picture is its poster and the art holds no picture layer; video carries the
+// address, the poster and the fit of the element that the art holds.
 export function backgroundStyle(bg, imageUrl) {
   if (!bg) return null
   const layers = []
-  if (bg.image) layers.push(`url("${imageUrl(bg.image)}")`)
+  if (bg.image && !bg.video) layers.push(`url("${imageUrl(bg.image)}")`)
   if (bg.gradient) layers.push(`linear-gradient(${bg.gradient.angle}deg, ${bg.gradient.from}, ${bg.gradient.to})`)
   const pad = bg.blur ? -(bg.blur * 2) : 0
   const art = {
     inset: pad ? `${pad}px` : 0,
     backgroundColor: bg.color || 'transparent',
     backgroundImage: layers.length ? layers.join(', ') : undefined,
-    backgroundSize: bg.image ? `${bg.fit}${bg.gradient ? ', cover' : ''}` : undefined,
+    backgroundSize: bg.image && !bg.video ? `${bg.fit}${bg.gradient ? ', cover' : ''}` : undefined,
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat',
     opacity: bg.opacity,
     filter: bg.blur ? `blur(${bg.blur}px)` : undefined,
   }
-  return { art, scrim: { opacity: bg.overlay } }
+  const out = { art, scrim: { opacity: bg.overlay } }
+  if (bg.video) out.video = { src: imageUrl(bg.video), poster: bg.image ? imageUrl(bg.image) : undefined, fit: bg.fit }
+  return out
 }

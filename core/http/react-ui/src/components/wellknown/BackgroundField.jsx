@@ -3,16 +3,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { filesApi } from '../../utils/api'
-import { background, backgroundImagePath, backgroundStyle, backgroundVeil } from '../../utils/wellKnown'
+import { background, backgroundImagePath, backgroundVideoPath, backgroundStyle, backgroundVeil } from '../../utils/wellKnown'
 import { sortEntries } from '../../utils/fileBrowser'
 import { BACKGROUND_FALLBACK } from '../../theme/background-defaults'
 
-const KINDS = ['none', 'color', 'gradient', 'image']
+const KINDS = ['none', 'color', 'gradient', 'image', 'video']
 const IMAGE_FILE = /\.(png|jpe?g|webp|gif|avif)$/i
-const LAYERS = ['color', 'gradient', 'image']
+const VIDEO_FILE = /\.(mp4|webm|mov)$/i
+const LAYERS = ['color', 'gradient', 'image', 'video']
 const FALLBACK = BACKGROUND_FALLBACK
 
 function kindOf(v) {
+  if (v?.video) return 'video'
   if (v?.image) return 'image'
   if (v?.gradient) return 'gradient'
   if (v?.color) return 'color'
@@ -20,8 +22,9 @@ function kindOf(v) {
 }
 
 // ImagePicker walks the folders of the user's files and offers the pictures in
-// the open one. Its choice is a path without a leading slash, as the file stores it.
-export function ImagePicker({ onPick, onClose, pre }) {
+// the open one, or its videos with media="video". Its choice is a path without a leading slash, as the file stores it.
+export function ImagePicker({ onPick, onClose, pre, media = 'image' }) {
+  const fileType = media === 'video' ? VIDEO_FILE : IMAGE_FILE
   const { t } = useTranslation('workspace')
   const [at, setAt] = useState('/')
   const [state, setState] = useState({ status: 'loading', entries: [] })
@@ -29,10 +32,10 @@ export function ImagePicker({ onPick, onClose, pre }) {
     let live = true
     setState(s => ({ ...s, status: 'loading' }))
     filesApi.list(at)
-      .then(res => { if (live) setState({ status: 'ready', entries: sortEntries((res.entries || []).filter(e => e.kind === 'dir' || (e.kind === 'file' && IMAGE_FILE.test(e.name)))) }) })
+      .then(res => { if (live) setState({ status: 'ready', entries: sortEntries((res.entries || []).filter(e => e.kind === 'dir' || (e.kind === 'file' && fileType.test(e.name)))) }) })
       .catch(() => { if (live) setState({ status: 'error', entries: [] }) })
     return () => { live = false }
-  }, [at])
+  }, [at, fileType])
   const parts = at.split('/').filter(Boolean)
   return (
     <div className="wk-bgpick" data-testid={`${pre}-picker`}>
@@ -44,14 +47,14 @@ export function ImagePicker({ onPick, onClose, pre }) {
       </nav>
       <ul className="wk-bgpick__list" aria-busy={state.status === 'loading'}>
         {state.status === 'error' && <li className="wk-bgpick__note" role="alert">{t('wellKnown.bg.pickFailed')}</li>}
-        {state.status === 'ready' && state.entries.length === 0 && <li className="wk-bgpick__note">{t('wellKnown.bg.pickEmpty')}</li>}
+        {state.status === 'ready' && state.entries.length === 0 && <li className="wk-bgpick__note">{t(media === 'video' ? 'wellKnown.bg.pickEmptyVideo' : 'wellKnown.bg.pickEmpty')}</li>}
         {state.entries.map(e => (
           <li key={e.path}>
             {e.kind === 'dir' ? (
               <button type="button" className="wk-bgpick__item" onClick={() => setAt(e.path)}><Icon name="folder" /><span>{e.name}</span></button>
             ) : (
               <button type="button" className="wk-bgpick__item" data-testid={`${pre}-pick-${e.name}`} onClick={() => onPick(e.path.replace(/^\/+/, ''))}>
-                <img src={filesApi.contentUrl(e.path, true)} alt="" loading="lazy" /><span>{e.name}</span>
+                {media === 'video' ? <Icon name="video" /> : <img src={filesApi.contentUrl(e.path, true)} alt="" loading="lazy" />}<span>{e.name}</span>
               </button>
             )}
           </li>
@@ -79,10 +82,11 @@ export default function BackgroundField({ id, name, bgKey, value, onChange, disa
   const rest = (keep) => Object.fromEntries(Object.entries(v).filter(([k]) => !LAYERS.includes(k) || keep.includes(k)))
   const pickKind = (k) => {
     setPicked(k)
-    setBrowsing(k === 'image' && !v.image)
+    setBrowsing((k === 'image' && !v.image) || (k === 'video' && !v.video))
     if (k === 'none') onChange({})
     else if (k === 'color') onChange({ ...rest([]), color: v.color || FALLBACK.color })
     else if (k === 'gradient') onChange({ ...rest([]), gradient: v.gradient || { from: FALLBACK.from, to: FALLBACK.to, angle: 135 } })
+    else if (k === 'video') onChange({ ...rest(['image', 'video']) })
     else onChange({ ...rest([]), ...(v.image ? { image: v.image } : {}) })
   }
   const set = (k, val) => onChange({ ...v, [k]: val })
@@ -91,7 +95,18 @@ export default function BackgroundField({ id, name, bgKey, value, onChange, disa
 
   const style = useMemo(() => backgroundStyle(background({ [bgKey]: v }, bgKey), (p) => filesApi.contentUrl(`/${p}`, true)), [v, bgKey])
   const imageBad = !!v.image && !backgroundImagePath(v.image)
+  const videoBad = !!v.video && !backgroundVideoPath(v.video)
   const veilDefault = backgroundVeil(bgKey, kind)
+  const fitSelect = (
+    <label className="wk-bg__small">{t('wellKnown.bg.fit')}
+      <span className="dk-select-wrap">
+        <select className="dk-select" value={v.fit || 'cover'} disabled={disabled} data-testid={tid('fit')} onChange={e => set('fit', e.target.value)}>
+          <option value="cover">{t('wellKnown.bg.fits.cover')}</option>
+          <option value="contain">{t('wellKnown.bg.fits.contain')}</option>
+        </select>
+      </span>
+    </label>
+  )
   const colorOk = (c) => (/^#[0-9a-fA-F]{6}$/.test(c || '') ? c : FALLBACK.color)
 
   return (
@@ -135,14 +150,23 @@ export default function BackgroundField({ id, name, bgKey, value, onChange, disa
           </div>
           {imageBad && <p className="dk-field-error" data-testid={tid('image-error')}>{t('wellKnown.bg.imageBad')}</p>}
           {browsing && <ImagePicker pre={pre} onPick={(p) => { set('image', p); setBrowsing(false) }} onClose={() => setBrowsing(false)} />}
-          <label className="wk-bg__small">{t('wellKnown.bg.fit')}
-            <span className="dk-select-wrap">
-              <select className="dk-select" value={v.fit || 'cover'} disabled={disabled} data-testid={tid('fit')} onChange={e => set('fit', e.target.value)}>
-                <option value="cover">{t('wellKnown.bg.fits.cover')}</option>
-                <option value="contain">{t('wellKnown.bg.fits.contain')}</option>
-              </select>
-            </span>
-          </label>
+          {fitSelect}
+        </div>
+      )}
+
+      {kind === 'video' && (
+        <div className="wk-bg__stack">
+          <div className="wk-bg__row">
+            <input type="text" className="dk-input" aria-label={t('wellKnown.bg.videoPath')} data-testid={tid('video')} placeholder="Videos/loop.mp4" value={v.video || ''} maxLength={400} disabled={disabled} aria-invalid={videoBad ? 'true' : undefined} onChange={e => set('video', e.target.value)} />
+            <button type="button" className="dk-btn dk-btn--sm dk-btn--secondary" disabled={disabled} data-testid={tid('browse-video')} onClick={() => setBrowsing(b => !b)}>
+              <Icon name="folder" /> {t('wellKnown.bg.chooseVideo')}
+            </button>
+          </div>
+          {videoBad && <p className="dk-field-error" data-testid={tid('video-error')}>{t('wellKnown.bg.videoBad')}</p>}
+          {browsing && <ImagePicker pre={pre} media="video" onPick={(p) => { set('video', p); setBrowsing(false) }} onClose={() => setBrowsing(false)} />}
+          <input type="text" className="dk-input" aria-label={t('wellKnown.bg.posterPath')} data-testid={tid('poster')} placeholder={t('wellKnown.bg.posterHint')} value={v.image || ''} maxLength={400} disabled={disabled} aria-invalid={imageBad ? 'true' : undefined} onChange={e => set('image', e.target.value)} />
+          {imageBad && <p className="dk-field-error" data-testid={tid('poster-error')}>{t('wellKnown.bg.imageBad')}</p>}
+          {fitSelect}
         </div>
       )}
 
@@ -162,7 +186,9 @@ export default function BackgroundField({ id, name, bgKey, value, onChange, disa
 
       {style && (
         <div className="wk-bg__preview" aria-hidden="true" data-testid={tid('preview')}>
-          <div className="bg-layer__art" style={style.art} />
+          <div className="bg-layer__art" style={style.art}>
+            {style.video && <video className={`bg-layer__video${style.video.fit === 'contain' ? ' bg-layer__video--contain' : ''}`} src={style.video.src} poster={style.video.poster} muted playsInline preload="metadata" data-testid={tid('preview-video')} />}
+          </div>
           <div className="bg-layer__scrim" style={style.scrim} />
         </div>
       )}
