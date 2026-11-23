@@ -7,9 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -104,12 +102,12 @@ var _ = Describe("Two frontends on PostgreSQL", func() {
 		})
 		return
 	}
+	// A schema of its own: the distributed package runs its store specs on
+	// the same database at the same time, and their running runs made the
+	// start here answer run_active.
 	twoFrontends(func() *gorm.DB {
-		db, err := gorm.Open(postgres.Open(url), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-		Expect(err).NotTo(HaveOccurred())
+		db := testutil.OpenPostgresSchema(url, "upgrade_runs")
 		Expect(db.AutoMigrate(&distributed.UpgradeRunRecord{}, &distributed.UpgradeRunItemRecord{})).To(Succeed())
-		Expect(db.Exec("DELETE FROM upgrade_run_items").Error).To(Succeed())
-		Expect(db.Exec("DELETE FROM upgrade_runs").Error).To(Succeed())
 		return db
 	})
 })

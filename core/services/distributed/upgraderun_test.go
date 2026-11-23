@@ -8,11 +8,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"github.com/mudler/LocalAI/core/services/distributed"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
@@ -196,13 +196,12 @@ var _ = Describe("UpgradeRunStore on PostgreSQL", func() {
 		})
 		return
 	}
+	// Each spec has a schema of its own: the upgraderun package runs its
+	// specs on the same database at the same time, and a running run of one
+	// package made a start of the other answer run_active.
 	open := func() *gorm.DB {
-		db, err := gorm.Open(postgres.Open(url), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
-		Expect(err).NotTo(HaveOccurred())
+		db := testutil.OpenPostgresSchema(url, "upgrade_store")
 		Expect(db.AutoMigrate(&distributed.UpgradeRunRecord{}, &distributed.UpgradeRunItemRecord{}, &distributed.GalleryOperationRecord{})).To(Succeed())
-		Expect(db.Exec("DELETE FROM upgrade_run_items").Error).To(Succeed())
-		Expect(db.Exec("DELETE FROM upgrade_runs").Error).To(Succeed())
-		Expect(db.Exec("DELETE FROM gallery_operations").Error).To(Succeed())
 		return db
 	}
 	upgradeRunStoreContract(open)
