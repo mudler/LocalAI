@@ -5395,7 +5395,13 @@
       "go: is never offered to a model, and a model cannot call it by name",
       "go: says an add-on without a jobs tool cannot run jobs, and sends nothing",
       "go: refuses invalid arguments before it sends anything, and a plain adapter never calls it",
-      "go: refuses an answer that is too large, malformed, or about another job"
+      "go: refuses an answer that is too large, malformed, or about another job",
+      "go: still offers the add-on that replaces bash when earlier add-ons fill the cap",
+      "go: reports what the cap left out, without changing what is offered",
+      "go: reports nothing when the cap cuts nothing",
+      "go: lets a switched-off add-on free room for the ones that were cut",
+      "go: logs a cut once when it starts or changes, naming add-on IDs and counts only",
+      "go: takes the cap from the limit that is set, read at each discovery"
     ]
   },
   "tables-admin": {
