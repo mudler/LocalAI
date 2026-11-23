@@ -610,6 +610,27 @@
       "all": "Todos los proyectos",
       "none": "Sin proyecto",
       "empty": "No hay disparadores para esta elección."
+    },
+    "reports": {
+      "label": "Informa a",
+      "inbox": "Bandeja de entrada",
+      "channel": "Canal {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Hilo en el chat {{chat}}",
+      "problem": {
+        "off": "La conexión está desactivada",
+        "gone": "Conexión eliminada",
+        "unavailable": "Conexión no disponible",
+        "no_channel": "Canal no aprobado",
+        "blocked": "El envío no está permitido"
+      },
+      "fallback": "Hasta que se corrija, los informes van a la Bandeja de entrada.",
+      "manage": "Gestionar conexión",
+      "connections": "Abrir conexiones",
+      "mode": {
+        "on_change": "Solo cuando la respuesta cambia",
+        "on_problem": "Solo cuando una ejecución falla"
+      }
     }
   },
   "views": {

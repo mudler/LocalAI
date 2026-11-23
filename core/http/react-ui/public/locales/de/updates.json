@@ -1,6 +1,6 @@
 {
   "title": "Aktualisierungen",
-  "supporting": "Backends, Bibliotheks-Backends und Add-ons, für die es eine neuere Version gibt.",
+  "supporting": "Backends, Bibliotheks-Backends, Add-ons und Galerie-Modelle, für die es eine neuere Version gibt.",
   "loading": "Aktualisierungen werden geladen",
   "adminOnly": {
     "title": "Aktualisierungen sind für Administratoren",
@@ -40,7 +40,8 @@
     "name": {
       "gallery": "Backend-Galerie",
       "library": "Backend-Bibliothek",
-      "addons": "Add-ons"
+      "addons": "Add-ons",
+      "models": "Modell-Galerie"
     },
     "checked": "geprüft {{when}}",
     "ok": "geprüft",
@@ -66,7 +67,8 @@
     "title": {
       "gallery": "Die Prüfung der Backend-Galerie ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Backends.",
       "library": "Die Prüfung der Bibliothek ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Bibliotheks-Backends.",
-      "addons": "Die Prüfung der Add-ons ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Add-ons."
+      "addons": "Die Prüfung der Add-ons ist fehlgeschlagen, daher fehlen möglicherweise Aktualisierungen für Add-ons.",
+      "models": "Die Prüfung der Modell-Galerie ist fehlgeschlagen, daher fehlen hier vielleicht Updates von Modellen."
     },
     "lastGood": "Die Liste unten stammt von der letzten erfolgreichen Prüfung, {{when}}. Grund: {{error}}.",
     "noGood": "Bisher war keine Prüfung erfolgreich. Grund: {{error}}.",
@@ -90,18 +92,22 @@
     "selectAll": "Alle Bereiten wählen",
     "selectNone": "Keine wählen",
     "show": "Anzeigen",
-    "hide": "Ausblenden"
+    "hide": "Ausblenden",
+    "other": "Weitere Modelle"
   },
   "row": {
     "tag": {
       "gallery": "Backend",
       "library": "Bibliotheks-Backend",
-      "addon": "Add-on"
+      "addon": "Add-on",
+      "model": "Modell"
     },
     "origin": {
       "gallery": "Backend-Galerie",
       "library": "Bibliothek: {{id}}",
-      "libraryUnnamed": "Bibliothek"
+      "libraryUnnamed": "Bibliothek",
+      "model": "Galerie {{gallery}}",
+      "modelUnnamed": "Modell-Galerie"
     },
     "signed": "signiert",
     "versions": "{{from}} auf {{to}}",
@@ -136,6 +142,7 @@
     },
     "updatingPhase": "Wird aktualisiert: {{phase}}",
     "updatingPlain": "Wird aktualisiert",
+    "queued": "In der Warteschlange, wartet auf einen freien Platz",
     "addonConfirm": "Braucht Ihre Bestätigung in diesem Browser",
     "nodesAction": "Knoten",
     "nodesNamed": "Knoten von {{name}} anzeigen",
@@ -146,6 +153,7 @@
     "running": "{{current}} von {{total}} wird aktualisiert",
     "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
     "details": "Details",
+    "cancelAll": "Alle abbrechen",
     "retryFailed": "Fehlgeschlagene wiederholen ({{count}})",
     "dismiss": "Schließen"
   },
@@ -266,5 +274,138 @@
     "otherOrigin": "Bibliothek {{library}}",
     "otherOriginChannel": "Bibliothek {{library}}, Kanal {{channel}}",
     "runningNote": "Anhalten verhindert, dass die noch nicht gestarteten Knoten starten."
+  },
+  "model": {
+    "chip": {
+      "edited": "Bearbeitet",
+      "held": "Gehalten",
+      "unknown": "Unbekannt",
+      "gone": "Nicht in der Galerie",
+      "cleanup": "Alte Version behalten"
+    },
+    "phase": {
+      "queued": "wartet auf den Start",
+      "starting": "startet",
+      "preflight": "prüft Speicherplatz, Backend und Dateien",
+      "staging": "lädt die neuen Dateien herunter",
+      "unloading": "stoppt das Modell",
+      "committing": "wechselt zur neuen Version",
+      "loading": "startet die neue Version",
+      "confirmed": "fertig",
+      "rolling-back": "stellt die alte Version wieder her",
+      "rolled-back": "alte Version wiederhergestellt",
+      "failed": "fehlgeschlagen",
+      "resolving": "sucht die Dateien",
+      "downloading": "lädt herunter",
+      "verifying": "prüft die Dateien",
+      "persisting": "speichert"
+    },
+    "detail": {
+      "failed": "Das Upgrade ist fehlgeschlagen: {{message}}. Die alte Version läuft weiter.",
+      "rolledBack": "Das Upgrade ist fehlgeschlagen und die alte Version wurde wiederhergestellt: {{message}}. Die alte Version läuft weiter.",
+      "updating": "Upgrade: {{phase}}",
+      "edited_one": "Sie haben {{count}} Schlüssel bearbeitet, den dieses Update auch ändert. Wählen Sie, welcher Wert bleibt.",
+      "edited_other": "Sie haben {{count}} Schlüssel bearbeitet, die dieses Update auch ändert. Wählen Sie, welcher Wert bleibt.",
+      "configOnly": "Nur die Konfiguration oder die Prompt-Vorlagen ändern sich. Es wird nichts heruntergeladen.",
+      "files_one": "{{count}} Datei ändert sich.",
+      "files_other": "{{count}} Dateien ändern sich.",
+      "held": "Auf dieser Version gehalten.",
+      "heldNewer": "Auf dieser Version gehalten. Die Galerie hat eine neuere.",
+      "legacy": "LocalAI hat nicht gespeichert, woher dieses Modell stammt. Übernehmen Sie es, um Updates zu erhalten. Ihre Konfiguration bleibt unverändert.",
+      "notChecked": "Noch nicht geprüft.",
+      "checkFailed": "Die Prüfung konnte den Galerie-Eintrag nicht lesen: {{message}}",
+      "unreadable": "Die Modelldateien konnten nicht gelesen werden: {{message}}",
+      "gone": "Keine Galerie führt {{entry}} mehr. Die installierte Version funktioniert weiter.",
+      "cleanup_one": "Aktualisiert. Die alte Version bleibt auf der Festplatte ({{count}} Datei), bis Sie sie entfernen.",
+      "cleanup_other": "Aktualisiert. Die alte Version bleibt auf der Festplatte ({{count}} Dateien), bis Sie sie entfernen."
+    },
+    "action": {
+      "upgrade": "Upgrade",
+      "upgradeNamed": "{{name}} upgraden",
+      "removeOld": "Alte Version entfernen",
+      "removeOldNamed": "Alte Version von {{name}} entfernen",
+      "hold": "Diese Version halten",
+      "release": "Nicht mehr halten",
+      "releaseNamed": "{{name}} nicht mehr halten",
+      "more": "Weitere Aktionen für {{name}}",
+      "adopt": "Übernehmen",
+      "adoptNamed": "{{name}} übernehmen"
+    },
+    "dialog": {
+      "title": "{{name}} upgraden?",
+      "intro": "Von {{from}} auf {{to}}. Nichts ändert sich, bevor Sie bestätigen.",
+      "loadedTitle": "{{name}} ist gerade geladen.",
+      "loadedBody": "Das Upgrade stoppt es, tauscht Dateien und Konfiguration und startet es wieder. Anfragen an das Modell warten oder schlagen fehl, bis es wieder läuft. Startet die neue Version nicht, wird die alte wiederhergestellt.",
+      "notLoaded": "{{name}} ist gerade nicht geladen. Das Upgrade startet die neue Version einmal, um zu prüfen, dass sie funktioniert, und stellt sonst die alte wieder her.",
+      "loadUnknown": "Es ließ sich nicht feststellen, ob {{name}} geladen ist. Falls ja, stoppt das Upgrade es und startet es wieder.",
+      "filesTitle": "Dateien",
+      "noFiles": "Keine Datei ändert sich.",
+      "disk": "Die neuen Dateien werden neben die alten geladen, daher braucht die Festplatte Platz für beide. Die Galerie nennt keine Dateigrößen, daher ist der nötige Platz vor dem Download nicht bekannt.",
+      "diskNone": "Es wird nichts heruntergeladen.",
+      "uncheckedTitle_one": "{{count}} Datei hat in der Galerie keine Prüfsumme.",
+      "uncheckedTitle_other": "{{count}} Dateien haben in der Galerie keine Prüfsumme.",
+      "uncheckedBody": "Das Upgrade lädt keine Gewichte ohne Prüfsumme herunter und hält daher bei der ersten Prüfung an.",
+      "configOnly": "Nur die Konfiguration und die Prompt-Vorlagen übernehmen",
+      "configOnlyHint": "Dieses Update ändert keine Modelldatei, daher wird nichts heruntergeladen.",
+      "keysTitle": "Von Ihnen bearbeitete Schlüssel, die das Update auch ändert",
+      "keysIntro": "Wählen Sie für jeden Schlüssel den Wert, der bleiben soll. Das Upgrade kann erst starten, wenn jeder Schlüssel eine Wahl hat.",
+      "keepMine": "Meinen behalten",
+      "takeGallery": "Den der Galerie nehmen",
+      "notSet": "nicht gesetzt",
+      "kept_one": "Bleibt wie von Ihnen gesetzt: {{keys}}. Das Update ändert ihn nicht.",
+      "kept_other": "Bleiben wie von Ihnen gesetzt: {{keys}}. Das Update ändert sie nicht.",
+      "after": "Die alte Version bleibt nach dem Upgrade auf der Festplatte. Entfernen Sie sie mit „Alte Version entfernen“.",
+      "missing_one": "Wählen Sie einen Wert für {{count}} Schlüssel",
+      "missing_other": "Wählen Sie einen Wert für {{count}} Schlüssel",
+      "confirm": "Upgrade",
+      "confirmStop": "Stoppen und upgraden",
+      "needChoices": "Der Server verlangt eine Wahl für weitere Schlüssel. Wählen Sie für jeden einen Wert und bestätigen Sie erneut.",
+      "startFailed": "Das Upgrade konnte nicht starten: {{message}}"
+    },
+    "change": {
+      "added": "neu",
+      "changed": "geändert",
+      "removed": "entfernt"
+    },
+    "role": {
+      "weights": "Gewichte",
+      "mmproj": "Vision-Projektor",
+      "template": "Prompt-Vorlage",
+      "artifact": "Artefakt",
+      "config": "Konfiguration"
+    },
+    "remove": {
+      "title": "Alte Version von {{name}} entfernen?",
+      "body_one": "Dies löscht {{count}} alte Datei, die das Upgrade behalten hat. Das Modell läuft mit der neuen Version weiter. Das lässt sich nicht rückgängig machen.",
+      "body_other": "Dies löscht {{count}} alte Dateien, die das Upgrade behalten hat. Das Modell läuft mit der neuen Version weiter. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Alte Version entfernen",
+      "pending": "Wird entfernt…"
+    },
+    "live": {
+      "started": "Das Upgrade von {{name}} hat begonnen.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: {{count}} alte Datei entfernt.",
+      "removed_other": "{{name}}: {{count}} alte Dateien entfernt.",
+      "held": "{{name}} wird auf dieser Version gehalten.",
+      "released": "{{name}} wird nicht mehr gehalten.",
+      "adopted": "{{name}} aus der Galerie {{gallery}} übernommen. LocalAI prüft es jetzt auf Updates.",
+      "adoptedDiffers": "{{name}} aus der Galerie {{gallery}} übernommen. Die Dateien weichen vom Galerie-Eintrag ab, daher wird ein Update angeboten.",
+      "adoptedNoCheck": "{{name}} übernommen, aber die Update-Prüfung ist fehlgeschlagen: {{message}}",
+      "adoptFailed": "{{name}} konnte nicht übernommen werden: {{message}}"
+    },
+    "card": {
+      "title": "Updates",
+      "current": "Aktuell",
+      "open": "Updates öffnen",
+      "holdHint": "Für dieses Modell kein Update anbieten, bis Sie dies ausschalten."
+    },
+    "adopt": {
+      "title": "{{name}} übernehmen",
+      "intro": "Mehrere Galerien führen dieses Modell. Wählen Sie den Eintrag, aus dem es stammt.",
+      "legend": "Galerie-Einträge",
+      "gallery": "Galerie {{gallery}}",
+      "after": "LocalAI speichert den Eintrag und prüft ihn auf Updates. Ihre Konfiguration bleibt unverändert.",
+      "failed": "Übernahme nicht möglich: {{message}}"
+    }
   }
 }

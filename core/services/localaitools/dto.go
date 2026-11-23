@@ -1,6 +1,9 @@
 package localaitools
 
 import (
+	"slices"
+	"time"
+
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
@@ -165,6 +168,52 @@ type Node struct {
 	TotalVRAM   uint64 `json:"total_vram,omitempty"`
 	Healthy     bool   `json:"healthy"`
 	LastSeen    string `json:"last_seen,omitempty"`
+	// Route is how the frontends reach the node: nats, websocket (the tunnel
+	// over a websocket) or p2p (the tunnel of a worker that joined with an
+	// invite). Empty when the node reports nothing.
+	Route string `json:"route,omitempty"`
+	// PeerID is the P2P peer of a node that joined over P2P.
+	PeerID string `json:"peer_id,omitempty"`
+	// SplitServer is true when the node may serve model-split workers.
+	SplitServer bool `json:"split_server,omitempty"`
+	// Routes says, for each route of the node, if it is live: what the health
+	// monitor judges the node by. A node stays healthy while one route that
+	// carries work (nats or tunnel) is live.
+	Routes []NodeRouteState `json:"routes,omitempty"`
+}
+
+// NodeRouteState is one route of a node: heartbeat, nats or tunnel, with the
+// transport of the tunnel (websocket or p2p), its state (live, reconnecting or
+// down) and why it is not live.
+type NodeRouteState struct {
+	Route     string `json:"route"`
+	Transport string `json:"transport,omitempty"`
+	State     string `json:"state"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// NodeSplitServer is the result of set_node_split_server.
+type NodeSplitServer struct {
+	NodeID      string `json:"node_id"`
+	SplitServer bool   `json:"split_server"`
+	// Detached is the number of split workers that were attached to the node
+	// and are now attached to no node.
+	Detached int `json:"detached"`
+}
+
+// NodeRoute names the route of a node from what it reported: NATS when it is
+// attached to NATS, then its tunnel, over P2P for a node with a peer ID and
+// over a websocket otherwise.
+func NodeRoute(attached []string, peerID string) string {
+	switch {
+	case slices.Contains(attached, "nats"):
+		return "nats"
+	case peerID != "":
+		return "p2p"
+	case slices.Contains(attached, "tunnel"):
+		return "websocket"
+	}
+	return ""
 }
 
 // SetNodeVRAMBudgetRequest is the input for set_node_vram_budget. It PUTs
@@ -195,6 +244,9 @@ type ModelSchedulingConfig struct {
 	// Shadowed reports that another rule already governs TargetModel, leaving
 	// this one with no effect.
 	Shadowed bool `json:"shadowed,omitempty"`
+	// UpgradeStrategy is how an upgrade replaces the running replicas:
+	// stop_and_start (the default) or canary (stored, not available yet).
+	UpgradeStrategy string `json:"upgrade_strategy,omitempty"`
 }
 
 // SetSchedulingRequest is the input for set_scheduling. It mirrors
@@ -210,6 +262,7 @@ type SetSchedulingRequest struct {
 	BalanceAbsThreshold *int              `json:"balance_abs_threshold,omitempty"    jsonschema:"Optional absolute imbalance threshold override. Omit to preserve the existing value on updates."`
 	BalanceRelThreshold *float64          `json:"balance_rel_threshold,omitempty"    jsonschema:"Optional relative imbalance threshold override. Omit to preserve the existing value on updates."`
 	MinPrefixMatch      *float64          `json:"min_prefix_match,omitempty"         jsonschema:"Optional minimum prefix match threshold override. Omit to preserve the existing value on updates."`
+	UpgradeStrategy     *string           `json:"upgrade_strategy,omitempty"         jsonschema:"How a model upgrade replaces running replicas: stop_and_start (default) or canary (stored, not available yet: upgrades stop and start). Omit to preserve the existing value."`
 }
 
 // DeleteSchedulingRequest identifies the model scheduling rule to remove.
@@ -472,6 +525,33 @@ type VRAMEstimateRequest struct {
 	KVQuantBits int    `json:"kv_quant_bits,omitempty" jsonschema:"KV cache quantization bits (e.g. 4, 8, 16)."`
 }
 
+// CarrierWeightsInfo is the LLM-facing view of routing.carrier_weights.
+// Distributed is false on a frontend that is not distributed, and the weights
+// are then empty. A weight only breaks a tie between nodes that fit a request
+// equally well; it never overrides fit.
+type CarrierWeightsInfo struct {
+	Distributed bool `json:"distributed"`
+	// Weights are the values in force, 0 to 1000 each, higher wins.
+	Weights *CarrierWeightValues `json:"weights,omitempty"`
+	// Defaults apply to a weight that nobody set.
+	Defaults *CarrierWeightValues `json:"defaults,omitempty"`
+}
+
+// CarrierWeightValues holds one weight per carrier.
+type CarrierWeightValues struct {
+	NATS      int `json:"nats"`
+	WebSocket int `json:"websocket"`
+	P2P       int `json:"p2p"`
+}
+
+// SetCarrierWeightsRequest names the weights to change. A weight that is left
+// out stays as it is. 0 means: use this carrier only when no other carrier fits.
+type SetCarrierWeightsRequest struct {
+	NATS      *int `json:"nats,omitempty"      jsonschema:"Weight of nodes reached over NATS, 0 to 1000. Default 100."`
+	WebSocket *int `json:"websocket,omitempty" jsonschema:"Weight of nodes reached over a WebSocket tunnel, 0 to 1000. Default 50."`
+	P2P       *int `json:"p2p,omitempty"       jsonschema:"Weight of nodes reached over P2P, 0 to 1000. Default 25."`
+}
+
 // FailoverTargetInfo is the LLM-facing view of one failover chain target's
 // health. It mirrors failover.TargetStatus but drops ConsecutiveOK and
 // LastProbe — internal probing detail the LLM doesn't need to decide
@@ -494,6 +574,83 @@ type FailoverChainInfo struct {
 	Pinned  string               `json:"pinned,omitempty"`
 	Targets []FailoverTargetInfo `json:"targets"`
 }
+
+// FederationP2PInfo is how this server reaches an instance over P2P.
+type FederationP2PInfo struct {
+	PeerID string `json:"peer_id"`
+	// State is off, listening, up, down or error.
+	State string `json:"state"`
+	// Path is direct, hole_punched or relayed; empty before the first
+	// request.
+	Path    string `json:"path,omitempty"`
+	Limited bool   `json:"limited,omitempty"`
+}
+
+// FederationModelInfo is a model an instance serves: its model name on
+// this server and its id at the instance.
+type FederationModelInfo struct {
+	Model      string `json:"model"`
+	UpstreamID string `json:"upstream_id"`
+}
+
+// FederationInstanceInfo is a LocalAI that can serve a group. ID "local" is
+// this server; any other ID is a remote.
+type FederationInstanceInfo struct {
+	ID        string                `json:"id"`
+	Name      string                `json:"name,omitempty"`
+	Local     bool                  `json:"local"`
+	Transport string                `json:"transport,omitempty"`
+	Status    string                `json:"status,omitempty"`
+	P2P       *FederationP2PInfo    `json:"p2p,omitempty"`
+	InFlight  int                   `json:"in_flight"`
+	Models    []FederationModelInfo `json:"models"`
+}
+
+// FederationMemberInfo is one model of a group with its health.
+type FederationMemberInfo struct {
+	Model        string `json:"model"`
+	Instance     string `json:"instance,omitempty"`
+	InstanceName string `json:"instance_name,omitempty"`
+	Drained      bool   `json:"drained"`
+	State        string `json:"state,omitempty"`
+	InFlight     int    `json:"in_flight"`
+	Constrained  bool   `json:"constrained,omitempty"`
+	LastError    string `json:"last_error,omitempty"`
+}
+
+// FederationGroupInfo is a model name served by several instances.
+type FederationGroupInfo struct {
+	Name    string                 `json:"name"`
+	Policy  string                 `json:"policy"`
+	State   string                 `json:"state,omitempty"`
+	Members []FederationMemberInfo `json:"members"`
+}
+
+// FederationInfo is the answer of list_federation.
+type FederationInfo struct {
+	Instances []FederationInstanceInfo `json:"instances"`
+	Groups    []FederationGroupInfo    `json:"groups"`
+}
+
+// FederationGroupAction is one change of a group. Action is create, update,
+// delete, drain or undrain. Create needs Name and at least two Members;
+// update takes Policy and/or Members; drain and undrain take Model.
+type FederationGroupAction struct {
+	Action  string   `json:"action" jsonschema:"create, update, delete, drain or undrain"`
+	Name    string   `json:"name" jsonschema:"the group's model name"`
+	Policy  string   `json:"policy,omitempty" jsonschema:"least_busy (default) or round_robin; for create and update"`
+	Members []string `json:"members,omitempty" jsonschema:"model names that serve the group (this server's models or entries of remotes, see list_federation); at least two; for create and update"`
+	Model   string   `json:"model,omitempty" jsonschema:"the member to drain or undrain"`
+}
+
+// Actions of manage_federation_group.
+const (
+	FederationActionCreate  = "create"
+	FederationActionUpdate  = "update"
+	FederationActionDelete  = "delete"
+	FederationActionDrain   = "drain"
+	FederationActionUndrain = "undrain"
+)
 
 // LoadCancelResult is what a cancel of a distributed load did. State is
 // "stopped" (the worker confirmed), "stopping" (recorded, stop pending; the model
@@ -591,4 +748,193 @@ type EgressEventsQuery struct {
 // SetChatEgressCeilingRequest is the input for set_chat_egress_ceiling.
 type SetChatEgressCeilingRequest struct {
 	Ceiling string `json:"ceiling" jsonschema:"The widest network preset any chat may use: off, registries or all."`
+}
+
+// P2PStatusInfo is the LLM-facing view of the P2P layer.
+type P2PStatusInfo struct {
+	// Mode is off, connect (dial out only) or share (accepts paired devices).
+	Mode           string   `json:"mode"`
+	Running        bool     `json:"running"`
+	Error          string   `json:"error,omitempty"`
+	PeerID         string   `json:"peer_id,omitempty"`
+	Addrs          []string `json:"addrs,omitempty"`
+	Reachability   string   `json:"reachability"`
+	RelayService   bool     `json:"relays_for_devices"`
+	PendingInvites int      `json:"pending_invites"`
+	Devices        int      `json:"devices"`
+}
+
+// P2PDeviceInfo is the LLM-facing view of one paired device.
+type P2PDeviceInfo struct {
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
+	Label  string `json:"label"`
+	PeerID string `json:"peer_id"`
+	// Status is active or revoked.
+	Status string `json:"status"`
+	Online bool   `json:"online"`
+	// Path is none, direct, hole_punched or relayed.
+	Path       string     `json:"path"`
+	RelayLabel string     `json:"relay,omitempty"`
+	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
+	// Models and AllModels say what a remote device may use.
+	Models    []string `json:"models,omitempty"`
+	AllModels bool     `json:"all_models,omitempty"`
+}
+
+// P2PInviteInfo is the LLM-facing view of one invite. The link is never part
+// of it: it is shown once, to the person who made it.
+type P2PInviteInfo struct {
+	ID    string `json:"id"`
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	// Status is pending, used, expired or canceled.
+	Status    string    `json:"status"`
+	ExpiresAt time.Time `json:"expires_at"`
+	DeviceID  string    `json:"device_id,omitempty"`
+	// Phrase is the confirmation phrase of a used invite, which the admin
+	// compares with the one the device shows.
+	Phrase string `json:"phrase,omitempty"`
+	// RelayPass is the relay that holds the pass of the invite; empty when
+	// the link carries none.
+	RelayPass string `json:"relay_pass,omitempty"`
+	// Models and AllModels say what a remote invite grants: the names, or
+	// every model.
+	Models    []string `json:"models,omitempty"`
+	AllModels bool     `json:"all_models,omitempty"`
+}
+
+// P2PSplitWorkerInfo is the LLM-facing view of one model-split worker.
+type P2PSplitWorkerInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	// Engine is llama (llama.cpp RPC) or mlx.
+	Engine string `json:"engine"`
+	// State is online (in use), offline, slow (only a relay reaches it; it
+	// waits for allow_slow_path), limited (only a public relay reaches it,
+	// which never carries model layers) or refused.
+	State         string `json:"state"`
+	Error         string `json:"error,omitempty"`
+	AllowSlowPath bool   `json:"allow_slow_path"`
+	// Path is none, direct, hole_punched or relayed.
+	Path       string `json:"path"`
+	RelayLabel string `json:"relay,omitempty"`
+	// RelayID is the relay of a relayed path, for get_p2p_relay_limits.
+	RelayID string `json:"relay_id,omitempty"`
+	// OwnRelay is true when that relay is one this server administers. With
+	// a data or time limit it ends each connection at the limit, also after
+	// Use anyway; set_p2p_relay_limits raises or removes the limits.
+	OwnRelay    bool   `json:"own_relay,omitempty"`
+	MemoryBytes uint64 `json:"memory_bytes"`
+	// NodeID is the backend node the worker is attached to (empty: this
+	// server); NodeName is its name. In a cluster a worker attached to no
+	// node is not used.
+	NodeID   string `json:"node_id,omitempty"`
+	NodeName string `json:"node_name,omitempty"`
+	// NodeOffline is true when that node is offline: the worker stays
+	// attached and waits for it.
+	NodeOffline bool `json:"node_offline,omitempty"`
+	// NodeNote says why a worker attached to no node was detached.
+	NodeNote string `json:"node_note,omitempty"`
+	// NodeRelay is whether the user's gated relays admit the node, so the
+	// worker can reach it through them: admitted, refused, pending or
+	// not_needed. NodeRelayReason says why when it is not admitted.
+	NodeRelay       string `json:"relay_admission,omitempty"`
+	NodeRelayReason string `json:"relay_admission_reason,omitempty"`
+}
+
+// P2PRelayLimitsInfo is the LLM-facing view of the limits of one relay.
+// Zero means no limit.
+type P2PRelayLimitsInfo struct {
+	// CircuitBytes is the data one circuit may carry in each direction.
+	CircuitBytes int64 `json:"circuit_bytes"`
+	// CircuitSeconds is the time one circuit may stay open.
+	CircuitSeconds int64 `json:"circuit_seconds"`
+	// RateBPS is the bandwidth of one circuit in each direction, in bytes
+	// per second.
+	RateBPS int64 `json:"rate_bps"`
+	// Ceiling is the most set_p2p_relay_limits may set for each limit; the
+	// operator of the relay sets it. Zero means no ceiling. With a ceiling a
+	// limit cannot be removed either.
+	Ceiling P2PRelayCeiling `json:"ceiling"`
+	// CanChange is true when this server is an admin of a gated relay.
+	CanChange bool `json:"can_change"`
+	// Restarted is true when the change made the relay restart its circuit
+	// service.
+	Restarted bool `json:"restarted,omitempty"`
+}
+
+// P2PRelayCeiling is the highest value an admin may set for each limit of a
+// relay. Zero means no ceiling.
+type P2PRelayCeiling struct {
+	CircuitBytes   int64 `json:"circuit_bytes"`
+	CircuitSeconds int64 `json:"circuit_seconds"`
+	RateBPS        int64 `json:"rate_bps"`
+}
+
+// SetP2PRelayLimitsRequest is the input of set_p2p_relay_limits. A field
+// that is left out stays as it is; zero removes that limit.
+type SetP2PRelayLimitsRequest struct {
+	ID             string `json:"id" jsonschema:"relay ID from list_p2p_relays"`
+	CircuitBytes   *int64 `json:"circuit_bytes,omitempty" jsonschema:"data one circuit may carry in each direction, in bytes (0 removes the limit; a value above the relay ceiling is refused)"`
+	CircuitSeconds *int64 `json:"circuit_seconds,omitempty" jsonschema:"time one circuit may stay open, in seconds (0 removes the limit)"`
+	RateBPS        *int64 `json:"rate_bps,omitempty" jsonschema:"bandwidth of one circuit in each direction, in bytes per second (0 removes the limit)"`
+}
+
+// P2PRelayInfo is the LLM-facing view of one relay.
+type P2PRelayInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Addr  string `json:"addr"`
+	// Mode is gated, open, unclaimed or unknown.
+	Mode    string `json:"mode"`
+	State   string `json:"state"`
+	Health  string `json:"health,omitempty"`
+	Members int    `json:"members"`
+}
+
+// The actions of upgrade_model.
+const (
+	UpgradeModelActionUpgrade    = "upgrade"
+	UpgradeModelActionConfigOnly = "config_only"
+	UpgradeModelActionRetry      = "retry"
+	UpgradeModelActionRemoveOld  = "remove_old"
+	UpgradeModelActionHold       = "hold"
+	UpgradeModelActionUnhold     = "unhold"
+	UpgradeModelActionAdopt      = "adopt"
+)
+
+// UpgradeModelRequest is the input of upgrade_model. One flat schema for the
+// seven actions; the handler checks what each action needs.
+type UpgradeModelRequest struct {
+	Action  string            `json:"action"            jsonschema:"upgrade, config_only, retry, remove_old, hold, unhold or adopt."`
+	Name    string            `json:"name"              jsonschema:"Installed model name (from model_updates)."`
+	Choices map[string]string `json:"choices,omitempty" jsonschema:"upgrade and config_only only: mine or gallery for each edited key the update also changes (editedKeys with conflict true in model_updates)."`
+	Gallery string            `json:"gallery,omitempty" jsonschema:"adopt only: the gallery the model came from, when more than one lists it."`
+	Entry   string            `json:"entry,omitempty"   jsonschema:"adopt only: the gallery entry, when it differs from the model name."`
+}
+
+// ModelAdoptResult is what adopt recorded (REST schema.ModelAdoptResponse).
+type ModelAdoptResult struct {
+	Name       string `json:"name"`
+	Gallery    string `json:"gallery"`
+	Entry      string `json:"entry"`
+	FilesMatch bool   `json:"filesMatch"`
+}
+
+// ModelRemoveOldResult is what remove_old deleted (REST
+// schema.ModelRemoveOldResponse).
+type ModelRemoveOldResult struct {
+	Name    string   `json:"name"`
+	Removed []string `json:"removed"`
+	// Kept and Errors are set when only some files could be removed.
+	Kept   []string `json:"kept,omitempty"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+// ModelHoldResult is the hold of a model after hold or unhold (REST
+// schema.ModelHoldResponse).
+type ModelHoldResult struct {
+	Name string `json:"name"`
+	Hold bool   `json:"hold"`
 }

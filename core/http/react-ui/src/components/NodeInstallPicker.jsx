@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import Modal from './Modal'
+// eslint-disable-next-line no-unused-vars
+import Dialog from './Dialog'
 import SearchableSelect from './SearchableSelect'
 import { nodesApi, backendsApi } from '../utils/api'
 import Icon from './Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, EmptyState, StatusChip, Tag } from './ui'
 import { summarizeInstall } from '../utils/nodeInstallSummary'
 
 // NodeInstallPicker is the single multi-node install surface used both from
@@ -415,26 +418,59 @@ export default function NodeInstallPicker({
   const noNodes = backendNodes.length === 0
 
   return (
-    <Modal onClose={onClose} maxWidth="780px">
-      <div className="nip-bar nip-bar--head">
-        <h2 className="hstack text-lg m-0">
+    <Dialog
+      wide
+      onClose={onClose}
+      labelId="nip-title"
+      testId="node-install-picker"
+      title={(
+        <span className="nip-title">
           <Icon name="settings" className="text-primary" />
           Install <span className="text-mono">{backend.name}</span>
           {backend.isMeta ? (
-            <span className="badge badge-info text-xs">Auto-resolving</span>
+            <Tag tone="accent">Auto-resolving</Tag>
           ) : (
-            <span className="badge badge-warning text-xs">Hardware-specific</span>
+            <Tag tone="warn">Hardware-specific</Tag>
           )}
-        </h2>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm pill-tiny"
-          onClick={onClose}
-          aria-label="Close"
-        >×</button>
-      </div>
-
-      <div className="nip-body">
+        </span>
+      )}
+      foot={noNodes ? null : (
+        <>
+          <div className="flex-1 text-sub">
+            {totalAttempted > 0 ? (
+              <>
+                {doneCount} of {totalAttempted} done
+                {errorCount > 0 && (
+                  <> · <StatusChip tone="error" label={`${errorCount} failed`} /></>
+                )}
+              </>
+            ) : (
+              <>
+                {counts.selected} {counts.selected === 1 ? 'node' : 'nodes'} selected
+                {counts.already > 0 && <> · {counts.already} already installed</>}
+                {counts.overrides > 0 && <> · {counts.overrides} override{counts.overrides === 1 ? '' : 's'}</>}
+              </>
+            )}
+          </div>
+          {errorCount > 0 && !submitting && (
+            <Button icon="refresh" onClick={retryFailed}>Retry failed nodes</Button>
+          )}
+          <Button onClick={onClose} disabled={submitting}>
+            {totalAttempted > 0 && doneCount > 0 ? 'Close' : 'Cancel'}
+          </Button>
+          <Button
+            variant="primary"
+            icon={submitting ? 'spinner' : undefined}
+            busy={submitting}
+            onClick={submit}
+            disabled={submitting || counts.selected === 0 || showMismatchConfirm}
+          >
+            {submitting ? 'Installing…' : <>Install on {counts.selected} {counts.selected === 1 ? 'node' : 'nodes'}</>}
+          </Button>
+        </>
+      )}
+    >
+      <div>
         {!backend.isMeta && (
           <div className="card nip-warn mb-md">
             <Icon name="cpu" className="text-warning" />
@@ -446,17 +482,17 @@ export default function NodeInstallPicker({
         )}
 
         {noNodes ? (
-          <div className="empty-state">
-            <div className="empty-state-icon"><Icon name="server" /></div>
-            <h3 className="empty-state-title">No backend nodes available</h3>
-            <p className="empty-state-text">
-              Approve pending workers or register new ones.
-              {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}
-            </p>
-            <a className="btn btn-secondary btn-sm" href="/app/nodes">
-              <Icon name="network" /> Manage nodes
-            </a>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="server"
+            title="No backend nodes available"
+            level={3}
+            body={<>Approve pending workers or register new ones.
+              {pendingCount > 0 && ` (${pendingCount} awaiting approval.)`}</>}
+            actions={<>
+              <Button size="sm" icon="network" href="/app/nodes">Manage nodes</Button>
+            </>}
+          />
         ) : (
           <>
             {/* Filter row */}
@@ -471,31 +507,25 @@ export default function NodeInstallPicker({
                   onChange={e => setSearch(e.target.value)}
                 />
               </div>
-              <button className="btn btn-secondary btn-sm" onClick={selectAllHealthy} type="button">
-                Select all healthy
-              </button>
-              <button className="btn btn-secondary btn-sm" onClick={selectCompatible} type="button">
-                Select compatible nodes
-              </button>
+              <Button size="sm" onClick={selectAllHealthy}>Select all healthy</Button>
+              <Button size="sm" onClick={selectCompatible}>Select compatible nodes</Button>
               {selected.size > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={clearSelection} type="button">
-                  Clear
-                </button>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>Clear</Button>
               )}
             </div>
 
             {/* Variant override (auto-resolving only) */}
             {backend.isMeta && concreteVariants.length > 0 && (
               <div className="mb-sm">
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm pill-tiny"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={`chevron-${overrideExpanded ? 'down' : 'right'}`}
                   onClick={() => setOverrideExpanded(v => !v)}
                   aria-expanded={overrideExpanded}
                 >
-                  <Icon name={`chevron-${overrideExpanded ? 'down' : 'right'}`} className="icon-before text-xs" />
                   Override variant for selected nodes…
-                </button>
+                </Button>
                 {overrideExpanded && (
                   <div className="card mt-xs" style={{ padding: 'var(--spacing-sm) var(--spacing-md)' }}>
                     <p className="text-xs text-secondary mt-0 mb-xs">
@@ -520,7 +550,7 @@ export default function NodeInstallPicker({
                   <tr>
                     <th className="w-28">
                       <input
-                        type="checkbox"
+                        type="checkbox" className="dk-check"
                         aria-label="Select all visible"
                         checked={filteredNodes.length > 0 && filteredNodes.every(n => selected.has(n.id))}
                         onChange={(e) => {
@@ -556,7 +586,7 @@ export default function NodeInstallPicker({
                       <tr key={node.id}>
                         <td>
                           <input
-                            type="checkbox"
+                            type="checkbox" className="dk-check"
                             aria-label={`Select ${node.name}`}
                             aria-disabled={rowState?.status === 'installing'}
                             checked={isSel}
@@ -594,36 +624,25 @@ export default function NodeInstallPicker({
                         </td>
                         <td>
                           {rowState?.status === 'installing' ? (
-                            <span className="badge badge-info">
-                              <Icon name="spinner" spin className="icon-before" />Installing
-                            </span>
+                            <StatusChip status="installing" label="Installing" />
                           ) : rowState?.status === 'done' ? (
-                            <span className="badge badge-success">
-                              <Icon name="check" className="icon-before" />Installed
-                            </span>
+                            <StatusChip tone="ok" icon="check" label="Installed" />
                           ) : rowState?.status === 'error' ? (
                             <button
                               type="button"
-                              className="badge badge-error"
+                              className="nip-err"
                               title={rowState.error}
                               aria-describedby={`err-${node.id}`}
-                              className="btn-help"
                             >
-                              <Icon name="warning" className="icon-before" />Failed
+                              <StatusChip status="failed" label="Failed" />
                               <span id={`err-${node.id}`} className="sr-offscreen">{rowState.error}</span>
                             </button>
                           ) : suit === 'installed' ? (
-                            <span className="badge chip-neutral">
-                              Installed
-                            </span>
+                            <StatusChip tone="idle" label="Installed" />
                           ) : suit === 'override' ? (
-                            <span className="badge badge-warning">
-                              <Icon name="alert-circle" className="icon-before" />Override
-                            </span>
+                            <StatusChip tone="warn" icon="alert-circle" label="Override" />
                           ) : (
-                            <span className="badge badge-success badge-success--soft">
-                              Compatible
-                            </span>
+                            <StatusChip tone="ok" label="Compatible" />
                           )}
                         </td>
                       </tr>
@@ -653,12 +672,10 @@ export default function NodeInstallPicker({
                   Installing {targetLabel.toLowerCase()} on {counts.overrides} node{counts.overrides === 1 ? '' : 's'} that don't match. Those nodes will run inference on the chosen build, not their native GPU. Continue?
                 </p>
                 <div className="hstack hstack--end">
-                  <button className="btn btn-secondary btn-sm" type="button" onClick={() => setShowMismatchConfirm(false)}>
-                    Cancel
-                  </button>
-                  <button className="btn btn-primary btn-sm btn--warning" type="button" onClick={submit}>
+                  <Button size="sm" onClick={() => setShowMismatchConfirm(false)}>Cancel</Button>
+                  <Button variant="primary" size="sm" className="nip-warn-btn" onClick={submit}>
                     Install on {targetLabel.replace(' build', '')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -666,46 +683,6 @@ export default function NodeInstallPicker({
         )}
       </div>
 
-      {!noNodes && (
-        <div className="nip-bar nip-bar--foot">
-          <div className="flex-1 text-sub">
-            {totalAttempted > 0 ? (
-              <>
-                {doneCount} of {totalAttempted} done
-                {errorCount > 0 && (
-                  <> · <span className="badge badge-error text-xs">{errorCount} failed</span></>
-                )}
-              </>
-            ) : (
-              <>
-                {counts.selected} {counts.selected === 1 ? 'node' : 'nodes'} selected
-                {counts.already > 0 && <> · {counts.already} already installed</>}
-                {counts.overrides > 0 && <> · {counts.overrides} override{counts.overrides === 1 ? '' : 's'}</>}
-              </>
-            )}
-          </div>
-          {errorCount > 0 && !submitting && (
-            <button className="btn btn-secondary btn-sm" type="button" onClick={retryFailed}>
-              <Icon name="refresh" /> Retry failed nodes
-            </button>
-          )}
-          <button className="btn btn-secondary btn-sm" type="button" onClick={onClose} disabled={submitting}>
-            {totalAttempted > 0 && doneCount > 0 ? 'Close' : 'Cancel'}
-          </button>
-          <button
-            className="btn btn-primary btn-sm"
-            type="button"
-            onClick={submit}
-            disabled={submitting || counts.selected === 0 || showMismatchConfirm}
-          >
-            {submitting ? (
-              <><Icon name="spinner" spin /> Installing…</>
-            ) : (
-              <>Install on {counts.selected} {counts.selected === 1 ? 'node' : 'nodes'}</>
-            )}
-          </button>
-        </div>
-      )}
-    </Modal>
+    </Dialog>
   )
 }

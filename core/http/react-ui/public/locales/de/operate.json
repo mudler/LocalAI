@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "{{kind}} wird aktualisiert",
-      "failedUpgrade": "{{kind}} konnte nicht aktualisiert werden"
+      "failedUpgrade": "{{kind}} konnte nicht aktualisiert werden",
+      "needsReview": "Wartet auf deine Prüfung"
     },
     "filter": {
       "addons": "Add-ons"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "In der Warteschlange",
+      "starting": "Startet",
+      "resolving": "Paket wird aufgelöst",
+      "verifying": "Signatur und Digest werden geprüft",
+      "downloading": "Lädt herunter",
+      "checking": "Paket wird geprüft",
+      "committing": "Wird abgeschlossen"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,42 @@
       "committing": "Wird abgeschlossen",
       "persisting": "Konfiguration wird gespeichert"
     },
-    "retryFailed": "Erneuter Versuch fehlgeschlagen: {{message}}"
+    "retryFailed": "Erneuter Versuch fehlgeschlagen: {{message}}",
+    "addonNeedsReview": "Das Paket verlangt mehr Host-Zugriff, als du genehmigt hast.",
+    "review": "Prüfen",
+    "reviewLabel": "{{name}} prüfen"
+  },
+  "overview": {
+    "title": "Übersicht",
+    "openWorker": "Worker öffnen",
+    "approve": "Freigeben",
+    "approveAll": "Alle freigeben",
+    "signups_one": "{{count}} Registrierung wartet auf Freigabe",
+    "signups_other": "{{count}} Registrierungen warten auf Freigabe",
+    "approved_one": "{{count}} Registrierung freigegeben",
+    "approved_other": "{{count}} Registrierungen freigegeben",
+    "approveFailed": "Freigabe fehlgeschlagen: {{message}}",
+    "cluster": "Cluster",
+    "machine": "Dieser Rechner",
+    "openWorkers": "Worker öffnen",
+    "openMachine": "Diesen Rechner öffnen",
+    "online": "Online",
+    "ofTotal": "von {{total}}",
+    "loaded": "Geladen",
+    "inFlight": "In Bearbeitung",
+    "memory": "Speicher",
+    "disk": "Datenträger",
+    "diskFree": "{{free}} frei von {{total}}",
+    "traffic": "Traffic, {{hours}} Std.",
+    "openUsage": "Nutzung öffnen",
+    "requests": "Anfragen",
+    "failed": "Fehlgeschlagen",
+    "p95": "P95",
+    "barsLabel": "Anfragen der letzten {{hours}} Stunden",
+    "access": "Zugriff",
+    "users": "Benutzer",
+    "waiting": "Wartend",
+    "admins": "Admins",
+    "openUsers": "Benutzer öffnen"
   }
 }

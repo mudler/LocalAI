@@ -2,9 +2,11 @@
 package tools_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -113,6 +115,31 @@ var _ = Describe("the read tools", func() {
 			Expect(c.Token).To(Equal(token))
 			Expect(c.Path + c.Query).NotTo(ContainSubstring("SECRET"))
 		}
+	})
+
+	Describe("a refusal of GitHub", func() {
+		It("is logged with the tool and the reason, and a secondary limit is not told as a missing permission", func() {
+			var buf bytes.Buffer
+			rt.API.Logger = slog.New(slog.NewTextHandler(&buf, nil))
+			srv.LimitSecondary(30)
+			_, err := run("get-issue", "acme/widgets", map[string]any{"repo": "acme/widgets", "number": 1})
+			var limited *contract.ErrRateLimited
+			Expect(errors.As(err, &limited)).To(BeTrue())
+			Expect(limited.Seconds()).To(Equal(30))
+			Expect(buf.String()).To(ContainSubstring("tool=get-issue"))
+			Expect(buf.String()).To(ContainSubstring("secondary rate limit"))
+			Expect(buf.String()).NotTo(ContainSubstring(token))
+		})
+		It("keeps the fixed hint for a refusal and the text of GitHub out of it", func() {
+			var buf bytes.Buffer
+			rt.API.Logger = slog.New(slog.NewTextHandler(&buf, nil))
+			srv.Fail("/repos/acme/widgets/issues/1", 403)
+			_, err := run("get-issue", "acme/widgets", map[string]any{"repo": "acme/widgets", "number": 1})
+			Expect(err).To(HaveOccurred())
+			Expect(buf.String()).To(ContainSubstring("status=403"))
+			Expect(buf.String()).To(ContainSubstring("tool=get-issue"))
+			Expect(err.Error()).NotTo(ContainSubstring("message"))
+		})
 	})
 
 	Describe("the repository check", func() {

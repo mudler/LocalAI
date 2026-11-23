@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -58,6 +59,34 @@ var _ = Describe("NATS agent control", func() {
 				errorReply: mcpremote.MCPToolResponse{Error: "tool 'x' not found"},
 				call: func(ctx context.Context) (string, error) {
 					reply, err := ac.ExecuteMCPTool(ctx, mcpremote.MCPToolRequest{ModelName: "m", ToolName: "x"})
+					if reply == nil {
+						return "", err
+					}
+					return reply.Error, err
+				},
+			}
+		}},
+		{"tool execution on a named node", func() verb {
+			return verb{
+				subject:    messaging.SubjectNodeMCPToolExecute("agent-1"),
+				fallback:   config.DefaultMCPToolTimeout,
+				errorReply: mcpremote.MCPToolResponse{Error: "tool 'x' not found"},
+				call: func(ctx context.Context) (string, error) {
+					reply, err := ac.ExecuteMCPToolOn(ctx, "agent-1", mcpremote.MCPToolRequest{ModelName: "m", ToolName: "x"})
+					if reply == nil {
+						return "", err
+					}
+					return reply.Error, err
+				},
+			}
+		}},
+		{"discovery on a named node", func() verb {
+			return verb{
+				subject:    messaging.SubjectNodeMCPDiscovery("agent-1"),
+				fallback:   config.DefaultMCPDiscoveryTimeout,
+				errorReply: mcpremote.MCPDiscoveryResponse{Error: "no MCP servers"},
+				call: func(ctx context.Context) (string, error) {
+					reply, err := ac.DiscoverMCPToolsOn(ctx, "agent-1", mcpremote.MCPDiscoveryRequest{ModelName: "m"})
 					if reply == nil {
 						return "", err
 					}
@@ -155,6 +184,10 @@ func (f *failingSubscribeBus) QueueSubscribeReply(string, string, func([]byte, f
 	return nil, f.err
 }
 
+func (f *failingSubscribeBus) SubscribeReply(string, func([]byte, func([]byte))) (messaging.Subscription, error) {
+	return nil, f.err
+}
+
 // The worker half must answer exactly as the agent worker always has: the
 // frontend reads an undecodable request's reply text, the queue group decides
 // which workers compete, and the handler context must outlive a shutdown.
@@ -171,6 +204,8 @@ var _ = Describe("NATS agent RPC server", func() {
 
 	type verb struct {
 		subject string
+		// node is the subject of the same verb for this node only.
+		node string
 		// serve registers a handler that records its context and decoded
 		// request, then returns reply (blocking on gate when it is non-nil).
 		serve func(reply any, gate <-chan struct{}, seen chan<- any, ctxs chan<- context.Context) error
@@ -188,6 +223,7 @@ var _ = Describe("NATS agent RPC server", func() {
 	}{
 		{"mcp tool", verb{
 			subject: messaging.SubjectMCPToolExecute,
+			node:    messaging.SubjectNodeMCPToolExecute("n1"),
 			serve: func(reply any, gate <-chan struct{}, seen chan<- any, ctxs chan<- context.Context) error {
 				return srv.ServeMCPTool(func(ctx context.Context, req mcpremote.MCPToolRequest) mcpremote.MCPToolResponse {
 					ctxs <- ctx
@@ -212,6 +248,7 @@ var _ = Describe("NATS agent RPC server", func() {
 		}},
 		{"mcp discovery", verb{
 			subject: messaging.SubjectMCPDiscovery,
+			node:    messaging.SubjectNodeMCPDiscovery("n1"),
 			serve: func(reply any, gate <-chan struct{}, seen chan<- any, ctxs chan<- context.Context) error {
 				return srv.ServeMCPDiscovery(func(ctx context.Context, req mcpremote.MCPDiscoveryRequest) mcpremote.MCPDiscoveryResponse {
 					ctxs <- ctx
@@ -280,6 +317,44 @@ var _ = Describe("NATS agent RPC server", func() {
 				Expect(v.serve(v.reply, nil, seen, ctxs)).To(Succeed())
 				Expect(bus.QueueGroups()).To(HaveKeyWithValue(v.subject, messaging.QueueAgentWorkers))
 				Expect(messaging.QueueAgentWorkers).To(Equal("agent-workers"))
+			})
+
+			It("answers on the subject of its own node, outside the queue group, and not on the one of another node", func() {
+				Expect(v.serve(v.reply, nil, seen, ctxs)).To(Succeed())
+				body, err := json.Marshal(v.request)
+				Expect(err).ToNot(HaveOccurred())
+				data, ok := bus.DeliverReply(v.node, body)
+				Expect(ok).To(BeTrue(), "a call that names this node is answered")
+				Expect(seen).To(Receive(Equal(v.request)))
+				want, err := json.Marshal(v.reply)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(data).To(Equal(want))
+				Expect(bus.QueueGroups()).ToNot(HaveKey(v.node))
+				other := strings.Replace(v.node, ".n1.", ".n2.", 1)
+				_, ok = bus.DeliverReply(other, body)
+				Expect(ok).To(BeFalse())
+			})
+
+			It("runs one request at a time across the queue group and the subject of its node", func() {
+				gate := make(chan struct{})
+				Expect(v.serve(v.reply, gate, seen, ctxs)).To(Succeed())
+				body, err := json.Marshal(v.request)
+				Expect(err).ToNot(HaveOccurred())
+				done := make(chan struct{}, 2)
+				for _, subject := range []string{v.subject, v.node} {
+					go func() {
+						defer GinkgoRecover()
+						_, _ = bus.DeliverReply(subject, body)
+						done <- struct{}{}
+					}()
+				}
+				Eventually(seen).Should(Receive())
+				Consistently(seen, 200*time.Millisecond).ShouldNot(Receive(), "the second request started before the first returned")
+				gate <- struct{}{}
+				Eventually(seen).Should(Receive())
+				gate <- struct{}{}
+				Eventually(done).Should(Receive())
+				Eventually(done).Should(Receive())
 			})
 
 			It("runs the handler on a context no parent can cancel", func() {

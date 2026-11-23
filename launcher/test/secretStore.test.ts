@@ -248,6 +248,20 @@ describe('when encryption fails after the probe', () => {
     })
   }
 
+  it('forgetSession drops a new in-memory value so the stored one is read again', async () => {
+    const file = fileOf()
+    const before = await SecretStore.open({ file, safeStorage: fakeSafe(), platform: 'linux' })
+    await before.set('cred:ab12', 'old-value-kept-on-disk-0001')
+    const disk = fs.readFileSync(file, 'utf8')
+    const s = await SecretStore.open({ file, safeStorage: failsLater('throw'), platform: 'linux' })
+    expect(await s.set('cred:ab12', 'new-value-for-this-session')).toEqual({ status: 'unavailable', kept: 'session' })
+    expect(s.get('cred:ab12')).toBe('new-value-for-this-session')
+    await s.forgetSession('cred:ab12')
+    expect(s.get('cred:ab12')).toBe('old-value-kept-on-disk-0001')
+    expect(s.isSessionOnly('cred:ab12')).toBe(false)
+    expect(fs.readFileSync(file, 'utf8')).toBe(disk)
+  })
+
   it('leaves a plain file as it is when its values cannot be moved into secure storage', async () => {
     const file = fileOf()
     const plain = await SecretStore.open({ file, platform: 'linux', plaintextOptIn: true })

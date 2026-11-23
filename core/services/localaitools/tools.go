@@ -19,6 +19,7 @@ const (
 	ToolListKnownBackends         = "list_known_backends"
 	ToolListBackendLibraryUpdates = "list_backend_library_updates"
 	ToolBackendUpdates            = "backend_updates"
+	ToolModelUpdates              = "model_updates"
 	ToolSystemInfo                = "system_info"
 	ToolListNodes                 = "list_nodes"
 	ToolListScheduling            = "list_scheduling"
@@ -48,6 +49,7 @@ const (
 	ToolLoadModel                = "load_model"
 	ToolInstallBackend           = "install_backend"
 	ToolUpgradeBackend           = "upgrade_backend"
+	ToolUpgradeModel             = "upgrade_model"
 	ToolInstallLibraryBackend    = "install_library_backend"
 	ToolToggleModelState         = "toggle_model_state"
 	ToolToggleModelPinned        = "toggle_model_pinned"
@@ -70,6 +72,17 @@ const (
 	ToolPinFailoverTarget    = "pin_failover_target"
 	ToolUnpinFailoverTarget  = "unpin_failover_target"
 	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
+	ToolRevokeP2PDevice      = "revoke_p2p_device"
+	ToolCancelP2PInvite      = "cancel_p2p_invite"
+	// ToolManageFederationGroup creates, updates, deletes, drains and
+	// undrains federation groups (an action parameter).
+	ToolManageFederationGroup = "manage_federation_group"
+	ToolSetP2PSplitSlowPath   = "set_p2p_split_slow_path"
+	ToolSetP2PSplitNode       = "set_p2p_split_node"
+	ToolSetNodeSplitServer    = "set_node_split_server"
+	ToolSetP2PRelayLimits     = "set_p2p_relay_limits"
+	// ToolSetCarrierWeights changes the carrier weights of a distributed cluster.
+	ToolSetCarrierWeights = "set_carrier_weights"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -78,6 +91,26 @@ const (
 	// ToolListFailoverChains is read-only but lives here so the failover
 	// tools stay grouped; the catalog tests assert its read-only placement.
 	ToolListFailoverChains = "list_failover_chains"
+
+	// ToolGetCarrierWeights is read-only; set_carrier_weights is in the
+	// mutating block above.
+	ToolGetCarrierWeights = "get_carrier_weights"
+
+	// The read-only P2P tools; revoke_p2p_device and cancel_p2p_invite are
+	// in the mutating block above.
+	ToolGetP2PStatus      = "get_p2p_status"
+	ToolListP2PDevices    = "list_p2p_devices"
+	ToolListP2PInvites    = "list_p2p_invites"
+	ToolListP2PRelays     = "list_p2p_relays"
+	ToolGetP2PRelayLimits = "get_p2p_relay_limits"
+	// ToolListP2PSplitWorkers lists the model-split workers;
+	// set_p2p_split_slow_path and set_p2p_split_node are in the mutating
+	// block above.
+	ToolListP2PSplitWorkers = "list_p2p_split_workers"
+
+	// ToolListFederation is read-only: the instances and the federation
+	// groups; manage_federation_group is in the mutating block above.
+	ToolListFederation = "list_federation"
 )
 
 // DefaultServerName is the MCP Implementation.Name surfaced when
@@ -98,6 +131,7 @@ var mutatingToolNames = []string{
 	ToolLoadModel,
 	ToolInstallBackend,
 	ToolUpgradeBackend,
+	ToolUpgradeModel,
 	ToolInstallLibraryBackend,
 	ToolToggleModelState,
 	ToolToggleModelPinned,
@@ -117,4 +151,12 @@ var mutatingToolNames = []string{
 	ToolPinFailoverTarget,
 	ToolUnpinFailoverTarget,
 	ToolSetChatEgressCeiling,
+	ToolRevokeP2PDevice,
+	ToolCancelP2PInvite,
+	ToolManageFederationGroup,
+	ToolSetP2PSplitSlowPath,
+	ToolSetP2PSplitNode,
+	ToolSetNodeSplitServer,
+	ToolSetP2PRelayLimits,
+	ToolSetCarrierWeights,
 }

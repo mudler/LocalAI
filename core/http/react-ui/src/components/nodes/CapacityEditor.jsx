@@ -3,6 +3,8 @@ import { nodesApi } from '../../utils/api'
 import LoadingSpinner from '../LoadingSpinner'
 import { formatVRAM } from './nodeStatus'
 import Icon from '../Icon'
+import { Button, Tag } from '../ui'
+import './nodes.css'
 
 /**
  * Inline editor for a node's per-model replica capacity.
@@ -146,15 +148,13 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
 
   return (
     <div className="stack">
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
-    }}>
-      <Icon name="layers" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+    <div className="cap-row">
+      <Icon name="layers" className="cap-row__icon" />
+      <div className="cap-row__body">
+        <div className="cap-row__line">
           <label
             htmlFor={`capacity-${node.id}`}
-            style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}
+            className="cap-row__label"
           >
             Max replicas per model
           </label>
@@ -170,29 +170,14 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 onKeyDown={onKeyDown}
                 autoFocus
                 aria-describedby={`capacity-hint-${node.id}`}
-                style={{
-                  width: 72, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)',
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--color-text-primary)',
-                }}
+                className="dk-input cap-row__input cap-row__input--num"
               />
-              <button
-                className="btn btn-primary btn-sm min-h-control"
-                onClick={save}
-                disabled={saving}
-                aria-label="Save replica capacity"
-              >
+              <Button variant="primary" size="sm" onClick={save} disabled={saving} aria-label="Save replica capacity">
                 {saving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm min-h-control"
-                onClick={cancel}
-                disabled={saving}
-                aria-label="Cancel"
-              >
+              </Button>
+              <Button size="sm" onClick={cancel} disabled={saving} aria-label="Cancel">
                 Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -202,49 +187,32 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 {current}
               </span>
               {isOverride && (
-                <span
+                <Tag
+                  tone="warn"
                   title="This value was set from the UI. It will persist across worker restarts until you click Reset."
-                  style={{
-                    display: 'inline-block', fontSize: '0.6875rem', padding: '1px 6px',
-                    borderRadius: 'var(--radius-sm)', fontWeight: 500,
-                    background: 'var(--color-bg-primary)',
-                    border: '1px solid var(--color-warning)',
-                    color: 'var(--color-warning)',
-                  }}
                 >
                   override
-                </span>
+                </Tag>
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="pencil"
                 onClick={() => setEditing(true)}
                 aria-label={`Edit replica capacity (currently ${current})`}
                 title="Change replica capacity for this node"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: 32, minHeight: 32, padding: 4, borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
-                  background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
-                }}
-              >
-                <Icon name="pencil" />
-              </button>
+              />
               {isOverride && (
-                <button
-                  onClick={reset}
-                  disabled={resetting}
-                  aria-label="Clear admin override and let the worker flag apply"
-                  title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration"
-                  className="btn btn-secondary btn-sm min-h-control"
-                >
+                <Button size="sm" onClick={reset} disabled={resetting} aria-label="Clear admin override and let the worker flag apply" title="Clear override; the worker's --max-replicas-per-model flag will apply on the next re-registration">
                   {resetting ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Reset</>}
-                </button>
+                </Button>
               )}
             </>
           )}
         </div>
         <div
           id={`capacity-hint-${node.id}`}
-          style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.4 }}
+          className="cap-row__hint"
         >
           {isOverride
             ? <>Set from here. <strong>Reset</strong> to use the worker's default.</>
@@ -253,15 +221,13 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
       </div>
     </div>
 
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)',
-    }}>
-      <Icon name="cpu" style={{ color: 'var(--color-text-muted)', marginTop: 3 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+    <div className="cap-row">
+      <Icon name="cpu" className="cap-row__icon" />
+      <div className="cap-row__body">
+        <div className="cap-row__line">
           <label
             htmlFor={`vram-budget-${node.id}`}
-            style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-primary)' }}
+            className="cap-row__label"
           >
             VRAM budget
           </label>
@@ -277,29 +243,14 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                 onKeyDown={onBudgetKeyDown}
                 autoFocus
                 aria-describedby={`vram-budget-hint-${node.id}`}
-                style={{
-                  width: 140, padding: '4px 8px', borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)',
-                  fontFamily: 'var(--font-mono)', fontSize: '0.8125rem',
-                  color: 'var(--color-text-primary)',
-                }}
+                className="dk-input cap-row__input cap-row__input--text"
               />
-              <button
-                className="btn btn-primary btn-sm min-h-control"
-                onClick={saveBudget}
-                disabled={budgetSaving}
-                aria-label="Save VRAM budget"
-              >
+              <Button variant="primary" size="sm" onClick={saveBudget} disabled={budgetSaving} aria-label="Save VRAM budget">
                 {budgetSaving ? <LoadingSpinner size="xs" /> : <><Icon name="check" /> Save</>}
-              </button>
-              <button
-                className="btn btn-secondary btn-sm min-h-control"
-                onClick={cancelBudget}
-                disabled={budgetSaving}
-                aria-label="Cancel"
-              >
+              </Button>
+              <Button size="sm" onClick={cancelBudget} disabled={budgetSaving} aria-label="Cancel">
                 Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -316,36 +267,25 @@ export default function CapacityEditor({ node, loadedModelCounts, onUpdate, conf
                   {formatVRAM(budgetBytes)} / {formatVRAM(node.total_vram)}
                 </span>
               )}
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="pencil"
                 onClick={() => setBudgetEditing(true)}
                 aria-label={`Edit VRAM budget (currently ${hasBudget ? currentBudget : 'none'})`}
                 title="Change the VRAM allocation budget for this node"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: 32, minHeight: 32, padding: 4, borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-border-subtle)',
-                  background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer',
-                }}
-              >
-                <Icon name="pencil" />
-              </button>
+              />
               {hasBudget && (
-                <button
-                  onClick={clearBudget}
-                  disabled={budgetClearing}
-                  aria-label="Clear the VRAM budget for this node"
-                  title="Clear the VRAM budget; this node's full VRAM becomes available again"
-                  className="btn btn-secondary btn-sm min-h-control"
-                >
+                <Button size="sm" onClick={clearBudget} disabled={budgetClearing} aria-label="Clear the VRAM budget for this node" title="Clear the VRAM budget; this node's full VRAM becomes available again">
                   {budgetClearing ? <LoadingSpinner size="xs" /> : <><Icon name="undo" /> Clear</>}
-                </button>
+                </Button>
               )}
             </>
           )}
         </div>
         <div
           id={`vram-budget-hint-${node.id}`}
-          style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4, lineHeight: 1.4 }}
+          className="cap-row__hint"
         >
           Cap how much of this node's VRAM the scheduler may allocate. Accepts a percentage or a size (e.g. 80% or 12GB).
         </div>

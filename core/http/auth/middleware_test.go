@@ -3,6 +3,7 @@
 package auth_test
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -60,7 +61,6 @@ var _ = Describe("Auth Middleware", func() {
 		{http.MethodGet, "/browse/models"},
 		{http.MethodGet, "/login"},
 		{http.MethodGet, "/invite/token"},
-		{http.MethodGet, "/explorer"},
 		{http.MethodGet, "/favicon.svg"},
 		{http.MethodGet, "/assets/app.js"},
 		{http.MethodGet, "/locales/en/common.json"},
@@ -411,38 +411,76 @@ var _ = Describe("Auth Middleware", func() {
 			Expect(rec.Body.String()).To(BeEmpty())
 		})
 
-		It("delegates the full node self-service group to registration-token auth", func() {
+		It("delegates the full node self-service group to node auth", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)
-			authHeader := withBearerToken(registrationToken)
 
+			// Registration takes the registration token in its body, and answers with
+			// the own credential of the node.
 			register := doRequestWithBody(
 				app,
 				http.MethodPost,
 				"/api/node/register",
 				`{"name":"worker-1","address":"127.0.0.1:50051","token":"node-registration-secret"}`,
-				authHeader,
 			)
 			Expect(register.Code).To(Equal(http.StatusCreated))
+			var registered struct {
+				ID        string `json:"id"`
+				NodeToken string `json:"node_token"`
+			}
+			Expect(json.Unmarshal(register.Body.Bytes(), &registered)).To(Succeed())
+			Expect(registered.NodeToken).ToNot(BeEmpty())
+			authHeader := withBearerToken(registered.NodeToken)
 
 			for _, route := range []struct {
 				method string
 				path   string
 				body   string
 			}{
-				{http.MethodPost, "/api/node/missing/heartbeat", `{}`},
-				{http.MethodPost, "/api/node/missing/drain", ""},
-				{http.MethodPost, "/api/node/missing/resume", ""},
-				{http.MethodPost, "/api/node/missing/deregister", ""},
-				{http.MethodGet, "/api/node/missing/models", ""},
-				{http.MethodDelete, "/api/node/missing", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/heartbeat", `{}`},
+				{http.MethodPost, "/api/node/" + registered.ID + "/drain", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/resume", ""},
+				{http.MethodPost, "/api/node/" + registered.ID + "/deregister", ""},
+				{http.MethodGet, "/api/node/" + registered.ID + "/models", ""},
+				{http.MethodDelete, "/api/node/" + registered.ID, ""},
 			} {
 				rec := doRequestWithBody(app, route.method, route.path, route.body, authHeader)
 				Expect(rec.Code).ToNot(Equal(http.StatusUnauthorized), route.method+" "+route.path)
 			}
 		})
 
-		It("lets downstream node auth reject missing and invalid registration tokens", func() {
+		It("delegates the tunnel dial to its own credential check, and only that path", func() {
+			app = newClusterTestApp(db, appConfig)
+
+			// A bearer token that is no API key and no session. The middleware
+			// lets the dial through, and the handler (which has no registry here)
+			// answers 503. If the middleware stopped it, the answer would be 401.
+			dial := doRequest(app, http.MethodGet, "/api/cluster/connect?id=w1", withBearerToken("own-tunnel-token"))
+			Expect(dial.Code).To(Equal(http.StatusServiceUnavailable))
+
+			// Another route under the same prefix is not delegated.
+			other := doRequest(app, http.MethodGet, "/api/cluster/other", withBearerToken("own-tunnel-token"))
+			Expect(other.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("delegates the peer link to its own credential check, and only that path", func() {
+			app = newClusterTestApp(db, appConfig)
+
+			// The header of the peer credential, which is no API key and no
+			// session. The middleware lets the dial through, and the handler (which
+			// has no table of replicas here) answers 503. If the middleware stopped
+			// it, the answer would be 401.
+			peer := doRequest(app, http.MethodGet, "/api/cluster/peer?id=replica-a", func(r *http.Request) {
+				r.Header.Set("X-LocalAI-Peer-Token", "own-peer-credential")
+			})
+			Expect(peer.Code).To(Equal(http.StatusServiceUnavailable))
+
+			// A dial with no credential is refused whoever answers.
+			anonymous := doRequest(app, http.MethodGet, "/api/cluster/peer?id=replica-a")
+			Expect(anonymous.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("lets downstream node auth reject missing and invalid credentials, the registration token included", func() {
 			const registrationToken = "node-registration-secret"
 			app = newNodeSelfServiceTestApp(db, appConfig, registrationToken)
 
@@ -454,10 +492,10 @@ var _ = Describe("Auth Middleware", func() {
 				app,
 				http.MethodGet,
 				"/api/node/missing/models",
-				withBearerToken("wrong-registration-token"),
+				withBearerToken(registrationToken),
 			)
 			Expect(invalid.Code).To(Equal(http.StatusUnauthorized))
-			Expect(invalid.Body.String()).To(ContainSubstring("invalid registration token"))
+			Expect(invalid.Body.String()).To(ContainSubstring("invalid node credential"))
 		})
 
 		It("enforces disabled MCP and moderation permissions on every alias", func() {
@@ -631,7 +669,7 @@ var _ = Describe("Auth Middleware", func() {
 			sessionID := createTestSession(db, user.ID)
 			app := newAdminTestApp(db, appConfig)
 
-			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/workers", "/system", "/backend/monitor"} {
+			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/status", "/system", "/backend/monitor"} {
 				rec := doRequest(app, http.MethodGet, path, withSessionCookie(sessionID))
 				Expect(rec.Code).To(Equal(http.StatusForbidden), "expected 403 for path: "+path)
 			}
@@ -642,7 +680,7 @@ var _ = Describe("Auth Middleware", func() {
 			sessionID := createTestSession(db, admin.ID)
 			app := newAdminTestApp(db, appConfig)
 
-			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/workers", "/system", "/backend/monitor"} {
+			for _, path := range []string{"/api/operations", "/api/models", "/api/backends", "/api/resources", "/api/p2p/status", "/system", "/backend/monitor"} {
 				rec := doRequest(app, http.MethodGet, path, withSessionCookie(sessionID))
 				Expect(rec.Code).To(Equal(http.StatusOK), "expected 200 for path: "+path)
 			}

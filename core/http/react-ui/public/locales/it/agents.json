@@ -610,6 +610,27 @@
       "all": "Tutti i progetti",
       "none": "Nessun progetto",
       "empty": "Nessun trigger per questa scelta."
+    },
+    "reports": {
+      "label": "Riporta a",
+      "inbox": "Posta in arrivo",
+      "channel": "Canale {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Thread nella chat {{chat}}",
+      "problem": {
+        "off": "Connessione disattivata",
+        "gone": "Connessione eliminata",
+        "unavailable": "Connessione non disponibile",
+        "no_channel": "Canale non approvato",
+        "blocked": "Invio non consentito"
+      },
+      "fallback": "Finché non è risolto, i report vanno nella Posta in arrivo.",
+      "manage": "Gestisci connessione",
+      "connections": "Apri le connessioni",
+      "mode": {
+        "on_change": "Solo quando la risposta cambia",
+        "on_problem": "Solo quando un'esecuzione fallisce"
+      }
     }
   },
   "views": {

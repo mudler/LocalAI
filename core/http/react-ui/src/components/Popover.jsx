@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 
 // Minimal popover: positions itself below-right of the trigger's bounding box,
 // flips above when there isn't room below, closes on outside click or Escape,
-// returns focus to the trigger. Uses the existing .card surface so it picks
-// up theme/border/shadow automatically — no new theming work.
+// returns focus to the trigger. The surface (.popover in the kit's kit.css) is
+// the one of the home model menu: radius, shadow, edge and entrance.
 //
 // Rendered through a portal on document.body: the popover is position:fixed and
 // positioned from the trigger's viewport rect, so it must escape any ancestor
@@ -95,7 +95,7 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel, cl
       ref={popoverRef}
       role="dialog"
       aria-label={ariaLabel}
-      className={`popover card${pos.flipped ? ' popover--up' : ''}${className ? ` ${className}` : ''}`}
+      className={`popover${pos.flipped ? ' popover--up' : ''}${className ? ` ${className}` : ''}`}
       style={{ top: pos.top, left: pos.left }}
     >
       {children}

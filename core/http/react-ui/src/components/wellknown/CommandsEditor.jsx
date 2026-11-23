@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import { Button, Callout, Segmented, StatusChip } from '../ui'
+import { Button, Callout, Segmented, StatusChip, Tag } from '../ui'
 import { FileFooter, ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { chatToolsApi } from '../../utils/api'
@@ -64,7 +64,7 @@ function MenuPreview({ rows, builtin, selected }) {
                 <span className="dk-cmd-name dk-mono">/{r.name || '…'}</span>
                 <span className="dk-cmd-desc">{r.description}</span>
               </span>
-              <span className="dk-badge cm-badge">{tc(`slash.badge.${r.type}`)}</span>
+              <Tag className="cm-badge">{tc(`slash.badge.${r.type}`)}</Tag>
             </div>
           ))}
         </div>
@@ -382,7 +382,7 @@ export default function CommandsEditor() {
                       <button type="button" className="cm-item" aria-pressed={sel === c.name} onClick={() => open(c)} data-testid={`cm-item-${c.name}`}>
                         <code className="cm-item__name">/{c.name}</code>
                         <span className="cm-item__desc">{c.description}</span>
-                        <span className="dk-badge cm-badge">{tc(`slash.badge.${c.type}`)}</span>
+                        <Tag className="cm-badge">{tc(`slash.badge.${c.type}`)}</Tag>
                       </button>
                     </li>
                   ))}

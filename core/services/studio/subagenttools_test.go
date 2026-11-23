@@ -72,10 +72,11 @@ var _ = Describe("the tools of a generic sub-agent", func() {
 	otherFrontend := func(sh *loopShared, hosts *hostSet, script func(workspace.Actor, string) []studiotest.ToolStep) *loopRig {
 		return sh.rig(script, studio.LoopOptions{}, hosts.deps)
 	}
+	// runLoop passes until the host has taken the run, then waits for it to
+	// end. One pass can skip a due loop whose chat is not free yet, and a
+	// skipped loop looks the same as one whose run has ended.
 	runLoop := func(b *loopRig, loopID string) {
-		b.sh.clock.Advance(2 * time.Minute)
-		b.pass()
-		b.settled(loopID)
+		b.fire(loopID, 2*time.Minute)
 	}
 	pollScript := func(_ workspace.Actor, text string) []studiotest.ToolStep {
 		if strings.Contains(text, "Loop run") {

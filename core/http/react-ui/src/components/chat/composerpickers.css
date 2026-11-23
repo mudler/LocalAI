@@ -1,0 +1,31 @@
+/* The composer's chips that open a ListPicker menu or a switch list (Agent,
+   Setup, Tools, Skills, Sub-agents). The chip and the menu are ListPicker's
+   (components/ui/picker.css); this file only adds the parts these menus have
+   and the model picker has not. Tokens only. */
+
+/* A sentence under the rows of a menu (what an agent does to the chat). */
+.cp-note {
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-2) 10px var(--sp-1);
+  border-top: 1px solid var(--dk-edge);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-small);
+}
+
+/* An agent's model is an id, so it is mono, as on the model chip. */
+.agent-picker__menu .home-menu__item small { font-family: var(--font-mono); }
+
+/* A short state next to the name of a chip ("edited"). */
+.cp-tag {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--dk-hover);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-weight: 400;
+}
+
+/* A setup's model is an id too. */
+.setup-menu .home-menu__item small { font-family: var(--font-mono); }

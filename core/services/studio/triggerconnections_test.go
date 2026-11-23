@@ -197,6 +197,34 @@ var _ = Describe("a trigger from a chat in Studio that reports to a connection",
 			waitFor("the report in the channel", func() bool { return len(fake.texts("G1", "")) == 1 })
 		})
 
+		It("says whether the destination can receive a report now", func() {
+			setup()
+			Expect(propose(fmt.Sprintf(`{"target":"channel","connection":%q,"channel":"G1"}`, chatB.ID)).Err).To(BeNil())
+			p := waiting()[0]
+			d := r.host.DeliveryOf(ctx, p)
+			Expect(d).To(Equal(studio.DeliveryView{Target: triggers.TargetChannel, ChannelLabel: "General", ChannelRef: "G1", ConnectionName: "Team chat",
+				ConnectionKind: "chatty", ConnectionKindTitle: "Chatty", ConnectionAddon: "chat-addon", ConnectionID: chatB.ID, State: studio.DeliveryOK, Mode: triggers.ModeAlways}))
+
+			gate.set(contract.CapTalkbackChannels, false)
+			Expect(r.host.DeliveryOf(ctx, p).State).To(Equal(studio.DeliveryBlocked))
+			gate.set(contract.CapTalkbackChannels, true)
+
+			_, err := r.conns.UpdateConnector(ctx, alice, chatB.ID, studio.ConnectorInput{Name: chatB.Name, AgentID: chatB.AgentID, Enabled: false, Allow: chatB.Allow, Channels: channels})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(r.host.DeliveryOf(ctx, p).State).To(Equal(studio.DeliveryOff))
+
+			Expect(r.conns.DeleteConnector(ctx, alice, chatB.ID)).To(Succeed())
+			d = r.host.DeliveryOf(ctx, p)
+			Expect(d.State).To(Equal(studio.DeliveryGone))
+			Expect(d.ConnectionName).To(BeEmpty())
+			Expect(d.ConnectionID).To(BeEmpty())
+		})
+
+		It("reports the Inbox with no state and no connection", func() {
+			setup()
+			Expect(r.host.DeliveryOf(ctx, triggers.Trigger{Owner: alice})).To(Equal(studio.DeliveryView{Target: triggers.TargetInbox, Mode: triggers.ModeAlways}))
+		})
+
 		It("refuses a channel the owner did not approve, and names the approved ones", func() {
 			setup()
 			res := propose(fmt.Sprintf(`{"target":"channel","connection":%q,"channel":"Ops"}`, chatB.ID))

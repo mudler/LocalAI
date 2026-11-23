@@ -19,7 +19,11 @@ import (
 // downloads. There are two kinds of entry:
 //   - a ready pack: the pack folder is downloaded with the GGUF side files;
 //   - a GGUF set: only the GGUF files are downloaded, and the backend builds
-//     the pack on the first load (the pack_gguf option).
+//     the pack on the first load (the pack_gguf option);
+//   - a Hy4-Flash set (family:hy4): the .strata build, the Engram file and the
+//     vision file. There is no pack; the backend reads the tokenizer from the
+//     build file. The three builds share one directory, so the Engram and
+//     vision files are downloaded once.
 var _ = Describe("gallery/index.yaml strata entries", func() {
 	strataEntries := func() []gallery.GalleryModel {
 		entries, err := loadGalleryIndex()
@@ -37,6 +41,15 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		Expect(strataEntries()).ToNot(BeEmpty())
 	})
 
+	isHy4 := func(e gallery.GalleryModel) bool {
+		for _, o := range optionList(e) {
+			if o == "family:hy4" {
+				return true
+			}
+		}
+		return false
+	}
+
 	isBuilt := func(e gallery.GalleryModel) bool {
 		for _, o := range optionList(e) {
 			if strings.HasPrefix(o, "pack_gguf:") {
@@ -51,7 +64,11 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		pinned := regexp.MustCompile(`^https://(huggingface\.co/[^/]+/[^/]+/resolve|raw\.githubusercontent\.com/[^/]+/[^/]+)/[0-9a-f]{40}/`)
 		for _, e := range strataEntries() {
 			dir := modelDir(e)
-			Expect(dir).To(Equal("strata/models/"+e.Name), e.Name)
+			if isHy4(e) {
+				Expect(dir).To(Equal("strata/models/hy4-flash"), e.Name)
+			} else {
+				Expect(dir).To(Equal("strata/models/"+e.Name), e.Name)
+			}
 			Expect(e.AdditionalFiles).ToNot(BeEmpty(), e.Name)
 			seen := map[string]bool{}
 			for _, f := range e.AdditionalFiles {
@@ -68,7 +85,7 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 	It("downloads every file the options name", func() {
 		fileOptions := map[string]bool{
 			"native": true, "native_dense_gguf": true, "ple_gguf": true, "embd_gguf": true,
-			"expert_profile": true, "mtp": true, "pack_gguf": true,
+			"expert_profile": true, "mtp": true, "pack_gguf": true, "engram": true,
 		}
 		for _, e := range strataEntries() {
 			dir := modelDir(e)
@@ -82,6 +99,18 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 				}
 			}
 			Expect(seen).To(HaveKey("native"), e.Name)
+			if isHy4(e) {
+				// The vision file is named by a file option here, not a mmproj.
+				Expect(seen).To(HaveKey("engram"), e.Name)
+				Expect(seen).To(HaveKey("vision"), e.Name)
+				for _, o := range optionList(e) {
+					if v, ok := strings.CutPrefix(o, "vision:"); ok {
+						Expect(have).To(HaveKey(path.Clean(v)), e.Name+" vision file")
+					}
+				}
+				Expect(e.Overrides["known_input_modalities"]).To(ContainElement("image"), e.Name)
+				Expect(e.Overrides).ToNot(HaveKey("mmproj"), e.Name)
+			}
 			if mm, ok := e.Overrides["mmproj"].(string); ok {
 				Expect(have).To(HaveKey(strings.TrimPrefix(mm, dir+"/")), e.Name+" mmproj")
 				Expect(e.Overrides["known_input_modalities"]).To(ContainElement("image"), e.Name)
@@ -93,6 +122,21 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		shard := regexp.MustCompile(`^(.*)-(\d{5})-of-(\d{5})\.gguf$`)
 		for _, e := range strataEntries() {
 			have := downloaded(e)
+			if isHy4(e) {
+				opts := map[string]string{}
+				for _, o := range optionList(e) {
+					k, v, _ := strings.Cut(o, ":")
+					opts[k] = v
+				}
+				Expect(opts["native"]).To(MatchRegexp(`^Hy4-Flash-SQ-(64|96|128)\.strata$`), e.Name)
+				Expect(opts["engram"]).To(Equal("Hy4-Flash-Engram-Q8.strata"), e.Name)
+				Expect(have).To(HaveLen(3), e.Name)
+				for rel := range have {
+					Expect(rel).ToNot(HavePrefix("pack/"), e.Name)
+					Expect(rel).To(HaveSuffix(".strata"), e.Name)
+				}
+				continue
+			}
 			if !isBuilt(e) {
 				for _, rel := range []string{
 					"pack/index.txt", "pack/native_experts.txt", "pack/dense.bin", "pack/experts.bin",
@@ -141,6 +185,7 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			"apache-2.0":                "Apache License 2.0",
 			"mit":                       "MIT License",
 			"swift-open-license-1.0":    "Swift Open License 1.0",
+			"tencent-hy-license":        "Tencent Hy License",
 		}
 		for _, e := range strataEntries() {
 			tmpl, _ := e.Overrides["template"].(map[string]any)
@@ -183,6 +228,7 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			"swift-1.5-qwen3.8-flash-next-iq2_xs", "swift-1.5-qwen3.8-flash-next-iq3_xxs",
 			"swift-1.5-qwen3.8-flash-next-iq3_s",
 			"qwen3.6-35b-a3b-ud-q4_k_xl-strata", "qwen3.6-35b-a3b-ud-q6_k_xl-strata", "qwen3.6-35b-a3b-q8_0-strata",
+			"hy4-flash-sq-64-strata", "hy4-flash-sq-96-strata", "hy4-flash-sq-128-strata",
 		} {
 			Expect(names).To(HaveKey(want))
 		}

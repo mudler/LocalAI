@@ -4,12 +4,42 @@
 import crypto from 'node:crypto'
 import type { LauncherConfig } from './config'
 import { validateRemoteOrigin } from './webuiPolicy'
+import type { P2PTarget } from './p2pRemote'
 
 export interface RemoteServer {
   id: string
   name: string
   /** An origin: scheme, host and port. No path, no credentials. */
   url: string
+  /**
+   * A server over P2P. `url` is then http://127.0.0.1:<port>, the local end of
+   * the forwarder, so the origin of the server never changes.
+   */
+  p2p?: P2PTarget
+}
+
+const P2P_PEER_RE = /^[1-9A-HJ-NP-Za-km-z]{40,128}$/
+
+function strings(v: unknown, max: number): string[] | null {
+  if (v === undefined) return []
+  if (!Array.isArray(v) || v.length > max || !v.every((x) => typeof x === 'string' && x.length > 0 && x.length <= 300 && x.startsWith('/'))) return null
+  return v as string[]
+}
+
+/** The P2P part of a stored server, checked again: a hand-edited file is not trusted. */
+export function parseP2PTarget(v: unknown): P2PTarget | null {
+  if (typeof v !== 'object' || v === null) return null
+  const o = v as Record<string, unknown>
+  const addrs = strings(o.addrs, 2)
+  const relays = strings(o.relays, 3)
+  if (typeof o.peer !== 'string' || !P2P_PEER_RE.test(o.peer)) return null
+  if (typeof o.port !== 'number' || !Number.isInteger(o.port) || o.port < 1024 || o.port > 65535) return null
+  if (!addrs || !relays) return null
+  return { peer: o.peer, port: o.port, addrs, relays }
+}
+
+export function p2pOrigin(port: number): string {
+  return `http://127.0.0.1:${port}`
 }
 
 export const REMOTES_KEY = 'remotes'
@@ -46,13 +76,21 @@ export function parseRemotes(raw: unknown): RemoteServer[] {
   const ids = new Set<string>()
   for (const e of raw) {
     if (typeof e !== 'object' || e === null) continue
-    const { id, name, url } = e as Record<string, unknown>
+    const { id, name, url, p2p } = e as Record<string, unknown>
     if (typeof id !== 'string' || !ID_RE.test(id) || ids.has(id) || !validName(name) || typeof url !== 'string') continue
     const o = validateRemoteOrigin(url)
     if (!o.ok || urls.has(o.origin)) continue
+    let target: P2PTarget | undefined
+    if (p2p !== undefined) {
+      const t = parseP2PTarget(p2p)
+      // The origin of a server over P2P is its forwarder: anything else is a
+      // file someone edited by hand.
+      if (!t || o.origin !== p2pOrigin(t.port)) continue
+      target = t
+    }
     ids.add(id)
     urls.add(o.origin)
-    out.push({ id, name: name.trim(), url: o.origin })
+    out.push(target ? { id, name: name.trim(), url: o.origin, p2p: target } : { id, name: name.trim(), url: o.origin })
     if (out.length >= MAX_REMOTES) break
   }
   return out
@@ -107,6 +145,23 @@ export function addRemote(c: LauncherConfig, input: { name: string; address: str
   return { ok: true, config: withRemotes(c, [...list, remote]), remote }
 }
 
+/** Adds a server over P2P that `local-ai p2p pair` has just paired with. */
+export function addP2PRemote(c: LauncherConfig, input: { name: string; target: P2PTarget }, genId: () => string = newRemoteId): RemoteChange {
+  const list = remotes(c)
+  if (list.length >= MAX_REMOTES) return { ok: false, reason: 'limit' }
+  if (!validName(input.name)) return { ok: false, reason: 'name' }
+  const target = parseP2PTarget(input.target)
+  if (!target) return { ok: false, reason: 'invalid-url' }
+  const dup = list.find((r) => r.p2p?.peer === target.peer)
+  if (dup) return { ok: false, reason: 'duplicate', existingId: dup.id }
+  const url = p2pOrigin(target.port)
+  if (list.some((r) => r.url === url)) return { ok: false, reason: 'duplicate' }
+  let id = genId()
+  while (list.some((r) => r.id === id)) id = genId()
+  const remote = { id, name: input.name.trim(), url, p2p: target }
+  return { ok: true, config: withRemotes(c, [...list, remote]), remote }
+}
+
 export function updateRemote(c: LauncherConfig, id: string, patch: { name?: string; address?: string }): RemoteChange {
   const list = remotes(c)
   const cur = list.find((r) => r.id === id)
@@ -117,6 +172,12 @@ export function updateRemote(c: LauncherConfig, id: string, patch: { name?: stri
     if (!validName(patch.name)) return { ok: false, reason: 'name' }
     name = patch.name.trim()
   }
+  if (patch.address !== undefined && cur.p2p) {
+    // The address of a server over P2P is its forwarder; pair again to move it.
+    const o = validateRemoteOrigin(patch.address)
+    if (!o.ok || o.origin !== cur.url) return { ok: false, reason: 'invalid-url' }
+    patch = { name: patch.name }
+  }
   if (patch.address !== undefined) {
     const o = validateRemoteOrigin(patch.address)
     if (!o.ok) return { ok: false, reason: o.reason as RemoteFail }
@@ -124,7 +185,7 @@ export function updateRemote(c: LauncherConfig, id: string, patch: { name?: stri
     if (dup) return { ok: false, reason: 'duplicate', existingId: dup.id }
     url = o.origin
   }
-  const remote = { id, name, url }
+  const remote: RemoteServer = cur.p2p ? { id, name, url, p2p: cur.p2p } : { id, name, url }
   return { ok: true, config: withRemotes(c, list.map((r) => (r.id === id ? remote : r))), remote }
 }
 

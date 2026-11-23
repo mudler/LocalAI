@@ -51,8 +51,8 @@
     "users": "Usuarios",
     "backends": "Backends",
     "traces": "Trazas",
-    "nodes": "Nodos",
-    "scheduling": "Planificación",
+    "nodes": "Workers",
+    "scheduling": "Ubicación",
     "swarm": "Swarm",
     "system": "Sistema",
     "settings": "Configuración",
@@ -62,7 +62,7 @@
     "overview": "Resumen",
     "thisMachine": "Esta máquina",
     "failover": "Failover",
-    "p2p": "P2P",
+    "p2p": "Compartir",
     "addons": "Complementos",
     "voiceLibrary": "Voice Library",
     "logs": "Logs",
@@ -76,7 +76,8 @@
     "chatsAdmin": "Chats de todos los usuarios",
     "pages": "Páginas",
     "allChats": "Todos los chats",
-    "inbox": "Notificaciones"
+    "inbox": "Notificaciones",
+    "apiKeys": "Claves de API"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "Actividad",
   "navLinkExternal": "Abre {{site}} en una pestaña nueva tras confirmar",
   "navLinkAsk": "¿Abrir este enlace?",
-  "startPage": "Página de inicio"
+  "startPage": "Página de inicio",
+  "admin": {
+    "nav": {
+      "overview": "Resumen",
+      "apiReference": "Referencia de la API",
+      "back": "Volver a {{name}}",
+      "search": "Buscar",
+      "label": "Administración",
+      "crumbs": "Ruta de navegación"
+    },
+    "groups": {
+      "machine": "Esta máquina",
+      "cluster": "Clúster",
+      "runtime": "Modelos y ejecución",
+      "access": "Acceso"
+    },
+    "palette": {
+      "label": "Buscar en Administración",
+      "input": "Buscar páginas, personas, workers y ajustes",
+      "placeholder": "Buscar páginas, personas, workers, ajustes",
+      "results": "Resultados",
+      "none": "Nada coincide con «{{query}}».",
+      "move": "mover",
+      "open": "abrir",
+      "kinds": {
+        "page": "Páginas",
+        "setting": "Ajustes",
+        "worker": "Workers",
+        "person": "Personas"
+      }
+    },
+    "filters": {
+      "label": "Filtros",
+      "active": "{{count}} activos",
+      "sort": "Ordenar"
+    }
+  }
 }

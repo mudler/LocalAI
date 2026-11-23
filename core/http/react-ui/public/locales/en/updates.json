@@ -1,6 +1,6 @@
 {
   "title": "Updates",
-  "supporting": "Backends, library backends and add-ons that have a newer version.",
+  "supporting": "Backends, library backends, add-ons and gallery models that have a newer version.",
   "loading": "Loading updates",
   "adminOnly": {
     "title": "Updates are for administrators",
@@ -40,7 +40,8 @@
     "name": {
       "gallery": "Backend gallery",
       "library": "Backend library",
-      "addons": "Add-ons"
+      "addons": "Add-ons",
+      "models": "Model gallery"
     },
     "checked": "checked {{when}}",
     "ok": "checked",
@@ -66,7 +67,8 @@
     "title": {
       "gallery": "The backend gallery check failed, so backends may have updates that are not shown.",
       "library": "The library check failed, so library backends may have updates that are not shown.",
-      "addons": "The add-on check failed, so add-ons may have updates that are not shown."
+      "addons": "The add-on check failed, so add-ons may have updates that are not shown.",
+      "models": "The model gallery check failed, so models may have updates that are not shown."
     },
     "lastGood": "The list below is from the last good check, {{when}}. Reason: {{error}}.",
     "noGood": "No check has worked yet. Reason: {{error}}.",
@@ -90,18 +92,22 @@
     "selectAll": "Select all ready",
     "selectNone": "Select none",
     "show": "Show",
-    "hide": "Hide"
+    "hide": "Hide",
+    "other": "Other models"
   },
   "row": {
     "tag": {
       "gallery": "Backend",
       "library": "Library backend",
-      "addon": "Add-on"
+      "addon": "Add-on",
+      "model": "Model"
     },
     "origin": {
       "gallery": "Backend gallery",
       "library": "Library: {{id}}",
-      "libraryUnnamed": "Library"
+      "libraryUnnamed": "Library",
+      "model": "Gallery {{gallery}}",
+      "modelUnnamed": "Model gallery"
     },
     "signed": "signed",
     "versions": "{{from}} to {{to}}",
@@ -136,6 +142,7 @@
     },
     "updatingPhase": "Updating: {{phase}}",
     "updatingPlain": "Updating",
+    "queued": "Queued, waiting for a free slot",
     "addonConfirm": "Needs your confirmation in this browser",
     "nodesAction": "Nodes",
     "nodesNamed": "Show the nodes of {{name}}",
@@ -146,6 +153,7 @@
     "running": "Updating {{current}} of {{total}}",
     "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
     "details": "Details",
+    "cancelAll": "Cancel all",
     "retryFailed": "Retry failed ({{count}})",
     "dismiss": "Dismiss"
   },
@@ -266,5 +274,138 @@
     "otherOrigin": "Library {{library}}",
     "otherOriginChannel": "Library {{library}}, channel {{channel}}",
     "runningNote": "Stop keeps the nodes that have not started from starting."
+  },
+  "model": {
+    "chip": {
+      "edited": "Edited",
+      "held": "Held",
+      "unknown": "Not known",
+      "gone": "Not in the gallery",
+      "cleanup": "Old version kept"
+    },
+    "phase": {
+      "queued": "waiting to start",
+      "starting": "starting",
+      "preflight": "checking the disk, the backend and the files",
+      "staging": "downloading the new files",
+      "unloading": "stopping the model",
+      "committing": "switching to the new version",
+      "loading": "starting the new version",
+      "confirmed": "done",
+      "rolling-back": "putting the old version back",
+      "rolled-back": "old version put back",
+      "failed": "failed",
+      "resolving": "finding the files",
+      "downloading": "downloading",
+      "verifying": "checking the files",
+      "persisting": "saving"
+    },
+    "detail": {
+      "failed": "The upgrade failed: {{message}}. The old version keeps serving.",
+      "rolledBack": "The upgrade failed and the old version was put back: {{message}}. The old version keeps serving.",
+      "updating": "Upgrading: {{phase}}",
+      "edited_one": "You edited {{count}} key that this update also changes. Choose which value to keep.",
+      "edited_other": "You edited {{count}} keys that this update also changes. Choose which value to keep.",
+      "configOnly": "Only the config or the prompt templates change. Nothing downloads.",
+      "files_one": "{{count}} file changes.",
+      "files_other": "{{count}} files change.",
+      "held": "Held at this version.",
+      "heldNewer": "Held at this version. The gallery has a newer one.",
+      "legacy": "LocalAI did not record where this model came from. Adopt it to get updates. Your config is not changed.",
+      "notChecked": "Not checked yet.",
+      "checkFailed": "The check could not read the gallery entry: {{message}}",
+      "unreadable": "The model files could not be read: {{message}}",
+      "gone": "No gallery lists {{entry}} any more. The installed version keeps working.",
+      "cleanup_one": "Upgraded. The old version stays on disk ({{count}} file) until you remove it.",
+      "cleanup_other": "Upgraded. The old version stays on disk ({{count}} files) until you remove it."
+    },
+    "action": {
+      "upgrade": "Upgrade",
+      "upgradeNamed": "Upgrade {{name}}",
+      "removeOld": "Remove old version",
+      "removeOldNamed": "Remove the old version of {{name}}",
+      "hold": "Hold this version",
+      "release": "Release hold",
+      "releaseNamed": "Release the hold on {{name}}",
+      "more": "More actions for {{name}}",
+      "adopt": "Adopt",
+      "adoptNamed": "Adopt {{name}}"
+    },
+    "dialog": {
+      "title": "Upgrade {{name}}?",
+      "intro": "From {{from}} to {{to}}. Nothing changes until you confirm.",
+      "loadedTitle": "{{name}} is loaded now.",
+      "loadedBody": "The upgrade stops it, switches the files and the config, and starts it again. Requests to it wait or fail until it is back. If the new version does not start, the old one is put back.",
+      "notLoaded": "{{name}} is not loaded now. The upgrade starts the new version once to check that it works, and puts the old one back if it does not.",
+      "loadUnknown": "Could not tell whether {{name}} is loaded. If it is, the upgrade stops it and starts it again.",
+      "filesTitle": "Files",
+      "noFiles": "No file changes.",
+      "disk": "The new files download next to the old ones, so the disk needs room for both. The gallery does not give the file sizes, so the space needed is not known before the download.",
+      "diskNone": "Nothing downloads.",
+      "uncheckedTitle_one": "{{count}} file has no checksum in the gallery.",
+      "uncheckedTitle_other": "{{count}} files have no checksum in the gallery.",
+      "uncheckedBody": "The upgrade does not download weights without a checksum, so it stops at the first check.",
+      "configOnly": "Apply only the config and the prompt templates",
+      "configOnlyHint": "This update changes no model file, so nothing downloads.",
+      "keysTitle": "Keys you edited that the update also changes",
+      "keysIntro": "Choose the value to keep for each key. The upgrade cannot start until every key has a choice.",
+      "keepMine": "Keep mine",
+      "takeGallery": "Take the gallery's",
+      "notSet": "not set",
+      "kept_one": "Kept as you set it: {{keys}}. The update does not change it.",
+      "kept_other": "Kept as you set them: {{keys}}. The update does not change them.",
+      "after": "The old version stays on disk after the upgrade. Remove it with \"Remove old version\".",
+      "missing_one": "Choose a value for {{count}} key",
+      "missing_other": "Choose a value for {{count}} keys",
+      "confirm": "Upgrade",
+      "confirmStop": "Stop and upgrade",
+      "needChoices": "The server asks for a choice on more keys. Choose a value for each, then confirm again.",
+      "startFailed": "The upgrade could not start: {{message}}"
+    },
+    "change": {
+      "added": "new",
+      "changed": "changed",
+      "removed": "removed"
+    },
+    "role": {
+      "weights": "weights",
+      "mmproj": "vision projector",
+      "template": "prompt template",
+      "artifact": "artifact",
+      "config": "config"
+    },
+    "remove": {
+      "title": "Remove the old version of {{name}}?",
+      "body_one": "This deletes {{count}} old file that the upgrade kept. The model keeps running on the new version. This cannot be undone.",
+      "body_other": "This deletes {{count}} old files that the upgrade kept. The model keeps running on the new version. This cannot be undone.",
+      "confirm": "Remove old version",
+      "pending": "Removing…"
+    },
+    "live": {
+      "started": "The upgrade of {{name}} started.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: {{count}} old file removed.",
+      "removed_other": "{{name}}: {{count}} old files removed.",
+      "held": "{{name}} is held at this version.",
+      "released": "{{name}} is no longer held.",
+      "adopted": "{{name}} adopted from gallery {{gallery}}. LocalAI now checks it for updates.",
+      "adoptedDiffers": "{{name}} adopted from gallery {{gallery}}. Its files differ from the gallery entry, so an update is offered.",
+      "adoptedNoCheck": "{{name}} adopted, but the update check failed: {{message}}",
+      "adoptFailed": "{{name}} could not be adopted: {{message}}"
+    },
+    "card": {
+      "title": "Updates",
+      "current": "Up to date",
+      "open": "Open Updates",
+      "holdHint": "Offer no update for this model until you turn this off."
+    },
+    "adopt": {
+      "title": "Adopt {{name}}",
+      "intro": "More than one gallery lists this model. Choose the entry it came from.",
+      "legend": "Gallery entries",
+      "gallery": "Gallery {{gallery}}",
+      "after": "LocalAI records the entry and checks it for updates. Your config is not changed.",
+      "failed": "Could not adopt: {{message}}"
+    }
   }
 }

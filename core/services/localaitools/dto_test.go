@@ -37,3 +37,13 @@ var _ = Describe("DTOs round-trip through JSON", func() {
 		roundTripDTO(ImportModelURIResponse{JobID: "j", DiscoveredModelName: "m", AmbiguousBackend: true, Modality: "tts", BackendCandidates: []string{"a", "b"}, Hint: "h"})
 	})
 })
+
+var _ = Describe("The route of a node", func() {
+	It("is NATS first, then the tunnel over P2P or over a websocket", func() {
+		Expect(NodeRoute([]string{"nats", "tunnel"}, "")).To(Equal("nats"))
+		Expect(NodeRoute([]string{"tunnel"}, "12D3KooW")).To(Equal("p2p"))
+		Expect(NodeRoute([]string{"tunnel"}, "")).To(Equal("websocket"))
+		Expect(NodeRoute([]string{""}, "")).To(BeEmpty())
+		roundTripDTO(Node{ID: "n", Route: "p2p", PeerID: "12D3KooW"})
+	})
+})

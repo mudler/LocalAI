@@ -110,7 +110,7 @@ const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
 // eslint-disable-next-line no-unused-vars
-const OperateOverview = page('operate', () => import('./pages/OperateOverview'))
+const AdminOverview = page('operate', () => import('./pages/AdminOverview'))
 const Backends = page('backends', () => import('./pages/Backends'))
 const Updates = page('updates', () => import('./pages/Updates'))
 const UpdateBackend = page('update-backend', () => import('./pages/UpdateBackend'))
@@ -122,6 +122,8 @@ const Activity = page('activity', () => import('./pages/Activity'))
 const Settings = page('settings', () => import('./pages/Settings'))
 const Traces = page('traces', () => import('./pages/Traces'))
 const P2P = page('p2p', () => import('./pages/P2P'))
+const P2PSettings = page('p2p', () => import('./pages/P2PSettings'))
+const Federation = page('p2p', () => import('./pages/Federation'))
 const Collections = page('collections', () => import('./pages/Collections'))
 const ModelEditor = page(null, () => import('./pages/ModelEditor'))
 // Rendered by Models, through its <Outlet/>: the list stays mounted behind it.
@@ -130,10 +132,13 @@ const ModelPage = page(null, () => import('./pages/ModelPage'))
 // PipelineEditor removed — the Model Editor with templates handles all model types
 const ImportModel = page(null, () => import('./pages/ImportModel'))
 const BackendLogs = page(null, () => import('./pages/BackendLogs'))
-const Explorer = page(null, () => import('./pages/Explorer'))
 const Login = page(null, () => import('./pages/Login'))
 const Nodes = page('nodes', () => import('./pages/Nodes'))
-const Scheduling = page('scheduling', () => import('./pages/Scheduling'))
+// Placement holds the rules and the failover chains as two views of one page.
+// eslint-disable-next-line no-unused-vars
+const Placement = page('scheduling', () => import('./pages/Placement'))
+// eslint-disable-next-line no-unused-vars
+const FailoverEntry = page('failover', () => import('./pages/Placement').then(m => ({ default: m.FailoverEntry })))
 const NodeBackendLogs = page(null, () => import('./pages/NodeBackendLogs'))
 const NodeDetail = page(null, () => import('./pages/NodeDetail'))
 // eslint-disable-next-line no-unused-vars
@@ -158,8 +163,8 @@ const Prometheus = page(null, () => import('./pages/Prometheus'))
 // eslint-disable-next-line no-unused-vars
 const TracePage = page(null, () => import('./pages/TracePage'))
 const Users = page('users', () => import('./pages/Users'))
+const ApiKeys = page('api-keys', () => import('./pages/ApiKeys'))
 const Middleware = page('middleware', () => import('./pages/Middleware'))
-const Failover = page('failover', () => import('./pages/Failover'))
 const Account = page('account', () => import('./pages/Account'))
 const Addons = page('addons', () => import('./pages/Addons'))
 // Only referenced from JSX below, which eslint cannot see.
@@ -172,11 +177,14 @@ const MCPConnectors = page('mcp-connectors', () => import('./pages/MCPConnectors
 import HubLayout from './components/hub/HubLayout'
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
+import AdminLayout from './components/admin/AdminLayout'
+// Only referenced from JSX below, which eslint cannot see.
+// eslint-disable-next-line no-unused-vars
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { bareChatsRedirect, chatsRedirect } from './utils/legacyRoutes'
-import { legacyAddonsHub, operateHub } from './components/hub/hubConfig'
+import { legacyAddonsHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
 // The old chat page became the chats and the old agent-jobs pages became the
@@ -323,12 +331,12 @@ const appChildren = [
   { path: 'agent-jobs/*', element: <ChatsRedirect /> },
   { path: 'agent-jobs', element: <ChatsRedirect /> },
 
-  // Operate hub (admin): one tab bar over the runtime, cluster, traffic and
-  // settings pages.
+  // Administration (admin): its own sidebar (components/admin) lists the
+  // runtime, cluster, traffic, access and settings pages.
   {
-    element: <HubLayout config={operateHub} />,
+    element: <AdminLayout />,
     children: [
-      { path: 'operate', element: <Admin><OperateOverview /></Admin> },
+      { path: 'operate', element: <Admin><AdminOverview /></Admin> },
       { path: 'backends', element: <Admin><Backends /></Admin> },
       { path: 'activity', element: <Admin><Activity /></Admin> },
       { path: 'updates', element: <Admin><Updates /></Admin> },
@@ -343,16 +351,20 @@ const appChildren = [
       { path: 'backend-logs', element: <Admin><BackendLogs /></Admin> },
       { path: 'backend-logs/:modelId', element: <Admin><BackendLogs /></Admin> },
       { path: 'p2p', element: <Admin><P2P /></Admin> },
+      { path: 'p2p/settings', element: <Admin><P2PSettings /></Admin> },
+      { path: 'p2p/federation', element: <Admin><Federation /></Admin> },
       { path: 'nodes', element: <Admin><Nodes /></Admin> },
       { path: 'nodes/add', element: <Admin><AddNode /></Admin> },
       { path: 'nodes/:id', element: <Admin><NodeDetail /></Admin> },
-      { path: 'scheduling', element: <Admin><Scheduling /></Admin> },
+      { path: 'scheduling', element: <Admin><Placement view="rules" /></Admin> },
+      { path: 'scheduling/failover', element: <Admin><Placement view="failover" /></Admin> },
       { path: 'node-backend-logs/:nodeId/:modelId', element: <Admin><NodeBackendLogs /></Admin> },
       { path: 'usage', element: <Usage /> },
       { path: 'users', element: <RequireAuthEnabled><Admin><Users /></Admin></RequireAuthEnabled> },
+      { path: 'api-keys', element: <RequireAuthEnabled><Admin><ApiKeys /></Admin></RequireAuthEnabled> },
       { path: 'chats-admin', element: <Admin><ServerSwitch name="chats" to="/app/operate"><ChatsAdmin /></ServerSwitch></Admin> },
       { path: 'middleware', element: <Admin><Middleware /></Admin> },
-      { path: 'failover', element: <Admin><Failover /></Admin> },
+      { path: 'failover', element: <Admin><FailoverEntry /></Admin> },
     ],
   },
 
@@ -380,10 +392,6 @@ export const router = createBrowserRouter([
   {
     path: '/invite/:code',
     element: <Login />,
-  },
-  {
-    path: '/explorer',
-    element: <Explorer />,
   },
   {
     path: '/app',

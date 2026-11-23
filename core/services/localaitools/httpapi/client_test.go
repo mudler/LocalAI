@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -182,6 +183,59 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(out.Results).To(HaveLen(1))
 			Expect(out.Results[0].Seeders).To(Equal(int64(3)))
 			Expect(out.Providers[0].OK).To(BeTrue())
+		})
+	})
+
+	Describe("model-split workers and split servers", func() {
+		It("reads the relay admission of the node of a worker, and declares a split server", func() {
+			var body map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/p2p/split-workers":
+					_, _ = w.Write([]byte(`{"workers":[{"id":"w1","label":"attic","engine":"llama","state":"offline","path":{"kind":"none"},"node_id":"n1","node_name":"gpu-1","node_offline":true,"node_relay":{"state":"refused","reason":"the relay is full"}},{"id":"w2","node_note":"gpu-2 is no longer a split server","path":{"kind":"none"}}]}`))
+				case "/api/nodes/n1/split-server":
+					Expect(r.Method).To(Equal(http.MethodPut))
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					_, _ = w.Write([]byte(`{"split_server":false,"detached":2}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+			ws, err := c.ListP2PSplitWorkers(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ws).To(HaveLen(2))
+			Expect(ws[0].NodeRelay).To(Equal("refused"))
+			Expect(ws[0].NodeRelayReason).To(Equal("the relay is full"))
+			Expect(ws[0].NodeOffline).To(BeTrue())
+			Expect(ws[1].NodeNote).To(ContainSubstring("no longer a split server"))
+
+			r, err := c.SetNodeSplitServer(ctx, "n1", false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(body).To(HaveKeyWithValue("split_server", false))
+			Expect(r.Detached).To(Equal(2))
+			Expect(r.NodeID).To(Equal("n1"))
+		})
+	})
+
+	Describe("ListNodes", func() {
+		It("carries the live state of each route of a node", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.URL.Path).To(Equal("/api/nodes"))
+				_, _ = w.Write([]byte(`[{"id":"n1","status":"healthy","attached":"tunnel","route_state":[{"route":"heartbeat","state":"live"},{"route":"nats","state":"down","reason":"connecting"},{"route":"tunnel","transport":"websocket","state":"live"}]}]`))
+			}))
+			defer srv.Close()
+			list, err := New(srv.URL, "").ListNodes(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list).To(HaveLen(1))
+			Expect(list[0].Healthy).To(BeTrue())
+			Expect(list[0].Route).To(Equal("websocket"))
+			Expect(list[0].Routes).To(Equal([]localaitools.NodeRouteState{
+				{Route: "heartbeat", State: "live"},
+				{Route: "nats", State: "down", Reason: "connecting"},
+				{Route: "tunnel", Transport: "websocket", State: "live"},
+			}))
 		})
 	})
 
@@ -785,5 +839,272 @@ var _ = Describe("Backend updates", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.Items[0].Name).To(Equal("llama-cpp"))
 		Expect(seen).To(Equal([]string{"GET /backends/updates", "POST /backends/updates/check"}))
+	})
+})
+
+var _ = Describe("Carrier weights", func() {
+	It("reads the weights from GET /api/cluster/settings and writes them with PUT", func() {
+		var put map[string]map[string]int
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/cluster/settings"))
+			view := map[string]any{
+				"carrier_weights":         map[string]int{"nats": 100, "websocket": 7, "p2p": 25},
+				"carrier_weights_default": map[string]int{"nats": 100, "websocket": 50, "p2p": 25},
+			}
+			if r.Method == http.MethodPut {
+				Expect(json.NewDecoder(r.Body).Decode(&put)).To(Succeed())
+				_ = json.NewEncoder(w).Encode(map[string]any{"saved": true, "settings": view})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(view)
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+
+		got, err := c.GetCarrierWeights(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got.Distributed).To(BeTrue())
+		Expect(got.Weights.WebSocket).To(Equal(7))
+		Expect(got.Defaults.WebSocket).To(Equal(50))
+
+		ws := 7
+		set, err := c.SetCarrierWeights(context.Background(), localaitools.SetCarrierWeightsRequest{WebSocket: &ws})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(put).To(Equal(map[string]map[string]int{"carrier_weights": {"websocket": 7}}))
+		Expect(set.Weights.WebSocket).To(Equal(7))
+
+		_, err = c.SetCarrierWeights(context.Background(), localaitools.SetCarrierWeightsRequest{})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("reports distributed=false when the server answers 503", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"distributed mode is not enabled on this frontend"}`))
+		}))
+		DeferCleanup(srv.Close)
+		out, err := New(srv.URL, "").GetCarrierWeights(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Distributed).To(BeFalse())
+	})
+})
+
+var _ = Describe("P2P", func() {
+	It("reads the status, devices, invites and relays from the REST routes", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodGet))
+			switch r.URL.Path {
+			case "/api/p2p/status":
+				_ = json.NewEncoder(w).Encode(map[string]any{"mode": "share", "running": true, "devices": 2, "relay_service": map[string]any{"running": true}})
+			case "/api/p2p/devices":
+				_ = json.NewEncoder(w).Encode(map[string]any{"devices": []map[string]any{
+					{"id": "d1", "label": "laptop", "status": "active", "online": true, "all_models": true, "path": map[string]any{"kind": "relayed", "relay_label": "home"}},
+				}})
+			case "/api/p2p/invites":
+				_ = json.NewEncoder(w).Encode(map[string]any{"invites": []map[string]any{
+					{"id": "i1", "status": "pending", "relay_pass": "home", "models": []string{"a", "b"}},
+					{"id": "i2", "status": "used", "phrase": "amber canal dune echo", "all_models": true},
+				}})
+			case "/api/p2p/relays":
+				_ = json.NewEncoder(w).Encode(map[string]any{"relays": []map[string]any{{"id": "r1", "state": "in_sync"}}})
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		ctx := context.Background()
+
+		st, err := c.GetP2PStatus(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(st.Mode).To(Equal("share"))
+		Expect(st.Devices).To(Equal(2))
+		Expect(st.RelayService).To(BeTrue())
+
+		devs, err := c.ListP2PDevices(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(devs).To(ConsistOf(localaitools.P2PDeviceInfo{ID: "d1", Label: "laptop", Status: "active", Online: true, AllModels: true, Path: "relayed", RelayLabel: "home"}))
+
+		invs, err := c.ListP2PInvites(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(invs[0].Status).To(Equal("pending"))
+		Expect(invs[0].RelayPass).To(Equal("home"))
+		Expect(invs[0].Models).To(Equal([]string{"a", "b"}))
+		Expect(invs[0].AllModels).To(BeFalse())
+		Expect(invs[1].AllModels).To(BeTrue())
+		Expect(invs[1].Phrase).To(Equal("amber canal dune echo"))
+
+		rs, err := c.ListP2PRelays(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rs[0].State).To(Equal("in_sync"))
+	})
+
+	It("reads and changes the limits of a relay", func() {
+		var put map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/api/p2p/relays/r 1/limits"))
+			if r.Method == http.MethodPut {
+				Expect(json.NewDecoder(r.Body).Decode(&put)).To(Succeed())
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"limits": map[string]any{"circuit_bytes": 1 << 30, "circuit_seconds": 1800, "rate_bps": 65536}, "ceiling": map[string]any{"circuit_bytes": 8 << 30, "circuit_seconds": 86400, "rate_bps": 0}, "can_change": true, "restarted": r.Method == http.MethodPut,
+			})
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+
+		info, err := c.GetP2PRelayLimits(context.Background(), "r 1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info).To(Equal(&localaitools.P2PRelayLimitsInfo{CircuitBytes: 1 << 30, CircuitSeconds: 1800, RateBPS: 65536, Ceiling: localaitools.P2PRelayCeiling{CircuitBytes: 8 << 30, CircuitSeconds: 86400}, CanChange: true}))
+
+		rate := int64(65536)
+		info, err = c.SetP2PRelayLimits(context.Background(), "r 1", localaitools.SetP2PRelayLimitsRequest{ID: "r 1", RateBPS: &rate})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(info.Restarted).To(BeTrue())
+		Expect(put).To(Equal(map[string]any{"rate_bps": float64(65536)}))
+	})
+
+	It("revokes a device and cancels an invite with DELETE", func() {
+		var paths []string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodDelete))
+			paths = append(paths, r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		Expect(c.RevokeP2PDevice(context.Background(), "d 1")).To(Succeed())
+		Expect(c.CancelP2PInvite(context.Background(), "i1")).To(Succeed())
+		Expect(paths).To(Equal([]string{"/api/p2p/devices/d 1", "/api/p2p/invites/i1"}))
+	})
+})
+
+var _ = Describe("Federation", func() {
+	It("reads GET /api/federation into the DTOs", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.Method).To(Equal(http.MethodGet))
+			Expect(r.URL.Path).To(Equal("/api/federation"))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"instances": []map[string]any{{"id": "r1", "name": "Branch", "transport": "p2p", "in_flight": 1,
+					"p2p":    map[string]any{"peer_id": "12D3KooW", "state": "up", "path": "relayed", "limited": true, "local_port": 4100},
+					"models": []map[string]any{{"model": "branch-qwen", "upstream_id": "qwen"}}}},
+				"groups": []map[string]any{{"name": "g", "policy": "least_busy", "members": []map[string]any{{"model": "branch-qwen", "instance": "r1", "drained": true, "in_flight": 1}}}},
+			})
+		}))
+		DeferCleanup(srv.Close)
+		out, err := New(srv.URL, "").GetFederation(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out.Instances[0].P2P).To(Equal(&localaitools.FederationP2PInfo{PeerID: "12D3KooW", State: "up", Path: "relayed", Limited: true}))
+		Expect(out.Instances[0].Models).To(Equal([]localaitools.FederationModelInfo{{Model: "branch-qwen", UpstreamID: "qwen"}}))
+		Expect(out.Groups[0].Members[0].Drained).To(BeTrue())
+	})
+
+	DescribeTable("sends each action of manage_federation_group to its route",
+		func(req localaitools.FederationGroupAction, method, path string, body map[string]any) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				Expect(r.Method).To(Equal(method))
+				Expect(r.URL.Path).To(Equal(path))
+				if body != nil {
+					var got map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&got)).To(Succeed())
+					Expect(got).To(Equal(body))
+				}
+				if method == http.MethodDelete {
+					w.WriteHeader(http.StatusNoContent)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "g", "policy": "round_robin", "members": []any{}})
+			}))
+			DeferCleanup(srv.Close)
+			g, err := New(srv.URL, "").ManageFederationGroup(context.Background(), req)
+			Expect(err).ToNot(HaveOccurred())
+			if method == http.MethodDelete {
+				Expect(g).To(BeNil())
+			} else {
+				Expect(g.Name).To(Equal("g"))
+			}
+		},
+		Entry("create", localaitools.FederationGroupAction{Action: "create", Name: "g", Members: []string{"a", "b"}},
+			http.MethodPost, "/api/federation/groups", map[string]any{"name": "g", "policy": "", "members": []any{"a", "b"}}),
+		Entry("update", localaitools.FederationGroupAction{Action: "update", Name: "g", Policy: "round_robin"},
+			http.MethodPatch, "/api/federation/groups/g", map[string]any{"policy": "round_robin"}),
+		Entry("drain", localaitools.FederationGroupAction{Action: "drain", Name: "g", Model: "a"},
+			http.MethodPost, "/api/federation/groups/g/drain", map[string]any{"model": "a", "drain": true}),
+		Entry("undrain", localaitools.FederationGroupAction{Action: "undrain", Name: "g", Model: "a"},
+			http.MethodPost, "/api/federation/groups/g/drain", map[string]any{"model": "a", "drain": false}),
+		Entry("delete", localaitools.FederationGroupAction{Action: "delete", Name: "g"},
+			http.MethodDelete, "/api/federation/groups/g", nil),
+	)
+})
+var _ = Describe("Model updates", func() {
+	It("reads, checks and changes model upgrades through the REST routes", func() {
+		var seen []string
+		var bodies []map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			bodies = append(bodies, body)
+			switch {
+			case strings.HasPrefix(r.URL.Path, "/api/models/updates"):
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"sources": map[string]any{"gallery": map[string]any{"state": "ok"}},
+					"items":   []map[string]any{{"id": "model:tiny", "kind": "model", "name": "tiny", "state": "update-available"}},
+				})
+			case strings.HasSuffix(r.URL.Path, "/remove-old"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "removed": []string{"tiny.gguf.prev-1"}})
+			case strings.HasSuffix(r.URL.Path, "/hold"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "hold": body["hold"]})
+			case strings.HasSuffix(r.URL.Path, "/adopt"):
+				_ = json.NewEncoder(w).Encode(map[string]any{"name": "tiny", "gallery": body["gallery"], "entry": "tiny", "filesMatch": true})
+			default:
+				_ = json.NewEncoder(w).Encode(map[string]any{"id": "op-1", "jobID": "op-1", "status_url": "/models/jobs/op-1"})
+			}
+		}))
+		DeferCleanup(srv.Close)
+
+		ctx := context.Background()
+		c := New(srv.URL, "")
+		snap, err := c.ModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(snap.Items).To(HaveLen(1))
+		_, err = c.CheckModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+
+		job, err := c.UpgradeModel(ctx, "tiny", true, map[string]string{"context_size": "gallery"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(job).To(Equal("op-1"))
+		job, err = c.RetryModelUpgrade(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(job).To(Equal("op-1"))
+		removed, err := c.RemoveOldModelVersion(ctx, "tiny")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(removed.Removed).To(ConsistOf("tiny.gguf.prev-1"))
+		held, err := c.SetModelHold(ctx, "tiny", true)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(held.Hold).To(BeTrue())
+		adopted, err := c.AdoptModel(ctx, "tiny", "localai", "")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(*adopted).To(Equal(localaitools.ModelAdoptResult{Name: "tiny", Gallery: "localai", Entry: "tiny", FilesMatch: true}))
+
+		Expect(seen).To(Equal([]string{
+			"GET /api/models/updates", "POST /api/models/updates/check",
+			"POST /api/models/upgrade/tiny", "POST /api/models/tiny/upgrade/retry",
+			"POST /api/models/tiny/remove-old", "PUT /api/models/tiny/hold",
+			"POST /api/models/tiny/adopt",
+		}))
+		Expect(bodies[6]).To(Equal(map[string]any{"gallery": "localai"}))
+		Expect(bodies[2]).To(Equal(map[string]any{"config_only": true, "choices": map[string]any{"context_size": "gallery"}}))
+		Expect(bodies[5]).To(Equal(map[string]any{"hold": true}))
+	})
+
+	It("surfaces the edited keys of a refused upgrade", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "the update changes keys that were edited", "keys": []string{"context_size"}})
+		}))
+		DeferCleanup(srv.Close)
+		_, err := New(srv.URL, "").UpgradeModel(context.Background(), "tiny", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("context_size")))
 	})
 })

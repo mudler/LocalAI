@@ -11,7 +11,6 @@ import (
 // one today.
 var backendsWithoutWindowsBuild = map[string]bool{
 	"mlx-distributed": true,
-	"p2p-mlx":         true,
 	"vllm":            true,
 	"ds4-distributed": true,
 }
@@ -27,7 +26,7 @@ func requireBackendBuild(goos, command, backend string) error {
 	if !backendsWithoutWindowsBuild[command] {
 		return nil
 	}
-	return fmt.Errorf("`local-ai worker %s` is not available on Windows: the %s backend has no Windows build. Run this worker on Linux or macOS, or use `local-ai worker llama-cpp-rpc` or `local-ai worker p2p-llama-cpp-rpc`, which work on Windows", command, backend)
+	return fmt.Errorf("`local-ai worker %s` is not available on Windows: the %s backend has no Windows build. Run this worker on Linux or macOS, or use `local-ai worker llama-cpp-rpc`, which works on Windows", command, backend)
 }
 
 // executableName returns the file name of a backend executable on goos.

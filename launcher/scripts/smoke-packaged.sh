@@ -36,6 +36,13 @@
 #   SMOKE_PORT         port of the fake release server (default 18081).
 #
 # Use `--appimage-extract-and-run` as an extra argument on hosts without FUSE 2.
+#
+# SMOKE_CONTAINER_IMAGE=<image> (Linux only): run the AppImage inside that
+# Docker image instead of on the host, as the same user, on the host's
+# display, network and process namespace (so the checks above work
+# unchanged). The image must have bash. Use it with a musl image
+# (scripts/portable-linux/musl-smoke.Dockerfile) to prove that the AppImage
+# starts on a host without glibc; the kernel is still the host's. Needs Docker.
 set -euo pipefail
 
 TARGET=$(cd "$(dirname "${1:?usage: smoke-packaged.sh <AppImage or .app> [args...]}")" && pwd)/$(basename "$1")
@@ -90,6 +97,24 @@ fi
 node "$HERE/fake-release-server.mjs" "$SMOKE_PORT" "$SMOKE_DIR/feed" "$FEEDLOG" &
 FEED_PID=$!
 trap 'kill $FEED_PID 2>/dev/null || true' EXIT
+
+if [ -n "${SMOKE_CONTAINER_IMAGE:-}" ]; then
+  [ "$OS" = linux ] || { echo "FAIL: SMOKE_CONTAINER_IMAGE works on Linux only"; exit 2; }
+  # APP_EXE becomes a launcher that starts the AppImage in the container.
+  cat > "$SMOKE_DIR/run-in-container.sh" <<EOS
+#!/bin/sh
+set -e
+x11=
+[ -z "\${XAUTHORITY:-}" ] || x11="-v \$XAUTHORITY:\$XAUTHORITY:ro"
+exec docker run --rm --init --pid=host --network=host --user "\$(id -u):\$(id -g)" \\
+  -v "$SMOKE_DIR:$SMOKE_DIR" -v "$(dirname "$TARGET"):$(dirname "$TARGET"):ro" -v /tmp/.X11-unix:/tmp/.X11-unix \$x11 \\
+  -e DISPLAY -e XAUTHORITY -e HOME -e XDG_CONFIG_HOME -e TMPDIR \\
+  -e LOCALAI_LAUNCHER_SIGNAL_FILE -e LOCALAI_LAUNCHER_FEED_URL -e LOCALAI_LAUNCHER_ENDPOINT \\
+  "$SMOKE_CONTAINER_IMAGE" "$TARGET" "\$@"
+EOS
+  chmod +x "$SMOKE_DIR/run-in-container.sh"
+  APP_EXE="$SMOKE_DIR/run-in-container.sh"
+fi
 
 export APP_EXE SIGNAL SMOKE_DIR FEEDLOG SMOKE_SELF_UPDATE SMOKE_TIMEOUT OS
 export HOME="$SMOKE_DIR/home" XDG_CONFIG_HOME="$SMOKE_DIR/home/.config" TMPDIR="$SMOKE_DIR/tmp"

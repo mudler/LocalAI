@@ -8,9 +8,9 @@ import (
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
@@ -219,7 +219,7 @@ var _ = Describe("a credentials-only connector binding", func() {
 			raw, _ := st.GetBinding(ctx, b.ID)
 			raw.NotifyChat = "11"
 			Expect(st.PutBinding(ctx, raw)).To(Succeed())
-			r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "t", Body: "b"})
+			r.conns.Forward(ctx, notify.Notification{Principal: alice, Source: notify.SourceTrigger, Title: "t", Body: "b"})
 			Consistently(func() int { return len(r.bot.answers()) }, "300ms").Should(BeZero())
 		})
 		It("still gives its token to a tool call", func() {

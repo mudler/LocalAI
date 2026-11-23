@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -232,10 +232,8 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
-		// Generate P2P token before saving so the real token is persisted (not "0")
-		if settings.P2PToken != nil && *settings.P2PToken == "0" {
-			token := p2p.GenerateToken(60, 60)
-			settings.P2PToken = &token
+		if msg := validateP2PSettings(app, settings); msg != "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
 		}
 
 		// Save to file
@@ -314,6 +312,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		// reconfiguration, not a server restart. Resolver preference changes
 		// take effect only at startup and must not cycle that unrelated service.
 		prevDevelopmentPreference := appConfig.PreferDevelopmentBackends
+		prevP2P := appConfig.P2P
 		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
 		restartRequired := prevDevelopmentPreference != appConfig.PreferDevelopmentBackends
 		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
@@ -430,25 +429,13 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
-		// Restart P2P if P2P settings changed
-		p2pChanged := settings.P2PToken != nil || settings.P2PNetworkID != nil || settings.Federated != nil
-		if p2pChanged {
-			if settings.P2PToken != nil && *settings.P2PToken == "" {
-				if err := app.StopP2P(); err != nil {
-					xlog.Error("Failed to stop P2P", "error", err)
-					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-						Success: false,
-						Error:   "Settings saved but failed to stop P2P: " + err.Error(),
-					})
-				}
-			} else {
-				if err := app.RestartP2P(); err != nil {
-					xlog.Error("Failed to restart P2P", "error", err)
-					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-						Success: false,
-						Error:   "Settings saved but failed to restart P2P: " + err.Error(),
-					})
-				}
+		// A change of the P2P layer's settings restarts its host.
+		if !p2pSettingsEqual(prevP2P, appConfig.P2P) {
+			if err := app.RestartP2PNet(); err != nil {
+				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but P2P did not start: " + err.Error(),
+				})
 			}
 		}
 
@@ -458,6 +445,48 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			RestartRequired: restartRequired,
 		})
 	}
+}
+
+// validateP2PSettings checks the P2P settings of a request and returns the
+// error to show, or "".
+func validateP2PSettings(app *application.Application, s config.RuntimeSettings) string {
+	if s.P2PMode != nil {
+		if err := config.ValidateP2PMode(*s.P2PMode); err != nil {
+			return "Invalid p2p_mode: " + err.Error()
+		}
+		if err := app.CheckP2PMode(*s.P2PMode); err != nil {
+			return err.Error()
+		}
+	}
+	if s.P2PRelayMode != nil {
+		if err := config.ValidateP2PRelayMode(*s.P2PRelayMode); err != nil {
+			return "Invalid p2p_relay_mode: " + err.Error()
+		}
+	}
+	if s.P2PBootstrapPeers != nil {
+		if err := config.ValidateP2PPeerAddrs(*s.P2PBootstrapPeers); err != nil {
+			return "Invalid p2p_bootstrap_peers: " + err.Error()
+		}
+	}
+	if s.P2PRelays != nil {
+		if err := config.ValidateP2PRelays(*s.P2PRelays); err != nil {
+			return "Invalid p2p_relays: " + err.Error()
+		}
+	}
+	if s.P2PRelayRateLimit != nil && *s.P2PRelayRateLimit < 0 {
+		return "Invalid p2p_relay_rate_limit: use 0 (no limit) or a number of bytes per second"
+	}
+	return ""
+}
+
+// p2pSettingsEqual compares the P2P settings before and after a request, so
+// that a save of the whole settings page restarts the P2P host only when one
+// of them changed.
+func p2pSettingsEqual(a, b config.P2PSettings) bool {
+	return a.EffectiveMode() == b.EffectiveMode() && a.DisablePublicDHT == b.DisablePublicDHT &&
+		slices.Equal(a.BootstrapPeers, b.BootstrapPeers) && config.P2PRelaysEqual(a.Relays, b.Relays) &&
+		a.NoRelayPaired == b.NoRelayPaired && a.EffectiveRelayMode() == b.EffectiveRelayMode() &&
+		a.RelayRateLimit == b.RelayRateLimit && a.DisableMDNS == b.DisableMDNS
 }
 
 var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)

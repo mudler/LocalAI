@@ -161,8 +161,8 @@ test('a cancelled install can be started again from the record', async ({ page }
 test('the empty state names the next step', async ({ page }) => {
   await stub(page)
   await page.goto('/app/activity')
-  await expect(page.locator('.activity-empty')).toContainText('No operations since startup')
-  await expect(page.locator('.activity-empty').getByRole('link', { name: 'Browse models' })).toHaveAttribute('href', '/app/models')
+  await expect(page.locator('.ui-empty')).toContainText('No operations since startup')
+  await expect(page.locator('.ui-empty').getByRole('link', { name: 'Browse models' })).toHaveAttribute('href', '/app/models')
 })
 
 test('fits a phone, with the actions under the name', async ({ page }) => {
@@ -422,12 +422,12 @@ test('a filter matching nothing does not claim the instance is empty', async ({ 
   await page.goto('/app/activity')
   await expect(page.locator('.activity-row')).toHaveCount(3)
 
-  await page.locator('.activity-chip', { hasText: 'Backends' }).click()
+  await page.locator('.ui-seg__item', { hasText: 'Backends' }).click()
 
-  await expect(page.locator('.activity-empty--filtered')).toBeVisible()
-  await expect(page.locator('.activity-empty')).not.toContainText('No operations since startup')
+  await expect(page.locator('.ui-empty--no-results')).toBeVisible()
+  await expect(page.locator('.ui-empty')).not.toContainText('No operations since startup')
   // And the way back out is on screen.
-  await page.locator('.activity-empty--filtered button').click()
+  await page.locator('.ui-empty--no-results button').click()
   await expect(page.locator('.activity-row')).toHaveCount(3)
 })
 
@@ -567,7 +567,7 @@ test('filters the record down to backends', async ({ page }) => {
   await page.goto('/app/activity')
   await expect(page.locator('.activity-row')).toHaveCount(2)
 
-  await page.locator('.activity-chip', { hasText: 'Backends' }).click()
+  await page.locator('.ui-seg__item', { hasText: 'Backends' }).click()
 
   await expect(page.locator('.activity-row')).toHaveCount(1)
   await expect(page.locator('.activity-row')).toContainText('bark-cpp')
@@ -579,5 +579,5 @@ test('shows the empty state when nothing has run', async ({ page }) => {
   await page.goto('/app/activity')
 
   await expect(page.locator('.page-title')).toBeVisible()
-  await expect(page.locator('.activity-empty')).toBeVisible()
+  await expect(page.locator('.ui-empty')).toBeVisible()
 })

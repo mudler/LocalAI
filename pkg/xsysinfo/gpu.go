@@ -132,41 +132,32 @@ func GPUs() ([]*gpu.GraphicsCard, error) {
 }
 
 func TotalAvailableVRAM() (uint64, error) {
-	// First, try ghw library detection
-	gpus, err := GPUs()
-	if err == nil {
-		var totalVRAM uint64
-		for _, gpu := range gpus {
-			if gpu != nil && gpu.Node != nil && gpu.Node.Memory != nil {
-				if gpu.Node.Memory.TotalUsableBytes > 0 {
-					totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
-				}
-			}
-		}
-		// If we got valid VRAM from ghw, return it
-		if totalVRAM > 0 {
-			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
-			return capped, nil
-		}
+	gpus, _ := GPUs()
+	if total := totalVRAM(GetGPUMemoryUsage(), gpus); total > 0 {
+		capped, _ := DefaultVRAMBudget().Apply(total, total)
+		return capped, nil
 	}
-
-	// Fallback to binary-based detection via GetGPUMemoryUsage()
-	// This works even when ghw dependencies are missing from the base image
-	gpuMemoryInfo := GetGPUMemoryUsage()
-	if len(gpuMemoryInfo) > 0 {
-		var totalVRAM uint64
-		for _, gpu := range gpuMemoryInfo {
-			totalVRAM += gpu.TotalVRAM
-		}
-		if totalVRAM > 0 {
-			xlog.Debug("VRAM detected via binary tools", "total_vram", totalVRAM)
-			capped, _ := DefaultVRAMBudget().Apply(totalVRAM, totalVRAM)
-			return capped, nil
-		}
-	}
-
-	// No VRAM detected
 	return 0, nil
+}
+
+// totalVRAM prefers binary detection (nvidia-smi/rocm-smi report true
+// per-card VRAM) over ghw, whose per-card memory can reflect NUMA node RAM
+// on some hosts -- the same order as MinPerGPUVRAM. ghw remains the
+// fallback for images without the vendor tools.
+func totalVRAM(infos []GPUMemoryInfo, cards []*gpu.GraphicsCard) uint64 {
+	var total uint64
+	for _, info := range infos {
+		total += info.TotalVRAM
+	}
+	if total > 0 {
+		return total
+	}
+	for _, card := range cards {
+		if card != nil && card.Node != nil && card.Node.Memory != nil && card.Node.Memory.TotalUsableBytes > 0 {
+			total += uint64(card.Node.Memory.TotalUsableBytes)
+		}
+	}
+	return total
 }
 
 // MinPerGPUVRAM returns the total VRAM of the SMALLEST GPU on the host (in
@@ -807,7 +798,7 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 			gttTotal, gttUsed = scaleRocmMemIfMB(gttTotal, gttUsed)
 		}
 
-		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(parts[0]),
+		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(parts[0]), amdDefaultName,
 			vramTotal, vramUsed, gttTotal, gttUsed))
 	}
 
@@ -816,7 +807,7 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 
 // amdGPUMemoryInfo builds the report for one AMD GPU, folding GTT into
 // the totals when the sizes match a shared-memory APU (#12058).
-func amdGPUMemoryInfo(index int, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
+func amdGPUMemoryInfo(index int, name string, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
 	totalBytes, usedBytes := vramTotal, vramUsed
 	if amdSharedMemoryAPU(vramTotal, gttTotal) {
 		totalBytes = vramTotal + gttTotal
@@ -837,7 +828,7 @@ func amdGPUMemoryInfo(index int, vramTotal, vramUsed, gttTotal, gttUsed uint64) 
 
 	return GPUMemoryInfo{
 		Index:        index,
-		Name:         "AMD GPU",
+		Name:         name,
 		Vendor:       VendorAMD,
 		TotalVRAM:    totalBytes,
 		UsedVRAM:     usedBytes,

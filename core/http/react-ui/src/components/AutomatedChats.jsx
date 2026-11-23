@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
-import { StatusChip } from './ui'
+import { StatusChip, Tag } from './ui'
 import { chatStatus, groupByOrigin, knownKind } from '../utils/originChats'
 
 // How many chats a group lists before "Show all".
@@ -44,7 +44,7 @@ export default function AutomatedChats({ chats, ctx, needsYou, onOpen, onDelete 
                 <div key={g.key} className="ac-group" data-testid="automated-group">
                   <div className="ac-group__head">
                     <div className="ac-group__main">
-                      <span className="ac-badge" data-testid="automated-origin-badge" title={t(`menu.origin.${kind}`)}>{t(`allChats.automated.badge.${kind}`)}</span>
+                      <Tag tone="accent" testId="automated-origin-badge" title={t(`menu.origin.${kind}`)}>{t(`allChats.automated.badge.${kind}`)}</Tag>
                       <h3 className="ac-group__title" data-testid="automated-group-title">{title}</h3>
                     </div>
                     <div className="ac-group__meta">

@@ -8,13 +8,13 @@ import { usePendingChanges } from '../../hooks/usePendingChanges'
 import { disablePush, enablePush, pushState } from '../../utils/chatPush'
 import { relativeDate } from '../../utils/fileBrowser'
 import {
-  failed, filterItems, groupByDay, iconOf, reasonText, sourceOf, targetOf, textOf, toneOf,
+  failed, filterItems, groupByDay, iconOf, linkDisabled, reasonText, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
-import { nextTab, openingTab } from '../../utils/opsActivity'
+import { openingTab } from '../../utils/opsActivity'
 import ActionMenu from '../ActionMenu'
 import ActivityTab from './ActivityTab'
 import Icon from '../Icon'
-import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows, Tabs } from '../ui'
 import './inbox.css'
 
 // How long a notification that just came in keeps its highlight.
@@ -66,11 +66,12 @@ function whenText(iso, day, locale) {
 
 // One notification: the row opens what it is about and marks it read; the
 // actions on the right mark it read or delete it.
-function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete }) {
+function InboxItem({ n, day, t, locale, fresh, busy, chatsOn, onOpen, onRead, onDelete }) {
   const id = useId()
   const when = whenText(n.created, day, locale)
   const isFailed = failed(n)
-  const target = targetOf(n)
+  const target = targetOf(n, chatsOn)
+  const noChats = linkDisabled(n, chatsOn)
   const source = sourceOf(n)
   const text = textOf(n, t)
   const body = isFailed ? reasonText(text.body) : text.body
@@ -100,6 +101,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
             <span aria-hidden="true">·</span>
             <span>{t(`inbox.source.${source}`)}</span>
             {target && <Icon name="arrow-right" className="nx-item__go" />}
+            {noChats && <><span aria-hidden="true">·</span><span data-testid="inbox-chats-off">{t('inbox.chatsOff')}</span></>}
           </span>
         </span>
         {!n.read && <span className="nx-item__dot" aria-hidden="true" />}
@@ -128,7 +130,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, onOpen, onRead, onDelete })
 // drawn only while open, so the language file and the code of this chunk load
 // on the first opening. The trigger that opened it (anchorEl) places it and is
 // ignored by the click-outside rule, so a second click on it closes the panel.
-export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }) {
+export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, chatsOn = true }) {
   const { t, i18n } = useTranslation('chats')
   const navigate = useNavigate()
   const titleId = useId()
@@ -138,9 +140,10 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
   const [done, setDone] = useState('')
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState(() => new Set())
-  // opsOnly: there is no inbox (chats off). The panel is the Activity pane
-  // alone, and nothing here asks the chats for anything.
-  const waiting = usePendingChanges({ enabled: !opsOnly })
+  // opsOnly: there is no inbox. The panel is the Activity pane alone, and
+  // nothing here asks the server for notifications. The change proposals are a
+  // part of the chats: without them nothing asks for those either.
+  const waiting = usePendingChanges({ enabled: !opsOnly && chatsOn })
   const panelRef = useRef(null)
 
   // Administrators get a second tab, Activity, for the operations (installs,
@@ -155,13 +158,6 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
   const pickTab = (next) => { setConfirm(''); setTab(next) }
   const tabLabels = { notifications: t('inbox.tabs.notifications'), activity: t('inbox.tabs.activity') }
   const activityBadge = ops.failed ? ops.failedCount : ops.count
-  const onTabKey = (e) => {
-    const next = nextTab(tab, e.key)
-    if (!next) return
-    e.preventDefault()
-    pickTab(next)
-    document.getElementById(`${titleId}-tab-${next}`)?.focus()
-  }
 
   // Beside the sidebar, the bottom edge on the entry that opened it. The
   // numbers go in as custom properties so the stylesheet owns the layout; on a
@@ -235,7 +231,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
 
   const openItem = async (n) => {
     if (!n.read) await inbox.markRead([n.id]).catch(() => {})
-    const target = targetOf(n)
+    const target = targetOf(n, chatsOn)
     if (target) {
       onClose(false)
       navigate(target)
@@ -296,7 +292,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
     } else if (inbox.filter === 'failed') {
       empty = <EmptyState variant="no-results" icon="check-circle" level={3} title={t('inbox.noFailedTitle')} body={t('inbox.noFailedBody')} testId="inbox-no-failed" />
     } else {
-      empty = <EmptyState variant="no-results" icon="inbox" level={3} title={t('inbox.emptyTitle')} body={t('inbox.emptyBody')} testId="inbox-empty" />
+      empty = <EmptyState variant="no-results" icon="inbox" level={3} title={t('inbox.emptyTitle')} body={chatsOn ? t('inbox.emptyBody') : t('inbox.emptyBodyNoChats')} testId="inbox-empty" />
     }
   }
 
@@ -326,27 +322,20 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
             </span>
           </div>
           {tabs && (
-            <div className="nx-tabs" role="tablist" aria-label={t('inbox.tabs.label')} data-testid="inbox-tabs" onKeyDown={onTabKey}>
-              {['notifications', 'activity'].map((id) => (
-                <button
-                  key={id}
-                  id={`${titleId}-tab-${id}`}
-                  type="button"
-                  role="tab"
-                  className="nx-tab"
-                  aria-selected={tab === id}
-                  aria-controls={`${titleId}-pane-${id}`}
-                  tabIndex={tab === id ? 0 : -1}
-                  data-testid={`inbox-tab-${id}`}
-                  onClick={() => pickTab(id)}
-                >
-                  {tabLabels[id]}
-                  {id === 'activity' && activityBadge > 0 && (
-                    <span className={`nx-tab__n${ops.failed ? ' nx-tab__n--failed' : ''}`} data-testid="inbox-tab-activity-count" aria-hidden="true">{activityBadge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              className="nx-tabs"
+              label={t('inbox.tabs.label')}
+              idPrefix={titleId}
+              value={tab}
+              onChange={pickTab}
+              testId="inbox-tabs"
+              itemTestId="inbox-tab-"
+              items={['notifications', 'activity'].map(id => ({
+                id,
+                label: tabLabels[id],
+                ...(id === 'activity' && activityBadge > 0 ? { count: activityBadge, countTone: ops.failed ? 'error' : 'accent', countHidden: true, countTestId: 'inbox-tab-activity-count' } : {}),
+              }))}
+            />
           )}
         </header>
         {onNotifications && (inbox.total > 0 || inbox.filter !== 'all') && <div className="nx-tools">
@@ -389,7 +378,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
           // undo does not become final by a click on a tab.
           <div
             className="nx-body"
-            {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-activity`, 'aria-labelledby': `${titleId}-tab-activity` } : {})}
+            {...(tabs ? { role: 'tabpanel', id: `${titleId}-panel-activity`, 'aria-labelledby': `${titleId}-tab-activity` } : {})}
             hidden={onNotifications}
             data-testid="inbox-pane-activity"
           >
@@ -398,7 +387,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
         )}
         {onNotifications && <div
           className="nx-body"
-          {...(tabs ? { role: 'tabpanel', id: `${titleId}-pane-notifications`, 'aria-labelledby': `${titleId}-tab-notifications` } : {})}
+          {...(tabs ? { role: 'tabpanel', id: `${titleId}-panel-notifications`, 'aria-labelledby': `${titleId}-tab-notifications` } : {})}
         >
           {waiting.count > 0 && (
             <button
@@ -429,7 +418,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false }
               <ul className="nx-list">
                 {g.items.map(n => (
                   <InboxItem
-                    key={n.id} n={n} day={g.day} t={t} locale={i18n.language} fresh={fresh.has(n.id)} busy={busy}
+                    key={n.id} n={n} day={g.day} t={t} locale={i18n.language} fresh={fresh.has(n.id)} busy={busy} chatsOn={chatsOn}
                     onOpen={openItem}
                     onRead={(x) => attempt(() => inbox.markRead([x.id]))}
                     onDelete={(x) => attempt(() => inbox.remove([x.id]))}

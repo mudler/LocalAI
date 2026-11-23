@@ -6,12 +6,13 @@ import { addonsApi } from '../utils/addonsClient'
 import { addonUpgrades } from '../utils/addonUpgrades'
 import { upgradeFailureWords } from '../components/addons/updateReview'
 import { useOperations } from './useOperations'
+import { canRetryOp } from '../utils/opsActivity'
 
 // Retry means "do this again": install, or upgrade for an upgrade. A failed
 // deletion would need the delete endpoint and a staging operation is driven by
 // the router rather than by a user action, so neither is retryable.
 export function isRetryable(op) {
-  return Boolean(op?.error) && !op.isDeletion && op.taskType !== 'staging'
+  return canRetryOp(op)
 }
 
 // What a failed operation offers: install again, or let it go. Shared by the

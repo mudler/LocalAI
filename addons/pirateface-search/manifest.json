@@ -52,7 +52,7 @@
             },
             "format": {
               "type": "string",
-              "description": "File format of the host. The site lists models of any format, so it is ignored.",
+              "description": "File format of the host. The site lists models of any format: gguf keeps the repositories whose name says GGUF, any other value keeps all.",
               "maxLength": 20
             },
             "filters": {

@@ -1692,7 +1692,24 @@ type ChatsTriggerDelivery struct {
 	// ConnectionName is the name the owner gave the connection of the channel,
 	// for a trigger that was proposed in Studio and reports there.
 	ConnectionName string `json:"connection_name,omitempty"`
-	InThread       bool   `json:"in_thread,omitempty"`
+	// ChannelRef and ChatRef are the channel ID (target channel) or the chat
+	// (target origin), shortened: never a whole ID.
+	ChannelRef string `json:"channel_ref,omitempty"`
+	ChatRef    string `json:"chat_ref,omitempty"`
+	// ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon
+	// say which connection the channel or chat belongs to and which service it
+	// is. ConnectionID is empty when the connection is gone.
+	ConnectionID        string `json:"connection_id,omitempty"`
+	ConnectionKind      string `json:"connection_kind,omitempty"`
+	ConnectionKindTitle string `json:"connection_kind_title,omitempty"`
+	ConnectionAddon     string `json:"connection_addon,omitempty"`
+	// State says whether the destination can receive a report now: ok, off
+	// (the connection is switched off), gone (deleted), unavailable (its
+	// add-on does not run or it cannot receive reports), no_channel (the
+	// channel is not listed and approved any more) or blocked (the owner does
+	// not let the connection write there). Empty for the inbox.
+	State    string `json:"state,omitempty"`
+	InThread bool   `json:"in_thread,omitempty"`
 	// Mode is when a run reports: always (the default), on_change (only when
 	// the answer differs from the run before) or on_problem (only when a run
 	// fails).

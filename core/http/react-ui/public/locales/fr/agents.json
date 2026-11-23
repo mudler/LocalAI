@@ -610,6 +610,27 @@
       "all": "Tous les projets",
       "none": "Sans projet",
       "empty": "Aucun déclencheur pour ce choix."
+    },
+    "reports": {
+      "label": "Rapporte à",
+      "inbox": "Boîte de réception",
+      "channel": "Canal {{channel}}",
+      "chat": "Discussion {{chat}}",
+      "thread": "Fil dans la discussion {{chat}}",
+      "problem": {
+        "off": "La connexion est désactivée",
+        "gone": "Connexion supprimée",
+        "unavailable": "Connexion indisponible",
+        "no_channel": "Canal non approuvé",
+        "blocked": "L'envoi n'est pas autorisé"
+      },
+      "fallback": "Tant que ce n'est pas corrigé, les rapports vont dans la boîte de réception.",
+      "manage": "Gérer la connexion",
+      "connections": "Ouvrir les connexions",
+      "mode": {
+        "on_change": "Seulement quand la réponse change",
+        "on_problem": "Seulement quand une exécution échoue"
+      }
     }
   },
   "views": {

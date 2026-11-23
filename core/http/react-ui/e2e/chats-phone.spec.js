@@ -12,7 +12,7 @@ const chats = ['c1', 'c2'].map((id, i) => ({
 async function stub(page) {
   await mockChat(page)
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: chats, persistent: true, files: true } }))
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route('**/api/chats/c1/events', route => route.abort())
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [{ seq: 1, turn: 1, role: 'user', text: 'compare the quotes', at: '2026-10-25T10:00:00Z' }] } }))
   await page.route('**/api/chats/c1', route => route.fulfill({ json: { ...chats[0], pending: [] } }))

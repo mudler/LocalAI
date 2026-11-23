@@ -112,6 +112,31 @@ custom key-value preferences. The backend list can be narrowed by modality
 first. Fields that the selected backend cannot use are hidden, and anything you
 typed into them is kept in case you switch back.
 
+#### What a GGUF repository import picks
+
+When the source is a Hugging Face repository with GGUF files, the llama.cpp
+importer chooses the files from the listing. The same choices apply to
+`POST /models/import-uri`, where the preferences go in the `preferences` object.
+
+| Preference | Default | Effect |
+|------------|---------|--------|
+| `quantizations` | `q4_k_m` | Comma-separated quantizations of the main model, best first. A token must match whole: `f16` does not select `bf16`. When none matches, the last model in the listing is used. |
+| `mmproj_quantizations` | `f16`, then `bf16` | Comma-separated quantizations of the vision or audio projector, tried before the default order `f16`, `bf16`, `q8_0`, `f32`. `f32` is chosen only when no smaller build exists. |
+| `drafter_quantizations` | `q8_0`, then `bf16`, `f16` | Comma-separated quantizations of the speculative-decoding drafter, tried before the default order. Set `none` (or `off`, `no`, `false`) to import no drafter. |
+
+Files that llama.cpp ships next to a model are never imported as the model
+itself: drafters (a file name with `dspark-`, `dflash-`, `eagle3-` or `mtp-`, the
+sidecar keywords of llama.cpp) and `imatrix` files.
+
+When the repository ships a drafter, the import downloads one next to the
+model and writes `draft_model` and the matching `spec_type` into the model
+configuration: `draft-dspark` with `spec_n_max:3` for a `dspark-` file,
+`draft-dflash` for `dflash-`, `draft-eagle3` for `eagle3-` and `draft-mtp` for
+`mtp-`. If a repository has several kinds, the order of preference is DSpark,
+DFlash, EAGLE3, then MTP. A drafter is paired only with a model from the same
+repository, and only on the `llama-cpp` backend. The import form has no field
+for `drafter_quantizations`; add it with a custom preference.
+
 The source format check does not contact the source or validate it as a model.
 An HTTPS URL can point to a web page rather than model weights.
 
@@ -204,6 +229,15 @@ local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
 local-ai run ollama://gemma:2b
 ```
 
+An `ollama://` import works like this:
+
+- The model must be a GGUF file. LocalAI reads the first bytes of the weights before the download and again after it, and refuses anything else with "this model is not a GGUF file".
+- The model name is `<name>-<tag>`, so `ollama://qwen3:8b` becomes `qwen3-8b`. A `library/` prefix is dropped, a `user/model:tag` model becomes `user-model-tag`, and the tag `latest` adds nothing to the name. The weights are saved as `<name>.gguf`.
+- The sampling defaults the model's author published (`temperature`, `top_k`, `top_p`, `min_p`, `repeat_penalty`, `seed`, `num_predict` as `max_tokens`, and `stop` as `stopwords`) become the defaults of the model. Other keys, including `num_ctx`, are ignored. The import preferences `temperature`, `top_k`, `top_p`, `min_p`, `repeat_penalty`, `seed`, `max_tokens` and `stopwords` take priority over them.
+- A vision model's projector is downloaded as a second file, `<name>-mmproj.gguf`, and set as `mmproj`.
+- The chat template stays the one inside the GGUF file. LocalAI does not import the Ollama template, system prompt or license.
+- A model or tag that does not exist, or a manifest without model weights, fails the import with an error that names the model.
+
 ### Standard OCI Registry
 
 ```bash
@@ -227,6 +261,8 @@ To run models via URI, specify a URI to a model file or a configuration file whe
 {{% callout style="note" %}}
 When using `file://` URLs, the path must point to a file within your models directory (specified by `MODELS_PATH`). Files outside this directory are rejected for security reasons.
 {{% /callout %}}
+
+Every blob that LocalAI downloads from an OCI or Ollama registry is checked against its sha256 digest and size. A download that fails the check, or fails for any other reason, leaves no partial file behind.
 
 Configuration files can be used to customize the model defaults and settings. For advanced configurations, refer to the [Customize Models section]({{% relref "/start/customize-model" %}}).
 
@@ -528,6 +564,13 @@ curl http://localhost:8080/api/models/storage
 It returns per-model sizes with the shared portion split out, the
 file-to-models relation, and missing references. Files in the models directory
 that no configuration references are not included.
+
+### Update a Model
+
+LocalAI checks every six hours whether the gallery entry of an installed model
+changed, and tells you on the **Updates** page and in the notification center.
+It never upgrades a model by itself. See [Model Updates]({{% relref "/models/model-updates" %}})
+for the states, the upgrade steps and the rollback.
 
 ### Remove Models
 

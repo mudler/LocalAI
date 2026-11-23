@@ -51,7 +51,7 @@ var _ = Describe("RemovedAgentOptions", func() {
 var _ = Describe("RemovedAgentWorkerOptions", func() {
 	parse := func(args ...string) AgentWorkerCMD {
 		var cmd AgentWorkerCMD
-		k, err := kong.New(&cmd)
+		k, err := kong.New(&cmd, kong.Vars{"basepath": GinkgoT().TempDir()})
 		Expect(err).ToNot(HaveOccurred())
 		_, err = k.Parse(append([]string{"--nats-url=nats://x", "--register-to=http://x"}, args...))
 		Expect(err).ToNot(HaveOccurred())

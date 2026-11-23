@@ -128,7 +128,11 @@ func (s *Store[T]) Load() ([]T, error) {
 		// #nosec G304
 		data, err := os.ReadFile(filepath.Join(s.dir, name))
 		if err != nil {
-			return nil, err
+			// One unreadable file (for example one left by an earlier run
+			// under another user) must not drop every other record, nor
+			// disable persistence for the whole store.
+			xlog.Warn("Skipping unreadable persisted trace", "file", name, "error", err)
+			continue
 		}
 		var record T
 		if err := json.Unmarshal(data, &record); err != nil {

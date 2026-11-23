@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Button, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
 import PageHeader from '../components/PageHeader'
@@ -8,6 +8,8 @@ import UpdateRow from '../components/updates/UpdateRow'
 import UpdateStrip, { UpdateSources } from '../components/updates/UpdateStrip'
 import { BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
 import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
+import { ModelActionDialogs } from '../components/updates/ModelUpgradeDialog'
+import { useModelUpgradeActions } from '../hooks/useModelUpgradeActions'
 import { UpgradeConfirm } from '../components/addons/UpgradeControls'
 import ApproveUpgradeDialog from '../components/addons/ApproveUpgradeDialog'
 import Icon from '../components/Icon'
@@ -17,7 +19,7 @@ import { backendsApi } from '../utils/api'
 import { isClusterRow, nodeView, splitUpdate } from '../utils/nodeUpdates'
 import { addonsApi } from '../utils/addonsClient'
 import {
-  breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, normalizeFilter,
+  breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, isPending, normalizeFilter,
 } from '../utils/updates'
 import '../components/updates/updates.css'
 
@@ -37,7 +39,7 @@ function useNarrow() {
 }
 
 // Updates: what is out of date and what is changing, for gallery backends,
-// library backends and add-ons, with the freshness of every source. The data
+// library backends, add-ons and gallery models, with the freshness of every source. The data
 // is the shell-level UpdatesProvider's; this page adds the installed backends
 // (for the "up to date" line), the filter and the actions.
 export default function Updates() {
@@ -67,6 +69,8 @@ function UpdatesPage({ updates }) {
   const narrow = useNarrow()
   const actions = useUpdateActions({ updates })
   const { bulk } = actions
+  const outlet = useOutletContext()
+  const model = useModelUpgradeActions({ readModels: updates.readModels, addToast: outlet && outlet.addToast })
 
   // The installed backends, for the ones that are known to be current. Read
   // again when a check answers.
@@ -148,12 +152,12 @@ function UpdatesPage({ updates }) {
   // the one live region of the page.
   const { summary, running } = bulk
   let result = ''
-  if (running) result = t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
+  if (running) result = t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
   else if (bulk.run) result = t('bulk.summary', summary)
-  else if (actions.announcement) result = actions.announcement
+  else if (model.announcement || actions.announcement) result = model.announcement || actions.announcement
   else if (updates.lastCheck && !updates.checking) {
     const failed = updates.sources.filter(s => s.state === 'failed').length
-    const found = rows.filter(r => r.state !== 'current').length
+    const found = rows.filter(isPending).length
     result = [
       t('check.result', { count: found }),
       failed > 0 ? t('check.failedSources', { count: failed }) : '',
@@ -173,7 +177,7 @@ function UpdatesPage({ updates }) {
         data-testid="updates-update-ready"
       >
         {running
-          ? t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
+          ? t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
           : t('bulk.start', { count: bulk.selected.size })}
       </Button>
     </span>
@@ -185,6 +189,7 @@ function UpdatesPage({ updates }) {
       {!running && bulk.failed.length > 0 && (
         <Button size="sm" icon="refresh" onClick={bulk.retry} data-testid="updates-retry-failed">{t('bulk.retryFailed', { count: bulk.failed.length })}</Button>
       )}
+      {running && <Button size="sm" variant="ghost" icon="close" onClick={() => actions.cancelRun(bulk.run)} data-testid="updates-cancel-run">{t('bulk.cancelAll')}</Button>}
       {!running && <Button size="sm" variant="ghost" onClick={bulk.reset}>{t('bulk.dismiss')}</Button>}
     </div>
   ) : null
@@ -204,6 +209,7 @@ function UpdatesPage({ updates }) {
       onCheck={actions.check}
       checking={actions.checking(row)}
       locked={actions.busy}
+      model={model.actions}
     />
   )
 
@@ -234,7 +240,7 @@ function UpdatesPage({ updates }) {
         />
       )
     }
-    const shown = groups.needs.length + groups.updating.length + groups.ready.length
+    const shown = groups.needs.length + groups.updating.length + groups.ready.length + groups.other.length
     return (
       <>
         {rows.length > 0 && (
@@ -267,6 +273,12 @@ function UpdatesPage({ updates }) {
               )}
             </div>
             <ul className="uc-list">{groups.ready.map(renderRow)}</ul>
+          </section>
+        )}
+        {groups.other.length > 0 && (
+          <section className="uc-group" aria-labelledby="uc-g-other" data-group="other">
+            <h2 className="uc-group__title" id="uc-g-other">{t('group.other')} <span className="uc-group__count">{groups.other.length}</span></h2>
+            <ul className="uc-list">{groups.other.map(renderRow)}</ul>
           </section>
         )}
         {groups.current.length > 0 && (
@@ -328,13 +340,13 @@ function UpdatesPage({ updates }) {
       {actions.review && (
         <ApproveUpgradeDialog
           addon={actions.review}
-          api={addonsApi}
-          actions={actions.addonActions}
+          upgrade={actions.confirmApi}
           onClose={() => actions.setReview(null)}
-          onDone={() => { actions.setReview(null); updates.readAddons() }}
+          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons() }}
         />
       )}
       <BulkUpgradeDialog bulk={bulk} />
+      <ModelActionDialogs model={model} />
     </div>
   )
 }

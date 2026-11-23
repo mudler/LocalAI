@@ -93,7 +93,7 @@ for id in tables voice face fine-tuning quantization studio talk telegram slack 
     expect_fail "package.sh refuses a foreign platform without an executable: $id" 'is not this host' sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/foreign-$id" --version 1.2.3 --platform "$foreign" --local-check
 done
 case_ok 'package.sh refuses a foreign platform without an executable for every add-on'
-# The build line: cgo for Tables, none for the pure Go add-ons. A stub go
+# The build line: no cgo for any add-on, Tables included. A stub go
 # records the environment and the package it was asked to build.
 realgo=$(command -v go)
 mkdir "$work/stubbin"
@@ -126,11 +126,10 @@ done
 for id in tables voice face fine-tuning quantization studio talk telegram slack discord mail office sandbox web; do
     PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
 done
-grep -x './addons/tables/cmd/tables CGO_ENABLED=1' "$work/gobuild.log" >/dev/null
-for id in voice face fine-tuning quantization studio talk telegram slack discord mail office sandbox web; do
+for id in tables voice face fine-tuning quantization studio talk telegram slack discord mail office sandbox web; do
     grep -x "./addons/$id/cmd/$id CGO_ENABLED=0" "$work/gobuild.log" >/dev/null || { echo "FAIL: $id is not built with CGO_ENABLED=0" >&2; cat "$work/gobuild.log" >&2; exit 1; }
 done
-case_ok 'package.sh builds Tables with cgo and the pure Go add-ons without'
+case_ok 'package.sh builds every add-on, Tables included, with CGO_ENABLED=0'
 # The sandbox executable carries its guest image. A release build without
 # SANDBOX_GUEST_IMAGE fails; --local-check builds with a stand-in reference.
 digest=sha256:$(printf '0123456789abcdef%.0s' 1 2 3 4)

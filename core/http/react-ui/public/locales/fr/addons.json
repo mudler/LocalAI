@@ -121,6 +121,9 @@
     "emptyBody": "Cette liste est vide.",
     "emptyFiltered": "Aucun résultat pour cette recherche. Changez les mots ou la bibliothèque.",
     "emptyTitle": "Rien à afficher",
+    "failedBody": "Les bibliothèques qui ont été chargées sont listées ci-dessous.",
+    "failedTitle_one": "Une bibliothèque n'a pas pu être lue.",
+    "failedTitle_other": "{{count}} bibliothèques n'ont pas pu être lues.",
     "libraries": "Bibliothèques",
     "loading": "Chargement des résultats",
     "next": "Page suivante",
@@ -183,6 +186,7 @@
       "urlCredentials": "L'adresse ne doit contenir ni nom d'utilisateur ni mot de passe.",
       "urlQuery": "L'adresse ne doit contenir ni chaîne de requête ni fragment.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -196,6 +200,7 @@
       "requireSignature": "Exiger une signature",
       "url": "URL du catalogue",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -205,13 +210,16 @@
       "reference": "Le nom d’un identifiant qu’un administrateur a configuré sur ce serveur. Ne collez jamais de jeton ni de mot de passe ici.",
       "url": "Une adresse https sans identifiants ni chaîne de requête.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Dernier chargement {{when}}",
     "lastRefresh": "Actualisée {{when}}, {{count}} entrées",
     "lead": "Une bibliothèque est un index qui liste des modules, des backends ou des modèles. Les identifiants ne se saisissent jamais ici : une bibliothèque privée de modules nomme un identifiant qu’un administrateur a configuré sur ce serveur.",
     "listLabel": "Bibliothèques",
     "loading": "Chargement des bibliothèques",
+    "neverLoaded": "Jamais chargée",
     "notRefreshed": "Pas encore actualisée",
     "reference": "Référence d'identifiant : {{name}}",
     "refresh": "Actualiser",
@@ -398,6 +406,7 @@
     "platform": "Plateforme",
     "selection": "Sélectionné comme",
     "signatureRequired": "Signature exigée",
+    "sourceRepository": "Source repository",
     "verification": "Vérification",
     "version": "Version"
   },
@@ -648,7 +657,9 @@
     },
     "waitingService": "Le service des modules démarre. LocalAI redemande l'état de la mise à jour dans {{seconds}} s.",
     "checkAgain": "Vérifier maintenant",
-    "open": "Ouvrir les mises à jour"
+    "open": "Ouvrir les mises à jour",
+    "cancelledNote": "La mise à jour de {{name}} a été annulée. La version {{version}} continue de fonctionner.",
+    "cancelling": "Annulation…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -723,7 +734,8 @@
     "skillShadow": "Ce module remplace la compétence intégrée {{skill}}.",
     "skillShadowWarning": "Ce module remplace la compétence intégrée {{skill}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
     "skillProvides": "Cette extension fournit la compétence {{skill}}.",
-    "skillProvidesWarning": "Cette extension fournit la compétence {{skill}}. Une autre extension ({{name}}) la fournit aussi. Une seule peut être active ; choisissez dans Paramètres > Outils. Sans choix, celle installée en premier est utilisée."
+    "skillProvidesWarning": "Cette extension fournit la compétence {{skill}}. Une autre extension ({{name}}) la fournit aussi. Une seule peut être active ; choisissez dans Paramètres > Outils. Sans choix, celle installée en premier est utilisée.",
+    "background": "Cela s'exécute en arrière-plan. Vous pouvez fermer cette fenêtre ; la fermer ne l'arrête pas."
   },
   "family": {
     "pages": "Vous cherchez des pages créées par vous ou par un agent ? Elles sont dans <go>Pages</go>."
@@ -791,7 +803,8 @@
       "action": "Approuver et mettre à jour",
       "body": "La version {{current}} de {{name}} continue de tourner. Si vous approuvez, la nouvelle version peut exécuter ces actions. Les nouvelles sont signalées.",
       "done": "{{name}} a été mis à jour.",
-      "title": "Approuver l'accès à l'hôte pour {{name}} {{version}}"
+      "title": "Approuver l'accès à l'hôte pour {{name}} {{version}}",
+      "running": "La mise à jour s'exécute en arrière-plan. Vous pouvez fermer cette fenêtre ; la fermer ne l'arrête pas. Choisissez Annuler pour l'arrêter."
     },
     "asksNothing": "Ce module ne demande aucun accès à l'hôte.",
     "blanket": {
@@ -895,6 +908,7 @@
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
     "notOfficialWarning": "Ce module vient de {{library}}, pas de la bibliothèque officielle. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qui lui sont confiés. Ne l'installez que si vous faites confiance à son auteur.",
+    "signedNotReviewed": "Signé par {{signer}}. Non vérifié par LocalAI. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qu'on lui donne. Installez-le seulement si vous faites confiance au signataire.",
     "op": {
       "alreadyAllowed": "Déjà autorisé",
       "blocked": "Bloqué par la politique de l'administrateur",
@@ -928,7 +942,12 @@
       "body": "La nouvelle version demande un accès à l'hôte que l'actuelle n'a pas. La version {{current}} continue de tourner jusqu'à votre approbation. Opérations ajoutées : {{count}}.",
       "review": "Examiner et approuver",
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
-      "title": "{{name}} {{version}} attend votre approbation"
+      "title": "{{name}} {{version}} attend votre approbation",
+      "updatingTitle": "Mise à jour de {{name}} vers {{version}}",
+      "queuedBody": "Elle est en file d'attente et s'exécute en arrière-plan.",
+      "cancellingTitle": "Annulation de la mise à jour de {{name}}",
+      "failedTitle": "La mise à jour de {{name}} vers {{version}} a échoué",
+      "reviewAgain": "Examiner à nouveau"
     }
   },
   "oauthClient": {
@@ -1012,7 +1031,10 @@
       "downgradeTitle": "Version plus ancienne",
       "downgrade": "Cela installe la version {{version}}, plus ancienne que la version installée {{installed}}. Une version plus ancienne peut ne pas lire les données écrites par une version plus récente.",
       "downgradeConfirm": "Je veux installer la version plus ancienne"
-    }
+    },
+    "progress": "Installation de {{name}} à partir d’un fichier. Elle s’exécute en arrière-plan.",
+    "failedTitle": "L’installation de {{name}} à partir d’un fichier a échoué",
+    "failedHint": "Le fichier est conservé une heure. Choisissez Réessayer pour l’utiliser à nouveau."
   },
   "notice": {
     "enableFailedTitle": "Impossible d'activer {{name}}",
@@ -1062,5 +1084,28 @@
       "off": "Désactivée",
       "attention": "À configurer"
     }
+  },
+  "queue": {
+    "title": "File d'installation",
+    "select": "Ajouter à la file",
+    "selectNamed": "Ajouter {{name}} à la file d'installation",
+    "inQueue": "Dans la file",
+    "selectionLabel": "Modules complémentaires sélectionnés pour l'installation",
+    "selected": "Sélectionnés : {{count}}",
+    "reviewPicked": "Vérifier et mettre en file",
+    "clear": "Effacer",
+    "position": "Module {{number}} sur {{total}}.",
+    "batchNote": "Rien n'est mis en file avant la fin du dernier.",
+    "confirmBody": "La version {{version}} de la source {{library}} est ajoutée à la file d'installation. Elle est téléchargée en arrière-plan et vérifiée avant l'installation. Elle n'est pas activée.",
+    "add": "Ajouter à la file",
+    "acceptNext": "Accepter et suivant",
+    "acceptLast": "Accepter et tout mettre en file",
+    "skip": "Passer",
+    "unpinned": "Cette entrée de développement n'est pas liée à un paquet précis. Elle installe ce que la source sert à cet instant.",
+    "reviewTitle": "Vérification requise.",
+    "reviewBody": "Le paquet demande plus d'accès à l'hôte que vous n'en avez approuvé. Vérifiez à nouveau la liste avant l'installation.",
+    "refused": "{{name}} n'a pas été mis en file. {{reason}}",
+    "noAnswer": "Le serveur n'a pas répondu pour celui-ci.",
+    "notInLibrary": "Ce module n'est plus dans vos bibliothèques."
   }
 }

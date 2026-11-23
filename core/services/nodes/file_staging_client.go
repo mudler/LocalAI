@@ -42,6 +42,10 @@ type FileStagingClient struct {
 	remoteModelPath string // set during LoadModel from staged ModelPath
 }
 
+// Unwrap returns the client that this one decorates, so that a caller can ask it
+// why a dial failed. See grpc.BackendUnwrapper.
+func (c *FileStagingClient) Unwrap() grpc.Backend { return c.Backend }
+
 type ttsReference struct {
 	Audio string `json:"audio"`
 	Text  string `json:"text"`
@@ -652,7 +656,9 @@ func (f *FileStagingClient) AudioTranscriptionStream(ctx context.Context, in *pb
 func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelRequest, opts ...ggrpc.CallOption) (*pb.Result, error) {
 	frontendOutputPath := in.OutputPath
 	if frontendOutputPath != "" {
-		os.MkdirAll(frontendOutputPath, 0750)
+		if err := os.MkdirAll(frontendOutputPath, 0750); err != nil {
+			xlog.Warn("Failed to create export output directory", "path", frontendOutputPath, "error", err)
+		}
 	}
 
 	result, err := f.Backend.ExportModel(ctx, in, opts...)
@@ -679,7 +685,9 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 		for _, relPath := range files {
 			key := keyPrefix + "/" + relPath
 			localDst := filepath.Join(frontendOutputPath, relPath)
-			os.MkdirAll(filepath.Dir(localDst), 0750)
+			if err := os.MkdirAll(filepath.Dir(localDst), 0750); err != nil {
+				xlog.Warn("Failed to create directory for export file", "path", filepath.Dir(localDst), "error", err)
+			}
 
 			if err := f.stager.FetchRemoteByKey(ctx, f.nodeID, key, localDst); err != nil {
 				return &pb.Result{Success: false, Message: fmt.Sprintf("fetching export file %s: %v", relPath, err)}, nil
@@ -694,7 +702,9 @@ func (f *FileStagingClient) ExportModel(ctx context.Context, in *pb.ExportModelR
 func (f *FileStagingClient) StartQuantization(ctx context.Context, in *pb.QuantizationRequest, opts ...ggrpc.CallOption) (*pb.QuantizationJobResult, error) {
 	// Ensure the local output directory exists so the fetched file can be written
 	if in.OutputDir != "" {
-		os.MkdirAll(in.OutputDir, 0750)
+		if err := os.MkdirAll(in.OutputDir, 0750); err != nil {
+			xlog.Warn("Failed to create quantization output directory", "path", in.OutputDir, "error", err)
+		}
 	}
 	return f.Backend.StartQuantization(ctx, in, opts...)
 }
@@ -802,12 +812,12 @@ func copyFile(src, dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0750); err != nil {
 		return err
 	}
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- src is a path the staging client built itself from a model or output directory, never a request value
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := os.Create(dst) // #nosec G304 -- dst is a path the staging client built itself from a model or output directory, never a request value
 	if err != nil {
 		return err
 	}

@@ -47,29 +47,8 @@
 .pv-md { max-height: 60vh; overflow: auto; }
 
 /* A spreadsheet. The grid scrolls in both directions inside the pane; the
-   header row and the row numbers stay in place. */
-.pv-tabs {
-  display: flex;
-  gap: var(--sp-1);
-  overflow-x: auto;
-  scrollbar-width: thin;
-  border-bottom: 1px solid var(--dk-edge);
-}
-.pv-tab {
-  flex: none;
-  min-height: var(--ctl-h-sm);
-  padding: 0 var(--sp-3);
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: var(--fs-meta);
-  cursor: pointer;
-}
-.pv-tab:hover { color: var(--dk-text); }
-.pv-tab[aria-selected="true"] { border-bottom-color: var(--dk-accent); color: var(--dk-text); font-weight: 600; }
-.pv-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+   header row and the row numbers stay in place. The sheet tabs are the kit's
+   Tabs. */
 .pv-table { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .pv-table__scroll {
   max-height: 60vh;

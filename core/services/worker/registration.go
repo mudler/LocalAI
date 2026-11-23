@@ -98,14 +98,38 @@ func (cfg *Config) advertiseAddr() string {
 	return fmt.Sprintf("%s:%d", cmp.Or(hostname, "localhost"), cfg.effectiveBasePort())
 }
 
+// hasRoutableAddress reports whether the operator started this worker with an
+// address that the frontends can reach (--addr or --advertise-addr). Such a
+// worker can be reached by a frontend that dials, and it registers its address.
+// A worker without one is reached only through its tunnel.
+func (cfg *Config) hasRoutableAddress() bool {
+	return cfg.Addr != "" || cfg.AdvertiseAddr != ""
+}
+
+// bindHost returns the host that this worker binds its backend processes and its
+// file-transfer server to.
+//
+// A worker that holds no NATS route and has no routable address is reached
+// through its tunnel only, and binds loopback. Nothing dials it, and an open port
+// that nothing uses is surface. A worker with a routable address binds all
+// interfaces, because a frontend can dial it. A worker on NATS binds all
+// interfaces whatever its address: the frontends reach its backends by dialling
+// the address it registers.
+func (cfg *Config) bindHost(holdsNATS bool) string {
+	if !holdsNATS && !cfg.hasRoutableAddress() {
+		return loopbackHost
+	}
+	return "0.0.0.0"
+}
+
 // resolveHTTPAddr returns the address to bind the HTTP file transfer server to.
 // Uses basePort-1 so it doesn't conflict with dynamically allocated gRPC ports
 // which grow upward from basePort.
-func (cfg *Config) resolveHTTPAddr() string {
+func (cfg *Config) resolveHTTPAddr(bindHost string) string {
 	if cfg.HTTPAddr != "" {
 		return cfg.HTTPAddr
 	}
-	return fmt.Sprintf("0.0.0.0:%d", cfg.effectiveBasePort()-1)
+	return fmt.Sprintf("%s:%d", bindHost, cfg.effectiveBasePort()-1)
 }
 
 // advertiseHTTPAddr returns the HTTP address the frontend should use to reach
@@ -126,15 +150,7 @@ func (cfg *Config) advertiseHTTPAddr() string {
 
 // registrationBody builds the JSON body for node registration.
 func (cfg *Config) registrationBody() map[string]any {
-	nodeName := cfg.NodeName
-	if nodeName == "" {
-		hostname, err := os.Hostname()
-		if err != nil {
-			nodeName = fmt.Sprintf("node-%d", os.Getpid())
-		} else {
-			nodeName = hostname
-		}
-	}
+	nodeName := cfg.nodeName()
 
 	// Detect GPU info for VRAM-aware scheduling
 	totalVRAM, err := totalAvailableVRAM()
@@ -165,15 +181,19 @@ func (cfg *Config) registrationBody() map[string]any {
 		maxReplicas = 1
 	}
 	body := map[string]any{
-		"name":                   nodeName,
-		"address":                cfg.advertiseAddr(),
-		"http_address":           cfg.advertiseHTTPAddr(),
+		"name":         nodeName,
+		"address":      cfg.advertiseAddr(),
+		"http_address": cfg.advertiseHTTPAddr(),
+		// Says if the two addresses above can be reached. The frontend drops them
+		// when this is false.
+		"routable":               cfg.hasRoutableAddress(),
 		"total_vram":             totalVRAM,
 		"available_vram":         totalVRAM, // initially all VRAM is available
 		"gpu_vendor":             gpuVendor,
 		"gpu_compute_capability": gpuComputeCap,
 		"capability":             capability,
 		"max_replicas_per_model": maxReplicas,
+		"split_server":           cfg.SplitServer, // the admin's choice on the frontend wins
 		"version":                internal.Version,
 		"commit":                 internal.Commit,
 	}
@@ -209,9 +229,7 @@ func (cfg *Config) registrationBody() map[string]any {
 		body["total_ram"] = ramInfo.Total
 		body["available_ram"] = ramInfo.Available
 	}
-	if cfg.RegistrationToken != "" {
-		body["token"] = cfg.RegistrationToken
-	}
+	// The registration client adds the registration token and the join token.
 
 	if cpuInfo, err := getCPUInfo(); err != nil {
 		xlog.Debug("Failed to sample worker CPU for registration", "error", err)

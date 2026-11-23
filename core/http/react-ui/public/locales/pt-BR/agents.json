@@ -610,6 +610,27 @@
       "all": "Todos os projetos",
       "none": "Sem projeto",
       "empty": "Nenhum gatilho para esta escolha."
+    },
+    "reports": {
+      "label": "Reporta para",
+      "inbox": "Caixa de entrada",
+      "channel": "Canal {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Thread no chat {{chat}}",
+      "problem": {
+        "off": "A conexão está desligada",
+        "gone": "Conexão excluída",
+        "unavailable": "Conexão indisponível",
+        "no_channel": "Canal não aprovado",
+        "blocked": "O envio não é permitido"
+      },
+      "fallback": "Até isso ser corrigido, os relatórios vão para a Caixa de entrada.",
+      "manage": "Gerenciar conexão",
+      "connections": "Abrir conexões",
+      "mode": {
+        "on_change": "Somente quando a resposta muda",
+        "on_problem": "Somente quando uma execução falha"
+      }
     }
   },
   "views": {

@@ -40,6 +40,7 @@ type RuntimeSettings struct {
 	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
 
 	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
+	MaxConcurrentModelOperations   *int `json:"max_concurrent_model_operations,omitempty"`
 
 	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
 	F16                  *bool   `json:"f16,omitempty"`
@@ -54,10 +55,15 @@ type RuntimeSettings struct {
 	CSRF             *bool   `json:"csrf,omitempty"`
 	CORSAllowOrigins *string `json:"cors_allow_origins,omitempty"`
 
-	// P2P settings
-	P2PToken     *string `json:"p2p_token,omitempty"`
-	P2PNetworkID *string `json:"p2p_network_id,omitempty"`
-	Federated    *bool   `json:"federated,omitempty"`
+	// P2P layer. A change of any of them restarts the P2P host.
+	P2PMode           *string     `json:"p2p_mode,omitempty"`             // off, connect or share (default: off)
+	P2PPublicDHT      *bool       `json:"p2p_public_dht,omitempty"`       // use the public DHT for discovery and hole punching (default: true)
+	P2PBootstrapPeers *[]string   `json:"p2p_bootstrap_peers,omitempty"`  // bootstrap peers, multiaddrs with /p2p/ (default: the public ones)
+	P2PRelays         *[]P2PRelay `json:"p2p_relays,omitempty"`           // relays the server knows: {id, addr, label}
+	P2PRelayPaired    *bool       `json:"p2p_relay_paired,omitempty"`     // relay for paired devices (default: true)
+	P2PRelayMode      *string     `json:"p2p_relay_mode,omitempty"`       // when to relay: auto (while publicly reachable), on or off (default: auto)
+	P2PRelayRateLimit *int64      `json:"p2p_relay_rate_limit,omitempty"` // bytes per second per relayed circuit, 0 for none (default: 0)
+	P2PMDNS           *bool       `json:"p2p_mdns,omitempty"`             // discover peers on the local network (default: true)
 
 	// Gallery settings
 	Galleries                *[]Gallery `json:"galleries,omitempty"`

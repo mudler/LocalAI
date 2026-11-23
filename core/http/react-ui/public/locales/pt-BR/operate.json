@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Atualizando {{kind}}",
-      "failedUpgrade": "Não foi possível atualizar {{kind}}"
+      "failedUpgrade": "Não foi possível atualizar {{kind}}",
+      "needsReview": "Precisa da sua revisão"
     },
     "filter": {
       "addons": "Complementos"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "Na fila",
+      "starting": "Iniciando",
+      "resolving": "Resolvendo o pacote",
+      "verifying": "Verificando assinatura e digest",
+      "downloading": "Baixando",
+      "checking": "Verificando o pacote",
+      "committing": "Finalizando"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,42 @@
       "committing": "Finalizando",
       "persisting": "Salvando a configuração"
     },
-    "retryFailed": "A nova tentativa falhou: {{message}}"
+    "retryFailed": "A nova tentativa falhou: {{message}}",
+    "addonNeedsReview": "O pacote pede mais acesso ao host do que você aprovou.",
+    "review": "Revisar",
+    "reviewLabel": "Revisar {{name}}"
+  },
+  "overview": {
+    "title": "Visão geral",
+    "openWorker": "Abrir worker",
+    "approve": "Aprovar",
+    "approveAll": "Aprovar todos",
+    "signups_one": "{{count}} cadastro aguarda aprovação",
+    "signups_other": "{{count}} cadastros aguardam aprovação",
+    "approved_one": "{{count}} cadastro aprovado",
+    "approved_other": "{{count}} cadastros aprovados",
+    "approveFailed": "Não foi possível aprovar: {{message}}",
+    "cluster": "Cluster",
+    "machine": "Esta máquina",
+    "openWorkers": "Abrir workers",
+    "openMachine": "Abrir esta máquina",
+    "online": "Online",
+    "ofTotal": "de {{total}}",
+    "loaded": "Carregados",
+    "inFlight": "Em andamento",
+    "memory": "Memória",
+    "disk": "Disco",
+    "diskFree": "{{free}} livres de {{total}}",
+    "traffic": "Tráfego, {{hours}} h",
+    "openUsage": "Abrir uso",
+    "requests": "Requisições",
+    "failed": "Falhas",
+    "p95": "P95",
+    "barsLabel": "Requisições das últimas {{hours}} horas",
+    "access": "Acesso",
+    "users": "Usuários",
+    "waiting": "Aguardando",
+    "admins": "Administradores",
+    "openUsers": "Abrir usuários"
   }
 }

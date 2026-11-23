@@ -69,4 +69,4 @@ Looking for something else? [What models can do]({{% relref "/models/capabilitie
 
 - [OpenAI functions and tools]({{% relref "/api/openai-functions" %}}), [Realtime API]({{% relref "/api/openai-realtime" %}}) and [Stores]({{% relref "/api/stores" %}}) are in the API section.
 - [Users and sharing]({{% relref "/concepts/users-and-sharing" %}}) explains accounts, roles and per-user features.
-- [Distributed mode]({{% relref "/administration/distributed-mode" %}}), [P2P and federated inference]({{% relref "/administration/p2p-federated-inference" %}}), [MLX distributed]({{% relref "/administration/mlx-distributed" %}}) and [Runtime settings]({{% relref "/administration/runtime-settings" %}}) are in the Administration section.
+- [Distributed mode]({{% relref "/administration/distributed-mode" %}}), [P2P]({{% relref "/administration/p2p" %}}), [Federation]({{% relref "/administration/federation" %}}), [MLX distributed]({{% relref "/administration/mlx-distributed" %}}) and [Runtime settings]({{% relref "/administration/runtime-settings" %}}) are in the Administration section.

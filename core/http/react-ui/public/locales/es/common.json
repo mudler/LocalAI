@@ -206,5 +206,12 @@
       "unavailable": "Compartir no respondió. Inténtalo de nuevo en un momento.",
       "generic": "Algo salió mal."
     }
+  },
+  "picker": {
+    "filter": "Filtrar",
+    "loading": "Cargando",
+    "empty": "Todavía no hay nada que elegir",
+    "noMatch": "Sin coincidencias",
+    "clear": "Borrar"
   }
 }

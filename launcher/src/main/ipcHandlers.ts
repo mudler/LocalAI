@@ -57,6 +57,7 @@ export type CoreApi = Pick<
   | 'serversView'
   | 'testServer'
   | 'addServer'
+  | 'addServerByInvite'
   | 'updateServer'
   | 'removeServer'
   | 'setDefaultServer'
@@ -76,6 +77,10 @@ export type CoreApi = Pick<
   | 'setEnvVar'
   | 'deleteEnvVar'
   | 'secretStorageView'
+  | 'registryCredentialsView'
+  | 'saveRegistryCredential'
+  | 'removeRegistryCredential'
+  | 'testRegistryCredential'
 >
 
 export interface HandlerDeps {
@@ -166,6 +171,7 @@ export function createIpcHandlers(d: HandlerDeps): { invoke: InvokeHandlers; sen
     'launcher:servers:get': (...a) => (v.noArgs(a), c.serversView()),
     'launcher:servers:test': (...a) => c.testServer(v.testInput(v.one(a))),
     'launcher:servers:add': (...a) => c.addServer(v.addServerInput(v.one(a))),
+    'launcher:servers:add-by-invite': (...a) => c.addServerByInvite(v.addServerByInviteInput(v.one(a))),
     'launcher:servers:update': (...a) => c.updateServer(v.updateServerInput(v.one(a))),
     'launcher:servers:remove': (...a) => c.removeServer(v.serverId(v.one(a))),
     'launcher:servers:set-default': (...a) => c.setDefaultServer(v.serverTarget(v.one(a))),
@@ -208,6 +214,10 @@ export function createIpcHandlers(d: HandlerDeps): { invoke: InvokeHandlers; sen
     },
     'launcher:env:delete': (...a) => c.deleteEnvVar(v.envName(v.one(a))),
     'launcher:secrets:state': (...a) => (v.noArgs(a), c.secretStorageView()),
+    'launcher:registry-credentials:list': (...a) => (v.noArgs(a), c.registryCredentialsView()),
+    'launcher:registry-credentials:save': (...a) => c.saveRegistryCredential(v.registryCredentialInput(v.one(a))),
+    'launcher:registry-credentials:remove': (...a) => c.removeRegistryCredential(v.registryCredentialId(v.one(a))),
+    'launcher:registry-credentials:test': (...a) => c.testRegistryCredential(v.registryCredentialId(v.one(a))),
   }
   const send: SendHandlers = {
     // Only a label for the smoke test log: keep it short and on one line.

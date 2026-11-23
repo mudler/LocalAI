@@ -47,7 +47,7 @@ type CarrierConfig struct {
 type Carrier struct {
 	config CarrierConfig
 	client *http.Client
-	long   *http.Client // for action calls, which have no overall timeout
+	long   *http.Client // for action and lifecycle calls, which have no overall timeout
 	caps   capsCache
 }
 type OutcomeUnknown struct {
@@ -478,11 +478,13 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			// The owner runs an action call it was forwarded, for the actor
 			// the signature binds; Dispatch refuses the action.
 			call = g.Act
+		}
+		if longCall(wire.Request.Action) {
 			// The server's write timeout is sized for short calls. An action
-			// may run up to ActTimeout, and its answer would be cut off on a
-			// connection that already expired, which the frontend would then
-			// report as an unknown outcome.
-			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(contract.ActTimeout + time.Minute))
+			// or a lifecycle operation may run up to ActTimeout, and its
+			// answer would be cut off on a connection that already expired,
+			// which the frontend would then report as an unknown outcome.
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(longCallTimeout))
 		}
 		result, e := call(r.Context(), actor, wire.Request)
 		if e != nil {
@@ -839,7 +841,7 @@ func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireReques
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := c.client
-	if wire.Request.Action == "act" {
+	if longCall(wire.Request.Action) {
 		client = c.long
 	}
 	resp, e := client.Do(req)
@@ -1004,11 +1006,42 @@ func mutation(action string) bool { return !readActions[action] }
 // Act forwards an action call to the owner and waits for its answer, up to the
 // act timeout. A lost answer is an unknown outcome: the tool may have run.
 func (c *Carrier) Act(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
-	ctx, cancel := context.WithTimeout(ctx, contract.ActTimeout+time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, longCallTimeout)
 	defer cancel()
 	return c.Dispatch(ctx, a, r)
 }
+
+// longCallTimeout bounds a call that runs for minutes: an action call or a
+// lifecycle operation. The long client has no deadline of its own, so the
+// context and the owner's write deadline carry this bound.
+const longCallTimeout = contract.ActTimeout + time.Minute
+
+// longLifecycle are the actions that run their work before they answer. An
+// install downloads and verifies a package, an upgrade or an enable stops and
+// starts the add-on, and the recovery calls copy or delete its state, which can
+// be many gigabytes. None of them fits the deadline of the short client.
+var longLifecycle = map[string]bool{
+	"install": true, "upgrade": true, "enable": true, "disable": true, "uninstall": true,
+	ActionUpdateRunQueued:      true,
+	ActionRecoveryBackup:       true,
+	ActionRecoveryVerify:       true,
+	ActionRecoveryRestore:      true,
+	ActionRecoveryDeleteBackup: true,
+	ActionRecoveryPrune:        true,
+	ActionRecoveryPurge:        true,
+}
+
+// longCall reports whether a forwarded action may run for minutes, so that it
+// uses the client without an overall timeout and the owner extends its write
+// deadline. A call that is not listed keeps the short client.
+func longCall(action string) bool { return action == "act" || longLifecycle[action] }
+
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
+	if longLifecycle[r.Action] {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, longCallTimeout)
+		defer cancel()
+	}
 	resp, e := c.send(ctx, a, wireRequest{Request: r})
 	if e != nil {
 		return contract.Result{}, e

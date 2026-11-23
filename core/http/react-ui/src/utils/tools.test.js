@@ -3,8 +3,8 @@ import test from 'node:test'
 
 import {
   appendLog, blocked, detectSource, fineTuneChecks, fitFor, importChecks, importRequest,
-  joinCommands, logLines, logLevel, LOG_LIMIT, looksLikeMemoryFailure, machineFacts, quantizeChecks,
-  requestText, shortToken, sortNetworks, warned, workerCount,
+  logLines, logLevel, LOG_LIMIT, looksLikeMemoryFailure, machineFacts, quantizeChecks,
+  requestText, warned,
 } from './tools.js'
 
 const GB = 1024 ** 3
@@ -160,17 +160,4 @@ test('fitFor compares the import estimate with free memory', () => {
   assert.equal(fitFor(11 * GB, 10 * GB), 'over')
   assert.equal(fitFor(0, 10 * GB), null)
   assert.equal(fitFor(4 * GB, null), null)
-})
-
-test('explorer helpers shorten a token, count workers and write the join commands', () => {
-  assert.equal(shortToken('short'), 'short')
-  assert.equal(shortToken('abcdefghijklmnopqrstuvwxyz'), 'abcdef…uvwxyz')
-  const a = { name: 'b', Clusters: [{ Workers: ['1', '2'] }, { Workers: ['3'] }] }
-  const b = { name: 'a', Clusters: [{ Workers: ['1', '2', '3'] }] }
-  const c = { name: 'c', Clusters: [{ Workers: ['1'] }] }
-  assert.equal(workerCount(a), 3)
-  assert.deepEqual(sortNetworks([c, a, b]).map(n => n.name), ['a', 'b', 'c'])
-  const cmd = joinCommands('TOK', 'net-1')
-  assert.match(cmd.docker, /LOCALAI_P2P_NETWORK_ID=net-1 .*TOKEN="TOK".* federated --debug$/)
-  assert.match(cmd.cli, /^ADDRESS=":80" LOCALAI_P2P_NETWORK_ID=net-1 .* local-ai federated --debug$/)
 })

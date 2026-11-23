@@ -18,7 +18,7 @@ export async function stubServerChat(page, { settings = {}, model = 'qwen3-8b', 
     }
     return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } })
   })
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route('**/api/chats/c1/events', route => route.abort())
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [{ seq: 1, turn: 1, role: 'user', text: 'compare the quotes', at: '2026-10-25T10:00:00Z' }] } }))
   await page.route('**/api/chats/c1', async route => {

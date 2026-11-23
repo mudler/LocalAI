@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
-import { LOG_LINES, mockOperate } from './operate-fixtures.js'
+import { adminItem } from './admin-nav.js'
+import { LOG_LINES, NODES, mockOperate } from './operate-fixtures.js'
 
 // Runtime, Logs: what a backend process printed, read live over the log
 // stream. The viewer filters by stream and by text, follows the end, shows or
@@ -115,14 +116,14 @@ test.describe('Backend Logs', () => {
     await expect(page).toHaveURL(/\/app\/backend-logs\/whisper-large-v3$/)
   })
 
-  test('the Logs tab lists the processes that have output', async ({ page }) => {
+  test('the Logs page lists the processes that have output', async ({ page }) => {
     await mockOperate(page)
     await page.goto('/app/backends')
-    await page.locator('.hub-subnav').getByRole('link', { name: 'Logs' }).click()
+    await adminItem(page, '/app/backend-logs').click()
     await expect(page).toHaveURL(/\/app\/backend-logs$/)
     const list = page.getByTestId('logs-processes')
     await expect(list.getByRole('link', { name: /qwen3-8b-instruct/ })).toHaveAttribute('href', '/app/backend-logs/qwen3-8b-instruct')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).toHaveAttribute('aria-current', 'page')
+    await expect(adminItem(page, '/app/backend-logs')).toHaveAttribute('aria-current', 'page')
   })
 
   test('says so when no process has printed anything', async ({ page }) => {
@@ -130,6 +131,19 @@ test.describe('Backend Logs', () => {
     await page.route('**/api/backend-logs', route => route.fulfill({ json: [] }))
     await page.goto('/app/backend-logs')
     await expect(page.getByText('No process has printed anything')).toBeVisible()
+  })
+
+  test('in a cluster the list comes from the workers, as the frontend has no log route', async ({ page }) => {
+    await mockOperate(page, { distributed: true, nodes: NODES.slice(0, 2) })
+    // The frontend does not register /api/backend-logs when distributed.
+    await page.route('**/api/backend-logs', route => route.fulfill({ status: 404, json: { error: { code: 404, message: 'Resource not found' } } }))
+    await page.route('**/api/nodes/n1/models', route => route.fulfill({ json: [{ model_name: 'qwen3-8b-instruct', state: 'loaded' }] }))
+    await page.route('**/api/nodes/n2/models', route => route.fulfill({ json: [{ model_name: 'qwen3-8b-instruct', state: 'loaded' }, { model_name: 'whisper-large-v3', state: 'loaded' }] }))
+    await page.goto('/app/backend-logs')
+    const list = page.getByTestId('logs-processes')
+    await expect(list.getByRole('link', { name: /whisper-large-v3/ })).toHaveAttribute('href', '/app/backend-logs/whisper-large-v3')
+    await expect(list.getByRole('link', { name: /qwen3-8b-instruct/ })).toHaveCount(1)
+    await expect(page.getByText('Could not list the processes')).toHaveCount(0)
   })
 
   test('fits a phone', async ({ page }) => {

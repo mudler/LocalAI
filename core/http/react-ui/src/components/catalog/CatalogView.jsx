@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
+import { Callout } from '../ui'
 import CatalogSearchBox from './CatalogSearchBox'
 import CatalogPager from './CatalogPager'
 import CatalogEmpty from './CatalogEmpty'
@@ -24,13 +25,16 @@ import './catalog.css'
 //   listClassName     optional class of the list, for a grid of cards
 //   describeError     (error) => string for a failed search
 //
+// A search may also answer `failed`: the libraries that could not be read. The
+// entries of the others are listed and a notice names each failed one.
+//
 // Every search is cancelled when the query changes or the view unmounts.
 export default function CatalogView({ adapter, query, onQueryChange, renderEntry, reloadToken = 0, orderEntries, filterEntries, toolbar, listClassName = '', describeError, emptyTitle, emptyText, searchLabel, pageSize = adapter.pageSize || PAGE_SIZE }) {
   const { t } = useTranslation('addons')
   const normalized = useMemo(() => normalizeQuery(query), [query])
   const key = queryKey(normalized)
   const [draft, setDraft] = useState(normalized.text)
-  const [state, setState] = useState({ status: 'loading', entries: [], total: 0, error: null })
+  const [state, setState] = useState({ status: 'loading', entries: [], total: 0, failed: [], error: null })
   const [sources, setSources] = useState([])
   const [attempt, setAttempt] = useState(0)
   const queryRef = useRef(normalized)
@@ -58,10 +62,10 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
     const ctl = new AbortController()
     setState(s => ({ ...s, status: 'loading', error: null }))
     adapter.search(queryRef.current, ctl.signal)
-      .then(page => setState({ status: 'ready', entries: page.entries, total: page.total, error: null }))
+      .then(page => setState({ status: 'ready', entries: page.entries, total: page.total, failed: page.failed || [], error: null }))
       .catch(error => {
         if (ctl.signal.aborted || (error && error.name === 'AbortError')) return
-        setState({ status: 'error', entries: [], total: 0, error })
+        setState({ status: 'error', entries: [], total: 0, failed: [], error })
       })
     return () => ctl.abort()
   }, [adapter, key, reloadToken, attempt])
@@ -93,6 +97,19 @@ export default function CatalogView({ adapter, query, onQueryChange, renderEntry
       <p className="cat-count" role="status" aria-live="polite">
         {state.status === 'ready' ? t('catalog.count', { count: state.total }) : ''}
       </p>
+
+      {state.status === 'ready' && state.failed.length > 0 && (
+        <Callout tone="warn" title={t('catalog.failedTitle', { count: state.failed.length })} testId="failed-libraries">
+          {t('catalog.failedBody')}
+          <ul className="cat-failed">
+            {state.failed.map(f => (
+              <li key={f.sourceId} data-source={f.sourceId}>
+                <strong>{f.name}</strong>{f.error ? `: ${f.error}` : ''}
+              </li>
+            ))}
+          </ul>
+        </Callout>
+      )}
 
       {state.status === 'error' ? (
         <div className="op-error" role="alert">

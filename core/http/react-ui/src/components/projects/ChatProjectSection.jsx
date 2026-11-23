@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, Callout } from '../ui'
+import { Button, Callout, Tag } from '../ui'
 import { PULLED_MAX, composerProjects, homeProject, isBusy, pulledChoices, pulledProjects, withPulled } from '../../utils/projects'
 import { sharedChoices } from '../../utils/sharedProjects'
 import './projectchat.css'
@@ -84,7 +84,7 @@ export default function ChatProjectSection({ chat, list, running, onProject, onP
                   <span className="pjc-pulled__name" data-state={p.state}>
                     <Icon name={p.state === 'mounted' ? (p.shared ? 'users' : 'lock') : 'alert-circle'} />
                     {p.state === 'unlisted' ? t('chat.unlistedName') : p.name}
-                    {p.shared && p.state !== 'unlisted' && <span className="pjc-badge" data-testid="chat-pulled-shared-badge">{t('share.badge')}</span>}
+                    {p.shared && p.state !== 'unlisted' && <Tag tone="accent" testId="chat-pulled-shared-badge">{t('share.badge')}</Tag>}
                     {p.state !== 'mounted' && <small className="pjc-pulled__state" data-testid="chat-pulled-state">{t(p.state === 'unlisted' ? 'chat.unlistedShort' : p.state === 'archived' ? 'chat.pulledArchived' : 'chat.pulledUnavailable')}</small>}
                   </span>
                   {p.shared && p.state === 'mounted' && <small className="pjc-pulled__by">{t('share.byAccess', { owner: p.owner, access: t(p.mode === 'write' ? 'share.canEdit' : 'share.readOnly') })}</small>}

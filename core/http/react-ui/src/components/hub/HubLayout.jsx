@@ -1,42 +1,16 @@
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, Outlet, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { apiUrl } from '../../utils/basePath'
 import { preloadRoute } from '../../router'
 import RouteFallback from '../RouteFallback'
 import { resolveTabs, visibleItems } from './hubConfig'
 import { useHubAuth } from './useHubAuth'
-import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
-import Icon from '../Icon'
 import { useAddonNavigation, useSlotContributions } from '../../addons/useAddonRegistry'
-// eslint-disable-next-line no-unused-vars
-import { HubHeaderContext } from './hubHeaderContext'
 import './hub.css'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
 
-// Signals come from the Operate summary and only exist inside Operate. They
-// are never the only place a fact appears: the Status page states the same
-// things in prose. The attention count is the one that asks for a look.
-function TabBadge({ signal, summary }) {
-  const value = signal && summary?.signals ? summary.signals[signal.key] : null
-  if (value == null) return null
-  if (signal.kind === 'attention') {
-    return <span className="dk-hubtab-attn">{value}</span>
-  }
-  if (signal.kind === 'update') {
-    // Accent, not amber: an optional update is not a decision. Red when one
-    // failed, so a failure is never read as news.
-    const level = summary.signals.updatesLevel === 'error' ? 'error' : 'update'
-    return <span className="dk-hubtab-count hub-updates-count" data-level={level} data-testid="updates-tab-count">{value}</span>
-  }
-  if (signal.kind === 'error') {
-    return <span className="dk-hubtab-attn" data-level="error" title={String(value)}>{value}</span>
-  }
-  return <span className="dk-hubtab-count">{value}</span>
-}
-
-function HubTab({ tab, current, auth, summary, t }) {
+function HubTab({ tab, current, auth, t }) {
   const items = visibleItems(tab, auth)
   // A tab links to its first visible route. A tab that is only on screen
   // because the viewer stands on one of its routes links to the route they
@@ -53,9 +27,6 @@ function HubTab({ tab, current, auth, summary, t }) {
       onFocus={() => preloadRoute(target)}
     >
       <span>{label}</span>
-      {(tab.signals || []).map(signal => (
-        <TabBadge key={signal.key} signal={signal} summary={summary} />
-      ))}
     </Link>
   )
 }
@@ -92,17 +63,6 @@ function SubNav({ tab, auth, pathname, t }) {
       {tab.addonNavigation && <AddonSlot slot="app.nav" context={null} />}
     </nav>
   )
-}
-
-// The nodes the page portals its supporting line and actions into, and how
-// many pages fill the line (the hub's own line shows only when none does).
-function useHeaderSlots() {
-  const [supporting, setSupporting] = useState(null)
-  const [actions, setActions] = useState(null)
-  const [filled, setFilled] = useState(0)
-  const claim = useCallback((delta) => setFilled(n => Math.max(0, n + delta)), [])
-  const value = useMemo(() => ({ supporting, actions, claim }), [supporting, actions, claim])
-  return { value, filled, setSupporting, setActions }
 }
 
 // A tab row that scrolls sideways fades at the edge that has more, and brings
@@ -148,53 +108,18 @@ function HubLayoutInner({ config }) {
   const addonNavigation = useAddonNavigation(config.id === 'addons')
   const auth = config.id === 'addons' ? { ...hubAuth, addonNavigation } : hubAuth
   const location = useLocation()
-  const summary = useOperateSummary()
   // Forward the App-level outlet context (e.g. addToast): a nested bare
   // <Outlet/> would otherwise shadow it with undefined and crash pages.
   const outletContext = useOutletContext()
-  const slots = useHeaderSlots()
   const { ref: tabsRef, fade } = useTabRow(location.pathname)
 
   const { tabs, current } = resolveTabs(config, auth, location.pathname)
-  const external = (config.external || []).filter(item => !item.adminOnly || auth.isAdmin)
-  const header = config.header ? (
-    <header className="hub-head">
-      <div className="hub-head__lead">
-        {/* Not a heading: the page under the tabs owns the one h1. The tab
-            row is labelled with the same name for assistive technology. */}
-        <p className="hub-title">{t(config.titleKey)}</p>
-        <div className="hub-head__supporting" data-testid="hub-supporting">
-          {slots.filled === 0 && config.header.supportingKey
-            ? <span className="hub-head__default">{t(config.header.supportingKey)}</span>
-            : null}
-          {/* The page's line is portalled here; the node has no React children. */}
-          <div className="hub-head__slot" ref={slots.setSupporting} />
-        </div>
-      </div>
-      <div className="hub-head__actions" ref={slots.setActions} />
-    </header>
-  ) : null
-
   return (
-    <HubHeaderContext.Provider value={slots.value}>
     <div className="hub-layout" data-hub={config.id}>
       <div className="hub-bar">
-        {header}
         <nav className="dk-hubtabs" aria-label={t(config.titleKey)} ref={tabsRef} data-fade={fade || undefined}>
           {tabs.map(tab => (
-            <HubTab key={tab.id} tab={tab} current={current?.id === tab.id} auth={auth} summary={summary} t={t} />
-          ))}
-          {external.map(item => (
-            <a
-              key={item.href}
-              className="dk-hubtab"
-              href={apiUrl(item.href)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span>{t(item.labelKey)}</span>
-              <Icon name="external-link" aria-hidden="true" />
-            </a>
+            <HubTab key={tab.id} tab={tab} current={current?.id === tab.id} auth={auth} t={t} />
           ))}
         </nav>
         {current && <SubNav tab={current} auth={auth} pathname={location.pathname} t={t} />}
@@ -207,18 +132,9 @@ function HubLayoutInner({ config }) {
         </Suspense>
       </div>
     </div>
-    </HubHeaderContext.Provider>
   )
 }
 
-// The summary provider wraps the Operate hub and nothing else. That is the
-// whole of "poll only while the user is in Operate": elsewhere the provider is
-// not mounted, so no timer exists to gate. Build gets the plain layout.
 export default function HubLayout({ config }) {
-  if (config.id !== 'operate') return <HubLayoutInner config={config} />
-  return (
-    <OperateSummaryProvider>
-      <HubLayoutInner config={config} />
-    </OperateSummaryProvider>
-  )
+  return <HubLayoutInner config={config} />
 }

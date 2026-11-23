@@ -22,7 +22,7 @@ async function api(page, { items = [MINE], shared = [THEIRS], sharing = true } =
   })
   await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => r.fulfill({ json: { connectors: items, shared, sharing } }))
   await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-  await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+  await page.route('**/api/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
   await page.route(`**/api/shares/connection/${RID}/grants`, r => {
     s.calls.push(`grants ${r.request().headers()['x-localai-confirm']}`)
     return r.fulfill({ json: { kind: 'connection', resourceId: RID, roles: ['use'], everyone: false, grants: [{ userId: 'u2', displayName: 'Bob Okafor', role: 'use' }] } })

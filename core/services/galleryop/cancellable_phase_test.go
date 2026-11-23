@@ -27,6 +27,22 @@ func newGatedModelManager() *gatedModelManager {
 	return &gatedModelManager{gate: make(chan struct{})}
 }
 
+// current returns the gate a handler must wait on. The handler runs on the
+// worker goroutine and a spec swaps the gate, so every access takes the mutex.
+func (m *gatedModelManager) current() chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.gate
+}
+
+// release lets every parked handler go and arms a new gate for the next one.
+func (m *gatedModelManager) release() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	close(m.gate)
+	m.gate = make(chan struct{})
+}
+
 func (m *gatedModelManager) record(name string) {
 	m.mu.Lock()
 	m.started = append(m.started, name)
@@ -41,13 +57,13 @@ func (m *gatedModelManager) Started() []string {
 
 func (m *gatedModelManager) InstallModel(_ context.Context, op *galleryop.ManagementOp[gallery.GalleryModel, gallery.ModelConfig], _ galleryop.ProgressCallback) error {
 	m.record(op.GalleryElementName)
-	<-m.gate
+	<-m.current()
 	return nil
 }
 
 func (m *gatedModelManager) DeleteModel(name string) error {
 	m.record(name)
-	<-m.gate
+	<-m.current()
 	return nil
 }
 
@@ -120,7 +136,7 @@ var _ = Describe("operation cancellability by phase", func() {
 
 		BeforeEach(func() {
 			manager = newGatedModelManager()
-			DeferCleanup(func() { close(manager.gate) })
+			DeferCleanup(func() { close(manager.current()) })
 
 			svc.SetModelManager(manager)
 			ctx, cancel := context.WithCancel(context.Background())
@@ -188,8 +204,7 @@ var _ = Describe("operation cancellability by phase", func() {
 
 			// Free the worker: it loops back to an empty channel because the
 			// delivery goroutine gave up on the send.
-			close(manager.gate)
-			manager.gate = make(chan struct{})
+			manager.release()
 
 			Consistently(manager.Started, "500ms", "20ms").ShouldNot(
 				ContainElement("localai@doomed-removal"),

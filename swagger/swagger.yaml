@@ -100,6 +100,31 @@ definitions:
       version:
         type: string
     type: object
+  addons.HostGrantsQueueBody:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/gateway.HostGrantsQueueRequest'
+        type: array
+    type: object
+  addons.HostGrantsQueueItem:
+    properties:
+      addonId:
+        type: string
+      error:
+        $ref: '#/definitions/addons.AddonError'
+      jobId:
+        type: string
+      operationId:
+        type: string
+    type: object
+  addons.HostGrantsQueueResult:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/addons.HostGrantsQueueItem'
+        type: array
+    type: object
   addons.OperationStatus:
     properties:
       addonID:
@@ -283,6 +308,11 @@ definitions:
         type: string
       official:
         type: boolean
+      signer:
+        description: |-
+          Signer is the identity that signed the package, shown only when the
+          receipt says the signature was checked and the package is not official.
+        type: string
       sourceId:
         description: |-
           SourceID is the library the package came from, and Official is true
@@ -935,6 +965,20 @@ definitions:
     type: string
     x-enum-varnames:
     - KindPage
+  carrier.BusState:
+    properties:
+      bus:
+        description: 'Bus is the bus that the process publishes on now: BusNATS or
+          BusPostgres.'
+        type: string
+      nats_configured:
+        description: |-
+          NATSConfigured says that the cluster has a NATS server, and NATSConnected
+          that the process reaches it.
+        type: boolean
+      nats_connected:
+        type: boolean
+    type: object
   catalog.Kind:
     enum:
     - addon
@@ -953,10 +997,17 @@ definitions:
         type: string
       count:
         type: integer
+      error:
+        description: |-
+          Error is why the latest fetch failed, as the owner log says it. It is
+          empty when the fetch worked. LastSuccess says when the library last
+          loaded, if it ever did.
+        type: string
       failed:
         description: |-
           Failed is true when the latest fetch failed; the previous releases are
-          not served in that case.
+          not served in that case. Other libraries are not affected: a listing
+          still answers with what they loaded and names this one in Page.Failed.
         type: boolean
       lastSuccess:
         type: string
@@ -975,14 +1026,43 @@ definitions:
       identityRegex:
         description: |-
           IdentityRegex is an anchored pattern for the signer identity, used
-          instead of Identity so that master and tagged builds both verify. Only a
-          library that serves backends may use it; an add-on install refuses it.
+          instead of Identity so that master and tagged builds both verify. A
+          backend install accepts it alone. An add-on install and an oci:// add-on
+          library accept it only with SourceRepository: a shared signing workflow
+          signs for every repository that calls it, so the pattern alone would
+          admit a signature made for any of them.
         type: string
       issuer:
         type: string
       requireSignature:
         type: boolean
+      sourceRepository:
+        description: |-
+          SourceRepository pins the repository the signature was made for: an
+          https URL compared exactly with the source-repository extension of the
+          signing certificate, such as https://github.com/<owner>/<repo>. It is
+          valid only when a signature is required.
+        type: string
     type: object
+  cluster.CarrierWeights:
+    properties:
+      nats:
+        type: integer
+      p2p:
+        type: integer
+      websocket:
+        type: integer
+    type: object
+  config.FailoverPolicy:
+    enum:
+    - priority
+    - least_busy
+    - round_robin
+    type: string
+    x-enum-varnames:
+    - FailoverPolicyPriority
+    - FailoverPolicyLeastBusy
+    - FailoverPolicyRoundRobin
   config.Gallery:
     properties:
       artifact_verification:
@@ -1626,6 +1706,8 @@ definitions:
         type: string
       pinned:
         type: string
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
       state:
         $ref: '#/definitions/failover.ChainState'
       targets:
@@ -1656,6 +1738,17 @@ definitions:
   failover.TargetStatus:
     properties:
       consecutive_ok:
+        type: integer
+      constrained:
+        description: Constrained targets are tried last by a balanced chain.
+        type: boolean
+      drained:
+        description: Drained targets take no new request.
+        type: boolean
+      in_flight:
+        description: |-
+          InFlight is the number of requests of this server that the target
+          serves now. It is not shared between frontends.
         type: integer
       kind:
         $ref: '#/definitions/failover.Kind'
@@ -2537,6 +2630,12 @@ definitions:
         type: boolean
       digest:
         type: string
+      fromIndex:
+        description: |-
+          FromIndex is true when the requested operations come from the library
+          index, with no download. The install then holds the add-on, and asks
+          again, when its verified manifest requests anything not listed here.
+        type: boolean
       installed:
         type: boolean
       locked:
@@ -2557,7 +2656,30 @@ definitions:
         $ref: '#/definitions/gateway.HostRequested'
       revision:
         type: integer
+      signer:
+        type: string
       title:
+        type: string
+      version:
+        type: string
+    type: object
+  gateway.HostGrantsQueueRequest:
+    properties:
+      action:
+        description: Action is install (the default) or upgrade.
+        type: string
+      addonId:
+        type: string
+      approve:
+        $ref: '#/definitions/gateway.HostGrantsApprove'
+      candidateDigest:
+        type: string
+      expectedDigest:
+        description: ExpectedDigest and CandidateDigest pin an upgrade; both or neither.
+        type: string
+      operationId:
+        type: string
+      sourceId:
         type: string
       version:
         type: string
@@ -3232,6 +3354,65 @@ definitions:
       logo_url:
         type: string
     type: object
+  localai.ClusterSettingsRequest:
+    properties:
+      carrier_weights:
+        additionalProperties:
+          type: integer
+        description: |-
+          CarrierWeights sets some or all of nats, websocket and p2p, each a whole
+          number from 0 to 1000. A key that is absent stays as it is, null puts the
+          default back, and a key that is not one of the three is refused.
+        type: object
+      join_auto_approve:
+        description: |-
+          JoinAutoApprove sets the default of the auto-approve choice of a new join
+          token. null puts the default (off) back.
+        type: boolean
+      nats_url:
+        type: string
+      nats_worker_url:
+        type: string
+    type: object
+  localai.ClusterSettingsResponse:
+    properties:
+      bus:
+        allOf:
+        - $ref: '#/definitions/carrier.BusState'
+        description: |-
+          Bus is the broadcast bus of the frontend that answers, read from its own
+          connection: NATS while it reaches the NATS server, PostgreSQL otherwise.
+      carrier_weights:
+        allOf:
+        - $ref: '#/definitions/cluster.CarrierWeights'
+        description: |-
+          CarrierWeights are the weights that break a tie between equally fit nodes
+          reached over different carriers (nats, websocket, p2p). A weight that is not
+          stored is the default, so these are always the values in force.
+      carrier_weights_default:
+        allOf:
+        - $ref: '#/definitions/cluster.CarrierWeights'
+        description: CarrierWeightsDefault are the weights that apply when none is
+          stored.
+      join_auto_approve:
+        description: |-
+          JoinAutoApprove is the default of the auto-approve choice of a new join
+          token: when true, a worker that registers with such a token joins with no
+          admin approval. Off unless set.
+        type: boolean
+      nats_url:
+        description: NATSURL is the NATS address that the frontends use.
+        type: string
+      nats_worker_url:
+        description: NATSWorkerURL is the NATS address that workers are told to use.
+          Empty means NATSURL.
+        type: string
+      replicas:
+        description: Replicas are the live frontend replicas.
+        items:
+          $ref: '#/definitions/localai.ReplicaView'
+        type: array
+    type: object
   localai.FailoverChainsResponse:
     properties:
       chains:
@@ -3243,6 +3424,41 @@ definitions:
     properties:
       target:
         type: string
+    type: object
+  localai.FederationDrainRequest:
+    properties:
+      drain:
+        description: Drain true stops new requests to the model; false starts them
+          again.
+        type: boolean
+      model:
+        type: string
+    type: object
+  localai.FederationGroupRequest:
+    properties:
+      members:
+        description: |-
+          Members are the model names that serve the group: a model of this
+          server or an entry of a remote. At least two.
+        items:
+          type: string
+        type: array
+      name:
+        description: Name is the model name clients use for the group.
+        type: string
+      policy:
+        allOf:
+        - $ref: '#/definitions/config.FailoverPolicy'
+        description: Policy is least_busy (default) or round_robin.
+    type: object
+  localai.FederationGroupUpdateRequest:
+    properties:
+      members:
+        items:
+          type: string
+        type: array
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
     type: object
   localai.GalleryBackend:
     properties:
@@ -3331,6 +3547,61 @@ definitions:
           $ref: '#/definitions/gallery.Variant'
         type: array
     type: object
+  localai.JoinCommands:
+    properties:
+      docker:
+        description: Docker runs the worker as one container.
+        type: string
+      docker_compose:
+        description: DockerCompose is a compose file with one worker service.
+        type: string
+      install_script:
+        description: InstallScript installs the binary and a service on a Linux or
+          macOS host.
+        type: string
+      kubernetes:
+        description: Kubernetes applies a Secret and a StatefulSet.
+        type: string
+      manual:
+        description: Manual starts a worker from a binary that is already installed.
+        type: string
+      windows:
+        description: Windows installs the binary and a service on a Windows host (PowerShell).
+        type: string
+    type: object
+  localai.JoinTokenView:
+    properties:
+      auto_approve:
+        type: boolean
+      created_at:
+        type: string
+      created_by:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      revoked_at:
+        type: string
+      revoked_by:
+        type: string
+      routes:
+        description: nats, websocket; empty means any
+        items:
+          type: string
+        type: array
+      state:
+        description: unused, partly_used, used_up, expired or revoked
+        type: string
+      uses:
+        type: integer
+    type: object
   localai.LibrarySourcesResponse:
     properties:
       officialLibraries:
@@ -3339,6 +3610,71 @@ definitions:
         items:
           $ref: '#/definitions/library.Info'
         type: array
+    type: object
+  localai.MintJoinTokenRequest:
+    properties:
+      auto_approve:
+        description: AutoApprove makes the worker that uses the token join with no
+          admin step.
+        type: boolean
+      label:
+        description: Label is a note for the list, for example the name of the machine.
+        type: string
+      routes:
+        description: 'Routes limits the connections of the worker: nats, websocket.
+          Empty allows any.'
+        items:
+          type: string
+        type: array
+      ttl_seconds:
+        description: TTLSeconds is how long the token is good for, up to 86400 (24
+          hours).
+        type: integer
+      uses:
+        description: |-
+          Uses is how many workers may register with it, up to 100. Use more than
+          one for Kubernetes and Compose, where several replicas start together.
+        type: integer
+    type: object
+  localai.MintJoinTokenResponse:
+    properties:
+      auto_approve:
+        type: boolean
+      commands:
+        allOf:
+        - $ref: '#/definitions/localai.JoinCommands'
+        description: Commands are ready to copy, one for each way to run a worker.
+      created_at:
+        type: string
+      created_by:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      revoked_at:
+        type: string
+      revoked_by:
+        type: string
+      routes:
+        description: nats, websocket; empty means any
+        items:
+          type: string
+        type: array
+      state:
+        description: unused, partly_used, used_up, expired or revoked
+        type: string
+      token:
+        description: Token is the plain token. It is shown once.
+        type: string
+      uses:
+        type: integer
     type: object
   localai.ModelExportsStatus:
     properties:
@@ -3495,8 +3831,16 @@ definitions:
     type: object
   localai.RemoteCreateRequest:
     properties:
+      allow_open_relay:
+        description: AllowOpenRelay accepts an invite that names an open relay.
+        type: boolean
       api_key:
         description: write-only
+        type: string
+      invite:
+        description: |-
+          Invite is an invite link of kind remote (localai://pair?...).
+          Write-only: it is a one-time credential.
         type: string
       kind:
         $ref: '#/definitions/remotes.Kind'
@@ -3522,6 +3866,11 @@ definitions:
         items:
           type: string
         type: array
+      phrase:
+        description: |-
+          Phrase is the confirmation phrase of a remote added by invite: the
+          other server shows the same words in its device list.
+        type: string
       remote:
         $ref: '#/definitions/remotes.Remote'
       skipped:
@@ -3551,6 +3900,15 @@ definitions:
       url:
         type: string
     type: object
+  localai.ReplicaView:
+    properties:
+      id:
+        type: string
+      last_seen:
+        type: string
+      version:
+        type: string
+    type: object
   localai.SearchSourcesRequest:
     properties:
       enabled:
@@ -3561,6 +3919,22 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  localai.SetSplitServerRequest:
+    properties:
+      split_server:
+        description: SplitServer declares the node a split server, or clears it.
+        type: boolean
+    type: object
+  localai.SetSplitServerResponse:
+    properties:
+      detached:
+        description: |-
+          Detached is the number of split workers that were attached to the node
+          and are now attached to no node.
+        type: integer
+      split_server:
+        type: boolean
     type: object
   localai.TTSModelVoices:
     properties:
@@ -3783,7 +4157,10 @@ definitions:
   modelsearch.RepoFile:
     properties:
       kind:
-        description: Kind is "gguf", "mmproj" or "weights" (safetensors, bin, pt).
+        description: |-
+          Kind is "gguf", "mmproj", "drafter" (a speculative-decoding sidecar such
+          as dspark-*.gguf, never a variant of its own) or "weights" (safetensors,
+          bin, pt).
         type: string
       path:
         type: string
@@ -4016,6 +4393,146 @@ definitions:
       sizeDisplay:
         type: string
     type: object
+  modelupdates.FileChange:
+    properties:
+      change:
+        description: Change is added, changed or removed.
+        type: string
+      checksum:
+        description: |-
+          Checksum is false for a file the gallery lists without a sha256. The
+          upgrade refuses to download weights without one.
+        type: boolean
+      path:
+        type: string
+      role:
+        type: string
+    type: object
+  modelupdates.Item:
+    properties:
+      availableDigest:
+        type: string
+      changedFiles:
+        description: ChangedFiles are the files the update adds, replaces or retires.
+        items:
+          $ref: '#/definitions/modelupdates.FileChange'
+        type: array
+      configOnly:
+        description: |-
+          ConfigOnly is true when the update changes no file the upgrade must
+          download: only the model config or the prompt templates.
+        type: boolean
+      editedKeys:
+        description: |-
+          EditedKeys are the keys of the model config a person changed since the
+          install, by dotted path. Conflict marks the ones the update also
+          changes.
+        items:
+          $ref: '#/definitions/modelupdates.KeyEdit'
+        type: array
+      entryName:
+        type: string
+      error:
+        description: Error is the error behind a check-failed reason.
+        type: string
+      gallery:
+        type: string
+      held:
+        type: boolean
+      id:
+        description: ID is "model:<name>".
+        type: string
+      installedDigest:
+        type: string
+      kind:
+        type: string
+      name:
+        description: Name is the installed model name.
+        type: string
+      needsPerson:
+        description: |-
+          NeedsPerson is true for an update, an edited update and a failed
+          upgrade. Models have no automatic update, so every update needs a
+          person; this is not the backend rule, where the automatic update
+          removes items from the digest.
+        type: boolean
+      reason:
+        description: Reason says why the state is unknown.
+        type: string
+      state:
+        type: string
+      upgrade:
+        allOf:
+        - $ref: '#/definitions/modelupdates.UpgradeStatus'
+        description: Upgrade is the last or the running upgrade of this model.
+    type: object
+  modelupdates.KeyEdit:
+    properties:
+      conflict:
+        type: boolean
+      gallery: {}
+      installed:
+        description: |-
+          Installed is the value the install wrote, Mine the value on disk, and
+          Gallery the value the update would write. A nil value means the key is
+          absent.
+      key:
+        type: string
+      mine: {}
+    type: object
+  modelupdates.Snapshot:
+    properties:
+      checkedAt:
+        description: |-
+          CheckedAt is the end of the last check; zero (omitted) before the
+          first one.
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/modelupdates.Item'
+        type: array
+      sources:
+        additionalProperties:
+          $ref: '#/definitions/backendupdates.Source'
+        type: object
+      throttled:
+        description: |-
+          Throttled is set when a check-now call was answered from a check that
+          ended a few seconds before.
+        type: boolean
+    type: object
+  modelupdates.UpgradeStatus:
+    properties:
+      attempts:
+        type: integer
+      configOnly:
+        type: boolean
+      error:
+        type: string
+      fromDigest:
+        type: string
+      note:
+        description: |-
+          Note says how the upgrade ran when that differs from what was asked
+          (a canary strategy runs as stop and start until canary is available).
+        type: string
+      opId:
+        type: string
+      phase:
+        type: string
+      removableOld:
+        type: boolean
+      retainedFiles:
+        items:
+          type: string
+        type: array
+      running:
+        type: boolean
+      toDigest:
+        type: string
+      updatedAt:
+        type: string
+    type: object
   nodes.NodeModel:
     properties:
       address:
@@ -4057,6 +4574,576 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  p2p.AddRelayRequest:
+    properties:
+      addr:
+        description: Addr must end in /p2p/<relay peer ID>.
+        type: string
+      claim_code:
+        type: string
+      label:
+        type: string
+    type: object
+  p2p.ClaimRelayRequest:
+    properties:
+      code:
+        type: string
+    type: object
+  p2p.ClientKey:
+    properties:
+      id:
+        type: string
+      secret:
+        type: string
+    type: object
+  p2p.DeviceList:
+    properties:
+      devices:
+        items:
+          $ref: '#/definitions/p2p.DeviceView'
+        type: array
+    type: object
+  p2p.DeviceView:
+    properties:
+      all_models:
+        description: AllModels is true for a remote device that may use every model.
+        type: boolean
+      created_at:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      label:
+        type: string
+      last_seen_at:
+        type: string
+      models:
+        description: Models are the models a remote device is limited to.
+        items:
+          type: string
+        type: array
+      online:
+        description: Online is true while the device is connected.
+        type: boolean
+      path:
+        $ref: '#/definitions/p2p.PathView'
+      peer_id:
+        type: string
+      status:
+        description: Status is active or revoked.
+        type: string
+    type: object
+  p2p.InviteList:
+    properties:
+      invites:
+        items:
+          $ref: '#/definitions/p2p.InviteView'
+        type: array
+    type: object
+  p2p.InviteView:
+    properties:
+      all_models:
+        description: |-
+          AllModels is true for a remote invite that grants every model, also
+          for one made without a list.
+        type: boolean
+      created_at:
+        type: string
+      created_by:
+        type: string
+      device_id:
+        type: string
+      device_peer_id:
+        description: DevicePeerID is the peer that redeemed a used invite.
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      label:
+        type: string
+      models:
+        description: |-
+          Models are the models a remote invite is limited to. Device and worker
+          invites carry none.
+        items:
+          type: string
+        type: array
+      phrase:
+        description: |-
+          Phrase is the confirmation phrase of a used invite: the words the
+          device was shown when it redeemed. The admin compares them.
+        type: string
+      relay_pass:
+        description: |-
+          RelayPass is the label of the relay that holds the pass of the invite;
+          empty when the link carries no pass.
+        type: string
+      status:
+        description: Status is pending, used, expired or canceled.
+        type: string
+    type: object
+  p2p.MintRequest:
+    properties:
+      all_models:
+        description: |-
+          AllModels grants a remote invite every model this server lets a client
+          key use, models added later too. It is refused with a non-empty models.
+        type: boolean
+      allow_open_relay:
+        description: AllowOpenRelay lets the invite name an open relay.
+        type: boolean
+      features:
+        items:
+          type: string
+        type: array
+      kind:
+        description: Kind is device, remote, worker or split.
+        type: string
+      label:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      models:
+        description: |-
+          Models limits a remote invite to these models. An empty list means
+          every model, as before all_models existed.
+        items:
+          type: string
+        type: array
+      relays:
+        description: Relays is "auto", "none" or a list of relay IDs.
+        example: auto
+        type: string
+      ttl_seconds:
+        description: 'TTLSeconds is the life of the invite: 600 when zero, at most
+          86400.'
+        type: integer
+    type: object
+  p2p.MintResult:
+    properties:
+      expires_at:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      link:
+        type: string
+      qr:
+        description: |-
+          QR says whether the interface may show the link as a QR code (device
+          and remote invites only).
+        type: boolean
+      relay:
+        $ref: '#/definitions/p2p.RelayPass'
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  p2p.OKResponse:
+    properties:
+      ok:
+        type: boolean
+    type: object
+  p2p.PathView:
+    properties:
+      kind:
+        description: Kind is none, direct, hole_punched or relayed.
+        type: string
+      limit_bytes:
+        type: integer
+      limit_seconds:
+        type: integer
+      limited:
+        type: boolean
+      relay_label:
+        type: string
+      rtt_ms:
+        type: integer
+    type: object
+  p2p.PublicDHTInfo:
+    properties:
+      "on":
+        type: boolean
+      peers:
+        description: Peers is the number of peers the host is connected to.
+        type: integer
+    type: object
+  p2p.RedeemRequest:
+    properties:
+      code:
+        type: string
+      name:
+        type: string
+      platform:
+        type: string
+      v:
+        description: V is the protocol version, 1.
+        type: integer
+    type: object
+  p2p.RedeemResult:
+    properties:
+      client_key:
+        allOf:
+        - $ref: '#/definitions/p2p.ClientKey'
+        description: ClientKey is the API key of a remote invite; it is shown once.
+      device_id:
+        type: string
+      kind:
+        type: string
+      phrase:
+        description: Phrase is shown on both sides; the person compares them.
+        type: string
+      server:
+        $ref: '#/definitions/p2p.ServerInfo'
+    type: object
+  p2p.RegenerateIdentityRequest:
+    properties:
+      confirm:
+        description: 'Confirm must be true: a new identity unpairs every device and
+          remote.'
+        type: boolean
+    type: object
+  p2p.Relay:
+    properties:
+      addr:
+        description: Addr is a multiaddr that ends in /p2p/<relay peer ID>.
+        type: string
+      admins:
+        type: integer
+      checked_at:
+        type: string
+      health:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      latency_ms:
+        type: integer
+      limits:
+        $ref: '#/definitions/p2p.RelayLimits'
+      members:
+        type: integer
+      mode:
+        description: Mode is gated, open, unclaimed or unknown.
+        type: string
+      state:
+        description: |-
+          State is in_sync, out_of_sync, open, unclaimed, not_admin, denied,
+          unreachable or checking.
+        type: string
+    type: object
+  p2p.RelayCheck:
+    properties:
+      admin_ok:
+        type: boolean
+      circuit_ok:
+        type: boolean
+      connected:
+        type: boolean
+      detail:
+        items:
+          type: string
+        type: array
+      in_sync:
+        type: boolean
+      relay:
+        $ref: '#/definitions/p2p.Relay'
+      reserved:
+        type: boolean
+    type: object
+  p2p.RelayLimits:
+    properties:
+      circuit_bytes:
+        type: integer
+      circuit_seconds:
+        type: integer
+      rate_bps:
+        type: integer
+    type: object
+  p2p.RelayLimitsInfo:
+    properties:
+      can_change:
+        description: |-
+          CanChange is true when this server is an admin of a gated relay and
+          may change the limits.
+        type: boolean
+      ceiling:
+        allOf:
+        - $ref: '#/definitions/p2p.RelayLimits'
+        description: |-
+          Ceiling is the most a change may set for each limit; the operator of
+          the relay sets it. Zero means no ceiling. With a ceiling a limit
+          cannot be removed either: a value above it, or zero, is refused with
+          an error that names the ceiling.
+      limits:
+        $ref: '#/definitions/p2p.RelayLimits'
+      restarted:
+        description: |-
+          Restarted is true when the relay restarted its circuit service to
+          apply the change: it dropped its reservations and the paired devices
+          reserve again within moments. A change of the bandwidth limit alone
+          never restarts it.
+        type: boolean
+    type: object
+  p2p.RelayList:
+    properties:
+      relays:
+        items:
+          $ref: '#/definitions/p2p.Relay'
+        type: array
+    type: object
+  p2p.RelayPass:
+    properties:
+      id:
+        type: string
+      label:
+        type: string
+      open:
+        type: boolean
+      pass:
+        description: Pass is true when the link carries a relay pass.
+        type: boolean
+      reason:
+        description: Reason is no_relay or relay_unreachable when there is no pass.
+        type: string
+    type: object
+  p2p.RelayServiceInfo:
+    properties:
+      reason:
+        description: 'Reason says why it does not run: off, not_share, not_public.'
+        type: string
+      running:
+        type: boolean
+    type: object
+  p2p.RenameDeviceRequest:
+    properties:
+      label:
+        type: string
+    type: object
+  p2p.RevokeResult:
+    properties:
+      revoked:
+        type: boolean
+    type: object
+  p2p.ServerInfo:
+    properties:
+      name:
+        type: string
+      peer_id:
+        type: string
+      version:
+        type: string
+    type: object
+  p2p.SetRelayLimitsRequest:
+    properties:
+      circuit_bytes:
+        description: CircuitBytes is the data one circuit may carry in each direction.
+        type: integer
+      circuit_seconds:
+        description: CircuitSeconds is the time one circuit may stay open.
+        type: integer
+      rate_bps:
+        description: |-
+          RateBPS is the bandwidth of one circuit in each direction, in bytes
+          per second.
+        type: integer
+    type: object
+  p2p.SplitNodeRelay:
+    properties:
+      reason:
+        type: string
+      relays:
+        description: Relays is the state on each gated relay that this server administers.
+        items:
+          $ref: '#/definitions/p2p.SplitRelayAdmission'
+        type: array
+      state:
+        description: State is admitted, refused, pending or not_needed.
+        type: string
+    type: object
+  p2p.SplitRelayAdmission:
+    properties:
+      label:
+        type: string
+      reason:
+        type: string
+      relay_id:
+        type: string
+      state:
+        description: State is admitted, refused or pending.
+        type: string
+    type: object
+  p2p.SplitWorkerList:
+    properties:
+      distributed:
+        description: |-
+          Distributed is true in a cluster: models run on the backend nodes, so
+          a worker is used only when it is attached to one (node_id).
+        type: boolean
+      memory_in_use:
+        description: MemoryInUse is the memory of the workers in use, in bytes.
+        type: integer
+      workers:
+        items:
+          $ref: '#/definitions/p2p.SplitWorkerView'
+        type: array
+    type: object
+  p2p.SplitWorkerUpdate:
+    properties:
+      allow_slow_path:
+        description: |-
+          AllowSlowPath uses the worker over a relayed path ("Use anyway"), or
+          stops using it there.
+        type: boolean
+      node_id:
+        description: |-
+          NodeID attaches the worker to a backend node of the cluster, or to
+          this server with "".
+        type: string
+    type: object
+  p2p.SplitWorkerView:
+    properties:
+      addr:
+        description: |-
+          Addr is the loopback address that reaches the worker, on this server
+          or on the node of NodeID: an entry of LLAMACPP_GRPC_SERVERS, or of the
+          MLX hostfile.
+        type: string
+      allow_slow_path:
+        description: AllowSlowPath is the "Use anyway" choice for a relayed path.
+        type: boolean
+      connected_since:
+        type: string
+      created_at:
+        type: string
+      engine:
+        description: Engine is llama (llama.cpp RPC) or mlx.
+        type: string
+      error:
+        description: Error says why a refused worker was refused.
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      last_seen_at:
+        type: string
+      memory_bytes:
+        description: |-
+          MemoryBytes is the memory the worker reported: its VRAM, or its RAM
+          when it has no GPU (unified memory on Apple Silicon).
+        type: integer
+      name:
+        description: Name and Version are what the worker reported.
+        type: string
+      node_id:
+        description: |-
+          NodeID is the backend node the worker is attached to; empty means
+          this server. NodeName is its name. The state, path and address of an
+          attached worker are what the node last reported.
+        type: string
+      node_name:
+        type: string
+      node_note:
+        description: |-
+          NodeNote says why a worker attached to no node was detached, for
+          example because its node stopped being a split server.
+        type: string
+      node_offline:
+        description: |-
+          NodeOffline is true when the node of NodeID is offline: the worker
+          stays attached and waits for it; nothing moves it.
+        type: boolean
+      node_relay:
+        allOf:
+        - $ref: '#/definitions/p2p.SplitNodeRelay'
+        description: |-
+          NodeRelay says whether the gated relays of this server admit the node
+          of NodeID, so that the worker can reach it through them when no direct
+          or hole-punched path works. Set only for a worker attached to a node.
+      own_relay:
+        description: |-
+          OwnRelay is true when that relay is a gated relay this server
+          administers: its limits can change. With a data or time limit the
+          relay ends each connection at the limit, also after allow_slow_path.
+        type: boolean
+      path:
+        $ref: '#/definitions/p2p.PathView'
+      peer_id:
+        type: string
+      rank:
+        description: Rank is the MLX rank of the worker; zero when not in the ring.
+        type: integer
+      relay_id:
+        description: |-
+          RelayID is the server's ID of the relay of a relayed path, when the
+          relay is one the server knows (see /api/p2p/relays/{id}/limits).
+        type: string
+      state:
+        description: |-
+          State is online (in use), offline, slow (only a relay reaches it: it
+          waits for allow_slow_path), limited (only a public relay reaches it,
+          whose limits cannot carry model layers) or refused.
+        type: string
+      version:
+        type: string
+    type: object
+  p2p.Status:
+    properties:
+      addrs:
+        description: Addrs are the addresses of the host, each with /p2p/<peer ID>.
+        items:
+          type: string
+        type: array
+      devices:
+        description: Devices is the number of active paired devices.
+        type: integer
+      enabled:
+        description: Enabled is true when the mode is not off.
+        type: boolean
+      error:
+        description: Error says why the host does not run although the mode asks for
+          it.
+        type: string
+      mode:
+        description: 'Mode is the mode in effect: off, connect or share.'
+        type: string
+      peer_id:
+        description: PeerID is the peer ID of this server; empty when the host does
+          not run.
+        type: string
+      pending_invites:
+        description: PendingInvites is the number of invites that can still be redeemed.
+        type: integer
+      public_dht:
+        $ref: '#/definitions/p2p.PublicDHTInfo'
+      reachability:
+        description: Reachability is unknown, public or private.
+        type: string
+      relay_service:
+        allOf:
+        - $ref: '#/definitions/p2p.RelayServiceInfo'
+        description: RelayService says whether this server relays for its paired devices.
+      reservations:
+        description: |-
+          Reservations are the peer IDs of the relays that hold a reservation for
+          this server.
+        items:
+          type: string
+        type: array
+      running:
+        description: Running is true when the host runs.
+        type: boolean
     type: object
   proposals.Event:
     properties:
@@ -4340,6 +5427,104 @@ definitions:
       state:
         type: string
     type: object
+  remotes.FederationView:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/remotes.Group'
+        type: array
+      instances:
+        items:
+          $ref: '#/definitions/remotes.Instance'
+        type: array
+    type: object
+  remotes.Group:
+    properties:
+      members:
+        items:
+          $ref: '#/definitions/remotes.GroupMember'
+        type: array
+      name:
+        type: string
+      policy:
+        $ref: '#/definitions/config.FailoverPolicy'
+      state:
+        description: |-
+          State is the state of the chain: primary, fallback or degraded. Empty
+          when the failover manager does not know it yet.
+        type: string
+    type: object
+  remotes.GroupMember:
+    properties:
+      constrained:
+        description: |-
+          Constrained is true when the target is reached through a relay that
+          limits the connection: it takes a request only when no other can.
+        type: boolean
+      drained:
+        type: boolean
+      in_flight:
+        description: InFlight counts the requests of this server that the target serves.
+        type: integer
+      instance:
+        description: |-
+          Instance is the id of the instance that serves the model: LocalInstance,
+          a remote id, or empty for a model of another proxy.
+        type: string
+      instance_name:
+        type: string
+      last_error:
+        type: string
+      model:
+        type: string
+      state:
+        description: |-
+          State is the health of the target: healthy, down, recovering or
+          missing. Empty when the failover manager does not know it yet.
+        type: string
+      upstream_id:
+        type: string
+    type: object
+  remotes.Instance:
+    properties:
+      id:
+        description: ID is LocalInstance or the id of the remote.
+        type: string
+      in_flight:
+        description: |-
+          InFlight counts the requests of this server that the instance serves
+          now through a group.
+        type: integer
+      local:
+        type: boolean
+      models:
+        items:
+          $ref: '#/definitions/remotes.InstanceModel'
+        type: array
+      name:
+        type: string
+      p2p:
+        allOf:
+        - $ref: '#/definitions/remotes.P2PInfo'
+        description: P2P is the tunnel of a remote over P2P.
+      status:
+        $ref: '#/definitions/remotes.Status'
+      transport:
+        $ref: '#/definitions/remotes.Transport'
+      url:
+        type: string
+    type: object
+  remotes.InstanceModel:
+    properties:
+      model:
+        description: Model is the name of the model config on this server.
+        type: string
+      upstream_id:
+        description: |-
+          UpstreamID is the model id at the instance. For this server it is
+          the model name.
+        type: string
+    type: object
   remotes.Kind:
     enum:
     - localai
@@ -4350,6 +5535,35 @@ definitions:
     - KindLocalAI
     - KindOpenAI
     - KindAnthropic
+  remotes.P2PInfo:
+    properties:
+      error:
+        description: Error is the last dial or listen error, for a person to read.
+        type: string
+      limited:
+        description: |-
+          Limited is true when the relay of a relayed path limits the data or
+          the time of the connection.
+        type: boolean
+      local_port:
+        description: |-
+          LocalPort is the loopback port of the forwarder. The entries of the
+          remote use http://127.0.0.1:<LocalPort> as their upstream address.
+        type: integer
+      path:
+        description: |-
+          Path is how the last request reached the server: direct,
+          hole_punched or relayed. Empty before the first request.
+        type: string
+      peer_id:
+        type: string
+      state:
+        allOf:
+        - $ref: '#/definitions/remotes.TunnelState'
+        description: |-
+          State is off (P2P is off on this server), listening (no request went
+          through yet), up, down or error (the port could not be opened).
+    type: object
   remotes.Remote:
     properties:
       entries:
@@ -4374,8 +5588,18 @@ definitions:
         items:
           $ref: '#/definitions/remotes.UpstreamModel'
         type: array
+      p2p:
+        allOf:
+        - $ref: '#/definitions/remotes.P2PInfo'
+        description: |-
+          P2P is the tunnel of a remote over P2P. It is the state of this
+          server's forwarder, not of the shared store.
       status:
         $ref: '#/definitions/remotes.Status'
+      transport:
+        allOf:
+        - $ref: '#/definitions/remotes.Transport'
+        description: Transport is "p2p" for a remote over P2P and absent otherwise.
       unavailable:
         description: subset of Entries the upstream no longer lists
         items:
@@ -4418,6 +5642,26 @@ definitions:
         description: invalid_url, unreachable, auth, no_models
         type: string
     type: object
+  remotes.Transport:
+    enum:
+    - p2p
+    type: string
+    x-enum-varnames:
+    - TransportP2P
+  remotes.TunnelState:
+    enum:
+    - "off"
+    - listening
+    - up
+    - down
+    - error
+    type: string
+    x-enum-varnames:
+    - TunnelOff
+    - TunnelListening
+    - TunnelUp
+    - TunnelDown
+    - TunnelError
   remotes.UpstreamModel:
     properties:
       id:
@@ -10717,6 +11961,25 @@ definitions:
     properties:
       channel_label:
         type: string
+      channel_ref:
+        description: |-
+          ChannelRef and ChatRef are the channel ID (target channel) or the chat
+          (target origin), shortened: never a whole ID.
+        type: string
+      chat_ref:
+        type: string
+      connection_addon:
+        type: string
+      connection_id:
+        description: |-
+          ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon
+          say which connection the channel or chat belongs to and which service it
+          is. ConnectionID is empty when the connection is gone.
+        type: string
+      connection_kind:
+        type: string
+      connection_kind_title:
+        type: string
       connection_name:
         description: |-
           ConnectionName is the name the owner gave the connection of the channel,
@@ -10729,6 +11992,14 @@ definitions:
           Mode is when a run reports: always (the default), on_change (only when
           the answer differs from the run before) or on_problem (only when a run
           fails).
+        type: string
+      state:
+        description: |-
+          State says whether the destination can receive a report now: ok, off
+          (the connection is switched off), gone (deleted), unavailable (its
+          add-on does not run or it cannot receive reports), no_channel (the
+          channel is not listed and approved any more) or blocked (the owner does
+          not let the connection write there). Empty for the inbox.
         type: string
       target:
         type: string
@@ -12353,10 +13624,11 @@ definitions:
       installed:
         description: |-
           Installed is true when the backend is currently present on disk — i.e. it
-          appears in gallery.ListSystemBackends(systemState). Importer-registered or
-          curated pref-only backends default to false unless they also show up on
-          disk. The import form uses this to warn users that submitting an import
-          may trigger an automatic backend download.
+          appears in gallery.ListSystemBackends(systemState) — or, in distributed
+          mode, on any worker node. Importer-registered or curated pref-only
+          backends default to false unless they are installed somewhere. The import
+          form uses this to warn users that submitting an import may trigger an
+          automatic backend download.
         type: boolean
       modality:
         type: string
@@ -12465,6 +13737,30 @@ definitions:
         description: texture flow sampling steps (backend default 12)
         type: integer
     type: object
+  schema.ModelAdoptRequest:
+    properties:
+      entry:
+        description: Entry names the gallery entry, when it differs from the model's
+          name.
+        type: string
+      gallery:
+        description: Gallery names the gallery the model came from.
+        type: string
+    type: object
+  schema.ModelAdoptResponse:
+    properties:
+      entry:
+        type: string
+      filesMatch:
+        description: |-
+          FilesMatch is true when the model has the files the entry lists now;
+          false means the next check offers an update.
+        type: boolean
+      gallery:
+        type: string
+      name:
+        type: string
+    type: object
   schema.ModelCapabilities:
     properties:
       capabilities:
@@ -12516,6 +13812,18 @@ definitions:
           $ref: '#/definitions/schema.ModelCapabilities'
         type: array
       object:
+        type: string
+    type: object
+  schema.ModelHoldRequest:
+    properties:
+      hold:
+        type: boolean
+    type: object
+  schema.ModelHoldResponse:
+    properties:
+      hold:
+        type: boolean
+      name:
         type: string
     type: object
   schema.ModelLoadCancelRequest:
@@ -12607,6 +13915,72 @@ definitions:
       total_files:
         type: integer
     type: object
+  schema.ModelRemoveOldResponse:
+    properties:
+      errors:
+        description: Errors say why files stayed. Set when only some files could be
+          removed.
+        items:
+          type: string
+        type: array
+      kept:
+        description: |-
+          Kept are the old files that stayed, listed for a later removal. Set
+          when only some files could be removed.
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      removed:
+        description: |-
+          Removed are the old files that were deleted, relative to the models
+          directory.
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelUpgradeError:
+    properties:
+      candidates:
+        items:
+          type: string
+        type: array
+      error:
+        type: string
+      keys:
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ModelUpgradeRequest:
+    properties:
+      choices:
+        additionalProperties:
+          type: string
+        description: |-
+          Choices give, for each key a person edited that the update also
+          changes (the conflicts of GET /api/models/updates), "mine" to keep the
+          edit or "gallery" to take the new value, by dotted key. The upgrade is
+          refused while a conflict has no choice.
+        type: object
+      config_only:
+        description: |-
+          ConfigOnly applies the new model config and prompt templates and
+          downloads nothing. It fails when the update needs new files.
+        type: boolean
+    type: object
+  schema.ModelUpgradeResponse:
+    properties:
+      id:
+        type: string
+      jobID:
+        type: string
+      message:
+        type: string
+      status_url:
+        type: string
+    type: object
   schema.ModelsDataResponse:
     properties:
       data:
@@ -12668,19 +14042,6 @@ definitions:
         type: string
       url:
         description: URL to fetch from
-        type: string
-    type: object
-  schema.NodeData:
-    properties:
-      id:
-        type: string
-      lastSeen:
-        type: string
-      name:
-        type: string
-      serviceID:
-        type: string
-      tunnelAddress:
         type: string
     type: object
   schema.ORAnnotation:
@@ -13302,21 +14663,6 @@ definitions:
         description: '"auto"|"disabled"'
         type: string
     type: object
-  schema.P2PNodesResponse:
-    properties:
-      federated_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
-      llama_cpp_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
-      mlx_nodes:
-        items:
-          $ref: '#/definitions/schema.NodeData'
-        type: array
-    type: object
   schema.PIIAnalyzeRequest:
     properties:
       detectors:
@@ -13774,6 +15120,13 @@ definitions:
       content:
         type: string
       path:
+        type: string
+    type: object
+  schema.RemovedRouteResponse:
+    properties:
+      error:
+        type: string
+      replacement:
         type: string
     type: object
   schema.RouterCorpusAddRequest:
@@ -15635,21 +16988,25 @@ paths:
       - application/json
       description: 'Administrators only, from their own browser session (same-origin
         fetch, X-LocalAI-Confirm equal to the operationId). The only action that applies
-        an update. It carries the digest of the installed package the caller saw (expectedDigest)
-        and the digest of the candidate the check resolved (candidateDigest). The
-        owner re-resolves the library the add-on came from and refuses, before it
-        records anything, an installed package that is not the expected one (409 stale_installed),
-        a candidate that is not the one it resolves now (409 candidate_changed), an
-        incompatible candidate (409 incompatible), a rewritten immutable version (409
-        integrity_error) and the same transition under another operation ID (409 upgrade_conflict).
-        It never changes the library or the channel. The upgrade then follows the
-        lifecycle of an add-on: the candidate is staged and verified, the data is
-        backed up and migrated when the add-on has any, and the new generation is
-        published only when it starts. A failure or cancellation keeps the last good
-        generation or leaves an explicit recovery state; the previous installation
-        is never deleted. Repeating the operationId returns the recorded result and
-        never runs again; after outcome_unknown read operation-status with the same
-        operationId. No MCP tool maps to this route.'
+        an update. With the operation queue (the normal server) the upgrade is recorded
+        and answered at once in the accepted phase, with jobId, the operation of /api/operations
+        that runs it in the background on the queue of backend operations; cancel
+        it there while it waits or downloads. It carries the digest of the installed
+        package the caller saw (expectedDigest) and the digest of the candidate the
+        check resolved (candidateDigest). The owner re-resolves the library the add-on
+        came from and refuses, before it records anything, an installed package that
+        is not the expected one (409 stale_installed), a candidate that is not the
+        one it resolves now (409 candidate_changed), an incompatible candidate (409
+        incompatible), a rewritten immutable version (409 integrity_error) and the
+        same transition under another operation ID (409 upgrade_conflict). It never
+        changes the library or the channel. The upgrade then follows the lifecycle
+        of an add-on: the candidate is staged and verified, the data is backed up
+        and migrated when the add-on has any, and the new generation is published
+        only when it starts. A failure or cancellation keeps the last good generation
+        or leaves an explicit recovery state; the previous installation is never deleted.
+        Repeating the operationId returns the recorded result and never runs again;
+        after outcome_unknown read operation-status with the same operationId. No
+        MCP tool maps to this route.'
       parameters:
       - description: Add-on ID
         in: path
@@ -16832,6 +18189,61 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Preview the host access an install or upgrade would ask for (administrators)
+      tags:
+      - Addons
+  /api/addons/host-grants/queue:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to "queue"). API keys, bearer tokens, MCP sessions
+        and tool calls are refused with 403 not_human_surface. Each item carries what
+        host-grants/install carries for an install from a library: the release, and
+        the approval of its preview (digest, ticked operations, grants revision and
+        the preview nonce). The owner checks each approval now and records it; the
+        install (or, with action upgrade, the upgrade of an installed add-on; the
+        pins of the plain upgrade are optional, both or neither) then runs in the
+        background, in order, on the queue of backend operations and within its limit,
+        as an operation of /api/operations (the owner installs one add-on at a time),
+        with its phase and its downloaded bytes. Cancel it there (POST /api/operations/{jobID}/cancel)
+        while it waits or downloads. The install never turns the add-on on. When the
+        verified package asks for host access that the preview did not show, the install
+        stops and asks for a new review (the operation fails and a notification says
+        so); nothing is granted. Items are answered one by one: a refused item carries
+        the error of host-grants/install and does not stop the others. Queued installs
+        that have not finished when the owner restarts are failed with the code interrupted.'
+      parameters:
+      - description: Installs to queue
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/addons.HostGrantsQueueBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: One answer per item
+          schema:
+            $ref: '#/definitions/addons.HostGrantsQueueResult'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface (not_human_surface) or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the operation queue are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Queue add-on installs with the host access the administrator approved
+        (browser session)
       tags:
       - Addons
   /api/addons/pins:
@@ -23122,11 +24534,13 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Delete notifications.
       tags:
-      - chats
+      - notifications
     get:
-      description: 'The inbox: one item for each run of a trigger that finished, failed
-        or needs you. Newest first. It also returns the number unread and the total
-        kept.'
+      description: 'The inbox: backend updates, finished operations, and one item
+        for each run of a trigger that finished, failed or needs you. Newest first.
+        It also returns the number unread and the total kept. Works with the chats
+        on or off; the same routes also answer under /api/chats/notifications while
+        the chats are on.'
       parameters:
       - description: only the unread ones
         in: query
@@ -23143,7 +24557,7 @@ paths:
             $ref: '#/definitions/schema.ChatsNotificationList'
       summary: List your notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/count:
     get:
       responses:
@@ -23153,13 +24567,14 @@ paths:
             $ref: '#/definitions/schema.ChatsNotificationCount'
       summary: Count unread notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/events:
     get:
       description: 'Server-sent events: one notification event for each new inbox
         item, with the same fields as the list, and a notifications_changed event
         when notifications were read or deleted, so a client reads the list again.
-        Live only; list the inbox for what came before.'
+        Live only; list the inbox for what came before. In a cluster the events of
+        every frontend reach every stream.'
       produces:
       - text/event-stream
       responses:
@@ -23169,7 +24584,7 @@ paths:
             $ref: '#/definitions/schema.ChatsNotification'
       summary: Stream your notifications.
       tags:
-      - chats
+      - notifications
   /api/chats/notifications/read:
     post:
       description: Name the ids, or pass all. Opening a chat marks its notifications
@@ -23192,7 +24607,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Mark notifications read.
       tags:
-      - chats
+      - notifications
   /api/chats/page-starters:
     get:
       responses:
@@ -24261,7 +25676,7 @@ paths:
             $ref: '#/definitions/schema.ChatsPushKey'
       summary: Get the browser push key.
       tags:
-      - chats
+      - notifications
   /api/chats/push/subscribe:
     delete:
       parameters:
@@ -24280,7 +25695,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Unsubscribe a browser from push.
       tags:
-      - chats
+      - notifications
     post:
       description: Pass the endpoint and keys of a browser PushSubscription. A notification
         is then pushed to that browser with its title and link only. The endpoint
@@ -24302,7 +25717,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Subscribe a browser to push.
       tags:
-      - chats
+      - notifications
   /api/chats/sandbox-profiles:
     get:
       description: The profiles of the Sandbox add-on that runs your commands, whether
@@ -25505,6 +26920,162 @@ paths:
       summary: List the versions of a well-known file.
       tags:
       - chats
+  /api/cluster/join-tokens:
+    get:
+      description: Lists the join tokens with their state (unused, partly_used, used_up,
+        expired, revoked), the uses left, the connections they allow and who minted
+        them. A token stays in the list for a day after it ends. The secret is never
+        in the list. Admin only.
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.JoinTokenView'
+            type: array
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the join tokens
+      tags:
+      - Nodes
+    post:
+      description: Mints a random join token that lets a worker register with the
+        cluster. It is good for 10 minutes and one use unless the request says otherwise
+        (up to 24 hours and 100 uses, for Kubernetes or Compose), it can limit the
+        connections of the worker (nats, websocket; P2P workers use their own invite),
+        and a worker that uses it waits for an admin approval unless auto_approve
+        is true (the default comes from the cluster setting join_auto_approve, off
+        unless set). The server keeps only a hash of the token. The response carries
+        the plain token and ready-to-copy commands for each way to run a worker (install
+        script, Windows, docker, docker compose, kubernetes, manual), built from the
+        external URL of this frontend; it is the only time the plain token is shown.
+        Admin only.
+      parameters:
+      - description: token options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MintJoinTokenRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/localai.MintJoinTokenResponse'
+        "400":
+          description: A limit is out of range or a connection is unknown
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Mint a join token for a worker
+      tags:
+      - Nodes
+  /api/cluster/join-tokens/{id}:
+    delete:
+      description: Ends a join token at once. A worker that already registered with
+        it keeps its own credential; revoke the node to end that. Admin only.
+      parameters:
+      - description: join token id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: No such token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Revoke a join token
+      tags:
+      - Nodes
+  /api/cluster/settings:
+    get:
+      description: Returns the NATS address of the frontends and of the workers, the
+        carrier weights (nats, websocket, p2p) that break a tie between equally fit
+        nodes, the broadcast bus of the frontend that answers (nats while it reaches
+        the NATS server, postgres otherwise), and the live frontend replicas. A user
+        name, password or query string in an address is dropped. Admin only.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.ClusterSettingsResponse'
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Read the settings of the cluster
+      tags:
+      - Nodes
+    put:
+      description: 'Stores the NATS address, the address workers use, join_auto_approve
+        (the default of the auto-approve choice of a new join token, off unless set),
+        or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to
+        1000; a weight is a tie-break between equally fit nodes and never overrides
+        fit; null puts the default back; the change applies to every frontend within
+        seconds, with no restart). Saving a NATS address checks that the serving replica
+        reaches it; the frontends use a new address after a restart. Admin only.'
+      parameters:
+      - description: settings to store
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.ClusterSettingsRequest'
+      responses:
+        "200":
+          description: saved, nats.reachable when a NATS address was checked, settings
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Unknown setting, bad value, or a credential in an address
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: This replica cannot reach the NATS server
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Store settings of the cluster
+      tags:
+      - Nodes
   /api/collections:
     get:
       description: 'The knowledge-base collections of the caller. shared lists the
@@ -25969,6 +27540,211 @@ paths:
       summary: Stream failover events (server-sent events)
       tags:
       - failover
+  /api/federation:
+    get:
+      description: Lists the instances that can serve a group (this server, id "local",
+        and every remote of kind localai with its P2P tunnel state and its entries)
+        and the groups. A group is a model name served by several of them with the
+        policy least_busy or round_robin; each member has its health, whether it is
+        drained, whether it is constrained (reached through a relay that limits the
+        connection, so it takes a request only when no other member can) and the requests
+        of this server in flight. Requests in flight are counted by each frontend
+        for itself. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.FederationView'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Show the federation
+      tags:
+      - remotes
+  /api/federation/groups:
+    post:
+      consumes:
+      - application/json
+      description: 'Makes a model named "name" whose requests go to one of "members"
+        (at least two existing models: models of this server or entries of remotes)
+        by "policy": least_busy (default; the member with the fewest requests of this
+        server in flight) or round_robin. A member that fails is marked down and the
+        request moves to the next member. The group is a model config with a balanced
+        failover chain, so it shows under /api/failover too. Admin only.'
+      parameters:
+      - description: The group
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a federation group
+      tags:
+      - remotes
+  /api/federation/groups/{name}:
+    delete:
+      description: Removes the group's model config. The members stay as they are.
+        Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete a federation group
+      tags:
+      - remotes
+    get:
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a federation group
+      tags:
+      - remotes
+    patch:
+      consumes:
+      - application/json
+      description: An absent field is left as it is. A new member list keeps the drain
+        flag of the members that stay; the probe, trip and recovery settings of the
+        group file are kept. Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationGroupUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Update a federation group
+      tags:
+      - remotes
+  /api/federation/groups/{name}/drain:
+    post:
+      consumes:
+      - application/json
+      description: With drain true the member takes no new request; requests in flight
+        finish and its health checks go on. With drain false it takes requests again.
+        The last member that takes requests cannot be drained. Admin only.
+      parameters:
+      - description: Group name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Member and drain flag
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.FederationDrainRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/remotes.Group'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Drain a member of a federation group
+      tags:
+      - remotes
   /api/fine-tuning/status:
     get:
       description: Returns model_exports=false when this instance does not share the
@@ -26062,10 +27838,16 @@ paths:
     post:
       consumes:
       - application/json
-      description: Adds a source of your own. kind is addon, backend or model; format
+      description: 'Adds a source of your own. kind is addon, backend or model; format
         is library (default) or gallery. The id is derived from the name or URL when
-        it is empty. A source with the same kind and URL is refused (409), as is a
-        taken id. Administrators only.
+        it is empty. issuer and identity, set together, pin the signer of an oci://
+        add-on library: its artifact must then be signed by that issuer and exact
+        identity (400 otherwise, and on any other source). identity_regex, an anchored
+        pattern, can take the place of identity only together with source_repository,
+        the https URL of the repository the signature must be made for (400 for a
+        pattern alone). source_repository can also go with an exact identity. A source
+        with the same kind and URL is refused (409), as is a taken id. Administrators
+        only.'
       produces:
       - application/json
       responses:
@@ -26306,6 +28088,143 @@ paths:
       summary: Toggle model enabled/disabled status
       tags:
       - config
+  /api/models/{name}/adopt:
+    post:
+      description: 'A model installed before LocalAI recorded the origin of gallery
+        installs shows as unknown in GET /api/models/updates. Adopt records the gallery
+        entry it came from, the files it has and what the gallery would write as its
+        config, so the next check compares it like any other model. The model config
+        on disk is not changed: a key changed by hand reads as an edit. Without a
+        body the entry is found by the model''s names, and only when exactly one gallery
+        lists it; otherwise the answer lists the candidates (gallery@entry) and the
+        request must name the gallery (and the entry). Refused with 409 when the model
+        already records its origin, an upgrade runs, or more than one gallery matches;
+        with 422 when the model has no record of a gallery install or no gallery entry
+        matches.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Gallery and entry
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ModelAdoptRequest'
+      responses:
+        "200":
+          description: Adopted
+          schema:
+            $ref: '#/definitions/schema.ModelAdoptResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Already adopted, busy, or more than one candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: No record of a gallery install, or no candidate
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Track the updates of a model installed by an earlier release
+      tags:
+      - models
+  /api/models/{name}/hold:
+    put:
+      description: 'With hold true the model is reported as held and offered no update
+        until the hold is cleared. Only the gallery file changes: the model config,
+        its revision and the loaded model stay as they are, and a reinstall keeps
+        the hold. Refused with 409 while an upgrade of the model runs.'
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Hold or release
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ModelHoldRequest'
+      responses:
+        "200":
+          description: The hold
+          schema:
+            $ref: '#/definitions/schema.ModelHoldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: An upgrade runs
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: Not installed from a gallery with a recorded origin
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Hold a model at its installed version
+      tags:
+      - models
+  /api/models/{name}/remove-old:
+    post:
+      description: Deletes the old files that the last upgrade of the model kept (retainedFiles
+        of GET /api/models/updates). Only after a confirmed upgrade; refused with
+        409 while an upgrade runs or when there is nothing to remove. A kept file
+        that another model now uses is not deleted. The model config does not change.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Removed files
+          schema:
+            $ref: '#/definitions/schema.ModelRemoveOldResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Nothing to remove, an upgrade runs, or a file is shared
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Remove the old version of an upgraded model
+      tags:
+      - models
+  /api/models/{name}/upgrade/retry:
+    post:
+      description: Runs the last upgrade of the model again, with its options and
+        choices, toward what the gallery entry installs now. Refused with 409 when
+        the last upgrade did not fail or the model is held.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Operation
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Nothing to retry, held, or an upgrade runs
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Retry a failed model upgrade
+      tags:
+      - models
   /api/models/config-json/{name}:
     patch:
       consumes:
@@ -26371,6 +28290,26 @@ paths:
       summary: Get dynamic autocomplete values for a config field
       tags:
       - config
+  /api/models/config/{id}:
+    post:
+      deprecated: true
+      description: Removed. Always answers 410 Gone with a Link header to POST /api/models/upgrade/{name};
+        use that route with config_only true to apply the gallery config of an installed
+        model. This answer stays for one release, then the route goes away.
+      parameters:
+      - description: Gallery model ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "410":
+          description: Removed
+          schema:
+            $ref: '#/definitions/schema.RemovedRouteResponse'
+      summary: 'Removed: rewrite a model config from the gallery'
+      tags:
+      - models
   /api/models/recommended:
     get:
       description: Returns the curated models for the hardware tier of the machine,
@@ -26402,7 +28341,8 @@ paths:
         is true. The header read runs through the same bounded upstream budget as
         the file listing.'
       parameters:
-      - description: 'Repository uri: huggingface://owner/repo or pirateface://owner/repo'
+      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo
+          or ollama://name[:tag]'
         in: query
         name: uri
         required: true
@@ -26442,20 +28382,20 @@ paths:
       - models
   /api/models/remote/files:
     get:
-      description: Reads one repository of Hugging Face or Pirate Face and returns
-        its weight files with sizes, one variant per quantization (shards are one
-        variant), the licence, whether access is gated, a short description from the
-        model card, the GGUF header summary Hugging Face reports, whether an installed
-        model already comes from the repository, and the backend a dry run of the
-        import selects. Nothing is downloaded or enqueued. A variant's `preference`
-        is the value for `preferences.quantizations` on POST /models/import-uri that
-        selects exactly that variant. Sizes of a Pirate Face repository come from
-        the Hugging Face commit its torrent mirrors; `size_known` is false when Hugging
-        Face does not know the repository. The answer is cached per repository for
-        10 minutes.
+      description: Reads one repository of Hugging Face or Pirate Face, or one model
+        tag of the Ollama registry, and returns its weight files with sizes, one variant
+        per quantization (shards are one variant), the licence, whether access is
+        gated, a short description from the model card, the GGUF header summary Hugging
+        Face reports, whether an installed model already comes from the repository,
+        and the backend a dry run of the import selects. Nothing is downloaded or
+        enqueued. A variant's `preference` is the value for `preferences.quantizations`
+        on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate
+        Face repository come from the Hugging Face commit its torrent mirrors; `size_known`
+        is false when Hugging Face does not know the repository. The answer is cached
+        per repository for 10 minutes.
       parameters:
-      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo
-          or a huggingface.co url'
+      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo,
+          ollama://name[:tag] or a huggingface.co url'
         in: query
         name: uri
         required: true
@@ -26647,6 +28587,84 @@ paths:
       summary: Toggle model pinned status
       tags:
       - config
+  /api/models/updates:
+    get:
+      description: 'Every model installed from a gallery, with its state: up-to-date,
+        update-available, edited (the update would overwrite keys a person changed;
+        editedKeys lists them), unknown (reason says why), gone (no gallery lists
+        the entry), held (the owner holds this version) or failed (the last upgrade
+        was rolled back; upgrade has the error). needsPerson marks what the Updates
+        page counts: models never update automatically. What the galleries offer is
+        as of the last check; the hold flag, an edit and an upgrade show at once.
+        Every frontend of a cluster gives the same answer.'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/modelupdates.Snapshot'
+      summary: List the model updates
+      tags:
+      - models
+  /api/models/updates/check:
+    post:
+      description: Reads every gallery index again (not the copies of the last hour),
+        compares each installed gallery model with its entry, waits for the check
+        (at most 60 seconds) and returns the new data. One frontend of a cluster checks
+        at a time; a request that arrives while another check runs waits for that
+        check. A call within 15 seconds of the last check is answered from it with
+        throttled set. A failed check shows as an error in the state of the gallery
+        source and keeps the previous list. Installs nothing.
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/modelupdates.Snapshot'
+      summary: Check for model updates now
+      tags:
+      - models
+  /api/models/upgrade/{name}:
+    post:
+      description: Queues an upgrade and returns its operation; follow it on status_url
+        or /api/operations. The upgrade checks the backend, the free disk and the
+        files other models share, downloads the changed files beside the old ones
+        and verifies their sha256, stops the model, switches the files and the config,
+        and loads the new version as a check. A failed load puts the old version back
+        (state failed, with the error and a retry). The old files are kept until removed
+        with POST /api/models/{name}/remove-old. Keys a person edited are kept; an
+        edited key the update also changes needs a choice in choices, or the request
+        is refused with 409 and the keys. A held model is refused with 409; release
+        the hold first. Nothing upgrades without this request.
+      parameters:
+      - description: Installed model name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Options
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ModelUpgradeRequest'
+      responses:
+        "200":
+          description: Operation
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeResponse'
+        "404":
+          description: Not installed
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "409":
+          description: Running, held, or edited keys need a choice
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+        "422":
+          description: Not installed from a gallery with a recorded origin
+          schema:
+            $ref: '#/definitions/schema.ModelUpgradeError'
+      summary: Upgrade a model to what its gallery entry installs now
+      tags:
+      - models
   /api/models/vram-estimate:
     post:
       consumes:
@@ -26816,6 +28834,77 @@ paths:
       summary: Update a node's max replicas per model
       tags:
       - Nodes
+  /api/nodes/{id}/split-server:
+    delete:
+      description: 'Clears the admin''s choice: the next registration of the worker
+        sets the declaration from its --split-server flag. The current value stays
+        until then. Admin only.'
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Hand the split server declaration back to the worker flag
+      tags:
+      - Nodes
+    put:
+      consumes:
+      - application/json
+      description: 'A split server is a backend node that serves model-split workers
+        (llama.cpp RPC and MLX helpers): it runs a P2P host with open ports, the frontends
+        admit it on the gated relays they administer, and the helpers attached to
+        it join the next model it loads. A node becomes one only by this admin action
+        or by the --split-server flag of the worker; the admin''s choice wins over
+        the flag until DELETE. Clearing it detaches the split workers of the node
+        (they wait, attached to no node, with a warning), removes its relay admission
+        and stops its P2P host at its next exchange. Admin only.'
+      parameters:
+      - description: Node ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Declaration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.SetSplitServerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/localai.SetSplitServerResponse'
+        "400":
+          description: agent node, or no split_server field
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: node not found
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Declare a node a split server, or clear it
+      tags:
+      - Nodes
   /api/nodes/{id}/vram-budget:
     delete:
       parameters:
@@ -26884,26 +28973,774 @@ paths:
       summary: List all loaded models cluster-wide
       tags:
       - Nodes
-  /api/p2p:
+  /api/notifications:
+    delete:
+      description: Name the ids, or pass all to empty your inbox; with all, read_only
+        keeps the unread ones. Only your own notifications are touched.
+      parameters:
+      - description: ids, or all
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsDelete'
+      responses:
+        "200":
+          description: The number still unread and how many were deleted
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Delete notifications.
+      tags:
+      - notifications
+    get:
+      description: 'The inbox: backend updates, finished operations, and one item
+        for each run of a trigger that finished, failed or needs you. Newest first.
+        It also returns the number unread and the total kept. Works with the chats
+        on or off; the same routes also answer under /api/chats/notifications while
+        the chats are on.'
+      parameters:
+      - description: only the unread ones
+        in: query
+        name: unread
+        type: boolean
+      - description: most items to return (default 50, at most 500)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The notifications
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationList'
+      summary: List your notifications.
+      tags:
+      - notifications
+  /api/notifications/count:
     get:
       responses:
         "200":
-          description: Response
+          description: The number unread
           schema:
-            items:
-              $ref: '#/definitions/schema.P2PNodesResponse'
-            type: array
-      summary: Returns available P2P nodes
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+      summary: Count unread notifications.
+      tags:
+      - notifications
+  /api/notifications/events:
+    get:
+      description: 'Server-sent events: one notification event for each new inbox
+        item, with the same fields as the list, and a notifications_changed event
+        when notifications were read or deleted, so a client reads the list again.
+        Live only; list the inbox for what came before. In a cluster the events of
+        every frontend reach every stream.'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: An event stream
+          schema:
+            $ref: '#/definitions/schema.ChatsNotification'
+      summary: Stream your notifications.
+      tags:
+      - notifications
+  /api/notifications/push/key:
+    get:
+      description: The VAPID public key a browser needs to subscribe to push for your
+        notifications. 409 when the server cannot keep subscriptions (no database
+        and no data path).
+      responses:
+        "200":
+          description: The key
+          schema:
+            $ref: '#/definitions/schema.ChatsPushKey'
+      summary: Get the browser push key.
+      tags:
+      - notifications
+  /api/notifications/push/subscribe:
+    delete:
+      parameters:
+      - description: the endpoint
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushUnsubscribe'
+      responses:
+        "204":
+          description: Unsubscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Unsubscribe a browser from push.
+      tags:
+      - notifications
+    post:
+      description: Pass the endpoint and keys of a browser PushSubscription. A notification
+        is then pushed to that browser with its title and link only. The endpoint
+        must be an https address on the public internet. At most 10 browsers per user;
+        the oldest go first.
+      parameters:
+      - description: the browser's subscription
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsPushSubscription'
+      responses:
+        "204":
+          description: Subscribed
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Subscribe a browser to push.
+      tags:
+      - notifications
+  /api/notifications/read:
+    post:
+      description: Name the ids, or pass all. Opening a chat marks its notifications
+        read by itself.
+      parameters:
+      - description: ids or all
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsNotificationsRead'
+      responses:
+        "200":
+          description: The number still unread
+          schema:
+            $ref: '#/definitions/schema.ChatsNotificationCount'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Mark notifications read.
+      tags:
+      - notifications
+  /api/p2p/devices:
+    get:
+      description: Lists the paired devices, revoked ones included, with how each
+        one reaches the server now (path kind direct, hole_punched or relayed, the
+        relay and its limits). Needs P2P mode share. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.DeviceList'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List P2P devices
       tags:
       - p2p
-  /api/p2p/token:
-    get:
+  /api/p2p/devices/{id}:
+    delete:
+      description: 'Revokes a device: it is removed from the allowlist, its connections
+        are closed, every relay is told to drop it, and the API key of a remote device
+        is revoked. Needs P2P mode share. Admin only.'
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          description: Response
+          description: OK
           schema:
-            type: string
-      summary: Show the P2P token
+            $ref: '#/definitions/p2p.RevokeResult'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Revoke a P2P device
+      tags:
+      - p2p
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New label
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.RenameDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.OKResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Rename a P2P device
+      tags:
+      - p2p
+  /api/p2p/identity/regenerate:
+    post:
+      consumes:
+      - application/json
+      description: 'Makes a new peer identity for this server and restarts P2P with
+        it. The old key is kept next to the new one as a backup. Every paired device
+        and remote knows the old peer ID, so each must pair again. The body must be
+        {"confirm": true}. Needs P2P mode connect or share. Admin only.'
+      parameters:
+      - description: Confirmation
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.RegenerateIdentityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.Status'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Regenerate the P2P identity
+      tags:
+      - p2p
+  /api/p2p/invites:
+    get:
+      description: 'Lists the invites with their state: pending, used, expired or
+        canceled. The links are not part of the answer. Needs P2P mode share. Admin
+        only.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.InviteList'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List P2P invites
+      tags:
+      - p2p
+    post:
+      consumes:
+      - application/json
+      description: 'Creates a one-time invite link. kind is device (P2P admission
+        only; the person signs in as usual), remote (also issues an API key for the
+        other server: limited to "models" when given, else every model this server
+        lets a client key use, models added later too; "all_models": true asks for
+        every model explicitly and is refused with a non-empty "models"), worker or
+        split. A remote invite needs a signed-in user account: the API key set with
+        LOCALAI_API_KEY gets 409. relays is "auto", "none" or a list of relay IDs.
+        When a gated relay is named, a single-use relay pass is registered on it;
+        "relay.reason" says why there is none. The link is shown once. Needs P2P mode
+        share. Admin only.'
+      parameters:
+      - description: Invite to create
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.MintRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/p2p.MintResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a P2P invite
+      tags:
+      - p2p
+  /api/p2p/invites/{id}:
+    delete:
+      description: Cancels a pending invite and drops its relay pass. Needs P2P mode
+        share. Admin only.
+      parameters:
+      - description: Invite ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.OKResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Cancel a P2P invite
+      tags:
+      - p2p
+  /api/p2p/redeem:
+    post:
+      consumes:
+      - application/json
+      description: Served only on the P2P protocol /localai/http/1; the normal HTTP
+        listener answers 404. The caller's peer ID comes from the connection. A wrong,
+        used, canceled or expired code all get the same 410 answer. After 5 wrong
+        codes from one peer in an hour, or too many from all peers, the answer is
+        429. The answer carries the confirmation phrase to compare on both sides,
+        and for a remote invite the API key (shown once).
+      parameters:
+      - description: Code and device name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.RedeemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.RedeemResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Redeem a P2P invite (over P2P only)
+      tags:
+      - p2p
+  /api/p2p/relays:
+    get:
+      description: Lists the relays this server knows, with their mode (gated, open,
+        unclaimed) and state (in_sync, out_of_sync, open, unclaimed, not_admin, denied,
+        unreachable, checking). Needs P2P mode share. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.RelayList'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List P2P relays
+      tags:
+      - p2p
+    post:
+      consumes:
+      - application/json
+      description: Adds a relay by its address, which must end in /p2p/<relay peer
+        ID>, and checks it. claim_code claims a relay that has no admin yet, with
+        the code it printed at start. Needs P2P mode share. Admin only.
+      parameters:
+      - description: Relay to add
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.AddRelayRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/p2p.Relay'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Add a P2P relay
+      tags:
+      - p2p
+  /api/p2p/relays/{id}:
+    delete:
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.OKResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove a P2P relay
+      tags:
+      - p2p
+  /api/p2p/relays/{id}/check:
+    post:
+      description: Connects to the relay, reserves a slot, reads whether this server
+        is an admin, tests a circuit and compares the paired set. Needs P2P mode share.
+        Admin only.
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.RelayCheck'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Check a P2P relay
+      tags:
+      - p2p
+  /api/p2p/relays/{id}/claim:
+    post:
+      consumes:
+      - application/json
+      description: Makes this server an admin of a relay that has none, with the one-time
+        code the relay printed at start. Needs P2P mode share. Admin only.
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Claim code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.ClaimRelayRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.Relay'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Claim a P2P relay
+      tags:
+      - p2p
+  /api/p2p/relays/{id}/limits:
+    get:
+      description: 'Reads the limits the relay runs with now: the data, the time and
+        the bandwidth of one circuit (zero means no limit). ceiling is the most a
+        change may set for each limit (zero means no ceiling); the operator of the
+        relay sets it with the relay''s flags. can_change says whether this server
+        is an admin of the relay and may change them. Needs P2P mode share. Admin
+        only.'
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.RelayLimitsInfo'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read the limits of a P2P relay
+      tags:
+      - p2p
+    put:
+      consumes:
+      - application/json
+      description: 'Changes the data, time and bandwidth limits of one circuit on
+        a relay this server administers; a field left out stays as it is and zero
+        removes that limit. The relay saves the new limits, so they stay over a restart
+        of the relay. A new bandwidth limit applies to the next circuit at once. A
+        new data or time limit makes the relay restart its circuit service: its reservations
+        are dropped, running circuits keep their old limits until they end, and the
+        paired devices reserve again within moments ("restarted" is true). A value
+        above the ceiling of the relay, or zero for a limit that has a ceiling, is
+        refused with 400 and an error that names the ceiling; nothing is clamped.
+        Answers 409 when this server is not an admin of the relay or the relay is
+        open. Needs P2P mode share. Admin only.'
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Limits to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.SetRelayLimitsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.RelayLimitsInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change the limits of a P2P relay
+      tags:
+      - p2p
+  /api/p2p/relays/{id}/sync:
+    post:
+      description: Pushes the full set of paired devices to the relay now. Needs P2P
+        mode share. Admin only.
+      parameters:
+      - description: Relay ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.Relay'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Sync a P2P relay
+      tags:
+      - p2p
+  /api/p2p/split-workers:
+    get:
+      description: 'Lists the paired llama.cpp RPC and MLX workers that lend their
+        memory to models that run on this server or, in a cluster, on the backend
+        node each is attached to (node_id), with their state (online, offline, slow,
+        limited, refused), the path that reaches them and the memory they add. A worker
+        reached only through a relay is "slow" until allow_slow_path is set. A relay
+        of the user (own_relay: a gated relay this server administers) may carry it
+        even with a data or time limit, and then ends each connection at the limit;
+        its limits change with PUT /api/p2p/relays/{relay_id}/limits. A public relay
+        never carries model layers ("limited"). Needs P2P mode share. Admin only.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.SplitWorkerList'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List model-split workers
+      tags:
+      - p2p
+  /api/p2p/split-workers/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: 'Sets node_id and/or allow_slow_path of a model-split worker. node_id
+        attaches the worker to a backend node of the cluster ("" attaches it to this
+        server): the worker moves to the node at its next session, the node forwards
+        its port and the backends that the node starts use it. Pin the model to that
+        node with a node selector. With allow_slow_path true the server or the node
+        uses the worker over a relay ("Use anyway"): it works, but every token waits
+        for the relay, and a relay of the user that limits each connection ends it
+        at the limit. A public relay is never used. With false it uses the worker
+        only over a direct or hole-punched path. A model that is loaded keeps its
+        workers until it is loaded again. Needs P2P mode share. Admin only.'
+      parameters:
+      - description: Device ID of the worker
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/p2p.SplitWorkerUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.SplitWorkerView'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Use a model-split worker over a slow path, or attach it to a node
+      tags:
+      - p2p
+  /api/p2p/status:
+    get:
+      description: The mode in effect (off, connect or share), the peer ID and addresses
+        of this server, its reachability, the relays that hold a reservation for it,
+        whether it relays for its paired devices, and the number of pending invites
+        and paired devices. Admin only.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/p2p.Status'
+      summary: P2P status
       tags:
       - p2p
   /api/pii/analyze:
@@ -27000,11 +29837,15 @@ paths:
       - application/json
       description: Saves a remote and turns each chosen model into a model config
         (an entry) that carries only the remote id. The key is stored sealed and is
-        never returned. Models that cannot be adopted are listed in "skipped" with
-        a reason. At most 500 models per call. When the remote is saved but some models
-        could not be added, the answer is still 201 with "warning" set; read the lists
-        and add the missing models with the adopt route, not with a second create.
-        Admin only.
+        never returned. With "invite" (an invite link of kind remote from another
+        LocalAI) the server redeems the invite over P2P, keeps the key the other server
+        issues, and reaches it through a forwarder on a loopback port; P2P must be
+        on (mode connect or share), url and api_key must be empty, and the answer
+        carries the confirmation "phrase". Models that cannot be adopted are listed
+        in "skipped" with a reason. At most 500 models per call. When the remote is
+        saved but some models could not be added, the answer is still 201 with "warning"
+        set; read the lists and add the missing models with the adopt route, not with
+        a second create. Admin only.
       parameters:
       - description: Remote to create; api_key is write-only, for example \
         in: body
@@ -27027,12 +29868,24 @@ paths:
           description: Conflict
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "410":
+          description: Gone
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "413":
           description: Request Entity Too Large
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "503":
           description: Service Unavailable
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "504":
+          description: Gateway Timeout
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Create a remote
@@ -28403,6 +31256,150 @@ paths:
       summary: Serve a custom branding asset
       tags:
       - branding
+  /join.ps1:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.sh:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.yaml:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
   /metrics:
     get:
       produces:

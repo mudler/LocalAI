@@ -95,6 +95,18 @@ is the full number. The add-on cards, the Find add-ons tab and the details panel
 `addonpkg catalog-tools` adds them to an existing index from the manifests in
 `addons/<id>/manifest.json`. They are a hint like `ui`, and only an add-on entry may carry them.
 
+A release may also carry `hostOperations`, with `required` and `optional` lists: the host
+operations that the manifest requests in `capabilities.hostOperations`, sorted. The UI shows
+them before install, so a person does not need to download the package. The release index
+(`addons-index.yaml`) and the development index (`gallery/addons/index.yaml`) carry the field
+for every add-on entry, and `hostOperations: {}` means the manifest requests none. A host that
+predates the field (before commit `f36dd6a5d`) refuses an index with an unknown field, so a
+development or master build older than that commit lists no add-ons until it updates.
+`addonpkg catalog` and `addonpkg catalog-tools` write the field only when they get
+`--host-operations-in-index`, and `catalog.sh` passes it for both channels. An entry
+without the field has no hint. The field is a hint like `ui`: the install checks the verified
+manifest in the package, and the request there decides what the add-on asks for.
+
 Every release that the host lists also carries `official`. The host sets it when it reads
 the index, from the ID and the address of the library. It is `true` only for the official
 library at an address that LocalAI ships, so a library that an administrator named `official`

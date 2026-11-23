@@ -37,8 +37,8 @@ export async function stubInbox(page, inbox) {
   await page.route('**/api/chats/c1/messages*', route => route.fulfill({ json: { messages: [] } }))
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail }))
   await page.route('**/api/chats/agents*', route => route.fulfill({ json: { agents: [] } }))
-  await page.route('**/api/chats/push/**', route => route.fulfill({ status: 409, json: { error: { message: 'off' } } }))
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, async (route) => {
+  await page.route('**/api/notifications/push/**', route => route.fulfill({ status: 409, json: { error: { message: 'off' } } }))
+  await page.route(/\/api\/notifications(\?.*)?$/, async (route) => {
     const req = route.request()
     const unread = () => inbox.rows.filter(r => !r.read).length
     if (req.method() === 'DELETE') {
@@ -57,7 +57,7 @@ export async function stubInbox(page, inbox) {
     const rows = only ? inbox.rows.filter(r => !r.read) : inbox.rows
     return route.fulfill({ json: { notifications: rows.slice(0, limit), unread: unread(), total: inbox.rows.length } })
   })
-  await page.route('**/api/chats/notifications/read', async (route) => {
+  await page.route('**/api/notifications/read', async (route) => {
     const body = route.request().postDataJSON()
     inbox.reads.push(body)
     inbox.rows.forEach((r) => { if (body.all || (body.ids || []).includes(r.id)) r.read = true })

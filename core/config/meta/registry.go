@@ -522,28 +522,37 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "failover-targets",
 			Order:       0,
 		},
+		"failover.policy": {
+			Section: "failover", Label: "Routing policy", Component: "select", Order: 1,
+			Description: "How a request picks its target. Priority serves from the first healthy target. Least busy and round robin spread requests over every healthy target and still move on when a target fails.",
+			Options: []FieldOption{
+				{Value: "priority", Label: "Priority (default)"},
+				{Value: "least_busy", Label: "Least busy"},
+				{Value: "round_robin", Label: "Round robin"},
+			},
+		},
 		"failover.probe.interval": {
-			Section: "failover", Label: "Probe interval", Component: "input", Order: 1, Advanced: true,
+			Section: "failover", Label: "Probe interval", Component: "input", Order: 2, Advanced: true,
 			Description: "How often an idle target is checked, as a duration (default 15s).", Placeholder: "15s",
 		},
 		"failover.probe.timeout": {
-			Section: "failover", Label: "Probe timeout", Component: "input", Order: 2, Advanced: true,
+			Section: "failover", Label: "Probe timeout", Component: "input", Order: 3, Advanced: true,
 			Description: "How long one probe may take (default 5s).", Placeholder: "5s",
 		},
 		"failover.trip.errors": {
-			Section: "failover", Label: "Errors to trip", Component: "number", Order: 3, Advanced: true,
+			Section: "failover", Label: "Errors to trip", Component: "number", Order: 4, Advanced: true,
 			Description: "Failures within the trip window that mark a target down (default 1).",
 		},
 		"failover.trip.window": {
-			Section: "failover", Label: "Trip window", Component: "input", Order: 4, Advanced: true,
+			Section: "failover", Label: "Trip window", Component: "input", Order: 5, Advanced: true,
 			Description: "Window in which failures are counted (default 30s).", Placeholder: "30s",
 		},
 		"failover.recovery.probes": {
-			Section: "failover", Label: "Recovery probes", Component: "number", Order: 5, Advanced: true,
+			Section: "failover", Label: "Recovery probes", Component: "number", Order: 6, Advanced: true,
 			Description: "Consecutive real test requests a target must pass before it is used again (default 3).",
 		},
 		"failover.recovery.min_dwell": {
-			Section: "failover", Label: "Minimum time on fallback", Component: "input", Order: 6, Advanced: true,
+			Section: "failover", Label: "Minimum time on fallback", Component: "input", Order: 7, Advanced: true,
 			Description: "Minimum time on a lower target before traffic moves back to a recovered higher one (default 60s).", Placeholder: "60s",
 		},
 

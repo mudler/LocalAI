@@ -1,6 +1,6 @@
 {
   "title": "Actualizaciones",
-  "supporting": "Backends, backends de biblioteca y add-ons que tienen una versión más nueva.",
+  "supporting": "Backends, backends de biblioteca, add-ons y modelos de la galería que tienen una versión más nueva.",
   "loading": "Cargando actualizaciones",
   "adminOnly": {
     "title": "Las actualizaciones son para administradores",
@@ -40,7 +40,8 @@
     "name": {
       "gallery": "Galería de backends",
       "library": "Biblioteca de backends",
-      "addons": "Add-ons"
+      "addons": "Add-ons",
+      "models": "Galería de modelos"
     },
     "checked": "comprobado {{when}}",
     "ok": "comprobado",
@@ -66,7 +67,8 @@
     "title": {
       "gallery": "Falló la comprobación de la galería de backends, así que puede haber actualizaciones de backends que no se muestran.",
       "library": "Falló la comprobación de la biblioteca, así que puede haber actualizaciones de backends de biblioteca que no se muestran.",
-      "addons": "Falló la comprobación de los add-ons, así que puede haber actualizaciones de add-ons que no se muestran."
+      "addons": "Falló la comprobación de los add-ons, así que puede haber actualizaciones de add-ons que no se muestran.",
+      "models": "La comprobación de la galería de modelos falló, así que pueden faltar actualizaciones de modelos."
     },
     "lastGood": "La lista de abajo es de la última comprobación correcta, {{when}}. Motivo: {{error}}.",
     "noGood": "Ninguna comprobación ha funcionado todavía. Motivo: {{error}}.",
@@ -90,18 +92,22 @@
     "selectAll": "Seleccionar todas las listas",
     "selectNone": "No seleccionar ninguna",
     "show": "Mostrar",
-    "hide": "Ocultar"
+    "hide": "Ocultar",
+    "other": "Otros modelos"
   },
   "row": {
     "tag": {
       "gallery": "Backend",
       "library": "Backend de biblioteca",
-      "addon": "Add-on"
+      "addon": "Add-on",
+      "model": "Modelo"
     },
     "origin": {
       "gallery": "Galería de backends",
       "library": "Biblioteca: {{id}}",
-      "libraryUnnamed": "Biblioteca"
+      "libraryUnnamed": "Biblioteca",
+      "model": "Galería {{gallery}}",
+      "modelUnnamed": "Galería de modelos"
     },
     "signed": "firmado",
     "versions": "{{from}} a {{to}}",
@@ -136,6 +142,7 @@
     },
     "updatingPhase": "Actualizando: {{phase}}",
     "updatingPlain": "Actualizando",
+    "queued": "En cola, esperando un hueco libre",
     "addonConfirm": "Necesita tu confirmación en este navegador",
     "nodesAction": "Nodos",
     "nodesNamed": "Mostrar los nodos de {{name}}",
@@ -146,6 +153,7 @@
     "running": "Actualizando {{current}} de {{total}}",
     "summary": "{{done}} actualizadas, {{failed}} con error, {{skipped}} omitidas",
     "details": "Detalles",
+    "cancelAll": "Cancelar todo",
     "retryFailed": "Reintentar las fallidas ({{count}})",
     "dismiss": "Descartar"
   },
@@ -266,5 +274,138 @@
     "otherOrigin": "Biblioteca {{library}}",
     "otherOriginChannel": "Biblioteca {{library}}, canal {{channel}}",
     "runningNote": "Parar evita que arranquen los nodos que aún no han empezado."
+  },
+  "model": {
+    "chip": {
+      "edited": "Editado",
+      "held": "Retenido",
+      "unknown": "Desconocido",
+      "gone": "Ya no está en la galería",
+      "cleanup": "Versión anterior conservada"
+    },
+    "phase": {
+      "queued": "esperando para empezar",
+      "starting": "empezando",
+      "preflight": "comprobando el disco, el backend y los archivos",
+      "staging": "descargando los archivos nuevos",
+      "unloading": "deteniendo el modelo",
+      "committing": "cambiando a la nueva versión",
+      "loading": "iniciando la nueva versión",
+      "confirmed": "listo",
+      "rolling-back": "restaurando la versión anterior",
+      "rolled-back": "versión anterior restaurada",
+      "failed": "falló",
+      "resolving": "buscando los archivos",
+      "downloading": "descargando",
+      "verifying": "comprobando los archivos",
+      "persisting": "guardando"
+    },
+    "detail": {
+      "failed": "La actualización falló: {{message}}. La versión anterior sigue en servicio.",
+      "rolledBack": "La actualización falló y se restauró la versión anterior: {{message}}. La versión anterior sigue en servicio.",
+      "updating": "Actualizando: {{phase}}",
+      "edited_one": "Editaste {{count}} clave que esta actualización también cambia. Elige qué valor conservar.",
+      "edited_other": "Editaste {{count}} claves que esta actualización también cambia. Elige qué valor conservar.",
+      "configOnly": "Solo cambian la configuración o las plantillas de prompt. No se descarga nada.",
+      "files_one": "Cambia {{count}} archivo.",
+      "files_other": "Cambian {{count}} archivos.",
+      "held": "Retenido en esta versión.",
+      "heldNewer": "Retenido en esta versión. La galería tiene una más nueva.",
+      "legacy": "LocalAI no registró de dónde viene este modelo. Adóptalo para recibir actualizaciones. Tu configuración no cambia.",
+      "notChecked": "Aún no comprobado.",
+      "checkFailed": "La comprobación no pudo leer la entrada de la galería: {{message}}",
+      "unreadable": "No se pudieron leer los archivos del modelo: {{message}}",
+      "gone": "Ninguna galería incluye ya {{entry}}. La versión instalada sigue funcionando.",
+      "cleanup_one": "Actualizado. La versión anterior queda en el disco ({{count}} archivo) hasta que la quites.",
+      "cleanup_other": "Actualizado. La versión anterior queda en el disco ({{count}} archivos) hasta que la quites."
+    },
+    "action": {
+      "upgrade": "Actualizar",
+      "upgradeNamed": "Actualizar {{name}}",
+      "removeOld": "Quitar la versión anterior",
+      "removeOldNamed": "Quitar la versión anterior de {{name}}",
+      "hold": "Retener esta versión",
+      "release": "Dejar de retener",
+      "releaseNamed": "Dejar de retener {{name}}",
+      "more": "Más acciones para {{name}}",
+      "adopt": "Adoptar",
+      "adoptNamed": "Adoptar {{name}}"
+    },
+    "dialog": {
+      "title": "¿Actualizar {{name}}?",
+      "intro": "De {{from}} a {{to}}. Nada cambia hasta que confirmes.",
+      "loadedTitle": "{{name}} está cargado ahora.",
+      "loadedBody": "La actualización lo detiene, cambia los archivos y la configuración y lo vuelve a iniciar. Las peticiones a este modelo esperan o fallan hasta que vuelva. Si la nueva versión no arranca, se restaura la anterior.",
+      "notLoaded": "{{name}} no está cargado ahora. La actualización inicia la nueva versión una vez para comprobar que funciona y, si no, restaura la anterior.",
+      "loadUnknown": "No se pudo saber si {{name}} está cargado. Si lo está, la actualización lo detiene y lo vuelve a iniciar.",
+      "filesTitle": "Archivos",
+      "noFiles": "No cambia ningún archivo.",
+      "disk": "Los archivos nuevos se descargan junto a los anteriores, así que el disco necesita espacio para ambos. La galería no indica el tamaño de los archivos, así que el espacio necesario no se conoce antes de la descarga.",
+      "diskNone": "No se descarga nada.",
+      "uncheckedTitle_one": "{{count}} archivo no tiene suma de comprobación en la galería.",
+      "uncheckedTitle_other": "{{count}} archivos no tienen suma de comprobación en la galería.",
+      "uncheckedBody": "La actualización no descarga pesos sin suma de comprobación, así que se detiene en la primera comprobación.",
+      "configOnly": "Aplicar solo la configuración y las plantillas de prompt",
+      "configOnlyHint": "Esta actualización no cambia ningún archivo del modelo, así que no se descarga nada.",
+      "keysTitle": "Claves que editaste y que la actualización también cambia",
+      "keysIntro": "Elige el valor que se conserva en cada clave. La actualización no puede empezar hasta que cada clave tenga una elección.",
+      "keepMine": "Conservar el mío",
+      "takeGallery": "Usar el de la galería",
+      "notSet": "sin definir",
+      "kept_one": "Se conserva como la definiste: {{keys}}. La actualización no la cambia.",
+      "kept_other": "Se conservan como las definiste: {{keys}}. La actualización no las cambia.",
+      "after": "La versión anterior queda en el disco después de la actualización. Quítala con «Quitar la versión anterior».",
+      "missing_one": "Elige un valor para {{count}} clave",
+      "missing_other": "Elige un valor para {{count}} claves",
+      "confirm": "Actualizar",
+      "confirmStop": "Detener y actualizar",
+      "needChoices": "El servidor pide una elección para más claves. Elige un valor para cada una y confirma de nuevo.",
+      "startFailed": "La actualización no pudo empezar: {{message}}"
+    },
+    "change": {
+      "added": "nuevo",
+      "changed": "cambiado",
+      "removed": "eliminado"
+    },
+    "role": {
+      "weights": "pesos",
+      "mmproj": "proyector de visión",
+      "template": "plantilla de prompt",
+      "artifact": "artefacto",
+      "config": "configuración"
+    },
+    "remove": {
+      "title": "¿Quitar la versión anterior de {{name}}?",
+      "body_one": "Esto borra {{count}} archivo anterior que la actualización conservó. El modelo sigue con la nueva versión. No se puede deshacer.",
+      "body_other": "Esto borra {{count}} archivos anteriores que la actualización conservó. El modelo sigue con la nueva versión. No se puede deshacer.",
+      "confirm": "Quitar la versión anterior",
+      "pending": "Quitando…"
+    },
+    "live": {
+      "started": "La actualización de {{name}} empezó.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: se quitó {{count}} archivo anterior.",
+      "removed_other": "{{name}}: se quitaron {{count}} archivos anteriores.",
+      "held": "{{name}} queda retenido en esta versión.",
+      "released": "{{name}} ya no está retenido.",
+      "adopted": "{{name}} adoptado desde la galería {{gallery}}. LocalAI ahora comprueba sus actualizaciones.",
+      "adoptedDiffers": "{{name}} adoptado desde la galería {{gallery}}. Sus archivos difieren de la entrada de la galería, así que se ofrece una actualización.",
+      "adoptedNoCheck": "{{name}} adoptado, pero la comprobación de actualizaciones falló: {{message}}",
+      "adoptFailed": "No se pudo adoptar {{name}}: {{message}}"
+    },
+    "card": {
+      "title": "Actualizaciones",
+      "current": "Al día",
+      "open": "Abrir Actualizaciones",
+      "holdHint": "No ofrecer actualizaciones para este modelo hasta que desactives esto."
+    },
+    "adopt": {
+      "title": "Adoptar {{name}}",
+      "intro": "Más de una galería lista este modelo. Elige la entrada de la que viene.",
+      "legend": "Entradas de la galería",
+      "gallery": "Galería {{gallery}}",
+      "after": "LocalAI registra la entrada y comprueba sus actualizaciones. Tu configuración no cambia.",
+      "failed": "No se pudo adoptar: {{message}}"
+    }
   }
 }

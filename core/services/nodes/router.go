@@ -95,6 +95,17 @@ type SmartRouterOptions struct {
 	// the absolute model paths untouched so the worker loads them directly from
 	// the shared volume (#10556). See config.DistributedConfig.SharedModels.
 	SharedModels bool
+	// StagingThroughStore says the model files go through an object store (S3)
+	// that each worker reads itself, so staging sends no file bytes over the route
+	// to the worker. The router then may place a model that needs staging on a
+	// node that is reached only over a data-limited relay. See stagesOverRelay.
+	StagingThroughStore bool
+	// CarrierWeights reads the weights of the carriers (routing.carrier_weights in
+	// the cluster settings). They break ties between equally fit nodes: the weight
+	// of a node is the highest weight among its routes, and the higher weight wins.
+	// It never changes which node wins when fit differs. nil turns the tie-break
+	// off, and with it the last-resort rule for data-limited relays.
+	CarrierWeights CarrierWeightSource
 	// ModelLoadCeiling is the hard upper bound on how long a single cold-load
 	// attempt (node selection -> backend install -> file staging -> LoadModel)
 	// may run while holding the per-model advisory lock. It backstops every
@@ -177,6 +188,7 @@ func ModelLoadCeilingFor(installTimeout, loadTimeout time.Duration) time.Duratio
 // SmartRouter routes inference requests to the best available backend node.
 // It uses the ModelRouter interface (backed by NodeRegistry in production) for routing decisions.
 type SmartRouter struct {
+	unroutable       unroutableCache
 	registry         ModelRouter
 	unloader         NodeCommandSender // optional, for NATS-driven load/unload
 	modelCleanup     *ModelCleanupService
@@ -212,6 +224,13 @@ type SmartRouter struct {
 	// sharedModels skips file staging when all nodes mount the same models
 	// directory at the same path (see SmartRouterOptions.SharedModels).
 	sharedModels bool
+	// stagingThroughStore is true when the model files go through an object
+	// store that the worker reads itself, so that no file bytes cross the route to
+	// the worker (see SmartRouterOptions.StagingThroughStore).
+	stagingThroughStore bool
+	// ranker ranks the nodes by carrier. nil when no CarrierWeights were given or
+	// the registry is not a *NodeRegistry.
+	ranker nodeRanker
 	// diskHeadroomEnabled is the live read of the operator's disk-headroom
 	// toggle (see SmartRouterOptions.DiskHeadroomEnabled). Never nil after
 	// NewSmartRouter.
@@ -273,7 +292,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 	if diskHeadroom == nil {
 		diskHeadroom = func() bool { return true }
 	}
-	return &SmartRouter{
+	router := &SmartRouter{
 		registry:            registry,
 		unloader:            opts.Unloader,
 		modelCleanup:        opts.ModelCleanup,
@@ -290,6 +309,7 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		prefixConfig:        opts.PrefixConfig,
 		pressure:            opts.Pressure,
 		sharedModels:        opts.SharedModels,
+		stagingThroughStore: opts.StagingThroughStore,
 		diskHeadroomEnabled: diskHeadroom,
 		modelLoadCeiling:    ceiling,
 		modelLoadTimeout:    loadTimeout,
@@ -302,6 +322,11 @@ func NewSmartRouter(registry ModelRouter, opts SmartRouterOptions) *SmartRouter 
 		finalizeLoad:         opts.LoadOptionsFinalizer,
 		loadWaiters:          map[string]*loadWaiter{},
 	}
+	if reg, ok := registry.(*NodeRegistry); ok && opts.CarrierWeights != nil {
+		reg.SetCarrierWeights(opts.CarrierWeights)
+		router.ranker = reg
+	}
+	return router
 }
 
 // Unloader returns the remote unloader adapter for external use.
@@ -748,6 +773,11 @@ func (r *SmartRouter) Route(ctx context.Context, modelID, modelName, backendType
 	if err != nil {
 		return nil, err
 	}
+	// A node that this frontend cannot reach on any route is not asked for a
+	// replica, so that its recorded address is never dialled.
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, trackingKey, candidateNodeIDs); err != nil {
+		return nil, err
+	}
 
 	// Compute the prefix-cache preference once for this request. pref biases
 	// FindAndLockNodeWithModel toward the warm-cache node; observeChain is
@@ -809,6 +839,11 @@ type routeAttempt struct {
 	observeChain     []uint64
 }
 
+// warmProbeRetryDelay is how long the warm path waits before it probes a replica
+// again, when the first probe could not reach the worker. A variable, so that a
+// spec does not wait for it.
+var warmProbeRetryDelay = 500 * time.Millisecond
+
 // tryWarmPath returns a route to an already-loaded, reachable replica, or nil
 // when the model has to be cold-loaded. It is the authority on readiness: a
 // waiter woken by a finished job re-runs it rather than trusting the signal,
@@ -825,7 +860,31 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 	replicaIdx := nm.ReplicaIndex
 
 	// Verify the backend process is still alive via gRPC health check
-	if !r.probeHealth(ctx, node, modelAddr) {
+	verdict := r.probeHealth(ctx, node, modelAddr)
+	if verdict == probeUnknown {
+		// A relay that dropped for a moment looks the same as a worker that cannot
+		// be reached. Loading the model again at once would put a second replica
+		// beside one that is well, so the probe is repeated once first.
+		select {
+		case <-time.After(warmProbeRetryDelay):
+			verdict = r.probeHealth(ctx, node, modelAddr)
+		case <-ctx.Done():
+		}
+	}
+	switch verdict {
+	case probeUnknown:
+		// The transport failed, so nothing is known about the backend. The row
+		// stays: a replica that is loaded on a worker that cannot be reached from
+		// here for the moment is not a replica that is gone. This request goes
+		// to a cold load, which places the model where a route exists.
+		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
+			xlog.Warn("Failed to release routing reservation of an unreachable replica",
+				"node", node.ID, "model", att.trackingKey, "replica", replicaIdx, "error", err)
+		}
+		xlog.Warn("Backend not reachable through the transport, keeping its row and falling through to a load elsewhere",
+			"node", node.Name, "model", att.modelName, "replica", replicaIdx)
+		return nil
+	case probeDead:
 		// Stale — roll back the increment, remove the specific replica row, fall through
 		if err := r.registry.DecrementInFlight(ctx, node.ID, att.trackingKey, replicaIdx); err != nil {
 			xlog.Warn("Failed to release stale routing reservation",
@@ -1163,6 +1222,9 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	if err != nil {
 		return nil, "", 0, err
 	}
+	if candidateNodeIDs, err = r.narrowByRoutable(ctx, modelID, candidateNodeIDs); err != nil {
+		return nil, "", 0, err
+	}
 
 	// Apply concurrency-group anti-affinity (#9659): prefer nodes that don't
 	// already host a model declared exclusive with this one. Soft filter — if
@@ -1211,7 +1273,7 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	// no room: a control-plane database slow enough to time out these queries
 	// read as "everybody is full" and cost a healthy model its place.
 	var selectErr error
-	selectNode := func() *BackendNode {
+	selectNode := func(candidateNodeIDs []string) *BackendNode {
 		var candidate *BackendNode
 		var selErr error
 		selectErr = nil
@@ -1246,7 +1308,29 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 		return candidate
 	}
 
-	node := r.pickReachableNode(ctx, selectNode)
+	// A node whose only route is a data-limited public relay is a last resort
+	// (see limitedOnlyNodes). The others are tried first. When the placement
+	// needs model files pushed to the node, such a node is not a candidate at all.
+	limited := r.limitedOnlyNodes(ctx)
+	var node *BackendNode
+	if len(limited) == 0 {
+		node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(candidateNodeIDs) })
+	} else {
+		stagesOverRelay := r.stagesOverRelay(modelID, modelOpts)
+		preferred := r.withoutNodes(ctx, candidateNodeIDs, limited)
+		if stagesOverRelay {
+			if len(preferred) == 0 {
+				return nil, "", 0, fmt.Errorf("every node that can serve %s is reached only over a data-limited relay, and this placement needs model files pushed to it: %w", modelID, ErrNoAvailableNodes)
+			}
+			candidateNodeIDs = preferred
+		}
+		if len(preferred) > 0 {
+			node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(preferred) })
+		}
+		if node == nil && !stagesOverRelay {
+			node = r.pickReachableNode(ctx, func() *BackendNode { return selectNode(candidateNodeIDs) })
+		}
+	}
 
 	// Same reasoning as the replica-slot guard further down: only
 	// gorm.ErrRecordNotFound is a verdict that the cluster has no node to give.
@@ -2093,22 +2177,31 @@ func (r *SmartRouter) stageOptionDir(ctx context.Context, node *BackendNode, dir
 // burst of N requests for a cold cache costs at most one round-trip, not N.
 // Failed probes invalidate the cache so the staleness recovery path
 // (DecrementInFlight + RemoveNodeModel) still triggers on the next request.
-func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) bool {
+//
+// The verdict is three-valued. A probe that could not get a stream to the backend
+// because the transport failed learned nothing, and it must not read as a dead
+// backend: the caller would remove the row of a model that is loaded.
+func (r *SmartRouter) probeHealth(ctx context.Context, node *BackendNode, addr string) probeVerdict {
 	key := node.ID + "|" + addr
-	return r.probeCache.DoOrCached(key, func() bool {
+	return r.probeCache.DoOrCachedVerdict(key, func() probeVerdict {
 		client := r.buildClientForAddr(node, addr, false)
 		defer closeClient(client)
 		checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		ok, err := client.HealthCheck(checkCtx)
-		// A probe that only timed out means the backend is busy serving
-		// inference, not dead; a dead one fails fast with a connection error.
-		// Same rule as ModelLoader.checkIsLoaded.
-		if !ok && ctx.Err() == nil && errors.Is(checkCtx.Err(), context.DeadlineExceeded) &&
-			status.Code(err) != codes.Unavailable {
-			return true
+		switch {
+		case ok:
+			return probeAlive
+		case grpc.TransportFailureOf(client) != nil:
+			return probeUnknown
+		case ctx.Err() == nil && errors.Is(checkCtx.Err(), context.DeadlineExceeded) &&
+			status.Code(err) != codes.Unavailable:
+			// A probe that only timed out means the backend is busy serving
+			// inference, not dead; a dead one fails fast with a connection
+			// error. Same rule as ModelLoader.checkIsLoaded.
+			return probeAlive
 		}
-		return ok
+		return probeDead
 	})
 }
 
@@ -2148,7 +2241,7 @@ func (r *SmartRouter) newRouteResult(node *BackendNode, trackingKey string, repl
 
 func closeClient(client grpc.Backend) {
 	if closer, ok := client.(io.Closer); ok {
-		closer.Close()
+		_ = closer.Close() // the client is being discarded; a close error changes nothing
 	}
 }
 
@@ -2163,7 +2256,9 @@ func (r *SmartRouter) UnloadModel(ctx context.Context, nodeID, modelName string)
 	if err := r.unloader.StopBackend(nodeID, modelName); err != nil {
 		return fmt.Errorf("failed to stop backend on node %s: %w", nodeID, err)
 	}
-	r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName)
+	if err := r.registry.RemoveAllNodeModelReplicas(ctx, nodeID, modelName); err != nil {
+		xlog.Warn("Failed to remove node model replicas after stop", "node", nodeID, "model", modelName, "error", err)
+	}
 	return nil
 }
 

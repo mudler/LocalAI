@@ -4,7 +4,7 @@ import { modelsApi } from '../utils/api'
 import { formatBytes } from '../utils/format'
 import { installRequest, windowLabel } from '../utils/recommendedModels'
 import { useRecommendedModels } from '../hooks/useRecommendedModels'
-import Icon from './Icon'
+import { Button } from './ui'
 
 const CONTENT_ID = 'rec-models-content'
 
@@ -71,16 +71,16 @@ export default function RecommendedModels({ addToast, installedCount = 0 }) {
                   {m.memory_bytes > 0 && <span>{t('recommended.memory', { memory: formatBytes(m.memory_bytes) })}</span>}
                 </span>
               </div>
-              <button
-                type="button"
-                className={i === 0 ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+              <Button
+                variant={i === 0 ? 'primary' : 'secondary'}
+                size="sm"
+                icon="download"
+                busy={busy}
                 disabled={busy}
                 onClick={() => install(m)}
               >
-                {busy
-                  ? (<><Icon name="spinner" spin /> {t('recommended.installing')}</>)
-                  : (<><Icon name="download" /> {t('recommended.install')}</>)}
-              </button>
+                {busy ? t('recommended.installing') : t('recommended.install')}
+              </Button>
             </li>
           )
         })}

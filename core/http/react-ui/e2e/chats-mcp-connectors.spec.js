@@ -57,7 +57,7 @@ function api(page, initial = [], { refuse = [], tests = {} } = {}) {
         return r.fulfill({ json: { connectors: s.items } })
       })
       await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+      await page.route('**/api/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
     },
   }
 }

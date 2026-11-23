@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import ModelPicker from './ModelPicker'
-import Icon from './Icon'
+import { Button } from './ui'
+import './listeditors.css'
 
 // RouterCandidatesEditor renders the routing table for a router model.
 // Each row binds a downstream model to a SET of policy labels it can
@@ -37,9 +38,9 @@ export default function RouterCandidatesEditor({ value, onChange }) {
   const add = () => onChange([...items, { model: '', labels: [] }])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', width: '100%' }}>
+    <div className="le">
       {items.length === 0 && (
-        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', padding: 'var(--spacing-sm) 0' }}>
+        <div className="le__hint">
           No candidates yet. Add at least one — order from smallest model to largest.
           The middleware picks the FIRST candidate whose labels superset the active set.
         </div>
@@ -59,13 +60,9 @@ export default function RouterCandidatesEditor({ value, onChange }) {
         />
       ))}
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm self-start"
-        onClick={add}
-      >
-        <Icon name="plus" /> Add candidate
-      </button>
+      <Button size="sm" icon="plus" className="self-start" onClick={add}>
+        Add candidate
+      </Button>
     </div>
   )
 }
@@ -85,66 +82,34 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
 
   return (
     <div
-      className="card"
-      style={{
-        padding: 'var(--spacing-sm)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--spacing-xs)',
-        border: '1px solid var(--color-border)',
-      }}
+      className="card le__cand"
     >
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+      <div className="le__cand-head">
         <span className="fw-semibold">#{index + 1}</span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(-1)}
-          disabled={index === 0}
-          title="Move up (smaller priority)"
-          style={{ padding: '0 6px' }}
-        >
-          <Icon name="arrow-up" />
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(1)}
-          disabled={index === total - 1}
-          title="Move down"
-          style={{ padding: '0 6px' }}
-        >
-          <Icon name="arrow-down" />
-        </button>
-        <span style={{ marginLeft: 'auto' }}>
+        <Button icon="arrow-up" size="sm" onClick={() => onMove(-1)} disabled={index === 0} title="Move up (smaller priority)" />
+        <Button icon="arrow-down" size="sm" onClick={() => onMove(1)} disabled={index === total - 1} title="Move down" />
+        <span className="le__cand-note">
           {index === 0 ? 'tried first' : index === total - 1 ? 'tried last (fallback-class)' : ''}
         </span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+      <div className="le__cand-model">
         <ModelPicker
           variant="field" allowCustom searchable
           value={row?.model || ''}
           onChange={(v) => onChange((r) => ({ ...r, model: v }))}
           placeholder="downstream model..."
         />
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={onRemove}
-          title="Remove candidate"
-        >
-          <Icon name="trash" />
-        </button>
+        <Button icon="trash" size="sm" onClick={onRemove} title="Remove candidate" />
       </div>
 
       <div>
-        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>
+        <div className="le__cand-help">
           {visible.length === 0
             ? 'No policies defined yet — add policies above before assigning labels.'
             : 'Labels this model can serve. The middleware requires the candidate to cover every label the classifier activates.'}
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div className="le__labels">
           {visible.map((label) => {
             const on = labels.includes(label)
             const known = knownLabelSet.has(label)
@@ -154,16 +119,8 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
                 type="button"
                 onClick={() => toggleLabel(label)}
                 title={known ? '' : 'Not in router.policies — typo or stale'}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '0.75rem',
-                  fontFamily: 'var(--font-mono)',
-                  border: '1px solid ' + (on ? 'var(--color-primary)' : 'var(--color-border)'),
-                  background: on ? 'var(--color-primary)' : 'transparent',
-                  color: on ? 'var(--color-bg-primary)' : (known ? 'var(--color-text-primary)' : 'var(--color-warning)'),
-                  cursor: 'pointer',
-                }}
+                className={`le__label${on ? ' is-on' : ''}${known ? '' : ' is-unknown'}`}
+                aria-pressed={on}
               >
                 {label}{!known && ' ⚠'}
               </button>

@@ -53,7 +53,7 @@ var _ = Describe("Backend Endpoints", func() {
 			nil,
 			nil,
 		)
-		app.GET("/backends/known", svc.ListKnownBackendsEndpoint(systemState))
+		app.GET("/backends/known", svc.ListKnownBackendsEndpoint(systemState, nil))
 	})
 
 	AfterEach(func() {

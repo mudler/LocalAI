@@ -39,6 +39,13 @@ var publicRouteRegistry = []publicRouteRule{
 	// yet. The handler rate limits and answers every failure the same way.
 	{Method: http.MethodPost, Path: "/api/client/pair"},
 
+	// The scripts that join a worker. They answer only for a valid join token
+	// in the query, which is the credential, and do not spend it. See
+	// localai.JoinScriptEndpoint.
+	{Method: http.MethodGet, Path: "/join.sh"},
+	{Method: http.MethodGet, Path: "/join.ps1"},
+	{Method: http.MethodGet, Path: "/join.yaml"},
+
 	// CORS preflight. An OPTIONS request cannot carry credentials by HTTP
 	// spec, so preflights targeting any endpoint must not be gated on auth;
 	// the CORS middleware (registered after auth in app.go) answers them.
@@ -55,7 +62,6 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/browse/", Prefix: true},
 	{Method: http.MethodGet, Path: "/login"},
 	{Method: http.MethodGet, Path: "/invite/", Prefix: true},
-	{Method: http.MethodGet, Path: "/explorer"},
 
 	// Assets.
 	{Method: http.MethodGet, Path: "/favicon.svg"},
@@ -84,8 +90,24 @@ func isPublicRoute(method, path string) bool {
 	return false
 }
 
+// ClusterConnectPath is the route that a worker dials to open its tunnel. The
+// handler checks the own tunnel credential of the node, which is not a user,
+// a session or an API key, so the global middleware lets the request through.
+//
+// It is one exact path and not the prefix /api/cluster/, so that a route that is
+// added under that prefix later is covered by the global middleware unless its
+// author decides otherwise. The path is written out here because this package
+// must not import the tunnel package. The spec of the connect endpoint compares
+// it with tunnel.ConnectPath.
+const ClusterConnectPath = "/api/cluster/connect"
+
+// ClusterPeerPath is the route that a replica dials to reach a tunnel that
+// another replica holds. The handler checks the own credential of the dialling
+// replica. The spec of the peer endpoint compares it with tunnel.PeerPath.
+const ClusterPeerPath = "/api/cluster/peer"
+
 // usesAlternativeAuthentication identifies requests whose credentials are
 // validated by route-group middleware instead of the global auth middleware.
 func usesAlternativeAuthentication(path string) bool {
-	return strings.HasPrefix(path, "/api/node/")
+	return strings.HasPrefix(path, "/api/node/") || path == ClusterConnectPath || path == ClusterPeerPath
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo } from 'react'
-import { backendsApi, modelsApi, nodesApi, resourcesApi, systemApi, tracesApi } from '../utils/api'
+import { adminUsersApi, backendsApi, modelsApi, nodesApi, resourcesApi, systemApi, tracesApi } from '../utils/api'
+import { useAuth } from '../context/AuthContext'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useUpdates } from './UpdatesContext'
@@ -14,9 +15,9 @@ import { appendSample, capacityOf } from '../utils/operateStatus'
 // consumer running its own setInterval against the same endpoint was the
 // defect it was created to fix. Four endpoints doing that would be worse.
 //
-// The provider is mounted by HubLayout for the Operate hub only, so
-// "poll only while the user is in Operate" needs no route check: away from
-// Operate the provider is not mounted and nothing runs.
+// The provider sits above the sidebar, which draws the Administration badges,
+// so it is always mounted. `enabled` is true only while an administrator is on
+// an Administration page: otherwise it asks nothing and no timer runs.
 //
 // Operations are NOT fetched here. OperationsContext already polls them for
 // the sidebar badge and the operations strip, so this reads that instead of
@@ -39,13 +40,18 @@ async function settle(promise, fallback) {
   }
 }
 
-export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_MS }) {
+export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_MS, enabled = true }) {
   const [nodes, setNodes] = useState([])
   const [resources, setResources] = useState(null)
   const [resourcesLoaded, setResourcesLoaded] = useState(false)
   const [traces, setTraces] = useState(null)
   const [installed, setInstalled] = useState({ backends: null, models: null })
   const [running, setRunning] = useState(null)
+  // The sign-ups that wait for an administrator, when sign-in is on.
+  const [pendingUsers, setPendingUsers] = useState([])
+  // How many people there are and how many administer, for the Overview.
+  const [userCounts, setUserCounts] = useState(null)
+  const { authEnabled, isAdmin } = useAuth()
   // The models this process holds in memory, for the Status page's capacity
   // row. Null until read, and on a cluster controller, whose models live on
   // the workers.
@@ -66,10 +72,10 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
   // The cluster API answers 503 when distributed mode is off, so asking for it
   // on a single-node install is a guaranteed miss on every tick. The rail gates
   // the Nodes entry the same way.
-  const { enabled: distributed, loading: distributedLoading } = useDistributedMode()
+  const { enabled: distributed, loading: distributedLoading } = useDistributedMode({ enabled })
 
   const fetchSummary = useCallback(async () => {
-    const [n, r, tr, bi, mi, sys] = await Promise.all([
+    const [n, r, tr, bi, mi, sys, us] = await Promise.all([
       distributed ? settle(nodesApi.list(), []) : Promise.resolve([]),
       settle(resourcesApi.get(), null),
       settle(tracesApi.summary(), null),
@@ -78,7 +84,11 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       // Only this process's loader: on a distributed controller the models
       // live on workers, and the Nodes entry carries the cluster signal.
       distributed ? Promise.resolve(null) : settle(systemApi.info(), null),
+      authEnabled && isAdmin ? settle(adminUsersApi.list(), null) : Promise.resolve(null),
     ])
+    const userList = Array.isArray(us) ? us : (us?.users || [])
+    setPendingUsers(userList.filter(u => u.status === 'pending'))
+    setUserCounts(Array.isArray(us) || us?.users ? { total: userList.length, admins: userList.filter(u => u.role === 'admin').length } : null)
     setNodes(Array.isArray(n) ? n : (n?.nodes || []))
     setResources(r)
     setResourcesLoaded(true)
@@ -92,11 +102,11 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
     const nodeList = Array.isArray(n) ? n : (n?.nodes || [])
     setSamples(current => appendSample(current, capacityOf({ resources: r, nodes: nodeList, distributed }), Date.now()))
     setReady(true)
-  }, [distributed])
+  }, [distributed, authEnabled, isAdmin])
 
   // Wait for the cluster probe: several sources depend on the mode, and a
   // first tick taken before it answers would ask a cluster for local state.
-  const { refetch } = usePolling(fetchSummary, pollInterval, { enabled: !distributedLoading })
+  const { refetch } = usePolling(fetchSummary, pollInterval, { enabled: enabled && !distributedLoading })
 
   const value = useMemo(() => {
     // Backends and add-ons, the rows the Updates tab counts: this item's number
@@ -124,6 +134,12 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         name: op.name || op.id,
         detail: op.error,
       })),
+      ...(pendingUsers.length > 0 ? [{
+        id: 'signups',
+        kind: 'signups-waiting',
+        count: pendingUsers.length,
+        users: pendingUsers,
+      }] : []),
       ...unhealthyNodes.map(n => ({
         id: `node:${n.id || n.name}`,
         kind: 'node-unhealthy',
@@ -149,6 +165,8 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
       // than render the single-node view on a cluster for one frame.
       distributed: distributedLoading ? null : distributed,
       attention,
+      pendingUsers,
+      userCounts,
       signals: {
         attention: attention.length || null,
         updates: updates && updates.badge && updates.badge.count ? updates.badge.count : null,
@@ -159,9 +177,10 @@ export function OperateSummaryProvider({ children, pollInterval = POLL_INTERVAL_
         traces: traces?.errors || null,
         usage: traces?.total ? compact(traces.total) : null,
         running: running || null,
+        pendingUsers: pendingUsers.length || null,
       },
     }
-  }, [upgrades, updateRows, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading])
+  }, [upgrades, updateRows, updates, nodes, resources, resourcesLoaded, operations, traces, installed, running, loadedModels, samples, ready, refetch, distributed, distributedLoading, pendingUsers, userCounts])
 
   return (
     <OperateSummaryContext.Provider value={value}>

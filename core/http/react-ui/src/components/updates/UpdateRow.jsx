@@ -6,9 +6,11 @@ import { cssVars } from '../../utils/modelLedger'
 import { upgradeFailureWords } from '../addons/updateReview'
 import { reasonText } from '../addons/UpgradeControls'
 import { hasNodeView } from '../../utils/nodeUpdates'
+import ModelRowActions from './ModelRowActions'
+import { modelChip, useModelDetail } from './modelWords'
 
-const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle' }
-const STATE_ICON = { failed: 'alert-circle', held: 'lock', blocked: 'warning' }
+const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle', model: 'brain' }
+const STATE_ICON = { failed: 'alert-circle', held: 'lock', blocked: 'warning', 'on-hold': 'lock', gone: 'warning', cleanup: 'trash' }
 
 // The chip word of a row. One word, never two states.
 function chipOf(row) {
@@ -20,6 +22,7 @@ function chipOf(row) {
 // The origin line: where the new version comes from.
 function useOrigin(row) {
   const { t } = useTranslation('updates')
+  if (row.kind === 'model') return row.gallery ? t('row.origin.model', { gallery: row.gallery }) : t('row.origin.modelUnnamed')
   if (row.kind === 'gallery') return t('row.origin.gallery')
   const source = row.sourceId ? t('row.origin.library', { id: row.sourceId }) : t('row.origin.libraryUnnamed')
   return row.signed ? `${source} · ${t('row.signed')}` : source
@@ -42,6 +45,7 @@ function useDetail(row) {
       if (row.blocked === 'incompatible') return { tone: 'warn', text: `${t('row.blocked.incompatible', { version: row.to })}${row.reasons && row.reasons.length ? ` ${row.reasons.map(r => ta(`updates.reason.${r}`)).join('; ')}.` : ''}` }
       return { tone: 'warn', text: t('row.blocked.integrity') }
     case 'updating':
+      if (row.queued) return { tone: 'muted', text: t('row.queued') }
       return { tone: 'accent', text: row.phase ? t('row.updatingPhase', { phase: row.phase }) : t('row.updatingPlain') }
     case 'ready':
       if (row.needsCheck) return { tone: 'muted', text: reasonText(row.availability, ta) }
@@ -58,17 +62,21 @@ function useDetail(row) {
 // words under the name. The row is one list item with one chip and at most one
 // button to act on it. A backend on several nodes adds a link to its
 // per-node page, which is a place to look, not a second question.
-export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false }) {
+export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, model = null }) {
   const { t } = useTranslation('updates')
   const origin = useOrigin(row)
-  const detail = useDetail(row)
-  const chip = chipOf(row)
+  const otherDetail = useDetail(row)
+  const modelDetail = useModelDetail(row)
+  const isModel = row.kind === 'model'
+  const detail = isModel ? modelDetail : otherDetail
+  const chip = isModel ? null : chipOf(row)
+  const ownChip = isModel ? modelChip(row, t) : null
   const canSelect = row.state === 'ready' && row.startable
-  const tone = row.state === 'ready' ? 'accent' : row.state === 'updating' ? 'accent' : row.state === 'current' ? 'ok' : row.state === 'failed' ? 'error' : 'warn'
+  const tone = row.state === 'ready' ? 'accent' : row.state === 'updating' ? 'accent' : row.state === 'current' ? 'ok' : row.state === 'failed' ? 'error' : (row.state === 'on-hold' || row.state === 'unknown') ? 'idle' : row.state === 'cleanup' ? 'accent' : 'warn'
   const icon = STATE_ICON[row.state] || TILE_ICON[row.kind]
   const nodes = row.nodeCount > 1 ? t('row.nodes', { count: row.nodeCount }) : ''
   const drift = row.nodeCount > 1 && row.driftNodes > 0 ? t('row.drift', { count: row.driftNodes }) : ''
-  const versions = row.state === 'current'
+  const versions = (row.state === 'current' || (isModel && !row.hasUpdate))
     ? row.from
     : t('row.versions', { from: row.from || '?', to: row.to || '?' })
   return (
@@ -113,16 +121,18 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={row.progress || 0}
-            data-indeterminate={row.progress > 0 ? undefined : ''}
+            data-queued={row.queued ? '' : undefined}
+            data-indeterminate={row.queued || row.progress > 0 ? undefined : ''}
           >
-            <span className="dk-progress-bar" style={row.progress > 0 ? cssVars({ '--dk-value': `${row.progress}%` }) : undefined} />
+            <span className="dk-progress-bar" style={!row.queued && row.progress > 0 ? cssVars({ '--dk-value': `${row.progress}%` }) : undefined} />
           </span>
         )}
       </div>
       <div className="uc-row__chip">
         {chip && <StatusChip status={chip} testId="update-row-chip" />}
+        {ownChip && <StatusChip {...ownChip} testId="update-row-chip" />}
       </div>
-      <div className="uc-row__acts">
+      {isModel ? <ModelRowActions row={row} actions={model} locked={locked} /> : <div className="uc-row__acts">
         {hasNodeView(row) && (row.state === 'ready' || row.state === 'failed') && (
           <Button size="sm" variant="ghost" to={`/app/updates/backend/${encodeURIComponent(row.name)}`} aria-label={t('row.nodesNamed', { name: row.name })} data-testid="update-row-nodes">{t('row.nodesAction')}</Button>
         )}
@@ -141,7 +151,7 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
         {row.state === 'updating' && row.cancellable && (
           <Button size="sm" variant="ghost" onClick={() => onCancel(row)} aria-label={t('row.cancelNamed', { name: row.name })}>{t('row.cancel')}</Button>
         )}
-      </div>
+      </div>}
     </li>
   )
 }

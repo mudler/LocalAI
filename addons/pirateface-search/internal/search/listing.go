@@ -35,8 +35,10 @@ var units = map[string]float64{
 
 // ParseListing reads the text listing and skips the lines it does not
 // understand. A limit of zero or less means no limit. minSeeders drops the rows
-// with fewer seeders before the limit is applied.
-func ParseListing(body string, limit int, minSeeders int64) []Row {
+// with fewer seeders before the limit is applied. With ggufOnly, only the
+// repositories that name themselves GGUF are kept, also before the limit: the
+// site has no format option, so this is the only way "GGUF only" can hold.
+func ParseListing(body string, limit int, minSeeders int64, ggufOnly bool) []Row {
 	out := []Row{}
 	for l := range strings.SplitSeq(body, "\n") {
 		m := line.FindStringSubmatch(strings.TrimSpace(l))
@@ -46,6 +48,9 @@ func ParseListing(body string, limit int, minSeeders int64) []Row {
 		size, _ := strconv.ParseFloat(m[2], 64)
 		seeders, _ := strconv.ParseInt(m[4], 10, 64)
 		if seeders < minSeeders {
+			continue
+		}
+		if ggufOnly && !strings.Contains(strings.ToLower(m[1]), "gguf") {
 			continue
 		}
 		out = append(out, Row{

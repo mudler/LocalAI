@@ -32,38 +32,70 @@ GOCMD=go
 #   STRATA_ENGINE_VERSION_<pkg>  the version in the package file name
 #   STRATA_ENGINE_SHA256_<pkg>   SHA-256 of the .tar.gz
 # The URL is $(STRATA_REPO)/releases/download/<TAG>/<file name>.
+# Tencent Hy4-Flash runs on its own engine program, strata-hy4, shipped as
+# separate packages (file strata-hy4-...) with the same targets. Its pins are
+# STRATA_HY4_TAG_<pkg>, STRATA_HY4_VERSION_<pkg> and STRATA_HY4_SHA256_<pkg>.
 # ---------------------------------------------------------------------------
-STRATA_VERSION?=v0.2.15
-STRATA_COMMIT?=c77572806996349b49995e4f98d41b5294d36a21
+STRATA_VERSION?=v0.2.18
+STRATA_COMMIT?=6e38f588a646c0ee6948a74afbe670eb75896106
 
 # Qwen engine
-STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda12?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda12?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda12?=a50a4d1efd7fbf0da03a0a2d4d91b0ac059d92579ae41f611e49bc9228262856
-STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda13?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda13?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda13?=a72c194c8f6de96629ed53079b5e344ab81223d45667a53f6a6d79398895aa50
-STRATA_ENGINE_TAG_linux_aarch64_cuda_cuda13?=v0.2.15
-STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13?=0.1.59
-STRATA_ENGINE_SHA256_linux_aarch64_cuda_cuda13?=b213d9b173aae99645fc5922d42276fa1ed17ac67f7b788c55c912ba49e148f1
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx9070?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx9070?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx9070?=4fc045afc0905cf1338b39c7bc9f940d2f4905a82330d9e07ab185215af77ad8
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx7900?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx7900?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx7900?=ff8093d4d48e85d10b9bc317cc4fd518961e011af6dc0097e9d6384bd04bab82
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx6000?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx6000?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx6000?=45b1e3aed1241e72594e9980cb07171d2b976c7e473940faaf007b9eb1cfbb51
-STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0.2.14
-STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.60
-STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=cea2393ecea5e0f3b1ae90ba525d2db8a7f3ef2817dda184cfcfe6be8ddf081a
-STRATA_ENGINE_TAG_linux_x86_64_sycl?=v0.2.13
-STRATA_ENGINE_VERSION_linux_x86_64_sycl?=0.1.59
-STRATA_ENGINE_SHA256_linux_x86_64_sycl?=8b2586ab57a2ad8df593d11dc6a3509620ca49fb352692ae0f7f4f7d014a7839
-STRATA_ENGINE_TAG_macos_arm64_metal?=v0.2.14
-STRATA_ENGINE_VERSION_macos_arm64_metal?=0.1.60
-STRATA_ENGINE_SHA256_macos_arm64_metal?=31ce1cd98bef83938434c15fcc94c1768340037b8fe7f292ee82836db0ca074d
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda12?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda12?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda12?=5de1f3dfdea0aaeb6cecb4095016b278f3d01e34c2bc4fb191cd621583ba92e3
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda13?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda13?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda13?=aa35e9de4253ba1be1f289dfaa42d530d86ebce7c9193a9b9c20970280c4e05b
+STRATA_ENGINE_TAG_linux_aarch64_cuda_cuda13?=v0.2.18
+STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13?=0.1.64
+STRATA_ENGINE_SHA256_linux_aarch64_cuda_cuda13?=8e3aaf70a27a26de04bab62e42d151eaa01c33b8c9bdd9839018fd5c54f4778b
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx9070?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx9070?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx9070?=e6204b765c2b0f7f7ee63154463ee096751d3829b432d016cf1569504c33b05d
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx7900?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx7900?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx7900?=b64fde9f8a783b1428ffe005dea6ffe75be8ff3b5944d886ee9734a9adcea8ed
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx6000?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx6000?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx6000?=c4457434feb5c8ae44eb992db3a58045b9962712db4374f5a6411bf0aed612f5
+STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=cad9353b7481110b0e36ac609aaf6028403167bd237453f0dd9dc7f78e8dbb4f
+STRATA_ENGINE_TAG_linux_x86_64_sycl?=v0.2.18
+STRATA_ENGINE_VERSION_linux_x86_64_sycl?=0.1.64
+STRATA_ENGINE_SHA256_linux_x86_64_sycl?=533c3c8e6f61875ee8ac9fabc46b4954d44126cd86120a5ece17528d0007421f
+STRATA_ENGINE_TAG_macos_arm64_metal?=v0.2.18
+STRATA_ENGINE_VERSION_macos_arm64_metal?=0.1.64
+STRATA_ENGINE_SHA256_macos_arm64_metal?=7c832d3a470dad7f6e220c8a58caa1efa6dd4b99ced810f98b49cb6523d8eaef
+
+# Hy4-Flash engine (strata-hy4, a separate program; same packages per target)
+STRATA_HY4_TAG_linux_x86_64_cuda_cuda12?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_cuda_cuda12?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_cuda_cuda12?=c95d8d29e08cffa217b09fd6c33e4c5e55ed6da51eb8b556743c0a0d76fe713f
+STRATA_HY4_TAG_linux_x86_64_cuda_cuda13?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_cuda_cuda13?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_cuda_cuda13?=2b9b713bfb735ba4f5479163daae7c436852bc6ea095b7154336d6589dd8404f
+STRATA_HY4_TAG_linux_aarch64_cuda_cuda13?=v0.2.18
+STRATA_HY4_VERSION_linux_aarch64_cuda_cuda13?=0.1.64
+STRATA_HY4_SHA256_linux_aarch64_cuda_cuda13?=b850d09437a216d3d4856e160e1d9dc54b3f74f7721168e2d060fa610f60f068
+STRATA_HY4_TAG_linux_x86_64_hip_rx9070?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_hip_rx9070?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_hip_rx9070?=cb215c86d63ad91453e8cc460b3f67246fb88c12220365f655458117200109eb
+STRATA_HY4_TAG_linux_x86_64_hip_rx7900?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_hip_rx7900?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_hip_rx7900?=1800a56515a6561edfe7c915b7190d0d689b4d449f2e4c7342fe03c396fbfef0
+STRATA_HY4_TAG_linux_x86_64_hip_rx6000?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_hip_rx6000?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_hip_rx6000?=f6dff15e6fa9a9a9e27c09a360cb206cfd3675ad97153c84d2f33e8271d9aa7e
+STRATA_HY4_TAG_linux_x86_64_hip_halo?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_hip_halo?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_hip_halo?=0349e0eb12535ec1be1c32217f67d17f51e5ea7f3979d1ec13ad97e3acd9677a
+STRATA_HY4_TAG_linux_x86_64_sycl?=v0.2.18
+STRATA_HY4_VERSION_linux_x86_64_sycl?=0.1.64
+STRATA_HY4_SHA256_linux_x86_64_sycl?=f2daf51b4798c5c7906e4e990b577f1f351cfcb4eac4fb7b7490f48819e3d7d2
+STRATA_HY4_TAG_macos_arm64_metal?=v0.2.18
+STRATA_HY4_VERSION_macos_arm64_metal?=0.1.64
+STRATA_HY4_SHA256_macos_arm64_metal?=588781aed2d44c0e4460c3cfdf3840feddef0be1399ed3f39eb1d6d6cac8d7f9
 
 STRATA_REPO?=https://github.com/Niko1221/Strata
 
@@ -134,6 +166,7 @@ endif
 engine_dir=$(patsubst linux_x86_64_cuda_%,%,$(patsubst linux_aarch64_cuda_%,%,$(patsubst linux_x86_64_hip_%,hip-%,$(patsubst linux_x86_64_sycl,sycl,$(patsubst macos_arm64_metal,metal,$(1))))))
 # Package key -> upstream file name: linux_x86_64_hip_halo -> linux-x86_64-hip-halo
 asset_name=strata-engine-$(STRATA_ENGINE_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
+asset_name_hy4=strata-hy4-$(STRATA_HY4_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
 
 PBS_TRIPLE_linux_x86_64=x86_64-unknown-linux-gnu
 PBS_TRIPLE_linux_aarch64=aarch64-unknown-linux-gnu
@@ -144,7 +177,7 @@ SRC_DIR=sources/strata
 LLAMA_DIR=sources/llama.cpp
 STAMP=.stamp
 
-.PHONY: strata package-stub engine engine-packages engine-python engine-source build package test clean purge print-packages print-asset check-pins
+.PHONY: strata package-stub engine engine-packages engine-packages-hy4 engine-python engine-source build package test clean purge print-packages print-asset check-pins
 
 strata:
 	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o strata ./
@@ -155,6 +188,9 @@ print-packages:
 print-asset:
 	@echo "$(call asset_name,$(PKG))"
 
+print-asset-hy4:
+	@echo "$(call asset_name_hy4,$(PKG))"
+
 # Fails with one clear line when a pin is malformed (used by
 # scripts/build/strata-pins_test.sh and handy before a bump PR).
 # No recipe below uses $(MAKE): Dockerfile.golang probes `make -n engine`, and
@@ -162,12 +198,13 @@ print-asset:
 check-pins:
 	@fail=0; \
 	$(foreach v,$(filter STRATA_ENGINE_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
-	$(foreach v,$(filter STRATA_ENGINE_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_HY4_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_ENGINE_SHA256_% STRATA_HY4_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
 	echo "$(STRATA_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad STRATA_COMMIT" >&2; fail=1; }; \
 	echo "$(LLAMA_CPP_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad LLAMA_CPP_COMMIT" >&2; fail=1; }; \
 	exit $$fail
 
-engine: engine-packages engine-python engine-source
+engine: engine-packages engine-packages-hy4 engine-python engine-source
 
 # The upstream engine package(s) for this target, verified and unpacked into
 # engines/<name>/. Each archive is deleted after unpacking to keep the layer small.
@@ -179,6 +216,13 @@ engine-packages:
 	fi
 	@set -e; \
 	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name,$(pkg))' '$(STRATA_ENGINE_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_ENGINE_TAG_$(pkg))' '$(STRATA_ENGINE_VERSION_$(pkg))'; )
+
+# The Hy4-Flash engine package(s) for the same target, into engines-hy4/<name>/.
+# Same package set as above, so the check there already refused an unsupported target.
+engine-packages-hy4:
+	@if [ -z "$(STRATA_PACKAGES)" ]; then exit 1; fi
+	@set -e; \
+	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name_hy4,$(pkg))' '$(STRATA_HY4_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_HY4_TAG_$(pkg))' '$(STRATA_HY4_VERSION_$(pkg))' engines-hy4 strata-hy4; )
 
 # Portable CPython plus the pinned, hash-checked packages the helper imports.
 engine-python:
@@ -207,6 +251,10 @@ engine-python:
 # to the same tools/ and serve/ folders of strata-src.
 # Strata v0.2.15 no longer carries any DeepSeek code (serve/dsml.py, the V4.1
 # chat template and tools/dsv41/pack_gguf.py are gone), so none is fetched.
+# Hy4-Flash adds tools/hy4_tokenizer.py (the tokenizer directory from a model
+# file), serve/hy4_dialect.py (its tagged reasoning and tool-call tokens) and
+# serve/toolformat.py (which parser a chat template needs); serve/frontend.py
+# imports the last two when it runs a Hy4 template.
 # Since v0.2.15 iq_pack.py uses strata_gguf by default. llama.cpp's gguf-py,
 # fetched at the commit Strata pins into third_party/llama.cpp/gguf-py under
 # the Strata tree, stays available as the STRATA_GGUF_PY alternative.
@@ -216,7 +264,7 @@ engine-source:
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py /terminal/tools/strata_tokenizer.py /terminal/tools/iq_pack.py /terminal/tools/gguf_reader.py /terminal/tools/_paths.py /terminal/tools/strata_gguf.py /terminal/tools/strata_quants.py /terminal/tools/strata_quant_tables.py /terminal/serve/__init__.py /terminal/serve/frontend.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py /serve/hy4_dialect.py /serve/toolformat.py /tools/hy4_tokenizer.py /terminal/tools/strata_tokenizer.py /terminal/tools/iq_pack.py /terminal/tools/gguf_reader.py /terminal/tools/_paths.py /terminal/tools/strata_gguf.py /terminal/tools/strata_quants.py /terminal/tools/strata_quant_tables.py /terminal/serve/__init__.py /terminal/serve/frontend.py /terminal/serve/hy4_dialect.py /terminal/serve/toolformat.py /terminal/tools/hy4_tokenizer.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
@@ -230,10 +278,10 @@ engine-source:
 	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
 	PYSRC=$(SRC_DIR); [ -d $(SRC_DIR)/terminal/tools ] && PYSRC=$(SRC_DIR)/terminal; \
-	cp $$PYSRC/tools/strata_tokenizer.py $$PYSRC/tools/iq_pack.py $$PYSRC/tools/gguf_reader.py $$PYSRC/tools/_paths.py $$PYSRC/tools/strata_gguf.py $$PYSRC/tools/strata_quants.py $$PYSRC/tools/strata_quant_tables.py strata-src/tools/; \
+	cp $$PYSRC/tools/hy4_tokenizer.py $$PYSRC/tools/strata_tokenizer.py $$PYSRC/tools/iq_pack.py $$PYSRC/tools/gguf_reader.py $$PYSRC/tools/_paths.py $$PYSRC/tools/strata_gguf.py $$PYSRC/tools/strata_quants.py $$PYSRC/tools/strata_quant_tables.py strata-src/tools/; \
 	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
 	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
-	cp $$PYSRC/serve/__init__.py $$PYSRC/serve/frontend.py strata-src/serve/; \
+	cp $$PYSRC/serve/__init__.py $$PYSRC/serve/frontend.py $$PYSRC/serve/hy4_dialect.py $$PYSRC/serve/toolformat.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 
 package:
@@ -255,4 +303,4 @@ clean:
 
 # Also drops everything fetched: engines, Python, sources and downloads.
 purge: clean
-	rm -rf engines python strata-src sources downloads
+	rm -rf engines engines-hy4 python strata-src sources downloads

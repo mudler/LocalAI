@@ -312,6 +312,21 @@ git submodule update --init --recursive --depth 1 --single-branch
 perl -0pi -e 's/(#include <windows\.globalization\.h>\R#include <windows\.h>\R)(#endif)/$1#include <winstring.h>\n$2/' \
   third_party/abseil-cpp/absl/time/internal/cctz/src/time_zone_lookup.cc
 
+# abseil's CountLeadingZeroes16 / CountTrailingZeroesNonzero16 use
+# __builtin_clzs / __builtin_ctzs when ABSL_HAVE_BUILTIN says they exist. GCC 16
+# declares both builtins, but on x86-64 they need the lzcnt / bmi instruction
+# sets, so the build stops with "'__builtin_ctzs' needs isa option -mbmi". Make
+# abseil take its portable 32-bit fallback for the 16-bit case instead, which
+# keeps the code valid for any x86-64 CPU. The installed headers carry the
+# change, so the grpc-server build sees it too.
+perl -pi -e 's/ABSL_HAVE_BUILTIN\(__builtin_(clzs|ctzs)\)/0/' \
+  third_party/abseil-cpp/absl/numeric/internal/bits.h
+if grep -q '__builtin_ctzs' third_party/abseil-cpp/absl/numeric/internal/bits.h &&
+   grep -q 'ABSL_HAVE_BUILTIN(__builtin_ctzs)' third_party/abseil-cpp/absl/numeric/internal/bits.h; then
+  echo "ERROR: could not patch abseil bits.h for GCC 16" >&2
+  exit 1
+fi
+
 # c-ares (bundled with gRPC) has a broken CMake build under mingw-w64
 # UCRT64 + CMake 4.x. Its CMakeLists uses CHECK_INCLUDE_FILES to detect
 # winsock2.h / ws2tcpip.h / windows.h on WIN32, but the probes run BEFORE
@@ -686,8 +701,16 @@ cd "$GRPC_DIR/grpc_build"
 # NOT a link-order problem; see the WIN32_LEAN_AND_MEAN/_WIN32_WINNT comment
 # above - those symbols were missing from the archive entirely.) The same
 # applies to shared links.
+# Pin the C++ standard to the one the grpc-server consumer uses (17, set in
+# backend/cpp/llama-cpp/CMakeLists.txt). abseil pins its options.h to the
+# standard of the compiler default at configure time: GCC 16 defaults to
+# gnu++20, which bakes ABSL_OPTION_USE_STD_ORDERING=1 into the installed
+# headers, and a C++17 consumer then fails with "'partial_ordering' has not
+# been declared in 'std'". Building gRPC as C++17 keeps both sides in step.
 cmake -G "Unix Makefiles" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_CXX_STANDARD=17 \
+  -DCMAKE_CXX_STANDARD_REQUIRED=ON \
   -DCMAKE_C_COMPILER=gcc \
   -DCMAKE_CXX_COMPILER=g++ \
   -DCMAKE_C_FLAGS="-DWIN32_LEAN_AND_MEAN -D_WIN32_WINNT=0x600" \

@@ -127,7 +127,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
     >
       <span role="gridcell" className="ws-cell ws-cell--check">
         <input
-          type="checkbox" className="ws-check" tabIndex={-1} checked={selected} data-visible={anySelected || undefined}
+          type="checkbox" className="dk-check ws-check" tabIndex={-1} checked={selected} data-visible={anySelected || undefined}
           aria-label={t('select.one', { name: entry.name })}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => ctx.onToggle(entry, e.nativeEvent?.shiftKey)}
@@ -246,7 +246,7 @@ export default function FileList({
     <div role="row" className="ws-head-row">
       <span role="columnheader" className="ws-cell ws-cell--check">
         <input
-          type="checkbox" className="ws-check" data-visible={selected.size > 0 || undefined} checked={allSelected}
+          type="checkbox" className="dk-check ws-check" data-visible={selected.size > 0 || undefined} checked={allSelected}
           ref={(el) => { if (el) el.indeterminate = someSelected }}
           aria-label={t('select.all')} onChange={() => (allSelected ? ctx.onClear() : ctx.onSelectAll())}
         />

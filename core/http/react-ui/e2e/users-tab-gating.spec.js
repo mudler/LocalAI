@@ -29,13 +29,19 @@ test.describe('Users tab — single-user no-auth mode', () => {
   })
 
   test('console does not list Users entry without auth', async ({ page }) => {
-    // Users sits in the Settings tab's second row (authOnly gate). With auth
-    // off the row must not list it. /app/settings is an admin page,
-    // reachable because no-auth ⇒ isAdmin.
+    // Users sits in the Access group (authOnly gate). With auth off the
+    // sidebar must not list it. /app/settings is an admin page, reachable
+    // because no-auth ⇒ isAdmin.
     await page.goto('/app/settings')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toBeVisible()
-    const usersLink = page.locator('.hub-subnav a[href="/app/users"]')
+    await expect(page.locator('[data-testid="admin-nav"] a[data-admin-item="/app/settings"]')).toBeVisible()
+    const usersLink = page.locator('[data-testid="admin-nav"] a[data-admin-item="/app/users"]')
     await expect(usersLink).toHaveCount(0)
+  })
+
+  test('direct navigation to /app/api-keys redirects to /app', async ({ page }) => {
+    await page.goto('/app/api-keys')
+    await page.waitForURL(/\/app(?!\/api-keys)/, { timeout: 5000 })
+    expect(page.url()).not.toMatch(/api-keys/)
   })
 
   test('direct navigation to /app/users redirects to /app', async ({ page }) => {
@@ -64,10 +70,12 @@ test.describe('Users tab — auth on', () => {
     )
   })
 
-  test('the Settings tab lists Users when auth is on', async ({ page }) => {
-    // With auth on and an admin viewer the Settings row lists Users.
+  test('the Access group lists Users and API keys when auth is on', async ({ page }) => {
+    // With auth on and an admin viewer the Access group lists Users and API keys,
+    // each on its own page.
     await page.goto('/app/settings')
-    const usersLink = page.locator('.hub-subnav a[href="/app/users"]')
-    await expect(usersLink).toBeVisible()
+    const nav = page.locator('[data-testid="admin-nav"]')
+    await expect(nav.locator('a[data-admin-item="/app/users"]')).toHaveCount(1)
+    await expect(nav.locator('a[data-admin-item="/app/api-keys"]')).toHaveCount(1)
   })
 })

@@ -14,7 +14,7 @@ import {
 const base = () => ({
   watchdog_enabled: false, watchdog_idle_enabled: false, watchdog_busy_enabled: false,
   watchdog_idle_timeout: '15m0s', max_active_backends: 0, csrf: false, galleries: [{ url: 'https://x', name: 'x' }],
-  api_keys: ['k1', 'k2'], memory_reclaimer_threshold: 0.95, p2p_token: '', debug: false,
+  api_keys: ['k1', 'k2'], memory_reclaimer_threshold: 0.95, debug: false,
 })
 
 test('every field belongs to a known group and has a unique key', () => {
@@ -129,11 +129,10 @@ test('checks: durations, budgets and JSON can block; restart and cautions warn',
 })
 
 test('secrets are shown as set or empty, never as a value', () => {
-  assert.equal(displayValue(FIELD_BY_KEY.p2p_token, 'abc123'), 'set')
-  assert.equal(displayValue(FIELD_BY_KEY.p2p_token, '0'), 'new token')
-  assert.equal(displayValue(FIELD_BY_KEY.p2p_token, ''), 'empty')
+  assert.equal(displayValue(FIELD_BY_KEY.collections_database_url, 'postgres://u:p@db/x'), 'set')
+  assert.equal(displayValue(FIELD_BY_KEY.collections_database_url, ''), 'empty')
   const initial = normalizeLoaded(base())
-  const draft = setValue(FIELD_BY_KEY.p2p_token, initial, 'secret-token')
+  const draft = setValue(FIELD_BY_KEY.collections_database_url, initial, 'postgres://u:secret@db/x')
   const [entry] = historyEntries(pendingChanges(initial, draft), 1)
   assert.equal(entry.to, null)
   assert.equal(entry.from, null)

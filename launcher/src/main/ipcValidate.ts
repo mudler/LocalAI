@@ -11,6 +11,7 @@ import type {
   LogLevelName,
   LogQueryInput,
   LogSourceName,
+  RegistryCredentialInput,
   SandboxPlanKind,
   ServerLogLevel,
   ShellInsets,
@@ -19,6 +20,7 @@ import type {
 } from '../shared/types'
 import { MAX_SHELL_INSET } from '../shared/types'
 import { ENV_NAME, MAX_ENV_NAME, MAX_ENV_VALUE } from '../shared/envVars'
+import { MAX_MATCH, MAX_USERNAME } from '../shared/registryMatch'
 
 export class IpcInputError extends Error {
   constructor(message: string) {
@@ -180,6 +182,42 @@ export function envValue(v: unknown): string {
   return s
 }
 
+// ---- registry credentials -----------------------------------------------------
+
+const RULE_ID = /^[0-9a-f]{16}$/
+const MAX_RULE_SECRET = 4096
+
+/** A rule id as the launcher creates it: 16 hex characters. */
+export function registryCredentialId(v: unknown): string {
+  if (typeof v !== 'string' || !RULE_ID.test(v)) fail('id must be a rule id')
+  return v as string
+}
+
+/**
+ * A rule to save: only the known fields, bounded. Whether the match is a
+ * usable registry and whether a secret is needed is checked by the core,
+ * which answers with a reason. The secret is never echoed in an error.
+ */
+export function registryCredentialInput(v: unknown): RegistryCredentialInput {
+  if (!isPlainObject(v)) fail('rule must be an object')
+  const o = v as Record<string, unknown>
+  onlyKeys(o, ['id', 'match', 'kind', 'username', 'secret'], 'rule')
+  const out: RegistryCredentialInput = {
+    match: text(o.match, MAX_MATCH, 'match'),
+    kind: oneOf(o.kind, ['basic', 'bearer'] as const, 'kind'),
+  }
+  if (o.id !== undefined) out.id = registryCredentialId(o.id)
+  if (o.username !== undefined) out.username = text(o.username, MAX_USERNAME, 'username')
+  if (o.secret !== undefined) {
+    if (typeof o.secret !== 'string') fail('secret must be a string')
+    const s = o.secret as string
+    if (s.length > MAX_RULE_SECRET) fail('secret is too long')
+    if (s.includes('\u0000')) fail('secret contains NUL')
+    out.secret = s
+  }
+  return out
+}
+
 const COPY_FORMATS: readonly CopyKeyFormat[] = ['key', 'openai', 'anthropic', 'curl']
 
 export function copyFormat(v: unknown): CopyKeyFormat {
@@ -265,6 +303,17 @@ export function addServerInput(v: unknown): { name: string; address: string; mak
   const out: { name: string; address: string; makeDefault?: boolean; skipTest?: boolean } = { name: serverName(o.name), address: typedAddress(o.address) }
   if (o.makeDefault !== undefined) out.makeDefault = bool(o.makeDefault, 'makeDefault')
   if (o.skipTest !== undefined) out.skipTest = bool(o.skipTest, 'skipTest')
+  return out
+}
+
+export function addServerByInviteInput(v: unknown): { link: string; name?: string; allowOpenRelay?: boolean; makeDefault?: boolean } {
+  if (!isPlainObject(v)) fail('invite must be an object')
+  const o = v as Record<string, unknown>
+  onlyKeys(o, ['link', 'name', 'allowOpenRelay', 'makeDefault'], 'invite')
+  const out: { link: string; name?: string; allowOpenRelay?: boolean; makeDefault?: boolean } = { link: text(o.link, 2048, 'link') }
+  if (o.name !== undefined && o.name !== '') out.name = serverName(o.name)
+  if (o.allowOpenRelay !== undefined) out.allowOpenRelay = bool(o.allowOpenRelay, 'allowOpenRelay')
+  if (o.makeDefault !== undefined) out.makeDefault = bool(o.makeDefault, 'makeDefault')
   return out
 }
 

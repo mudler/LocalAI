@@ -610,6 +610,27 @@
       "all": "所有项目",
       "none": "无项目",
       "empty": "此选择下没有触发器。"
+    },
+    "reports": {
+      "label": "汇报到",
+      "inbox": "收件箱",
+      "channel": "频道 {{channel}}",
+      "chat": "聊天 {{chat}}",
+      "thread": "聊天 {{chat}} 中的话题",
+      "problem": {
+        "off": "连接已关闭",
+        "gone": "连接已删除",
+        "unavailable": "连接不可用",
+        "no_channel": "频道未获批准",
+        "blocked": "不允许发送"
+      },
+      "fallback": "问题解决之前，报告会发到收件箱。",
+      "manage": "管理连接",
+      "connections": "打开连接",
+      "mode": {
+        "on_change": "仅在答案变化时",
+        "on_problem": "仅在运行失败时"
+      }
     }
   },
   "views": {

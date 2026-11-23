@@ -29,13 +29,16 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 
 	"github.com/mudler/LocalAI/core/application"
+	clusterep "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/finetune"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/quantization"
+	"github.com/mudler/LocalAI/core/services/tunnel"
 
 	"github.com/mudler/xlog"
 )
@@ -113,6 +116,21 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	if coolErr.BackendMissing {
 		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
 	}
+	return http.StatusServiceUnavailable
+}
+
+// modelUpgradeRetryAfter is the Retry-After of a load refused while the model
+// is upgraded: the switch of the files takes seconds, not minutes.
+const modelUpgradeRetryAfter = "10"
+
+// applyModelLoadsBlocked maps a load refused during a model upgrade to 503 with
+// a Retry-After header: the model comes back once its files are switched.
+func applyModelLoadsBlocked(err error, code int, c echo.Context) int {
+	var blocked *model.ModelLoadsBlockedError
+	if !errors.As(err, &blocked) {
+		return code
+	}
+	c.Response().Header().Set("Retry-After", modelUpgradeRetryAfter)
 	return http.StatusServiceUnavailable
 }
 
@@ -262,6 +280,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyModelLoadsBlocked(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			code = applyNoAvailableNodes(err, code)
 
@@ -297,6 +316,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 				code = he.Code
 			}
 			code = applyModelLoadCooldown(err, code, c)
+			code = applyModelLoadsBlocked(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.
@@ -376,7 +396,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Health Checks should always be exempt from auth, so register these first
-	routes.HealthRoutes(e, application.Ready, application.Draining)
+	routes.HealthRoutes(e, routes.Readiness{Ready: application.Ready, Draining: application.Draining, Unavailable: application.Unavailable})
 
 	// Build auth middleware: use the new auth.Middleware when auth is enabled or
 	// as a unified replacement for the legacy key-auth middleware.
@@ -493,10 +513,31 @@ func API(application *application.Application) (*echo.Echo, error) {
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	requestExtractor.SetFailoverManager(application.FailoverManager())
 
+	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
+	var opcache *galleryop.OpCache
+	if !application.ApplicationConfig().DisableWebUI {
+		opcache = galleryop.NewOpCache(application.GalleryService())
+		// In distributed mode, wire the NATS client + gallery store so this
+		// replica's OpCache stays in sync with peers — without this the
+		// /api/operations endpoint returns whatever this single replica
+		// happened to admit, and a load-balanced UI poll alternates between
+		// "operation visible" and "operation gone" between replicas.
+		if d := application.Distributed(); d != nil {
+			opcache.SetMessagingClient(d.Broadcaster)
+			if d.DistStores != nil && d.DistStores.Gallery != nil {
+				opcache.SetGalleryStore(d.DistStores.Gallery)
+			}
+			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
+				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
+			}
+		}
+	}
+
 	// Register auth routes (login, callback, API keys, user management)
 	routes.RegisterAuthRoutes(e, application)
 	// Routes of paired clients: pairing, client keys and what a client key may reach.
 	routes.RegisterClientRoutes(e, application, adminMiddleware)
+	routes.RegisterP2PRoutes(e, application, adminMiddleware)
 	// With add-ons off, no real add-on, fine-tuning or quantization handler is
 	// registered. One handler per prefix answers the same unavailable response
 	// whether or not the path exists, so the off state does not reveal the route
@@ -504,7 +545,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	addonsOn := application.ApplicationConfig().Addons.Enabled
 	if addonsOn {
 		gate := httpMiddleware.RequireAddonsFeature(application)
-		routes.RegisterAddonRoutes(e, application, gate)
+		routes.RegisterAddonRoutes(e, application, opcache, gate)
 		if err := routes.RegisterAddonNavigationRoutes(e, application, gate); err != nil {
 			return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
 		}
@@ -527,26 +568,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	routes.RegisterElevenLabsRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.AuthDB())
 
-	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
-	var opcache *galleryop.OpCache
-	if !application.ApplicationConfig().DisableWebUI {
-		opcache = galleryop.NewOpCache(application.GalleryService())
-		// In distributed mode, wire the NATS client + gallery store so this
-		// replica's OpCache stays in sync with peers — without this the
-		// /api/operations endpoint returns whatever this single replica
-		// happened to admit, and a load-balanced UI poll alternates between
-		// "operation visible" and "operation gone" between replicas.
-		if d := application.Distributed(); d != nil {
-			opcache.SetMessagingClient(d.Nats)
-			if d.DistStores != nil && d.DistStores.Gallery != nil {
-				opcache.SetGalleryStore(d.DistStores.Gallery)
-			}
-			if err := opcache.Start(application.ApplicationConfig().Context); err != nil {
-				xlog.Warn("OpCache distributed subscribe failed; running standalone", "error", err)
-			}
-		}
-	}
-
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpMw)
 	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
@@ -556,10 +577,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		// In distributed mode pass the shared NATS client + PostgreSQL store so
 		// fine-tune jobs stay consistent across replicas (the SyncedMap broadcasts
 		// mutations and hydrates from the DB); standalone passes nil for both.
-		var ftNats messaging.MessagingClient
+		var ftNats messaging.Broadcaster
 		var ftStore *distributed.FineTuneStore
 		if d := application.Distributed(); d != nil {
-			ftNats = d.Nats
+			ftNats = d.Broadcaster
 			if d.DistStores != nil && d.DistStores.FineTune != nil {
 				ftStore = d.DistStores.FineTune
 			}
@@ -578,10 +599,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		// In distributed mode pass the shared NATS client + PostgreSQL store so
 		// quantization jobs stay consistent across replicas (the SyncedMap broadcasts
 		// mutations and hydrates from the DB); standalone passes nil for both.
-		var quantNats messaging.MessagingClient
+		var quantNats messaging.Broadcaster
 		var quantStore *distributed.QuantStore
 		if d := application.Distributed(); d != nil {
-			quantNats = d.Nats
+			quantNats = d.Broadcaster
 			if d.DistStores != nil && d.DistStores.Quant != nil {
 				quantStore = d.DistStores.Quant
 			}
@@ -638,16 +659,55 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var registry *nodes.NodeRegistry
 	var remoteUnloader nodes.NodeCommandSender
 	var workerHTTPDial nodes.WorkerNetDialerFor
+	var tunnels *tunnel.Registry
+	var registerOpts []localai.RegisterOption
 	if d := application.Distributed(); d != nil {
 		registry = d.Registry
 		workerHTTPDial = d.WorkerHTTPDial
+		tunnels = d.Tunnels
+		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
+		registerOpts = append(registerOpts, localai.WithNATSHandover(d.NATS))
+		// A worker may register with a join token, and gets the data plane
+		// token in the answer, so it never needs the registration token.
+		registerOpts = append(registerOpts, localai.WithJoinTokens(d.JoinTokens, d.JoinLimiter))
+		registerOpts = append(registerOpts, localai.WithWorkerToken(distCfg.WorkerAuthToken()))
+		// A worker that joined with a worker invite registers over P2P with
+		// its peer ID, and opens its tunnel there.
+		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
+		// Backend nodes learn the model-split workers attached to them.
+		registerOpts = append(registerOpts, localai.WithSplitNodes(application))
+		// The node list shows the route state the health monitor judges by.
+		if d.Health != nil {
+			registerOpts = append(registerOpts, localai.WithRouteStates(d.Health.RouteJudge()))
+		}
+		p2pTunnels := clusterep.P2PTunnelServer{Registry: d.Registry, Tunnels: d.Tunnels}
+		application.ServeP2PTunnels(p2pTunnels.ServeConn)
 		if d.Router != nil {
 			remoteUnloader = d.Router.Unloader()
 		}
 	}
 	natsCfg := distCfg.NatsAuthConfig()
-	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
+	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg, registerOpts...)
+	var (
+		instances *cluster.Registry
+		onPeer    func(string, *tunnel.Session)
+	)
+	if d := application.Distributed(); d != nil {
+		instances = d.Instances
+		onPeer = d.PeerSessions.Accept
+	}
+	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
+	var clusterAdmin routes.ClusterAdmin
+	if d := application.Distributed(); d != nil {
+		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS, JoinTokens: d.JoinTokens}
+	}
+	routes.RegisterClusterAdminRoutes(e, adminMiddleware, clusterAdmin)
+	if d := application.Distributed(); d != nil {
+		routes.RegisterJoinScriptRoutes(e, d.JoinTokens, d.JoinLimiter)
+	} else {
+		routes.RegisterJoinScriptRoutes(e, nil, nil)
+	}
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, registerOpts...)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
@@ -806,6 +866,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	})
 
 	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	// The notification center works with the chats on or off.
+	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 
 	// The studio loop reaches the model through this router, in memory.
 	if sp := application.StudioProvider(); sp != nil {

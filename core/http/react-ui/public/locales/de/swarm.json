@@ -1,5 +1,195 @@
 {
+  "split": {
+    "title": "Worker für geteilte Modelle",
+    "online": "{{online}} von {{total}} online",
+    "note": "Keine Cluster-Knoten: keine Backends und keine Platzierungsregeln. Sie leihen Modellen, die auf dieser Instanz laufen, ihren Speicher.",
+    "slowTitle": "Das Aufteilen eines Modells funktioniert am besten über einen direkten oder per Hole Punching geöffneten Pfad.",
+    "slowBody": "Nur ein Relay erreicht {{names}}. Es funktioniert, aber jedes Token wartet auf das Relay. Wähle Trotzdem nutzen oder lass den Worker außen vor. Wenn du UDP- und TCP-Port 4001 in seinem Netz öffnest, entsteht ein direkter Pfad.",
+    "limitedTitle": "Ein öffentliches Relay kann keine Modellschichten übertragen.",
+    "limitedBody": "Der einzige Pfad zu diesem Worker ist ein öffentliches Relay, dessen Limits du nicht ändern kannst. Gib dem Worker einen direkten Pfad oder ein eigenes Relay auf beiden Seiten.",
+    "cutTitle": "Ein eigenes Relay trennt jede Verbindung an seinen Limits.",
+    "cutBody": "{{names}} läuft über ein eigenes Relay, das jede Verbindung nach seinem Daten- oder Zeitlimit beendet. Trotzdem nutzen funktioniert, langsam, bis das Relay die Verbindung trennt; lade das Modell dann neu. Erhöhe oder entferne die Limits des Relays für längere Läufe.",
+    "cutHint": "Getrennt nach {{limits}}",
+    "relayLimits": "Relay-Limits",
+    "memoryInUse": "Speicher der genutzten Worker: {{memory}}.",
+    "add": {
+      "p2pTitle": "Teile diese Instanz zuerst über P2P",
+      "p2pBody": "Ein Worker für geteilte Modelle wird mit einer Einladung gekoppelt, und Einladungen brauchen den P2P-Modus Verbinden und teilen.",
+      "p2pOpen": "P2P-Einstellungen öffnen",
+      "engineTitle": "Engine",
+      "engineSub": {
+        "llama": "Das Modell läuft auf dieser Instanz. Der Worker hält einige seiner Schichten in seinem eigenen Speicher.",
+        "mlx": "Das Modell läuft auf dieser Instanz und auf dem Worker, als Ränge eines MLX-Rings. Nur Apple Silicon."
+      },
+      "inviteTitle": "Einladung erstellen",
+      "name": "Name des Workers (optional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Einladung erstellen",
+      "inviteReady": "Einladung bereit",
+      "inviteExpired": "Einladung abgelaufen",
+      "inviteUsed": "Einladung eingelöst",
+      "inviteMeta": "Einmalig · läuft ab in {{time}}",
+      "noPass": "Das Relay war nicht erreichbar, daher enthält der Link keinen Relay-Pass.",
+      "pathTitle": "Das Aufteilen eines Modells funktioniert am besten über einen direkten oder per Hole Punching geöffneten Pfad.",
+      "pathBody": "Die Schichten tauschen sich bei jedem Token aus. Über ein Relay funktioniert es, aber jedes Token wartet auf das Relay. Gibt es nur einen Pfad über ein Relay, entscheidest du, ob der Worker hinzukommt.",
+      "runTitle": "Führe das auf dem Worker aus",
+      "runFirst": "Erstelle zuerst die Einladung: der Befehl enthält ihren Link.",
+      "runNote": "Das Volume behält Identität und Kopplung des Workers, daher funktioniert derselbe Befehl nach einem Neustart. Der alte Name p2p-worker funktioniert weiterhin.",
+      "runNoteMlx": "Der Worker behält Identität und Kopplung in ./p2p/mlx-distributed, daher funktioniert derselbe Befehl nach einem Neustart.",
+      "waitTitle": "Warten auf den Worker",
+      "waiting": "Warten, bis sich der Worker verbindet…",
+      "pairedTitle": "Der Worker ist gekoppelt",
+      "pairedWaiting": "Der Worker hat die Einladung eingelöst. Warten auf seine Verbindung.",
+      "foundTitle": "Der Worker wird genutzt",
+      "foundBody": "Er erscheint auf der Seite Knoten unter Worker für geteilte Modelle, mit dem Speicher, den er beiträgt. Lade das Modell neu, um ihn zu nutzen.",
+      "openNodes": "Knoten öffnen",
+      "relayTitle": "Der Worker hat sich nur über ein Relay verbunden",
+      "slowTitle": "Langsam: über ein Relay.",
+      "slowBody": "{{name}} hat keinen direkten oder per Hole Punching geöffneten Pfad zu dieser Instanz. Das Aufteilen funktioniert über dein Relay, aber jedes Token wartet darauf. Wenn du UDP- und TCP-Port 4001 auf einer Seite öffnest, kann später ein direkter Pfad entstehen.",
+      "slowCut": "Das Relay beendet jede Verbindung nach {{limits}}: das Modell hält dann an, bis es neu geladen wird. Erhöhe oder entferne die Limits, um länger zu laufen.",
+      "addAnyway": "Trotzdem hinzufügen",
+      "notNow": "Nicht jetzt",
+      "engineSubNode": {
+        "llama": "Das Modell läuft auf dem Knoten, den du als Nächstes wählst. Der Worker hält einige seiner Schichten in seinem eigenen Speicher.",
+        "mlx": "Das Modell läuft auf dem Knoten, den du als Nächstes wählst, und auf dem Worker, als Ränge eines MLX-Rings. Nur Apple Silicon."
+      },
+      "nodeTitle": "Knoten",
+      "nodeLabel": "Worker zuordnen zu",
+      "nodeSub": "Modelle, die dieser Knoten lädt, nutzen den Worker. Lege das Modell mit einer Platzierungsregel auf diesen Knoten fest, damit es dort geladen wird. Den Knoten kannst du später auf der Seite Knoten ändern.",
+      "nodeServer": "Diese Instanz (sie führt in einem Cluster keine Modelle aus)",
+      "nodePick": "Split-Server wählen",
+      "nodeOffline": "{{name}} (offline)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Engine",
+      "path": "Pfad",
+      "memory": "Zusätzlicher Speicher",
+      "status": "Status",
+      "actions": "Aktionen",
+      "node": "Zugeordnet zu"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direkt",
+      "holePunched": "Hole Punching",
+      "relayed": "Über {{relay}}",
+      "relayedUnknown": "Über ein Relay",
+      "none": "Kein Pfad",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Langsam: über ein Relay",
+      "limited": "Öffentliches Relay: nicht genutzt",
+      "refused": "Abgelehnt"
+    },
+    "useAnyway": "Trotzdem nutzen",
+    "stopUsing": "Nicht mehr nutzen",
+    "revoke": "Widerrufen…",
+    "revokeTitle": "{{name}} widerrufen?",
+    "revokeBody": "Der Worker wird sofort getrennt und muss sich mit einer neuen Einladung neu koppeln. Ein damit geladenes Modell schlägt fehl, bis es neu geladen wird.",
+    "revokeConfirm": "Widerrufen",
+    "revoking": "Wird widerrufen…",
+    "addWorker": "Worker für geteilte Modelle hinzufügen",
+    "toast": {
+      "used": "{{name}} wird über das Relay genutzt.",
+      "stopped": "{{name}} wird nicht mehr über das Relay genutzt.",
+      "revoked": "{{name}} wurde widerrufen.",
+      "attached": "{{name}} ist {{node}} zugeordnet. Modelle, die {{node}} ab jetzt lädt, nutzen ihn.",
+      "detached": "{{name}} ist dieser Instanz zugeordnet."
+    },
+    "noteCluster": "Keine Cluster-Knoten: keine Backends und keine Platzierungsregeln. Jeder leiht den Modellen des Knotens, dem er zugeordnet ist, seinen Speicher.",
+    "thisServer": "Diese Instanz",
+    "nodeLabel": "Knoten von {{name}}",
+    "unattachedTitle": "Diese Worker werden nicht genutzt: Ordne sie einem Knoten zu.",
+    "unattachedBody": "Dieser Instanz zugeordnet: {{names}}. In einem Cluster laufen die Modelle auf den Backend-Knoten, nicht auf dieser Instanz. Wähle für jeden einen Knoten.",
+    "noServerTitle": "Noch kein Worker ist ein Split-Server.",
+    "noServerBody": "Ein Modell-Split-Worker kann nur an einen Worker gehängt werden, der ein Split-Server ist. Richte hier einen ein oder starte den Worker mit --split-server.",
+    "offlineTitle": "Der Knoten eines Modell-Split-Workers ist offline.",
+    "offlineBody": "{{names}} bleibt angehängt und wartet, bis sein Knoten zurück ist. Nichts verschiebt ihn auf einen anderen Knoten.",
+    "relayRefusedTitle": "Deine Relays lassen einen Knoten nicht zu.",
+    "relayRefusedBody": "Worker erreichen {{names}} nur direkt oder per Hole Punching: {{reason}}.",
+    "nextLoad": "Änderungen an den Workern eines Knotens gelten ab dem nächsten Modell, das er lädt.",
+    "nodeOffline": "Knoten offline",
+    "relay": {
+      "admitted": "Relay: zugelassen",
+      "refused": "Relay: abgelehnt",
+      "pending": "Relay: ausstehend",
+      "notNeeded": "Relay: nicht nötig"
+    }
+  },
   "nodes": {
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "title": "Worker"
+  },
+  "add": {
+    "run": {}
+  },
+  "inspector": {
+    "peer": "Peer-ID"
+  },
+  "splitServer": {
+    "label": "Split-Server",
+    "make": "Zum Split-Server machen…",
+    "clear": "Kein Split-Server mehr…",
+    "open": "Split-Server einrichten",
+    "title": "Split-Server einrichten",
+    "desc": "Ein Split-Server ist ein Worker, der Modelle mit dem Speicher der an ihn gehängten Modell-Split-Worker ausführt.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (Split-Server)",
+    "changesTitle": "Wenn du bestätigst, wird {{node}} ein Split-Server:",
+    "changes": {
+      "ports": "Er öffnet P2P-Ports und startet einen P2P-Host für seine Modell-Split-Worker.",
+      "relay": "Diese Instanz lässt ihn auf den geschützten Relays zu, die du betreibst, damit Worker ihn darüber erreichen.",
+      "load": "Die angehängten Worker werden für das nächste llama.cpp- oder MLX-Modell genutzt, das er lädt. Ein jetzt geladenes Modell behält seine Worker, bis es neu geladen wird.",
+      "undo": "Du kannst es auf der Seite Knoten ausschalten. Seine Worker werden dann abgehängt."
+    },
+    "offline": "{{node}} ist offline. Seine Worker warten, bis er zurück ist.",
+    "helpers": "Diese Modell-Split-Worker anhängen",
+    "noHelpers": "Noch kein anderer Modell-Split-Worker ist gekoppelt. Du kannst Worker später anhängen.",
+    "moveFrom": "jetzt auf {{node}}",
+    "noNodes": "Der Cluster hat noch keinen Backend-Worker. Füge zuerst einen hinzu.",
+    "cancel": "Abbrechen",
+    "confirm": "Zum Split-Server machen und anhängen",
+    "confirmAttach": "Anhängen",
+    "clearTitle": "{{node}} soll kein Split-Server mehr sein?",
+    "clearBody": "Sein P2P-Host stoppt, deine Relays lassen ihn nicht mehr zu, und seine Modell-Split-Worker ({{count}}) werden abgehängt. Sie warten ohne Knoten, bis du sie wieder anhängst.",
+    "clearConfirm": "Kein Split-Server mehr",
+    "clearing": "Wird gestoppt…",
+    "toast": {
+      "set": "{{node}} ist ein Split-Server. Jetzt angehängte Worker: {{count}}. Sie werden für das nächste geladene Modell genutzt.",
+      "cleared": "{{node}} ist kein Split-Server mehr. Abgehängte Worker: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Platzierung",
+    "supporting": "Wo Modelle im Cluster laufen und was geschieht, wenn ein Ziel nicht mehr antwortet.",
+    "views": {
+      "label": "Ansichten der Platzierung",
+      "rules": "Regeln",
+      "failover": "Failover"
+    }
+  },
+  "rules": {
+    "byPrefix": "Die Richtlinie ist Prefix-Cache.",
+    "byRound": "Die Richtlinie ist Round Robin.",
+    "kind": {
+      "inactive": "Nur Richtlinie"
+    },
+    "route": {
+      "default": "Standardrichtlinie",
+      "prefix_cache": "Prefix-Cache-Richtlinie",
+      "round_robin": "Round-Robin-Richtlinie"
+    }
+  },
+  "failover": {
+    "lostConnection": "Verbindung:"
   }
 }

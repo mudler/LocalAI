@@ -10,6 +10,7 @@ import { remotesApi } from '../../utils/api'
 import SkippedList from './SkippedList'
 import NoUsable from './NoUsable'
 import { ageParts, hostOf, idsText, initialTicked, needsAttention, noUsableModels, resultParts, statusOf, usecasesOf } from '../../utils/remotes'
+import { Tag } from '../ui'
 
 // New models the person said "not now" to, for as long as this page is open.
 // The key holds the ids too, so a model that arrives later shows the banner
@@ -67,7 +68,7 @@ function NewModels({ remote, onAdded, addToast }) {
             <label className="remotes-model">
               <input type="checkbox" className="dk-check" checked={ticked.includes(m.id)} onChange={() => toggle(m.id)} />
               <span className="remotes-model__id">{m.id}</span>
-              <span className="remotes-model__uses">{usecasesOf(remote.kind, m).map(u => <span key={u} className="dk-badge">{label(u)}</span>)}</span>
+              <span className="remotes-model__uses">{usecasesOf(remote.kind, m).map(u => <Tag key={u}>{label(u)}</Tag>)}</span>
             </label>
           </li>
         ))}
@@ -118,7 +119,7 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       <header className="remotes-card__head">
         <div className="remotes-card__title">
           <h2 className="remotes-card__name">{remote.name}</h2>
-          <span className="dk-badge">{t(`kinds.${remote.kind}`, { defaultValue: remote.kind })}</span>
+          <Tag>{t(`kinds.${remote.kind}`, { defaultValue: remote.kind })}</Tag>
           <span className="remotes-card__host" title={hostOf(remote.url)}>{hostOf(remote.url)}</span>
         </div>
         <div className="remotes-card__actions">
@@ -129,6 +130,11 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       <p className="remotes-card__status" data-testid="remote-status">
         <span className={`dk-dot${dot}`} aria-hidden="true" />
         <span>{statusText}</span>
+        {remote.p2p && (
+          <Tag testId="remote-p2p-path" data-state={remote.p2p.state} title={remote.p2p.error || undefined}>
+            {t('card.p2p.badge')} · {p2pPathText(t, remote.p2p)}
+          </Tag>
+        )}
       </p>
 
       {attention && (
@@ -169,6 +175,16 @@ function Card({ remote, onEdit, onChanged, onViewInstalled, replace, addToast })
       </footer>
     </article>
   )
+}
+
+// p2pPathText names how a remote over P2P is reached: the path of the last
+// request while the tunnel is up, otherwise the state of the tunnel.
+function p2pPathText(t, p2p) {
+  if (p2p.state === 'up' && p2p.path) {
+    const path = t(`card.p2p.path.${p2p.path}`, { defaultValue: p2p.path })
+    return p2p.limited ? `${path} (${t('card.p2p.limited')})` : path
+  }
+  return t(`card.p2p.state.${p2p.state}`, { defaultValue: p2p.state })
 }
 
 // The Remotes tab of the Models page: one card for each remote.

@@ -6,6 +6,7 @@ import useFailoverChains from '../hooks/useFailoverChains'
 import { useAuth } from '../context/AuthContext'
 import { failoverApi } from '../utils/api'
 import Icon from './Icon'
+import { Button } from './ui'
 
 const UNITS = [
   ['day', 86_400],
@@ -70,9 +71,9 @@ export default function FailoverChainStatus({ chain, onPin, onUnpin, canPin = fa
           </span>
         )}
         {canPin && chain.pinned && (
-          <button type="button" className="btn btn-ghost btn-sm failover-status__unpin" onClick={() => setConfirm({ kind: 'unpin' })}>
+          <Button variant="ghost" size="sm" className="failover-status__unpin" onClick={() => setConfirm({ kind: 'unpin' })}>
             {t('failover.actions.unpin')}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -105,9 +106,9 @@ export default function FailoverChainStatus({ chain, onPin, onUnpin, canPin = fa
                 {canPin && (
                   <td className="failover-status__action">
                     {chain.pinned !== target.model && (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setConfirm({ kind: 'pin', target: target.model })}>
+                      <Button variant="ghost" size="sm" onClick={() => setConfirm({ kind: 'pin', target: target.model })}>
                         {t('failover.actions.pin')}
-                      </button>
+                      </Button>
                     )}
                   </td>
                 )}

@@ -63,7 +63,7 @@ restore removed addon-specific route registrations.
 ### The Studio add-on
 
 The Studio add-on (`studio`) is a packaged add-on. It is not shipped with LocalAI: install
-it from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
+it from **Find add-ons** with **Install**, then turn it on. Once it is usable, it appears in
 My add-ons and can be shown in the sidebar. Until then the sidebar, My add-ons and the Home `/studio`
 command do not list it, and the old Studio links open the add-on page, which says the
 add-on is not available.
@@ -90,7 +90,7 @@ the `media` locale files of the web UI, in every language the web UI has.
 ### The Talk add-on
 
 The Talk add-on (`talk`) is a packaged add-on, separate from Studio. Install it from
-**Find add-ons** with **Install and turn on**. It adds the page `/app/addons/talk/talk` (main page) for
+**Find add-ons** with **Install**. It adds the page `/app/addons/talk/talk` (main page) for
 users with the `addons` feature. The page opens a WebRTC session to a realtime pipeline
 through `/v1/realtime/calls` and reads the pipeline list from `/api/pipeline-models`, with
 the signed-in user's own session; the core keeps both routes. The page uses the MCP servers
@@ -100,7 +100,7 @@ files of the add-on, in every language of the web UI.
 ### The Voice add-on
 
 The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it
-from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
+from **Find add-ons** with **Install**, then turn it on. Once it is usable, it appears in
 My add-ons and can be shown in the sidebar.
 
 The add-on has one page, `/app/addons/voice/voice`, and one entry in My add-ons. Its
@@ -134,7 +134,7 @@ views, built from one source directory into each add-on.
 ### The Face add-on
 
 The Face add-on (`face`) is a packaged add-on, separate from the Voice add-on. It is not
-shipped with LocalAI: install it from **Find add-ons** with **Install and turn on**. Once it
+shipped with LocalAI: install it from **Find add-ons** with **Install**. Once it
 is usable, it appears in My add-ons and can be shown in the sidebar.
 
 | Page | Path | Who sees it |
@@ -156,7 +156,7 @@ same views, built from one source directory into each add-on.
 
 The Fine-tuning add-on (`fine-tuning`) and the Quantization add-on (`quantization`) are
 packaged add-ons. They are not shipped with LocalAI: install them from **Find add-ons**
-with **Install and turn on**. Once usable, they appear in My add-ons and can be shown in the sidebar.
+with **Install**. Once usable, they appear in My add-ons and can be shown in the sidebar.
 
 | Add-on | Page | Path | Who sees it |
 |---|---|---|---|
@@ -192,7 +192,7 @@ A caller without the `addons` feature sees only the built-in cards (none today),
 call `GET /api/addons/apps` for that caller.
 
 With nothing installed, an administrator sees three add-ons from the sources, each with
-**Install and turn on**, and a link to **Find add-ons**. A search that matches nothing says
+**Install**, and a link to **Find add-ons**. A search that matches nothing says
 that no add-on matches it.
 
 The pane also lists the pages the add-on names in
@@ -231,7 +231,7 @@ writes keep the operation identity and outcome-unknown rule of the lifecycle act
 
 | Action | Kind | Arguments | Payload |
 |---|---|---|---|
-| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total}`; only releases for the owner's configured target platform are listed, and `total` counts that set |
+| `catalog-search` | read | `text`, `kind` (`addon` by default, `backend` or `all`), `sourceId`, `offset`, `limit` (at most 100) | `{releases, total, failed}`; only releases for the owner's configured target platform are listed, and `total` counts that set. `failed` is present when a library could not be read (see below) |
 | `catalog-details` | read | request `addonId`; `sourceId`, `version` | `{release, installed}`; `installed` is `null` or `{version, generation, enabled}` |
 | `catalog-sources` | read | none | `{sources}`; each source has `refresh` once the owner fetched it |
 | `addons-installed` | read | none | `{addons}`, the installed view below |
@@ -250,7 +250,16 @@ A refresh is a write because it makes the owner fetch a remote document. A libra
 disabled, unreachable or invalid answers 503 with `outcome_unknown` and the original
 operation ID, like any other write whose result cannot be proved; the `refresh` object of
 `catalog-sources` says what the owner last learned (`checkedAt`, `lastSuccess`, `count`,
-`failed`).
+`failed`, and `error`, the reason the last fetch failed).
+
+One library that fails does not empty the list. `catalog-search` without a `sourceId`
+answers with the releases of every library that loaded, and `failed` names each library
+that did not: `{sourceId, name, error, lastSuccess}` (`lastSuccess` is absent when the
+library never loaded). A library that was never fetched yet is left out without a report.
+The releases of a failed library are not listed, because the owner cannot resolve or
+install them until the next good refresh. A request that names the failing library
+(`catalog-search` with its `sourceId`, `catalog-details`) answers with the refresh error, and
+so does a search when every library failed.
 
 ### Installed view
 
@@ -540,6 +549,19 @@ check resolved) and optionally `generation`. The owner then:
    trusted identity of the package;
 3. for an add-on with data, backs it up, drains it and migrates it under the data recovery
    described above, and publishes the new generation only when it starts.
+
+The route records the upgrade and returns at once with the operation in the
+`accepted` phase and a `jobId`. The upgrade then runs in the background on the
+server's operation queue, the same queue and limit as backend operations
+(**Concurrent Backend Operations**): you can submit the upgrades of several
+add-ons at once and close the page. The add-on owner still runs one add-on
+operation at a time, so they run one after the other. The upgrade shows in
+`GET /api/operations` (`isAddon`, `taskType` `upgrade`) with its step, and
+`POST /api/operations/{jobId}/cancel` cancels it while it waits or downloads.
+The pins are checked again when it starts. A restart fails an upgrade that is
+still queued or running with the code `interrupted`; the last good generation
+keeps running. Read the result with `operation-status` and the same
+`operationId`.
 
 Repeating an `operationId` returns the recorded result and does not run again, from
 any frontend. Two requests with the same pins and different operation IDs run once: the

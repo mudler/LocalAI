@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import Dialog from '../Dialog'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import { Button, Callout, EmptyState } from '../ui'
+import { Button, Callout, EmptyState, SearchField } from '../ui'
 import {
   EVERYONE, cleanReferences, cleanRoles, describeShareError, freshUsers,
   referenceChoices, referencesReady, searchText, splitGrants,
@@ -227,13 +227,10 @@ function SharePanel({ client, roles: rawRoles, allowEveryone, everyoneRoles, war
       <section className="share-dlg__section" aria-labelledby={`${searchId}-head`}>
         <h4 className="share-dlg__head" id={`${searchId}-head`}>{t('share.add')}</h4>
         <div className="share-dlg__add">
-          <label className="dk-sr-only" htmlFor={searchId}>{t('share.search')}</label>
-          <span className="ui-search share-dlg__search">
-            <Icon name="search" />
-            <input id={searchId} type="search" className="dk-input ui-search__input" autoComplete="off" spellCheck={false}
-              placeholder={t('share.search')} aria-describedby={hintId} maxLength={64} value={query}
-              onChange={e => setQuery(e.target.value)} data-testid="share-search" />
-          </span>
+          <SearchField
+            id={searchId} className="share-dlg__search" label={t('share.search')} autoComplete="off" spellCheck={false}
+            aria-describedby={hintId} maxLength={64} value={query} onChange={setQuery} testId="share-search"
+          />
           {roles.length > 1 && (
             <RoleSelect value={newRole} roles={roles} onChange={setNewRole} disabled={locked} label={t('share.newRole')} testId="share-new-role" />
           )}

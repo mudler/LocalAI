@@ -25,7 +25,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
 | Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the pages that people share (`user_page_shares_enabled`), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
 | Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
-| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
+| Swarm and sharing | The disk headroom check of distributed mode |
 | Look and feel | Instance name, tagline, the three logos |
 
 With the default name "LocalAI", the sidebar, the sign-in page and the mobile title draw "AI" in the brand colour, and the first-run guide on Home shows the LocalAI llama beside step 1. When you set your own instance name or logo, the name is plain text, your logo is used as before, and the llama is not shown.
@@ -88,7 +88,7 @@ You can configure these settings via the web UI or through environment variables
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
 - **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "/features/chats-and-agents/chats-long-conversations#the-context-window-a-chat-needs" %}}).
-- **Concurrent Backend Operations**: How many backend installs, upgrades and deletes run at once. `1` runs them one after the other (default: `1`, minimum `1`). Operations on the same backend never overlap, whatever the value. Model operations run in their own queue and are not held up by backend operations. In distributed mode the same limit bounds how many nodes receive one operation at the same time. The limit is per frontend. A change applies to operations that start after the change
+- **Concurrent Model Operations** and **Concurrent Backend Operations**: How many model (or backend) installs, upgrades and deletes run at once (default: `2` each, minimum `1`). `1` runs them one after the other. Operations on the same model (or backend) never overlap, whatever the value, and the others wait as queued and can be cancelled. Models and backends have their own queues, so neither holds up the other. Add-on installs and add-on upgrades share the backend queue and its limit; the add-on owner still runs one add-on operation at a time, so a second one waits for the first. The limits are per frontend, and a change applies to operations that start after it. In distributed mode the backend limit also bounds how many nodes receive one operation at the same time. The flags are `--max-concurrent-model-operations` and `--max-concurrent-backend-operations`
 - **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
 - **F16**: Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "/models/vram-management" %}})
@@ -110,13 +110,11 @@ For multi-user authentication with roles, OAuth, and usage tracking, see [Authen
 
 ### P2P Settings
 
-Configure peer-to-peer networking for distributed inference:
-
-- **P2P Token**: Authentication token for P2P network
-- **P2P Network ID**: Network identifier for P2P connections
-- **Federated Mode**: Enable federated mode for P2P network
-
-Changes to P2P settings automatically restart the P2P stack with the new configuration.
+The P2P layer: `p2p_mode` (`off`, `connect` or `share`), `p2p_public_dht`,
+`p2p_bootstrap_peers`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`,
+`p2p_relay_rate_limit` and `p2p_mdns`. Mode `share` is refused while
+authentication is off, and every mode but `off` is refused without a data path.
+A change of one of them restarts the P2P layer. See [P2P]({{%relref "/administration/p2p#settings" %}}).
 
 ### Gallery Settings
 
@@ -236,14 +234,12 @@ The `runtime_settings.json` file follows this structure. The `galleries` and `ba
   "context_size": 2048,
   "artifact_download_concurrency": 4,
   "max_concurrent_backend_operations": 2,
+  "max_concurrent_model_operations": 2,
   "f16": false,
   "debug": false,
   "cors": true,
   "csrf": false,
   "cors_allow_origins": "*",
-  "p2p_token": "",
-  "p2p_network_id": "",
-  "federated": false,
   "galleries": [
     {
       "url": "https://index.localai.io/models",
@@ -331,7 +327,8 @@ If the watchdog is not functioning:
 ### P2P Not Starting
 
 If P2P is not starting:
-1. Verify the P2P token is set (non-empty)
+1. Check `p2p_mode`: `share` needs authentication, and every mode but `off` needs a data path or `--p2p-identity`
 2. Check network connectivity
-3. Ensure the P2P network ID matches across nodes (if using federated mode)
-4. Review logs for P2P-related errors
+3. Review logs for P2P-related errors
+
+See [P2P]({{% relref "/administration/p2p" %}}#troubleshooting). The old P2P token, network ID and federated mode are removed: see [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).

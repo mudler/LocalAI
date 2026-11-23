@@ -118,6 +118,9 @@
     "emptyBody": "This list is empty.",
     "emptyFiltered": "Nothing matches the search. Change the words or the library.",
     "emptyTitle": "Nothing to show",
+    "failedBody": "The libraries that loaded are listed below.",
+    "failedTitle_one": "A library could not be read.",
+    "failedTitle_other": "{{count}} libraries could not be read.",
     "libraries": "Libraries",
     "loading": "Loading results",
     "next": "Next page",
@@ -183,6 +186,7 @@
       "urlCredentials": "The address must not contain a user name or password.",
       "urlQuery": "The address must not contain a query string or fragment.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -196,6 +200,7 @@
       "requireSignature": "Require a signature",
       "url": "Catalog URL",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -209,7 +214,8 @@
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
       "reference": "The name of a credential an administrator configured on this server. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify. An add-on verifies against a pattern only when the source repository is also set.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
@@ -225,10 +231,12 @@
       "backend": "Backends",
       "model": "Models"
     },
+    "lastGood": "Last loaded {{when}}",
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
     "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential an administrator configured on this server.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
+    "neverLoaded": "Never loaded",
     "notRefreshed": "Not refreshed yet",
     "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
     "reference": "Credential reference: {{name}}",
@@ -394,6 +402,7 @@
     "platform": "Platform",
     "selection": "Selected as",
     "signatureRequired": "Signature required",
+    "sourceRepository": "Source repository",
     "verification": "Verification",
     "version": "Version"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "The add-on service is starting. LocalAI asks about the update again in {{seconds}} s.",
     "checkAgain": "Check now",
-    "open": "Open Updates"
+    "open": "Open Updates",
+    "cancelledNote": "The update of {{name}} was canceled. Version {{version}} keeps running.",
+    "cancelling": "Canceling…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -701,6 +712,7 @@
     "updateTitle": "Update to {{version}}"
   },
   "flow": {
+    "background": "This runs in the background. You can close this window; closing does not stop it.",
     "installAndTurnOn": "Install and turn on",
     "installing": "Installing {{name}}...",
     "turningOn": "Turning on {{name}}...",
@@ -787,6 +799,7 @@
       "action": "Approve and update",
       "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
       "done": "{{name}} was updated.",
+      "running": "The update runs in the background. You can close this window; closing does not stop it. Choose Cancel to stop it.",
       "title": "Approve host access for {{name}} {{version}}"
     },
     "asksNothing": "This add-on asks for no host access.",
@@ -891,6 +904,7 @@
     "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
     "noLongerRequested": "This version no longer asks for it. You can turn it off.",
     "notOfficialWarning": "This add-on comes from {{library}}, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.",
+    "signedNotReviewed": "Signed by {{signer}}. Not reviewed by LocalAI. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust the signer.",
     "op": {
       "alreadyAllowed": "Already allowed",
       "blocked": "Blocked by the administrator policy",
@@ -922,9 +936,14 @@
     "tabWaiting": "Approvals waiting: {{count}}",
     "waiting": {
       "body": "The new version asks for host access that the current one does not have. Version {{current}} keeps running until you approve. Operations it adds: {{count}}.",
+      "cancellingTitle": "Canceling the update of {{name}}",
+      "failedTitle": "The update of {{name}} to {{version}} failed",
+      "queuedBody": "It is queued and runs in the background.",
       "review": "Review and approve",
+      "reviewAgain": "Review again",
       "reviewNamed": "Review and approve the host access of {{name}}",
-      "title": "{{name}} {{version}} waits for your approval"
+      "title": "{{name}} {{version}} waits for your approval",
+      "updatingTitle": "Updating {{name}} to {{version}}"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "Older version",
       "downgrade": "This installs version {{version}}, which is older than the installed version {{installed}}. An older version may not read data that a newer one wrote.",
       "downgradeConfirm": "I want to install the older version"
-    }
+    },
+    "progress": "Installing {{name}} from a file. It runs in the background.",
+    "failedTitle": "Installing {{name}} from a file failed",
+    "failedHint": "The file is kept for one hour. Choose Try again to use it once more."
   },
   "notice": {
     "enableFailedTitle": "Could not turn on {{name}}",
@@ -1058,5 +1080,28 @@
       "off": "Off",
       "attention": "Needs setup"
     }
+  },
+  "queue": {
+    "title": "Install queue",
+    "select": "Add to queue",
+    "selectNamed": "Add {{name}} to the install queue",
+    "inQueue": "In queue",
+    "selectionLabel": "Add-ons selected for install",
+    "selected": "Selected: {{count}}",
+    "reviewPicked": "Review and queue",
+    "clear": "Clear",
+    "position": "Add-on {{number}} of {{total}}.",
+    "batchNote": "Nothing is queued until you finish the last one.",
+    "confirmBody": "Version {{version}} from the source {{library}} is added to the install queue. It downloads in the background and is checked before it is installed. It is not turned on.",
+    "add": "Add to queue",
+    "acceptNext": "Accept and next",
+    "acceptLast": "Accept and queue all",
+    "skip": "Skip",
+    "unpinned": "This development entry is not pinned to one package. It installs whatever the source serves now.",
+    "reviewTitle": "Review needed.",
+    "reviewBody": "The package asks for more host access than you approved. Check the list again before it is installed.",
+    "refused": "{{name}} was not queued. {{reason}}",
+    "noAnswer": "The server gave no answer for it.",
+    "notInLibrary": "This add-on is no longer in your libraries."
   }
 }

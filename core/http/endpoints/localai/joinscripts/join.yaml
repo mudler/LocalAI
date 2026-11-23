@@ -1,0 +1,88 @@
+# LocalAI worker for Kubernetes. Apply it with:
+#
+#   kubectl apply -f 'https://ai.example.com/join.yaml?t=<join token>'
+#
+# The Secret below holds the join token. Do not commit this file or share it:
+# it works for a short time, a limited number of times, and the frontend can
+# revoke it. Each replica of the StatefulSet joins with one use of the token, so
+# mint a token with at least as many uses as replicas.
+#
+# Each replica keeps its own credential in its volume (/data). A restart, or a
+# new pod with the same name, joins with that credential and needs no token.
+# After the replicas have joined, you can delete the Secret.
+#
+# An admin approves each new node on the Nodes page of the frontend, unless the
+# token approves it by itself.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: localai-worker-join
+type: Opaque
+stringData:
+  LOCALAI_JOIN_TOKEN: @@JOIN_TOKEN_YAML@@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: localai-worker
+spec:
+  serviceName: localai-worker
+  replicas: 1
+  selector:
+    matchLabels:
+      app: localai-worker
+  template:
+    metadata:
+      labels:
+        app: localai-worker
+    spec:
+      containers:
+        - name: worker
+          image: localai/localai:latest
+          args: ["worker"]
+          env:
+            - name: LOCALAI_REGISTER_TO
+              value: @@REGISTER_TO_YAML@@
+@@ROUTES_ENV@@            - name: LOCALAI_JOIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: localai-worker-join
+                  key: LOCALAI_JOIN_TOKEN
+                  # The Secret may be deleted once the replicas have joined.
+                  optional: true
+@@NATS_ENV@@          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: backends
+              mountPath: /backends
+            - name: data
+              mountPath: /data
+          resources:
+            limits:
+              # GPU: uncomment the line for your hardware, and use a GPU tag of the
+              # image (for example latest-gpu-nvidia-cuda-12).
+              # nvidia.com/gpu: 1
+              # amd.com/gpu: 1
+              memory: 16Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 50Gi
+    - metadata:
+        name: backends
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 20Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

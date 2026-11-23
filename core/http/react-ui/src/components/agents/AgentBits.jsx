@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useHubAuth } from '../hub/useHubAuth'
 // eslint-disable-next-line no-unused-vars
 import StatusChip from '../ui/StatusChip'
+// eslint-disable-next-line no-unused-vars
+import Tag from '../ui/Tag'
 import Icon from '../Icon'
 
 // The Agents area's states drawn with the product's status chip: a tone, an
@@ -79,18 +81,22 @@ export function RecordLine({ runs }) {
   )
 }
 
+// What an agent may use, on its page: a tag, a link when it opens something.
 export function Chip({ to, icon, children, mono = false, count, title, warn = false, testId }) {
-  const cls = `ag-chip${mono ? ' ag-chip--mono' : ''}${to ? ' ag-chip--link' : ''}${warn ? ' ag-chip--warn' : ''}`
-  const body = (
-    <>
-      {icon && <Icon name={icon} />}
+  return (
+    <Tag
+      as={to ? Link : 'span'}
+      to={to}
+      tone={warn ? 'warn' : 'neutral'}
+      icon={icon}
+      mono={mono}
+      title={title}
+      testId={testId}
+    >
       <span className="ag-chip__text">{children}</span>
       {count != null && <span className="ag-chip__count">{count}</span>}
-    </>
+    </Tag>
   )
-  return to
-    ? <Link className={cls} to={to} title={title} data-testid={testId}>{body}</Link>
-    : <span className={cls} title={title} data-testid={testId}>{body}</span>
 }
 
 // The folder an agent works in: its name, with a lock when the agent can only

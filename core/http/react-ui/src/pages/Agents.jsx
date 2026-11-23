@@ -225,7 +225,7 @@ export default function Agents() {
           />
           {templates && (templates.length > 0 || AGENT_TEMPLATES.length > 1) && (
             <section className="ag-group" aria-labelledby="ag-start-h">
-              <h2 className="ag-eyebrow" id="ag-start-h">{t('empty.startWith')}</h2>
+              <h2 className="ag-h3" id="ag-start-h">{t('empty.startWith')}</h2>
               <ul className="ag-list">
                 {templates.length > 0 ? templates.map(x => (
                   <li key={x.id} className="ag-row ag-row--two" data-testid="agent-template">

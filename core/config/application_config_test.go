@@ -37,9 +37,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				CORS:                     true,
 				DisableCSRF:              true,
 				CORSAllowOrigins:         "https://example.com",
-				P2PToken:                 "test-token",
-				P2PNetworkID:             "test-network",
-				Federated:                true,
 				Galleries:                []Gallery{{Name: "test-gallery", URL: "https://example.com"}},
 				BackendGalleries:         []Gallery{{Name: "backend-gallery", URL: "https://example.com/backend"}},
 				AutoloadGalleries:        true,
@@ -96,15 +93,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 
 			Expect(rs.CORSAllowOrigins).ToNot(BeNil())
 			Expect(*rs.CORSAllowOrigins).To(Equal("https://example.com"))
-
-			Expect(rs.P2PToken).ToNot(BeNil())
-			Expect(*rs.P2PToken).To(Equal("test-token"))
-
-			Expect(rs.P2PNetworkID).ToNot(BeNil())
-			Expect(*rs.P2PNetworkID).To(Equal("test-network"))
-
-			Expect(rs.Federated).ToNot(BeNil())
-			Expect(*rs.Federated).To(BeTrue())
 
 			Expect(rs.Galleries).ToNot(BeNil())
 			Expect(*rs.Galleries).To(HaveLen(1))
@@ -479,26 +467,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(appConfig.CORSAllowOrigins).To(Equal("https://example.com,https://other.com"))
 		})
 
-		It("should apply P2P settings", func() {
-			appConfig := &ApplicationConfig{}
-
-			token := "p2p-test-token"
-			networkID := "p2p-test-network"
-			federated := true
-
-			rs := &RuntimeSettings{
-				P2PToken:     &token,
-				P2PNetworkID: &networkID,
-				Federated:    &federated,
-			}
-
-			appConfig.ApplyRuntimeSettings(rs)
-
-			Expect(appConfig.P2PToken).To(Equal("p2p-test-token"))
-			Expect(appConfig.P2PNetworkID).To(Equal("p2p-test-network"))
-			Expect(appConfig.Federated).To(BeTrue())
-		})
-
 		It("should apply gallery settings", func() {
 			appConfig := &ApplicationConfig{}
 
@@ -580,9 +548,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				CORS:                     true,
 				DisableCSRF:              false,
 				CORSAllowOrigins:         "https://test.com",
-				P2PToken:                 "round-trip-token",
-				P2PNetworkID:             "round-trip-network",
-				Federated:                true,
 				AutoloadGalleries:        true,
 				AutoloadBackendGalleries: false,
 				AutoUpgradeBackends:      true,
@@ -611,9 +576,6 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.CORS).To(Equal(original.CORS))
 			Expect(target.DisableCSRF).To(Equal(original.DisableCSRF))
 			Expect(target.CORSAllowOrigins).To(Equal(original.CORSAllowOrigins))
-			Expect(target.P2PToken).To(Equal(original.P2PToken))
-			Expect(target.P2PNetworkID).To(Equal(original.P2PNetworkID))
-			Expect(target.Federated).To(Equal(original.Federated))
 			Expect(target.AutoloadGalleries).To(Equal(original.AutoloadGalleries))
 			Expect(target.AutoloadBackendGalleries).To(Equal(original.AutoloadBackendGalleries))
 			Expect(target.AutoUpgradeBackends).To(Equal(original.AutoUpgradeBackends))

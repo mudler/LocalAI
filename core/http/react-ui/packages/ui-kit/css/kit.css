@@ -1,6 +1,6 @@
 /* The rules of the UI kit: buttons, page header, empty state, callout, load
    error, status chip, toast, skeleton, spinner, side pane, the loading shell,
-   icons and the page frame. Values come from the product tokens (--sp-*,
+   the floating surface of menus and popovers, icons and the page frame. Values come from the product tokens (--sp-*,
    --fs-*, --r-*, --ctl-h, motion); the web UI defines them in src/theme.css
    and css/defaults.css holds a copy for an app without that file. No raw font
    sizes, radii or durations here. Load this file after the theme and before
@@ -862,6 +862,148 @@
 .ui-slider__range { flex: 1 1 auto; min-width: 0; }
 .ui-slider__box { flex: none; width: 6rem; text-align: right; }
 .ui-slider[data-unset] .ui-slider__range { opacity: .55; }
+
+/* ---- Select: the compact size for a row ------------------------------------ */
+/* `dk-select-wrap--sm` around a `dk-select`: the height of a sm button, for a
+   choice inside a list row (the access of one member). It keeps the width of
+   its longest option instead of filling the row. */
+.dk-select-wrap--sm { display: inline-block; flex: none; max-width: 100%; }
+.dk-select-wrap--sm > .dk-select {
+  width: auto;
+  max-width: 100%;
+  height: var(--ctl-h-sm);
+  padding-left: var(--sp-2);
+  padding-right: var(--sp-8);
+  font-size: var(--fs-small);
+}
+.dk-select-wrap--sm::after { right: var(--sp-2); }
+
+/* ---- Menus, popovers and dialogs: one floating surface ------------------- */
+/* The home model menu (.home-menu) is the reference: a 12 px radius, the
+   float shadow, a 6 px inner pad, rows with a 6 px radius that take the hover
+   wash, and a 6 px rise on entrance. Popover (a portal under <body>, placed by
+   the trigger), ActionMenu (role=menu inside a popover) and their trigger all
+   use it. homeRise is here because the kit surfaces share it with the home
+   page. */
+@keyframes homeRise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.popover {
+  position: fixed;
+  /* Above the surfaces that open a menu from inside: the notification panel
+     (popover level), a dialog or a sheet. A portal on <body> that comes later
+     in the document wins a tie. */
+  z-index: var(--dk-z-popover);
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-width: min(420px, calc(100vw - 16px));
+  max-height: min(420px, 70vh);
+  padding: 0; /* the content brings its own padding */
+  overflow: hidden;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text));
+  color: var(--dk-text);
+  box-shadow: var(--dk-shadow-float);
+  animation: homeRise var(--dur-base) var(--ease-out) both;
+}
+/* A popover above its trigger grows from the trigger side. */
+.popover--up { transform-origin: bottom left; }
+
+/* A dialog with no head (the add-on Modal) pads its body like a head would. */
+.dk-dialog > .dk-dialog-body:first-child { padding-top: var(--sp-5); }
+.dk-dialog > .dk-dialog-body:last-child { padding-bottom: var(--sp-5); }
+/* The panel takes the focus only while nothing inside can: no ring on it. */
+.dk-dialog:focus { outline: none; }
+
+/* ActionMenu: a quiet kebab at rest that lights up on row hover, and the menu
+   rows of the reference menu. */
+.action-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-h-sm);
+  height: var(--ctl-h-sm);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--dk-muted);
+  cursor: pointer;
+  font-size: var(--fs-small);
+  opacity: .45;
+  transition:
+    opacity var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+}
+.action-menu__trigger:active { transform: scale(var(--dk-press-scale)); }
+.resource-row:hover .action-menu__trigger,
+.action-menu__trigger:focus-visible,
+.action-menu__trigger.is-open { opacity: 1; }
+.action-menu__trigger:hover,
+.action-menu__trigger.is-open { background: var(--dk-hover); border-color: transparent; color: var(--dk-text); }
+.action-menu__trigger:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.action-menu__trigger--compact { width: 24px; height: 24px; font-size: var(--fs-meta); }
+@media (hover: none) {
+  .action-menu__trigger { opacity: 1; }
+}
+
+.action-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  overflow-y: auto;
+  outline: none;
+}
+.action-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--color-text-secondary, var(--dk-muted));
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+/* The hover wash, a step toward the text colour: in the dark theme the plain
+   wash is the colour of the raised surface and would not show. */
+.action-menu__item.is-active,
+.action-menu__item:hover:not(:disabled) { background: color-mix(in srgb, var(--dk-hover) 90%, var(--dk-text)); color: var(--dk-text); }
+.action-menu__item:disabled { cursor: not-allowed; opacity: .5; }
+.action-menu__icon { flex: none; width: 16px; text-align: center; color: var(--dk-muted); font-size: var(--fs-small); }
+.action-menu__item.is-active .action-menu__icon,
+.action-menu__item:hover:not(:disabled) .action-menu__icon { color: var(--dk-text); }
+.action-menu__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.action-menu__shortcut { flex: none; color: var(--dk-muted); font-family: var(--dk-font-mono); font-size: var(--fs-meta); }
+.action-menu__item.is-danger,
+.action-menu__item.is-danger .action-menu__icon { color: var(--dk-error-text); }
+.action-menu__item.is-danger:hover:not(:disabled),
+.action-menu__item.is-danger.is-active { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.action-menu__divider { height: 1px; margin: 6px 4px; background: var(--dk-edge); }
+.action-menu__badge {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 10px var(--sp-1);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.action-menu__badge > .lai-icon { width: 14px; text-align: center; color: var(--dk-muted); font-size: var(--fs-meta); }
 
 /* ---- Icons ------------------------------------------------------------- */
 /* The Icon component (src/Icon.jsx) draws the kit's outline set inline. The

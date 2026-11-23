@@ -154,6 +154,9 @@ func (c *Client) Publish(subject string, data any) error {
 	if err != nil {
 		return fmt.Errorf("marshalling message for %s: %w", subject, err)
 	}
+	if err := CheckBroadcastSize(subject, len(payload)); err != nil {
+		return err
+	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.conn.Publish(subject, payload)
@@ -327,12 +330,28 @@ func (c *Client) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn != nil {
-		c.conn.Drain()
-		c.conn.FlushTimeout(5 * time.Second)
+		if err := c.conn.Drain(); err != nil {
+			xlog.Warn("NATS drain failed on close", "error", err)
+		}
+		if err := c.conn.FlushTimeout(5 * time.Second); err != nil {
+			xlog.Warn("NATS flush failed on close", "error", err)
+		}
 	}
 }
+
+// ErrNoResponders means that nobody listens on the subject of a request: the
+// carrier reached the processes that could serve it, and none does.
+var ErrNoResponders = errors.New("messaging: no responders")
+
+// ErrNotDelivered means that a request reached no process that could serve it,
+// so nothing ran: the carrier has no request and reply, the process it was
+// sent to could not be reached, or that process does not serve request and
+// reply. It is not absence. Nobody may conclude from it that a process left.
+var ErrNotDelivered = errors.New("messaging: the request was not delivered")
 
 // IsNoResponders reports whether err says that no subscriber listens on the
 // subject of a request. It is the carrier's own check, so code above the
 // seam can tell "nobody there" from a timeout without importing nats.go.
-func IsNoResponders(err error) bool { return errors.Is(err, nats.ErrNoResponders) }
+func IsNoResponders(err error) bool {
+	return errors.Is(err, nats.ErrNoResponders) || errors.Is(err, ErrNoResponders)
+}

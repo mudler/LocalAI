@@ -119,7 +119,22 @@
     "noUsableTitle": "사용할 수 있는 모델이 없습니다.",
     "noUsableText": "원격이 응답했지만, 이 서버에서 사용할 수 있는 모델이 없습니다.",
     "refreshWarn": "{{name}}을(를) 새로 고쳤지만 사용할 수 있는 모델이 없습니다.",
-    "authTextLocalai": "해당 서버의 모델 목록을 볼 수 있는 키를 사용한 뒤 다시 연결하세요."
+    "authTextLocalai": "해당 서버의 모델 목록을 볼 수 있는 키를 사용한 뒤 다시 연결하세요.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "직접 연결",
+        "hole_punched": "홀 펀칭 연결",
+        "relayed": "릴레이 경유"
+      },
+      "limited": "제한됨",
+      "state": {
+        "off": "P2P 꺼짐",
+        "listening": "아직 사용 안 함",
+        "down": "연결할 수 없음",
+        "error": "터널이 실행되지 않음"
+      }
+    }
   },
   "empty": {
     "title": "연결된 원격이 없습니다",

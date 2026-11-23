@@ -318,6 +318,33 @@ var _ = Describe("remote endpoints", func() {
 			}
 		})
 
+		It("passes an invite on and answers 410, 429 or 504 for an invite that cannot be used", func() {
+			var got remotes.CreateRequest
+			stub.create = func(r remotes.CreateRequest) (remotes.Result, error) {
+				got = r
+				return remotes.Result{Remote: remotes.Remote{ID: "c9", Transport: remotes.TransportP2P}, Phrase: "apple river stone cloud"}, nil
+			}
+			rec := do(http.MethodPost, "/api/remotes", `{"kind":"localai","name":"Studio","invite":"localai://pair?v=1","allow_open_relay":true}`)
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+			Expect(got.Invite).To(Equal("localai://pair?v=1"))
+			Expect(got.AllowOpenRelay).To(BeTrue())
+			Expect(rec.Body.String()).To(ContainSubstring(`"phrase":"apple river stone cloud"`))
+			Expect(rec.Body.String()).To(ContainSubstring(`"transport":"p2p"`))
+
+			for reason, code := range map[error]int{
+				remotes.ErrInviteGone:        http.StatusGone,
+				remotes.ErrInviteRateLimited: http.StatusTooManyRequests,
+				remotes.ErrInviteUnreachable: http.StatusGatewayTimeout,
+			} {
+				stub.create = func(remotes.CreateRequest) (remotes.Result, error) {
+					return remotes.Result{}, &remotes.InvalidError{Message: "Ask for a new one.", Reason: reason}
+				}
+				rec := do(http.MethodPost, "/api/remotes", `{"invite":"localai://pair?v=1"}`)
+				Expect(rec.Code).To(Equal(code))
+				Expect(errorOf(rec).Message).To(Equal("Ask for a new one."))
+			}
+		})
+
 		It("maps ErrConflict to 409", func() {
 			for _, r := range routes() {
 				r.fail(fmt.Errorf("%w: %q", remotes.ErrConflict, "home"))

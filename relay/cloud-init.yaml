@@ -1,0 +1,30 @@
+#cloud-config
+# Cloud-init for a small virtual machine (1 vCPU and 512 MB are enough) on a
+# provider that supports cloud-init user data.
+#
+# Before you use it:
+#  - Put the peer ID of your LocalAI server after LOCALAI_RELAY_ADMINS=, or
+#    leave it empty and claim the relay with the code it prints.
+#  - On a provider with 1:1 NAT (AWS, GCP, Oracle and others) also set
+#    LOCALAI_RELAY_PUBLIC_IP to the public address of the machine.
+#  - Allow inbound 4001/tcp and 4001/udp in the security group or firewall of
+#    your provider. The ufw lines below open only the machine's own firewall.
+#
+# After the first start, read the relay address and the claim code with:
+#   sudo cat /root/localai-relay.txt
+package_update: true
+packages: [docker.io]
+write_files:
+  - path: /etc/default/localai-relay
+    permissions: "0600"
+    content: |
+      LOCALAI_RELAY_ADMINS=
+runcmd:
+  - systemctl enable --now docker
+  - ufw allow 4001/tcp || true
+  - ufw allow 4001/udp || true
+  - docker run -d --name localai-relay --restart unless-stopped --network host
+      --env-file /etc/default/localai-relay -v localai-relay:/data localai/relay:latest
+  - sleep 5
+  - docker logs localai-relay > /root/localai-relay.txt 2>&1
+  - chmod 0600 /root/localai-relay.txt

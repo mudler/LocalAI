@@ -28,9 +28,9 @@ function fakeDeps(): { deps: HandlerDeps; core: Record<string, ReturnType<typeof
     'sandboxPlan', 'runSandboxSetup', 'runSandboxRemove', 'dismissSandboxNotice', 'statusBarVisible', 'setStatusBarVisible',
     'webuiState', 'setShellScreen', 'setWebuiOverlay', 'setShellInsets', 'openWebuiInBrowser', 'connectRemote', 'backToLocal', 'reloadWebui',
     'resetWebuiPermissions', 'windowSettings', 'setOpenInBrowser', 'setDesktopNotifications', 'updateInfo', 'setAutoCheck', 'setUpdateChannel', 'backToStable', 'installDetails',
-    'serversView', 'testServer', 'addServer', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
+    'serversView', 'testServer', 'addServer', 'addServerByInvite', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
     'networkView', 'networkPlan', 'setNetworkExposed', 'regenerateApiKey', 'dismissKeyNotice', 'revealApiKey', 'envVarsView', 'setEnvVar',
-    'deleteEnvVar', 'secretStorageView',
+    'deleteEnvVar', 'secretStorageView', 'registryCredentialsView', 'saveRegistryCredential', 'removeRegistryCredential', 'testRegistryCredential',
   ]
   const core: Record<string, ReturnType<typeof vi.fn>> = {}
   for (const n of names) core[n] = vi.fn(() => 'ok')
@@ -111,7 +111,7 @@ describe('IPC handlers check their input', () => {
         'launcher:window:set-open-in-browser', 'launcher:window:set-desktop-notifications', 'launcher:updates:set-auto-check', 'launcher:updates:release-notes',
         'launcher:port:find-free', 'launcher:port:process', 'launcher:settings:pick-folder',
         'launcher:network:set-exposed', 'launcher:api-key:copy', 'launcher:env:set', 'launcher:env:delete',
-        'launcher:updates:set-channel', 'launcher:servers:test', 'launcher:servers:add', 'launcher:servers:update', 'launcher:servers:remove',
+        'launcher:updates:set-channel', 'launcher:servers:test', 'launcher:servers:add', 'launcher:servers:add-by-invite', 'launcher:servers:update', 'launcher:servers:remove',
         'launcher:servers:set-default', 'launcher:servers:set-keep-local'].includes(c)) continue
       expect(() => h('extra'), c).toThrow(IpcInputError)
     }
@@ -153,6 +153,10 @@ describe('IPC handlers check their input', () => {
       ['launcher:servers:add', [{ name: 'A', address: 'https://a.example.com', id: 'srv_00000001' }]],
       ['launcher:servers:add', [{ name: 'A', address: 'https://a.example.com', skipTest: 'yes' }]],
       ['launcher:servers:add', [{ name: 'a\u0000', address: 'https://a.example.com' }]],
+      ['launcher:servers:add-by-invite', [{}]],
+      ['launcher:servers:add-by-invite', [{ link: 'localai://pair?v=1', address: 'https://a.example.com' }]],
+      ['launcher:servers:add-by-invite', [{ link: 'localai://pair?v=1', allowOpenRelay: 'yes' }]],
+      ['launcher:servers:add-by-invite', [{ link: 'x'.repeat(3000) }]],
       ['launcher:servers:update', [{ name: 'A' }]],
       ['launcher:servers:update', [{ id: 'srv_00000001', url: 'https://a.example.com' }]],
       ['launcher:servers:set-keep-local', ['true']],
@@ -207,6 +211,25 @@ describe('IPC handlers check their input', () => {
       ['launcher:env:delete', ['A=B']],
       ['launcher:env:delete', [{ name: 'A' }]],
       ['launcher:secrets:state', [1]],
+      ['launcher:registry-credentials:list', ['x']],
+      ['launcher:registry-credentials:save', []],
+      ['launcher:registry-credentials:save', ['registry.example']],
+      ['launcher:registry-credentials:save', [[{ match: 'registry.example', kind: 'bearer' }]]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'token', secret: 's' }]],
+      ['launcher:registry-credentials:save', [{ match: 'r'.repeat(254), kind: 'bearer', secret: 's' }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'basic', username: 'u'.repeat(129), secret: 's' }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'bearer', secret: 's'.repeat(4097) }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'bearer', secret: 'a\u0000b' }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'bearer', secret: 42 }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'bearer', extra: 1 }]],
+      ['launcher:registry-credentials:save', [{ id: '../x', match: 'registry.example', kind: 'bearer' }]],
+      ['launcher:registry-credentials:save', [{ match: 'registry.example', kind: 'bearer' }, 'extra']],
+      ['launcher:registry-credentials:remove', []],
+      ['launcher:registry-credentials:remove', ['not-an-id']],
+      ['launcher:registry-credentials:remove', [{ id: '0123456789abcdef' }]],
+      ['launcher:registry-credentials:test', []],
+      ['launcher:registry-credentials:test', ['0123456789abcdeg']],
+      ['launcher:registry-credentials:test', ['0123456789abcdef', 'x']],
     ]
     for (const [c, args] of bad) {
       expect(() => (invoke as Record<string, (...a: unknown[]) => unknown>)[c](...args), c).toThrow(IpcInputError)
@@ -277,6 +300,13 @@ describe('IPC handlers check their input', () => {
     expect(core.setEnvVar).toHaveBeenCalledWith('PATH', '/x')
     await invoke['launcher:env:delete']('HF_TOKEN')
     expect(core.deleteEnvVar).toHaveBeenCalledWith('HF_TOKEN')
+    const rule = { id: '0123456789abcdef', match: 'registry.example/team', kind: 'basic' as const, username: 'u', secret: 'multi\nline' }
+    await invoke['launcher:registry-credentials:save'](rule)
+    expect(core.saveRegistryCredential).toHaveBeenCalledWith(rule)
+    await invoke['launcher:registry-credentials:remove']('0123456789abcdef')
+    expect(core.removeRegistryCredential).toHaveBeenCalledWith('0123456789abcdef')
+    await invoke['launcher:registry-credentials:test']('0123456789abcdef')
+    expect(core.testRegistryCredential).toHaveBeenCalledWith('0123456789abcdef')
     expect(await invoke['launcher:api-key:copy']()).toEqual({ ok: true })
     expect(deps.writeSecretClipboard).toHaveBeenLastCalledWith('lai-test-key')
     const r = await invoke['launcher:api-key:copy']('curl')

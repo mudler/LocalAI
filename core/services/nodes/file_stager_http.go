@@ -23,7 +23,6 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/storage"
-	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // HTTPFileStager implements FileStager using HTTP for environments without S3.
@@ -33,8 +32,7 @@ type HTTPFileStager struct {
 	httpAddrFor     func(nodeID string) (string, error)
 	token           string
 	dialFor         WorkerNetDialerFor
-	clientsMu       sync.Mutex
-	clients         map[string]*http.Client
+	clients         nodeClients
 	responseTimeout time.Duration // timeout waiting for server response after upload
 	maxRetries      int           // number of retry attempts for transient failures
 }
@@ -62,40 +60,68 @@ func NewHTTPFileStager(httpAddrFor func(nodeID string) (string, error), token st
 		httpAddrFor:     httpAddrFor,
 		token:           token,
 		dialFor:         dialFor,
-		clients:         map[string]*http.Client{},
 		responseTimeout: responseTimeout,
 		maxRetries:      maxRetries,
 	}
 }
 
-// clientFor returns the HTTP client that reaches nodeID. Clients are per node
-// rather than shared because the idle pool is keyed by host:port only: two
-// workers reporting the same address (NAT, loopback) would otherwise be handed
-// each other's connections once the dialer routes by node.
-func (h *HTTPFileStager) clientFor(nodeID string) *http.Client {
-	h.clientsMu.Lock()
-	defer h.clientsMu.Unlock()
-	if c, ok := h.clients[nodeID]; ok {
-		return c
+// clientFor returns the HTTP client that reaches nodeID (see nodeClients).
+//
+// A stager with no dialer for the node cannot reach it. That is a route that does
+// not exist, and ErrNoRoute says so, where a nil function would panic at the
+// first transfer.
+func (h *HTTPFileStager) clientFor(nodeID string) (*http.Client, error) {
+	// No Timeout is set on the client: for large uploads, http.Client.Timeout
+	// covers the entire request lifecycle including the body upload. If it fires
+	// mid-write, Go closes the connection causing "connection reset by peer" on
+	// the server. Instead we use ResponseHeaderTimeout on the transport to cover
+	// only the wait-for-server-response phase.
+	return h.clients.get(nodeID, func() (*http.Transport, error) {
+		if h.dialFor == nil {
+			return nil, fmt.Errorf("file transfer to node %s: no dialer is configured: %w", nodeID, ErrNoRoute)
+		}
+		dial := h.dialFor(nodeID)
+		if dial == nil {
+			return nil, fmt.Errorf("file transfer to node %s: no dialer for the node: %w", nodeID, ErrNoRoute)
+		}
+		return &http.Transport{
+			DialContext:           dial,
+			ForceAttemptHTTP2:     false, // HTTP/2 flow control can stall large uploads
+			MaxIdleConns:          10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			WriteBufferSize:       256 << 10, // 256 KB
+			ReadBufferSize:        256 << 10, // 256 KB
+		}, nil
+	})
+}
+
+// do sends a request to the HTTP server of nodeID.
+func (h *HTTPFileStager) do(nodeID string, req *http.Request) (*http.Response, error) {
+	client, err := h.clientFor(nodeID)
+	if err != nil {
+		return nil, err
 	}
-	transport := &http.Transport{
-		DialContext:           h.dialFor(nodeID),
-		ForceAttemptHTTP2:     false, // HTTP/2 flow control can stall large uploads
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		WriteBufferSize:       256 << 10, // 256 KB
-		ReadBufferSize:        256 << 10, // 256 KB
+	return client.Do(req)
+}
+
+// ForgetNode drops the client of a node that left, and closes the idle streams
+// that its transport holds. Without it the map grows by one client for every
+// worker that ever connected, and a stream of a tunnel that is gone stays open.
+// It is safe on a nil receiver.
+func (h *HTTPFileStager) ForgetNode(nodeID string) {
+	if h != nil {
+		h.clients.forget(nodeID)
 	}
-	// No Timeout set: for large uploads, http.Client.Timeout covers the
-	// entire request lifecycle including the body upload. If it fires
-	// mid-write, Go closes the connection causing "connection reset by peer"
-	// on the server. Instead we use ResponseHeaderTimeout on the transport
-	// to cover only the wait-for-server-response phase.
-	c := httpclient.New(httpclient.WithTransport(transport))
-	h.clients[nodeID] = c
-	return c
+}
+
+// Close drops the client of every node and closes the idle streams that their
+// transports hold. It is safe on a nil receiver and may be called twice.
+func (h *HTTPFileStager) Close() {
+	if h != nil {
+		h.clients.closeAll()
+	}
 }
 
 // ReleaseRemote removes one exact ephemeral key from a backend node.
@@ -115,7 +141,7 @@ func (h *HTTPFileStager) ReleaseRemote(ctx context.Context, nodeID, key string) 
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.clientFor(nodeID).Do(req)
+	resp, err := h.do(nodeID, req)
 	if err != nil {
 		return fmt.Errorf("releasing %q from node %s: %w", key, nodeID, err)
 	}
@@ -153,7 +179,7 @@ func (h *HTTPFileStager) ReleaseRemoteRequest(ctx context.Context, nodeID, reque
 	if h.token != "" {
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
-	resp, err := h.clientFor(nodeID).Do(req)
+	resp, err := h.do(nodeID, req)
 	if err != nil {
 		return fmt.Errorf("releasing request inputs from node %s: %w", nodeID, err)
 	}
@@ -186,7 +212,10 @@ func (h *HTTPFileStager) EnsureRemote(ctx context.Context, nodeID, localPath, ke
 		return "", fmt.Errorf("resolving HTTP address for node %s: %w", nodeID, err)
 	}
 	// Fetched once per call so every retry reuses the same connection pool.
-	client := h.clientFor(nodeID)
+	client, err := h.clientFor(nodeID)
+	if err != nil {
+		return "", err
+	}
 
 	// Probe: check if the remote already has the file with matching content hash.
 	if remotePath, ok, probeErr := h.probeExisting(ctx, client, addr, localPath, key); probeErr != nil {
@@ -388,7 +417,7 @@ func (h *HTTPFileStager) doUpload(ctx, outerCtx context.Context, client *http.Cl
 		startOffset = 0
 	}
 
-	f, err := os.Open(localPath)
+	f, err := os.Open(localPath) // #nosec G304 -- localPath is the file the frontend is staging to a worker, chosen by its own caller, never a request value
 	if err != nil {
 		return "", fmt.Errorf("opening local file %s: %w", localPath, err)
 	}
@@ -649,7 +678,7 @@ const hashChunkSize = 1 << 20
 // proved the worker was serving, and the absolute cap still bounds the whole
 // hold regardless.
 func hashFileWithActivity(ctx context.Context, path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- path is the local file the frontend is staging, chosen by its own caller, never a request value
 	if err != nil {
 		return "", err
 	}
@@ -694,7 +723,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 	if sidecarStat, err := os.Stat(sidecar); err == nil && !sidecarStat.ModTime().Before(fileStat.ModTime()) {
-		if data, err := os.ReadFile(sidecar); err == nil {
+		if data, err := os.ReadFile(sidecar); err == nil { // #nosec G304 -- sidecar is the staged file's own path plus a fixed suffix
 			cached := strings.TrimSpace(string(data))
 			if len(cached) == 64 {
 				return cached, nil
@@ -706,7 +735,7 @@ func hashLocalCached(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil {
+	if err := os.WriteFile(sidecar, []byte(hashHex), 0640); err != nil { // #nosec G306 -- group-readable like the staged file it describes; it holds only a hash
 		xlog.Warn("Failed to write hash sidecar", "path", sidecar, "error", err)
 	}
 	return hashHex, nil
@@ -821,7 +850,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.clientFor(nodeID).Do(req)
+	resp, err := h.do(nodeID, req)
 	if err != nil {
 		return fmt.Errorf("downloading from node %s: %w", nodeID, err)
 	}
@@ -832,7 +861,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 		return fmt.Errorf("download from node %s failed with status %d: %s", nodeID, resp.StatusCode, string(body))
 	}
 
-	f, err := os.Create(localDst)
+	f, err := os.Create(localDst) // #nosec G304 -- localDst is the destination chosen by the frontend's own caller, never a request value
 	if err != nil {
 		return fmt.Errorf("creating local file %s: %w", localDst, err)
 	}
@@ -852,7 +881,7 @@ func (h *HTTPFileStager) FetchRemoteByKey(ctx context.Context, nodeID, key, loca
 
 	written, err := io.Copy(f, src)
 	if err != nil {
-		os.Remove(localDst)
+		_ = os.Remove(localDst) // best-effort cleanup of the partial file; the write error is what gets reported
 		return fmt.Errorf("writing to %s: %w", localDst, err)
 	}
 
@@ -877,7 +906,7 @@ func (h *HTTPFileStager) AllocRemoteTemp(ctx context.Context, nodeID string) (st
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.clientFor(nodeID).Do(req)
+	resp, err := h.do(nodeID, req)
 	if err != nil {
 		return "", fmt.Errorf("allocating temp file on node %s: %w", nodeID, err)
 	}
@@ -918,7 +947,7 @@ func (h *HTTPFileStager) ListRemoteDir(ctx context.Context, nodeID, keyPrefix st
 		req.Header.Set("Authorization", "Bearer "+h.token)
 	}
 
-	resp, err := h.clientFor(nodeID).Do(req)
+	resp, err := h.do(nodeID, req)
 	if err != nil {
 		return nil, fmt.Errorf("listing dir on node %s: %w", nodeID, err)
 	}

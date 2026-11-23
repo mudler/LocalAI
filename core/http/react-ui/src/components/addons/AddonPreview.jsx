@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, Callout, Notice, SidePane } from '../ui'
+import { Button, Callout, Notice, SidePane, Tabs } from '../ui'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
@@ -51,31 +51,19 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
     >
       <div className="ad-pane__inner" data-app={tile.id}>
         {app && hasSettings && (
-          <div className="ad-pane__tabs" role="tablist" aria-label={t('settingsTab.tabsLabel', { name: title })} onKeyDown={(e) => {
-            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
-            e.preventDefault()
-            const next = view === 'settings' ? 'overview' : 'settings'
-            onView?.(next)
-            requestAnimationFrame(() => document.getElementById(`ad-pane-tab-${next}`)?.focus())
-          }}>
-            {['overview', 'settings'].map(id => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                id={`ad-pane-tab-${id}`}
-                className="ad-tab ad-pane__tab"
-                aria-selected={view === id}
-                aria-controls="ad-pane-panel"
-                tabIndex={view === id ? 0 : -1}
-                data-testid={`addon-detail-tab-${id}`}
-                onClick={() => onView?.(id)}
-              >
-                {id === 'settings' && <Icon name="settings" aria-hidden="true" />}
-                {t(`settingsTab.${id}`)}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            className="ad-pane__tabs"
+            label={t('settingsTab.tabsLabel', { name: title })}
+            idPrefix="ad-pane"
+            panelId="ad-pane-panel"
+            value={view === 'settings' ? 'settings' : 'overview'}
+            onChange={(id) => onView?.(id)}
+            itemTestId="addon-detail-tab-"
+            items={[
+              { id: 'overview', label: t('settingsTab.overview') },
+              { id: 'settings', label: t('settingsTab.settings'), icon: 'settings' },
+            ]}
+          />
         )}
         {app && hasSettings && view === 'settings' && (
           <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-settings" className="ad-pane__body"><AddonSettings app={app} title={title} /></div>

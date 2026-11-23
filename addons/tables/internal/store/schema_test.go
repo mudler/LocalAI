@@ -62,7 +62,7 @@ func (r *schemaRig) inspect() store.Schema {
 
 func (r *schemaRig) raw() *sql.DB {
 	GinkgoHelper()
-	db, e := sql.Open("sqlite3", filepath.Join(r.dir, "databases", idA+".db"))
+	db, e := sql.Open("sqlite", filepath.Join(r.dir, "databases", idA+".db"))
 	Expect(e).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = db.Close() })
 	return db

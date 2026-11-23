@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -141,7 +142,6 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrAgentFolder),
-	verbatim(http.StatusConflict, typeNotifyOff, "", studiosvc.ErrNotificationsOff),
 	fixed(http.StatusForbidden, typeAuthz, "the LocalAI assistant needs an administrator", studiosvc.ErrAssistantForbidden),
 	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
@@ -657,7 +657,7 @@ func (h *Handlers) Events(c echo.Context) error {
 	}
 	defer cancel()
 
-	return streamSSEWithIDs(c, events, heartbeat, func(ev session.Event) (string, string, any) {
+	return sse.Stream(c, events, heartbeat, func(ev session.Event) (string, string, any) {
 		return ev.ID, string(ev.Kind), eventJSON(ev)
 	})
 }

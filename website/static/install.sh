@@ -14,6 +14,27 @@
 #   LOCALAI_FORCE     set to 1 to reinstall even if the same build is present
 #   LOCALAI_NO_SUDO   set to 1 to never escalate, use ~/.local/bin instead
 #   GITHUB_TOKEN      optional, only used to avoid GitHub API rate limits
+#
+# Worker mode (join a LocalAI cluster):
+#
+#   LOCALAI_REGISTER_TO=https://ai.example.com LOCALAI_JOIN_TOKEN=ljt_... \
+#     sudo -E sh install.sh --worker
+#
+# Installs the binary as above, then runs "local-ai worker" as a service that
+# starts at boot (a systemd unit on Linux, a launchd daemon on macOS). Run it as
+# root. The settings go in a file that only root can read, and the join token is
+# read from the environment and never printed or put on a command line. Running
+# it again is safe: the worker keeps its own credential in its state directory
+# and needs the join token once.
+#
+#   LOCALAI_REGISTER_TO     URL of the frontend (required)
+#   LOCALAI_JOIN_TOKEN      join token from the admin (required the first time)
+#   LOCALAI_WORKER_ROUTES   optional: nats, websocket or both, comma separated
+#   LOCALAI_WORKER_NAME     optional node name (default: the host name)
+#   LOCALAI_WORKER_DIR      state directory (default: /var/lib/local-ai on Linux,
+#                           /usr/local/var/local-ai on macOS)
+#
+# To remove a worker: see the note printed at the end of a worker install.
 
 set -eu
 
@@ -42,6 +63,20 @@ cleanup() {
 trap cleanup EXIT INT TERM HUP
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+WORKER=0
+for arg in "$@"; do
+	case "$arg" in
+		--worker) WORKER=1 ;;
+		-h | --help)
+			say "Usage: install.sh [--worker]"
+			say "  no option   install the local-ai binary"
+			say "  --worker    also set up a service that joins a cluster; see the top of this file"
+			exit 0
+			;;
+		*) die "unknown option: ${arg}" "Use --worker to install a cluster worker, or no option to install the binary only." ;;
+	esac
+done
 
 # --- fetching ---------------------------------------------------------------
 
@@ -183,6 +218,185 @@ on_path() {
 	esac
 }
 
+# --- worker mode ------------------------------------------------------------
+
+# Escape a value for a systemd environment file: it must stay on one line, and
+# systemd reads the double-quoted form.
+env_line() {
+	nl='
+'
+	case "$2" in
+		*\"* | *\\* | *\$* | *\`* | *"$nl"*) die "the value of $1 has a character that cannot go in the service settings" ;;
+	esac
+	printf '%s="%s"\n' "$1" "$2"
+}
+
+# Writes the settings of the worker to $1, readable by root only. The join
+# token is read from the environment, never from a command line.
+write_worker_env() {
+	umask 077
+	{
+		env_line LOCALAI_REGISTER_TO "$LOCALAI_REGISTER_TO"
+		if [ -n "${LOCALAI_JOIN_TOKEN:-}" ]; then
+			env_line LOCALAI_JOIN_TOKEN "$LOCALAI_JOIN_TOKEN"
+		fi
+		if [ -n "${LOCALAI_WORKER_ROUTES:-}" ]; then
+			env_line LOCALAI_WORKER_ROUTES "$LOCALAI_WORKER_ROUTES"
+		fi
+		if [ -n "${LOCALAI_WORKER_NAME:-}" ]; then
+			env_line LOCALAI_NODE_NAME "$LOCALAI_WORKER_NAME"
+		fi
+		env_line LOCALAI_MODELS_PATH "${WORKER_DIR}/models"
+		env_line LOCALAI_BACKENDS_PATH "${WORKER_DIR}/backends"
+	} >"$1.new"
+	chmod 0600 "$1.new"
+	mv "$1.new" "$1"
+}
+
+setup_worker() {
+	say ""
+	say "Setting up the worker"
+
+	[ "$(id -u)" = "0" ] || die "worker mode must run as root" \
+		"Run it again with sudo, for example: curl -fsSL <join script URL> | sudo sh"
+	[ -n "${LOCALAI_REGISTER_TO:-}" ] || die "LOCALAI_REGISTER_TO is not set" \
+		"Set it to the URL of the frontend, for example https://ai.example.com"
+
+	# The worker keeps its credential in its state directory. With no credential
+	# yet, a join token is needed.
+	if [ "$OS" = "darwin" ]; then
+		WORKER_DIR="${LOCALAI_WORKER_DIR:-/usr/local/var/local-ai}"
+	else
+		WORKER_DIR="${LOCALAI_WORKER_DIR:-/var/lib/local-ai}"
+	fi
+	if [ -z "${LOCALAI_JOIN_TOKEN:-}" ] && [ ! -f "${WORKER_DIR}/data/node-credential.json" ]; then
+		die "LOCALAI_JOIN_TOKEN is not set" \
+			"Ask an admin for a join token (Nodes page, Add worker), then run this again."
+	fi
+
+	BIN_PATH="${TARGET_DIR}/${BIN}"
+	mkdir -p "${WORKER_DIR}/models" "${WORKER_DIR}/backends" "${WORKER_DIR}/data"
+
+	if [ "$OS" = "darwin" ]; then
+		setup_worker_launchd
+	else
+		setup_worker_systemd
+	fi
+
+	say ""
+	say "The worker is running and has asked the frontend to join."
+	say "An admin approves it on the Nodes page of the frontend unless the token"
+	say "approves it by itself."
+	say ""
+	say "To remove this worker later:"
+	if [ "$OS" = "darwin" ]; then
+		say "  sudo launchctl bootout system/io.localai.worker"
+		say "  sudo rm /Library/LaunchDaemons/io.localai.worker.plist /etc/localai/worker.env"
+	else
+		say "  sudo systemctl disable --now localai-worker"
+		say "  sudo rm /etc/systemd/system/localai-worker.service /etc/localai/worker.env"
+		say "  sudo systemctl daemon-reload"
+	fi
+	say "  sudo rm -rf ${WORKER_DIR}      # also removes the credential, models and backends"
+	say "  and delete the node on the Nodes page of the frontend."
+}
+
+setup_worker_systemd() {
+	have systemctl || die "systemd is not available on this machine" \
+		"Start the worker by hand: LOCALAI_REGISTER_TO=... LOCALAI_JOIN_TOKEN=... ${BIN_PATH} worker"
+
+	# A service account, when the machine allows one. Otherwise the worker runs as root.
+	RUN_USER="root"
+	if have useradd || have adduser; then
+		if ! id localai >/dev/null 2>&1; then
+			if have useradd; then
+				useradd --system --home-dir "$WORKER_DIR" --shell /usr/sbin/nologin localai 2>/dev/null || true
+			else
+				adduser --system --home "$WORKER_DIR" --no-create-home --shell /usr/sbin/nologin localai 2>/dev/null || true
+			fi
+		fi
+		if id localai >/dev/null 2>&1; then
+			RUN_USER="localai"
+			# Access to GPUs, when the groups exist.
+			for g in video render; do
+				if getent group "$g" >/dev/null 2>&1; then
+					usermod -aG "$g" localai 2>/dev/null || true
+				fi
+			done
+			chown -R localai "$WORKER_DIR"
+		fi
+	fi
+	chmod 0700 "${WORKER_DIR}/data"
+
+	mkdir -p /etc/localai
+	WORKER_ENV="/etc/localai/worker.env"
+	if [ -n "${LOCALAI_JOIN_TOKEN:-}" ] || [ ! -f "$WORKER_ENV" ]; then
+		write_worker_env "$WORKER_ENV"
+	fi
+	step "settings      ${WORKER_ENV} (root only)"
+
+	cat >/etc/systemd/system/localai-worker.service <<UNIT
+[Unit]
+Description=LocalAI worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=${RUN_USER}
+EnvironmentFile=${WORKER_ENV}
+ExecStart=${BIN_PATH} worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+	systemctl daemon-reload
+	systemctl enable localai-worker >/dev/null 2>&1
+	systemctl restart localai-worker
+	step "service       localai-worker (systemd, user ${RUN_USER})"
+}
+
+setup_worker_launchd() {
+	mkdir -p /etc/localai
+	WORKER_ENV="/etc/localai/worker.env"
+	if [ -n "${LOCALAI_JOIN_TOKEN:-}" ] || [ ! -f "$WORKER_ENV" ]; then
+		write_worker_env "$WORKER_ENV"
+	fi
+	chmod 0700 "${WORKER_DIR}/data"
+	PLIST="/Library/LaunchDaemons/io.localai.worker.plist"
+	# launchd has no environment file, so a small wrapper reads the settings and
+	# starts the worker. The plist holds no secret.
+	WRAPPER="/usr/local/libexec/localai-worker"
+	mkdir -p /usr/local/libexec
+	cat >"$WRAPPER" <<WRAP
+#!/bin/sh
+set -a
+. ${WORKER_ENV}
+set +a
+exec ${BIN_PATH} worker
+WRAP
+	chmod 0755 "$WRAPPER"
+	cat >"$PLIST" <<PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.localai.worker</string>
+  <key>ProgramArguments</key><array><string>${WRAPPER}</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/var/log/localai-worker.log</string>
+  <key>StandardErrorPath</key><string>/var/log/localai-worker.log</string>
+</dict>
+</plist>
+PLISTEOF
+	chmod 0644 "$PLIST"
+	launchctl bootout system/io.localai.worker >/dev/null 2>&1 || true
+	launchctl bootstrap system "$PLIST"
+	step "service       io.localai.worker (launchd)"
+}
+
 # --- main -------------------------------------------------------------------
 
 say "LocalAI installer"
@@ -205,6 +419,7 @@ TMPDIR_LOCALAI="$(mktemp -d 2>/dev/null || mktemp -d -t localai)" ||
 # Expected checksum first: it tells us whether an existing install is already
 # the exact build we are about to fetch, so a second run downloads nothing.
 EXPECTED=""
+UPTODATE=0
 if fetch_to_file "${DL}/${VERSION}/${SUMS}" "${TMPDIR_LOCALAI}/${SUMS}" 2>/dev/null; then
 	EXPECTED="$(awk -v f="$ASSET" '$2 == f || $2 == "*" f {print $1}' "${TMPDIR_LOCALAI}/${SUMS}" | head -n 1)"
 fi
@@ -213,49 +428,59 @@ if [ -n "$EXPECTED" ] && [ "${LOCALAI_FORCE:-0}" != "1" ] && [ -x "${TARGET_DIR}
 	CURRENT="$(sha256_of "${TARGET_DIR}/${BIN}" 2>/dev/null || true)"
 	if [ -n "$CURRENT" ] && [ "$CURRENT" = "$EXPECTED" ]; then
 		step "already at    ${VERSION}, nothing to do"
-		say ""
-		say "Start it with:  ${BIN}"
-		exit 0
-	fi
-fi
-
-step "downloading   ${ASSET}"
-if ! fetch_to_file "${DL}/${VERSION}/${ASSET}" "${TMPDIR_LOCALAI}/${BIN}"; then
-	die "could not download ${DL}/${VERSION}/${ASSET}" \
-		"Check the release exists and lists that file: https://github.com/${REPO}/releases/tag/${VERSION}"
-fi
-
-if [ ! -s "${TMPDIR_LOCALAI}/${BIN}" ]; then
-	die "the downloaded file is empty" \
-		"Try again, or download it by hand from https://github.com/${REPO}/releases/tag/${VERSION}"
-fi
-
-if [ -n "$EXPECTED" ]; then
-	if ACTUAL="$(sha256_of "${TMPDIR_LOCALAI}/${BIN}")"; then
-		if [ "$ACTUAL" != "$EXPECTED" ]; then
-			die "checksum mismatch for ${ASSET}" \
-				"expected ${EXPECTED}, got ${ACTUAL}. The download was corrupted or tampered with, so nothing was installed."
+		UPTODATE=1
+		if [ "$WORKER" != "1" ]; then
+			say ""
+			say "Start it with:  ${BIN}"
+			exit 0
 		fi
-		step "checksum      ok"
-	else
-		step "checksum      skipped, no sha256sum, shasum or openssl on this machine"
 	fi
-else
-	step "checksum      skipped, this release publishes no checksum file"
 fi
 
-chmod 0755 "${TMPDIR_LOCALAI}/${BIN}"
+if [ "$UPTODATE" != "1" ]; then
+	step "downloading   ${ASSET}"
+	if ! fetch_to_file "${DL}/${VERSION}/${ASSET}" "${TMPDIR_LOCALAI}/${BIN}"; then
+		die "could not download ${DL}/${VERSION}/${ASSET}" \
+			"Check the release exists and lists that file: https://github.com/${REPO}/releases/tag/${VERSION}"
+	fi
 
-# Write to a sibling name and rename, so a running local-ai is never replaced
-# underneath itself and a failed copy cannot leave a half-written binary.
-if ! $SUDO cp "${TMPDIR_LOCALAI}/${BIN}" "${TARGET_DIR}/${BIN}.new"; then
-	die "could not write to ${TARGET_DIR}" \
-		"Re-run with INSTALL_DIR set to somewhere you can write, for example: INSTALL_DIR=\$HOME/.local/bin sh install.sh"
+	if [ ! -s "${TMPDIR_LOCALAI}/${BIN}" ]; then
+		die "the downloaded file is empty" \
+			"Try again, or download it by hand from https://github.com/${REPO}/releases/tag/${VERSION}"
+	fi
+
+	if [ -n "$EXPECTED" ]; then
+		if ACTUAL="$(sha256_of "${TMPDIR_LOCALAI}/${BIN}")"; then
+			if [ "$ACTUAL" != "$EXPECTED" ]; then
+				die "checksum mismatch for ${ASSET}" \
+					"expected ${EXPECTED}, got ${ACTUAL}. The download was corrupted or tampered with, so nothing was installed."
+			fi
+			step "checksum      ok"
+		else
+			step "checksum      skipped, no sha256sum, shasum or openssl on this machine"
+		fi
+	else
+		step "checksum      skipped, this release publishes no checksum file"
+	fi
+
+	chmod 0755 "${TMPDIR_LOCALAI}/${BIN}"
+
+	# Write to a sibling name and rename, so a running local-ai is never replaced
+	# underneath itself and a failed copy cannot leave a half-written binary.
+	if ! $SUDO cp "${TMPDIR_LOCALAI}/${BIN}" "${TARGET_DIR}/${BIN}.new"; then
+		die "could not write to ${TARGET_DIR}" \
+			"Re-run with INSTALL_DIR set to somewhere you can write, for example: INSTALL_DIR=\$HOME/.local/bin sh install.sh"
+	fi
+	$SUDO chmod 0755 "${TARGET_DIR}/${BIN}.new"
+	$SUDO mv "${TARGET_DIR}/${BIN}.new" "${TARGET_DIR}/${BIN}"
+
+	step "installed     ${TARGET_DIR}/${BIN}"
 fi
-$SUDO chmod 0755 "${TARGET_DIR}/${BIN}.new"
-$SUDO mv "${TARGET_DIR}/${BIN}.new" "${TARGET_DIR}/${BIN}"
 
-step "installed     ${TARGET_DIR}/${BIN}"
+if [ "$WORKER" = "1" ]; then
+	setup_worker
+	exit 0
+fi
 
 say ""
 say "Next steps"

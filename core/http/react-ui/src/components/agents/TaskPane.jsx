@@ -1,8 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, SidePane, StatusChip, Switch } from '../ui'
+import { Button, SidePane, StatusChip, Switch, Tabs } from '../ui'
 import { OutputBlock, RelTime } from './RunBits'
 import { JobRow } from './TaskJobs'
 import { apiExample, promptParams } from '../../utils/agentTasks'
@@ -15,22 +14,10 @@ const TABS = ['overview', 'runs', 'settings']
 // Edit in reach on every tab.
 export function TaskPane({ task, owner, runner, jobs, tab, onTab, onClose, onRun, onEdit, onToggle, onDelete, jobProps }) {
   const { t } = useTranslation('agents')
-  const refs = useRef({})
   const open = Boolean(task)
   const mine = !owner
   const params = task ? promptParams(task.prompt) : []
-  const onKeyDown = (e) => {
-    const i = TABS.indexOf(tab)
-    let n = i
-    if (e.key === 'ArrowRight') n = (i + 1) % TABS.length
-    else if (e.key === 'ArrowLeft') n = (i - 1 + TABS.length) % TABS.length
-    else if (e.key === 'Home') n = 0
-    else if (e.key === 'End') n = TABS.length - 1
-    else return
-    e.preventDefault()
-    onTab(TABS[n])
-    refs.current[TABS[n]]?.focus()
-  }
+
   return (
     <SidePane
       open={open}
@@ -53,25 +40,14 @@ export function TaskPane({ task, owner, runner, jobs, tab, onTab, onClose, onRun
     >
       {task && (
         <>
-          <div className="ag-views aj-pane-tabs" role="tablist" aria-label={t('tasks.pane.label')} onKeyDown={onKeyDown}>
-            {TABS.map(id => (
-              <button
-                key={id}
-                ref={el => { refs.current[id] = el }}
-                type="button"
-                role="tab"
-                id={`at-tab-${id}`}
-                className="ag-view"
-                aria-selected={tab === id}
-                aria-controls={`at-panel-${id}`}
-                tabIndex={tab === id ? 0 : -1}
-                onClick={() => onTab(id)}
-              >
-                {t(`tasks.pane.${id}`)}
-                {id === 'runs' && jobs.length > 0 && <span className="aj-tab-count">{jobs.length}</span>}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            className="aj-pane-tabs"
+            label={t('tasks.pane.label')}
+            idPrefix="at"
+            value={tab}
+            onChange={onTab}
+            items={TABS.map(id => ({ id, label: t(`tasks.pane.${id}`), ...(id === 'runs' && jobs.length > 0 ? { count: jobs.length } : {}) }))}
+          />
           <div role="tabpanel" id={`at-panel-${tab}`} aria-labelledby={`at-tab-${tab}`} className="aj-pane-panel">
             {tab === 'overview' && (
               <>
@@ -84,7 +60,7 @@ export function TaskPane({ task, owner, runner, jobs, tab, onTab, onClose, onRun
                   {task.updated_at && <><dt>{t('tasks.pane.changed')}</dt><dd><RelTime iso={task.updated_at} /></dd></>}
                 </dl>
                 <section className="ag-sec">
-                  <h3 className="ag-eyebrow">{t('tasks.prompt')}</h3>
+                  <h3 className="ag-label">{t('tasks.prompt')}</h3>
                   <p className="aj-preview">{task.prompt}</p>
                 </section>
                 <section className="ag-sec">

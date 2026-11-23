@@ -34,6 +34,13 @@ var _ = Describe("alias field metadata", func() {
 		Expect(reg).To(HaveKey("failover.targets"))
 		Expect(reg["failover.targets"].Section).To(Equal("failover"))
 		Expect(reg["failover.targets"].Component).To(Equal("failover-targets"))
+		Expect(reg).To(HaveKey("failover.policy"))
+		Expect(reg["failover.policy"].Section).To(Equal("failover"))
+		var policies []string
+		for _, o := range reg["failover.policy"].Options {
+			policies = append(policies, o.Value)
+		}
+		Expect(policies).To(ConsistOf("priority", "least_busy", "round_robin"))
 		var ids []string
 		for _, s := range meta.DefaultSections() {
 			ids = append(ids, s.ID)

@@ -5,6 +5,9 @@ import { hookHarness } from './chatcommands-lifecycle.mjs'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
 import { newOperationId } from '../../src/components/catalog/catalogState.js'
+import { overlayLive } from '../../src/utils/addonUpgradeRows.js'
+// What the upgrade hook reads besides the store: the shared operations list.
+const operations = { useOperations: () => ({ operations: [] }), overlayLive, operationsApi: { cancel: async () => ({}) } }
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 
 for (const verb of ['start', 'stop']) test(`pending ${verb} cannot verify or publish after actual auth epoch changes before cleanup`, async () => {
@@ -35,7 +38,7 @@ test('pending update check and upgrade cannot publish to the next actor before c
   let checked = 0, changed = 0, started = 0
   const api = { updates: { check: () => { checked++; return pending.promise } } }
   const h = hookHarness('../../src/components/addons/useAddonUpgrade.js', 'useAddonUpgrade', {
-    useAuth: () => auth, newOperationId, useAddonUpgrades: () => ({ live: [], records: [] }),
+    useAuth: () => auth, newOperationId, ...operations, useAddonUpgrades: () => ({ live: [], records: [] }),
     addonUpgrades: { start: () => { started++; return updating.promise } },
   })
   const render = () => h.render(api, { onChanged: () => changed++ })
@@ -219,7 +222,7 @@ for (const path of ['observer', 'completion', 'verification']) {
         installed: () => { verified++; verifying.resolve(); return verification.promise },
       }
       const view = hookHarness('../../src/components/addons/useAddonUpgrade.js', 'useAddonUpgrade', {
-        useAuth: () => provider.auth, newOperationId, addonUpgrades: store,
+        useAuth: () => provider.auth, newOperationId, ...operations, addonUpgrades: store,
         useAddonUpgrades: () => store.getSnapshot(),
       })
       const origin = view.render(api, { onChanged: () => changed++ }); view.flush()

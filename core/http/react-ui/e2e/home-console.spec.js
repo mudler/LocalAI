@@ -459,8 +459,9 @@ test.describe('Home first run', () => {
     await mockFirstRun(page, { features: { distributed: false, localai_assistant: true, agents: true, mcp: true, addons: false } })
     await ready(page)
     const guide = page.getByTestId('home-first-run')
-    // The steps only: the recommended models are a list inside the second step.
-    await expect(guide.locator('.home-step')).toHaveCount(3)
+    // The steps only: the recommended models are a list inside the second step,
+    // and the optional share step comes after the three.
+    await expect(guide.locator('.home-step:not(.home-step--optional)')).toHaveCount(3)
     await expect(guide.locator('.home-step[data-state="now"]')).toContainText('Browse the Model Gallery')
     await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('Qwen3.8 4B')
     await expect(guide.getByRole('button', { name: /browse model gallery/i })).toBeVisible()

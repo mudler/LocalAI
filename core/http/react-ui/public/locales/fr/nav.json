@@ -81,8 +81,8 @@
     "backends": "Backends",
     "voiceLibrary": "Bibliothèque de voix",
     "traces": "Traces",
-    "nodes": "Nœuds",
-    "scheduling": "Ordonnancement",
+    "nodes": "Workers",
+    "scheduling": "Placement",
     "swarm": "Essaim",
     "system": "Système",
     "settings": "Paramètres",
@@ -93,7 +93,7 @@
     "failover": "Bascule",
     "gpuHost": "GPU et hôte",
     "logs": "Journaux",
-    "p2p": "P2P",
+    "p2p": "Partage",
     "prometheus": "Prometheus",
     "trafficModels": "Modèles",
     "addons": "Add-ons",
@@ -104,7 +104,8 @@
     "chatsAdmin": "Chats de tous les utilisateurs",
     "pages": "Pages",
     "allChats": "Toutes les conversations",
-    "inbox": "Notifications"
+    "inbox": "Notifications",
+    "apiKeys": "Clés API"
   },
   "footer": {
     "github": "GitHub",
@@ -141,5 +142,41 @@
   "activityEntry": "Activité",
   "navLinkExternal": "Ouvre {{site}} dans un nouvel onglet après confirmation",
   "navLinkAsk": "Ouvrir ce lien ?",
-  "startPage": "Page de démarrage"
+  "startPage": "Page de démarrage",
+  "admin": {
+    "nav": {
+      "overview": "Vue d'ensemble",
+      "apiReference": "Référence de l'API",
+      "back": "Retour à {{name}}",
+      "search": "Rechercher",
+      "label": "Administration",
+      "crumbs": "Fil d'Ariane"
+    },
+    "groups": {
+      "machine": "Cette machine",
+      "cluster": "Cluster",
+      "runtime": "Modèles et exécution",
+      "access": "Accès"
+    },
+    "palette": {
+      "label": "Rechercher dans l'administration",
+      "input": "Rechercher pages, personnes, workers et réglages",
+      "placeholder": "Pages, personnes, workers, réglages",
+      "results": "Résultats",
+      "none": "Rien ne correspond à « {{query}} ».",
+      "move": "naviguer",
+      "open": "ouvrir",
+      "kinds": {
+        "page": "Pages",
+        "setting": "Réglages",
+        "worker": "Workers",
+        "person": "Personnes"
+      }
+    },
+    "filters": {
+      "label": "Filtres",
+      "active": "{{count}} actif(s)",
+      "sort": "Trier"
+    }
+  }
 }

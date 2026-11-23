@@ -119,7 +119,22 @@
     "noUsableTitle": "Aucun modèle utilisable.",
     "noUsableText": "Le serveur distant a répondu, mais il ne liste aucun modèle que ce serveur peut utiliser.",
     "refreshWarn": "{{name}} actualisé, mais il n'a aucun modèle utilisable.",
-    "authTextLocalai": "Utilisez une clé autorisée à lister les modèles de ce serveur, puis reconnectez-vous."
+    "authTextLocalai": "Utilisez une clé autorisée à lister les modèles de ce serveur, puis reconnectez-vous.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Directe",
+        "hole_punched": "Par perçage NAT",
+        "relayed": "Via un relais"
+      },
+      "limited": "limitée",
+      "state": {
+        "off": "P2P est désactivé",
+        "listening": "Pas encore utilisée",
+        "down": "Injoignable",
+        "error": "Le tunnel ne tourne pas"
+      }
+    }
   },
   "empty": {
     "title": "Aucun serveur distant connecté",

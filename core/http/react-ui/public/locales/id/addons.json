@@ -118,6 +118,9 @@
     "emptyBody": "Daftar ini kosong.",
     "emptyFiltered": "Tidak ada yang cocok dengan pencarian. Ubah kata atau pustaka.",
     "emptyTitle": "Tidak ada yang ditampilkan",
+    "failedBody": "Pustaka yang berhasil dimuat ditampilkan di bawah.",
+    "failedTitle_one": "Satu pustaka tidak dapat dibaca.",
+    "failedTitle_other": "{{count}} pustaka tidak dapat dibaca.",
     "libraries": "Pustaka",
     "loading": "Memuat hasil",
     "next": "Halaman berikutnya",
@@ -180,6 +183,7 @@
       "urlCredentials": "Alamat tidak boleh berisi nama pengguna atau kata sandi.",
       "urlQuery": "Alamat tidak boleh berisi query string atau fragmen.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -193,6 +197,7 @@
       "requireSignature": "Wajibkan tanda tangan",
       "url": "URL katalog",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -202,13 +207,16 @@
       "reference": "Nama kredensial yang dikonfigurasi administrator di server ini. Jangan pernah menempelkan token atau kata sandi di sini.",
       "url": "Alamat https tanpa kredensial dan tanpa query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Terakhir dimuat {{when}}",
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
     "lead": "Pustaka adalah indeks yang mendaftar add-on, backend, atau model. Kredensial tidak pernah diketik di sini: pustaka add-on privat menyebut kredensial yang dikonfigurasi administrator di server ini.",
     "listLabel": "Pustaka",
     "loading": "Memuat pustaka",
+    "neverLoaded": "Belum pernah dimuat",
     "notRefreshed": "Belum disegarkan",
     "reference": "Referensi kredensial: {{name}}",
     "refresh": "Segarkan",
@@ -394,6 +402,7 @@
     "platform": "Platform",
     "selection": "Dipilih sebagai",
     "signatureRequired": "Tanda tangan diwajibkan",
+    "sourceRepository": "Source repository",
     "verification": "Verifikasi",
     "version": "Versi"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan pembaruan lagi dalam {{seconds}} dtk.",
     "checkAgain": "Periksa sekarang",
-    "open": "Buka Pembaruan"
+    "open": "Buka Pembaruan",
+    "cancelledNote": "Pembaruan {{name}} dibatalkan. Versi {{version}} tetap berjalan.",
+    "cancelling": "Membatalkan…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +730,8 @@
     "skillShadow": "Add-on ini menggantikan skill bawaan {{skill}}.",
     "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
     "skillProvides": "Add-on ini menyediakan keterampilan {{skill}}.",
-    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan."
+    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan.",
+    "background": "Ini berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikannya."
   },
   "family": {
     "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."
@@ -787,7 +799,8 @@
       "action": "Setujui dan perbarui",
       "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
       "done": "{{name}} telah diperbarui.",
-      "title": "Setujui akses host untuk {{name}} {{version}}"
+      "title": "Setujui akses host untuk {{name}} {{version}}",
+      "running": "Pembaruan berjalan di latar belakang. Anda dapat menutup jendela ini; menutupnya tidak menghentikan pembaruan. Pilih Batal untuk menghentikannya."
     },
     "asksNothing": "Add-on ini tidak meminta akses host.",
     "blanket": {
@@ -891,6 +904,7 @@
     "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
     "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
     "notOfficialWarning": "Add-on ini berasal dari {{library}}, bukan pustaka resmi. Add-on berjalan sebagai kode tepercaya di server ini dan dapat memakai kredensial yang diberikan kepadanya. Pasang hanya jika Anda memercayai penulisnya.",
+    "signedNotReviewed": "Ditandatangani oleh {{signer}}. Tidak ditinjau oleh LocalAI. Add-on berjalan sebagai kode tepercaya di server ini dan dapat memakai kredensial yang diberikan. Pasang hanya jika Anda memercayai penandatangannya.",
     "op": {
       "alreadyAllowed": "Sudah diizinkan",
       "blocked": "Diblokir oleh kebijakan administrator",
@@ -924,7 +938,12 @@
       "body": "Versi baru meminta akses host yang tidak dimiliki versi sekarang. Versi {{current}} tetap berjalan sampai Anda menyetujui. Operasi yang ditambahkan: {{count}}.",
       "review": "Tinjau dan setujui",
       "reviewNamed": "Tinjau dan setujui akses host {{name}}",
-      "title": "{{name}} {{version}} menunggu persetujuan Anda"
+      "title": "{{name}} {{version}} menunggu persetujuan Anda",
+      "updatingTitle": "Memperbarui {{name}} ke {{version}}",
+      "queuedBody": "Pembaruan ada dalam antrean dan berjalan di latar belakang.",
+      "cancellingTitle": "Membatalkan pembaruan {{name}}",
+      "failedTitle": "Pembaruan {{name}} ke {{version}} gagal",
+      "reviewAgain": "Tinjau lagi"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "Versi lebih lama",
       "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
       "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
-    }
+    },
+    "progress": "Memasang {{name}} dari berkas. Proses berjalan di latar belakang.",
+    "failedTitle": "Pemasangan {{name}} dari berkas gagal",
+    "failedHint": "Berkas disimpan satu jam. Pilih Coba lagi untuk memakainya sekali lagi."
   },
   "notice": {
     "enableFailedTitle": "{{name}} tidak dapat diaktifkan",
@@ -1058,5 +1080,28 @@
       "off": "Mati",
       "attention": "Perlu disiapkan"
     }
+  },
+  "queue": {
+    "title": "Antrean instalasi",
+    "select": "Tambahkan ke antrean",
+    "selectNamed": "Tambahkan {{name}} ke antrean instalasi",
+    "inQueue": "Dalam antrean",
+    "selectionLabel": "Add-on yang dipilih untuk dipasang",
+    "selected": "Dipilih: {{count}}",
+    "reviewPicked": "Tinjau dan antrekan",
+    "clear": "Hapus pilihan",
+    "position": "Add-on {{number}} dari {{total}}.",
+    "batchNote": "Tidak ada yang diantrekan sampai Anda selesai dengan yang terakhir.",
+    "confirmBody": "Versi {{version}} dari sumber {{library}} ditambahkan ke antrean instalasi. Paket diunduh di latar belakang dan diperiksa sebelum dipasang. Paket tidak diaktifkan.",
+    "add": "Tambahkan ke antrean",
+    "acceptNext": "Setujui dan lanjut",
+    "acceptLast": "Setujui dan antrekan semua",
+    "skip": "Lewati",
+    "unpinned": "Entri pengembangan ini tidak terkunci ke satu paket. Yang dipasang adalah apa pun yang disajikan sumber saat ini.",
+    "reviewTitle": "Perlu ditinjau.",
+    "reviewBody": "Paket meminta akses host lebih banyak daripada yang Anda setujui. Periksa daftarnya lagi sebelum dipasang.",
+    "refused": "{{name}} tidak diantrekan. {{reason}}",
+    "noAnswer": "Server tidak memberi jawaban untuk add-on ini.",
+    "notInLibrary": "Add-on ini tidak ada lagi di pustaka Anda."
   }
 }

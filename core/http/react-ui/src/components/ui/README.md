@@ -4,7 +4,7 @@ The shared components every page uses for buttons, page frames, empty and error
 states, status, toasts, loading and detail panes. Import them from one place:
 
 ```jsx
-import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip } from '../components/ui'
+import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip, Tabs, Tag } from '../components/ui'
 ```
 
 Most of them live in the UI kit package, `packages/ui-kit` (see its
@@ -34,16 +34,22 @@ in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
 |---|---|---|
 | An action | `Button` | `primary` for the one main action of a region; `secondary`, `ghost`, `danger` and `danger-ghost` for the rest. |
 | Text | `dk-input` | One line of text. |
-| A choice from a list | `dk-select` in `dk-select-wrap` | A native list of options. |
+| A choice from a short, fixed list | `dk-select` in `dk-select-wrap` | A native list of options (see "Native select or ListPicker"). |
+| A choice from a long list, rich rows, several picks, or a chip in a toolbar | `ListPicker` | A trigger and a menu with a filter box, groups and keyboard. |
 | A number in a range (a sampling value) | `Slider` | A range with a number box and a reset; "not set" is its own state. Applies when the form is saved. |
 | A setting that applies at once | `Switch` | On or off, no Save. |
 | A choice that applies on Save | `dk-check` | A yes or no inside a form. |
 | One choice of a few that filters | `Segmented` | A list filter with counts. |
 | One choice of 2-4 that sets a value | `Segmented mode="radio"` | A value, such as where models run or a kind. Not a filter and not a view switch. |
+| Views of one region | `Tabs` + `TabPanel` | One view shown at a time: Overview, Files, Settings. Not a filter. |
 | A state | `StatusChip` | The state of one item. |
+| A label that is not a state | `Tag` | A kind, a format, a capability, "alias", "Built-in". |
 | Something that needs attention | `Callout` | A warning, news or a result on this page. |
 | The detail of an item beside a list | `SidePane` | Read, act, close. |
 | A create or edit form | `SideSheet` | Blocks the page until saved or closed. |
+| A question that blocks the page | `Dialog` | A short choice or a small form, centred. |
+| A yes or no before an action | `ConfirmDialog` | Destructive or hard to undo. Prefer an Undo toast when it can be undone. |
+| Actions of a row | `ActionMenu` | A kebab that opens a menu. |
 
 `npm run lint:ui-kit` (`scripts/ui-kit-gate.mjs`) fails on a new raw checkbox,
 an import of the legacy `Toggle`, `dk-sheet` markup in JSX, a CSS width on a
@@ -108,7 +114,7 @@ with no edit. Move to `<Button>` when you edit the file.
 | `btn-sm` | `size="sm"` / `dk-btn--sm` |
 | `dk-btn` with no variant | `<Button>` (secondary) |
 
-`btn-full`, `btn--warning` and `btn-help` are unchanged.
+`btn-full` is unchanged.
 
 ## Page and PageHeader
 
@@ -239,6 +245,61 @@ colours for decoration.
 `StatusPill` is the old name. It draws a `StatusChip` and keeps its classes
 (`status-pill status-pill--success|warning|error|info|muted`) for existing
 selectors. Use `StatusChip` in new code.
+
+## Tag
+
+`<Tag tone icon mono title as>` children `</Tag>`
+
+A short label on an item that is not a state: a kind ("Meta", "Dev"), a
+format ("GGUF"), a capability, a version, "alias". The look of the tags in the
+home model picker: 20 px, `--r-sm`, `--fs-meta`, muted text on `--dk-hover`.
+
+| Prop | Values | Notes |
+|---|---|---|
+| `tone` | `neutral` (default), `accent`, `ok`, `warn`, `error` | The words still say what the tag means; colour is never the only signal. |
+| `icon` | a kit icon id | 12 px, before the words |
+| `mono` | boolean | the mono font, for ids and versions a person copies |
+| `as` | `span` (default), `button`, a link component | a tag that opens something |
+
+Put several in a `ui-tags` row. Do: use `StatusChip` for a state ("Running",
+"Failed", "Update available") and `Tag` for everything else. Don't: colour a
+`span` to look like a tag. The legacy `badge` and `badge-*` classes are gone;
+new code never writes a badge class.
+
+## Tabs and TabPanel
+
+```jsx
+<Tabs label="Model" idPrefix="model" value={tab} onChange={setTab}
+  items={[{ id: 'overview', label: 'Overview' }, { id: 'files', label: 'Files', count: 4 }]} />
+<TabPanel idPrefix="model" value={tab}>…</TabPanel>
+```
+
+Views of one region, one shown at a time. The kit's underline tabs
+(`dk-tabs`, `dk-tab`); the panel is `dk-tabpanel`.
+
+- `items`: `{ id, label, icon, count, countTone, countLabel, countHidden,
+  countTestId, after, disabled, testId, keyshortcuts }`. `count` draws a count
+  badge after the label (leave it out for none); `countTone` is `accent`,
+  `warn` or `error`; `countLabel` is what a screen reader says for it, and
+  `countHidden` hides it when the label already says it. `after` is a node
+  drawn after the count, for a second badge.
+- Ids: tab `<idPrefix>-tab-<id>`, panel `<idPrefix>-panel-<id>`. A list with
+  one panel for every tab passes `panelId` to both.
+- Keyboard: the list is one tab stop (the selected tab). ArrowLeft and
+  ArrowRight (ArrowUp and ArrowDown with `orientation="vertical"`) move the
+  focus and the selection, skip disabled tabs and wrap; Home and End go to the
+  ends.
+- `variant="pill"` draws the segmented tray: for a view switch in a header or
+  a small card ("Upload" / "Record", "Source" / "YAML"). The default underline
+  is for the views of a page or a pane.
+- `label` (or `labelledBy`) names the list. `listRef`, `onScroll` and `data-*`
+  go to the tablist element; `testId` and `itemTestId` set test ids.
+- `TabPanel` takes `idPrefix`, `value` (the selected id) or `panelId`. Give it
+  `tabIndex={0}` when it starts with text and no control.
+
+Do: use tabs to switch views. Don't: use tabs to filter a list (that is
+`Segmented`) or to set a value (`Segmented mode="radio"`), and do not write
+`role="tab"` markup in a page.
 
 ## Switch
 
@@ -407,6 +468,99 @@ These are classes of the vendored kit, not React components. Put them in a
   once, use `Switch`.
 - A raw `<input type="checkbox">` with no `dk-check` is a violation of
   `lint:ui-kit`.
+- A select inside a list row (the access of one member, the mode of one
+  resource) uses the compact size: `dk-select-wrap dk-select-wrap--sm`. It has
+  the height of a `sm` button and the width of its longest option.
+
+## Native select or ListPicker
+
+One rule for a choice from a list:
+
+- Use a native `dk-select` in `dk-select-wrap` when the options are a short
+  list that the person reads at a glance (about 8 or fewer, such as an access
+  mode, a time range, or a project of a form), every option is one line of
+  plain text, and one value is chosen. The browser gives the keyboard, the
+  phone picker and the form behaviour for free.
+- Use `ListPicker` when one of these is true: the list can be long or comes
+  from data that grows (models, backends, agents in a toolbar), so a filter box
+  helps; a row needs more than plain text (a mono id, tags, a dot, a second
+  line); several values can be chosen; or the trigger is a chip in a toolbar or
+  the composer, not a form field.
+- Never style a native `select` with a page class or `dk-input`, and never
+  write a new dropdown. `SearchableSelect` is ListPicker with the old props;
+  new code uses `ListPicker`.
+
+## ListPicker
+
+```jsx
+import { ListPicker } from '../components/ui'
+
+<ListPicker
+  ariaLabel="Backend" variant="field" icon="server"
+  items={[
+    { id: 'llama-cpp', label: 'llama-cpp', mono: true, group: 'Text', tags: ['GPU'] },
+    { id: 'whisper', label: 'whisper', mono: true, group: 'Audio', description: 'Speech to text' },
+  ]}
+  noneLabel="Auto" value={backend} onChange={setBackend}
+/>
+```
+
+A trigger and a menu: the menu has a filter box, the rows and an optional
+footer. It is the picker of the Home composer (`ModelPicker` draws it), and the
+look of every menu of a chip.
+
+| Prop | Notes |
+|---|---|
+| `items` | The rows (shape below). |
+| `value`, `onChange(value)` | An id; with `multiple`, an array of ids. A pick in a single choice closes the menu and returns focus to the trigger. |
+| `multiple` | Several picks: the menu stays open, a chosen row shows a check, the trigger shows the picked labels and a count. `showCount={false}` hides the count. |
+| `variant` | `chip` (default): the compact chip (`--ctl-h-sm`) for a toolbar. `field`: a form control with `--ctl-h` that fills its field. |
+| `icon`, `placeholder` | The trigger's icon and its text when nothing is chosen. |
+| `ariaLabel`, `labelledBy`, `id` | The trigger's name. With `ariaLabel`, the chosen text is its description. With a visible `<label htmlFor={id}>`, pass `id`. `label` names the listbox when it differs. |
+| `noneLabel` | A first row that empties the value (`''`, or `[]`). It stays on top while filtering. |
+| `clearable`, `clearLabel` | A button beside the trigger that empties a single choice. |
+| `filter`, `filterFrom` | `true` always shows the filter box, `false` never; left out, it shows from `filterFrom` rows (8). |
+| `filterLabel`, `filterPlaceholder` | The words of the filter box. |
+| `filterItems(items, query)` | Your own filter; it can add rows (a "use what I typed" row). The default matches the label, the secondary text, the description, the id and `keywords`. |
+| `groups` | `{ [group]: heading }`. A row with `group` starts a block with its heading when the row before has another group. Without an entry, the group itself is the heading. |
+| `heading` | One heading over the whole list. |
+| `loading`, `loadingText` | A loading row. |
+| `empty`, `emptyText`, `noMatchText` | The row when nothing is shown: `emptyText` when the list is empty (`empty` overrides that test), `noMatchText` when the filter matches nothing. |
+| `disabled`, `invalid`, `openable` | `openable={false}` keeps a trigger enabled but the menu closed. |
+| `renderRow(row, { selected, active, index })` | Your own row content inside the `option`. |
+| `onPick(row)` | Replaces the default pick: you call `onChange`. A row with `closes` closes a multiple menu. |
+| `before`, `footer` | Content over the trigger (chips of the picks) and under the list. |
+| `triggerContent`, `triggerClassName`, `triggerProps` | Your own trigger content (the caret is always drawn), an extra class, and attributes for the button. |
+| `className`, `menuClassName`, `style` | Extra classes on the root and the menu. |
+| `testId` | `data-testid` of the trigger; the menu is `<testId>-menu` and the count `<testId>-count`. |
+| `onOpen` | Called when the menu opens. |
+
+The ref has `open()`, `close()` and `focus()`.
+
+A row: `{ id, label, key, mono, secondary, description, icon, dot, tags,
+group, keywords, disabled, title, selected, closes, rich }`.
+
+- `mono` draws the label in mono (an id). `secondary` is short text at the end
+  (a size, "warm"). `description` is a second line.
+- `dot`: `true` a green dot (loaded, running), `false` the empty dot (cold).
+  Leave it out for no dot.
+- `tags`: strings or `{ label, kind, title }`. `kind="alias"` is the accent tag.
+- `disabled` keeps the row but it cannot be chosen (`aria-disabled`).
+- `selected` overrides the check that `value` gives.
+
+Keyboard: ArrowDown on the trigger opens the menu. In the menu the focus is in
+the filter box (or the list); ArrowUp and ArrowDown move the active row and
+wrap, Home and End go to the ends when the filter is empty, Enter picks the
+active row, Escape closes and returns focus to the trigger, and Tab moves to a
+button of the footer or, when the focus leaves the menu, closes it. A click
+outside closes. The pure rules are in `listPickerModel.js`
+(`tests/unit/listpicker.test.mjs`); `e2e/list-picker.spec.js` drives the
+catalog example.
+
+The CSS is `picker.css` in this folder, loaded by `main.jsx` before
+`App.css`. The class names (`.home-chip`, `.home-menu*`, `.home-pick*`,
+`.home-dot`) keep the prefix of the page they started on, and pickers that do
+not use the component yet draw the same classes.
 
 ## SideSheet
 
@@ -428,3 +582,65 @@ These are classes of the vendored kit, not React components. Put them in a
 - Never write `dk-sheet` markup in a page and never set a width on a sheet.
 - A form with more than about eight fields becomes steps or a disclosure, with
   the required fields first.
+- Props for a page that lays out its own content: `className`, `veilClass`,
+  `bodyClass`, `footClass` (never a width), `bodyProps` and `footProps`
+  (`aria-busy`, `data-*`), `initialFocus` (`'close'` to start on the close
+  button, or a selector), `pending` (cannot be closed while an action runs)
+  and `describedBy`.
+- It is a modal layer (`utils/modalLayers.js`): a dialog opened over it takes
+  Escape and Tab, and the sheet stays open under it.
+
+## Dialog and ConfirmDialog
+
+```jsx
+<Dialog title="Move 2 files" description="To a folder of this workspace." onClose={close}
+  foot={<><Button variant="ghost" onClick={close}>Cancel</Button><Button variant="primary" onClick={move}>Move here</Button></>}>
+  …the body…
+</Dialog>
+
+<ConfirmDialog open={!!target} danger title={`Delete ${target?.name}?`} message="The files stay on disk."
+  confirmLabel="Delete" pending={busy} onConfirm={remove} onCancel={() => setTarget(null)} />
+```
+
+- `import Dialog from '../components/Dialog'` and
+  `import ConfirmDialog from '../components/ConfirmDialog'` (not exported from
+  `components/ui`). 480 px, or 720 px with `wide`.
+- `Dialog` draws the portal, the veil, the head (title, description, close),
+  the scrolling body and the foot. It moves focus in (to an element with
+  `data-autofocus`, else the first field, else the primary button), keeps Tab
+  inside, closes on Escape or a click on the veil, and gives focus back. While
+  `pending` it cannot be closed. Like `SideSheet` it is a modal layer.
+- `ConfirmDialog` is a `Dialog` with `role="alertdialog"`, no close button,
+  Cancel and one confirm button (`danger` for a destructive action, with a
+  warning icon in the title). Focus starts on the confirm button, or on the
+  first field of the message while `confirmDisabled` is set.
+- `Modal` (`components/Modal.jsx`) is a `Dialog` with no head. It stays only
+  for add-ons (`sdk.ui.Modal`); core pages use `Dialog`.
+
+## ActionMenu and Popover
+
+- `ActionMenu` is a kebab button and a `role="menu"` list in a `Popover`:
+  arrow keys, Home, End, Enter and Escape, and focus back on the kebab.
+- `Popover` is a panel under `<body>` placed by its trigger. It closes on a
+  click outside and on Escape.
+- Both draw the kit's floating surface (`.popover` and `.action-menu*` in
+  `packages/ui-kit/css/kit.css`): the 12 px radius, the float shadow and the
+  6 px rise of the home model menu, with rows of a 6 px radius and the hover
+  wash. A page may place or size the kebab (`.action-menu__trigger`), never
+  restyle the surface.
+
+## Administration pages
+
+The pages of Administration (components/admin) share a template and a filter
+bar, both built on `Page` and `PageHeader`:
+
+- `AdminPage` (`components/admin/AdminPage.jsx`): the breadcrumb, a title with
+  the page's one primary action, an optional `SummaryStrip`, the content and the
+  page's side sheet. The breadcrumb comes from the Administration layout; a page
+  never writes its own. Use it for every new Administration page.
+- `AdminFilterBar` (`components/admin/AdminFilterBar.jsx`): a search field,
+  filter chips (`Segmented`), a Filters popover for the rest, and a sort at the
+  right. Name only the parts the page has.
+
+The Administration sidebar lists the pages from `components/hub/hubConfig.js`
+(`operateHub.groups`); a new page is an item there, with the gates it needs.

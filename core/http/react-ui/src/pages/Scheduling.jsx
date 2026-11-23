@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { modelsApi, nodesApi } from '../utils/api'
 import { labelIndex } from '../utils/nodeLabelSuggestions'
@@ -10,6 +10,7 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import RuleSheet from '../components/swarm/RuleSheet'
 import Icon from '../components/Icon'
 import './swarm.css'
+import { Button, EmptyState } from '../components/ui'
 
 const UNDO_MS = 6000
 const MATRIX_NODES = 8
@@ -47,8 +48,9 @@ function Sentence({ rule, t }) {
 // Rules say which model may run where. Each is written as a sentence, shows
 // where the model is loaded now, and opens in a side sheet to edit with a
 // preview of what the draft would do. Deleting waits a few seconds so it can be
-// taken back.
-export default function Scheduling() {
+// taken back. `embedded` is the Rules view of the Placement page, which draws
+// the title.
+export default function Scheduling({ embedded = false, newRequest = 0 }) {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('swarm')
   const [params, setParams] = useSearchParams()
@@ -80,6 +82,12 @@ export default function Scheduling() {
     setSheet({ editing: false, initial: { model_name: model, min_replicas: Number(params.get('min')) || 2, max_replicas: 0 } })
     setParams(current => { const next = new URLSearchParams(current); next.delete('new'); next.delete('min'); return next }, { replace: true })
   }, [params, setParams])
+
+  // The page's primary action (Placement draws it in the header) asks for a
+  // new rule: each press raises the counter.
+  useEffect(() => {
+    if (newRequest > 0) setSheet({ editing: false, initial: undefined })
+  }, [newRequest])
 
   const labels = useMemo(() => labelIndex(nodes), [nodes])
   const ready = nodeStatus === 'ready'
@@ -127,26 +135,31 @@ export default function Scheduling() {
   const matrixNodes = backendNodes.slice(0, MATRIX_NODES)
 
   return (
-    <div className="page page--wide sw-page" data-testid="placement-rules">
-      <h1 className="dk-sr-only">{t('rules.title')}</h1>
+    <div className={embedded ? 'sw-page' : 'page page--wide sw-page'} data-testid="placement-rules">
+      {!embedded && <h1 className="dk-sr-only">{t('rules.title')}</h1>}
 
       <div className="sw-bar sw-bar--lede">
         <p className="sw-note">{t('rules.lede')}</p>
-        <div className="sw-bar__acts">
-          <button type="button" className="dk-btn dk-btn--primary" onClick={() => setSheet({ editing: false, initial: undefined })}>
-            <Icon name="plus" /> {t('rules.new')}
-          </button>
-        </div>
+        {!embedded && (
+          <div className="sw-bar__acts">
+            <Button variant="primary" icon="plus" onClick={() => setSheet({ editing: false, initial: undefined })}>
+              {t('rules.new')}
+            </Button>
+          </div>
+        )}
       </div>
 
       <section className="sw-section" aria-labelledby="sw-rules-h">
         <h2 className="sw-h2" id="sw-rules-h">{t('rules.heading')} <span className="sw-count dk-mono">{visible.length}</span></h2>
         {loaded && visible.length === 0 ? (
-          <div className="dk-empty" data-testid="rules-empty">
-            <div className="dk-empty-icon"><Icon name="pin" /></div>
-            <h3 className="dk-empty-title">{t('rules.emptyTitle')}</h3>
-            <p className="dk-empty-text">{t('rules.empty')}</p>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="pin"
+            title={t('rules.emptyTitle')}
+            level={3}
+            body={t('rules.empty')}
+            testId="rules-empty"
+          />
         ) : (
           <ol className="sw-rules">
             {visible.map(rule => {

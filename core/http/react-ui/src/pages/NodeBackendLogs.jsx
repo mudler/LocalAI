@@ -11,6 +11,7 @@ import Icon from '../components/Icon'
 import './operate.css'
 import './swarm.css'
 import { shouldReconnect } from '../utils/logSocket'
+import { Button, EmptyState } from '../components/ui'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -172,13 +173,12 @@ export default function NodeBackendLogs() {
   if (!nodeId || !modelId) {
     return (
       <div className="page page--wide sw-page">
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="terminal" /></div>
-          <h2 className="dk-empty-title">{t('nodeLogs.noneTitle')}</h2>
-          <p className="dk-empty-text">
-            {t('nodeLogs.noneBefore')} <Link to="/app/nodes" className="dk-link">{t('nodeLogs.noneLink')}</Link>.
-          </p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="terminal"
+          title={t('nodeLogs.noneTitle')}
+          body={<>{t('nodeLogs.noneBefore')} <Link to="/app/nodes" className="dk-link">{t('nodeLogs.noneLink')}</Link>.</>}
+        />
       </div>
     )
   }
@@ -244,9 +244,9 @@ export default function NodeBackendLogs() {
             <button type="button" className="dk-switch" role="switch" aria-checked={showDetails} aria-label={to('logs.times')} onClick={() => setShowDetails(v => !v)} />
             <span aria-hidden="true">{to('logs.times')}</span>
           </span>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-            <Icon name="download" /> {to('logs.export')}
-          </button>
+          <Button variant="ghost" size="sm" icon="download" onClick={handleExport} disabled={filteredLines.length === 0}>
+            {to('logs.export')}
+          </Button>
         </div>
       </div>
 
@@ -255,15 +255,14 @@ export default function NodeBackendLogs() {
           <LoadingSpinner size="lg" />
         </div>
       ) : filteredLines.length === 0 ? (
-        <div className="dk-empty lg-empty">
-          <div className="dk-empty-icon"><Icon name="terminal" /></div>
-          <h2 className="dk-empty-title">{to('logs.emptyTitle')}</h2>
-          <p className="dk-empty-text">
-            {filter !== 'all'
+        <EmptyState
+          variant="first-run"
+          icon="terminal"
+          title={to('logs.emptyTitle')}
+          body={filter !== 'all'
               ? to('logs.emptyStream', { stream: filter })
               : text.trim() ? to('logs.emptyFilter') : to('logs.emptyBody')}
-          </p>
-        </div>
+        />
       ) : (
         <div ref={logContainerRef} className="lg-log" role="log" aria-label={to('logs.output')} tabIndex={0}>
           {filteredLines.map((line, i) => (

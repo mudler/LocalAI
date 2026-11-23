@@ -51,8 +51,8 @@
     "users": "Utenti",
     "backends": "Backend",
     "traces": "Tracce",
-    "nodes": "Nodi",
-    "scheduling": "Pianificazione",
+    "nodes": "Worker",
+    "scheduling": "Posizionamento",
     "swarm": "Swarm",
     "system": "Sistema",
     "settings": "Impostazioni",
@@ -62,7 +62,7 @@
     "overview": "Panoramica",
     "thisMachine": "Questa macchina",
     "failover": "Failover",
-    "p2p": "P2P",
+    "p2p": "Condivisione",
     "addons": "Componenti aggiuntivi",
     "voiceLibrary": "Voice Library",
     "logs": "Logs",
@@ -76,7 +76,8 @@
     "chatsAdmin": "Chat di tutti gli utenti",
     "pages": "Pagine",
     "allChats": "Tutte le chat",
-    "inbox": "Notifiche"
+    "inbox": "Notifiche",
+    "apiKeys": "Chiavi API"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "Attività",
   "navLinkExternal": "Apre {{site}} in una nuova scheda dopo la conferma",
   "navLinkAsk": "Aprire questo collegamento?",
-  "startPage": "Pagina iniziale"
+  "startPage": "Pagina iniziale",
+  "admin": {
+    "nav": {
+      "overview": "Panoramica",
+      "apiReference": "Riferimento API",
+      "back": "Torna a {{name}}",
+      "search": "Cerca",
+      "label": "Amministrazione",
+      "crumbs": "Percorso"
+    },
+    "groups": {
+      "machine": "Questa macchina",
+      "cluster": "Cluster",
+      "runtime": "Modelli e runtime",
+      "access": "Accesso"
+    },
+    "palette": {
+      "label": "Cerca nell'amministrazione",
+      "input": "Cerca pagine, persone, worker e impostazioni",
+      "placeholder": "Pagine, persone, worker, impostazioni",
+      "results": "Risultati",
+      "none": "Nessun risultato per \"{{query}}\".",
+      "move": "sposta",
+      "open": "apri",
+      "kinds": {
+        "page": "Pagine",
+        "setting": "Impostazioni",
+        "worker": "Worker",
+        "person": "Persone"
+      }
+    },
+    "filters": {
+      "label": "Filtri",
+      "active": "{{count}} impostati",
+      "sort": "Ordina"
+    }
+  }
 }

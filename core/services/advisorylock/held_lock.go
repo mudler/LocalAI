@@ -10,6 +10,8 @@ import (
 
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/pkg/dbdialect"
 )
 
 // heldLockCheckTimeout bounds an acquire, the liveness check and the unlock,
@@ -71,7 +73,7 @@ func (l *HeldLock) TryAcquire(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	if !isPostgres(l.db) {
+	if !dbdialect.IsPostgres(l.db) {
 		select {
 		case localLockChan(l.key) <- struct{}{}:
 			l.local = true

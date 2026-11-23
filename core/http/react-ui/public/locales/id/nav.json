@@ -53,8 +53,8 @@
     "backends": "Backend",
     "voiceLibrary": "Pustaka Suara",
     "traces": "Trace",
-    "nodes": "Node",
-    "scheduling": "Penjadwalan",
+    "nodes": "Worker",
+    "scheduling": "Penempatan",
     "swarm": "Swarm",
     "system": "Sistem",
     "settings": "Pengaturan",
@@ -63,7 +63,7 @@
     "overview": "Ikhtisar",
     "thisMachine": "Mesin ini",
     "failover": "Failover",
-    "p2p": "P2P",
+    "p2p": "Berbagi",
     "addons": "Add-on",
     "logs": "Logs",
     "trafficModels": "Models",
@@ -76,7 +76,8 @@
     "chatsAdmin": "Obrolan semua pengguna",
     "pages": "Halaman",
     "allChats": "Semua obrolan",
-    "inbox": "Notifikasi"
+    "inbox": "Notifikasi",
+    "apiKeys": "Kunci API"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "Aktivitas",
   "navLinkExternal": "Membuka {{site}} di tab baru setelah Anda konfirmasi",
   "navLinkAsk": "Buka tautan ini?",
-  "startPage": "Halaman awal"
+  "startPage": "Halaman awal",
+  "admin": {
+    "nav": {
+      "overview": "Ringkasan",
+      "apiReference": "Referensi API",
+      "back": "Kembali ke {{name}}",
+      "search": "Cari",
+      "label": "Administrasi",
+      "crumbs": "Jalur navigasi"
+    },
+    "groups": {
+      "machine": "Mesin ini",
+      "cluster": "Klaster",
+      "runtime": "Model dan runtime",
+      "access": "Akses"
+    },
+    "palette": {
+      "label": "Cari di Administrasi",
+      "input": "Cari halaman, orang, worker, dan pengaturan",
+      "placeholder": "Cari halaman, orang, worker, pengaturan",
+      "results": "Hasil",
+      "none": "Tidak ada yang cocok dengan \"{{query}}\".",
+      "move": "pindah",
+      "open": "buka",
+      "kinds": {
+        "page": "Halaman",
+        "setting": "Pengaturan",
+        "worker": "Worker",
+        "person": "Orang"
+      }
+    },
+    "filters": {
+      "label": "Filter",
+      "active": "{{count}} diatur",
+      "sort": "Urutkan"
+    }
+  }
 }

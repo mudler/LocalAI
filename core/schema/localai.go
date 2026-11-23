@@ -189,26 +189,6 @@ type StoresFindResponse struct {
 	Similarities []float32   `json:"similarities" yaml:"similarities"`
 }
 
-type NodeData struct {
-	Name          string
-	ID            string
-	TunnelAddress string
-	ServiceID     string
-	LastSeen      time.Time
-}
-
-func (d NodeData) IsOnline() bool {
-	now := time.Now()
-	// if the node was seen in the last 40 seconds, it's online
-	return now.Sub(d.LastSeen) < 40*time.Second
-}
-
-type P2PNodesResponse struct {
-	LlamaCPPNodes  []NodeData `json:"llama_cpp_nodes" yaml:"llama_cpp_nodes"`
-	FederatedNodes []NodeData `json:"federated_nodes" yaml:"federated_nodes"`
-	MLXNodes       []NodeData `json:"mlx_nodes" yaml:"mlx_nodes"`
-}
-
 type SysInfoModel struct {
 	ID string `json:"id"`
 	// Backend is the engine serving this model. The loader knows only the ID,
@@ -619,10 +599,11 @@ type KnownBackend struct {
 	AutoDetect  bool   `json:"auto_detect"`
 	Description string `json:"description,omitempty"`
 	// Installed is true when the backend is currently present on disk — i.e. it
-	// appears in gallery.ListSystemBackends(systemState). Importer-registered or
-	// curated pref-only backends default to false unless they also show up on
-	// disk. The import form uses this to warn users that submitting an import
-	// may trigger an automatic backend download.
+	// appears in gallery.ListSystemBackends(systemState) — or, in distributed
+	// mode, on any worker node. Importer-registered or curated pref-only
+	// backends default to false unless they are installed somewhere. The import
+	// form uses this to warn users that submitting an import may trigger an
+	// automatic backend download.
 	Installed bool `json:"installed"`
 }
 

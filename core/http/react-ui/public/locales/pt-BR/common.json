@@ -207,5 +207,12 @@
       "unavailable": "O compartilhamento não respondeu. Tente de novo em instantes.",
       "generic": "Algo deu errado."
     }
+  },
+  "picker": {
+    "filter": "Filtrar",
+    "loading": "Carregando",
+    "empty": "Ainda não há nada para escolher",
+    "noMatch": "Nenhum resultado",
+    "clear": "Limpar"
   }
 }

@@ -450,7 +450,7 @@ func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *sy
 // @Tags backends
 // @Success 200 {object} []schema.KnownBackend "Response"
 // @Router /backends/known [get]
-func (mgs *BackendEndpointService) ListKnownBackendsEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+func (mgs *BackendEndpointService) ListKnownBackendsEndpoint(systemState *system.SystemState, clusterInstalled ClusterInstalledProvider) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// byName dedupes entries while preserving "importer wins over
 		// pref-only" priority. Insertion order: importers → drop-ins →
@@ -486,30 +486,37 @@ func (mgs *BackendEndpointService) ListKnownBackendsEndpoint(systemState *system
 			byName[pref.Name] = pref
 		}
 
-		// Surface backends installed on this host and flag them as such.
-		// Importer/pref-only entries that are also on disk get Installed=true
-		// while keeping their metadata. System-only backends join the map
-		// with empty Modality (we can't classify them) and AutoDetect=false
-		// because they require an explicit preference.
+		// Surface backends installed on this host, or on any node of the
+		// cluster, and flag them as such. Importer/pref-only entries that are
+		// also installed get Installed=true while keeping their metadata.
+		// System-only backends join the map with empty Modality (we can't
+		// classify them) and AutoDetect=false because they require an
+		// explicit preference.
+		markInstalled := func(name string) {
+			if entry, exists := byName[name]; exists {
+				entry.Installed = true
+				byName[name] = entry
+				return
+			}
+			byName[name] = schema.KnownBackend{
+				Name:       name,
+				Modality:   "",
+				AutoDetect: false,
+				Installed:  true,
+			}
+		}
 		if systemState != nil {
 			installed, err := gallery.ListSystemBackends(systemState)
 			if err != nil {
 				xlog.Debug("ListKnownBackendsEndpoint: failed to list installed backends", "error", err)
 			} else {
 				for name := range installed {
-					if entry, exists := byName[name]; exists {
-						entry.Installed = true
-						byName[name] = entry
-						continue
-					}
-					byName[name] = schema.KnownBackend{
-						Name:       name,
-						Modality:   "",
-						AutoDetect: false,
-						Installed:  true,
-					}
+					markInstalled(name)
 				}
 			}
+		}
+		for name := range resolveClusterInstalled(c.Request().Context(), clusterInstalled) {
+			markInstalled(name)
 		}
 
 		out := make([]schema.KnownBackend, 0, len(byName))

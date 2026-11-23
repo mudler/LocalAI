@@ -21,6 +21,23 @@ func (a *Application) Remotes() remotes.Service { return a.remotes }
 // for tests of the code that reads it.
 func (a *Application) SetRemotes(s remotes.Service) { a.remotes = s }
 
+// Federation returns the federation groups service, or nil when the remotes
+// store could not be opened. It shares the store and the tunnels of the
+// remotes service and reads the live state of the groups from the failover
+// manager.
+func (a *Application) Federation() remotes.Federation { return a.federation }
+
+// limitedP2PRemote reports whether a model is an entry of a remote over P2P
+// whose last request went through a relay that limits the connection. A
+// federation group sends such a model a request only when no other member
+// can take it, so bulk traffic does not run into the relay's limits.
+func (a *Application) limitedP2PRemote(cfg config.ModelConfig) bool {
+	if cfg.Proxy.Remote == "" || a.distributed != nil {
+		return false
+	}
+	return a.RemoteTunnels().Status(cfg.Proxy.Remote).Limited
+}
+
 // ModelRevisionLifecycle returns the lifecycle that applies a model config
 // change: local shutdown in standalone mode, the node registry in a cluster.
 // The model routes, the startup wiring and the remotes service share it.
@@ -72,12 +89,33 @@ func (a *Application) startRemotes(ctx context.Context) {
 	if a.galleryService != nil {
 		opts.Broadcaster = a.galleryService
 	}
+	if a.distributed == nil {
+		// A model of a remote over P2P loads in this process and reaches the
+		// remote through this server's loopback forwarder. In distributed
+		// mode it may load on a worker, which cannot, so such remotes are
+		// refused there.
+		opts.Tunnels = a.RemoteTunnels()
+	}
 	svc, err := remotes.New(opts)
 	if err != nil {
 		xlog.Error("Remotes are unavailable", "error", err)
 		return
 	}
 	a.remotes = svc
+	var chains remotes.ChainStatuses
+	if a.failoverManager != nil {
+		chains = a.failoverManager
+	}
+	if fed, err := remotes.NewFederation(opts, chains); err != nil {
+		xlog.Error("Federation groups are unavailable", "error", err)
+	} else {
+		a.federation = fed
+		if a.assistantClient != nil {
+			a.assistantClient.Federation = fed
+		}
+	}
+	// Register the forwarders before P2P starts, so they open with it.
+	remotes.StartTunnels(ctx, svc)
 	// One resolver per process: the key of a model load comes from here.
 	config.SetProxyKeyResolver(svc)
 

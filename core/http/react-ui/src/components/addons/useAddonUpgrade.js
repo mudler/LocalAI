@@ -1,8 +1,11 @@
 import { useAuth } from '../../context/AuthContext'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { newOperationId } from '../catalog/catalogState'
 import { addonUpgrades } from '../../utils/addonUpgrades'
 import { useAddonUpgrades } from '../../hooks/useAddonUpgrades'
+import { useOperations } from '../../hooks/useOperations'
+import { operationsApi } from '../../utils/api'
+import { overlayLive } from '../../utils/addonUpgradeRows'
 
 // The single-add-on upgrade and update check, shared by every view that shows
 // the "update available" notice (the list, the details and Browse) and by the
@@ -37,6 +40,12 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
     saveChecks(old => ({ actor, value: typeof value === 'function' ? value(old.actor === actor ? old.value : {}) : value }))
   }, [actor, current])
   const upgrades = useAddonUpgrades()
+  // What the server says about each job (waiting, how far, cancellable) lies
+  // over the entries of the store, so every view shows the real state.
+  const { operations } = useOperations()
+  const live = useMemo(() => overlayLive(upgrades.live, operations), [upgrades.live, operations])
+  // The canceled operations whose note the person has closed.
+  const [closedNotes, setClosedNotes] = useState(() => new Set())
   const changed = useRef(onChanged)
   changed.current = onChanged
   useEffect(() => {
@@ -52,6 +61,18 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
   const upgrade = useCallback(async (addon) => {
     if (!current()) return null
     const out = await addonUpgrades.start(api, addon, { current: origin.sessionCurrent })
+    if (!current()) return null
+    if (changed.current) changed.current(addon)
+    return out
+  }, [api, current, origin])
+
+  // Runs the upgrade of a held add-on the administrator approved in the host
+  // access dialog, as the same operation of the store: `request` is
+  // { key, fingerprint, version, send }, see ApproveUpgradeDialog. It never
+  // throws and resolves like `upgrade`.
+  const approve = useCallback(async (addon, request) => {
+    if (!current()) return null
+    const out = await addonUpgrades.startApproved(api, addon, { ...request, current: origin.sessionCurrent })
     if (!current()) return null
     if (changed.current) changed.current(addon)
     return out
@@ -76,12 +97,26 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
   }, [api, current, setChecks, origin])
 
   // The upgrade of one add-on the store follows, or null.
-  const opOf = useCallback((id) => upgrades.live.find(op => op.addonId === id) || null, [upgrades.live])
+  const opOf = useCallback((id) => live.find(op => op.addonId === id) || null, [live])
   // Whether an upgrade of the add-on is running or being canceled.
   const working = useCallback((id) => {
     const op = opOf(id)
     return Boolean(op) && (op.state === 'running' || op.state === 'cancelling')
   }, [opOf])
 
-  return { confirm, ask: setConfirm, upgrade, check, checks, opOf, working, records: upgrades.records }
+  // Cancels the operation on the server by its job, through the cancel route
+  // the Activity page uses; the store reads how the owner ended it.
+  const cancel = useCallback((op) => addonUpgrades.cancel(op.jobID, (jobId) => operationsApi.cancel(jobId)), [])
+  const dismiss = useCallback((op) => addonUpgrades.dismiss(op.jobID), [])
+
+  // The note of the add-on's last operation when it was canceled and no other
+  // operation of it runs, until the person closes it.
+  const noteOf = useCallback((id) => {
+    if (live.some(op => op.addonId === id)) return null
+    const last = upgrades.records.find(r => r.addonId === id)
+    return last && last.outcome === 'cancelled' && !closedNotes.has(last.jobID) ? last : null
+  }, [live, upgrades.records, closedNotes])
+  const closeNote = useCallback((note) => setClosedNotes(set => new Set(set).add(note.jobID)), [])
+
+  return { confirm, ask: setConfirm, upgrade, approve, check, checks, opOf, working, cancel, dismiss, noteOf, closeNote, records: upgrades.records }
 }

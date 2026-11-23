@@ -610,6 +610,27 @@
       "all": "모든 프로젝트",
       "none": "프로젝트 없음",
       "empty": "이 선택에 해당하는 트리거가 없습니다."
+    },
+    "reports": {
+      "label": "보고 대상",
+      "inbox": "받은 편지함",
+      "channel": "채널 {{channel}}",
+      "chat": "채팅 {{chat}}",
+      "thread": "채팅 {{chat}}의 스레드",
+      "problem": {
+        "off": "연결이 꺼져 있습니다",
+        "gone": "연결이 삭제되었습니다",
+        "unavailable": "연결을 사용할 수 없습니다",
+        "no_channel": "승인되지 않은 채널",
+        "blocked": "전송이 허용되지 않습니다"
+      },
+      "fallback": "해결될 때까지 보고서는 받은 편지함으로 갑니다.",
+      "manage": "연결 관리",
+      "connections": "연결 열기",
+      "mode": {
+        "on_change": "답변이 바뀔 때만",
+        "on_problem": "실행이 실패할 때만"
+      }
     }
   },
   "views": {

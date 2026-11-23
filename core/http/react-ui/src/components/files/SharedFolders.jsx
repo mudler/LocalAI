@@ -168,18 +168,22 @@ function MembersPane({ folder, users, usersFailed, onSet, onRemove, onClose, t }
               <div className="sf-add__fields">
                 <label className="sf-field">
                   <span className="sf-field__label">{t('shared.person')}</span>
-                  <select className="input" value={who} onChange={(e) => setWho(e.target.value)} data-testid="sf-add-who">
-                    {choices.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
+                  <span className="dk-select-wrap">
+                    <select className="dk-select" value={who} onChange={(e) => setWho(e.target.value)} data-testid="sf-add-who">
+                      {choices.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                  </span>
                 </label>
                 <label className="sf-field sf-field--mode">
                   <span className="sf-field__label">{t('shared.access')}</span>
-                  <select className="input" value={mode} onChange={(e) => setMode(e.target.value)} data-testid="sf-add-mode">
-                    <option value="read">{t('shared.mode.read')}</option>
-                    <option value="write">{t('shared.mode.write')}</option>
-                  </select>
+                  <span className="dk-select-wrap">
+                    <select className="dk-select" value={mode} onChange={(e) => setMode(e.target.value)} data-testid="sf-add-mode">
+                      <option value="read">{t('shared.mode.read')}</option>
+                      <option value="write">{t('shared.mode.write')}</option>
+                    </select>
+                  </span>
                 </label>
-                <Button type="submit" variant="primary" size="sm" icon="plus" busy={busy} data-testid="sf-add-submit">{t('shared.add')}</Button>
+                <Button type="submit" variant="primary" icon="plus" busy={busy} data-testid="sf-add-submit">{t('shared.add')}</Button>
               </div>
             ) : (
               <p className="sf-hint">{t('shared.allAdded')}</p>
@@ -200,13 +204,15 @@ function MembersPane({ folder, users, usersFailed, onSet, onRemove, onClose, t }
                     {m.everyone && <span className="sf-member__note">{t('shared.everyoneHint')}</span>}
                   </span>
                   <label className="sf-sr" htmlFor={`sf-mode-${m.principal}`}>{t('shared.accessFor', { name: memberName(m, t) })}</label>
-                  <select
-                    id={`sf-mode-${m.principal}`} className="input sf-member__mode" value={m.mode} data-testid="sf-member-mode"
-                    onChange={(e) => onSet(folder, m.principal, e.target.value, false)}
-                  >
-                    <option value="read">{t('shared.mode.read')}</option>
-                    <option value="write">{t('shared.mode.write')}</option>
-                  </select>
+                  <span className="dk-select-wrap dk-select-wrap--sm">
+                    <select
+                      id={`sf-mode-${m.principal}`} className="dk-select" value={m.mode} data-testid="sf-member-mode"
+                      onChange={(e) => onSet(folder, m.principal, e.target.value, false)}
+                    >
+                      <option value="read">{t('shared.mode.read')}</option>
+                      <option value="write">{t('shared.mode.write')}</option>
+                    </select>
+                  </span>
                   <Button
                     variant="danger-ghost" size="sm" icon="close" aria-label={t('shared.removeMember', { name: memberName(m, t) })}
                     title={t('shared.removeMember', { name: memberName(m, t) })} onClick={() => onRemove(folder, m)} data-testid="sf-member-remove"

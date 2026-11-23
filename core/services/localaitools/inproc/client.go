@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"os"
 	"path/filepath"
 	"slices"
@@ -24,12 +25,15 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
+	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/core/services/routing/billing"
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
@@ -69,6 +73,11 @@ type Client struct {
 	// none. It is read at each call because the checker starts after the
 	// client is built.
 	UpdatesChecker func() BackendUpdatesSource
+	// ModelUpdatesService and ModelUpgrader return the model update check and the
+	// runner of model upgrades, or nil when no model gallery is configured.
+	// They are read at each call: both start after the client is built.
+	ModelUpdatesService func() *modelupdates.Service
+	ModelUpgrader       func() *modelupdates.Upgrader
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -114,6 +123,27 @@ type Client struct {
 	// running" — the same as a deployment with no failover chains
 	// configured.
 	Failover *failover.Manager
+
+	// CarrierWeights backs get_carrier_weights and set_carrier_weights. nil on a
+	// frontend that is not distributed, where the tools report distributed=false.
+	// *cluster.SettingsStore is one.
+	CarrierWeights CarrierWeightsStore
+
+	// P2P backs the P2P tools. nil makes them report that P2P is not
+	// available.
+	P2P p2papi.Service
+
+	// Federation backs list_federation and manage_federation_group. nil
+	// makes them report that federation is not available.
+	Federation remotes.Federation
+	// P2PSplit backs the model-split worker tools. nil makes them report
+	// that P2P is not available.
+	P2PSplit p2papi.SplitService
+	// SplitDetacher detaches the split workers of a node whose split server
+	// declaration was cleared. nil leaves it to the next reload.
+	SplitDetacher interface {
+		DetachSplitWorkers(ctx context.Context, nodeID string) (int, error)
+	}
 
 	// SharedFolders backs the shared folder tools. It is read at each call,
 	// because the chats start after the assistant; nil or a nil service makes
@@ -698,6 +728,112 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	return id.String(), nil
 }
 
+// ---- Model updates ----
+
+var errModelUpgradesOff = errors.New("model upgrades are not available: no model gallery is configured")
+
+func (c *Client) modelUpdates() *modelupdates.Service {
+	if c.ModelUpdatesService == nil {
+		return nil
+	}
+	return c.ModelUpdatesService()
+}
+
+func (c *Client) modelUpgrader() *modelupdates.Upgrader {
+	if c.ModelUpgrader == nil {
+		return nil
+	}
+	return c.ModelUpgrader()
+}
+
+func (c *Client) ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	svc := c.modelUpdates()
+	if svc == nil {
+		return nil, errModelUpgradesOff
+	}
+	snap := svc.Snapshot(ctx)
+	return &snap, nil
+}
+
+func (c *Client) CheckModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {
+	svc := c.modelUpdates()
+	if svc == nil {
+		return nil, errModelUpgradesOff
+	}
+	snap := svc.CheckNow(ctx)
+	return &snap, nil
+}
+
+// queueModelUpgrade refuses what the REST route refuses (the same
+// modelupdates.CheckRequest) and queues the operation the same way.
+func (c *Client) queueModelUpgrade(name string, opts galleryop.ModelUpgradeOptions) (string, error) {
+	if name == "" {
+		return "", errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil || c.Gallery == nil {
+		return "", errModelUpgradesOff
+	}
+	if err := modelupdates.CheckRequest(up, c.modelUpdates(), name, opts.Retry, opts.Choices); err != nil {
+		return "", err
+	}
+	return c.Gallery.EnqueueModelUpgrade(name, opts)
+}
+
+func (c *Client) UpgradeModel(_ context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: configOnly, Choices: choices})
+}
+
+func (c *Client) RetryModelUpgrade(_ context.Context, name string) (string, error) {
+	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{Retry: true})
+}
+
+func (c *Client) RemoveOldModelVersion(ctx context.Context, name string) (*localaitools.ModelRemoveOldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	res, err := up.RemoveOldVersion(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	// Some files removed and some kept (shared): report both, as the REST
+	// route does.
+	return &localaitools.ModelRemoveOldResult{Name: name, Removed: res.Removed, Kept: res.Kept, Errors: res.Errors}, nil
+}
+
+func (c *Client) AdoptModel(ctx context.Context, name, galleryName, entry string) (*localaitools.ModelAdoptResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	res, err := up.Adopt(ctx, modelupdates.AdoptRequest{Name: name, Gallery: galleryName, Entry: entry})
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelAdoptResult{Name: res.Name, Gallery: res.Gallery, Entry: res.Entry, FilesMatch: res.FilesMatch}, nil
+}
+
+func (c *Client) SetModelHold(ctx context.Context, name string, hold bool) (*localaitools.ModelHoldResult, error) {
+	if name == "" {
+		return nil, errors.New("name is required")
+	}
+	up := c.modelUpgrader()
+	if up == nil {
+		return nil, errModelUpgradesOff
+	}
+	if err := up.SetHold(ctx, name, hold); err != nil {
+		return nil, err
+	}
+	return &localaitools.ModelHoldResult{Name: name, Hold: hold}, nil
+}
+
 // ---- System ----
 
 func (c *Client) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error) {
@@ -776,11 +912,21 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 	absThr := 0
 	relThr := 0.0
 	minMatch := 0.0
+	var scorerWeights map[string]float64
+	upgradeStrategy := ""
 	if existing != nil {
 		routePolicy = existing.RoutePolicy
 		absThr = existing.BalanceAbsThreshold
 		relThr = existing.BalanceRelThreshold
 		minMatch = existing.MinPrefixMatch
+		scorerWeights = existing.ScorerWeights
+		upgradeStrategy = existing.UpgradeStrategy
+	}
+	if req.UpgradeStrategy != nil {
+		upgradeStrategy = *req.UpgradeStrategy
+	}
+	if !nodes.ValidUpgradeStrategy(upgradeStrategy) {
+		return nil, fmt.Errorf("upgrade_strategy must be %q or %q", nodes.UpgradeStrategyStopAndStart, nodes.UpgradeStrategyCanary)
 	}
 	if req.RoutePolicy != nil {
 		routePolicy = *req.RoutePolicy
@@ -837,6 +983,8 @@ func (c *Client) SetScheduling(ctx context.Context, req localaitools.SetScheduli
 		BalanceAbsThreshold: absThr,
 		BalanceRelThreshold: relThr,
 		MinPrefixMatch:      minMatch,
+		ScorerWeights:       scorerWeights,
+		UpgradeStrategy:     upgradeStrategy,
 	}
 	if err := c.NodeRegistry.SetModelScheduling(ctx, config); err != nil {
 		return nil, err
@@ -853,6 +1001,29 @@ func (c *Client) DeleteScheduling(ctx context.Context, modelName string) error {
 		return errors.New("model scheduling is only available in distributed mode")
 	}
 	return c.NodeRegistry.DeleteModelScheduling(ctx, modelName)
+}
+
+func (c *Client) SetNodeSplitServer(ctx context.Context, nodeID string, on bool) (*localaitools.NodeSplitServer, error) {
+	if c.NodeRegistry == nil {
+		return nil, errors.New("split servers are only available in distributed mode")
+	}
+	n, err := c.NodeRegistry.Get(ctx, nodeID)
+	if err != nil {
+		return nil, fmt.Errorf("node %s not found", nodeID)
+	}
+	if n.NodeType == nodes.NodeTypeAgent {
+		return nil, errors.New("an agent node runs no models, so it cannot be a split server")
+	}
+	if err := c.NodeRegistry.SetSplitServer(ctx, nodeID, on); err != nil {
+		return nil, err
+	}
+	out := &localaitools.NodeSplitServer{NodeID: nodeID, SplitServer: on}
+	if !on && c.SplitDetacher != nil {
+		if out.Detached, err = c.SplitDetacher.DetachSplitWorkers(ctx, nodeID); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
 }
 
 func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
@@ -1285,6 +1456,189 @@ func (c *Client) ClearRouterCorpus(ctx context.Context, routerModel string) (*lo
 	return &localaitools.RouterCorpusClearResult{Router: cfg.Name, Cleared: cleared}, nil
 }
 
+// ---- Cluster carrier ----
+
+// CarrierWeightsStore is where the carrier weights live. *cluster.SettingsStore is one.
+type CarrierWeightsStore interface {
+	CarrierWeights(ctx context.Context) (cluster.CarrierWeights, error)
+	Apply(ctx context.Context, changes []cluster.SettingChange, by string) error
+}
+
+func carrierWeightsInfo(w cluster.CarrierWeights) *localaitools.CarrierWeightsInfo {
+	view := func(w cluster.CarrierWeights) *localaitools.CarrierWeightValues {
+		return &localaitools.CarrierWeightValues{NATS: w.NATS, WebSocket: w.WebSocket, P2P: w.P2P}
+	}
+	return &localaitools.CarrierWeightsInfo{Distributed: true, Weights: view(w), Defaults: view(cluster.DefaultCarrierWeights)}
+}
+
+func (c *Client) GetCarrierWeights(ctx context.Context) (*localaitools.CarrierWeightsInfo, error) {
+	if c.CarrierWeights == nil {
+		return &localaitools.CarrierWeightsInfo{Distributed: false}, nil
+	}
+	w, err := c.CarrierWeights.CarrierWeights(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return carrierWeightsInfo(w), nil
+}
+
+func (c *Client) SetCarrierWeights(ctx context.Context, req localaitools.SetCarrierWeightsRequest) (*localaitools.CarrierWeightsInfo, error) {
+	if c.CarrierWeights == nil {
+		return nil, errors.New("this server is not distributed: there are no carrier weights to set")
+	}
+	var batch []cluster.SettingChange
+	for _, p := range []struct {
+		key string
+		val *int
+	}{
+		{cluster.SettingCarrierWeightNATS, req.NATS},
+		{cluster.SettingCarrierWeightWebSocket, req.WebSocket},
+		{cluster.SettingCarrierWeightP2P, req.P2P},
+	} {
+		if p.val != nil {
+			batch = append(batch, cluster.SettingChange{Key: p.key, Value: strconv.Itoa(*p.val)})
+		}
+	}
+	if len(batch) == 0 {
+		return nil, errors.New("give at least one of nats, websocket or p2p")
+	}
+	by := "assistant"
+	if u := c.actingUser(ctx); u != nil {
+		by = u.Email
+		if by == "" {
+			by = u.ID
+		}
+	}
+	if err := c.CarrierWeights.Apply(ctx, batch, by); err != nil {
+		return nil, err
+	}
+	return c.GetCarrierWeights(ctx)
+}
+
+// ---- P2P ----
+
+var errNoP2P = errors.New("P2P is not available on this server")
+
+func (c *Client) GetP2PStatus(ctx context.Context) (*localaitools.P2PStatusInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	st, err := c.P2P.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.P2PStatusInfo{
+		Mode: st.Mode, Running: st.Running, Error: st.Error, PeerID: st.PeerID, Addrs: st.Addrs,
+		Reachability: st.Reachability, RelayService: st.RelayService.Running,
+		PendingInvites: st.PendingInvites, Devices: st.Devices,
+	}, nil
+}
+
+func (c *Client) ListP2PDevices(ctx context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	devs, err := c.P2P.ListDevices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PDeviceInfo, 0, len(devs))
+	for _, d := range devs {
+		out = append(out, localaitools.P2PDeviceInfo{
+			ID: d.ID, Kind: d.Kind, Label: d.Label, PeerID: d.PeerID, Status: d.Status, Online: d.Online,
+			Path: d.Path.Kind, RelayLabel: d.Path.RelayLabel, LastSeenAt: d.LastSeenAt,
+			Models: d.Models, AllModels: d.AllModels,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) ListP2PInvites(ctx context.Context) ([]localaitools.P2PInviteInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	invs, err := c.P2P.ListInvites(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PInviteInfo, 0, len(invs))
+	for _, i := range invs {
+		out = append(out, localaitools.P2PInviteInfo{
+			ID: i.ID, Kind: i.Kind, Label: i.Label, Status: i.Status, ExpiresAt: i.ExpiresAt, DeviceID: i.DeviceID,
+			Phrase: i.Phrase, RelayPass: i.RelayPass, Models: i.Models, AllModels: i.AllModels,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) ListP2PRelays(ctx context.Context) ([]localaitools.P2PRelayInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	rs, err := c.P2P.ListRelays(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PRelayInfo, 0, len(rs))
+	for _, r := range rs {
+		out = append(out, localaitools.P2PRelayInfo{
+			ID: r.ID, Label: r.Label, Addr: r.Addr, Mode: r.Mode, State: r.State, Health: r.Health, Members: r.Members,
+		})
+	}
+	return out, nil
+}
+
+func (c *Client) GetP2PRelayLimits(ctx context.Context, id string) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.RelayLimits(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func (c *Client) SetP2PRelayLimits(ctx context.Context, id string, req localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	if c.P2P == nil {
+		return nil, errNoP2P
+	}
+	info, err := c.P2P.SetRelayLimits(ctx, id, p2papi.SetRelayLimitsRequest{
+		CircuitBytes: req.CircuitBytes, CircuitSeconds: req.CircuitSeconds, RateBPS: req.RateBPS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return relayLimitsInfo(info), nil
+}
+
+func relayLimitsInfo(i p2papi.RelayLimitsInfo) *localaitools.P2PRelayLimitsInfo {
+	return &localaitools.P2PRelayLimitsInfo{
+		CircuitBytes: i.Limits.CircuitBytes, CircuitSeconds: i.Limits.CircuitSeconds, RateBPS: i.Limits.RateBPS,
+		Ceiling:   localaitools.P2PRelayCeiling{CircuitBytes: i.Ceiling.CircuitBytes, CircuitSeconds: i.Ceiling.CircuitSeconds, RateBPS: i.Ceiling.RateBPS},
+		CanChange: i.CanChange, Restarted: i.Restarted,
+	}
+}
+
+func (c *Client) RevokeP2PDevice(ctx context.Context, id string) error {
+	if c.P2P == nil {
+		return errNoP2P
+	}
+	// The assistant acts for the administrator of the chat.
+	by := ""
+	if u := localaitools.UserFromContext(ctx); u != nil {
+		by = u.ID
+	}
+	return c.P2P.RevokeDevice(ctx, id, by)
+}
+
+func (c *Client) CancelP2PInvite(ctx context.Context, id string) error {
+	if c.P2P == nil {
+		return errNoP2P
+	}
+	return c.P2P.CancelInvite(ctx, id)
+}
+
 // ---- Failover chains ----
 
 func (c *Client) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
@@ -1567,4 +1921,135 @@ func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*loc
 	}
 	c.AppConfig.ChatsEgressCeiling = ceiling
 	return c.GetChatEgress(ctx)
+}
+
+func splitInfo(w p2papi.SplitWorkerView) localaitools.P2PSplitWorkerInfo {
+	info := localaitools.P2PSplitWorkerInfo{
+		ID: w.ID, Label: w.Label, Engine: w.Engine, State: w.State, Error: w.Error,
+		AllowSlowPath: w.AllowSlowPath, Path: w.Path.Kind, RelayLabel: w.Path.RelayLabel, RelayID: w.RelayID,
+		OwnRelay: w.OwnRelay, MemoryBytes: w.MemoryBytes, NodeID: w.NodeID, NodeName: w.NodeName,
+		NodeOffline: w.NodeOffline, NodeNote: w.NodeNote,
+	}
+	if w.NodeRelay != nil {
+		info.NodeRelay, info.NodeRelayReason = w.NodeRelay.State, w.NodeRelay.Reason
+	}
+	return info
+}
+
+func (c *Client) ListP2PSplitWorkers(ctx context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	list, err := c.P2PSplit.ListSplitWorkers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.P2PSplitWorkerInfo, 0, len(list.Workers))
+	for _, w := range list.Workers {
+		out = append(out, splitInfo(w))
+	}
+	return out, nil
+}
+
+func (c *Client) SetP2PSplitSlowPath(ctx context.Context, id string, allow bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{AllowSlowPath: &allow})
+	if err != nil {
+		return nil, err
+	}
+	info := splitInfo(w)
+	return &info, nil
+}
+
+func (c *Client) SetP2PSplitNode(ctx context.Context, id, nodeID string) (*localaitools.P2PSplitWorkerInfo, error) {
+	if c.P2PSplit == nil {
+		return nil, errNoP2P
+	}
+	w, err := c.P2PSplit.SetSplitWorker(ctx, id, p2papi.SplitWorkerUpdate{NodeID: &nodeID})
+	if err != nil {
+		return nil, err
+	}
+	info := splitInfo(w)
+	return &info, nil
+}
+
+// ---- Federation ----
+
+var errNoFederation = errors.New("federation is not available on this server: the remote store could not be opened")
+
+func (c *Client) GetFederation(ctx context.Context) (*localaitools.FederationInfo, error) {
+	if c.Federation == nil {
+		return nil, errNoFederation
+	}
+	v, err := c.Federation.View(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := &localaitools.FederationInfo{Instances: []localaitools.FederationInstanceInfo{}, Groups: []localaitools.FederationGroupInfo{}}
+	for _, in := range v.Instances {
+		info := localaitools.FederationInstanceInfo{
+			ID: in.ID, Name: in.Name, Local: in.Local, Transport: string(in.Transport), Status: string(in.Status),
+			InFlight: in.InFlight, Models: []localaitools.FederationModelInfo{},
+		}
+		if in.P2P != nil {
+			info.P2P = &localaitools.FederationP2PInfo{PeerID: in.P2P.PeerID, State: string(in.P2P.State), Path: in.P2P.Path, Limited: in.P2P.Limited}
+		}
+		for _, m := range in.Models {
+			info.Models = append(info.Models, localaitools.FederationModelInfo{Model: m.Model, UpstreamID: m.UpstreamID})
+		}
+		out.Instances = append(out.Instances, info)
+	}
+	for _, g := range v.Groups {
+		out.Groups = append(out.Groups, federationGroupInfo(g))
+	}
+	return out, nil
+}
+
+func federationGroupInfo(g remotes.Group) localaitools.FederationGroupInfo {
+	info := localaitools.FederationGroupInfo{Name: g.Name, Policy: string(g.Policy), State: g.State, Members: []localaitools.FederationMemberInfo{}}
+	for _, m := range g.Members {
+		info.Members = append(info.Members, localaitools.FederationMemberInfo{
+			Model: m.Model, Instance: m.Instance, InstanceName: m.InstanceName, Drained: m.Drained,
+			State: m.State, InFlight: m.InFlight, Constrained: m.Constrained, LastError: m.LastError,
+		})
+	}
+	return info
+}
+
+func (c *Client) ManageFederationGroup(ctx context.Context, req localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	if c.Federation == nil {
+		return nil, errNoFederation
+	}
+	var (
+		g   remotes.Group
+		err error
+	)
+	switch req.Action {
+	case localaitools.FederationActionCreate:
+		g, err = c.Federation.CreateGroup(ctx, remotes.GroupRequest{Name: req.Name, Policy: config.FailoverPolicy(req.Policy), Members: req.Members})
+	case localaitools.FederationActionUpdate:
+		up := remotes.GroupUpdate{}
+		if req.Policy != "" {
+			p := config.FailoverPolicy(req.Policy)
+			up.Policy = &p
+		}
+		if req.Members != nil {
+			m := req.Members
+			up.Members = &m
+		}
+		g, err = c.Federation.UpdateGroup(ctx, req.Name, up)
+	case localaitools.FederationActionDelete:
+		return nil, c.Federation.DeleteGroup(ctx, req.Name)
+	case localaitools.FederationActionDrain, localaitools.FederationActionUndrain:
+		g, err = c.Federation.Drain(ctx, req.Name, req.Model, req.Action == localaitools.FederationActionDrain)
+	default:
+		return nil, fmt.Errorf("unknown federation action %q", req.Action)
+	}
+	if err != nil {
+		return nil, err
+	}
+	info := federationGroupInfo(g)
+	return &info, nil
 }

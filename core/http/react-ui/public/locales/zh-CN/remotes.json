@@ -119,7 +119,22 @@
     "noUsableTitle": "没有可用的模型。",
     "noUsableText": "远程已响应，但没有列出此服务器可以使用的模型。",
     "refreshWarn": "已刷新 {{name}}，但它没有可用的模型。",
-    "authTextLocalai": "请使用可以列出该服务器模型的密钥，然后重新连接。"
+    "authTextLocalai": "请使用可以列出该服务器模型的密钥，然后重新连接。",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "直连",
+        "hole_punched": "打洞直连",
+        "relayed": "经由中继"
+      },
+      "limited": "受限",
+      "state": {
+        "off": "P2P 已关闭",
+        "listening": "尚未使用",
+        "down": "无法连接",
+        "error": "隧道未运行"
+      }
+    }
   },
   "empty": {
     "title": "尚未连接远程",

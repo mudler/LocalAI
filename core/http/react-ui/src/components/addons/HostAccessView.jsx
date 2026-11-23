@@ -5,7 +5,7 @@ import { Button, Callout, EmptyState, LoadError, Switch, SkeletonRows } from '..
 import { SwitchGroup, SwitchRow } from '../chat/SwitchList'
 import ConfirmDialog from '../ConfirmDialog'
 import { hostGrantsApi, addonsApi } from '../../utils/addonsClient'
-import { useAddonActions } from './useAddonActions'
+import { useAddonUpgrade } from './useAddonUpgrade'
 import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
 import BlanketPanel from './BlanketPanel'
 import DenySection from './DenySection'
@@ -29,7 +29,9 @@ function when(at, language) {
 // browser session can change anything here.
 export default function HostAccessView({ grants, api = hostGrantsApi }) {
   const { t, i18n } = useTranslation('addons')
-  const actions = useAddonActions(addonsApi, { onSettled: () => grants.reload() })
+  // An approved upgrade runs as the add-on's operation in the upgrade store,
+  // outside this page, and the grants are read again whenever one ends.
+  const upgrade = useAddonUpgrade(addonsApi, { onChanged: () => grants.reload() })
   const [notice, setNotice] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [approving, setApproving] = useState(null)
@@ -72,7 +74,7 @@ export default function HostAccessView({ grants, api = hostGrantsApi }) {
       {grants.stale && <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>}
       {locked && <Callout tone="info" testId="host-locked" className="ad-callout">{t(data.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
       {notice && <Callout tone={notice.tone} role={notice.tone === 'error' ? 'alert' : 'status'} testId="host-notice" className="ad-callout">{notice.text}</Callout>}
-      {pending.map(a => <WaitingBanner key={a.id} addon={a} onReview={() => setApproving(a)} />)}
+      {pending.map(a => <WaitingBanner key={a.id} addon={a} op={upgrade.opOf(a.id)} note={upgrade.noteOf(a.id)} upgrade={upgrade} full onReview={() => setApproving(a)} />)}
 
       <section className="ad-host__section" aria-labelledby="host-addons-title">
         <h2 id="host-addons-title" className="ad-host__heading">{t('hostAccess.addonsTitle')}</h2>
@@ -142,10 +144,9 @@ export default function HostAccessView({ grants, api = hostGrantsApi }) {
       {approving && (
         <ApproveUpgradeDialog
           addon={approving}
-          api={addonsApi}
-          actions={actions}
+          upgrade={upgrade}
           onClose={() => setApproving(null)}
-          onDone={() => { setApproving(null); grants.reload(); setNotice({ tone: 'ok', text: t('hostAccess.approve.done', { name: approving.title }) }) }}
+          onDone={(done) => { setApproving(cur => (cur && cur.id === done.id ? null : cur)); grants.reload(); setNotice({ tone: 'ok', text: t('hostAccess.approve.done', { name: done.title }) }) }}
         />
       )}
       <ConfirmDialog

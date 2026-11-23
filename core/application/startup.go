@@ -153,6 +153,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	} else if removed > 0 {
 		xlog.Info("Reaped abandoned artifact partials", "count", removed)
 	}
+	recoverModelJournals(options)
 	if options.GeneratedContentDir != "" {
 		err := os.MkdirAll(options.GeneratedContentDir, 0o750)
 		if err != nil {
@@ -296,12 +297,16 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.failoverManager = failover.New(application.ModelConfigLoader(),
 		failover.WithProber(failover.NewProber(failoverLoadedBackend(application.ModelLoader()), options.ProxyAPIKeyEnvLookup)),
 		failover.WithOnWarmChanged(application.applyFailoverWarmTargets),
+		failover.WithConstrained(application.limitedP2PRemote),
 	)
 	// The assistant client was built in start() (above), before this
 	// manager existed; wire it now so list_failover_chains /
 	// pin_failover_target / unpin_failover_target see real chains.
 	if application.assistantClient != nil {
 		application.assistantClient.Failover = application.failoverManager
+		application.assistantClient.P2P = application.P2P()
+		application.assistantClient.P2PSplit = application.P2PSplit()
+		application.assistantClient.SplitDetacher = application
 	}
 
 	// Subsystem 5: admission control. Limiter is always wired so a
@@ -337,6 +342,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		distStore := nodes.NewDistributedModelStore(
 			model.NewInMemoryModelStore(),
 			distSvc.Registry,
+			nodes.WithClientFactory(distSvc.Clients),
 		)
 		application.modelLoader.SetModelStore(distStore)
 		// Drop the local stub when a model's last replica leaves the registry.
@@ -358,7 +364,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		storage.StartEphemeralCleanup(options.Context, distSvc.FileMgr, 0, 0)
 		// Wire NATS and gallery store into GalleryService for cross-instance progress/cancel
 		if application.galleryService != nil {
-			application.galleryService.SetNATSClient(distSvc.Nats)
+			application.galleryService.SetNATSClient(distSvc.Broadcaster)
 			if distSvc.DistStores != nil && distSvc.DistStores.Gallery != nil {
 				// Clean up stale in-progress operations from previous crashed instances
 				if _, err := distSvc.DistStores.Gallery.CleanStale(30 * time.Minute); err != nil {
@@ -432,6 +438,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// The notification center needs the cluster message bus for its fan-out, so
+	// it starts after distributed wiring. It does not depend on the chats.
+	application.initNotifications()
+	application.announceOperations()
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
 	if err := application.initStudioFiles(); err != nil {
 		return nil, err
@@ -513,6 +523,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		go uc.Run(options.Context)
 	}
 
+	// The update check of gallery models: single-runner, never installs.
+	if len(options.Galleries) > 0 {
+		application.startModelUpdates()
+	}
+
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)
@@ -547,7 +562,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// frontend runs its own pass against the shared models directory; the
 	// pass is idempotent, so no leader is needed.
 	if modelConfigResync != nil && distSvc != nil {
-		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Nats)
+		modelConfigResync.Start(options.Context, options.Distributed.ModelConfigResyncIntervalOrDefault(), distSvc.Broadcaster)
 	}
 
 	// Preloads run outside the operation loop, so they do not get the
@@ -619,6 +634,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// services exist, so the service can write entries and resolve keys. The
 	// refresh runs in the background and never delays startup.
 	application.startRemotes(options.Context)
+
+	// The P2P layer, in the mode of the settings. A failure leaves it off and
+	// the status says why; it never fails the startup.
+	_ = application.StartP2PNet()
 
 	// Start the failover scheduler: it syncs chains from config, runs
 	// liveness/recovery probes and dwell-based fail-back. Run is the only

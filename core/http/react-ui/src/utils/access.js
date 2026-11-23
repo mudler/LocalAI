@@ -1,8 +1,24 @@
-// Small pure helpers for the Users and keys pages: what a user can reach in a
+// Small pure helpers for the Users and API keys pages: what a user can reach in a
 // few words, the filters over the user list, the state of an invite and of an
 // API key. They read only what the auth endpoints return.
 
-export const USER_FILTERS = ['all', 'pending', 'admins', 'disabled']
+export const USER_FILTERS = ['all', 'pending', 'admins', 'disabled', 'inactive']
+
+// A person is inactive when they were last active more than this long ago, or
+// never, and their account is older than that too (a new sign-up has not had
+// the time to be active).
+export const INACTIVE_DAYS = 30
+const DAY_MS = 86_400_000
+
+export function isInactive(user, now = Date.now()) {
+  const limit = INACTIVE_DAYS * DAY_MS
+  if (user.lastActiveAt) {
+    const t = new Date(user.lastActiveAt).getTime()
+    return Number.isFinite(t) && now - t > limit
+  }
+  const created = user.createdAt ? new Date(user.createdAt).getTime() : NaN
+  return Number.isFinite(created) && now - created > limit
+}
 
 // A user is waiting when they are neither active nor disabled (the server's
 // "pending" status is a sign-up awaiting approval).
@@ -12,19 +28,25 @@ export function userState(user) {
   return 'pending'
 }
 
-export function filterUsers(users, { query = '', filter = 'all' } = {}) {
+// The "Filters" popover narrows the list further: the sign-in method and
+// whether the person's access differs from the defaults.
+export function filterUsers(users, { query = '', filter = 'all', provider = '', access = '', featureMeta = null, now = Date.now() } = {}) {
   const q = query.trim().toLowerCase()
   return users.filter(u => {
     if (filter === 'pending' && userState(u) !== 'pending') return false
     if (filter === 'disabled' && userState(u) !== 'disabled') return false
     if (filter === 'admins' && u.role !== 'admin') return false
+    if (filter === 'inactive' && !isInactive(u, now)) return false
+    if (provider && (u.provider || 'local') !== provider) return false
+    if (access === 'custom' && (u.role === 'admin' || accessInfo(u, featureMeta).isDefault)) return false
     if (!q) return true
     return (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)
   })
 }
 
-export function filterCounts(users) {
+export function filterCounts(users, now = Date.now()) {
   return {
+    inactive: users.filter(u => isInactive(u, now)).length,
     all: users.length,
     pending: users.filter(u => userState(u) === 'pending').length,
     admins: users.filter(u => u.role === 'admin').length,
@@ -32,12 +54,13 @@ export function filterCounts(users) {
   }
 }
 
-// One line on what a person can use, from the permission map, the model
-// allow-list and the quota rules the user list returns. `featureMeta` is
-// /api/auth/admin/features: each feature has a `default`. An admin reaches
-// everything. A user at the defaults says so.
-export function accessSummary(user, featureMeta) {
-  if (user.role === 'admin') return 'All access'
+// What a person can use, as numbers: `all` for an admin, else how many models
+// they are limited to (null: no list), how many features they have beyond and
+// below the defaults, and how many limits apply. `isDefault` is true when none
+// of it differs. `featureMeta` is /api/auth/admin/features: each feature has a
+// `default`. The words are the caller's, so a page can translate them.
+export function accessInfo(user, featureMeta) {
+  if (user.role === 'admin') return { all: true, models: null, more: 0, fewer: 0, limits: 0, isDefault: false }
   const perms = user.permissions || {}
   const features = [
     ...(featureMeta?.api_features || []),
@@ -51,14 +74,32 @@ export function accessSummary(user, featureMeta) {
     if (on && !f.default) more++
     if (!on && f.default) fewer++
   }
-  const parts = []
-  const models = user.allowed_models
-  if (models?.enabled) parts.push(`${(models.models || []).length} ${(models.models || []).length === 1 ? 'model' : 'models'} only`)
-  if (more) parts.push(`${more} more ${more === 1 ? 'feature' : 'features'}`)
-  if (fewer) parts.push(`${fewer} fewer ${fewer === 1 ? 'feature' : 'features'}`)
+  const models = user.allowed_models?.enabled ? (user.allowed_models.models || []).length : null
   const limits = (user.quotas || []).length
-  if (limits) parts.push(`${limits} ${limits === 1 ? 'limit' : 'limits'}`)
+  return { all: false, models, more, fewer, limits, isDefault: models === null && !more && !fewer && !limits }
+}
+
+// One line on what a person can use, in English: "2 models only · 1 limit".
+export function accessSummary(user, featureMeta) {
+  const info = accessInfo(user, featureMeta)
+  if (info.all) return 'All access'
+  const parts = []
+  if (info.models !== null) parts.push(`${info.models} ${info.models === 1 ? 'model' : 'models'} only`)
+  if (info.more) parts.push(`${info.more} more ${info.more === 1 ? 'feature' : 'features'}`)
+  if (info.fewer) parts.push(`${info.fewer} fewer ${info.fewer === 1 ? 'feature' : 'features'}`)
+  if (info.limits) parts.push(`${info.limits} ${info.limits === 1 ? 'limit' : 'limits'}`)
   return parts.length ? parts.join(' · ') : 'Default access'
+}
+
+// The words for a person's access, in the language of the page.
+export function accessText(t, info) {
+  if (info.all) return t('users.access.all')
+  const parts = []
+  if (info.models !== null) parts.push(t('users.access.models', { count: info.models }))
+  if (info.more) parts.push(t('users.access.more', { count: info.more }))
+  if (info.fewer) parts.push(t('users.access.fewer', { count: info.fewer }))
+  if (info.limits) parts.push(t('users.access.limits', { count: info.limits }))
+  return parts.length ? parts.join(' \u00b7 ') : t('users.access.default')
 }
 
 export function initialOf(user) {

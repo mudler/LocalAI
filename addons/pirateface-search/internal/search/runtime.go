@@ -84,8 +84,9 @@ func answer(rows []Row, errText string) contract.Result {
 }
 
 // Read serves the search. The site has no format or sort option: its results
-// are open-weight repositories of any format in its own order, so format and
-// sort are ignored. An upstream failure is an answer with an error text, which
+// are open-weight repositories of any format in its own order, so sort is
+// ignored. The default format of the host, gguf, keeps the repositories whose
+// name says GGUF; any other format value keeps every repository. An upstream failure is an answer with an error text, which
 // the host shows as the failed status of this source.
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
 	var a args
@@ -121,7 +122,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		}
 		return answer(nil, err.Error()), nil
 	}
-	return answer(ParseListing(body, a.Limit, minSeeders), ""), nil
+	return answer(ParseListing(body, a.Limit, minSeeders, strings.EqualFold(strings.TrimSpace(a.Format), "gguf")), ""), nil
 }
 
 // fetch reads GET /s/<query>. Its error text is a sentence made here: it never

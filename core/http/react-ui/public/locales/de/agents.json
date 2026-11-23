@@ -610,6 +610,27 @@
       "all": "Alle Projekte",
       "none": "Ohne Projekt",
       "empty": "Keine Trigger für diese Auswahl."
+    },
+    "reports": {
+      "label": "Berichtet an",
+      "inbox": "Posteingang",
+      "channel": "Kanal {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Thread im Chat {{chat}}",
+      "problem": {
+        "off": "Verbindung ist aus",
+        "gone": "Verbindung gelöscht",
+        "unavailable": "Verbindung nicht verfügbar",
+        "no_channel": "Kanal nicht freigegeben",
+        "blocked": "Senden ist nicht erlaubt"
+      },
+      "fallback": "Bis das behoben ist, gehen die Berichte in den Posteingang.",
+      "manage": "Verbindung verwalten",
+      "connections": "Verbindungen öffnen",
+      "mode": {
+        "on_change": "Nur wenn sich die Antwort ändert",
+        "on_problem": "Nur wenn ein Lauf fehlschlägt"
+      }
     }
   },
   "views": {

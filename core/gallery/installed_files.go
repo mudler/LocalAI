@@ -3,8 +3,10 @@ package gallery
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 )
@@ -43,4 +45,53 @@ func InstalledModelFiles(modelsPath, name string) []string {
 		files = append(files, filepath.Join(modelsPath, f.Filename))
 	}
 	return files
+}
+
+// FilesInUse maps each file that an installed model other than except uses
+// (its model and mmproj files, the files of its gallery file and, for a
+// version 2 gallery file, its prompt templates) to the names of those models.
+// Paths are relative to the models directory. An upgrade must not replace or
+// retire a file another model uses: the store is flat and keyed by name.
+func FilesInUse(systemState *system.SystemState, except string) map[string][]string {
+	modelsPath := systemState.Model.ModelsPath
+	out := map[string][]string{}
+	entries, err := os.ReadDir(modelsPath)
+	if err != nil {
+		return out
+	}
+	add := func(path, model string) {
+		rel, err := filepath.Rel(modelsPath, path)
+		if err != nil {
+			rel = path
+		}
+		if !slices.Contains(out[rel], model) {
+			out[rel] = append(out[rel], model)
+		}
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || strings.HasPrefix(n, ".") || (!strings.HasSuffix(n, ".yaml") && !strings.HasSuffix(n, ".yml")) {
+			continue
+		}
+		name := strings.TrimSuffix(strings.TrimSuffix(n, ".yaml"), ".yml")
+		if name == except {
+			continue
+		}
+		files, err := listModelFiles(systemState, name)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if strings.HasPrefix(filepath.Base(f), "._gallery_") {
+				continue
+			}
+			add(f, name)
+		}
+		if sc, err := ReadSidecar(modelsPath, name); err == nil && sc.IsV2() {
+			for _, m := range sc.Managed {
+				add(filepath.Join(modelsPath, m.Path), name)
+			}
+		}
+	}
+	return out
 }

@@ -479,7 +479,7 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		// Best-effort bounded gRPC Free(), outside the lock. A model.unload
 		// request must not occupy the reply handler forever when a backend
 		// is wedged.
-		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()

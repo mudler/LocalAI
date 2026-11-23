@@ -3,61 +3,110 @@ disableToc = false
 title = "Distributed Mode"
 weight = 130
 aliases = ["/features/distributed-mode/"]
-description = "Run several LocalAI frontends and worker nodes with PostgreSQL and NATS."
-keywords = ["distributed","cluster","nodes","scale","nats"]
+description = "Run several LocalAI frontends and worker nodes with PostgreSQL. Workers attach over NATS, WebSocket or P2P."
+keywords = ["distributed","cluster","nodes","scale","nats","tunnel","carrier"]
 devbuild = "install"
 +++
 
-Distributed mode enables horizontal scaling of LocalAI across multiple machines using **PostgreSQL** for state and node registry, and **NATS** for real-time coordination. Unlike the [P2P/federation approach]({{% relref "/administration/p2p-federated-inference" %}}), distributed mode is designed for production deployments and Kubernetes environments where you need centralized management, health monitoring, and deterministic routing.
+Distributed mode scales LocalAI across several machines. **PostgreSQL** holds the state and the node registry. Each worker attaches to the frontends over **NATS**, a **WebSocket** tunnel or **P2P**, and the frontends reach it by the route it has. The frontends broadcast messages to each other over PostgreSQL, and over NATS as well when the cluster has a NATS server. Unlike [P2P]({{% relref "/administration/p2p" %}}) and [federation]({{% relref "/administration/federation" %}}), distributed mode is for production deployments and Kubernetes. It gives you central management, health monitoring, and deterministic routing.
 
 {{% callout style="note" %}}
-Distributed mode requires authentication enabled with a **PostgreSQL** database - SQLite is not supported. This is because the node registry, job store, and other distributed state are stored in PostgreSQL tables.
+Distributed mode needs authentication and a **PostgreSQL** database. SQLite is not supported, because the node registry, the job store, and the other distributed state are PostgreSQL tables.
 {{% /callout %}}
 
 ## Architecture Overview
 
-{{< diagram "distributed-mode-arch" "Distributed mode: clients reach a load balancer, then stateless frontends with a SmartRouter, then generic workers that each run one gRPC process per loaded model, all backed by a shared NATS, PostgreSQL and optional S3 plane." >}}
+{{< diagram "distributed-mode-arch" "Distributed mode: clients reach a load balancer, then stateless frontends with a SmartRouter, then generic workers that each run one gRPC process per loaded model. The frontends and the workers share PostgreSQL, a broadcast bus (NATS or PostgreSQL) and optional S3. Workers attach over NATS, WebSocket or P2P and never connect to PostgreSQL." >}}
 
-**Frontends** are stateless LocalAI instances that receive API requests and route them to worker nodes via the **SmartRouter**. All frontends share state through PostgreSQL and coordinate via NATS.
+**Frontends** are stateless LocalAI instances. They receive API requests and route them to worker nodes with the **SmartRouter**. All frontends share state through PostgreSQL and reach each worker by the route it attached over (NATS, WebSocket or P2P).
 
-**Workers** are generic processes that self-register with a frontend. They don't have a fixed backend type - the SmartRouter dynamically installs the required backend via NATS `backend.install` events when a model request arrives.
+**Workers** are generic processes that register themselves with a frontend. A worker has no fixed backend type. When a request arrives, the SmartRouter tells the worker to install the backend it needs, over the route the worker attached over.
 
 ### Scheduling Algorithm
 
 {{< diagram "smartrouter-scheduling" "SmartRouter scheduling: use a node that already has the model loaded, else check disk, then free VRAM, then an idle or least loaded node, else evict the least recently used idle model, then install the backend and load the model." >}}
 
 The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
-1. If the model is already loaded on a node → use it (per-model gRPC address)
-2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom))
-3. If no node has the model → prefer nodes with enough free VRAM
-4. Fall back to idle nodes (zero models), then least-loaded nodes
-5. If no node has capacity → **evict the least-recently-used model with zero in-flight requests** to free a node
-6. If all models are busy → wait (with timeout) for a model to become idle, then evict
-7. Send `backend.install` NATS event with backend name + model ID → worker starts a new gRPC process on a dynamic port
-8. SmartRouter calls gRPC `LoadModel` on the model-specific port, records in DB
+1. If the model is already loaded on a node, use it (per-model gRPC address).
+2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom)).
+3. If no node has the model, prefer nodes with enough free VRAM.
+4. Fall back to idle nodes (zero models), then least-loaded nodes.
+5. If no node has capacity, **evict the least-recently-used model with zero in-flight requests** to free a node.
+6. If all models are busy, wait (with a timeout) for a model to become idle, then evict.
+7. When two nodes fit equally well, the **carrier weight** breaks the tie (see [Carrier weights](#carrier-weights)). A node that a frontend reaches only over a data-limited public relay is a last resort.
+8. Send the `backend.install` request, with the backend name and the model ID, to the worker. The worker starts a new gRPC process on a dynamic port.
+9. The SmartRouter calls gRPC `LoadModel` on the model-specific port and records the result in the database.
 
-Each model gets its own gRPC backend process, so a single worker can serve multiple models simultaneously (e.g., a chat model and an embedding model).
+Each model gets its own gRPC backend process, so one worker can serve several models at once (for example a chat model and an embedding model).
+
+## How workers attach, and the broadcast bus
+
+A worker holds the **routes** that its operator gives it, and the frontends reach it on those routes. A worker can hold one route or, for NATS and WebSocket, both at once:
+
+| Route | What it is | What you need |
+|-------|------------|---------------|
+| **NATS** (`nats`) | A NATS broker. Frontends send control requests to the worker through it. | A NATS server, reachable from the frontends and the workers. |
+| **WebSocket** (`tunnel`) | The worker opens an outbound websocket tunnel to a frontend (`/api/cluster/connect`), and control requests and gRPC calls travel through it. | Nothing beyond the frontend. Workers need no inbound port. |
+| **P2P** | The same tunnel, over a libp2p stream. See [Workers over P2P](#workers-over-p2p). | A P2P invite. |
+
+Request and reply between the frontends and the [chat workers](#chat-workers) (the chat start, the replay of chat events, the background jobs of a turn) always go over the [peer link](#peer-link) between them, whatever route the workers use. See [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers).
+
+**Workers never connect to PostgreSQL.** A worker dials a frontend (or NATS) and nothing else. Only the frontends and the [chat workers](#chat-workers) use PostgreSQL, for the shared state and the node registry, and as a **broadcast bus**: the channel on which a frontend tells the other frontends about job progress, gallery updates and cache hints.
+
+### The broadcast buses
+
+The frontends and the chat workers broadcast to each other over two buses:
+
+- **PostgreSQL** (`LISTEN`/`NOTIFY`, a bus named *pgbus*). Every frontend and chat worker always listens on it.
+- **NATS**, when the cluster has a NATS server (the `nats.url` cluster setting, or `--nats-url`). Every frontend and chat worker that has it listens on it too.
+
+Each broadcast goes on exactly one bus: on NATS when the cluster has a NATS server and the process that publishes is connected to it, on PostgreSQL otherwise. A message is never sent twice, so no subscriber sees it twice. Because every process listens on PostgreSQL, a process that lost NATS still reaches all the others.
+
+A process that has a NATS server configured and cannot reach it does not hear what the other processes publish on NATS. It keeps listening and publishing on PostgreSQL, and its `/readyz` answers `503` with the status `unavailable` and the reason, so a load balancer stops sending it traffic. When NATS is back, it publishes on NATS again and `/readyz` answers `200`. Messages that cross a change of bus are not ordered, so the shared state of the process (the replicated maps and the failover state) reads its tables again when the bus changes and when a bus reconnects. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect and is not ready until it is connected.
+
+### How a deployment starts
+
+A NATS server is optional. A frontend reads the NATS address from the `nats.url` cluster setting, else from its `--nats-url` flag (`LOCALAI_NATS_URL`). The first frontend that starts with the flag copies the address into the setting, without a user name, a password or a query string, so that every frontend uses the same server. A frontend whose `--nats-url` names another server than the stored one refuses to start and names both addresses.
+
+- **With PostgreSQL only** (no NATS address in the flags and none stored), PostgreSQL is the only broadcast bus, and the workers attach over WebSocket or P2P. This has fewer parts to run, and workers behind NAT or a firewall need no open port. See [Operational limits](#operational-limits) for the numbers.
+- **With a NATS address**, the broadcasts go over NATS while a frontend reaches it, and the frontends reach the workers that hold NATS as well as the workers that hold a tunnel. Use NATS for large clusters, many frontends, and high-rate or large broadcasts.
+
+A frontend reads the NATS address at start. To add a NATS server or to move to another one, store the address (see [Save a NATS address](#save-a-nats-address)) and restart the frontends. A NATS server that is down when a frontend starts does not stop the start: the frontend keeps retrying to connect, and it is not ready until it is connected.
+
+The Workers page shows the broadcast bus of the frontend that serves the page in a pill under its title (**NATS connected · 2 frontends**, or **PostgreSQL**). The **Cluster settings** button opens a side sheet with the live frontends, the NATS address settings, the [carrier weights](#carrier-weights) and the joining choice. The same form is the **Cluster** group of Settings, which shows only when distributed mode is on.
+
+### How a frontend picks the route of a worker
+
+Every worker reports in its heartbeat the routes it was given, the routes it holds now, and why it does not hold the others. The frontends route by that report only. For each call to a worker, the frontend uses the route that last worked for that worker, else NATS when the worker holds NATS and has an address, else the tunnel, among the routes that the worker holds and that the frontend has. A call goes to the next route only when the first one shows that the worker received nothing (no responder on NATS, no tunnel). It never goes to another route after a timeout or an answer of the worker, so a call is never run twice. Unloading a model and deleting its files reach each worker on its own route. A worker holds at most one tunnel, over a websocket or over P2P. The health monitor judges each worker by the routes it holds, never by a setting of the cluster: see [Node health and routes](#node-health-and-routes).
+
+An MCP tool call that does not name an agent worker goes to an agent worker on NATS first (the queue group), and to an agent worker that holds a tunnel when no agent worker on NATS takes it. A call that names an agent worker goes on the routes of that worker: the NATS subject of the node (`mcp.<node>.tools.execute`, `mcp.<node>.discovery`), or its tunnel.
+
+The Workers page lists every machine of the cluster in one roster, with a chip for each connection it holds: **NATS**, **WebSocket** (the tunnel over a websocket) or **P2P**, each with its state. A P2P chip says the path (direct, hole-punched or relayed, with the round trip when it is known) and is marked *Limited* when the relay limits the data or the time of a connection. A connection that fails is a warning chip with the reason the worker gave. The inspector beside the roster shows the health of each connection of the chosen worker. A model-split worker is a row of the same roster, marked *Model-split*.
 
 ## Prerequisites
 
-- **PostgreSQL** (with pgvector extension recommended for RAG) - used for node registry, job store, auth, and shared state
-- **NATS** server - used for real-time backend lifecycle events and file staging
-- All services must be on the same network (or reachable via configured URLs)
+- **PostgreSQL** (with the pgvector extension recommended for RAG). It holds the node registry, the job store, auth, the cluster settings, and the shared state. It is also a broadcast bus between the frontends, and the only one without NATS, so size it for that (see [Operational limits](#operational-limits)).
+- A **NATS** server, only if you want workers on NATS or NATS for the broadcasts. A deployment can start without one and add it later.
+- All services must be reachable from each other, through the network or the configured URLs.
+- Every frontend and chat worker needs a **peer address** that the other frontends and chat workers can reach, with or without NATS. It is found at start from the route to the database; set `LOCALAI_PEER_ADDRESS` when that one is wrong (see [Peer link](#peer-link)). A process without one answers `503` on `/readyz`.
+- A session-level `LISTEN` connection from every frontend and chat worker to PostgreSQL, with or without NATS. A connection pooler in *transaction* mode (for example PgBouncer in its default mode) breaks `LISTEN`, and a frontend then fails to start. Point the frontends directly at PostgreSQL, or use a session-mode pool.
 
 ## Quick Start with Docker Compose
 
-The easiest way to try distributed mode locally is with the provided Docker Compose file:
+The easiest way to try distributed mode on one machine is the provided Docker Compose file:
 
 ```bash
 docker compose -f docker-compose.distributed.yaml up
 ```
 
-This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
+This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. The frontend has a NATS URL, so the frontends broadcast over NATS and the worker holds NATS and the WebSocket tunnel. When you send an inference request, the SmartRouter installs the needed backend on the worker and loads the model. See the file for GPU support, shared volumes, and more workers.
+
+To try PostgreSQL as the only broadcast bus, remove the `nats` service, the `depends_on` entries that name it, and every `LOCALAI_NATS_URL` line from the file. The frontends then broadcast over PostgreSQL, the worker holds only its WebSocket tunnel, and it needs only `LOCALAI_REGISTER_TO` and the registration token. The frontend sends chat starts to the chat worker over the peer link, as it does with NATS (see [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers)).
 
 {{% callout style="tip" %}}
 The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
 
-Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
+Use `docker-compose.distributed.yaml` for quick local testing. For production, run PostgreSQL (and NATS, if you use it) as managed services, and run frontends and workers on separate hosts.
 {{% /callout %}}
 
 ## Frontend Configuration
@@ -66,10 +115,13 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode |
+| `--distributed` | `LOCALAI_DISTRIBUTED` | `false` | Enable distributed mode. Needs PostgreSQL. NATS is optional. |
 | `--instance-id` | `LOCALAI_INSTANCE_ID` | auto UUID | Unique instance ID for this frontend |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS server URL (e.g., `nats://localhost:4222`) |
-| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token that workers must provide to register |
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | *(found from the route to the database)* | `host:port` at which the other frontends and chat workers dial this one. A frontend publishes it so that a replica that does not hold the connection of a worker can reach the replica that does, and so that chat starts, chat replay and background jobs reach it. A frontend or chat worker that has none is not ready (`/readyz` answers `503`). Set it when the address found from the route to the database is not the one the other frontends should use. The link carries the credential of the replica and every request that it relays, so by default it is clear text. Use `--peer-tls` when the replicas sit behind TLS. |
+| `--peer-tls` | `LOCALAI_PEER_TLS` | `false` | Dial the other frontends over `wss` and not `ws`. Every frontend must then be reachable over TLS at the address it publishes with `--peer-address`, for example behind a reverse proxy that terminates TLS. A frontend that serves the API over TLS itself (`--tls-cert`, `--tls-self-signed`) dials `wss` without this flag. LocalAI warns at start-up when it publishes an address that is not on the local host and the link is clear text. |
+| `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | *(system roots)* | PEM file with the certificate authority that signs the certificate of the other frontends. Use it with a private CA. See [Peer link](#peer-link). |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL (e.g., `nats://localhost:4222`). Optional. With a URL, the frontends broadcast over NATS while they reach it, and reach the workers that hold NATS. Without one, PostgreSQL is the only broadcast bus. The URL is copied into the `nats.url` cluster setting. See [How a deployment starts](#how-a-deployment-starts). |
+| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Optional shared token that a worker may use to register. It is used for **registration only**: after that a worker holds its own credential, and no other node route accepts the shared token. It also seeds the token that authenticates the data plane between the frontends and the workers (see [Join tokens](#join-tokens)). Workers can join with [join tokens](#join-tokens) instead, so you can leave it empty |
 | `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Fail startup when distributed mode is enabled but the registration token is empty (node endpoints and worker file-transfer would otherwise be unauthenticated) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | **Umbrella switch.** Implies both `--nats-require-auth` and `--registration-require-auth` - one knob to lock down the NATS bus *and* the registration/file-transfer layer. Set this in production instead of the two granular flags. |
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
@@ -81,7 +133,7 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--chat-start-timeout` | `LOCALAI_CHAT_START_TIMEOUT` | `30s` | How long a frontend waits for a [chat worker](#chat-workers) to start a turn, and how long the worker gives the start. |
 | `--auth-enabled` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
-| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
+| `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. It applies to every route. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
 | `--backend-upgrade-timeout` | `LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT` | `15m` | Same as the install timeout, applied to backend upgrades (force-reinstall). |
 | `--model-load-timeout` | `LOCALAI_NATS_MODEL_LOAD_TIMEOUT` | *(derived from checkpoint size)* | Pins the deadline for the `LoadModel` gRPC call the frontend issues to a worker. Leave it unset: by default the deadline is **derived from the checkpoint's on-disk size** (see below), which is what the worker actually spends its load time reading. Set it only to pin a specific budget: the value is then used verbatim, including when it is *shorter* than the derived one, so an operator who wants fast failure gets it. |
 | *(env only)* | `LOCALAI_MODEL_LOAD_WAIT` | `60s` | How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with `503`, a `Retry-After` header and live staging progress. The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to `0` to wait as long as the load takes: only safe when no ingress or load balancer with an idle timeout sits in front. See [Requests for a model that is still loading](#requests-for-a-model-that-is-still-loading). |
@@ -233,6 +285,12 @@ The call is idempotent. A repeat retries the stop and never extends the hold. A 
 
 Upgrade the frontends first. A worker that predates operations ignores the new request fields and does not report `reports_operations`. The frontend then treats the node as legacy: it cannot confirm a stop, so a failed load holds the model for the 45 minute load deadline, as it did before leases existed, and never longer. For such a node the stop, including a cancel, is sent by exact process address, never by model name. If the address is not known, no stop is claimed, and the model is held for the 45 minutes. A new worker that gets an install from an older frontend tracks it as an anonymous operation: it kills it at its deadline only, never for missing renewals.
 
+### Broadcast size limit
+
+A broadcast is a message that goes to every frontend replica, such as a job progress event or a gallery update. Every carrier now refuses a broadcast with a payload above 8 MiB. The call fails with `ErrPayloadTooLarge`, and nothing is sent. The limit is the same for every carrier, so a deployment keeps its behavior when the carrier changes.
+
+This matters only if your NATS server sets `max_payload` above 8 MiB. The default of the NATS server is 1 MiB, and a message above the server limit was always refused. Keep `max_payload` at 8 MiB or lower.
+
 ### NATS JWT authentication (recommended for production)
 
 By default, NATS connections are anonymous: any client that can reach port `4222` may publish control-plane subjects such as `nodes.<id>.backend.install`. Enable JWT auth to scope workers to their own node subjects and give the frontend a dedicated service credential.
@@ -332,7 +390,7 @@ during installation as well as the committed snapshot.
 {{% /callout %}}
 
 {{% callout style="warning" %}}
-The worker HTTP file transfer server is authenticated by `LOCALAI_REGISTRATION_TOKEN`. If the token is **empty**, the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
+The worker HTTP file transfer server is authenticated by a data plane token that the frontend derives from `LOCALAI_REGISTRATION_TOKEN` and hands to the worker at registration. If the frontend has no registration token, the token is **empty** and the server **fails open** - anyone who can reach the port gets read/write access to the worker's models/staging/data directories (a remote model-poisoning / exfiltration vector). The worker logs a loud warning at startup in this case. Always set `LOCALAI_REGISTRATION_TOKEN` in distributed mode, and set `LOCALAI_DISTRIBUTED_REQUIRE_AUTH=true` (frontend **and** workers) to make a missing token *or* missing NATS credentials a hard startup error rather than a silent fail-open. Firewall the file-transfer port (gRPC base − 1) so only the frontend can reach it.
 {{% /callout %}}
 
 ### Automatic backend updates
@@ -354,6 +412,21 @@ was checked (see [Checking for backend updates]({{% relref "/models/backends#che
 no lock and installs after any check.
 
 The same frontend writes the update items of the inbox: the digest of the updates that need a person, the result of the pass and the notice of a check that keeps failing (see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}})). The mode is single runner, on the same lock, so there is no new lock key. The items are rows of the shared database, and every frontend streams a new one to its clients through the bus; the browser push and the Telegram forward run on the frontend that stores the item, so they happen once in the cluster. Failover is safe: a new leader that finds the same updates changes nothing, because the items are keyed and an unchanged item is not written again. The count of failed passes that delays the failed-check notice is kept in the memory of the leader, so a new leader starts it again from zero. Add-on items are written by the add-on owner (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})). Limit: the two-frontend rules are tested with the in-process bus and a shared store; the lock itself needs PostgreSQL and is tested elsewhere.
+
+### Model updates in a cluster
+
+The [model update check and the upgrades]({{% relref "/models/model-updates" %}}) of gallery models work across frontends like this:
+
+- **The state lives in the shared models directory.** The frontends share that directory. Each model has its gallery file (`._gallery_<name>.yaml`) there, with where it came from, the hold flag and the journal of its last upgrade. The check writes its result to one file, `._model_updates.json`. Every frontend builds `GET /api/models/updates` from these files, so every frontend gives the same answer. There is no per-frontend list in memory. A hold or an edit shows at once; what the galleries offer is as of the last check.
+- **The check is single runner.** Every six hours the frontends compete for the advisory lock `KeyModelUpdateCheck`, and the one that holds it checks. A **Check now** that reaches a frontend while another one checks waits (at most 60 seconds) for that check's result file. A standalone server uses a lock of its own process.
+- **An upgrade runs on the frontend that took the operation.** That frontend holds a PostgreSQL advisory lock of the model for the whole upgrade, and touches the journal every 30 seconds. An install holds the same lock while it writes the config and the gallery file, and a hold or **Remove old version** holds it while it runs. A second upgrade of the same model, on any frontend, is refused as busy for as long as the first runs, however long its download takes. The lock is the proof that the frontend still runs: the database frees it when the session of a dead frontend ends (about 30 seconds). Mode: single runner per model, through that lock.
+- **The notifications** (the digest of the models that need you, the end of an upgrade, the removal of an old version) are rows of the shared notification store. The frontend that runs the check or the upgrade writes them. The digest is set, not added: when a hold or the end of an upgrade changes it on another frontend, that frontend writes the same digest again, so there is still one row for each administrator.
+
+If a frontend stops during an install or an upgrade, another frontend ends the change within about three minutes. Every frontend looks once a minute for a running journal whose model lock it can take and that was not touched for 90 seconds; it never touches a journal whose lock another frontend holds. An install is finished (the new config is on disk) or undone. An upgrade that had not stopped the model removes its staged files and ends `failed`; from the stop on, the old version is put back and loaded again if it was loaded. Every frontend then reads the config again.
+
+At start, before the database is ready, a frontend ends only its own journals, and only when `LOCALAI_INSTANCE_ID` is set: a generated instance ID changes at every start, so no journal can be told apart as its own. Set `LOCALAI_INSTANCE_ID` to a stable value on each frontend to end its own interrupted changes before it loads the model configs.
+
+An upgrade replaces the replicas as the [upgrade strategy](#upgrade-strategy) of the model says, and each worker downloads its own files (see [Upgrade strategy](#upgrade-strategy)). In a mixed-version cluster, an older worker does not know `model.prefetch`. It does not fail the upgrade: over HTTP staging it gets the new files from the frontend at its next load, as it did before. With object storage, an older worker keeps using the copy in its cache, which can be the old file under the same key; upgrade the workers before you upgrade models (see [Upgrade strategy](#upgrade-strategy)). Upgrade the workers to get the worker-side download.
 
 ### Watching Backend Installs
 
@@ -396,26 +469,35 @@ Workers are started with the `worker` subcommand. Each worker is generic - it do
 ```bash
 local-ai worker \
   --register-to http://frontend:8080 \
-  --registration-token changeme \
-  --nats-url nats://nats:4222
+  --registration-token changeme
 ```
+
+This worker holds one route: the WebSocket tunnel to the frontend. Add `--nats-url` to also hold the NATS route. The routes are the choice of the operator; see [Workers and routes](#workers-and-routes).
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--addr` | `LOCALAI_SERVE_ADDR` | `0.0.0.0:50051` | gRPC listen address |
+| `--addr` | `LOCALAI_ADDR` | *(empty)* | Address where this worker is reachable (`host:port`). The port is the base for gRPC backends. A worker on the tunnel only with no address binds its backends to loopback. See [Worker profiles](#worker-profiles). |
 | `--grpc-max-port` | `LOCALAI_GRPC_MAX_PORT` | `65535` | Highest port the worker may assign to a backend gRPC process. Each backend gets its own port, allocated upward from the base port, so the width of `[base port, this]` caps how many backends this worker can run at once (see [Backend gRPC port range](#backend-grpc-port-range)) |
 | `--advertise-addr` | `LOCALAI_ADVERTISE_ADDR` | *(auto)* | Address the frontend uses to reach this node (see below) |
 | `--http-addr` | `LOCALAI_HTTP_ADDR` | gRPC port - 1 | HTTP file transfer server bind address |
 | `--advertise-http-addr` | `LOCALAI_ADVERTISE_HTTP_ADDR` | *(auto)* | HTTP address the frontend uses for file transfer |
 | `--ephemeral-staging-byte-limit` | `LOCALAI_EPHEMERAL_STAGING_BYTE_LIMIT` | `0` (automatic) | Maximum bytes held by request-input staging across the worker's HTTP staging directory and S3 cache. Automatic mode uses the smaller of 10 GiB and 10% of filesystem capacity. |
 | `--ephemeral-staging-min-free-bytes` | `LOCALAI_EPHEMERAL_STAGING_MIN_FREE_BYTES` | `0` (automatic) | Free filesystem space preserved while staging request inputs. Automatic mode uses the larger of 1 GiB and 5% of filesystem capacity. |
-| `--register-to` | `LOCALAI_REGISTER_TO` | *(required)* | Frontend URL for self-registration |
+| `--register-to` | `LOCALAI_REGISTER_TO` | *(empty)* | Frontend URL for self-registration. Required unless `--join` is given |
+| `--join` | `LOCALAI_JOIN` | *(empty)* | Join the cluster over P2P with a worker invite link instead of `--register-to` and a registration token. See [Workers over P2P](#workers-over-p2p) |
+| `--p2p-identity` | `LOCALAI_P2P_IDENTITY` | `<models path>/../data/p2p/identity.key` | Key file of the P2P identity of the worker: of a worker that joins with `--join`, and of the host that [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) attached to this node connect to. Keep it: the frontend knows the worker by it |
+| `--split-server` | `LOCALAI_SPLIT_SERVER` | `false` | Declare this worker a split server: it may serve [model-split workers]({{% relref "/administration/p2p-model-split" %}}#split-servers). An administrator can also turn it on or off on the Workers page; that choice wins over the flag |
+| `--p2p-listen` | `LOCALAI_P2P_LISTEN_MADDRS` | TCP and QUIC on every interface, random ports | Listen addresses of the P2P host of the worker. Model-split workers attached to this node connect to it; a fixed, open port gives them a direct path |
+| `--p2p-bootstrap` | `LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` | *(public bootstrap peers)* | Peers the P2P host connects to at start, addresses that end in `/p2p/<peer ID>` |
+| `--allow-open-relay` | `LOCALAI_ALLOW_OPEN_RELAY` | `false` | With `--join`: redeem an invite that names an open relay, which anyone can use |
 | `--node-name` | `LOCALAI_NODE_NAME` | hostname | Human-readable node name |
-| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Token to authenticate with the frontend |
-| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when no registration token is set (it would otherwise fail open) |
+| `--registration-token` | `LOCALAI_REGISTRATION_TOKEN` | *(empty)* | Shared registration token of the frontend, if it has one. Used to register only |
+| `--join-token` | `LOCALAI_JOIN_TOKEN` | *(empty)* | Single-use [join token](#join-tokens) that an admin minted. It replaces the registration token for registering. The worker keeps the own credential that it gets in its state directory (`<models path>/../data/node-credential.json`), so a restart needs no token |
+| `--registration-require-auth` | `LOCALAI_REGISTRATION_REQUIRE_AUTH` | `false` | Refuse to start the HTTP file-transfer server when the worker has no data plane token, that is, when it has neither a registration token nor a frontend that hands one over (it would otherwise fail open) |
 | `--distributed-require-auth` | `LOCALAI_DISTRIBUTED_REQUIRE_AUTH` | `false` | Umbrella switch implying both `--registration-require-auth` and `--nats-require-auth` |
 | `--heartbeat-interval` | `LOCALAI_HEARTBEAT_INTERVAL` | `10s` | Interval between heartbeat pings |
-| `--nats-url` | `LOCALAI_NATS_URL` | *(required)* | NATS URL for backend installation and file staging |
+| `--routes` | `LOCALAI_WORKER_ROUTES` | *(derived)* | Routes this worker holds, comma separated: `nats`, `tunnel`, or both. When empty: `nats` when `--nats-url` is set (never with `--join`), and always `tunnel`. See [Workers and routes](#workers-and-routes) |
+| `--nats-url` | `LOCALAI_NATS_URL` | *(empty)* | NATS server URL. With it the worker holds the NATS route. With `--routes nats` and no URL, the worker uses the NATS address that the frontend hands over |
 | `--nats-jwt` | `LOCALAI_NATS_JWT` | *(empty)* | Optional override for the `nats_jwt` returned at registration |
 | `--nats-user-seed` | `LOCALAI_NATS_USER_SEED` | *(empty)* | Optional override for `nats_user_seed` from registration |
 | `--nats-require-auth` | `LOCALAI_NATS_REQUIRE_AUTH` | `false` | Require NATS JWT+seed (from registration or env) |
@@ -431,6 +513,83 @@ local-ai worker \
 
 **HTTP file transfer:** Each worker also runs a small HTTP server for file transfer (model files, configs). By default it listens on the gRPC base port - 1 (e.g., if gRPC base is 50051, HTTP is on 50050). gRPC ports grow upward from the base port as additional models are loaded. Set `--advertise-http-addr` if the auto-detected address is not routable from the frontend.
 {{% /callout %}}
+
+### Join tokens
+
+A worker joins with a **join token** that an admin mints. It is the safe default: the token expires, it works once, and it does not stay on the worker.
+
+- **Single use and short.** A token is good for 10 minutes and one registration. For Kubernetes or Compose, where several replicas start together, an admin can ask for up to 100 uses (the default for that case is 5) and up to 24 hours.
+- **Stored as a hash.** The frontend keeps only a SHA-256 of the token, compares it in constant time, and spends a use with one atomic update, so two workers that race for the last use cannot both join. A caller that sends many tokens that are not valid is throttled by its address. A token is never written to a log or to the API trace.
+- **Revocable, and visible.** The list shows each token as `unused`, `partly_used`, `used_up`, `expired` or `revoked`, with the uses left, the connections it allows and who minted it.
+- **Connections.** A token can allow only `nats`, only `websocket`, or both. A worker that asks for another connection is refused, also when it registers again. Workers over P2P keep the [worker invite](#workers-over-p2p).
+- **Approval.** A node that joins with a token waits for an admin to approve it, as before. A token can carry `auto_approve`, and the cluster setting `join_auto_approve` sets its default. Both are **off** unless you turn them on.
+
+After it joined, the worker holds **its own credential**. The frontend returns it once, in the answer to the registration, and stores only its hash. The worker keeps it in its state directory (`<models path>/../data/node-credential.json`, mode `0600`) and presents it for the heartbeat, drain, deregister and models routes, and to register again after a restart. So a restart needs no join token, and a node cannot act on another node. A new registration with a join token or with the registration token replaces the credential, and the old one stops working at once; LocalAI also ends the tunnel session of the old one. A worker whose credential is lost (for example its state directory is deleted) joins again with a new join token.
+
+**Upgrade.** This is a hard break for old workers: a worker that predates join tokens sends the shared registration token for its heartbeat, and the frontend now refuses it. Upgrade the workers with the frontend. A worker that registers again gets its own credential.
+
+#### Add a worker
+
+On the Workers page, press **Add worker**. Choose the connections (NATS is offered when it is set up, P2P when sharing is on), then copy the command of the tab that fits: the install script, Docker, Docker Compose, Kubernetes or a manual start. The page mints the token for you, hides it on the page, and puts it in the command when you copy. It counts down to the expiry, lets you choose how many workers may use the token and for how long, and waits for the worker to appear in the roster. Or mint a token with the API:
+
+```bash
+curl -s -X POST http://frontend:8080/api/cluster/join-tokens \
+  -H "Authorization: Bearer $ADMIN_KEY" -H 'Content-Type: application/json' \
+  -d '{"ttl_seconds":600,"uses":1,"routes":["websocket"],"label":"rack 3"}'
+```
+
+The answer holds the plain token once, and a ready-to-copy command for each way to run a worker, built from the external URL of the frontend (`LOCALAI_BASE_URL`, or the request host when it is behind a trusted proxy set with `--trusted-proxies`):
+
+| Method | What it runs |
+|--------|--------------|
+| `install_script` | `curl -fsSL '<frontend>/join.sh?t=<token>' \| sudo sh`: installs the binary with the checksum check of `install.sh`, writes a systemd unit (Linux) or a launchd daemon (macOS), keeps the settings in a file that only root can read, and starts the service. It is safe to run again. |
+| `windows` | `irm '<frontend>/join.ps1?t=<token>' \| iex` from an elevated PowerShell: installs the binary and a Windows service. |
+| `docker` | `docker run` with `LOCALAI_REGISTER_TO` and `LOCALAI_JOIN_TOKEN`, and volumes for `/models`, `/backends` and `/data` |
+| `docker_compose` | A compose file with one worker service and the same volumes |
+| `kubernetes` | `kubectl apply -f '<frontend>/join.yaml?t=<token>'`: a Secret with the token and a StatefulSet named `localai-worker` with a volume for the state directory, and GPU limits as comments |
+| `manual` | `LOCALAI_REGISTER_TO=... LOCALAI_JOIN_TOKEN=... local-ai worker` |
+
+The three scripts are public, but each answers only for a token that exists and is not expired, revoked or used up (otherwise `404`, the same for every case). Serving a script does not spend the token. The query `routes=nats,websocket` limits the connections of the worker within what the token allows. A script holds the token: do not share it. The shell script never prints the token and never puts it on a command line.
+
+To remove a worker that the install script set up, see the note it prints at the end: `systemctl disable --now localai-worker`, remove `/etc/localai/worker.env`, the unit and the state directory, and delete the worker on the Workers page.
+
+The scripts use the installer at `https://localai.io/install.sh` and `https://localai.io/install.ps1`. For a host with no internet access, serve a copy and set `LOCALAI_INSTALL_URL` before you run the script.
+
+#### The join token API
+
+All routes are for an admin only and answer `503` when distributed mode is off. The schema is in the swagger UI.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/cluster/join-tokens` | Mint a token. Body (all optional): `ttl_seconds` (up to 86400), `uses` (up to 100), `routes` (`nats`, `websocket`), `label`, `auto_approve`. Returns the plain `token` once and the `commands`. |
+| `GET /api/cluster/join-tokens` | List the tokens and their state. The secret is never in the list. |
+| `DELETE /api/cluster/join-tokens/{id}` | Revoke a token. A worker that already joined keeps its own credential; delete the node to end that. |
+| `PUT /api/cluster/settings` with `join_auto_approve` | The default of `auto_approve` for new tokens. |
+
+These routes are not exposed as tools of the LocalAI Assistant: a token is a credential and must not pass through a chat.
+
+### Workers over P2P
+
+A worker on another network (a laptop, a machine behind NAT, a box at another site) can join with a one-time **worker invite** instead of a URL and the registration token. The frontend must run P2P in mode `share` (Connect and share; see [P2P]({{%relref "administration/p2p" %}})).
+
+1. On the **Workers** page, press **Add worker**, choose **P2P** and continue: the page makes the invite. The API is `POST /api/p2p/invites` with `{"kind": "worker"}`. A worker invite has no QR code.
+2. On the new machine, run the command that the page shows:
+
+   ```bash
+   local-ai worker --join "localai://pair?v=1&k=worker&p=<peer ID>&c=<code>&..."
+   ```
+
+3. The worker finds the frontend by its peer ID and connects directly, by hole punching, or through a relay. It redeems the invite, prints a phrase, and registers. The node waits for approval whatever `--auto-approve-nodes` says: compare the phrase and the peer ID with the person who runs the machine, then approve it.
+
+What the worker keeps and does:
+
+- It keeps its P2P identity (`--p2p-identity`) and a record of the frontend under `data/p2p/pairs/`. A restart with the same command does not redeem the used invite again.
+- It registers, heartbeats and drains over P2P HTTP. The frontend knows it by its peer ID, so it needs no registration token, and the node is pinned to that peer: a registration under its name from another peer or with the registration token is refused (409), and the tunnel accepts it only from its peer. A paired worker may act only on its own node.
+- Its tunnel is one P2P stream per lane (`/localai/tunnel/1/inference` and `/localai/tunnel/1/bulk`), with the same yamux sessions as the websocket tunnel. The bulk lane (model files) needs a path without a data limit, so a public relay never carries it; a relay that you run does.
+- It is **tunnel-only**: it holds the P2P tunnel and never attaches to NATS (see [How a frontend picks the route of a worker](#how-a-frontend-picks-the-route-of-a-worker)). A NATS URL on such a worker is ignored with a warning, and `--routes nats` is refused at start. To put it on NATS, restart it with `--register-to`, the registration token, `--nats-url` and `--addr`.
+- Revoking the device under **Cluster, Sharing** closes its connections, and the node stops heartbeating.
+
+Several frontends: the invite names the frontend that made it, and the worker always reaches that one. The other frontends reach the worker through the peer link, as for a websocket tunnel.
 
 ### Disabling backend installation on workers
 
@@ -483,7 +642,6 @@ The simplest way to configure a worker's network address is with a single variab
 ```yaml
 environment:
   LOCALAI_ADDR: "192.168.1.100:50051"
-  LOCALAI_NATS_URL: "nats://frontend:4222"
   LOCALAI_REGISTER_TO: "http://frontend:8080"
   LOCALAI_REGISTRATION_TOKEN: "my-secret"
 ```
@@ -612,7 +770,7 @@ The system automatically applies hardware-detected labels on registration:
 
 ### How Workers Operate
 
-Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a NATS `backend.install` event with the backend name and model ID. The worker:
+Workers start as generic processes with no backend installed. When the SmartRouter needs to load a model on a worker, it sends a `backend.install` request, over a route that the worker holds, with the backend name and model ID. The worker:
 
 1. Installs the backend from the gallery (if not already installed)
 2. Starts a **new gRPC backend process on a dynamic port** (each model gets its own process)
@@ -625,7 +783,7 @@ When the SmartRouter needs to free capacity, it can unload models with zero in-f
 
 ### Managing nodes in the WebUI
 
-With distributed mode on, **Admin → Swarm** holds the cluster: **Nodes**, **Placement rules**, **Failover** and **P2P**. A single-node install shows **This machine** instead and never draws these pages.
+With distributed mode on, the **Cluster** group of the Administration sidebar holds the cluster: **Workers**, **Placement** (with a **Rules** view and a **Failover** view) and **Sharing**. A single-node install shows **This machine** instead and never draws the cluster pages. With P2P on, a single-node install also has **Cluster**, with **Sharing** alone.
 
 **Nodes** lists every worker in a sortable table: name, role, state in words, GPU or system memory, loaded models, last heartbeat and version. Switch between comfortable and compact rows, between **List**, **Map** and **Running models**, and filter to **Needs attention** (waiting for approval, not answering, or low GPU memory, system memory or models disk). The **Map** draws this instance, the message bus and database, and each worker; a dashed line is a worker that gets no traffic. It is not drawn on a phone. When a backend has a newer version, an **Update** button on the page asks first, then sends the update to the nodes that differ from the rest of the cluster, or to the nodes you selected.
 
@@ -635,7 +793,7 @@ The same confirmation opens from the **Nodes** action of a backend on the **Upda
 
 The **Running models** view groups replicas by model. Its **View logs…** action opens logs directly when there is one placement. When a model has several, it opens the row so you can choose the logs of one replica.
 
-**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker, a peer instance, or a memory shard. It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
+**Add a node** (`/app/nodes/add`) explains how a machine joins: a registered worker (by the server address or with a P2P invite) or a [model-split worker]({{% relref "/administration/p2p-model-split" %}}). Another LocalAI instance is not a node: add it as a remote and group it under [Federation]({{% relref "/administration/federation" %}}). It prints the command to run on the new machine with a **Copy** button, and updates the page when the machine appears. On a single-node install it starts with the command that turns distributed mode on.
 
 Open a node for node-scoped work. The page shows its state, VRAM, RAM, models disk, CPU and in-flight requests, and has tabs for **Models** (replica logs, unload), **Backends** (update, delete), **Logs**, and **Capacity and labels** (replica capacity, labels). **Drain…** shows what the drain would change before it does anything; **Remove…** asks for the node's name. **Update** in the **Backends** tab is offered only for a backend that has a newer version on this node, and asks first like the bulk button. A node that stopped answering says so and shows the last figures it reported.
 
@@ -647,7 +805,7 @@ The API is split into two prefixes with distinct auth:
 
 ### `/api/node/` - Node self-service
 
-Used by workers themselves (registration, heartbeat, etc.). Authenticated via the registration token, exempt from global auth.
+Used by workers themselves (registration, heartbeat, etc.), exempt from global auth. Registration takes a [join token](#join-tokens) (`join_token` in the body), the shared registration token (`token`, when the frontend has one), or the own credential of a node that registers again (`Authorization: Bearer`). It returns the credential of the node once (`node_token`). Every other route takes that credential, for its own node only.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -655,7 +813,10 @@ Used by workers themselves (registration, heartbeat, etc.). Authenticated via th
 | `POST` | `/api/node/:id/heartbeat` | Update heartbeat timestamp |
 | `POST` | `/api/node/:id/drain` | Mark self as draining |
 | `GET` | `/api/node/:id/models` | Query own loaded models |
+| `POST` | `/api/node/:id/split` | Report the P2P host and the [model-split workers]({{% relref "/administration/p2p-model-split" %}}#distributed-mode) of the node; the answer says whether the node is a split server and lists the workers attached to it and the relays that admit it. A node that registered with the token is bound to the first peer it reports; another peer gets `409` until the node registers again |
 | `DELETE` | `/api/node/:id` | Deregister self |
+
+The shared registration token is refused on every route of this table except `register`.
 
 ### `/api/nodes/` - Admin management
 
@@ -678,6 +839,8 @@ Used by the WebUI and admin API consumers. Requires admin authentication.
 | `POST` | `/api/nodes/:id/models/delete` | Delete model files from a worker |
 | `PUT` | `/api/nodes/:id/vram-budget` | Set a VRAM budget for a worker (`{"value":"80%"}`) |
 | `DELETE` | `/api/nodes/:id/vram-budget` | Clear a worker's VRAM budget (revert to all detected VRAM) |
+| `PUT` | `/api/nodes/:id/split-server` | Declare a worker a [split server]({{% relref "/administration/p2p-model-split" %}}#split-servers) (`{"split_server":true}`), or clear it, which detaches its model-split workers |
+| `DELETE` | `/api/nodes/:id/split-server` | Hand the split server declaration back to the `--split-server` flag of the worker |
 
 The **Nodes** page reads `GET /api/nodes` every five seconds and renders 50 workers at a time. Bulk drain, resume and remove run with bounded concurrency, so the page stays usable for fleets with thousands of registrations. Selecting the visible page or a group does not discard selections elsewhere; selections are removed only when a later poll confirms the worker no longer exists.
 
@@ -872,6 +1035,8 @@ curl -X POST http://frontend:8080/api/nodes/<node-id>/approve \
 
 The **Nodes** page in the WebUI shows pending nodes with an **Approve** button, and so does the node's own page and the **Add a node** page once the machine has registered.
 
+A worker that joins with a [worker invite](#workers-over-p2p) always waits for approval the first time, and keeps its approval when it registers again from the same peer.
+
 To skip manual approval and let nodes join immediately, set `--auto-approve-nodes` (or `LOCALAI_AUTO_APPROVE_NODES=true`) on the frontend. This is convenient for development and trusted environments.
 
 ## Node Statuses
@@ -880,9 +1045,31 @@ To skip manual approval and let nodes join immediately, set `--auto-approve-node
 |--------|---------|
 | `pending` | Node registered but waiting for admin approval (when `--auto-approve-nodes` is `false`) |
 | `healthy` | Node is active and responding to heartbeats |
-| `unhealthy` | Node has missed heartbeats beyond the threshold (detected by the HealthMonitor) |
+| `unhealthy` | The HealthMonitor found no live route to the node: it heartbeats, but neither NATS nor its tunnel is live (see [Node health and routes](#node-health-and-routes)), or it missed heartbeats while auto-offline is off. Status only: nothing of the node is deleted, and it becomes `healthy` again when a route is live |
 | `offline` | Node is temporarily offline (graceful shutdown or stale heartbeat). The node row is preserved so re-registration restores the previous approval status without requiring re-approval |
 | `draining` | Node is shutting down gracefully - no new requests are routed to it, existing in-flight requests are allowed to complete |
+
+### Node health and routes
+
+The HealthMonitor judges each node by the routes that node holds, whatever routes the other nodes use. It never reads the carrier setting of the cluster. For each node it looks at:
+
+| Route | Live when |
+|-------|-----------|
+| `heartbeat` | The last heartbeat is younger than `--stale-node-threshold`. It shows that the worker process runs and carries the route report, but it does not carry work. |
+| `nats` | The last route report of the worker lists NATS in `attached`, and the heartbeat that carried it is fresh. |
+| `tunnel` | A frontend holds the WebSocket or P2P tunnel of the worker. A tunnel that dropped less than the reconnect grace ago (one minute) is `reconnecting` and still counts while the heartbeat is fresh. When no frontend has a record of the tunnel, the route report of the worker decides. |
+
+A node is healthy while one of its `nats` or `tunnel` routes is live:
+
+- A node that loses one route and keeps another stays `healthy`. The lost route is shown as `down`, with the reason the worker gave, and the frontend logs it once.
+- A node whose heartbeat is stale while a frontend still holds its tunnel stays `healthy`. The heartbeat is shown as `down`.
+- A node that heartbeats and has no live route is marked `unhealthy` once it has been so for the reconnect grace (one minute). A tunnel that has been gone for longer than the grace already counts, so a tunnel-only node is marked at once. A route that comes back inside the grace changes nothing, so a reconnect does not make the node flap. The node is not probed while it is `unhealthy`, and nothing of it is deleted.
+- A node with a stale heartbeat and no live route follows the stale rules: it is marked `offline` (or `unhealthy` with auto-offline off), as described below.
+- A node that has not sent its first route report is judged by its heartbeat alone.
+
+A worker sends no heartbeat while it holds no route, so a worker that loses its only route goes stale and is marked `offline` after `--stale-node-threshold`. Each frontend that runs the health checks counts the grace on its own. A frontend that has not checked the node for three check intervals starts the grace again, which delays the mark.
+
+`GET /api/nodes` and `GET /api/nodes/{id}` return `route_state` for each node: a list of `{route, transport, state, reason}` entries, where `route` is `heartbeat`, `nats` or `tunnel`, `transport` is `websocket` or `p2p` for the tunnel, and `state` is `live`, `reconnecting` or `down`. The LocalAI Assistant tool `list_nodes` returns the same list as `routes`. On the Workers page, the **Connections** column of the roster shows one chip per route with its state, and the reason when you point at it.
 
 ### Heartbeat writes and stale-node detection
 
@@ -1000,7 +1187,7 @@ This needs `LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres` and `LOCALAI_COLLECTIONS
 
 ## Agent Workers
 
-An agent worker is a dedicated process that runs the MCP servers of your models, for example stdio servers that need docker. The frontend sends it MCP tool calls and discovery requests over NATS. It needs no database and runs no model.
+An agent worker is a dedicated process that runs the MCP servers of your models, for example stdio servers that need docker. The frontend sends it MCP tool calls and discovery requests over its routes: NATS, the WebSocket tunnel, or both. It needs no database and runs no model.
 
 ```bash
 local-ai agent-worker \
@@ -1012,6 +1199,8 @@ local-ai agent-worker \
 Agent workers:
 - Handle MCP tool discovery and execution requests from the frontend
 - Close their MCP sessions when a backend stops
+
+The routes of an agent worker follow the same flags as a backend worker (`--routes`, `LOCALAI_WORKER_ROUTES`), with other defaults: `nats` when `--nats-url` is set, and `tunnel` when a registration token is set, because the token guards the control server that the tunnel reaches. With neither, the agent worker holds NATS with the address that the frontend hands over. On NATS an agent worker answers in the `agent-workers` queue group and on the subjects of its own node. An agent worker over P2P is not supported.
 
 The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. `LOCALAI_MCP_CI_JOB_TIMEOUT` is live on the server command (`local-ai run`, also used by frontends and chat workers) and is ignored only on `local-ai agent-worker`. `LOCALAI_AGENT_JOB_RETENTION_DAYS` is read by `local-ai run`.
 
@@ -1028,7 +1217,7 @@ agent-worker-1:
 
 A chat worker runs the turns of the chats that no person starts at the keyboard: [trigger]({{% relref "/features/chats-and-agents/chats-agents" %}}#triggers) runs, [agent jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and connector messages. Use one to keep this work off the frontends that serve your users.
 
-A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
+A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend, and a [peer address](#peer-link) that the frontends can reach, because they send it the chat starts over the peer link. Turn on the routing on the frontends with `--distributed-chat-workers`:
 
 ```bash
 # frontends
@@ -1040,14 +1229,15 @@ LOCALAI_DISTRIBUTED=true LOCALAI_CHAT_WORKER=true local-ai run ...
 
 How it works:
 
-- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over NATS (`chats.start`, queue group `chat-workers`). One chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
+- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over the peer link to a live chat worker that it picks from the node list, with or without NATS. The chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
 - The turn's live events and a stop travel on the same subjects as between two frontends, so a user who watches the chat sees it through any frontend, and a stop or a run limit reaches the worker.
+- The notification center runs in every process, a chat worker included, on the same store. A notification stored by one process reaches the streams of every frontend over the message bus. Its state is shared (rows in the database) and live-only on the bus; see [Storage and clusters]({{% relref "/features/chats-and-agents/chats-agents#storage-and-clusters" %}}).
 - A message that a person sends to the chat while the worker runs it waits in the database, and the worker gives it to the model at its next request.
 - When no chat worker listens, the frontend runs the turn itself. When a chat worker does not answer in time, or refuses the start, the run fails: the worker may have started the turn, and running it again could send the message twice. The time a start may take is `LOCALAI_CHAT_START_TIMEOUT` (default `30s`). Raise it when a slow database makes starts time out, and set the same value on the frontends and the chat workers.
 - The frontend that watches a job or a trigger run stops it at its limit (`LOCALAI_MCP_CI_JOB_TIMEOUT` for a job). If that frontend is gone, the chat worker stops the turn one minute after the same limit, so it cannot run on without a bound. The same bound applies to the next turn that the worker starts from messages that arrived after the last model request. Set `LOCALAI_MCP_CI_JOB_TIMEOUT` to the same value on the frontends and the chat workers.
-- A chat worker runs at most `LOCALAI_CHAT_WORKER_MAX_TURNS` turns at once (default `32`). Every turn on it counts, also the sub-agents of its turns. When it is full it refuses a start that would begin a turn, and that trigger run, job or connector message fails with an error that says the worker is full; nothing runs on the frontend. A message for a chat whose turn already runs is still taken, because it only waits. NATS gives each start to one worker of the queue group, so a full worker does not pass the start on to a free one: give the workers enough room for the runs you expect, or add workers.
+- A chat worker runs at most `LOCALAI_CHAT_WORKER_MAX_TURNS` turns at once (default `32`). Every turn on it counts, also the sub-agents of its turns. When it is full it refuses a start that would begin a turn. A message for a chat whose turn already runs is still taken, because it only waits. The frontend then sends the start to another chat worker; the run fails, with an error that says the worker is full, only when every worker it tried (up to three) is full. Nothing runs on the frontend then.
 - A chat worker that dies leaves its turn claimed. The frontends' reaper ends it as interrupted, as for a frontend that dies, and nothing retries it.
-- A chat worker shows in the node list as an `agent` node with the label `node.role=chat-worker`, named `chat-` and its instance ID (`LOCALAI_INSTANCE_ID`), or its host name when the ID is generated. It registers itself through the database, is approved at once, sends a heartbeat every 10 seconds and goes offline when it stops. Models are never scheduled on it. Draining it from the node list does not stop it from taking starts: stop the process instead.
+- A chat worker shows in the node list as an `agent` node with the labels `node.role=chat-worker` and `node.instance` (the instance ID that the frontends reach it by over the peer link), named `chat-` and its instance ID (`LOCALAI_INSTANCE_ID`), or its host name when the ID is generated. It registers itself through the database, is approved at once, sends a heartbeat every 10 seconds and goes offline when it stops. Models are never scheduled on it. Draining it from the node list does not stop it from taking starts: stop the process instead.
 - A chat worker starts no triggers, connectors or jobs and runs no conversion of old data. It still serves the HTTP API: its turns reach the models through it, and the health probes use it. Do not put it behind the load balancer of your users.
 
 What stays on the frontends:
@@ -1056,12 +1246,22 @@ What stays on the frontends:
 - A start that carries files, such as a connector message with a photo or a job with attachments. The files are saved before the turn starts.
 - Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
 
+
+### Request and reply between frontends and chat workers
+
+A chat start, the replay of the events of a turn to a client that reconnected to another frontend, and the background jobs of a turn that runs on another node are request and reply between processes. With or without NATS, they go over the peer link between the two processes (`/api/cluster/peer`), the link that also carries the requests for a worker whose tunnel another frontend holds. NATS never carries them. Every frontend and chat worker needs a peer address that the others can reach: it is found at start, and `LOCALAI_PEER_ADDRESS` sets it when the one found is wrong. A frontend or chat worker that has none is not ready: `/readyz` answers `503` with the status `unavailable` and a reason that names `LOCALAI_PEER_ADDRESS`. Workers that run models open no new port for this.
+
+- A chat start goes to a live chat worker that the frontend picks from the node list. When that worker cannot be reached, or is full, the frontend tries another one (up to three). Each try may spend only its share of `LOCALAI_CHAT_START_TIMEOUT` to reach its worker, so a worker that does not answer leaves time for the others. When the start has been sent and no answer comes back, the run fails and nothing is retried: the worker may have started the turn, and a second start could send the message twice. When no chat worker can be reached, the frontend runs the turn itself, as it does when none is live.
+- The replay asks the frontend that runs the turn and waits up to 2 seconds. On a slow link that also carries large model file transfers to a worker, the answer can take longer, and the client then reads the transcript instead of the missed events.
+- A turn reaches a background job on another node. When that node does not answer, the tool call says so and the job stays as it is. A job is marked lost only when its node does not know the job. A node that does not answer is never taken as a node that left the cluster, because a live frontend whose heartbeats stall for a while looks the same, so the job of a node that left stays listed as running.
+- Chat events, notifications and stops are broadcasts (see [The broadcast buses](#the-broadcast-buses)), and they work with or without NATS.
+
 ## MCP in Distributed Mode
 
-MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations through NATS to agent workers:
+MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations to agent workers, over NATS or their tunnels:
 
 - **MCP discovery** (`GET /v1/mcp/servers/:model`): routed to agent workers which create sessions and return server info
-- **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
+- **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers by request and reply
 
 ## vLLM Multi-Node (Data-Parallel)
 
@@ -1089,10 +1289,10 @@ The head will start its 2 local ranks, listen on `10.0.0.1:32100`, and wait for 
 
 ### Follower nodes
 
-Each follower runs `local-ai p2p-worker vllm` with matching topology, an explicit start rank, and the head's address:
+Each follower runs `local-ai worker vllm` with matching topology, an explicit start rank, and the head's address (the old name, `local-ai p2p-worker vllm`, still works):
 
 ```bash
-local-ai p2p-worker vllm \
+local-ai worker vllm \
   moonshotai/Kimi-K2.6-Instruct \
   --data-parallel-size 4 \
   --data-parallel-size-local 2 \
@@ -1126,7 +1326,7 @@ engine_args:
 
 ```bash
 # On 10.0.0.2 (follower)
-local-ai p2p-worker vllm moonshotai/Kimi-K2.6-Instruct \
+local-ai worker vllm moonshotai/Kimi-K2.6-Instruct \
   --data-parallel-size 8 --data-parallel-size-local 4 --start-rank 4 \
   --master-addr 10.0.0.1 --master-port 32100 \
   --register-to http://10.0.0.1:8080 --registration-token changeme
@@ -1245,7 +1445,7 @@ local-ai worker \
 
 ## Model Scheduling
 
-Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own **Placement rules** page (**Admin → Swarm → Placement rules**, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
+Model scheduling controls where models are placed and how many replicas are maintained. In the React WebUI it has its own page, **Placement** (**Admin → Cluster → Placement**, the **Rules** view, at `/app/scheduling`). Each rule is written as a sentence, shows the nodes the model is loaded on now, and opens in a side sheet that previews which nodes the draft rule could use. The preview is worked out in the browser from the node list and labels; the scheduler also checks free memory and disk when it loads a model. A deleted rule can be taken back for a few seconds. A rule combines two optional features:
 
 ### Node Selectors
 
@@ -1301,6 +1501,58 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+### Upgrade strategy
+
+`upgrade_strategy` says how an upgrade of a gallery model (`POST /api/models/upgrade/{name}`)
+replaces the replicas that run it (see [Model updates]({{% relref "/models/model-updates" %}}) for the upgrade itself):
+
+| Value | What an upgrade does |
+|-------|----------------------|
+| `stop_and_start` (default) | Stops every replica on every node, switches the files and the config, then loads one replica of the new version as the load check. When the check fails, the old files and config come back and the old version loads again. The reconciler brings the model back to `min_replicas` afterwards. |
+| `canary` | Accepted and stored, but not available yet. The upgrade stops and starts the model, and the upgrade's status and `note` in `GET /api/models/updates` say so. |
+
+```bash
+curl -X POST http://frontend:8080/api/nodes/scheduling \
+  -H "Content-Type: application/json" \
+  -d '{"model_name": "llama3", "upgrade_strategy": "stop_and_start"}'
+```
+
+An update that omits `upgrade_strategy` keeps the stored value. A model with no
+rule upgrades with `stop_and_start`. A standalone server has no rules and always
+stops and starts the model. The model is unavailable from the stop until the
+new version has loaded.
+
+During the switch, the frontend that runs the upgrade publishes a placeholder
+revision of the model in the node registry. This stops every replica, and no
+frontend and no reconciler pass can load the model until the frontend
+publishes the revision of the new configuration. The same happens when a change
+of the weights leaves the configuration, and so its revision, as it was: an old
+replica cannot survive the upgrade and pass the load check in place of the new
+version.
+
+**Each worker downloads its own files.** While the frontend downloads the new
+files of an upgrade, every worker that runs the model downloads them too
+(`model.prefetch`, a request on the node's control subjects) and checks each
+sha256. After the frontend switches its files, each worker puts its copy in
+place, and every other worker drops its old copy of the changed files, so its
+next load gets the new ones. With object storage, the frontend also deletes
+the changed keys, so the next load uploads the new file, and it sends the
+sha256 of each file that a gallery install manages with every load: a worker
+whose cached copy has another sha256 (it was offline, its commit timed out, or
+it was busy with another download) downloads the file again. A worker that
+cannot download a file (a wrong checksum or no route to the source) gets it
+from the frontend at its next load; this never fails the upgrade. An older
+worker that does not know `model.prefetch` gets the file from the frontend
+over HTTP staging; with object storage it ignores the sha256 and keeps the
+copy in its cache, so upgrade the workers before you upgrade models. With `LOCALAI_DISTRIBUTED_SHARED_MODELS`
+the workers read the shared models directory and nothing is sent. A first
+install still sends the files from the frontend.
+
+A cancel of the upgrade during the download returns at once: the frontend does
+not wait for the workers. A worker that is still downloading finishes that
+download in the background, and its staged copy stays beside the model file
+until the next upgrade of the model replaces it.
+
 ### Scheduling a model alias
 
 `model_name` accepts a [model alias]({{% relref "/models/model-aliases" %}}) as well as a
@@ -1319,7 +1571,7 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 This makes an alias a stable deployment slot: the placement policy belongs to
 the slot, and the model filling it can change without rewriting the rule. The
-WebUI lists aliases in the model picker on the **Placement rules** page, tagged with
+WebUI lists aliases in the model picker on the **Placement** page, tagged with
 the model each one resolves to.
 
 Each frontend resolves the alias from its own copy of the model configs, and a
@@ -1358,7 +1610,7 @@ and overwrites the listed models (models not listed are left untouched).
 | `LOCALAI_MODEL_SCHEDULING_CONFIG` | Path to a YAML file with the same list |
 
 Entry fields: `model_name` (required), `node_selector` (a label map; **omit it to
-match every node**), and then **one of two replica modes** (they are mutually
+match every node**), the optional [`upgrade_strategy`](#upgrade-strategy), and then **one of two replica modes** (they are mutually
 exclusive):
 
 - **`replicas: all`** - static spread: place exactly **one replica on every
@@ -1462,6 +1714,188 @@ Notes:
 | **Best for** | Ad-hoc clusters, community sharing | Production, Kubernetes, managed infrastructure |
 | **Setup complexity** | Minimal (share a token) | Requires PostgreSQL + NATS |
 
+## Cluster settings
+
+The cluster settings are shared by every frontend through the database: the NATS addresses and the [carrier weights](#carrier-weights). Read and store them with the `local-ai cluster settings` command, the admin API, or the Cluster settings of the Workers page.
+
+### Save a NATS address
+
+Store the address of the NATS server in the cluster settings. The frontend that serves the request checks that it reaches the server, and refuses an address that it cannot reach.
+
+```bash
+local-ai cluster settings set --nats-url nats://nats.example.com:4222
+```
+
+If workers must use another address than the frontends (for example a public name), also set `--nats-worker-url`. When it is empty, workers use the `nats.url` address. An address must not contain a user name, a password, or a query string. NATS credentials stay on each frontend (see [NATS JWT authentication](#nats-jwt-authentication-recommended-for-production)).
+
+A deployment that started with `--nats-url` already has this address stored. The frontends read the address at start, so restart them after you store a new one.
+
+### The admin API
+
+Both routes are for an admin only. They answer `503` when distributed mode is off. The full schema is in the swagger UI of your server (`/swagger/index.html`).
+
+| Route | Purpose |
+|-------|---------|
+| `GET /api/cluster/settings` | `nats_url`, `nats_worker_url`, `carrier_weights` (the weights in force) and `carrier_weights_default`. It also returns `bus`, the broadcast bus of the frontend that answers (`bus`: `nats` or `postgres`, `nats_configured`, `nats_connected`), read from the connection of that frontend, and `replicas`, the live frontends (`id`, `version`, `last_seen`). |
+| `PUT /api/cluster/settings` | Store the fields that you send. An empty string clears a setting. A `nats_url` that the serving frontend cannot reach is `422`. `carrier_weights` is an object with some or all of `nats`, `websocket` and `p2p`: a key that is left out stays, `null` puts the default back, an unknown key or a value that is not a whole number from 0 to 1000 is `400`. |
+
+The LocalAI Assistant has `get_carrier_weights` and `set_carrier_weights` for the [carrier weights](#carrier-weights); the second asks for your confirmation first.
+
+## Carrier weights
+
+A hybrid cluster attaches NATS, WebSocket and P2P workers at the same time, and the SmartRouter sends requests across all of them as one pool. A **carrier weight** decides between two nodes that fit a request equally well but that a frontend reaches over different carriers.
+
+| Carrier | Default weight |
+|---------|----------------|
+| `nats` | 100 |
+| `websocket` | 50 |
+| `p2p` | 25 |
+
+A weight is a whole number from 0 to 1000. A higher weight wins. `0` means: use that carrier only when nothing else fits. The weight of a node is the highest weight among its routes, so a worker that holds both NATS and a WebSocket tunnel counts as NATS by default.
+
+**The weight is a tie-break and nothing more.** It never changes which node wins when fit differs. The router ranks the candidates as it always did, and the weight is read only after the earlier keys leave nodes equal:
+
+- For a model that is already loaded: fewer requests in flight first, then the weight, then the least recently used replica (so equal-weight replicas still rotate), then free VRAM.
+- For a new load: free VRAM (or an idle node, or the least loaded node) first, then the weight, then the node id. The last key keeps the order stable, so the same state gives the same node.
+
+So a node with more free VRAM, or less load, wins over a node with a higher weight. Nodes that report exactly the same free VRAM, such as identical machines, are where the weight shows.
+
+### Set the weights
+
+Every frontend reads the weights from the shared cluster settings, so a change through one frontend reaches all of them within a few seconds. No restart is needed.
+
+```bash
+local-ai cluster settings set --carrier-weight nats=100 --carrier-weight websocket=80 --carrier-weight p2p=10
+local-ai cluster settings set --carrier-weight p2p=default   # put the default back
+local-ai cluster settings                                      # show the weights in force
+```
+
+The same fields are in `PUT /api/cluster/settings` (`carrier_weights`), in the **Connection preference** sliders of the cluster settings, and in the Assistant tools `get_carrier_weights` and `set_carrier_weights`.
+
+State mode (see the distributed state rules): the weights are shared cluster settings in the database. Each frontend keeps what it read for up to 2 seconds, so two frontends can disagree for that long after a change. Nothing else is held in memory.
+
+### Data-limited relays are a last resort
+
+A P2P worker can be reached over a public relay that limits the data it carries. The worker reports this, and the router treats such a node (one whose only route is a limited relay) as a last resort:
+
+- It is used only when no other candidate fits. For a model that is loaded on several nodes, the replica behind the relay comes last. For a new load, the other nodes are tried first, and the relay node only when none of them can take the model without evicting another.
+- It is never chosen for a placement that needs model files pushed to it, because that would send the whole model through the relay. A placement needs no push when every node mounts the same models directory (`LOCALAI_DISTRIBUTED_SHARED_MODELS`), when the files go through S3 object storage that the worker reads itself, or when the model has no local file. If the relay node is the only candidate and the placement needs a push, the request fails with a `503` and a message that says why.
+
+The weight of a node does not change this rule. A relay node with the top weight is still a last resort.
+
+## Workers and routes
+
+A worker holds the routes that its operator gives it, and the frontend does not change them. A worker never connects to PostgreSQL.
+
+| Worker started with | Routes it holds |
+|---------------------|-----------------|
+| `--register-to` | The WebSocket tunnel to that frontend. |
+| `--register-to` and `--nats-url` | NATS and the WebSocket tunnel, NATS first. |
+| `--join` (a worker invite) | The P2P tunnel only. A NATS URL is ignored. |
+| `--routes nats` | NATS only. Without `--nats-url` the worker uses the address that the frontend hands over. |
+| `--routes tunnel` | The tunnel only, whatever `--nats-url` says. |
+
+Each route is attached on its own. A route that cannot be attached (a NATS server that is down, a frontend that refuses the tunnel) is tried again in the background, with a wait that grows from 1 to 30 seconds, and the worker serves on its other routes meanwhile. A route whose credential cannot be renewed is attached again. The **backend processes keep running** through all of it.
+
+Every heartbeat reports the routes (`routes`), the routes that the worker holds and is connected on (`attached`), why each other route is not held (`route_error`, for example `nats: connecting`), and, for a tunnel, its transport (`websocket` or `p2p`) and the P2P path. The Nodes page and `GET /api/nodes` show them as `attached`, `follow` (the routes the worker was given) and `follow_error`, and `route_state` says which routes are live (see [Node health and routes](#node-health-and-routes)). A worker sends no heartbeat while it holds no route, so a worker that nobody can reach goes stale.
+
+### Worker profiles
+
+| Profile | How to start it | Address |
+|---------|-----------------|---------|
+| **NATS and tunnel** | `--register-to` and `--nats-url`. | The worker registers its address (`--addr`, `--advertise-addr`, or the host name and the base port). Its backends bind all interfaces, because the frontends dial them on NATS. |
+| **NATS only** | `--routes nats`. | As above. |
+| **Tunnel only** | `--register-to` alone, or `--join`. | None is needed. Without `--addr` or `--advertise-addr` its backends and file server bind to loopback, so no port is open, and the frontend drops the address. |
+
+A route can fail to attach for these reasons, shown in `follow_error`:
+
+- The NATS server cannot be reached, or the credential of the node is not minted yet (for example, the node waits for approval).
+- The NATS server asks for a client certificate, and the worker has none. The frontend cannot hand over certificate files. Set `LOCALAI_NATS_TLS_CERT` and `LOCALAI_NATS_TLS_KEY` on the worker.
+- The frontend refuses the tunnel, for example while the node waits for approval.
+
+### Credentials per route
+
+A worker registers once at start to get its node ID, with no credential. Then each route registers again and asks for its own credential only (`"routes": ["nats"]` or `"routes": ["tunnel"]` in the body of `POST /api/node/register`):
+
+- For `nats`: the worker NATS address (`nats.worker_url`, else `nats.url`), the CA certificate of the server as PEM, and the per-node JWT and seed when JWT authentication is on (`nats_jwt`, `nats_user_seed`). The JWT is minted only for an approved node. It is refreshed before it expires by a registration that asks for `nats` only.
+- For `tunnel`: a per-node tunnel token (`tunnel_token`), sent once. A registration for the tunnel replaces the previous token and ends the tunnel session that used it. A heartbeat never mints a token.
+
+A worker that joined over P2P never gets a NATS credential, whatever it asks for. The handover crosses the network under the registration token, so use `https` for `--register-to` unless the frontend is on loopback.
+
+## Peer link
+
+Several frontends can share the tunnels of the workers. A worker is connected to one frontend. A request that arrives at another frontend goes over a **peer link** to the frontend that holds the tunnel. The same link carries the chat starts, the chat replay and the background jobs between the frontends and the chat workers, with or without NATS (see [Request and reply between frontends and chat workers](#request-and-reply-between-frontends-and-chat-workers)).
+
+| Flag | Env | Meaning |
+|------|-----|---------|
+| `--peer-address` | `LOCALAI_PEER_ADDRESS` | `host:port` at which the other frontends and chat workers dial this one. By default LocalAI finds it from the route to the database. Set it when that address is wrong, for example in Kubernetes or behind NAT. A frontend or chat worker that publishes none cannot be reached by the others: it logs a warning and `/readyz` answers `503`. |
+| `--peer-tls` | `LOCALAI_PEER_TLS` | Dial the other frontends over `wss`. |
+| `--peer-tls-ca` | `LOCALAI_PEER_TLS_CA` | PEM file with the CA that signs their certificate. By default the system roots are used. |
+
+The link carries the credential of the frontend and the requests that it relays. Without `--peer-tls` it is clear text, and LocalAI logs a warning at start-up when the published address is not on the local host. If a reverse proxy ends TLS in front of each frontend, use `--peer-tls`, and set `--peer-address` to the TLS address of that frontend.
+
+A frontend that serves the API over TLS itself (`--tls-cert` or `--tls-self-signed`) dials the other frontends over `wss` without `--peer-tls`, because the peer link uses the API listener. The other frontends must also serve TLS, and their certificates must be valid for the address that they publish. The system roots verify them unless you set `--peer-tls-ca`. A `--tls-self-signed` certificate is different on each frontend and no root verifies it, so for several frontends use `--tls-cert` with certificates from one CA, and pass that CA with `--peer-tls-ca`.
+
+## Security of the carriers
+
+- **Per-node credentials.** Each worker has its own credential for the node routes (heartbeat, drain, deregister, models, split report), minted at registration and stored as a hash. A worker can act on its own node only. Each worker also has its own tunnel token. It is stored as a hash (SHA-256) and compared in constant time, and it is rotated at each registration. Each frontend has its own peer credential. The shared **registration token never opens a tunnel or a peer link**. It only allows a worker to obtain its own credential, and it is optional when workers join with [join tokens](#join-tokens).
+- **Open registration.** With no registration token, a registration with no join token and no credential is accepted and waits for approval, as it always did; it cannot replace the credential of a node that already has one. With no registration token and `--auto-approve-nodes`, anyone who can reach a frontend can register a node, get a tunnel, and receive the requests sent to workers. LocalAI logs a warning once (`Worker registration is open`) but does not refuse to start. Set a token, or turn off automatic approval. `--distributed-require-auth` makes the missing token a start-up error.
+- **Admin only.** The cluster settings routes need an admin user, and each change is logged with the name of the admin (`Cluster settings changed`).
+- **Websocket.** The tunnel upgrade happens after bearer authentication. The tunnel reaches only the loopback ports of the worker that its backends use.
+- **Worker control plane.** A worker serves its control plane to callers on its own host only, unless it has a data plane token: the one that the frontend derives from the registration token and hands to the worker at registration (so a worker that joined with a join token never sees the registration token). A frontend with no registration token has no data plane token, and a worker then serves the file-transfer port with no token; set a registration token on the frontend, and `--distributed-require-auth` on both, to close it. A frontend reaches it through the tunnel.
+- **NATS secrets stay on the frontends.** Operator keys and TLS key files are files or environment values on each frontend. They never enter the database. The CA certificate (public) is handed to the workers.
+- **Cluster settings** are shared by all frontends, so they cannot hold credentials: an address with a user name, a password, or a query string is refused.
+
+## Rolling upgrades and rollback
+
+Upgrade the frontends and the workers **together**. A release with worker routes (see [Workers and routes](#workers-and-routes)) does not work with frontends or workers of an earlier release: a worker asks for the credential of each route, and an earlier frontend does not mint one per route; an earlier worker expects the frontend to name a carrier, and a frontend of this release names none. Mixed versions and rolling upgrades across this release are not supported.
+
+- **Removed with this release:** the `/api/cluster/carrier` route, the `local-ai cluster carrier` command, the `--carrier-prepare-timeout`, `--carrier-transition-window` and `--carrier-max-drain` flags, the `switch.*` cluster settings and the `localai_carrier_*` metrics. Each worker holds the routes its operator gives it, and the frontends listen on every bus they have.
+- **The database is cleaned at start.** A frontend drops the `cluster_carrier` table, the `ready_epoch`, `ready_reason`, `availability` and `availability_at` columns of the `instances` table, the `attached_epoch` column of `backend_nodes`, and the stored `switch.*` settings. Nothing reads them.
+- **Rollback to an earlier release is not supported.** Downgrade the frontends and the workers together only to a release that has worker routes.
+- A NATS-only deployment sees these additions after the upgrade: the tables `cluster_settings`, `instances`, `node_connections`, and `bus_messages`; one write per frontend per heartbeat; the `/api/cluster/connect` route, which refuses everyone until a worker holds a tunnel credential; and the Cluster settings of the Workers page.
+
+## Observability
+
+LocalAI exports these metrics through OpenTelemetry (Prometheus on `/metrics`):
+
+| Metric | Type | Meaning |
+|--------|------|---------|
+| `localai_pgbus_published_total` (label `path`) | counter | Broadcasts published through the database: `inline` or `spill`. |
+| `localai_pgbus_dropped_total` (label `stage`) | counter | Broadcasts this frontend received and lost: `listener`, `subscription`, or `resolve`. |
+| `localai_pgbus_spill_purged_total` | counter | Spilled broadcast rows deleted after the retention time. |
+| `localai_pgbus_reconnections_total` | counter | Times the `LISTEN` connection was lost and opened again. |
+
+Log lines to watch (frontend): `Broadcasts use the NATS server of the cluster when it is reachable, and PostgreSQL otherwise`, `Cluster settings changed`, `The NATS URL was refused: this replica cannot reach it`. Worker: `The worker attached a route`, `The worker could not attach a route; it keeps its other routes and tries again`, `A route of the worker ended and will be attached again`.
+
+## Operational limits
+
+The numbers come from a benchmark of the pgbus and the tunnel on one machine (4 PostgreSQL cores, loopback). Treat the ratios as a guide and the ceilings as rough. Measure your own deployment.
+
+- **Broadcast ceiling.** pgbus carries about 16,000 messages per second of 200 bytes with a p99 latency under 10 ms. With 20 listening frontends, or messages of 2 to 8 KiB, the ceiling is about 8,000 per second. Realistic cluster rates (hundreds per second for 200 workers) use a few percent of this. A NATS server is far above it.
+- **Large broadcasts.** A payload that does not fit in a PostgreSQL notification (about 8 KB) goes through a table row (the *spill* path). The spill path is fine up to about 1,000 messages per second of 64 KiB. It loses messages above about 2,000 per second, because delivery is at most once. The frontends read spilled rows with up to 8 concurrent readers, which reduces this loss. Keep large payloads rare.
+- **Delivery is at most once** on both buses. Anything that must survive a gap lives in a table.
+- **Broadcast size limit.** Every carrier refuses a payload above 8 MiB (`ErrPayloadTooLarge`). Keep the NATS `max_payload` at 8 MiB or lower.
+- **Tunnel latency.** A tunnel adds about 0.1 ms per call. Token streaming runs at the same rate as a direct connection.
+- **Large transfers.** A bulk transfer used to delay small calls on the same tunnel session (head-of-line blocking). Bulk data now uses its own lane of the tunnel, so inference calls are not held behind a model upload.
+- **Cost of one tunnel session.** About 46 KB of heap and 6 goroutines (both ends together). With 64 KiB websocket buffers it is about 306 KB. 200 workers cost a frontend a few megabytes.
+- **Database connections.** Every frontend and chat worker holds one `LISTEN` connection, with or without NATS.
+- **Not measured.** The reconnect storm at scale, PostgreSQL on another host, behind a pooler, with many frontends, and TLS on the websocket.
+
+## FAQ
+
+**Does a NATS URL that I save take effect at once?** No. The serving frontend checks that it reaches the server, and every frontend reads the address at start. Restart the frontends.
+
+**Can both buses run together?** Yes. Every frontend and chat worker listens on PostgreSQL, and on NATS too when the cluster has a NATS server. Each broadcast goes on one of them (see [The broadcast buses](#the-broadcast-buses)). Workers are a separate matter: each worker holds the routes its operator gave it, and a P2P worker or a WebSocket worker is reached in a cluster that has NATS (see [How a frontend picks the route of a worker](#how-a-frontend-picks-the-route-of-a-worker)).
+
+**Can I use `--nats-url` and keep my old setup?** Yes. With `--nats-url` the frontends broadcast over NATS and reach the workers that hold NATS. The flag is copied to the `nats.url` setting (without credentials in the address).
+
+**Do I still need `--nats-url` on workers?** Only on a worker that should hold the NATS route. A worker with `--register-to` alone holds the WebSocket tunnel. `--routes nats` without a URL uses the address that the frontend hands over.
+
+**What if I never use NATS?** Run PostgreSQL only. PostgreSQL is the only broadcast bus between the frontends, and workers attach over WebSocket or P2P. Workers still never connect to PostgreSQL.
+
+**Why is my tunnel-only worker not on NATS?** Its operator gave it no NATS route. Restart it with `--nats-url` (and `--addr` when its host name is not reachable from the frontends).
+
 ## Troubleshooting
 
 **Add-on owner logs `backend not found`, or Slack messages are answered twice:**
@@ -1470,8 +1904,16 @@ Notes:
 
 **Worker not registering:**
 - Verify the frontend URL is reachable from the worker (`curl http://frontend:8080/api/node/register`)
-- Check that `--registration-token` matches on both frontend and worker
+- Check that `--registration-token` matches on both frontend and worker, or that the join token is valid (`GET /api/cluster/join-tokens` shows its state). A heartbeat refused with 401 means the worker has no credential for the node: register it again with a new join token
 - Ensure auth is enabled on the frontend (`LOCALAI_AUTH=true`)
+
+**A worker shows `follow_error`:**
+- The text names each route that the worker does not hold, and why (for example `nats: connecting`). See [Worker profiles](#worker-profiles).
+- The worker serves on its other routes and tries the failed route again, with a wait of up to 30 seconds. Fix the reason and the route attaches without a restart.
+
+**The frontend log says it cannot reach NATS, or the NATS URL is refused:**
+- Saving a NATS URL (`PUT /api/cluster/settings`) is refused with `422` when the serving frontend cannot reach the server with its own credentials. Check the address, the TLS files (`--nats-tlsca`, `--nats-tls-cert`, `--nats-tls-key`), and the JWT credentials on that frontend.
+- A frontend that loses the NATS server stays up and keeps retrying. It broadcasts over PostgreSQL and answers `503` on `/readyz` until NATS is back. A worker that holds only NATS cannot be reached meanwhile (nothing is reaped). A worker that also holds a tunnel is reached on the tunnel.
 
 **NATS connection errors:**
 - Confirm NATS is running and reachable (`nats-server --signal ldm` or check port 4222)
@@ -1484,6 +1926,7 @@ Notes:
 
 **Node shows as unhealthy or offline:**
 - The HealthMonitor marks nodes offline when heartbeats are missed. Check network connectivity between worker and frontend.
+- A node that is `unhealthy` with a fresh heartbeat has no live route. Look at its `route_state` (the **Connections** column of the Workers page, or `GET /api/nodes`): the reason of each `down` route is the one the worker reported, for example `nats: connecting` for a NATS server it cannot reach, or a tunnel that is gone. The node becomes `healthy` again as soon as one route is live.
 - Verify `--heartbeat-interval` is not set too high
 - Offline nodes automatically restore to healthy when they re-register (no re-approval needed)
 

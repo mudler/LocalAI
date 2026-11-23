@@ -119,7 +119,7 @@ test.describe('Model Editor - Interactive Tab', () => {
     await dropdown.locator('div', { hasText: 'CUDA' }).first().click()
     await expect(page.locator('text=CUDA').first()).toBeVisible()
     const cudaSection = page.locator('div', { has: page.locator('span', { hasText: /^CUDA$/ }) }).first()
-    await expect(cudaSection.locator('input[type="checkbox"]')).toHaveCount(1)
+    await expect(cudaSection.getByRole('switch')).toHaveCount(1)
   })
 
   test('number field renders a numeric input', async ({ page }) => {

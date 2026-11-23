@@ -187,6 +187,19 @@ var _ = Describe("Add-on sources", func() {
 		Expect(r.Results[0].ID).To(Equal("o/ok"))
 	})
 
+	It("keeps a row whose uri is an ollama:// model and drops an empty one", func() {
+		b.sources = []modelsearch.AddonSource{addonSource("a1", "one")}
+		b.answers["a1"] = rowsJSON(
+			row("qwen3", "ollama://qwen3:8b"),
+			row("empty", "ollama://"),
+		)
+		Expect(sync.Sync(ctx(), "alice")).To(Succeed())
+		r := s.Search(ctx(), modelsearch.Query{Text: "x"}, []string{"one"})
+		Expect(r.Providers[0].Count).To(Equal(1))
+		Expect(r.Providers[0].Dropped).To(Equal(1))
+		Expect(r.Results[0].URI).To(Equal("ollama://qwen3:8b"))
+	})
+
 	It("sets the provider itself and discards the fields the host owns", func() {
 		b.sources = []modelsearch.AddonSource{addonSource("a1", "one")}
 		b.answers["a1"] = rowsJSON(map[string]any{"id": "o/r", "uri": "https://example.org/r", "provider": "huggingface",

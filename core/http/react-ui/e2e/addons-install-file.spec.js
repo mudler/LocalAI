@@ -1,5 +1,9 @@
-import { test, expect } from '@playwright/test'
+import { test, expect as baseExpect } from '@playwright/test'
 import { ADMIN, app, installedAddon, sessionFor, mockAddons } from './addons-fixtures.js'
+
+// A wait on the page is longer than the default 5 s: on a loaded machine the page and its
+// lazy chunks arrive late, and a spec that fails there says nothing about the page.
+const expect = baseExpect.configure({ timeout: 15_000 })
 
 // Install from a file: the button on the Add-ons page, the dialog with the
 // unsigned notice and the host access step, the upgrade and the downgrade
@@ -9,11 +13,11 @@ import { ADMIN, app, installedAddon, sessionFor, mockAddons } from './addons-fix
 
 const shots = process.env.UI_SHOTS_DIR
 
-async function shoot(page, name) {
+async function shoot(page, name, fullPage = false) {
   if (!shots) return
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.waitForTimeout(400)
-  await page.screenshot({ path: `${shots}/${name}.png` })
+  await page.screenshot({ path: `${shots}/${name}.png`, fullPage })
 }
 
 const ID = 'c'.repeat(32)
@@ -38,10 +42,14 @@ const PREVIEW = {
   ],
 }
 
-async function open(page, { file = fileView(), installed = [], uploadStatus = 200, uploadBody, locked } = {}) {
+async function open(page, { file = fileView(), installed = [], apps = [], uploadStatus = 200, uploadBody, locked, hold, failFirst = '' } = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true }) }))
-  const state = await mockAddons(page, { apps: [], installed })
+  const state = await mockAddons(page, { apps, installed })
   const seen = { uploads: [], described: [], removed: [], preview: [], install: [], dispatch: state.log.dispatch }
+  // The first install the owner refuses, with this type, after it was held.
+  let failure = failFirst
+  seen.release = () => {}
+  const gate = new Promise(r => { seen.release = r })
   await page.route(/\/api\/addons\/files(\/[0-9a-f]+)?$/, route => {
     const req = route.request()
     const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
@@ -54,7 +62,7 @@ async function open(page, { file = fileView(), installed = [], uploadStatus = 20
     seen.described.push(id)
     return id === ID ? json(file) : json({ error: { type: 'not_found', message: 'No such file' } }, 404)
   })
-  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, route => {
+  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
     const req = route.request()
     const path = new URL(req.url()).pathname.replace('/api/addons/host-grants', '') || '/'
     const body = req.postData() ? JSON.parse(req.postData()) : null
@@ -63,6 +71,8 @@ async function open(page, { file = fileView(), installed = [], uploadStatus = 20
     if (path === '/preview') { seen.preview.push(body); return json({ ...PREVIEW, installed: file.installed, ...(locked ? { locked: true, lockedReason: locked } : {}) }) }
     if (path === '/install') {
       seen.install.push({ body, confirm: req.headers()['x-localai-confirm'] })
+      if (hold) await gate
+      if (failure) { const type = failure; failure = ''; return json({ error: { type, message: type } }, 409) }
       if (!file.installed) {
         state.installed.push(installedAddon({ id: 'memory', title: 'Short memory', version: file.version, sourceId: 'local-file', verification: 'sha256', enabled: false, state: 'stopped', generation: 1 }))
         state.apps.push(app({ id: 'memory', name: 'memory', title: 'Short memory', version: file.version, generation: 1, enabled: false, state: 'stopped', mainPage: undefined, hasUI: false }))
@@ -123,6 +133,137 @@ test.describe('Install from a file', () => {
     expect(seen.install[0].body.downgrade).toBeUndefined()
     await expect(dialog).toContainText('now runs version 0.2.0')
     expect(seen.dispatch.filter(d => d.action === 'enable')).toHaveLength(0)
+  })
+
+  test('the dialog of a running upgrade closes with Escape and with the close button, and the upgrade goes on', async ({ page }) => {
+    const { seen } = await open(page, { hold: true, file: fileView({ installed: true, installedVersion: '0.1.0', relation: 'upgrade' }), installed: [installedAddon({ id: 'memory', title: 'Short memory', version: '0.1.0', sourceId: 'local-file', verification: 'sha256', enabled: false, state: 'stopped' })] })
+    await page.goto('/app/addons')
+    await page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+    const dialog = page.getByTestId('install-dialog')
+    await dialog.getByTestId('install-confirm').click()
+    await expect(dialog).toHaveAttribute('data-running', 'true')
+    await expect(dialog.getByTestId('install-background')).toBeVisible()
+    await shoot(page, 'install-running-dialog')
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await shoot(page, 'install-running-after-escape')
+    expect(seen.removed).toHaveLength(0)
+    // Opened again it shows the same running upgrade, and its Close button closes it.
+    await page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+    await expect(page.getByTestId('install-dialog')).toHaveAttribute('data-running', 'true')
+    await page.getByTestId('install-dismiss').click()
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    expect(seen.install).toHaveLength(1)
+    seen.release()
+  })
+
+  const memory = () => installedAddon({ id: 'memory', title: 'Short memory', version: '0.1.0', sourceId: 'local-file', verification: 'sha256', enabled: false, state: 'stopped' })
+  const memoryApp = () => app({ id: 'memory', name: 'memory', title: 'Short memory', version: '0.1.0', generation: 1, enabled: false, state: 'stopped', mainPage: undefined, hasUI: false })
+  const upgradeFile = () => fileView({ installed: true, installedVersion: '0.1.0', relation: 'upgrade' })
+  const pickFile = (page) => page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+
+  test('a file upgrade whose dialog was dismissed shows its progress on the row and on the page, and the result when it ends', async ({ page }) => {
+    const { seen } = await open(page, { hold: true, file: upgradeFile(), installed: [memory()], apps: [memoryApp()] })
+    await page.goto('/app/addons')
+    await pickFile(page)
+    await page.getByTestId('install-dialog').getByTestId('install-confirm').click()
+    await expect(page.getByTestId('install-dialog')).toHaveAttribute('data-running', 'true')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    const tile = page.locator('[data-testid="addon-tile"][data-app="memory"]')
+    await expect(page.getByTestId('file-install-running')).toContainText('Installing Short memory from a file')
+    await expect(tile.getByTestId('addon-op')).toHaveAttribute('data-state', 'running')
+    await expect(tile.getByTestId('operation-chip')).toBeVisible()
+    await shoot(page, 'install-running-row')
+    // The page and the row go back to normal when it ends, and nothing was sent twice.
+    seen.release()
+    await expect(page.getByTestId('file-install-running')).toHaveCount(0)
+    await expect(tile.getByTestId('addon-op')).toHaveCount(0)
+    expect(seen.install).toHaveLength(1)
+    expect(seen.removed).toHaveLength(0)
+  })
+
+  test('an install that fails after its dialog was dismissed stays on the page until dismissed, with the reason and how to try again', async ({ page }) => {
+    const { seen } = await open(page, { hold: true, failFirst: 'approval_stale', file: upgradeFile(), installed: [memory()], apps: [memoryApp()] })
+    await page.goto('/app/addons')
+    await pickFile(page)
+    await page.getByTestId('install-dialog').getByTestId('install-confirm').click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('file-install-running')).toBeVisible()
+    seen.release()
+    const banner = page.getByTestId('file-install-failed')
+    await expect(banner).toBeVisible()
+    await expect(banner).toContainText('Installing Short memory from a file failed')
+    await expect(banner).toContainText('The package changed since you looked at it.')
+    await expect(banner).toContainText('The file is kept for one hour. Choose Try again')
+    await expect(page.getByTestId('file-install-running')).toHaveCount(0)
+    const tile = page.locator('[data-testid="addon-tile"][data-app="memory"]')
+    await expect(tile.getByTestId('addon-op')).toHaveAttribute('data-state', 'failed')
+    await expect(tile.getByTestId('addon-op')).toContainText('The package changed since you looked at it.')
+    await shoot(page, 'install-failed-banner')
+    // It does not go away by itself or with the tab, and the file is still there.
+    await page.getByRole('tab', { name: /Libraries|Host access|Browse/ }).first().click()
+    await page.waitForTimeout(1200)
+    await expect(banner).toBeVisible()
+    expect(seen.removed).toHaveLength(0)
+    // Try again opens the dialog on the same file at its first step, with a new preview: the
+    // person approves again, and the spent approval is not sent a second time.
+    await banner.getByTestId('file-install-retry').click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog).toHaveAttribute('data-step', 'ask')
+    await expect(page.getByTestId('file-install-failed')).toHaveCount(0)
+    await expect.poll(() => seen.preview.length).toBe(2)
+    await dialog.getByTestId('install-confirm').click()
+    await expect(dialog).toContainText('now runs version 0.2.0')
+    expect(seen.install).toHaveLength(2)
+    expect(seen.install[1].body.action).toBe('upgrade')
+    expect(seen.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
+    expect(seen.removed).toHaveLength(0)
+  })
+
+  for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 800 }]]) {
+    test(`failed install banner and row, dark, ${name}`, async ({ page }) => {
+      test.skip(!shots, 'screenshots are saved only when UI_SHOTS_DIR is set')
+      await page.addInitScript(() => { try { localStorage.setItem('localai-theme', 'dark') } catch { /* private window */ } })
+      await page.setViewportSize(size)
+      const { seen } = await open(page, { hold: true, failFirst: 'approval_stale', file: upgradeFile(), installed: [memory()], apps: [memoryApp()] })
+      await page.goto('/app/addons')
+      await pickFile(page)
+      await page.getByTestId('install-dialog').getByTestId('install-confirm').click()
+      await page.keyboard.press('Escape')
+      await expect(page.getByTestId('file-install-running')).toBeVisible()
+      await shoot(page, `file-install-running-${name}-dark`, name === 'phone')
+      seen.release()
+      await expect(page.getByTestId('file-install-failed')).toBeVisible()
+      await shoot(page, `file-install-failed-${name}-dark`, name === 'phone')
+    })
+  }
+
+  test('closing the failure of a fresh install removes the staged file and clears the page', async ({ page }) => {
+    const { seen } = await open(page, { hold: true, failFirst: 'blocked_by_policy' })
+    await page.goto('/app/addons')
+    await pickFile(page)
+    await page.getByTestId('install-dialog').getByTestId('install-confirm').click()
+    await page.keyboard.press('Escape')
+    seen.release()
+    const banner = page.getByTestId('file-install-failed')
+    await expect(banner).toContainText('Installing Short memory from a file failed')
+    await banner.getByTestId('file-install-dismiss').click()
+    await expect(banner).toHaveCount(0)
+    await expect.poll(() => seen.removed).toEqual([ID])
+  })
+
+  test('a failure shown in the open dialog is not repeated on the page after the dialog is closed', async ({ page }) => {
+    const { seen } = await open(page, { failFirst: 'blocked_by_policy' })
+    await page.goto('/app/addons')
+    await pickFile(page)
+    const dialog = page.getByTestId('install-dialog')
+    await dialog.getByTestId('install-confirm').click()
+    await expect(dialog).toHaveAttribute('data-step', 'failed')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    await expect(page.getByTestId('file-install-failed')).toHaveCount(0)
+    await expect.poll(() => seen.removed).toEqual([ID])
   })
 
   test('an older version needs a tick and sends the downgrade confirmation', async ({ page }) => {

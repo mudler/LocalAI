@@ -12,23 +12,49 @@ import { pushLayer } from '../utils/modalLayers'
 //   footer               buttons for the foot (primary action last)
 //   wide                 the 720 px width
 //   closeLabel           accessible name of the close button
-export default function SideSheet({ title, description, footer, headActions, onClose, wide = false, closeLabel = 'Close', testId, labelId = 'side-sheet-title', children }) {
+//   initialFocus         'close' puts the first focus on the close button (a
+//                        sheet that opens to read before it acts); another
+//                        string is a selector of the control to focus; by
+//                        default the first control of the body (or one marked
+//                        data-autofocus) takes it
+//   pending              true while an action runs: the sheet cannot be closed
+//   className, veilClass, bodyClass, footClass
+//                        extra classes on the panel, the veil, the body and the
+//                        foot, for a page that lays out its own content (never
+//                        a width: use `wide`)
+//   bodyProps, footProps extra attributes (aria-busy, data-*) on the body and
+//                        the foot
+export default function SideSheet({
+  title, description, footer, headActions, onClose, wide = false, closeLabel = 'Close', testId,
+  labelId = 'side-sheet-title', describedBy, initialFocus, pending = false,
+  className = '', veilClass = '', bodyClass = '', footClass = '', bodyProps, footProps, children,
+}) {
   const sheetRef = useRef(null)
+  const closeBtnRef = useRef(null)
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  const focusRef = useRef(initialFocus)
 
   useEffect(() => {
     const opener = document.activeElement
     const layer = pushLayer()
     const sheet = sheetRef.current
-    const first = sheet?.querySelector('.dk-sheet-body input:not([disabled]), .dk-sheet-body button:not([disabled]), .dk-sheet-body select')
-    ;(first || sheet?.querySelector('button'))?.focus()
+    const want = focusRef.current
+    if (want === 'close') closeBtnRef.current?.focus()
+    else {
+      const first = (want && sheet?.querySelector(want)) || sheet?.querySelector('[data-autofocus], .dk-sheet-body input:not([disabled]), .dk-sheet-body button:not([disabled]), .dk-sheet-body select')
+      ;(first || sheet?.querySelector('button'))?.focus()
+    }
     const onKey = (e) => {
       // A dialog opened over this sheet is the topmost layer and owns the keys.
       if (!layer.isTop()) return
       if (e.key === 'Escape') {
-        if (e.target?.closest?.('[role="listbox"]') || e.target?.getAttribute?.('aria-expanded') === 'true') return
-        e.preventDefault(); e.stopPropagation(); closeRef.current(); return
+        if (e.target?.closest?.('[role="listbox"], [role="menu"]') || e.target?.getAttribute?.('aria-expanded') === 'true') return
+        e.preventDefault(); e.stopPropagation()
+        if (!pendingRef.current) closeRef.current()
+        return
       }
       if (e.key !== 'Tab' || !sheet) return
       const focusable = Array.from(sheet.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'))
@@ -46,12 +72,13 @@ export default function SideSheet({ title, description, footer, headActions, onC
     }
   }, [])
 
+  const cls = (base, extra) => (extra ? `${base} ${extra}` : base)
   return createPortal(
-    <div className="dk-sheet-veil" data-state="open" onMouseDown={onClose}>
+    <div className={cls('dk-sheet-veil', veilClass)} data-state="open" onMouseDown={() => { if (!pending) onClose() }}>
       <div
         ref={sheetRef}
-        className={`dk-sheet${wide ? ' dk-sheet--wide' : ''}`}
-        role="dialog" aria-modal="true" aria-labelledby={labelId} data-state="open" data-testid={testId}
+        className={cls(`dk-sheet${wide ? ' dk-sheet--wide' : ''}`, className)}
+        role="dialog" aria-modal="true" aria-labelledby={labelId} aria-describedby={describedBy} data-state="open" data-testid={testId}
         onMouseDown={e => e.stopPropagation()}
       >
         <span className="dk-sheet-grip" aria-hidden="true" />
@@ -61,10 +88,10 @@ export default function SideSheet({ title, description, footer, headActions, onC
             {description && <p className="dk-sheet-desc">{description}</p>}
           </div>
           {headActions}
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={closeLabel} onClick={onClose}><Icon name="close" /></button>
+          <button ref={closeBtnRef} type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={closeLabel} disabled={pending} onClick={onClose}><Icon name="close" /></button>
         </div>
-        <div className="dk-sheet-body">{children}</div>
-        {footer && <div className="dk-sheet-foot">{footer}</div>}
+        <div className={cls('dk-sheet-body', bodyClass)} {...bodyProps}>{children}</div>
+        {footer && <div className={cls('dk-sheet-foot', footClass)} {...footProps}>{footer}</div>}
       </div>
     </div>,
     document.body,

@@ -104,6 +104,43 @@ var _ = Describe("The models of a client key", func() {
 		})
 	})
 
+	Describe("the grant of every model", func() {
+		It("needs client_inference and takes no list", func() {
+			_, _, err := auth.CreatePairingCode(db, owner.ID, "c", []string{auth.FeatureClientSelf}, nil, 0, 0, secret, auth.WithAllModels())
+			Expect(err).To(MatchError(auth.ErrClientModels))
+			_, _, err = auth.CreatePairingCode(db, owner.ID, "c", inference, nil, 0, 0, secret, auth.WithAllModels(), auth.WithModels([]string{"m"}))
+			Expect(err).To(MatchError(auth.ErrClientModels))
+		})
+
+		It("is copied to the key, which then uses any model by name", func() {
+			code, rec, err := auth.CreatePairingCode(db, owner.ID, "c", inference, nil, 0, 0, secret, auth.WithAllModels())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rec.AllModels).To(BeTrue())
+			Expect(rec.Models).To(BeEmpty())
+			_, key, err := auth.RedeemPairingCode(db, code, "", secret)
+			Expect(err).ToNot(HaveOccurred())
+			var stored auth.UserAPIKey
+			Expect(db.First(&stored, "id = ?", key.ID).Error).To(Succeed())
+			Expect(stored.AllModels).To(BeTrue())
+			Expect(stored.AllowsModel("any-model")).To(BeTrue())
+			Expect(stored.AllowsModel("")).To(BeFalse(), "a request still names its model")
+
+			By("ending when the owner sets a list")
+			list, err := auth.SetClientKeyModels(db, key.ID, owner.ID, []string{"only"}, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list).To(Equal(auth.ModelList{"only"}))
+			Expect(db.First(&stored, "id = ?", key.ID).Error).To(Succeed())
+			Expect(stored.AllModels).To(BeFalse())
+			Expect(stored.AllowsModel("any-model")).To(BeFalse())
+			Expect(stored.AllowsModel("only")).To(BeTrue())
+		})
+
+		It("does not grant a model to a key without client_inference", func() {
+			k := auth.UserAPIKey{Kind: auth.KeyKindClient, AllModels: true, Features: auth.PermissionMap{auth.FeatureClientSelf: true}}
+			Expect(k.AllowsModel("m")).To(BeFalse())
+		})
+	})
+
 	Describe("the middleware", func() {
 		var (
 			e       *echo.Echo
@@ -240,6 +277,18 @@ var _ = Describe("The models of a client key", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(send("POST", "/v1/chat/completions", js, plain, []byte(`{"messages":[]}`)).Code).To(Equal(http.StatusOK))
 			Expect(checked).To(BeEmpty())
+		})
+
+		It("lets a key with every model use any model that passes the check", func() {
+			code, _, err := auth.CreatePairingCode(db, owner.ID, "all", inference, nil, 0, 0, secret, auth.WithAllModels())
+			Expect(err).ToNot(HaveOccurred())
+			all, _, err := auth.RedeemPairingCode(db, code, "", secret)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(send("POST", "/v1/chat/completions", js, all, []byte(`{"model":"secret"}`)).Code).To(Equal(http.StatusOK))
+			Expect(send("POST", "/v1/chat/completions", js, all, []byte(`{"messages":[]}`)).Code).To(Equal(http.StatusBadRequest))
+			refuse["secret"] = config.ErrClientModelTools
+			Expect(send("POST", "/v1/chat/completions", js, all, []byte(`{"model":"secret"}`)).Code).To(Equal(http.StatusForbidden))
+			Expect(send("POST", "/v1/embeddings", js, all, []byte(`{"model":"other"}`)).Code).To(Equal(http.StatusForbidden), "the routes of the key stay the same")
 		})
 
 		It("reads the list from the store on each request, so a change applies at once", func() {

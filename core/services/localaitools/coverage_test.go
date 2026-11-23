@@ -37,6 +37,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListKnownBackends:         "GET /backends/known",
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
 	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
+	ToolModelUpdates:              "GET /api/models/updates (action list), POST /api/models/updates/check (action check)",
 	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",
@@ -56,6 +57,14 @@ var toolToHTTPRoute = map[string]string{
 	ToolGetChatEgress:             "GET /api/chats/admin/egress",
 	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
+	ToolGetCarrierWeights:         "GET /api/cluster/settings (carrier_weights)",
+	ToolGetP2PStatus:              "GET /api/p2p/status",
+	ToolListP2PDevices:            "GET /api/p2p/devices",
+	ToolListP2PInvites:            "GET /api/p2p/invites",
+	ToolListP2PRelays:             "GET /api/p2p/relays",
+	ToolListFederation:            "GET /api/federation",
+	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
+	ToolGetP2PRelayLimits:         "GET /api/p2p/relays/:id/limits",
 
 	// Mutating tools.
 	ToolInstallModel:             "POST /models/apply",
@@ -68,6 +77,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolInstallBackend:           "POST /backends/apply",
 	ToolInstallLibraryBackend:    "POST /backends/library/install",
 	ToolUpgradeBackend:           "POST /backends/upgrade/:name",
+	ToolUpgradeModel:             "POST /api/models/upgrade/:name (upgrade, config_only), POST /api/models/:name/upgrade/retry (retry), POST /api/models/:name/remove-old (remove_old), PUT /api/models/:name/hold (hold, unhold), POST /api/models/:name/adopt (adopt)",
 	ToolToggleModelState:         "PUT /models/toggle-state/:name/:action",
 	ToolToggleModelPinned:        "PUT /models/toggle-pinned/:name/:action",
 	ToolSetBranding:              "POST /api/settings (instance_name, instance_tagline)",
@@ -85,6 +95,14 @@ var toolToHTTPRoute = map[string]string{
 	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
 	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
+	ToolRevokeP2PDevice:          "DELETE /api/p2p/devices/:id",
+	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
+	ToolManageFederationGroup:    "POST /api/federation/groups (action create), PATCH /api/federation/groups/:name (action update), DELETE /api/federation/groups/:name (action delete), POST /api/federation/groups/:name/drain (actions drain, undrain)",
+	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
+	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
+	ToolSetNodeSplitServer:       "PUT /api/nodes/:id/split-server",
+	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
+	ToolSetCarrierWeights:        "PUT /api/cluster/settings (carrier_weights)",
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
 	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
@@ -121,13 +139,32 @@ var adminRoutesWithoutTool = map[string]string{
 	// not belong in the always-sent assistant tool budget: a person manages
 	// them on the Remotes page or over REST.
 	"POST /api/remotes/test":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
-	"POST /api/remotes":             "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes":             "credential handling for a remote (an API key or a one-time invite link) does not belong in the always-sent assistant tool budget",
 	"GET /api/remotes":              "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"GET /api/remotes/:id":          "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"PATCH /api/remotes/:id":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"DELETE /api/remotes/:id":       "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/refresh": "credential handling for a remote does not belong in the always-sent assistant tool budget",
 	"POST /api/remotes/:id/adopt":   "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	// A join token is a credential shown once: a person mints it on the Nodes
+	// page and passes it on, like a P2P invite. It must not pass through a chat.
+	"POST /api/cluster/join-tokens":       "the token is a credential shown once: a person mints it and passes it on",
+	"GET /api/cluster/join-tokens":        "the list of join tokens is read on the Nodes page; minting stays a person's act",
+	"DELETE /api/cluster/join-tokens/:id": "revoking a join token is done on the Nodes page next to the list",
+	// P2P: an invite link and a relay claim code are credentials that must
+	// not pass through a chat; a new identity unpairs every device; the
+	// relay admin and the mode are set on the Swarm, P2P page.
+	"POST /api/p2p/invites":              "the link is a credential shown once: a person mints it and passes it on",
+	"PATCH /api/p2p/devices/:id":         "a label edited in the device list",
+	"POST /api/p2p/relays":               "adding a relay may carry its claim code, a credential",
+	"DELETE /api/p2p/relays/:id":         "relay admin on the Swarm, P2P page",
+	"POST /api/p2p/relays/:id/check":     "a diagnostic button: it checks one relay and changes nothing",
+	"POST /api/p2p/relays/:id/sync":      "relay admin on the Swarm, P2P page; the server syncs relays by itself",
+	"POST /api/p2p/relays/:id/claim":     "takes the relay's claim code, a credential that must not pass through a chat",
+	"POST /api/p2p/identity/regenerate":  "unpairs every device and remote at once: a person's act, with a typed confirmation",
+	"POST /api/settings (p2p_mode)":      "turns on accepting paired devices: a person's choice on the Swarm, P2P page",
+	"POST /api/settings (p2p_relays...)": "the P2P discovery and relay settings: set on the Swarm, P2P page",
+	"GET /api/federation/groups/:name":   "list_federation returns every group with the same fields",
 	// The administrator's oversight of other users' saved agents, triggers
 	// and connectors. Each acts on another person's private automation
 	// (disable or delete it). It stays a deliberate click on the

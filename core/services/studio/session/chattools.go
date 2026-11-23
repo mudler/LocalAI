@@ -31,7 +31,7 @@ type TurnTools struct {
 	// Prompt is a block added to the system prompt for this turn, for example
 	// an index of skills. It goes after the product's SystemPrompt. A changed
 	// Prompt restarts the harness from its saved state, as a changed set of
-	// tools does; an unchanged one does not. It is cut at 32 KiB on a line
+	// tools does; an unchanged one does not. It is cut at 48 KiB on a line
 	// boundary. When ChatTools fails, the turn has no Prompt.
 	Prompt string
 	// RefreshKey is opaque. The sandbox of a chat is refreshed before a turn
@@ -116,8 +116,10 @@ func capContext(s string) string {
 const (
 	// maxNoteLen is how much of a Note the model gets.
 	maxNoteLen = 400
-	// maxPromptLen is how much of a Prompt the model gets.
-	maxPromptLen = 32 << 10
+	// maxPromptLen is how much of a Prompt the model gets. The full admin
+	// prompt of an assistant that has no compact one carries every recipe
+	// inline and is over 32 KiB, so the limit leaves room above it.
+	maxPromptLen = 48 << 10
 	// noteChatToolsFailed is the note when the product's hook failed.
 	noteChatToolsFailed = "connector tools are unavailable this turn."
 )

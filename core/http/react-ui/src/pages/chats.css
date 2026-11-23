@@ -206,7 +206,7 @@
 .ch-notice {
   padding: var(--dk-space-2) var(--dk-space-4);
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
 }
 
 .ch-empty {
@@ -370,7 +370,7 @@
   border-radius: var(--dk-radius-1);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
 }
 
 .ch-attached__name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -378,7 +378,7 @@
 .ch-skills {
   padding: var(--dk-space-2) var(--dk-space-4);
   border-bottom: 1px solid var(--color-border-subtle);
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
   color: var(--color-text-secondary);
 }
 
@@ -395,7 +395,7 @@
 
 .ch-skills__list label { display: inline-flex; align-items: center; gap: var(--dk-space-1); cursor: pointer; }
 
-.ch-tools__group { margin: var(--dk-space-2) 0 0; color: var(--color-text-muted); font-size: 0.75rem; }
+.ch-tools__group { margin: var(--dk-space-2) 0 0; color: var(--color-text-muted); font-size: var(--fs-meta); }
 .ch-tools__reason { margin-left: var(--dk-space-5); color: var(--color-text-muted); }
 
 .ch-list__skills { margin-top: auto; padding: var(--dk-space-2) var(--dk-space-3); }
@@ -463,7 +463,7 @@
 .cx-change {
   margin: 6px 0 0;
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: var(--fs-small);
   line-height: 1.45;
 }
 .cx-change--refused {
@@ -533,10 +533,10 @@
 
 /* ---- Composer foot: the context meter, the sub-agents ---- */
 .cx-foot .cx-ctx { height: auto; padding: 0; font-weight: 500; }
-.cx-subagents__list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.cx-subagents__list { display: grid; align-content: start; gap: 2px; padding: var(--sp-1); }
 .cx-subagents__row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 10px; border-radius: var(--dk-radius-1); }
 .cx-subagents__row:hover { background: var(--dk-hover); }
-.cx-subagents__title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cx-subagents__title { min-width: 0; overflow: hidden; font-size: var(--fs-small); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .cx-subagents__state { color: var(--dk-muted); font-family: var(--font-mono); font-size: 11.5px; }
 .cx-subagents__loop { display: flex; grid-column: 1 / -1; align-items: baseline; gap: 6px; min-width: 0; color: var(--color-text-secondary); font-size: var(--fs-small); }
 .cx-subagents__loop-icon { flex: none; align-self: center; color: var(--dk-ok); }

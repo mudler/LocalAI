@@ -182,8 +182,8 @@ var Consumers = []Consumer{
 	},
 	{
 		ID:          "distributed-agent-worker",
-		Surface:     "agent workers that execute MCP tools for a frontend over the agent control seam",
-		Files:       []string{"core/cli/agent_worker.go", "core/services/nodes/agent_rpc_nats.go"},
+		Surface:     "agent workers that execute MCP tools for a frontend over the agent control seam, on either carrier",
+		Files:       []string{"core/cli/agent_worker.go", "core/services/carrier/holders.go", "core/services/nodes/agent_control.go", "core/services/nodes/agent_rpc_nats.go"},
 		Decision:    Reject,
 		Reason:      "a worker holds sessions built from the model configuration the frontend sent; the frontend's actor never travels with a tool call",
 		Enforcement: "the tool and discovery RPCs use DiscoverMCPTools and ExecuteMCPToolCall, which refuse the namespace; the frontend executor refuses it before the request is sent",

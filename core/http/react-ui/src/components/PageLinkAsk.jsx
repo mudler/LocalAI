@@ -1,4 +1,5 @@
 import Icon from './Icon'
+import { Button } from './ui'
 
 // The question above the page before a link of the page opens. The site (the
 // last two labels of the host) is what to look at, so it is the large part;
@@ -27,10 +28,10 @@ export default function PageLinkAsk({ link, onOpen, onCancel, t, label }) {
         </span>
       )}
       <span className="pg-ask__actions">
-        <button type="button" className="btn btn-primary btn-sm" onClick={onOpen} data-testid="page-link-open">
+        <Button variant="primary" size="sm" onClick={onOpen} data-testid="page-link-open">
           {t('link.open', { site })}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} data-testid="page-link-cancel">{t('link.cancel')}</button>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel} data-testid="page-link-cancel">{t('link.cancel')}</Button>
       </span>
     </div>
   )

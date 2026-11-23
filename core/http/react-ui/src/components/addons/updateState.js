@@ -12,6 +12,10 @@ export const UPDATE_TYPES = new Set([
   'upgrade_failed', 'operation_conflict', 'check_failed',
 ])
 
+// What an approved upgrade can be refused or fail with that a plain upgrade
+// cannot: the approval no longer matches, or the host access is blocked.
+export const HOST_FAILURES = new Set(['approval_stale', 'approval_required', 'blocked_by_policy', 'revision_conflict', 'locked_by_deployment', 'not_human_surface'])
+
 // A typed refusal is a final answer: the operation identity is dropped and the
 // next click is a new operation. Everything else is classified as on the other
 // add-on routes.
@@ -98,7 +102,7 @@ export function upgradeBody(addon, operationId) {
 // The key of the words for a refusal or a failed outcome of an update action.
 export function updateErrorKey(error) {
   if (!error) return 'unavailable'
-  if (error.type && UPDATE_TYPES.has(error.type)) return error.type
+  if (error.type && (UPDATE_TYPES.has(error.type) || HOST_FAILURES.has(error.type))) return error.type
   if (error.kind === 'unknown_outcome') return 'unknownOutcome'
   if (error.kind === 'operation_not_found') return 'operationNotFound'
   if (error.kind === 'denied') return 'denied'

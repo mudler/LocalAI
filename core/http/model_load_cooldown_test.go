@@ -35,3 +35,21 @@ var _ = Describe("A model in load cooldown", func() {
 		Expect(rec.Header().Get(model.LoadFailedHeader)).To(BeEmpty())
 	})
 })
+
+// A load refused while the model is upgraded is a passing state: 503 with
+// Retry-After, and not marked as a failed load.
+var _ = Describe("A model whose loads are blocked by an upgrade", func() {
+	It("is answered 503 with Retry-After", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)
+		code := applyModelLoadsBlocked(&model.ModelLoadsBlockedError{ModelID: "m"}, http.StatusInternalServerError, c)
+		Expect(code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Header().Get("Retry-After")).ToNot(BeEmpty())
+		Expect(rec.Header().Get(model.LoadFailedHeader)).To(BeEmpty())
+	})
+	It("leaves other errors alone", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)
+		Expect(applyModelLoadsBlocked(http.ErrAbortHandler, http.StatusInternalServerError, c)).To(Equal(http.StatusInternalServerError))
+	})
+})

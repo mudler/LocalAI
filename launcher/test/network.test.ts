@@ -78,7 +78,7 @@ describe('environment variable names', () => {
     expect(envNameProblem('A-B')).toBe('format')
     expect(envNameProblem('')).toBe('length')
     expect(envNameProblem('A'.repeat(129))).toBe('length')
-    for (const n of ['ELECTRON_RUN_AS_NODE', 'APPDIR', 'APPIMAGE', 'LD_LIBRARY_PATH', 'ARGV0', 'PATH', 'LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'LOCALAI_BASE_PATH', 'ELECTRON_X', 'APPIMAGE_X']) {
+    for (const n of ['ELECTRON_RUN_AS_NODE', 'APPDIR', 'APPIMAGE', 'LD_LIBRARY_PATH', 'ARGV0', 'PATH', 'LOCALAI_API_KEY', 'API_KEY', 'LOCALAI_ADDRESS', 'LOCALAI_BASE_PATH', 'LOCALAI_CREDENTIALS_FILE', 'ELECTRON_X', 'APPIMAGE_X']) {
       expect(envNameProblem(n), n).toBe('controlled')
     }
   })

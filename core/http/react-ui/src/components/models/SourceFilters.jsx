@@ -50,6 +50,8 @@ export default function SourceFilters({ sources, values, onChange, lang, showSou
                   onChange={set}
                   options={f.values.map(v => ({ value: v, label: text.value(v) }))}
                   placeholder={label}
+                  variant="chip"
+                  aria-label={label}
                 />
               )}
               {control === 'range' && (

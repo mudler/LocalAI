@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/diagnostics"
+	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -117,6 +118,9 @@ type ModelLoader struct {
 	loadFailures            map[string]*loadFailureState
 	loadFailureBaseCooldown time.Duration // first cooldown after a failure
 	loadFailureMaxCooldown  time.Duration // cap for the exponential backoff
+	// blockedLoads are the models whose loads are refused while their files
+	// change (a model upgrade). Guarded by mu.
+	blockedLoads map[string]bool
 }
 
 // loadFailureState tracks consecutive load failures for a single modelID and
@@ -162,6 +166,47 @@ type ModelLoadCooldownError struct {
 func (e *ModelLoadCooldownError) Error() string {
 	return fmt.Sprintf("model %q load is in cooldown after a recent failure; retry after %s",
 		e.ModelID, e.RetryAfter.Round(time.Second))
+}
+
+// ModelLoadsBlockedError is returned when a load is refused because the
+// model's files are being replaced (a model upgrade). The HTTP layer maps it
+// to 503 with a Retry-After header.
+type ModelLoadsBlockedError struct {
+	ModelID string
+}
+
+func (e *ModelLoadsBlockedError) Error() string {
+	return fmt.Sprintf("model %q is being upgraded and cannot be loaded now; retry shortly", e.ModelID)
+}
+
+// BlockLoads refuses every new load of modelID until UnblockLoads. A model
+// upgrade blocks the loads between stopping the model and switching its
+// files: a load in that window would start the old version, and the load
+// check of the upgrade would then find it running. It does not stop a model
+// that runs; the caller does.
+//
+// A load that passed the check before the flag was set still runs and would
+// register the old version after the caller stopped it. BlockLoads therefore
+// waits for the loads in flight to end: every load holds the shared
+// operation lock of its model, and taking and releasing the exclusive lock
+// returns only when they are gone.
+func (ml *ModelLoader) BlockLoads(modelID string) {
+	ml.mu.Lock()
+	if ml.blockedLoads == nil {
+		ml.blockedLoads = map[string]bool{}
+	}
+	ml.blockedLoads[modelID] = true
+	ml.mu.Unlock()
+
+	ml.operations.acquire(modelID, true)()
+}
+
+// UnblockLoads ends BlockLoads. It does nothing for a model that is not
+// blocked.
+func (ml *ModelLoader) UnblockLoads(modelID string) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	delete(ml.blockedLoads, modelID)
 }
 
 // NewModelLoader creates a new ModelLoader instance.
@@ -519,7 +564,11 @@ func (ml *ModelLoader) LoadModelWithFile(modelID, modelName, modelFileName strin
 func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil
+	blocked := ml.blockedLoads[modelID]
 	ml.mu.Unlock()
+	if blocked {
+		return nil, &ModelLoadsBlockedError{ModelID: modelID}
+	}
 
 	if distributed {
 		// Distributed mode: SmartRouter must run per inference request so
@@ -804,7 +853,13 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		if process == nil {
 			// Remote/distributed model — no local process to check.
 			// Only evict on definitive connection errors (node is down).
-			// Timeouts may mean the node is busy, so keep the model cached.
+			// Timeouts may mean the node is busy, so keep the model cached. So
+			// does a dial that failed in the transport: it says nothing about
+			// the backend.
+			if transportErr := grpc.TransportFailureOf(client); transportErr != nil {
+				xlog.Warn("Remote model health check failed in the transport, keeping cached", "model", s, "error", transportErr)
+				return m
+			}
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
 				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {
