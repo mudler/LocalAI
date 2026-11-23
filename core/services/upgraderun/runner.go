@@ -149,7 +149,11 @@ func keyOf(ev Event) string {
 // save writes the run when what is stored changed. Progress ticks change
 // nothing that is stored, so they cost no write.
 func (r *runner) save(run Run) {
-	rec, items := toRecords(run, r.svc.opts.Instance)
+	rec, items, err := toRecords(run, r.svc.opts.Instance)
+	if err != nil {
+		xlog.Warn("upgrade run: could not store the run", "run", r.id, "error", err)
+		return
+	}
 	sig := signature(rec, items)
 	if sig == r.lastSaved {
 		return

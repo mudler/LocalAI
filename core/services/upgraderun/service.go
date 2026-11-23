@@ -175,6 +175,9 @@ type Service struct {
 	sub       messaging.Subscription
 	wg        sync.WaitGroup
 	closeOnce sync.Once
+	// corrupt holds the damaged columns already logged, so a run that is
+	// read on every poll of the Updates page logs each of them once.
+	corrupt sync.Map
 }
 
 // New creates a Service. Call Run to take over runs nobody runs.
@@ -288,7 +291,7 @@ func (s *Service) adopt(ctx context.Context, id string) {
 		lock.Close()
 		return
 	}
-	run := fromRecords(rec, items)
+	run := s.decode(rec, items)
 	xlog.Info("upgrade run: taking over a run nobody runs", "run", id, "previous_runner", rec.Runner)
 	s.startRunner(run, lock, []Event{RestartRecovered{}}, nil)
 }
@@ -497,7 +500,7 @@ func (s *Service) view(rec *distributed.UpgradeRunRecord, items []distributed.Up
 	if r := s.runnerOf(rec.ID); r != nil {
 		return r.snapshot()
 	}
-	run := fromRecords(rec, items)
+	run := s.decode(rec, items)
 	for i := range run.Items {
 		it := &run.Items[i]
 		if it.Phase != PhaseRunning || it.Verifying || it.JobID == "" {
@@ -511,6 +514,33 @@ func (s *Service) view(rec *distributed.UpgradeRunRecord, items []distributed.Up
 		if v.message != "" {
 			it.Message = v.message
 		}
+	}
+	return run
+}
+
+// decode turns rows into a run, as fromRecords does, and logs each damaged
+// column of a row once.
+func (s *Service) decode(rec *distributed.UpgradeRunRecord, items []distributed.UpgradeRunItemRecord) Run {
+	run, err := fromRecords(rec, items)
+	if err == nil {
+		return run
+	}
+	var errs []error
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		errs = joined.Unwrap()
+	} else {
+		errs = []error{err}
+	}
+	for _, e := range errs {
+		var ce *corruptColumnError
+		if !errors.As(e, &ce) {
+			continue
+		}
+		if _, seen := s.corrupt.LoadOrStore(ce.run+"\x00"+ce.item+"\x00"+ce.column, struct{}{}); seen {
+			continue
+		}
+		xlog.Warn("upgrade run: a stored item has a column that is not valid JSON; it is read without it",
+			"run", ce.run, "item", ce.item, "column", ce.column)
 	}
 	return run
 }
@@ -609,7 +639,10 @@ func (s *Service) create(ctx context.Context, actor string, source Source, items
 		if res.Err != nil {
 			return res.Err
 		}
-		rec, recItems := toRecords(res.Run, s.opts.Instance)
+		rec, recItems, err := toRecords(res.Run, s.opts.Instance)
+		if err != nil {
+			return err
+		}
 		if err := s.opts.Store.Create(rec, recItems); err != nil {
 			return err
 		}
