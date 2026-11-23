@@ -65,4 +65,30 @@ var _ = Describe("Chats projects routes", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/projects/"+chat, nil).Code).To(Equal(http.StatusNotFound))
 		Expect(s.do("bob", http.MethodPut, "/api/chats/"+chat+"/project", map[string]any{"project_id": pid}).Code).To(Equal(http.StatusNotFound))
 	})
+
+	It("allows an administrator to manage projects on behalf of another user", func() {
+		rec := s.do("root", http.MethodPost, "/api/chats/projects?owner=alice", map[string]any{"name": "Acme"})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		p := decodeJSON(rec)
+		Expect(p).To(HaveKeyWithValue("owner", "alice"))
+		pid := p["id"].(string)
+
+		list := s.do("root", http.MethodGet, "/api/chats/projects?owner=alice", nil)
+		Expect(list.Code).To(Equal(http.StatusOK), list.Body.String())
+		Expect(decodeJSON(list)["projects"]).To(HaveLen(1))
+
+		got := s.do("root", http.MethodGet, "/api/chats/projects/"+pid+"?owner=alice", nil)
+		Expect(got.Code).To(Equal(http.StatusOK), got.Body.String())
+		Expect(decodeJSON(got)).To(HaveKeyWithValue("owner", "alice"))
+
+		// The target user sees their own project.
+		Expect(s.do("alice", http.MethodGet, "/api/chats/projects", nil).Code).To(Equal(http.StatusOK))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/projects", nil))["projects"]).To(HaveLen(1))
+		// Another non-admin user cannot act on behalf of someone else.
+		Expect(s.do("bob", http.MethodGet, "/api/chats/projects?owner=alice", nil).Code).To(Equal(http.StatusForbidden))
+
+		del := s.do("root", http.MethodDelete, "/api/chats/projects/"+pid+"?owner=alice", nil)
+		Expect(del.Code).To(Equal(http.StatusNoContent), del.Body.String())
+		Expect(s.do("alice", http.MethodGet, "/api/chats/projects/"+pid, nil).Code).To(Equal(http.StatusNotFound))
+	})
 })

@@ -73,6 +73,23 @@ var projectRules = []errRule{
 
 func failProject(c echo.Context, err error) error { return mapErr(c, err, projectRules, failFor) }
 
+// projectOwner resolves the owner principal for a project request. Normal
+// callers act on their own projects; an administrator may act on behalf of
+// another user by passing ?owner=<principal>.
+func (h *Handlers) projectOwner(c echo.Context) (string, bool) {
+	caller := userID(c)
+	owner := c.QueryParam("owner")
+	if owner == "" || owner == caller {
+		return caller, true
+	}
+	u := auth.GetUser(c)
+	if u == nil || u.Role != auth.RoleAdmin {
+		_ = fail(c, http.StatusForbidden, typeAuthz, "only an administrator can act on behalf of another user")
+		return "", false
+	}
+	return owner, true
+}
+
 func defaultsOut(d projects.Defaults) schema.ChatsProjectDefaults {
 	return schema.ChatsProjectDefaults{Skills: d.Skills, Addons: d.Addons, Connectors: d.Connectors, MCPServers: d.MCPServers, Collections: d.Collections}
 }
@@ -86,7 +103,7 @@ func defaultsIn(d schema.ChatsProjectDefaults) projects.Defaults {
 // with the status the index holds. ChatCount counts up to projectChatCountCap.
 // agentCounts is the number of agents by project id, read once by the caller.
 func (h *Handlers) projectOut(ctx context.Context, host *projects.Service, user string, p projects.Project, agentCounts map[string]int) schema.ChatsProject {
-	out := schema.ChatsProject{ID: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status), Error: p.Error, Updated: p.Updated, AgentCount: agentCounts[p.ID]}
+	out := schema.ChatsProject{ID: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status), Error: p.Error, Updated: p.Updated, AgentCount: agentCounts[p.ID], Owner: p.Owner}
 	if r, err := host.Get(ctx, h.svc.Principal(user), p.ID); err == nil {
 		out.Description = r.Manifest.Description
 		out.Defaults = defaultsOut(r.Manifest.Defaults)
@@ -115,7 +132,10 @@ func (h *Handlers) ListProjects(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	list, err := host.List(c.Request().Context(), h.svc.Principal(user))
 	if err != nil {
 		return failProject(c, err)
@@ -159,7 +179,10 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 	if req.Attached != nil {
 		in.Attached = defaultsIn(*req.Attached)
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	p, err := host.Create(c.Request().Context(), h.svc.Principal(user), in)
 	if err != nil {
 		return failProject(c, err)
@@ -180,7 +203,10 @@ func (h *Handlers) GetProject(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	r, err := host.Get(c.Request().Context(), h.svc.Principal(user), c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -219,7 +245,10 @@ func (h *Handlers) UpdateProject(c echo.Context) error {
 		a := defaultsIn(*req.Attached)
 		in.Attached = &a
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	p, err := host.Update(c.Request().Context(), h.svc.Principal(user), c.Param("id"), in)
 	if err != nil {
 		return failProject(c, err)
@@ -240,7 +269,11 @@ func (h *Handlers) DeleteProject(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	if err := host.Delete(c.Request().Context(), h.svc.Principal(userID(c)), c.Param("id")); err != nil {
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	if err := host.Delete(c.Request().Context(), h.svc.Principal(user), c.Param("id")); err != nil {
 		return failProject(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -251,7 +284,10 @@ func (h *Handlers) setProjectArchived(c echo.Context, archive bool) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	do := host.Restore
 	if archive {
 		do = host.Archive
@@ -298,7 +334,11 @@ func (h *Handlers) GetProjectMemory(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	p := h.svc.Principal(userID(c))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	p := h.svc.Principal(user)
 	r, err := host.Get(ctx, p, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -346,7 +386,11 @@ func (h *Handlers) PutProjectMemory(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	p := h.svc.Principal(userID(c))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	p := h.svc.Principal(user)
 	r, err := host.Get(ctx, p, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -382,7 +426,10 @@ func (h *Handlers) ListProjectChats(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	recs, err := h.svc.ListChatsInProject(c.Request().Context(), user, c.Param("id"), intParam(c, "limit", defaultListLimit, maxListLimit))
 	if err != nil {
 		return failProject(c, err)
@@ -429,7 +476,10 @@ func (h *Handlers) SetChatProject(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if err := h.svc.SetChatProject(c.Request().Context(), user, c.Param("id"), req.ProjectID); err != nil {
 		return failProject(c, err)
 	}
@@ -455,7 +505,10 @@ func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if err := h.svc.SetChatPulled(c.Request().Context(), user, c.Param("id"), req.ProjectIDs); err != nil {
 		return failProject(c, err)
 	}
@@ -480,7 +533,10 @@ func (h *Handlers) ListProjectAgents(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if _, err := host.Get(ctx, h.svc.Principal(user), c.Param("id")); err != nil {
 		return failProject(c, err)
 	}
@@ -517,7 +573,11 @@ func (h *Handlers) ListProjectConnections(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectConnections(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectConnections(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}
@@ -544,7 +604,11 @@ func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectTriggers(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectTriggers(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}
@@ -569,7 +633,11 @@ func (h *Handlers) ListProjectLoops(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectLoops(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectLoops(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}
