@@ -74,3 +74,21 @@ export function toggleValue(values, id) {
   const list = Array.isArray(values) ? values : []
   return list.includes(id) ? list.filter(v => v !== id) : [...list, id]
 }
+
+// Where a menu sits, in px from the left edge of its trigger, and how wide it
+// may be. The menu hangs from the trigger's left edge. When it does not fit
+// there it hangs from the trigger's right edge, and when it still does not fit
+// it is pushed back inside `bounds`: the window cut down to the nearest
+// ancestor that clips (a side sheet's body scrolls, so it clips). A menu wider
+// than `bounds` is narrowed to fit. `width` is null when the menu keeps its
+// own width.
+export function placeMenu({ rootLeft, rootRight, menuWidth, boundsLeft, boundsRight, margin = 8 }) {
+  const room = Math.max(0, boundsRight - boundsLeft - 2 * margin)
+  const width = Math.min(menuWidth, room)
+  const last = boundsRight - margin
+  let x = rootLeft
+  if (x + width > last) x = rootRight - width
+  if (x + width > last) x = last - width
+  if (x < boundsLeft + margin) x = boundsLeft + margin
+  return { left: x - rootLeft, width: width < menuWidth ? width : null }
+}

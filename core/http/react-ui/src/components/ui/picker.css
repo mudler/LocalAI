@@ -84,9 +84,9 @@
   position: absolute;
   z-index: 120;
   top: calc(100% + 6px);
-  left: 0;
-  min-width: min(400px, calc(100vw - 48px));
-  max-width: min(560px, calc(100vw - 48px));
+  left: var(--menu-left, 0);
+  min-width: var(--menu-min, min(400px, calc(100vw - 48px)));
+  max-width: var(--menu-max, min(560px, calc(100vw - 48px)));
   padding: 6px;
   background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text));
   border: 1px solid var(--dk-edge);
@@ -96,9 +96,11 @@
 }
 /* A form field's menu is at least as wide as the field. The model picker
    keeps its own width (it lists long ids with tags). */
-.list-picker--field:not(.home-pick) > .home-menu { min-width: max(100%, min(400px, calc(100vw - 48px))); }
-/* A menu that would leave the window on the right hangs from the trigger's
-   right edge instead (ListPicker measures it when it opens). */
+.list-picker--field:not(.home-pick) > .home-menu { min-width: var(--menu-min, max(100%, min(400px, calc(100vw - 48px)))); }
+/* ListPicker measures the room its trigger has when the menu opens and sets
+   --menu-left, --menu-min and --menu-max, so the menu stays inside the window
+   and inside a panel that clips (a side sheet). SwitchList keeps the plain
+   flip: its menu hangs from the right edge with data-align="end". */
 .home-menu[data-align="end"] { left: auto; right: 0; }
 .home-menu__filter {
   width: 100%;

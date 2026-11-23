@@ -149,3 +149,16 @@ test('the trigger can be replaced and given attributes', () => {
   assert.match(out, /class="home-chip extra"/)
   assert.match(out, /data-icon="chevron-down"/)
 })
+
+test('placeMenu keeps a menu inside the room its trigger has', () => {
+  const { placeMenu } = model
+  // Fits from the trigger's left edge: no change.
+  assert.deepEqual(placeMenu({ rootLeft: 100, rootRight: 300, menuWidth: 400, boundsLeft: 0, boundsRight: 1000 }), { left: 0, width: null })
+  // Too wide to the right: it hangs from the trigger's right edge.
+  assert.deepEqual(placeMenu({ rootLeft: 700, rootRight: 900, menuWidth: 400, boundsLeft: 0, boundsRight: 1000 }), { left: -200, width: null })
+  // A side sheet from 960 to 1440: a 560 px menu would leave it on the left
+  // after the flip, so it is narrowed to the sheet and kept inside.
+  assert.deepEqual(placeMenu({ rootLeft: 985, rootRight: 1415, menuWidth: 560, boundsLeft: 960, boundsRight: 1440 }), { left: -17, width: 464 })
+  // Wider than the window: narrowed, and never left of the margin.
+  assert.deepEqual(placeMenu({ rootLeft: 20, rootRight: 100, menuWidth: 400, boundsLeft: 0, boundsRight: 300 }), { left: -12, width: 284 })
+})
