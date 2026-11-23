@@ -10696,7 +10696,7 @@ definitions:
         description: |-
           Owner is the id of the user that owns the project. Every response
           carries it: the caller's own id, or the user an administrator acts for
-          with ?owner=.
+          with ?user_id=.
         type: string
       skills_blocked:
         description: |-
@@ -21415,7 +21415,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -21427,7 +21427,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -21463,7 +21463,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -21475,7 +21475,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25146,7 +25146,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25154,11 +25154,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
@@ -25183,7 +25183,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "201":
@@ -25195,7 +25195,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
@@ -25219,17 +25219,17 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "204":
           description: Deleted
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25253,7 +25253,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25261,11 +25261,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25306,7 +25306,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25318,7 +25318,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25349,7 +25349,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25357,11 +25357,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectAgentList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25387,7 +25387,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25395,11 +25395,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25430,7 +25430,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25438,11 +25438,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversationList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25467,7 +25467,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25475,11 +25475,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectConnectionList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25509,7 +25509,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25517,11 +25517,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectLoopList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25548,7 +25548,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25556,11 +25556,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectMemory'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25597,7 +25597,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "204":
@@ -25607,7 +25607,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25632,7 +25632,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25640,11 +25640,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25674,7 +25674,7 @@ paths:
       - description: 'an administrator only: act on the projects of this user id instead
           of your own'
         in: query
-        name: owner
+        name: user_id
         type: string
       responses:
         "200":
@@ -25682,11 +25682,11 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsProjectTriggerList'
         "400":
-          description: owner is not a well-formed user id
+          description: user_id is not a well-formed user id
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "403":
-          description: owner is set and you are not an administrator
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":

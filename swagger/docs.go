@@ -8950,7 +8950,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -8962,13 +8962,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9000,7 +9000,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9018,7 +9018,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9149,7 +9149,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9161,13 +9161,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9197,7 +9197,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9206,13 +9206,13 @@ const docTemplate = `{
                         "description": "Deleted"
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9251,7 +9251,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9269,7 +9269,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9307,7 +9307,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9319,13 +9319,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9363,7 +9363,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9375,13 +9375,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9425,7 +9425,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9437,13 +9437,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9475,7 +9475,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9487,13 +9487,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9531,7 +9531,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9543,13 +9543,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9587,7 +9587,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9599,13 +9599,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9653,7 +9653,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9668,7 +9668,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9705,7 +9705,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9717,13 +9717,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9761,7 +9761,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -9773,13 +9773,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "owner is not a well-formed user id",
+                        "description": "user_id is not a well-formed user id",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13476,7 +13476,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -13494,7 +13494,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13541,7 +13541,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "an administrator only: act on the projects of this user id instead of your own",
-                        "name": "owner",
+                        "name": "user_id",
                         "in": "query"
                     }
                 ],
@@ -13559,7 +13559,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "owner is set and you are not an administrator",
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -35194,7 +35194,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner": {
-                    "description": "Owner is the id of the user that owns the project. Every response\ncarries it: the caller's own id, or the user an administrator acts for\nwith ?owner=.",
+                    "description": "Owner is the id of the user that owns the project. Every response\ncarries it: the caller's own id, or the user an administrator acts for\nwith ?user_id=.",
                     "type": "string"
                 },
                 "skills_blocked": {
