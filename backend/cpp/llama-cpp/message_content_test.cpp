@@ -10,6 +10,9 @@
 //   #7324  - assistant/tool null content -> "" (templates slice content[:N]);
 //            assistant+tool_calls+empty content -> " " (not "", which becomes null).
 //   #7528  - tool message array content must reach the template as a string.
+//   #13303 - assistant/tool content or tool_calls that trigger nlohmann
+//            out_of_range (e.g. bare SHA digest "5907e98526..." or "1e400")
+//            must not throw and must stay plain text.
 //   multimodal - last user message text + media -> typed-part array, media kept.
 
 #include <cassert>
@@ -79,6 +82,17 @@ static void test_normalize() {
 
     // #10524-family - a bare scalar that parses as a JSON number stays the string.
     expect_norm_string("assistant_scalar_number_stays_string", "assistant", "42", "42");
+
+    // #13303 - bare SHA digests and overflowing scientific-notation numbers
+    // throw nlohmann::ordered_json::out_of_range (not parse_error); they must
+    // fall back to the original plain string rather than escaping.
+    const std::string bare_sha = "5907e98526b7c95d9967818a45c8a244b06a7a95";
+    for (const char* role : {"assistant", "tool", "function"}) {
+        expect_norm_string((std::string("bare_sha_stays_string:") + role).c_str(), role, bare_sha, bare_sha);
+    }
+    expect_norm_string("assistant_number_overflow_stays_string", "assistant", "1e400", "1e400");
+    expect_norm_string("tool_neg_number_overflow_stays_string", "tool", "-1e400", "-1e400");
+    expect_norm_string("tool_object_with_overflow_stays_string", "tool", R"({"sha": 1e400})", R"({"sha": 1e400})");
 
     // baseline - empty content stays empty.
     expect_norm_string("user_empty_stays_empty", "user", "", "");
@@ -210,6 +224,31 @@ static void test_reconstruction() {
         in.role = "assistant"; in.content = "hi"; in.tool_calls = "{not json";
         auto m = build_reconstructed_message(in);
         check(m["content"] == "hi" && !m.contains("tool_calls"), "recon_malformed_toolcalls_safe");
+    }
+    // #13303 - bare SHA digest in assistant and tool messages must not throw.
+    {
+        const std::string bare_sha = "5907e98526b7c95d9967818a45c8a244b06a7a95";
+        ReconstructedMessageInput in;
+        in.role = "assistant"; in.content = bare_sha;
+        auto m = build_reconstructed_message(in);
+        check(m["content"].is_string() && m["content"] == bare_sha, "recon_assistant_bare_sha",
+              "got " + m["content"].dump());
+    }
+    {
+        const std::string bare_sha = "5907e98526b7c95d9967818a45c8a244b06a7a95";
+        ReconstructedMessageInput in;
+        in.role = "tool"; in.content = bare_sha; in.tool_call_id = "call_sha";
+        auto m = build_reconstructed_message(in);
+        check(m["content"].is_string() && m["content"] == bare_sha, "recon_tool_bare_sha",
+              "got " + m["content"].dump());
+        check(m["tool_call_id"] == "call_sha", "recon_tool_bare_sha_call_id");
+    }
+    // #13303 - overflowing number in tool_calls must not throw; content preserved.
+    {
+        ReconstructedMessageInput in;
+        in.role = "assistant"; in.content = "hi"; in.tool_calls = R"([{"id":"c1","val":1e400}])";
+        auto m = build_reconstructed_message(in);
+        check(m["content"] == "hi" && !m.contains("tool_calls"), "recon_overflow_toolcalls_safe");
     }
     // optional fields: name + reasoning carried through.
     {
