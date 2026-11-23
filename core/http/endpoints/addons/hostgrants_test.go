@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -258,3 +259,60 @@ func itoa(n int) string {
 	b, _ := json.Marshal(n)
 	return string(b)
 }
+
+var _ = Describe("humanSurface with the launcher's token cookie", func() {
+	const key = "launcher-generated-key"
+	// serve runs one request through the auth middleware with the key
+	// configured as a legacy key and reports what humanSurface says.
+	serve := func(mode string, mutate func(*http.Request)) bool {
+		e := echo.New()
+		e.Use(auth.Middleware(nil, &config.ApplicationConfig{ApiKeys: []string{key}}))
+		var ok bool
+		e.POST("/x", func(c echo.Context) error {
+			ok = humanSurface(c, settings{mode: mode}, contract.Actor{CredentialID: auth.AddonLocalOwnerID}, "op1")
+			return c.NoContent(200)
+		})
+		r := httptest.NewRequest("POST", "/x", nil)
+		r.Host = "192.0.2.10:8080"
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Sec-Fetch-Dest", "empty")
+		r.Header.Set("Sec-Fetch-Mode", "cors")
+		r.Header.Set(ConfirmHeader, "op1")
+		mutate(r)
+		w := httptest.NewRecorder()
+		e.ServeHTTP(w, r)
+		Expect(w.Code).To(Equal(200))
+		return ok
+	}
+	cookie := func(v string) func(*http.Request) {
+		return func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "token", Value: v}) }
+	}
+
+	It("accepts the key in the cookie on a same-origin fetch in local-owner mode", func() {
+		Expect(serve(auth.AddonModeLocalOwner, cookie(key))).To(BeTrue())
+	})
+	It("refuses the same key in an Authorization header", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+key) })).To(BeFalse())
+	})
+	It("refuses the cookie together with an Authorization header", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) { cookie(key)(r); r.Header.Set("Authorization", "Bearer "+key) })).To(BeFalse())
+	})
+	It("refuses the cookie on a cross-site request", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) { cookie(key)(r); r.Header.Set("Sec-Fetch-Site", "cross-site") })).To(BeFalse())
+	})
+	It("refuses the cookie without the confirm header", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) { cookie(key)(r); r.Header.Del(ConfirmHeader) })).To(BeFalse())
+	})
+	It("refuses the cookie on a tool call", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) { cookie(key)(r); r.Header.Set("X-LocalAI-Tool-Call", "1") })).To(BeFalse())
+	})
+	It("refuses a cookie that is not a configured key", func() {
+		Expect(serve(auth.AddonModeLocalOwner, func(r *http.Request) {
+			cookie("something-else")(r)
+			r.Header.Set("X-Api-Key", key) // keeps the request authenticated
+		})).To(BeFalse())
+	})
+	It("refuses the cookie in named-user mode", func() {
+		Expect(serve(auth.AddonModeNamedUser, cookie(key))).To(BeFalse())
+	})
+})

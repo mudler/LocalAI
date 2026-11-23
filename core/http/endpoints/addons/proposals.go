@@ -34,7 +34,9 @@ type ConfirmRequest struct {
 //
 //  1. The credential is a browser session cookie. A named API key, a bearer
 //     token or a legacy key is how unattended agents and MCP clients
-//     authenticate, so none of them can confirm, whatever their role.
+//     authenticate, so none of them can confirm, whatever their role. The one
+//     exception is the desktop launcher's tab, which holds the server's own
+//     key in the token cookie in local-owner mode (see launcherTab).
 //  2. The request is a same-origin fetch from a page of this host
 //     (Sec-Fetch-Site same-origin, destination empty, mode cors or
 //     same-origin), which a cross-site page or a navigation cannot produce.
@@ -53,7 +55,7 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 			return false
 		}
 	}
-	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
+	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" && !launcherTab(c, s) {
 		return false
 	}
 	if auth.GetAPIKey(c) != nil {
@@ -89,6 +91,15 @@ func humanSurface(c echo.Context, s settings, a contract.Actor, id string) bool 
 		return a.CredentialID == auth.AddonLocalOwnerID
 	}
 	return strings.HasPrefix(a.CredentialID, "session:") && len(a.CredentialID) > len("session:")
+}
+
+// launcherTab reports whether the token cookie is the server's own key set by
+// the desktop launcher for its web UI tab. That is allowed only in local-owner
+// mode and only when the auth middleware matched the cookie against a
+// configured legacy key and no named key. A cookie that holds anything else is
+// not accepted. Every other rule of humanSurface still applies to the request.
+func launcherTab(c echo.Context, s settings) bool {
+	return s.mode == auth.AddonModeLocalOwner && auth.GetSource(c) == auth.UsageSourceLegacy
 }
 
 // Propose stores a data or schema mutation as a pending proposal.
