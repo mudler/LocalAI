@@ -1485,10 +1485,12 @@ func (r *SmartRouter) estimateModelVRAM(ctx context.Context, opts *pb.ModelOptio
 		},
 	}
 
-	// Try model file as a local file for GGUF metadata estimation
+	// Try model file as a local file for GGUF metadata estimation. The
+	// estimator reads local files only through a file:// URI; a bare path is
+	// an unsupported scheme and the estimate silently comes out as 0.
 	if opts.ModelFile != "" {
 		if _, err := os.Stat(opts.ModelFile); err == nil {
-			input.Files = append(input.Files, vram.FileInput{URI: opts.ModelFile, Size: 0})
+			input.Files = append(input.Files, vram.FileInput{URI: "file://" + opts.ModelFile, Size: 0})
 		}
 	}
 
