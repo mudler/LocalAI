@@ -1,0 +1,225 @@
+// The state of an update run as the page shows it, as pure functions so the
+// node unit tests drive them without a browser. The server owns the run: it
+// orders the items, runs them and keeps their state, so the page only asks for
+// a plan (the review), starts the run and reads it back. Nothing here runs an
+// update or decides when one is done.
+//
+// A run of GET /api/updates/runs/:id is
+//   { id, source, state: 'running'|'finished'|'cancelled', created_at, finished_at,
+//     counts: { total, queued, running, updated, failed, rolled_back, cancelled, skipped, unconfirmed },
+//     items: [{ key, kind, name, from, to, phase, progress, message, queued_reason,
+//               error_key, error, retryable, cancellable, nodes }] }
+// and the items are in the order they run.
+
+export const PHASES = ['queued', 'running', 'updated', 'failed', 'rolled_back', 'cancelled', 'skipped', 'unconfirmed']
+
+// The phases after which an item does not change any more.
+const ENDED = new Set(['updated', 'failed', 'rolled_back', 'cancelled', 'skipped', 'unconfirmed'])
+// The ended phases a person has to look at: the new version is not running.
+const ATTENTION = new Set(['failed', 'rolled_back', 'unconfirmed'])
+
+export const isEnded = (item) => Boolean(item && ENDED.has(item.phase))
+export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase))
+export const isRunning = (run) => Boolean(run && run.state === 'running')
+
+// What the request of a run names for a row of the page: its kind and the part
+// of its id after the kind (the row id is the item key, `<kind>:<name>`).
+export function requestItemOf(row) {
+  const prefix = `${row.kind}:`
+  const name = typeof row.id === 'string' && row.id.startsWith(prefix) ? row.id.slice(prefix.length) : row.name
+  return { kind: row.kind, name }
+}
+
+const itemsOf = (run) => (run && Array.isArray(run.items) ? run.items : [])
+
+// The counts of a run. The server sends them; a run without them (an older
+// answer) is counted from its items.
+export function countsOf(run) {
+  const out = { total: 0 }
+  for (const p of PHASES) out[p] = 0
+  if (!run) return out
+  const given = run.counts && typeof run.counts === 'object' ? run.counts : null
+  if (given && Number.isInteger(given.total)) {
+    out.total = given.total
+    for (const p of PHASES) out[p] = Number.isInteger(given[p]) ? given[p] : 0
+    return out
+  }
+  for (const item of itemsOf(run)) {
+    out.total += 1
+    if (item.phase in out) out[item.phase] += 1
+  }
+  return out
+}
+
+export const attentionCount = (counts) => counts.failed + counts.rolled_back + counts.unconfirmed
+
+// How far the run is, from 0 to 100: an ended item counts whole, a running one
+// by its own progress.
+export function runProgress(run) {
+  const items = itemsOf(run)
+  if (items.length === 0) return run && run.state !== 'running' ? 100 : 0
+  let sum = 0
+  for (const item of items) {
+    if (isEnded(item)) sum += 100
+    else if (item.phase === 'running') sum += Math.max(0, Math.min(100, Number(item.progress) || 0))
+  }
+  return Math.round(sum / items.length)
+}
+
+// The items a Retry failed would run again: only those the server marks
+// retryable.
+export function retryableKeys(run) {
+  return itemsOf(run).filter(i => needsAttention(i) && i.retryable).map(i => i.key)
+}
+
+export function runKeys(run) {
+  return new Set(itemsOf(run).map(i => i.key))
+}
+
+// The first item that needs attention, for the summary line.
+export function firstAttention(run) {
+  return itemsOf(run).find(needsAttention) || null
+}
+
+// ---- Requests ----------------------------------------------------------------
+
+// The confirmation an administrator's browser sends with a start and a retry.
+// The server runs add-on items only with it (they are skipped as
+// not_human_surface without it); other kinds ignore it. Only the page sends
+// it: an API key or a tool never does.
+export const CONFIRM_HEADERS = Object.freeze({ 'X-LocalAI-Confirm': 'upgrade-run' })
+
+// The fetch options of a start or a retry: JSON with the confirmation.
+export function confirmedPost(body) {
+  return { method: 'POST', headers: { 'Content-Type': 'application/json', ...CONFIRM_HEADERS }, body: JSON.stringify(body) }
+}
+
+// Whether an answer says the server keeps no update runs.
+export function runsUnavailable(err) {
+  return Boolean(err && (err.status === 503 || (err.body && err.body.code === 'unavailable')))
+}
+
+// ---- Review ------------------------------------------------------------------
+
+// The groups of the review, in the order the page shows them.
+export const REVIEW_GROUPS = [
+  { id: 'backends', kinds: ['gallery', 'library'] },
+  { id: 'addons', kinds: ['addon'] },
+  { id: 'models', kinds: ['model'] },
+]
+
+export function reviewGroups(items) {
+  return REVIEW_GROUPS
+    .map(g => ({ id: g.id, items: (items || []).filter(i => g.kinds.includes(i.kind)) }))
+    .filter(g => g.items.length > 0)
+}
+
+// The items that start selected: what can start and what the server selects by
+// default (a model is not: an update reloads it).
+export function defaultSelection(items) {
+  return (items || []).filter(i => i.startable && i.default_selected).map(i => i.key)
+}
+
+export const startableKeys = (items) => (items || []).filter(i => i.startable).map(i => i.key)
+
+// The body of POST /api/updates/runs: the selected items that can start, in
+// the order of the plan, each pinned to the version the review showed.
+export function startItems(review) {
+  if (!review || !Array.isArray(review.items)) return []
+  const byKey = new Map(review.items.map(i => [i.key, i]))
+  const selected = new Set(review.selected || [])
+  const order = Array.isArray(review.order) && review.order.length > 0 ? review.order : review.items.map(i => i.key)
+  return order
+    .map(k => byKey.get(k))
+    .filter(i => i && i.startable && selected.has(i.key))
+    .map(i => ({ kind: i.kind, name: i.name, expected_to: i.to }))
+}
+
+// ---- The state of the hook -----------------------------------------------------
+
+export const initialRunState = {
+  // The run the page shows: the active one, or the last one until it is dismissed.
+  run: null,
+  // False until the first answer, so the page does not claim "no run" early.
+  loaded: false,
+  // True when the server keeps no update runs (503): nothing can start.
+  unavailable: false,
+  // The last action that failed: the server's message and its code ('' for none).
+  error: '',
+  errorCode: '',
+  // Which action waits for the server: start, cancel, retry, dismiss or ''.
+  busy: '',
+  // Ids of runs the person dismissed: a poll that was already on its way does
+  // not bring one back.
+  dismissed: [],
+  // The open review: { status: 'loading'|'ready'|'error', single, items, order,
+  // selected, error, code }, or null.
+  review: null,
+}
+
+export function upgradeRunReducer(state, action) {
+  switch (action.type) {
+    case 'run': {
+      const run = action.run || null
+      if (run && state.dismissed.includes(run.id)) return { ...state, loaded: true }
+      // A poll answers for the run it asked about; one that comes back after
+      // the page moved to another run is dropped.
+      if (action.from === 'poll' && (!state.run || !run || state.run.id !== run.id)) return state
+      return { ...state, run, loaded: true, unavailable: false }
+    }
+    // A server that cannot list runs has none to show; the page says nothing
+    // about it (the next look comes with the idle poll).
+    case 'loadFailed':
+      return { ...state, loaded: true, unavailable: Boolean(action.unavailable) }
+    case 'error':
+      return { ...state, busy: '', error: action.error || '', errorCode: action.code || '' }
+    case 'busy':
+      return action.busy ? { ...state, busy: action.busy, error: '', errorCode: '' } : { ...state, busy: '' }
+    case 'reviewOpen':
+      return { ...state, review: { status: 'loading', single: Boolean(action.single), items: [], order: [], selected: [], error: '', code: '', activeRun: '' } }
+    case 'reviewReady': {
+      if (!state.review) return state
+      const items = Array.isArray(action.preview && action.preview.items) ? action.preview.items : []
+      const order = Array.isArray(action.preview && action.preview.order) ? action.preview.order : items.map(i => i.key)
+      // A review of one row is the question about that row: it starts selected
+      // when it can start, whatever the default of a longer list.
+      const selected = state.review.single ? startableKeys(items) : defaultSelection(items)
+      // A run is active elsewhere: a start would be refused, the review says so.
+      const activeRun = action.preview && action.preview.active_run_id ? String(action.preview.active_run_id) : ''
+      return { ...state, review: { ...state.review, status: 'ready', items, order, selected, activeRun } }
+    }
+    case 'reviewFailed':
+      if (!state.review) return state
+      return {
+        ...state,
+        unavailable: state.unavailable || action.code === 'unavailable',
+        review: { ...state.review, status: 'error', error: action.error || '', code: action.code || '' },
+      }
+    case 'toggle': {
+      if (!state.review) return state
+      const item = state.review.items.find(i => i.key === action.key)
+      if (!item || !item.startable) return state
+      const has = state.review.selected.includes(action.key)
+      const selected = has ? state.review.selected.filter(k => k !== action.key) : [...state.review.selected, action.key]
+      return { ...state, review: { ...state.review, selected, error: '', code: '' } }
+    }
+    case 'selectAll':
+      if (!state.review) return state
+      return { ...state, review: { ...state.review, selected: startableKeys(state.review.items), error: '', code: '' } }
+    case 'selectNone':
+      if (!state.review) return state
+      return { ...state, review: { ...state.review, selected: [], error: '', code: '' } }
+    case 'reviewClose':
+      return { ...state, review: null }
+    case 'startFailed':
+      return { ...state, busy: '', unavailable: state.unavailable || action.code === 'unavailable', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
+    case 'started':
+      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true }
+    case 'dismissed': {
+      const id = state.run ? state.run.id : action.id
+      return { ...state, busy: '', error: '', errorCode: '', run: null, dismissed: id ? [...state.dismissed, id] : state.dismissed }
+    }
+    default:
+      return state
+  }
+}

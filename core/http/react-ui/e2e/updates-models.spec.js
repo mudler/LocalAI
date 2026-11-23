@@ -53,7 +53,7 @@ test.describe('Updates page: models', () => {
     await expect(ready).toContainText('3 files change.')
     await expect(ready.getByTestId('update-row-chip')).toContainText('Update available')
     await expect(ready.getByRole('button', { name: 'Upgrade qwen3-8b' })).toBeVisible()
-    // A model is never part of "Update ready": no checkbox.
+    // A model row has no checkbox: it is picked in the review.
     await expect(ready.locator('input[type="checkbox"]')).toHaveCount(0)
 
     const edited = rowOf(page, 'llama-3.2-3b')

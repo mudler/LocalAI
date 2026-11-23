@@ -190,6 +190,125 @@ export async function mockUpdates(page, options = {}) {
   if (state.loaded) {
     await page.route('**/system', route => route.fulfill({ json: { backends: [], loaded_models: state.loaded } }))
   }
+  // No update run unless a spec installs mockUpdateRuns after this.
+  await page.route(/\/api\/updates\/runs(\?.*)?$/, route => route.fulfill({ json: { runs: [] } }))
   await page.route(/\/api\/addons\/[^/]+\/update\/check$/, route => route.fulfill({ json: { state: 'up-to-date', checkedAt: minutesAgo(0) } }))
+  return state
+}
+
+// ---- Update runs ---------------------------------------------------------------
+//
+// The server owns an update run: it plans it (preview), runs it and reports it.
+// These fixtures stand in for /api/updates/runs.
+
+// One item of a preview. `risk` is a list of { code, params }.
+export const previewItem = (key, from, to, extra = {}) => {
+  const at = key.indexOf(':')
+  const kind = key.slice(0, at)
+  return { key, kind, name: key.slice(at + 1), from, to, startable: true, reason: '', default_selected: kind !== 'model', risk: [], ...extra }
+}
+
+// One item of a run.
+export const runItem = (key, phase, extra = {}) => {
+  const at = key.indexOf(':')
+  return {
+    key, kind: key.slice(0, at), name: key.slice(at + 1), from: 'v1.0.0', to: 'v1.1.0', phase, progress: 0, message: '',
+    queued_reason: '', error_key: '', error: '', retryable: false, cancellable: phase === 'queued' || phase === 'running', nodes: [], ...extra,
+  }
+}
+
+const PHASES = ['queued', 'running', 'updated', 'failed', 'rolled_back', 'cancelled', 'skipped', 'unconfirmed']
+
+// A run with counts that follow from its items.
+export function runOf(items, extra = {}) {
+  const counts = { total: items.length }
+  for (const p of PHASES) counts[p] = items.filter(i => i.phase === p).length
+  const ended = counts.queued + counts.running === 0
+  return {
+    id: 'run-1', source: 'manual', state: ended ? 'finished' : 'running', created_at: minutesAgo(1), finished_at: ended ? minutesAgo(0) : '',
+    counts, items, ...extra,
+  }
+}
+
+// Routes /api/updates/runs. Read and change the returned state:
+//
+//   preview(items)  the answer of POST /preview for the requested { kind, name } list
+//                   (default: one startable item each, models not selected)
+//   active          the runs GET ?active=1 lists
+//   polls           the answers of GET /runs/:id in order; the last one repeats
+//   startReply(body, state) the answer of POST /runs: a run, or { status, json } to refuse
+//   previews, starts, cancels, itemCancels, retries, dismissed: what the page sent
+//   startHeaders, retryHeaders: the request headers of each start and retry
+//   onRetry(state)  the run the retry answers (default: the current poll)
+export async function mockUpdateRuns(page, options = {}) {
+  const state = {
+    preview: null,
+    active: [],
+    polls: [],
+    reads: 0,
+    startReply: null,
+    onRetry: null,
+    previews: [],
+    starts: [],
+    startHeaders: [],
+    retryHeaders: [],
+    cancels: [],
+    itemCancels: [],
+    retries: [],
+    dismissed: [],
+    ...options,
+  }
+  const current = () => state.polls[Math.min(state.reads, state.polls.length - 1)] || null
+  await page.route('**/api/updates/runs/preview', (route) => {
+    const body = route.request().postDataJSON() || {}
+    state.previews.push(body)
+    const items = state.preview
+      ? state.preview(body.items || [])
+      : (body.items || []).map(i => previewItem(`${i.kind}:${i.name}`, 'v1.0.0', 'v1.1.0'))
+    return route.fulfill({ json: Array.isArray(items) ? { items, order: items.map(i => i.key) } : items })
+  })
+  await page.route(/\/api\/updates\/runs(\?.*)?$/, (route) => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      const body = req.postDataJSON() || {}
+      state.starts.push(body)
+      state.startHeaders.push(req.headers())
+      const out = state.startReply ? state.startReply(body, state) : current()
+      if (out && out.status) return route.fulfill({ status: out.status, json: out.json })
+      if (out && out.id) state.active = [out]
+      return route.fulfill({ status: 202, json: out })
+    }
+    return route.fulfill({ json: { runs: state.active } })
+  })
+  await page.route(/\/api\/updates\/runs\/[^/?]+$/, (route) => {
+    const req = route.request()
+    const id = decodeURIComponent(new URL(req.url()).pathname.split('/').pop())
+    if (id === 'preview') return route.fallback()
+    if (req.method() === 'DELETE') {
+      state.dismissed.push(id)
+      state.active = state.active.filter(r => r.id !== id)
+      return route.fulfill({ status: 204, body: '' })
+    }
+    const run = current()
+    state.reads += 1
+    if (!run || run.id !== id) return route.fulfill({ status: 404, json: { error: 'not found' } })
+    return route.fulfill({ json: run })
+  })
+  await page.route(/\/api\/updates\/runs\/[^/]+\/cancel$/, (route) => {
+    state.cancels.push(route.request().url())
+    return route.fulfill({ json: current() })
+  })
+  await page.route(/\/api\/updates\/runs\/[^/]+\/items\/[^/]+\/cancel$/, (route) => {
+    const parts = new URL(route.request().url()).pathname.split('/')
+    state.itemCancels.push(decodeURIComponent(parts[parts.length - 2]))
+    return route.fulfill({ json: current() })
+  })
+  await page.route(/\/api\/updates\/runs\/[^/]+\/retry$/, (route) => {
+    state.retries.push(route.request().url())
+    state.retryHeaders.push(route.request().headers())
+    const out = state.onRetry ? state.onRetry(state) : current()
+    if (out && out.id) state.active = [out]
+    return route.fulfill({ json: out })
+  })
   return state
 }

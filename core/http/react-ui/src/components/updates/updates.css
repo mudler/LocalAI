@@ -113,3 +113,9 @@
   .uc-sticky .uc-primary { flex: 1; }
   .uc-sticky .dk-btn { flex: 1; min-height: 44px; }
 }
+
+/* ---- Update run: the overall bar, the tile of the result, item details ---- */
+.uc-strip__bar { display: block; max-width: 520px; margin-top: var(--sp-2); }
+.uc-strip__tile[data-kind="attention"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.uc-row__more { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); background: var(--dk-inset); }
+.uc-row__more-line { margin: 0; font-size: var(--text-xs); line-height: 16px; color: var(--dk-muted); font-family: var(--font-mono); overflow-wrap: anywhere; }

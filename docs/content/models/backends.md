@@ -97,7 +97,7 @@ Each open row displays:
 **Admin → Updates** (`/app/updates`) is the one place that answers "what is
 out of date, and what is changing". It is for administrators. It lists backends of the gallery, backends of a library, add-ons and, in their
 own rows, the installed gallery models whose entry changed (see [Model
-updates]({{% relref "/models/model-updates" %}}); models never take part in **Update N ready**).
+updates]({{% relref "/models/model-updates" %}}); in a review, models start unselected).
 
 At the top, one sentence says how many updates there are and how many are ready,
 updating or need you. Under it a line for each source (the backend gallery, the
@@ -114,7 +114,7 @@ The rows are in four groups, in this order:
 |---|---|
 | **Needs you** | An update that failed (**Retry**), an add-on upgrade that is held until you approve the access it asks for (**Review**), and an update that cannot start, with the reason (an add-on that cannot run on this host, or backend installs turned off on this server). |
 | **Updating** | An update in progress, with its phase and progress. **Cancel** shows where the operation can be cancelled. |
-| **Ready to update** | An update that you can start. An add-on asks for your confirmation first, in this browser. |
+| **Ready to update** | An update that you can start. **Update** opens the review of that row. |
 | **Up to date** | One collapsed line. A backend is listed here only when its source answered. |
 
 **Check now** runs a real check of every source and waits for the answer. It
@@ -123,26 +123,57 @@ browser session, and shows the result under the sentence. The button waits 15
 seconds before the next check, as the server answers a check within that time
 from the last one.
 
-An update is **done** only when two things hold: the operation ended without an
-error, and a new check no longer lists the item. If the operation ended and the
-item is still listed, the row says "The update ended but the version did not
-change". A throttled check answer, which is seconds old, is asked again before
-the page decides.
+### Review and update run
 
-**Update N ready** runs the checked rows one after another. Rows that are held
-or blocked never take part, a failure does not stop the others, and **Retry
-failed** runs only the failed ones. The summary ("2 updated, 1 failed") counts a
-row as updated only when it is done by the rule above. Closing the page does not
-stop the run: the operations are the server's, and the page reads them again when
-you return.
+Every update starts with a review, and nothing changes until you start it.
+**Update N ready** reviews every ready row. **Update** or **Retry** on a row
+reviews that row only. The server makes the plan of the review:
+
+- The items are grouped by kind: backends, add-ons and models. Each item has a
+  checkbox and its versions.
+- An item shows a risk line only when the server knows the risk: the loaded
+  models that stop while a backend switches (with the number of nodes in a
+  cluster), the data of an add-on that is migrated after a verified backup, or
+  the settings of a model that you edited.
+- Models start unselected, because an update reloads a model. **Select all**,
+  **Select none** and the count ("6 of 8 selected") are at the top.
+- An item that cannot start (for example a held add-on) shows the reason and
+  cannot be selected.
+
+The primary button starts an **update run** with the selected items. The server
+owns the run. It updates the backends first, then the models, then the add-ons
+one at a time. Each update keeps the previous version until the new version
+runs. You can close the page: the run continues, and the page shows it again
+when you come back (the address `/app/updates?run=<id>` opens one run).
+
+While the run is active, the top of the page says how many items are updated,
+running and waiting, with a progress bar and **Cancel remaining**. The group
+**This update run** lists the items in the order they run, with their state:
+queued (with the reason it waits), updating (with progress), updated, failed,
+rolled back, cancelled, skipped, or not confirmed. An item is updated only when
+its operation ended without an error and a new check no longer lists it. When
+the result is not known (for example, the reply of a worker was lost), the item
+is "not confirmed": run **Check now** to see its version.
+
+When the run ends, the top of the page gives the result, for example "5
+updated, 1 needs attention". A failed item says what happened, which version
+it is on now and that its data did not change. **Retry** shows only when the
+server can retry the item; **Details** shows the server's own words.
+**Retry failed** runs the retryable items again, and **Dismiss** removes the
+result from the page.
+
+Each run also has one item in the notification center: it shows the progress
+while the run is active and the result when it ended, and it opens the run on
+this page. The footer of the notification center has **Open Updates** with the
+number of updates, for administrators.
 
 In a cluster, a backend that more than one node has shows a **Nodes** action.
 It opens `/app/updates/backend/<name>`, which lists each node with its version,
 the models that use the backend there, and its state, and updates one node or
-every node that needs it. **Update** and **Retry** on such a row, and **Update N ready** when the selection holds one, open the same confirmation. It lists every affected node and the models that stop, and nothing starts until you confirm. The other selected rows start when you confirm.
-Every update that touches a node asks first, because a worker stops the models
-that use the backend: see [the Workers page]({{% relref "/administration/distributed-mode" %}}).
-On a single machine there is no **Nodes** action and **Update** starts at once.
+every node that needs it, after a confirmation that names the models that stop.
+On the Updates page, such a backend is part of the review like any other row,
+and its risk line says how many loaded models stop on how many nodes. See
+[the Workers page]({{% relref "/administration/distributed-mode" %}}).
 
 ### Shortcuts from other pages
 
