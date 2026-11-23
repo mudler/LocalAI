@@ -6906,6 +6906,12 @@
                         "description": "a saved agent of yours",
                         "name": "agent_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "comma-separated add-on IDs the draft switched off; they free room under the limit on add-on tools (tool_cap)",
+                        "name": "addons_off",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13569,7 +13575,7 @@
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead. tool_cap is present only when the server's limit on add-on tools (64 per chat) left tools out: it gives the limit, how many tools are offered, the total your add-ons declare, how many were cut and the add-ons that lost tools (id, title, cut). Switching add-ons off in one chat does not bring the cut tools back; stop or disable the add-ons you do not use.",
                 "tags": [
                     "chats"
                 ],
@@ -36157,6 +36163,57 @@
                 }
             }
         },
+        "schema.ChatsToolCap": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "description": "Addons are the add-ons that lost tools, by ID.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsToolCapAddon"
+                    }
+                },
+                "cut": {
+                    "description": "Cut is how many tools were left out.",
+                    "type": "integer",
+                    "example": 16
+                },
+                "limit": {
+                    "description": "Limit is the most add-on tools one chat is offered.",
+                    "type": "integer",
+                    "example": 64
+                },
+                "offered": {
+                    "description": "Offered is how many add-on tools are offered.",
+                    "type": "integer",
+                    "example": 64
+                },
+                "total": {
+                    "description": "Total is how many your add-ons declare: offered plus cut.",
+                    "type": "integer",
+                    "example": 80
+                }
+            }
+        },
+        "schema.ChatsToolCapAddon": {
+            "type": "object",
+            "properties": {
+                "cut": {
+                    "description": "Cut is how many tools of the add-on were left out.",
+                    "type": "integer",
+                    "example": 16
+                },
+                "id": {
+                    "type": "string",
+                    "example": "notes"
+                },
+                "title": {
+                    "description": "Title is what the add-on declares for people, or empty.",
+                    "type": "string",
+                    "example": "Notes"
+                }
+            }
+        },
         "schema.ChatsToolCard": {
             "type": "object",
             "properties": {
@@ -36310,6 +36367,14 @@
                     "items": {
                         "$ref": "#/definitions/schema.ChatsMCPServerSwitch"
                     }
+                },
+                "tool_cap": {
+                    "description": "ToolCap is present only when the server limits how many add-on tools a\nchat is offered and that limit left some out. Absent otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCap"
+                        }
+                    ]
                 }
             }
         },

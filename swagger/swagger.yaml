@@ -11639,6 +11639,44 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsToolCap:
+    properties:
+      addons:
+        description: Addons are the add-ons that lost tools, by ID.
+        items:
+          $ref: '#/definitions/schema.ChatsToolCapAddon'
+        type: array
+      cut:
+        description: Cut is how many tools were left out.
+        example: 16
+        type: integer
+      limit:
+        description: Limit is the most add-on tools one chat is offered.
+        example: 64
+        type: integer
+      offered:
+        description: Offered is how many add-on tools are offered.
+        example: 64
+        type: integer
+      total:
+        description: 'Total is how many your add-ons declare: offered plus cut.'
+        example: 80
+        type: integer
+    type: object
+  schema.ChatsToolCapAddon:
+    properties:
+      cut:
+        description: Cut is how many tools of the add-on were left out.
+        example: 16
+        type: integer
+      id:
+        example: notes
+        type: string
+      title:
+        description: Title is what the add-on declares for people, or empty.
+        example: Notes
+        type: string
+    type: object
   schema.ChatsToolCard:
     properties:
       file_kind:
@@ -11760,6 +11798,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsMCPServerSwitch'
         type: array
+      tool_cap:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCap'
+        description: |-
+          ToolCap is present only when the server limits how many add-on tools a
+          chat is offered and that limit left some out. Absent otherwise.
     type: object
   schema.ChatsTrash:
     properties:
@@ -21659,11 +21703,11 @@ paths:
       - chats
   /api/chats/{id}/tools:
     get:
-      description: The groups of built-in tools (shell, web, files, media, collections,
+      description: 'The groups of built-in tools (shell, web, files, media, collections,
         subagents, triggers, memory, saved_agents and history; a group the server
         does not offer is absent, and shell is listed even when nothing can run commands,
-        not usable with the reason), add-ons, the MCP servers of the chat's model
-        and your MCP connectors, each with the chat's switch and whether it can be
+        not usable with the reason), add-ons, the MCP servers of the chat''s model
+        and your MCP connectors, each with the chat''s switch and whether it can be
         used now (with the reason when not). deferred is true on a group whose tools
         the chat loads on demand behind tool_search, tool_describe and tool_call (the
         localai_client and localai_admin groups, see the setting chats_tool_search).
@@ -21672,7 +21716,11 @@ paths:
         (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in
         tools (bash, web_search, web_fetch) that an installed add-on replaces but
         that no add-on serves in this chat now, with the add-on and whether the built-in
-        serves instead.
+        serves instead. tool_cap is present only when the server''s limit on add-on
+        tools (64 per chat) left tools out: it gives the limit, how many tools are
+        offered, the total your add-ons declare, how many were cut and the add-ons
+        that lost tools (id, title, cut). Switching add-ons off in one chat does not
+        bring the cut tools back; stop or disable the add-ons you do not use.'
       parameters:
       - description: conversation id
         in: path
@@ -23556,6 +23604,11 @@ paths:
       - description: a saved agent of yours
         in: query
         name: agent_id
+        type: string
+      - description: comma-separated add-on IDs the draft switched off; they free
+          room under the limit on add-on tools (tool_cap)
+        in: query
+        name: addons_off
         type: string
       responses:
         "200":
