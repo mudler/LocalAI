@@ -38,18 +38,14 @@ import (
 // the explicit upgrade refuses such a request.
 const RunConfirmID = "upgrade-run"
 
-// Error keys of an add-on item that the host gives. The owner's refusal types
-// (stale_installed, candidate_changed, upgrade_conflict, ...) and failure
-// codes (upgrade_failed, approval_required, ...) pass through unchanged.
+// Error keys of an add-on item that the host gives (see the ErrKey constants
+// of upgraderun). The owner's refusal types (stale_installed,
+// candidate_changed, upgrade_conflict, ...) and failure codes
+// (upgrade_failed, approval_required, ...) pass through unchanged.
 const (
-	// RunErrNotHumanSurface: the run was not requested from the
-	// administrator's own browser session.
-	RunErrNotHumanSurface = "not_human_surface"
-	// RunErrForbidden: the run has no add-on identity, or the owner refused
-	// the identity.
-	RunErrForbidden = "forbidden"
-	// RunErrUnavailable: the add-on owner did not answer.
-	RunErrUnavailable = "unavailable"
+	RunErrNotHumanSurface = upgraderun.ErrKeyNotHumanSurface
+	RunErrForbidden       = upgraderun.ErrKeyForbidden
+	RunErrUnavailable     = upgraderun.ErrKeyUnavailable
 )
 
 // runActor is the actor of a run as it is stored in the run (Run.Actor).
@@ -160,7 +156,7 @@ func (u *QueuedUpgrader) queue() *galleryop.GalleryService {
 // retry, a conflict or an incompatible release is not.
 func retryableRefusal(kind string) bool {
 	switch kind {
-	case "stale_installed", "candidate_changed", "check_failed":
+	case upgraderun.ErrKeyStaleInstalled, upgraderun.ErrKeyCandidateChanged, upgraderun.ErrKeyCheckFailed:
 		return true
 	}
 	return false
@@ -189,7 +185,7 @@ func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addon
 		return "", &upgraderun.StartError{ErrorKey: RunErrUnavailable, Retryable: true, Err: errors.New("add-on upgrades are not available on this server")}
 	}
 	if expectedDigest == "" || candidateDigest == "" {
-		return "", &upgraderun.StartError{ErrorKey: "operation_conflict", Err: errors.New("the installed and the candidate digest are required")}
+		return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyOperationConflict, Err: errors.New("the installed and the candidate digest are required")}
 	}
 	opID := u.take(recordedKey(a, addonID, expectedDigest, candidateDigest))
 	if opID == "" {
@@ -214,7 +210,7 @@ func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addon
 		}
 		var st managerpkg.OperationStatus
 		if json.Unmarshal(env.Data, &st) != nil || st.Phase != "accepted" {
-			return "", &upgraderun.StartError{ErrorKey: "operation_conflict", Err: fmt.Errorf("the add-on owner did not accept the upgrade (%s)", st.Phase)}
+			return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyOperationConflict, Err: fmt.Errorf("the add-on owner did not accept the upgrade (%s)", st.Phase)}
 		}
 	}
 	var opcache addonOpCache
@@ -301,7 +297,7 @@ func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.
 		drop()
 		kind := item.ErrorKey
 		if kind == "" {
-			kind = "upgrade_failed"
+			kind = upgraderun.ErrKeyUpgradeFailed
 		}
 		return nil, &afterRefusal{status: http.StatusConflict, kind: kind, message: item.Error}
 	}

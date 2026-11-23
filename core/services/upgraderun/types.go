@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/core/gallery"
 )
 
 // Kind is the kind of an item. The key of an item is "<kind>:<name>", the id
@@ -106,20 +108,43 @@ func (p Phase) Terminal() bool {
 	return false
 }
 
-// Error keys of an item. The add-on failure codes of the add-on owner
-// (upgrade_failed, interrupted, recovery_required, approval_stale, ...) pass
-// through unchanged.
+// Error keys of an item. The keys of a failed backend step are the failure
+// codes of the backend upgrade (gallery.UpgradeFailureCode), so a code the
+// upgrade writes into the status is the key of the item as it is. The add-on
+// failure codes of the add-on owner (upgrade_failed, interrupted,
+// recovery_required, approval_stale, ...) pass through unchanged.
 const (
-	ErrKeyDownload   = "download"
-	ErrKeyVerify     = "verify"
-	ErrKeySwap       = "swap"
-	ErrKeyStart      = "start"
+	ErrKeyDownload   = string(gallery.UpgradeFailureDownload)
+	ErrKeyVerify     = string(gallery.UpgradeFailureVerify)
+	ErrKeySwap       = string(gallery.UpgradeFailureSwap)
+	ErrKeyStart      = string(gallery.UpgradeFailureStart)
 	ErrKeyHeld       = "held"
 	ErrKeyEditedKeys = "edited_keys"
 	// ErrKeyStale: the operation ended but the item is still listed, or the
 	// version it would move to changed since the request.
-	ErrKeyStale   = "stale"
-	ErrKeyUnknown = "unknown"
+	ErrKeyStale   = string(gallery.UpgradeFailureStale)
+	ErrKeyUnknown = string(gallery.UpgradeFailureUnknown)
+)
+
+// Error keys of an add-on item. The host gives the first four; the others are
+// codes of the add-on owner that the run reads (see retryableKeys).
+const (
+	// ErrKeyNotHumanSurface: the run was not requested from the
+	// administrator's own browser session.
+	ErrKeyNotHumanSurface = "not_human_surface"
+	// ErrKeyForbidden: the run has no add-on identity, or the owner refused
+	// the identity.
+	ErrKeyForbidden = "forbidden"
+	// ErrKeyUnavailable: the server or the add-on owner did not answer.
+	ErrKeyUnavailable = "unavailable"
+	// ErrKeyOperationConflict: the owner did not accept the upgrade as asked.
+	ErrKeyOperationConflict = "operation_conflict"
+
+	ErrKeyUpgradeFailed    = "upgrade_failed"
+	ErrKeyInterrupted      = "interrupted"
+	ErrKeyStaleInstalled   = "stale_installed"
+	ErrKeyCandidateChanged = "candidate_changed"
+	ErrKeyCheckFailed      = "check_failed"
 )
 
 // Reasons why a queued item waits.

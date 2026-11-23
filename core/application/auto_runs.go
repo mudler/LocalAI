@@ -26,10 +26,11 @@ import (
 // not lose its items: the next pass lists them again, and a short retry (see
 // autoRunner) starts them as soon as the other run ends.
 
-// autoRunActor is the actor of a run that the automatic update started. The
-// add-on items of such a run go through the owner's own automatic upgrade
-// (autoAddonStarter), never through the path of an administrator.
-const autoRunActor = "system:auto-upgrade"
+// autoRunActor is the actor of a run that the automatic update started: the
+// user id of the owner's own automatic upgrade, which the add-on routes
+// recognise too. The add-on items of such a run go through that automatic
+// upgrade (autoAddonStarter), never through the path of an administrator.
+var autoRunActor = addons.AutoUpgradeActor.UserID
 
 const (
 	// autoRunRetryDelay is how long a pass waits before it tries to start its
@@ -197,7 +198,7 @@ func (s autoAddonStarter) Start(ctx context.Context, actor string, it upgraderun
 	// belongs to the administrator who retries); refuse one that does rather
 	// than upgrade against the policy.
 	if upgraderun.SourceFrom(ctx) != upgraderun.SourceAuto {
-		return "", &upgraderun.StartError{ErrorKey: "forbidden", Err: errors.New("only an automatic run upgrades add-ons as the automatic update")}
+		return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyForbidden, Err: errors.New("only an automatic run upgrades add-ons as the automatic update")}
 	}
 	var m addonAutoUpgrader
 	if s.manager != nil {
@@ -208,7 +209,7 @@ func (s autoAddonStarter) Start(ctx context.Context, actor string, it upgraderun
 		q = s.queue()
 	}
 	if m == nil || q == nil {
-		return "", &upgraderun.StartError{ErrorKey: "unavailable", Retryable: true, Err: errors.New("add-on upgrades are not available on this server")}
+		return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyUnavailable, Retryable: true, Err: errors.New("add-on upgrades are not available on this server")}
 	}
 	jobID := uuid.NewString()
 	if s.opCache != nil {

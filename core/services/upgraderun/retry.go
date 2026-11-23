@@ -26,9 +26,9 @@ package upgraderun
 // retryable either: a Retry that cannot work is worse than none.
 var retryableKeys = map[string]bool{
 	ErrKeyDownload: true, ErrKeyVerify: true, ErrKeySwap: true, ErrKeyStart: true,
-	ErrKeyStale: true, ErrKeyUnknown: true, "unavailable": true,
-	"upgrade_failed": true, "interrupted": true,
-	"stale_installed": true, "candidate_changed": true, "check_failed": true,
+	ErrKeyStale: true, ErrKeyUnknown: true, ErrKeyUnavailable: true,
+	ErrKeyUpgradeFailed: true, ErrKeyInterrupted: true,
+	ErrKeyStaleInstalled: true, ErrKeyCandidateChanged: true, ErrKeyCheckFailed: true,
 }
 
 // RetryableKey reports whether a failure with this error key can be retried
