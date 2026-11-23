@@ -29,12 +29,12 @@ func NewBackendUpgradeGuard(svc *galleryop.GalleryService, upgrades UpgradeInfoP
 	if svc == nil {
 		return nil
 	}
-	return &BackendUpgradeGuard{core: backendupdates.NewUpgradeGuard(InstalledBackendsOf(svc), upgrades)}
+	return &BackendUpgradeGuard{core: backendupdates.NewUpgradeGuard(installedBackendsOf(svc), upgrades)}
 }
 
-// InstalledBackendsOf reads the installed backends from the backend manager
+// installedBackendsOf reads the installed backends from the backend manager
 // of svc, for backendupdates.NewUpgradeGuard.
-func InstalledBackendsOf(svc *galleryop.GalleryService) func() (gallery.SystemBackends, error) {
+func installedBackendsOf(svc *galleryop.GalleryService) func() (gallery.SystemBackends, error) {
 	return func() (gallery.SystemBackends, error) {
 		manager := svc.BackendManager()
 		if manager == nil {

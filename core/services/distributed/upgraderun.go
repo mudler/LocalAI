@@ -260,12 +260,6 @@ func (s *UpgradeRunStore) stateError(id string) error {
 	return ErrUpgradeRunState
 }
 
-// CleanOld removes runs that ended before the retention.
-func (s *UpgradeRunStore) CleanOld(retention time.Duration) error {
-	_, err := s.Prune(retention, -1)
-	return err
-}
-
 // pruneBatch bounds the ids of one delete statement.
 const pruneBatch = 500
 
