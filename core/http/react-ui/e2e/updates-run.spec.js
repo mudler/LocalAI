@@ -241,7 +241,13 @@ test.describe('Updates: the run', () => {
 
   test('a failure says what happened in plain words; Retry only when the server allows it, Details always', async ({ page }) => {
     await fleet(page)
-    const runs = await mockUpdateRuns(page, { active: [ENDED()], polls: [ENDED()], onRetry: () => RUNNING() })
+    // A retry is a new run, as on the server; the page then polls that run.
+    const next = { ...RUNNING(), id: 'run-2' }
+    const runs = await mockUpdateRuns(page, {
+      active: [ENDED()],
+      polls: [ENDED()],
+      onRetry: (state) => { state.polls = [next]; state.reads = 0; return next },
+    })
     await page.goto('/app/updates')
     await expect(page.getByTestId('updates-headline')).toHaveText('5 updated, 1 needs attention')
     const failed = runRow(page, 'addon:notes')
