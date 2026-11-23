@@ -94,6 +94,12 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		if resp.Header.Get(model.LoadCauseHeader) == model.LoadCauseBackendMissing {
 			mark = session.MarkBackendMissing
 		}
+		if resp.Header.Get(model.LoadCauseHeader) == model.LoadCauseBackendOutdated {
+			mark = session.MarkBackendOutdated
+			if b := resp.Header.Get(model.LoadBackendHeader); b != "" {
+				mark += " backend \"" + b + "\""
+			}
+		}
 		_ = resp.Body.Close()
 		return nil, cogito.Permanent(errors.New("the model could not be loaded " + mark + ": " + reason))
 	}

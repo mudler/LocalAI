@@ -447,7 +447,9 @@
       "upstream": "模型背后的提供方返回了错误。",
       "timeout": "模型响应时间过长。",
       "cancelled": "在模型回答之前,该轮已被取消。",
-      "interrupted": "服务器在回复时重新启动了。"
+      "interrupted": "服务器在回复时重新启动了。",
+      "model_backend_outdated": "无法启动模型“{{model}}”:后端可能太旧,不支持该模型。",
+      "model_backend_outdated_anon": "无法启动模型:后端可能太旧,不支持该模型。"
     },
     "hint": {
       "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
@@ -460,7 +462,9 @@
       "upstream_unreachable": "请检查模型设置中的地址。",
       "upstream": "请稍后重试。如果持续失败,请检查提供方的地址和密钥。",
       "timeout": "请重试,或使用更小或更快的模型。",
-      "cancelled": "准备好后请重试。"
+      "cancelled": "准备好后请重试。",
+      "model_backend_outdated": "请管理员更新后端,然后重试。",
+      "model_backend_outdated_admin": "请在“更新”页面更新后端,然后重试。"
     },
     "openBackends": "打开后端",
     "titleInterrupted": "回复被中断",
@@ -470,7 +474,12 @@
       "server": "服务器正在从中断处继续。",
       "exhausted": "尝试 {{max}} 次后仍无法继续。请重试。",
       "stop": "停止重试"
-    }
+    },
+    "updateBackend": "更新 {{backend}}",
+    "updateBackendBusy": "正在更新...",
+    "updateBackendStarted": "{{backend}} 的更新已开始。完成后请重试。",
+    "updateBackendFailed": "无法开始更新。",
+    "openUpdates": "打开更新页面"
   },
   "allChats": {
     "title": "全部对话",

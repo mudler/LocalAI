@@ -282,7 +282,7 @@ export function useServerChat({ seed = null } = {}) {
         setError(e.text)
         // Only the error that ended the turn has a code.
         if (e.code) {
-          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+          setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', backend: e.backend || '', text: e.text })
           turnFailed = true
           emitSound('error')
         }

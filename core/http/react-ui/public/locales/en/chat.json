@@ -270,7 +270,9 @@
       "upstream": "The provider behind the model returned an error.",
       "timeout": "The model took too long to answer.",
       "cancelled": "The turn was cancelled before the model answered.",
-      "interrupted": "The server restarted while it was answering."
+      "interrupted": "The server restarted while it was answering.",
+      "model_backend_outdated": "The model \"{{model}}\" could not be started: the backend may be too old for it.",
+      "model_backend_outdated_anon": "The model could not be started: the backend may be too old for it."
     },
     "hint": {
       "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
@@ -283,7 +285,9 @@
       "upstream_unreachable": "Check the address in the model's settings.",
       "upstream": "Retry in a moment. If it keeps failing, check the provider's address and key.",
       "timeout": "Retry, or use a smaller or faster model.",
-      "cancelled": "Retry when you are ready."
+      "cancelled": "Retry when you are ready.",
+      "model_backend_outdated": "Ask an administrator to update the backend, then retry.",
+      "model_backend_outdated_admin": "Update the backend from the Updates page, then retry."
     },
     "openBackends": "Open Backends",
     "titleInterrupted": "The reply was interrupted",
@@ -293,7 +297,12 @@
       "server": "The server is going on from where it stopped.",
       "exhausted": "It could not go on after {{max}} tries. Retry to try again.",
       "stop": "Stop trying"
-    }
+    },
+    "updateBackend": "Update {{backend}}",
+    "updateBackendBusy": "Updating...",
+    "updateBackendStarted": "The update of {{backend}} has started. Retry when it is done.",
+    "updateBackendFailed": "The update could not be started.",
+    "openUpdates": "Open Updates"
   },
   "slash": {
     "group": {

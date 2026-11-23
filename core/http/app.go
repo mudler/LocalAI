@@ -116,6 +116,10 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	if coolErr.BackendMissing {
 		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
 	}
+	if coolErr.OutdatedBackend != "" {
+		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendOutdated)
+		c.Response().Header().Set(model.LoadBackendHeader, coolErr.OutdatedBackend)
+	}
 	return http.StatusServiceUnavailable
 }
 

@@ -222,6 +222,15 @@ export function normalizeFilter(value) {
 // Backends page, the Operate overview and the Nodes page read: the versions and
 // the nodes that differ from the others. One place, so a page never keeps a
 // poll of the same fact.
+// The update row of the backend a failed load names, or null. The loader names
+// the backend it ran ("llama-cpp"), the gallery names the installed build
+// ("metal-llama-cpp"), so a build whose name ends in the backend name matches.
+export function updateForBackend(rows, backend) {
+  if (!backend) return null
+  const ready = (rows || []).filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
+  return ready.find(r => r.name === backend) || ready.find(r => r.name.endsWith(`-${backend}`)) || null
+}
+
 export function galleryUpdateMap(rows) {
   return Object.fromEntries((rows || [])
     .filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))

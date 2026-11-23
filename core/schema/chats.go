@@ -829,6 +829,9 @@ type ChatsFailure struct {
 	RetryAfter int `json:"retry_after,omitempty"`
 	// Detail is the error text, cleaned, for the technical view.
 	Detail string `json:"detail,omitempty"`
+	// Backend is the backend the cause is about, when it is known (code
+	// model_backend_outdated).
+	Backend string `json:"backend,omitempty"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.
@@ -936,10 +939,12 @@ type ChatsEvent struct {
 	// is a stable name of the cause, such as model_backend_missing; Model names
 	// the model it is about; Retry is the seconds until a model in cooldown
 	// loads again; Detail is the error text without addresses and secrets.
-	Code   string `json:"code,omitempty"`
-	Model  string `json:"model,omitempty"`
-	Retry  int    `json:"retry,omitempty"`
-	Detail string `json:"detail,omitempty"`
+	Code  string `json:"code,omitempty"`
+	Model string `json:"model,omitempty"`
+	Retry int    `json:"retry,omitempty"`
+	// Backend names the backend of a model_backend_outdated failure.
+	Backend string `json:"backend,omitempty"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 // ChatsUsage is what one model request used. It feeds the context meter and
