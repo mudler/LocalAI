@@ -16,7 +16,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/mudler/xlog"
@@ -97,7 +96,7 @@ type Host struct {
 	h     host.Host
 	dht   atomic.Pointer[dht.IpfsDHT]
 	gate  Gate
-	mdns  mdns.Service
+	disco *mdnsRunner
 	punch *punchTracer
 	reach atomic.Int32
 	sub   event.Subscription
@@ -236,12 +235,10 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 	if cfg.MDNS {
 		// mDNS only finds peers on the local network, so a host that cannot
 		// start it still works. A host with no listen address, such as one in
-		// mode connect, has no address to announce and the start fails.
-		svc := mdns.NewMdnsService(n.h, mdnsServiceName, mdnsNotifee{n: n})
-		if err := svc.Start(); err != nil {
-			xlog.Warn("p2p: local network discovery (mDNS) is off", "error", err)
-		} else {
-			n.mdns = svc
+		// mode connect, has no address to announce, and discovery waits for
+		// one.
+		if err := n.startMDNS(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -322,8 +319,8 @@ func (n *Host) Close() error {
 	}
 	n.cancel()
 	var errs []error
-	if n.mdns != nil {
-		errs = append(errs, n.mdns.Close())
+	if n.disco != nil {
+		errs = append(errs, n.disco.close())
 	}
 	if d := n.dht.Load(); d != nil {
 		errs = append(errs, d.Close())
