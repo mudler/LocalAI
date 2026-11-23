@@ -216,7 +216,7 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 	// Remember the address of every working connection to a remote's peer,
 	// so that a remote whose server got a new IP address is found again
 	// after a restart too.
-	rt.host.WatchDialedAddrs(func(p p2pnet.ID, a p2pnet.Multiaddr) { t.learn(rt, p, a) })
+	rt.host.WatchDialedAddrs(func(p p2pnet.ID, a []p2pnet.Multiaddr) { t.learn(rt, p, a) })
 	svc := t.n.app.Remotes()
 	if svc == nil || len(ids) == 0 {
 		return
@@ -233,10 +233,10 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 	})
 }
 
-// learn stores addr, an address that a dial to p reached, as the newest
-// direct address of the remotes whose server is p. It runs off the thread of
+// learn stores addrs, direct addresses that a connection to p proves, as the
+// newest direct addresses of the remotes whose server is p. It runs off the thread of
 // the connection: the store may be a database.
-func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addr p2pnet.Multiaddr) {
+func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addrs []p2pnet.Multiaddr) {
 	t.mu.Lock()
 	t.init()
 	var ids []string
@@ -250,9 +250,13 @@ func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addr p2pnet.Multiaddr) {
 	if len(ids) == 0 || svc == nil || rt.ctx.Err() != nil {
 		return
 	}
+	text := make([]string, len(addrs))
+	for i, a := range addrs {
+		text[i] = a.String()
+	}
 	rt.wg.Go(func() {
 		for _, id := range ids {
-			addrs, changed, err := remotes.LearnAddr(rt.ctx, svc, id, addr.String())
+			stored, changed, err := remotes.LearnAddrs(rt.ctx, svc, id, text)
 			if err != nil {
 				if !errors.Is(err, remotes.ErrNotFound) && rt.ctx.Err() == nil {
 					xlog.Warn("P2P: could not store the address of a remote", "remote", id, "error", err)
@@ -262,10 +266,10 @@ func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addr p2pnet.Multiaddr) {
 			if !changed {
 				continue
 			}
-			xlog.Info("P2P: stored a new address of a remote", "remote", id, "address", addr.String())
+			xlog.Info("P2P: stored new addresses of a remote", "remote", id, "addresses", len(text))
 			t.mu.Lock()
 			if tn, ok := t.want[id]; ok {
-				tn.Addrs = addrs
+				tn.Addrs = stored
 				t.want[id] = tn
 			}
 			t.mu.Unlock()

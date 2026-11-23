@@ -19,10 +19,12 @@ var _ = Describe("Dialed addresses", func() {
 	watch := func(h *p2pnet.Host) func() []seen {
 		var mu sync.Mutex
 		var got []seen
-		h.WatchDialedAddrs(func(p peer.ID, a ma.Multiaddr) {
+		h.WatchDialedAddrs(func(p peer.ID, as []ma.Multiaddr) {
 			mu.Lock()
 			defer mu.Unlock()
-			got = append(got, seen{p, a})
+			for _, a := range as {
+				got = append(got, seen{p, a})
+			}
 		})
 		return func() []seen {
 			mu.Lock()
@@ -48,7 +50,8 @@ var _ = Describe("Dialed addresses", func() {
 		Expect(err).To(HaveOccurred())
 
 		// The server saw an inbound connection: its remote address is a port
-		// the client picked, so nothing is reported.
+		// the client picked, and the client's announced addresses are on
+		// loopback, which is never reported.
 		Consistently(atServer, "300ms").Should(BeEmpty())
 	})
 })

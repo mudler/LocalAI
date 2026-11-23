@@ -232,33 +232,37 @@ func mergeAddr(stored []string, addr string, max int) []string {
 	return out
 }
 
-// LearnAddr records addr as the newest direct address of the remote over P2P
-// with the given id. Call it when a connection to the remote's peer works:
-// the address that worked is the best guess for the next dial, for example
-// after the peer got a new IP address. It returns the addresses that are now
-// stored and whether it wrote anything; it writes nothing when addr is
-// already the first address. It does nothing for a service without Tunnels,
-// and fails with ErrNotFound for an id that is not a remote over P2P.
-func LearnAddr(ctx context.Context, svc Service, id, addr string) ([]string, bool, error) {
+// LearnAddrs records addrs as the newest direct addresses of the remote over
+// P2P with the given id, the first of addrs first. Call it when a connection
+// to the remote's peer works: the addresses that worked are the best guess
+// for the next dial, for example after the peer got a new IP address. It
+// returns the addresses that are now stored and whether it wrote anything; it
+// writes nothing when they are already first. It does nothing for a service
+// without Tunnels, and fails with ErrNotFound for an id that is not a remote
+// over P2P.
+func LearnAddrs(ctx context.Context, svc Service, id string, addrs []string) ([]string, bool, error) {
 	s, ok := svc.(*service)
 	if !ok || s.o.Tunnels == nil {
 		return nil, false, nil
 	}
-	var addrs []string
+	var stored []string
 	rec, err := s.o.Store.Update(ctx, id, func(r *record) error {
 		if r.Transport != TransportP2P || r.P2P == nil {
 			return ErrNotFound
 		}
-		merged := mergeAddr(r.P2P.Addrs, addr, MaxP2PAddrs)
+		merged := r.P2P.Addrs
+		for _, a := range slices.Backward(addrs) {
+			merged = mergeAddr(merged, a, MaxP2PAddrs)
+		}
 		if slices.Equal(merged, r.P2P.Addrs) {
-			addrs = slices.Clone(r.P2P.Addrs)
+			stored = slices.Clone(r.P2P.Addrs)
 			return errAddrsUnchanged
 		}
 		r.P2P.Addrs = merged
 		return nil
 	})
 	if errors.Is(err, errAddrsUnchanged) {
-		return addrs, false, nil
+		return stored, false, nil
 	}
 	if err != nil {
 		return nil, false, err

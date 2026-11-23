@@ -256,26 +256,36 @@ var _ = Describe("Remotes over P2P", func() {
 		}
 		Expect(stored()).To(BeEmpty())
 
-		got, changed, err := remotes.LearnAddr(ctx, e.svc, id, "/ip4/192.0.2.10/tcp/4001")
+		got, changed, err := remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.10/tcp/4001"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(changed).To(BeTrue())
 		Expect(got).To(Equal([]string{"/ip4/192.0.2.10/tcp/4001"}))
 
 		// The address of a new IP goes first; the old one stays behind it.
-		got, changed, err = remotes.LearnAddr(ctx, e.svc, id, "/ip4/192.0.2.20/tcp/4001")
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(changed).To(BeTrue())
 		Expect(got).To(Equal([]string{"/ip4/192.0.2.20/tcp/4001", "/ip4/192.0.2.10/tcp/4001"}))
 		Expect(stored()).To(Equal(got))
 
+		// Several at once keep their order, in front of the older ones, up to the limit.
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.30/tcp/4001", "/ip4/192.0.2.30/udp/4001/quic-v1", "/ip4/192.0.2.31/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got).To(Equal([]string{"/ip4/192.0.2.30/tcp/4001", "/ip4/192.0.2.30/udp/4001/quic-v1", "/ip4/192.0.2.31/tcp/4001", "/ip4/192.0.2.20/tcp/4001"}))
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(changed).To(BeTrue())
+		Expect(got[0]).To(Equal("/ip4/192.0.2.20/tcp/4001"))
+
 		// The same address again writes nothing.
-		got, changed, err = remotes.LearnAddr(ctx, e.svc, id, "/ip4/192.0.2.20/tcp/4001")
+		got, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.20/tcp/4001"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(changed).To(BeFalse())
 		Expect(got).To(Equal(stored()))
 
 		// A circuit address is never stored.
-		_, changed, err = remotes.LearnAddr(ctx, e.svc, id, "/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay/p2p-circuit")
+		_, changed, err = remotes.LearnAddrs(ctx, e.svc, id, []string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWRelay/p2p-circuit"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(changed).To(BeFalse())
 
@@ -287,7 +297,7 @@ var _ = Describe("Remotes over P2P", func() {
 	})
 
 	It("does not learn an address for a remote that is not over P2P or is gone", func() {
-		_, _, err := remotes.LearnAddr(ctx, e.svc, "missing", "/ip4/192.0.2.10/tcp/4001")
+		_, _, err := remotes.LearnAddrs(ctx, e.svc, "missing", []string{"/ip4/192.0.2.10/tcp/4001"})
 		Expect(errors.Is(err, remotes.ErrNotFound)).To(BeTrue())
 	})
 
