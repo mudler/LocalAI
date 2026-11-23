@@ -24050,6 +24050,10 @@ const docTemplate = `{
                 "error": {
                     "type": "string"
                 },
+                "error_key": {
+                    "description": "ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade\non this node (status error or rolled_back).",
+                    "type": "string"
+                },
                 "file_name": {
                     "type": "string"
                 },
@@ -24126,8 +24130,16 @@ const docTemplate = `{
                 "progress": {
                     "type": "number"
                 },
+                "rolled_back": {
+                    "description": "RolledBack is true for a failed backend upgrade (or forced install)\nwhose new build did not start and whose previous build was put back:\nthe backend still runs the version it ran before. On a cluster it is\ntrue when every node that failed rolled back.",
+                    "type": "boolean"
+                },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "unconfirmed": {
+                    "description": "Unconfirmed is true for a backend upgrade whose outcome is not known:\na worker did not reply (a timeout, or a link that broke after it took\nthe request). It is neither a failure nor a success; a later check of\nthe node decides.",
+                    "type": "boolean"
                 },
                 "upgrade": {
                     "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",

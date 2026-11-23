@@ -108,6 +108,13 @@ type controlPlane struct {
 	stops    []workerctl.ModelStopRequest
 	renewals int
 	ensures  []workerctl.FileEnsureRequest
+	// installed is what backend.list reports. upgrade is the answer to
+	// backend.upgrade, and loseUpgrade ends the stream after a progress line
+	// and before the reply, as a tunnel that drops mid-upgrade does.
+	installed   []string
+	upgrade     workerctl.BackendUpgradeReply
+	loseUpgrade bool
+	upgrades    int
 }
 
 func (c *controlPlane) handler() http.Handler {
@@ -155,7 +162,29 @@ func (c *controlPlane) handler() http.Handler {
 		_ = json.NewEncoder(w).Encode(workerctl.FileEnsureReply{LocalPath: "/cache/" + req.Key})
 	})
 	mux.HandleFunc(workerctl.PathOf(workerctl.VerbBackendList), func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"backends":[]}`)
+		c.mu.Lock()
+		reply := workerctl.BackendListReply{Backends: []workerctl.NodeBackendInfo{}}
+		for _, name := range c.installed {
+			reply.Backends = append(reply.Backends, workerctl.NodeBackendInfo{Name: name})
+		}
+		c.mu.Unlock()
+		_ = json.NewEncoder(w).Encode(reply)
+	})
+	mux.HandleFunc(workerctl.PathOf(workerctl.VerbBackendUpgrade), func(w http.ResponseWriter, r *http.Request) {
+		var req workerctl.BackendUpgradeRequest
+		body(r, &req)
+		c.mu.Lock()
+		c.upgrades++
+		reply, lose := c.upgrade, c.loseUpgrade
+		c.mu.Unlock()
+		w.Header().Set("Content-Type", workerctl.ContentTypeStream)
+		ev, _ := json.Marshal(workerctl.BackendInstallProgressEvent{OpID: req.OpID, Percentage: 50})
+		_, _ = fmt.Fprintf(w, "{\"progress\":%s}\n", ev)
+		if lose {
+			return
+		}
+		out, _ := json.Marshal(reply)
+		_, _ = fmt.Fprintf(w, "{\"reply\":%s}\n", out)
 	})
 	mux.HandleFunc(workerctl.PathOf(workerctl.VerbModelsRunning), func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"models":[]}`)
@@ -173,6 +202,12 @@ func (c *controlPlane) seenEnsures() []workerctl.FileEnsureRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return slices.Clone(c.ensures)
+}
+
+func (c *controlPlane) seenUpgrades() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.upgrades
 }
 
 func (c *controlPlane) seenRenewals() int {
