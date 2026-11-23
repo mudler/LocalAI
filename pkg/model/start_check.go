@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	process "github.com/mudler/go-processmanager"
 	"github.com/mudler/xlog"
 	"github.com/phayes/freeport"
@@ -177,22 +177,5 @@ func tailOfFile(path string, maxBytes int64) string {
 	if err != nil && !errors.Is(err, io.EOF) {
 		return ""
 	}
-	return sanitizeOutput(string(raw))
-}
-
-func sanitizeOutput(s string) string {
-	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
-	kept := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = strings.Map(func(r rune) rune {
-			if r == unicode.ReplacementChar || (unicode.IsControl(r) && r != '\t') {
-				return -1
-			}
-			return r
-		}, line)
-		if line = strings.TrimSpace(line); line != "" {
-			kept = append(kept, line)
-		}
-	}
-	return strings.Join(kept, "; ")
+	return sanitize.JoinLines(string(raw))
 }

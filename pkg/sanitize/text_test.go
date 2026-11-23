@@ -94,3 +94,16 @@ var _ = Describe("Text", func() {
 		Expect(out).To(ContainSubstring("key.pem"))
 	})
 })
+
+var _ = Describe("JoinLines", func() {
+	DescribeTable("puts process output on one line",
+		func(in, want string) {
+			Expect(sanitize.JoinLines(in)).To(Equal(want))
+		},
+		Entry("lines", "loading\nerror: bad model\n", "loading; error: bad model"),
+		Entry("crlf and blank lines", "a\r\n\r\n  b  \r\n", "a; b"),
+		Entry("control characters", "a\x00b\x1b\tc", "ab\tc"),
+		Entry("invalid utf-8", "a\xffb", "ab"),
+		Entry("empty", "", ""),
+	)
+})

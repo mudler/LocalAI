@@ -39,6 +39,27 @@ func OneLine(s string, max int) string {
 	return Cap(strings.Join(strings.Fields(stripControl(s)), " "), max)
 }
 
+// JoinLines puts the output of a process on one line: control characters
+// other than a tab and invalid UTF-8 are dropped, each line is trimmed, and
+// the lines that are not empty are joined with "; ". It neither caps nor
+// redacts: the caller decides how much to keep and cleans it further.
+func JoinLines(s string) string {
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.Map(func(r rune) rune {
+			if r == unicode.ReplacementChar || (unicode.IsControl(r) && r != '\t') {
+				return -1
+			}
+			return r
+		}, line)
+		if line = strings.TrimSpace(line); line != "" {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "; ")
+}
+
 var (
 	ansiEscape = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-Z\\-_])`)
 	markupTag  = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>`)

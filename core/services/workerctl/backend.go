@@ -2,8 +2,6 @@ package workerctl
 
 import (
 	"encoding/json"
-	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/sanitize"
@@ -292,20 +290,7 @@ const CauseLimit = 512
 // dropped, lines are joined with "; " and only the last CauseLimit bytes are
 // kept, because the end of a process output says why it stopped.
 func BoundCause(s string) string {
-	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
-	kept := make([]string, 0, len(lines))
-	for _, line := range lines {
-		line = strings.Map(func(r rune) rune {
-			if r == utf8.RuneError || (unicode.IsControl(r) && r != '\t') {
-				return -1
-			}
-			return r
-		}, line)
-		if line = strings.TrimSpace(line); line != "" {
-			kept = append(kept, line)
-		}
-	}
-	out := strings.Join(kept, "; ")
+	out := sanitize.JoinLines(s)
 	if len(out) <= CauseLimit {
 		return out
 	}
