@@ -148,6 +148,29 @@ test.describe('Updates: the review', () => {
     await expect(page).toHaveURL(/[?&]run=run-1/)
   })
 
+  test('an item that cannot start says why in words, never the code of the plan', async ({ page }) => {
+    await fleet(page)
+    // The reasons the planner sends (core/services/upgraderun/planner.go).
+    const blocked = {
+      'gallery:kokoro': 'installs_disabled', 'gallery:piper': 'in_run', 'model:qwen3-8b': 'edited_keys', 'model:llama-3.2-3b': 'held',
+    }
+    await mockUpdateRuns(page, {
+      preview: items => {
+        const out = plan(items)
+        out.items = out.items.map(i => (blocked[i.key] ? { ...i, startable: false, selected: false, default_selected: false, reason: blocked[i.key] } : i))
+        return out
+      },
+    })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    const why = (key) => reviewItem(page, key).getByTestId('update-review-why')
+    await expect(why('gallery:kokoro')).toHaveText('Cannot start: Installing backends is turned off on this server')
+    await expect(why('gallery:piper')).toHaveText('Cannot start: It is already in the update run in progress')
+    await expect(why('model:qwen3-8b')).toHaveText('Cannot start: You edited settings of this model. Use Upgrade on its row to choose what to keep')
+    await expect(why('model:llama-3.2-3b')).toHaveText('Cannot start: The update waits for your approval')
+    for (const code of Object.values(blocked)) await expect(reviewOf(page)).not.toContainText(code)
+  })
+
   test('Cancel closes the review and nothing starts', async ({ page }) => {
     await fleet(page)
     const runs = await mockUpdateRuns(page, { preview: items => plan(items) })

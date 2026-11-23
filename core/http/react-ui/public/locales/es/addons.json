@@ -652,7 +652,9 @@
       "edited_keys": "Editó ajustes de este modelo. Use Actualizar en su fila para elegir qué conservar",
       "run_not_human_surface": "Esta actualización necesita que la confirme en el navegador.",
       "forbidden": "Su cuenta no puede actualizar complementos.",
-      "run_unavailable": "Las tandas de actualizaciones no están disponibles en este servidor."
+      "run_unavailable": "Las tandas de actualizaciones no están disponibles en este servidor.",
+      "in_run": "Ya está en la tanda de actualizaciones en curso",
+      "installs_disabled": "La instalación de backends está desactivada en este servidor"
     },
     "upgradeNamed": "Actualizar {{name}}",
     "why": {

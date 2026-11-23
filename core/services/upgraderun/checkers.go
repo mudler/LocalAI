@@ -108,7 +108,7 @@ func backendListing(snap backendupdates.Snapshot) Listing {
 			continue
 		}
 		if snap.InstallsDisabled {
-			c.Blocked = "installs_disabled"
+			c.Blocked = ReasonInstallsDisabled
 		}
 		backendRisks(&c, it)
 		l.Candidates = append(l.Candidates, c)

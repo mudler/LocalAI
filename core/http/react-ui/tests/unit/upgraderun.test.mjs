@@ -199,6 +199,10 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
   assert.equal(upgradeFailureWords('unavailable', en, '', 'run'), 'Update runs are not available on this server.')
   assert.match(upgradeFailureWords('not_human_surface', en), /administrator must make this change/)
   assert.equal(upgradeFailureWords('forbidden', en, '', 'run'), 'Your account cannot update add-ons.')
+  // The reasons a review item cannot start (the planner's reasons).
+  assert.equal(upgradeFailureWords('in_run', en, '', 'run'), 'It is already in the update run in progress')
+  assert.equal(upgradeFailureWords('installs_disabled', en, '', 'run'), 'Installing backends is turned off on this server')
+  assert.equal(upgradeFailureWords('edited_keys', en, '', 'run'), 'You edited settings of this model. Use Upgrade on its row to choose what to keep')
   // A key this build does not know is said with the server's words, else plainly.
   assert.equal(upgradeFailureWords('future_key', en, 'disk full'), 'disk full')
   assert.equal(upgradeFailureWords('future_key', en), 'The update failed')
@@ -208,7 +212,7 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
     const t = await addonsT(l)
     for (const key of ['download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
       'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found',
-      'forbidden', 'not_human_surface', 'unavailable']) {
+      'forbidden', 'not_human_surface', 'unavailable', 'in_run', 'installs_disabled']) {
       const words = upgradeFailureWords(key, t, '', 'run')
       assert.ok(words && !words.startsWith('updates.'), `${l} ${key}: ${words}`)
     }

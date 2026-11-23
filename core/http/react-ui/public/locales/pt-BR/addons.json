@@ -652,7 +652,9 @@
       "edited_keys": "Você editou configurações deste modelo. Use Atualizar na linha dele para escolher o que manter",
       "run_not_human_surface": "Esta atualização precisa da sua confirmação no navegador.",
       "forbidden": "Sua conta não pode atualizar complementos.",
-      "run_unavailable": "As rodadas de atualizações não estão disponíveis neste servidor."
+      "run_unavailable": "As rodadas de atualizações não estão disponíveis neste servidor.",
+      "in_run": "Já está na rodada de atualizações em andamento",
+      "installs_disabled": "A instalação de backends está desativada neste servidor"
     },
     "upgradeNamed": "Atualizar {{name}}",
     "why": {

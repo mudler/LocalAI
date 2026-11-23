@@ -7,6 +7,14 @@ import { reviewGroups, riskText, startItems } from '../../utils/upgradeRun'
 import { originText } from './UpdateRow'
 import '../upgrade/upgrade.css'
 
+// Why an item cannot start, in words: the reason of the plan (held,
+// edited_keys, in_run, no_update, installs_disabled) through the one
+// failure-words map, never the raw code.
+function blockedText(item, t, ta) {
+  const reason = item.reason ? upgradeFailureWords(item.reason, ta, '', 'run').trim().replace(/[.\s]+$/, '') : t('row.noReason')
+  return t('review.blocked', { reason })
+}
+
 // The lines under an item: its risks, why it cannot start, and for a model the
 // reason it is not selected by default.
 function linesOf(item, t) {
@@ -86,7 +94,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
             <p className="up-row__versions">{origin ? `${versions(item)} · ${origin}` : versions(item)}</p>
             {item.startable
               ? <Callout testId="update-review-note">{[...lines, t('review.singleNote')].join(' ')}</Callout>
-              : <Callout tone="warn" testId="update-review-blocked">{t('review.blocked', { reason: item.reason || t('row.noReason') })}</Callout>}
+              : <Callout tone="warn" testId="update-review-blocked">{blockedText(item, t, ta)}</Callout>}
           </div>
         )}
         {refusal}
@@ -153,7 +161,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
                         <span className="up-row__versions">{versions(item)}</span>
                         {lines.map(line => <span key={line} className="up-row__why" data-testid="update-review-risk">{line}</span>)}
                         {!item.startable && (
-                          <span className="up-row__why" data-tone="warn" data-testid="update-review-why">{t('review.blocked', { reason: item.reason || t('row.noReason') })}</span>
+                          <span className="up-row__why" data-tone="warn" data-testid="update-review-why">{blockedText(item, t, ta)}</span>
                         )}
                       </div>
                     </li>

@@ -15,6 +15,8 @@ const KNOWN = new Set([
   'operationNotFound', 'network', 'unavailable',
   // update runs
   'download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
+  // why a review item cannot start (the reason of a preview item)
+  'in_run', 'installs_disabled',
   // refusals of the run routes
   'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found',
   'forbidden',

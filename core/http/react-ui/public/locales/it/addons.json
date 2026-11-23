@@ -652,7 +652,9 @@
       "edited_keys": "Hai modificato impostazioni di questo modello. Usa Aggiorna sulla sua riga per scegliere cosa tenere",
       "run_not_human_surface": "Questo aggiornamento va confermato nel browser.",
       "forbidden": "Il tuo account non può aggiornare i componenti aggiuntivi.",
-      "run_unavailable": "Le serie di aggiornamenti non sono disponibili su questo server."
+      "run_unavailable": "Le serie di aggiornamenti non sono disponibili su questo server.",
+      "in_run": "È già nella serie di aggiornamenti in corso",
+      "installs_disabled": "L’installazione dei backend è disattivata su questo server"
     },
     "upgradeNamed": "Aggiorna {{name}}",
     "why": {

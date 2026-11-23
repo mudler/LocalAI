@@ -111,6 +111,8 @@ const (
 	ReasonEditedKeys = "edited_keys"
 	ReasonInRun      = "in_run"
 	ReasonNoUpdate   = "no_update"
+	// ReasonInstallsDisabled: the server does not install backends.
+	ReasonInstallsDisabled = "installs_disabled"
 )
 
 // Stages of a run, in order.

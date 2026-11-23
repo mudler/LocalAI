@@ -652,7 +652,9 @@
       "edited_keys": "您修改了此模型的设置。请在其所在行使用\"升级\"来选择要保留的内容",
       "run_not_human_surface": "此更新需要您在浏览器中确认。",
       "forbidden": "您的账户无法更新插件。",
-      "run_unavailable": "此服务器不支持批量更新。"
+      "run_unavailable": "此服务器不支持批量更新。",
+      "in_run": "它已在正在进行的更新中",
+      "installs_disabled": "此服务器已关闭后端安装"
     },
     "upgradeNamed": "更新 {{name}}",
     "why": {

@@ -652,7 +652,9 @@
       "edited_keys": "Sie haben Einstellungen dieses Modells geändert. Wählen Sie mit „Upgrade“ in seiner Zeile, was bleibt",
       "run_not_human_surface": "Diese Aktualisierung muss im Browser bestätigt werden.",
       "forbidden": "Ihr Konto kann keine Add-ons aktualisieren.",
-      "run_unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar."
+      "run_unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar.",
+      "in_run": "Es ist schon im laufenden Aktualisierungslauf",
+      "installs_disabled": "Das Installieren von Backends ist auf diesem Server ausgeschaltet"
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {

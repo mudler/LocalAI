@@ -656,7 +656,9 @@
       "edited_keys": "Vous avez modifié des réglages de ce modèle. Utilisez Mettre à niveau sur sa ligne pour choisir quoi garder",
       "run_not_human_surface": "Cette mise à jour doit être confirmée dans le navigateur.",
       "forbidden": "Votre compte ne peut pas mettre à jour les extensions.",
-      "run_unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur."
+      "run_unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur.",
+      "in_run": "Il fait déjà partie de la série de mises à jour en cours",
+      "installs_disabled": "L’installation de backends est désactivée sur ce serveur"
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {
