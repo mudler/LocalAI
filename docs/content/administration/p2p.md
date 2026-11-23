@@ -112,6 +112,20 @@ when the invite can pair only over a direct connection:
 
 The link is shown once. The list of pending invites does not show it again.
 
+**Addresses in the link.** The link carries up to four direct addresses of the
+server: public ones first, then the private addresses of its local networks
+(RFC 1918 IPv4 and unique local IPv6; loopback and link-local addresses are
+never used). With them, a device or a remote on the same network redeems the
+link with no relay, no internet access and no multicast discovery, also when it
+runs in mode `connect`, which does not run discovery. A paired remote keeps the
+addresses of its link and uses them to reconnect.
+
+A link with private addresses tells whoever holds it which networks the server
+is on. Pass `"omit_lan_addrs": true` to `POST /api/p2p/invites` to leave them
+out when the link will go to someone outside that network. Without public
+addresses and without a relay, such a link has only the peer ID, and only
+a device that finds the server by local network discovery can redeem it.
+
 When the device redeems the link, the dialog shows a **confirmation phrase** of
 four words, and the device shows the same phrase. Check that both phrases
 match. If they differ, someone else used the invite: choose **It does not
@@ -237,7 +251,7 @@ names the mode.
 | Route | What it does |
 |---|---|
 | `GET /api/p2p/status` | Mode, peer ID, addresses, reachability, relay reservations, whether the server relays for its devices, and the number of pending invites and devices. Works in every mode. |
-| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
+| `POST /api/p2p/invites` | Creates an invite: `{kind, label, ttl_seconds, models, all_models, relays, allow_open_relay, omit_lan_addrs}`. `kind` is `device`, `remote`, `worker` or `split`. `models` limits the key of a remote. `all_models: true` grants every model a client key may use, explicitly; it is refused (`400`) together with a non-empty `models`. With neither, the key may use every model a client key may use. A model that does not exist or has tools attached gets `400`. A remote invite made without a user account (the API key of `LOCALAI_API_KEY`) gets `409` with error type `needs_account`. `relays` is `"auto"`, `"none"` or a list of relay IDs. `omit_lan_addrs: true` keeps the private addresses of this server out of the link (see above). The answer has the link (shown once), whether a relay pass was registered, and warnings such as `no_relay` or `relay_unreachable`. |
 | `GET /api/p2p/invites` | The invites and their state: `pending`, `used`, `expired` or `canceled`, and `relay_pass`, the relay that holds the pass. A used invite also has `device_peer_id` and `phrase`, the confirmation phrase the device was shown. A remote invite has `all_models` or `models`, what it grants. |
 | `DELETE /api/p2p/invites/{id}` | Cancels a pending invite and its relay pass. |
 | `GET /api/p2p/devices` | The devices, with the path of each one: `direct`, `hole_punched` or `relayed`, and the relay limits. A remote has `all_models` or `models`, what its key may use. |

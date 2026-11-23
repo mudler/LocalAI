@@ -95,6 +95,10 @@ type MintRequest struct {
 	Relays RelayChoice `json:"relays" swaggertype:"string" example:"auto"`
 	// AllowOpenRelay lets the invite name an open relay.
 	AllowOpenRelay bool `json:"allow_open_relay"`
+	// OmitLANAddrs keeps the private addresses of this server out of the
+	// link. By default the link carries them, so a device on the same network
+	// can redeem it with no relay and no multicast discovery.
+	OmitLANAddrs bool `json:"omit_lan_addrs,omitempty"`
 }
 
 // RelayChoice is "auto", "none" or a list of relay IDs.

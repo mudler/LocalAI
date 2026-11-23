@@ -142,6 +142,54 @@ func serviceSpecs(newStore func() p2ppair.Store) {
 			Expect(m.Link.Expires.Equal(m.Invite.ExpiresAt)).To(BeTrue())
 		})
 
+		Context("with local network addresses", func() {
+			var lan []ma.Multiaddr
+			BeforeEach(func() {
+				lan = nil
+				for _, s := range []string{"/ip4/192.168.1.20/tcp/4001", "/ip4/192.168.1.20/udp/4001/quic-v1", "/ip4/10.0.0.5/tcp/4001"} {
+					a, err := ma.NewMultiaddr(s)
+					Expect(err).NotTo(HaveOccurred())
+					lan = append(lan, a)
+				}
+				var err error
+				svc, err = p2ppair.NewService(newStore(), p2ppair.Config{
+					ServerPeer: server, Addrs: func() []ma.Multiaddr { return addrs },
+					LANAddrs: func() []ma.Multiaddr { return lan },
+					Relays:   relays, Registrar: reg, Issuer: iss, Now: clk.Now,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("puts them after the public address, up to four in all", func() {
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Link.AddrStrings()).To(Equal([]string{
+					"/ip4/203.0.113.9/tcp/4001", "/ip4/192.168.1.20/tcp/4001",
+					"/ip4/192.168.1.20/udp/4001/quic-v1", "/ip4/10.0.0.5/tcp/4001",
+				}))
+				parsed, err := p2ppair.ParseLink(m.Link.String())
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parsed.AddrStrings()).To(Equal(m.Link.AddrStrings()))
+			})
+
+			It("makes a link with only local addresses, and still warns about the missing public one", func() {
+				addrs = nil
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Link.Addrs).To(HaveLen(3))
+				Expect(m.Warnings).To(ConsistOf(p2ppair.WarnNoRelay, p2ppair.WarnNoPublicAddr))
+			})
+
+			It("leaves them out when the request says so", func() {
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone, OmitLANAddrs: true})
+				Expect(m.Link.AddrStrings()).To(Equal([]string{"/ip4/203.0.113.9/tcp/4001"}))
+			})
+
+			It("skips a repeated address", func() {
+				addrs = lan[:1]
+				m := mint(p2ppair.MintRequest{Relays: p2ppair.RelayNone})
+				Expect(m.Link.Addrs).To(HaveLen(3))
+			})
+		})
+
 		It("refuses a bad kind, label and life", func() {
 			for _, req := range []p2ppair.MintRequest{
 				{Kind: "bogus"},

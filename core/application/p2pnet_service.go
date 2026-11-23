@@ -140,6 +140,7 @@ func (s p2pService) MintInvite(ctx context.Context, by string, req p2papi.MintRe
 		TTL:            time.Duration(req.TTLSeconds) * time.Second,
 		Scope:          p2ppair.Scope{Models: req.Models, AllModels: req.AllModels, Features: req.Features, Labels: req.Labels},
 		AllowOpenRelay: req.AllowOpenRelay,
+		OmitLANAddrs:   req.OmitLANAddrs,
 	}
 	switch req.Relays.Mode {
 	case "", "auto":
