@@ -1,6 +1,7 @@
 // Turns electron-updater events into one status shape. No Electron import.
 import path from 'node:path'
-import type { UpdaterStatus } from '../shared/types'
+import type { UpdateChannelName, UpdaterStatus } from '../shared/types'
+import { devLauncherFeedUrl } from './devFeed'
 
 export type RawUpdaterEvent =
   | { type: 'checking-for-update' }
@@ -47,24 +48,43 @@ export function launcherUpdateAction(s: UpdaterStatus): LauncherUpdateAction {
 }
 
 export type SelfUpdateGate =
-  | { enabled: true; feedUrl?: string }
+  /** `dev`: the update channel is Development, so the feed is the rolling `dev-master` release. */
+  | { enabled: true; feedUrl?: string; dev?: true }
   | { enabled: false; reason: 'unpackaged' | 'dev-build' | 'portable' }
 
 /** A development build from master: `<version>-dev.<run number>` (see the release flow). */
 const DEV_BUILD = /-dev\.\d+(?:[.+]|$)/
 
 /**
- * Whether the launcher updates itself. Off in a run from source. Off in a
- * development build, which must never take a stable release from the
- * feed, and in the portable Windows zip, which has no installer to update
- * it, unless a test feed is set (`LOCALAI_LAUNCHER_FEED_URL`).
+ * Whether the launcher updates itself, and from which feed. Off in a run from
+ * source. A test feed (`LOCALAI_LAUNCHER_FEED_URL`) always wins. Otherwise:
+ *
+ * - Channel `dev`: on, from the development feed (`dev` in the result). The
+ *   portable Windows zip stays off, because it has no installer to update it.
+ * - Any other channel: a development build stays off, because it must never
+ *   take a stable release from the feed. The portable zip stays off. Every
+ *   other build uses the release feed, as before.
+ *
+ * A missing channel means `stable`.
  */
-export function selfUpdateGate(o: { packaged: boolean; version: string; feedUrl?: string; portable?: boolean }): SelfUpdateGate {
+export function selfUpdateGate(o: { packaged: boolean; version: string; feedUrl?: string; portable?: boolean; channel?: UpdateChannelName }): SelfUpdateGate {
   if (!o.packaged) return { enabled: false, reason: 'unpackaged' }
   const feedUrl = o.feedUrl || undefined
-  if (DEV_BUILD.test(o.version)) return feedUrl ? { enabled: true, feedUrl } : { enabled: false, reason: 'dev-build' }
-  if (o.portable) return feedUrl ? { enabled: true, feedUrl } : { enabled: false, reason: 'portable' }
-  return feedUrl ? { enabled: true, feedUrl } : { enabled: true }
+  if (feedUrl) return { enabled: true, feedUrl }
+  if (o.channel === 'dev') return o.portable ? { enabled: false, reason: 'portable' } : { enabled: true, dev: true }
+  if (DEV_BUILD.test(o.version)) return { enabled: false, reason: 'dev-build' }
+  if (o.portable) return { enabled: false, reason: 'portable' }
+  return { enabled: true }
+}
+
+/** What the updater reads: electron-updater's own default feed (the GitHub releases of the app), or a generic feed folder. */
+export type LauncherFeed = { kind: 'default' } | { kind: 'generic'; url: string }
+
+/** The feed of an enabled gate: the test feed, the development feed, or the release feed. */
+export function launcherFeed(gate: Extract<SelfUpdateGate, { enabled: true }>, repo: { owner: string; repo: string }): LauncherFeed {
+  if (gate.feedUrl) return { kind: 'generic', url: gate.feedUrl }
+  if (gate.dev) return { kind: 'generic', url: devLauncherFeedUrl(repo) }
+  return { kind: 'default' }
 }
 
 /**
@@ -100,4 +120,16 @@ export function updaterSettings(includePrereleases: boolean): {
   allowDowngrade: false
 } {
   return { autoDownload: false, autoInstallOnAppQuit: false, allowPrerelease: includePrereleases, allowDowngrade: false }
+}
+
+/**
+ * The electron-updater settings of a channel. Development adds one thing: no
+ * differential download. The development files keep one name from build to
+ * build, so a block map cannot tell the old file from the new one by name; a
+ * full download is checked against the SHA-512 of the feed, as always. Downgrades
+ * stay off: a development launcher is "newer" when its version is higher
+ * (`<next patch>-dev.<run number>` rises with each build, see scripts/version.mjs).
+ */
+export function launcherUpdaterSettings(channel: UpdateChannelName): ReturnType<typeof updaterSettings> & { disableDifferentialDownload: boolean } {
+  return { ...updaterSettings(channel === 'rc'), disableDifferentialDownload: channel === 'dev' }
 }
