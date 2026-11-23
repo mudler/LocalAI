@@ -18955,7 +18955,7 @@ const docTemplate = `{
         },
         "/api/updates/runs/{id}/retry": {
             "post": {
-                "description": "Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.",
+                "description": "Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. The new run is a manual run of the administrator who retries, also when the old run was automatic or was started by another administrator. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.",
                 "produces": [
                     "application/json"
                 ],
