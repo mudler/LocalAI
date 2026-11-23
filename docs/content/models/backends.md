@@ -279,9 +279,12 @@ is `{"error": "...", "code": "..."}`:
 | `409` | `stale` | The request named a build with `expected_to` and it is no longer the available one. |
 
 `expected_to` is optional. It is the version or the digest that the caller saw
-in the update list, in the query or in a JSON body field of the same name. Use it
-to be sure that the upgrade is the one you looked at. A request without it
-upgrades to whatever is available.
+in the update list, in the query or in a JSON body field of the same name. The
+server compares it with the available build when it accepts the request, and
+answers `stale` when it moved. The job then installs the build the gallery
+lists when it runs; it does not compare it with `expected_to` again. The
+integrity checks of the gallery entry (SHA-256, signature policy) run before
+the swap. A request without `expected_to` upgrades to whatever is available.
 
 A request is never refused as `no_update` from an old list. When the last
 successful check is older than five minutes, or there is none, the request first
@@ -338,6 +341,9 @@ Limits of the start check:
   its own process and port, and running processes keep the files of the build
   they started from.
 - Cancelling the job stops the check and puts the previous build back.
+- The check runs the downloaded build as the user LocalAI runs as. Without
+  strict integrity, a build with no SHA-256 and no signature policy runs at
+  this point, at upgrade time, and not only at the next model load.
 
 Limits:
 

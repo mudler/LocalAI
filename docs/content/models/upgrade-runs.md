@@ -39,6 +39,27 @@ be installed, it must have an update, and the update must still go to
 `expected_to`. If one item fails a check, the server refuses the whole request
 and creates no run.
 
+### What `expected_to` guarantees
+
+`expected_to` is checked, not enforced inside the operation:
+
+- **Before each item starts.** Just before the operation of an item starts,
+  the run checks the item again. When the update no longer goes to
+  `expected_to`, the item ends `failed` with the error key `stale`
+  (retryable), and nothing is installed.
+- **During the operation.** A gallery backend or model operation reads the
+  gallery when it runs and installs the build the gallery lists then. It does
+  not compare that build with `expected_to` again, so a gallery change in the
+  short time between the check and the download is installed. A library
+  backend item passes the version it was checked for to the library install. The integrity
+  checks of the gallery entry (the SHA-256 and the signature policy) run on
+  the downloaded build before the swap; a build that fails them is never put
+  in place.
+- **Add-on items** are pinned: the add-on owner records the upgrade with the
+  installed digest and the candidate digest (`expected_to`) when the item is
+  queued, and checks both again when the operation runs. A candidate that
+  moved ends the item with the owner's code, for example `candidate_changed`.
+
 `from` and `to` are for people: the version, or the digest when there is no
 version. `expected_to` is what the request pins. For a backend and a model it
 is the same as `to`. For an add-on, `from` and `to` are versions and
@@ -355,6 +376,27 @@ add-ons, so a start of an add-on item is refused with `source_unchecked`. When
 the owner cannot be reached, a start of an add-on item is refused with
 `source_unchecked`, and an add-on item that was about to start ends `failed`
 with the error key `unavailable` (retryable).
+
+## Access and trust
+
+- **Any administrator can read and cancel any run.** The run tools are
+  shared admin tooling: every administrator sees every run, its items and its
+  errors, and can cancel a run or an item that another administrator or the
+  automatic update started. A retry is a new run of the administrator who
+  retries.
+- **The assistant asks before it starts or cancels a run.** The tools
+  `upgrade_run_start` and `upgrade_run_cancel` rely on the rule of the
+  assistant's safety prompt that it confirms with you before it changes
+  anything. That rule is in the prompt, not in code, as for every mutating
+  admin tool. Add-on items are refused in code: `upgrade_run_start` does not
+  take them.
+- **The start check runs the new build.** After the swap, the server starts
+  the downloaded backend build once, as the user LocalAI runs as, to check
+  that it starts (see
+  [When the new build does not start]({{% relref "/models/backends#checking-for-backend-updates" %}})).
+  Without strict integrity (`--require-backend-integrity` off), a build from a
+  gallery entry with no SHA-256 and no signature policy is accepted, so such a
+  build runs at upgrade time, and not only at the next model load.
 
 ## REST API
 
