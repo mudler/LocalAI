@@ -1,0 +1,60 @@
+name: 'upstream watch'
+
+# Read-only. Reports drift between develop, the PR branches and upstream/master,
+# and keeps one tracking issue up to date. Never pushes to any branch.
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: upstream-watch-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    if: github.repository == 'rossigee/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/mudler/LocalAI.git
+      - name: Fetch upstream
+        run: git fetch --quiet upstream master
+      - name: Fetch PR branches
+        run: git fetch --quiet origin 'refs/heads/*:refs/remotes/origin/*'
+      - name: Build the report
+        id: report
+        run: |
+          {
+            echo "## Fork status ($(date -u +%Y-%m-%d))"
+            echo
+            echo '```'
+            sh scripts/fork/status.sh
+            echo '```'
+          } > report.md
+          if sh scripts/fork/status.sh | grep -q 'behind [1-9]'; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          num=$(gh issue list --label fork-status --state open --json number --jq '.[0].number // empty')
+          if [ -z "$num" ]; then
+            gh label create fork-status --color 0E8A16 --description 'Fork status tracking' 2>/dev/null || true
+            num=$(gh issue create --title 'Fork status' --label fork-status --body-file report.md | grep -o '[0-9]*$')
+          else
+            gh issue edit "$num" --body-file report.md
+          fi
+          echo "tracking issue #$num, drift=${{ steps.report.outputs.drift }}"

@@ -1,13 +1,25 @@
 name: 'build and push develop image'
 
+# Builds the CPU image from ./Dockerfile and pushes it to GHCR.
+#   push to develop      -> ghcr.io/rossigee/localai:develop, :develop-<sha>
+#   push to develop-next -> ghcr.io/rossigee/localai:next-<sha>   (candidate, not yet promoted)
+#   workflow_dispatch    -> builds the chosen branch
+# There is no :latest tag: it is not reproducible.
+
 on:
   push:
     branches:
       - develop
+      - develop-next
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch to build (develop or develop-next)'
+        required: true
+        default: develop
 
 concurrency:
-  group: develop-image-${{ github.repository }}
+  group: develop-image-${{ github.repository }}-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -19,22 +31,46 @@ jobs:
     if: github.repository == 'rossigee/LocalAI'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out the branch to build
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: tags
+        env:
+          BRANCH: ${{ inputs.ref || github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          case "$BRANCH" in
+            develop)
+              tags="ghcr.io/rossigee/localai:develop
+          ghcr.io/rossigee/localai:develop-${SHA}" ;;
+            develop-next)
+              tags="ghcr.io/rossigee/localai:next-${SHA}" ;;
+            *)
+              echo "unsupported branch: $BRANCH" >&2; exit 1 ;;
+          esac
+          {
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
           push: true
           platforms: linux/amd64
-          tags: |
-            ghcr.io/rossigee/localai:develop
-            ghcr.io/rossigee/localai:develop-${{ github.sha }}
-            ghcr.io/rossigee/localai:latest
+          tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             BUILD_TYPE=

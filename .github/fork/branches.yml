@@ -1,0 +1,21 @@
+# Single source of truth for the fork's `develop` branch.
+#
+#   develop = upstream/<upstream> + each PR branch below (in order) + the develop-ci overlay
+#
+# scripts/fork/rebuild-develop.sh reads this file. Keep the order: later branches
+# may depend on earlier ones. A branch already reachable from upstream is skipped
+# automatically; set `upstream_pr` so status.sh can report its state.
+upstream:
+  remote: upstream
+  branch: master
+
+overlay: develop-ci
+
+# Each entry: name = local branch to merge (or origin/<name> if no local branch).
+branches:
+  - name: fix/addon-library-sources
+    description: "Add-on library listing fix (Find add-ons)."
+    upstream_pr: null
+  - name: feat/otlp-trace-export-rebase
+    description: "OTLP request and inference tracing, plus tool-schema fixes."
+    upstream_pr: 13270

@@ -1,0 +1,41 @@
+name: 'rebuild develop-next'
+
+# Manual. Rebuilds develop-next from upstream + PR branches + develop-ci and
+# pushes it. Pushing develop-next triggers the image build (develop-image.yml).
+# Promotion to develop is deliberately manual (see FORK.md).
+#
+# Uses FORK_PUSH_TOKEN, because pushes made with GITHUB_TOKEN do not start other
+# workflows and cannot change .github/workflows/*.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: rebuild-develop-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    if: github.repository == 'rossigee/LocalAI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FORK_PUSH_TOKEN }}
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/mudler/LocalAI.git
+      - name: Fetch everything
+        run: |
+          git fetch --quiet upstream master
+          git fetch --quiet origin 'refs/heads/*:refs/remotes/origin/*'
+      - name: Rebuild develop-next
+        env:
+          GIT_AUTHOR_NAME: fork-rebuild
+          GIT_AUTHOR_EMAIL: fork-rebuild@users.noreply.github.com
+          GIT_COMMITTER_NAME: fork-rebuild
+          GIT_COMMITTER_EMAIL: fork-rebuild@users.noreply.github.com
+        run: sh scripts/fork/rebuild-develop.sh --push
