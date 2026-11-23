@@ -534,7 +534,8 @@ type ApplicationConfig struct {
 	AdminOffByDeprecatedOption bool
 
 	// ChatsToolSearch is the setting chats_tool_search: whether the large
-	// LocalAI tool groups are replaced by the three tool-search tools. One of
+	// LocalAI tool groups and the deferred add-on tools are replaced by the
+	// three tool-search tools. One of
 	// the ToolSearch* values; empty means auto. Read at each turn.
 	ChatsToolSearch string
 

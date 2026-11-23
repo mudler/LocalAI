@@ -869,7 +869,8 @@
           "is refused on a tool that shadows a built-in tool",
           "is false when omitted and is not written when false",
           "survives a JSON round trip",
-          "is not counted against the limits of the definitions"
+          "is not counted against the limits of the definitions",
+          "requires featureLevel 11 for a deferred tool, and a level 10 host refuses it"
         ]
       },
       {

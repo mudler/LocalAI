@@ -25,6 +25,11 @@ import (
 // says on), the chat sends three small tools in their place: tool_search finds
 // a tool by words, tool_describe shows its schema, tool_call runs it.
 //
+// The tools that an add-on marks deferred are a second source behind the same
+// three tools. It is decided on its own schemas with the same modes, so the
+// LocalAI groups never change because an add-on is installed or stopped. The
+// text of an add-on competes in the same search; a tie ranks LocalAI first.
+//
 // With the setting on, the tools of the user's MCP connectors go behind the
 // same three tools (connectorsDeferred); auto and off send them in full.
 //
@@ -143,9 +148,8 @@ func deferrableAddonTools(tools []session.Tool) []session.Tool {
 //   - auto: when the schemas take at least toolSearchShare percent of the
 //     window. An unknown window (0) never defers.
 //
-// tools are all the sources that can be deferred in the chat at once: the
-// LocalAI groups and the deferred tools of the add-ons. A source with no
-// deferrable tool adds nothing to the count.
+// Each source is decided on its own tools: the LocalAI groups, and the
+// deferred tools of the add-ons. Installing an add-on never moves the groups.
 func shouldDefer(mode string, tools []session.Tool, window int) bool {
 	if len(tools) == 0 {
 		return false
@@ -276,6 +280,12 @@ func toolSearchTools(deferred []session.Tool, groups []string) []session.Tool {
 				// The tool is the one the chat would have offered: its Run
 				// carries the acting user and, for an unattended run, the
 				// action policy.
+				if t.Deferrable {
+					// The entry of the call carries the add-on tool's own
+					// name, so the chat shows its change note, Undo and
+					// refusal as for the typed call.
+					session.SetToolAs(ctx, t.Name)
+				}
 				return t.Run(ctx, args)
 			},
 		},
@@ -333,6 +343,7 @@ type toolIndex struct {
 
 type indexedTool struct {
 	name, desc string
+	addon      bool
 	tf         map[string]float64
 	length     float64
 }
@@ -391,7 +402,7 @@ func newToolIndex(tools []session.Tool) *toolIndex {
 	df := map[string]int{}
 	var total float64
 	for _, t := range tools {
-		d := indexedTool{name: t.Name, desc: t.Description, tf: map[string]float64{}}
+		d := indexedTool{name: t.Name, desc: t.Description, addon: t.Deferrable, tf: map[string]float64{}}
 		add := func(text string, w float64) {
 			for _, term := range terms(text) {
 				d.tf[term] += w
@@ -421,11 +432,13 @@ func newToolIndex(tools []session.Tool) *toolIndex {
 type toolHit struct {
 	Name, Description string
 	Score             float64
+	addon             bool
 }
 
 // search returns the best tools for the query, best first, at most limit.
-// The order is the score, then the name, so equal scores always come out in the
-// same order. A tool with no matching word is not a result.
+// The order is the score, then LocalAI tools before add-on tools (the text of an
+// add-on competes in the same search, but wins no tie), then the name, so equal
+// scores always come out in the same order. A tool with no matching word is not a result.
 func (ix *toolIndex) search(query string, limit int) []toolHit {
 	q := terms(query)
 	var hits []toolHit
@@ -440,12 +453,15 @@ func (ix *toolIndex) search(query string, limit int) []toolHit {
 			score += ix.idf[term] * tf * (bm25K1 + 1) / (tf + bm25K1*norm)
 		}
 		if score > 0 {
-			hits = append(hits, toolHit{Name: d.name, Description: d.desc, Score: score})
+			hits = append(hits, toolHit{Name: d.name, Description: d.desc, Score: score, addon: d.addon})
 		}
 	}
 	sort.Slice(hits, func(i, j int) bool {
 		if hits[i].Score != hits[j].Score {
 			return hits[i].Score > hits[j].Score
+		}
+		if hits[i].addon != hits[j].addon {
+			return !hits[i].addon
 		}
 		return hits[i].Name < hits[j].Name
 	})

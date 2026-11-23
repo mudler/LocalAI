@@ -537,7 +537,11 @@ func (c *Chat) onHarnessEvent(e Event) {
 		e.Tool = capTool(e.Tool)
 		if e.Tool != nil {
 			if e.Tool.OK {
-				e.Tool.Card = c.takeCard(e.Tool.Name, e.Tool.Output)
+				var as string
+				e.Tool.Card, as = c.takeCard(e.Tool.Name, e.Tool.Output)
+				if as != "" {
+					e.Tool.Name = as
+				}
 			}
 			e.Tool.Seq = c.appendEntry(ctx, Entry{Turn: turn, Role: RoleTool, Card: e.Tool.Card, Text: e.Tool.Name + ": " + e.Tool.Summary + "\n" + e.Tool.Output})
 		}

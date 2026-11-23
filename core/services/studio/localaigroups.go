@@ -302,12 +302,7 @@ func (s *Service) ownerOf(ctx context.Context, principal string) (*auth.User, er
 // come back in deferred instead of tools: the caller gates them and hides them
 // behind the bridge tools (toolSearchTools). deferredGroups names the groups
 // that have a tool there.
-//
-// addonDeferrable are the deferred tools of the chat's add-ons. They count with
-// the groups toward the auto threshold, and addonsDeferred says whether the
-// caller must move them behind the bridge as well. One decision covers every
-// deferrable source, so the tool list is the same from turn to turn.
-func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.Access, rec session.ChatRecord, have, addonDeferrable []session.Tool) (tools, deferred []session.Tool, deferredGroups []string, addonsDeferred bool, prompt, note string) {
+func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.Access, rec session.ChatRecord, have []session.Tool) (tools, deferred []session.Tool, deferredGroups []string, prompt, note string) {
 	taken := map[string]bool{}
 	for _, t := range have {
 		taken[t.Name] = true
@@ -328,10 +323,8 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 	// finish decides, from the tools of both groups and the chat's window,
 	// whether they go in front of the model or behind the tool search.
 	finish := func() {
-		all := slices.Concat(groupTools, addonDeferrable)
-		if shouldDefer(s.toolSearchMode(), all, s.windowOf(rec)) {
+		if shouldDefer(s.toolSearchMode(), groupTools, s.windowOf(rec)) {
 			deferred, deferredGroups = groupTools, groups
-			addonsDeferred = len(addonDeferrable) > 0
 			return
 		}
 		tools = groupTools
@@ -346,10 +339,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 		if rec.Assistant && rec.Kind != session.KindSubAgent {
 			note = assistantUnavailable(rec)
 		}
-		// The add-on tools do not need the owner of the LocalAI tools: they
-		// have their own gates, so their decision stands alone.
-		addonsDeferred = shouldDefer(s.toolSearchMode(), addonDeferrable, s.windowOf(rec))
-		return nil, nil, nil, addonsDeferred, "", note
+		return nil, nil, nil, "", note
 	}
 	if b, ok := s.builtins.BuildOne(ctx, builtins.GroupLocalAIClient, chat); ok && b.OK {
 		names, _ := s.clientToolNames(ctx, rec.Principal)
@@ -373,13 +363,13 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 		}
 		if exec == nil || !exec.HasTools() {
 			finish()
-			return tools, deferred, deferredGroups, addonsDeferred, "", assistantUnavailable(rec)
+			return tools, deferred, deferredGroups, "", assistantUnavailable(rec)
 		}
 		ts, err := s.toolsOf(ctx, rec.ID, exec)
 		if err != nil {
 			s.log.Warn("studio: assistant tools unavailable", "chat", rec.ID, "error", err)
 			finish()
-			return tools, deferred, deferredGroups, addonsDeferred, "", assistantUnavailable(rec)
+			return tools, deferred, deferredGroups, "", assistantUnavailable(rec)
 		}
 		add(builtins.GroupLocalAIAdmin, ts)
 		// The prompt carries the safety rules (confirm before changing
@@ -391,7 +381,7 @@ func (s *Service) localaiTurn(ctx context.Context, a workspace.Actor, x session.
 		note = assistantUnavailable(rec)
 	}
 	finish()
-	return tools, deferred, deferredGroups, addonsDeferred, prompt, note
+	return tools, deferred, deferredGroups, prompt, note
 }
 
 // CompactAssistant is an Assistant that also has the short prompt for chats

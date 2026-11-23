@@ -80,6 +80,7 @@ every turn. Use it for the tools of a large add-on that a chat seldom needs. Kee
 the three to five tools that a chat uses most loaded (leave `deferred` out), so
 the model can call them at once.
 
+- A manifest that sets `deferred` on any tool must declare `featureLevel: 11`. A host of an older level refuses the add-on cleanly with "needs a newer LocalAI" (the add-on is not installed or upgraded). A library entry can say the same with `requires.featureLevel: 11`.
 - The field changes the prompt of a chat only. The tool keeps its name
   (`addon__<id>__<tool>`), its kind, its role check, its approval and its
   proposals: `tool_call` runs the tool the chat would have offered, so the chat's
@@ -88,10 +89,16 @@ the model can call them at once.
 - The add-on page, MCP clients, agents and triggers list tools in their own way and
   are not affected.
 - The setting `chats_tool_search` decides whether a chat defers. `off`: never, every
-  tool is typed. `on`: always. `auto` (default): when the schemas of all the tools that can
-  be deferred in the chat (the LocalAI groups and the deferred add-on tools) reach a
-  tenth of the context window. The answer does not change from turn to turn. An add-on
-  that declares no deferred tool changes nothing.
+  tool is typed. `on`: always. `auto` (default): when the schemas of the deferred tools
+  of the chat's add-ons reach a tenth of the context window. The LocalAI groups are decided
+  apart, on their own schemas, so installing or stopping an add-on never moves them. The
+  answer does not change from turn to turn. An add-on that declares no deferred tool
+  changes nothing. The three bridge tools appear when either source is deferred.
+- The text of a deferred tool competes with the LocalAI tools in the same `tool_search`;
+  when two tools score the same, a LocalAI tool comes first. Name and describe the tool
+  with the words a person would use.
+- A deferred tool still counts toward the add-on tool cap of a chat: deferring changes
+  what the model is sent, not how many tools a chat may have.
 - A `uiOnly` tool cannot be deferred (no model is offered it), and a tool that
   `shadows` a built-in tool cannot either (it must keep that name). The host refuses
   the manifest with an error.
