@@ -19,9 +19,10 @@ type ChatsProject struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
-	// Owner is the principal that owns the project. It is set when an
-	// administrator acts on behalf of another user.
-	Owner string `json:"owner,omitempty"`
+	// Owner is the id of the user that owns the project. Every response
+	// carries it: the caller's own id, or the user an administrator acts for
+	// with ?owner=.
+	Owner string `json:"owner"`
 	// Slug is the name of the project's folder under Projects/ in the caller's files.
 	Slug string `json:"slug"`
 	// Status is active, archived or broken. Error says why a project is broken.
