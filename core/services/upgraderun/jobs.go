@@ -186,7 +186,7 @@ func (s GalleryBackendStarter) Start(_ context.Context, _ string, it Item) (stri
 	ctx, cancel, pause := galleryop.NewUserCancellableContext(context.Background())
 	s.Gallery.StoreCancellationActions(uid, cancel, pause)
 	s.Gallery.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{
-		ID: uid, GalleryElementName: it.Name, Galleries: galleries, Upgrade: true,
+		ID: uid, GalleryElementName: it.Name, Galleries: galleries, Upgrade: true, InRun: true,
 		Context: ctx, CancelFunc: cancel, PauseFunc: pause,
 	})
 	return uid, nil
@@ -244,7 +244,7 @@ func (s ModelStarter) Start(_ context.Context, _ string, it Item) (string, error
 			return "", &StartError{ErrorKey: ErrKeyUnknown, Err: err}
 		}
 	}
-	return s.Gallery.EnqueueModelUpgrade(it.Name, galleryop.ModelUpgradeOptions{Retry: retry})
+	return s.Gallery.EnqueueModelUpgrade(it.Name, galleryop.ModelUpgradeOptions{Retry: retry, InRun: true})
 }
 
 // LibraryInstaller installs a backend of a backend library

@@ -285,6 +285,11 @@ func (e *Emitter) Operation(ctx context.Context, op galleryop.OpResult) error {
 	if op.ID == "" || op.Name == "" {
 		return nil
 	}
+	// An operation of an upgrade run is reported by the rows of the run
+	// (RunNotifier): one live row and one end row, not one row per item.
+	if op.InRun {
+		return nil
+	}
 	if op.Upgrade && !op.Backend && !op.Addon && op.Outcome != galleryop.OpCancelled {
 		return nil
 	}

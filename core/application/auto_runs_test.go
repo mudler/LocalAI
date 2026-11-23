@@ -195,6 +195,7 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			Expect(id).NotTo(BeEmpty())
 			Expect(o.upgrade).To(Equal([]string{"sample"}))
 			Expect(q.ops[0].Upgrade).To(BeTrue())
+			Expect(q.ops[0].InRun).To(BeTrue())
 			Expect(q.errs[0]).NotTo(HaveOccurred())
 			Expect(manual.calls).To(BeZero(), "the recorded path of an administrator is not used")
 		})

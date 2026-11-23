@@ -189,6 +189,7 @@ var _ = Describe("Starters", func() {
 		Expect(q.ops).To(HaveLen(1))
 		Expect(q.ops[0].ID).To(Equal(id))
 		Expect(q.ops[0].Upgrade).To(BeTrue())
+		Expect(q.ops[0].InRun).To(BeTrue(), "the run reports the end of its operations")
 		Expect(q.ops[0].GalleryElementName).To(Equal("kokoro"))
 		Expect(q.ops[0].Galleries).To(HaveLen(1))
 		Expect(q.cancels).To(Equal([]string{id}))
@@ -218,6 +219,7 @@ var _ = Describe("Starters", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal("model-job"))
 		Expect(q.opts[0].Retry).To(BeTrue())
+		Expect(q.opts[0].InRun).To(BeTrue())
 
 		check := func(name, key string, skip, retry bool) {
 			_, err := s.Start(ctx, "admin", Item{Kind: KindModel, Name: name})

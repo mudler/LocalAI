@@ -73,6 +73,11 @@ type ManagementOp[T any, E any] struct {
 	// its ModelUpgrader.
 	Upgrade bool
 
+	// InRun is true for an operation that an upgrade run started. The run
+	// writes its own rows in the inbox, so OnOpFinished reports the end of
+	// such an operation with OpResult.InRun set.
+	InRun bool
+
 	// ModelUpgrade are the options of a model upgrade. Nil means the
 	// defaults.
 	ModelUpgrade *ModelUpgradeOptions
@@ -93,6 +98,8 @@ type ModelUpgradeOptions struct {
 	Choices map[string]string `json:"choices,omitempty"`
 	// Retry runs a failed upgrade again.
 	Retry bool `json:"retry,omitempty"`
+	// InRun marks the upgrade as one of an upgrade run (ManagementOp.InRun).
+	InRun bool `json:"-"`
 }
 
 // MessageCompleted is the Message of the final status of an operation that

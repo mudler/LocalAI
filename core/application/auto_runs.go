@@ -210,7 +210,7 @@ func (s autoAddonStarter) Start(ctx context.Context, actor string, it upgraderun
 	}
 	id := it.Name
 	q.EnqueueAddonOp(galleryop.AddonOp{
-		ID: jobID, AddonID: id, Upgrade: true,
+		ID: jobID, AddonID: id, Upgrade: true, InRun: true,
 		Run: func(ctx context.Context, _ func(*galleryop.OpStatus)) error {
 			r, ok := m.AutoUpgradeOne(ctx, id)
 			switch {

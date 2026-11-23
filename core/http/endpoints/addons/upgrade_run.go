@@ -223,7 +223,7 @@ func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addon
 			opcache = oc
 		}
 	}
-	return enqueueRecordedUpgrade(g, q, opcache, a, addonID, opID), nil
+	return enqueueRecordedUpgrade(g, q, opcache, a, addonID, opID, true), nil
 }
 
 // WithUpgradeRuns makes POST /api/addons/{id}/upgrade start an upgrade run of

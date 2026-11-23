@@ -168,6 +168,10 @@ runs the run writes them, so a cluster writes one set for each run.
   attention, it is a failure and names the first one with its error. The error
   is one line, cut to 160 characters, without server paths or credentials.
 
+The operations of the items do not write their own "installed", "upgraded" or
+"failed" items: the two items of the run replace them. An operation started
+outside a run (an install, a removal) still writes its own item when it ends.
+
 The live item has these params: `run`, `progress` (0 to 100 for the whole run),
 `done`, `total`, `source` (`manual` or `auto`), `updated`, `running` and
 `queued`.

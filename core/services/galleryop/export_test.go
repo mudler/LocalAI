@@ -18,5 +18,10 @@ func (g *GalleryService) MergeStatusForTest(opID string, op *OpStatus) {
 
 // AnnounceOpForTest reports the end of an operation the way the worker does.
 func (g *GalleryService) AnnounceOpForTest(id, name string, backend, deletion, upgrade bool, err error) {
-	g.announceOp(id, name, backend, deletion, upgrade, err)
+	g.announceOp(id, name, backend, deletion, upgrade, false, err)
+}
+
+// AnnounceRunOpForTest is AnnounceOpForTest for an operation of an upgrade run.
+func (g *GalleryService) AnnounceRunOpForTest(id, name string, backend, upgrade bool, err error) {
+	g.announceOp(id, name, backend, false, upgrade, true, err)
 }

@@ -427,6 +427,14 @@ var _ = Describe("the end of an operation", func() {
 		Expect(titles).To(ConsistOf("Model old-model removed", "Backend llama-cpp upgraded"))
 	})
 
+	It("leaves an operation of an upgrade run to the rows of the run", func() {
+		f := newFrontend(memStore(), nil, "a")
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-r", Name: "llama-cpp", Backend: true, Upgrade: true, InRun: true, Outcome: galleryop.OpFailed, Err: "boom"})).To(Succeed())
+		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-a", Name: "notes", Addon: true, Upgrade: true, InRun: true, Outcome: galleryop.OpCompleted})).To(Succeed())
+		Expect(list(f, "a")).To(BeEmpty())
+		Expect(f.pushed).To(BeEmpty())
+	})
+
 	It("posts a failure as a failed item with the reason", func() {
 		f := newFrontend(memStore(), nil, "a")
 		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-4", Name: "whisper", Backend: true, Outcome: galleryop.OpFailed, Err: "download\ninterrupted"})).To(Succeed())
