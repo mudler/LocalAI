@@ -160,19 +160,42 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 		return workerctl.BackendInstallReply{Success: false, Error: "load operation expired during install"}
 	}
 
-	advertiseAddr := addr
-	advAddr := s.cfg.advertiseAddr()
-	if advAddr != addr {
-		_, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			xlog.Error("Failed to parse backend listen address; using it unchanged", "addr", addr, "error", err)
-		} else if advertiseHost, _, err := net.SplitHostPort(advAddr); err != nil {
-			xlog.Error("Failed to parse worker advertise address; using backend listen address", "addr", advAddr, "error", err)
-		} else {
-			advertiseAddr = net.JoinHostPort(advertiseHost, port)
-		}
+	advertiseAddr, err := advertisedBackendAddr(addr, s.cfg.advertiseAddr())
+	if err != nil {
+		xlog.Error("Failed to derive the advertised backend address; using the listen address", "addr", addr, "error", err)
 	}
 	return workerctl.BackendInstallReply{Success: true, Address: advertiseAddr, ProcessInstance: instance, ReportsOperations: true}
+}
+
+// advertisedBackendAddr returns the address a frontend uses to reach the
+// backend listening on listen: the worker's advertised host with the backend's
+// port. The install reply hands the frontend this form, and the requests that
+// name a process (model.unload, model.stop) carry it back. On a parse error it
+// returns listen unchanged.
+func advertisedBackendAddr(listen, advertise string) (string, error) {
+	if advertise == listen {
+		return listen, nil
+	}
+	_, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return listen, fmt.Errorf("parsing backend listen address %q: %w", listen, err)
+	}
+	host, _, err := net.SplitHostPort(advertise)
+	if err != nil {
+		return listen, fmt.Errorf("parsing worker advertise address %q: %w", advertise, err)
+	}
+	return net.JoinHostPort(host, port), nil
+}
+
+// namesProcess reports whether addr, taken from a frontend request, names the
+// backend process bp: its listen address, or the advertised form of it that
+// the install reply gave the frontend.
+func (s *backendSupervisor) namesProcess(bp *backendProcess, addr string) bool {
+	if addr == bp.addr {
+		return true
+	}
+	advertised, err := advertisedBackendAddr(bp.addr, s.cfg.advertiseAddr())
+	return err == nil && addr == advertised
 }
 
 // serveUpgrade answers backend.upgrade: force-reinstall a backend. It is its
@@ -447,7 +470,7 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		var key string
 		stoppingAtAddr := false
 		for k, bp := range s.processes {
-			if bp.addr != addr {
+			if !s.namesProcess(bp, addr) {
 				continue
 			}
 			if bp.stopping {
@@ -474,12 +497,14 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 			continue
 		}
 		instance := target.instance
+		processAddr := target.addr
 		s.mu.Unlock()
 
 		// Best-effort bounded gRPC Free(), outside the lock. A model.unload
 		// request must not occupy the reply handler forever when a backend
-		// is wedged.
-		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.dataToken)
+		// is wedged. Dial the process's own address: the request may name it
+		// by the advertised form.
+		client := grpc.NewClientWithToken(processAddr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()

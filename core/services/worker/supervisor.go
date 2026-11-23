@@ -1017,7 +1017,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	// A stop of a load operation may omit the address: the controller learns it
 	// only after the install replies. The operation, process key and instance
 	// checks below then carry the identity.
-	if bp.addr != req.ExpectedAddress && !(req.OperationID != "" && req.ExpectedAddress == "") {
+	if !s.namesProcess(bp, req.ExpectedAddress) && !(req.OperationID != "" && req.ExpectedAddress == "") {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
 		return reply
