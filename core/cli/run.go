@@ -102,6 +102,8 @@ type RunCMD struct {
 	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
 	BackendDevSuffix          string   `env:"LOCALAI_BACKEND_DEV_SUFFIX,BACKEND_DEV_SUFFIX" help:"Development suffix for backend images" group:"backends" default:"development"`
 	AutoUpgradeBackends       bool     `env:"LOCALAI_AUTO_UPGRADE_BACKENDS,AUTO_UPGRADE_BACKENDS" help:"Automatically upgrade backends when new versions are detected" group:"backends" default:"false"`
+	UpgradeRunKeep            int      `env:"LOCALAI_UPGRADE_RUN_KEEP" help:"Most finished upgrade runs kept; the oldest beyond it are removed (-1 keeps any number)" group:"backends" default:"200"`
+	UpgradeRunRetention       int      `name:"upgrade-run-retention-days" env:"LOCALAI_UPGRADE_RUN_RETENTION_DAYS" help:"Days to keep finished upgrade runs (-1 keeps them forever)" group:"backends" default:"30"`
 	PreferDevelopmentBackends bool     `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" help:"Prefer compatible installed development backends for generic aliases and development downloads (requires restart)" group:"backends" default:"false"`
 	PreloadModels             string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
 	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
@@ -738,6 +740,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
 	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
+	opts = append(opts, config.WithUpgradeRunRetention(r.UpgradeRunKeep, r.UpgradeRunRetention))
 
 	// Collections
 	if r.DisableCollections {

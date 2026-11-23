@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -205,7 +206,27 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 	if toucher != nil {
 		opts.Toucher = toucher
 	}
+	opts.Retention = upgradeRunRetention(cfg.UpgradeRunKeep, cfg.UpgradeRunRetentionDays)
 	return opts
+}
+
+// upgradeRunRetention reads the retention settings: zero is the default, a
+// negative value turns that limit off.
+func upgradeRunRetention(keep, days int) *upgraderun.Retention {
+	r := upgraderun.DefaultRetention
+	switch {
+	case keep < 0:
+		r.Keep = -1
+	case keep > 0:
+		r.Keep = keep
+	}
+	switch {
+	case days < 0:
+		r.MaxAge = 0
+	case days > 0:
+		r.MaxAge = time.Duration(days) * 24 * time.Hour
+	}
+	return &r
 }
 
 // opCacheSetter registers a backend operation in the cache of /api/operations

@@ -91,6 +91,12 @@ type Options struct {
 	LostAfter time.Duration
 	// TouchInterval is how often a runner touches its operations.
 	TouchInterval time.Duration
+	// Retention is how long and how many finished runs are kept. Nil uses
+	// DefaultRetention.
+	Retention *Retention
+	// PruneInterval is how often the sweep removes the finished runs beyond
+	// the retention.
+	PruneInterval time.Duration
 	// LockCheckInterval is how often a runner checks it still holds its run.
 	LockCheckInterval time.Duration
 	// VerifyTries and VerifyRetry bound the fresh checks of one item.
@@ -116,6 +122,13 @@ func (o *Options) defaults() {
 	if o.TouchInterval <= 0 {
 		o.TouchInterval = 5 * time.Minute
 	}
+	if o.Retention == nil {
+		r := DefaultRetention
+		o.Retention = &r
+	}
+	if o.PruneInterval <= 0 {
+		o.PruneInterval = time.Hour
+	}
 	if o.LockCheckInterval <= 0 {
 		o.LockCheckInterval = 5 * time.Second
 	}
@@ -133,6 +146,20 @@ func (o *Options) defaults() {
 	}
 }
 
+// Retention bounds the finished runs the store keeps.
+type Retention struct {
+	// MaxAge removes a finished run that ended longer ago. Zero or less keeps
+	// runs of any age.
+	MaxAge time.Duration
+	// Keep is the most finished runs kept: the oldest beyond it are removed.
+	// A negative value keeps any number.
+	Keep int
+}
+
+// DefaultRetention keeps finished runs for 30 days, and at most the newest
+// 200 of them.
+var DefaultRetention = Retention{MaxAge: 30 * 24 * time.Hour, Keep: 200}
+
 // Service owns the upgrade runs of this frontend and answers for every run of
 // the cluster.
 type Service struct {
@@ -141,6 +168,7 @@ type Service struct {
 	quit context.CancelFunc
 
 	mu        sync.Mutex
+	lastPrune time.Time
 	runners   map[string]*runner
 	observers []Observer
 	sub       messaging.Subscription
@@ -175,13 +203,15 @@ func (s *Service) AddObserver(o Observer) {
 }
 
 // Run takes over, every SweepInterval, the runs that nobody runs: after a
-// restart of this frontend, or when the frontend that ran them died. It
+// restart of this frontend, or when the frontend that ran them died. Every
+// PruneInterval it also removes the finished runs beyond the retention. It
 // returns when ctx ends.
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(s.opts.SweepInterval)
 	defer t.Stop()
 	for {
 		s.Sweep(ctx)
+		s.maybePrune(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -205,6 +235,42 @@ func (s *Service) Sweep(ctx context.Context) {
 		}
 		s.adopt(ctx, id)
 	}
+}
+
+func (s *Service) maybePrune(ctx context.Context) {
+	s.mu.Lock()
+	due := s.now().Sub(s.lastPrune) >= s.opts.PruneInterval
+	if due {
+		s.lastPrune = s.now()
+	}
+	s.mu.Unlock()
+	if !due {
+		return
+	}
+	if n, err := s.Prune(ctx); err != nil {
+		xlog.Debug("upgrade run: could not remove old runs", "error", err)
+	} else if n > 0 {
+		xlog.Info("upgrade run: removed finished runs beyond the retention", "count", n)
+	}
+}
+
+// Prune removes the finished runs beyond the retention, once, and returns
+// how many it removed. It runs under the admission lock of the runs, so one
+// frontend at a time prunes and no run starts meanwhile; when another
+// frontend holds that lock it does nothing, and the next sweep tries again.
+// A running run is never removed.
+func (s *Service) Prune(ctx context.Context) (int64, error) {
+	ret := *s.opts.Retention
+	if ret.MaxAge <= 0 && ret.Keep < 0 {
+		return 0, nil
+	}
+	var n int64
+	_, err := advisorylock.TryWithLockCtx(ctx, s.opts.DB, advisorylock.KeyUpgradeRuns, func() error {
+		var err error
+		n, err = s.opts.Store.Prune(ret.MaxAge, ret.Keep)
+		return err
+	})
+	return n, err
 }
 
 // adopt runs a run whose lock is free. Its running items become unconfirmed

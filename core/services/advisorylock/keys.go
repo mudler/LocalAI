@@ -59,7 +59,8 @@ const (
 
 	// KeyUpgradeRuns makes one frontend at a time start an upgrade run, so
 	// two frontends never start two runs at once. It is held for one
-	// admission. Each run is then held by its runner on a key of its own,
+	// admission, or for one removal of the finished runs beyond the
+	// retention (tried, never waited for). Each run is then held by its runner on a key of its own,
 	// KeyFromString("upgrade-run:" + id), for as long as it runs it.
 	KeyUpgradeRuns int64 = 121
 )

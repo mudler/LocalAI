@@ -213,6 +213,22 @@ otherwise in the SQLite file `upgrade_runs.db` under the data path. A server
 with neither does not keep runs: the run routes answer `503`, and the single
 upgrade routes below queue their upgrade directly, as before.
 
+### Retention
+
+The server removes finished runs (`finished` or `cancelled`) and their items
+that ended more than 30 days ago, and keeps at most the newest 200 finished
+runs. A running run is never removed and does not count. Dismissing a run
+only hides it; the retention removes it later.
+
+| Flag | Default | Environment variable |
+|------|---------|----------------------|
+| `--upgrade-run-retention-days` | `30` (`-1` keeps runs of any age) | `LOCALAI_UPGRADE_RUN_RETENTION_DAYS` |
+| `--upgrade-run-keep` | `200` (`-1` keeps any number) | `LOCALAI_UPGRADE_RUN_KEEP` |
+
+The removal runs once an hour from the loop that takes over the runs nobody
+runs. In a cluster, it takes the advisory lock that admits a new run, so one
+frontend at a time removes runs; the others skip that round.
+
 ## Notifications of a run
 
 Every run is one item in the inbox of each administrator. The frontend that

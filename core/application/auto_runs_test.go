@@ -392,3 +392,14 @@ func (f *fakeChecker) List(context.Context, bool) (upgraderun.Listing, error) {
 	f.calls++
 	return upgraderun.Listing{Complete: true}, nil
 }
+
+var _ = Describe("the retention settings of upgrade runs", func() {
+	DescribeTable("read zero as the default and a negative value as no limit",
+		func(keep, days int, want upgraderun.Retention) {
+			Expect(*upgradeRunRetention(keep, days)).To(Equal(want))
+		},
+		Entry("defaults", 0, 0, upgraderun.Retention{MaxAge: 30 * 24 * time.Hour, Keep: 200}),
+		Entry("set", 50, 7, upgraderun.Retention{MaxAge: 7 * 24 * time.Hour, Keep: 50}),
+		Entry("no limits", -1, -1, upgraderun.Retention{MaxAge: 0, Keep: -1}),
+	)
+})

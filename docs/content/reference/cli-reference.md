@@ -112,6 +112,8 @@ appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 | `--force-eviction-when-busy` | `false` | Force eviction even when models have active API calls (default: false for safety). **Warning:** Enabling this can interrupt active requests | `$LOCALAI_FORCE_EVICTION_WHEN_BUSY`, `$FORCE_EVICTION_WHEN_BUSY` |
 | `--lru-eviction-max-retries` | `30` | Maximum number of retries when waiting for busy models to become idle before eviction | `$LOCALAI_LRU_EVICTION_MAX_RETRIES`, `$LRU_EVICTION_MAX_RETRIES` |
 | `--lru-eviction-retry-interval` | `1s` | Interval between retries when waiting for busy models to become idle (e.g., `1s`, `2s`) | `$LOCALAI_LRU_EVICTION_RETRY_INTERVAL`, `$LRU_EVICTION_RETRY_INTERVAL` |
+| `--upgrade-run-keep` | `200` | Most finished [upgrade runs]({{% relref "/models/upgrade-runs#retention" %}}) kept; the oldest beyond it are removed. `-1` keeps any number | `$LOCALAI_UPGRADE_RUN_KEEP` |
+| `--upgrade-run-retention-days` | `30` | Days to keep finished upgrade runs. `-1` keeps them forever | `$LOCALAI_UPGRADE_RUN_RETENTION_DAYS` |
 | `--model-load-failure-cooldown` | `10s` | After a model load fails, refuse new load attempts for that model for this long (HTTP 503 + `Retry-After`) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. `0` disables | `$LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN`, `$MODEL_LOAD_FAILURE_COOLDOWN` |
 
 For more information on VRAM management, see [VRAM and Memory Management]({{%relref "/models/vram-management" %}}).

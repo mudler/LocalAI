@@ -151,6 +151,64 @@ func upgradeRunStoreContract(open func() *gorm.DB) {
 		_, _, err = s.Get("r2")
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	// finish ends a run at the given time.
+	finish := func(id string, at time.Time) {
+		Expect(s.Save(&distributed.UpgradeRunRecord{ID: id, State: "finished", FinishedAt: &at}, nil)).To(Succeed())
+	}
+	exists := func(id string) bool {
+		_, _, err := s.Get(id)
+		if errors.Is(err, distributed.ErrUpgradeRunNotFound) {
+			return false
+		}
+		Expect(err).NotTo(HaveOccurred())
+		return true
+	}
+
+	It("prunes finished runs by age with their items, and never a running run", func() {
+		old := time.Now().Add(-40 * 24 * time.Hour)
+		newRun("old-done", old)
+		newRun("old-running", old)
+		newRun("recent", time.Now())
+		finish("old-done", old)
+		finish("recent", time.Now())
+
+		n, err := s.Prune(30*24*time.Hour, -1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(int64(1)))
+		Expect(exists("old-done")).To(BeFalse())
+		Expect(exists("old-running")).To(BeTrue(), "a running run is never removed")
+		Expect(exists("recent")).To(BeTrue())
+		var orphans int64
+		Expect(s.DB().Model(&distributed.UpgradeRunItemRecord{}).Where("run_id = ?", "old-done").Count(&orphans).Error).To(Succeed())
+		Expect(orphans).To(BeZero())
+
+		n, err = s.Prune(30*24*time.Hour, -1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeZero(), "pruning again removes nothing")
+	})
+
+	It("keeps only the newest finished runs, and never counts or removes a running run", func() {
+		base := time.Now().Add(-time.Hour)
+		for i, id := range []string{"f1", "f2", "f3", "f4"} {
+			newRun(id, base.Add(time.Duration(i)*time.Minute))
+			finish(id, base.Add(time.Duration(i)*time.Minute))
+		}
+		newRun("running", base.Add(-time.Hour))
+
+		n, err := s.Prune(0, 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(int64(2)))
+		Expect(exists("f1")).To(BeFalse())
+		Expect(exists("f2")).To(BeFalse())
+		Expect(exists("f3")).To(BeTrue())
+		Expect(exists("f4")).To(BeTrue())
+		Expect(exists("running")).To(BeTrue())
+
+		n, err = s.Prune(0, -1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeZero(), "no age and no count limit keeps every run")
+	})
 }
 
 // galleryTouchContract checks TouchActive on every database.

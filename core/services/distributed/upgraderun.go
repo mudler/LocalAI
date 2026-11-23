@@ -262,18 +262,65 @@ func (s *UpgradeRunStore) stateError(id string) error {
 
 // CleanOld removes runs that ended before the retention.
 func (s *UpgradeRunStore) CleanOld(retention time.Duration) error {
-	cutoff := time.Now().Add(-retention)
-	return s.db.Transaction(func(tx *gorm.DB) error {
-		var ids []string
-		if err := tx.Model(&UpgradeRunRecord{}).Where("state <> ? AND finished_at < ?", "running", cutoff).Pluck("id", &ids).Error; err != nil {
-			return err
+	_, err := s.Prune(retention, -1)
+	return err
+}
+
+// pruneBatch bounds the ids of one delete statement.
+const pruneBatch = 500
+
+// Prune removes finished runs and their items: every run that ended longer
+// than maxAge ago, and every finished run beyond the newest keep. A maxAge of
+// zero or less keeps runs of any age; a negative keep keeps any number. A
+// running run is never removed and does not count toward keep. Pruning is
+// idempotent, so two frontends that prune at once remove each run once. It
+// returns how many runs it removed.
+func (s *UpgradeRunStore) Prune(maxAge time.Duration, keep int) (int64, error) {
+	var total int64
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		doomed := map[string]bool{}
+		if maxAge > 0 {
+			var ids []string
+			if err := tx.Model(&UpgradeRunRecord{}).Where("state <> ? AND finished_at < ?", "running", time.Now().Add(-maxAge)).Pluck("id", &ids).Error; err != nil {
+				return err
+			}
+			for _, id := range ids {
+				doomed[id] = true
+			}
 		}
-		if len(ids) == 0 {
-			return nil
+		if keep >= 0 {
+			// The ids of the finished runs, newest first; everything after
+			// the first keep goes. (SQLite takes no OFFSET without a LIMIT,
+			// so the offset is applied here.)
+			var ids []string
+			if err := tx.Model(&UpgradeRunRecord{}).Where("state <> ?", "running").
+				// A finished run without an end time counts as the oldest
+				// (PostgreSQL sorts NULL first in a descending order).
+				Order("CASE WHEN finished_at IS NULL THEN 1 ELSE 0 END").Order("finished_at DESC").Order("created_at DESC").Order("id DESC").Pluck("id", &ids).Error; err != nil {
+				return err
+			}
+			if len(ids) > keep {
+				for _, id := range ids[keep:] {
+					doomed[id] = true
+				}
+			}
 		}
-		if err := tx.Where("run_id IN ?", ids).Delete(&UpgradeRunItemRecord{}).Error; err != nil {
-			return err
+		ids := make([]string, 0, len(doomed))
+		for id := range doomed {
+			ids = append(ids, id)
 		}
-		return tx.Where("id IN ?", ids).Delete(&UpgradeRunRecord{}).Error
+		for start := 0; start < len(ids); start += pruneBatch {
+			batch := ids[start:min(start+pruneBatch, len(ids))]
+			if err := tx.Where("run_id IN ?", batch).Delete(&UpgradeRunItemRecord{}).Error; err != nil {
+				return err
+			}
+			res := tx.Where("id IN ? AND state <> ?", batch, "running").Delete(&UpgradeRunRecord{})
+			if res.Error != nil {
+				return res.Error
+			}
+			total += res.RowsAffected
+		}
+		return nil
 	})
+	return total, err
 }
