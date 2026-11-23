@@ -7,6 +7,7 @@ import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
 import { newOptimistic, adoptedSeq } from '../utils/optimisticSend'
 import { emitSound } from '../utils/soundBus'
+import { createTokenBuffer } from '../utils/tokenBuffer'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -128,6 +129,33 @@ export function useServerChat({ seed = null } = {}) {
   // starts again.
   const newRequest = () => { const p = paceRef.current; p.reqAt = 0; p.lastAt = 0; p.reqChunks = 0 }
 
+  // A token per setLive copies the whole answer and redraws the chat a token at
+  // a time. The buffer collects the pieces and hands them over at most once a
+  // frame, so the cost follows what the screen can paint.
+  //
+  // The instance lives in a ref, not in a memo: React may drop a memo cache and
+  // build a second buffer, losing whatever the first still held. It is created
+  // once, on the first render.
+  //
+  // The phase is the kind of the last piece pushed: a flush runs a frame later,
+  // so the handler sets it and the flush reads it.
+  const phaseRef = useRef('')
+  const bufferRef = useRef(null)
+  if (bufferRef.current === null) {
+    bufferRef.current = createTokenBuffer({
+      onFlush: (delta) => {
+        setLive(l => {
+          const next = { ...l }
+          if (delta.text) next.text = l.text + delta.text
+          if (delta.reasoning) next.reasoning = l.reasoning + delta.reasoning
+          if (phaseRef.current) next.phase = phaseRef.current
+          return next
+        })
+      },
+    })
+  }
+  const buffer = bufferRef.current
+
   const refreshList = useCallback(async () => {
     try {
       // Sub-agent runs belong to their parent; the list shows chats only. The
@@ -188,13 +216,16 @@ export function useServerChat({ seed = null } = {}) {
   }, [setError])
 
   const closeStream = useCallback(() => {
+    // Pieces still pending belong to the stream being closed: drop them, a new
+    // stream reads the transcript from its own place.
+    buffer.cancel()
     clearTimeout(reconnectRef.current)
     reconnectRef.current = null
     if (sourceRef.current) {
       sourceRef.current.close()
       sourceRef.current = null
     }
-  }, [])
+  }, [buffer])
 
   const connect = useCallback((id, resume = false) => {
     closeStream()
@@ -206,6 +237,8 @@ export function useServerChat({ seed = null } = {}) {
     let turnFailed = false
     const on = {
       turn_start: (e) => {
+        // A new turn: whatever the last one still had pending is not this one's.
+        buffer.cancel()
         epochRef.current++
         if (e.turn) setStartedTurn({ chat: id, turn: e.turn })
         setError('')
@@ -216,10 +249,13 @@ export function useServerChat({ seed = null } = {}) {
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
       },
-      text: (e) => { piece(); setLive(l => ({ ...l, text: l.text + (e.text || ''), phase: 'text' })) },
-      reasoning: (e) => { piece(); setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || ''), phase: 'reasoning' })) },
-      tool_start: (e) => { newRequest(); setLive(l => ({ ...toolStart(l, e.tool), phase: 'tool' })) },
+      text: (e) => { piece(); phaseRef.current = 'text'; buffer.push('text', e.text || '') },
+      reasoning: (e) => { piece(); phaseRef.current = 'reasoning'; buffer.push('reasoning', e.text || '') },
+      // Every handler that changes the shape of the live turn flushes first, so
+      // the words that came before it are not drawn after it.
+      tool_start: (e) => { buffer.flush(); newRequest(); setLive(l => ({ ...toolStart(l, e.tool), phase: 'tool' })) },
       tool_end: (e) => {
+        buffer.flush()
         setLive(l => ({ ...toolEnd(l, e.tool), phase: 'after-tool' }))
         // The call ended, so a card kept with the chat is answered.
         setDetail(d => (d?.host_consent ? { ...d, host_consent: undefined } : d))
@@ -276,8 +312,9 @@ export function useServerChat({ seed = null } = {}) {
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       egress_card: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       // A command of the built-in bash waits for a yes (chats_host_exec ask).
-      host_exec_consent: (e) => { if (e.ids?.[0]) { setLive(l => consentAsk(l, id, e.ids[0], e.text)); emitSound('approval') } },
+      host_exec_consent: (e) => { if (e.ids?.[0]) { buffer.flush(); setLive(l => consentAsk(l, id, e.ids[0], e.text)); emitSound('approval') } },
       error: (e) => {
+        buffer.flush()
         if (!e.text) return
         setError(e.text)
         // Only the error that ended the turn has a code.
@@ -288,6 +325,8 @@ export function useServerChat({ seed = null } = {}) {
         }
       },
       turn_end: async () => {
+        // The last words of the turn go on screen before the record replaces it.
+        buffer.flush()
         notifyTurnEnd()
         if (!turnFailed) emitSound('replyDone')
         turnFailed = false
@@ -295,10 +334,17 @@ export function useServerChat({ seed = null } = {}) {
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.
         const epoch = epochRef.current
-        for (let i = 0; i < SETTLE_READS; i++) {
-          const d = await refreshChat(id, epoch)
-          if (d !== 'ok' || epochRef.current !== epoch || !runningRef.current) break
-          await new Promise(r => setTimeout(r, SETTLE_MS))
+        try {
+          for (let i = 0; i < SETTLE_READS; i++) {
+            const d = await refreshChat(id, epoch)
+            if (d !== 'ok' || epochRef.current !== epoch || !runningRef.current) break
+            await new Promise(r => setTimeout(r, SETTLE_MS))
+          }
+        } finally {
+          // The record holds the turn now, and a piece that slipped in while the
+          // loop waited is in that read. Flushing it onto the cleared live turn
+          // would draw it twice.
+          buffer.cancel()
         }
         refreshList()
       },
@@ -321,6 +367,8 @@ export function useServerChat({ seed = null } = {}) {
     source.onerror = () => {
       // A reconnect asks for the events after the last id (see resumeUrl) and
       // reads the transcript again; a resync event says the ask was too old.
+      // The pieces already here stay on screen until that read.
+      buffer.flush()
       source.close()
       if (sourceRef.current === source) sourceRef.current = null
       if (activeRef.current !== id) return
@@ -333,11 +381,13 @@ export function useServerChat({ seed = null } = {}) {
         connect(id, true)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
-  }, [closeStream, refreshChat, refreshDetail, refreshList, setError, piece])
+  }, [closeStream, refreshChat, refreshDetail, refreshList, setError, piece, buffer])
 
   const readPace = useCallback(() => ({ ...paceRef.current }), [])
 
   const select = useCallback(async (id) => {
+    // A pending piece belongs to the chat being closed, not the one opened.
+    buffer.cancel()
     clearTimeout(lostRef.current)
     lostRef.current = null
     setReconnecting(false)
@@ -366,7 +416,7 @@ export function useServerChat({ seed = null } = {}) {
     connect(id)
     await refreshChat(id)
     setLoading(false)
-  }, [closeStream, connect, refreshChat, setError])
+  }, [closeStream, connect, refreshChat, setError, buffer])
 
   useEffect(() => {
     refreshList()

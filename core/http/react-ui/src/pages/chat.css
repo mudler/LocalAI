@@ -152,7 +152,9 @@
 
 /* The caret at the end of a reply that is still arriving. */
 .cx-prose--live > p:last-child::after,
-.cx-prose--live > :is(ul, ol):last-child > li:last-child::after {
+.cx-prose--live > :is(ul, ol):last-child > li:last-child::after,
+.cx-prose--live > .cx-seg:last-child > p:last-child::after,
+.cx-prose--live > .cx-seg:last-child > :is(ul, ol):last-child > li:last-child::after {
   content: "";
   display: inline-block;
   width: 2px;
@@ -165,7 +167,9 @@
    caret stands still. */
 @media (prefers-reduced-motion: no-preference) {
   .cx-prose--live > p:last-child::after,
-  .cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 500ms var(--ease-in-out) infinite alternate; }
+  .cx-prose--live > :is(ul, ol):last-child > li:last-child::after,
+  .cx-prose--live > .cx-seg:last-child > p:last-child::after,
+  .cx-prose--live > .cx-seg:last-child > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 500ms var(--ease-in-out) infinite alternate; }
 }
 @keyframes cxCaret { to { opacity: .2; } }
 
@@ -478,6 +482,20 @@ button.cx-step__head:hover,
 .cx-think > * { margin: 0; }
 .cx-think > * + * { margin-top: var(--sp-2); }
 .cx-think--live { max-height: 220px; overflow: auto; }
+/* Reasoning streams through the segmented renderer, whose blocks carry
+   .cx-prose. The fold owns the type scale, the muted colour and the tighter
+   rhythm, so the prose wrapper must not impose its own. */
+.cx-think .cx-prose {
+  max-width: none;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.cx-think .cx-prose > * + * { margin-top: var(--sp-2); }
+/* The fold already shows a running step; a second caret at the end of the
+   reasoning text would read as two different things still arriving. */
+.cx-think .cx-prose--live > .cx-seg:last-child > p:last-child::after,
+.cx-think .cx-prose--live > .cx-seg:last-child > :is(ul, ol):last-child > li:last-child::after { content: none; }
 .cx-out {
   margin: 0;
   max-height: 240px;

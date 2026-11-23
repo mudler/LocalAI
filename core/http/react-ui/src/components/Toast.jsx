@@ -99,12 +99,18 @@ function useToastLift(chatPage) {
       root.style.removeProperty('--toast-lift')
       return undefined
     }
-    let frame = 0
+    // Trailing timer that enforces a minimum 100 ms interval between calls,
+    // coalescing all scheduler calls into a single measure() invocation.
+    let timer = null
+    let last = 0
+    let dead = false
     let observed = null
     const resize = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => schedule()) : null
     const find = () => anchors.values().next().value || (chatPage ? document.querySelector(CHAT_ANCHOR) : null)
     const measure = () => {
-      frame = 0
+      // If the hook already cleaned up, skip DOM writes to avoid
+      // touching a removed node after unmount.
+      if (dead) return
       const anchor = find()
       if (anchor !== observed) {
         if (observed) resize?.unobserve(observed)
@@ -115,7 +121,13 @@ function useToastLift(chatPage) {
       root.style.setProperty('--toast-lift', `${lift}px`)
     }
     function schedule() {
-      if (!frame) frame = requestAnimationFrame(measure)
+      if (timer !== null) return
+      const wait = Math.max(0, 100 - (Date.now() - last))
+      timer = setTimeout(() => {
+        timer = null
+        last = Date.now()
+        measure()
+      }, wait)
     }
     // On a chat page the composer mounts after the chat chunk loads and grows
     // with its chips, so watch the page as well as the window.
@@ -124,7 +136,11 @@ function useToastLift(chatPage) {
     window.addEventListener('resize', schedule)
     schedule()
     return () => {
-      cancelAnimationFrame(frame)
+      // Clear the pending timer so measure() won't fire after unmount.
+      clearTimeout(timer)
+      // Mark the hook dead so any callback queued just before unmount
+      // returns early instead of touching the removed DOM node.
+      dead = true
       mutations?.disconnect()
       resize?.disconnect()
       window.removeEventListener('resize', schedule)
