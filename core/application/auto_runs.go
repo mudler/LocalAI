@@ -191,6 +191,14 @@ func (s autoAddonStarter) Start(ctx context.Context, actor string, it upgraderun
 	if actor != autoRunActor {
 		return s.inner.Start(ctx, actor, it)
 	}
+	// The owner's automatic upgrade ignores the pins of the item and follows
+	// the automatic policy, so only a run that the automatic update started
+	// may take it. A manual run never carries the system actor (a retry
+	// belongs to the administrator who retries); refuse one that does rather
+	// than upgrade against the policy.
+	if upgraderun.SourceFrom(ctx) != upgraderun.SourceAuto {
+		return "", &upgraderun.StartError{ErrorKey: "forbidden", Err: errors.New("only an automatic run upgrades add-ons as the automatic update")}
+	}
 	var m addonAutoUpgrader
 	if s.manager != nil {
 		m = s.manager()

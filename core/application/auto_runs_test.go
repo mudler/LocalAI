@@ -186,11 +186,14 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			}
 		}
 		it := upgraderun.Item{Key: "addon:sample", Kind: upgraderun.KindAddon, Name: "sample"}
+		// autoCtx is the context the runner of an automatic run gives its
+		// starters.
+		autoCtx := func() context.Context { return upgraderun.WithSource(ctx, upgraderun.SourceAuto) }
 
 		It("upgrades through the owner's automatic upgrade", func() {
 			o := &fakeAddonOwner{one: map[string]addons.AutoUpgradeResult{"sample": {AddonID: "sample", Upgraded: true}}}
 			q := &runNow{}
-			id, err := start(o, q).Start(ctx, "system:auto-upgrade", it)
+			id, err := start(o, q).Start(autoCtx(), "system:auto-upgrade", it)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(id).NotTo(BeEmpty())
 			Expect(o.upgrade).To(Equal([]string{"sample"}))
@@ -203,7 +206,7 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 		It("holds a release that needs an approval and never approves it", func() {
 			o := &fakeAddonOwner{one: map[string]addons.AutoUpgradeResult{"sample": {AddonID: "sample", HeldForApproval: true, Err: errors.New("needs host access")}}}
 			q := &runNow{}
-			_, err := start(o, q).Start(ctx, "system:auto-upgrade", it)
+			_, err := start(o, q).Start(autoCtx(), "system:auto-upgrade", it)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(q.errs[0]).To(MatchError(ContainSubstring("held")))
 			Expect(q.errs[0]).To(MatchError(ContainSubstring("nobody approved")))
@@ -212,14 +215,14 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 		It("does not try again a release that failed", func() {
 			o := &fakeAddonOwner{one: map[string]addons.AutoUpgradeResult{"sample": {AddonID: "sample", SkippedAsFailure: true}}}
 			q := &runNow{}
-			_, _ = start(o, q).Start(ctx, "system:auto-upgrade", it)
+			_, _ = start(o, q).Start(autoCtx(), "system:auto-upgrade", it)
 			Expect(q.errs[0]).To(HaveOccurred())
 		})
 
 		It("reports the failure of the upgrade", func() {
 			o := &fakeAddonOwner{one: map[string]addons.AutoUpgradeResult{"sample": {AddonID: "sample", Err: errors.New("upgrade_failed")}}}
 			q := &runNow{}
-			_, _ = start(o, q).Start(ctx, "system:auto-upgrade", it)
+			_, _ = start(o, q).Start(autoCtx(), "system:auto-upgrade", it)
 			Expect(q.errs[0]).To(MatchError("upgrade_failed"))
 		})
 
@@ -232,8 +235,23 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			Expect(o.upgrade).To(BeEmpty())
 		})
 
+		It("refuses a run that is not automatic, also with the system actor, and queues nothing", func() {
+			for _, src := range []upgraderun.Source{upgraderun.SourceManual, ""} {
+				o := &fakeAddonOwner{one: map[string]addons.AutoUpgradeResult{"sample": {AddonID: "sample", Upgraded: true}}}
+				q := &runNow{}
+				calls := manual.calls
+				_, err := start(o, q).Start(upgraderun.WithSource(ctx, src), "system:auto-upgrade", it)
+				var se *upgraderun.StartError
+				Expect(errors.As(err, &se)).To(BeTrue(), "source %q", src)
+				Expect(se.Retryable).To(BeFalse())
+				Expect(q.ops).To(BeEmpty())
+				Expect(o.upgrade).To(BeEmpty())
+				Expect(manual.calls).To(Equal(calls), "the system actor never reaches the path of an administrator")
+			}
+		})
+
 		It("says the upgrade is unavailable without the owner", func() {
-			_, err := autoAddonStarter{inner: manual}.Start(ctx, "system:auto-upgrade", it)
+			_, err := autoAddonStarter{inner: manual}.Start(autoCtx(), "system:auto-upgrade", it)
 			var se *upgraderun.StartError
 			Expect(errors.As(err, &se)).To(BeTrue())
 			Expect(se.Retryable).To(BeTrue())

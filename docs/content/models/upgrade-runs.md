@@ -139,7 +139,11 @@ still runs), `progress`, `message` and `error_key`.
 - Retry starts a new run with the retryable items of a finished run that
   failed, rolled back or stayed unconfirmed, if they still have an update. The
   old run does not change. A run that is over changes only when it is
-  dismissed.
+  dismissed. The new run is a `manual` run of the administrator who retries:
+  its checks and its add-on items run as that administrator, never as the one
+  who started the old run. The retry of an automatic run is a `manual` run too,
+  so its add-on items go through the path of an administrator, with the
+  digests pinned, and not through the automatic upgrade.
 - Dismiss hides a finished run from the default list.
 
 An item is `retryable` when a new try can fix its failure without a person
@@ -424,7 +428,8 @@ curl -X POST http://localhost:8080/api/updates/runs \
 ```
 
 `job_id` is the operation of `/api/operations` that runs the item. `actor` is
-the id of the account that started the run. An add-on item also has `title`,
+the id of the account that started the run (for a retry, the account that
+retried). An add-on item also has `title`,
 and its `expected_to` is the digest it is pinned to. Empty fields are left out.
 
 ## The single upgrade routes

@@ -360,7 +360,7 @@ func retryNeedsHuman(run upgraderun.Run) bool {
 // RetryUpgradeRunEndpoint starts a new run with the retryable items of a run
 // that is over.
 // @Summary Retry an upgrade run
-// @Description Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.
+// @Description Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. The new run is a manual run of the administrator who retries, also when the old run was automatic or was started by another administrator. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.
 // @Tags updates
 // @Produce json
 // @Param id path string true "Run id"
@@ -379,13 +379,15 @@ func RetryUpgradeRunEndpoint(d UpgradeRunDeps) echo.HandlerFunc {
 		if err != nil {
 			return runRefusal(c, err)
 		}
+		// The new run belongs to the caller, checked as a start is.
+		actor := d.principal(c)
 		if !old.Active() && retryNeedsHuman(old) {
-			if _, human, ok := addonendpoints.DecodeRunActor(d.principal(c)); !ok || !human {
+			if _, human, ok := addonendpoints.DecodeRunActor(actor); !ok || !human {
 				return c.JSON(http.StatusConflict, UpgradeRunError{Code: addonendpoints.RunErrNotHumanSurface,
 					Message: "retrying add-on upgrades needs your own browser session; retry from the Updates page"})
 			}
 		}
-		run, err := svc.Retry(c.Request().Context(), id)
+		run, err := svc.Retry(c.Request().Context(), actor, id)
 		if err != nil {
 			return runRefusal(c, err)
 		}

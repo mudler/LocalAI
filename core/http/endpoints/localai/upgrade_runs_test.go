@@ -18,10 +18,12 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	addonendpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/core/services/upgraderun/upgraderuntest"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // runRouter serves the upgrade run routes as core/http/routes/localai.go
@@ -268,6 +270,54 @@ var _ = Describe("Upgrade run routes", func() {
 		rec := doJSON(e, http.MethodPost, "/api/updates/runs/"+run.ID+"/retry", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeRun(rec).ID).NotTo(Equal(run.ID))
+	})
+
+	It("runs a retry as the administrator who retries, not as the one who started the run", func() {
+		alice := addonendpoints.EncodeRunActor(contract.Actor{UserID: "alice", CredentialID: "sess-a", Mode: "session"}, true)
+		bob := addonendpoints.EncodeRunActor(contract.Actor{UserID: "bob", CredentialID: "sess-b", Mode: "session"}, true)
+		who := alice
+		e = runRouter(UpgradeRunDeps{
+			Runs:      func() *upgraderun.Service { return h.Service },
+			Principal: func(echo.Context) string { return who },
+		}, &role)
+		h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", From: "d1", To: "d2"})
+
+		h.Starter.SetErr(&upgraderun.StartError{ErrorKey: "unavailable", Retryable: true})
+		run := start(upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: "notes"})
+		Expect(run.Actor).To(Equal("alice"))
+		Eventually(func() bool { r, _ := h.Service.Get(context.Background(), run.ID); return r.Active() }, 5*time.Second).Should(BeFalse())
+		before := len(h.Starter.Actors())
+		Expect(h.Starter.Actors()).To(HaveEach(Equal(alice)))
+
+		h.Starter.SetErr(nil)
+		who = bob
+		rec := doJSON(e, http.MethodPost, "/api/updates/runs/"+run.ID+"/retry", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		again := decodeRun(rec)
+		Expect(again.Actor).To(Equal("bob"))
+		stored, err := h.Service.Get(context.Background(), again.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stored.Actor).To(Equal(bob))
+		Eventually(func() int { return len(h.Starter.Actors()) }, 5*time.Second).Should(BeNumerically(">", before))
+		Expect(h.Starter.Actors()[before:]).To(HaveEach(Equal(bob)), "the starter only sees the administrator who retried")
+	})
+
+	It("refuses a retry of add-on items from a caller that is not a browser session, whoever started the run", func() {
+		alice := addonendpoints.EncodeRunActor(contract.Actor{UserID: "alice", CredentialID: "sess-a", Mode: "session"}, true)
+		who := alice
+		e = runRouter(UpgradeRunDeps{
+			Runs:      func() *upgraderun.Service { return h.Service },
+			Principal: func(echo.Context) string { return who },
+		}, &role)
+		h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", From: "d1", To: "d2"})
+		h.Starter.SetErr(&upgraderun.StartError{ErrorKey: "unavailable", Retryable: true})
+		run := start(upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: "notes"})
+		Eventually(func() bool { r, _ := h.Service.Get(context.Background(), run.ID); return r.Active() }, 5*time.Second).Should(BeFalse())
+
+		who = addonendpoints.EncodeRunActor(contract.Actor{UserID: "bob", CredentialID: "key-b", Mode: "key"}, false)
+		rec := doJSON(e, http.MethodPost, "/api/updates/runs/"+run.ID+"/retry", nil)
+		Expect(rec.Code).To(Equal(http.StatusConflict), rec.Body.String())
+		Expect(decodeRunError(rec).Code).To(Equal(addonendpoints.RunErrNotHumanSurface))
 	})
 
 	It("refuses a caller who is not an administrator on every route", func() {

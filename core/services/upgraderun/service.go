@@ -636,8 +636,12 @@ func (s *Service) CancelItem(ctx context.Context, runID, key string) error {
 
 // Retry starts a new run with the retryable items of a run that is over and
 // still have an update, toward what the checks offer now. The old run does
-// not change.
-func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
+// not change. The new run belongs to actor, the administrator who retries,
+// and is always manual: a retry never acts as the actor of the old run, and
+// the retry of an automatic run never runs as the system actor of the
+// automatic update, whose add-on path skips the pins and the policy of a
+// manual run.
+func (s *Service) Retry(ctx context.Context, actor, runID string) (Run, error) {
 	run, err := s.Get(ctx, runID)
 	if err != nil {
 		return Run{}, err
@@ -654,7 +658,7 @@ func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
 	if len(req.Items) == 0 {
 		return Run{}, refuse(CodeNothingToRetry, "", "no item can be retried")
 	}
-	cands, unchecked := s.candidates(WithActor(ctx, run.Actor))
+	cands, unchecked := s.candidates(WithActor(ctx, actor))
 	listed := map[string]bool{}
 	for _, c := range cands {
 		listed[c.Key()] = true
@@ -668,12 +672,12 @@ func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
 	if len(kept) == 0 {
 		return Run{}, refuse(CodeNothingToRetry, "", "no retryable item still has an update")
 	}
-	req.Items, req.Source = kept, run.Source
+	req.Items, req.Source = kept, SourceManual
 	items, err := planStart(cands, unchecked, req)
 	if err != nil {
 		return Run{}, err
 	}
-	return s.create(ctx, run.Actor, req.Source, items)
+	return s.create(ctx, actor, SourceManual, items)
 }
 
 // Dismiss hides a run that is over.

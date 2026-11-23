@@ -439,7 +439,7 @@ var _ = Describe("Service", func() {
 			h.backends.add(Candidate{Kind: KindGallery, Name: "a"})
 			h.backends.add(Candidate{Kind: KindGallery, Name: "b"})
 			r := h.start(si(KindGallery, "a"), si(KindGallery, "b"))
-			Expect(CodeOf(func() error { _, err := h.svc.Retry(ctx, r.ID); return err }())).To(Equal(CodeRunNotFinished))
+			Expect(CodeOf(func() error { _, err := h.svc.Retry(ctx, "admin", r.ID); return err }())).To(Equal(CodeRunNotFinished))
 			Expect(CodeOf(h.svc.Dismiss(ctx, r.ID))).To(Equal(CodeRunNotFinished))
 
 			h.jobs.fail(h.jobOf("gallery:a"), "fetching", "boom")
@@ -447,7 +447,7 @@ var _ = Describe("Service", func() {
 			h.jobs.complete(h.jobOf("gallery:b"))
 			Eventually(func() RunState { return h.state(r.ID) }).Should(Equal(RunFinished))
 
-			again, err := h.svc.Retry(ctx, r.ID)
+			again, err := h.svc.Retry(ctx, "admin", r.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(again.ID).NotTo(Equal(r.ID))
 			Expect(again.Items).To(HaveLen(1))
@@ -472,7 +472,7 @@ var _ = Describe("Service", func() {
 			h.backends.remove("gallery:a")
 			h.jobs.complete(job)
 			Eventually(func() RunState { return h.state(r.ID) }).Should(Equal(RunFinished))
-			_, err := h.svc.Retry(ctx, r.ID)
+			_, err := h.svc.Retry(ctx, "admin", r.ID)
 			Expect(CodeOf(err)).To(Equal(CodeNothingToRetry))
 		})
 	})

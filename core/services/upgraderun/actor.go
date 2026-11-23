@@ -19,6 +19,21 @@ func ActorFrom(ctx context.Context) string {
 	return a
 }
 
+type sourceKey struct{}
+
+// WithSource returns ctx carrying the source of a run. The runner puts it in
+// the context of every start, so a starter that handles automatic runs on
+// their own path can refuse a manual one.
+func WithSource(ctx context.Context, src Source) context.Context {
+	return context.WithValue(ctx, sourceKey{}, src)
+}
+
+// SourceFrom returns the source WithSource stored, or "".
+func SourceFrom(ctx context.Context) Source {
+	src, _ := ctx.Value(sourceKey{}).(Source)
+	return src
+}
+
 // RetryEligible reports whether a retry of the run takes this item: it is
 // retryable and ended failed, rolled back, or unconfirmed with no check
 // pending.
