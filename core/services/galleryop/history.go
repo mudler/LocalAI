@@ -26,6 +26,7 @@ type OpRecord struct {
 	TaskType   string    `json:"taskType"`
 	Outcome    string    `json:"outcome"`
 	Error      string    `json:"error,omitempty"`
+	ErrorKey   string    `json:"errorKey,omitempty"`
 	StartedAt  time.Time `json:"startedAt"`
 	FinishedAt time.Time `json:"finishedAt"`
 }
@@ -78,6 +79,7 @@ func recordFromStore(op distributed.GalleryOperationRecord) OpRecord {
 		NodeID:     nodeID,
 		TaskType:   "installation",
 		Error:      op.Error,
+		ErrorKey:   op.ErrorKey,
 		StartedAt:  op.CreatedAt,
 		FinishedAt: op.UpdatedAt,
 	}
