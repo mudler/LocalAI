@@ -272,6 +272,12 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			_, _ = c.List(ctx, true)
 			Expect(auto.calls).To(Equal(1))
 			Expect(manual.calls).To(Equal(2), "a manual run keeps its own path")
+
+			// The later checks of an automatic run carry only its actor.
+			_, _ = c.List(upgraderun.WithActor(ctx, autoRunActor), false)
+			Expect(auto.calls).To(Equal(2))
+			_, _ = c.List(upgraderun.WithActor(ctx, "someone"), false)
+			Expect(manual.calls).To(Equal(3))
 		})
 	})
 

@@ -16,6 +16,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -158,6 +159,21 @@ var _ = Describe("add-on items of upgrade runs", Label("updates"), func() {
 		Expect(it.Phase).To(Equal(upgraderun.PhaseSkipped))
 		Expect(it.ErrorKey).To(Equal(RunErrForbidden))
 		Expect(s.generation()).To(Equal(uint64(1)))
+	})
+
+	It("never sends the system actor of the automatic update through the gateway", func() {
+		_, candidate := offer(catalog.Requirements{})
+		run, err := h.Service.Start(context.Background(), managerpkg.AutoUpgradeActor.UserID,
+			upgraderun.StartRequest{Items: []upgraderun.StartItem{{Kind: upgraderun.KindAddon, Name: "notes", ExpectedTo: candidate}}})
+		Expect(err).NotTo(HaveOccurred())
+		it := waitItem(run.ID)
+		Expect(it.Phase).To(Equal(upgraderun.PhaseSkipped))
+		Expect(it.ErrorKey).To(Equal(RunErrForbidden))
+		Expect(s.generation()).To(Equal(uint64(1)))
+
+		_, err = GatewayUpdateChecker{Gateway: func() *gateway.Gateway { return s.gateway }}.
+			List(upgraderun.WithActor(context.Background(), managerpkg.AutoUpgradeActor.UserID), false)
+		Expect(err).To(MatchError(ContainSubstring("no add-on identity")))
 	})
 
 	It("fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does", func() {

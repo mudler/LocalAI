@@ -171,14 +171,16 @@ func retryableRefusal(kind string) bool {
 func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addonID, expectedDigest, candidateDigest string) (string, error) {
 	a, human, ok := DecodeRunActor(actorText)
 	if actorText == managerpkg.AutoUpgradeActor.UserID {
-		// The owner's own automatic upgrade; the owner decides what it may do.
-		a, human, ok = managerpkg.AutoUpgradeActor, false, true
+		// The automatic update upgrades its add-on items on the owner's own
+		// process (the application's automatic add-on starter). Its system
+		// actor never goes through the gateway, whose admin check refuses it.
+		ok = false
 	}
 	if !ok {
 		return "", &upgraderun.StartError{ErrorKey: RunErrForbidden, Skip: true,
 			Err: errors.New("the run was not requested by an add-on administrator; upgrade the add-on from its page")}
 	}
-	if !human && a != managerpkg.AutoUpgradeActor {
+	if !human {
 		return "", &upgraderun.StartError{ErrorKey: RunErrNotHumanSurface, Skip: true,
 			Err: errors.New("an add-on upgrade needs your own browser session; upgrade the add-on from its page")}
 	}
@@ -318,11 +320,13 @@ type GatewayUpdateChecker struct {
 
 func (GatewayUpdateChecker) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
 
-// runActorOf is the add-on actor of the run in ctx.
+// runActorOf is the add-on actor of the run in ctx. The system actor of the
+// automatic update has none here: an automatic run lists its add-ons on the
+// owner's process, never through the gateway.
 func runActorOf(ctx context.Context) (contract.Actor, bool) {
 	text := upgraderun.ActorFrom(ctx)
 	if text == managerpkg.AutoUpgradeActor.UserID {
-		return managerpkg.AutoUpgradeActor, true
+		return contract.Actor{}, false
 	}
 	a, _, ok := DecodeRunActor(text)
 	return a, ok

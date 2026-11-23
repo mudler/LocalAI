@@ -239,11 +239,14 @@ func withAutoRun(ctx context.Context) context.Context {
 }
 
 // isAutoRunCtx reports whether the checks that ctx belongs to are those of an
-// automatic run. When the actor of a run is carried in the context of every
-// check (upgraderun.ActorFrom), also test that the actor is autoRunActor.
+// automatic run: the start of a pass marks its context, and the service puts
+// the actor of the run in the context of every later check (the check before
+// an item starts, the check after it ended, a retry).
 func isAutoRunCtx(ctx context.Context) bool {
-	v, _ := ctx.Value(autoRunKey{}).(bool)
-	return v
+	if v, _ := ctx.Value(autoRunKey{}).(bool); v {
+		return true
+	}
+	return upgraderun.ActorFrom(ctx) == autoRunActor
 }
 
 // ownerStatusSource is the owner's list of add-on update statuses
