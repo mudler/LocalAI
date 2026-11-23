@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -73,9 +74,17 @@ var projectRules = []errRule{
 
 func failProject(c echo.Context, err error) error { return mapErr(c, err, projectRules, failFor) }
 
+// ownerPattern is the shape of a user id. The id names the user's folder in
+// the project store, so it must never hold a separator or a dot segment. It
+// matches what the auth store can hold (at most 36 characters).
+var ownerPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,36}$`)
+
 // projectOwner resolves the owner principal for a project request. Normal
 // callers act on their own projects; an administrator may act on behalf of
-// another user by passing ?owner=<principal>.
+// another user by passing ?owner=<principal>. Anyone else who names another
+// owner gets 403 before the value is looked at, so the answer does not tell
+// whether a user exists. An administrator gets 400 for an owner that is not a
+// well-formed user id and 404 for one that is not a known user.
 func (h *Handlers) projectOwner(c echo.Context) (string, bool) {
 	caller := userID(c)
 	owner := c.QueryParam("owner")
@@ -85,6 +94,24 @@ func (h *Handlers) projectOwner(c echo.Context) (string, bool) {
 	u := auth.GetUser(c)
 	if u == nil || u.Role != auth.RoleAdmin {
 		_ = fail(c, http.StatusForbidden, typeAuthz, "only an administrator can act on behalf of another user")
+		return "", false
+	}
+	if !ownerPattern.MatchString(owner) {
+		_ = fail(c, http.StatusBadRequest, typeInvalid, "owner must be a user id: letters, digits, '-' and '_'")
+		return "", false
+	}
+	// Without a user lookup nobody can be named, so the owner is unknown.
+	known := false
+	if h.userExists != nil {
+		var err error
+		if known, err = h.userExists(c.Request().Context(), owner); err != nil {
+			xlog.Error("studio: user lookup failed", "error", err)
+			_ = fail(c, http.StatusInternalServerError, typeServerError, "could not look up the owner")
+			return "", false
+		}
+	}
+	if !known {
+		_ = fail(c, http.StatusNotFound, typeNotFound, "owner not found")
 		return "", false
 	}
 	return owner, true

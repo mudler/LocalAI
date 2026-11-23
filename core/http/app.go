@@ -865,7 +865,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application))
 	// The notification center works with the chats on or off.
 	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 
