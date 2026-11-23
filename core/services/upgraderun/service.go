@@ -489,16 +489,36 @@ func (s *Service) Preview(ctx context.Context, actor string, refs []ItemRef) (Pl
 	return plan, nil
 }
 
+// RefuseIfActive answers run_active while a run runs in the cluster. A start
+// asks it first, before it checks the items, so a caller that falls back to a
+// direct upgrade when the run's check does not list its item never does so
+// beside a run. The routes that upgrade one item outside a run (a model
+// upgrade with options, a model retry) ask it before they queue anything.
+func (s *Service) RefuseIfActive() error {
+	ids, err := s.opts.Store.ListActive()
+	if err != nil {
+		return err
+	}
+	if len(ids) > 0 {
+		return refuse(CodeRunActive, "", "another upgrade run is running (%s)", ids[0])
+	}
+	return nil
+}
+
 // Start validates every item (installed, an update available, the target the
 // caller saw still current) and starts a run. One run runs at a time in the
-// cluster; a start while one runs is refused with run_active. A held model or
-// one whose update changes edited keys is part of the run as skipped.
+// cluster; a start while one runs is refused with run_active, before the
+// items are checked. A held model or one whose update changes edited keys is
+// part of the run as skipped.
 func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Run, error) {
 	if req.Source == "" {
 		req.Source = SourceManual
 	}
 	if req.Source != SourceManual && req.Source != SourceAuto {
 		return Run{}, refuse(CodeInvalid, "", "unknown source %q", req.Source)
+	}
+	if err := s.RefuseIfActive(); err != nil {
+		return Run{}, err
 	}
 	cands, unchecked := s.candidates(WithActor(ctx, actor))
 	items, err := planStart(cands, unchecked, req)

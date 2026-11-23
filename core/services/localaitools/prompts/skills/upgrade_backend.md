@@ -13,6 +13,9 @@ Use this when the user asks to upgrade, refresh, or update a backend.
    configured never to install or upgrade backends itself (they are managed
    outside LocalAI); tell the user that and stop — do not retry or try
    `install_backend` instead.
+   If it fails with `not_installed` or `no_update`, tell the user the backend
+   is not installed or has nothing newer, and stop. If it fails with
+   `run_active`, an update run is running: offer `upgrade_run_status` and stop.
 5. Poll `get_job_status` until done. Report progress and the final outcome.
 6. After success, recommend the user reload any model that was using the upgraded backend (or call `reload_models` if the user agrees).
 

@@ -309,12 +309,15 @@ curl -X POST http://localhost:8080/api/models/upgrade/qwen3-4b \
 
 Follow the job on `status_url` or on `/api/operations`. Without `config_only`
 and `choices`, the upgrade runs as an [upgrade run]({{% relref "/models/upgrade-runs" %}})
-of one item, and the answer also has the run in `run`. The route answers:
+of one item, and the answer also has the run in `run`. With `config_only` or
+`choices`, and for `POST /api/models/{name}/upgrade/retry`, the upgrade is
+queued directly, because a run makes no such choice; while a run runs, these
+are refused with `409` and code `run_active` too. The route answers:
 
 | Status | Meaning |
 |--------|---------|
 | `404` | The model is not installed. |
-| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. With `code` `run_active`, another upgrade run is running. |
+| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. With `code` `run_active`, an upgrade run is running. |
 | `422` | The model was not installed from a gallery with a recorded origin. |
 | `400` | A choice is not `mine` or `gallery`. |
 | `500` | An unexpected error. The answer does not repeat its text, which can name paths of the server; the server log has it. |

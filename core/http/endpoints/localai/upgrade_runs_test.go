@@ -361,6 +361,16 @@ var _ = Describe("Single upgrade routes as runs of one item", func() {
 		Expect(rec.Code).To(Equal(http.StatusConflict))
 	})
 
+	It("never takes the old path while a run runs, also for a backend the run's check does not list", func() {
+		Expect(doJSON(e, http.MethodPost, "/api/backends/upgrade/kokoro", nil).Code).To(Equal(http.StatusOK))
+		for _, path := range []string{"/api/backends/upgrade/other", "/backends/upgrade/other"} {
+			rec := doJSON(e, http.MethodPost, path, nil)
+			Expect(rec.Code).To(Equal(http.StatusConflict), path)
+			Expect(rec.Body.String()).To(ContainSubstring(`"code":"run_active"`))
+		}
+		Expect(legacy).To(BeZero(), "no direct upgrade beside the run")
+	})
+
 	It("answers through the old path when the run's check does not list the backend", func() {
 		rec := doJSON(e, http.MethodPost, "/api/backends/upgrade/other", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK))

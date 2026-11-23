@@ -442,15 +442,23 @@ item and adds the run to its answer:
 The backend routes first refuse a request that cannot do anything, before any
 run starts: `404` `not_installed`, or `409` `no_update` or `stale` (see
 [Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})).
-While another run runs, they answer `409` with code `run_active` (the add-on
-route in its error type). The backend routes take an optional `expected_to`, in
-the query or the JSON body, and answer `409` `stale` when it moved. When the
-item cannot start, they answer `409` with the error key of the item as `code`.
-When the check of the run does not list the item (it was not checked yet, or
-an older listing), or the server keeps no runs, they queue the upgrade
-directly, as before. A model upgrade with `config_only` or `choices` is always
-direct: a run makes no such choice. The per-node route
-`POST /api/nodes/{id}/backends/upgrade` does not start a run.
+While a run runs, every route answers `409` with code `run_active` before it
+checks anything else (the add-on route in its error type), so no upgrade runs
+beside a run. The backend routes take an optional `expected_to`, in the query
+or the JSON body, and answer `409` `stale` when it moved. When the item cannot
+start, they answer `409` with the error key of the item as `code`. When no run
+runs and the check of the run does not list the item (it was not checked yet,
+or an older listing), or the server keeps no runs, they queue the upgrade
+directly, as before.
+
+A model upgrade with `config_only` or `choices`, and a model retry
+(`POST /api/models/{name}/upgrade/retry`), are always direct: a run makes no
+such choice. While a run runs, they are refused with `409` `run_active` too.
+
+The per-node route `POST /api/nodes/{id}/backends/upgrade` is the one
+exception: it upgrades a backend on one node, directly, and does not start a
+run or check for one. Use it to repair one node; it does not show in a run or
+in its notifications.
 
 ## From the assistant
 
@@ -465,4 +473,7 @@ starts, reads and cancels runs of backends and models:
 
 The assistant asks you to confirm before it starts or cancels a run.
 `upgrade_backend` and `upgrade_model` still upgrade one item; they start a run
-of one item too.
+of one item too. `upgrade_backend` refuses a backend that is not installed or
+has no update before it starts anything, as the REST routes do. While a run
+runs, every upgrade from the assistant (also `upgrade_model` with the actions
+`config_only` and `retry`) is refused with `run_active`.

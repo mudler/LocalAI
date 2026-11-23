@@ -21,6 +21,7 @@ import (
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	addonendpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
@@ -40,6 +41,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/uploads"
 	"github.com/mudler/LocalAI/core/services/addons/usersettings"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -996,6 +998,23 @@ func (a *Application) start() (startErr error) {
 	assistantClient.ModelUpdatesService = a.ModelUpdates
 	assistantClient.ModelUpgrader = a.ModelUpgrader
 	assistantClient.UpgradeRunService = a.UpgradeRuns
+	// The same early refusal as the backend upgrade routes.
+	assistantClient.BackendUpgradeGuard = func() *backendupdates.UpgradeGuard {
+		if a.galleryService == nil {
+			return nil
+		}
+		var src backendupdates.UpgradeInfoSource
+		if a.upgradeChecker != nil {
+			src = a.upgradeChecker
+		}
+		return backendupdates.NewUpgradeGuard(func() (gallery.SystemBackends, error) {
+			manager := a.galleryService.BackendManager()
+			if manager == nil {
+				return nil, backendupdates.ErrNoBackendManager
+			}
+			return manager.ListBackends()
+		}, src)
+	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}

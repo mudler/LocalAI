@@ -2,13 +2,16 @@ package inproc
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/core/services/upgraderun/upgraderuntest"
@@ -73,6 +76,36 @@ var _ = Describe("Upgrade runs through the in-process client", func() {
 		Expect(job).To(Equal(h.Starter.Job("gallery:kokoro")))
 		_, err = c.UpgradeBackend(context.Background(), "kokoro")
 		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+	})
+
+	It("never upgrades directly beside a run: a backend the run does not list, a model with options, a model retry", func() {
+		_, err := c.UpgradeBackend(context.Background(), "kokoro")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = c.UpgradeBackend(context.Background(), "not-listed")
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+		_, err = c.RetryModelUpgrade(context.Background(), "some-model")
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+		_, err = c.UpgradeModel(context.Background(), "some-model", true, nil)
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+	})
+
+	It("refuses a backend upgrade with the guard of the REST routes before a run starts", func() {
+		c.BackendUpgradeGuard = func() *backendupdates.UpgradeGuard {
+			return backendupdates.NewUpgradeGuard(func() (gallery.SystemBackends, error) {
+				return gallery.SystemBackends{"kokoro": {Name: "kokoro", Metadata: &gallery.BackendMetadata{Name: "kokoro"}}}, nil
+			}, nil)
+		}
+		_, err := c.UpgradeBackend(context.Background(), "missing")
+		var refusal *backendupdates.UpgradeRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue(), "%v", err)
+		Expect(refusal.Code).To(Equal(gallery.UpgradeFailureNotInstalled))
+		runs, err := h.Service.List(context.Background(), upgraderun.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs).To(BeEmpty())
+		// An installed backend passes the guard and starts a run of one.
+		job, err := c.UpgradeBackend(context.Background(), "kokoro")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(job).To(Equal(h.Starter.Job("gallery:kokoro")))
 	})
 
 	It("answers that runs are unavailable when the server keeps none", func() {

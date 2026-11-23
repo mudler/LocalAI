@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 )
@@ -118,6 +119,26 @@ func (c *Client) CancelUpgradeRun(ctx context.Context, id, key string) (*localai
 	}
 	out := upgradeRunOf(run)
 	return &out, nil
+}
+
+// refuseIfRunActive refuses an upgrade the assistant would queue directly
+// while a run runs, as the REST routes do: no direct upgrade runs beside a
+// run.
+func (c *Client) refuseIfRunActive() error {
+	svc := c.upgradeRuns()
+	if svc == nil {
+		return nil
+	}
+	return svc.RefuseIfActive()
+}
+
+// backendGuard is the early refusal of a backend upgrade that the REST routes
+// use (backendupdates.UpgradeGuard), or nil.
+func (c *Client) backendGuard() *backendupdates.UpgradeGuard {
+	if c.BackendUpgradeGuard == nil {
+		return nil
+	}
+	return c.BackendUpgradeGuard()
 }
 
 // upgradeOneViaRun starts the upgrade of one item as a run of one, the way

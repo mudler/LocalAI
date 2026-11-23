@@ -184,6 +184,24 @@ var _ = Describe("Model update routes", func() {
 			Expect(resp.Code).To(Equal(upgraderun.CodeRunActive))
 		})
 
+		It("refuses every direct upgrade with 409 run_active while a run runs", func() {
+			e.POST("/api/models/:name/upgrade/retry", RetryModelUpgradeEndpoint(deps))
+			installed("failed", &gallery.Journal{Kind: gallery.JournalUpgrade, Phase: gallery.PhaseRolledBack, Error: "load failed"})
+			Expect(do(http.MethodPost, "/api/models/upgrade/tiny", "").Code).To(Equal(http.StatusOK))
+			for _, req := range []struct{ path, body string }{
+				{"/api/models/upgrade/tiny", `{"config_only":true}`},
+				{"/api/models/upgrade/tiny", `{"choices":{"context_size":"mine"}}`},
+				{"/api/models/failed/upgrade/retry", ""},
+			} {
+				w := do(http.MethodPost, req.path, req.body)
+				Expect(w.Code).To(Equal(http.StatusConflict), req.path+" "+req.body+": "+w.Body.String())
+				var resp schema.ModelUpgradeError
+				Expect(json.Unmarshal(w.Body.Bytes(), &resp)).To(Succeed())
+				Expect(resp.Code).To(Equal(upgraderun.CodeRunActive), req.path+" "+req.body)
+			}
+			Consistently(rec.done, 100*time.Millisecond).ShouldNot(Receive(), "nothing was queued beside the run")
+		})
+
 		It("keeps an upgrade with options direct", func() {
 			w := do(http.MethodPost, "/api/models/upgrade/tiny", `{"config_only":true}`)
 			Expect(w.Code).To(Equal(http.StatusOK), w.Body.String())

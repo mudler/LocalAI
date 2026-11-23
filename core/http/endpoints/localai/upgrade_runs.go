@@ -433,10 +433,11 @@ func singleRefusal(c echo.Context, status int, code, msg string) error {
 //   - the guard answers first: 404 not_installed, 409 no_update or stale
 //     (see BackendUpgradeGuard), before a run is admitted;
 //   - without upgrade runs on this server, legacy answers as before;
-//   - while another run runs, 409 with code run_active;
+//   - while another run runs, 409 with code run_active, before anything else
+//     is checked, so no direct upgrade runs beside a run;
 //   - with expected_to no longer the available build, 409 with code stale;
 //   - when the run's check does not list the backend (not checked yet, or no
-//     update), legacy answers, with its own checks.
+//     update) and no run runs, legacy answers, with its own checks.
 //
 // A nil guard refuses nothing.
 func BackendUpgradeViaRun(d UpgradeRunDeps, guard *BackendUpgradeGuard, legacy echo.HandlerFunc, answer SingleUpgradeAnswer) echo.HandlerFunc {
@@ -461,7 +462,7 @@ func BackendUpgradeViaRun(d UpgradeRunDeps, guard *BackendUpgradeGuard, legacy e
 		switch code := upgraderun.CodeOf(err); code {
 		case "":
 		case upgraderun.CodeRunActive:
-			return singleRefusal(c, http.StatusConflict, code, "another upgrade run is running; wait for it to end or cancel it, then upgrade again")
+			return singleRefusal(c, http.StatusConflict, code, runActiveMessage)
 		case upgraderun.CodeStale:
 			if expected != "" {
 				var e *upgraderun.Error

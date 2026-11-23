@@ -82,6 +82,10 @@ type Client struct {
 	// UpgradeRunService returns the service of the upgrade runs, or nil when the
 	// server keeps none. Read at each call: it starts after the client.
 	UpgradeRunService func() *upgraderun.Service
+	// BackendUpgradeGuard returns the early refusal of a backend upgrade that
+	// the REST routes use (not installed, no update), or nil for none. Read at
+	// each call: the update checker starts after the client.
+	BackendUpgradeGuard func() *backendupdates.UpgradeGuard
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -716,6 +720,10 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	if c.AppConfig.DisableBackendInstall {
 		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, name)
 	}
+	// The same early refusal as the REST routes, before a run is admitted.
+	if refusal := c.backendGuard().Check(ctx, name, "", ""); refusal != nil {
+		return "", refusal
+	}
 	if jobID, handled, err := c.upgradeOneViaRun(ctx, upgraderun.KindGallery, name); handled {
 		return jobID, err
 	}
@@ -802,10 +810,16 @@ func (c *Client) UpgradeModel(ctx context.Context, name string, configOnly bool,
 			return jobID, err
 		}
 	}
+	if err := c.refuseIfRunActive(); err != nil {
+		return "", err
+	}
 	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: configOnly, Choices: choices})
 }
 
 func (c *Client) RetryModelUpgrade(_ context.Context, name string) (string, error) {
+	if err := c.refuseIfRunActive(); err != nil {
+		return "", err
+	}
 	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{Retry: true})
 }
 

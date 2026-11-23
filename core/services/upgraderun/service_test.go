@@ -21,6 +21,23 @@ var _ = Describe("Service", func() {
 		h = newHarness(harnessOpts{})
 	})
 
+	Describe("one run at a time", func() {
+		It("refuses a start with run_active before it checks the items", func() {
+			h.backends.add(Candidate{Kind: KindGallery, Name: "kokoro", To: "v2"})
+			h.start(StartItem{Kind: KindGallery, Name: "kokoro"})
+			// An item no check lists: without the early refusal it answered
+			// no_update, and a route fell back to a direct upgrade beside the
+			// run.
+			_, err := h.svc.Start(ctx, "admin", StartRequest{Items: []StartItem{{Kind: KindGallery, Name: "not-listed"}}})
+			Expect(CodeOf(err)).To(Equal(CodeRunActive))
+			Expect(CodeOf(h.svc.RefuseIfActive())).To(Equal(CodeRunActive))
+		})
+
+		It("lets a direct upgrade through when no run runs", func() {
+			Expect(h.svc.RefuseIfActive()).To(Succeed())
+		})
+	})
+
 	Describe("Preview", func() {
 		It("orders backends, models and add-ons, selects backends and add-ons, and says why an item cannot start", func() {
 			h.addons.add(Candidate{Kind: KindAddon, Name: "notes"})
