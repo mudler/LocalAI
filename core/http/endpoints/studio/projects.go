@@ -114,6 +114,9 @@ func (h *Handlers) projectOwner(c echo.Context) (string, bool) {
 		_ = fail(c, http.StatusNotFound, typeNotFound, "owner not found")
 		return "", false
 	}
+	// One line per request, with no body, so there is a trail of who acted
+	// for whom. The route is the pattern, not the path, so ids stay out.
+	xlog.Info("studio: administrator acted on behalf of another user", "admin", caller, "owner", owner, "method", c.Request().Method, "route", c.Path())
 	return owner, true
 }
 
