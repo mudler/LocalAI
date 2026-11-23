@@ -130,8 +130,12 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		// A refused op wrote nothing, so there is nothing to clean up — and
 		// the name may belong to an installed backend a forced reinstall
-		// targeted.
-		if !op.Delete && !errors.Is(err, gallery.ErrBackendInstallDisabled) {
+		// targeted. An upgrade must never run this cleanup either: its name
+		// is the installed, working build, gallery.UpgradeBackend restores it
+		// when its own swap fails, and a failure before the swap leaves it
+		// untouched. Removing it here would turn a failed upgrade into a
+		// lost backend.
+		if !op.Delete && !op.Upgrade && !errors.Is(err, gallery.ErrBackendInstallDisabled) {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
 			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
 		}
