@@ -799,7 +799,7 @@ func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedB
 		return entries, err
 	}
 	for _, e := range dirEntries {
-		if !e.IsDir() {
+		if !e.IsDir() || isSwapDir(e.Name()) {
 			continue
 		}
 		if cerr := collectBackendDir(basePath, e.Name(), isSystem, entries); cerr != nil {
@@ -810,6 +810,23 @@ func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedB
 		}
 	}
 	return entries, nil
+}
+
+// swapDirSuffixes name the directories an install or an upgrade keeps next
+// to a backend while it replaces it: the staged new build, the previous build
+// kept until the new one starts, and a failed build moved aside. They are not
+// backends. Listing one registered it under a name like "x.backup", and an
+// unreadable metadata file in it failed the whole listing in the middle of a
+// swap.
+var swapDirSuffixes = []string{".upgrade-tmp", ".backup", ".install-tmp", ".install-backup", failedSuffix}
+
+func isSwapDir(name string) bool {
+	for _, suffix := range swapDirSuffixes {
+		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {

@@ -242,6 +242,20 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 		expectNoProcess()
 	})
 
+	It("does not list the directories of a swap as backends", func() {
+		for _, suffix := range []string{".backup", ".upgrade-tmp", ".install-tmp", ".install-backup", ".failed"} {
+			side := filepath.Join(backends, name+suffix)
+			Expect(os.MkdirAll(side, 0o750)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(side, "metadata.json"), []byte("not json"), 0o600)).To(Succeed())
+		}
+		listed, err := ListSystemBackends(systemState)
+		Expect(err).NotTo(HaveOccurred(), "an unreadable metadata file of a swap directory does not fail the listing")
+		Expect(listed.Exists(name)).To(BeTrue())
+		for key := range listed {
+			Expect(isSwapDir(key)).To(BeFalse(), key)
+		}
+	})
+
 	Describe("a forced install with a start check", func() {
 		forced := func(mode backendtest.Mode) error {
 			src := filepath.Join(dir, "forced-source")
