@@ -94,6 +94,26 @@ var _ = Describe("ErrNoRoute reactions", func() {
 			Expect(statusOf(n.ID)).To(Equal(StatusUnhealthy))
 		})
 
+		It("drops a queued upgrade that the worker rolled back, and keeps one that failed otherwise", func() {
+			rolled := registerHealthy("worker-rolled")
+			failed := registerHealthy("worker-failed")
+			Expect(registry.UpsertPendingBackendOp(ctx, rolled.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(ctx, failed.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+			mc.scriptReply(messaging.SubjectNodeBackendUpgrade(rolled.ID),
+				workerctl.BackendUpgradeReply{Success: false, Code: "start", RolledBack: true, Error: "the new build did not start"})
+			mc.scriptReply(messaging.SubjectNodeBackendUpgrade(failed.ID),
+				workerctl.BackendUpgradeReply{Success: false, Code: "download", Error: "registry unreachable"})
+
+			rc.drainPendingBackendOps(ctx)
+
+			_, queued := pendingRow(rolled.ID, OpBackendUpgrade)
+			Expect(queued).To(BeFalse(), "a retry would download the same build and fail the same way")
+			row, queued := pendingRow(failed.ID, OpBackendUpgrade)
+			Expect(queued).To(BeTrue())
+			Expect(row.Attempts).To(Equal(1))
+			Expect(statusOf(rolled.ID)).To(Equal(StatusHealthy), "the worker answered: it is present")
+		})
+
 		It("marks the node unhealthy when an op has no route, and still counts the attempt", func() {
 			n := registerHealthy("worker-gone")
 			Expect(registry.UpsertPendingBackendOp(ctx, n.ID, "vllm", OpBackendDelete, nil)).To(Succeed())

@@ -660,12 +660,12 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 	if !g.appConfig.OpaqueErrors {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: e, ErrorKey: string(gallery.UpgradeCodeOf(e)), Processed: true, Message: "error: " + e.Error()})
+			g.UpdateStatus(id, &OpStatus{Error: e, ErrorKey: string(gallery.UpgradeCodeOf(e)), RolledBack: gallery.UpgradeRolledBack(e), Processed: true, Message: "error: " + e.Error()})
 		}
 	} else {
 		updateError = func(id string, e error) {
 			xlog.Error("Gallery operation failed", "op_id", id, "error", e)
-			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), ErrorKey: string(gallery.UpgradeCodeOf(e)), Processed: true})
+			g.UpdateStatus(id, &OpStatus{Error: fmt.Errorf("an error occurred"), ErrorKey: string(gallery.UpgradeCodeOf(e)), RolledBack: gallery.UpgradeRolledBack(e), Processed: true})
 		}
 	}
 

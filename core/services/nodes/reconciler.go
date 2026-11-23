@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
 	"github.com/mudler/LocalAI/core/services/workerctl"
@@ -436,8 +437,15 @@ func (rc *ReplicaReconciler) drainPendingBackendOp(ctx context.Context, op Pendi
 		reply, err := rc.adapter.UpgradeBackend(op.NodeID, op.Backend, string(op.Galleries), "", "", "", 0, "", nil)
 		if err != nil {
 			applyErr = err
-		} else if !reply.Success {
-			applyErr = fmt.Errorf("upgrade failed: %s", reply.Error)
+		} else if applyErr = UpgradeReplyError(reply); gallery.UpgradeRolledBack(applyErr) {
+			// The worker runs its previous build again: a retry would
+			// download the same build and fail the same way.
+			xlog.Warn("Reconciler: queued backend upgrade rolled back on the worker; dropping it",
+				"backend", op.Backend, "node", op.NodeID, "error", applyErr)
+			if err := rc.registry.DeletePendingBackendOp(ctx, op.ID); err != nil {
+				xlog.Warn("Reconciler: failed to delete rolled back op row", "id", op.ID, "error", err)
+			}
+			return
 		}
 	default:
 		xlog.Warn("Reconciler: unknown pending op", "op", op.Op, "id", op.ID)

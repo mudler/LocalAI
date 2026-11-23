@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -313,9 +315,9 @@ var _ = Describe("Worker control verbs: install progress and malformed requests"
 	})
 
 	It("publishes upgrade progress on the per-op subject before replying", func() {
-		s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, onDownload func(string, string, string, float64)) ([]string, error) {
+		s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, onDownload func(string, string, string, float64)) (upgradeOutcome, error) {
 			emitTwo(onDownload)
-			return nil, nil
+			return upgradeOutcome{}, nil
 		}
 		body, err := json.Marshal(workerctl.BackendUpgradeRequest{Backend: "vllm", OpID: "op1"})
 		Expect(err).NotTo(HaveOccurred())
@@ -324,6 +326,22 @@ var _ = Describe("Worker control verbs: install progress and malformed requests"
 		Eventually(bus.deliver(messaging.SubjectNodeBackendUpgrade("n1"), body)).Should(Receive(&reply))
 		Expect(reply).To(ContainSubstring(`"success":true`))
 		expectTwoEvents(progressOn(messaging.SubjectNodeBackendInstallProgress("n1", "op1")))
+	})
+
+	It("answers a failed upgrade with the code of its step", func() {
+		s.upgradeFn = func(workerctl.BackendUpgradeRequest, func(string, string, string, float64)) (upgradeOutcome, error) {
+			return upgradeOutcome{}, fmt.Errorf("upgrading backend from gallery: %w", downloader.ErrIntegrity)
+		}
+		body, err := json.Marshal(workerctl.BackendUpgradeRequest{Backend: "vllm"})
+		Expect(err).NotTo(HaveOccurred())
+
+		var reply string
+		Eventually(bus.deliver(messaging.SubjectNodeBackendUpgrade("n1"), body)).Should(Receive(&reply))
+		var decoded workerctl.BackendUpgradeReply
+		Expect(json.Unmarshal([]byte(reply), &decoded)).To(Succeed())
+		Expect(decoded.Success).To(BeFalse())
+		Expect(decoded.Code).To(Equal("verify"))
+		Expect(decoded.RolledBack).To(BeFalse())
 	})
 
 	It("reports no progress for an install without an OpID", func() {

@@ -409,20 +409,49 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 	}
 
-	if err := writeBackendMetadata(backendPath, newMetadata); err != nil {
-		// Metadata write failure is not worth rolling back the entire upgrade
-		xlog.Error("Failed to write metadata after upgrade", "error", err)
+	if err := settleUpgrade(ctx, systemState, modelLoader, backendName, backendPath, backupPath, newMetadata); err != nil {
+		return err
 	}
-
-	// Step 5: Re-register backends so the model loader picks up any changes
-	if err := RegisterBackends(systemState, modelLoader); err != nil {
-		xlog.Warn("Failed to re-register backends after upgrade", "error", err)
-	}
-
-	// Step 6: Remove backup
-	os.RemoveAll(backupPath)
 
 	xlog.Info("Backend upgraded successfully", "backend", backendName, "version", galleryEntry.Version)
+	return nil
+}
+
+// settleUpgrade runs the steps after the swap: it writes the metadata of the
+// new build, checks that the new build starts from its final path, registers
+// the backends again and only then removes the previous build. When a step
+// fails, the previous build and its metadata are put back and registered,
+// and the error says whether that worked.
+//
+// A failed metadata write or registration used to be logged while the
+// upgrade reported success with stale metadata; both now roll back like a
+// build that does not start, with the code swap (the new build could not be
+// put in place completely).
+func settleUpgrade(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, backendName, backendPath, backupPath string, newMetadata *BackendMetadata) error {
+	rollback := func(code UpgradeFailureCode, cause error) error {
+		return rollbackSwap(ctx, systemState, modelLoader, code, cause, backendPath, backupPath)
+	}
+
+	if err := writeUpgradeMetadata(backendPath, newMetadata); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to write metadata after upgrade: %w", err))
+	}
+
+	check := newUpgradeStartCheck(modelLoader, backendName)
+	if err := check(ctx, filepath.Join(backendPath, runFile)); err != nil {
+		cause := fmt.Errorf("the new build did not start: %w", err)
+		if ctx.Err() != nil {
+			cause = err
+		}
+		return rollback(UpgradeFailureStart, cause)
+	}
+
+	if err := registerBackends(systemState, modelLoader); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to register backends after upgrade: %w", err))
+	}
+
+	if err := os.RemoveAll(backupPath); err != nil {
+		xlog.Warn("Could not remove the previous build after the upgrade", "path", backupPath, "error", err)
+	}
 	return nil
 }
 
@@ -441,6 +470,15 @@ func downloadUpgradeError(ctx context.Context, err error) error {
 	return WithUpgradeCode(UpgradeFailureDownload, wrapped)
 }
 
-// renameBackend moves a backend directory. A var so a spec can fail the swap
-// without a filesystem that refuses a rename.
-var renameBackend = os.Rename
+// Seams of the swap and the steps after it. Vars so a spec can fail one step
+// without a filesystem or a backend that fails on cue.
+var (
+	// renameBackend moves a backend directory.
+	renameBackend = os.Rename
+	// writeUpgradeMetadata writes the metadata of the new build.
+	writeUpgradeMetadata = writeBackendMetadata
+	// registerBackends registers the installed backends with the loader.
+	registerBackends = RegisterBackends
+	// newUpgradeStartCheck gives the start check of an upgrade.
+	newUpgradeStartCheck = LoaderStartCheck
+)

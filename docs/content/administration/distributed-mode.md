@@ -287,6 +287,14 @@ Upgrade the frontends first. A worker that predates operations ignores the new r
 
 **Backend upgrades need workers that serve `backend.upgrade`.** A frontend never falls back to a forced `backend.install` for a worker that does not serve the upgrade subject. Such a worker fails the upgrade with a no-route error, and a queued upgrade for it waits until the node serves it again. This is a hard break for old workers: upgrade the workers with the frontend.
 
+**A worker keeps its backend build until the new one starts.** On `backend.upgrade` the worker stops the processes of the backend, installs the new build, and starts it once under a process of its own, with the same readiness check (30 seconds) as a model load. Only when it answers does the worker delete the previous build. When it does not, the worker puts the previous build back and registers it. In both cases it then starts the processes it stopped again, on the build that is in place, with no model loaded (the next load uses them). None of this talks to NATS, so it works the same on a worker that holds only a tunnel.
+
+The answer of the worker says what happened, on every route (NATS, and the tunnel over a websocket or P2P): `code` (the `error_key` of the step that failed), `rolled_back`, `verified` (the new build answered), `cause` (the last output of a build that did not start, at most 512 bytes), and `restarted_process_keys`. The frontend keeps the outcome of each node: in the job status, each entry of `nodes` has a `status` (`success`, `error`, `rolled_back`, `unconfirmed` or `queued`) and an `error_key`. The job has `rolled_back: true` when every node that failed rolled back. A rolled back upgrade is not retried by the reconciler, because the same build would fail the same way.
+
+An upgrade whose reply never arrives (a timeout, or a tunnel that drops after the worker took the request) is `unconfirmed`: it is not reported as failed or as updated, the job has `unconfirmed: true`, and the queued intent stays until the reconciler or a check of the node settles it.
+
+The new reply fields are a hard break too: frontend and workers must run the same version. A frontend reads an older worker's failed upgrade as `unknown`.
+
 ### Broadcast size limit
 
 A broadcast is a message that goes to every frontend replica, such as a job progress event or a gallery update. Every carrier now refuses a broadcast with a payload above 8 MiB. The call fails with `ErrPayloadTooLarge`, and nothing is sent. The limit is the same for every carrier, so a deployment keeps its behavior when the carrier changes.

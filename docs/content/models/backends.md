@@ -70,8 +70,8 @@ URL, so a shared link opens the same state.
 ask for that backend by name, and any installed meta backend that points at it
 (for example `llama-cpp` pointing at a hardware-specific build), because those
 stop working without it. The catalog does not report a size per backend, and
-LocalAI keeps no earlier version of a backend, so there is no size column and
-no rollback.
+LocalAI keeps no earlier version of a backend once an upgrade has finished, so
+there is no size column and no rollback after the fact.
 
 **Admin → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
 that have printed something. Open one to read its output live, filter by stream
@@ -256,7 +256,7 @@ the `error` text in the status of the job (`GET /backends/jobs/{id}`):
 | `download` | The new build could not be fetched or staged. |
 | `verify` | A checksum or signature check refused the new build, or its content is not a runnable backend. |
 | `swap` | The new build could not be moved into place. The installed build is restored. |
-| `start` | Reserved. The new build was moved into place but did not start. |
+| `start` | The new build was moved into place but did not start. See below: the previous build is normally back. |
 | `not_installed`, `no_update`, `stale` | As above, when the request was accepted and the state changed before the job ran. |
 | `unknown` | Any other failure. |
 
@@ -265,6 +265,36 @@ Read the `error_key`, not the text: the text can change. Cancelled jobs have no
 `unknown`. In distributed mode the key is stored with the operation record
 (`gallery_operations.error_key`, added by the automatic migration at start-up),
 so every frontend and the history (`errorKey`) have it.
+
+**When the new build does not start.** An upgrade keeps the build you have
+until the new one has started once. After the new build is moved into place
+and its metadata is written, LocalAI starts it from its final path, the way a
+model load starts a backend, on a free local port of its own, and waits up to
+40 seconds for it to answer a health check. Then it stops it again. Only when
+the new build answered is the previous build deleted.
+
+When the new build exits, or does not answer in time, LocalAI puts the previous
+build and its metadata back, registers the backends again, and ends the job
+with `error_key` `start` and `rolled_back: true`. The `error` text ends with the
+last lines the new build wrote (at most 512 bytes), for example a missing
+shared library. The backend then runs the version it ran before. A metadata
+write or a backend registration that fails after the swap is handled the same
+way, with `error_key` `swap`. When the previous build cannot be put back,
+`rolled_back` is false, the text says so, and the failed build stays in place
+for diagnosis next to the previous one (`<name>.backup`).
+
+A forced reinstall of an installed backend (`force: true`) keeps the replaced
+build in the same way. A first install starts nothing.
+
+Limits of the start check:
+
+- It proves that the build starts and listens. It loads no model, so it does
+  not prove that a model loads, or that it loads on the GPU. A build that starts
+  but fails to load a model is found at the next load.
+- Models that run on the backend keep running during the check: the check uses
+  its own process and port, and running processes keep the files of the build
+  they started from.
+- Cancelling the job stops the check and puts the previous build back.
 
 Limits:
 

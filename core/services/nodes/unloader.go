@@ -361,9 +361,11 @@ func (a *nodeControl) installBackend(nodeID string, req workerctl.BackendInstall
 
 // UpgradeBackend sends a backend.upgrade request-reply to a worker node.
 // The worker stops every live process for this backend, force-reinstalls
-// from the gallery (overwriting the on-disk artifact), and replies. The
-// next routine InstallBackend call spawns a fresh process with the new
-// binary - upgrade itself does not start a process.
+// from the gallery, keeps the previous build until the new one passes a
+// candidate start (and puts it back when it does not), starts the stopped
+// processes again with no model loaded, and replies. The reply says what
+// happened (Code, RolledBack, Verified, Cause); UpgradeReplyError reads it.
+// A wait that runs out is ErrWorkerStillInstalling: the outcome is unknown.
 //
 // When opID is non-empty and onProgress is set, the master subscribes to the
 // per-op progress subject before firing the request so a long force-reinstall
