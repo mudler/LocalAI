@@ -213,7 +213,9 @@ func newGalleryVerifier(p *config.GalleryVerification) (*cosignverify.Verifier, 
 // InstallBackendFromGallery installs a backend from the gallery.
 // requireIntegrity escalates a missing SHA256 / verification policy from a
 // warning to a hard failure (see backendDownloadOptions).
-func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force, requireIntegrity bool) error {
+//
+// opts change how an installed build is replaced (see WithStartCheck).
+func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force, requireIntegrity bool, opts ...BackendInstallOption) error {
 	if !force {
 		// check if we already have the backend installed
 		backends, err := ListSystemBackends(systemState)
@@ -262,7 +264,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		xlog.Debug("Installing backend from meta backend", "name", name, "bestBackend", bestBackend.Name)
 
 		// Then, let's install the best backend
-		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus, requireIntegrity); err != nil {
+		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus, requireIntegrity, opts...); err != nil {
 			return err
 		}
 
@@ -288,7 +290,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		return nil
 	}
 
-	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity)
+	return InstallBackend(ctx, systemState, modelLoader, backend, downloadStatus, requireIntegrity, opts...)
 }
 
 // RequiredBackendInstalled reports which backend the gallery entry `name`
@@ -322,7 +324,12 @@ func RequiredBackendInstalled(ctx context.Context, galleries []config.Gallery, s
 	return entry.Backend, ok, err
 }
 
-func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+// InstallBackend downloads config into a staging directory and swaps it into
+// place. When it replaces an installed build and opts carry a start check
+// (WithStartCheck), the replaced build is kept until the check passes on the
+// new one and put back when it fails; the error then has the code start.
+func InstallBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64), requireIntegrity bool, opts ...BackendInstallOption) error {
+	options := applyBackendInstallOptions(opts)
 	if systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, config.Name)
 	}
@@ -522,10 +529,12 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 
 	// Atomic swap: move any existing install aside, move the staged dir into
 	// place, and roll the old one back if the final rename fails.
+	replaced := false
 	if _, statErr := os.Stat(backendPath); statErr == nil {
 		if err := os.Rename(backendPath, backupPath); err != nil {
 			return fmt.Errorf("failed to move current backend to backup: %w", err)
 		}
+		replaced = true
 	}
 	if err := os.Rename(stagingPath, backendPath); err != nil {
 		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
@@ -534,9 +543,27 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		}
 		return fmt.Errorf("failed to move new backend into place: %w", err)
 	}
-	_ = os.RemoveAll(backupPath)
 
-	return RegisterBackends(systemState, modelLoader)
+	if replaced && options.startCheck != nil {
+		// The replaced build stays at backupPath until the new one starts
+		// from its final path, and goes back when it does not.
+		if err := options.startCheck(ctx, filepath.Join(backendPath, runFile)); err != nil {
+			cause := fmt.Errorf("the new build did not start: %w", err)
+			if ctx.Err() != nil {
+				cause = err
+			}
+			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureStart, cause, backendPath, backupPath)
+		}
+	}
+	if err := registerBackends(systemState, modelLoader); err != nil {
+		if replaced && options.startCheck != nil {
+			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureSwap, fmt.Errorf("failed to register backends after install: %w", err), backendPath, backupPath)
+		}
+		_ = os.RemoveAll(backupPath)
+		return err
+	}
+	_ = os.RemoveAll(backupPath)
+	return nil
 }
 
 func DeleteBackendFromSystem(systemState *system.SystemState, name string) error {

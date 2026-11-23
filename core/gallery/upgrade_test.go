@@ -469,6 +469,7 @@ var _ = Describe("Upgrade Detection and Execution", func() {
 
 	Describe("UpgradeBackend", func() {
 		It("should replace backend directory and update metadata", func() {
+			PassStartCheck()
 			// Install v1
 			installBackendWithVersion("my-backend", "1.0.0", "#!/bin/sh\necho v1")
 
