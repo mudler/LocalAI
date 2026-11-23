@@ -143,6 +143,9 @@ func (a *Application) startUpgradeRuns() {
 // in the store: this frontend after a restart, or another one, takes them
 // over.
 func (a *Application) stopUpgradeRuns() {
+	// First the retries of the automatic passes: they start runs on the
+	// service that stops below.
+	a.autoRunner().Close()
 	if a.upgradeRunsStop != nil {
 		a.upgradeRunsStop()
 		a.upgradeRunsStop = nil

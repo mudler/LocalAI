@@ -62,7 +62,8 @@ const (
 	autoRunRefused
 )
 
-// autoRunner starts the runs of the automatic passes.
+// autoRunner starts the runs of the automatic passes. It owns the retry
+// goroutines it starts: Close ends them and waits for them.
 type autoRunner struct {
 	// service returns the run service, or nil while there is none.
 	service func() autoRunService
@@ -71,10 +72,33 @@ type autoRunner struct {
 
 	mu      sync.Mutex
 	waiting map[string]bool
+	closed  bool
+	quit    chan struct{}
+	wg      sync.WaitGroup
 }
 
 func newAutoRunner(service func() autoRunService) *autoRunner {
-	return &autoRunner{service: service, delay: autoRunRetryDelay, retries: autoRunRetries, waiting: map[string]bool{}}
+	return &autoRunner{
+		service: service, delay: autoRunRetryDelay, retries: autoRunRetries,
+		waiting: map[string]bool{}, quit: make(chan struct{}),
+	}
+}
+
+// Close stops the retries that wait for another run to end and waits for
+// their goroutines. A retry that is starting its run finishes that start
+// first. After Close no retry starts; the next scheduled pass of a new
+// process lists the items again. A nil runner does nothing.
+func (r *autoRunner) Close() {
+	if r == nil {
+		return
+	}
+	r.mu.Lock()
+	if !r.closed {
+		r.closed = true
+		close(r.quit)
+	}
+	r.mu.Unlock()
+	r.wg.Wait()
 }
 
 // available reports whether runs can be started. A nil runner has none.
@@ -113,26 +137,34 @@ func (r *autoRunner) start(ctx context.Context, items []upgraderun.StartItem) (u
 
 // retryLater tries to start the run again every delay while another run is
 // running, at most retries times, one waiter for each family. It stops at the
-// first answer that is not run_active.
+// first answer that is not run_active, when ctx ends, or when the runner is
+// closed.
 func (r *autoRunner) retryLater(ctx context.Context, family string, items []upgraderun.StartItem) {
 	r.mu.Lock()
-	if r.waiting[family] {
+	if r.closed || r.waiting[family] {
 		r.mu.Unlock()
 		return
 	}
 	r.waiting[family] = true
+	// Added under the lock that Close takes, so Wait never misses it.
+	r.wg.Add(1)
 	r.mu.Unlock()
 	go func() {
+		defer r.wg.Done()
 		defer func() {
 			r.mu.Lock()
 			delete(r.waiting, family)
 			r.mu.Unlock()
 		}()
+		timer := time.NewTimer(r.delay)
+		defer timer.Stop()
 		for range r.retries {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(r.delay):
+			case <-r.quit:
+				return
+			case <-timer.C:
 			}
 			run, err := r.start(ctx, items)
 			switch {
@@ -144,6 +176,7 @@ func (r *autoRunner) retryLater(ctx context.Context, family string, items []upgr
 				xlog.Debug("Automatic update did not start its delayed run; the next pass tries again", "family", family, "error", err)
 				return
 			}
+			timer.Reset(r.delay)
 		}
 	}()
 }

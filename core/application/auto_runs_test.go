@@ -3,6 +3,8 @@ package application
 import (
 	"context"
 	"errors"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +51,15 @@ func (f *fakeRunService) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return len(f.requests)
+}
+
+// retryGoroutines counts the goroutines of autoRunner retries in this
+// process. The count is exact where a total goroutine count is not: other
+// specs end goroutines of their own meanwhile.
+func retryGoroutines() int {
+	buf := make([]byte, 1<<22)
+	n := runtime.Stack(buf, true)
+	return strings.Count(string(buf[:n]), "(*autoRunner).retryLater.func")
 }
 
 func runActive() error {
@@ -159,6 +170,42 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			a.autoUpgradeAddonsWith(ctx, owner())
 			Eventually(svc.count, "2s").Should(BeNumerically(">=", 5))
 			Eventually(func() int { return len(a.autoRuns.waiting) }, "2s").Should(BeZero())
+		})
+
+		It("ends a waiting retry when the upgrade runs stop, and leaves no goroutine", func() {
+			// Every try meets a running run, and the next try is an hour
+			// away: only the stop of the runs can end the waiter.
+			refuse := make([]error, 10)
+			for i := range refuse {
+				refuse[i] = runActive()
+			}
+			svc := &fakeRunService{refuse: refuse}
+			a := &Application{}
+			a.autoRunnerOnce.Do(func() { a.autoRuns = runnerOf(svc, time.Hour) })
+			waiting := func() bool {
+				a.autoRuns.mu.Lock()
+				defer a.autoRuns.mu.Unlock()
+				return a.autoRuns.waiting["addons"]
+			}
+			before := retryGoroutines()
+			a.autoUpgradeAddonsWith(ctx, owner())
+			Expect(svc.count()).To(Equal(1))
+			Expect(waiting()).To(BeTrue(), "the retry waits")
+
+			stopped := make(chan struct{})
+			go func() {
+				a.stopUpgradeRuns()
+				close(stopped)
+			}()
+			Eventually(stopped, "2s").Should(BeClosed())
+			Eventually(waiting, "2s").Should(BeFalse(), "the waiter ended")
+			Eventually(retryGoroutines, "2s").Should(BeNumerically("<=", before), "no retry goroutine is left")
+			Expect(svc.count()).To(Equal(1), "no retry ran")
+
+			// A pass after the stop does not start a new waiter.
+			a.autoUpgradeAddonsWith(ctx, owner())
+			Expect(svc.count()).To(Equal(2))
+			Expect(waiting()).To(BeFalse())
 		})
 
 		It("does not retry after another refusal", func() {
