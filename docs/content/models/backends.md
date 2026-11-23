@@ -238,10 +238,15 @@ is `{"error": "...", "code": "..."}`:
 `expected_to` is optional. It is the version or the digest that the caller saw
 in the update list, in the query or in a JSON body field of the same name. Use it
 to be sure that the upgrade is the one you looked at. A request without it
-upgrades to whatever is available. Before the first successful check finishes
-there is no list to compare with, so a backend that is installed is accepted. The
-list comes from the last check, which can be several hours old: a build that was
-published after it is not seen as pending until the next check.
+upgrades to whatever is available.
+
+A request is never refused as `no_update` from an old list. When the last
+successful check is older than five minutes, or there is none, the request first
+runs a check (the one of **Check now**, shared with a check that already runs)
+and waits for it at most 15 seconds. The fresh list decides. When that check
+fails or runs out of time the request is accepted, and the job reports what
+happens. A request for a build with `expected_to` is compared with the list as
+it is.
 
 An upgrade that fails after it started ends the job with an `error_key` next to
 the `error` text in the status of the job (`GET /backends/jobs/{id}`):
@@ -256,7 +261,10 @@ the `error` text in the status of the job (`GET /backends/jobs/{id}`):
 | `unknown` | Any other failure. |
 
 Read the `error_key`, not the text: the text can change. Cancelled jobs have no
-`error_key`, and neither has a failed install.
+`error_key`, and neither has a failed install. A panic in an upgrade ends as
+`unknown`. In distributed mode the key is stored with the operation record
+(`gallery_operations.error_key`, added by the automatic migration at start-up),
+so every frontend and the history (`errorKey`) have it.
 
 Limits:
 

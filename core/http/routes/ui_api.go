@@ -1845,7 +1845,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
 		}
-		if refusal := upgradeGuard.Check(backendName, "", expectedTo); refusal != nil {
+		if refusal := upgradeGuard.Check(c.Request().Context(), backendName, "", expectedTo); refusal != nil {
 			return refusal.Write(c)
 		}
 

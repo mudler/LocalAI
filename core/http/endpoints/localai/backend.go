@@ -349,7 +349,7 @@ func (mgs *BackendEndpointService) UpgradeBackendEndpoint() echo.HandlerFunc {
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
 		}
-		if refusal := mgs.upgradeGuard.Check(backendName, "", expectedTo); refusal != nil {
+		if refusal := mgs.upgradeGuard.Check(c.Request().Context(), backendName, "", expectedTo); refusal != nil {
 			return refusal.Write(c)
 		}
 

@@ -1107,7 +1107,7 @@ func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opca
 		if expectedTo == "" {
 			expectedTo = c.QueryParam("expected_to")
 		}
-		if refusal := guard.Check(req.Backend, nodeID, expectedTo); refusal != nil {
+		if refusal := guard.Check(c.Request().Context(), req.Backend, nodeID, expectedTo); refusal != nil {
 			return refusal.Write(c)
 		}
 

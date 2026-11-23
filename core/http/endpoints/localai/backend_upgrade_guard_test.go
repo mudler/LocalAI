@@ -2,6 +2,7 @@ package localai_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,16 +34,32 @@ type fakeUpgrades struct {
 	checked time.Time
 }
 
-func (f fakeUpgrades) GetAvailableUpgrades() map[string]gallery.UpgradeInfo { return f.pending }
-func (f fakeUpgrades) TriggerCheck()                                        {}
-func (f fakeUpgrades) LastSuccessTime() time.Time                           { return f.checked }
+func (f *fakeUpgrades) GetAvailableUpgrades() map[string]gallery.UpgradeInfo { return f.pending }
+func (f *fakeUpgrades) TriggerCheck()                                        {}
+func (f *fakeUpgrades) LastSuccessTime() time.Time                           { return f.checked }
+
+// checkingUpgrades is the checker that can also run a check. Each CheckNow
+// calls onCheck, which may publish a new pending list and a success time.
+type checkingUpgrades struct {
+	*fakeUpgrades
+	checks  int
+	onCheck func(f *fakeUpgrades)
+}
+
+func (c *checkingUpgrades) CheckNow(context.Context) backendupdates.Snapshot {
+	c.checks++
+	if c.onCheck != nil {
+		c.onCheck(c.fakeUpgrades)
+	}
+	return backendupdates.Snapshot{}
+}
 
 var _ = Describe("backend upgrade early refusal", func() {
 	var (
 		e           *echo.Echo
 		systemState *system.SystemState
 		svc         *galleryop.GalleryService
-		upgrades    fakeUpgrades
+		upgrades    *fakeUpgrades
 		backends    gallery.SystemBackends
 		dispatched  chan galleryop.ManagementOp[gallery.GalleryBackend, any]
 		done        chan struct{}
@@ -60,7 +78,7 @@ var _ = Describe("backend upgrade early refusal", func() {
 			"current":    {Name: "current", Metadata: &gallery.BackendMetadata{Name: "current"}},
 			"system-one": {Name: "system-one", IsSystem: true},
 		}
-		upgrades = fakeUpgrades{
+		upgrades = &fakeUpgrades{
 			checked: time.Now(),
 			pending: map[string]gallery.UpgradeInfo{
 				"cpu-llama-cpp": {BackendName: "cpu-llama-cpp", AvailableVersion: "2.0.0", AvailableDigest: "sha256:abc"},
@@ -163,7 +181,63 @@ var _ = Describe("backend upgrade early refusal", func() {
 			Expect(post(handler, "/backends/upgrade/cpu-llama-cpp", "{nope").Code).To(Equal(http.StatusBadRequest))
 		})
 
-		It("does not refuse for a missing pending upgrade before the first check finished", func() {
+		Describe("a check that is old or missing", func() {
+			var checker *checkingUpgrades
+			upgradeOf := func(name string) *httptest.ResponseRecorder {
+				svcEndpoint := localai.CreateBackendEndpointService(nil, systemState, svc, checker)
+				return post(svcEndpoint.UpgradeBackendEndpoint(), "/backends/upgrade/"+name, "")
+			}
+			found := func(f *fakeUpgrades) {
+				f.checked = time.Now()
+				f.pending["current"] = gallery.UpgradeInfo{BackendName: "current", AvailableVersion: "3.0.0"}
+			}
+			BeforeEach(func() {
+				checker = &checkingUpgrades{fakeUpgrades: upgrades}
+			})
+
+			It("trusts a list that is recent and runs no check", func() {
+				Expect(upgradeOf("current").Code).To(Equal(http.StatusConflict))
+				Expect(checker.checks).To(Equal(0))
+			})
+
+			It("runs a check when the list is old, and lets the upgrade through when it finds one", func() {
+				upgrades.checked = time.Now().Add(-time.Hour)
+				checker.onCheck = found
+				Expect(upgradeOf("current").Code).To(Equal(http.StatusOK))
+				Expect(checker.checks).To(Equal(1))
+			})
+
+			It("refuses with no_update when the fresh check still finds nothing", func() {
+				upgrades.checked = time.Now().Add(-time.Hour)
+				checker.onCheck = func(f *fakeUpgrades) { f.checked = time.Now() }
+				rec := upgradeOf("current")
+				Expect(rec.Code).To(Equal(http.StatusConflict))
+				Expect(code(rec)).To(Equal("no_update"))
+				Expect(checker.checks).To(Equal(1))
+			})
+
+			It("runs a check when the list was never computed", func() {
+				upgrades.checked = time.Time{}
+				checker.onCheck = found
+				Expect(upgradeOf("current").Code).To(Equal(http.StatusOK))
+				Expect(checker.checks).To(Equal(1))
+			})
+
+			It("lets the upgrade through when the fresh check fails", func() {
+				upgrades.checked = time.Now().Add(-time.Hour)
+				// The check ends without a new success time.
+				Expect(upgradeOf("current").Code).To(Equal(http.StatusOK))
+				Expect(checker.checks).To(Equal(1))
+			})
+
+			It("runs no check for a backend that has a pending upgrade", func() {
+				upgrades.checked = time.Now().Add(-time.Hour)
+				Expect(upgradeOf("cpu-llama-cpp").Code).To(Equal(http.StatusOK))
+				Expect(checker.checks).To(Equal(0))
+			})
+		})
+
+		It("does not refuse before the first check when nothing can run one", func() {
 			upgrades.checked = time.Time{}
 			upgrades.pending = nil
 			svcEndpoint := localai.CreateBackendEndpointService(nil, systemState, svc, upgrades)
