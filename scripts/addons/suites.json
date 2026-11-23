@@ -1613,7 +1613,9 @@
       "accepts the upgrades of many different add-ons at once and runs every one",
       "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
       "fails with a credential error and installs nothing without a rule",
-      "lists and installs with a rule, and sends no credential to the redirect target"
+      "lists and installs with a rule, and sends no credential to the redirect target",
+      "logs the start error as the cause and keeps the previous generation running",
+      "is one bounded line without credentials"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2147,7 +2149,9 @@
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
           "carries the credential-slot words and the translated resource nouns of an app",
-          "names the signer of a package from a signed source that is not official"
+          "names the signer of a package from a signed source that is not official",
+          "classifies the lifecycle actions that run for minutes and keeps quick calls short",
+          "lets an owner answer an install after the short deadline and the server write deadline"
         ]
       },
       {
@@ -3708,7 +3712,9 @@
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
           "carries the credential-slot words and the translated resource nouns of an app",
-          "names the signer of a package from a signed source that is not official"
+          "names the signer of a package from a signed source that is not official",
+          "classifies the lifecycle actions that run for minutes and keeps quick calls short",
+          "lets an owner answer an install after the short deadline and the server write deadline"
         ]
       },
       {
@@ -4139,7 +4145,9 @@
           "accepts the upgrades of many different add-ons at once and runs every one",
           "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
           "fails with a credential error and installs nothing without a rule",
-          "lists and installs with a rule, and sends no credential to the redirect target"
+          "lists and installs with a rule, and sends no credential to the redirect target",
+          "logs the start error as the cause and keeps the previous generation running",
+          "is one bounded line without credentials"
         ]
       },
       {
