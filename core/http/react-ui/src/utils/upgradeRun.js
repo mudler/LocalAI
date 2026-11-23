@@ -93,11 +93,6 @@ export function runKeys(run) {
   return new Set(itemsOf(run).map(i => i.key))
 }
 
-// The first item that needs attention, for the summary line.
-export function firstAttention(run) {
-  return itemsOf(run).find(needsAttention) || null
-}
-
 // ---- Requests ----------------------------------------------------------------
 
 // The confirmation an administrator's browser sends with a start and a retry.

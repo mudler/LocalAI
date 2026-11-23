@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  CONFIRM_HEADERS, attentionOf, confirmedPost, countsAsAttention, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionOf, confirmedPost, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
   nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -166,7 +166,6 @@ test('upgrade run: counts, progress and the items to retry', () => {
   assert.equal(attentionOf(run), 2)
   assert.equal(runProgress(run), Math.round((100 + 35 + 64 + 100 + 100 + 0) / 6))
   assert.deepEqual(retryableKeys(run), ['addon:notes'])
-  assert.equal(firstAttention(run).key, 'addon:notes')
   assert.deepEqual([...runKeys(run)].length, 6)
   assert.equal(isRunning(run), true)
   // The server's counts win over the items.
