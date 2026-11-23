@@ -269,6 +269,10 @@ The Users page shows, for each person, when they were last active and how many A
 
 LocalAI records one thing: the time of the last authenticated request of the person, made with a session or with one of their API keys. It writes at most once every five minutes for a person, so a busy client does not cause a write for each request. It stores no address, no user agent and no path. The key count is a number; it never carries the keys or their names, and LocalAI still lists a person's keys only to that person. A paired client key is not counted, and its requests do not set the time. The Users page has an **Inactive 30 d+** filter for people who were not active for 30 days or more.
 
+### View as another user
+
+An administrator can open the web UI as another person, read-only first. See [View as another user](/administration/view-as/).
+
 ### Invite Links
 
 Admins can generate single-use, time-limited invite links from **Administration → Access → Users → Invite someone** in the web UI (choose 1, 7 or 30 days), or via the API:
