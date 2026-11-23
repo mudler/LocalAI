@@ -42,7 +42,9 @@ const maxRunErrorRunes = 160
 // run sees (Change.Local), so a cluster writes one set of rows for each run.
 //
 // While a run goes on, one keyed row for each administrator is edited in
-// place (notify.ModeSet, quiet), at most once for each Interval; the last
+// place (notify.ModeSetQuiet: never pushed, not even when it is created, as
+// the end of an operation is announced only at its end), at most once for
+// each Interval; the last
 // change of a burst is written when the interval ends. When the run ends, the
 // live row is closed and read, and one end row is posted once (notify.ModeOnce).
 type RunNotifier struct {
@@ -266,7 +268,7 @@ func (e *Emitter) runLive(ctx context.Context, run upgraderun.Run, closing bool)
 	}
 	return e.eachAdmin(ctx, func(svc *notify.Service, p string) error {
 		n.Principal = p
-		got, _, err := svc.Upsert(ctx, n, notify.ModeSet)
+		got, _, err := svc.Upsert(ctx, n, notify.ModeSetQuiet)
 		if err != nil {
 			return err
 		}

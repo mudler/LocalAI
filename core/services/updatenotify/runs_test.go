@@ -84,7 +84,7 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(live[0].Params).To(Equal(map[string]any{
 			"run": "r1", "progress": 0, "done": 0, "total": 2, "source": "manual", "updated": 0, "running": 0, "queued": 2,
 		}))
-		Expect(f.pushed).To(HaveLen(1), "the start is announced once")
+		Expect(f.pushed).To(BeEmpty(), "the start of a run is not pushed: only its end is")
 
 		clk.now = clk.now.Add(2 * time.Second)
 		r.Items[0].Phase, r.Items[0].Progress = upgraderun.PhaseRunning, 50
@@ -93,7 +93,7 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(live).To(HaveLen(1), "the same row")
 		Expect(live[0].Params).To(HaveKeyWithValue("running", BeNumerically("==", 1)))
 		Expect(live[0].Params).To(HaveKeyWithValue("progress", BeNumerically("==", 25)))
-		Expect(f.pushed).To(HaveLen(1), "an edit in place is quiet")
+		Expect(f.pushed).To(BeEmpty(), "an edit in place is quiet")
 	})
 
 	It("writes at most once for each interval and the last change when it ends", func() {
@@ -139,7 +139,7 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(end[0].Kind).To(Equal(notify.KindRunEnded))
 		Expect(end[0].Status).To(Equal(notify.StatusOK))
 		Expect(end[0].Link).To(Equal("/app/updates?run=r1"))
-		Expect(f.pushed).To(HaveLen(2), "the start and the end")
+		Expect(f.pushed).To(HaveLen(1), "only the end")
 		clk.fire()
 		live, _ = rows("admin")
 		Expect(live[0].Read).To(BeTrue(), "no timer reopens the row after the end")

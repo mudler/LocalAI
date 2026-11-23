@@ -156,7 +156,8 @@ runs the run writes them, so a cluster writes one set for each run.
 
 - **The live item** (code `updates.run`, key `updates.run.<id>`). It is
   created when the run starts and edited in place on every change, so it never
-  grows into a list. It writes at most once every 1.5 seconds for each run; the
+  grows into a list. It never notifies (no browser push, no connectors), not
+  even when it is created. It writes at most once every 1.5 seconds for each run; the
   last change of a burst is always written. It links to the run
   (`/app/updates?run=<id>`). When the run ends, it is closed (progress 100)
   and marked read.

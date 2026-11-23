@@ -58,7 +58,7 @@ func (s *Service) Add(ctx context.Context, n Notification) (Notification, error)
 }
 
 // Upsert stores a keyed notification by the rules of Decide. Only a created or
-// revived row is announced: clients hear it as a new notification and the OnAdd
+// revived row is announced, and not in ModeSetQuiet: clients hear it as a new notification and the OnAdd
 // hooks run once. An edit in place, and the removal of a set that became empty,
 // only tell the clients of the principal to read the list again; an unchanged
 // row does nothing. The returned notification is the row as stored.
@@ -70,12 +70,12 @@ func (s *Service) Upsert(ctx context.Context, n Notification, mode UpsertMode) (
 		return Notification{}, "", err
 	}
 	switch {
-	case res.Announced():
+	case res.Announced() && mode != ModeSetQuiet:
 		s.fan.Publish(got.Principal, got)
 		for _, h := range s.hooks {
 			h(got)
 		}
-	case res == ResultUpdated || res == ResultRemoved:
+	case res.Announced() || res == ResultUpdated || res == ResultRemoved:
 		// A hidden row is on nobody's screen.
 		if !got.Hidden {
 			_ = s.changed(got.Principal, nil)
