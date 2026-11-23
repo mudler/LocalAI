@@ -170,6 +170,19 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(end[0].Params["first_error"]).To(ContainSubstring("x.tar"))
 	})
 
+	It("names an add-on by its title and its version, never its id and digest", func() {
+		build("admin")
+		notes := upgraderun.Item{Key: "addon:notes", Kind: upgraderun.KindAddon, Name: "notes", Title: "Notes sync",
+			From: "0.8.1", To: "0.8.2", ExpectedTo: "sha256:bb", Phase: upgraderun.PhaseRolledBack, ErrorKey: "start"}
+		local(runOf("r9", upgraderun.SourceManual, upgraderun.RunFinished, notes))
+		_, end := rows("admin")
+		Expect(end).To(HaveLen(1))
+		Expect(end[0].Params).To(HaveKeyWithValue("first_name", "Notes sync"))
+		Expect(end[0].Params).To(HaveKeyWithValue("first_from", "0.8.1"))
+		Expect(end[0].Body).To(HavePrefix("Notes sync"))
+		Expect(end[0].Body + end[0].Title).NotTo(ContainSubstring("sha256"))
+	})
+
 	It("bounds the error text", func() {
 		build("admin")
 		bad := runItem("a", upgraderun.PhaseFailed, 0)

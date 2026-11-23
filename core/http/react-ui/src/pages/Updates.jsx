@@ -239,7 +239,7 @@ function UpdatesPage({ updates }) {
   // `rows` is a dependency: the names arrive with the lists, which may answer
   // after the run.
   const runItems = useMemo(() => (shownRun && Array.isArray(shownRun.items) ? shownRun.items : [])
-    .map(i => ({ ...i, displayName: (rowsByKey.get(i.key) || {}).name || names.current.get(i.key) || i.name })), [shownRun, rowsByKey])
+    .map(i => ({ ...i, displayName: (rowsByKey.get(i.key) || {}).name || names.current.get(i.key) || i.title || i.name })), [shownRun, rowsByKey])
 
   const body = () => {
     if (updates.loading) return <SkeletonRows count={4} label={t('loading')} testId="updates-loading" />

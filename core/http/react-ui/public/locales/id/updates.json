@@ -415,7 +415,12 @@
       "migratesData": "Data Anda dimigrasikan. Cadangan yang terverifikasi dibuat lebih dulu.",
       "editedKeys_one": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
       "editedKeys_other": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
-      "held": "Versi ini menunggu persetujuan Anda."
+      "held": "Versi ini menunggu persetujuan Anda.",
+      "cluster_one": "Diperbarui di {{count}} node",
+      "cluster_other": "Diperbarui di {{count}} node",
+      "drift_one": "{{count}} node menjalankan build yang berbeda saat ini. Pembaruan membawa setiap node ke build yang baru.",
+      "drift_other": "{{count}} node menjalankan build yang berbeda saat ini. Pembaruan membawa setiap node ke build yang baru.",
+      "configOnly": "Hanya mengubah pengaturan model. Tidak ada yang diunduh."
     },
     "follow": "Tampilkan rangkaian"
   },

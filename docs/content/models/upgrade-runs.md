@@ -33,11 +33,37 @@ update does (for example, a backend update stops the models that use it) and
 whether it can start. Backends and add-ons are selected by default. Models are
 not, because a model upgrade stops the model.
 
-A start request names the items and, for each one, the version or digest the
-caller saw (`expected_to`). The server checks every item before it creates the
-run: the item must be installed, it must have an update, and the update must
-still go to `expected_to`. If one item fails a check, the server refuses the
-whole request and creates no run.
+A start request names the items and, for each one, the `expected_to` of the
+preview. The server checks every item before it creates the run: the item must
+be installed, it must have an update, and the update must still go to
+`expected_to`. If one item fails a check, the server refuses the whole request
+and creates no run.
+
+`from` and `to` are for people: the version, or the digest when there is no
+version. `expected_to` is what the request pins. For a backend and a model it
+is the same as `to`. For an add-on, `from` and `to` are versions and
+`expected_to` is the digest of the candidate release, because a version tag can
+move to other content. An add-on item also has `title`, the name the Add-ons
+page shows.
+
+### Risks
+
+A preview item lists what its update does beyond replacing the item, as
+`risks` (the codes) and `risk` (each code with its numbers). The numbers are
+decimal strings. A risk is listed only when the server knows it:
+
+| Code | Params | Meaning |
+|------|--------|---------|
+| `stops_models` | `count`, `nodes` | `count` loaded models use the backend on `nodes` nodes. They stop while it is replaced. |
+| `cluster` | `nodes` | The backend is replaced on `nodes` nodes. Sent when no loaded model is known to use it. |
+| `drift` | `count` | `count` nodes run a different build of the backend now. The update moves every node to the new build. |
+| `config_only` | | The model update changes only its configuration. Nothing is downloaded. |
+| `migrates_data` | | An add-on update. The owner backs up the data of the add-on first, and the new version can migrate it. |
+
+Only a cluster knows which models run with a backend, so a single server does
+not send `stops_models`, `cluster` or `drift`. Every model update stops the
+model, downloads the changed files and loads the new version as a check; this
+has no risk code.
 
 A held model, or a model whose update changes configuration keys that a
 person edited, is part of the run as `skipped`. A run makes no choice for
@@ -196,7 +222,8 @@ The live item has these params: `run`, `progress` (0 to 100 for the whole run),
 
 The end item has `run`, `total`, `updated`, `failed` and `source`. When
 `failed` is more than zero it also has `first_name`, `first_from` and
-`first_error`.
+`first_error`. `first_name` is the title of an add-on, and `first_from` is the
+version the item is still on (a digest only when there is no version).
 
 ```json
 {"code": "updates.run.end", "key": "updates.run.end.2f0c6a52", "link": "/app/updates?run=2f0c6a52",
@@ -328,7 +355,7 @@ update:
 ```bash
 curl -X POST http://localhost:8080/api/updates/runs/preview \
   -H "Content-Type: application/json" \
-  -d '{"items": [{"kind": "gallery", "name": "kokoro"}, {"kind": "model", "name": "qwen3-8b"}]}'
+  -d '{"items": [{"kind": "gallery", "name": "kokoro"}, {"kind": "model", "name": "qwen3-8b"}, {"kind": "addon", "name": "notes"}]}'
 ```
 
 ```json
@@ -336,14 +363,17 @@ curl -X POST http://localhost:8080/api/updates/runs/preview \
   "items": [
     {"key": "gallery:kokoro", "kind": "gallery", "name": "kokoro", "from": "v1.2.0", "to": "v1.3.0",
      "expected_to": "v1.3.0", "stage": 1, "order": 0, "startable": true,
-     "risks": ["stops_models"], "selected": true,
-     "default_selected": true, "risk": [{"code": "stops_models", "params": {}}]},
+     "risks": ["stops_models"], "selected": true, "default_selected": true,
+     "risk": [{"code": "stops_models", "params": {"count": "2", "nodes": "2"}}]},
     {"key": "model:qwen3-8b", "kind": "model", "name": "qwen3-8b", "from": "sha256:aa", "to": "sha256:bb",
      "expected_to": "sha256:bb", "stage": 2, "order": 1, "startable": true,
-     "risks": ["stops_model", "downloads"], "selected": false,
-     "default_selected": false, "risk": [{"code": "stops_model", "params": {}}, {"code": "downloads", "params": {}}]}
+     "risks": [], "selected": false, "default_selected": false, "risk": []},
+    {"key": "addon:notes", "kind": "addon", "name": "notes", "title": "Notes", "from": "0.8.1", "to": "0.8.2",
+     "expected_to": "sha256:5d1f...", "stage": 3, "order": 2, "startable": true,
+     "risks": ["migrates_data"], "selected": true, "default_selected": true,
+     "risk": [{"code": "migrates_data", "params": {}}]}
   ],
-  "order": ["gallery:kokoro", "model:qwen3-8b"],
+  "order": ["gallery:kokoro", "model:qwen3-8b", "addon:notes"],
   "complete": true
 }
 ```
@@ -377,7 +407,8 @@ curl -X POST http://localhost:8080/api/updates/runs \
 ```
 
 `job_id` is the operation of `/api/operations` that runs the item. `actor` is
-the id of the account that started the run.
+the id of the account that started the run. An add-on item also has `title`,
+and its `expected_to` is the digest it is pinned to. Empty fields are left out.
 
 ## The single upgrade routes
 

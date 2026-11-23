@@ -92,7 +92,9 @@ var _ = Describe("Upgrade run routes", func() {
 			Runs:      func() *upgraderun.Service { return h.Service },
 			Principal: func(c echo.Context) string { return auth.GetUser(c).ID },
 		}, &role)
-		h.Backends.Add(upgraderun.Candidate{Kind: upgraderun.KindGallery, Name: "kokoro", From: "v1", To: "v2", Risks: []string{upgraderun.RiskStopsModels}})
+		kokoro := upgraderun.Candidate{Kind: upgraderun.KindGallery, Name: "kokoro", From: "v1", To: "v2"}
+		kokoro.AddRisk(upgraderun.RiskStopsModels, map[string]string{"count": "2", "nodes": "3"})
+		h.Backends.Add(kokoro)
 		h.Models.Add(upgraderun.Candidate{Kind: upgraderun.KindModel, Name: "qwen", From: "d1", To: "d2"})
 	})
 
@@ -131,7 +133,8 @@ var _ = Describe("Upgrade run routes", func() {
 		Expect(first).To(HaveKeyWithValue("startable", true))
 		Expect(first).To(HaveKeyWithValue("default_selected", true))
 		Expect(first).To(HaveKeyWithValue("selected", true))
-		Expect(first["risk"]).To(Equal([]any{map[string]any{"code": "stops_models", "params": map[string]any{}}}))
+		// The numbers the review words the risk with, from the check.
+		Expect(first["risk"]).To(Equal([]any{map[string]any{"code": "stops_models", "params": map[string]any{"count": "2", "nodes": "3"}}}))
 		Expect(items[1].(map[string]any)).To(HaveKeyWithValue("default_selected", false))
 	})
 

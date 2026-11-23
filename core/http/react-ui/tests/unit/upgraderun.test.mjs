@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   CONFIRM_HEADERS, attentionCount, confirmedPost, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
-  nodePhase, reviewGroups, runKeys, runProgress, startItems, upgradeRunReducer,
+  nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
 
@@ -16,10 +16,10 @@ const runOf = (items, extra = {}) => ({ id: 'r1', source: 'manual', state: 'runn
 
 const preview = {
   items: [
-    { key: 'gallery:kokoro', kind: 'gallery', name: 'kokoro', from: 'v0.3.1', to: 'v0.4.0', startable: true, default_selected: true, risk: [] },
-    { key: 'addon:notes', kind: 'addon', name: 'notes', from: 'v0.8.1', to: 'v0.8.2', startable: true, default_selected: true, risk: [{ code: 'migrates_data' }] },
-    { key: 'model:qwen3-8b', kind: 'model', name: 'qwen3-8b', from: 'sha256:1a', to: 'sha256:9f', startable: true, default_selected: false, risk: [] },
-    { key: 'library:official/piper', kind: 'library', name: 'official/piper', from: 'v1', to: 'v2', startable: false, reason: 'not signed', default_selected: true, risk: [] },
+    { key: 'gallery:kokoro', kind: 'gallery', name: 'kokoro', from: 'v0.3.1', to: 'v0.4.0', expected_to: 'v0.4.0', startable: true, default_selected: true, risk: [] },
+    { key: 'addon:notes', kind: 'addon', name: 'notes', title: 'Notes sync', from: '0.8.1', to: '0.8.2', expected_to: 'sha256:bb22', startable: true, default_selected: true, risk: [{ code: 'migrates_data', params: {} }] },
+    { key: 'model:qwen3-8b', kind: 'model', name: 'qwen3-8b', from: 'sha256:1a', to: 'sha256:9f', expected_to: 'sha256:9f', startable: true, default_selected: false, risk: [] },
+    { key: 'library:official/piper', kind: 'library', name: 'official/piper', from: 'v1', to: 'v2', expected_to: 'v2', startable: false, reason: 'not signed', default_selected: true, risk: [] },
   ],
   // The plan runs backends, then models, then add-ons.
   order: ['gallery:kokoro', 'library:official/piper', 'model:qwen3-8b', 'addon:notes'],
@@ -57,12 +57,12 @@ test('upgrade run: select all, select none and a toggle; an item that cannot sta
   assert.deepEqual(s.review.selected, ['gallery:kokoro'])
 })
 
-test('upgrade run: the start body follows the order of the plan and pins the version the review showed', () => {
+test('upgrade run: the start body follows the order of the plan and sends back the pin of each item (an add-on\'s digest, not its version)', () => {
   let s = reduce([{ type: 'reviewOpen' }, { type: 'reviewReady', preview }, { type: 'selectAll' }])
   assert.deepEqual(startItems(s.review), [
     { kind: 'gallery', name: 'kokoro', expected_to: 'v0.4.0' },
     { kind: 'model', name: 'qwen3-8b', expected_to: 'sha256:9f' },
-    { kind: 'addon', name: 'notes', expected_to: 'v0.8.2' },
+    { kind: 'addon', name: 'notes', expected_to: 'sha256:bb22' },
   ])
   s = upgradeRunReducer(s, { type: 'selectNone' })
   assert.deepEqual(startItems(s.review), [])
@@ -230,4 +230,52 @@ test('upgrade run: the status of a node reads as a phase of the run, with words 
     for (const status of statuses) assert.ok(updates.run.phase[nodePhase({ phase: status })], `${locale}: run.phase for node status ${status}`)
     assert.ok(operate.activity.node.rolledBack && operate.activity.node.unconfirmed, `${locale}: the operation card words a rolled-back and an unconfirmed node`)
   }
+})
+
+// ---- The risk lines of the review --------------------------------------------------
+
+async function updatesT(lng) {
+  const resources = {}
+  for (const l of ['en', lng]) resources[l] = { updates: JSON.parse(readFileSync(new URL(`../../public/locales/${l}/updates.json`, import.meta.url), 'utf8')) }
+  const i = i18next.createInstance()
+  await i.init({ lng, fallbackLng: 'en', resources, defaultNS: 'updates', ns: ['updates'], interpolation: { escapeValue: false }, initAsync: false })
+  return i.t.bind(i)
+}
+
+// Every risk code the server sends (core/services/upgraderun/planner.go), with
+// the params it sends: decimal strings.
+const SERVER_RISKS = [
+  { code: 'stops_models', params: { count: '2', nodes: '2' } },
+  { code: 'stops_models', params: { count: '1', nodes: '1' } },
+  { code: 'cluster', params: { nodes: '3' } },
+  { code: 'drift', params: { count: '1' } },
+  { code: 'config_only', params: {} },
+  { code: 'migrates_data', params: {} },
+]
+
+test('risk lines: every code the server sends has words in every locale, with its numbers', async () => {
+  const en = await updatesT('en')
+  assert.equal(riskText(SERVER_RISKS[0], en), 'Stops 2 loaded models on 2 nodes while it switches')
+  assert.equal(riskText(SERVER_RISKS[1], en), 'Stops 1 loaded model while it switches')
+  assert.equal(riskText(SERVER_RISKS[2], en), 'Updates on 3 nodes')
+  assert.equal(riskText(SERVER_RISKS[3], en), '1 node runs a different build now. The update moves every node to the new one.')
+  assert.equal(riskText(SERVER_RISKS[4], en), "Changes only the model's settings. Nothing is downloaded.")
+  assert.equal(riskText(SERVER_RISKS[5], en), 'Your data is migrated. A verified backup is taken first.')
+  for (const l of LOCALES) {
+    const t = await updatesT(l)
+    for (const r of SERVER_RISKS) {
+      const words = riskText(r, t)
+      assert.ok(words && !words.startsWith('review.') && !words.includes('{{'), `${l} ${r.code}: ${words}`)
+    }
+  }
+})
+
+test('risk lines: no line when there is nothing to say, never a zero or a guess', async () => {
+  const en = await updatesT('en')
+  assert.equal(riskText({ code: 'stops_models', params: {} }, en), '', 'no count: nothing is known to stop')
+  assert.equal(riskText({ code: 'stops_models', params: { count: '0', nodes: '3' } }, en), '')
+  assert.equal(riskText({ code: 'cluster', params: { nodes: '1' } }, en), '')
+  assert.equal(riskText({ code: 'drift', params: {} }, en), '')
+  assert.equal(riskText({ code: 'future_code', params: {} }, en), '')
+  assert.equal(riskText(null, en), '')
 })

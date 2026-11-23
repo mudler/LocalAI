@@ -17,7 +17,7 @@ func toRecords(r Run, runner string) (*distributed.UpgradeRunRecord, []distribut
 	items := make([]distributed.UpgradeRunItemRecord, len(r.Items))
 	for i, it := range r.Items {
 		items[i] = distributed.UpgradeRunItemRecord{
-			RunID: r.ID, Key: it.Key, Position: i, Kind: string(it.Kind), Name: it.Name,
+			RunID: r.ID, Key: it.Key, Position: i, Kind: string(it.Kind), Name: it.Name, Title: it.Title,
 			From: it.From, To: it.To, ExpectedTo: it.ExpectedTo, Phase: string(it.Phase), Message: it.Message,
 			ErrorKey: it.ErrorKey, Error: it.Error, Retryable: it.Retryable, JobID: it.JobID,
 			QueuedReason: it.QueuedReason, Verifying: it.Verifying, CancelWanted: it.CancelWanted, CancelSent: it.CancelSent,
@@ -45,7 +45,7 @@ func fromRecords(rec *distributed.UpgradeRunRecord, items []distributed.UpgradeR
 	}
 	for _, ir := range items {
 		it := Item{
-			Key: ir.Key, Kind: Kind(ir.Kind), Name: ir.Name, From: ir.From, To: ir.To, ExpectedTo: ir.ExpectedTo,
+			Key: ir.Key, Kind: Kind(ir.Kind), Name: ir.Name, Title: ir.Title, From: ir.From, To: ir.To, ExpectedTo: ir.ExpectedTo,
 			Phase: Phase(ir.Phase), Message: ir.Message, ErrorKey: ir.ErrorKey, Error: ir.Error, Retryable: ir.Retryable,
 			JobID: ir.JobID, QueuedReason: ir.QueuedReason, Verifying: ir.Verifying, CancelWanted: ir.CancelWanted, CancelSent: ir.CancelSent,
 		}

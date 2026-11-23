@@ -415,7 +415,12 @@
       "migratesData": "Ihre Daten werden migriert. Vorher wird eine geprüfte Sicherung erstellt.",
       "editedKeys_one": "Sie haben {{count}} Einstellung dieses Modells geändert. Wählen Sie mit „{{action}}“ in seiner Zeile, was bleibt.",
       "editedKeys_other": "Sie haben {{count}} Einstellungen dieses Modells geändert. Wählen Sie mit „{{action}}“ in seiner Zeile, was bleibt.",
-      "held": "Diese Version wartet auf Ihre Freigabe."
+      "held": "Diese Version wartet auf Ihre Freigabe.",
+      "cluster_one": "Aktualisiert auf {{count}} Knoten",
+      "cluster_other": "Aktualisiert auf {{count}} Knoten",
+      "drift_one": "{{count}} Knoten hat gerade einen anderen Build. Das Update bringt jeden Knoten auf den neuen.",
+      "drift_other": "{{count}} Knoten haben gerade einen anderen Build. Das Update bringt jeden Knoten auf den neuen.",
+      "configOnly": "Ändert nur die Einstellungen des Modells. Es wird nichts heruntergeladen."
     },
     "follow": "Lauf anzeigen"
   },

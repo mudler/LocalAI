@@ -415,7 +415,12 @@
       "migratesData": "Sus datos se migran. Antes se hace una copia de seguridad verificada.",
       "editedKeys_one": "Editó {{count}} ajuste de este modelo. Use {{action}} en su fila para elegir qué conservar.",
       "editedKeys_other": "Editó {{count}} ajustes de este modelo. Use {{action}} en su fila para elegir qué conservar.",
-      "held": "Esta versión espera su aprobación."
+      "held": "Esta versión espera su aprobación.",
+      "cluster_one": "Se actualiza en {{count}} nodo",
+      "cluster_other": "Se actualiza en {{count}} nodos",
+      "drift_one": "{{count}} nodo tiene ahora otra compilación. La actualización lleva cada nodo a la nueva.",
+      "drift_other": "{{count}} nodos tienen ahora otra compilación. La actualización lleva cada nodo a la nueva.",
+      "configOnly": "Solo cambia los ajustes del modelo. No se descarga nada."
     },
     "follow": "Ver la tanda"
   },

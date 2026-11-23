@@ -369,7 +369,7 @@ func (s *Service) precheck(ctx context.Context, it Item) (Event, bool) {
 		if cand.Key() != it.Key {
 			continue
 		}
-		if it.ExpectedTo != "" && cand.To != it.ExpectedTo {
+		if it.ExpectedTo != "" && cand.pin() != it.ExpectedTo {
 			return ItemStartFailed{Key: it.Key, ErrorKey: ErrKeyStale, Retryable: true,
 				Error: fmt.Sprintf("the update moved to %q since the run was requested", cand.To)}, true
 		}
@@ -412,7 +412,7 @@ func (s *Service) verify(ctx context.Context, it Item) VerifyResult {
 			}
 			// Listed with another target: the item moved to what the run
 			// asked for and a newer release came out since.
-			listed = it.ExpectedTo == "" || cand.To == it.ExpectedTo
+			listed = it.ExpectedTo == "" || cand.pin() == it.ExpectedTo
 		}
 		if !listed {
 			return VerifyGone

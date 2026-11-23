@@ -415,7 +415,12 @@
       "migratesData": "I tuoi dati vengono migrati. Prima viene fatto un backup verificato.",
       "editedKeys_one": "Hai modificato {{count}} impostazione di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
       "editedKeys_other": "Hai modificato {{count}} impostazioni di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
-      "held": "Questa versione attende la tua approvazione."
+      "held": "Questa versione attende la tua approvazione.",
+      "cluster_one": "Si aggiorna su {{count}} nodo",
+      "cluster_other": "Si aggiorna su {{count}} nodi",
+      "drift_one": "{{count}} nodo ha ora una build diversa. L’aggiornamento porta ogni nodo alla nuova.",
+      "drift_other": "{{count}} nodi hanno ora una build diversa. L’aggiornamento porta ogni nodo alla nuova.",
+      "configOnly": "Cambia solo le impostazioni del modello. Non viene scaricato nulla."
     },
     "follow": "Mostra la serie"
   },

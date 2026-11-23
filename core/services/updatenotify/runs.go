@@ -307,14 +307,14 @@ func (e *Emitter) runEnd(ctx context.Context, run upgraderun.Run) error {
 		errText := runItemError(first)
 		n.Kind, n.Status = notify.KindNeedsAttention, notify.StatusFailed
 		n.Title += fmt.Sprintf(", %d need attention", len(attention))
-		n.Body = first.Name
+		n.Body = first.DisplayName()
 		if errText != "" {
 			n.Body += ": " + errText
 		}
 		if len(attention) > 1 {
 			n.Body += fmt.Sprintf(" and %d more", len(attention)-1)
 		}
-		n.Params["first_name"] = oneLine(first.Name, 80)
+		n.Params["first_name"] = oneLine(first.DisplayName(), 80)
 		n.Params["first_from"] = oneLine(first.From, 80)
 		n.Params["first_error"] = errText
 	}

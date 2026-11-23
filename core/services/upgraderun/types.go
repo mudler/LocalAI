@@ -149,11 +149,17 @@ type Item struct {
 	Key  string `json:"key"`
 	Kind Kind   `json:"kind"`
 	Name string `json:"name"`
+	// Title is the name a person knows the item by (an add-on's title);
+	// empty when it is Name.
+	Title string `json:"title,omitempty"`
+	// From and To are the versions for display: the version, or the digest
+	// when there is no version.
 	From string `json:"from,omitempty"`
 	To   string `json:"to,omitempty"`
 	// ExpectedTo is the version or digest the item had to move to when the
-	// run was requested. A later change of the target fails the item as
-	// stale instead of installing something nobody looked at.
+	// run was requested (for an add-on the digest of its candidate). A later
+	// change of the target fails the item as stale instead of installing
+	// something nobody looked at.
 	ExpectedTo  string      `json:"expected_to,omitempty"`
 	Phase       Phase       `json:"phase"`
 	Progress    int         `json:"progress"`
@@ -179,6 +185,14 @@ type Item struct {
 	// Extra carries what a job path needs beyond the target, such as the
 	// installed digest of an add-on. It is stored with the item.
 	Extra map[string]string `json:"-"`
+}
+
+// DisplayName is the name a person knows the item by.
+func (it *Item) DisplayName() string {
+	if it.Title != "" {
+		return it.Title
+	}
+	return it.Name
 }
 
 // Busy reports whether the item holds a slot: it was started and has not

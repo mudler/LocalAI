@@ -280,8 +280,12 @@ var _ = Describe("add-on items of upgrade runs on a frontend that is not the own
 		Expect(plan.Items).To(HaveLen(1))
 		item := plan.Items[0]
 		Expect(item.Key).To(Equal("addon:notes"))
-		Expect(item.From).To(Equal(before))
+		// A person reads versions; the request pins the digest.
+		Expect(item.From).To(Equal("1.0.0-dev"))
+		Expect(item.To).To(Equal(next.Version))
+		Expect(item.Title).NotTo(BeEmpty())
 		Expect(item.ExpectedTo).To(Equal(next.Digest))
+		Expect(item.ExpectedTo).NotTo(Equal(before))
 		Expect(item.Startable).To(BeTrue())
 
 		// A run with no add-on identity cannot list add-ons: the kind is

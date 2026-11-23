@@ -43,7 +43,7 @@ func upgradeRunOf(r upgraderun.Run) localaitools.UpgradeRun {
 	}
 	for _, it := range r.Items {
 		out.Items = append(out.Items, localaitools.UpgradeRunItem{
-			Key: it.Key, Kind: string(it.Kind), Name: it.Name, From: it.From, To: it.To,
+			Key: it.Key, Kind: string(it.Kind), Name: it.Name, Title: it.Title, From: it.From, To: it.To,
 			Phase: string(it.Phase), Progress: it.Progress, Message: it.Message,
 			ErrorKey: it.ErrorKey, Error: it.Error, JobID: it.JobID, QueuedReason: it.QueuedReason,
 			Cancellable: it.Cancellable, Retryable: it.Retryable,

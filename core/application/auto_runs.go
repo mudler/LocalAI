@@ -283,14 +283,11 @@ func (c ownerAddonChecker) List(ctx context.Context, fresh bool) (upgraderun.Lis
 		if st.State != addonupdates.UpdateAvailable || st.InstalledDigest == "" || st.CandidateDigest == "" {
 			continue
 		}
-		l.Candidates = append(l.Candidates, upgraderun.Candidate{
-			Kind: upgraderun.KindAddon, Name: st.AddonID,
-			From: st.InstalledDigest, To: st.CandidateDigest, Risks: []string{},
-			Extra: map[string]string{
-				upgraderun.ExtraExpectedDigest:  st.InstalledDigest,
-				upgraderun.ExtraCandidateDigest: st.CandidateDigest,
-			},
-		})
+		l.Candidates = append(l.Candidates, upgraderun.AddonCandidate(upgraderun.AddonVersions{
+			ID:               st.AddonID,
+			InstalledVersion: st.InstalledVersion, InstalledDigest: st.InstalledDigest,
+			CandidateVersion: st.CandidateVersion, CandidateDigest: st.CandidateDigest,
+		}))
 	}
 	return l, nil
 }

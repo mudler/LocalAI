@@ -415,7 +415,12 @@
       "migratesData": "Your data is migrated. A verified backup is taken first.",
       "editedKeys_one": "You edited {{count}} setting of this model. Use {{action}} on its row to choose what to keep.",
       "editedKeys_other": "You edited {{count}} settings of this model. Use {{action}} on its row to choose what to keep.",
-      "held": "This version waits for your approval."
+      "held": "This version waits for your approval.",
+      "cluster_one": "Updates on {{count}} node",
+      "cluster_other": "Updates on {{count}} nodes",
+      "drift_one": "{{count}} node runs a different build now. The update moves every node to the new one.",
+      "drift_other": "{{count}} nodes run a different build now. The update moves every node to the new one.",
+      "configOnly": "Changes only the model's settings. Nothing is downloaded."
     },
     "follow": "Show the run"
   },

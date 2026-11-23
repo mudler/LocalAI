@@ -958,6 +958,7 @@ type UpgradeRunItem struct {
 	Key          string `json:"key"`
 	Kind         string `json:"kind"`
 	Name         string `json:"name"`
+	Title        string `json:"title,omitempty"`
 	From         string `json:"from,omitempty"`
 	To           string `json:"to,omitempty"`
 	Phase        string `json:"phase"`

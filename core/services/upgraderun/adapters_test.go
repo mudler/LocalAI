@@ -107,6 +107,22 @@ func (f *fakeStatusWriter) get(id string) galleryop.OpStatus {
 var _ = Describe("Checkers", func() {
 	ctx := context.Background()
 
+	It("builds an add-on candidate that shows versions and pins the candidate digest", func() {
+		c := AddonCandidate(AddonVersions{ID: "notes", Title: "Notes sync",
+			InstalledVersion: "0.8.1", InstalledDigest: "sha256:aa", CandidateVersion: "0.8.2", CandidateDigest: "sha256:bb"})
+		Expect(c.Key()).To(Equal("addon:notes"))
+		Expect(c.Title).To(Equal("Notes sync"))
+		Expect([]string{c.From, c.To, c.Pin}).To(Equal([]string{"0.8.1", "0.8.2", "sha256:bb"}))
+		Expect(c.Extra).To(Equal(map[string]string{ExtraExpectedDigest: "sha256:aa", ExtraCandidateDigest: "sha256:bb"}))
+		// Every add-on upgrade takes a backup and lets the new version
+		// migrate the data.
+		Expect(c.Risks).To(ConsistOf(RiskMigratesData))
+
+		// Without versions the digests are all there is to show.
+		c = AddonCandidate(AddonVersions{ID: "notes", InstalledDigest: "sha256:aa", CandidateDigest: "sha256:bb"})
+		Expect([]string{c.From, c.To, c.Pin}).To(Equal([]string{"sha256:aa", "sha256:bb", "sha256:bb"}))
+	})
+
 	It("lists gallery and library backends with their target, risks and the freshness of the sources", func() {
 		snap := backendupdates.Snapshot{
 			Sources: map[string]backendupdates.Source{"gallery": {State: backendupdates.StateOK}, "library": {State: backendupdates.StateDisabled}},
@@ -114,6 +130,10 @@ var _ = Describe("Checkers", func() {
 				{Kind: backendupdates.KindGallery, Name: "kokoro", InstalledVersion: "1", AvailableVersion: "2",
 					Nodes: []backendupdates.Node{{NodeID: "n1", Models: []string{"tts"}}}, DriftNodes: 1},
 				{Kind: backendupdates.KindGallery, Name: "digest-only", InstalledDigest: "sha256:a", AvailableDigest: "sha256:b"},
+				{Kind: backendupdates.KindGallery, Name: "llama-cpp", InstalledVersion: "0.9.4", AvailableVersion: "0.9.7", Nodes: []backendupdates.Node{
+					{NodeID: "a", Models: []string{"qwen3-8b"}}, {NodeID: "b", Models: []string{"llama-3.2-3b"}}, {NodeID: "c"}}},
+				{Kind: backendupdates.KindGallery, Name: "piper", InstalledVersion: "1.2.0", AvailableVersion: "1.3.1", Nodes: []backendupdates.Node{
+					{NodeID: "a"}, {NodeID: "b"}}},
 				{Kind: backendupdates.KindLibrary, Name: "whisper", SourceID: "lib", InstalledVersion: "0.1", AvailableVersion: "0.2"},
 			},
 		}
@@ -131,7 +151,19 @@ var _ = Describe("Checkers", func() {
 			byKey[cand.Key()] = cand
 		}
 		Expect(byKey["gallery:kokoro"].To).To(Equal("2"))
-		Expect(byKey["gallery:kokoro"].Risks).To(ConsistOf(RiskCluster, RiskStopsModels, RiskDrift))
+		// The cluster knows the models that stop and how many nodes they
+		// run on; the review says so with these numbers.
+		Expect(byKey["gallery:kokoro"].Risks).To(ConsistOf(RiskStopsModels, RiskDrift))
+		Expect(byKey["gallery:kokoro"].RiskParams).To(Equal(map[string]map[string]string{
+			RiskStopsModels: {"count": "1", "nodes": "1"}, RiskDrift: {"count": "1"},
+		}))
+		Expect(byKey["gallery:llama-cpp"].Risks).To(ConsistOf(RiskStopsModels))
+		Expect(byKey["gallery:llama-cpp"].RiskParams[RiskStopsModels]).To(Equal(map[string]string{"count": "2", "nodes": "2"}))
+		// No model is known to stop: the line says the nodes it is replaced on.
+		Expect(byKey["gallery:piper"].Risks).To(ConsistOf(RiskCluster))
+		Expect(byKey["gallery:piper"].RiskParams[RiskCluster]).To(Equal(map[string]string{"nodes": "2"}))
+		// A standalone server reports no nodes, so it claims nothing.
+		Expect(byKey["gallery:digest-only"].Risks).To(BeEmpty())
 		Expect(byKey["gallery:digest-only"].To).To(Equal("sha256:b"))
 		Expect(byKey["gallery:digest-only"].From).To(Equal("sha256:a"))
 		lib := byKey["library:lib/whisper"]
@@ -170,11 +202,13 @@ var _ = Describe("Checkers", func() {
 			byKey[cand.Key()] = cand
 		}
 		Expect(byKey).To(HaveLen(4))
-		Expect(byKey["model:up"].Risks).To(ConsistOf(RiskStopsModel, RiskConfigOnly))
+		// Every model update reloads the model and downloads its files: only
+		// a config-only update has a line of its own.
+		Expect(byKey["model:up"].Risks).To(ConsistOf(RiskConfigOnly))
 		Expect(byKey["model:held-moved"].Held).To(BeTrue())
 		Expect(byKey["model:edited"].EditedKeys).To(Equal([]string{"x"}))
 		Expect(byKey["model:failed"].Extra[ExtraRetry]).To(Equal("true"))
-		Expect(byKey["model:failed"].Risks).To(ContainElement(RiskDownloads))
+		Expect(byKey["model:failed"].Risks).To(BeEmpty())
 	})
 })
 

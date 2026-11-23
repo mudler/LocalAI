@@ -9,10 +9,17 @@ import (
 type Candidate struct {
 	Kind Kind
 	Name string
+	// Title is the name a person knows the item by, when it is not Name (an
+	// add-on's title). Empty uses Name.
+	Title string
+	// From and To are what the item is on and moves to, as a person reads
+	// them: the version, or the digest when there is no version.
 	From string
-	// To is the version or digest the update moves to. It is what a request
-	// pins as expected_to.
-	To string
+	To   string
+	// Pin is what a request pins as expected_to and what the checks compare:
+	// the digest of an add-on, whose versions are only for display. Empty
+	// pins To.
+	Pin string
 	// Held is a model the owner holds at its version.
 	Held bool
 	// EditedKeys are keys a person edited that the update also changes; the
@@ -23,12 +30,34 @@ type Candidate struct {
 	Blocked string
 	// Risks are what the update does beyond replacing the item.
 	Risks []string
+	// RiskParams are the numbers of a risk, by code (stops_models: count
+	// and nodes). A risk with no entry has none.
+	RiskParams map[string]map[string]string
 	// Extra is handed to the job path of the item (see Item.Extra).
 	Extra map[string]string
 }
 
 // Key is the key of the item the candidate updates.
 func (c Candidate) Key() string { return Key(c.Kind, c.Name) }
+
+// AddRisk adds a risk with its numbers.
+func (c *Candidate) AddRisk(code string, params map[string]string) {
+	c.Risks = append(c.Risks, code)
+	if len(params) > 0 {
+		if c.RiskParams == nil {
+			c.RiskParams = map[string]map[string]string{}
+		}
+		c.RiskParams[code] = params
+	}
+}
+
+// pin is what a request must name as expected_to for this candidate.
+func (c Candidate) pin() string {
+	if c.Pin != "" {
+		return c.Pin
+	}
+	return c.To
+}
 
 // Listing is the answer of a check.
 type Listing struct {
@@ -53,22 +82,27 @@ type Checker interface {
 	List(ctx context.Context, fresh bool) (Listing, error)
 }
 
-// Risk codes of a plan item.
+// Risk codes of a plan item. The UI has words for each of them; a risk is
+// listed only when the server knows it, never as a guess.
 const (
 	// RiskStopsModels: models loaded with this backend stop while it is
-	// replaced.
+	// replaced. Params: count (the models), nodes (the nodes they run on).
+	// Only the cluster knows which models run with which backend, so a
+	// standalone server does not send it.
 	RiskStopsModels = "stops_models"
 	// RiskCluster: the backend is replaced on every node that has it.
+	// Params: nodes. Sent for a backend on more than one node when no model
+	// is known to stop (stops_models then says it).
 	RiskCluster = "cluster"
-	// RiskDrift: the nodes do not agree on the build now.
+	// RiskDrift: the nodes do not run the same build now; the update moves
+	// each of them. Params: count (the nodes that differ).
 	RiskDrift = "drift"
-	// RiskStopsModel: the model stops while it is switched, and is loaded
-	// again as a check.
-	RiskStopsModel = "stops_model"
-	// RiskDownloads: the update downloads files.
-	RiskDownloads = "downloads"
-	// RiskConfigOnly: the update changes only the config of the model.
+	// RiskConfigOnly: the update changes only the config of the model, so
+	// nothing is downloaded.
 	RiskConfigOnly = "config_only"
+	// RiskMigratesData: the add-on is backed up, and the new version may
+	// migrate its data when it starts.
+	RiskMigratesData = "migrates_data"
 )
 
 // Reasons why a plan item cannot start.
@@ -108,9 +142,13 @@ type PlanItem struct {
 	Key  string `json:"key"`
 	Kind Kind   `json:"kind"`
 	Name string `json:"name"`
+	// Title is the name a person knows the item by (an add-on's title).
+	Title string `json:"title,omitempty"`
+	// From and To are the versions for display.
 	From string `json:"from,omitempty"`
 	To   string `json:"to,omitempty"`
-	// ExpectedTo is what a start request should send back as expected_to.
+	// ExpectedTo is what a start request should send back as expected_to:
+	// the version, or for an add-on the digest of the candidate.
 	ExpectedTo string `json:"expected_to,omitempty"`
 	Stage      int    `json:"stage"`
 	// Order is the position in the run, from 0.
@@ -119,6 +157,8 @@ type PlanItem struct {
 	Reason    string `json:"reason,omitempty"`
 	// Risks are what the update does beyond replacing the item.
 	Risks []string `json:"risks"`
+	// RiskParams are the numbers of each risk (see Candidate.RiskParams).
+	RiskParams map[string]map[string]string `json:"-"`
 	// Selected is the default selection: backends and add-ons, not models.
 	Selected bool `json:"selected"`
 }
@@ -203,8 +243,8 @@ func BuildPlan(cands []Candidate, refs []ItemRef, busy map[string]bool) Plan {
 	plan := Plan{Items: []PlanItem{}}
 	for _, c := range chosen {
 		pi := PlanItem{
-			Key: c.Key(), Kind: c.Kind, Name: c.Name, From: c.From, To: c.To, ExpectedTo: c.To,
-			Stage: StageOf(c.Kind), Startable: true, Risks: append([]string{}, c.Risks...),
+			Key: c.Key(), Kind: c.Kind, Name: c.Name, Title: c.Title, From: c.From, To: c.To, ExpectedTo: c.pin(),
+			Stage: StageOf(c.Kind), Startable: true, Risks: append([]string{}, c.Risks...), RiskParams: c.RiskParams,
 		}
 		switch {
 		case c.Blocked != "":
@@ -278,17 +318,17 @@ func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]
 		if c.Blocked != "" {
 			return nil, refuse(CodeNoUpdate, k, "the item cannot be updated on this server: %s", c.Blocked)
 		}
-		if si.ExpectedTo != "" && si.ExpectedTo != c.To {
+		if si.ExpectedTo != "" && si.ExpectedTo != c.pin() {
 			return nil, refuse(CodeStale, k, "the update moved to %q since it was shown", c.To)
 		}
-		expected[k] = c.To
+		expected[k] = c.pin()
 		chosen = append(chosen, c)
 	}
 	sortCandidates(chosen)
 	items := make([]Item, 0, len(chosen))
 	for _, c := range chosen {
 		it := Item{
-			Key: c.Key(), Kind: c.Kind, Name: c.Name, From: c.From, To: c.To, ExpectedTo: expected[c.Key()],
+			Key: c.Key(), Kind: c.Kind, Name: c.Name, Title: c.Title, From: c.From, To: c.To, ExpectedTo: expected[c.Key()],
 			Phase: PhaseQueued, Extra: c.Extra,
 		}
 		switch skipReason(c) {

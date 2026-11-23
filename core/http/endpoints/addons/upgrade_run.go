@@ -361,6 +361,7 @@ func (c GatewayUpdateChecker) List(ctx context.Context, fresh bool) (upgraderun.
 	var installed struct {
 		Addons []struct {
 			ID       string `json:"id"`
+			Title    string `json:"title"`
 			SourceID string `json:"sourceId"`
 		} `json:"addons"`
 	}
@@ -394,14 +395,11 @@ func (c GatewayUpdateChecker) List(ctx context.Context, fresh bool) (upgraderun.
 		if st.State != updates.UpdateAvailable || st.InstalledDigest == "" || st.CandidateDigest == "" {
 			continue
 		}
-		l.Candidates = append(l.Candidates, upgraderun.Candidate{
-			Kind: upgraderun.KindAddon, Name: in.ID,
-			From: st.InstalledDigest, To: st.CandidateDigest, Risks: []string{},
-			Extra: map[string]string{
-				upgraderun.ExtraExpectedDigest:  st.InstalledDigest,
-				upgraderun.ExtraCandidateDigest: st.CandidateDigest,
-			},
-		})
+		l.Candidates = append(l.Candidates, upgraderun.AddonCandidate(upgraderun.AddonVersions{
+			ID: in.ID, Title: in.Title,
+			InstalledVersion: st.InstalledVersion, InstalledDigest: st.InstalledDigest,
+			CandidateVersion: st.CandidateVersion, CandidateDigest: st.CandidateDigest,
+		}))
 	}
 	return l, nil
 }

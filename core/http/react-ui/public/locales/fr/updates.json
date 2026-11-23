@@ -415,7 +415,12 @@
       "migratesData": "Vos données sont migrées. Une sauvegarde vérifiée est faite d’abord.",
       "editedKeys_one": "Vous avez modifié {{count}} réglage de ce modèle. Utilisez {{action}} sur sa ligne pour choisir quoi garder.",
       "editedKeys_other": "Vous avez modifié {{count}} réglages de ce modèle. Utilisez {{action}} sur sa ligne pour choisir quoi garder.",
-      "held": "Cette version attend votre approbation."
+      "held": "Cette version attend votre approbation.",
+      "cluster_one": "Mis à jour sur {{count}} nœud",
+      "cluster_other": "Mis à jour sur {{count}} nœuds",
+      "drift_one": "{{count}} nœud a une autre version en ce moment. La mise à jour amène chaque nœud à la nouvelle.",
+      "drift_other": "{{count}} nœuds ont une autre version en ce moment. La mise à jour amène chaque nœud à la nouvelle.",
+      "configOnly": "Ne change que les réglages du modèle. Rien n’est téléchargé."
     },
     "follow": "Voir la série"
   },

@@ -133,7 +133,9 @@ export function defaultSelection(items) {
 export const startableKeys = (items) => (items || []).filter(i => i.startable).map(i => i.key)
 
 // The body of POST /api/updates/runs: the selected items that can start, in
-// the order of the plan, each pinned to the version the review showed.
+// the order of the plan, each pinned to what the plan says to send back
+// (expected_to): the version the review showed, or for an add-on the digest
+// of its candidate, whose version is only for display.
 export function startItems(review) {
   if (!review || !Array.isArray(review.items)) return []
   const byKey = new Map(review.items.map(i => [i.key, i]))
@@ -142,7 +144,41 @@ export function startItems(review) {
   return order
     .map(k => byKey.get(k))
     .filter(i => i && i.startable && selected.has(i.key))
-    .map(i => ({ kind: i.kind, name: i.name, expected_to: i.to }))
+    .map(i => ({ kind: i.kind, name: i.name, expected_to: i.expected_to || i.to }))
+}
+
+// The words of one risk the server named for an item (the risk of a preview
+// item: { code, params }, the numbers of params as decimal strings). Every code
+// the server sends has words:
+//   stops_models  { count, nodes }  models loaded with the backend stop
+//   cluster       { nodes }         the backend is replaced on that many nodes
+//   drift         { count }         that many nodes run another build now
+//   config_only                     only the model's settings change
+//   migrates_data                   the add-on is backed up and may migrate
+// A risk with nothing to say (no model stops) and a code this build does not
+// know say nothing. `t` is the translator of the updates namespace.
+export function riskText(risk, t) {
+  const p = (risk && risk.params) || {}
+  const num = (v) => {
+    const n = Number(v)
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : 0
+  }
+  switch (risk && risk.code) {
+    case 'stops_models': {
+      const count = num(p.count)
+      if (!count) return ''
+      return num(p.nodes) > 1
+        ? t('review.risk.stopsModelsNodes', { count, nodes: num(p.nodes) })
+        : t('review.risk.stopsModels', { count })
+    }
+    case 'cluster': return num(p.nodes) > 1 ? t('review.risk.cluster', { count: num(p.nodes) }) : ''
+    case 'drift': return num(p.count) ? t('review.risk.drift', { count: num(p.count) }) : ''
+    case 'config_only': return t('review.risk.configOnly')
+    case 'migrates_data': return t('review.risk.migratesData')
+    case 'edited_keys': return t('review.risk.editedKeys', { count: num(p.count), action: t('model.action.upgrade') })
+    case 'held': return t('review.risk.held')
+    default: return ''
+  }
 }
 
 // ---- The state of the hook -----------------------------------------------------

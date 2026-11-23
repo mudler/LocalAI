@@ -131,10 +131,17 @@ reviews that row only. The server makes the plan of the review:
 
 - The items are grouped by kind: backends, add-ons and models. Each item has a
   checkbox and its versions.
-- An item shows a risk line only when the server knows the risk: the loaded
-  models that stop while a backend switches (with the number of nodes in a
-  cluster), the data of an add-on that is migrated after a verified backup, or
-  the settings of a model that you edited.
+- An item shows a risk line only when the server knows the risk. In a
+  cluster, a backend says how many loaded models stop while it switches and on
+  how many nodes ("Stops 2 loaded models on 2 nodes while it switches"). When
+  no loaded model is known to use it, it says on how many nodes it is replaced,
+  and when the nodes run different builds now, it says so. A single server does
+  not know which models use a backend, so its backends have no such line. An
+  add-on says that its data is backed up and migrated. A model update that
+  changes only the settings says that nothing is downloaded. See
+  [Risks]({{% relref "/models/upgrade-runs#risks" %}}).
+- The versions are the versions you know: an add-on shows "0.8.1 to 0.8.2",
+  and the run pins the exact release the review showed.
 - Models start unselected, because an update reloads a model. **Select all**,
   **Select none** and the count ("6 of 8 selected") are at the top.
 - An item that cannot start (for example a held add-on) shows the reason and

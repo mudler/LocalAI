@@ -56,6 +56,41 @@ var _ = Describe("Service", func() {
 			Expect(byKey["model:qwen3-8b"].Order).To(Equal(4))
 		})
 
+		It("shows the versions and the title of an add-on, and pins the digest of its candidate", func() {
+			h.addons.add(AddonCandidate(AddonVersions{ID: "notes", Title: "Notes sync",
+				InstalledVersion: "0.8.1", InstalledDigest: "sha256:aa", CandidateVersion: "0.8.2", CandidateDigest: "sha256:bb"}))
+			plan, err := h.svc.Preview(ctx, "admin", nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan.Items).To(HaveLen(1))
+			it := plan.Items[0]
+			Expect(it.Title).To(Equal("Notes sync"))
+			Expect(it.From).To(Equal("0.8.1"))
+			Expect(it.To).To(Equal("0.8.2"))
+			Expect(it.ExpectedTo).To(Equal("sha256:bb"), "a request pins the digest, not the version")
+
+			// The version is not the pin: a version tag that moved to other
+			// content would otherwise pass.
+			_, err = h.svc.Start(ctx, "admin", StartRequest{Items: []StartItem{{Kind: KindAddon, Name: "notes", ExpectedTo: "0.8.2"}}})
+			Expect(CodeOf(err)).To(Equal(CodeStale))
+
+			run := h.start(StartItem{Kind: KindAddon, Name: "notes", ExpectedTo: "sha256:bb"})
+			item := run.Item("addon:notes")
+			Expect(item.From).To(Equal("0.8.1"))
+			Expect(item.To).To(Equal("0.8.2"))
+			Expect(item.ExpectedTo).To(Equal("sha256:bb"))
+			Expect(item.DisplayName()).To(Equal("Notes sync"))
+			_, rows, err := h.store.Get(run.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rows[0].Title).To(Equal("Notes sync"), "the title is stored with the item")
+
+			// The fresh check after the job compares the digest too: the
+			// add-on is updated once the check no longer lists that digest.
+			job := h.jobOf("addon:notes")
+			h.addons.remove("addon:notes")
+			h.jobs.complete(job)
+			Eventually(func() Phase { return h.phase(run.ID, "addon:notes") }).Should(Equal(PhaseUpdated))
+		})
+
 		It("lists a requested item with no update as not startable, and flags items of the running run", func() {
 			h.backends.add(Candidate{Kind: KindGallery, Name: "a"})
 			h.backends.add(Candidate{Kind: KindGallery, Name: "b"})

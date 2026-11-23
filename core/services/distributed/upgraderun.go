@@ -40,6 +40,7 @@ type UpgradeRunItemRecord struct {
 	Position   int    `json:"position"`
 	Kind       string `gorm:"size:16" json:"kind"`
 	Name       string `gorm:"size:512" json:"name"`
+	Title      string `gorm:"size:255" json:"title,omitempty"`
 	From       string `gorm:"column:from_version;size:255" json:"from,omitempty"`
 	To         string `gorm:"column:to_version;size:255" json:"to,omitempty"`
 	ExpectedTo string `gorm:"size:255" json:"expected_to,omitempty"`
@@ -109,7 +110,7 @@ func (s *UpgradeRunStore) Create(run *UpgradeRunRecord, items []UpgradeRunItemRe
 
 // runnerItemColumns are the item columns the runner owns.
 var runnerItemColumns = []string{
-	"position", "kind", "name", "from_version", "to_version", "expected_to", "phase", "message",
+	"position", "kind", "name", "title", "from_version", "to_version", "expected_to", "phase", "message",
 	"error_key", "error", "retryable", "job_id", "queued_reason", "verifying", "cancel_wanted",
 	"cancel_sent", "nodes", "extra", "updated_at",
 }

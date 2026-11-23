@@ -3,25 +3,9 @@ import { useTranslation } from 'react-i18next'
 import Dialog from '../Dialog'
 import { Button, Callout, SkeletonRows, Tag } from '../ui'
 import { upgradeFailureWords } from '../addons/updateReview'
-import { reviewGroups, startItems } from '../../utils/upgradeRun'
+import { reviewGroups, riskText, startItems } from '../../utils/upgradeRun'
 import { originText } from './UpdateRow'
 import '../upgrade/upgrade.css'
-
-// The words of one risk the server named for an item. A code this build does
-// not know says nothing: a risk line shows only when it is known.
-export function riskText(risk, t) {
-  const p = (risk && risk.params) || {}
-  switch (risk && risk.code) {
-    case 'stops_models':
-      return Number(p.nodes) > 1
-        ? t('review.risk.stopsModelsNodes', { count: Number(p.count) || 0, nodes: Number(p.nodes) })
-        : t('review.risk.stopsModels', { count: Number(p.count) || 0 })
-    case 'migrates_data': return t('review.risk.migratesData')
-    case 'edited_keys': return t('review.risk.editedKeys', { count: Number(p.count) || 0, action: t('model.action.upgrade') })
-    case 'held': return t('review.risk.held')
-    default: return ''
-  }
-}
 
 // The lines under an item: its risks, why it cannot start, and for a model the
 // reason it is not selected by default.
@@ -43,7 +27,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
   const { t: ta } = useTranslation('addons')
   if (!review) return null
   const rowOf = (item) => (rowsByKey && rowsByKey.get(item.key)) || null
-  const nameOf = (item) => (rowOf(item) && rowOf(item).name) || item.name
+  const nameOf = (item) => (rowOf(item) && rowOf(item).name) || item.title || item.name
   const versions = (item) => t('row.versions', { from: item.from || '?', to: item.to || '?' })
   const count = startItems(review).length
   const starting = busy === 'start'

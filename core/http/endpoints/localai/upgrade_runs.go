@@ -60,6 +60,8 @@ type UpgradeRunPreviewRequest struct {
 }
 
 // UpgradeRunRisk is one thing an update does beyond replacing the item.
+// Codes: stops_models (params count, nodes), cluster (nodes), drift (count),
+// config_only, migrates_data. The numbers are decimal strings.
 type UpgradeRunRisk struct {
 	Code   string            `json:"code" example:"stops_models"`
 	Params map[string]string `json:"params"`
@@ -169,7 +171,11 @@ func PreviewUpgradeRunEndpoint(d UpgradeRunDeps) echo.HandlerFunc {
 		for _, it := range plan.Items {
 			risk := make([]UpgradeRunRisk, 0, len(it.Risks))
 			for _, r := range it.Risks {
-				risk = append(risk, UpgradeRunRisk{Code: r, Params: map[string]string{}})
+				params := map[string]string{}
+				for k, v := range it.RiskParams[r] {
+					params[k] = v
+				}
+				risk = append(risk, UpgradeRunRisk{Code: r, Params: params})
 			}
 			out.Items = append(out.Items, UpgradeRunPreviewItem{PlanItem: it, DefaultSelected: it.Selected, Risk: risk})
 			out.Order = append(out.Order, it.Key)

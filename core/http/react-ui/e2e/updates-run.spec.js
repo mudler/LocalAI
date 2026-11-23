@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import {
-  addonRecord, galleryItem, minutesAgo, mockUpdateRuns, mockUpdates, modelItem, modelSnapshotOf, previewItem, runItem, runOf,
+  DIGEST_A, DIGEST_B, addonPin, addonRecord, galleryItem, minutesAgo, mockUpdateRuns, mockUpdates, modelItem, modelSnapshotOf, previewItem, runItem, runOf,
   snapshotOf, updateAvailable,
 } from './updates-fixtures.js'
 
@@ -33,14 +33,29 @@ async function fleet(page) {
   })
 }
 
-// The plan the server answers: risks where it knows them, the backends first.
+// The plan the server answers for the fleet: the versions of the checks, an
+// add-on with its title and pinned to its candidate digest, the risks the
+// cluster knows (two models loaded with llama-cpp, on two of its three nodes),
+// and the backends first.
+const VERSIONS = {
+  'gallery:kokoro': ['0.3.1', '0.4.0'], 'gallery:llama-cpp': ['0.9.4', '0.9.7'], 'gallery:piper': ['1.2.0', '1.3.1'], 'gallery:sglang': ['0.5.2', '0.5.4'],
+  'addon:notes': ['0.8.1', '0.8.2'], 'addon:tables': ['2.3.0', '2.4.0'],
+  'model:qwen3-8b': [DIGEST_A, DIGEST_B], 'model:llama-3.2-3b': [DIGEST_A, DIGEST_B],
+}
+const TITLES = { 'addon:notes': 'Notes sync', 'addon:tables': 'Tables' }
 function plan(items) {
   const risk = {
-    'gallery:llama-cpp': [{ code: 'stops_models', params: { count: 2, nodes: 3 } }],
+    'gallery:llama-cpp': [{ code: 'stops_models', params: { count: '2', nodes: '2' } }],
+    'gallery:sglang': [{ code: 'cluster', params: { nodes: '2' } }, { code: 'drift', params: { count: '1' } }],
+    'model:llama-3.2-3b': [{ code: 'config_only', params: {} }],
     'addon:notes': [{ code: 'migrates_data', params: {} }],
     'addon:tables': [{ code: 'migrates_data', params: {} }],
   }
-  const out = items.map(i => previewItem(`${i.kind}:${i.name}`, 'v1.0.0', 'v1.1.0', { risk: risk[`${i.kind}:${i.name}`] || [] }))
+  const out = items.map((i) => {
+    const key = `${i.kind}:${i.name}`
+    const [from, to] = VERSIONS[key] || ['1.0.0', '1.1.0']
+    return previewItem(key, from, to, { risk: risk[key] || [], title: TITLES[key] })
+  })
   const rank = { gallery: 0, library: 0, model: 1, addon: 2 }
   const order = out.map(i => i.key).sort((a, b) => rank[a.split(':')[0]] - rank[b.split(':')[0]])
   return { items: out, order }
@@ -54,8 +69,8 @@ const RUNNING = () => runOf([
     from: 'v0.9.4', to: 'v0.9.7', progress: 64, message: 'downloading 64%',
     nodes: [{ id: 'a', name: 'node-a', phase: 'updated', progress: 100 }, { id: 'b', name: 'node-b', phase: 'running', progress: 64, message: 'downloading 64%' }, { id: 'c', name: 'node-c', phase: 'queued' }],
   }),
-  runItem('addon:notes', 'queued', { from: 'v0.8.1', to: 'v0.8.2', queued_reason: 'after_backends' }),
-  runItem('addon:tables', 'queued', { from: 'v2.3.0', to: 'v2.4.0', queued_reason: 'one_addon_at_a_time' }),
+  runItem('addon:notes', 'queued', { title: 'Notes sync', from: '0.8.1', to: '0.8.2', queued_reason: 'after_backends' }),
+  runItem('addon:tables', 'queued', { title: 'Tables', from: '2.3.0', to: '2.4.0', queued_reason: 'one_addon_at_a_time' }),
 ])
 
 const ENDED = ({ retryable = true } = {}) => runOf([
@@ -63,8 +78,8 @@ const ENDED = ({ retryable = true } = {}) => runOf([
   runItem('gallery:sglang', 'updated'),
   runItem('gallery:kokoro', 'updated'),
   runItem('gallery:llama-cpp', 'updated'),
-  runItem('addon:tables', 'updated'),
-  runItem('addon:notes', 'rolled_back', { from: 'v0.8.1', to: 'v0.8.2', error_key: 'start', error: 'the setting "sync.url" is missing', retryable }),
+  runItem('addon:tables', 'updated', { title: 'Tables', from: '2.3.0', to: '2.4.0' }),
+  runItem('addon:notes', 'rolled_back', { title: 'Notes sync', from: '0.8.1', to: '0.8.2', error_key: 'start', error: 'the setting "sync.url" is missing', retryable }),
 ])
 
 test.describe('Updates: the review', () => {
@@ -89,8 +104,13 @@ test.describe('Updates: the review', () => {
     await expect(reviewItem(page, 'model:qwen3-8b').getByRole('checkbox')).not.toBeChecked()
     await expect(reviewItem(page, 'model:qwen3-8b')).toContainText('Not selected by default')
     await expect(reviewItem(page, 'gallery:kokoro').getByRole('checkbox')).toBeChecked()
-    await expect(reviewItem(page, 'gallery:llama-cpp').getByTestId('update-review-risk')).toHaveText('Stops 2 loaded models on 3 nodes while it switches')
+    await expect(reviewItem(page, 'gallery:llama-cpp').getByTestId('update-review-risk')).toHaveText('Stops 2 loaded models on 2 nodes while it switches')
     await expect(reviewItem(page, 'gallery:kokoro').getByTestId('update-review-risk')).toHaveCount(0)
+    // Every risk code the server sends has words; none is dropped.
+    await expect(reviewItem(page, 'gallery:sglang').getByTestId('update-review-risk')).toHaveText([
+      'Updates on 2 nodes', '1 node runs a different build now. The update moves every node to the new one.',
+    ])
+    await expect(reviewItem(page, 'model:llama-3.2-3b').getByTestId('update-review-risk').first()).toHaveText("Changes only the model's settings. Nothing is downloaded.")
     await expect(reviewItem(page, 'addon:notes')).toContainText('Your data is migrated. A verified backup is taken first.')
     await expect(reviewItem(page, 'addon:notes').getByTestId('update-review-backup')).toHaveText('Backs up your data')
     // The page name of an add-on, not its id.
@@ -119,7 +139,9 @@ test.describe('Updates: the review', () => {
     await start.click()
     // The plan's order, each item pinned to the version the review showed.
     await expect.poll(() => runs.starts.length).toBe(1)
-    expect(runs.starts[0]).toEqual({ items: [{ kind: 'gallery', name: 'kokoro', expected_to: 'v1.1.0' }, { kind: 'addon', name: 'notes', expected_to: 'v1.1.0' }], source: 'manual' })
+    // An add-on is pinned to the digest of its candidate, not to the version
+    // the review shows: the server refuses a version as stale.
+    expect(runs.starts[0]).toEqual({ items: [{ kind: 'gallery', name: 'kokoro', expected_to: '0.4.0' }, { kind: 'addon', name: 'notes', expected_to: addonPin('0.8.2') }], source: 'manual' })
     // The confirmation of the administrator's browser: without it the server skips add-ons.
     expect(runs.startHeaders[0]['x-localai-confirm']).toBe('upgrade-run')
     await expect(reviewOf(page)).toHaveCount(0)
@@ -149,19 +171,19 @@ test.describe('Updates: the review', () => {
   test('the Update of one row asks about that row only, in the short dialog', async ({ page }) => {
     await fleet(page)
     const runs = await mockUpdateRuns(page, {
-      preview: items => ({ items: items.map(i => previewItem(`${i.kind}:${i.name}`, 'v0.8.1', 'v0.8.2', { risk: [{ code: 'migrates_data' }] })) }),
-      startReply: () => runOf([runItem('addon:notes', 'running', { progress: 10 })]),
+      preview: items => ({ items: items.map(i => previewItem(`${i.kind}:${i.name}`, '0.8.1', '0.8.2', { title: 'Notes sync', risk: [{ code: 'migrates_data' }] })) }),
+      startReply: () => runOf([runItem('addon:notes', 'running', { title: 'Notes sync', from: '0.8.1', to: '0.8.2', progress: 10 })]),
     })
     await page.goto('/app/updates')
     await rowOf(page, 'Notes sync').getByRole('button', { name: 'Update Notes sync' }).click()
     const review = reviewOf(page)
     await expect(review.getByRole('heading', { name: 'Update Notes sync?' })).toBeVisible()
-    await expect(review).toContainText('v0.8.1 to v0.8.2 · Library: official')
+    await expect(review).toContainText('0.8.1 to 0.8.2 · Library: official')
     await expect(page.getByTestId('update-review-note')).toContainText('Your data is migrated. A verified backup is taken first. The old version stays until the new one is running.')
     expect(runs.previews[0].items).toEqual([{ kind: 'addon', name: 'notes' }])
     await review.getByTestId('update-review-start').click()
     await expect.poll(() => runs.starts.length).toBe(1)
-    expect(runs.starts[0].items).toEqual([{ kind: 'addon', name: 'notes', expected_to: 'v0.8.2' }])
+    expect(runs.starts[0].items).toEqual([{ kind: 'addon', name: 'notes', expected_to: addonPin('0.8.2') }])
     await expect(runRow(page, 'addon:notes')).toBeVisible()
   })
 
@@ -219,14 +241,14 @@ test.describe('Updates: the run', () => {
     const queued = runOf([runItem('gallery:kokoro', 'queued', { queued_reason: '' }), runItem('addon:notes', 'queued', { queued_reason: 'after_backends' })])
     const running = runOf([runItem('gallery:kokoro', 'running', { progress: 50, message: 'Installing' }), runItem('addon:notes', 'queued', { queued_reason: 'after_backends' })])
     const addon = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'running', { progress: 20, message: 'Backing up' })])
-    const ended = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'rolled_back', { from: 'v0.8.1', error_key: 'start', retryable: true })])
+    const ended = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'rolled_back', { title: 'Notes sync', from: '0.8.1', to: '0.8.2', error_key: 'start', retryable: true })])
     await mockUpdateRuns(page, { active: [queued], polls: [queued, running, addon, ended] })
     await page.goto('/app/updates')
     await expect(runRow(page, 'gallery:kokoro')).toContainText('Waiting to start.')
     await expect(runRow(page, 'gallery:kokoro')).toContainText('Installing', { timeout: 10_000 })
     await expect(runRow(page, 'addon:notes')).toContainText('Backing up', { timeout: 10_000 })
     await expect(runRow(page, 'addon:notes').getByTestId('run-item-chip')).toHaveText('Rolled back', { timeout: 10_000 })
-    await expect(runRow(page, 'addon:notes')).toContainText('The new version did not start. Notes sync is still on v0.8.1 and your data is unchanged.')
+    await expect(runRow(page, 'addon:notes')).toContainText('The new version did not start. Notes sync is still on 0.8.1 and your data is unchanged.')
     await expect(page.getByTestId('updates-headline')).toHaveText('1 updated, 1 needs attention')
     await expect(page.getByTestId('updates-breakdown')).toContainText('Nothing was left half-updated. Finished')
   })
@@ -257,7 +279,7 @@ test.describe('Updates: the run', () => {
     await page.goto('/app/updates')
     await expect(page.getByTestId('updates-headline')).toHaveText('5 updated, 1 needs attention')
     const failed = runRow(page, 'addon:notes')
-    await expect(failed.getByTestId('run-item-detail')).toHaveText('The new version did not start: the setting "sync.url" is missing. Notes sync is still on v0.8.1 and your data is unchanged.')
+    await expect(failed.getByTestId('run-item-detail')).toHaveText('The new version did not start: the setting "sync.url" is missing. Notes sync is still on 0.8.1 and your data is unchanged.')
     await expect(failed.getByTestId('run-item-retry')).toBeVisible()
     await failed.getByTestId('run-item-details-toggle').click()
     await expect(failed.getByTestId('run-item-details')).toContainText('Code: start')
@@ -329,6 +351,20 @@ test.describe('Updates: the run', () => {
     // While a run is active, no row starts another one.
     await expect(rowOf(page, 'qwen3-8b').getByTestId('model-upgrade')).toBeDisabled()
     expect(runs.starts).toHaveLength(1)
+  })
+
+  test('an add-on that left the lists keeps its title and versions in the run, never its id and digest', async ({ page }) => {
+    await mockOperate(page)
+    // The add-on was updated: the lists no longer have its row.
+    await mockUpdates(page, { snapshot: snapshotOf([]), installed: [installedBackend('kokoro', '0.4.0')] })
+    const run = runOf([runItem('gallery:kokoro', 'updated', { from: '0.3.1', to: '0.4.0' }), runItem('addon:notes', 'rolled_back', { title: 'Notes sync', from: '0.8.1', to: '0.8.2', error_key: 'start', retryable: true })])
+    await mockUpdateRuns(page, { active: [run], polls: [run] })
+    await page.goto('/app/updates')
+    const notes = runRow(page, 'addon:notes')
+    await expect(notes.locator('.uc-row__title')).toHaveText('Notes sync')
+    await expect(notes).toContainText('0.8.1 to 0.8.2')
+    await expect(notes).toContainText('Notes sync is still on 0.8.1')
+    await expect(notes).not.toContainText('sha256')
   })
 
   test('a skipped add-on says why in words, from its key', async ({ page }) => {

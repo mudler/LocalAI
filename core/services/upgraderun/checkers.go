@@ -2,6 +2,7 @@ package upgraderun
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
@@ -65,6 +66,29 @@ func backendFrom(it backendupdates.Item) string {
 	return it.InstalledDigest
 }
 
+// backendRisks adds what the cluster knows about a backend: the models that
+// stop on its nodes, else the nodes it is replaced on, and the nodes that run
+// another build now. A standalone server reports no nodes, so it says
+// nothing it does not know.
+func backendRisks(c *Candidate, it backendupdates.Item) {
+	models, nodes := 0, 0
+	for _, n := range it.Nodes {
+		if len(n.Models) > 0 {
+			models += len(n.Models)
+			nodes++
+		}
+	}
+	switch {
+	case models > 0:
+		c.AddRisk(RiskStopsModels, map[string]string{"count": strconv.Itoa(models), "nodes": strconv.Itoa(nodes)})
+	case len(it.Nodes) > 1:
+		c.AddRisk(RiskCluster, map[string]string{"nodes": strconv.Itoa(len(it.Nodes))})
+	}
+	if it.DriftNodes > 0 {
+		c.AddRisk(RiskDrift, map[string]string{"count": strconv.Itoa(it.DriftNodes)})
+	}
+}
+
 func backendListing(snap backendupdates.Snapshot) Listing {
 	l := Listing{Complete: true, Throttled: snap.Throttled}
 	for _, src := range snap.Sources {
@@ -86,21 +110,7 @@ func backendListing(snap backendupdates.Snapshot) Listing {
 		if snap.InstallsDisabled {
 			c.Blocked = "installs_disabled"
 		}
-		stops := false
-		for _, n := range it.Nodes {
-			if len(n.Models) > 0 {
-				stops = true
-			}
-		}
-		if len(it.Nodes) > 0 {
-			c.Risks = append(c.Risks, RiskCluster)
-		}
-		if stops {
-			c.Risks = append(c.Risks, RiskStopsModels)
-		}
-		if it.DriftNodes > 0 {
-			c.Risks = append(c.Risks, RiskDrift)
-		}
+		backendRisks(&c, it)
 		l.Candidates = append(l.Candidates, c)
 	}
 	return l
@@ -143,7 +153,10 @@ func modelListing(snap modelupdates.Snapshot) Listing {
 		}
 	}
 	for _, it := range snap.Items {
-		c := Candidate{Kind: KindModel, Name: it.Name, From: it.InstalledDigest, To: it.AvailableDigest, Risks: []string{RiskStopsModel}}
+		// Every model update stops the model and loads the new version as a
+		// check, and downloads its files; the review says so once for all
+		// models. Only a config-only update is worth a line.
+		c := Candidate{Kind: KindModel, Name: it.Name, From: it.InstalledDigest, To: it.AvailableDigest, Risks: []string{}}
 		switch it.State {
 		case modelupdates.StateUpdateAvailable:
 		case modelupdates.StateEdited:
@@ -169,11 +182,44 @@ func modelListing(snap modelupdates.Snapshot) Listing {
 			c.Held = true
 		}
 		if it.ConfigOnly {
-			c.Risks = append(c.Risks, RiskConfigOnly)
-		} else {
-			c.Risks = append(c.Risks, RiskDownloads)
+			c.AddRisk(RiskConfigOnly, nil)
 		}
 		l.Candidates = append(l.Candidates, c)
 	}
 	return l
+}
+
+// AddonVersions is what the update check of the add-on owner says about one
+// add-on with an update.
+type AddonVersions struct {
+	ID string
+	// Title is the name the Add-ons page shows; empty uses ID.
+	Title            string
+	InstalledVersion string
+	InstalledDigest  string
+	CandidateVersion string
+	CandidateDigest  string
+}
+
+// AddonCandidate is the candidate of an add-on with an update. A person reads
+// the versions (v0.8.1 to v0.8.2); a request pins the digest of the candidate
+// (Pin), so a release that moves a version tag to new content is refused as
+// stale, and the job path gets both digests. A version that is missing is
+// shown as its digest.
+func AddonCandidate(v AddonVersions) Candidate {
+	orDigest := func(version, digest string) string {
+		if version != "" {
+			return version
+		}
+		return digest
+	}
+	return Candidate{
+		Kind: KindAddon, Name: v.ID, Title: v.Title,
+		From: orDigest(v.InstalledVersion, v.InstalledDigest), To: orDigest(v.CandidateVersion, v.CandidateDigest),
+		Pin: v.CandidateDigest, Risks: []string{RiskMigratesData},
+		Extra: map[string]string{
+			ExtraExpectedDigest:  v.InstalledDigest,
+			ExtraCandidateDigest: v.CandidateDigest,
+		},
+	}
 }
