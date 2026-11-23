@@ -556,6 +556,55 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	return resp.ID, nil
 }
 
+// ---- Upgrade runs ----
+
+func (c *Client) StartUpgradeRun(ctx context.Context, req localaitools.UpgradeRunStartRequest) (*localaitools.UpgradeRun, error) {
+	if err := localaitools.CheckUpgradeRunItems(req.Items); err != nil {
+		return nil, err
+	}
+	body := struct {
+		Items  []localaitools.UpgradeRunItemRef `json:"items"`
+		Source string                           `json:"source"`
+	}{req.Items, "manual"}
+	var out localaitools.UpgradeRun
+	if err := c.do(ctx, http.MethodPost, routeUpgradeRuns, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) UpgradeRuns(ctx context.Context, id string) ([]localaitools.UpgradeRun, error) {
+	if id != "" {
+		var out localaitools.UpgradeRun
+		if err := c.do(ctx, http.MethodGet, routeUpgradeRun(id), nil, &out); err != nil {
+			return nil, err
+		}
+		return []localaitools.UpgradeRun{out}, nil
+	}
+	var out struct {
+		Runs []localaitools.UpgradeRun `json:"runs"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeUpgradeRuns+"?limit=5", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Runs, nil
+}
+
+func (c *Client) CancelUpgradeRun(ctx context.Context, id, key string) (*localaitools.UpgradeRun, error) {
+	if id == "" {
+		return nil, errors.New("id is required")
+	}
+	path := routeUpgradeRun(id, "cancel")
+	if key != "" {
+		path = routeUpgradeRun(id, "items", url.PathEscape(key), "cancel")
+	}
+	var out localaitools.UpgradeRun
+	if err := c.do(ctx, http.MethodPost, path, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // ---- Model updates ----
 
 func (c *Client) ModelUpdates(ctx context.Context) (*modelupdates.Snapshot, error) {

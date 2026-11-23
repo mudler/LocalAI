@@ -517,6 +517,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
+		application.SetOperationCache(opcache)
 		// In distributed mode, wire the NATS client + gallery store so this
 		// replica's OpCache stays in sync with peers — without this the
 		// /api/operations endpoint returns whatever this single replica

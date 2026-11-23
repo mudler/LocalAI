@@ -1832,7 +1832,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}
 	upgradeGuard := localai.NewBackendUpgradeGuard(galleryService, upgradeChecker)
 
-	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
+	app.POST("/api/backends/upgrade/:name", localai.BackendUpgradeViaRun(UpgradeRunDepsFor(applicationInstance), func(c echo.Context) error {
 		backendName := c.Param("name")
 		backendName, err := url.QueryUnescape(backendName)
 		if err != nil {
@@ -1880,7 +1880,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
 			"message":   "Backend upgrade started",
 		})
-	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+	}, localai.UIBackendUpgradeAnswer), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
 	app.GET("/api/resources", func(c echo.Context) error {

@@ -528,6 +528,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.startModelUpdates()
 	}
 
+	// The server-owned upgrade runs, fed by the two checks above and the
+	// add-on owner's check.
+	application.startUpgradeRuns()
+
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.
 	vram.SetGalleryGenerationFunc(gallery.GalleryGeneration)

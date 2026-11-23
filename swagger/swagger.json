@@ -15523,7 +15523,7 @@
         },
         "/api/models/upgrade/{name}": {
             "post": {
-                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. Without config_only and choices the upgrade runs as an upgrade run of one item (see /api/updates/runs) and the answer adds the run; while another upgrade run runs the request is refused with 409 and code run_active. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
                 "tags": [
                     "models"
                 ],
@@ -15547,9 +15547,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Operation",
+                        "description": "Operation, and the run when one started it",
                         "schema": {
-                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                            "$ref": "#/definitions/localai.ModelUpgradeRunResponse"
                         }
                     },
                     "404": {
@@ -15559,7 +15559,7 @@
                         }
                     },
                     "409": {
-                        "description": "Running, held, or edited keys need a choice",
+                        "description": "Running, held, edited keys need a choice, or another upgrade run runs (code run_active)",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
@@ -18653,6 +18653,339 @@
                         "description": "Trace not found",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs": {
+            "get": {
+                "description": "The running run first, then the newest. active=1 lists only the running run. Dismissed runs are left out. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "List upgrade runs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "1 lists only the running run",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Most runs to return (default 20)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Runs",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunList"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Checks every item (installed, an update available, the update still goes to expected_to) and starts one run; if one item fails a check, no run is created. Only one run runs at a time (409 run_active). A held model or one whose update changes edited keys is part of the run as skipped. Add-on items run for the administrator who started the run, through the same owner checks as POST /api/addons/{id}/upgrade; they need the administrator's own browser session with the header X-LocalAI-Confirm: upgrade-run, or they are skipped with error key not_human_surface. source must be manual. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Start an upgrade run",
+                "parameters": [
+                    {
+                        "description": "Items and the version or digest each must move to",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.StartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "400": {
+                        "description": "Code invalid",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code no_update, stale, run_active or source_unchecked",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/preview": {
+            "post": {
+                "description": "Lists the backends, gallery models and add-ons that have an update, in run order (backends, then models, then add-ons), with what each update does and whether it can start. Starts nothing. Send expected_to of each item back in the start request. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Preview an upgrade run",
+                "parameters": [
+                    {
+                        "description": "Items to preview; empty previews all",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunPreview"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}": {
+            "get": {
+                "description": "The run with each item: phase, progress, error key and the operation (job_id) of /api/operations it runs. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Read an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Hides a finished run from the default list. Administrators only.",
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Dismiss an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Dismissed"
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_not_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/cancel": {
+            "post": {
+                "description": "Drops the queued items and stops the running ones that can stop; the run then ends cancelled. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Cancel an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/items/{key}/cancel": {
+            "post": {
+                "description": "A queued item is dropped; a running item is stopped only while its operation says it can stop. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Cancel one item of an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item key, \u003ckind\u003e:\u003cname\u003e, URL-encoded",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code not_cancellable or run_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/retry": {
+            "post": {
+                "description": "Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Retry an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_not_finished, nothing_to_retry, run_active, not_human_surface or source_unchecked",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
                         }
                     }
                 }
@@ -26248,6 +26581,26 @@
                 }
             }
         },
+        "localai.ModelUpgradeRunResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "jobID": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "run": {
+                    "$ref": "#/definitions/upgraderun.Run"
+                },
+                "status_url": {
+                    "type": "string"
+                }
+            }
+        },
         "localai.MotionSessionInfo": {
             "type": "object",
             "properties": {
@@ -26600,6 +26953,143 @@
                 "value": {
                     "description": "Value is the VRAM cap (\"80%\" or \"12GB\"). Empty string clears the cap.",
                     "type": "string"
+                }
+            }
+        },
+        "localai.UpgradeRunError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "run_active"
+                },
+                "key": {
+                    "type": "string",
+                    "example": "gallery:kokoro"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "another upgrade run is running"
+                }
+            }
+        },
+        "localai.UpgradeRunList": {
+            "type": "object",
+            "properties": {
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.Run"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunPreview": {
+            "type": "object",
+            "properties": {
+                "active_run_id": {
+                    "description": "ActiveRunID is the run that runs now; a start is refused while it runs.",
+                    "type": "string"
+                },
+                "complete": {
+                    "description": "Complete is false when a source did not answer, so items may be\nmissing.",
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.UpgradeRunPreviewItem"
+                    }
+                },
+                "order": {
+                    "description": "Order is the keys in run order.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunPreviewItem": {
+            "type": "object",
+            "properties": {
+                "default_selected": {
+                    "type": "boolean"
+                },
+                "expected_to": {
+                    "description": "ExpectedTo is what a start request should send back as expected_to.",
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "order": {
+                    "description": "Order is the position in the run, from 0.",
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "risk": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.UpgradeRunRisk"
+                    }
+                },
+                "risks": {
+                    "description": "Risks are what the update does beyond replacing the item.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "selected": {
+                    "description": "Selected is the default selection: backends and add-ons, not models.",
+                    "type": "boolean"
+                },
+                "stage": {
+                    "type": "integer"
+                },
+                "startable": {
+                    "type": "boolean"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.UpgradeRunPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.ItemRef"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunRisk": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "stops_models"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -39404,6 +39894,10 @@
                         "type": "string"
                     }
                 },
+                "code": {
+                    "description": "Code is a stable code when the refusal has one, such as run_active\n(another upgrade run is running) or the error key of an upgrade run\nitem that could not start.",
+                    "type": "string"
+                },
                 "error": {
                     "type": "string"
                 },
@@ -42598,6 +43092,223 @@
                 "throttled": {
                     "description": "Throttled is true when an explicit refresh was not performed because\none ran moments ago. The status is then the last one.",
                     "type": "boolean"
+                }
+            }
+        },
+        "upgraderun.Item": {
+            "type": "object",
+            "properties": {
+                "cancellable": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "error_key": {
+                    "type": "string"
+                },
+                "expected_to": {
+                    "description": "ExpectedTo is the version or digest the item had to move to when the\nrun was requested. A later change of the target fails the item as\nstale instead of installing something nobody looked at.",
+                    "type": "string"
+                },
+                "from": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.NodeState"
+                    }
+                },
+                "phase": {
+                    "$ref": "#/definitions/upgraderun.Phase"
+                },
+                "progress": {
+                    "type": "integer"
+                },
+                "queued_reason": {
+                    "description": "QueuedReason says why a queued item waits.",
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.ItemRef": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.Kind": {
+            "type": "string",
+            "enum": [
+                "gallery",
+                "library",
+                "addon",
+                "model"
+            ],
+            "x-enum-varnames": [
+                "KindGallery",
+                "KindLibrary",
+                "KindAddon",
+                "KindModel"
+            ]
+        },
+        "upgraderun.NodeState": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "integer"
+                }
+            }
+        },
+        "upgraderun.Phase": {
+            "type": "string",
+            "enum": [
+                "queued",
+                "running",
+                "updated",
+                "failed",
+                "rolled_back",
+                "cancelled",
+                "skipped",
+                "unconfirmed"
+            ],
+            "x-enum-varnames": [
+                "PhaseQueued",
+                "PhaseRunning",
+                "PhaseUpdated",
+                "PhaseFailed",
+                "PhaseRolledBack",
+                "PhaseCancelled",
+                "PhaseSkipped",
+                "PhaseUnconfirmed"
+            ]
+        },
+        "upgraderun.Run": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "type": "string"
+                },
+                "cancel_requested": {
+                    "description": "CancelRequested is set when the whole run was cancelled; nothing new\nstarts, and the run ends cancelled once the running items settle.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "dismissed": {
+                    "description": "Dismissed hides a finished run from the default list.",
+                    "type": "boolean"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.Item"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/upgraderun.Source"
+                },
+                "state": {
+                    "$ref": "#/definitions/upgraderun.RunState"
+                }
+            }
+        },
+        "upgraderun.RunState": {
+            "type": "string",
+            "enum": [
+                "running",
+                "finished",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "RunRunning",
+                "RunFinished",
+                "RunCancelled"
+            ]
+        },
+        "upgraderun.Source": {
+            "type": "string",
+            "enum": [
+                "manual",
+                "auto"
+            ],
+            "x-enum-varnames": [
+                "SourceManual",
+                "SourceAuto"
+            ]
+        },
+        "upgraderun.StartItem": {
+            "type": "object",
+            "properties": {
+                "expected_to": {
+                    "description": "ExpectedTo is the version or digest the caller saw as the target\n(PlanItem.ExpectedTo). A start whose target moved since is refused.",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.StartRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.StartItem"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/upgraderun.Source"
                 }
             }
         },

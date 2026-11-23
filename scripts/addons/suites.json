@@ -2359,7 +2359,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached"
         ]
       },
       {
@@ -3376,7 +3384,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached"
         ]
       }
     ]
@@ -3922,7 +3938,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached"
         ]
       }
     ]
@@ -4498,7 +4522,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached"
         ]
       }
     ]
