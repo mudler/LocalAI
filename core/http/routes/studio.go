@@ -44,8 +44,8 @@ func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
 	}})
 }
 
-// NewStudioUserLookup lets the project routes check that the owner an
-// administrator names (?owner=) is a user of this instance. Without an auth
+// NewStudioUserLookup lets the project routes check that the user an
+// administrator names (?user_id=) is a user of this instance. Without an auth
 // database no user is known.
 func NewStudioUserLookup(app *application.Application) studioendpoint.HandlerOption {
 	return studioendpoint.WithUserLookup(func(ctx context.Context, id string) (bool, error) {

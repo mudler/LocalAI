@@ -21,7 +21,7 @@ type ChatsProject struct {
 	Description string `json:"description,omitempty"`
 	// Owner is the id of the user that owns the project. Every response
 	// carries it: the caller's own id, or the user an administrator acts for
-	// with ?owner=.
+	// with ?user_id=.
 	Owner string `json:"owner"`
 	// Slug is the name of the project's folder under Projects/ in the caller's files.
 	Slug string `json:"slug"`

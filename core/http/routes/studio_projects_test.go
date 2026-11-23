@@ -69,17 +69,17 @@ var _ = Describe("Chats projects routes", func() {
 	})
 
 	It("allows an administrator to manage projects on behalf of another user", func() {
-		rec := s.do("root", http.MethodPost, "/api/chats/projects?owner=alice", map[string]any{"name": "Acme"})
+		rec := s.do("root", http.MethodPost, "/api/chats/projects?user_id=alice", map[string]any{"name": "Acme"})
 		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
 		p := decodeJSON(rec)
 		Expect(p).To(HaveKeyWithValue("owner", "alice"))
 		pid := p["id"].(string)
 
-		list := s.do("root", http.MethodGet, "/api/chats/projects?owner=alice", nil)
+		list := s.do("root", http.MethodGet, "/api/chats/projects?user_id=alice", nil)
 		Expect(list.Code).To(Equal(http.StatusOK), list.Body.String())
 		Expect(decodeJSON(list)["projects"]).To(HaveLen(1))
 
-		got := s.do("root", http.MethodGet, "/api/chats/projects/"+pid+"?owner=alice", nil)
+		got := s.do("root", http.MethodGet, "/api/chats/projects/"+pid+"?user_id=alice", nil)
 		Expect(got.Code).To(Equal(http.StatusOK), got.Body.String())
 		Expect(decodeJSON(got)).To(HaveKeyWithValue("owner", "alice"))
 
@@ -87,14 +87,14 @@ var _ = Describe("Chats projects routes", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/projects", nil).Code).To(Equal(http.StatusOK))
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/projects", nil))["projects"]).To(HaveLen(1))
 		// Another non-admin user cannot act on behalf of someone else.
-		Expect(s.do("bob", http.MethodGet, "/api/chats/projects?owner=alice", nil).Code).To(Equal(http.StatusForbidden))
+		Expect(s.do("bob", http.MethodGet, "/api/chats/projects?user_id=alice", nil).Code).To(Equal(http.StatusForbidden))
 
-		del := s.do("root", http.MethodDelete, "/api/chats/projects/"+pid+"?owner=alice", nil)
+		del := s.do("root", http.MethodDelete, "/api/chats/projects/"+pid+"?user_id=alice", nil)
 		Expect(del.Code).To(Equal(http.StatusNoContent), del.Body.String())
 		Expect(s.do("alice", http.MethodGet, "/api/chats/projects/"+pid, nil).Code).To(Equal(http.StatusNotFound))
 	})
 
-	Context("when an owner is named", func() {
+	Context("when a user_id is named", func() {
 		var pid, chat string
 		BeforeEach(func() {
 			rec := s.do("alice", http.MethodPost, "/api/chats/projects", map[string]any{"name": "Acme"})
@@ -104,8 +104,8 @@ var _ = Describe("Chats projects routes", func() {
 		})
 
 		ids := func() *strings.Replacer { return strings.NewReplacer("{p}", pid, "{c}", chat) }
-		// target fills in the ids of the project and the chat, and adds the owner.
-		target := func(path, owner string) string { return ids().Replace(path) + "?owner=" + owner }
+		// target fills in the ids of the project and the chat, and adds the user_id.
+		target := func(path, owner string) string { return ids().Replace(path) + "?user_id=" + owner }
 		// payload fills in the ids in the body.
 		payload := func(body any) any {
 			if body == nil {
@@ -116,19 +116,19 @@ var _ = Describe("Chats projects routes", func() {
 			return ids().Replace(string(data))
 		}
 
-		DescribeTable("the routes that take an owner",
+		DescribeTable("the routes that take a user_id",
 			func(method, path string, in any, want int, archivedFirst bool) {
 				body := payload(in)
 				if archivedFirst {
 					Expect(s.do("alice", http.MethodPost, "/api/chats/projects/"+pid+"/archive", nil).Code).To(Equal(http.StatusOK))
 				}
-				// Another user is refused before the owner is looked at.
+				// Another user is refused before the user_id is looked at.
 				Expect(s.do("bob", method, target(path, "alice"), body).Code).To(Equal(http.StatusForbidden))
 				Expect(s.do("bob", method, target(path, "nobody"), body).Code).To(Equal(http.StatusForbidden))
 				// An administrator needs a well-formed id of a known user.
 				Expect(s.do("root", method, target(path, "nobody"), body).Code).To(Equal(http.StatusNotFound))
 				for _, bad := range []string{"..%2Falice", "a%2Fb", "alice%2F..", "..", "al%20ice", strings.Repeat("a", 37)} {
-					Expect(s.do("root", method, target(path, bad), body).Code).To(Equal(http.StatusBadRequest), "owner %q", bad)
+					Expect(s.do("root", method, target(path, bad), body).Code).To(Equal(http.StatusBadRequest), "user_id %q", bad)
 				}
 				// The owner's own id works for the owner, and for the administrator.
 				Expect(s.do("root", method, target(path, "alice"), body).Code).To(Equal(want))

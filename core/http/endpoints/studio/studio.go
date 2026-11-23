@@ -76,8 +76,8 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 }
 
 // WithUserLookup tells the handlers how to check that a user id names a known
-// user. An administrator who acts on behalf of another user (?owner=) needs it;
-// without it every such owner is unknown.
+// user. An administrator who acts on behalf of another user (?user_id=) needs it;
+// without it every such user is unknown.
 func WithUserLookup(exists func(ctx context.Context, id string) (bool, error)) HandlerOption {
 	return func(h *Handlers) { h.userExists = exists }
 }
