@@ -123,10 +123,12 @@ test.describe('Command palette', () => {
     await page.keyboard.press('Control+k')
     const dialog = page.locator(PALETTE)
     await dialog.getByRole('combobox').fill('chen')
-    const row = dialog.getByRole('option', { name: /Chen Wei/ })
+    // The person is listed twice: as a View as entry, which comes first, and as
+    // a person, which opens the Users page.
+    const row = dialog.locator('[data-kind="person"]', { hasText: 'Chen Wei' })
     await expect(row).toBeVisible()
     await expect(dialog.getByRole('group', { name: 'People' })).toBeVisible()
-    await page.keyboard.press('Enter')
+    await row.click()
     await expect(page).toHaveURL(/\/app\/users\?q=chen%40example\.com$/)
     await expect(page.getByPlaceholder(/Search/).first()).toHaveValue('chen@example.com')
   })
