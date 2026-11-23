@@ -459,6 +459,15 @@
     "servedByBuiltin": "内置",
     "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
     "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
+    "toolCap": {
+      "title": "此聊天中有些插件工具不可用",
+      "reason": "共 {{total}} 个插件工具，其中 {{offered}} 个可用。一个聊天只能使用有限数量的插件工具。",
+      "who": "在此聊天中关闭不需要的插件以腾出空间，或请管理员调高上限。",
+      "whoAdmin": "在此聊天中关闭不需要的插件以腾出空间，或在设置中调高上限。",
+      "fix": "打开设置",
+      "addon": "{{name}}：{{count}} 个不可用",
+      "lost": "丢失了工具的插件"
+    },
     "shell": {
       "machine": "本机",
       "isolated": "命令在隔离环境中运行"

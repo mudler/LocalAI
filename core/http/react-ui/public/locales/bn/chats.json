@@ -608,6 +608,15 @@
     "servedByBuiltin": "অন্তর্নির্মিত",
     "fallbackBuiltin": "{{addon}} replaces {{tool}} but cannot serve this chat now (stopped, switched off here or not granted): the built-in {{tool}} serves.",
     "fallbackNone": "{{addon}} replaces {{tool}} but cannot serve this chat now, and the built-in {{tool}} is off: this chat has no {{tool}}.",
+    "toolCap": {
+      "title": "এই চ্যাটে কিছু অ্যাড-অন টুল পাওয়া যাচ্ছে না",
+      "reason": "{{total}}টি অ্যাড-অন টুলের মধ্যে {{offered}}টি পাওয়া যাচ্ছে। একটি চ্যাট এর মধ্যে সীমিত সংখ্যকই ব্যবহার করতে পারে।",
+      "who": "জায়গা করতে এই চ্যাটে যে অ্যাড-অন ব্যবহার করেন না সেগুলো বন্ধ করুন, অথবা প্রশাসককে সীমা বাড়াতে বলুন।",
+      "whoAdmin": "জায়গা করতে এই চ্যাটে যে অ্যাড-অন ব্যবহার করেন না সেগুলো বন্ধ করুন, অথবা সেটিংসে সীমা বাড়ান।",
+      "fix": "সেটিং খুলুন",
+      "addon": "{{name}}: {{count}}টি পাওয়া যাচ্ছে না",
+      "lost": "যেসব অ্যাড-অন টুল হারিয়েছে"
+    },
     "addons": "অতিরিক্ত বৈশিষ্ট্যসমূহ",
     "servers": "MCP মডেলের সার্ভারসমূহ",
     "connectors": "আপনার সংযোগকারীরা",

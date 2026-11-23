@@ -459,6 +459,15 @@
     "servedByBuiltin": "intégré",
     "fallbackBuiltin": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant (arrêté, désactivé ici ou non accordé) : {{tool}} intégré est utilisé.",
     "fallbackNone": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant, et {{tool}} intégré est désactivé : cette discussion n'a pas de {{tool}}.",
+    "toolCap": {
+      "title": "Certains outils de modules complémentaires ne sont pas disponibles dans ce chat",
+      "reason": "{{offered}} outils de modules complémentaires sur {{total}} sont disponibles. Un chat n'en utilise qu'un nombre limité.",
+      "who": "Désactivez dans ce chat les modules que vous n'utilisez pas pour libérer de la place, ou demandez à un administrateur d'augmenter la limite.",
+      "whoAdmin": "Désactivez dans ce chat les modules que vous n'utilisez pas pour libérer de la place, ou augmentez la limite dans les paramètres.",
+      "fix": "Ouvrir le paramètre",
+      "addon": "{{name}} : {{count}} indisponibles",
+      "lost": "Modules qui ont perdu des outils"
+    },
     "shell": {
       "machine": "Cette machine",
       "isolated": "Les commandes s’exécutent isolées"

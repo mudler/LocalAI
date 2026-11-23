@@ -608,6 +608,15 @@
     "servedByBuiltin": "built-in",
     "fallbackBuiltin": "{{addon}} replaces {{tool}} but cannot serve this chat now (stopped, switched off here or not granted): the built-in {{tool}} serves.",
     "fallbackNone": "{{addon}} replaces {{tool}} but cannot serve this chat now, and the built-in {{tool}} is off: this chat has no {{tool}}.",
+    "toolCap": {
+      "title": "Some add-on tools are not available in this chat",
+      "reason": "{{offered}} of {{total}} add-on tools are available. A chat can use only a limited number of them.",
+      "who": "Switch off the add-ons you do not use in this chat to make room, or ask an administrator to raise the limit.",
+      "whoAdmin": "Switch off the add-ons you do not use in this chat to make room, or raise the limit in Settings.",
+      "fix": "Open the setting",
+      "addon": "{{name}}: {{count}} not available",
+      "lost": "Add-ons that lost tools"
+    },
     "addons": "Add-ons",
     "servers": "MCP servers of the model",
     "connectors": "Your connectors",

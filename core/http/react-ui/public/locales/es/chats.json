@@ -459,6 +459,15 @@
     "servedByBuiltin": "integrada",
     "fallbackBuiltin": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat (detenido, desactivado aquí o no concedido): se usa {{tool}} integrada.",
     "fallbackNone": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat, y {{tool}} integrada está desactivada: este chat no tiene {{tool}}.",
+    "toolCap": {
+      "title": "Algunas herramientas de complementos no están disponibles en este chat",
+      "reason": "{{offered}} de {{total}} herramientas de complementos están disponibles. Un chat solo puede usar un número limitado de ellas.",
+      "who": "Desactiva en este chat los complementos que no uses para hacer sitio, o pide a un administrador que suba el límite.",
+      "whoAdmin": "Desactiva en este chat los complementos que no uses para hacer sitio, o sube el límite en Ajustes.",
+      "fix": "Abrir el ajuste",
+      "addon": "{{name}}: {{count}} no disponibles",
+      "lost": "Complementos que han perdido herramientas"
+    },
     "shell": {
       "machine": "Esta máquina",
       "isolated": "Los comandos se ejecutan aislados"

@@ -459,6 +459,15 @@
     "servedByBuiltin": "bawaan",
     "fallbackBuiltin": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini (berhenti, dimatikan di sini, atau tidak diizinkan): {{tool}} bawaan yang dipakai.",
     "fallbackNone": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini, dan {{tool}} bawaan mati: chat ini tidak punya {{tool}}.",
+    "toolCap": {
+      "title": "Beberapa alat add-on tidak tersedia di obrolan ini",
+      "reason": "{{offered}} dari {{total}} alat add-on tersedia. Satu obrolan hanya dapat memakai sejumlah terbatas.",
+      "who": "Matikan add-on yang tidak Anda pakai di obrolan ini untuk memberi ruang, atau minta administrator menaikkan batasnya.",
+      "whoAdmin": "Matikan add-on yang tidak Anda pakai di obrolan ini untuk memberi ruang, atau naikkan batasnya di Pengaturan.",
+      "fix": "Buka pengaturan",
+      "addon": "{{name}}: {{count}} tidak tersedia",
+      "lost": "Add-on yang kehilangan alat"
+    },
     "shell": {
       "machine": "Mesin ini",
       "isolated": "Perintah berjalan terisolasi"

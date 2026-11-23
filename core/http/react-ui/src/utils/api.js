@@ -621,7 +621,8 @@ export const chatProjectsApi = {
 export const chatToolsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
   // The tools of a chat that does not exist yet, on model with the agent.
-  draft: (model, agentId) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId)}`),
+  // switches: the add-ons switched off in the composer (addons_off), which free room under the add-on tool cap.
+  draft: (model, agentId, switches) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId, switches)}`),
   setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
   // on lists the opt-in groups that are on (saved_agents); omit it to keep them.
   setBuiltinsOff: (chat, off, on) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify(on ? { off, on } : { off }) }),
