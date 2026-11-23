@@ -5,7 +5,7 @@ import { Button, Callout } from '../ui'
 import Icon from '../Icon'
 import { useWhen } from '../../hooks/useWhen'
 import { cssVars } from '../../utils/modelLedger'
-import { attentionCount, countsOf, isRunning, retryableKeys, runProgress } from '../../utils/upgradeRun'
+import { attentionOf, countsOf, isRunning, retryableKeys, runProgress } from '../../utils/upgradeRun'
 
 const SOURCE_KEYS = { gallery: 'gallery', library: 'library', addons: 'addons', models: 'models' }
 
@@ -75,7 +75,8 @@ export function RunStrip({ run, busy, result, onCheck, checking, cooling, onCanc
   const when = useWhen()
   const counts = countsOf(run)
   const running = isRunning(run)
-  const attention = attentionCount(counts)
+  // The same count as the end notification of the run.
+  const attention = attentionOf(run)
   const progress = runProgress(run)
   const retryable = retryableKeys(run).length
   let title

@@ -396,6 +396,16 @@ test.describe('Updates: the run', () => {
     await mockUpdateRuns(page, { active: [run], polls: [run] })
     await page.goto('/app/updates')
     await expect(runRow(page, 'addon:notes')).toContainText('Skipped: This update needs you to confirm it in the browser.')
+    // A skip with a reason needs a look, as the end notification counts it.
+    await expect(page.getByTestId('updates-headline')).toHaveText('1 updated, 1 needs attention')
+  })
+
+  test('a cancelled item and a skip with no reason do not need attention', async ({ page }) => {
+    await fleet(page)
+    const run = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'cancelled'), runItem('model:qwen3-8b', 'skipped')], { state: 'cancelled' })
+    await mockUpdateRuns(page, { active: [run], polls: [run] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Update run cancelled, 1 updated')
   })
 })
 

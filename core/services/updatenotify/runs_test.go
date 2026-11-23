@@ -45,6 +45,12 @@ func runOf(id string, source upgraderun.Source, state upgraderun.RunState, items
 	return upgraderun.Run{ID: id, Source: source, State: state, Items: items}
 }
 
+func skippedWith(name, key string) upgraderun.Item {
+	it := runItem(name, upgraderun.PhaseSkipped, 0)
+	it.ErrorKey = key
+	return it
+}
+
 func runItem(name string, phase upgraderun.Phase, progress int) upgraderun.Item {
 	return upgraderun.Item{Key: upgraderun.Key(upgraderun.KindGallery, name), Kind: upgraderun.KindGallery, Name: name, Phase: phase, Progress: progress}
 }
@@ -151,10 +157,14 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		r := runOf("r2", upgraderun.SourceManual, upgraderun.RunFinished,
 			runItem("a", upgraderun.PhaseUpdated, 100), bad,
 			runItem("c", upgraderun.PhaseRolledBack, 0), runItem("d", upgraderun.PhaseUnconfirmed, 0),
-			runItem("e", upgraderun.PhaseSkipped, 0), runItem("f", upgraderun.PhaseCancelled, 0))
+			skippedWith("e", upgraderun.ErrKeyHeld), runItem("f", upgraderun.PhaseCancelled, 0),
+			runItem("g", upgraderun.PhaseSkipped, 0))
 		local(r)
 		_, end := rows("admin")
 		Expect(end).To(HaveLen(1))
+		// The same items the Updates page counts: failed, rolled back,
+		// unconfirmed and skipped for a reason; not cancelled, not a skip
+		// with no reason.
 		Expect(end[0].Params).To(HaveKeyWithValue("failed", BeNumerically("==", 4)))
 		Expect(end[0].Params).To(HaveKeyWithValue("updated", BeNumerically("==", 1)))
 		Expect(end[0].Params).To(HaveKeyWithValue("first_name", "llama-cpp"))

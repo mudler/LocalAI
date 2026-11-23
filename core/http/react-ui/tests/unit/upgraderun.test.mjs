@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  CONFIRM_HEADERS, attentionCount, confirmedPost, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionOf, confirmedPost, countsAsAttention, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
   nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -163,7 +163,7 @@ test('upgrade run: counts, progress and the items to retry', () => {
   assert.equal(counts.total, 6)
   assert.equal(counts.updated, 1)
   assert.equal(counts.running, 2)
-  assert.equal(attentionCount(counts), 2)
+  assert.equal(attentionOf(run), 2)
   assert.equal(runProgress(run), Math.round((100 + 35 + 64 + 100 + 100 + 0) / 6))
   assert.deepEqual(retryableKeys(run), ['addon:notes'])
   assert.equal(firstAttention(run).key, 'addon:notes')
@@ -282,4 +282,23 @@ test('risk lines: no line when there is nothing to say, never a zero or a guess'
   assert.equal(riskText({ code: 'drift', params: {} }, en), '')
   assert.equal(riskText({ code: 'future_code', params: {} }, en), '')
   assert.equal(riskText(null, en), '')
+})
+
+test('upgrade run: needs attention is counted as the end notification counts it', () => {
+  // Failed, rolled back, unconfirmed and skipped for a reason count; a
+  // cancelled item and a skip with no reason do not.
+  const run = runOf([
+    item('gallery:a', 'failed'),
+    item('gallery:b', 'rolled_back'),
+    item('gallery:c', 'unconfirmed'),
+    item('addon:notes', 'skipped', { error_key: 'not_human_surface' }),
+    item('model:m', 'skipped', { error_key: 'held' }),
+    item('model:n', 'skipped'),
+    item('gallery:d', 'cancelled'),
+    item('gallery:e', 'updated'),
+  ], { state: 'finished' })
+  assert.equal(attentionOf(run), 5)
+  assert.equal(countsAsAttention(item('gallery:d', 'cancelled')), false)
+  assert.equal(countsAsAttention(item('model:n', 'skipped')), false)
+  assert.equal(countsAsAttention(item('addon:notes', 'skipped', { error_key: 'not_human_surface' })), true)
 })

@@ -164,7 +164,9 @@ the result is not known (for example, the reply of a worker was lost), the item
 is "not confirmed": run **Check now** to see its version.
 
 When the run ends, the top of the page gives the result, for example "5
-updated, 1 needs attention". A failed item says what happened, which version
+updated, 1 needs attention". An item needs attention when it failed, was
+rolled back, is not confirmed, or was skipped for a reason; a cancelled item
+does not. The result in the notification center counts the same items. A failed item says what happened, which version
 it is on now and that its data did not change. **Retry** shows only when the
 server can retry the item; **Details** shows the server's own words.
 **Retry failed** runs the retryable items again, and **Dismiss** removes the

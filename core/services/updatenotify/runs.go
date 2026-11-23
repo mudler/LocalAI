@@ -209,11 +209,16 @@ func countRun(run upgraderun.Run) runCounts {
 }
 
 // needsAttention reports whether an item ended in a way a person should look
-// at: it failed, was put back, could not be confirmed, or was skipped.
+// at: it failed, was put back, could not be confirmed, or was skipped for a
+// reason (held, edited keys, an add-on that needs the browser). A cancelled
+// item is what a person asked for. The Updates page counts the same items
+// (countsAsAttention in utils/upgradeRun.js).
 func needsAttention(it upgraderun.Item) bool {
 	switch it.Phase {
-	case upgraderun.PhaseFailed, upgraderun.PhaseRolledBack, upgraderun.PhaseUnconfirmed, upgraderun.PhaseSkipped:
+	case upgraderun.PhaseFailed, upgraderun.PhaseRolledBack, upgraderun.PhaseUnconfirmed:
 		return true
+	case upgraderun.PhaseSkipped:
+		return it.ErrorKey != ""
 	}
 	return false
 }

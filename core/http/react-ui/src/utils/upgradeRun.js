@@ -5,11 +5,11 @@
 // update or decides when one is done.
 //
 // A run of GET /api/updates/runs/:id is
-//   { id, source, state: 'running'|'finished'|'cancelled', created_at, finished_at,
-//     counts: { total, queued, running, updated, failed, rolled_back, cancelled, skipped, unconfirmed },
-//     items: [{ key, kind, name, from, to, phase, progress, message, queued_reason,
-//               error_key, error, retryable, cancellable, nodes }] }
-// and the items are in the order they run.
+//   { id, source, actor, state: 'running'|'finished'|'cancelled', created_at, finished_at?,
+//     items: [{ key, kind, name, title?, from, to, expected_to, phase, progress, message?,
+//               queued_reason?, error_key?, error?, retryable, cancellable, job_id?, nodes? }] }
+// with the items in the order they run. Empty fields are left out; the page
+// counts the phases itself.
 
 export const PHASES = ['queued', 'running', 'updated', 'failed', 'rolled_back', 'cancelled', 'skipped', 'unconfirmed']
 
@@ -42,8 +42,7 @@ export function requestItemOf(row) {
 
 const itemsOf = (run) => (run && Array.isArray(run.items) ? run.items : [])
 
-// The counts of a run. The server sends them; a run without them (an older
-// answer) is counted from its items.
+// The counts of a run, from its items (a server that sends counts wins).
 export function countsOf(run) {
   const out = { total: 0 }
   for (const p of PHASES) out[p] = 0
@@ -61,7 +60,15 @@ export function countsOf(run) {
   return out
 }
 
-export const attentionCount = (counts) => counts.failed + counts.rolled_back + counts.unconfirmed
+// Whether an item counts as needing attention in the result of a run: it
+// failed, was put back, could not be confirmed, or was skipped for a reason
+// (held, edited keys, an add-on that needs the browser). A cancelled item is
+// what a person asked for. The end notification of the run counts the same
+// items (needsAttention in core/services/updatenotify/runs.go).
+export const countsAsAttention = (item) => Boolean(item && (needsAttention(item) || (item.phase === 'skipped' && item.error_key)))
+
+// How many items of a run need attention.
+export const attentionOf = (run) => itemsOf(run).filter(countsAsAttention).length
 
 // How far the run is, from 0 to 100: an ended item counts whole, a running one
 // by its own progress.
