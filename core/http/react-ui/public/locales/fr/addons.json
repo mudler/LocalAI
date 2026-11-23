@@ -634,7 +634,17 @@
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
       "operationNotFound": "L'état de cette mise à jour n'est plus disponible. Vérifiez la version du module complémentaire.",
       "network": "Le réseau est injoignable.",
-      "unavailable": "Le service des modules n’est pas disponible. Réessayez."
+      "unavailable": "Le service des modules n’est pas disponible. Réessayez.",
+      "download": "La nouvelle version n’a pas pu être téléchargée",
+      "verify": "La nouvelle version n’a pas passé le contrôle d’intégrité",
+      "swap": "La nouvelle version n’a pas pu être mise en place",
+      "start": "La nouvelle version n’a pas démarré",
+      "not_installed": "Il n’est plus installé",
+      "no_update": "Il n’y a plus de version plus récente",
+      "stale": "Une version plus récente est sortie après la vérification. Recherchez à nouveau les mises à jour",
+      "held": "La mise à jour attend votre approbation",
+      "unknown": "La mise à jour a échoué",
+      "unconfirmed": "Le résultat de la mise à jour n’a pas pu être confirmé"
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {

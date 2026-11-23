@@ -630,7 +630,17 @@
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
       "operationNotFound": "Status pembaruan ini tidak lagi tersedia. Periksa versi add-on.",
       "network": "Jaringan tidak dapat dijangkau.",
-      "unavailable": "Layanan add-on tidak tersedia. Coba lagi."
+      "unavailable": "Layanan add-on tidak tersedia. Coba lagi.",
+      "download": "Versi baru tidak dapat diunduh",
+      "verify": "Versi baru tidak lolos pemeriksaan integritas",
+      "swap": "Versi baru tidak dapat dipasang di tempatnya",
+      "start": "Versi baru tidak berjalan",
+      "not_installed": "Tidak lagi terpasang",
+      "no_update": "Tidak ada lagi versi yang lebih baru",
+      "stale": "Versi yang lebih baru muncul setelah peninjauan. Periksa pembaruan lagi",
+      "held": "Pembaruan menunggu persetujuan Anda",
+      "unknown": "Pembaruan gagal",
+      "unconfirmed": "Hasil pembaruan tidak dapat dikonfirmasi"
     },
     "upgradeNamed": "Perbarui {{name}}",
     "why": {

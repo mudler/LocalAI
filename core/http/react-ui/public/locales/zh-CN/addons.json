@@ -630,7 +630,17 @@
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "operationNotFound": "此更新的状态已不可用。请检查插件版本。",
       "network": "无法连接到网络。",
-      "unavailable": "附加组件服务不可用，请重试。"
+      "unavailable": "附加组件服务不可用，请重试。",
+      "download": "无法下载新版本",
+      "verify": "新版本未通过完整性检查",
+      "swap": "无法将新版本放置到位",
+      "start": "新版本未能启动",
+      "not_installed": "已不再安装",
+      "no_update": "已没有更新的版本",
+      "stale": "查看之后又发布了更新的版本。请再次检查更新",
+      "held": "此更新正在等待您的批准",
+      "unknown": "更新失败",
+      "unconfirmed": "无法确认更新的结果"
     },
     "upgradeNamed": "更新 {{name}}",
     "why": {

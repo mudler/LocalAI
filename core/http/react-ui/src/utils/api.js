@@ -195,6 +195,19 @@ export const backendsApi = {
   checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
 }
 
+// Update runs. The server orders the items, runs them and keeps the state, so
+// a run goes on when the page is closed and a reload finds it again.
+export const updateRunsApi = {
+  preview: (items) => postJSON(API_CONFIG.endpoints.updateRunsPreview, { items }),
+  start: (items, source = 'manual') => postJSON(API_CONFIG.endpoints.updateRuns, { items, source }),
+  active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
+  cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
+  cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),
+  retry: (id) => postJSON(API_CONFIG.endpoints.updateRunRetry(id), {}),
+  dismiss: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id), { method: 'DELETE' }),
+}
+
 // Chats API: conversations the server keeps. A message sent while a turn runs
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {

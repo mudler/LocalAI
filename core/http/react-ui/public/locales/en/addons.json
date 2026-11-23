@@ -630,7 +630,17 @@
       "denied": "Only an administrator can do this from their own browser session.",
       "operationNotFound": "The status of this update is no longer available. Check the add-on version.",
       "network": "The network is not reachable.",
-      "unavailable": "The add-on service is not available. Try again."
+      "unavailable": "The add-on service is not available. Try again.",
+      "download": "The new version could not be downloaded",
+      "verify": "The new version did not pass its integrity check",
+      "swap": "The new version could not be put in place",
+      "start": "The new version did not start",
+      "not_installed": "It is not installed any more",
+      "no_update": "There is no newer version any more",
+      "stale": "A newer version came out after the review. Check for updates again",
+      "held": "The update waits for your approval",
+      "unknown": "The update failed",
+      "unconfirmed": "The result of the update could not be confirmed"
     },
     "upgradeNamed": "Update {{name}}",
     "why": {

@@ -43,6 +43,15 @@ export const API_CONFIG = {
     backendUpdatesCheck: '/api/backends/updates/check',
     upgradeBackend: (name) => `/api/backends/upgrade/${name}`,
 
+    // Update runs: the server plans, runs and reports a set of updates of
+    // every kind (backends, add-ons, models) as one run.
+    updateRunsPreview: '/api/updates/runs/preview',
+    updateRuns: '/api/updates/runs',
+    updateRun: (id) => `/api/updates/runs/${encodeURIComponent(id)}`,
+    updateRunCancel: (id) => `/api/updates/runs/${encodeURIComponent(id)}/cancel`,
+    updateRunItemCancel: (id, key) => `/api/updates/runs/${encodeURIComponent(id)}/items/${encodeURIComponent(key)}/cancel`,
+    updateRunRetry: (id) => `/api/updates/runs/${encodeURIComponent(id)}/retry`,
+
     // Resources
     resources: '/api/resources',
 

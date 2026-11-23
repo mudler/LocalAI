@@ -630,7 +630,17 @@
       "denied": "Solo un administrador puede hacerlo desde su propia sesión del navegador.",
       "operationNotFound": "El estado de esta actualización ya no está disponible. Comprueba la versión del complemento.",
       "network": "No se puede acceder a la red.",
-      "unavailable": "El servicio de complementos no está disponible. Inténtalo de nuevo."
+      "unavailable": "El servicio de complementos no está disponible. Inténtalo de nuevo.",
+      "download": "No se pudo descargar la nueva versión",
+      "verify": "La nueva versión no superó la comprobación de integridad",
+      "swap": "No se pudo poner en su lugar la nueva versión",
+      "start": "La nueva versión no arrancó",
+      "not_installed": "Ya no está instalado",
+      "no_update": "Ya no hay una versión más nueva",
+      "stale": "Salió una versión más nueva después de la revisión. Busque actualizaciones de nuevo",
+      "held": "La actualización espera su aprobación",
+      "unknown": "La actualización falló",
+      "unconfirmed": "No se pudo confirmar el resultado de la actualización"
     },
     "upgradeNamed": "Actualizar {{name}}",
     "why": {

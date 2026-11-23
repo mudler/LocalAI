@@ -630,7 +630,17 @@
       "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
       "operationNotFound": "Lo stato di questo aggiornamento non è più disponibile. Controlla la versione del componente.",
       "network": "La rete non è raggiungibile.",
-      "unavailable": "Il servizio dei componenti non è disponibile. Riprova."
+      "unavailable": "Il servizio dei componenti non è disponibile. Riprova.",
+      "download": "Non è stato possibile scaricare la nuova versione",
+      "verify": "La nuova versione non ha superato il controllo di integrità",
+      "swap": "Non è stato possibile mettere al suo posto la nuova versione",
+      "start": "La nuova versione non si è avviata",
+      "not_installed": "Non è più installato",
+      "no_update": "Non c’è più una versione più recente",
+      "stale": "È uscita una versione più recente dopo la revisione. Controlla di nuovo gli aggiornamenti",
+      "held": "L’aggiornamento attende la tua approvazione",
+      "unknown": "L’aggiornamento non è riuscito",
+      "unconfirmed": "Non è stato possibile confermare il risultato dell’aggiornamento"
     },
     "upgradeNamed": "Aggiorna {{name}}",
     "why": {

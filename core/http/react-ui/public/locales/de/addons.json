@@ -630,7 +630,17 @@
       "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
       "operationNotFound": "Der Status dieses Updates ist nicht mehr verfügbar. Prüfe die Version des Add-ons.",
       "network": "Das Netzwerk ist nicht erreichbar.",
-      "unavailable": "Der Add-on-Dienst ist nicht verfügbar. Versuche es erneut."
+      "unavailable": "Der Add-on-Dienst ist nicht verfügbar. Versuche es erneut.",
+      "download": "Die neue Version konnte nicht heruntergeladen werden",
+      "verify": "Die neue Version hat die Integritätsprüfung nicht bestanden",
+      "swap": "Die neue Version konnte nicht eingesetzt werden",
+      "start": "Die neue Version ist nicht gestartet",
+      "not_installed": "Es ist nicht mehr installiert",
+      "no_update": "Es gibt keine neuere Version mehr",
+      "stale": "Nach der Prüfung ist eine neuere Version erschienen. Suchen Sie erneut nach Aktualisierungen",
+      "held": "Die Aktualisierung wartet auf Ihre Freigabe",
+      "unknown": "Die Aktualisierung ist fehlgeschlagen",
+      "unconfirmed": "Das Ergebnis der Aktualisierung konnte nicht bestätigt werden"
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {
