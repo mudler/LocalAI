@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -203,5 +204,119 @@ var _ = Describe("add-on items of upgrade runs", Label("updates"), func() {
 		// the caller's operation ID.
 		Expect(awaitLifecycle(e, "notes", "r-2", alice("r-2"))).To(HaveKeyWithValue("Phase", "completed"))
 		Expect(s.generation()).To(Equal(uint64(2)))
+	})
+})
+
+var _ = Describe("add-on items of upgrade runs on a frontend that is not the owner", Label("updates"), func() {
+	var (
+		s     *updatesStack
+		gs    *galleryop.GalleryService
+		front *gateway.Gateway
+		owner *httptest.Server
+		h     *upgraderuntest.Harness
+		actor string
+	)
+	alice := func(op string) func(*http.Request) { return humanTab(s.cookies["alice"], op) }
+
+	BeforeEach(func() {
+		s = newUpdatesStack()
+		front, _, owner = s.forwardingGateways(s.gateway)
+		gs = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		qctx, stop := context.WithCancel(context.Background())
+		DeferCleanup(stop)
+		Expect(gs.Start(qctx, nil, nil)).To(Succeed())
+		// The frontend's own run service: its add-on check and add-on job path
+		// both reach the owner through the frontend's gateway.
+		up := &QueuedUpgrader{Gateway: func() *gateway.Gateway { return front }, Queue: func() *galleryop.GalleryService { return gs }}
+		var err error
+		h, err = upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{
+			Jobs:     gs,
+			Addons:   GatewayUpdateChecker{Gateway: func() *gateway.Gateway { return front }},
+			Starters: map[upgraderun.Kind]upgraderun.Starter{upgraderun.KindAddon: upgraderun.AddonStarter{Upgrader: up}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(h.Service.Close)
+
+		e := echo.New()
+		e.Use(auth.Middleware(s.db, s.cfg))
+		e.POST("/principal", func(c echo.Context) error {
+			actor = RunPrincipal(c, s.db, s.mode)
+			return c.NoContent(http.StatusNoContent)
+		})
+		Expect(send(e, "POST", "/principal", "", alice(RunConfirmID)).code).To(Equal(http.StatusNoContent))
+	})
+
+	It("lists the add-on updates, previews and starts an add-on item as the actor of the run", func() {
+		ctx := context.Background()
+		// Nothing to update yet: the add-on is up to date, and the listing
+		// is complete.
+		plan, err := h.Service.Preview(ctx, actor, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(plan.Complete).To(BeTrue())
+		Expect(plan.Items).To(BeEmpty())
+
+		before := s.installedDigest()
+		next := s.publish("build-2", catalog.Requirements{})
+		Expect(send(s.frontends["owner"], "POST", "/api/addons/notes/update/check", `{"operationId":"c"}`, alice("c")).code).To(Equal(200))
+
+		plan, err = h.Service.Preview(ctx, actor, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(plan.Items).To(HaveLen(1))
+		item := plan.Items[0]
+		Expect(item.Key).To(Equal("addon:notes"))
+		Expect(item.From).To(Equal(before))
+		Expect(item.ExpectedTo).To(Equal(next.Digest))
+		Expect(item.Startable).To(BeTrue())
+
+		// A run with no add-on identity cannot list add-ons: the kind is
+		// unchecked, never empty.
+		_, err = h.Service.Start(ctx, "carol", upgraderun.StartRequest{Items: []upgraderun.StartItem{{Kind: upgraderun.KindAddon, Name: "notes", ExpectedTo: next.Digest}}})
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeSourceUnchecked))
+
+		run, err := h.Service.Start(ctx, actor, upgraderun.StartRequest{Items: []upgraderun.StartItem{{Kind: upgraderun.KindAddon, Name: "notes", ExpectedTo: next.Digest}}})
+		Expect(err).NotTo(HaveOccurred())
+		var it upgraderun.Item
+		Eventually(func() string {
+			r, err := h.Service.Get(ctx, run.ID)
+			Expect(err).NotTo(HaveOccurred())
+			it = *r.Item("addon:notes")
+			return it.JobID
+		}, 10*time.Second, 20*time.Millisecond).ShouldNot(BeEmpty(), it.Error)
+		Eventually(func() bool {
+			st := gs.GetStatus(it.JobID)
+			return st != nil && st.Processed && st.Error == nil
+		}, 10*time.Second).Should(BeTrue())
+		Expect(s.generation()).To(Equal(uint64(2)))
+		Expect(s.installedDigest()).To(Equal(next.Digest))
+	})
+
+	It("fails an add-on item with a typed reason when the owner cannot be reached", func() {
+		ctx := context.Background()
+		next := s.publish("build-2", catalog.Requirements{})
+		Expect(send(s.frontends["owner"], "POST", "/api/addons/notes/update/check", `{"operationId":"c"}`, alice("c")).code).To(Equal(200))
+		// A backend item keeps the run in its first stage while the owner
+		// goes away; the add-on item starts after it.
+		h.Backends.Add(upgraderun.Candidate{Kind: upgraderun.KindGallery, Name: "kokoro"})
+		run, err := h.Service.Start(ctx, actor, upgraderun.StartRequest{Items: []upgraderun.StartItem{
+			{Kind: upgraderun.KindGallery, Name: "kokoro"},
+			{Kind: upgraderun.KindAddon, Name: "notes", ExpectedTo: next.Digest},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() string { return h.Starter.Job("gallery:kokoro") }, 5*time.Second).ShouldNot(BeEmpty())
+		owner.Close()
+		// The backend job is in the fake table, which the run does not read
+		// (it reads the gallery service): its outcome is lost, and a check
+		// decides it. Either way the stage ends and the add-on item starts.
+		var it upgraderun.Item
+		Eventually(func() bool {
+			r, err := h.Service.Get(ctx, run.ID)
+			Expect(err).NotTo(HaveOccurred())
+			it = *r.Item("addon:notes")
+			return it.Phase.Terminal()
+		}, 20*time.Second, 50*time.Millisecond).Should(BeTrue())
+		Expect(it.Phase).To(Equal(upgraderun.PhaseFailed))
+		Expect(it.ErrorKey).To(Equal(RunErrUnavailable))
+		Expect(it.Retryable).To(BeTrue())
+		Expect(it.JobID).To(BeEmpty())
 	})
 })

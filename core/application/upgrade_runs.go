@@ -13,7 +13,6 @@ import (
 	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
-	addonupdates "github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -167,10 +166,10 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 		upgraderun.BackendChecker{Snapshots: backendSnapshots{a}},
 		upgraderun.ModelChecker{Snapshots: modelSnapshots{a}},
 	}
-	if m := a.addonManager; m != nil && !cfg.Addons.IsFrontend() {
-		// Only the process of the add-on owner lists the add-ons with an
-		// update: the list needs the owner's own check, without an actor.
-		checkers = append(checkers, addonRunChecker{src: m})
+	if cfg.Addons.Enabled {
+		// Through the gateway, as the actor of the run: the owner answers
+		// on its own process and every other frontend forwards to it.
+		checkers = append(checkers, addonendpoints.GatewayUpdateChecker{Gateway: func() *gateway.Gateway { return a.addonGateway }})
 	}
 	opts := upgraderun.Options{
 		Store:    store,
@@ -258,40 +257,4 @@ type actorInstaller struct {
 
 func (i actorInstaller) Install(ctx context.Context, sourceID, backend, version string, progress backendlib.Progress) error {
 	return i.in.Install(library.WithActor(ctx, i.actor), sourceID, backend, version, progress)
-}
-
-// addonUpdateSource is the owner's list of add-on update statuses
-// (addons.Manager implements it).
-type addonUpdateSource interface {
-	UpdateStatuses(ctx context.Context, fresh bool) ([]addonupdates.Status, bool, error)
-}
-
-// addonRunChecker lists the add-ons with an update for the upgrade runs.
-type addonRunChecker struct{ src addonUpdateSource }
-
-func (addonRunChecker) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
-
-func (c addonRunChecker) List(ctx context.Context, fresh bool) (upgraderun.Listing, error) {
-	sts, complete, err := c.src.UpdateStatuses(ctx, fresh)
-	if err != nil {
-		return upgraderun.Listing{}, err
-	}
-	l := upgraderun.Listing{Complete: complete}
-	for _, st := range sts {
-		if st.Throttled {
-			l.Throttled = true
-		}
-		if st.State != addonupdates.UpdateAvailable || st.InstalledDigest == "" || st.CandidateDigest == "" {
-			continue
-		}
-		l.Candidates = append(l.Candidates, upgraderun.Candidate{
-			Kind: upgraderun.KindAddon, Name: st.AddonID,
-			From: st.InstalledDigest, To: st.CandidateDigest, Risks: []string{},
-			Extra: map[string]string{
-				upgraderun.ExtraExpectedDigest:  st.InstalledDigest,
-				upgraderun.ExtraCandidateDigest: st.CandidateDigest,
-			},
-		})
-	}
-	return l, nil
 }

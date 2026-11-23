@@ -343,12 +343,8 @@ func CancelUpgradeRunItemEndpoint(d UpgradeRunDeps) echo.HandlerFunc {
 // retryNeedsHuman says whether a retry of run would start add-on items,
 // which need the administrator's own browser session as the start does.
 func retryNeedsHuman(run upgraderun.Run) bool {
-	for _, it := range run.Items {
-		if it.Kind != upgraderun.KindAddon || !it.Retryable {
-			continue
-		}
-		switch it.Phase {
-		case upgraderun.PhaseFailed, upgraderun.PhaseRolledBack, upgraderun.PhaseUnconfirmed:
+	for i := range run.Items {
+		if run.Items[i].Kind == upgraderun.KindAddon && run.Items[i].RetryEligible() {
 			return true
 		}
 	}

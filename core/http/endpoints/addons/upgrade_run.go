@@ -16,9 +16,11 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 )
 
 // An upgrade run (core/services/upgraderun) upgrades an add-on through the
@@ -302,4 +304,100 @@ func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.
 		return nil, &afterRefusal{status: http.StatusConflict, kind: kind, message: item.Error}
 	}
 	return json.Marshal(view)
+}
+
+// GatewayUpdateChecker lists the add-ons with an update for upgrade runs
+// (upgraderun.Checker), through the gateway, as the actor of the run: the
+// gateway serves the owner's answer on the owner and forwards to it on every
+// other frontend, so a preview, a start and the checks of a run see the same
+// add-ons wherever they run. A run with no add-on identity cannot list them,
+// and the kind is then unchecked rather than empty.
+type GatewayUpdateChecker struct {
+	Gateway func() *gateway.Gateway
+}
+
+func (GatewayUpdateChecker) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
+
+// runActorOf is the add-on actor of the run in ctx.
+func runActorOf(ctx context.Context) (contract.Actor, bool) {
+	text := upgraderun.ActorFrom(ctx)
+	if text == managerpkg.AutoUpgradeActor.UserID {
+		return managerpkg.AutoUpgradeActor, true
+	}
+	a, _, ok := DecodeRunActor(text)
+	return a, ok
+}
+
+// dispatch makes one read of the owner, each with its own operation ID as
+// GetUpdate does.
+func (GatewayUpdateChecker) dispatch(ctx context.Context, g *gateway.Gateway, a contract.Actor, id, action string) (json.RawMessage, error) {
+	out, e := g.Dispatch(ctx, a, contract.Request{AddonID: id, OperationID: "run-check-" + uuid.NewString(), Action: action, Arguments: json.RawMessage(`{}`)})
+	if e != nil {
+		return nil, e
+	}
+	return out.Payload, nil
+}
+
+func (c GatewayUpdateChecker) List(ctx context.Context, fresh bool) (upgraderun.Listing, error) {
+	a, ok := runActorOf(ctx)
+	if !ok {
+		return upgraderun.Listing{}, errors.New("the run has no add-on identity")
+	}
+	var g *gateway.Gateway
+	if c.Gateway != nil {
+		g = c.Gateway()
+	}
+	if g == nil {
+		return upgraderun.Listing{}, errors.New("add-ons are not available on this server")
+	}
+	raw, err := c.dispatch(ctx, g, a, "", "addons-installed")
+	if err != nil {
+		return upgraderun.Listing{}, err
+	}
+	var installed struct {
+		Addons []struct {
+			ID       string `json:"id"`
+			SourceID string `json:"sourceId"`
+		} `json:"addons"`
+	}
+	if json.Unmarshal(raw, &installed) != nil {
+		return upgraderun.Listing{}, errors.New("unreadable list of installed add-ons")
+	}
+	action := gateway.ActionUpdateStatus
+	if fresh {
+		action = gateway.ActionUpdateCheck
+	}
+	l := upgraderun.Listing{Complete: true}
+	for _, in := range installed.Addons {
+		if in.SourceID == zipformat.SourceID {
+			// An add-on installed from a file has no library to update from.
+			continue
+		}
+		raw, err := c.dispatch(ctx, g, a, in.ID, action)
+		var env gateway.UpdateEnvelope
+		var st updates.Status
+		if err != nil || json.Unmarshal(raw, &env) != nil || env.Error != nil || json.Unmarshal(env.Data, &st) != nil {
+			l.Complete = false
+			continue
+		}
+		if st.Throttled {
+			l.Throttled = true
+		}
+		switch st.State {
+		case updates.CheckFailed, updates.Unknown:
+			l.Complete = false
+		}
+		if st.State != updates.UpdateAvailable || st.InstalledDigest == "" || st.CandidateDigest == "" {
+			continue
+		}
+		l.Candidates = append(l.Candidates, upgraderun.Candidate{
+			Kind: upgraderun.KindAddon, Name: in.ID,
+			From: st.InstalledDigest, To: st.CandidateDigest, Risks: []string{},
+			Extra: map[string]string{
+				upgraderun.ExtraExpectedDigest:  st.InstalledDigest,
+				upgraderun.ExtraCandidateDigest: st.CandidateDigest,
+			},
+		})
+	}
+	return l, nil
 }

@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
-	addonupdates "github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -112,44 +111,5 @@ var _ = Describe("Upgrade run wiring", func() {
 			Expect(err).NotTo(HaveOccurred())
 			return r.Item("gallery:kokoro").Phase
 		}, 5*time.Second, 20*time.Millisecond).Should(Equal(upgraderun.PhaseUpdated))
-	})
-})
-
-type fakeAddonUpdates struct {
-	sts      []addonupdates.Status
-	complete bool
-	fresh    []bool
-}
-
-func (f *fakeAddonUpdates) UpdateStatuses(_ context.Context, fresh bool) ([]addonupdates.Status, bool, error) {
-	f.fresh = append(f.fresh, fresh)
-	return f.sts, f.complete, nil
-}
-
-var _ = Describe("The add-on check of upgrade runs", func() {
-	It("lists the add-ons with an update, pinned to the installed and the candidate digest", func() {
-		src := &fakeAddonUpdates{complete: true, sts: []addonupdates.Status{
-			{AddonID: "notes", State: addonupdates.UpdateAvailable, InstalledDigest: "sha256:a", CandidateDigest: "sha256:b"},
-			{AddonID: "tables", State: addonupdates.UpToDate, InstalledDigest: "sha256:c"},
-			{AddonID: "odd", State: addonupdates.UpdateAvailable, Throttled: true},
-		}}
-		l, err := addonRunChecker{src: src}.List(context.Background(), true)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(src.fresh).To(Equal([]bool{true}))
-		Expect(l.Complete).To(BeTrue())
-		Expect(l.Throttled).To(BeTrue())
-		Expect(l.Candidates).To(HaveLen(1))
-		c := l.Candidates[0]
-		Expect(c.Key()).To(Equal("addon:notes"))
-		Expect(c.From).To(Equal("sha256:a"))
-		Expect(c.To).To(Equal("sha256:b"))
-		Expect(c.Extra).To(HaveKeyWithValue(upgraderun.ExtraExpectedDigest, "sha256:a"))
-		Expect(c.Extra).To(HaveKeyWithValue(upgraderun.ExtraCandidateDigest, "sha256:b"))
-	})
-
-	It("says the listing is incomplete when an add-on could not be checked", func() {
-		l, err := addonRunChecker{src: &fakeAddonUpdates{}}.List(context.Background(), false)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(l.Complete).To(BeFalse())
 	})
 })

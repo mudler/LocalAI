@@ -168,6 +168,9 @@ that started the run came from that session, with the header
 | `not_human_surface` | The run was started with an API key, by the assistant, or without the confirmation header. |
 | `forbidden` | The account that started the run is not an add-on administrator. |
 
+These two keys end the item `skipped`. `unavailable` (the add-on owner did not
+answer) ends it `failed`, and a retry takes it.
+
 A refusal of the owner ends the item `failed` with the type of the owner, for
 example `stale_installed`, `candidate_changed`, `incompatible` or
 `upgrade_conflict`. An upgrade that needs host access nobody approved fails
@@ -175,9 +178,15 @@ with the failure code of the owner (`approval_required`); approve it on the
 add-on page. A retry of a run with add-on items needs the same browser
 session and header.
 
-The list of add-ons with an update comes from the add-on owner. In a cluster,
-only the frontend that is the add-on owner lists add-ons, so a preview or a
-start of an add-on item on another frontend does not find it.
+The list of add-ons with an update comes from the add-on owner, read through
+the add-on gateway as the account that asked: the owner answers on its own
+process, and every other frontend forwards the read to it, as the add-on
+routes do. A preview, a start and the checks of a run see the same add-ons on
+every frontend. A run whose actor is not an add-on administrator cannot list
+add-ons, so a start of an add-on item is refused with `source_unchecked`. When
+the owner cannot be reached, a start of an add-on item is refused with
+`source_unchecked`, and an add-on item that was about to start ends `failed`
+with the error key `unavailable` (retryable).
 
 ## REST API
 
