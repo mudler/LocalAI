@@ -34,8 +34,11 @@ type Gate interface {
 //
 // An Allowlist is safe for concurrent use.
 type Allowlist struct {
-	mu            sync.RWMutex
-	peers         map[peer.ID]struct{}
+	mu    sync.RWMutex
+	peers map[peer.ID]struct{}
+	// dialers may connect but open no stream: the servers this host is a
+	// client of, which redial it after their own address changed.
+	dialers       map[peer.ID]struct{}
 	pairing       bool
 	pairingProtos map[protocol.ID]struct{}
 }
@@ -68,6 +71,24 @@ func (a *Allowlist) Disallow(p peer.ID) {
 	a.mu.Unlock()
 }
 
+// AllowConn admits p at connection level only: it may connect (so that a
+// server this host is a client of can redial it) but gets no stream.
+func (a *Allowlist) AllowConn(p peer.ID) {
+	a.mu.Lock()
+	if a.dialers == nil {
+		a.dialers = map[peer.ID]struct{}{}
+	}
+	a.dialers[p] = struct{}{}
+	a.mu.Unlock()
+}
+
+// DisallowConn undoes AllowConn.
+func (a *Allowlist) DisallowConn(p peer.ID) {
+	a.mu.Lock()
+	delete(a.dialers, p)
+	a.mu.Unlock()
+}
+
 // Allowed reports whether p is a paired peer.
 func (a *Allowlist) Allowed(p peer.ID) bool {
 	a.mu.RLock()
@@ -96,7 +117,8 @@ func (a *Allowlist) AdmitConn(p peer.ID) bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	_, ok := a.peers[p]
-	return ok || a.pairing
+	_, d := a.dialers[p]
+	return ok || d || a.pairing
 }
 
 // AdmitStream admits every stream of a paired peer. An unpaired peer gets a

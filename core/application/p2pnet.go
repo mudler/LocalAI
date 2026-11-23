@@ -504,14 +504,24 @@ func (rt *p2pRuntime) reload() {
 			gone = append(gone, p)
 		}
 	}
+	var added []p2pnet.ID
 	for p := range next {
 		rt.gate.Allow(p)
+		if _, ok := rt.peers[p]; !ok {
+			added = append(added, p)
+		}
 	}
 	rt.peers = next
 	rt.workers = workers
 	rt.peersMu.Unlock()
 	for _, p := range gone {
 		rt.host.Revoke(p)
+	}
+	// A newly allowed peer: its pairing connection was identified before it
+	// was allowed, and a peer known from an earlier run is dialled now.
+	for _, p := range added {
+		rt.host.Learn(p)
+		rt.host.Redial(p)
 	}
 	rt.reloadNodeRelays(ctx, devices)
 	invites, err := rt.pair.ListInvites(ctx)
