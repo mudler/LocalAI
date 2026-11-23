@@ -119,11 +119,11 @@ func newHelperTokenizer(python, strataRoot, pack, family string, timeout time.Du
 		return nil, fmt.Errorf("tokenizer helper: python: %w", err)
 	}
 	argv := []string{"-c", helperScript, strataRoot, pack}
-	if family == familyDeepSeek41 || family == familyHy4 {
+	if family == familyDeepSeek41 || family == familyHy4 || family == familyInkling {
 		argv = append(argv, family)
 	}
 	cmd := exec.Command(python, argv...) // #nosec G204 -- interpreter is a PATH name or an absolute file, no shell, script and paths passed as argv
-	if family == familyHy4 {
+	if family == familyHy4 || family == familyInkling {
 		// The template and the model's output are not ASCII.
 		cmd.Env = append(os.Environ(), "PYTHONUTF8=1", "PYTHONIOENCODING=utf-8")
 	}

@@ -51,6 +51,10 @@ type Strata struct {
 	// Hy4 seams: the tokenizer from the model file, and the engine's --info.
 	prepareHy4Tokenizer func(hy4TokenizerJob) error
 	probeHy4Info        func(enginePath, native string, env []string) (map[string]string, error)
+
+	// Inkling seams: the tokenizer from the model files, and the engine's --info.
+	prepareInklingTokenizer func(inklingTokenizerJob) error
+	probeInklingInfo        func(enginePath string, args, env []string) (map[string]string, error)
 }
 
 func NewStrata() *Strata {
@@ -60,6 +64,9 @@ func NewStrata() *Strata {
 
 		prepareHy4Tokenizer: prepareHy4Tokenizer,
 		probeHy4Info:        probeHy4Info,
+
+		prepareInklingTokenizer: prepareInklingTokenizer,
+		probeInklingInfo:        probeInklingInfo,
 		newTokenizer: func(python, root, pack, family string, timeout time.Duration) (Tokenizer, error) {
 			return newHelperTokenizer(python, root, pack, family, timeout)
 		},
@@ -93,6 +100,12 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 	}
 
+	if c.inkling != nil {
+		if err := s.prepareInkling(&c); err != nil {
+			return err
+		}
+	}
+
 	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.family, c.readyTimeout)
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
@@ -120,8 +133,8 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		s.eos[id] = true
 	}
 	s.padID, s.startID, s.padLiteral = -1, -1, nil
-	// Hy4: the engine reads pictures itself, so there is no encoder to start.
-	if c.hy4 == nil && c.vision != nil {
+	// Hy4 and Inkling: the engine reads pictures itself, so there is no encoder to start.
+	if c.hy4 == nil && c.inkling == nil && c.vision != nil {
 		s.vision = newImageEncoder(*c.vision)
 		if ids, err := tok.Encode(imagePadText, true); err == nil && len(ids) == 1 {
 			s.padID = ids[0]
@@ -131,7 +144,7 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 		s.padLiteral, _ = tok.Encode(imagePadText, false)
 	}
-	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision))
+	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision) || (c.inkling != nil && c.inkling.useVision))
 	return nil
 }
 
@@ -139,8 +152,11 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 // falls back to their known ids.
 func defaultEOS(tok Tokenizer, family string) []int {
 	names, fallback := []string{"<|endoftext|>", "<|im_end|>"}, defaultEOSIDs
-	if family == familyHy4 {
+	switch family {
+	case familyHy4:
 		names, fallback = hy4EOSTexts, defaultHy4EOSIDs
+	case familyInkling:
+		names, fallback = inklingEOSTexts, defaultInklingEOSIDs
 	}
 	var out []int
 	for _, t := range names {
@@ -170,6 +186,32 @@ func (s *Strata) prepareHy4(c *loadConfig) error {
 	if h.wantDrafter || h.vision != "" {
 		var err error
 		if info, err = s.probeHy4Info(c.enginePath, h.native, c.env); err != nil {
+			xlog.Warn("strata: cannot ask the engine what it supports", "error", err)
+		}
+	}
+	for _, n := range h.applyInfo(info) {
+		xlog.Info("strata: " + n)
+	}
+	return nil
+}
+
+// prepareInkling makes the tokenizer directory from the model files and asks
+// the engine what it can do. It sets the pack the tokenizer helper reads.
+func (s *Strata) prepareInkling(c *loadConfig) error {
+	h := c.inkling
+	if c.strataRoot == "" {
+		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
+	}
+	pack := inklingPackDir(h.native)
+	job := inklingTokenizerJob{native: h.native, tokenizerJSON: h.tokenizerJSON, chatTemplate: h.chatTemplate, pack: pack, python: c.python, strataRoot: c.strataRoot}
+	if err := s.prepareInklingTokenizer(job); err != nil {
+		return fmt.Errorf("strata: cannot make the tokenizer for %s: %w", filepath.Base(h.native), err)
+	}
+	c.pack = pack
+	var info map[string]string
+	if h.wantDrafter || h.vision != "" {
+		var err error
+		if info, err = s.probeInklingInfo(c.enginePath, h.infoArgs(), c.env); err != nil {
 			xlog.Warn("strata: cannot ask the engine what it supports", "error", err)
 		}
 	}
@@ -327,9 +369,12 @@ func (s *Strata) preparePrompt(tok Tokenizer, opts *pb.PredictOptions) (prepared
 		if got := strings.Count(text, marker); got != n {
 			return p, fmt.Errorf("the prompt has %d image markers (%s) for %d images", got, marker, n)
 		}
-		if s.cfg.hy4 != nil {
+		switch {
+		case s.cfg.hy4 != nil:
 			text = strings.ReplaceAll(text, marker, hy4ImageStartText+hy4ImagePadText+hy4ImageEndText)
-		} else {
+		case s.cfg.inkling != nil:
+			text = strings.ReplaceAll(text, marker, inklingImageText)
+		default:
 			text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
 		}
 		p.Images = opts.GetImages()
@@ -495,6 +540,18 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 				return res, errors.New("strata: this model cannot read images: the vision file is missing or the engine does not support it")
 			}
 			if imageKeys, release, err = hy4ImageKeys(p.Images); err != nil {
+				return res, fmt.Errorf("strata: %w", err)
+			}
+		}
+	} else if s.cfg.inkling != nil {
+		if logprobsK(opts) >= 0 {
+			return res, errors.New("strata: logprobs are not supported by the Inkling engine")
+		}
+		if len(p.Images) > 0 {
+			if !s.cfg.inkling.useVision {
+				return res, errors.New("strata: this model cannot read images: the vision file is missing or the engine does not support it")
+			}
+			if imageKeys, release, err = directImageKeys("strata-inkling-images-", p.Images); err != nil {
 				return res, fmt.Errorf("strata: %w", err)
 			}
 		}

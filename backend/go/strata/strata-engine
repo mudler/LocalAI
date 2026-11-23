@@ -11,6 +11,7 @@
 # STRATA_ENGINE_FAMILY=hy4 (set by the backend for Tencent Hy4-Flash) selects the Hy4 packages in engines-hy4/
 # and their program, strata-hy4, in place of engines/ and strata. The package names and the choice among them
 # are the same.
+# STRATA_ENGINE_FAMILY=inkling (Thinking Machines Inkling 2 Mini) does the same with engines-inkling/ and strata-inkling.
 #
 # STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
 # a one-line reason on stderr, which the backend shows in its load error.
@@ -21,6 +22,10 @@ case "${STRATA_ENGINE_FAMILY:-}" in
 hy4)
 	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines-hy4}"
 	BIN="${STRATA_ENGINE_BIN:-strata-hy4}"
+	;;
+inkling)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines-inkling}"
+	BIN="${STRATA_ENGINE_BIN:-strata-inkling}"
 	;;
 *)
 	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines}"

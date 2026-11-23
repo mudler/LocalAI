@@ -20,10 +20,13 @@ var defaultEOSIDs = []int{248044, 248046}
 
 // Model families. Qwen runs on the Strata engine ("strata"). Hy4 is Tencent
 // Hy4-Flash, which runs on its own engine program ("strata-hy4"); see hy4.go.
+// Inkling is Thinking Machines Inkling 2 Mini, which runs on a third engine
+// program ("strata-inkling"); see inkling.go.
 // Strata v0.2.15 removed DeepSeek V4.1, so family:deepseek41 is refused at load.
 const (
 	familyQwen       = "qwen"
 	familyHy4        = "hy4"
+	familyInkling    = "inkling"
 	familyDeepSeek41 = "deepseek41"
 )
 
@@ -50,12 +53,17 @@ type loadConfig struct {
 	// build is set when the pack does not exist yet and must be made from the
 	// GGUF files before the engine starts (the pack_gguf option).
 	build *packBuild
-	// family is familyQwen or familyHy4.
+	// family is familyQwen, familyHy4 or familyInkling.
 	family string
 
 	// hy4 is set for the Hy4 family: the files of a .strata model and the
 	// options of the strata-hy4 engine. Nil for every other family.
 	hy4 *hy4Config
+
+	// inkling is set for the Inkling family: the files of an Inkling 2 Mini
+	// model and the options of the strata-inkling engine. Nil for every other
+	// family.
+	inkling *inklingConfig
 
 	// noPackFlag leaves --pack off the engine command line: the engine path
 	// of this model reads the GGUF as it is and takes only the tokenizer.
@@ -79,6 +87,9 @@ var fileOptions = []struct{ option, flag string }{
 func (c loadConfig) engineArgs() []string {
 	if c.hy4 != nil {
 		return c.hy4EngineArgs()
+	}
+	if c.inkling != nil {
+		return c.inklingEngineArgs()
 	}
 	var args []string
 	if !c.noPackFlag {
@@ -219,10 +230,12 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	case "", familyQwen:
 	case familyHy4:
 		c.family = familyHy4
+	case familyInkling:
+		c.family = familyInkling
 	case familyDeepSeek41:
 		return c, errors.New("strata: family:deepseek41 is not supported: Strata v0.2.15 removed DeepSeek V4.1")
 	default:
-		return c, fmt.Errorf("strata: family %q must be %s or %s", f, familyQwen, familyHy4)
+		return c, fmt.Errorf("strata: family %q must be %s, %s or %s", f, familyQwen, familyHy4, familyInkling)
 	}
 	envName := "STRATA_ENGINE_PATH"
 	c.enginePath = kv["engine_path"]
@@ -240,6 +253,9 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 
 	if c.family == familyHy4 {
 		return parseHy4(c, kv, opts)
+	}
+	if c.family == familyInkling {
+		return parseInkling(c, kv, opts)
 	}
 
 	pack, dirs, err := planPack(&c, opts, kv)
