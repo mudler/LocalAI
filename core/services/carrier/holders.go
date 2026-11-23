@@ -193,12 +193,6 @@ func (h *Commands) InstallTimeout() time.Duration {
 	return 0
 }
 
-func (h *Commands) InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias string, replicaIndex int, opID string, onProgress func(workerctl.BackendInstallProgressEvent)) (*workerctl.BackendInstallReply, error) {
-	return call(context.Background(), h.t, nodeID, func(r *WorkerRoute) (*workerctl.BackendInstallReply, error) {
-		return r.Commands.InstallBackendForce(nodeID, backendType, galleriesJSON, uri, name, alias, replicaIndex, opID, onProgress)
-	})
-}
-
 // Files forwards file staging to the route of each node.
 type Files struct {
 	t *RouteTable

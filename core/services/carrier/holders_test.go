@@ -124,15 +124,12 @@ var _ = Describe("Forwarding holders", func() {
 			{"HasRemoteModel", func(h *carrier.Commands) { _, _ = h.HasRemoteModel(ctx, "m") }},
 			{"InstallTimeout", func(h *carrier.Commands) { _ = h.InstallTimeout() }},
 			{"DeleteModelFiles", func(h *carrier.Commands) { _ = h.DeleteModelFiles("m") }},
-			{"InstallBackendForce", func(h *carrier.Commands) {
-				_, _ = h.InstallBackendForce("n", "t", "g", "u", "name", "alias", 1, "op", progress)
-			}},
 		}
 
 		It("covers every method of nodes.NodeControl", func() {
 			// The compile-time assertion proves the holder has each method; this
 			// table proves each one is forwarded to the method of the same name.
-			Expect(cases).To(HaveLen(19))
+			Expect(cases).To(HaveLen(18))
 		})
 
 		// The verbs that name no node (the fan-outs, and the reads of the
