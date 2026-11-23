@@ -18,6 +18,16 @@ const ENDED = new Set(['updated', 'failed', 'rolled_back', 'cancelled', 'skipped
 // The ended phases a person has to look at: the new version is not running.
 const ATTENTION = new Set(['failed', 'rolled_back', 'unconfirmed'])
 
+// The status of one node of a backend item (the operation's per-node status:
+// queued, downloading, running_on_worker, success, error, rolled_back,
+// unconfirmed) as the phase of a run item, so a node reads with the words of
+// the run. A status the page does not know is returned as it is.
+const NODE_PHASES = {
+  queued: 'queued', downloading: 'running', running_on_worker: 'running', running: 'running',
+  success: 'updated', error: 'failed', rolled_back: 'rolled_back', unconfirmed: 'unconfirmed',
+}
+export const nodePhase = (node) => NODE_PHASES[node?.phase] || node?.phase || 'queued'
+
 export const isEnded = (item) => Boolean(item && ENDED.has(item.phase))
 export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase))
 export const isRunning = (run) => Boolean(run && run.state === 'running')

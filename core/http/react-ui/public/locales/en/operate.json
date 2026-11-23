@@ -210,7 +210,9 @@
       "failed": "Failed",
       "queued": "Queued",
       "workerBusy": "Worker busy",
-      "downloading": "Downloading"
+      "downloading": "Downloading",
+      "rolledBack": "Rolled back",
+      "unconfirmed": "Not confirmed"
     },
     "kind": {
       "model": "model",

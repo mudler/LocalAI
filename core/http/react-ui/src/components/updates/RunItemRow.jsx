@@ -5,7 +5,7 @@ import { Button, StatusChip, Tag } from '../ui'
 import Icon from '../Icon'
 import { cssVars } from '../../utils/modelLedger'
 import { upgradeFailureWords } from '../addons/updateReview'
-import { isEnded, needsAttention } from '../../utils/upgradeRun'
+import { isEnded, needsAttention, nodePhase } from '../../utils/upgradeRun'
 import { originText } from './UpdateRow'
 
 const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle', model: 'brain' }
@@ -74,10 +74,18 @@ function runningText(item, t) {
   const nodes = Array.isArray(item.nodes) ? item.nodes : []
   const message = item.message || t('run.detail.updating')
   if (nodes.length > 1) {
-    const at = nodes.findIndex(n => n.phase === 'running')
+    const at = nodes.findIndex(n => nodePhase(n) === 'running')
     if (at >= 0) return t('run.detail.node', { index: at + 1, count: nodes.length, message: nodes[at].message || message })
   }
   return message
+}
+
+// Why one node of an item did not update: the server's message, or the words
+// of its failure code.
+function nodeReason(node, ta) {
+  if (node.message) return `: ${node.message}`
+  if (node.error_key) return `: ${upgradeFailureWords(node.error_key, ta, '', 'run')}`
+  return ''
 }
 
 // One item of the update run, in the markup of the other rows of the page.
@@ -151,7 +159,7 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
             {item.error && <p className="uc-row__more-line">{item.error}</p>}
             {item.error_key && <p className="uc-row__more-line">{t('run.details.code', { code: item.error_key })}</p>}
             {nodes.map(n => (
-              <p key={n.id || n.name} className="uc-row__more-line">{t('run.details.node', { name: n.name || n.id, phase: t(`run.phase.${n.phase}`, { defaultValue: n.phase }) })}{n.message ? `: ${n.message}` : ''}</p>
+              <p key={n.id || n.name} className="uc-row__more-line">{t('run.details.node', { name: n.name || n.id, phase: t(`run.phase.${nodePhase(n)}`, { defaultValue: n.phase }) })}{nodeReason(n, ta)}</p>
             ))}
             {!item.error && !item.error_key && nodes.length === 0 && <p className="uc-row__more-line">{t('run.details.none')}</p>}
           </div>

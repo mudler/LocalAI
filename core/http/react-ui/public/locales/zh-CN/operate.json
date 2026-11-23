@@ -33,6 +33,15 @@
     "diskChip": "磁盘快满了"
   },
   "activity": {
+    "node": {
+      "done": "完成",
+      "failed": "失败",
+      "queued": "排队中",
+      "workerBusy": "工作节点繁忙",
+      "downloading": "下载中",
+      "rolledBack": "已回滚",
+      "unconfirmed": "未确认"
+    },
     "kind": {
       "addon": "插件"
     },

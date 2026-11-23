@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   CONFIRM_HEADERS, attentionCount, confirmedPost, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
-  reviewGroups, runKeys, runProgress, startItems, upgradeRunReducer,
+  nodePhase, reviewGroups, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
 
@@ -212,5 +212,22 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
       const words = upgradeFailureWords(key, t, '', 'run')
       assert.ok(words && !words.startsWith('updates.'), `${l} ${key}: ${words}`)
     }
+  }
+})
+
+test('upgrade run: the status of a node reads as a phase of the run, with words in every locale', () => {
+  assert.equal(nodePhase({ phase: 'success' }), 'updated')
+  assert.equal(nodePhase({ phase: 'error' }), 'failed')
+  assert.equal(nodePhase({ phase: 'downloading' }), 'running')
+  assert.equal(nodePhase({ phase: 'running_on_worker' }), 'running')
+  assert.equal(nodePhase({ phase: 'rolled_back' }), 'rolled_back')
+  assert.equal(nodePhase({ phase: 'unconfirmed' }), 'unconfirmed')
+  assert.equal(nodePhase({ phase: 'something_new' }), 'something_new', 'an unknown status is shown as it arrived')
+  const statuses = ['queued', 'downloading', 'running_on_worker', 'success', 'error', 'rolled_back', 'unconfirmed']
+  for (const locale of readdirSync(new URL('../../public/locales/', import.meta.url))) {
+    const updates = JSON.parse(readFileSync(new URL(`../../public/locales/${locale}/updates.json`, import.meta.url), 'utf8'))
+    const operate = JSON.parse(readFileSync(new URL(`../../public/locales/${locale}/operate.json`, import.meta.url), 'utf8'))
+    for (const status of statuses) assert.ok(updates.run.phase[nodePhase({ phase: status })], `${locale}: run.phase for node status ${status}`)
+    assert.ok(operate.activity.node.rolledBack && operate.activity.node.unconfirmed, `${locale}: the operation card words a rolled-back and an unconfirmed node`)
   }
 })
