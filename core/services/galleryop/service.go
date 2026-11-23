@@ -235,7 +235,9 @@ func (g *GalleryService) UpdateStatus(s string, op *OpStatus) {
 			if op.Cancelled {
 				status = "cancelled"
 			}
-			if err := store.UpdateStatusWithKey(s, status, errMsg, op.ErrorKey); err != nil {
+			if err := store.UpdateStatusWithOutcome(s, status, errMsg, distributed.OperationOutcome{
+				ErrorKey: op.ErrorKey, RolledBack: op.RolledBack, Unconfirmed: op.Unconfirmed,
+			}); err != nil {
 				xlog.Warn("Failed to persist gallery operation status", "op_id", s, "error", err)
 			}
 		} else {
@@ -993,6 +995,8 @@ func (g *GalleryService) Hydrate() error {
 			st.Error = errors.New(op.Error)
 		}
 		st.ErrorKey = op.ErrorKey
+		st.RolledBack = op.RolledBack
+		st.Unconfirmed = op.Unconfirmed
 		g.statuses[op.ID] = st
 	}
 	xlog.Info("Hydrated gallery service statuses from store", "count", len(ops))

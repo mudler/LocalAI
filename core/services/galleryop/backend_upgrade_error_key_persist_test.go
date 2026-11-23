@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -79,6 +80,36 @@ var _ = Describe("backend upgrade error key persistence", func() {
 			}
 			return row.ErrorKey
 		}, "5s", "50ms").Should(Equal("unknown"))
+	})
+
+	It("writes a rollback to the operation record and the history", func() {
+		svc := run(scriptedUpgradeManager{err: &gallery.UpgradeError{Code: gallery.UpgradeFailureStart, Err: errors.New("did not start"), RolledBack: true}})
+		Expect(svc.GetStatus("up").RolledBack).To(BeTrue())
+
+		Eventually(func() bool {
+			row, err := store.Get("up")
+			return err == nil && row.RolledBack && row.ErrorKey == "start"
+		}, "5s", "50ms").Should(BeTrue())
+		cache := galleryop.NewOpCache(svc)
+		cache.SetGalleryStore(store)
+		Expect(cache.History()).To(ContainElement(And(HaveField("ErrorKey", "start"), HaveField("RolledBack", true))))
+	})
+
+	It("restores the rollback and the unconfirmed flag when a replica hydrates the row", func() {
+		Expect(store.Create(&distributed.GalleryOperationRecord{
+			ID: "rb", GalleryElementName: "b", OpType: "backend_upgrade", Status: "processing",
+			Error: "did not start", ErrorKey: "start", RolledBack: true,
+		})).To(Succeed())
+		Expect(store.Create(&distributed.GalleryOperationRecord{
+			ID: "lost", GalleryElementName: "c", OpType: "backend_upgrade", Status: "processing", Unconfirmed: true,
+		})).To(Succeed())
+
+		fresh := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		fresh.SetGalleryStore(store)
+		Expect(fresh.Hydrate()).To(Succeed())
+
+		Expect(fresh.GetStatus("rb")).To(PointTo(And(HaveField("ErrorKey", "start"), HaveField("RolledBack", true))))
+		Expect(fresh.GetStatus("lost")).To(PointTo(HaveField("Unconfirmed", true)))
 	})
 
 	It("restores the key when a replica hydrates the row", func() {

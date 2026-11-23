@@ -606,6 +606,7 @@ func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 		} else if status.Upgrade {
 			rec.TaskType = TaskUpgrade
 		}
+		rec.ErrorKey, rec.RolledBack, rec.Unconfirmed = status.ErrorKey, status.RolledBack, status.Unconfirmed
 		switch {
 		case status.Error != nil:
 			rec.Outcome = OutcomeFailed
