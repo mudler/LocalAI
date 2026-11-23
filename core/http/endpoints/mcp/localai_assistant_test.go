@@ -110,6 +110,18 @@ func (stubClient) UpgradeBackend(_ context.Context, _ string) (string, error) {
 	return "stub-upgrade-job", nil
 }
 
+func (stubClient) StartUpgradeRun(_ context.Context, _ localaitools.UpgradeRunStartRequest) (*localaitools.UpgradeRun, error) {
+	return &localaitools.UpgradeRun{ID: "stub-run"}, nil
+}
+
+func (stubClient) UpgradeRuns(_ context.Context, _ string) ([]localaitools.UpgradeRun, error) {
+	return nil, nil
+}
+
+func (stubClient) CancelUpgradeRun(_ context.Context, id, _ string) (*localaitools.UpgradeRun, error) {
+	return &localaitools.UpgradeRun{ID: id}, nil
+}
+
 func (stubClient) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error) {
 	return &localaitools.SystemInfo{Version: "stub"}, nil
 }

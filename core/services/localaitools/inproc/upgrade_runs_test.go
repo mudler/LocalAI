@@ -1,0 +1,83 @@
+package inproc
+
+import (
+	"context"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/core/services/upgraderun/upgraderuntest"
+)
+
+var _ = Describe("Upgrade runs through the in-process client", func() {
+	var (
+		h *upgraderuntest.Harness
+		c *Client
+	)
+
+	BeforeEach(func() {
+		var err error
+		h, err = upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(h.Service.Close)
+		c = &Client{AppConfig: &config.ApplicationConfig{}, UpgradeRunService: func() *upgraderun.Service { return h.Service }}
+		h.Backends.Add(upgraderun.Candidate{Kind: upgraderun.KindGallery, Name: "kokoro", To: "v2"})
+		h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", To: "sha256:b"})
+	})
+
+	It("starts a run as the acting user, reads it and cancels it", func() {
+		ctx := localaitools.WithUser(context.Background(), &auth.User{ID: "admin-1", Role: auth.RoleAdmin})
+		run, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "gallery", Name: "kokoro", ExpectedTo: "v2"}}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(run.State).To(Equal("running"))
+		Expect(run.Items).To(HaveLen(1))
+		Eventually(h.Starter.Actors).Should(Equal([]string{"admin-1"}))
+
+		runs, err := c.UpgradeRuns(ctx, "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs).To(HaveLen(1))
+		runs, err = c.UpgradeRuns(ctx, run.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs[0].ID).To(Equal(run.ID))
+
+		Eventually(func() bool {
+			r, _ := h.Service.Get(ctx, run.ID)
+			return r.Items[0].Cancellable
+		}, 5*time.Second, 10*time.Millisecond).Should(BeTrue())
+		_, err = c.CancelUpgradeRun(ctx, run.ID, "gallery:kokoro")
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() string {
+			r, _ := c.UpgradeRuns(ctx, run.ID)
+			return r[0].Items[0].Phase
+		}, 5*time.Second, 10*time.Millisecond).Should(Equal("cancelled"))
+	})
+
+	It("refuses an add-on item and starts nothing", func() {
+		_, err := c.StartUpgradeRun(context.Background(), localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{
+			{Kind: "gallery", Name: "kokoro"}, {Kind: "addon", Name: "notes"},
+		}})
+		Expect(err).To(MatchError(ContainSubstring("add-ons are not updated by the assistant")))
+		runs, err := h.Service.List(context.Background(), upgraderun.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs).To(BeEmpty())
+	})
+
+	It("upgrades one backend as a run of one item, and refuses it while another run runs", func() {
+		job, err := c.UpgradeBackend(context.Background(), "kokoro")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(job).To(Equal(h.Starter.Job("gallery:kokoro")))
+		_, err = c.UpgradeBackend(context.Background(), "kokoro")
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+	})
+
+	It("answers that runs are unavailable when the server keeps none", func() {
+		c.UpgradeRunService = nil
+		_, err := c.UpgradeRuns(context.Background(), "")
+		Expect(err).To(MatchError(errUpgradeRunsOff))
+	})
+})
