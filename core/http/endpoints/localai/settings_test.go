@@ -268,6 +268,24 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(string(raw)).To(ContainSubstring(`"chats_max_iterations": 80`))
 	})
 
+	It("checks and saves the limit on add-on tools of a chat", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsAddonToolLimit()).To(Equal(config.DefaultChatsAddonToolLimit), "unset: the default")
+		for _, body := range []string{`{"chats_addon_tool_limit":0}`, `{"chats_addon_tool_limit":15}`, `{"chats_addon_tool_limit":257}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_addon_tool_limit"), body)
+		}
+		for _, body := range []string{`{"chats_addon_tool_limit":16}`, `{"chats_addon_tool_limit":256}`, `{"chats_addon_tool_limit":96}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusOK), body+" "+rec.Body.String())
+		}
+		Expect(cfg.EffectiveChatsAddonToolLimit()).To(Equal(96), "applies at once, with no restart")
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_addon_tool_limit": 96`))
+	})
+
 	It("checks and saves the limits of a chat's goal", func() {
 		cfg := app.ApplicationConfig()
 		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(config.DefaultChatsGoalMaxTurns), "unset: the default")

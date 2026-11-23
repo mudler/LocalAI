@@ -2897,6 +2897,34 @@ type ChatsToolsPanel struct {
 	// Memory says whether memory works in this chat and, when it does not,
 	// which level turned it off and where to turn it on again.
 	Memory ChatsMemoryState `json:"memory"`
+	// ToolCap is present only when the server limits how many add-on tools a
+	// chat is offered and that limit left some out. Absent otherwise.
+	ToolCap *ChatsToolCap `json:"tool_cap,omitempty"`
+}
+
+// ChatsToolCap says that the limit on add-on tools left some tools out of
+// every chat. Switching add-ons off for one chat does not bring them back:
+// stop or disable add-ons you do not use, or ask an administrator.
+type ChatsToolCap struct {
+	// Limit is the most add-on tools one chat is offered.
+	Limit int `json:"limit" example:"64"`
+	// Offered is how many add-on tools are offered.
+	Offered int `json:"offered" example:"64"`
+	// Total is how many your add-ons declare: offered plus cut.
+	Total int `json:"total" example:"80"`
+	// Cut is how many tools were left out.
+	Cut int `json:"cut" example:"16"`
+	// Addons are the add-ons that lost tools, by ID.
+	Addons []ChatsToolCapAddon `json:"addons"`
+}
+
+// ChatsToolCapAddon is one add-on that lost tools to the limit.
+type ChatsToolCapAddon struct {
+	ID string `json:"id" example:"notes"`
+	// Title is what the add-on declares for people, or empty.
+	Title string `json:"title,omitempty" example:"Notes"`
+	// Cut is how many tools of the add-on were left out.
+	Cut int `json:"cut" example:"16"`
 }
 
 // ChatsMemoryState is whether memory works in one chat. The narrowest level

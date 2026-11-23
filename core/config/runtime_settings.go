@@ -131,6 +131,9 @@ type RuntimeSettings struct {
 	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
 	// 40). Read at each turn.
 	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most add-on tools one chat is offered, 16 to 256 (default: 64).
+	// Read at each discovery, so a change applies at once.
+	ChatsAddonToolLimit *int `json:"chats_addon_tool_limit,omitempty"`
 	// The most turns the server starts by itself for one goal of a chat, 1 to
 	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
 	// 10000 (default: 400). Read when a turn ends.

@@ -772,6 +772,22 @@ var runtimeSettingsFields = []fieldSpec{
 			return true
 		}),
 
+	// The cap on add-on tools one chat is offered: read at each discovery, so
+	// no restart. The snapshot is the limit that applies, so the page shows 64
+	// while the setting is unset.
+	withApply(field("chats_addon_tool_limit",
+		func(s *RuntimeSettings) **int { return &s.ChatsAddonToolLimit },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsAddonToolLimit() },
+		func(o *ApplicationConfig, v int) { o.setChatsAddonToolLimit(v) }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsAddonToolLimit; v < MinChatsAddonToolLimit || v > MaxChatsAddonToolLimit {
+				xlog.Warn("invalid chats_addon_tool_limit in runtime settings", "value", v)
+				return false
+			}
+			o.setChatsAddonToolLimit(*s.ChatsAddonToolLimit)
+			return true
+		}),
+
 	// The step limit of a chat turn: read when a turn starts, so no restart.
 	// The snapshot is the limit that applies, so the page shows 40 while the
 	// setting is unset.

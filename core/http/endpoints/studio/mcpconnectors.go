@@ -218,6 +218,13 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 			Title: g.Title, Description: g.Description, WhenOff: g.WhenOff})
 	}
 	out.Memory = memoryStateOut(p.Memory)
+	if tc := p.ToolCap; tc != nil {
+		cut := &schema.ChatsToolCap{Limit: tc.Cap, Offered: tc.Offered, Total: tc.Offered + tc.Cut, Cut: tc.Cut, Addons: make([]schema.ChatsToolCapAddon, 0, len(tc.Addons))}
+		for _, a := range tc.Addons {
+			cut.Addons = append(cut.Addons, schema.ChatsToolCapAddon{ID: a.ID, Title: a.Title, Cut: a.Cut})
+		}
+		out.ToolCap = cut
+	}
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, addonOut(c, a))
 	}
@@ -235,7 +242,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 
 // ListChatTools lists what a chat can use besides its built-in tools.
 // @Summary List the tools a chat can switch on and off.
-// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
+// @Description The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead. tool_cap is present only when the server's limit on add-on tools (64 per chat) left tools out: it gives the limit, how many tools are offered, the total your add-ons declare, how many were cut and the add-ons that lost tools (id, title, cut). Switching add-ons off in one chat does not bring the cut tools back; stop or disable the add-ons you do not use.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"

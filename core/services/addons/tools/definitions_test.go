@@ -231,6 +231,106 @@ var _ = Describe("The tool cap of one discovery", func() {
 		Expect(bash.Execution).NotTo(BeNil())
 		Expect(bash.Execution.Class).To(Equal(contract.ExecutionClassCommands))
 	})
+
+	// five fillers of 16 tools (80) and the sandbox (more than the cap).
+	fiveFillers := func() *fake {
+		list := []apps.App{}
+		for _, id := range []string{"aaa", "bbb", "ccc", "ddd", "eee"} {
+			a := filler(id, 16)
+			a.Title = "Add-on " + id
+			list = append(list, a)
+		}
+		list = append(list, sandboxApp())
+		return &fake{list: apps.List{Apps: list}}
+	}
+	cutOf := func(r tools.CapReport) map[string]int {
+		m := map[string]int{}
+		for _, a := range r.Addons {
+			m[a.ID] = a.Cut
+		}
+		return m
+	}
+
+	It("reports what the cap left out, without changing what is offered", func() {
+		defs, report, err := tools.NewChatToolAdapter(fiveFillers()).DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Cap).To(Equal(tools.MaxTools))
+		Expect(report.Offered).To(Equal(len(defs)))
+		Expect(report.Offered).To(Equal(tools.MaxTools))
+		Expect(report.Truncated()).To(BeTrue())
+		Expect(report.Total()).To(Equal(report.Offered + report.Cut))
+		total := 0
+		for _, a := range report.Addons {
+			total += a.Cut
+		}
+		Expect(total).To(Equal(report.Cut), "the per add-on counts add up to the cut")
+		// The tools of the sandbox that replace bash are never cut; the
+		// others come last in ID order, so the later fillers lose tools too.
+		Expect(cutOf(report)).To(HaveKey("eee"))
+		Expect(cutOf(report)).NotTo(HaveKey("aaa"))
+		for _, a := range report.Addons {
+			if a.ID == "eee" {
+				Expect(a.Title).To(Equal("Add-on eee"))
+			}
+		}
+		var bash bool
+		for _, d := range defs {
+			bash = bash || (d.AddonID == "sandbox" && d.Tool == "bash")
+		}
+		Expect(bash).To(BeTrue())
+		plain, err := tools.NewChatToolAdapter(fiveFillers()).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(plain).To(Equal(defs), "Discover offers the same tools as before")
+	})
+
+	It("reports nothing when the cap cuts nothing", func() {
+		f := &fake{list: apps.List{Apps: []apps.App{filler("aaa", 3)}}}
+		_, report, err := tools.NewChatToolAdapter(f).DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Truncated()).To(BeFalse())
+		Expect(report.Addons).To(BeEmpty())
+		Expect(report.Offered).To(Equal(3))
+	})
+
+	It("lets a switched-off add-on free room for the ones that were cut", func() {
+		adapter := tools.NewChatToolAdapter(fiveFillers())
+		_, all, err := adapter.DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cutOf(all)).To(HaveKey("eee"), "with every add-on on, the last filler loses tools")
+		off := func(id string) bool { return id == "aaa" || id == "bbb" }
+		defs, report, err := adapter.DiscoverWithReport(ctx, member, off)
+		Expect(err).NotTo(HaveOccurred())
+		for _, d := range defs {
+			Expect(d.AddonID).NotTo(Equal("aaa"), "a switched-off add-on offers nothing")
+			Expect(d.AddonID).NotTo(Equal("bbb"))
+		}
+		Expect(cutOf(report)).NotTo(HaveKey("eee"), "its room went to the add-on that was cut")
+		Expect(report.Truncated()).To(BeFalse())
+		Expect(report.Cut).To(BeNumerically("<", all.Cut))
+		// On again: cut again.
+		_, again, err := adapter.DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cutOf(again)).To(Equal(cutOf(all)))
+	})
+
+	It("takes the cap from the limit that is set, read at each discovery", func() {
+		limit := 24
+		adapter := tools.NewChatToolAdapter(fiveFillers()).WithToolLimit(func() int { return limit })
+		defs, report, err := adapter.DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Cap).To(Equal(24))
+		Expect(len(defs)).To(BeNumerically("<=", 24))
+		limit = 128
+		defs, report, err = adapter.DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Cap).To(Equal(128))
+		Expect(report.Truncated()).To(BeFalse())
+		Expect(len(defs)).To(BeNumerically(">", tools.MaxTools))
+		limit = 0
+		_, report, err = adapter.DiscoverWithReport(ctx, member, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(report.Cap).To(Equal(tools.MaxTools), "an unset limit is the default")
+	})
 })
 
 var _ = Describe("The execution descriptor of a commands tool", func() {
