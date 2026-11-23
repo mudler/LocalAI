@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/gallery"
@@ -39,7 +40,7 @@ func NewUpgradeGuard(installed func() (gallery.SystemBackends, error), upgrades 
 	if installed == nil {
 		return nil
 	}
-	if v := reflect.ValueOf(upgrades); v.Kind() == reflect.Ptr && v.IsNil() {
+	if v := reflect.ValueOf(upgrades); v.Kind() == reflect.Pointer && v.IsNil() {
 		// A nil *UpgradeChecker boxed in the interface is not a nil interface.
 		upgrades = nil
 	}
@@ -107,13 +108,7 @@ func (g *UpgradeGuard) Check(ctx context.Context, name, nodeID, expectedTo strin
 			fmt.Sprintf("backend %q is not installed", name)}
 	}
 	if nodeID != "" && len(entry.Nodes) > 0 {
-		onNode := false
-		for _, n := range entry.Nodes {
-			if n.NodeID == nodeID {
-				onNode = true
-				break
-			}
-		}
+		onNode := slices.ContainsFunc(entry.Nodes, func(n gallery.NodeBackendRef) bool { return n.NodeID == nodeID })
 		if !onNode {
 			return &UpgradeRefusal{gallery.UpgradeFailureNotInstalled,
 				fmt.Sprintf("backend %q is not installed on node %s", name, nodeID)}

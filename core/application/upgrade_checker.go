@@ -5,7 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -607,12 +608,7 @@ func (uc *UpgradeChecker) runCheck(ctx context.Context, autoUpgrade bool) *upgra
 	if autoUpgrade && uc.appConfig.AutoUpgradeBackends && uc.autoRuns.available() {
 		// The upgrade run installs them (see startPassRun), where the Updates
 		// page and Operations show them; the pass only lists what is pending.
-		names := make([]string, 0, len(upgrades))
-		for name := range upgrades {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
+		for _, name := range slices.Sorted(maps.Keys(upgrades)) {
 			pass.runItems = append(pass.runItems, upgraderun.StartItem{Kind: upgraderun.KindGallery, Name: name})
 		}
 		return pass
@@ -733,6 +729,6 @@ func (uc *UpgradeChecker) failingSources(snap backendupdates.Snapshot) []string 
 			out = append(out, name)
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }

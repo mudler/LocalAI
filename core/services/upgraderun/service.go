@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -390,10 +391,8 @@ func (s *Service) onChanged(data []byte) {
 // checkerFor returns the checker of a kind.
 func (s *Service) checkerFor(k Kind) Checker {
 	for _, c := range s.opts.Checkers {
-		for _, ck := range c.Kinds() {
-			if ck == k {
-				return c
-			}
+		if slices.Contains(c.Kinds(), k) {
+			return c
 		}
 	}
 	return nil

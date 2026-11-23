@@ -33,8 +33,3 @@ func SourceFrom(ctx context.Context) Source {
 	src, _ := ctx.Value(sourceKey{}).(Source)
 	return src
 }
-
-// RetryEligible reports whether a retry of the run takes this item: it is
-// retryable and ended failed, rolled back, or unconfirmed with no check
-// pending.
-func (it *Item) RetryEligible() bool { return it.Retryable && retryablePhase(it) }

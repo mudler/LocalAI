@@ -34,3 +34,8 @@ var retryableKeys = map[string]bool{
 // RetryableKey reports whether a failure with this error key can be retried
 // (see retryableKeys). An empty key is the unknown key.
 func RetryableKey(key string) bool { return retryableKeys[orUnknown(key)] }
+
+// RetryEligible reports whether a retry of the run takes this item: it is
+// retryable and ended failed, rolled back, or unconfirmed with no check
+// pending.
+func (it *Item) RetryEligible() bool { return it.Retryable && retryablePhase(it) }

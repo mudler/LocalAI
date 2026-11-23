@@ -1,8 +1,9 @@
 package upgraderun
 
 import (
+	"cmp"
 	"context"
-	"sort"
+	"slices"
 )
 
 // Candidate is one item a check lists with an update.
@@ -190,15 +191,12 @@ func kindRank(k Kind) int {
 }
 
 func sortCandidates(cs []Candidate) {
-	sort.SliceStable(cs, func(a, b int) bool {
-		x, y := cs[a], cs[b]
-		if StageOf(x.Kind) != StageOf(y.Kind) {
-			return StageOf(x.Kind) < StageOf(y.Kind)
-		}
-		if kindRank(x.Kind) != kindRank(y.Kind) {
-			return kindRank(x.Kind) < kindRank(y.Kind)
-		}
-		return x.Name < y.Name
+	slices.SortStableFunc(cs, func(x, y Candidate) int {
+		return cmp.Or(
+			cmp.Compare(StageOf(x.Kind), StageOf(y.Kind)),
+			cmp.Compare(kindRank(x.Kind), kindRank(y.Kind)),
+			cmp.Compare(x.Name, y.Name),
+		)
 	})
 }
 

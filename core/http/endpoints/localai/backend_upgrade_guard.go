@@ -29,11 +29,7 @@ func NewBackendUpgradeGuard(svc *galleryop.GalleryService, upgrades UpgradeInfoP
 	if svc == nil {
 		return nil
 	}
-	var src backendupdates.UpgradeInfoSource
-	if upgrades != nil {
-		src = upgrades
-	}
-	return &BackendUpgradeGuard{core: backendupdates.NewUpgradeGuard(InstalledBackendsOf(svc), src)}
+	return &BackendUpgradeGuard{core: backendupdates.NewUpgradeGuard(InstalledBackendsOf(svc), upgrades)}
 }
 
 // InstalledBackendsOf reads the installed backends from the backend manager
