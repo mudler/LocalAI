@@ -32,6 +32,12 @@ func TouchLastActiveAt(db *gorm.DB, user *User, now time.Time) {
 	if db == nil || user == nil || user.ID == "" {
 		return
 	}
+	// Compare and store in UTC. SQLite keeps timestamps as text, so the
+	// window check in the WHERE below is a string comparison: a local time
+	// with an offset against a value stored in UTC gives the wrong answer
+	// whenever the server runs outside UTC (TZ=Europe/Berlin wrote inside the
+	// window).
+	now = now.UTC()
 	if seen, ok := lastActiveSeen.Load(user.ID); ok && now.Sub(seen.(time.Time)) < LastActiveThrottle {
 		return
 	}

@@ -78,6 +78,15 @@ var _ = Describe("last activity of a user", Label("auth"), func() {
 			Expect(lastActive(db, user.ID)).To(HaveValue(BeTemporally("~", recent, time.Second)))
 		})
 
+		It("keeps the window when the clock of the caller is not in UTC", func() {
+			recent := time.Now().Add(-time.Minute).UTC().Truncate(time.Second)
+			Expect(db.Model(&auth.User{}).Where("id = ?", user.ID).UpdateColumn("last_active_at", recent).Error).To(Succeed())
+			stale := *user
+			// A server running with TZ=Europe/Berlin hands in a local time.
+			auth.TouchLastActiveAt(db, &stale, time.Now().In(time.FixedZone("UTC+1", 3600)))
+			Expect(lastActive(db, user.ID)).To(HaveValue(BeTemporally("~", recent, time.Second)))
+		})
+
 		It("leaves updated_at alone", func() {
 			before := user.UpdatedAt
 			auth.TouchLastActiveAt(db, user, time.Now())
