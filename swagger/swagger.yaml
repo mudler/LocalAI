@@ -1590,6 +1590,16 @@ definitions:
           still waits for a confirmation. Only a tool with Approval "always" may
           set it.
         type: boolean
+      deferred:
+        description: |-
+          Deferred says that a chat offers this tool through the tool search
+          (tool_search, tool_describe and tool_call) instead of as a typed tool, so
+          its schema is not sent on every turn. It changes the model's prompt only:
+          the tool keeps its name, its kind, its role check and its approval, and
+          pages, MCP clients, agents and triggers list it as before. It is refused
+          on a UIOnly tool, which no model is offered, and on a tool that Shadows a
+          built-in one, which must keep its name.
+        type: boolean
       description:
         description: Description is plain text for the model.
         type: string

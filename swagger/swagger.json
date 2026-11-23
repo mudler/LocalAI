@@ -23450,6 +23450,10 @@
                     "description": "ApprovalOverridable lets the person relax Approval to \"ask never\" for\nthis tool, and nothing else. The choice is a user setting that the\nmanifest declares under ApprovalSettingKey(Name), with the values\nApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer\nis the person's own, written from their own browser session only. The\nhost honors ApprovalSkip only for a call that the person makes in their\nown chat, or that a sender paired with the person's bot makes in a\nmessaging chat. Every other caller, and every call without a chat,\nstill waits for a confirmation. Only a tool with Approval \"always\" may\nset it.",
                     "type": "boolean"
                 },
+                "deferred": {
+                    "description": "Deferred says that a chat offers this tool through the tool search\n(tool_search, tool_describe and tool_call) instead of as a typed tool, so\nits schema is not sent on every turn. It changes the model's prompt only:\nthe tool keeps its name, its kind, its role check and its approval, and\npages, MCP clients, agents and triggers list it as before. It is refused\non a UIOnly tool, which no model is offered, and on a tool that Shadows a\nbuilt-in one, which must keep its name.",
+                    "type": "boolean"
+                },
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"

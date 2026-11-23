@@ -94,4 +94,8 @@ type Tool struct {
 	// can tell that the built-in serves in its place. The harness does not
 	// read it.
 	StandInFor []string
+	// Deferrable is set on a tool of an add-on that the add-on marked deferred:
+	// the chat may serve it through the tool search (see
+	// studio.deferrableAddonTools). The harness does not read it.
+	Deferrable bool
 }

@@ -61,6 +61,11 @@ type AddonTool struct {
 	// per-agent resources: a chat of a saved agent reaches only the resources
 	// on the list of the agent (see Agent.Resources).
 	ResourceScoped bool
+	// Deferred is true for a tool the add-on marked deferred: a chat offers it
+	// through the tool search instead of as a typed tool (see
+	// contract.ToolDefinition.Deferred). A tool that shadows a built-in one is
+	// never deferred.
+	Deferred bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -496,6 +501,10 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 			// The add-on declares the kind of each tool: only a read tool is
 			// safe to run again after a restart (see session.Tool.ReadOnly).
 			ReadOnly: !d.Action,
+			// A tool the add-on marked deferred may go behind the tool search
+			// (see deferrableAddonTools). It keeps this Run, so every gate
+			// below wraps it for both ways of calling it.
+			Deferrable: d.Deferred && d.Shadows == "",
 		}
 		// A write of the provider that serves the notes follows the save
 		// level, the grants and the messaging rules of the host.

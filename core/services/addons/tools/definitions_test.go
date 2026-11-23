@@ -494,3 +494,61 @@ var _ = Describe("The permission a tool declares to the chat", func() {
 		Expect(got["tables-drop"]).To(Equal(contract.CapToolsWrite))
 	})
 })
+
+var _ = Describe("deferred tool definitions", func() {
+	ctx := context.Background()
+	schema := json.RawMessage(`{"type":"object","properties":{"folder":{"type":"string"}},"additionalProperties":false}`)
+	app := func(deferred bool, uiOnly bool) apps.App {
+		return apps.App{ID: "notes", Generation: 1, Enabled: true, State: "running", Tools: []string{"list-notes", "page-only"}, ToolDefinitions: []contract.ToolDefinition{
+			{Name: "list-notes", Kind: "read", Description: "List the notes.", InputSchema: schema, Deferred: deferred},
+			// A manifest that passed the validator never has both flags; the
+			// adapter is held to the rule again at the point of use.
+			{Name: "page-only", Kind: "read", Description: "For the page.", InputSchema: schema, UIOnly: uiOnly, Deferred: uiOnly},
+		}}
+	}
+
+	It("tells the chat consumer which tools are deferred, and no other consumer", func() {
+		f := &fake{list: apps.List{Apps: []apps.App{app(true, false)}}}
+		chat, err := tools.NewChatToolAdapter(f).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		var deferred []string
+		for _, d := range chat {
+			if d.Deferred {
+				deferred = append(deferred, d.Tool)
+			}
+		}
+		Expect(deferred).To(ConsistOf("list-notes"), "the flag is carried; the chat decides what to do with it")
+	})
+
+	It("lists the same tools with the same wire form whether or not they are deferred (MCP, agents, triggers)", func() {
+		wire := func(deferred bool) string {
+			f := &fake{list: apps.List{Apps: []apps.App{app(deferred, false)}}}
+			defs, err := tools.NewToolAdapter(f).Discover(ctx, member)
+			Expect(err).NotTo(HaveOccurred())
+			raw, err := json.Marshal(defs)
+			Expect(err).NotTo(HaveOccurred())
+			return string(raw)
+		}
+		Expect(wire(true)).To(Equal(wire(false)))
+		Expect(wire(true)).To(ContainSubstring("addon__notes__list-notes"))
+		Expect(wire(true)).NotTo(ContainSubstring("deferred"))
+	})
+
+	It("never lists a page-only tool, deferred or not", func() {
+		f := &fake{list: apps.List{Apps: []apps.App{app(true, true)}}}
+		for _, a := range []*tools.ToolAdapter{tools.NewToolAdapter(f), tools.NewChatToolAdapter(f)} {
+			defs, err := a.Discover(ctx, member)
+			Expect(err).NotTo(HaveOccurred())
+			for _, d := range defs {
+				Expect(d.Tool).NotTo(Equal("page-only"))
+			}
+		}
+	})
+
+	It("still runs a deferred tool through the broker like any other", func() {
+		f := &fake{list: apps.List{Apps: []apps.App{app(true, false)}}}
+		_, err := tools.NewToolAdapter(f).Execute(ctx, member, tools.ToolName("notes", "list-notes"), json.RawMessage(`{"folder":"a"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.calls()).To(Equal(1))
+	})
+})

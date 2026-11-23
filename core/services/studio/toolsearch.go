@@ -46,6 +46,10 @@ const (
 // groups behind the tool search.
 const toolSearchConnectors = "connectors"
 
+// toolSearchAddons names the deferred tools of the add-ons among the groups
+// behind the tool search.
+const toolSearchAddons = "addons"
+
 // toolSearchShare is the share of the context window, in percent, at which the
 // auto mode defers the groups.
 const toolSearchShare = 10
@@ -116,6 +120,20 @@ func connectorsDeferred(mode string, tools []session.Tool) bool {
 	return mode == config.ToolSearchOn && len(tools) > 0
 }
 
+// deferrableAddonTools returns the tools of the add-ons that the chat may serve
+// through the tool search: the ones the add-on marked deferred. They are
+// already gated like typed add-on tools (addonToolsHeld), so the bridge runs
+// the same function the chat would have offered.
+func deferrableAddonTools(tools []session.Tool) []session.Tool {
+	var out []session.Tool
+	for _, t := range tools {
+		if t.Deferrable {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // shouldDefer decides whether the deferrable tools go behind the tool search.
 // The answer depends only on its inputs, so a chat gets the same answer at
 // every turn while the tools it is offered and its window stay the same: the
@@ -124,6 +142,10 @@ func connectorsDeferred(mode string, tools []session.Tool) bool {
 //   - off: never. on: whenever there is a tool to defer.
 //   - auto: when the schemas take at least toolSearchShare percent of the
 //     window. An unknown window (0) never defers.
+//
+// tools are all the sources that can be deferred in the chat at once: the
+// LocalAI groups and the deferred tools of the add-ons. A source with no
+// deferrable tool adds nothing to the count.
 func shouldDefer(mode string, tools []session.Tool, window int) bool {
 	if len(tools) == 0 {
 		return false
@@ -164,6 +186,9 @@ func toolSearchTools(deferred []session.Tool, groups []string) []session.Tool {
 	}
 	if slices.Contains(groups, toolSearchConnectors) {
 		what = append(what, "use the user's MCP connectors")
+	}
+	if slices.Contains(groups, toolSearchAddons) {
+		what = append(what, "use the tools of the installed add-ons")
 	}
 	if len(what) > 0 {
 		hint = " It has tools to " + strings.Join(what, "; ") + "."
