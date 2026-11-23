@@ -89,6 +89,40 @@ picture and the engine expands it, so there is no encoder program and no `GENI`.
 the helper uses Strata's `serve/hy4_dialect.py` and the parser class the Strata server uses for this template. `logprobs`
 are refused: the engine has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, `ple_gguf`, ...) do not apply to this family.
 
+## Inkling 2 Mini
+
+Thinking Machines Inkling 2 Mini (26.4B parameters, 3.4B active, text and image input, no thinking mode) runs on a third
+engine program, `strata-inkling`, with the same `--serve` line protocol and a strict parser. Set `family:inkling`. The image
+carries its packages in `engines-inkling/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=inkling`, which
+the backend sets for this family.
+
+An Inkling model is one file: a Strata build (`Inkling-2-Mini-SQ-10.strata`, `-SQ-15` or `-SQ-20`) or an Unsloth GGUF
+(`Inkling-2-Mini-UD-Q4_K_XL.gguf` and the other UD quants), plus an optional vision file (`Inkling-2-Mini-Vision.strata`) and,
+for a GGUF, the DSpark drafter file (`dspark-Inkling-2-Mini-Q8_0.gguf`). A Strata build carries its drafter. There is no pack.
+The tokenizer (o200k byte-level BPE) and the chat template come from the manifest at the end of a Strata build and from the
+`tokenizer.json` and `chat_template.jinja` files that Strata publishes beside its builds; a Strata build has the template but not
+the tokenizer, and a GGUF has neither, so both files are needed in the model directory. On the first load the backend runs
+Strata's `tools/inkling_tokenizer.py` and keeps the result next to the model file (`<model>.tokenizer/`, made again if a source
+file changes). The engine is started as
+`<engine_path> --native <file> --max-context N [--vision <file>] [--dspark <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dspark|off] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <file> [--vision <file>] [--dspark <file>]` and asks for `--draft dspark` and
+`--vision` only when the engine reports `drafter=dspark` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `inkling`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The model file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dspark` or `auto` (default), or `off`. |
+| `dspark` | no | The drafter file of a GGUF model. Default `dspark-Inkling-2-Mini-Q8_0.gguf` next to the model; a GGUF model without it starts without a drafter. |
+| `tokenizer_json`, `chat_template` | no | The tokenizer sources. Defaults `tokenizer.json` and `chat_template.jinja` next to the model. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 32768 (the model reads up to 1M tokens; the KV cache grows with the context). Pictures are files, as for
+Hy4-Flash: one `image=<path>` key per picture on the `GEN` line. The model writes its output as channel tokens; the prompt gets
+Strata's explicit answer opener and the helper uses Strata's `InklingOutputParser` (`serve/inkling_dialect.py`) to read content and
+tool calls. The model has no thinking mode, so a reasoning effort in a request changes nothing. `logprobs` are refused: the engine
+has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, ...) do not apply to this family.
+
 ## Model files
 
 A Strata model is not one file. The directory LocalAI points at holds, or the options name:

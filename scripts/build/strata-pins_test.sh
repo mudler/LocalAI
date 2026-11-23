@@ -11,8 +11,9 @@
 #      with no package would build an image that cannot start.
 #   3. A target Strata does not support (cpu, vulkan, Jetson) is refused with a
 #      message, not built into an empty image.
-#   4. Every package of the engine has a matching Hy4-Flash package pin, with the
-#      file name upstream publishes, and the bump script reads both families.
+#   4. Every package of the engine has a matching Hy4-Flash and Inkling package
+#      pin, with the file name upstream publishes, and the bump script reads all
+#      three families.
 set -euo pipefail
 
 REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
@@ -64,14 +65,31 @@ for pkg in $(packages_for cublas 12 x86_64) $(packages_for cublas 13 x86_64) $(p
         grep -q "^STRATA_HY4_${var}_${pkg}?=" "$DIR/Makefile" || fail "no STRATA_HY4_${var}_${pkg} pin"
     done
 done
-want="strata-hy4-0.1.64-linux-x86_64-cuda-cuda12.tar.gz"
+want="strata-hy4-0.1.66-linux-x86_64-cuda-cuda12.tar.gz"
 got=$(make -C "$DIR" -s print-asset-hy4 PKG=linux_x86_64_cuda_cuda12)
 [ "$got" = "$want" ] || fail "Hy4 asset name: want '$want', got '$got'"
 grep -q '"HY4": "strata-hy4"' "$REPO_ROOT/.github/bump_strata.sh" || fail "bump_strata.sh does not read the Hy4 packages"
 # `make engine` fetches the Hy4 packages into engines-hy4/ with the program strata-hy4.
-if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-hy4-0.1.64-linux-x86_64-cuda-cuda12.tar.gz.*engines-hy4 strata-hy4"; then
+if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-hy4-0.1.66-linux-x86_64-cuda-cuda12.tar.gz.*engines-hy4 strata-hy4"; then
     fail "make engine does not fetch the Hy4 package into engines-hy4"
 fi
+
+# Inkling 2 Mini: the same, with its own program strata-inkling.
+for pkg in $(packages_for cublas 12 x86_64) $(packages_for cublas 13 x86_64) $(packages_for cublas 13 aarch64) \
+    $(packages_for hipblas "" x86_64) $(packages_for intel "" x86_64) $(make -C "$DIR" -s print-packages UNAME_S=Darwin UNAME_M=arm64); do
+    for var in TAG VERSION SHA256; do
+        grep -q "^STRATA_INKLING_${var}_${pkg}?=" "$DIR/Makefile" || fail "no STRATA_INKLING_${var}_${pkg} pin"
+    done
+done
+want="strata-inkling-0.1.66-linux-x86_64-cuda-cuda12.tar.gz"
+got=$(make -C "$DIR" -s print-asset-inkling PKG=linux_x86_64_cuda_cuda12)
+[ "$got" = "$want" ] || fail "Inkling asset name: want '$want', got '$got'"
+grep -q '"INKLING": "strata-inkling"' "$REPO_ROOT/.github/bump_strata.sh" || fail "bump_strata.sh does not read the Inkling packages"
+if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-inkling-0.1.66-linux-x86_64-cuda-cuda12.tar.gz.*engines-inkling strata-inkling"; then
+    fail "make engine does not fetch the Inkling package into engines-inkling"
+fi
+# The Python sources of the Inkling family are fetched with the others.
+grep -q 'inkling_tokenizer.py' "$DIR/Makefile" && grep -q 'inkling_dialect.py' "$DIR/Makefile" || fail "make engine-source does not fetch the Inkling Python sources"
 
 # Every strata matrix entry must resolve to a package.
 entries=$(python3 -I - "$MATRIX" <<'PY'

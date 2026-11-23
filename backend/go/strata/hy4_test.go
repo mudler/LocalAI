@@ -121,7 +121,7 @@ var _ = Describe("hy4 family options", func() {
 
 	It("keeps the family list honest", func() {
 		_, err := parseLoad(&pb.ModelOptions{Options: []string{"family:other", "engine_path:/x"}})
-		Expect(err).To(MatchError(ContainSubstring("qwen or hy4")))
+		Expect(err).To(MatchError(ContainSubstring("qwen, hy4 or inkling")))
 	})
 })
 

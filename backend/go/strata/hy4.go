@@ -479,10 +479,16 @@ func encodeHy4Path(p string) string {
 // the GEN keys that name them, in prompt order. release removes the files; the
 // engine has read them by the end of the request.
 func hy4ImageKeys(sources []string) (keys []string, release func(), err error) {
+	return directImageKeys("strata-hy4-images-", sources)
+}
+
+// directImageKeys is hy4ImageKeys for any engine that reads picture files
+// itself; dirPrefix names the temporary directory.
+func directImageKeys(dirPrefix string, sources []string) (keys []string, release func(), err error) {
 	if len(sources) == 0 {
 		return nil, func() {}, nil
 	}
-	dir, err := os.MkdirTemp("", "strata-hy4-images-")
+	dir, err := os.MkdirTemp("", dirPrefix)
 	if err != nil {
 		return nil, nil, err
 	}

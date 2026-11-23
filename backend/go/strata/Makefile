@@ -35,67 +35,99 @@ GOCMD=go
 # Tencent Hy4-Flash runs on its own engine program, strata-hy4, shipped as
 # separate packages (file strata-hy4-...) with the same targets. Its pins are
 # STRATA_HY4_TAG_<pkg>, STRATA_HY4_VERSION_<pkg> and STRATA_HY4_SHA256_<pkg>.
+# Thinking Machines Inkling 2 Mini likewise runs on its own engine program,
+# strata-inkling (file strata-inkling-...), with the pins STRATA_INKLING_TAG_<pkg>,
+# STRATA_INKLING_VERSION_<pkg> and STRATA_INKLING_SHA256_<pkg>.
 # ---------------------------------------------------------------------------
-STRATA_VERSION?=v0.2.19
-STRATA_COMMIT?=c6f6427d9de9016fd92d13e29740f65625261df7
+STRATA_VERSION?=v0.2.20
+STRATA_COMMIT?=a34979fc94f3d126b9bb8210f4ad311345688b52
 
 # Qwen engine
-STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda12?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda12?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda12?=74e628817f79da303dd2b3f7e715c30a6b4c05c2a3a2e5efc775ea190a361384
-STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda13?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda13?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda13?=77a6fd933d41f1968c069fe04995f729128735d0fc7c53e446dd4a1f9c7fbf49
-STRATA_ENGINE_TAG_linux_aarch64_cuda_cuda13?=v0.2.19
-STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13?=0.1.65
-STRATA_ENGINE_SHA256_linux_aarch64_cuda_cuda13?=bdc67b8850c85bff240dab24faeddd2877275a43de5b47cd07e53fb41bd9bc27
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx9070?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx9070?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx9070?=7d49ebfc928644912106eeaeff4c42d35275e58831ad2ed2c82edd7e1dd17163
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx7900?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx7900?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx7900?=bd2e9d469afd9976b75769c29e846c48b239fe6fab96e306ca181ae9a6c5f73b
-STRATA_ENGINE_TAG_linux_x86_64_hip_rx6000?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_hip_rx6000?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_hip_rx6000?=5fb02c043aa47726cad022ccca150540ed3b1d50c92521ff66dd2cc4ab1a5005
-STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=4cb54bd02b95c31b84337dde0d728b95d9441d8da3cf75cd6f7bdfa778ca471e
-STRATA_ENGINE_TAG_linux_x86_64_sycl?=v0.2.19
-STRATA_ENGINE_VERSION_linux_x86_64_sycl?=0.1.65
-STRATA_ENGINE_SHA256_linux_x86_64_sycl?=63f97e93a5aa56089753f1cd30339c85b26053e09f74fdcb23919961f5620adb
-STRATA_ENGINE_TAG_macos_arm64_metal?=v0.2.19
-STRATA_ENGINE_VERSION_macos_arm64_metal?=0.1.65
-STRATA_ENGINE_SHA256_macos_arm64_metal?=2028b71816cdac765b5ae5c451f5d432da46540e1112c47852a4a2931ec5b7ca
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda12?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda12?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda12?=74980aebedc70fb2cfcd96b3c15874cb3e7e517700ecdf8ed811247a9a577f30
+STRATA_ENGINE_TAG_linux_x86_64_cuda_cuda13?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_cuda_cuda13?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_cuda_cuda13?=13c5bebeaf24574b02307857bce6abfd3f861f3682ca98dbe36c1c461fd5e059
+STRATA_ENGINE_TAG_linux_aarch64_cuda_cuda13?=v0.2.20
+STRATA_ENGINE_VERSION_linux_aarch64_cuda_cuda13?=0.1.66
+STRATA_ENGINE_SHA256_linux_aarch64_cuda_cuda13?=de6fdacfa1d7daf1c86c64add0d8e82844783919af39fc172d6b5134816be1be
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx9070?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx9070?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx9070?=8ceaf7a82603a70b77f03bc890621626207ab50c57f5b3b1afe340b5cbc03d9b
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx7900?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx7900?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx7900?=a9cc741a60c101689c0c8dbe5b731382526f22c1c55a92f22b2c1dfcd26dd86f
+STRATA_ENGINE_TAG_linux_x86_64_hip_rx6000?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_hip_rx6000?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_hip_rx6000?=d850ff4929f13ac4553627236cc3e25d0e1b8a636d0cae17714bf3801598e8b1
+STRATA_ENGINE_TAG_linux_x86_64_hip_halo?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_hip_halo?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_hip_halo?=9198a10463da40c5330c9fb50ea363312aacf2c722900d57cf0512e704527d31
+STRATA_ENGINE_TAG_linux_x86_64_sycl?=v0.2.20
+STRATA_ENGINE_VERSION_linux_x86_64_sycl?=0.1.66
+STRATA_ENGINE_SHA256_linux_x86_64_sycl?=b5c9599ac55ab0bf09f7663ae71c75cf8dfc247e05015a9344c5e513caa36c41
+STRATA_ENGINE_TAG_macos_arm64_metal?=v0.2.20
+STRATA_ENGINE_VERSION_macos_arm64_metal?=0.1.66
+STRATA_ENGINE_SHA256_macos_arm64_metal?=d135beed9a508d0dad37300a2589097ac898e4226fe9f9ac255404b3a555d89a
 
 # Hy4-Flash engine (strata-hy4, a separate program; same packages per target)
-STRATA_HY4_TAG_linux_x86_64_cuda_cuda12?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_cuda_cuda12?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_cuda_cuda12?=c95d8d29e08cffa217b09fd6c33e4c5e55ed6da51eb8b556743c0a0d76fe713f
-STRATA_HY4_TAG_linux_x86_64_cuda_cuda13?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_cuda_cuda13?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_cuda_cuda13?=2b9b713bfb735ba4f5479163daae7c436852bc6ea095b7154336d6589dd8404f
-STRATA_HY4_TAG_linux_aarch64_cuda_cuda13?=v0.2.18
-STRATA_HY4_VERSION_linux_aarch64_cuda_cuda13?=0.1.64
-STRATA_HY4_SHA256_linux_aarch64_cuda_cuda13?=b850d09437a216d3d4856e160e1d9dc54b3f74f7721168e2d060fa610f60f068
-STRATA_HY4_TAG_linux_x86_64_hip_rx9070?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_hip_rx9070?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_hip_rx9070?=cb215c86d63ad91453e8cc460b3f67246fb88c12220365f655458117200109eb
-STRATA_HY4_TAG_linux_x86_64_hip_rx7900?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_hip_rx7900?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_hip_rx7900?=1800a56515a6561edfe7c915b7190d0d689b4d449f2e4c7342fe03c396fbfef0
-STRATA_HY4_TAG_linux_x86_64_hip_rx6000?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_hip_rx6000?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_hip_rx6000?=f6dff15e6fa9a9a9e27c09a360cb206cfd3675ad97153c84d2f33e8271d9aa7e
-STRATA_HY4_TAG_linux_x86_64_hip_halo?=v0.2.18
-STRATA_HY4_VERSION_linux_x86_64_hip_halo?=0.1.64
-STRATA_HY4_SHA256_linux_x86_64_hip_halo?=0349e0eb12535ec1be1c32217f67d17f51e5ea7f3979d1ec13ad97e3acd9677a
-STRATA_HY4_TAG_linux_x86_64_sycl?=v0.2.19
-STRATA_HY4_VERSION_linux_x86_64_sycl?=0.1.65
-STRATA_HY4_SHA256_linux_x86_64_sycl?=82974720bbfabe3fb5b8ec11c26aea4b92fa8a9dbaca413c80f13c671aac1869
-STRATA_HY4_TAG_macos_arm64_metal?=v0.2.18
-STRATA_HY4_VERSION_macos_arm64_metal?=0.1.64
-STRATA_HY4_SHA256_macos_arm64_metal?=588781aed2d44c0e4460c3cfdf3840feddef0be1399ed3f39eb1d6d6cac8d7f9
+STRATA_HY4_TAG_linux_x86_64_cuda_cuda12?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_cuda_cuda12?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_cuda_cuda12?=fa535d0321adb87dac7dafdc7a1a4dc185121bbfe85d41e1bd2da281ad676e3b
+STRATA_HY4_TAG_linux_x86_64_cuda_cuda13?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_cuda_cuda13?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_cuda_cuda13?=112355a4beb4c8d468f2d682f48d8f9d75c1397502ac03977521cc61277a7f0c
+STRATA_HY4_TAG_linux_aarch64_cuda_cuda13?=v0.2.20
+STRATA_HY4_VERSION_linux_aarch64_cuda_cuda13?=0.1.66
+STRATA_HY4_SHA256_linux_aarch64_cuda_cuda13?=69981deb045e577c9285c8045e603de4b23c6f44914371c94b09f5ea90f92bfc
+STRATA_HY4_TAG_linux_x86_64_hip_rx9070?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_hip_rx9070?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_hip_rx9070?=db1710fdd2b4de0a9d806af82f28dbc7dcfe8e4b6ee36a8d5cde136949f5cbf3
+STRATA_HY4_TAG_linux_x86_64_hip_rx7900?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_hip_rx7900?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_hip_rx7900?=4190c7b10b8d3a816ecc8a24a22fc2fcea5e9b32775ba5b5781794bffd907d4f
+STRATA_HY4_TAG_linux_x86_64_hip_rx6000?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_hip_rx6000?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_hip_rx6000?=72c41f0a7a3dd1fb126dadf4d7541bfd2d5ecbbc8515d3327f90aa1e78d37fa7
+STRATA_HY4_TAG_linux_x86_64_hip_halo?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_hip_halo?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_hip_halo?=34d9ba0e067eb7016c613721a3b34068638f33e8a6a0b19d3b0e3f0413ee4024
+STRATA_HY4_TAG_linux_x86_64_sycl?=v0.2.20
+STRATA_HY4_VERSION_linux_x86_64_sycl?=0.1.66
+STRATA_HY4_SHA256_linux_x86_64_sycl?=490130fe9c161c3d56acf4f03468f7026807e069a547ec137e4cfa963593d46c
+STRATA_HY4_TAG_macos_arm64_metal?=v0.2.20
+STRATA_HY4_VERSION_macos_arm64_metal?=0.1.66
+STRATA_HY4_SHA256_macos_arm64_metal?=5db9e8e07f9c469d2e4c9059451cf83293dbfd305d8a1dc03f3cf31530d0ce17
+
+# Inkling 2 Mini engine (strata-inkling, a separate program; same packages per target)
+STRATA_INKLING_TAG_linux_x86_64_cuda_cuda12?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_cuda_cuda12?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_cuda_cuda12?=2265b17d4d1865ea7c1ef627f01604a44b1508551793ba8b423f9e7a2e1675f7
+STRATA_INKLING_TAG_linux_x86_64_cuda_cuda13?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_cuda_cuda13?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_cuda_cuda13?=fdaa87037918798023bd34b4e2e1e23832418d59b9421f279995b274648847c3
+STRATA_INKLING_TAG_linux_aarch64_cuda_cuda13?=v0.2.20
+STRATA_INKLING_VERSION_linux_aarch64_cuda_cuda13?=0.1.66
+STRATA_INKLING_SHA256_linux_aarch64_cuda_cuda13?=a01f0e1f2e629d53ff17f1defd7164076844f62ed73cf747298afe68e43a77c1
+STRATA_INKLING_TAG_linux_x86_64_hip_rx9070?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_hip_rx9070?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_hip_rx9070?=3cc99f387b2059741dd3956acc0361a889aaeb26bcfa2e86bebe2d312c5578a1
+STRATA_INKLING_TAG_linux_x86_64_hip_rx7900?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_hip_rx7900?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_hip_rx7900?=4def626b047c4da3d1a2e4973ddd0881e984335e8f068fad60ee0da678942cbd
+STRATA_INKLING_TAG_linux_x86_64_hip_rx6000?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_hip_rx6000?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_hip_rx6000?=154222107458c6d2cd187e7776e5a87373cc0c568d3641c1b3efa10c6091c403
+STRATA_INKLING_TAG_linux_x86_64_hip_halo?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_hip_halo?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_hip_halo?=9ef6feccf3cd868fd6d68e08eab80f47ba087ce1b5b7ce2eb334addc13517139
+STRATA_INKLING_TAG_linux_x86_64_sycl?=v0.2.20
+STRATA_INKLING_VERSION_linux_x86_64_sycl?=0.1.66
+STRATA_INKLING_SHA256_linux_x86_64_sycl?=81b72fd2d8c3d323a38ca783e97cd61d1b6ad2093b376fe86b43e6b840add509
+STRATA_INKLING_TAG_macos_arm64_metal?=v0.2.20
+STRATA_INKLING_VERSION_macos_arm64_metal?=0.1.66
+STRATA_INKLING_SHA256_macos_arm64_metal?=4fee154bc838e898bbe12b4ad258712ad90e1d50e5be5e3473db3724495c9929
 
 STRATA_REPO?=https://github.com/Niko1221/Strata
 
@@ -167,6 +199,7 @@ engine_dir=$(patsubst linux_x86_64_cuda_%,%,$(patsubst linux_aarch64_cuda_%,%,$(
 # Package key -> upstream file name: linux_x86_64_hip_halo -> linux-x86_64-hip-halo
 asset_name=strata-engine-$(STRATA_ENGINE_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
 asset_name_hy4=strata-hy4-$(STRATA_HY4_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
+asset_name_inkling=strata-inkling-$(STRATA_INKLING_VERSION_$(1))-$(subst x86-64,x86_64,$(subst _,-,$(1))).tar.gz
 
 PBS_TRIPLE_linux_x86_64=x86_64-unknown-linux-gnu
 PBS_TRIPLE_linux_aarch64=aarch64-unknown-linux-gnu
@@ -177,7 +210,7 @@ SRC_DIR=sources/strata
 LLAMA_DIR=sources/llama.cpp
 STAMP=.stamp
 
-.PHONY: strata package-stub engine engine-packages engine-packages-hy4 engine-python engine-source build package test clean purge print-packages print-asset check-pins
+.PHONY: strata package-stub engine engine-packages engine-packages-hy4 engine-packages-inkling engine-python engine-source build package test clean purge print-packages print-asset check-pins
 
 strata:
 	CGO_ENABLED=0 $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o strata ./
@@ -191,6 +224,9 @@ print-asset:
 print-asset-hy4:
 	@echo "$(call asset_name_hy4,$(PKG))"
 
+print-asset-inkling:
+	@echo "$(call asset_name_inkling,$(PKG))"
+
 # Fails with one clear line when a pin is malformed (used by
 # scripts/build/strata-pins_test.sh and handy before a bump PR).
 # No recipe below uses $(MAKE): Dockerfile.golang probes `make -n engine`, and
@@ -199,12 +235,13 @@ check-pins:
 	@fail=0; \
 	$(foreach v,$(filter STRATA_ENGINE_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
 	$(foreach v,$(filter STRATA_HY4_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
-	$(foreach v,$(filter STRATA_ENGINE_SHA256_% STRATA_HY4_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_INKLING_SHA256_%,$(.VARIABLES)),echo '$($(subst _SHA256_,_TAG_,$(v)))' | grep -Eq '^v[0-9][0-9.]*$$' || { echo 'bad or missing tag for $(v)' >&2; fail=1; }; echo '$($(subst _SHA256_,_VERSION_,$(v)))' | grep -Eq '^[0-9][0-9.]*$$' || { echo 'bad or missing version for $(v)' >&2; fail=1; }; ) \
+	$(foreach v,$(filter STRATA_ENGINE_SHA256_% STRATA_HY4_SHA256_% STRATA_INKLING_SHA256_% PBS_SHA256_%,$(.VARIABLES)),echo '$($(v))' | grep -Eq '^[0-9a-f]{64}$$' || { echo 'bad pin $(v)' >&2; fail=1; }; ) \
 	echo "$(STRATA_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad STRATA_COMMIT" >&2; fail=1; }; \
 	echo "$(LLAMA_CPP_COMMIT)" | grep -Eq '^[0-9a-f]{40}$$' || { echo "bad LLAMA_CPP_COMMIT" >&2; fail=1; }; \
 	exit $$fail
 
-engine: engine-packages engine-packages-hy4 engine-python engine-source
+engine: engine-packages engine-packages-hy4 engine-packages-inkling engine-python engine-source
 
 # The upstream engine package(s) for this target, verified and unpacked into
 # engines/<name>/. Each archive is deleted after unpacking to keep the layer small.
@@ -223,6 +260,12 @@ engine-packages-hy4:
 	@if [ -z "$(STRATA_PACKAGES)" ]; then exit 1; fi
 	@set -e; \
 	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name_hy4,$(pkg))' '$(STRATA_HY4_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_HY4_TAG_$(pkg))' '$(STRATA_HY4_VERSION_$(pkg))' engines-hy4 strata-hy4; )
+
+# The Inkling 2 Mini engine package(s) for the same target, into engines-inkling/<name>/.
+engine-packages-inkling:
+	@if [ -z "$(STRATA_PACKAGES)" ]; then exit 1; fi
+	@set -e; \
+	$(foreach pkg,$(STRATA_PACKAGES),sh ./fetch-engine.sh '$(call engine_dir,$(pkg))' '$(call asset_name_inkling,$(pkg))' '$(STRATA_INKLING_SHA256_$(pkg))' '$(STRATA_REPO)/releases/download/$(STRATA_INKLING_TAG_$(pkg))' '$(STRATA_INKLING_VERSION_$(pkg))' engines-inkling strata-inkling; )
 
 # Portable CPython plus the pinned, hash-checked packages the helper imports.
 engine-python:
@@ -255,6 +298,8 @@ engine-python:
 # file), serve/hy4_dialect.py (its tagged reasoning and tool-call tokens) and
 # serve/toolformat.py (which parser a chat template needs); serve/frontend.py
 # imports the last two when it runs a Hy4 template.
+# Inkling 2 Mini adds tools/inkling_tokenizer.py and serve/inkling_dialect.py
+# (its channel tokens, the prompt opener and the forced tool-call text).
 # Since v0.2.15 iq_pack.py uses strata_gguf by default. llama.cpp's gguf-py,
 # fetched at the commit Strata pins into third_party/llama.cpp/gguf-py under
 # the Strata tree, stays available as the STRATA_GGUF_PY alternative.
@@ -264,7 +309,7 @@ engine-source:
 	rm -rf $(SRC_DIR) strata-src; mkdir -p $(SRC_DIR) strata-src; \
 	cd $(SRC_DIR) && git init -q && git remote add origin $(STRATA_REPO) && \
 	git sparse-checkout init --no-cone && \
-	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py /serve/hy4_dialect.py /serve/toolformat.py /tools/hy4_tokenizer.py /terminal/tools/strata_tokenizer.py /terminal/tools/iq_pack.py /terminal/tools/gguf_reader.py /terminal/tools/_paths.py /terminal/tools/strata_gguf.py /terminal/tools/strata_quants.py /terminal/tools/strata_quant_tables.py /terminal/serve/__init__.py /terminal/serve/frontend.py /terminal/serve/hy4_dialect.py /terminal/serve/toolformat.py /terminal/tools/hy4_tokenizer.py && \
+	git sparse-checkout set /LICENSE /tools/strata_tokenizer.py /tools/iq_pack.py /tools/gguf_reader.py /tools/_paths.py /tools/strata_gguf.py /tools/strata_quants.py /tools/strata_quant_tables.py /serve/__init__.py /serve/frontend.py /serve/hy4_dialect.py /serve/toolformat.py /tools/hy4_tokenizer.py /serve/inkling_dialect.py /tools/inkling_tokenizer.py /terminal/tools/strata_tokenizer.py /terminal/tools/iq_pack.py /terminal/tools/gguf_reader.py /terminal/tools/_paths.py /terminal/tools/strata_gguf.py /terminal/tools/strata_quants.py /terminal/tools/strata_quant_tables.py /terminal/serve/__init__.py /terminal/serve/frontend.py /terminal/serve/hy4_dialect.py /terminal/serve/toolformat.py /terminal/tools/hy4_tokenizer.py /terminal/serve/inkling_dialect.py /terminal/tools/inkling_tokenizer.py && \
 	git fetch -q --depth 1 --filter=blob:none origin $(STRATA_COMMIT) && \
 	git checkout -q FETCH_HEAD; \
 	cd "$(CURDIR)"; \
@@ -278,10 +323,10 @@ engine-source:
 	mkdir -p strata-src/tools strata-src/serve strata-src/third_party/llama.cpp; \
 	cp $(SRC_DIR)/LICENSE strata-src/LICENSE; \
 	PYSRC=$(SRC_DIR); [ -d $(SRC_DIR)/terminal/tools ] && PYSRC=$(SRC_DIR)/terminal; \
-	cp $$PYSRC/tools/hy4_tokenizer.py $$PYSRC/tools/strata_tokenizer.py $$PYSRC/tools/iq_pack.py $$PYSRC/tools/gguf_reader.py $$PYSRC/tools/_paths.py $$PYSRC/tools/strata_gguf.py $$PYSRC/tools/strata_quants.py $$PYSRC/tools/strata_quant_tables.py strata-src/tools/; \
+	cp $$PYSRC/tools/hy4_tokenizer.py $$PYSRC/tools/inkling_tokenizer.py $$PYSRC/tools/strata_tokenizer.py $$PYSRC/tools/iq_pack.py $$PYSRC/tools/gguf_reader.py $$PYSRC/tools/_paths.py $$PYSRC/tools/strata_gguf.py $$PYSRC/tools/strata_quants.py $$PYSRC/tools/strata_quant_tables.py strata-src/tools/; \
 	cp -r $(LLAMA_DIR)/gguf-py strata-src/third_party/llama.cpp/gguf-py; \
 	cp $(LLAMA_DIR)/LICENSE strata-src/third_party/llama.cpp/LICENSE; \
-	cp $$PYSRC/serve/__init__.py $$PYSRC/serve/frontend.py $$PYSRC/serve/hy4_dialect.py $$PYSRC/serve/toolformat.py strata-src/serve/; \
+	cp $$PYSRC/serve/__init__.py $$PYSRC/serve/frontend.py $$PYSRC/serve/hy4_dialect.py $$PYSRC/serve/inkling_dialect.py $$PYSRC/serve/toolformat.py strata-src/serve/; \
 	touch strata-src/$(STAMP)-$(STRATA_COMMIT)
 
 package:
@@ -303,4 +348,4 @@ clean:
 
 # Also drops everything fetched: engines, Python, sources and downloads.
 purge: clean
-	rm -rf engines engines-hy4 python strata-src sources downloads
+	rm -rf engines engines-hy4 engines-inkling python strata-src sources downloads

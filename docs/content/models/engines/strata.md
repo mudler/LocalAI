@@ -9,15 +9,15 @@ aliases = ["/features/strata/"]
 [Strata](https://github.com/Niko1221/Strata) runs very large mixture-of-experts models, such as a 125B Qwen, on one machine with a GPU, a lot of RAM and a lot of disk. Strata is a separate project. LocalAI wraps it in the experimental `strata` backend, which starts the Strata engine as a child process and talks to it over the engine's line protocol.
 
 {{% callout style="warning" %}}
-This backend is experimental. LocalAI's tests have not run the Qwen gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The Hy4-Flash entries have not been run on real hardware either: the backend was tested against a stub engine and against the real tokenizer data of the model file. The speed, memory and quality figures on this page are Strata's own.
+This backend is experimental. LocalAI's tests have not run the Qwen gallery entries against a real Strata engine and model, and the pack build has not been run on a real model file. The Hy4-Flash and Inkling 2 Mini entries have not been run on real hardware either: the backend was tested against a stub engine and against the real tokenizer data of the model file. The speed, memory and quality figures on this page are Strata's own.
 {{% /callout %}}
 
-Qwen entries and Tencent Hy4-Flash take text and images.
+Qwen entries, Tencent Hy4-Flash and Inkling 2 Mini take text and images.
 
 ## What you need
 
 - A GPU from the [supported hardware](#supported-hardware) list.
-- RAM and disk as listed for the model in [Models](#models). Even the smallest entry downloads about 24 GB, and the largest ones more than 250 GB. Tencent Hy4-Flash needs at least 64 GiB of RAM and about 130 GB of disk.
+- RAM and disk as listed for the model in [Models](#models). Even the smallest Qwen entry downloads about 24 GB, and the largest ones more than 250 GB. Tencent Hy4-Flash needs at least 64 GiB of RAM and about 130 GB of disk. Inkling 2 Mini is much smaller: from about 9 GB of disk, and a 4 GiB GPU is enough to start.
 - An SSD or NVMe drive for the larger entries, because the n-gram table is read from disk.
 
 ## Installing
@@ -47,9 +47,9 @@ those hosts `local-ai backends install strata` reports that no variant fits the 
 
 The images are large because each engine package carries its own GPU runtime libraries
 (CUDA, ROCm or oneAPI). The ROCm image carries four engines, one per GPU family. Each image
-also carries the same set of engines for Tencent Hy4-Flash, which runs on its own engine program
-(`strata-hy4`) and has its own packages; the launcher picks the one that matches the card, as it
-does for the Qwen engine. Upstream publishes the Hy4-Flash engine for the same targets as above.
+also carries the same set of engines for Tencent Hy4-Flash and for Inkling 2 Mini, which run on their own
+engine programs (`strata-hy4` and `strata-inkling`) and have their own packages; the launcher picks the one
+that matches the card, as it does for the Qwen engine. Upstream publishes both engines for the same targets as above.
 
 ## Licensing
 
@@ -167,11 +167,57 @@ Options of the Hy4-Flash entries (set in `options:`; the backend README lists al
 
 The engine takes no `logprobs` and no logit bias, and the backend refuses a request for them.
 
+**Inkling 2 Mini** (Thinking Machines Lab, 26.4B parameters, 3.4B active per token, up to 1M tokens of
+context, text and image input, tool calling, Apache 2.0). It has no thinking mode and answers directly.
+It is much smaller than the models above, and it runs on its own engine, `strata-inkling`. There are two
+kinds of entry. The Strata builds (`.strata` files, by Strata) carry their own DSpark drafter. The Unsloth
+GGUF files are read as they are, with no conversion step, and use the DSpark drafter file that Unsloth
+publishes. All entries use one directory, so the vision file (0.64 GB), the tokenizer files and the drafter
+file are downloaded once. There is no pack to build: the backend makes the tokenizer from the model files on
+the first load (seconds). A Strata build has the chat template inside it and needs the published
+`tokenizer.json`; a GGUF needs the published `tokenizer.json` and `chat_template.jinja`. The entries download them.
+
+```bash
+local-ai models install inkling-2-mini-sq-10-strata
+```
+
+| Gallery name | Format | Download | Made for |
+|---|---|---|---|
+| `inkling-2-mini-sq-10-strata` | Strata SQ-10 | about 11 GB | a 12 GiB card or a 16 GiB Mac, whole in memory; mixed RAM and GPU from a 4 GiB card |
+| `inkling-2-mini-sq-15-strata` | Strata SQ-15 | about 15 GB | a 16 GiB card or a 24 GiB Mac; mixed on a 12 GiB card |
+| `inkling-2-mini-sq-20-strata` | Strata SQ-20 (lossless) | about 20 GB | a 24 GiB card or more, or 32 GiB or more of unified memory |
+| `inkling-2-mini-ud-q8_k_xl-strata` | Unsloth UD-Q8_K_XL | about 24 GB | 24 GiB or more of GPU memory, or 32 GiB or more of RAM |
+| `inkling-2-mini-ud-q4_k_xl-strata` | Unsloth UD-Q4_K_XL | about 19 GB | a 16 to 24 GiB card |
+| `inkling-2-mini-ud-q4_k_m-strata` | Unsloth UD-Q4_K_M | about 18 GB | a 16 to 24 GiB card |
+| `inkling-2-mini-ud-iq4_xs-strata` | Unsloth UD-IQ4_XS | about 17 GB | a 16 GiB card |
+| `inkling-2-mini-ud-q3_k_xl-strata` | Unsloth UD-Q3_K_XL | about 15 GB | a 12 to 16 GiB card |
+| `inkling-2-mini-ud-iq3_xxs-strata` | Unsloth UD-IQ3_XXS | about 13 GB | an 8 to 12 GiB card |
+| `inkling-2-mini-ud-q2_k_xl-strata` | Unsloth UD-Q2_K_XL | about 10 GB | a 4 to 12 GiB card with about 16 GiB of RAM |
+| `inkling-2-mini-ud-iq2_xxs-strata` | Unsloth UD-IQ2_XXS | about 10 GB | a 4 to 8 GiB card with about 16 GiB of RAM |
+| `inkling-2-mini-ud-iq1_m-strata` | Unsloth UD-IQ1_M | about 9 GB | a 4 to 8 GiB card |
+| `inkling-2-mini-ud-iq1_s-strata` | Unsloth UD-IQ1_S | about 9 GB | a 4 to 8 GiB card |
+
+The sizing column is Strata's own guidance, not measured by LocalAI. The entries set a context of 32768 tokens
+(the model reads up to 1M, and the cache grows with the context) and the model card's sampling, temperature 1.0 with no
+truncation. LocalAI already has `inkling-2-mini` entries on the `llama-cpp` backend; these run the same model on Strata.
+
+Options of the Inkling 2 Mini entries (set in `options:`; the backend README lists all options):
+
+| Option | Meaning |
+|---|---|
+| `family:inkling` | Selects the Inkling engine and file layout. |
+| `native`, `vision` | The model file and the vision file, relative to the model directory. `vision:off` turns images off. |
+| `dspark` | The drafter file of a GGUF entry. A Strata build carries its own drafter. |
+| `drafter` | `dspark` (default) or `off`. The drafter is used only if the engine says it has one. |
+| `vram_experts_gb`, `ram_experts_gb` | Engine flags that cap how many gigabytes of experts go to the card and to RAM. The entries set none, so the engine decides. |
+
+The engine takes no `logprobs` and no logit bias, and the backend refuses a request for them.
+
 **Licences.** Qwen3.8-Flash-Next models are under the Qwen Community License 1.0: free use, but it
 asks for a separate licence from Qwen if you run a Model as a Service or AI Work Assistant
 business with it, and for the model name to be shown in products above its user and revenue
 limits. Swift 1.5 adds UkisAI's Swift Open License 1.0. The NVIDIA checkpoint adds the NVIDIA
-Open Model License Agreement. Qwen3.6 is Apache 2.0. Tencent Hy4-Flash is under the Tencent Hy
+Open Model License Agreement. Qwen3.6 and Inkling 2 Mini are Apache 2.0. Tencent Hy4-Flash is under the Tencent Hy
 License 1.0, derived from Apache 2.0 with extra commercial terms for very large Model as a
 Service businesses. Read the `LICENSE` file of the repository
 before you offer a model to other people. The ISTA-DASLab model cards also carry an Apache 2.0
@@ -200,7 +246,7 @@ changes the placeholder used between LocalAI and Strata.
 
 ## Limits
 
-The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. Qwen entries support images, logprobs, tool calls and reasoning. Hy4-Flash supports images, tool calls and reasoning, and no logprobs. The backend README has the full list.
+The backend has no embeddings, no grammar and no video or audio input, and it serves one request at a time. Qwen entries support images, logprobs, tool calls and reasoning. Hy4-Flash supports images, tool calls and reasoning, and no logprobs. Inkling 2 Mini supports images and tool calls, has no thinking mode, and no logprobs. The backend README has the full list.
 
 ## Versions
 
@@ -208,6 +254,6 @@ Upstream versions each platform on its own, and a release doesn't always hold ev
 
 `backend/go/strata/Makefile` pins every package on its own: the release tag it comes from, its version and its SHA-256 (`STRATA_ENGINE_TAG_<package>`, `STRATA_ENGINE_VERSION_<package>` and `STRATA_ENGINE_SHA256_<package>`). The download URL is built from the package's own tag. `STRATA_VERSION` and `STRATA_COMMIT` name the newest release, and the backend's Python modules are fetched at that commit.
 
-The Hy4-Flash engine packages have their own pins of the same kind (`STRATA_HY4_TAG_<package>`, `STRATA_HY4_VERSION_<package>` and `STRATA_HY4_SHA256_<package>`), and the same job moves them.
+The Hy4-Flash and Inkling engine packages have their own pins of the same kind (`STRATA_HY4_TAG_<package>`, `STRATA_HY4_VERSION_<package>` and `STRATA_HY4_SHA256_<package>`, and the same with `STRATA_INKLING_`), and the same job moves them.
 
 A nightly job (`bump-strata` in `.github/workflows/bump_deps.yaml`, script `.github/bump_strata.sh`) takes each package from the newest release that has it and opens one pull request when any pin changes. If a package is missing from the newest release, the job takes it from an older one and logs a notice. If a package is in no release, it keeps its pin and prints a warning. The job fails when a SHA-256 in the release's `SHA256SUMS.txt` differs from the digest GitHub computed for the uploaded file. The pull request lists each package that changed, with its old and new tag and version. The backend speaks an unversioned line protocol, so review each bump against the backend README.
