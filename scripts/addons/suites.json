@@ -1615,7 +1615,8 @@
       "fails with a credential error and installs nothing without a rule",
       "lists and installs with a rule, and sends no credential to the redirect target",
       "logs the start error as the cause and keeps the previous generation running",
-      "is one bounded line without credentials"
+      "is one bounded line without credentials",
+      "carries the launch stage and reason in the log, bounded and without credentials"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1768,7 +1769,25 @@
           "sign",
           "too long",
           "is not waited for when the owner bound the listener",
-          "writes the startup object through a pipe with a deadline"
+          "writes the startup object through a pipe with a deadline",
+          "names a receipt on disk that differs from the journal",
+          "names a missing receipt",
+          "names a manifest that does not fit the host",
+          "names a missing executable and keeps the host path out",
+          "names a data directory that cannot be made",
+          "names a process that cannot start",
+          "gives the exit status and the last line of a process that exits at once",
+          "takes the last line of the standard output too",
+          "says so when the process wrote nothing",
+          "bounds a huge last line",
+          "keeps credentials and control characters out of the last line",
+          "names a process that never became ready, with the last output",
+          "names a process whose health answer does not repeat the registration",
+          "names a start that is refused before a process is made",
+          "is the text of any other error",
+          "names a process that never reports its endpoint",
+          "names a process that reports an endpoint that is not loopback",
+          "names a process that exits before it reports"
         ]
       },
       {
@@ -4147,7 +4166,8 @@
           "fails with a credential error and installs nothing without a rule",
           "lists and installs with a rule, and sends no credential to the redirect target",
           "logs the start error as the cause and keeps the previous generation running",
-          "is one bounded line without credentials"
+          "is one bounded line without credentials",
+          "carries the launch stage and reason in the log, bounded and without credentials"
         ]
       },
       {
@@ -4271,7 +4291,25 @@
           "says why when the launcher refuses, and starts nothing",
           "refuses an executable that is not a Linux program",
           "stops an add-on in WSL that outlives its wsl.exe once the session ends",
-          "is refused on a host without WSL, with the reason"
+          "is refused on a host without WSL, with the reason",
+          "names a receipt on disk that differs from the journal",
+          "names a missing receipt",
+          "names a manifest that does not fit the host",
+          "names a missing executable and keeps the host path out",
+          "names a data directory that cannot be made",
+          "names a process that cannot start",
+          "gives the exit status and the last line of a process that exits at once",
+          "takes the last line of the standard output too",
+          "says so when the process wrote nothing",
+          "bounds a huge last line",
+          "keeps credentials and control characters out of the last line",
+          "names a process that never became ready, with the last output",
+          "names a process whose health answer does not repeat the registration",
+          "names a start that is refused before a process is made",
+          "is the text of any other error",
+          "names a process that never reports its endpoint",
+          "names a process that reports an endpoint that is not loopback",
+          "names a process that exits before it reports"
         ]
       },
       {
