@@ -286,6 +286,11 @@ export const FIELDS = [
   { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
     desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
     placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The most add-on tools one chat is offered (core/config/runtime_settings_registry.go;
+  // read at each discovery, so live). Each add-on is limited to 32 tools apart from this.
+  { key: 'chats_addon_tool_limit', group: 'tools', was: 'chats', kind: 'int', label: 'Add-on tools per chat',
+    desc: 'The most add-on tools one chat is offered, from 16 to 256. Tools that replace a built-in one, such as the shell, come first. Every tool is described to the model on every turn, so a higher limit costs model context and can make the model choose worse; raise it only if chats show that add-on tools are left out. An add-on can offer at most 32 tools whatever this says.',
+    placeholder: '64', default: 64, min: 16, max: 256, apply: 'live' },
   // The limits of a chat's goal (core/config/runtime_settings_registry.go;
   // read when a turn ends, so live).
   { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',
