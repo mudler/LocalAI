@@ -391,8 +391,8 @@ func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, na
 
 	if err != nil && errors.Is(err, errVerbNotServed) {
 		// A worker that answers, and has no such verb, is older than the verb.
-		// The caller falls back to the install it does understand, which is what
-		// ErrNoRoute has always meant for this verb.
+		// There is no fallback to a forced install: the upgrade fails on that
+		// worker with ErrNoRoute, and the worker must be upgraded first.
 		return nil, fmt.Errorf("%w: %v", ErrNoRoute, err)
 	}
 	if err != nil && a.link.waitExpired(err) {
