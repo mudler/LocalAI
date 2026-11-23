@@ -767,7 +767,11 @@ func (l lateStudioAddons) ToolsScoped(ctx context.Context, user string, excluded
 	if g, ok := l.a.StudioAddonTools().(studio.AddonToolScoper); ok {
 		return g.ToolsScoped(ctx, user, excluded)
 	}
-	tools, err := l.a.StudioAddonTools().Tools(ctx, user)
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return nil, nil, nil
+	}
+	tools, err := b.Tools(ctx, user)
 	return tools, nil, err
 }
 

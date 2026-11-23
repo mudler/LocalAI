@@ -445,10 +445,14 @@ type ToolAdapter struct {
 	// limit is the tool cap now, or nil for MaxTools. It is read on every
 	// discovery, so a change applies without a restart.
 	limit func() int
-	// capSeen holds, per actor, the last cap report that was logged, so a
-	// truncation is logged when it starts or changes and not on every call.
-	capMu   sync.Mutex
-	capSeen map[string]string
+}
+
+// capLog remembers, per actor, the last cap report that was logged, so a
+// truncation is logged when it starts or changes and not on every call. It is
+// shared by every adapter because the host builds a new one per request.
+var capLog struct {
+	sync.Mutex
+	seen map[string]string
 }
 
 // ConnectionNamer returns the display name of the binding that a call of the
@@ -985,10 +989,10 @@ func (t *ToolAdapter) DiscoverWithReport(ctx context.Context, actor contract.Act
 // actor, and forgets the actor once nothing is cut so a new truncation warns
 // again. It names add-on IDs and counts only.
 func (t *ToolAdapter) logCap(actor contract.Actor, r CapReport) {
-	t.capMu.Lock()
-	defer t.capMu.Unlock()
+	capLog.Lock()
+	defer capLog.Unlock()
 	if !r.Truncated() {
-		delete(t.capSeen, actor.UserID)
+		delete(capLog.seen, actor.UserID)
 		return
 	}
 	var parts []string
@@ -996,13 +1000,13 @@ func (t *ToolAdapter) logCap(actor contract.Actor, r CapReport) {
 		parts = append(parts, fmt.Sprintf("%s=%d", a.ID, a.Cut))
 	}
 	sig := fmt.Sprintf("%d:%s", r.Cap, strings.Join(parts, ","))
-	if t.capSeen[actor.UserID] == sig {
+	if capLog.seen[actor.UserID] == sig {
 		return
 	}
-	if t.capSeen == nil {
-		t.capSeen = map[string]string{}
+	if capLog.seen == nil {
+		capLog.seen = map[string]string{}
 	}
-	t.capSeen[actor.UserID] = sig
+	capLog.seen[actor.UserID] = sig
 	xlog.Warn("add-on tool cap reached: some add-on tools are not offered to chats",
 		"cap", r.Cap, "offered", r.Offered, "cut", r.Cut, "addons", sig)
 }

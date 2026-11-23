@@ -20,3 +20,13 @@ var _ = Describe("the cap on add-on tools of a chat", func() {
 		Expect(app.addonToolLimit()).To(Equal(120))
 	})
 })
+
+var _ = Describe("the late add-on broker without a gateway", func() {
+	It("offers no tools and no cap report, and does not panic", func() {
+		app := &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
+		tools, report, err := lateStudioAddons{a: app}.ToolsScoped(context.Background(), "alice", func(string) bool { return false })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tools).To(BeEmpty())
+		Expect(report).To(BeNil())
+	})
+})

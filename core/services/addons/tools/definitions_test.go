@@ -2,9 +2,11 @@
 package tools_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -311,6 +314,30 @@ var _ = Describe("The tool cap of one discovery", func() {
 		_, again, err := adapter.DiscoverWithReport(ctx, member, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cutOf(again)).To(Equal(cutOf(all)))
+	})
+
+	It("logs a cut once when it starts or changes, naming add-on IDs and counts only", func() {
+		captured := &bytes.Buffer{}
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(captured, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+		actor := contract.Actor{UserID: "log-once", CredentialID: "session:s1", Mode: "named-user"}
+		// A new adapter for each call, as the host builds them.
+		for range 3 {
+			_, _, err := tools.NewChatToolAdapter(fiveFillers()).DiscoverWithReport(ctx, actor, nil)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(strings.Count(captured.String(), "add-on tool cap reached")).To(Equal(1), captured.String())
+		Expect(captured.String()).To(ContainSubstring("eee="))
+		Expect(captured.String()).NotTo(ContainSubstring("Add-on eee"), "titles stay out of the log")
+		// A different cut is logged again.
+		limit := 40
+		_, _, err := tools.NewChatToolAdapter(fiveFillers()).WithToolLimit(func() int { return limit }).DiscoverWithReport(ctx, actor, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(strings.Count(captured.String(), "add-on tool cap reached")).To(Equal(2), captured.String())
+		// A call that excludes add-ons describes one chat, not the server: no log.
+		_, _, err = tools.NewChatToolAdapter(fiveFillers()).WithToolLimit(func() int { return 20 }).DiscoverWithReport(ctx, actor, func(string) bool { return false })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(strings.Count(captured.String(), "add-on tool cap reached")).To(Equal(2))
 	})
 
 	It("takes the cap from the limit that is set, read at each discovery", func() {
