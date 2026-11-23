@@ -87,9 +87,19 @@ the item is `unconfirmed`.
 | `skipped` | Held, edited keys, or no update any more |
 | `unconfirmed` | No check could confirm the result |
 
-A failure has an error key: `download`, `verify`, `swap`, `start`, `held`,
-`edited_keys`, `stale` or `unknown`. A failed add-on keeps the failure code of
-the add-on owner, for example `upgrade_failed` or `recovery_required`.
+A failure has an error key: `download`, `verify`, `swap`, `start`,
+`not_installed`, `no_update`, `held`, `edited_keys`, `stale` or `unknown`. A
+failed add-on keeps the failure code of the add-on owner, for example
+`upgrade_failed` or `recovery_required`.
+
+A backend item takes the error key and the rollback from its operation (see
+[Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})):
+a new build that did not start and was replaced by the previous one ends the
+item `rolled_back` with the key `start`. An operation whose worker reply never
+came ends the item `unconfirmed`, and a fresh check decides as above. In a
+cluster, `nodes` lists the result of each node: `id`, `name`, `phase`
+(`success`, `error`, `rolled_back`, `unconfirmed`, or a phase of a node that
+still runs), `progress`, `message` and `error_key`.
 
 ## Cancel, retry and dismiss
 
@@ -379,6 +389,9 @@ item and adds the run to its answer:
 | `POST /api/models/upgrade/{name}` | `200`, `id`, `jobID`, `status_url`, `message` | `run` |
 | `POST /api/addons/{id}/upgrade` | `200`, the operation status with `jobId` | `run` in the payload |
 
+The backend routes first refuse a request that cannot do anything, before any
+run starts: `404` `not_installed`, or `409` `no_update` or `stale` (see
+[Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})).
 While another run runs, they answer `409` with code `run_active` (the add-on
 route in its error type). The backend routes take an optional `expected_to`, in
 the query or the JSON body, and answer `409` `stale` when it moved. When the
