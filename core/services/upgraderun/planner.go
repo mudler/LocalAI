@@ -247,8 +247,10 @@ type StartRequest struct {
 // planStart validates a start request against the current candidates and
 // returns the items of the new run, in run order. Every item must be listed
 // with an update and the same target the caller saw; a held model or one
-// with edited keys becomes a skipped item.
-func planStart(cands []Candidate, req StartRequest) ([]Item, error) {
+// with edited keys becomes a skipped item. An item missing from a kind whose
+// check did not answer (unchecked) is refused with source_unchecked rather
+// than no_update.
+func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]Item, error) {
 	if len(req.Items) == 0 {
 		return nil, refuse(CodeInvalid, "", "no item to update")
 	}
@@ -268,6 +270,9 @@ func planStart(cands []Candidate, req StartRequest) ([]Item, error) {
 		}
 		c, ok := byKey[k]
 		if !ok {
+			if unchecked[si.Kind] {
+				return nil, refuse(CodeSourceUnchecked, k, "the check of this kind did not answer; check for updates again")
+			}
 			return nil, refuse(CodeNoUpdate, k, "the item is not installed or has no update")
 		}
 		if c.Blocked != "" {

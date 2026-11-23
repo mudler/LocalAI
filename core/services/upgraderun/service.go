@@ -333,21 +333,24 @@ func (s *Service) checkerFor(k Kind) Checker {
 	return nil
 }
 
-// candidates lists every checker; complete is false when one did not answer.
-func (s *Service) candidates(ctx context.Context) ([]Candidate, bool) {
+// candidates lists every checker. unchecked holds the kinds whose checker did
+// not answer, so a missing item of such a kind may still have an update.
+func (s *Service) candidates(ctx context.Context) ([]Candidate, map[Kind]bool) {
 	var all []Candidate
-	complete := true
+	unchecked := map[Kind]bool{}
 	for _, c := range s.opts.Checkers {
 		l, err := c.List(ctx, false)
 		if err != nil {
 			xlog.Debug("upgrade run: a check failed", "kinds", c.Kinds(), "error", err)
-			complete = false
-			continue
 		}
-		complete = complete && l.Complete
+		if err != nil || !l.Complete {
+			for _, k := range c.Kinds() {
+				unchecked[k] = true
+			}
+		}
 		all = append(all, l.Candidates...)
 	}
-	return all, complete
+	return all, unchecked
 }
 
 // precheck stops an item whose target moved since the request, before its
@@ -465,7 +468,7 @@ func (s *Service) activeRun() (*Run, error) {
 // anything. refs limits it to some items; empty lists them all. A start
 // request built from it sends each ExpectedTo back.
 func (s *Service) Preview(ctx context.Context, _ string, refs []ItemRef) (Plan, error) {
-	cands, complete := s.candidates(ctx)
+	cands, unchecked := s.candidates(ctx)
 	busy := map[string]bool{}
 	active, err := s.activeRun()
 	if err != nil {
@@ -479,7 +482,7 @@ func (s *Service) Preview(ctx context.Context, _ string, refs []ItemRef) (Plan, 
 		}
 	}
 	plan := BuildPlan(cands, refs, busy)
-	plan.Complete = complete
+	plan.Complete = len(unchecked) == 0
 	if active != nil {
 		plan.ActiveRunID = active.ID
 	}
@@ -497,8 +500,8 @@ func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Ru
 	if req.Source != SourceManual && req.Source != SourceAuto {
 		return Run{}, refuse(CodeInvalid, "", "unknown source %q", req.Source)
 	}
-	cands, _ := s.candidates(ctx)
-	items, err := planStart(cands, req)
+	cands, unchecked := s.candidates(ctx)
+	items, err := planStart(cands, unchecked, req)
 	if err != nil {
 		return Run{}, err
 	}
@@ -631,7 +634,7 @@ func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
 	if len(req.Items) == 0 {
 		return Run{}, refuse(CodeNothingToRetry, "", "no item can be retried")
 	}
-	cands, _ := s.candidates(ctx)
+	cands, unchecked := s.candidates(ctx)
 	listed := map[string]bool{}
 	for _, c := range cands {
 		listed[c.Key()] = true
@@ -646,7 +649,7 @@ func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
 		return Run{}, refuse(CodeNothingToRetry, "", "no retryable item still has an update")
 	}
 	req.Items, req.Source = kept, run.Source
-	items, err := planStart(cands, req)
+	items, err := planStart(cands, unchecked, req)
 	if err != nil {
 		return Run{}, err
 	}

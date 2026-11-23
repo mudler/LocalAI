@@ -2,10 +2,14 @@ package upgraderun_test
 
 import (
 	"context"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
@@ -15,11 +19,11 @@ import (
 
 // Two frontends of one cluster: the same database, the same bus, and the
 // same operation statuses (the bus replicates them between real frontends).
-var _ = Describe("Two frontends", func() {
+func twoFrontends(open func() *gorm.DB) {
 	ctx := context.Background()
 
 	It("answer for the same run, pass a cancel to the runner, and take over the run of a dead frontend", func() {
-		db := openSQLite()
+		db := open()
 		bus := testutil.NewFakeBus()
 		jobs := newFakeJobs()
 		a := newHarness(harnessOpts{db: db, bus: bus, jobs: jobs, instance: "frontend-a"})
@@ -83,6 +87,30 @@ var _ = Describe("Two frontends", func() {
 		rec, _, err := b.store.Get(r.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Runner).To(Equal("frontend-b"))
+	})
+}
+
+var _ = Describe("Two frontends on SQLite", func() {
+	twoFrontends(openSQLite)
+})
+
+// On PostgreSQL the locks are real session locks: the lock of a frontend
+// that closes is freed on the server, and the other frontend takes it.
+var _ = Describe("Two frontends on PostgreSQL", func() {
+	url := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
+	if url == "" {
+		It("take over a run", func() {
+			Skip("set LOCALAI_TEST_POSTGRES_URL to run the two-frontend spec against PostgreSQL")
+		})
+		return
+	}
+	twoFrontends(func() *gorm.DB {
+		db, err := gorm.Open(postgres.Open(url), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(db.AutoMigrate(&distributed.UpgradeRunRecord{}, &distributed.UpgradeRunItemRecord{})).To(Succeed())
+		Expect(db.Exec("DELETE FROM upgrade_run_items").Error).To(Succeed())
+		Expect(db.Exec("DELETE FROM upgrade_runs").Error).To(Succeed())
+		return db
 	})
 })
 

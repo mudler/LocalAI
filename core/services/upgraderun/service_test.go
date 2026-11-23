@@ -93,6 +93,12 @@ var _ = Describe("Service", func() {
 			Expect(CodeOf(err)).To(Equal(CodeInvalid))
 		})
 
+		It("says the source did not answer instead of no update", func() {
+			h.models.setIncomplete(true)
+			_, err := h.svc.Start(ctx, "admin", StartRequest{Items: []StartItem{si(KindModel, "m")}})
+			Expect(CodeOf(err)).To(Equal(CodeSourceUnchecked))
+		})
+
 		It("refuses an item the server cannot install", func() {
 			h.backends.add(Candidate{Kind: KindGallery, Name: "a", Blocked: "installs_disabled"})
 			_, err := h.svc.Start(ctx, "admin", StartRequest{Items: []StartItem{si(KindGallery, "a")}})
