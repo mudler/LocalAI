@@ -159,9 +159,9 @@ while the WebUI has the focus (`menuModel.ts` lists what was checked).
 ### Update channel
 
 Settings, Updates. `stable` is the default and uses the latest release.
-`rc` also offers release candidates (this is the old pre-release switch, and
-the only channel the launcher's own updater follows). `dev` follows the
-rolling development build:
+`rc` also offers release candidates (this is the old pre-release switch; the
+launcher's own updater follows it too). `dev` follows the rolling development
+build, for the server and for the launcher itself:
 
 - Where it comes from: the `dev-master` pre-release of the LocalAI
   repository, with `local-ai-master-<os>-<arch>` and a `.sha256` file for each
@@ -174,6 +174,19 @@ rolling development build:
   rollback copy.
 - The server starts with `LOCALAI_PREFER_DEV_BACKENDS=true` (`serverLaunch.ts`);
   backends that are already installed are not touched.
+- The launcher updates itself from the same release. The `dev-master`
+  pre-release also carries the update feed files (`latest-linux.yml`,
+  `latest-linux-arm64.yml`, `latest-mac.yml`, `latest.yml`) and the macOS
+  zip, and electron-updater reads them through its generic provider
+  (`devLauncherFeedUrl` in `devFeed.ts`, `selfUpdateGate` and `launcherFeed`
+  in `updaterStatus.ts`). The feed files hold the SHA-512 of each package, so
+  a file that does not match is never installed (fail closed). On Linux the
+  atomic swap below applies. The channel is read at start and when it
+  changes, with no new prompt: the confirmation of the first change to
+  Development covers it. A development build (`x.y.z-dev.N`) updates itself
+  on this channel only. On Stable or Release candidates it stays off and
+  never reads the release feed. Going back to Stable or Release candidates
+  returns a release launcher to the release feed.
 - The first change to Development needs a confirmation (the checkbox dialog).
   The bar and About show a Development chip while the window shows This
   computer. With a remote default the channel applies to This computer only.
@@ -278,9 +291,12 @@ interpreter is `/lib64/ld-linux-x86-64.so.2`.
 `scripts/version.mjs` gives the version: `tag v4.2.1` gives `4.2.1`,
 `tag v4.2.1-rc.1` (or `-rc1`) gives `4.2.1-rc.1`, `-beta.N` and `-alpha.N` are
 accepted, and any other tag shape fails. `dev <run>` reads tags on stdin and
-gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
-`-dev.N` build never updates itself (`selfUpdateAllowed` in
-`src/main/updaterStatus.ts`).
+gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped.
+The run number rises with each build, so each development build is a higher
+version than the last one (semver compares the number as a number), and the
+normal "newer version" rule of electron-updater finds it with no downgrade.
+A `-dev.N` build updates itself on the Development channel only
+(`selfUpdateGate` in `src/main/updaterStatus.ts`).
 
 ### Workflows
 
@@ -288,7 +304,7 @@ gives `<newest vX.Y.Z, patch + 1>-dev.<run>`; other tag shapes are skipped. A
 |---|---|---|---|
 | `launcher-electron-build.yaml` | `workflow_call` | `contents: read` | npm ci, type check, unit tests, build with `--publish never`, `.sha256` files, packaged smoke (AppImage under Xvfb with `--appimage-extract-and-run`; on macOS the DMG is signed, notarized and stapled, then checked with `codesign`, `spctl` and `stapler`, and the app from the mounted DMG is checked the same way before the smoke), then workflow artifacts. amd64 also checks the portable layout and runs the smoke again inside Alpine (musl); amd64 on `ubuntu-22.04`, arm64 on `ubuntu-24.04-arm`, macOS on `macos-latest`, Windows on `windows-latest` (type check, `test/windows.test.ts`, `test/windowsHost.test.ts` and the builder config test; the rest of the unit suite is POSIX-specific and runs in the other jobs; then a silent per-user install of the NSIS installer and the smoke on the installed app). |
 | `launcher-electron-release.yaml` | `workflow_call` from `release.yaml`, every `v*` tag, after GoReleaser | build: read; upload: `contents: write`; check: read | Version from the tag, build with required macOS signing (Windows signing when its secrets exist), feed files, upload to the existing release (no checkout, files first, feed files last, `--clobber`), then a check of the attached feed. |
-| `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64`, `-windows-amd64` (14 days; pull requests: amd64 AppImage only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) attaches the AppImages, the DMG, the Windows installer and zip, and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
+| `launcher-electron-dev.yaml` | push to `master` and pull requests (path filter), manual run | build: read; publish: `contents: write` | Development builds as artifacts `localai-launcher-dev-linux-amd64`, `-linux-arm64`, `-macos-arm64`, `-windows-amd64` (14 days; pull requests: amd64 AppImage only, no secrets, 7 days). Master builds are not cancelled by a newer push (a waiting run is replaced). After they pass, the `publish` job (master pushes only, never pull requests or manual runs) checks the feed files against the packages (names, sizes, SHA-512), then attaches the AppImages, the DMG, the macOS zip, the Windows installer and zip, and their `.sha256` files to the `dev-master` pre-release with `--clobber`, next to the server binaries. The feed files (`latest*.yml`) go last, and a feed file or package that this build did not make is removed. Blockmaps are not published. It waits for that release (made by `master-dev-binary.yml`) and never creates it. Manual run: build and smoke only. |
 
 Signing uses the repository secrets `MACOS_CERTIFICATE` and
 `MACOS_CERTIFICATE_PWD` (as `CSC_LINK` and `CSC_KEY_PASSWORD`) and
@@ -443,18 +459,24 @@ No worker mode.
 
 ## Launcher updates
 
-electron-updater checks and downloads; it runs only in a packaged release
-build. A run from source and a development build (`x.y.z-dev.N`) do not
-update themselves (a development build checks only a test feed set with
-`LOCALAI_LAUNCHER_FEED_URL`). Downgrades are never offered. Pre-releases
+electron-updater checks and downloads; it runs only in a packaged build. A
+run from source does not update itself. A development build (`x.y.z-dev.N`)
+updates itself on the Development channel only, from the `dev-master` feed;
+on Stable or Release candidates it does not update itself (it checks only a
+test feed set with `LOCALAI_LAUNCHER_FEED_URL`, which wins on every channel).
+On the Development channel the launcher reads the feed of the `dev-master`
+pre-release (generic provider) and turns differential download off, because
+the files keep one name from build to build. The portable Windows zip never
+updates itself. Downgrades are never offered, on any channel. Pre-releases
 are offered only on the Release candidates channel (Settings, Updates;
-config `update_channel`; the Development channel does not change the
-launcher's own updates); a launcher on a release-candidate version takes
+config `update_channel`); a launcher on a release-candidate version takes
 stable updates only, because `updaterSettings` always sets electron-updater's
 `allowPrerelease`, which it would otherwise turn on for such a version. The
 same setting makes the server check use the newest release including
-pre-releases. `selfUpdateGate` and `updaterSettings` (`updaterStatus.ts`) are
-the only gate; `test/selfUpdateGate.test.ts` covers every combination.
+pre-releases. `selfUpdateGate`, `launcherFeed` and `launcherUpdaterSettings`
+(`updaterStatus.ts`) are the only gate; `test/selfUpdateGate.test.ts` and
+`test/devLauncherUpdate.test.ts` cover the combinations. `selfUpdate.ts`
+applies them at start and on every channel change (`setLauncherChannel`).
 
 "Restart to update" on Linux does not call electron-updater's install
 (`quitAndInstall`), which deletes the AppImage before it moves the new one

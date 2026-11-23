@@ -208,7 +208,8 @@ export interface CoreDeps {
   /** Where release pages live. Default: the LocalAI repository. */
   releaseRepo?: { owner: string; repo: string }
   /** The update channel changed: true for release candidates. The launcher's own updater follows release candidates only. */
-  onIncludePrereleases?: (on: boolean) => void
+  /** The channel changed. The launcher's own updater follows it (release candidates, or the development feed). */
+  onUpdateChannel?: (channel: UpdateChannel) => void
   /** Test hook: replaces the real server check. */
   testServer?: (origin: string, o: { signal?: AbortSignal }) => Promise<TestResult>
   /** Test hook: the wait between tries while the remote default does not answer. */
@@ -1302,8 +1303,8 @@ export class LauncherCore {
     if (channel === 'dev' && !confirmed && (!devChannelConfirmed(c) || cur === 'stable')) return { ok: false, reason: 'confirm-required' }
     await this.store.update((x) => (channel === 'dev' ? withDevChannelConfirmed(withUpdateChannel(x, channel)) : withUpdateChannel(x, channel)))
     this.hub.write('launcher', `update channel: ${channel}`)
-    // The launcher's own updater follows release candidates only; Development does not change it.
-    this.d.onIncludePrereleases?.(channel === 'rc')
+    // The launcher's own updater follows the channel too: release candidates, or the development feed.
+    this.d.onUpdateChannel?.(channel)
     // The server environment differs on Development: the next start uses it.
     if ((cur === 'dev') !== (channel === 'dev')) this.launchChanged()
     return { ok: true, info: await this.updateInfo() }
@@ -1330,6 +1331,11 @@ export class LauncherCore {
 
   channelIsRc(): boolean {
     return updateChannel(this.store.get()) === 'rc'
+  }
+
+  /** The update channel of This computer, as saved. */
+  channelName(): UpdateChannel {
+    return updateChannel(this.store.get())
   }
 
   async setAutoCheck(on: boolean): Promise<UpdateInfoView> {

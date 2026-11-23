@@ -1,4 +1,4 @@
-# Development builds of the Electron launcher (no update feed files):
+# Development builds of the Electron launcher:
 #
 # - push to master: AppImage amd64 and arm64, the DMG (signed and notarized
 #   when the secrets are available), and the Windows installer and zip
@@ -7,17 +7,28 @@
 #   -windows-amd64, kept 14 days.
 #   When all builds pass, the same files are also attached to the rolling
 #   `dev-master` pre-release, next to the server binaries that
-#   master-dev-binary.yml publishes there. The publish job is the only job
-#   here with write access, and it never runs for pull requests or manual runs.
+#   master-dev-binary.yml publishes there, together with the update feed
+#   files (latest-linux.yml, latest-linux-arm64.yml, latest-mac.yml,
+#   latest.yml) and the macOS zip that the updater applies. A launcher whose
+#   update channel is Development reads that feed. The publish job is the
+#   only job here with write access, and it never runs for pull requests or
+#   manual runs.
 # - pull request: the amd64 AppImage only, unsigned, no secrets, kept 7 days.
 # - manual run: build and smoke for validation, with an optional version.
 #   It keeps nothing.
 #
-# The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>, and a
-# development build never updates itself. Its files have "dev" in the name
-# (LocalAI-Launcher-dev-x86_64.AppImage, LocalAI-Launcher-dev.dmg,
-# LocalAI-Launcher-dev-Setup-x64.exe, LocalAI-Launcher-dev-win-x64.zip), so
-# they are never mistaken for release files. See launcher/README.md.
+# The version is <newest vX.Y.Z tag, patch + 1>-dev.<run number>. It rises
+# with every build, so the updater's normal "newer version" rule finds the
+# next build with no downgrade. A development build updates itself only when
+# its channel is Development, never from the release feed. Its files have
+# "dev" in the name (LocalAI-Launcher-dev-x86_64.AppImage,
+# LocalAI-Launcher-dev.dmg, LocalAI-Launcher-dev-Setup-x64.exe,
+# LocalAI-Launcher-dev-win-x64.zip, LocalAI-Launcher-dev-arm64-mac.zip), so
+# they are never mistaken for release files. The files keep the same names
+# from build to build, and the feed files carry the checksums of the current
+# ones. Launcher files only change when a push touches the paths below, so
+# they can be older than the server binaries of the same release. See
+# launcher/README.md.
 #
 # Repository variables (Settings > Variables), both optional:
 # - LAUNCHER_DEV_ARM64=false: no arm64 AppImage on master pushes. Each package
@@ -134,7 +145,7 @@ jobs:
       macos: true
       windows: true
       sign-macos: ${{ vars.LAUNCHER_DEV_SIGN_MACOS != 'false' }}
-      feed: false
+      feed: true
       upload: true
       retention-days: 14
     secrets:
@@ -152,8 +163,9 @@ jobs:
   #
   # It never creates the release or moves the tag: master-dev-binary.yml owns
   # those. It only adds files, and it only touches names that start with
-  # LocalAI-Launcher-dev. master-dev-binary.yml only replaces names that start
-  # with local-ai-master-, so the two workflows never touch the same asset and
+  # LocalAI-Launcher-dev, and the feed files latest*.yml.
+  # master-dev-binary.yml only replaces names that start with
+  # local-ai-master-, so the two workflows never touch the same asset and
   # need no shared lock. This job has its own concurrency group so that two
   # uploads never overlap, and a waiting job must not replace (or be replaced
   # by) a pending server publish, which a shared group would allow.
@@ -181,11 +193,15 @@ jobs:
         working-directory: upload
         run: |
           set -euo pipefail
+          # The blockmaps are not published: the launcher downloads the
+          # development files in full, because they keep one name.
+          rm -f ./*.blockmap
           ls -l
-          # Only packages and their checksums, never update feed files.
+          # Only packages, their checksums and the update feed files.
           count=0
           for f in ./*; do
             case "${f#./}" in
+              latest.yml|latest-*.yml) ;;
               LocalAI-Launcher-dev[-.]*AppImage|LocalAI-Launcher-dev[-.]*dmg|LocalAI-Launcher-dev-*.exe|LocalAI-Launcher-dev-*.zip) count=$((count + 1)) ;;
               LocalAI-Launcher-dev[-.]*AppImage.sha256|LocalAI-Launcher-dev[-.]*dmg.sha256|LocalAI-Launcher-dev-*.exe.sha256|LocalAI-Launcher-dev-*.zip.sha256) ;;
               *) echo "unexpected file in the launcher artifacts: ${f}" >&2; exit 1 ;;
@@ -193,6 +209,29 @@ jobs:
           done
           test "${count}" -ge 2
           sha256sum --check --strict ./*.sha256
+          # A feed must name only files of this build, with their size and
+          # SHA-512, and every feed must name the same version. The updater
+          # refuses a file that does not match, so a wrong feed would only
+          # break updates; catch it here instead.
+          feeds=(latest*.yml)
+          test "${#feeds[@]}" -ge 3
+          versions=$(sed -n -E 's/^version: *//p' "${feeds[@]}" | sort -u)
+          test "$(echo "${versions}" | wc -l)" -eq 1
+          echo "feed version: ${versions}"
+          for feed in "${feeds[@]}"; do
+            names=$(sed -n -E 's/^ *- url: *//p' "${feed}" | sort -u)
+            test -n "${names}"
+            for name in ${names}; do
+              test -f "${name}" || { echo "${feed} names ${name}, which is not in this build" >&2; exit 1; }
+            done
+            # url, sha512 and size are consecutive lines of each files entry.
+            sed -n -E '/^ *- url:/{s/^ *- url: *//;h}; /^ *sha512:/{s/^ *sha512: *//;H}; /^ *size:/{s/^ *size: *//;H;x;s/\n/ /gp}' "${feed}" |
+              while read -r name sha size; do
+                test "$(stat -c %s "${name}")" = "${size}" || { echo "${feed}: wrong size for ${name}" >&2; exit 1; }
+                test "$(openssl dgst -sha512 -binary "${name}" | base64 -w0)" = "${sha}" || { echo "${feed}: wrong SHA-512 for ${name}" >&2; exit 1; }
+              done
+            echo "${feed}: ok ($(echo ${names}))"
+          done
       # The release is made by master-dev-binary.yml, which can still be
       # running for this commit. Wait for it. Do not create it here.
       - name: Wait for the release
@@ -208,8 +247,11 @@ jobs:
           echo "the ${RELEASE_TAG} release does not exist; master-dev-binary.yml creates it" >&2
           exit 1
       # Same retry shape as master-dev-binary.yml. Names are stable, so --clobber
-      # replaces the files of the last build. Packages go first and checksums
-      # last, so a checksum never describes a file that is not there yet.
+      # replaces the files of the last build. Packages go first, then the
+      # checksums, and the feed files last, so a feed never describes a file
+      # that is not there yet. For a short time a feed can still describe the
+      # file of the last build; the launcher then refuses the download (the
+      # SHA-512 does not match) and checks again later.
       - name: Upload the packages
         run: |
           set -euo pipefail
@@ -218,6 +260,7 @@ jobs:
           upload() {
             gh release upload "${RELEASE_TAG}" "${packages[@]}" --clobber
             gh release upload "${RELEASE_TAG}" upload/*.sha256 --clobber
+            gh release upload "${RELEASE_TAG}" upload/latest*.yml --clobber
           }
           for attempt in 1 2 3 4 5; do
             if upload; then
@@ -230,12 +273,13 @@ jobs:
           exit 1
       # A build without arm64 (LAUNCHER_DEV_ARM64=false) must not leave an
       # older arm64 file behind. Only launcher dev names that this build did
-      # not make are removed. Server binaries never match.
+      # not make are removed, and so is a feed file that this build did not
+      # make. Server binaries never match.
       - name: Remove stale launcher files
         run: |
           set -euo pipefail
           gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' |
-            grep -E '^LocalAI-Launcher-dev[-.]' |
+            grep -E '^(LocalAI-Launcher-dev[-.]|latest(-[a-z0-9-]+)?\.yml$)' |
             while read -r asset; do
               if [ ! -e "upload/${asset}" ]; then
                 echo "removing stale ${asset}"

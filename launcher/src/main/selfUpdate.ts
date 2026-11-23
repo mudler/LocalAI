@@ -1,18 +1,23 @@
-// Updates of the launcher itself, through electron-updater. Packaged release
-// builds only (see selfUpdateGate: not from source, not a development build).
+// Updates of the launcher itself, through electron-updater. Packaged builds
+// only (see selfUpdateGate: not from source; a development build only on the
+// Development channel).
 // This file imports Electron and electron-updater, so it has no unit test; the
 // event mapping it uses is tested in policy.test.ts and selfUpdateGate.test.ts,
 // and the Linux install in appImageUpdate.test.ts.
 import { app } from 'electron'
 import fs from 'node:fs'
 import { autoUpdater, type UpdateDownloadedEvent } from 'electron-updater'
-import type { UpdaterStatus } from '../shared/types'
+import type { UpdateChannelName, UpdaterStatus } from '../shared/types'
 import { appImageEntry, installPath, swapAppImage, type DownloadedAppImage } from './appImageUpdate'
-import { isPortableWindows, launcherUpdateAction, normalizeUpdaterEvent, selfUpdateGate, updaterSettings, type RawUpdaterEvent } from './updaterStatus'
+import { isPortableWindows, launcherFeed, launcherUpdateAction, launcherUpdaterSettings, normalizeUpdaterEvent, selfUpdateGate, type LauncherFeed, type RawUpdaterEvent } from './updaterStatus'
 
 let status: UpdaterStatus = { phase: 'unsupported', message: 'self-update runs in packaged builds only' }
 let push: (s: UpdaterStatus) => void = () => undefined
 let enabled = false
+let listening = false
+/** The feed electron-updater uses now. `default` is the app-update.yml inside the package. */
+let appliedFeed: LauncherFeed = { kind: 'default' }
+let target: { channel: UpdateChannelName; repo: { owner: string; repo: string } } = { channel: 'stable', repo: { owner: '', repo: '' } }
 /** The last download electron-updater finished and verified, for the AppImage swap. */
 let downloaded: DownloadedAppImage | undefined
 
@@ -25,24 +30,9 @@ export function getUpdaterStatus(): UpdaterStatus {
   return status
 }
 
-export function initSelfUpdate(onStatus: (s: UpdaterStatus) => void, o: { includePrereleases: boolean }): void {
-  push = onStatus
-  const gate = selfUpdateGate({
-    packaged: app.isPackaged,
-    version: app.getVersion(),
-    feedUrl: process.env.LOCALAI_LAUNCHER_FEED_URL,
-    portable: isPortableWindows(process.platform, process.execPath, (d) => { try { return fs.readdirSync(d) } catch { return [] } }),
-  })
-  if (!gate.enabled) {
-    if (gate.reason === 'dev-build') status = { phase: 'unsupported', message: 'development builds do not update themselves' }
-    if (gate.reason === 'portable') status = { phase: 'unsupported', message: 'the zip build does not update itself; use the installer, or download the new zip' }
-    return
-  }
-  enabled = true
-  status = { phase: 'idle' }
-  Object.assign(autoUpdater, updaterSettings(o.includePrereleases))
-  // A test or a mirror can point the launcher at a generic feed.
-  if (gate.feedUrl) autoUpdater.setFeedURL({ provider: 'generic', url: gate.feedUrl })
+function listen() {
+  if (listening) return
+  listening = true
   autoUpdater.on('checking-for-update', () => set({ type: 'checking-for-update' }))
   autoUpdater.on('update-available', (info) => set({ type: 'update-available', info }))
   autoUpdater.on('update-not-available', (info) => set({ type: 'update-not-available', info }))
@@ -55,10 +45,55 @@ export function initSelfUpdate(onStatus: (s: UpdaterStatus) => void, o: { includ
   autoUpdater.on('error', (error) => set({ type: 'error', error }))
 }
 
-/** "Also offer release candidates" changed: the next check uses the new value. */
-export function setLauncherPrereleases(on: boolean): void {
-  if (!enabled) return
-  autoUpdater.allowPrerelease = updaterSettings(on).allowPrerelease
+/**
+ * Decides, for the current channel, whether the launcher updates itself and
+ * from which feed, and tells electron-updater. Runs at start and whenever the
+ * channel changes. Returns whether the updater is on.
+ */
+function apply(): boolean {
+  const gate = selfUpdateGate({
+    packaged: app.isPackaged,
+    version: app.getVersion(),
+    feedUrl: process.env.LOCALAI_LAUNCHER_FEED_URL,
+    portable: isPortableWindows(process.platform, process.execPath, (d) => { try { return fs.readdirSync(d) } catch { return [] } }),
+    channel: target.channel,
+  })
+  if (!gate.enabled) {
+    enabled = false
+    if (gate.reason === 'dev-build') status = { phase: 'unsupported', message: 'development builds update themselves on the Development channel only' }
+    if (gate.reason === 'portable') status = { phase: 'unsupported', message: 'the zip build does not update itself; use the installer, or download the new zip' }
+    return false
+  }
+  // A download of the old feed stays; any other state belonged to the old feed.
+  if (!enabled || (status.phase !== 'downloading' && status.phase !== 'downloaded')) status = { phase: 'idle' }
+  enabled = true
+  Object.assign(autoUpdater, launcherUpdaterSettings(target.channel))
+  const feed = launcherFeed(gate, target.repo)
+  if (feed.kind === 'generic') {
+    // A test, a mirror or the development release: a folder with the latest-*.yml files.
+    if (appliedFeed.kind !== 'generic' || appliedFeed.url !== feed.url) autoUpdater.setFeedURL({ provider: 'generic', url: feed.url })
+  } else if (appliedFeed.kind !== 'default') {
+    // Back from a generic feed: the release feed again, the same one app-update.yml names.
+    autoUpdater.setFeedURL({ provider: 'github', owner: target.repo.owner, repo: target.repo.repo })
+  }
+  appliedFeed = feed
+  listen()
+  return true
+}
+
+export function initSelfUpdate(onStatus: (s: UpdaterStatus) => void, o: { channel: UpdateChannelName; repo: { owner: string; repo: string } }): void {
+  push = onStatus
+  target = o
+  apply()
+}
+
+/** The update channel changed: the next check uses the feed of the new channel. Returns whether the updater is on. */
+export function setLauncherChannel(channel: UpdateChannelName): boolean {
+  target = { ...target, channel }
+  if (!app.isPackaged) return false
+  const on = apply()
+  push(status)
+  return on
 }
 
 export async function checkForLauncherUpdate(): Promise<void> {
@@ -117,7 +152,7 @@ const appImageSwapInstall: UpdateInstaller = {
 /**
  * The user's "Restart to update": installs a downloaded update (the
  * AppImage swap on Linux, electron-updater on macOS and Windows), or downloads an
- * available one. Packaged release builds only.
+ * available one. Packaged builds only.
  */
 export async function installLauncherUpdate(hooks: InstallHooks): Promise<void> {
   if (!enabled) return
