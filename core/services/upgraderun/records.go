@@ -46,11 +46,13 @@ func fromRecords(rec *distributed.UpgradeRunRecord, items []distributed.UpgradeR
 	for _, ir := range items {
 		it := Item{
 			Key: ir.Key, Kind: Kind(ir.Kind), Name: ir.Name, Title: ir.Title, From: ir.From, To: ir.To, ExpectedTo: ir.ExpectedTo,
-			Phase: Phase(ir.Phase), Message: ir.Message, ErrorKey: ir.ErrorKey, Error: ir.Error, Retryable: ir.Retryable,
+			// A row written by an older version may hold raw text.
+			Phase: Phase(ir.Phase), Message: safeText(ir.Message), ErrorKey: ir.ErrorKey, Error: safeText(ir.Error), Retryable: ir.Retryable,
 			JobID: ir.JobID, QueuedReason: ir.QueuedReason, Verifying: ir.Verifying, CancelWanted: ir.CancelWanted, CancelSent: ir.CancelSent,
 		}
 		if ir.Nodes != "" {
 			_ = json.Unmarshal([]byte(ir.Nodes), &it.Nodes)
+			it.Nodes = safeNodes(it.Nodes)
 		}
 		if ir.Extra != "" {
 			_ = json.Unmarshal([]byte(ir.Extra), &it.Extra)

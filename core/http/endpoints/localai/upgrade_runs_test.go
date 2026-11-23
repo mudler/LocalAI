@@ -320,6 +320,24 @@ var _ = Describe("Upgrade run routes", func() {
 		Expect(decodeRunError(rec).Code).To(Equal(addonendpoints.RunErrNotHumanSurface))
 	})
 
+	It("never answers a credential, a path or raw output that a failing operation carried", func() {
+		run := start(upgraderun.StartItem{Kind: upgraderun.KindGallery, Name: "kokoro"})
+		var job string
+		Eventually(func() string { job = h.Starter.Job("gallery:kokoro"); return job }, 5*time.Second).ShouldNot(BeEmpty())
+		h.Jobs.Set(job, galleryop.OpStatus{Phase: "fetching", Processed: true,
+			Error: errors.New("pull https://user:pass@host/v2/x failed: Bearer abc\nopen /home/alice/.cache/x/key.pem")})
+		Eventually(func() bool { r, _ := h.Service.Get(context.Background(), run.ID); return r.Active() }, 5*time.Second).Should(BeFalse())
+		for _, path := range []string{"/api/updates/runs/" + run.ID, "/api/updates/runs"} {
+			rec := doJSON(e, http.MethodGet, path, nil)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			body := rec.Body.String()
+			Expect(body).To(ContainSubstring("key.pem"), path)
+			for _, secret := range []string{"user:pass", "https://user", "Bearer abc", "/home/alice", `\n`} {
+				Expect(body).NotTo(ContainSubstring(secret), path)
+			}
+		}
+	})
+
 	It("refuses a caller who is not an administrator on every route", func() {
 		role = auth.RoleUser
 		for _, r := range []struct{ method, path string }{

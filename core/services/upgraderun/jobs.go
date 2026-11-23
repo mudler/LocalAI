@@ -82,11 +82,11 @@ func viewOf(kind Kind, st *galleryop.OpStatus, lastPhase string) jobView {
 		return jobView{}
 	}
 	v := jobView{
-		known: true, progress: int(st.Progress), message: st.Message, phase: st.Phase,
+		known: true, progress: int(st.Progress), message: safeText(st.Message), phase: st.Phase,
 		cancellable: st.Cancellable && !st.Processed,
 	}
 	for _, n := range st.Nodes {
-		v.nodes = append(v.nodes, NodeState{ID: n.NodeID, Name: n.NodeName, Phase: n.Status, Progress: int(n.Percentage), Message: n.Error, ErrorKey: n.ErrorKey})
+		v.nodes = append(v.nodes, NodeState{ID: n.NodeID, Name: n.NodeName, Phase: n.Status, Progress: int(n.Percentage), Message: safeText(n.Error), ErrorKey: n.ErrorKey})
 	}
 	if !st.Processed {
 		return v

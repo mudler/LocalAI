@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/pkg/sanitize"
 	"github.com/mudler/xlog"
 )
 
@@ -326,8 +326,8 @@ func (e *Emitter) runEnd(ctx context.Context, run upgraderun.Run) error {
 		if len(attention) > 1 {
 			n.Body += fmt.Sprintf(" and %d more", len(attention)-1)
 		}
-		n.Params["first_name"] = oneLine(first.DisplayName(), 80)
-		n.Params["first_from"] = oneLine(first.From, 80)
+		n.Params["first_name"] = sanitize.OneLine(first.DisplayName(), 80)
+		n.Params["first_from"] = sanitize.OneLine(first.From, 80)
 		n.Params["first_error"] = errText
 	}
 	return e.upsertAll(ctx, n, notify.ModeOnce)
@@ -343,19 +343,5 @@ func runItemError(it upgraderun.Item) string {
 	if s == "" {
 		s = strings.ReplaceAll(it.ErrorKey, "_", " ")
 	}
-	return oneLine(redact(withoutPaths(s)), maxRunErrorRunes)
-}
-
-var (
-	userinfo = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^\s/@]+@`)
-	secretKV = regexp.MustCompile(`(?i)\b(token|secret|password|passwd|api[_-]?key|apikey|authorization|credential)s?\b(\s*[=:]\s*|\s+)("[^"]*"|'[^']*'|\S+)`)
-	bearer   = regexp.MustCompile(`(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}`)
-)
-
-// redact removes what looks like a credential from an error text before it
-// reaches the inbox, a browser push service or a chat.
-func redact(s string) string {
-	s = userinfo.ReplaceAllString(s, "${1}")
-	s = bearer.ReplaceAllString(s, "${1} [removed]")
-	return secretKV.ReplaceAllString(s, "${1}=[removed]")
+	return sanitize.Text(s, maxRunErrorRunes)
 }

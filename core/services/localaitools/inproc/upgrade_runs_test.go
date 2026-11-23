@@ -2,6 +2,7 @@ package inproc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -106,6 +107,25 @@ var _ = Describe("Upgrade runs through the in-process client", func() {
 		job, err := c.UpgradeBackend(context.Background(), "kokoro")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(job).To(Equal(h.Starter.Job("gallery:kokoro")))
+	})
+
+	It("never gives the model a credential, a path or raw output that a failing operation carried", func() {
+		h.Starter.SetErr(errors.New("pull https://user:pass@host/v2/x failed: Bearer abc\nopen /home/alice/.cache/x/key.pem"))
+		ctx := localaitools.WithUser(context.Background(), &auth.User{ID: "admin-1", Role: auth.RoleAdmin})
+		run, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "gallery", Name: "kokoro", ExpectedTo: "v2"}}})
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() string {
+			r, _ := c.UpgradeRuns(ctx, run.ID)
+			return r[0].State
+		}, 5*time.Second, 10*time.Millisecond).ShouldNot(Equal("running"))
+		runs, err := c.UpgradeRuns(ctx, run.ID)
+		Expect(err).NotTo(HaveOccurred())
+		raw, err := json.Marshal(runs)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring("key.pem"))
+		for _, secret := range []string{"user:pass", "https://user", "Bearer abc", "/home/alice", `\n`} {
+			Expect(string(raw)).NotTo(ContainSubstring(secret))
+		}
 	})
 
 	It("answers that runs are unavailable when the server keeps none", func() {

@@ -246,7 +246,8 @@ func Reduce(in Run, ev Event, env Env) Result {
 			return Result{Run: in}
 		}
 		it.Cancellable, it.Verifying = false, false
-		it.ErrorKey, it.Error, it.Message = orUnknown(e.ErrorKey), e.Error, e.Error
+		msg := safeText(e.Error)
+		it.ErrorKey, it.Error, it.Message = orUnknown(e.ErrorKey), msg, msg
 		if e.Skip {
 			it.Phase, it.Retryable = PhaseSkipped, false
 		} else {
@@ -261,11 +262,11 @@ func Reduce(in Run, ev Event, env Env) Result {
 		}
 		it.Progress = clampProgress(e.Progress)
 		if e.Message != "" {
-			it.Message = e.Message
+			it.Message = safeText(e.Message)
 		}
 		it.Cancellable = e.Cancellable && it.JobID != ""
 		if e.Nodes != nil {
-			it.Nodes = append([]NodeState(nil), e.Nodes...)
+			it.Nodes = safeNodes(e.Nodes)
 		}
 		fx = append(fx, maybeCancel(it)...)
 
@@ -276,7 +277,7 @@ func Reduce(in Run, ev Event, env Env) Result {
 		}
 		it.Cancellable = false
 		if e.Nodes != nil {
-			it.Nodes = append([]NodeState(nil), e.Nodes...)
+			it.Nodes = safeNodes(e.Nodes)
 		}
 		switch e.Outcome {
 		case JobOK:
@@ -294,7 +295,8 @@ func Reduce(in Run, ev Event, env Env) Result {
 			if e.RolledBack {
 				it.Phase = PhaseRolledBack
 			}
-			it.ErrorKey, it.Error, it.Message = orUnknown(e.ErrorKey), e.Error, e.Error
+			msg := safeText(e.Error)
+			it.ErrorKey, it.Error, it.Message = orUnknown(e.ErrorKey), msg, msg
 			it.Retryable = RetryableKey(it.ErrorKey)
 		}
 

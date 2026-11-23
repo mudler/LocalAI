@@ -113,6 +113,13 @@ the item is `unconfirmed`.
 | `skipped` | Held, edited keys, or no update any more |
 | `unconfirmed` | No check could confirm the result |
 
+The `error` and `message` of an item, and the `message` of each node, are
+cleaned where they enter the run, so the REST routes, the Updates page, the
+inbox, the history and the assistant all get the same text: one line of at
+most 512 characters, with no control characters or markup, each absolute or
+home-directory path cut to its file name, and the user and password of a URL,
+bearer credentials and values such as `token=` or `password=` removed.
+
 A failure has an error key: `download`, `verify`, `swap`, `start`,
 `not_installed`, `no_update`, `held`, `edited_keys`, `stale` or `unknown`. A
 failed add-on keeps the failure code of the add-on owner, for example
@@ -219,8 +226,8 @@ runs the run writes it, so a cluster writes one item for each run.
   once (browser push and connectors). Then the live item is removed, so the
   end item is the only item of the run. It says how many items were updated
   and how many need attention. When any needs attention, it is a failure and
-  names the first one with its error. The error is one line, cut to 160
-  characters, without server paths or credentials.
+  names the first one with its error. The error is cleaned as the item error
+  is, and cut to 160 characters.
 
 An item needs attention when it `failed`, `rolled_back`, stayed
 `unconfirmed`, or was `skipped` with an error key (for example `held`,
