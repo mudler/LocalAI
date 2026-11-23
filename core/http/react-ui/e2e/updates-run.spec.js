@@ -1,0 +1,318 @@
+import { test, expect } from './coverage-fixtures.js'
+import { mockOperate, installedBackend } from './operate-fixtures.js'
+import {
+  addonRecord, galleryItem, minutesAgo, mockUpdateRuns, mockUpdates, modelItem, modelSnapshotOf, previewItem, runItem, runOf,
+  snapshotOf, updateAvailable,
+} from './updates-fixtures.js'
+
+// The update run: the review the server plans, the run it owns, and what the
+// page shows of it. The run API is stubbed (/api/updates/runs); the page, the
+// hook and the words are the real ones.
+
+const rowOf = (page, name) => page.locator(`[data-testid="update-row"][data-name="${name}"]`)
+const reviewOf = (page) => page.getByTestId('update-review')
+const reviewItem = (page, key) => reviewOf(page).locator(`[data-testid="update-review-item"][data-key="${key}"]`)
+const runRow = (page, key) => page.locator(`[data-testid="run-item"][data-key="${key}"]`)
+
+// The mocks' case: four backends (one on three nodes), two add-ons, two models.
+async function fleet(page) {
+  await mockOperate(page)
+  return mockUpdates(page, {
+    snapshot: snapshotOf([
+      galleryItem('kokoro', '0.3.1', '0.4.0'),
+      galleryItem('llama-cpp', '0.9.4', '0.9.7', { nodes: [{ nodeId: 'a' }, { nodeId: 'b' }, { nodeId: 'c' }], driftNodes: 0 }),
+      galleryItem('piper', '1.2.0', '1.3.1'),
+      galleryItem('sglang', '0.5.2', '0.5.4'),
+    ]),
+    installed: [installedBackend('kokoro', '0.3.1'), installedBackend('llama-cpp', '0.9.4'), installedBackend('piper', '1.2.0'), installedBackend('sglang', '0.5.2')],
+    addons: [
+      addonRecord('notes', 'Notes sync', updateAvailable('0.8.2'), { version: '0.8.1' }),
+      addonRecord('tables', 'Tables', updateAvailable('2.4.0'), { version: '2.3.0' }),
+    ],
+    models: modelSnapshotOf([modelItem('qwen3-8b', 'update-available'), modelItem('llama-3.2-3b', 'update-available')]),
+  })
+}
+
+// The plan the server answers: risks where it knows them, the backends first.
+function plan(items) {
+  const risk = {
+    'gallery:llama-cpp': [{ code: 'stops_models', params: { count: 2, nodes: 3 } }],
+    'addon:notes': [{ code: 'migrates_data', params: {} }],
+    'addon:tables': [{ code: 'migrates_data', params: {} }],
+  }
+  const out = items.map(i => previewItem(`${i.kind}:${i.name}`, 'v1.0.0', 'v1.1.0', { risk: risk[`${i.kind}:${i.name}`] || [] }))
+  const rank = { gallery: 0, library: 0, model: 1, addon: 2 }
+  const order = out.map(i => i.key).sort((a, b) => rank[a.split(':')[0]] - rank[b.split(':')[0]])
+  return { items: out, order }
+}
+
+const RUNNING = () => runOf([
+  runItem('gallery:piper', 'updated', { from: 'v1.2.0', to: 'v1.3.1' }),
+  runItem('gallery:sglang', 'updated', { from: 'v0.5.2', to: 'v0.5.4' }),
+  runItem('gallery:kokoro', 'running', { from: 'v0.3.1', to: 'v0.4.0', progress: 35, message: 'Downloading 35%' }),
+  runItem('gallery:llama-cpp', 'running', {
+    from: 'v0.9.4', to: 'v0.9.7', progress: 64, message: 'downloading 64%',
+    nodes: [{ id: 'a', name: 'node-a', phase: 'updated', progress: 100 }, { id: 'b', name: 'node-b', phase: 'running', progress: 64, message: 'downloading 64%' }, { id: 'c', name: 'node-c', phase: 'queued' }],
+  }),
+  runItem('addon:notes', 'queued', { from: 'v0.8.1', to: 'v0.8.2', queued_reason: 'after_backends' }),
+  runItem('addon:tables', 'queued', { from: 'v2.3.0', to: 'v2.4.0', queued_reason: 'one_addon_at_a_time' }),
+])
+
+const ENDED = ({ retryable = true } = {}) => runOf([
+  runItem('gallery:piper', 'updated'),
+  runItem('gallery:sglang', 'updated'),
+  runItem('gallery:kokoro', 'updated'),
+  runItem('gallery:llama-cpp', 'updated'),
+  runItem('addon:tables', 'updated'),
+  runItem('addon:notes', 'rolled_back', { from: 'v0.8.1', to: 'v0.8.2', error_key: 'start', error: 'the setting "sync.url" is missing', retryable }),
+])
+
+test.describe('Updates: the review', () => {
+  test('Update ready opens the review grouped by kind, models unselected, with the risks the server named', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { preview: items => plan(items), polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    const button = page.getByTestId('updates-update-ready')
+    await expect(button).toContainText('Update 6 ready')
+    await button.click()
+    const review = reviewOf(page)
+    await expect(review).toBeVisible()
+    await expect(review.getByRole('heading', { name: 'Review 8 updates' })).toBeVisible()
+    await expect(review).toContainText('Nothing changes until you start.')
+    // Every ready row was asked about, models included, by key.
+    expect(runs.previews[0].items).toEqual(expect.arrayContaining([
+      { kind: 'gallery', name: 'llama-cpp' }, { kind: 'addon', name: 'notes' }, { kind: 'model', name: 'qwen3-8b' },
+    ]))
+    const groups = await review.locator('.up-group__title').allInnerTexts()
+    expect(groups.map(g => g.toUpperCase())).toEqual(['BACKENDS (4)', 'ADD-ONS (2)', 'MODELS (2)'])
+    await expect(page.getByTestId('update-review-count')).toHaveText('6 of 8 selected')
+    await expect(reviewItem(page, 'model:qwen3-8b').getByRole('checkbox')).not.toBeChecked()
+    await expect(reviewItem(page, 'model:qwen3-8b')).toContainText('Not selected by default')
+    await expect(reviewItem(page, 'gallery:kokoro').getByRole('checkbox')).toBeChecked()
+    await expect(reviewItem(page, 'gallery:llama-cpp').getByTestId('update-review-risk')).toHaveText('Stops 2 loaded models on 3 nodes while it switches')
+    await expect(reviewItem(page, 'gallery:kokoro').getByTestId('update-review-risk')).toHaveCount(0)
+    await expect(reviewItem(page, 'addon:notes')).toContainText('Your data is migrated. A verified backup is taken first.')
+    await expect(reviewItem(page, 'addon:notes').getByTestId('update-review-backup')).toHaveText('Backs up your data')
+    // The page name of an add-on, not its id.
+    await expect(reviewItem(page, 'addon:notes')).toContainText('Notes sync')
+    await expect(page.getByTestId('update-review-note')).toContainText('Backends go first, then models, then add-ons one at a time.')
+    await expect(page.getByTestId('update-review-start')).toHaveText('Update 6 items')
+  })
+
+  test('Select all, Select none and a click change the count and the start button', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { preview: items => plan(items), polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    const count = page.getByTestId('update-review-count')
+    const start = page.getByTestId('update-review-start')
+    await page.getByTestId('update-review-all').click()
+    await expect(count).toHaveText('8 of 8 selected')
+    await expect(start).toHaveText('Update 8 items')
+    await page.getByTestId('update-review-none').click()
+    await expect(count).toHaveText('0 of 8 selected')
+    await expect(start).toBeDisabled()
+    await reviewItem(page, 'gallery:kokoro').getByRole('checkbox').check()
+    await reviewItem(page, 'addon:notes').getByRole('checkbox').check()
+    await expect(count).toHaveText('2 of 8 selected')
+    await expect(start).toHaveText('Update 2 items')
+    await start.click()
+    // The plan's order, each item pinned to the version the review showed.
+    await expect.poll(() => runs.starts.length).toBe(1)
+    expect(runs.starts[0]).toEqual({ items: [{ kind: 'gallery', name: 'kokoro', expected_to: 'v1.1.0' }, { kind: 'addon', name: 'notes', expected_to: 'v1.1.0' }], source: 'manual' })
+    await expect(reviewOf(page)).toHaveCount(0)
+    await expect(page).toHaveURL(/[?&]run=run-1/)
+  })
+
+  test('Cancel closes the review and nothing starts', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { preview: items => plan(items) })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await reviewOf(page).getByRole('button', { name: 'Cancel' }).last().click()
+    await expect(reviewOf(page)).toHaveCount(0)
+    expect(runs.starts).toHaveLength(0)
+  })
+
+  test('a start the server refuses keeps the review open with its words', async ({ page }) => {
+    await fleet(page)
+    await mockUpdateRuns(page, { preview: items => plan(items), startReply: () => ({ status: 409, json: { code: 'stale', error: 'stale' } }) })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await page.getByTestId('update-review-start').click()
+    await expect(page.getByTestId('update-review-refused')).toContainText('A newer version came out after the review.')
+    await expect(reviewOf(page)).toBeVisible()
+  })
+
+  test('the Update of one row asks about that row only, in the short dialog', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, {
+      preview: items => ({ items: items.map(i => previewItem(`${i.kind}:${i.name}`, 'v0.8.1', 'v0.8.2', { risk: [{ code: 'migrates_data' }] })) }),
+      startReply: () => runOf([runItem('addon:notes', 'running', { progress: 10 })]),
+    })
+    await page.goto('/app/updates')
+    await rowOf(page, 'Notes sync').getByRole('button', { name: 'Update Notes sync' }).click()
+    const review = reviewOf(page)
+    await expect(review.getByRole('heading', { name: 'Update Notes sync?' })).toBeVisible()
+    await expect(review).toContainText('v0.8.1 to v0.8.2 · Library: official')
+    await expect(page.getByTestId('update-review-note')).toContainText('Your data is migrated. A verified backup is taken first. The old version stays until the new one is running.')
+    expect(runs.previews[0].items).toEqual([{ kind: 'addon', name: 'notes' }])
+    await review.getByTestId('update-review-start').click()
+    await expect.poll(() => runs.starts.length).toBe(1)
+    expect(runs.starts[0].items).toEqual([{ kind: 'addon', name: 'notes', expected_to: 'v0.8.2' }])
+    await expect(runRow(page, 'addon:notes')).toBeVisible()
+  })
+
+  test('a model in the review of its own row starts selected', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { startReply: () => runOf([runItem('model:qwen3-8b', 'queued')]) })
+    await page.goto('/app/updates')
+    // The model row keeps its own Upgrade (files, edited keys); a failed
+    // backend's Retry is a review of that row.
+    await expect(rowOf(page, 'qwen3-8b').getByTestId('model-upgrade')).toBeVisible()
+    await rowOf(page, 'kokoro').getByRole('button', { name: 'Update kokoro' }).click()
+    await expect(reviewOf(page).getByRole('heading', { name: 'Update kokoro?' })).toBeVisible()
+    await expect(page.getByTestId('update-review-start')).toBeEnabled()
+    expect(runs.previews[0].items).toEqual([{ kind: 'gallery', name: 'kokoro' }])
+  })
+})
+
+test.describe('Updates: the run', () => {
+  test('the strip and the run group show each item in run order with its state', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { active: [RUNNING()], polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('2 updated, 2 running, 2 waiting. Started')
+    await expect(page.getByTestId('updates-run-progress')).toHaveAttribute('aria-valuenow', String(Math.round((100 + 100 + 35 + 64) / 6)))
+    const keys = await page.locator('[data-testid="run-item"]').evaluateAll(els => els.map(el => el.dataset.key))
+    expect(keys).toEqual(['gallery:piper', 'gallery:sglang', 'gallery:kokoro', 'gallery:llama-cpp', 'addon:notes', 'addon:tables'])
+    await expect(page.getByRole('heading', { name: /This update run/ })).toBeVisible()
+    await expect(runRow(page, 'gallery:piper').getByTestId('run-item-chip')).toHaveText('Updated')
+    await expect(runRow(page, 'gallery:kokoro').getByTestId('run-item-chip')).toHaveText('Updating')
+    await expect(runRow(page, 'gallery:kokoro').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '35')
+    await expect(runRow(page, 'gallery:kokoro')).toContainText('Downloading 35%')
+    await expect(runRow(page, 'gallery:llama-cpp')).toContainText('Node 2 of 3: downloading 64%')
+    await expect(runRow(page, 'addon:notes').getByTestId('run-item-chip')).toHaveText('Queued')
+    await expect(runRow(page, 'addon:notes')).toContainText('Waiting for the backends. Add-ons update one at a time.')
+    await expect(runRow(page, 'addon:tables')).toContainText('Waiting for Notes sync.')
+    // An item of the run is not listed a second time in the other groups.
+    await expect(rowOf(page, 'kokoro')).toHaveCount(0)
+    await expect(rowOf(page, 'qwen3-8b')).toHaveCount(1)
+    // The cancel of one item and of the rest.
+    await runRow(page, 'addon:tables').getByTestId('run-item-cancel').click()
+    await expect.poll(() => runs.itemCancels).toEqual(['addon:tables'])
+    await page.getByTestId('updates-cancel-run').click()
+    await expect.poll(() => runs.cancels.length).toBe(1)
+  })
+
+  test('the page follows the run as the server moves it, to a rolled-back item and the result', async ({ page }) => {
+    await fleet(page)
+    const queued = runOf([runItem('gallery:kokoro', 'queued', { queued_reason: '' }), runItem('addon:notes', 'queued', { queued_reason: 'after_backends' })])
+    const running = runOf([runItem('gallery:kokoro', 'running', { progress: 50, message: 'Installing' }), runItem('addon:notes', 'queued', { queued_reason: 'after_backends' })])
+    const addon = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'running', { progress: 20, message: 'Backing up' })])
+    const ended = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'rolled_back', { from: 'v0.8.1', error_key: 'start', retryable: true })])
+    await mockUpdateRuns(page, { active: [queued], polls: [queued, running, addon, ended] })
+    await page.goto('/app/updates')
+    await expect(runRow(page, 'gallery:kokoro')).toContainText('Waiting to start.')
+    await expect(runRow(page, 'gallery:kokoro')).toContainText('Installing', { timeout: 10_000 })
+    await expect(runRow(page, 'addon:notes')).toContainText('Backing up', { timeout: 10_000 })
+    await expect(runRow(page, 'addon:notes').getByTestId('run-item-chip')).toHaveText('Rolled back', { timeout: 10_000 })
+    await expect(runRow(page, 'addon:notes')).toContainText('The new version did not start. Notes sync is still on v0.8.1 and your data is unchanged.')
+    await expect(page.getByTestId('updates-headline')).toHaveText('1 updated, 1 needs attention')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('Nothing was left half-updated. Finished')
+  })
+
+  test('a reload during a run shows the same run again', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { active: [RUNNING()], polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+    await page.reload()
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+    await expect(runRow(page, 'gallery:kokoro')).toBeVisible()
+    // The address of the run (the link of its notification) opens it too.
+    runs.active = []
+    await page.goto('/app/updates?run=run-1')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+  })
+
+  test('a failure says what happened in plain words; Retry only when the server allows it, Details always', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { active: [ENDED()], polls: [ENDED()], onRetry: () => RUNNING() })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('5 updated, 1 needs attention')
+    const failed = runRow(page, 'addon:notes')
+    await expect(failed.getByTestId('run-item-detail')).toHaveText('The new version did not start: the setting "sync.url" is missing. Notes sync is still on v0.8.1 and your data is unchanged.')
+    await expect(failed.getByTestId('run-item-retry')).toBeVisible()
+    await failed.getByTestId('run-item-details-toggle').click()
+    await expect(failed.getByTestId('run-item-details')).toContainText('Code: start')
+    await page.getByTestId('updates-retry-failed').click()
+    await expect.poll(() => runs.retries.length).toBe(1)
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+  })
+
+  test('without retryable failures there is no Retry, and Dismiss puts the run away', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, { active: [ENDED({ retryable: false })], polls: [ENDED({ retryable: false })] })
+    await page.goto('/app/updates')
+    const failed = runRow(page, 'addon:notes')
+    await expect(failed.getByTestId('run-item-details-toggle')).toBeVisible()
+    await expect(failed.getByTestId('run-item-retry')).toHaveCount(0)
+    await expect(page.getByTestId('updates-retry-failed')).toHaveCount(0)
+    await page.getByTestId('updates-dismiss-run').click()
+    await expect.poll(() => runs.dismissed).toEqual(['run-1'])
+    await expect(page.getByTestId('run-item')).toHaveCount(0)
+    await expect(page.getByTestId('updates-headline')).toHaveText(/updates available/)
+  })
+
+  test('an unconfirmed item of an active run is its check, still in progress; in an ended run it asks for a new check', async ({ page }) => {
+    await fleet(page)
+    const checking = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'unconfirmed', { message: 'checking that the update applied' })], { state: 'running' })
+    const settled = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'unconfirmed', { retryable: true, message: 'no check could confirm the update' })], { finished_at: minutesAgo(0) })
+    await mockUpdateRuns(page, { active: [checking], polls: [checking, checking, settled] })
+    await page.goto('/app/updates')
+    const piper = runRow(page, 'gallery:piper')
+    await expect(piper.getByTestId('run-item-chip')).toHaveText('Updating')
+    await expect(piper).toContainText('checking that the update applied')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('1 updated, 1 running')
+    await expect(piper.getByTestId('run-item-chip')).toHaveText('Not confirmed', { timeout: 10_000 })
+    await expect(piper).toContainText('Could not confirm. Check again to see which version piper is on.')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('1 result is not confirmed yet')
+    await expect(page.getByTestId('updates-headline')).toHaveText('1 updated, 1 needs attention')
+  })
+
+  test('a retry is a new run: the page follows it', async ({ page }) => {
+    await fleet(page)
+    const next = { ...RUNNING(), id: 'run-2' }
+    const runs = await mockUpdateRuns(page, {
+      active: [ENDED()],
+      polls: [ENDED()],
+      onRetry: (state) => { state.polls = [next]; state.reads = 0; return next },
+    })
+    await page.goto('/app/updates?run=run-1')
+    await runRow(page, 'addon:notes').getByTestId('run-item-retry').click()
+    await expect.poll(() => runs.retries.length).toBe(1)
+    await expect(page).toHaveURL(/[?&]run=run-2/)
+    await expect(page.getByTestId('updates-strip')).toHaveAttribute('data-run', 'run-2')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+  })
+
+  test('a start while another run is active says so plainly and shows that run', async ({ page }) => {
+    await fleet(page)
+    const runs = await mockUpdateRuns(page, {
+      preview: items => plan(items),
+      polls: [RUNNING()],
+      startReply: (body, state) => { state.active = [RUNNING()]; return { status: 409, json: { code: 'run_active', key: '', message: 'a run is active' } } },
+    })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await page.getByTestId('update-review-start').click()
+    await expect(page.getByTestId('update-review-refused')).toContainText('An update run is in progress.')
+    await page.getByTestId('update-review').getByRole('button', { name: 'Cancel' }).last().click()
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+    // While a run is active, no row starts another one.
+    await expect(rowOf(page, 'qwen3-8b').getByTestId('model-upgrade')).toBeDisabled()
+    expect(runs.starts).toHaveLength(1)
+  })
+})
