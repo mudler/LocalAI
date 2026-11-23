@@ -636,8 +636,9 @@ the check found an update with a digest, **Update** replaces the reason. A check
 shows why, and you can run it again.
 
 The Apps page has no bulk update and no check of all add-ons. **Open Updates** in its
-bar goes to the Updates page, where **Update N ready** runs the add-on updates one after
-another (a failure does not stop the others, and a held one waits for approval), and
+bar goes to the Updates page, where **Update N ready** opens a review and then starts an
+update run on the server. The run updates the add-ons one at a time, after the
+backends; a failure does not stop the others, and a held one waits for approval. And
 **Check now** reads the library of every installed add-on again. A check applies
 nothing, and an add-on that cannot be checked does not stop the others. Add-ons that
 share a library are all checked, whether they are turned on or off, and every one with a
