@@ -675,6 +675,37 @@ var _ = Describe("the Home background of ui.json", func() {
 		Entry("no extension", "Pictures/sky", false),
 	)
 
+	DescribeTable("BackgroundVideoOK",
+		func(p string, want bool) { Expect(wellknown.BackgroundVideoOK(p)).To(Equal(want)) },
+		Entry("mp4 at the top", "loop.mp4", true),
+		Entry("webm in a folder, upper-case extension", "Videos/Loop.WEBM", true),
+		Entry("mov with spaces", "My videos/sea loop.mov", true),
+		Entry("a picture is not a video", "sky.png", false),
+		Entry("an unsupported video type", "loop.avi", false),
+		Entry("empty", "", false),
+		Entry("leading slash", "/Videos/loop.mp4", false),
+		Entry("parent segment", "../loop.mp4", false),
+		Entry("dot segment", "./loop.mp4", false),
+		Entry("address", "https://example.org/loop.mp4", false),
+		Entry("backslash", "Videos\\loop.mp4", false),
+		Entry("control character", "a\n.mp4", false),
+		Entry("no extension", "Videos/loop", false),
+	)
+
+	It("refuses a bad video path on save and keeps a good one", func() {
+		s, f := newService()
+		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"chatBackground": map[string]any{"video": "../secret.mp4"},
+		}})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("chatBackground.video"))
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{
+			"homeBackground": map[string]any{"video": "Videos/loop.mp4", "image": "Pictures/poster.jpg"},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(readRaw(f, alice, "/LocalAI/ui.json")["homeBackground"]).To(HaveKeyWithValue("video", "Videos/loop.mp4"))
+	})
+
 	It("saves from the editor, keeps the other keys and removes the background when cleared", func() {
 		s, f := newService()
 		raw(f, alice, "/LocalAI/ui.json", `{"theme":"dark","x_mood":"calm"}`)

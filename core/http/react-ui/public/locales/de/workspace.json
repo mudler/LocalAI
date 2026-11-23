@@ -300,7 +300,8 @@
         "none": "Keiner",
         "color": "Farbe",
         "gradient": "Verlauf",
-        "image": "Bild"
+        "image": "Bild",
+        "video": "Video"
       },
       "color": "Hintergrundfarbe",
       "from": "Von",
@@ -309,6 +310,11 @@
       "imagePath": "Pfad des Bildes in deinen Dateien",
       "choose": "Bild auswählen",
       "imageBad": "Nutze den Pfad einer png-, jpg-, webp-, gif- oder avif-Datei in deinen Dateien, ohne führenden Schrägstrich und ohne ..",
+      "videoPath": "Pfad des Videos in deinen Dateien",
+      "chooseVideo": "Video auswählen",
+      "videoBad": "Verwende den Pfad einer mp4-, webm- oder mov-Datei in deinen Dateien, ohne führenden Schrägstrich und ohne ..",
+      "posterPath": "Pfad eines Standbilds, das vor dem Abspielen erscheint (optional)",
+      "posterHint": "Pictures/poster.jpg (optionales Standbild)",
       "fit": "Anpassung",
       "fits": {
         "cover": "Seite füllen",
@@ -320,6 +326,7 @@
       "clear": "Hintergrund entfernen",
       "pickFailed": "Der Ordner konnte nicht gelesen werden.",
       "pickEmpty": "Hier sind keine Bilder oder Ordner.",
+      "pickEmptyVideo": "Keine Videos oder Ordner hier.",
       "pickClose": "Schließen"
     },
     "nav": {

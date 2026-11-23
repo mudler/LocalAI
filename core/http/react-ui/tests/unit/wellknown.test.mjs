@@ -4,7 +4,7 @@ import {
   createWellKnownApi, WellKnownError, fieldsFromSchema, checkField, changedValues, parseSource,
   shortcutList, cleanShortcuts, move, widgetList, cleanWidgets, widgetId, widgetData, sparkPath, formatMetric,
   createWellKnownStore, wellKnownPath, editMeetsChange, wellKnownProblem,
-  backgroundImagePath, homeBackground, chatBackground, background, backgroundStyle, backgroundVeil, BACKGROUND_KEYS,
+  backgroundImagePath, backgroundVideoPath, homeBackground, chatBackground, background, backgroundStyle, backgroundVeil, BACKGROUND_KEYS,
 } from '../../src/utils/wellKnown.js'
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -305,4 +305,44 @@ test('chat background: both backgrounds are editable fields of ui.json and save 
   const home = { color: '#111111' }
   assert.deepEqual(changedValues(f, { homeBackground: home }, { homeBackground: home, chatBackground: { image: 'a.png' } }), { chatBackground: { image: 'a.png' } })
   assert.deepEqual(changedValues(f, { homeBackground: home, chatBackground: { image: 'a.png' } }, { homeBackground: home, chatBackground: {} }), { chatBackground: null })
+})
+
+test('video background: a video path follows the picture rule with a video extension', () => {
+  for (const ok of ['loop.mp4', 'Videos/Loop.WEBM', 'My videos/sea loop.mov', 'a/b/c.mp4']) assert.equal(backgroundVideoPath(ok), true, ok)
+  const bad = ['', '/Videos/a.mp4', '../a.mp4', 'a/../../b.mp4', 'a/./b.mp4', 'a//b.mp4', './a.mp4', 'https://example.com/a.mp4', 'data:video/mp4;base64,AAAA',
+    'C:\\a.mp4', 'a\\b.mp4', 'a.mp4?x=1', 'a.mp4#x', 'sky.png', 'clip.avi', 'noext', 'a\n.mp4', 5, null, undefined, 'x'.repeat(401) + '.mp4']
+  for (const b of bad) assert.equal(backgroundVideoPath(b), false, String(b))
+  assert.equal(backgroundImagePath('loop.mp4'), false, 'a video is not a picture')
+  assert.equal(backgroundVideoPath('sky.png'), false, 'a picture is not a video')
+})
+
+test('video background: background() keeps a valid video, drops a bad one and uses the video veil', () => {
+  assert.equal(homeBackground({ homeBackground: { video: '../a.mp4' } }), null)
+  assert.equal(homeBackground({ homeBackground: { video: 'a.png' } }), null)
+  const h = homeBackground({ homeBackground: { video: 'Videos/loop.mp4' } })
+  assert.deepEqual(h, { video: 'Videos/loop.mp4', fit: 'cover', opacity: 1, blur: 0, overlay: 0.55 })
+  assert.equal(chatBackground({ chatBackground: { video: 'Videos/loop.mp4' } }).overlay, 0.8)
+  assert.equal(chatBackground({ chatBackground: { video: 'a.mp4', overlay: 0.1 } }).overlay, 0.1)
+  // A bad video next to a good picture leaves the picture.
+  assert.deepEqual(homeBackground({ homeBackground: { video: '/a.mp4', image: 'a.png' } }), { image: 'a.png', fit: 'cover', opacity: 1, blur: 0, overlay: 0.55 })
+  // Both set: both are kept, the video wins the veil kind.
+  const both = homeBackground({ homeBackground: { video: 'a.mp4', image: 'p.png', color: '#112233' } })
+  assert.equal(both.video, 'a.mp4')
+  assert.equal(both.image, 'p.png')
+  for (const key of BACKGROUND_KEYS) assert.equal(backgroundVeil(key, 'video'), backgroundVeil(key, 'image'))
+  assert.ok(backgroundVeil('chatBackground', 'video') >= backgroundVeil('homeBackground', 'video'))
+})
+
+test('video background: the video is served by the files API and the picture becomes its poster', () => {
+  const url = (p) => `/f/${p}`
+  const s = backgroundStyle(homeBackground({ homeBackground: { video: 'Videos/a.mp4', image: 'Pictures/p.png', fit: 'contain', blur: 5, opacity: 0.5 } }), url)
+  assert.deepEqual(s.video, { src: '/f/Videos/a.mp4', poster: '/f/Pictures/p.png', fit: 'contain' })
+  assert.equal(s.art.backgroundImage, undefined, 'the picture is not also drawn as a CSS layer')
+  assert.equal(s.art.backgroundSize, undefined)
+  assert.equal(s.art.opacity, 0.5)
+  assert.equal(s.art.filter, 'blur(5px)')
+  assert.equal(s.scrim.opacity, 0.55)
+  const noPoster = backgroundStyle(homeBackground({ homeBackground: { video: 'a.mp4' } }), url)
+  assert.equal(noPoster.video.poster, undefined)
+  assert.equal(backgroundStyle(homeBackground({ homeBackground: { image: 'a.png' } }), url).video, undefined)
 })

@@ -403,7 +403,8 @@
         "none": "None",
         "color": "Colour",
         "gradient": "Gradient",
-        "image": "Picture"
+        "image": "Picture",
+        "video": "Video"
       },
       "color": "Background colour",
       "from": "From",
@@ -412,6 +413,11 @@
       "imagePath": "Path of the picture in your files",
       "choose": "Choose a picture",
       "imageBad": "Use a path of a png, jpg, webp, gif or avif file in your files, without a leading slash and without ..",
+      "videoPath": "Path of the video in your files",
+      "chooseVideo": "Choose a video",
+      "videoBad": "Use a path of an mp4, webm or mov file in your files, without a leading slash and without ..",
+      "posterPath": "Path of a still picture shown before the video plays (optional)",
+      "posterHint": "Pictures/poster.jpg (optional still picture)",
       "fit": "Fit",
       "fits": {
         "cover": "Fill the page",
@@ -423,6 +429,7 @@
       "clear": "Remove the background",
       "pickFailed": "The folder could not be read.",
       "pickEmpty": "No pictures or folders here.",
+      "pickEmptyVideo": "No videos or folders here.",
       "pickClose": "Close"
     },
     "nav": {

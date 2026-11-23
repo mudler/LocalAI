@@ -219,11 +219,24 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 // SVG is left out on purpose: a picture is data here, never a document.
 var backgroundImageExts = []string{".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif"}
 
+// backgroundVideoExts are the video types a background may use.
+var backgroundVideoExts = []string{".mp4", ".webm", ".mov"}
+
 // BackgroundImageOK says whether p may be the image of a background: a path of a
 // picture inside the user's home, relative and without a leading slash. It
 // refuses an absolute path, an address, a backslash, an empty or dot segment
 // (so no ..), a control character and any file that is not a picture type.
 func BackgroundImageOK(p string) bool {
+	return backgroundPathOK(p, backgroundImageExts)
+}
+
+// BackgroundVideoOK says whether p may be the video of a background. It is the
+// same rule as BackgroundImageOK, with a video extension instead of a picture one.
+func BackgroundVideoOK(p string) bool {
+	return backgroundPathOK(p, backgroundVideoExts)
+}
+
+func backgroundPathOK(p string, exts []string) bool {
 	if p == "" || len(p) > 400 || strings.HasPrefix(p, "/") || strings.ContainsAny(p, "\\:?#") {
 		return false
 	}
@@ -236,7 +249,7 @@ func BackgroundImageOK(p string) bool {
 		}
 	}
 	ext := strings.ToLower(path.Ext(p))
-	return slices.Contains(backgroundImageExts, ext)
+	return slices.Contains(exts, ext)
 }
 
 // backgroundKeys are the keys of ui.json that hold a background. They share
@@ -252,6 +265,9 @@ func backgroundErrors(obj map[string]any) []string {
 		if raw, ok := bg["image"]; ok {
 			errs = append(errs, imagePathErrors(key+".image", raw)...)
 		}
+		if raw, ok := bg["video"]; ok {
+			errs = append(errs, videoPathErrors(key+".video", raw)...)
+		}
 	}
 	return errs
 }
@@ -264,6 +280,16 @@ func imagePathErrors(field string, raw any) []string {
 		return nil
 	}
 	return []string{fmt.Sprintf("%s: %q is not the path of a picture in your files; use a path without a leading slash and without .., such as Pictures/sky.jpg, ending in .png, .jpg, .jpeg, .webp, .gif or .avif", field, clip(p, 80))}
+}
+
+// videoPathErrors says, in words, why raw is not the path of a video in the
+// home. A value that is not a string is left to the schema, which names it.
+func videoPathErrors(field string, raw any) []string {
+	p, isString := raw.(string)
+	if !isString || p == "" || BackgroundVideoOK(p) {
+		return nil
+	}
+	return []string{fmt.Sprintf("%s: %q is not the path of a video in your files; use a path without a leading slash and without .., such as Videos/loop.mp4, ending in .mp4, .webm or .mov", field, clip(p, 80))}
 }
 
 // identityPlaceholders are the placeholders of the greeting, the empty chat

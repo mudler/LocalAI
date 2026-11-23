@@ -300,7 +300,8 @@
         "none": "无",
         "color": "颜色",
         "gradient": "渐变",
-        "image": "图片"
+        "image": "图片",
+        "video": "视频"
       },
       "color": "背景颜色",
       "from": "起点",
@@ -309,6 +310,11 @@
       "imagePath": "图片在你文件中的路径",
       "choose": "选择图片",
       "imageBad": "请使用你文件中 png、jpg、webp、gif 或 avif 文件的路径，开头不要加斜杠，也不要包含 ..",
+      "videoPath": "视频在你的文件中的路径",
+      "chooseVideo": "选择视频",
+      "videoBad": "请使用你文件中 mp4、webm 或 mov 文件的路径，不要以斜杠开头，也不要包含 ..",
+      "posterPath": "视频播放前显示的静态图片路径（可选）",
+      "posterHint": "Pictures/poster.jpg（可选的静态图片）",
       "fit": "适应方式",
       "fits": {
         "cover": "填满页面",
@@ -320,6 +326,7 @@
       "clear": "移除背景",
       "pickFailed": "无法读取该文件夹。",
       "pickEmpty": "这里没有图片或文件夹。",
+      "pickEmptyVideo": "这里没有视频或文件夹。",
       "pickClose": "关闭"
     },
     "nav": {

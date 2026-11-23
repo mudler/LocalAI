@@ -511,7 +511,7 @@ Home can be renamed in two places: `nav.home` here, and a `label` on the
 
 ### Home and chat backgrounds
 
-`homeBackground` puts a colour, a gradient or a picture behind the Home page.
+`homeBackground` puts a colour, a gradient, a picture or a video behind the Home page.
 `chatBackground` does the same behind the chat view: the messages and the
 message box. Each changes only its own page; every other page keeps its look,
 and you can set one, both or none. Pick them in **Account > Appearance**, or
@@ -541,18 +541,23 @@ Both keys take the same values:
 | `color` | A solid colour, `#rrggbb`. |
 | `gradient` | `{ "from": "#rrggbb", "to": "#rrggbb", "angle": 135 }`. The angle is 0 to 360 degrees; 180 runs from top to bottom. |
 | `image` | The path of a picture in your files, such as `Pictures/sky.jpg`. Write it without a leading slash. Allowed types: png, jpg, jpeg, webp, gif, avif. |
-| `fit` | `cover` fills the page (default). `contain` shows the whole picture. |
+| `video` | The path of a video in your files, such as `Videos/loop.mp4`. Same path rules as `image`. Allowed types: mp4, webm, mov. It plays muted and in a loop. If `image` is also set, the picture is shown before the video plays and while the system asks for reduced motion. |
+| `fit` | `cover` fills the page (default). `contain` shows the whole picture or video. |
 | `opacity` | 0 to 1. How strong the background is. Default 1. |
 | `blur` | 0 to 40 pixels. Default 0. |
-| `overlay` | 0 to 1. A veil in the colour of the theme, so text stays readable in the light and the dark theme. Default for Home: 0.55 for a picture, 0.35 for a gradient, 0 for a plain colour. Default for the chat: 0.8, 0.6 and 0, because a chat is long text. |
+| `overlay` | 0 to 1. A veil in the colour of the theme, so text stays readable in the light and the dark theme. Default for Home: 0.55 for a picture or a video, 0.35 for a gradient, 0 for a plain colour. Default for the chat: 0.8 for a picture or a video, 0.6 for a gradient and 0 for a colour, because a chat is long text. |
 
-The picture is read from your own files with your own rights. A path that
-starts with `/`, contains `..`, is a web address or does not end in a picture
-type is refused when you save. If the file is edited into an invalid state,
+The picture or video is read from your own files with your own rights. A path
+that starts with `/`, contains `..`, is a web address or does not end in an
+allowed type is refused when you save. If the file is edited into an invalid state,
 the page keeps the last good version and the Appearance tab says the file has
 an error. In the chat, the messages also sit on a panel in the colour of the
 theme, so they stay readable over any picture. Keys you add yourself stay in the file when you save from the
-Appearance tab. To remove a background, press **Remove the background** or
+Appearance tab. A video background stops while the browser tab is hidden. When the system asks
+for reduced motion, it does not play: the page shows the `image` you set, or
+the first frame of the video. A short, small clip works best, because the
+browser loads it from your files like any other file.
+To remove a background, press **Remove the background** or
 delete its key.
 
 ## Navigation
