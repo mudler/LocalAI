@@ -164,6 +164,25 @@ All routes are under `/api/chats`, need the `chats` feature, and answer
 
 A new chat can start in a project with `project_id` in `POST /api/chats`.
 
+#### Act for another user
+
+An administrator can add `?user_id=<user id>` to any of these routes, and to the
+lists of agents, connections, triggers and loops of a project, to act on the
+projects of that user instead of their own. This is the same parameter the
+other per-user routes use. Every project in an answer has an `owner` field with
+the id of its owner.
+
+- A user who is not an administrator gets `403` when `user_id` names someone
+  else. Their own id is accepted. The other per-user routes ignore a `user_id`
+  from a user who is not an administrator and use their own account. The
+  project routes refuse it, so a client that creates projects for a user never
+  creates them under the wrong account without notice.
+- `user_id` must be a user id: letters, digits, `-` and `_`, at most 36
+  characters. Anything else gives `400`.
+- An id that names no user of the server gives `404`.
+- Each request that acts for another user writes one `User impersonation` log
+  line with the caller, the target user and the route. The body is not logged.
+
 ### Project memory
 
 The memory of a project is the folder `memory/`. `index.md` is the index, and
