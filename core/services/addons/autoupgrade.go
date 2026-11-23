@@ -9,8 +9,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 	"github.com/mudler/xlog"
 )
 
@@ -88,6 +90,41 @@ func (m *Manager) AutoUpgradePending(ctx context.Context) []AutoUpgradeCandidate
 			InstalledDigest: st.InstalledDigest, CandidateDigest: st.CandidateDigest})
 	}
 	return out
+}
+
+// AutoUpgradeStatuses is the update status of every installed add-on that
+// has a library, read on the owner for the automatic upgrade run: the run
+// lists what has an update and checks after an upgrade that the add-on moved.
+// It has no actor and is never routed; only the process of the owner calls it.
+// fresh fetches the libraries again. complete is false when an add-on could
+// not be checked, so a missing one may still have an update.
+func (m *Manager) AutoUpgradeStatuses(ctx context.Context, fresh bool) (out []updates.Status, complete bool, err error) {
+	checker, ids := m.autoIDs(ctx)
+	if checker == nil {
+		return nil, false, catalog.ErrUnavailable
+	}
+	m.mu.Lock()
+	ids = slices.DeleteFunc(ids, func(id string) bool {
+		receipt, ok := currentReceipt(m.journal.Addons[id])
+		return ok && receipt.SourceID == zipformat.SourceID
+	})
+	m.mu.Unlock()
+	complete = true
+	for _, id := range ids {
+		if e := ctx.Err(); e != nil {
+			return out, false, e
+		}
+		st, e := checker.Check(ctx, id, fresh)
+		if e != nil {
+			complete = false
+			continue
+		}
+		if st.State == updates.CheckFailed || st.State == updates.Unknown {
+			complete = false
+		}
+		out = append(out, st)
+	}
+	return out, complete, nil
 }
 
 // AutoUpgradeOne upgrades one add-on as AutoUpgrade does, with the same

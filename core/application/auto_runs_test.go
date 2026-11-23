@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
+	addonupdates "github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 )
@@ -22,16 +23,18 @@ type fakeRunService struct {
 	mu       sync.Mutex
 	requests []upgraderun.StartRequest
 	actors   []string
+	autoCtx  []bool
 	// refuse is the error of the next calls; each call takes one entry, and
 	// an empty list accepts.
 	refuse []error
 }
 
-func (f *fakeRunService) Start(_ context.Context, actor string, req upgraderun.StartRequest) (upgraderun.Run, error) {
+func (f *fakeRunService) Start(ctx context.Context, actor string, req upgraderun.StartRequest) (upgraderun.Run, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.requests = append(f.requests, req)
 	f.actors = append(f.actors, actor)
+	f.autoCtx = append(f.autoCtx, isAutoRunCtx(ctx))
 	if len(f.refuse) > 0 {
 		err := f.refuse[0]
 		f.refuse = f.refuse[1:]
@@ -236,6 +239,42 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 		})
 	})
 
+	Describe("the add-on checks of a run", func() {
+		sts := []addonupdates.Status{
+			{AddonID: "sample", State: addonupdates.UpdateAvailable, InstalledDigest: "sha256:old", CandidateDigest: "sha256:new"},
+			{AddonID: "quiet", State: addonupdates.UpToDate},
+		}
+		It("lists the add-ons with an update on the owner, with no identity", func() {
+			src := &fakeStatuses{sts: sts}
+			l, err := ownerAddonChecker{src: src, owner: func() bool { return true }}.List(ctx, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(l.Complete).To(BeTrue())
+			Expect(l.Candidates).To(HaveLen(1))
+			Expect(l.Candidates[0].Key()).To(Equal("addon:sample"))
+			Expect(l.Candidates[0].Extra).To(HaveKeyWithValue(upgraderun.ExtraCandidateDigest, "sha256:new"))
+			Expect(src.fresh).To(Equal([]bool{true}))
+		})
+
+		It("adds no add-on item on a process that is not the owner", func() {
+			src := &fakeStatuses{sts: sts}
+			_, err := ownerAddonChecker{src: src, owner: func() bool { return false }}.List(ctx, false)
+			Expect(err).To(HaveOccurred())
+			Expect(src.fresh).To(BeEmpty(), "the owner's list is not read")
+		})
+
+		It("sends an automatic run to the owner and every other run to its own path", func() {
+			auto, manual := &fakeChecker{}, &fakeChecker{}
+			c := addonCheckerBySource{auto: auto, manual: manual, isAuto: isAutoRunCtx}
+			_, _ = c.List(withAutoRun(ctx), false)
+			Expect(auto.calls).To(Equal(1))
+			Expect(manual.calls).To(BeZero(), "the system actor never reaches the gateway path")
+			_, _ = c.List(ctx, false)
+			_, _ = c.List(ctx, true)
+			Expect(auto.calls).To(Equal(1))
+			Expect(manual.calls).To(Equal(2), "a manual run keeps its own path")
+		})
+	})
+
 	Describe("the backend pass", func() {
 		gate := func(on bool, svc *fakeRunService, lib libraryUpgrader) (*UpgradeChecker, *scriptedManager) {
 			bm := &scriptedManager{result: map[string]gallery.UpgradeInfo{
@@ -309,4 +348,22 @@ type recordingStarter struct{ calls int }
 func (r *recordingStarter) Start(context.Context, string, upgraderun.Item) (string, error) {
 	r.calls++
 	return "job", nil
+}
+
+type fakeStatuses struct {
+	sts   []addonupdates.Status
+	fresh []bool
+}
+
+func (f *fakeStatuses) AutoUpgradeStatuses(_ context.Context, fresh bool) ([]addonupdates.Status, bool, error) {
+	f.fresh = append(f.fresh, fresh)
+	return f.sts, true, nil
+}
+
+type fakeChecker struct{ calls int }
+
+func (f *fakeChecker) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
+func (f *fakeChecker) List(context.Context, bool) (upgraderun.Listing, error) {
+	f.calls++
+	return upgraderun.Listing{Complete: true}, nil
 }

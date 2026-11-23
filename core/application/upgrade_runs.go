@@ -179,7 +179,11 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 	if m := a.addonManager; m != nil && !cfg.Addons.IsFrontend() {
 		// Only the process of the add-on owner lists the add-ons with an
 		// update: the list needs the owner's own check, without an actor.
-		checkers = append(checkers, addonRunChecker{src: m})
+		checkers = append(checkers, addonCheckerBySource{
+			manual: addonRunChecker{src: m},
+			auto:   ownerAddonChecker{src: m, owner: func() bool { return !cfg.Addons.IsFrontend() }},
+			isAuto: isAutoRunCtx,
+		})
 	}
 	opts := upgraderun.Options{
 		Store:    store,

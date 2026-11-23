@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/mudler/LocalAI/core/services/addons"
+	addonupdates "github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/xlog"
@@ -106,7 +107,7 @@ func (r *autoRunner) start(ctx context.Context, items []upgraderun.StartItem) (u
 	if svc == nil {
 		return upgraderun.Run{}, errors.New("upgrade runs are not available")
 	}
-	return svc.Start(ctx, autoRunActor, upgraderun.StartRequest{Source: upgraderun.SourceAuto, Items: items})
+	return svc.Start(withAutoRun(ctx), autoRunActor, upgraderun.StartRequest{Source: upgraderun.SourceAuto, Items: items})
 }
 
 // retryLater tries to start the run again every delay while another run is
@@ -227,4 +228,83 @@ func (s autoAddonStarter) Start(ctx context.Context, actor string, it upgraderun
 		},
 	})
 	return jobID, nil
+}
+
+type autoRunKey struct{}
+
+// withAutoRun marks the context of the checks of a run that the automatic
+// update starts.
+func withAutoRun(ctx context.Context) context.Context {
+	return context.WithValue(ctx, autoRunKey{}, true)
+}
+
+// isAutoRunCtx reports whether the checks that ctx belongs to are those of an
+// automatic run. When the actor of a run is carried in the context of every
+// check (upgraderun.ActorFrom), also test that the actor is autoRunActor.
+func isAutoRunCtx(ctx context.Context) bool {
+	v, _ := ctx.Value(autoRunKey{}).(bool)
+	return v
+}
+
+// ownerStatusSource is the owner's list of add-on update statuses
+// (addons.Manager implements it).
+type ownerStatusSource interface {
+	AutoUpgradeStatuses(ctx context.Context, fresh bool) ([]addonupdates.Status, bool, error)
+}
+
+// ownerAddonChecker lists the add-ons with an update for an automatic run. It
+// reads the add-on owner of this process and acts as no identity: the system
+// actor of the automatic upgrade must never reach the add-on gateway, whose
+// admin check refuses it. Only the owner's process answers; any other process
+// has no list, so the kind is unchecked and no add-on item can start there.
+type ownerAddonChecker struct {
+	src   ownerStatusSource
+	owner func() bool
+}
+
+func (ownerAddonChecker) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
+
+func (c ownerAddonChecker) List(ctx context.Context, fresh bool) (upgraderun.Listing, error) {
+	if c.src == nil || c.owner == nil || !c.owner() {
+		return upgraderun.Listing{}, errors.New("only the add-on owner lists the add-ons of an automatic run")
+	}
+	sts, complete, err := c.src.AutoUpgradeStatuses(ctx, fresh)
+	if err != nil {
+		return upgraderun.Listing{}, err
+	}
+	l := upgraderun.Listing{Complete: complete}
+	for _, st := range sts {
+		if st.Throttled {
+			l.Throttled = true
+		}
+		if st.State != addonupdates.UpdateAvailable || st.InstalledDigest == "" || st.CandidateDigest == "" {
+			continue
+		}
+		l.Candidates = append(l.Candidates, upgraderun.Candidate{
+			Kind: upgraderun.KindAddon, Name: st.AddonID,
+			From: st.InstalledDigest, To: st.CandidateDigest, Risks: []string{},
+			Extra: map[string]string{
+				upgraderun.ExtraExpectedDigest:  st.InstalledDigest,
+				upgraderun.ExtraCandidateDigest: st.CandidateDigest,
+			},
+		})
+	}
+	return l, nil
+}
+
+// addonCheckerBySource lists the add-ons for a run through the checker that
+// fits its source: the owner-local one for an automatic run, the one of the
+// administrator's own path for every other run.
+type addonCheckerBySource struct {
+	auto, manual upgraderun.Checker
+	isAuto       func(context.Context) bool
+}
+
+func (addonCheckerBySource) Kinds() []upgraderun.Kind { return []upgraderun.Kind{upgraderun.KindAddon} }
+
+func (c addonCheckerBySource) List(ctx context.Context, fresh bool) (upgraderun.Listing, error) {
+	if c.isAuto != nil && c.isAuto(ctx) {
+		return c.auto.List(ctx, fresh)
+	}
+	return c.manual.List(ctx, fresh)
 }

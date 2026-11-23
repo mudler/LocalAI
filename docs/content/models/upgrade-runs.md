@@ -206,6 +206,12 @@ by default.
   approved stays on the old version. Its item ends `failed` with a message that
   starts with "held", and the end item of the run counts it as needing
   attention. Approve the upgrade on the add-on page.
+- **Only the add-on owner adds add-ons.** The add-on pass runs on the process
+  of the add-on owner, and an automatic run lists and upgrades add-ons there,
+  on the owner itself, as the system actor of the automatic upgrade. That
+  actor never goes through the add-on gateway, which refuses it. Runs that a
+  person starts keep their path as that person. A process that is not the
+  owner can start the run of the backends, and never has add-on items.
 - **One run at a time.** When a run is already running, the pass does not
   start another and does not write anything. It tries again every minute,
   and at the latest at the next scheduled pass, which lists the same items
