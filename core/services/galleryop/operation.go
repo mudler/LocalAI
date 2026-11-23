@@ -105,9 +105,14 @@ type OpStatus struct {
 	// Upgrade is true if the operation re-installs a backend to move it to a
 	// newer build. Without it an upgrade reads as an install: the UI needs the
 	// difference for its wording and for what Retry has to call.
-	Upgrade            bool    `json:"upgrade,omitempty"`
-	FileName           string  `json:"file_name"`
-	Error              error   `json:"-"` // see MarshalJSON: serialized to "error" as a string
+	Upgrade  bool   `json:"upgrade,omitempty"`
+	FileName string `json:"file_name"`
+	Error    error  `json:"-"` // see MarshalJSON: serialized to "error" as a string
+	// ErrorKey is the stable code of a failed backend upgrade (the string
+	// of a gallery.UpgradeFailureCode), next to the text of the failure. It
+	// is empty for every other outcome. Readers branch on it, never on the
+	// message.
+	ErrorKey           string  `json:"error_key,omitempty"`
 	Processed          bool    `json:"processed"`
 	Message            string  `json:"message"`
 	Progress           float64 `json:"progress"`
@@ -140,6 +145,7 @@ type opStatusWire struct {
 	Upgrade            bool           `json:"upgrade,omitempty"`
 	FileName           string         `json:"file_name"`
 	ErrorMessage       string         `json:"error,omitempty"`
+	ErrorKey           string         `json:"error_key,omitempty"`
 	Processed          bool           `json:"processed"`
 	Message            string         `json:"message"`
 	Progress           float64        `json:"progress"`
@@ -172,6 +178,7 @@ func (o OpStatus) MarshalJSON() ([]byte, error) {
 		Cancellable:        o.Cancellable,
 		Nodes:              o.Nodes,
 	}
+	w.ErrorKey = o.ErrorKey
 	if o.Error != nil {
 		w.ErrorMessage = o.Error.Error()
 	}
@@ -198,6 +205,7 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	o.Cancelled = w.Cancelled
 	o.Cancellable = w.Cancellable
 	o.Nodes = w.Nodes
+	o.ErrorKey = w.ErrorKey
 	if w.ErrorMessage != "" {
 		o.Error = errors.New(w.ErrorMessage)
 	} else {

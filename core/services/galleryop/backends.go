@@ -127,6 +127,11 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			})
 			return nil
 		}
+		if op.Upgrade {
+			// Every failed upgrade leaves with a code, so a reader never has
+			// to parse the text. The step that failed has already set its own.
+			err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, err)
+		}
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		// A refused op wrote nothing, so there is nothing to clean up — and
 		// the name may belong to an installed backend a forced reinstall

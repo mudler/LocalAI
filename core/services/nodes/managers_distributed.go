@@ -595,7 +595,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	}
 	entry, ok := installed[name]
 	if !ok || len(entry.Nodes) == 0 {
-		return fmt.Errorf("backend %q is not installed on any node", name)
+		return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on any node", name))
 	}
 	targetNodeIDs := make(map[string]bool, len(entry.Nodes))
 	for _, n := range entry.Nodes {
@@ -607,7 +607,7 @@ func (d *DistributedBackendManager) UpgradeBackend(ctx context.Context, op *gall
 	// and leaves a forever-retrying pending_backend_ops row.
 	if op.TargetNodeID != "" {
 		if !targetNodeIDs[op.TargetNodeID] {
-			return fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID)
+			return gallery.WithUpgradeCode(gallery.UpgradeFailureNotInstalled, fmt.Errorf("backend %q is not installed on node %s", name, op.TargetNodeID))
 		}
 		targetNodeIDs = map[string]bool{op.TargetNodeID: true}
 	}
