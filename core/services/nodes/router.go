@@ -1115,8 +1115,10 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 
 // narrowByGroupAntiAffinity removes candidate nodes that already host a model
 // declared as concurrent-conflicting with modelID via concurrency_groups
-// (#9659). This is a soft filter: when *every* candidate would be excluded,
-// the original set is returned and the per-node watchdog evicts on arrival.
+// (#9659). When *every* candidate would be excluded, the least-recently-used
+// idle conflicting model among them is evicted and the set narrows to its
+// node, as single-node mode evicts a group conflict before loading. If none
+// can be evicted (all busy or pinned), the original set is returned.
 //
 // candidates may be nil ("any healthy node" — registry helpers treat nil as
 // no filter). nil is returned unchanged: hard-narrowing the implicit "all
@@ -1155,12 +1157,19 @@ func (r *SmartRouter) narrowByGroupAntiAffinity(ctx context.Context, modelID str
 		narrowed = append(narrowed, id)
 	}
 	if len(narrowed) == 0 {
-		// Soft fallback: every candidate has a conflict. Return the original
-		// set and let the per-node watchdog evict on arrival rather than
-		// failing the request.
-		xlog.Debug("Group anti-affinity: all candidates conflict, falling back to original set",
-			"model", modelID, "conflicts", conflicts)
-		return candidates, nil
+		// Every candidate has a conflict. In distributed mode no watchdog
+		// enforces the group on the worker, so evict a conflicting model here,
+		// as single-node mode does. If none can be evicted, keep the original
+		// set rather than failing the request.
+		node, err := r.evictLRUModelFrom(ctx, candidates, conflicts)
+		if err != nil {
+			xlog.Warn("Group anti-affinity: every candidate hosts a conflicting model and none could be evicted",
+				"model", modelID, "conflicts", conflicts, "error", err)
+			return candidates, nil
+		}
+		xlog.Info("Group anti-affinity: evicted a conflicting model to make room",
+			"model", modelID, "node", node.ID)
+		return []string{node.ID}, nil
 	}
 	xlog.Debug("Group anti-affinity narrowed candidates",
 		"model", modelID, "before", len(candidates), "after", len(narrowed))
@@ -1227,9 +1236,8 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	}
 
 	// Apply concurrency-group anti-affinity (#9659): prefer nodes that don't
-	// already host a model declared exclusive with this one. Soft filter — if
-	// every candidate has a conflict, the original set is returned and the
-	// per-node watchdog evicts on arrival.
+	// already host a model declared exclusive with this one. If every candidate
+	// has a conflict, one is evicted to make room (see narrowByGroupAntiAffinity).
 	candidateNodeIDs, err = r.narrowByGroupAntiAffinity(ctx, modelID, candidateNodeIDs)
 	if err != nil {
 		return nil, "", 0, err
@@ -2324,6 +2332,12 @@ func (r *SmartRouter) evictLRUAndFreeNode(ctx context.Context) (*BackendNode, er
 // unavailable this repeated, and the evicted model appeared to bounce between
 // nodes.
 func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNodeIDs []string) (*BackendNode, error) {
+	return r.evictLRUModelFrom(ctx, candidateNodeIDs, nil)
+}
+
+// evictLRUModelFrom is evictLRUAndFreeNodeFrom limited to the models named in
+// models (any model when nil), for evicting a concurrency-group conflict.
+func (r *SmartRouter) evictLRUModelFrom(ctx context.Context, candidateNodeIDs, models []string) (*BackendNode, error) {
 	const maxEvictionRetries = 5
 	const evictionRetryInterval = 500 * time.Millisecond
 
@@ -2358,6 +2372,9 @@ func (r *SmartRouter) evictLRUAndFreeNodeFrom(ctx context.Context, candidateNode
   )`, "loaded", StatusHealthy)
 			if len(candidateNodeIDs) > 0 {
 				q = q.Where("node_models.node_id IN ?", candidateNodeIDs)
+			}
+			if len(models) > 0 {
+				q = q.Where("node_models.model_name IN ?", models)
 			}
 			// Pinned models are protected from automatic eviction (#11101).
 			// Filtered in the query, not after selection, so the next-oldest
