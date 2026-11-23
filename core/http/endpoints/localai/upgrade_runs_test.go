@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,8 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/core/services/upgraderun/upgraderuntest"
 )
@@ -306,8 +310,8 @@ var _ = Describe("Single upgrade routes as runs of one item", func() {
 			return c.JSON(http.StatusOK, map[string]any{"jobID": "legacy", "uuid": "legacy", "statusUrl": "/api/backends/job/legacy", "message": "Backend upgrade started"})
 		}
 		e = echo.New()
-		e.POST("/api/backends/upgrade/:name", BackendUpgradeViaRun(d, old, UIBackendUpgradeAnswer))
-		e.POST("/backends/upgrade/:name", BackendUpgradeViaRun(d, old, APIBackendUpgradeAnswer))
+		e.POST("/api/backends/upgrade/:name", BackendUpgradeViaRun(d, nil, old, UIBackendUpgradeAnswer))
+		e.POST("/backends/upgrade/:name", BackendUpgradeViaRun(d, nil, old, APIBackendUpgradeAnswer))
 		h.Backends.Add(upgraderun.Candidate{Kind: upgraderun.KindGallery, Name: "kokoro", From: "v1", To: "v2"})
 	})
 
@@ -363,12 +367,44 @@ var _ = Describe("Single upgrade routes as runs of one item", func() {
 
 	It("answers through the old path when the server keeps no runs", func() {
 		e = echo.New()
-		e.POST("/api/backends/upgrade/:name", BackendUpgradeViaRun(UpgradeRunDeps{}, func(c echo.Context) error {
+		e.POST("/api/backends/upgrade/:name", BackendUpgradeViaRun(UpgradeRunDeps{}, nil, func(c echo.Context) error {
 			legacy++
 			return c.NoContent(http.StatusOK)
 		}, UIBackendUpgradeAnswer))
 		Expect(doJSON(e, http.MethodPost, "/api/backends/upgrade/kokoro", nil).Code).To(Equal(http.StatusOK))
 		Expect(legacy).To(Equal(1))
+	})
+
+	It("refuses through the backend upgrade guard before a run starts", func() {
+		gs := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		gs.SetBackendManager(listingManager{backends: gallery.SystemBackends{
+			"kokoro": {Name: "kokoro", Metadata: &gallery.BackendMetadata{Name: "kokoro"}},
+			"other":  {Name: "other", Metadata: &gallery.BackendMetadata{Name: "other"}},
+		}})
+		var legacyBody string
+		old := func(c echo.Context) error {
+			legacy++
+			raw, err := io.ReadAll(c.Request().Body)
+			Expect(err).NotTo(HaveOccurred())
+			legacyBody = string(raw)
+			return c.NoContent(http.StatusOK)
+		}
+		e = echo.New()
+		e.POST("/api/backends/upgrade/:name", BackendUpgradeViaRun(UpgradeRunDeps{Runs: func() *upgraderun.Service { return h.Service }},
+			NewBackendUpgradeGuard(gs, nil), old, UIBackendUpgradeAnswer))
+
+		rec := doJSON(e, http.MethodPost, "/api/backends/upgrade/missing", nil)
+		Expect(rec.Code).To(Equal(http.StatusNotFound))
+		Expect(rec.Body.String()).To(ContainSubstring(`"code":"not_installed"`))
+		Expect(legacy).To(BeZero())
+		runs, err := h.Service.List(context.Background(), upgraderun.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs).To(BeEmpty())
+
+		rec = doJSON(e, http.MethodPost, "/api/backends/upgrade/other", map[string]string{"expected_to": "v5"})
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(legacy).To(Equal(1))
+		Expect(legacyBody).To(ContainSubstring(`"expected_to":"v5"`), "the guard leaves the body readable for the handler")
 	})
 
 	It("answers 409 with the error key when the item could not start", func() {

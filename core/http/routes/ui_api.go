@@ -1832,7 +1832,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	}
 	upgradeGuard := localai.NewBackendUpgradeGuard(galleryService, upgradeChecker)
 
-	app.POST("/api/backends/upgrade/:name", localai.BackendUpgradeViaRun(UpgradeRunDepsFor(applicationInstance), func(c echo.Context) error {
+	app.POST("/api/backends/upgrade/:name", localai.BackendUpgradeViaRun(UpgradeRunDepsFor(applicationInstance), upgradeGuard, func(c echo.Context) error {
 		backendName := c.Param("name")
 		backendName, err := url.QueryUnescape(backendName)
 		if err != nil {

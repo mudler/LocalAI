@@ -144,7 +144,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		runDeps := UpgradeRunDepsFor(app)
 		// The single upgrade routes start an upgrade run of one item, and
 		// keep their answer for existing clients (see BackendUpgradeViaRun).
-		router.POST("/backends/upgrade/:name", localai.BackendUpgradeViaRun(runDeps, backendGalleryEndpointService.UpgradeBackendEndpoint(), localai.APIBackendUpgradeAnswer), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+		router.POST("/backends/upgrade/:name", localai.BackendUpgradeViaRun(runDeps, backendGalleryEndpointService.UpgradeGuard(), backendGalleryEndpointService.UpgradeBackendEndpoint(), localai.APIBackendUpgradeAnswer), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Model updates: the read model and a check that waits. Models never
 		// update automatically; the check installs nothing.
 		modelUpdates := func() localai.ModelUpdatesProvider {

@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -201,19 +202,30 @@ func (g *BackendUpgradeGuard) freshen(ctx context.Context, target string) (info 
 
 // ExpectedToOf reads the optional expected_to of an upgrade request: the query
 // parameter, or the field of a JSON body. A request with no body, which is
-// what every existing client sends, has none.
+// what every existing client sends, has none. The body stays readable for the
+// handler after it: the single upgrade routes read it once to refuse early and
+// again in the handler that the run of one falls back to.
 func ExpectedToOf(c echo.Context) (string, error) {
 	if v := c.QueryParam("expected_to"); v != "" {
 		return v, nil
 	}
-	if c.Request().Body == nil || c.Request().ContentLength == 0 {
+	req := c.Request()
+	if req.Body == nil || req.ContentLength == 0 {
 		return "", nil
 	}
-	var body struct {
-		ExpectedTo string `json:"expected_to"`
-	}
-	if err := json.NewDecoder(c.Request().Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+	body, err := io.ReadAll(io.LimitReader(req.Body, 1<<20))
+	if err != nil {
 		return "", fmt.Errorf("invalid request body: %w", err)
 	}
-	return body.ExpectedTo, nil
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	if len(bytes.TrimSpace(body)) == 0 {
+		return "", nil
+	}
+	var v struct {
+		ExpectedTo string `json:"expected_to"`
+	}
+	if err := json.Unmarshal(body, &v); err != nil {
+		return "", fmt.Errorf("invalid request body: %w", err)
+	}
+	return v.ExpectedTo, nil
 }

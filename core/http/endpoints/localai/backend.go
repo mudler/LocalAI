@@ -330,6 +330,12 @@ func (mgs *BackendEndpointService) CheckUpgradesEndpoint() echo.HandlerFunc {
 	}
 }
 
+// UpgradeGuard is the guard of the backend upgrade routes, for a wrapper that
+// must refuse before it starts anything (see BackendUpgradeViaRun).
+func (mgs *BackendEndpointService) UpgradeGuard() *BackendUpgradeGuard {
+	return mgs.upgradeGuard
+}
+
 // UpgradeBackendEndpoint triggers an upgrade for a specific backend
 // @Summary Upgrade a backend
 // @Tags backends

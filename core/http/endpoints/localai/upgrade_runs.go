@@ -409,35 +409,6 @@ func DismissUpgradeRunEndpoint(d UpgradeRunDeps) echo.HandlerFunc {
 	}
 }
 
-// expectedToOf reads the optional expected_to of a single upgrade request,
-// from the query or a JSON body, and leaves the body readable for the handler
-// after it.
-func expectedToOf(c echo.Context) (string, error) {
-	if v := c.QueryParam("expected_to"); v != "" {
-		return v, nil
-	}
-	req := c.Request()
-	if req.Body == nil {
-		return "", nil
-	}
-	body, err := io.ReadAll(io.LimitReader(req.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	req.Body = io.NopCloser(bytes.NewReader(body))
-	if len(bytes.TrimSpace(body)) == 0 {
-		return "", nil
-	}
-	var v struct {
-		ExpectedTo string `json:"expected_to"`
-	}
-	if json.Unmarshal(body, &v) != nil {
-		// Not this wrapper's body to judge: the handler decides.
-		return "", nil
-	}
-	return v.ExpectedTo, nil
-}
-
 // SingleUpgradeAnswer writes the answer of a single upgrade route that a run
 // of one item started: the old fields of the route with the job id of the
 // item, and the run.
@@ -453,24 +424,31 @@ func singleRefusal(c echo.Context, status int, code, msg string) error {
 // /api/backends/upgrade/{name}, POST /backends/upgrade/{name}) so it starts an
 // upgrade run of one item, answering with its old fields plus the run. The
 // route keeps working for every existing client:
+//   - the guard answers first: 404 not_installed, 409 no_update or stale
+//     (see BackendUpgradeGuard), before a run is admitted;
 //   - without upgrade runs on this server, legacy answers as before;
 //   - while another run runs, 409 with code run_active;
 //   - with expected_to no longer the available build, 409 with code stale;
 //   - when the run's check does not list the backend (not checked yet, or no
 //     update), legacy answers, with its own checks.
-func BackendUpgradeViaRun(d UpgradeRunDeps, legacy echo.HandlerFunc, answer SingleUpgradeAnswer) echo.HandlerFunc {
+//
+// A nil guard refuses nothing.
+func BackendUpgradeViaRun(d UpgradeRunDeps, guard *BackendUpgradeGuard, legacy echo.HandlerFunc, answer SingleUpgradeAnswer) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := d.service()
-		if svc == nil {
-			return legacy(c)
-		}
 		name, err := url.PathUnescape(c.Param("name"))
 		if err != nil || name == "" {
 			return legacy(c)
 		}
-		expected, err := expectedToOf(c)
+		expected, err := ExpectedToOf(c)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid body"})
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+		if refusal := guard.Check(c.Request().Context(), name, "", expected); refusal != nil {
+			return refusal.Write(c)
+		}
+		svc := d.service()
+		if svc == nil {
+			return legacy(c)
 		}
 		run, item, err := svc.StartOne(c.Request().Context(), d.principal(c),
 			upgraderun.StartItem{Kind: upgraderun.KindGallery, Name: name, ExpectedTo: expected}, upgraderun.SourceManual, 0)
