@@ -289,6 +289,21 @@ func (s *GalleryStore) CleanStale(age time.Duration) (int64, error) {
 	return res.RowsAffected, res.Error
 }
 
+// TouchActive moves updated_at of the given operations to now, when they are
+// still in flight. An upgrade run calls it for the operations it runs and
+// follows: an operation that waits in the queue behind a long download does
+// not tick, and CleanStale would otherwise fail it after 30 minutes although
+// it is going to run. Only the frontend that runs the operation touches it,
+// so an operation whose frontend died still goes stale.
+func (s *GalleryStore) TouchActive(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.db.Model(&GalleryOperationRecord{}).
+		Where("id IN ? AND status IN ?", ids, activeStatuses).
+		Update("updated_at", time.Now()).Error
+}
+
 // CleanOld removes operations older than the given duration.
 func (s *GalleryStore) CleanOld(retention time.Duration) error {
 	cutoff := time.Now().Add(-retention)

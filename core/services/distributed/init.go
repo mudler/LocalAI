@@ -12,6 +12,9 @@ type Stores struct {
 	Gallery  *GalleryStore
 	FineTune *FineTuneStore
 	Quant    *QuantStore
+	// UpgradeRuns keeps the server-owned upgrade runs. Standalone servers
+	// open it on their own database with NewUpgradeRunStore.
+	UpgradeRuns *UpgradeRunStore
 }
 
 // InitStores creates and migrates all Phase 4 distributed stores.
@@ -31,10 +34,16 @@ func InitStores(db *gorm.DB) (*Stores, error) {
 		return nil, fmt.Errorf("quantization store: %w", err)
 	}
 
-	xlog.Info("Distributed stores initialized (Gallery, FineTune, Quant)")
+	upgradeRuns, err := NewUpgradeRunStore(db)
+	if err != nil {
+		return nil, fmt.Errorf("upgrade run store: %w", err)
+	}
+
+	xlog.Info("Distributed stores initialized (Gallery, FineTune, Quant, UpgradeRuns)")
 	return &Stores{
-		Gallery:  gallery,
-		FineTune: ft,
-		Quant:    quant,
+		Gallery:     gallery,
+		FineTune:    ft,
+		Quant:       quant,
+		UpgradeRuns: upgradeRuns,
 	}, nil
 }
