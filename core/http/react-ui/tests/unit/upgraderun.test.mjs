@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  attentionCount, countsOf, defaultSelection, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionCount, confirmedPost, countsOf, defaultSelection, runsUnavailable, firstAttention, initialRunState, isRunning, requestItemOf, retryableKeys,
   reviewGroups, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -125,6 +125,31 @@ test('upgrade run: a retry answers a new run, and the page follows it; the old o
   assert.equal(upgradeRunReducer(s, { type: 'run', run: runOf([], { state: 'finished' }), from: 'poll' }).run.id, 'r2', 'a late poll of the old run is dropped')
 })
 
+test('upgrade run: a start and a retry carry the confirmation of the browser', () => {
+  assert.deepEqual(CONFIRM_HEADERS, { 'X-LocalAI-Confirm': 'upgrade-run' })
+  const start = confirmedPost({ items: [{ kind: 'addon', name: 'notes', expected_to: 'v2' }], source: 'manual' })
+  assert.equal(start.method, 'POST')
+  assert.equal(start.headers['X-LocalAI-Confirm'], 'upgrade-run')
+  assert.equal(start.headers['Content-Type'], 'application/json')
+  assert.deepEqual(JSON.parse(start.body), { items: [{ kind: 'addon', name: 'notes', expected_to: 'v2' }], source: 'manual' })
+  assert.equal(confirmedPost({}).headers['X-LocalAI-Confirm'], 'upgrade-run')
+})
+
+test('upgrade run: a server that keeps no runs is said once and blocks the start', () => {
+  assert.equal(runsUnavailable({ status: 503 }), true)
+  assert.equal(runsUnavailable({ status: 409, body: { code: 'unavailable' } }), true)
+  assert.equal(runsUnavailable({ status: 409, body: { code: 'run_active' } }), false)
+  assert.equal(reduce([{ type: 'loadFailed', unavailable: true }]).unavailable, true)
+  assert.equal(reduce([{ type: 'reviewOpen' }, { type: 'reviewFailed', code: 'unavailable' }]).unavailable, true)
+  assert.equal(reduce([{ type: 'loadFailed', unavailable: true }, { type: 'run', run: runOf([]) }]).unavailable, false)
+})
+
+test('upgrade run: a preview that names an active run keeps it for the review', () => {
+  const s = reduce([{ type: 'reviewOpen' }, { type: 'reviewReady', preview: { ...preview, active_run_id: 'r9' } }])
+  assert.equal(s.review.activeRun, 'r9')
+  assert.equal(reduce([{ type: 'reviewOpen' }, { type: 'reviewReady', preview }]).review.activeRun, '')
+})
+
 test('upgrade run: counts, progress and the items to retry', () => {
   const run = runOf([
     item('gallery:piper', 'updated'),
@@ -169,6 +194,11 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
   assert.match(upgradeFailureWords('run_active', en), /update run is in progress/)
   assert.match(upgradeFailureWords('source_unchecked', en), /check is unavailable\. Check again/)
   assert.match(upgradeFailureWords('upgrade_failed', en), /installed version is kept/, 'the add-on keys are unchanged')
+  // In a run, the run's own words win for keys the add-on pages word otherwise.
+  assert.equal(upgradeFailureWords('not_human_surface', en, '', 'run'), 'This update needs you to confirm it in the browser.')
+  assert.equal(upgradeFailureWords('unavailable', en, '', 'run'), 'Update runs are not available on this server.')
+  assert.match(upgradeFailureWords('not_human_surface', en), /administrator must make this change/)
+  assert.equal(upgradeFailureWords('forbidden', en, '', 'run'), 'Your account cannot update add-ons.')
   // A key this build does not know is said with the server's words, else plainly.
   assert.equal(upgradeFailureWords('future_key', en, 'disk full'), 'disk full')
   assert.equal(upgradeFailureWords('future_key', en), 'The update failed')
@@ -177,8 +207,9 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
   for (const l of LOCALES) {
     const t = await addonsT(l)
     for (const key of ['download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
-      'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found']) {
-      const words = upgradeFailureWords(key, t)
+      'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found',
+      'forbidden', 'not_human_surface', 'unavailable']) {
+      const words = upgradeFailureWords(key, t, '', 'run')
       assert.ok(words && !words.startsWith('updates.'), `${l} ${key}: ${words}`)
     }
   }

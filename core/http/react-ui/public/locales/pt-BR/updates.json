@@ -416,7 +416,8 @@
       "editedKeys_one": "Você editou {{count}} configuração deste modelo. Use {{action}} na linha dele para escolher o que manter.",
       "editedKeys_other": "Você editou {{count}} configurações deste modelo. Use {{action}} na linha dele para escolher o que manter.",
       "held": "Esta versão aguarda sua aprovação."
-    }
+    },
+    "follow": "Ver a rodada"
   },
   "run": {
     "group": "Esta rodada de atualizações",
@@ -487,6 +488,7 @@
       "node": "{{name}}: {{phase}}",
       "none": "O servidor não deu mais detalhes."
     },
-    "busy": "Há uma rodada de atualizações em andamento."
+    "busy": "Há uma rodada de atualizações em andamento.",
+    "unavailable": "As rodadas de atualizações não estão disponíveis neste servidor."
   }
 }

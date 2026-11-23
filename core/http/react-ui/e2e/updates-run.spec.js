@@ -120,6 +120,8 @@ test.describe('Updates: the review', () => {
     // The plan's order, each item pinned to the version the review showed.
     await expect.poll(() => runs.starts.length).toBe(1)
     expect(runs.starts[0]).toEqual({ items: [{ kind: 'gallery', name: 'kokoro', expected_to: 'v1.1.0' }, { kind: 'addon', name: 'notes', expected_to: 'v1.1.0' }], source: 'manual' })
+    // The confirmation of the administrator's browser: without it the server skips add-ons.
+    expect(runs.startHeaders[0]['x-localai-confirm']).toBe('upgrade-run')
     await expect(reviewOf(page)).toHaveCount(0)
     await expect(page).toHaveURL(/[?&]run=run-1/)
   })
@@ -249,6 +251,7 @@ test.describe('Updates: the run', () => {
     await expect(failed.getByTestId('run-item-details')).toContainText('Code: start')
     await page.getByTestId('updates-retry-failed').click()
     await expect.poll(() => runs.retries.length).toBe(1)
+    expect(runs.retryHeaders[0]['x-localai-confirm']).toBe('upgrade-run')
     await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
   })
 
@@ -314,5 +317,36 @@ test.describe('Updates: the run', () => {
     // While a run is active, no row starts another one.
     await expect(rowOf(page, 'qwen3-8b').getByTestId('model-upgrade')).toBeDisabled()
     expect(runs.starts).toHaveLength(1)
+  })
+
+  test('a skipped add-on says why in words, from its key', async ({ page }) => {
+    await fleet(page)
+    const run = runOf([runItem('gallery:kokoro', 'updated'), runItem('addon:notes', 'skipped', { error_key: 'not_human_surface', error: 'not a human surface' })])
+    await mockUpdateRuns(page, { active: [run], polls: [run] })
+    await page.goto('/app/updates')
+    await expect(runRow(page, 'addon:notes')).toContainText('Skipped: This update needs you to confirm it in the browser.')
+  })
+})
+
+test.describe('Updates: no runs on this server', () => {
+  test('a server that keeps no update runs says so and nothing can start', async ({ page }) => {
+    await fleet(page)
+    await page.route(/\/api\/updates\/runs(\?.*)?$/, route => route.fulfill({ status: 503, json: { code: 'unavailable', key: '', message: 'update runs are not available' } }))
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-runs-unavailable')).toHaveText('Update runs are not available on this server.')
+    await expect(page.getByTestId('updates-update-ready')).toBeDisabled()
+    await expect(rowOf(page, 'kokoro').getByRole('button', { name: 'Update kokoro' })).toBeDisabled()
+  })
+
+  test('a review that finds a run in progress offers it instead of a start', async ({ page }) => {
+    await fleet(page)
+    await mockUpdateRuns(page, { preview: items => ({ ...plan(items), active_run_id: 'run-1' }), polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await expect(page.getByTestId('update-review-active')).toContainText('An update run is in progress.')
+    await expect(page.getByTestId('update-review-start')).toBeDisabled()
+    await page.getByTestId('update-review-follow').click()
+    await expect(page).toHaveURL(/[?&]run=run-1/)
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
   })
 })

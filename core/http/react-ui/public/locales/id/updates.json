@@ -416,7 +416,8 @@
       "editedKeys_one": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
       "editedKeys_other": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
       "held": "Versi ini menunggu persetujuan Anda."
-    }
+    },
+    "follow": "Tampilkan rangkaian"
   },
   "run": {
     "group": "Rangkaian pembaruan ini",
@@ -487,6 +488,7 @@
       "node": "{{name}}: {{phase}}",
       "none": "Server tidak memberikan detail lain."
     },
-    "busy": "Rangkaian pembaruan sedang berjalan."
+    "busy": "Rangkaian pembaruan sedang berjalan.",
+    "unavailable": "Rangkaian pembaruan tidak tersedia di server ini."
   }
 }

@@ -416,7 +416,8 @@
       "editedKeys_one": "You edited {{count}} setting of this model. Use {{action}} on its row to choose what to keep.",
       "editedKeys_other": "You edited {{count}} settings of this model. Use {{action}} on its row to choose what to keep.",
       "held": "This version waits for your approval."
-    }
+    },
+    "follow": "Show the run"
   },
   "run": {
     "group": "This update run",
@@ -487,6 +488,7 @@
       "node": "{{name}}: {{phase}}",
       "none": "The server gave no more details."
     },
-    "busy": "An update run is in progress."
+    "busy": "An update run is in progress.",
+    "unavailable": "Update runs are not available on this server."
   }
 }

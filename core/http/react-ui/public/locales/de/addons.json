@@ -649,7 +649,10 @@
       "run_finished": "Der Lauf ist bereits beendet",
       "invalid": "Die Anfrage war ungültig",
       "not_found": "Der Server kennt diesen Lauf nicht mehr",
-      "edited_keys": "Sie haben Einstellungen dieses Modells geändert. Wählen Sie mit „Upgrade“ in seiner Zeile, was bleibt"
+      "edited_keys": "Sie haben Einstellungen dieses Modells geändert. Wählen Sie mit „Upgrade“ in seiner Zeile, was bleibt",
+      "run_not_human_surface": "Diese Aktualisierung muss im Browser bestätigt werden.",
+      "forbidden": "Ihr Konto kann keine Add-ons aktualisieren.",
+      "run_unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar."
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {

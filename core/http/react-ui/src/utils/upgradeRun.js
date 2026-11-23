@@ -81,6 +81,24 @@ export function firstAttention(run) {
   return itemsOf(run).find(needsAttention) || null
 }
 
+// ---- Requests ----------------------------------------------------------------
+
+// The confirmation an administrator's browser sends with a start and a retry.
+// The server runs add-on items only with it (they are skipped as
+// not_human_surface without it); other kinds ignore it. Only the page sends
+// it: an API key or a tool never does.
+export const CONFIRM_HEADERS = Object.freeze({ 'X-LocalAI-Confirm': 'upgrade-run' })
+
+// The fetch options of a start or a retry: JSON with the confirmation.
+export function confirmedPost(body) {
+  return { method: 'POST', headers: { 'Content-Type': 'application/json', ...CONFIRM_HEADERS }, body: JSON.stringify(body) }
+}
+
+// Whether an answer says the server keeps no update runs.
+export function runsUnavailable(err) {
+  return Boolean(err && (err.status === 503 || (err.body && err.body.code === 'unavailable')))
+}
+
 // ---- Review ------------------------------------------------------------------
 
 // The groups of the review, in the order the page shows them.
@@ -124,6 +142,8 @@ export const initialRunState = {
   run: null,
   // False until the first answer, so the page does not claim "no run" early.
   loaded: false,
+  // True when the server keeps no update runs (503): nothing can start.
+  unavailable: false,
   // The last action that failed: the server's message and its code ('' for none).
   error: '',
   errorCode: '',
@@ -145,18 +165,18 @@ export function upgradeRunReducer(state, action) {
       // A poll answers for the run it asked about; one that comes back after
       // the page moved to another run is dropped.
       if (action.from === 'poll' && (!state.run || !run || state.run.id !== run.id)) return state
-      return { ...state, run, loaded: true }
+      return { ...state, run, loaded: true, unavailable: false }
     }
     // A server that cannot list runs has none to show; the page says nothing
     // about it (the next look comes with the idle poll).
     case 'loadFailed':
-      return { ...state, loaded: true }
+      return { ...state, loaded: true, unavailable: Boolean(action.unavailable) }
     case 'error':
       return { ...state, busy: '', error: action.error || '', errorCode: action.code || '' }
     case 'busy':
       return action.busy ? { ...state, busy: action.busy, error: '', errorCode: '' } : { ...state, busy: '' }
     case 'reviewOpen':
-      return { ...state, review: { status: 'loading', single: Boolean(action.single), items: [], order: [], selected: [], error: '', code: '' } }
+      return { ...state, review: { status: 'loading', single: Boolean(action.single), items: [], order: [], selected: [], error: '', code: '', activeRun: '' } }
     case 'reviewReady': {
       if (!state.review) return state
       const items = Array.isArray(action.preview && action.preview.items) ? action.preview.items : []
@@ -164,11 +184,17 @@ export function upgradeRunReducer(state, action) {
       // A review of one row is the question about that row: it starts selected
       // when it can start, whatever the default of a longer list.
       const selected = state.review.single ? startableKeys(items) : defaultSelection(items)
-      return { ...state, review: { ...state.review, status: 'ready', items, order, selected } }
+      // A run is active elsewhere: a start would be refused, the review says so.
+      const activeRun = action.preview && action.preview.active_run_id ? String(action.preview.active_run_id) : ''
+      return { ...state, review: { ...state.review, status: 'ready', items, order, selected, activeRun } }
     }
     case 'reviewFailed':
       if (!state.review) return state
-      return { ...state, review: { ...state.review, status: 'error', error: action.error || '' } }
+      return {
+        ...state,
+        unavailable: state.unavailable || action.code === 'unavailable',
+        review: { ...state.review, status: 'error', error: action.error || '', code: action.code || '' },
+      }
     case 'toggle': {
       if (!state.review) return state
       const item = state.review.items.find(i => i.key === action.key)
@@ -186,7 +212,7 @@ export function upgradeRunReducer(state, action) {
     case 'reviewClose':
       return { ...state, review: null }
     case 'startFailed':
-      return { ...state, busy: '', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
+      return { ...state, busy: '', unavailable: state.unavailable || action.code === 'unavailable', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
     case 'started':
       return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true }
     case 'dismissed': {

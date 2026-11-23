@@ -649,7 +649,10 @@
       "run_finished": "La serie è già terminata",
       "invalid": "La richiesta non era valida",
       "not_found": "Il server non conosce più questa serie",
-      "edited_keys": "Hai modificato impostazioni di questo modello. Usa Aggiorna sulla sua riga per scegliere cosa tenere"
+      "edited_keys": "Hai modificato impostazioni di questo modello. Usa Aggiorna sulla sua riga per scegliere cosa tenere",
+      "run_not_human_surface": "Questo aggiornamento va confermato nel browser.",
+      "forbidden": "Il tuo account non può aggiornare i componenti aggiuntivi.",
+      "run_unavailable": "Le serie di aggiornamenti non sono disponibili su questo server."
     },
     "upgradeNamed": "Aggiorna {{name}}",
     "why": {

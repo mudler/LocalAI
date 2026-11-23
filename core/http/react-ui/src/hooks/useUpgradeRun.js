@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { updateRunsApi } from '../utils/api'
-import { initialRunState, isRunning, requestItemOf, startItems, upgradeRunReducer } from '../utils/upgradeRun'
+import { initialRunState, isRunning, requestItemOf, runsUnavailable, startItems, upgradeRunReducer } from '../utils/upgradeRun'
 
 const POLL_MS = 2000
 
@@ -41,7 +41,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
         send({ type: 'run', run: runs[0] || null })
       }
     } catch (e) {
-      send({ type: 'loadFailed', error: e && e.message ? e.message : '' })
+      send({ type: 'loadFailed', unavailable: runsUnavailable(e) })
     }
   }, [runId, send])
   useEffect(() => { load() }, [load])
@@ -84,7 +84,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     try {
       send({ type: 'reviewReady', preview: await updateRunsApi.preview(rows.map(requestItemOf)) })
     } catch (e) {
-      send({ type: 'reviewFailed', error: e && e.message ? e.message : '' })
+      send({ type: 'reviewFailed', error: runsUnavailable(e) ? '' : messageOf(e), code: runsUnavailable(e) ? 'unavailable' : codeOf(e) })
     }
   }, [send])
 
@@ -140,6 +140,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     run,
     running,
     loaded: state.loaded,
+    unavailable: state.unavailable,
     busy: state.busy,
     error: state.error,
     errorCode: state.errorCode,

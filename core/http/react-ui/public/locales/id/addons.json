@@ -649,7 +649,10 @@
       "run_finished": "Rangkaian sudah selesai",
       "invalid": "Permintaan tidak valid",
       "not_found": "Server tidak lagi mengenal rangkaian ini",
-      "edited_keys": "Anda mengubah pengaturan model ini. Gunakan Perbarui di barisnya untuk memilih yang dipertahankan"
+      "edited_keys": "Anda mengubah pengaturan model ini. Gunakan Perbarui di barisnya untuk memilih yang dipertahankan",
+      "run_not_human_surface": "Pembaruan ini perlu Anda konfirmasi di browser.",
+      "forbidden": "Akun Anda tidak dapat memperbarui add-on.",
+      "run_unavailable": "Rangkaian pembaruan tidak tersedia di server ini."
     },
     "upgradeNamed": "Perbarui {{name}}",
     "why": {

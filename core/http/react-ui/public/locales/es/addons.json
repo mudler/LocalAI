@@ -649,7 +649,10 @@
       "run_finished": "La tanda ya ha terminado",
       "invalid": "La solicitud no era válida",
       "not_found": "El servidor ya no conoce esta tanda",
-      "edited_keys": "Editó ajustes de este modelo. Use Actualizar en su fila para elegir qué conservar"
+      "edited_keys": "Editó ajustes de este modelo. Use Actualizar en su fila para elegir qué conservar",
+      "run_not_human_surface": "Esta actualización necesita que la confirme en el navegador.",
+      "forbidden": "Su cuenta no puede actualizar complementos.",
+      "run_unavailable": "Las tandas de actualizaciones no están disponibles en este servidor."
     },
     "upgradeNamed": "Actualizar {{name}}",
     "why": {

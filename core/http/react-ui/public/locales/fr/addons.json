@@ -653,7 +653,10 @@
       "run_finished": "La série est déjà terminée",
       "invalid": "La demande n’était pas valide",
       "not_found": "Le serveur ne connaît plus cette série",
-      "edited_keys": "Vous avez modifié des réglages de ce modèle. Utilisez Mettre à niveau sur sa ligne pour choisir quoi garder"
+      "edited_keys": "Vous avez modifié des réglages de ce modèle. Utilisez Mettre à niveau sur sa ligne pour choisir quoi garder",
+      "run_not_human_surface": "Cette mise à jour doit être confirmée dans le navigateur.",
+      "forbidden": "Votre compte ne peut pas mettre à jour les extensions.",
+      "run_unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur."
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {

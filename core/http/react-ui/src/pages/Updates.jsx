@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
 import PageHeader from '../components/PageHeader'
 import UpdateRow from '../components/updates/UpdateRow'
 import UpdateStrip, { RunStrip, UpdateSources } from '../components/updates/UpdateStrip'
@@ -156,6 +156,15 @@ function UpdatesPage({ updates }) {
       }, { replace: true })
     }
   }, [upgrade, setParams])
+  // The review found a run in progress: close it and show that run.
+  const onFollow = useCallback((id) => {
+    upgrade.closeReview()
+    setParams((prev) => {
+      const out = new URLSearchParams(prev)
+      out.set('run', id)
+      return out
+    }, { replace: true })
+  }, [upgrade, setParams])
   const onDismiss = useCallback(async () => {
     await upgrade.dismiss()
     setParams((prev) => {
@@ -180,7 +189,7 @@ function UpdatesPage({ updates }) {
   // of the last check, else the result of the last model action. It is the one
   // live region of the page.
   let result = ''
-  if (upgrade.error || upgrade.errorCode) result = t('run.actionFailed', { message: upgrade.errorCode ? upgradeFailureWords(upgrade.errorCode, ta, upgrade.error) : upgrade.error })
+  if (upgrade.error || upgrade.errorCode) result = t('run.actionFailed', { message: upgrade.errorCode ? upgradeFailureWords(upgrade.errorCode, ta, upgrade.error, 'run') : upgrade.error })
   else if (model.announcement) result = model.announcement
   else if (updates.lastCheck && !updates.checking) {
     const failed = updates.sources.filter(s => s.state === 'failed').length
@@ -192,12 +201,15 @@ function UpdatesPage({ updates }) {
     ].filter(Boolean).join(' ')
   }
 
+  // A server that keeps no update runs: nothing can start from this page.
+  const noRuns = upgrade.unavailable
   const primary = (!shownRun && readyRows.length > 0) ? (
     <span className="uc-primary">
       <Button
         variant="primary"
         icon="arrow-up"
-        disabled={upgrade.review != null}
+        disabled={upgrade.review != null || noRuns}
+        title={noRuns ? t('run.unavailable') : undefined}
         onClick={onReviewAll}
         data-testid="updates-update-ready"
       >
@@ -218,8 +230,8 @@ function UpdatesPage({ updates }) {
       onCancel={actions.cancel}
       onCheck={actions.check}
       checking={actions.checking(row)}
-      locked={runActive}
-      lockedReason={runActive ? t('run.busy') : ''}
+      locked={runActive || noRuns}
+      lockedReason={runActive ? t('run.busy') : noRuns ? t('run.unavailable') : ''}
       model={model.actions}
     />
   )
@@ -366,6 +378,7 @@ function UpdatesPage({ updates }) {
           installsDisabled={Boolean(updates.snapshot && updates.snapshot.installsDisabled)}
         />
       )}
+      {noRuns && <Callout tone="warn" testId="updates-runs-unavailable">{t('run.unavailable')}</Callout>}
       {body()}
       {narrow && primary && <div className="uc-sticky" data-testid="updates-sticky">{primary}</div>}
       {actions.review && (
@@ -384,6 +397,7 @@ function UpdatesPage({ updates }) {
         onSelectAll={upgrade.selectAll}
         onSelectNone={upgrade.selectNone}
         onStart={onStart}
+        onFollow={onFollow}
         onClose={upgrade.closeReview}
       />
       <ModelActionDialogs model={model} />

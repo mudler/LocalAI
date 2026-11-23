@@ -2,6 +2,7 @@ import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
+import { confirmedPost } from './upgradeRun'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
 import { createPageSharesApi } from './pageSharesApi'
@@ -199,12 +200,13 @@ export const backendsApi = {
 // a run goes on when the page is closed and a reload finds it again.
 export const updateRunsApi = {
   preview: (items) => postJSON(API_CONFIG.endpoints.updateRunsPreview, { items }),
-  start: (items, source = 'manual') => postJSON(API_CONFIG.endpoints.updateRuns, { items, source }),
+  // A start and a retry carry the confirmation of the administrator's browser.
+  start: (items) => fetchJSON(API_CONFIG.endpoints.updateRuns, confirmedPost({ items, source: 'manual' })),
   active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
   get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
   cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
   cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),
-  retry: (id) => postJSON(API_CONFIG.endpoints.updateRunRetry(id), {}),
+  retry: (id) => fetchJSON(API_CONFIG.endpoints.updateRunRetry(id), confirmedPost({})),
   dismiss: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id), { method: 'DELETE' }),
 }
 

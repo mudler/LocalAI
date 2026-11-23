@@ -416,7 +416,8 @@
       "editedKeys_one": "Hai modificato {{count}} impostazione di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
       "editedKeys_other": "Hai modificato {{count}} impostazioni di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
       "held": "Questa versione attende la tua approvazione."
-    }
+    },
+    "follow": "Mostra la serie"
   },
   "run": {
     "group": "Questa serie di aggiornamenti",
@@ -487,6 +488,7 @@
       "node": "{{name}}: {{phase}}",
       "none": "Il server non ha fornito altri dettagli."
     },
-    "busy": "È in corso una serie di aggiornamenti."
+    "busy": "È in corso una serie di aggiornamenti.",
+    "unavailable": "Le serie di aggiornamenti non sono disponibili su questo server."
   }
 }

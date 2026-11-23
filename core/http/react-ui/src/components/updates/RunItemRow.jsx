@@ -36,9 +36,9 @@ export function failureText(item, name, t, ta) {
     return t('run.detail.rolledBack', { reason: trimStop(item.error), name, version })
   }
   if (item.phase === 'rolled_back') {
-    return t('run.detail.failed', { reason: trimStop(upgradeFailureWords(item.error_key || 'start', ta)), name, version })
+    return t('run.detail.failed', { reason: trimStop(upgradeFailureWords(item.error_key || 'start', ta, '', 'run')), name, version })
   }
-  const reason = trimStop(upgradeFailureWords(item.error_key || 'unknown', ta, item.error))
+  const reason = trimStop(upgradeFailureWords(item.error_key || 'unknown', ta, item.error, 'run'))
   return t('run.detail.failed', { reason, name, version })
 }
 
@@ -103,7 +103,11 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
   else if (checking) detail = { tone: 'accent', text: item.message || t('run.detail.checking') }
   else if (attention) detail = { tone: item.phase === 'unconfirmed' ? 'warn' : 'error', text: failureText(item, name, t, ta) }
   else if (item.phase === 'cancelled') detail = { tone: 'muted', text: t('run.detail.cancelled', { name, version: item.from || '?' }) }
-  else if (item.phase === 'skipped') detail = { tone: 'muted', text: item.error || item.message ? t('run.detail.skippedWhy', { reason: trimStop(item.error || item.message) }) : t('run.detail.skipped') }
+  else if (item.phase === 'skipped') {
+    // A skipped item says why, in the words of its key when it has one.
+    const why = item.error_key ? upgradeFailureWords(item.error_key, ta, item.error || item.message, 'run') : (item.error || item.message)
+    detail = { tone: item.error_key ? 'warn' : 'muted', text: why ? t('run.detail.skippedWhy', { reason: trimStop(why) }) : t('run.detail.skipped') }
+  }
   const progress = Math.max(0, Math.min(100, Math.round(Number(item.progress) || 0)))
   const moreId = `uc-run-more-${item.key}`
   return (

@@ -38,7 +38,7 @@ function linesOf(item, t) {
 //
 //   review    the review state of useUpgradeRun
 //   rowsByKey the page's rows by key, for the names and origins the page shows
-export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSelectAll, onSelectNone, onStart, onClose }) {
+export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSelectAll, onSelectNone, onStart, onFollow, onClose }) {
   const { t } = useTranslation('updates')
   const { t: ta } = useTranslation('addons')
   if (!review) return null
@@ -49,13 +49,27 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
   const starting = busy === 'start'
   const loading = review.status === 'loading'
   const refused = review.error || review.code
-    ? upgradeFailureWords(review.code || '', ta, review.error)
+    ? upgradeFailureWords(review.code || '', ta, review.error, 'run')
     : ''
   const refusal = refused && (
     <Callout tone="error" role="alert" testId="update-review-refused">{refused}</Callout>
   )
   const failedLoad = review.status === 'error' && (
-    <Callout tone="error" role="alert" testId="update-review-error" title={t('review.loadError')}>{review.error || ''}</Callout>
+    <Callout tone="error" role="alert" testId="update-review-error" title={t('review.loadError')}>
+      {review.code ? upgradeFailureWords(review.code, ta, review.error, 'run') : (review.error || '')}
+    </Callout>
+  )
+  // A run is already in progress: a start would be refused, so the review
+  // offers that run instead.
+  const active = Boolean(review.activeRun)
+  const activeNote = active && (
+    <Callout
+      tone="warn"
+      testId="update-review-active"
+      actions={onFollow ? <Button size="sm" onClick={() => onFollow(review.activeRun)} data-testid="update-review-follow">{t('review.follow')}</Button> : null}
+    >
+      {t('run.busy')}
+    </Callout>
   )
 
   if (review.single) {
@@ -74,7 +88,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
         foot={(
           <>
             <Button variant="ghost" onClick={onClose} disabled={starting}>{t('review.cancel')}</Button>
-            <Button variant="primary" icon="arrow-up" busy={starting} disabled={loading || count === 0 || starting} onClick={onStart} data-testid="update-review-start">
+            <Button variant="primary" icon="arrow-up" busy={starting} disabled={loading || active || count === 0 || starting} onClick={onStart} data-testid="update-review-start">
               {t('review.startOne')}
             </Button>
           </>
@@ -82,6 +96,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
       >
         {loading && <SkeletonRows count={2} label={t('review.loading')} />}
         {failedLoad}
+        {activeNote}
         {item && (
           <div className="up-single" data-testid="update-review-item" data-key={item.key} data-startable={item.startable ? 'true' : 'false'}>
             <p className="up-row__versions">{origin ? `${versions(item)} · ${origin}` : versions(item)}</p>
@@ -111,7 +126,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
       foot={(
         <>
           <Button variant="ghost" onClick={onClose} disabled={starting}>{t('review.cancel')}</Button>
-          <Button variant="primary" icon="arrow-up" busy={starting} disabled={loading || count === 0 || starting} onClick={onStart} data-testid="update-review-start">
+          <Button variant="primary" icon="arrow-up" busy={starting} disabled={loading || active || count === 0 || starting} onClick={onStart} data-testid="update-review-start">
             {t('review.start', { count })}
           </Button>
         </>
@@ -119,6 +134,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
     >
       {loading && <SkeletonRows count={4} label={t('review.loading')} />}
       {failedLoad}
+      {activeNote}
       {review.status === 'ready' && (
         <>
           <div className="up-pick__bar">

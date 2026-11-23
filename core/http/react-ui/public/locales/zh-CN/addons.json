@@ -649,7 +649,10 @@
       "run_finished": "本次更新已经结束",
       "invalid": "请求无效",
       "not_found": "服务器已不再保留本次更新",
-      "edited_keys": "您修改了此模型的设置。请在其所在行使用\"升级\"来选择要保留的内容"
+      "edited_keys": "您修改了此模型的设置。请在其所在行使用\"升级\"来选择要保留的内容",
+      "run_not_human_surface": "此更新需要您在浏览器中确认。",
+      "forbidden": "您的账户无法更新插件。",
+      "run_unavailable": "此服务器不支持批量更新。"
     },
     "upgradeNamed": "更新 {{name}}",
     "why": {

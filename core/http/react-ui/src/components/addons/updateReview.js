@@ -17,9 +17,17 @@ const KNOWN = new Set([
   'download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
   // refusals of the run routes
   'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found',
+  'forbidden',
 ])
 
-export function upgradeFailureWords(key, t, message = '') {
+// Keys that mean something else in an update run than on the add-on pages:
+// the run's own words win there.
+const RUN_WORDS = { not_human_surface: 'run_not_human_surface', unavailable: 'run_unavailable' }
+
+//
+// `context` 'run' words an item or a refusal of an update run.
+export function upgradeFailureWords(key, t, message = '', context = '') {
+  if (context === 'run' && RUN_WORDS[key]) return t(`updates.errors.${RUN_WORDS[key]}`)
   if (key === 'canceled' || key === 'cancelled') return t('updates.class.canceled')
   if (HOST_FAILURES.has(key)) return t(`hostAccess.errors.${key}`)
   if (KNOWN.has(key)) return t(`updates.errors.${key}`)

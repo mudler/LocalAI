@@ -416,7 +416,8 @@
       "editedKeys_one": "Sie haben {{count}} Einstellung dieses Modells geändert. Wählen Sie mit „{{action}}“ in seiner Zeile, was bleibt.",
       "editedKeys_other": "Sie haben {{count}} Einstellungen dieses Modells geändert. Wählen Sie mit „{{action}}“ in seiner Zeile, was bleibt.",
       "held": "Diese Version wartet auf Ihre Freigabe."
-    }
+    },
+    "follow": "Lauf anzeigen"
   },
   "run": {
     "group": "Dieser Aktualisierungslauf",
@@ -487,6 +488,7 @@
       "node": "{{name}}: {{phase}}",
       "none": "Der Server hat keine weiteren Details genannt."
     },
-    "busy": "Ein Aktualisierungslauf ist im Gange."
+    "busy": "Ein Aktualisierungslauf ist im Gange.",
+    "unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar."
   }
 }

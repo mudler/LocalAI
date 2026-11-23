@@ -649,7 +649,10 @@
       "run_finished": "The run has already finished",
       "invalid": "The request was not valid",
       "not_found": "The server does not know this run any more",
-      "edited_keys": "You edited settings of this model. Use Upgrade on its row to choose what to keep"
+      "edited_keys": "You edited settings of this model. Use Upgrade on its row to choose what to keep",
+      "run_not_human_surface": "This update needs you to confirm it in the browser.",
+      "forbidden": "Your account cannot update add-ons.",
+      "run_unavailable": "Update runs are not available on this server."
     },
     "upgradeNamed": "Update {{name}}",
     "why": {

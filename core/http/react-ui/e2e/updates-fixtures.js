@@ -238,6 +238,7 @@ export function runOf(items, extra = {}) {
 //   polls           the answers of GET /runs/:id in order; the last one repeats
 //   startReply(body, state) the answer of POST /runs: a run, or { status, json } to refuse
 //   previews, starts, cancels, itemCancels, retries, dismissed: what the page sent
+//   startHeaders, retryHeaders: the request headers of each start and retry
 //   onRetry(state)  the run the retry answers (default: the current poll)
 export async function mockUpdateRuns(page, options = {}) {
   const state = {
@@ -249,6 +250,8 @@ export async function mockUpdateRuns(page, options = {}) {
     onRetry: null,
     previews: [],
     starts: [],
+    startHeaders: [],
+    retryHeaders: [],
     cancels: [],
     itemCancels: [],
     retries: [],
@@ -269,6 +272,7 @@ export async function mockUpdateRuns(page, options = {}) {
     if (req.method() === 'POST') {
       const body = req.postDataJSON() || {}
       state.starts.push(body)
+      state.startHeaders.push(req.headers())
       const out = state.startReply ? state.startReply(body, state) : current()
       if (out && out.status) return route.fulfill({ status: out.status, json: out.json })
       if (out && out.id) state.active = [out]
@@ -301,6 +305,7 @@ export async function mockUpdateRuns(page, options = {}) {
   })
   await page.route(/\/api\/updates\/runs\/[^/]+\/retry$/, (route) => {
     state.retries.push(route.request().url())
+    state.retryHeaders.push(route.request().headers())
     const out = state.onRetry ? state.onRetry(state) : current()
     if (out && out.id) state.active = [out]
     return route.fulfill({ json: out })
