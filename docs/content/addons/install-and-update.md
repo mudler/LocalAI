@@ -88,6 +88,14 @@ on the row, or in the dialog when you open it again, stops it while it waits and
 while it can still stop. After a cancel the row returns to its state, the
 version that runs keeps running, and the approval is asked again.
 
+If the new version does not start, the previous version keeps running and the
+page shows a generic failure. The server log has the reason in the
+`Addon operation failed` line. It names a stage, for example
+`process_exited_before_handshake`, `readiness_timeout` or
+`executable_missing`, and, when the process ended, its exit status and the last
+line that it wrote (cut to 200 bytes, without credentials). The log is the only
+place with this text; it is not part of the API answer.
+
 The API is `POST /api/addons/host-grants/queue`, which takes the same approval
 as `POST /api/addons/host-grants/install` for each add-on and answers with the
 job ID of each install. An item with `"action": "upgrade"` queues the upgrade of
