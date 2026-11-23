@@ -33,6 +33,14 @@ type AutoUpgradeResult struct {
 	HeldForApproval bool
 }
 
+// AutoUpgradeCandidate is an add-on the automatic upgrade would upgrade now.
+type AutoUpgradeCandidate struct {
+	AddonID         string
+	From, To        string
+	InstalledDigest string
+	CandidateDigest string
+}
+
 // AutoUpgrade checks every installed add-on against its library, fetching the
 // library again, and upgrades each one that has a newer release. It builds the
 // same pinned upgrade command an administrator sends and runs it through the
@@ -42,6 +50,62 @@ type AutoUpgradeResult struct {
 // that failed once is not tried again until the library lists another digest,
 // so a bad release does not fill the journal every cycle.
 func (m *Manager) AutoUpgrade(ctx context.Context) []AutoUpgradeResult {
+	checker, ids := m.autoIDs(ctx)
+	if checker == nil {
+		return nil
+	}
+	var out []AutoUpgradeResult
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			break
+		}
+		if r, ok := m.autoUpgradeOne(ctx, checker, id); ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// AutoUpgradePending lists the add-ons the automatic upgrade would upgrade
+// now, from a fresh check of their libraries, and changes nothing. An add-on
+// whose candidate already failed in an earlier pass is left out, as
+// AutoUpgrade skips it. An upgrade run uses it to know what to start.
+func (m *Manager) AutoUpgradePending(ctx context.Context) []AutoUpgradeCandidate {
+	checker, ids := m.autoIDs(ctx)
+	if checker == nil {
+		return nil
+	}
+	var out []AutoUpgradeCandidate
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			break
+		}
+		st, e := checker.Check(ctx, id, true)
+		if e != nil || st.State != updates.UpdateAvailable || m.autoFailed(id, st.CandidateDigest) {
+			continue
+		}
+		out = append(out, AutoUpgradeCandidate{AddonID: id, From: st.InstalledVersion, To: st.CandidateVersion,
+			InstalledDigest: st.InstalledDigest, CandidateDigest: st.CandidateDigest})
+	}
+	return out
+}
+
+// AutoUpgradeOne upgrades one add-on as AutoUpgrade does, with the same
+// rules: the owner's own actor, the pinned digests, no approval given on
+// behalf of anybody (a candidate that needs one is held), and no new try of a
+// candidate that failed. ok is false when the add-on has no update now.
+func (m *Manager) AutoUpgradeOne(ctx context.Context, id string) (AutoUpgradeResult, bool) {
+	m.mu.Lock()
+	checker := m.updates
+	m.mu.Unlock()
+	if checker == nil {
+		return AutoUpgradeResult{}, false
+	}
+	return m.autoUpgradeOne(ctx, checker, id)
+}
+
+// autoIDs returns the update checker and the installed add-ons, sorted.
+func (m *Manager) autoIDs(ctx context.Context) (*updates.Checker, []string) {
 	m.mu.Lock()
 	checker := m.updates
 	var ids []string
@@ -54,45 +118,41 @@ func (m *Manager) AutoUpgrade(ctx context.Context) []AutoUpgradeResult {
 	}
 	m.mu.Unlock()
 	if checker == nil {
-		return nil
+		return nil, nil
 	}
 	sort.Strings(ids)
-	var out []AutoUpgradeResult
-	for _, id := range ids {
-		if ctx.Err() != nil {
-			break
-		}
-		st, e := checker.Check(ctx, id, true)
-		if e != nil || st.State != updates.UpdateAvailable {
-			continue
-		}
-		r := AutoUpgradeResult{AddonID: id, From: st.InstalledVersion, To: st.CandidateVersion, CandidateDigest: st.CandidateDigest}
-		if m.autoFailed(id, st.CandidateDigest) {
-			r.SkippedAsFailure = true
-			out = append(out, r)
-			continue
-		}
-		r.OperationID = fmt.Sprintf("auto-%s-%d", id, time.Now().UnixNano())
-		xlog.Info("Auto-upgrading add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion)
-		_, r.Err = m.submit(ctx, AutoUpgradeActor, LifecycleCommand{
-			OperationID: r.OperationID, AddonID: id, Action: "upgrade", Generation: st.Generation,
-			ExpectedDigest: st.InstalledDigest, CandidateDigest: st.CandidateDigest,
-		}, true)
-		if r.Err != nil {
-			var refusal *HostRequirementsRefusal
-			r.HeldForApproval = errors.As(r.Err, &refusal) && !refusal.Blocked()
-			if r.HeldForApproval {
-				m.holdUpgrade(id, st.CandidateVersion, append(slices.Clone(refusal.Summary.MissingRequired), refusal.Summary.MissingOptional...))
-			}
-			m.rememberAutoFailure(id, st.CandidateDigest)
-			xlog.Error("Failed to auto-upgrade add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion, "error", r.Err)
-		} else {
-			r.Upgraded = true
-			xlog.Info("Add-on upgraded automatically", "addon", id, "version", st.CandidateVersion)
-		}
-		out = append(out, r)
+	return checker, ids
+}
+
+func (m *Manager) autoUpgradeOne(ctx context.Context, checker *updates.Checker, id string) (AutoUpgradeResult, bool) {
+	st, e := checker.Check(ctx, id, true)
+	if e != nil || st.State != updates.UpdateAvailable {
+		return AutoUpgradeResult{}, false
 	}
-	return out
+	r := AutoUpgradeResult{AddonID: id, From: st.InstalledVersion, To: st.CandidateVersion, CandidateDigest: st.CandidateDigest}
+	if m.autoFailed(id, st.CandidateDigest) {
+		r.SkippedAsFailure = true
+		return r, true
+	}
+	r.OperationID = fmt.Sprintf("auto-%s-%d", id, time.Now().UnixNano())
+	xlog.Info("Auto-upgrading add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion)
+	_, r.Err = m.submit(ctx, AutoUpgradeActor, LifecycleCommand{
+		OperationID: r.OperationID, AddonID: id, Action: "upgrade", Generation: st.Generation,
+		ExpectedDigest: st.InstalledDigest, CandidateDigest: st.CandidateDigest,
+	}, true)
+	if r.Err != nil {
+		var refusal *HostRequirementsRefusal
+		r.HeldForApproval = errors.As(r.Err, &refusal) && !refusal.Blocked()
+		if r.HeldForApproval {
+			m.holdUpgrade(id, st.CandidateVersion, append(slices.Clone(refusal.Summary.MissingRequired), refusal.Summary.MissingOptional...))
+		}
+		m.rememberAutoFailure(id, st.CandidateDigest)
+		xlog.Error("Failed to auto-upgrade add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion, "error", r.Err)
+	} else {
+		r.Upgraded = true
+		xlog.Info("Add-on upgraded automatically", "addon", id, "version", st.CandidateVersion)
+	}
+	return r, true
 }
 
 func (m *Manager) autoFailed(id, digest string) bool {
