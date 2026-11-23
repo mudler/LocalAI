@@ -3,6 +3,10 @@ import { updateRunsApi } from '../utils/api'
 import { initialRunState, isRunning, requestItemOf, startItems, upgradeRunReducer } from '../utils/upgradeRun'
 
 const POLL_MS = 2000
+
+// The refusal of the server: { code, key, message } in the body of the answer.
+const codeOf = (e) => (e && e.body && typeof e.body.code === 'string' ? e.body.code : '')
+const messageOf = (e) => (e && e.body && typeof e.body.message === 'string' && e.body.message) || (e && e.message) || ''
 // With no run going, a run started elsewhere (another tab, an automatic pass)
 // is looked for now and then.
 const IDLE_MS = 15000
@@ -93,12 +97,15 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
       send({ type: 'started', run: out })
       return out
     } catch (e) {
-      send({ type: 'startFailed', code: (e && e.body && e.body.code) || '', error: e && e.message ? e.message : '' })
+      send({ type: 'startFailed', code: codeOf(e), error: messageOf(e) })
+      // Another tab or an automatic pass started a run: show it.
+      if (codeOf(e) === 'run_active') load()
       return null
     }
-  }, [send])
+  }, [send, load])
 
-  // One call on the shown run that answers the new run.
+  // One call on the shown run that answers the run to show: the same run, or
+  // for a retry a new run (the old one stays finished).
   const act = useCallback(async (busy, call) => {
     const cur = stateRef.current.run
     if (!cur || stateRef.current.busy) return
@@ -107,8 +114,10 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
       const out = await call(cur.id)
       if (out && typeof out === 'object' && out.id) send({ type: 'run', run: out })
       send({ type: 'busy', busy: '' })
+      return out && out.id ? out : null
     } catch (e) {
-      send({ type: 'error', error: e && e.message ? e.message : '' })
+      send({ type: 'error', error: messageOf(e), code: codeOf(e) })
+      return null
     }
   }, [send])
 
@@ -123,7 +132,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
       await updateRunsApi.dismiss(cur.id)
       send({ type: 'dismissed' })
     } catch (e) {
-      send({ type: 'error', error: e && e.message ? e.message : '' })
+      send({ type: 'error', error: messageOf(e), code: codeOf(e) })
     }
   }, [send])
 
@@ -133,6 +142,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     loaded: state.loaded,
     busy: state.busy,
     error: state.error,
+    errorCode: state.errorCode,
     review: state.review,
     openReview,
     closeReview: useCallback(() => send({ type: 'reviewClose' }), [send]),

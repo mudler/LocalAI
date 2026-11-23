@@ -17,6 +17,7 @@ import { useUpdateActions } from '../hooks/useUpdateActions'
 import { useUpgradeRun } from '../hooks/useUpgradeRun'
 import { backendsApi } from '../utils/api'
 import { isRunning, runKeys } from '../utils/upgradeRun'
+import { upgradeFailureWords } from '../components/addons/updateReview'
 import {
   breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, isPending, normalizeFilter,
 } from '../utils/updates'
@@ -59,6 +60,7 @@ function UpdatesUnavailable() {
 
 function UpdatesPage({ updates }) {
   const { t } = useTranslation('updates')
+  const { t: ta } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const filter = normalizeFilter(params.get('filter'))
   const runParam = params.get('run') || ''
@@ -143,6 +145,17 @@ function UpdatesPage({ updates }) {
       }, { replace: true })
     }
   }, [upgrade, setParams])
+  // A retry is a new run (the old one stays finished): follow it.
+  const onRetryRun = useCallback(async () => {
+    const next = await upgrade.retry()
+    if (next && next.id) {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev)
+        out.set('run', next.id)
+        return out
+      }, { replace: true })
+    }
+  }, [upgrade, setParams])
   const onDismiss = useCallback(async () => {
     await upgrade.dismiss()
     setParams((prev) => {
@@ -167,7 +180,7 @@ function UpdatesPage({ updates }) {
   // of the last check, else the result of the last model action. It is the one
   // live region of the page.
   let result = ''
-  if (upgrade.error) result = t('run.actionFailed', { message: upgrade.error })
+  if (upgrade.error || upgrade.errorCode) result = t('run.actionFailed', { message: upgrade.errorCode ? upgradeFailureWords(upgrade.errorCode, ta, upgrade.error) : upgrade.error })
   else if (model.announcement) result = model.announcement
   else if (updates.lastCheck && !updates.checking) {
     const failed = updates.sources.filter(s => s.state === 'failed').length
@@ -206,12 +219,15 @@ function UpdatesPage({ updates }) {
       onCheck={actions.check}
       checking={actions.checking(row)}
       locked={runActive}
+      lockedReason={runActive ? t('run.busy') : ''}
       model={model.actions}
     />
   )
 
+  // `rows` is a dependency: the names arrive with the lists, which may answer
+  // after the run.
   const runItems = useMemo(() => (shownRun && Array.isArray(shownRun.items) ? shownRun.items : [])
-    .map(i => ({ ...i, displayName: names.current.get(i.key) || i.name })), [shownRun])
+    .map(i => ({ ...i, displayName: (rowsByKey.get(i.key) || {}).name || names.current.get(i.key) || i.name })), [shownRun, rowsByKey])
 
   const body = () => {
     if (updates.loading) return <SkeletonRows count={4} label={t('loading')} testId="updates-loading" />
@@ -259,7 +275,7 @@ function UpdatesPage({ updates }) {
                   runActive={runActive}
                   busy={upgrade.busy}
                   onCancel={upgrade.cancelItem}
-                  onRetry={upgrade.retry}
+                  onRetry={onRetryRun}
                 />
               ))}
             </ul>
@@ -326,7 +342,7 @@ function UpdatesPage({ updates }) {
           checking={updates.checking}
           cooling={cooling}
           onCancel={upgrade.cancel}
-          onRetry={upgrade.retry}
+          onRetry={onRetryRun}
           onDismiss={onDismiss}
         />
       ) : (

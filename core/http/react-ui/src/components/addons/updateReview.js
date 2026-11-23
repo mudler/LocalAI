@@ -14,7 +14,9 @@ const KNOWN = new Set([
   'upgrade_failed', 'operation_conflict', 'check_failed', 'unknownOutcome', 'auth', 'denied',
   'operationNotFound', 'network', 'unavailable',
   // update runs
-  'download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed',
+  'download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
+  // refusals of the run routes
+  'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found',
 ])
 
 export function upgradeFailureWords(key, t, message = '') {

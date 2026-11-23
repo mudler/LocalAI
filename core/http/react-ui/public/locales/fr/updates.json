@@ -464,23 +464,29 @@
       "afterBackends": "En attente des backends.",
       "oneAddon": "Les extensions se mettent à jour une par une.",
       "waitingFor": "En attente de {{name}}.",
-      "plain": "En attente de démarrage."
+      "plain": "En attente de démarrage.",
+      "afterModels": "En attente des modèles.",
+      "backendLimit": "En attente d’une place libre pour les backends.",
+      "sameBackend": "En attente d’une autre opération sur ce backend.",
+      "oneModel": "Les modèles se mettent à jour un par un."
     },
     "detail": {
       "updating": "Mise à jour en cours",
       "node": "Nœud {{index}} sur {{count}} : {{message}}",
       "failed": "{{reason}}. {{name}} reste en {{version}} et vos données sont inchangées.",
       "rolledBack": "La nouvelle version n’a pas démarré : {{reason}}. {{name}} reste en {{version}} et vos données sont inchangées.",
-      "unconfirmed": "La mise à jour est terminée, mais aucune vérification n’a pu la confirmer. Vérifiez maintenant la version de {{name}}.",
+      "unconfirmed": "Impossible de confirmer. Vérifiez à nouveau la version de {{name}}.",
       "cancelled": "Annulée. {{name}} reste en {{version}}.",
       "skipped": "Ignorée.",
-      "skippedWhy": "Ignorée : {{reason}}."
+      "skippedWhy": "Ignorée : {{reason}}.",
+      "checking": "Vérification que la mise à jour est appliquée."
     },
     "details": {
       "toggle": "Détails",
       "code": "Code : {{code}}",
       "node": "{{name}} : {{phase}}",
       "none": "Le serveur n’a pas donné plus de détails."
-    }
+    },
+    "busy": "Une série de mises à jour est en cours."
   }
 }

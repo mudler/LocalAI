@@ -96,9 +96,10 @@ export function RunStrip({ run, busy, result, onCheck, checking, cooling, onCanc
   const parts = []
   if (running) {
     if (counts.updated) parts.push(t('run.count.updated', { count: counts.updated }))
-    if (counts.running) parts.push(t('run.count.running', { count: counts.running }))
+    // An unconfirmed item of an active run waits for its check: it runs.
+    if (counts.running + counts.unconfirmed) parts.push(t('run.count.running', { count: counts.running + counts.unconfirmed }))
     if (counts.queued) parts.push(t('run.count.waiting', { count: counts.queued }))
-    const failed = counts.failed + counts.rolled_back + counts.unconfirmed
+    const failed = counts.failed + counts.rolled_back
     if (failed) parts.push(t('run.count.attention', { count: failed }))
   } else {
     parts.push(counts.unconfirmed > 0 ? t('run.result.unknown', { count: counts.unconfirmed }) : t('run.result.clean'))

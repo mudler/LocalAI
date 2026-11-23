@@ -464,23 +464,29 @@
       "afterBackends": "백엔드를 기다리는 중입니다.",
       "oneAddon": "애드온은 하나씩 업데이트됩니다.",
       "waitingFor": "{{name}}을(를) 기다리는 중입니다.",
-      "plain": "시작을 기다리는 중입니다."
+      "plain": "시작을 기다리는 중입니다.",
+      "afterModels": "모델을 기다리는 중입니다.",
+      "backendLimit": "빈 백엔드 슬롯을 기다리는 중입니다.",
+      "sameBackend": "이 백엔드의 다른 작업을 기다리는 중입니다.",
+      "oneModel": "모델은 하나씩 업데이트됩니다."
     },
     "detail": {
       "updating": "업데이트 중",
       "node": "노드 {{count}}개 중 {{index}}번째: {{message}}",
       "failed": "{{reason}}. {{name}}은(는) 여전히 {{version}}이며 데이터는 바뀌지 않았습니다.",
       "rolledBack": "새 버전이 시작되지 않았습니다: {{reason}}. {{name}}은(는) 여전히 {{version}}이며 데이터는 바뀌지 않았습니다.",
-      "unconfirmed": "업데이트는 끝났지만 확인으로 검증하지 못했습니다. 지금 확인하여 {{name}}의 버전을 보세요.",
+      "unconfirmed": "확인하지 못했습니다. 다시 확인하여 {{name}}의 버전을 보세요.",
       "cancelled": "취소되었습니다. {{name}}은(는) 여전히 {{version}}입니다.",
       "skipped": "건너뛰었습니다.",
-      "skippedWhy": "건너뜀: {{reason}}."
+      "skippedWhy": "건너뜀: {{reason}}.",
+      "checking": "업데이트가 적용되었는지 확인하는 중입니다."
     },
     "details": {
       "toggle": "세부 정보",
       "code": "코드: {{code}}",
       "node": "{{name}}: {{phase}}",
       "none": "서버가 더 이상의 세부 정보를 주지 않았습니다."
-    }
+    },
+    "busy": "업데이트 실행이 진행 중입니다."
   }
 }

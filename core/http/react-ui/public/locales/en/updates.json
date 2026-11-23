@@ -464,23 +464,29 @@
       "afterBackends": "Waiting for the backends.",
       "oneAddon": "Add-ons update one at a time.",
       "waitingFor": "Waiting for {{name}}.",
-      "plain": "Waiting to start."
+      "plain": "Waiting to start.",
+      "afterModels": "Waiting for the models.",
+      "backendLimit": "Waiting for a free backend slot.",
+      "sameBackend": "Waiting for another operation on this backend.",
+      "oneModel": "Models update one at a time."
     },
     "detail": {
       "updating": "Updating",
       "node": "Node {{index}} of {{count}}: {{message}}",
       "failed": "{{reason}}. {{name}} is still on {{version}} and your data is unchanged.",
       "rolledBack": "The new version did not start: {{reason}}. {{name}} is still on {{version}} and your data is unchanged.",
-      "unconfirmed": "The update ended, but no check could confirm it. Check now to see which version {{name}} is on.",
+      "unconfirmed": "Could not confirm. Check again to see which version {{name}} is on.",
       "cancelled": "Cancelled. {{name}} is still on {{version}}.",
       "skipped": "Skipped.",
-      "skippedWhy": "Skipped: {{reason}}."
+      "skippedWhy": "Skipped: {{reason}}.",
+      "checking": "Checking that the update applied."
     },
     "details": {
       "toggle": "Details",
       "code": "Code: {{code}}",
       "node": "{{name}}: {{phase}}",
       "none": "The server gave no more details."
-    }
+    },
+    "busy": "An update run is in progress."
   }
 }

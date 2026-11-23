@@ -640,7 +640,16 @@
       "stale": "A newer version came out after the review. Check for updates again",
       "held": "The update waits for your approval",
       "unknown": "The update failed",
-      "unconfirmed": "The result of the update could not be confirmed"
+      "unconfirmed": "The result of the update could not be confirmed",
+      "run_active": "An update run is in progress. This page shows it",
+      "source_unchecked": "The update check is unavailable. Check again",
+      "run_not_finished": "The run has not finished yet",
+      "nothing_to_retry": "Nothing in this run can be retried",
+      "not_cancellable": "This update can no longer be cancelled",
+      "run_finished": "The run has already finished",
+      "invalid": "The request was not valid",
+      "not_found": "The server does not know this run any more",
+      "edited_keys": "You edited settings of this model. Use Upgrade on its row to choose what to keep"
     },
     "upgradeNamed": "Update {{name}}",
     "why": {

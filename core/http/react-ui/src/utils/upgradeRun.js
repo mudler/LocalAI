@@ -124,8 +124,9 @@ export const initialRunState = {
   run: null,
   // False until the first answer, so the page does not claim "no run" early.
   loaded: false,
-  // The words of the last action that failed ('' for none).
+  // The last action that failed: the server's message and its code ('' for none).
   error: '',
+  errorCode: '',
   // Which action waits for the server: start, cancel, retry, dismiss or ''.
   busy: '',
   // Ids of runs the person dismissed: a poll that was already on its way does
@@ -146,12 +147,14 @@ export function upgradeRunReducer(state, action) {
       if (action.from === 'poll' && (!state.run || !run || state.run.id !== run.id)) return state
       return { ...state, run, loaded: true }
     }
+    // A server that cannot list runs has none to show; the page says nothing
+    // about it (the next look comes with the idle poll).
     case 'loadFailed':
-      return { ...state, loaded: true, error: action.error || '' }
+      return { ...state, loaded: true }
     case 'error':
-      return { ...state, busy: '', error: action.error || '' }
+      return { ...state, busy: '', error: action.error || '', errorCode: action.code || '' }
     case 'busy':
-      return { ...state, busy: action.busy || '', error: action.busy ? '' : state.error }
+      return action.busy ? { ...state, busy: action.busy, error: '', errorCode: '' } : { ...state, busy: '' }
     case 'reviewOpen':
       return { ...state, review: { status: 'loading', single: Boolean(action.single), items: [], order: [], selected: [], error: '', code: '' } }
     case 'reviewReady': {
@@ -185,10 +188,10 @@ export function upgradeRunReducer(state, action) {
     case 'startFailed':
       return { ...state, busy: '', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
     case 'started':
-      return { ...state, busy: '', error: '', review: null, run: action.run || state.run, loaded: true }
+      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true }
     case 'dismissed': {
       const id = state.run ? state.run.id : action.id
-      return { ...state, busy: '', error: '', run: null, dismissed: id ? [...state.dismissed, id] : state.dismissed }
+      return { ...state, busy: '', error: '', errorCode: '', run: null, dismissed: id ? [...state.dismissed, id] : state.dismissed }
     }
     default:
       return state

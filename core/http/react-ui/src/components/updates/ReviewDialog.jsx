@@ -147,7 +147,7 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
                       <div className="up-row__main">
                         <span className="up-row__name">
                           {name}
-                          <Tag>{t(`row.tag.${item.kind}`)}</Tag>
+                          <span className="uc-row__tag">{t(`row.tag.${item.kind}`)}</span>
                           {item.kind === 'addon' && <Tag tone="warn" testId="update-review-backup">{t('review.backsUp')}</Tag>}
                         </span>
                         <span className="up-row__versions">{versions(item)}</span>

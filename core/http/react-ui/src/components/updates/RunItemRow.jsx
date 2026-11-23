@@ -31,25 +31,41 @@ const trimStop = (s) => String(s || '').trim().replace(/[.\s]+$/, '')
 export function failureText(item, name, t, ta) {
   const version = item.from || '?'
   if (item.phase === 'unconfirmed') return t('run.detail.unconfirmed', { name })
+  // A rolled-back item did not start; the server's words say why, when it has them.
+  if (item.phase === 'rolled_back' && item.error) {
+    return t('run.detail.rolledBack', { reason: trimStop(item.error), name, version })
+  }
   if (item.phase === 'rolled_back') {
-    const reason = trimStop(item.error || upgradeFailureWords(item.error_key || 'start', ta))
-    return t('run.detail.rolledBack', { reason, name, version })
+    return t('run.detail.failed', { reason: trimStop(upgradeFailureWords(item.error_key || 'start', ta)), name, version })
   }
   const reason = trimStop(upgradeFailureWords(item.error_key || 'unknown', ta, item.error))
   return t('run.detail.failed', { reason, name, version })
 }
 
 // Why a queued item waits, from the reason the planner gave.
+// A reason this build does not know says only that the item waits.
 function queuedText(item, items, t) {
-  if (item.queued_reason === 'after_backends') {
-    return item.kind === 'addon' ? `${t('run.queued.afterBackends')} ${t('run.queued.oneAddon')}` : t('run.queued.afterBackends')
-  }
-  if (item.queued_reason === 'one_addon_at_a_time') {
+  const before = (kind) => {
     const at = items.indexOf(item)
-    const before = items.slice(0, at).reverse().find(i => i.kind === 'addon' && !isEnded(i))
-    return before ? t('run.queued.waitingFor', { name: before.displayName || before.name }) : t('run.queued.oneAddon')
+    return items.slice(0, at).reverse().find(i => i.kind === kind && !isEnded(i))
   }
-  return t('run.queued.plain')
+  switch (item.queued_reason) {
+    case 'after_backends':
+      return item.kind === 'addon' ? `${t('run.queued.afterBackends')} ${t('run.queued.oneAddon')}` : t('run.queued.afterBackends')
+    case 'after_models':
+      return item.kind === 'addon' ? `${t('run.queued.afterModels')} ${t('run.queued.oneAddon')}` : t('run.queued.afterModels')
+    case 'backend_limit': return t('run.queued.backendLimit')
+    case 'same_backend': return t('run.queued.sameBackend')
+    case 'one_model_at_a_time': {
+      const prev = before('model')
+      return prev ? t('run.queued.waitingFor', { name: prev.displayName || prev.name }) : t('run.queued.oneModel')
+    }
+    case 'one_addon_at_a_time': {
+      const prev = before('addon')
+      return prev ? t('run.queued.waitingFor', { name: prev.displayName || prev.name }) : t('run.queued.oneAddon')
+    }
+    default: return t('run.queued.plain')
+  }
 }
 
 // What a running item does now: the server's message, and on a backend that
@@ -75,11 +91,16 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
   const name = item.displayName || item.name
   const origin = row ? originText(row, t) : ''
   const nodes = Array.isArray(item.nodes) ? item.nodes : []
-  const attention = needsAttention(item)
-  const chip = CHIP[item.phase] || CHIP.queued
+  // While the run is active, an unconfirmed item is the server's fresh check
+  // after the operation: it is still in progress, not a problem. In a run that
+  // ended, no check could answer: it is settled and needs a look.
+  const checking = runActive && item.phase === 'unconfirmed'
+  const attention = needsAttention(item) && !checking
+  const chip = checking ? CHIP.running : (CHIP[item.phase] || CHIP.queued)
   let detail = null
   if (item.phase === 'queued') detail = { tone: 'muted', text: queuedText(item, items, t) }
   else if (item.phase === 'running') detail = { tone: 'accent', text: runningText(item, t) }
+  else if (checking) detail = { tone: 'accent', text: item.message || t('run.detail.checking') }
   else if (attention) detail = { tone: item.phase === 'unconfirmed' ? 'warn' : 'error', text: failureText(item, name, t, ta) }
   else if (item.phase === 'cancelled') detail = { tone: 'muted', text: t('run.detail.cancelled', { name, version: item.from || '?' }) }
   else if (item.phase === 'skipped') detail = { tone: 'muted', text: item.error || item.message ? t('run.detail.skippedWhy', { reason: trimStop(item.error || item.message) }) : t('run.detail.skipped') }
@@ -92,7 +113,7 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
       data-key={item.key}
       data-kind={item.kind}
       data-phase={item.phase}
-      data-state={item.phase === 'running' ? 'updating' : item.phase}
+      data-state={item.phase === 'running' || checking ? 'updating' : item.phase}
     >
       <span className="uc-row__check" />
       <span className="uc-row__tile" data-tone={TILE_TONE[item.phase]}><Icon name={TILE_ICON[item.kind] || 'server'} /></span>
@@ -136,7 +157,7 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
         <StatusChip {...chip} label={chip.status ? undefined : t(`run.phase.${item.phase}`)} testId="run-item-chip" />
       </div>
       <div className="uc-row__acts">
-        {runActive && !isEnded(item) && item.cancellable && (
+        {runActive && !isEnded(item) && !checking && item.cancellable && (
           <Button size="sm" variant="ghost" disabled={Boolean(busy)} onClick={() => onCancel(item.key)} aria-label={t('row.cancelNamed', { name })} data-testid="run-item-cancel">{t('row.cancel')}</Button>
         )}
         {!runActive && attention && item.retryable && (

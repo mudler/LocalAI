@@ -67,7 +67,7 @@ function useDetail(row) {
 // stays empty so the rows line up with the items of an update run. A backend
 // on several nodes adds a link to its per-node page, where each node can be
 // updated on its own.
-export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, model = null }) {
+export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, lockedReason = '', model = null }) {
   const { t } = useTranslation('updates')
   const origin = useOrigin(row)
   const otherDetail = useDetail(row)
@@ -130,13 +130,13 @@ export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, 
           <Button size="sm" variant="ghost" to={`/app/updates/backend/${encodeURIComponent(row.name)}`} aria-label={t('row.nodesNamed', { name: row.name })} data-testid="update-row-nodes">{t('row.nodesAction')}</Button>
         )}
         {row.state === 'ready' && row.startable && (
-          <Button size="sm" disabled={locked} onClick={() => onUpdate(row)} aria-label={t('row.updateNamed', { name: row.name })}>{t('row.update')}</Button>
+          <Button size="sm" disabled={locked} title={lockedReason || undefined} onClick={() => onUpdate(row)} aria-label={t('row.updateNamed', { name: row.name })}>{t('row.update')}</Button>
         )}
         {row.state === 'ready' && !row.startable && row.needsCheck && row.kind === 'addon' && (
           <Button size="sm" icon="refresh" busy={checking} disabled={locked || checking} onClick={() => onCheck(row)} aria-label={t('row.checkNamed', { name: row.name })}>{t('row.check')}</Button>
         )}
         {row.state === 'failed' && (
-          <Button size="sm" icon="refresh" disabled={locked} onClick={() => onRetry(row)} aria-label={t('row.retryNamed', { name: row.name })}>{t('row.retry')}</Button>
+          <Button size="sm" icon="refresh" disabled={locked} title={lockedReason || undefined} onClick={() => onRetry(row)} aria-label={t('row.retryNamed', { name: row.name })}>{t('row.retry')}</Button>
         )}
         {row.state === 'held' && row.grant && (
           <Button size="sm" onClick={() => onReview(row)} aria-label={t('row.reviewNamed', { name: row.name })}>{t('row.review')}</Button>

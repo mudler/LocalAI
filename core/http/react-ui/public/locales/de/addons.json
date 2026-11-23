@@ -640,7 +640,16 @@
       "stale": "Nach der Prüfung ist eine neuere Version erschienen. Suchen Sie erneut nach Aktualisierungen",
       "held": "Die Aktualisierung wartet auf Ihre Freigabe",
       "unknown": "Die Aktualisierung ist fehlgeschlagen",
-      "unconfirmed": "Das Ergebnis der Aktualisierung konnte nicht bestätigt werden"
+      "unconfirmed": "Das Ergebnis der Aktualisierung konnte nicht bestätigt werden",
+      "run_active": "Ein Aktualisierungslauf ist im Gange. Diese Seite zeigt ihn",
+      "source_unchecked": "Die Update-Prüfung ist nicht verfügbar. Prüfen Sie erneut",
+      "run_not_finished": "Der Lauf ist noch nicht beendet",
+      "nothing_to_retry": "In diesem Lauf kann nichts wiederholt werden",
+      "not_cancellable": "Diese Aktualisierung kann nicht mehr abgebrochen werden",
+      "run_finished": "Der Lauf ist bereits beendet",
+      "invalid": "Die Anfrage war ungültig",
+      "not_found": "Der Server kennt diesen Lauf nicht mehr",
+      "edited_keys": "Sie haben Einstellungen dieses Modells geändert. Wählen Sie mit „Upgrade“ in seiner Zeile, was bleibt"
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {

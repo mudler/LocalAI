@@ -464,23 +464,29 @@
       "afterBackends": "Wartet auf die Backends.",
       "oneAddon": "Add-ons werden nacheinander aktualisiert.",
       "waitingFor": "Wartet auf {{name}}.",
-      "plain": "Wartet auf den Start."
+      "plain": "Wartet auf den Start.",
+      "afterModels": "Wartet auf die Modelle.",
+      "backendLimit": "Wartet auf einen freien Platz für Backends.",
+      "sameBackend": "Wartet auf einen anderen Vorgang dieses Backends.",
+      "oneModel": "Modelle werden nacheinander aktualisiert."
     },
     "detail": {
       "updating": "Wird aktualisiert",
       "node": "Knoten {{index}} von {{count}}: {{message}}",
       "failed": "{{reason}}. {{name}} ist weiter auf {{version}}, und Ihre Daten sind unverändert.",
       "rolledBack": "Die neue Version ist nicht gestartet: {{reason}}. {{name}} ist weiter auf {{version}}, und Ihre Daten sind unverändert.",
-      "unconfirmed": "Die Aktualisierung ist beendet, aber keine Prüfung konnte sie bestätigen. Prüfen Sie jetzt, welche Version {{name}} hat.",
+      "unconfirmed": "Nicht bestätigt. Prüfen Sie erneut, welche Version {{name}} hat.",
       "cancelled": "Abgebrochen. {{name}} ist weiter auf {{version}}.",
       "skipped": "Übersprungen.",
-      "skippedWhy": "Übersprungen: {{reason}}."
+      "skippedWhy": "Übersprungen: {{reason}}.",
+      "checking": "Prüft, ob die Aktualisierung angewendet wurde."
     },
     "details": {
       "toggle": "Details",
       "code": "Code: {{code}}",
       "node": "{{name}}: {{phase}}",
       "none": "Der Server hat keine weiteren Details genannt."
-    }
+    },
+    "busy": "Ein Aktualisierungslauf ist im Gange."
   }
 }

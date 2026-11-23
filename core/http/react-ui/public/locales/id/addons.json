@@ -640,7 +640,16 @@
       "stale": "Versi yang lebih baru muncul setelah peninjauan. Periksa pembaruan lagi",
       "held": "Pembaruan menunggu persetujuan Anda",
       "unknown": "Pembaruan gagal",
-      "unconfirmed": "Hasil pembaruan tidak dapat dikonfirmasi"
+      "unconfirmed": "Hasil pembaruan tidak dapat dikonfirmasi",
+      "run_active": "Rangkaian pembaruan sedang berjalan. Halaman ini menampilkannya",
+      "source_unchecked": "Pemeriksaan pembaruan tidak tersedia. Periksa lagi",
+      "run_not_finished": "Rangkaian belum selesai",
+      "nothing_to_retry": "Tidak ada yang bisa dicoba lagi dalam rangkaian ini",
+      "not_cancellable": "Pembaruan ini tidak bisa dibatalkan lagi",
+      "run_finished": "Rangkaian sudah selesai",
+      "invalid": "Permintaan tidak valid",
+      "not_found": "Server tidak lagi mengenal rangkaian ini",
+      "edited_keys": "Anda mengubah pengaturan model ini. Gunakan Perbarui di barisnya untuk memilih yang dipertahankan"
     },
     "upgradeNamed": "Perbarui {{name}}",
     "why": {

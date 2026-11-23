@@ -644,7 +644,16 @@
       "stale": "Une version plus récente est sortie après la vérification. Recherchez à nouveau les mises à jour",
       "held": "La mise à jour attend votre approbation",
       "unknown": "La mise à jour a échoué",
-      "unconfirmed": "Le résultat de la mise à jour n’a pas pu être confirmé"
+      "unconfirmed": "Le résultat de la mise à jour n’a pas pu être confirmé",
+      "run_active": "Une série de mises à jour est en cours. Cette page l’affiche",
+      "source_unchecked": "La vérification des mises à jour n’est pas disponible. Vérifiez à nouveau",
+      "run_not_finished": "La série n’est pas encore terminée",
+      "nothing_to_retry": "Rien dans cette série ne peut être relancé",
+      "not_cancellable": "Cette mise à jour ne peut plus être annulée",
+      "run_finished": "La série est déjà terminée",
+      "invalid": "La demande n’était pas valide",
+      "not_found": "Le serveur ne connaît plus cette série",
+      "edited_keys": "Vous avez modifié des réglages de ce modèle. Utilisez Mettre à niveau sur sa ligne pour choisir quoi garder"
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {

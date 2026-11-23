@@ -464,23 +464,29 @@
       "afterBackends": "正在等待后端。",
       "oneAddon": "插件逐个更新。",
       "waitingFor": "正在等待 {{name}}。",
-      "plain": "等待开始。"
+      "plain": "等待开始。",
+      "afterModels": "正在等待模型。",
+      "backendLimit": "正在等待空闲的后端名额。",
+      "sameBackend": "正在等待此后端的另一项操作。",
+      "oneModel": "模型逐个更新。"
     },
     "detail": {
       "updating": "正在更新",
       "node": "节点 {{index}}/{{count}}:{{message}}",
       "failed": "{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
       "rolledBack": "新版本未能启动:{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
-      "unconfirmed": "更新已结束,但没有检查能确认它。请立即检查 {{name}} 当前的版本。",
+      "unconfirmed": "无法确认。请再次检查 {{name}} 当前的版本。",
       "cancelled": "已取消。{{name}} 仍是 {{version}}。",
       "skipped": "已跳过。",
-      "skippedWhy": "已跳过:{{reason}}。"
+      "skippedWhy": "已跳过:{{reason}}。",
+      "checking": "正在检查更新是否已生效。"
     },
     "details": {
       "toggle": "详情",
       "code": "代码:{{code}}",
       "node": "{{name}}:{{phase}}",
       "none": "服务器没有提供更多详情。"
-    }
+    },
+    "busy": "有一次更新正在进行。"
   }
 }

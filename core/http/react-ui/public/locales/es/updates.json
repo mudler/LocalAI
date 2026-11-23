@@ -464,23 +464,29 @@
       "afterBackends": "Esperando a los backends.",
       "oneAddon": "Los complementos se actualizan de uno en uno.",
       "waitingFor": "Esperando a {{name}}.",
-      "plain": "Esperando para empezar."
+      "plain": "Esperando para empezar.",
+      "afterModels": "Esperando a los modelos.",
+      "backendLimit": "Esperando un hueco libre para backends.",
+      "sameBackend": "Esperando a otra operación de este backend.",
+      "oneModel": "Los modelos se actualizan de uno en uno."
     },
     "detail": {
       "updating": "Actualizando",
       "node": "Nodo {{index}} de {{count}}: {{message}}",
       "failed": "{{reason}}. {{name}} sigue en {{version}} y sus datos no han cambiado.",
       "rolledBack": "La nueva versión no arrancó: {{reason}}. {{name}} sigue en {{version}} y sus datos no han cambiado.",
-      "unconfirmed": "La actualización terminó, pero ninguna comprobación pudo confirmarla. Compruebe ahora qué versión tiene {{name}}.",
+      "unconfirmed": "No se pudo confirmar. Compruebe de nuevo qué versión tiene {{name}}.",
       "cancelled": "Cancelada. {{name}} sigue en {{version}}.",
       "skipped": "Omitida.",
-      "skippedWhy": "Omitida: {{reason}}."
+      "skippedWhy": "Omitida: {{reason}}.",
+      "checking": "Comprobando que la actualización se aplicó."
     },
     "details": {
       "toggle": "Detalles",
       "code": "Código: {{code}}",
       "node": "{{name}}: {{phase}}",
       "none": "El servidor no dio más detalles."
-    }
+    },
+    "busy": "Hay una tanda de actualizaciones en curso."
   }
 }

@@ -106,12 +106,23 @@ test('upgrade run: a poll answers only for the run it asked about, and a dismiss
   assert.equal(upgradeRunReducer(s, { type: 'run', run: other, from: 'poll' }).run, null, 'a poll never brings a run of its own')
 })
 
-test('upgrade run: an action that fails says why and frees the buttons', () => {
-  const s = reduce([{ type: 'run', run: runOf([]) }, { type: 'busy', busy: 'cancel' }, { type: 'error', error: 'HTTP 409' }])
+test('upgrade run: an action that fails says why, with the code of the refusal, and frees the buttons', () => {
+  const s = reduce([{ type: 'run', run: runOf([]) }, { type: 'busy', busy: 'cancel' }, { type: 'error', error: 'cannot cancel', code: 'not_cancellable' }])
   assert.equal(s.busy, '')
-  assert.equal(s.error, 'HTTP 409')
-  assert.equal(upgradeRunReducer(s, { type: 'busy', busy: 'retry' }).error, '', 'a new action clears the old words')
+  assert.equal(s.error, 'cannot cancel')
+  assert.equal(s.errorCode, 'not_cancellable')
+  const next = upgradeRunReducer(s, { type: 'busy', busy: 'retry' })
+  assert.equal(next.error, '', 'a new action clears the old words')
+  assert.equal(next.errorCode, '')
+  assert.equal(upgradeRunReducer(next, { type: 'busy', busy: '' }).busy, '')
   assert.equal(reduce([{ type: 'loadFailed', error: 'down' }]).loaded, true)
+})
+
+test('upgrade run: a retry answers a new run, and the page follows it; the old one is not polled any more', () => {
+  let s = reduce([{ type: 'run', run: runOf([item('addon:notes', 'failed', { retryable: true })], { state: 'finished' }) }])
+  s = upgradeRunReducer(s, { type: 'run', run: { ...runOf([item('addon:notes', 'queued')]), id: 'r2' } })
+  assert.equal(s.run.id, 'r2')
+  assert.equal(upgradeRunReducer(s, { type: 'run', run: runOf([], { state: 'finished' }), from: 'poll' }).run.id, 'r2', 'a late poll of the old run is dropped')
 })
 
 test('upgrade run: counts, progress and the items to retry', () => {
@@ -155,6 +166,8 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
   assert.equal(upgradeFailureWords('download', en), 'The new version could not be downloaded')
   assert.equal(upgradeFailureWords('start', en), 'The new version did not start')
   assert.match(upgradeFailureWords('stale', en), /newer version came out/)
+  assert.match(upgradeFailureWords('run_active', en), /update run is in progress/)
+  assert.match(upgradeFailureWords('source_unchecked', en), /check is unavailable\. Check again/)
   assert.match(upgradeFailureWords('upgrade_failed', en), /installed version is kept/, 'the add-on keys are unchanged')
   // A key this build does not know is said with the server's words, else plainly.
   assert.equal(upgradeFailureWords('future_key', en, 'disk full'), 'disk full')
@@ -163,7 +176,8 @@ test('failure words: backend steps, run refusals and add-on keys share one map, 
   assert.match(upgradeFailureWords(undefined, en), /add-on service is not available/)
   for (const l of LOCALES) {
     const t = await addonsT(l)
-    for (const key of ['download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed']) {
+    for (const key of ['download', 'verify', 'swap', 'start', 'not_installed', 'no_update', 'stale', 'held', 'unknown', 'unconfirmed', 'edited_keys',
+      'run_active', 'source_unchecked', 'run_not_finished', 'nothing_to_retry', 'not_cancellable', 'run_finished', 'invalid', 'not_found']) {
       const words = upgradeFailureWords(key, t)
       assert.ok(words && !words.startsWith('updates.'), `${l} ${key}: ${words}`)
     }

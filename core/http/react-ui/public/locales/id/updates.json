@@ -464,23 +464,29 @@
       "afterBackends": "Menunggu backend.",
       "oneAddon": "Add-on diperbarui satu per satu.",
       "waitingFor": "Menunggu {{name}}.",
-      "plain": "Menunggu untuk dimulai."
+      "plain": "Menunggu untuk dimulai.",
+      "afterModels": "Menunggu model.",
+      "backendLimit": "Menunggu slot backend yang kosong.",
+      "sameBackend": "Menunggu operasi lain pada backend ini.",
+      "oneModel": "Model diperbarui satu per satu."
     },
     "detail": {
       "updating": "Memperbarui",
       "node": "Node {{index}} dari {{count}}: {{message}}",
       "failed": "{{reason}}. {{name}} masih di {{version}} dan data Anda tidak berubah.",
       "rolledBack": "Versi baru tidak berjalan: {{reason}}. {{name}} masih di {{version}} dan data Anda tidak berubah.",
-      "unconfirmed": "Pembaruan selesai, tetapi tidak ada pemeriksaan yang dapat mengonfirmasinya. Periksa sekarang versi {{name}}.",
+      "unconfirmed": "Tidak dapat dikonfirmasi. Periksa lagi versi {{name}}.",
       "cancelled": "Dibatalkan. {{name}} masih di {{version}}.",
       "skipped": "Dilewati.",
-      "skippedWhy": "Dilewati: {{reason}}."
+      "skippedWhy": "Dilewati: {{reason}}.",
+      "checking": "Memeriksa apakah pembaruan sudah diterapkan."
     },
     "details": {
       "toggle": "Detail",
       "code": "Kode: {{code}}",
       "node": "{{name}}: {{phase}}",
       "none": "Server tidak memberikan detail lain."
-    }
+    },
+    "busy": "Rangkaian pembaruan sedang berjalan."
   }
 }
