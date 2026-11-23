@@ -38,7 +38,8 @@ type runner struct {
 }
 
 func newRunner(svc *Service, run Run, lock *advisorylock.HeldLock) *runner {
-	ctx, stop := context.WithCancel(svc.ctx)
+	// The checks and the job paths of the run act for its actor.
+	ctx, stop := context.WithCancel(WithActor(svc.ctx, run.Actor))
 	return &runner{
 		svc: svc, id: run.ID, lock: lock, run: run,
 		events: make(chan Event, 64), poke: make(chan struct{}, 1),

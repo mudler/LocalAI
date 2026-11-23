@@ -467,8 +467,8 @@ func (s *Service) activeRun() (*Run, error) {
 // Preview orders the items with an update into a plan, without starting
 // anything. refs limits it to some items; empty lists them all. A start
 // request built from it sends each ExpectedTo back.
-func (s *Service) Preview(ctx context.Context, _ string, refs []ItemRef) (Plan, error) {
-	cands, unchecked := s.candidates(ctx)
+func (s *Service) Preview(ctx context.Context, actor string, refs []ItemRef) (Plan, error) {
+	cands, unchecked := s.candidates(WithActor(ctx, actor))
 	busy := map[string]bool{}
 	active, err := s.activeRun()
 	if err != nil {
@@ -500,7 +500,7 @@ func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Ru
 	if req.Source != SourceManual && req.Source != SourceAuto {
 		return Run{}, refuse(CodeInvalid, "", "unknown source %q", req.Source)
 	}
-	cands, unchecked := s.candidates(ctx)
+	cands, unchecked := s.candidates(WithActor(ctx, actor))
 	items, err := planStart(cands, unchecked, req)
 	if err != nil {
 		return Run{}, err
@@ -627,14 +627,14 @@ func (s *Service) Retry(ctx context.Context, runID string) (Run, error) {
 	}
 	var req StartRequest
 	for _, it := range run.Items {
-		if it.Retryable && retryablePhase(&it) {
+		if it.RetryEligible() {
 			req.Items = append(req.Items, StartItem{Kind: it.Kind, Name: it.Name})
 		}
 	}
 	if len(req.Items) == 0 {
 		return Run{}, refuse(CodeNothingToRetry, "", "no item can be retried")
 	}
-	cands, unchecked := s.candidates(ctx)
+	cands, unchecked := s.candidates(WithActor(ctx, run.Actor))
 	listed := map[string]bool{}
 	for _, c := range cands {
 		listed[c.Key()] = true

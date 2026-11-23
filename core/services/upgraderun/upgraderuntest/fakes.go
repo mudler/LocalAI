@@ -178,6 +178,8 @@ type Options struct {
 	// Jobs replaces the fake status table the runs read (the fake starter
 	// still writes to the fake one).
 	Jobs upgraderun.Jobs
+	// Addons replaces the fake check of the add-ons.
+	Addons upgraderun.Checker
 }
 
 // NewHarness builds a running service on a SQLite database in dir. Close the
@@ -205,6 +207,10 @@ func NewHarness(dir string, o Options) (*Harness, error) {
 	for k, s := range o.Starters {
 		starters[k] = s
 	}
+	checkers := []upgraderun.Checker{h.Backends, h.Models, h.Addons}
+	if o.Addons != nil {
+		checkers[2] = o.Addons
+	}
 	var jobs upgraderun.Jobs = h.Jobs
 	if o.Jobs != nil {
 		jobs = o.Jobs
@@ -212,7 +218,7 @@ func NewHarness(dir string, o Options) (*Harness, error) {
 	svc, err := upgraderun.New(upgraderun.Options{
 		Store: store, Jobs: jobs, Instance: "test",
 		Starters:     starters,
-		Checkers:     []upgraderun.Checker{h.Backends, h.Models, h.Addons},
+		Checkers:     checkers,
 		PollInterval: 10 * time.Millisecond, VerifyRetry: 10 * time.Millisecond, LostAfter: time.Second,
 	})
 	if err != nil {

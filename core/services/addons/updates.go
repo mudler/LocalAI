@@ -137,51 +137,6 @@ func (m *Manager) RefreshUpdates(ctx context.Context) int {
 	return n
 }
 
-// UpdateStatuses is the update status of every installed add-on that has a
-// library, as an administrator reads it, for the host's own upgrade runs
-// (core/services/upgraderun): the plan lists what has an update, and the run
-// checks after an upgrade that the add-on moved. It is never routed and has
-// no actor: the routes and tools read UpdateStatus. fresh fetches the
-// libraries again, rate limited as CheckUpdates is. complete is false when an
-// add-on could not be checked, so a missing one may still have an update.
-func (m *Manager) UpdateStatuses(ctx context.Context, fresh bool) (out []updates.Status, complete bool, err error) {
-	if m.updates == nil {
-		return nil, false, catalog.ErrUnavailable
-	}
-	m.mu.Lock()
-	var ids []string
-	if e := m.check(ctx); e != nil {
-		m.mu.Unlock()
-		return nil, false, e
-	}
-	for id, st := range m.journal.Addons {
-		if !st.Installed {
-			continue
-		}
-		if receipt, ok := currentReceipt(st); ok && receipt.SourceID != zipformat.SourceID {
-			ids = append(ids, id)
-		}
-	}
-	m.mu.Unlock()
-	sort.Strings(ids)
-	complete = true
-	for _, id := range ids {
-		if e := ctx.Err(); e != nil {
-			return out, false, e
-		}
-		st, e := m.updates.Check(ctx, id, fresh)
-		if e != nil {
-			complete = false
-			continue
-		}
-		if st.State == updates.CheckFailed || st.State == updates.Unknown {
-			complete = false
-		}
-		out = append(out, st)
-	}
-	return out, complete, nil
-}
-
 // visibleTo reports whether the actor may read update status of an add-on: an
 // administrator for any installed add-on, anyone else only for an enabled one.
 // Hiding is the same denial for an add-on that does not exist.
