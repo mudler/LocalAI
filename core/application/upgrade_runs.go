@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/updatenotify"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
@@ -126,6 +127,9 @@ func (a *Application) startUpgradeRuns() {
 		defer close(done)
 		svc.Run(ctx)
 	}()
+	// One live row and one end row for each run in the inbox of each
+	// administrator, written by the frontend that runs the run.
+	svc.AddObserver(&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context})
 	a.upgradeRuns = svc
 	a.upgradeRunsStop = func() {
 		stop()
@@ -158,7 +162,12 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 			Gallery:  gs,
 			Validate: upgraderun.ModelValidator(a.ModelUpgrader, a.ModelUpdates),
 		},
-		upgraderun.KindAddon: upgraderun.AddonStarter{Upgrader: a.addonRunUpgrader},
+		upgraderun.KindAddon: autoAddonStarter{
+			inner:   upgraderun.AddonStarter{Upgrader: a.addonRunUpgrader},
+			manager: func() addonAutoUpgrader { return a.autoUpgrader() },
+			queue:   func() addonOpQueue { return a.queueOf() },
+			opCache: a.operationCache,
+		},
 	}
 	if lib := a.BackendLibrary(); lib != nil {
 		starters[upgraderun.KindLibrary] = libraryRunStarter{installer: lib, status: gs}
@@ -294,4 +303,20 @@ func (c addonRunChecker) List(ctx context.Context, fresh bool) (upgraderun.Listi
 		})
 	}
 	return l, nil
+}
+
+// autoUpgrader is the add-on owner for the automatic upgrade, or nil.
+func (a *Application) autoUpgrader() addonAutoUpgrader {
+	if m := a.addonManager; m != nil {
+		return m
+	}
+	return nil
+}
+
+// queueOf is the operation queue for add-on operations, or nil.
+func (a *Application) queueOf() addonOpQueue {
+	if gs := a.GalleryService(); gs != nil {
+		return gs
+	}
+	return nil
 }
