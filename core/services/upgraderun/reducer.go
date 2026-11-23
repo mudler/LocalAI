@@ -95,6 +95,8 @@ type ItemJobEnded struct {
 	Error    string
 	// RolledBack marks a failure that put the previous version back.
 	RolledBack bool
+	// Nodes is the final result of each node, when the operation has one.
+	Nodes []NodeState
 }
 
 // VerifyResult is the answer of the fresh check of an item.
@@ -272,6 +274,9 @@ func Reduce(in Run, ev Event, env Env) Result {
 			return Result{Run: in}
 		}
 		it.Cancellable = false
+		if e.Nodes != nil {
+			it.Nodes = append([]NodeState(nil), e.Nodes...)
+		}
 		switch e.Outcome {
 		case JobOK:
 			// Not updated yet: the operation only says it ended. The item is

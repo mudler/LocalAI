@@ -187,6 +187,36 @@ var _ = Describe("Service", func() {
 			Expect(h.item(r.ID, "addon:notes").ErrorKey).To(Equal("recovery_required"))
 		})
 
+		It("rolls back an item whose backend upgrade put the previous build back, with the result of each node", func() {
+			h.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+			r := h.start(si(KindGallery, "kokoro"))
+			h.jobs.set(h.jobOf("gallery:kokoro"), galleryop.OpStatus{
+				Processed: true, Error: errors.New("the new build did not start on 1 node"), ErrorKey: "start", RolledBack: true,
+				Nodes: []galleryop.NodeProgress{
+					{NodeID: "n1", NodeName: "worker-1", Status: galleryop.NodeStatusRolledBack, Error: "did not start", ErrorKey: "start"},
+					{NodeID: "n2", NodeName: "worker-2", Status: "success", Percentage: 100},
+				},
+			})
+			Eventually(func() Phase { return h.phase(r.ID, "gallery:kokoro") }).Should(Equal(PhaseRolledBack))
+			it := h.item(r.ID, "gallery:kokoro")
+			Expect(it.ErrorKey).To(Equal(ErrKeyStart))
+			Expect(it.Retryable).To(BeTrue())
+			Expect(it.Nodes).To(ConsistOf(
+				NodeState{ID: "n1", Name: "worker-1", Phase: "rolled_back", Message: "did not start", ErrorKey: "start"},
+				NodeState{ID: "n2", Name: "worker-2", Phase: "success", Progress: 100},
+			))
+		})
+
+		It("makes an item unconfirmed when the reply of its worker was lost", func() {
+			h.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+			r := h.start(si(KindGallery, "kokoro"))
+			h.backends.setIncomplete(true)
+			h.jobs.set(h.jobOf("gallery:kokoro"), galleryop.OpStatus{Processed: true, Unconfirmed: true, Message: "worker still installing in background"})
+			Eventually(func() Phase { return h.phase(r.ID, "gallery:kokoro") }).Should(Equal(PhaseUnconfirmed))
+			Eventually(func() RunState { return h.state(r.ID) }).Should(Equal(RunFinished))
+			Expect(h.phase(r.ID, "gallery:kokoro")).To(Equal(PhaseUnconfirmed))
+		})
+
 		It("fails an item whose starter refuses, and skips one the starter says to skip", func() {
 			h.models.add(Candidate{Kind: KindModel, Name: "m"})
 			h.starter.setErr(&StartError{ErrorKey: ErrKeyHeld, Skip: true, Err: errors.New("held")})

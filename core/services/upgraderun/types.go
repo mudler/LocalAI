@@ -139,6 +139,9 @@ type NodeState struct {
 	Phase    string `json:"phase"`
 	Progress int    `json:"progress"`
 	Message  string `json:"message,omitempty"`
+	// ErrorKey is the failure code of the upgrade on this node, when its
+	// phase is error or rolled_back.
+	ErrorKey string `json:"error_key,omitempty"`
 }
 
 // Item is one thing a run updates.

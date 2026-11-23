@@ -86,7 +86,7 @@ func viewOf(kind Kind, st *galleryop.OpStatus, lastPhase string) jobView {
 		cancellable: st.Cancellable && !st.Processed,
 	}
 	for _, n := range st.Nodes {
-		v.nodes = append(v.nodes, NodeState{ID: n.NodeID, Name: n.NodeName, Phase: n.Status, Progress: int(n.Percentage), Message: n.Error})
+		v.nodes = append(v.nodes, NodeState{ID: n.NodeID, Name: n.NodeName, Phase: n.Status, Progress: int(n.Percentage), Message: n.Error, ErrorKey: n.ErrorKey})
 	}
 	if !st.Processed {
 		return v
@@ -101,14 +101,30 @@ func viewOf(kind Kind, st *galleryop.OpStatus, lastPhase string) jobView {
 		v.outcome = JobCancelled
 	case st.Error != nil:
 		v.outcome, v.err = JobError, st.Error.Error()
-		v.errorKey, v.rolledBack = classify(kind, phase, v.err)
+		v.errorKey, v.rolledBack = failureOf(kind, st, phase, v.err)
 	case st.Message != galleryop.MessageCompleted && strings.HasPrefix(st.Message, "error"):
 		v.outcome, v.err = JobError, strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(st.Message, "error"), ":"))
-		v.errorKey, v.rolledBack = classify(kind, phase, v.err)
+		v.errorKey, v.rolledBack = failureOf(kind, st, phase, v.err)
+	case st.Unconfirmed:
+		// The reply of a worker never came: the operation ended without an
+		// outcome, which is what a lost status means to the run.
+		v.outcome = JobLost
 	default:
 		v.outcome = JobOK
 	}
 	return v
+}
+
+// failureOf gives the error key of a failed operation and whether it put the
+// previous version back. The typed code and the rollback flag that the
+// backend upgrade writes into the status win; the phase it failed in is the
+// fallback for the operations that write neither.
+func failureOf(kind Kind, st *galleryop.OpStatus, phase, msg string) (string, bool) {
+	if st.ErrorKey != "" {
+		return st.ErrorKey, st.RolledBack
+	}
+	key, rolledBack := classify(kind, phase, msg)
+	return key, rolledBack || st.RolledBack
 }
 
 // addonCode finds the failure code the add-on owner puts at the end of the

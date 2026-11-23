@@ -283,7 +283,7 @@ func (r *runner) follow(it Item, now time.Time) {
 		r.lastPhase[it.Key] = v.phase
 	}
 	if v.ended {
-		r.apply(ItemJobEnded{Key: it.Key, Outcome: v.outcome, ErrorKey: v.errorKey, Error: v.err, RolledBack: v.rolledBack})
+		r.apply(ItemJobEnded{Key: it.Key, Outcome: v.outcome, ErrorKey: v.errorKey, Error: v.err, RolledBack: v.rolledBack, Nodes: v.nodes})
 		return
 	}
 	msg := v.message
