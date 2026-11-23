@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Voir en tant que",
+    "readonlyTag": "Lecture seule",
+    "actingTag": "Actif",
+    "readonlyLead": "Vue en tant que {{name}}.",
+    "readonlyRest": "Lecture seule.",
+    "actingLead": "Action en tant que {{name}}.",
+    "actingRest": "Les modifications sont faites sur le compte de {{name}} et sont journalisées.",
+    "allow": "Autoriser les modifications",
+    "exit": "Quitter",
+    "exitLabel": "Quitter Voir en tant que {{name}}"
+  },
+  "confirm": {
+    "title": "Autoriser les modifications sur le compte de {{name}} ?",
+    "intro": "Vous allez agir en tant que {{name}}. C'est effectif tout de suite, sur chaque page qui suit Voir en tant que.",
+    "can": "Vous pouvez créer, modifier et supprimer les projets de {{name}}.",
+    "logged": "Chaque modification est journalisée avec vous comme auteur et {{name}} comme compte.",
+    "back": "Vous pouvez revenir en lecture seule depuis la barre à tout moment.",
+    "stay": "Rester en lecture seule",
+    "allow": "Autoriser les modifications",
+    "close": "Fermer"
+  },
+  "scope": {
+    "chip": "Données de {{name}}",
+    "navMark": "Affiche les données de {{name}}",
+    "legend": "Les pages avec ce repère affichent les données de {{name}}. Les autres affichent les vôtres.",
+    "notice": "Cette page affiche vos propres données, pas celles de {{name}}."
+  },
+  "write": {
+    "hint": "Autorisez les modifications pour éditer",
+    "blocked": "Lecture seule. Activez Autoriser les modifications dans la barre pour éditer les données de {{name}}."
+  },
+  "notice": {
+    "idle": "Les modifications ont été désactivées après {{minutes}} minutes d'inactivité. Retour en lecture seule.",
+    "ended": "{{name}} n'est plus disponible, donc Voir en tant que s'est terminé."
+  },
+  "users": {
+    "action": "Voir en tant que",
+    "actionFor": "Voir en tant que {{name}}",
+    "hint": "Voir ce que voit {{name}}. D'abord en lecture seule."
+  },
+  "palette": {
+    "kind": "Voir en tant que",
+    "title": "Voir en tant que {{name}}",
+    "where": "{{email}} · d'abord en lecture seule"
+  }
+}

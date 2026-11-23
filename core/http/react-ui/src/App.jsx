@@ -21,6 +21,9 @@ import { UpdatesProvider } from './contexts/UpdatesContext'
 import { OperateSummaryProvider } from './contexts/OperateSummaryContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
 import { readSidebarCollapsed } from './utils/sidebarState'
+import { ViewAsProvider } from './contexts/ViewAsContext'
+import ViewAsBar from './components/viewas/ViewAsBar'
+import { ViewAsNotice } from './components/viewas/parts'
 
 // The page wrapper is keyed so its transition replays on navigation. Within a
 // hub, collapse the key to the hub id so the layout (and its tab bar)
@@ -121,11 +124,14 @@ export default function App() {
   const themeToggleLabel = theme === 'dark' ? t('switchToLightMode') : t('switchToDarkMode')
 
   return (
+    <ViewAsProvider>
     <InboxProvider features={features}>
     <UpdatesProvider features={features}>
     {/* The Administration sidebar draws its counts from the summary, so the
         provider sits above it; it asks for nothing off an Administration page. */}
     <OperateSummaryProvider enabled={isAdmin && hubOwnsPath(operateHub, location.pathname)}>
+      {/* "View as": above the whole shell, on every page. */}
+      <ViewAsBar addToast={addToast} />
       <div className={layoutClasses}>
         <AppearanceSync />
         <SoundSync />
@@ -176,6 +182,7 @@ export default function App() {
             </div>
           </header>
           <div className="main-content-inner">
+            <ViewAsNotice />
             <div className="page-transition" key={pageTransitionKey(location.pathname)}>
               {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
                   here, inside the App layout. Without it, suspension would bubble
@@ -220,5 +227,6 @@ export default function App() {
     </OperateSummaryProvider>
     </UpdatesProvider>
     </InboxProvider>
+    </ViewAsProvider>
   )
 }

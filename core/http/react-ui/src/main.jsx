@@ -27,6 +27,16 @@ import './components/ui/picker.css'
 import './App.css'
 import './components/remotes/remotes.css'
 import { ShellFallback } from './components/RouteFallback'
+import i18n from 'i18next'
+import { installViewAsFetch, viewAsStore } from './utils/viewAsStore'
+import { basePath } from './utils/basePath'
+
+// "View as" adds user_id to the routes that follow it and stops writes in
+// read-only mode, for every fetch of the app (see utils/viewAsStore.js).
+installViewAsFetch(viewAsStore, {
+  base: basePath,
+  message: (name) => i18n.t('viewas:write.blocked', { name }),
+})
 
 // The first paint is the app shell with placeholders, not a blank window
 // with a spinner, while the translations and the session load.

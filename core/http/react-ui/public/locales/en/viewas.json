@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "View as",
+    "readonlyTag": "Read-only",
+    "actingTag": "Acting",
+    "readonlyLead": "Viewing as {{name}}.",
+    "readonlyRest": "Read-only.",
+    "actingLead": "Acting as {{name}}.",
+    "actingRest": "Changes are made on {{name}}'s account and are logged.",
+    "allow": "Allow changes",
+    "exit": "Exit",
+    "exitLabel": "Exit View as {{name}}"
+  },
+  "confirm": {
+    "title": "Allow changes on {{name}}'s account?",
+    "intro": "You are about to act as {{name}}. This takes effect now, for every page that follows View as.",
+    "can": "You can create, edit and delete {{name}}'s projects.",
+    "logged": "Every change is logged with you as the actor and {{name}} as the account.",
+    "back": "You can switch back to read-only from the bar at any time.",
+    "stay": "Stay read-only",
+    "allow": "Allow changes",
+    "close": "Close"
+  },
+  "scope": {
+    "chip": "{{name}}'s data",
+    "navMark": "Shows {{name}}'s data",
+    "legend": "Pages with this mark show {{name}}'s data. The others show yours.",
+    "notice": "This page shows your own data, not {{name}}'s."
+  },
+  "write": {
+    "hint": "Allow changes to edit",
+    "blocked": "Read-only. Turn on Allow changes in the bar to edit {{name}}'s data."
+  },
+  "notice": {
+    "idle": "Changes were switched off after {{minutes}} minutes without activity. Back to read-only.",
+    "ended": "{{name}} is not available any more, so View as ended."
+  },
+  "users": {
+    "action": "View as",
+    "actionFor": "View as {{name}}",
+    "hint": "See what {{name}} sees. Read-only first."
+  },
+  "palette": {
+    "kind": "View as",
+    "title": "View as {{name}}",
+    "where": "{{email}} · read-only first"
+  }
+}
