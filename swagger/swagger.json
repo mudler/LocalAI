@@ -15523,7 +15523,7 @@
         },
         "/api/models/upgrade/{name}": {
             "post": {
-                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. Without config_only and choices the upgrade runs as an upgrade run of one item (see /api/updates/runs) and the answer adds the run; while another upgrade run runs the request is refused with 409 and code run_active. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. Without config_only and choices the upgrade runs as an upgrade run of one item (see /api/updates/runs) and the answer adds the run; with them it is queued directly. While an upgrade run runs, every request is refused with 409 and code run_active. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
                 "tags": [
                     "models"
                 ],
@@ -15870,7 +15870,7 @@
         },
         "/api/models/{name}/upgrade/retry": {
             "post": {
-                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.",
+                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held, and with 409 and code run_active while an upgrade run runs.",
                 "tags": [
                     "models"
                 ],
@@ -15898,7 +15898,7 @@
                         }
                     },
                     "409": {
-                        "description": "Nothing to retry, held, or an upgrade runs",
+                        "description": "Nothing to retry, held, an upgrade runs, or an upgrade run runs (code run_active)",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
@@ -27017,10 +27017,11 @@
                     "type": "boolean"
                 },
                 "expected_to": {
-                    "description": "ExpectedTo is what a start request should send back as expected_to.",
+                    "description": "ExpectedTo is what a start request should send back as expected_to:\nthe version, or for an add-on the digest of the candidate.",
                     "type": "string"
                 },
                 "from": {
+                    "description": "From and To are the versions for display.",
                     "type": "string"
                 },
                 "key": {
@@ -27061,6 +27062,10 @@
                 },
                 "startable": {
                     "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name a person knows the item by (an add-on's title).",
+                    "type": "string"
                 },
                 "to": {
                     "type": "string"
@@ -43108,10 +43113,11 @@
                     "type": "string"
                 },
                 "expected_to": {
-                    "description": "ExpectedTo is the version or digest the item had to move to when the\nrun was requested. A later change of the target fails the item as\nstale instead of installing something nobody looked at.",
+                    "description": "ExpectedTo is the version or digest the item had to move to when the\nrun was requested (for an add-on the digest of its candidate). A later\nchange of the target fails the item as stale instead of installing\nsomething nobody looked at.",
                     "type": "string"
                 },
                 "from": {
+                    "description": "From and To are the versions for display: the version, or the digest\nwhen there is no version.",
                     "type": "string"
                 },
                 "job_id": {
@@ -43147,6 +43153,10 @@
                 },
                 "retryable": {
                     "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name a person knows the item by (an add-on's title);\nempty when it is Name.",
+                    "type": "string"
                 },
                 "to": {
                     "type": "string"
