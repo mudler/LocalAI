@@ -151,15 +151,15 @@ func (u *QueuedUpgrader) queue() *galleryop.GalleryService {
 	return u.Queue()
 }
 
-// retryableRefusal says whether a run that retries an item the owner refused
-// can succeed: a moved installed package or candidate is read fresh by the
-// retry, a conflict or an incompatible release is not.
-func retryableRefusal(kind string) bool {
-	switch kind {
-	case upgraderun.ErrKeyStaleInstalled, upgraderun.ErrKeyCandidateChanged, upgraderun.ErrKeyCheckFailed:
-		return true
-	}
-	return false
+// ownerRefusal is the start error of an add-on item that the owner refused
+// with a typed failure. Whether a retry can help is the retry table's answer
+// for the type (upgraderun.RetryableKey), the same answer the item of any
+// other failure gets: a moved installed version or candidate, a failed check,
+// an owner that did not answer or an upgrade that failed and kept the
+// installed version can be tried again; an incompatible release, a conflict
+// or a refusal that needs a person cannot.
+func ownerRefusal(f *gateway.UpdateFailure) error {
+	return &upgraderun.StartError{ErrorKey: f.Type, Retryable: upgraderun.RetryableKey(f.Type), Err: errors.New(f.Message)}
 }
 
 // StartAddonUpgrade records the upgrade on the owner as the run's actor and
@@ -206,7 +206,7 @@ func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addon
 			return "", &upgraderun.StartError{ErrorKey: RunErrUnavailable, Retryable: true, Err: errors.New("unreadable answer of the add-on owner")}
 		}
 		if env.Error != nil {
-			return "", &upgraderun.StartError{ErrorKey: env.Error.Type, Retryable: retryableRefusal(env.Error.Type), Err: errors.New(env.Error.Message)}
+			return "", ownerRefusal(env.Error)
 		}
 		var st managerpkg.OperationStatus
 		if json.Unmarshal(env.Data, &st) != nil || st.Phase != "accepted" {

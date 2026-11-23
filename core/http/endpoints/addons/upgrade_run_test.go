@@ -340,3 +340,56 @@ var _ = Describe("add-on items of upgrade runs on a frontend that is not the own
 		Expect(it.JobID).To(BeEmpty())
 	})
 })
+
+// refusingStarter starts no job: it returns the error the add-on starter
+// gives for a typed refusal of the owner.
+type refusingStarter struct{ failure gateway.UpdateFailure }
+
+func (r refusingStarter) Start(context.Context, string, upgraderun.Item) (string, error) {
+	return "", ownerRefusal(&r.failure)
+}
+
+var _ = Describe("an add-on item the owner refuses", Label("updates"), func() {
+	DescribeTable("is retryable exactly when the retry table says so",
+		func(kind string, retryable bool) {
+			h, err := upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{
+				Starters: map[upgraderun.Kind]upgraderun.Starter{
+					upgraderun.KindAddon: refusingStarter{gateway.UpdateFailure{Type: kind, Message: "refused"}},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(h.Service.Close)
+			h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", From: "1", To: "2"})
+			run, err := h.Service.Start(context.Background(), "admin",
+				upgraderun.StartRequest{Items: []upgraderun.StartItem{{Kind: upgraderun.KindAddon, Name: "notes", ExpectedTo: "2"}}})
+			Expect(err).NotTo(HaveOccurred())
+			var it upgraderun.Item
+			Eventually(func() bool {
+				r, err := h.Service.Get(context.Background(), run.ID)
+				Expect(err).NotTo(HaveOccurred())
+				it = *r.Item("addon:notes")
+				return it.Phase.Terminal()
+			}, 10*time.Second, 20*time.Millisecond).Should(BeTrue())
+			Expect(it.Phase).To(Equal(upgraderun.PhaseFailed))
+			want := kind
+			if want == "" {
+				want = upgraderun.ErrKeyUnknown
+			}
+			Expect(it.ErrorKey).To(Equal(want))
+			Expect(it.Retryable).To(Equal(retryable))
+			Expect(it.Retryable).To(Equal(upgraderun.RetryableKey(kind)), "the item agrees with the retry table")
+		},
+		Entry("the owner is unavailable", upgraderun.ErrKeyUnavailable, true),
+		Entry("the upgrade failed and the installed version is kept", upgraderun.ErrKeyUpgradeFailed, true),
+		Entry("the upgrade was interrupted", upgraderun.ErrKeyInterrupted, true),
+		Entry("a refusal with no type", "", true),
+		Entry("the installed version moved", upgraderun.ErrKeyStaleInstalled, true),
+		Entry("the check failed", upgraderun.ErrKeyCheckFailed, true),
+		Entry("an incompatible release", "incompatible", false),
+		Entry("the add-on needs a recovery", "recovery_required", false),
+		Entry("an integrity error", "integrity_error", false),
+		Entry("an upgrade conflict", "upgrade_conflict", false),
+		Entry("an approval is required", "approval_required", false),
+		Entry("the account is forbidden", upgraderun.ErrKeyForbidden, false),
+	)
+})
