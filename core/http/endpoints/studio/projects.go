@@ -154,8 +154,11 @@ func (h *Handlers) projectOut(ctx context.Context, host *projects.Service, user 
 // @Summary List your projects.
 // @Description A project is a folder under Projects/ in your files, with a manifest, a memory and defaults that its chats start with. The list is read from the folders, so a project you added or edited by hand shows up. chat_count counts up to 500 chats; agent_count is the number of your agents that belong to the project. Another user's projects are never listed.
 // @Tags chats
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectList "Your projects, sorted by name"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects [get]
 func (h *Handlers) ListProjects(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -183,9 +186,11 @@ func (h *Handlers) ListProjects(c echo.Context) error {
 // @Description Makes the folder Projects/<slug> in your files with its manifest and an empty memory, as one change set that one undo removes. The slug comes from the name and is unique among your projects, so two projects can share a name but not a folder name.
 // @Tags chats
 // @Param request body schema.ChatsProjectWrite true "the project"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 201 {object} schema.ChatsProject "The project"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 409 {object} schema.ErrorResponse "The name is taken, or projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects [post]
 func (h *Handlers) CreateProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -225,8 +230,11 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 // @Description skills_blocked is true when the project's own skills (the skills folder of the project) are off because another person may write the project folder. attached_blocked is true for the same reason when the project file holds an attached block: the block is ignored and attached comes back empty.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id} [get]
 func (h *Handlers) GetProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -252,10 +260,12 @@ func (h *Handlers) GetProject(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param request body schema.ChatsProjectWrite true "the fields to change"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id} [patch]
 func (h *Handlers) UpdateProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -291,8 +301,11 @@ func (h *Handlers) UpdateProject(c echo.Context) error {
 // @Description Removes the project folder, with its files and memory, as one change set that one undo restores. Chats that belonged to it stay and read as having no project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 204 "Deleted"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id} [delete]
 func (h *Handlers) DeleteProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -334,9 +347,12 @@ func (h *Handlers) setProjectArchived(c echo.Context, archive bool) error {
 // @Description An archived project keeps its folder and takes no new chats.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/archive [post]
 func (h *Handlers) ArchiveProject(c echo.Context) error { return h.setProjectArchived(c, true) }
 
@@ -344,9 +360,12 @@ func (h *Handlers) ArchiveProject(c echo.Context) error { return h.setProjectArc
 // @Summary Restore an archived project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/restore [post]
 func (h *Handlers) RestoreProject(c echo.Context) error { return h.setProjectArchived(c, false) }
 
@@ -355,8 +374,11 @@ func (h *Handlers) RestoreProject(c echo.Context) error { return h.setProjectArc
 // @Description Returns the text of index.md and the topic files next to it. The memory is the folder memory/ of the project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectMemory "The index and the topic files"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/memory [get]
 func (h *Handlers) GetProjectMemory(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -405,10 +427,12 @@ func (h *Handlers) GetProjectMemory(c echo.Context) error {
 // @Param id path string true "the project's id"
 // @Param file path string true "the file name, for example index.md"
 // @Param request body schema.ChatsProjectMemoryWrite true "the new content"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 204 "Written"
 // @Failure 400 {object} schema.ErrorResponse "The file name or the body is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 413 {object} schema.ErrorResponse "The content is too large"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/memory/{file} [put]
 func (h *Handlers) PutProjectMemory(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -449,8 +473,11 @@ func (h *Handlers) PutProjectMemory(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param limit query int false "most chats to return"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversationList "The chats"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/chats [get]
 func (h *Handlers) ListProjectChats(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
@@ -493,10 +520,12 @@ func (h *Handlers) chatOut(c echo.Context, user, id string) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsChatProject true "the project"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversation "The chat"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such chat or project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The chat is running, or projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/{id}/project [put]
 func (h *Handlers) SetChatProject(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
@@ -522,10 +551,12 @@ func (h *Handlers) SetChatProject(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsChatPulledProjects true "the projects"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversation "The chat"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such chat or project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/{id}/projects [put]
 func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
@@ -550,9 +581,12 @@ func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 // @Description Your saved agents that were created from this project, sorted by name, as brief rows: id, name, description, model, files_mode (read or write), memory_write (the agent holds the grant project.memory.write) and unavailable. An agent is unavailable while its project is archived, deleted or broken, or its folders changed; it works again after a restore or a new save. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectAgentList "The agents of the project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/agents [get]
 func (h *Handlers) ListProjectAgents(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -592,9 +626,12 @@ func (h *Handlers) ListProjectAgents(c echo.Context) error {
 // @Description Your messaging connections that are bound to an agent of this project, as brief rows: id, kind, name, agent_id, agent_name and enabled. A token or a list of senders never appears. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectConnectionList "The connections"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/connections [get]
 func (h *Handlers) ListProjectConnections(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -623,9 +660,12 @@ func (h *Handlers) ListProjectConnections(c echo.Context) error {
 // @Description Your triggers that run an agent of this project, as brief rows: id, name, kind, agent_id, agent_name, schedule, folder, enabled, proposed and next (the next run of an enabled schedule trigger). While the project is archived its agents do not start, so its triggers skip their runs; enabled does not change. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectTriggerList "The triggers"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/triggers [get]
 func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -655,9 +695,12 @@ func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 // @Description Your loops that have not ended, in chats that use an agent of this project (a loop that ended is history and is left out), as brief rows: id, chat_id, chat_title, prompt (cut to 200 characters) and state. While the project is archived its loops skip their runs; state does not change. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param owner query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectLoopList "The loops"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "owner is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "owner is set and you are not an administrator"
 // @Router /api/chats/projects/{id}/loops [get]
 func (h *Handlers) ListProjectLoops(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {

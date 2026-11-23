@@ -8946,11 +8946,31 @@ const docTemplate = `{
                     "chats"
                 ],
                 "summary": "List your projects.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Your projects, sorted by name",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "409": {
@@ -8976,6 +8996,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8987,6 +9013,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9113,6 +9145,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9120,6 +9158,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9143,11 +9193,29 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "204": {
                         "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "No such project, or it is another user's",
@@ -9179,6 +9247,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9190,6 +9264,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9223,6 +9303,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9230,6 +9316,18 @@ const docTemplate = `{
                         "description": "The agents of the project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectAgentList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9261,6 +9359,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9268,6 +9372,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9305,6 +9421,12 @@ const docTemplate = `{
                         "description": "most chats to return",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9312,6 +9434,18 @@ const docTemplate = `{
                         "description": "The chats",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversationList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9337,6 +9471,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9344,6 +9484,18 @@ const docTemplate = `{
                         "description": "The connections",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectConnectionList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9375,6 +9527,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9382,6 +9540,18 @@ const docTemplate = `{
                         "description": "The loops",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectLoopList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9413,6 +9583,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9420,6 +9596,18 @@ const docTemplate = `{
                         "description": "The index and the topic files",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectMemory"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9461,6 +9649,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectMemoryWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9469,6 +9663,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The file name or the body is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9501,6 +9701,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9508,6 +9714,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9539,6 +9757,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9546,6 +9770,18 @@ const docTemplate = `{
                         "description": "The triggers",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectTriggerList"
+                        }
+                    },
+                    "400": {
+                        "description": "owner is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -13236,6 +13472,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatProject"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13247,6 +13489,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13289,6 +13537,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatPulledProjects"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "owner",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13300,6 +13554,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "owner is set and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -34931,6 +35191,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "description": "Owner is the id of the user that owns the project. Every response\ncarries it: the caller's own id, or the user an administrator acts for\nwith ?owner=.",
                     "type": "string"
                 },
                 "skills_blocked": {
