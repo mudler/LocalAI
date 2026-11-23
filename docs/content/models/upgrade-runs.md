@@ -149,6 +149,81 @@ otherwise in the SQLite file `upgrade_runs.db` under the data path. A server
 with neither does not keep runs: the run routes answer `503`, and the single
 upgrade routes below queue their upgrade directly, as before.
 
+## Notifications of a run
+
+Every run has two items in the inbox of each administrator. The frontend that
+runs the run writes them, so a cluster writes one set for each run.
+
+- **The live item** (code `updates.run`, key `updates.run.<id>`). It is
+  created when the run starts and edited in place on every change, so it never
+  grows into a list. It writes at most once every 1.5 seconds for each run; the
+  last change of a burst is always written. It links to the run
+  (`/app/updates?run=<id>`). When the run ends, it is closed (progress 100)
+  and marked read.
+- **The end item** (code `updates.run.end`, key `updates.run.end.<id>`). It is
+  written once, when the run ends, and notifies once (browser push and
+  connectors). It says how many items were updated and how many need
+  attention: failed, rolled back, unconfirmed or skipped. When any needs
+  attention, it is a failure and names the first one with its error. The error
+  is one line, cut to 160 characters, without server paths or credentials.
+
+The live item has these params: `run`, `progress` (0 to 100 for the whole run),
+`done`, `total`, `source` (`manual` or `auto`), `updated`, `running` and
+`queued`.
+
+```json
+{"code": "updates.run", "key": "updates.run.2f0c6a52", "link": "/app/updates?run=2f0c6a52",
+ "params": {"run": "2f0c6a52", "progress": 40, "done": 1, "total": 3, "source": "manual",
+            "updated": 1, "running": 1, "queued": 1}}
+```
+
+The end item has `run`, `total`, `updated`, `failed` and `source`. When
+`failed` is more than zero it also has `first_name`, `first_from` and
+`first_error`.
+
+```json
+{"code": "updates.run.end", "key": "updates.run.end.2f0c6a52", "link": "/app/updates?run=2f0c6a52",
+ "params": {"run": "2f0c6a52", "total": 3, "updated": 2, "failed": 1, "source": "auto",
+            "first_name": "kokoro", "first_from": "v1.2.0", "first_error": "the download failed"}}
+```
+
+## Automatic updates are runs
+
+The automatic update of backends (setting **Update backends automatically**)
+and of add-ons (**Update add-ons automatically**) starts a run with the source
+`auto`. The run shows in the Updates page and in `/api/operations` like a run
+that a person started, and has the notifications above. Both settings are off
+by default.
+
+- **Backends.** A scheduled check lists the gallery and library backends that
+  have an update, and starts one run for all of them. The check no longer
+  installs inside its own pass.
+- **Add-ons.** The add-on pass starts one run for the add-ons it would upgrade
+  now. Each add-on item goes through the add-on owner's own automatic upgrade,
+  with the same rules as before: the owner's system actor, the digests pinned,
+  no approval given for anybody, and a release that failed is not tried again
+  until the library lists another one. A release that needs host access nobody
+  approved stays on the old version. Its item ends `failed` with a message that
+  starts with "held", and the end item of the run counts it as needing
+  attention. Approve the upgrade on the add-on page.
+- **Only the add-on owner adds add-ons.** The add-on pass runs on the process
+  of the add-on owner, and an automatic run lists and upgrades add-ons there,
+  on the owner itself, as the system actor of the automatic upgrade. That
+  actor never goes through the add-on gateway, which refuses it. Runs that a
+  person starts keep their path as that person. A process that is not the
+  owner can start the run of the backends, and never has add-on items.
+- **One run at a time.** When a run is already running, the pass does not
+  start another and does not write anything. It tries again every minute,
+  and at the latest at the next scheduled pass, which lists the same items
+  again. No update is lost.
+- **Results.** A pass that started a run does not write its own result item
+  ("Backends: 2 updated automatically"): the end item of the run replaces it.
+  The digest of the updates that need a person and the item of a failed check
+  stay as they are.
+- **Without the run service.** A server that keeps no runs (see
+  [Where the runs are kept](#where-the-runs-are-kept)) installs inside the pass
+  and writes the result items, as before.
+
 ## Add-on items
 
 An add-on item goes through the same path as
@@ -156,7 +231,9 @@ An add-on item goes through the same path as
 administrator who started the run, with the installed digest and the candidate
 digest pinned, and checks it as it checks the explicit upgrade. The operation
 queue then runs it for that administrator, and the owner checks the pins again
-when it starts. A run never upgrades an add-on as a system identity.
+when it starts. A run that a person started never upgrades an add-on as a system identity.
+The automatic run is the exception: it uses the owner's own automatic upgrade
+(see [Automatic updates are runs](#automatic-updates-are-runs)).
 
 The explicit upgrade is accepted only from the administrator's own browser
 session. A run keeps that rule: its add-on items run only when the request

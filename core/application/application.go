@@ -289,6 +289,11 @@ type Application struct {
 	// upgradeRunTweak changes the options of the service before it starts;
 	// tests set it to hand in fake checks and job paths.
 	upgradeRunTweak func(*upgraderun.Options)
+
+	// autoRuns starts the upgrade runs of the automatic update passes; made
+	// on first use (autoRunner).
+	autoRuns       *autoRunner
+	autoRunnerOnce sync.Once
 	// opCache is the cache of /api/operations the HTTP layer built; see
 	// SetOperationCache.
 	opCache atomic.Pointer[galleryop.OpCache]

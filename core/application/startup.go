@@ -520,6 +520,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs.OnBackendOpCompleted = uc.TriggerCheck
 		}
 		uc.SetAnnouncer(application.updateEmitter())
+		uc.SetAutoRuns(application.autoRunner())
 		go uc.Run(options.Context)
 	}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/updatenotify"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
@@ -125,6 +126,9 @@ func (a *Application) startUpgradeRuns() {
 		defer close(done)
 		svc.Run(ctx)
 	}()
+	// One live row and one end row for each run in the inbox of each
+	// administrator, written by the frontend that runs the run.
+	svc.AddObserver(&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context})
 	a.upgradeRuns = svc
 	a.upgradeRunsStop = func() {
 		stop()
@@ -157,7 +161,12 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 			Gallery:  gs,
 			Validate: upgraderun.ModelValidator(a.ModelUpgrader, a.ModelUpdates),
 		},
-		upgraderun.KindAddon: upgraderun.AddonStarter{Upgrader: a.addonRunUpgrader},
+		upgraderun.KindAddon: autoAddonStarter{
+			inner:   upgraderun.AddonStarter{Upgrader: a.addonRunUpgrader},
+			manager: func() addonAutoUpgrader { return a.autoUpgrader() },
+			queue:   func() addonOpQueue { return a.queueOf() },
+			opCache: a.operationCache,
+		},
 	}
 	if lib := a.BackendLibrary(); lib != nil {
 		starters[upgraderun.KindLibrary] = libraryRunStarter{installer: lib, status: gs}
@@ -167,9 +176,20 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 		upgraderun.ModelChecker{Snapshots: modelSnapshots{a}},
 	}
 	if cfg.Addons.Enabled {
-		// Through the gateway, as the actor of the run: the owner answers
-		// on its own process and every other frontend forwards to it.
-		checkers = append(checkers, addonendpoints.GatewayUpdateChecker{Gateway: func() *gateway.Gateway { return a.addonGateway }})
+		// A run of an administrator lists the add-ons through the gateway, as
+		// the actor of the run: the owner answers on its own process and
+		// every other frontend forwards to it. A run of the automatic update
+		// lists them on the owner's process only, with the owner's own check:
+		// its system actor never reaches the gateway.
+		var owner ownerStatusSource
+		if m := a.addonManager; m != nil {
+			owner = m
+		}
+		checkers = append(checkers, addonCheckerBySource{
+			manual: addonendpoints.GatewayUpdateChecker{Gateway: func() *gateway.Gateway { return a.addonGateway }},
+			auto:   ownerAddonChecker{src: owner, owner: func() bool { return !cfg.Addons.IsFrontend() }},
+			isAuto: isAutoRunCtx,
+		})
 	}
 	opts := upgraderun.Options{
 		Store:    store,
@@ -257,4 +277,20 @@ type actorInstaller struct {
 
 func (i actorInstaller) Install(ctx context.Context, sourceID, backend, version string, progress backendlib.Progress) error {
 	return i.in.Install(library.WithActor(ctx, i.actor), sourceID, backend, version, progress)
+}
+
+// autoUpgrader is the add-on owner for the automatic upgrade, or nil.
+func (a *Application) autoUpgrader() addonAutoUpgrader {
+	if m := a.addonManager; m != nil {
+		return m
+	}
+	return nil
+}
+
+// queueOf is the operation queue for add-on operations, or nil.
+func (a *Application) queueOf() addonOpQueue {
+	if gs := a.GalleryService(); gs != nil {
+		return gs
+	}
+	return nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/xlog"
 )
 
@@ -35,6 +36,11 @@ func (a *Application) runAddonAutoUpgrade(ctx context.Context, initialDelay, int
 // autoUpgradeAddons is one pass. With the setting off it does nothing at all:
 // no library fetch and no upgrade. With it on, the owner runs the same pinned
 // upgrade an administrator starts by hand.
+//
+// When the upgrade runs are available the pass starts one run with the source
+// "auto" for the add-ons it would upgrade now; the run's own rows in the inbox
+// tell the outcome, so the pass writes no summary of its own. Without the run
+// service the pass upgrades inline, as it always did.
 func (a *Application) autoUpgradeAddons(ctx context.Context) {
 	m := a.addonManager
 	if m == nil {
@@ -47,6 +53,23 @@ func (a *Application) autoUpgradeAddons(ctx context.Context) {
 	}
 	if !enabled {
 		return
+	}
+	a.autoUpgradeAddonsWith(ctx, m)
+}
+
+// autoUpgradeAddonsWith is the pass once the setting is known to be on.
+func (a *Application) autoUpgradeAddonsWith(ctx context.Context, m addonAutoUpgrader) {
+	if runs := a.autoRunner(); runs.available() {
+		var items []upgraderun.StartItem
+		for _, c := range m.AutoUpgradePending(ctx) {
+			items = append(items, upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: c.AddonID, ExpectedTo: c.CandidateDigest})
+		}
+		if len(items) == 0 {
+			return
+		}
+		if runs.begin(ctx, "addons", items) != autoRunUnavailable {
+			return
+		}
 	}
 	results := m.AutoUpgrade(ctx)
 	upgraded := 0
