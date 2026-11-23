@@ -286,10 +286,6 @@ func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.
 		drop()
 		return nil, err
 	}
-	if err != nil {
-		drop()
-		return nil, err
-	}
 	// The actor names the user only; the credential reference it carries
 	// stays on the server.
 	run.Actor = RunActorUser(run.Actor)

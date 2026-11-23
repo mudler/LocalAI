@@ -484,7 +484,9 @@ func BackendUpgradeViaRun(d UpgradeRunDeps, legacy echo.HandlerFunc, answer Sing
 			return singleRefusal(c, http.StatusConflict, code, "another upgrade run is running; wait for it to end or cancel it, then upgrade again")
 		case upgraderun.CodeStale:
 			if expected != "" {
-				return singleRefusal(c, http.StatusConflict, code, err.(*upgraderun.Error).Message)
+				var e *upgraderun.Error
+				_ = errors.As(err, &e)
+				return singleRefusal(c, http.StatusConflict, code, e.Message)
 			}
 			return legacy(c)
 		case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked:
