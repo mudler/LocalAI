@@ -146,6 +146,40 @@ var _ = Describe("Reduce", func() {
 			r = started(r, "gallery:a", "j", true)
 			r, _ = step(r, ItemJobEnded{Key: "gallery:a", Outcome: JobError})
 			Expect(r.Item("gallery:a").ErrorKey).To(Equal(ErrKeyUnknown))
+			Expect(r.Item("gallery:a").Retryable).To(BeTrue())
+		})
+
+		DescribeTable("decides from the error key whether a failure can be retried",
+			func(key string, rolledBack, retryable bool) {
+				r, _ := newRun(item(KindAddon, "notes"))
+				r = started(r, "addon:notes", "j", false)
+				r, _ = step(r, ItemJobEnded{Key: "addon:notes", Outcome: JobError, ErrorKey: key, RolledBack: rolledBack, Error: "x"})
+				Expect(r.Item("addon:notes").Retryable).To(Equal(retryable))
+			},
+			Entry("download", ErrKeyDownload, false, true),
+			Entry("verify", ErrKeyVerify, false, true),
+			Entry("swap", ErrKeySwap, false, true),
+			Entry("start, rolled back", ErrKeyStart, true, true),
+			Entry("unavailable", "unavailable", false, true),
+			Entry("upgrade_failed", "upgrade_failed", false, true),
+			Entry("interrupted", "interrupted", false, true),
+			Entry("incompatible", "incompatible", false, false),
+			Entry("integrity_error", "integrity_error", false, false),
+			Entry("recovery_required", "recovery_required", true, false),
+			Entry("forbidden", "forbidden", false, false),
+			Entry("not_human_surface", "not_human_surface", false, false),
+			Entry("approval_required", "approval_required", false, false),
+			Entry("approval_stale", "approval_stale", false, false),
+			Entry("upgrade_conflict", "upgrade_conflict", false, false),
+			Entry("a code this build does not know", "future_code", false, false),
+		)
+
+		It("never marks a start failure retryable when its key says a retry is useless", func() {
+			r, _ := newRun(item(KindAddon, "notes"), item(KindAddon, "tables"))
+			r, _ = step(r, ItemStartFailed{Key: "addon:notes", ErrorKey: "incompatible", Error: "x", Retryable: true})
+			Expect(r.Item("addon:notes").Retryable).To(BeFalse())
+			r, _ = step(r, ItemStartFailed{Key: "addon:tables", ErrorKey: "unavailable", Error: "x", Retryable: true})
+			Expect(r.Item("addon:tables").Retryable).To(BeTrue())
 		})
 
 		It("checks an item whose job status was lost", func() {
@@ -330,6 +364,14 @@ var _ = Describe("Reduce", func() {
 			Expect(a.Error).To(BeEmpty())
 			Expect(a.JobID).To(BeEmpty())
 			Expect(phaseOf(r, "gallery:c")).To(Equal(PhaseCancelled), "a cancelled item is not retryable")
+		})
+
+		It("does not retry an item whose failure needs a person first", func() {
+			r, _ := newRun(item(KindAddon, "notes"))
+			r = started(r, "addon:notes", "j", false)
+			r, _ = step(r, ItemJobEnded{Key: "addon:notes", Outcome: JobError, ErrorKey: "recovery_required", Error: "x"})
+			Expect(r.Active()).To(BeFalse())
+			Expect(r.Item("addon:notes").RetryEligible()).To(BeFalse())
 		})
 
 		It("refuses when nothing can be retried", func() {

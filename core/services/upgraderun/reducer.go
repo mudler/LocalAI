@@ -250,7 +250,8 @@ func Reduce(in Run, ev Event, env Env) Result {
 		if e.Skip {
 			it.Phase, it.Retryable = PhaseSkipped, false
 		} else {
-			it.Phase, it.Retryable = PhaseFailed, e.Retryable
+			// The starter may know a retry is useless; the key decides too.
+			it.Phase, it.Retryable = PhaseFailed, e.Retryable && RetryableKey(it.ErrorKey)
 		}
 
 	case ItemProgress:
@@ -293,7 +294,8 @@ func Reduce(in Run, ev Event, env Env) Result {
 			if e.RolledBack {
 				it.Phase = PhaseRolledBack
 			}
-			it.ErrorKey, it.Error, it.Message, it.Retryable = orUnknown(e.ErrorKey), e.Error, e.Error, true
+			it.ErrorKey, it.Error, it.Message = orUnknown(e.ErrorKey), e.Error, e.Error
+			it.Retryable = RetryableKey(it.ErrorKey)
 		}
 
 	case ItemVerified:
@@ -307,8 +309,9 @@ func Reduce(in Run, ev Event, env Env) Result {
 			it.Phase, it.Progress, it.Message = PhaseUpdated, 100, ""
 			it.ErrorKey, it.Error, it.Retryable = "", "", false
 		case VerifyListed:
-			it.Phase, it.ErrorKey, it.Error, it.Message, it.Retryable = PhaseFailed, ErrKeyStale, msgStale, msgStale, true
+			it.Phase, it.ErrorKey, it.Error, it.Message, it.Retryable = PhaseFailed, ErrKeyStale, msgStale, msgStale, RetryableKey(ErrKeyStale)
 		default:
+			// No check answered: a retry runs the check again with the update.
 			it.Phase, it.Message, it.Retryable = PhaseUnconfirmed, msgNoAnswer, true
 		}
 

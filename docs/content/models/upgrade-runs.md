@@ -136,10 +136,22 @@ still runs), `progress`, `message` and `error_key`.
   queued item has `cancellable: false` and can always be cancelled.
 - Cancelling the run cancels the queued items and stops the running ones when
   they can stop. The run then ends `cancelled`.
-- Retry starts a new run with the items of a finished run that failed, rolled
-  back or stayed unconfirmed, if they still have an update. The old run does
-  not change. A run that is over changes only when it is dismissed.
+- Retry starts a new run with the retryable items of a finished run that
+  failed, rolled back or stayed unconfirmed, if they still have an update. The
+  old run does not change. A run that is over changes only when it is
+  dismissed.
 - Dismiss hides a finished run from the default list.
+
+An item is `retryable` when a new try can fix its failure without a person
+doing something first. The error key decides:
+
+| Retryable | Error keys |
+|-----------|------------|
+| Yes | `download`, `verify`, `swap`, `start`, `stale`, `unknown`, `unavailable`, and the add-on codes `upgrade_failed`, `interrupted`, `stale_installed`, `candidate_changed` and `check_failed` |
+| No | Every other key, for example `incompatible`, `integrity_error`, `recovery_required`, `forbidden`, `not_human_surface`, `held`, `edited_keys`, `approval_required`, `approval_stale`, `upgrade_conflict` and `operation_conflict` |
+
+An `unconfirmed` item is retryable: the retry checks it again. The Updates
+page shows **Retry** only on a retryable item.
 
 ## Restarts
 
