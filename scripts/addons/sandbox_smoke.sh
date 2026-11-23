@@ -21,6 +21,7 @@
 # Both the workspace command and guest document-helper fixture cases run.
 # --require isolated makes either case fail if no isolated backend is usable.
 # Scratch files go under SANDBOX_SMOKE_WORK (default: .cache/sandbox-smoke).
+# On macOS it also checks the signature and the entitlement of the executable.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
@@ -37,7 +38,12 @@ while [ "$#" -gt 0 ]; do
 done
 case "$require" in '' | isolated) ;; *) echo 'sandbox_smoke.sh: --require takes only "isolated"' >&2; exit 2 ;; esac
 platform="$(go env GOOS)/$(go env GOARCH)"
-case "$platform" in linux/*) ;; *) echo "sandbox_smoke.sh: the Sandbox add-on runs on Linux only (this host is $platform)" >&2; exit 2 ;; esac
+# The add-on has packages for Linux and for macOS with Apple silicon. The
+# macOS backend needs Apple silicon, so any other host is refused.
+case "$platform" in
+linux/* | darwin/arm64) ;;
+*) echo "sandbox_smoke.sh: the Sandbox add-on runs on Linux and on macOS with Apple silicon only (this host is $platform)" >&2; exit 2 ;;
+esac
 config=addons/sandbox/package/platforms.yaml
 work=${SANDBOX_SMOKE_WORK:-$root/.cache/sandbox-smoke}
 rm -rf "$work"
@@ -68,5 +74,21 @@ if [ -z "$local_check" ]; then
         exit 1
     }
 fi
-SANDBOX_SMOKE_PACKAGE=$dest SANDBOX_SMOKE_REQUIRE=$require \
+# On macOS, first show what only a Mac can show: the executable carries the
+# virtualization entitlement under a valid signature, and it starts. The run
+# under the real supervisor below then follows on both systems. A hosted macOS
+# runner cannot start a nested VM, so there the tools must answer that the host
+# cannot run commands; --require isolated demands a working VM instead.
+if [ "$platform" = darwin/arm64 ]; then
+    codesign --verify --strict "$dest/sandbox"
+    codesign -d --entitlements - "$dest/sandbox" 2>&1 | grep -q 'com.apple.security.virtualization' || {
+        echo 'sandbox_smoke.sh: the packaged executable lacks the virtualization entitlement' >&2
+        exit 1
+    }
+    # An argument the add-on protocol rejects makes a working executable exit 2.
+    rc=0
+    "$dest/sandbox" --smoke-check </dev/null >/dev/null 2>&1 || rc=$?
+    [ "$rc" = 2 ] || { echo "sandbox_smoke.sh: the packaged executable did not start (exit $rc)" >&2; exit 1; }
+fi
+SANDBOX_SMOKE_PACKAGE=$dest SANDBOX_SMOKE_REQUIRE=$require SANDBOX_SMOKE_LOCAL_CHECK=$local_check \
     go test -tags auth,nosqlite,purego_utp -count=1 -v -run TestActionE2E ./tests/addons/actione2e/ -ginkgo.focus 'Packaged Sandbox smoke' -ginkgo.fail-on-empty

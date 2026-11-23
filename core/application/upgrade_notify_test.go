@@ -17,8 +17,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
 )
 
@@ -303,7 +303,7 @@ var _ = Describe("who is told about updates", func() {
 		Expect(ids).To(Equal([]string{studio.AnonymousPrincipal}))
 	})
 
-	It("writes nothing, and does not fail, while the chats are off", func() {
+	It("writes nothing, and does not fail, while there is no notification center", func() {
 		app := &Application{}
 		Expect(app.updateEmitter().Digest(ctx, backendupdates.Snapshot{})).To(Succeed())
 	})

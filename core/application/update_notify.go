@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
 )
 
 // updateEmitter returns the writer of the inbox items of the update center. It
-// looks the inbox up at each call: the inbox starts after the update checker,
-// and it does not exist when the chats are off.
+// looks the notifier up at each call: the notifier starts after the update
+// checker is built. It does not depend on the chats.
 func (a *Application) updateEmitter() *updatenotify.Emitter {
 	return &updatenotify.Emitter{
-		Inbox:  func() *notify.Service { return a.studioInbox },
+		Inbox:  func() *notify.Service { return a.notifier },
 		Admins: a.updateAdmins,
 	}
 }

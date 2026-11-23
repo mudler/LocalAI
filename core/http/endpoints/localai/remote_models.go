@@ -53,9 +53,9 @@ func installedIndex(cl *config.ModelConfigLoader) *remotemodel.InstalledIndex {
 // RemoteModelFilesEndpoint lists what a remote repository offers.
 //
 //	@Summary	List the weight files of a remote model, grouped by quantization
-//	@Description	Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's `preference` is the value for `preferences.quantizations` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; `size_known` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.
+//	@Description	Reads one repository of Hugging Face or Pirate Face, or one model tag of the Ollama registry, and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's `preference` is the value for `preferences.quantizations` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; `size_known` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.
 //	@Tags		models
-//	@Param		uri				query	string	true	"Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url"
+//	@Param		uri				query	string	true	"Repository uri: huggingface://owner/repo, pirateface://owner/repo, ollama://name[:tag] or a huggingface.co url"
 //	@Param		quantization	query	string	false	"Quantization preference to dry-run the import with (default: the importer's)"
 //	@Success	200	{object}	modelsearch.RepoFiles
 //	@Failure	400	{object}	schema.ErrorResponse
@@ -82,7 +82,7 @@ func RemoteModelFilesEndpoint(in *modelsearch.Inspector, cl *config.ModelConfigL
 //	@Summary	Estimate the memory a remote model file needs
 //	@Description	Same answer as GET /api/models/estimate/{id} for a gallery model, for one quantization of a Hugging Face or Pirate Face repository: the download size and the memory needed at each requested context size, plus `file`, `quantization` and `source`. `source` is `gguf-header` when the layer count, width and heads were read from the GGUF header (exact KV cache term), `file-size` when only the file size was known, and `unknown` when no size was known. `approximate` is true whenever the architecture was not read, so the figure is the file size plus a rule of thumb per context token. `variants` repeats the estimate for every quantization of a GGUF repository: they share one architecture, so the header read of the chosen file serves them all and one call answers a whole variant list. When the header cannot be read (a gated repository, a host without range requests) the figures fall back to file sizes and `approximate` is true. The header read runs through the same bounded upstream budget as the file listing.
 //	@Tags		models
-//	@Param		uri			query	string	true	"Repository uri: huggingface://owner/repo or pirateface://owner/repo"
+//	@Param		uri			query	string	true	"Repository uri: huggingface://owner/repo, pirateface://owner/repo or ollama://name[:tag]"
 //	@Param		file		query	string	false	"First file of a variant, as listed by /api/models/remote/files (default: the recommended variant)"
 //	@Param		contexts	query	string	false	"Comma separated context sizes (default 8192)"
 //	@Success	200	{object}	modelsearch.EstimateResult

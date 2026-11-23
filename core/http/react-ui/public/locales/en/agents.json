@@ -834,6 +834,27 @@
       "all": "All projects",
       "none": "No project",
       "empty": "No triggers for this choice."
+    },
+    "reports": {
+      "label": "Reports to",
+      "inbox": "Inbox",
+      "channel": "Channel {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Thread in chat {{chat}}",
+      "problem": {
+        "off": "Connection is off",
+        "gone": "Connection deleted",
+        "unavailable": "Connection unavailable",
+        "no_channel": "Channel not approved",
+        "blocked": "Sending is not allowed"
+      },
+      "fallback": "Until this is fixed, reports go to the Inbox.",
+      "manage": "Manage connection",
+      "connections": "Open connections",
+      "mode": {
+        "on_change": "Only when the answer changes",
+        "on_problem": "Only when a run fails"
+      }
     }
   },
   "run": {

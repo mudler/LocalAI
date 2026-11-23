@@ -14,13 +14,13 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
@@ -120,14 +120,14 @@ func (a *Application) studioConversionMarks() (convert.Marks, error) {
 // new; an item that cannot convert, and fails or is dropped again at each start,
 // says nothing after the first time.
 func (a *Application) tellConversion(ctx context.Context, rep convert.Report) {
-	if a.studioInbox == nil {
+	if a.notifier == nil {
 		return
 	}
 	news := convert.Report{At: rep.At, Items: rep.Notable}
 	for _, user := range news.Users() {
 		c := news.ForUser(user).Counts()
 		look := c[convert.StatusFailed] + c[convert.StatusDropped]
-		_, err := a.studioInbox.Add(ctx, notify.Notification{
+		_, err := a.notifier.Add(ctx, notify.Notification{
 			Principal: studioPrincipal(user), Kind: notify.KindNeedsAttention, Status: notify.StatusOK, Source: notify.SourceSystem,
 			Title: "Your old agents, skills and chats were converted",
 			Body:  fmt.Sprintf("%d items converted, %d need a look. Converted triggers and connectors are switched off.", c[convert.StatusConverted], look),

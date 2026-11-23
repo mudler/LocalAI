@@ -173,14 +173,14 @@ test.describe('Chat skills picker', () => {
   })
 
   test('the menu keeps its own height when the shared menu sheet loads after it', async ({ page }) => {
-    // The base rule of every composer menu caps it at 320px. The sheet of the
-    // picker is a lazy chunk, so the base rule can land last; the picker must
-    // still get its full height, or the list is a few rows and a click on a
-    // row at its edge scrolls the list.
+    // The base rule of every composer menu (.home-menu) gives it padding and
+    // the width of a picker. The sheet of the switch list is a lazy chunk, so
+    // the base rule can land last; the list must still get its own width, no
+    // padding and its full height, or a click on a row at its edge scrolls it.
     await page.addInitScript(() => {
       const late = () => {
         const style = document.createElement('style')
-        style.textContent = '.chat-mcp-dropdown-menu { max-height: 320px; overflow-y: auto; min-width: 240px; }'
+        style.textContent = '.home-menu { padding: 6px; min-width: 400px; max-width: 560px; max-height: 320px; }'
         document.head.appendChild(style)
       }
       new MutationObserver(() => {

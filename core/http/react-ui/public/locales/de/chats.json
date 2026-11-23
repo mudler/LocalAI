@@ -459,6 +459,15 @@
     "servedByBuiltin": "eingebaut",
     "fallbackBuiltin": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen (gestoppt, hier ausgeschaltet oder nicht freigegeben): das eingebaute {{tool}} wird verwendet.",
     "fallbackNone": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen, und das eingebaute {{tool}} ist aus: dieser Chat hat kein {{tool}}.",
+    "toolCap": {
+      "title": "Einige Add-on-Werkzeuge sind in diesem Chat nicht verfügbar",
+      "reason": "{{offered}} von {{total}} Add-on-Werkzeugen sind verfügbar. Ein Chat kann nur eine begrenzte Zahl davon nutzen.",
+      "who": "Schalte Add-ons, die du nicht brauchst, in diesem Chat aus, um Platz zu schaffen, oder bitte einen Administrator, das Limit zu erhöhen.",
+      "whoAdmin": "Schalte Add-ons, die du nicht brauchst, in diesem Chat aus, um Platz zu schaffen, oder erhöhe das Limit in den Einstellungen.",
+      "fix": "Einstellung öffnen",
+      "addon": "{{name}}: {{count}} nicht verfügbar",
+      "lost": "Add-ons, die Werkzeuge verloren haben"
+    },
     "shell": {
       "machine": "Dieser Rechner",
       "isolated": "Befehle laufen isoliert"
@@ -758,6 +767,53 @@
           "library": "Backend-Bibliothek",
           "addons": "Add-ons"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modell",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installiert",
+          "delete": "{{kind}} {{name}} entfernt",
+          "upgrade": "{{kind}} {{name}} aktualisiert"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: Installation fehlgeschlagen",
+          "delete": "{{kind}} {{name}}: Entfernen fehlgeschlagen",
+          "upgrade": "{{kind}} {{name}}: Update fehlgeschlagen"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: Installation abgebrochen",
+          "delete": "{{kind}} {{name}}: Entfernen abgebrochen",
+          "upgrade": "{{kind}} {{name}}: Update abgebrochen"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} braucht deine Prüfung für die Installation"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} Modell-Update verfügbar",
+          "title_other": "{{count}} Modell-Updates verfügbar"
+        },
+        "done": {
+          "title": "Modell {{name}} aktualisiert",
+          "body": "Von {{from}} auf {{to}}."
+        },
+        "failed": {
+          "title": "Modell {{name}}: das Upgrade ist fehlgeschlagen",
+          "rolledBack": "Die alte Version wurde wiederhergestellt und läuft weiter. Grund: {{error}}",
+          "rolledBackPlain": "Die alte Version wurde wiederhergestellt und läuft weiter.",
+          "kept": "Die alte Version läuft weiter. Grund: {{error}}",
+          "keptPlain": "Die alte Version läuft weiter."
+        },
+        "removed": {
+          "title": "Modell {{name}}: alte Version entfernt",
+          "body_one": "{{count}} alte Datei gelöscht.",
+          "body_other": "{{count}} alte Dateien gelöscht."
+        }
       }
     },
     "tabs": {
@@ -792,7 +848,9 @@
         "removed": "{{name}} entfernt",
         "staged": "{{name}} übertragen"
       }
-    }
+    },
+    "chatsOff": "Chats sind ausgeschaltet",
+    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge."
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",

@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { adminUsersApi } from '../../utils/api'
 import { initialOf } from '../../utils/access'
+import { relativeTime } from '../../utils/p2p'
 import SideSheet from '../SideSheet'
 import Icon from '../Icon'
 
@@ -48,6 +50,7 @@ function FeatureGroup({ title, features, permissions, onToggle, onAll }) {
 // Account actions that do not belong to the access form (reset password, role,
 // delete) sit at the bottom and are handled by the page.
 export default function AccessSheet({ user, featureMeta, availableModels, onClose, onSave, addToast, actions }) {
+  const { t, i18n } = useTranslation('admin')
   const [permissions, setPermissions] = useState({ ...(user.permissions || {}) })
   const [allowedModels, setAllowedModels] = useState(user.allowed_models || { enabled: false, models: [] })
   const [quotas, setQuotas] = useState((user.quotas || []).map(q => ({ ...q, _dirty: false })))
@@ -135,6 +138,18 @@ export default function AccessSheet({ user, featureMeta, availableModels, onClos
       </>}
     >
       <div className="us-sheet">
+        <p className="us-eyebrow">{t('users.sheet.activity')}</p>
+        <dl className="us-stats" data-testid="access-sheet-activity">
+          <div className="us-stat">
+            <dt>{t('users.columns.lastActive')}</dt>
+            <dd>{user.lastActiveAt ? relativeTime(user.lastActiveAt, i18n.language) : t('users.never')}</dd>
+          </div>
+          <div className="us-stat">
+            <dt>{t('users.sheet.apiKeys')}</dt>
+            <dd>{user.apiKeyCount ?? 0}</dd>
+          </div>
+        </dl>
+
         <p className="us-eyebrow">What they can use</p>
         <FeatureGroup title="API endpoints" features={apiFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} />
         <FeatureGroup title="Agent features" features={agentFeatures} permissions={permissions} onToggle={toggleFeature} onAll={setAllFeatures} />

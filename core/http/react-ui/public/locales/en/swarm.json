@@ -1,4 +1,130 @@
 {
+  "split": {
+    "title": "Model-split workers",
+    "online": "{{online}} of {{total}} online",
+    "note": "Not cluster nodes: no backends and no placement rules. They lend memory to models that run on this instance.",
+    "slowTitle": "Model splitting works best on a direct or hole-punched path.",
+    "slowBody": "Only a relay reaches {{names}}. It works, but every token waits for the relay. Choose Use anyway or leave the worker out. Opening UDP and TCP port 4001 on its network gives a direct path.",
+    "limitedTitle": "A public relay cannot carry model layers.",
+    "limitedBody": "The only path to this worker is a public relay, whose limits you cannot change. Give the worker a direct path, or a relay of yours on both sides.",
+    "cutTitle": "A relay of yours cuts each connection at its limits.",
+    "cutBody": "{{names}} goes through a relay of yours that ends each connection after its data or time limit. Use anyway works, slowly, until the relay cuts the connection; then load the model again. Raise or remove the limits of the relay for longer runs.",
+    "cutHint": "Cut after {{limits}}",
+    "relayLimits": "Relay limits",
+    "memoryInUse": "Memory added by workers in use: {{memory}}.",
+    "add": {
+      "p2pTitle": "Share this instance over P2P first",
+      "p2pBody": "A model-split worker pairs with an invite, and invites need the P2P mode Connect and share.",
+      "p2pOpen": "Open P2P settings",
+      "engineTitle": "Engine",
+      "engineSub": {
+        "llama": "The model runs on this instance. The worker holds some of its layers in its own memory.",
+        "mlx": "The model runs on this instance and on the worker, as ranks of one MLX ring. Apple Silicon only."
+      },
+      "inviteTitle": "Make an invite",
+      "name": "Worker name (optional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Make invite",
+      "inviteReady": "Invite ready",
+      "inviteExpired": "Invite expired",
+      "inviteUsed": "Invite used",
+      "inviteMeta": "Single use · expires in {{time}}",
+      "noPass": "The relay was not reachable, so the link carries no relay pass.",
+      "pathTitle": "Model splitting works best on a direct or hole-punched path.",
+      "pathBody": "Layers talk to each other on every token. Through a relay it works, but every token waits for the relay. If only a relay path exists, you choose whether to add the worker.",
+      "runTitle": "Run this on the worker",
+      "runFirst": "Make the invite first: the command carries its link.",
+      "runNote": "The volume keeps the worker's identity and pairing, so the same command works after a restart. The old name p2p-worker still works.",
+      "runNoteMlx": "The worker keeps its identity and pairing in ./p2p/mlx-distributed, so the same command works after a restart.",
+      "waitTitle": "Waiting for the worker",
+      "waiting": "Waiting for the worker to connect…",
+      "pairedTitle": "The worker paired",
+      "pairedWaiting": "The worker redeemed the invite. Waiting for its connection.",
+      "foundTitle": "The worker is in use",
+      "foundBody": "It shows on the Nodes page under Model-split workers, with the memory it adds. Load the model again to use it.",
+      "openNodes": "Open Nodes",
+      "relayTitle": "The worker connected through a relay only",
+      "slowTitle": "Slow: through a relay.",
+      "slowBody": "{{name}} has no direct or hole-punched path to this instance. Model splitting works through your relay, but every token waits for it. Opening UDP and TCP port 4001 on either side can give a direct path later.",
+      "slowCut": "The relay ends each connection after {{limits}}: the model then stops until it is loaded again. Raise or remove the limits to run longer.",
+      "addAnyway": "Add anyway",
+      "notNow": "Not now",
+      "engineSubNode": {
+        "llama": "The model runs on the node you choose next. The worker holds some of its layers in its own memory.",
+        "mlx": "The model runs on the node you choose next and on the worker, as ranks of one MLX ring. Apple Silicon only."
+      },
+      "nodeTitle": "Node",
+      "nodeLabel": "Attach the worker to",
+      "nodeSub": "Models that this node loads use the worker. Pin the model to the node with a placement rule, so that it loads there. You can change the node later on the Nodes page.",
+      "nodeServer": "This instance (it runs no models in a cluster)",
+      "nodePick": "Choose a split server",
+      "nodeOffline": "{{name}} (offline)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Engine",
+      "path": "Path",
+      "memory": "Memory added",
+      "status": "Status",
+      "actions": "Actions",
+      "node": "Attached to"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole-punched",
+      "relayed": "Via {{relay}}",
+      "relayedUnknown": "Via a relay",
+      "none": "No path",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Slow: through a relay",
+      "limited": "Public relay: not used",
+      "refused": "Refused"
+    },
+    "useAnyway": "Use anyway",
+    "stopUsing": "Stop using",
+    "revoke": "Revoke…",
+    "revokeTitle": "Revoke {{name}}?",
+    "revokeBody": "The worker is cut off at once and must pair again with a new invite. A model that is loaded with it fails until it is loaded again.",
+    "revokeConfirm": "Revoke",
+    "revoking": "Revoking…",
+    "addWorker": "Add a model-split worker",
+    "toast": {
+      "used": "{{name}} is used through the relay.",
+      "stopped": "{{name}} is no longer used through the relay.",
+      "revoked": "{{name}} was revoked.",
+      "attached": "{{name}} is attached to {{node}}. Models that {{node}} loads from now on use it.",
+      "detached": "{{name}} is attached to this instance."
+    },
+    "noteCluster": "Not cluster nodes: no backends and no placement rules. Each one lends memory to the models of the node it is attached to.",
+    "thisServer": "This instance",
+    "nodeLabel": "Node of {{name}}",
+    "unattachedTitle": "These workers are not used: attach them to a node.",
+    "unattachedBody": "Attached to this instance: {{names}}. In a cluster the models run on the backend nodes, not on this instance. Choose a node for each of them.",
+    "noServerTitle": "No worker is a split server yet.",
+    "noServerBody": "A model-split worker can only be attached to a worker that is a split server. Make one here, or start the worker with --split-server.",
+    "offlineTitle": "The node of a model-split worker is offline.",
+    "offlineBody": "{{names}} stays attached and waits for its node to come back. Nothing moves it to another node.",
+    "relayRefusedTitle": "Your relays do not admit a node.",
+    "relayRefusedBody": "Workers reach {{names}} only directly or by hole punching: {{reason}}.",
+    "nextLoad": "Changes to the workers of a node apply to the next model it loads.",
+    "nodeOffline": "Node offline",
+    "relay": {
+      "admitted": "Relay: admitted",
+      "refused": "Relay: refused",
+      "pending": "Relay: pending",
+      "notNeeded": "Relay: not needed"
+    }
+  },
   "state": {
     "healthy": "Healthy",
     "draining": "Draining",
@@ -48,23 +174,12 @@
     "lowDiskFilter": "Low models disk"
   },
   "nodes": {
-    "title": "Nodes",
+    "title": "Workers",
     "filter": "Show",
-    "all": "All",
-    "needs": "Needs attention",
-    "reasons": "Reasons",
-    "density": "Row density",
-    "comfortable": "Comfortable",
-    "compact": "Compact",
     "view": "View",
     "list": "List",
     "map": "Map",
     "running": "Running models",
-    "add": "Add a node",
-    "search": "Search nodes",
-    "searchPlaceholder": "Search name, address, label…",
-    "filterState": "Filter state",
-    "anyState": "Any state",
     "filterType": "Filter type",
     "anyType": "Any type",
     "group": "Group nodes",
@@ -74,7 +189,6 @@
     "stale": "The node list could not be refreshed. What you see is the last reading.",
     "retry": "Try again",
     "sort": "Sort nodes",
-    "sortBy": "Sort: {{by}}",
     "sortDirection": "Reverse the sort order"
   },
   "first": {
@@ -84,7 +198,6 @@
   "table": {
     "caption": "Nodes with their state, memory and models",
     "node": "Node",
-    "role": "Role",
     "state": "State",
     "memory": "GPU and memory",
     "models": "Models",
@@ -96,15 +209,9 @@
     "select": "Select {{name}}",
     "selectGroup": "Select {{name}} group",
     "noMatch": "No nodes match the current view.",
-    "noAddress": "No address",
     "approve": "Approve {{name}}",
     "noReading": "No reading",
-    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent",
-    "gpu": "GPU",
-    "cpuOnly": "CPU only · system memory",
-    "ramLine": "RAM {{used}} / {{total}}",
-    "groupCount_one": "{{count}} node · {{selected}} selected",
-    "groupCount_other": "{{count}} nodes · {{selected}} selected"
+    "memoryAria": "{{used}} of {{total}} used, {{percent}} percent"
   },
   "bulk": {
     "label": "Selected nodes",
@@ -328,18 +435,18 @@
     "heading": "Rules",
     "emptyTitle": "No placement rules yet",
     "empty": "Add a rule to keep a model on certain nodes, to keep replicas running, or to run it on every node.",
-    "byPrefix": "It is routed by prefix cache.",
-    "byRound": "It is routed round robin.",
+    "byPrefix": "Its policy is prefix cache.",
+    "byRound": "Its policy is round robin.",
     "kind": {
       "placement": "Placement",
       "autoscale": "Auto-scaling",
       "spread": "Spread",
-      "inactive": "Routing only"
+      "inactive": "Policy only"
     },
     "route": {
-      "default": "Default routing",
-      "prefix_cache": "Prefix cache routing",
-      "round_robin": "Round robin routing"
+      "default": "Default policy",
+      "prefix_cache": "Prefix cache policy",
+      "round_robin": "Round robin policy"
     },
     "placedOn": "Now placed on",
     "notLoaded": "Not loaded now",
@@ -395,7 +502,6 @@
     "close": "Close",
     "model": "Model",
     "modelPlaceholder": "Type to search models or aliases, or paste a name…",
-    "aliasOf": "alias of {{target}}",
     "aliasNote": "{{name}} is an alias for {{target}}. This rule applies to whichever model the alias points at, and follows it if you repoint it.",
     "how": "How many replicas",
     "mode": {
@@ -446,8 +552,7 @@
       "shortfall": "{{count}} more replicas than these nodes can hold under their replica cap.",
       "placement": "would load on demand on one of {{count}} matching nodes: {{nodes}}.",
       "how": "Worked out in this browser from the node list and labels. The scheduler also checks free memory and disk when it loads a model."
-    },
-    "pickerEmpty": "No model matches. \"{{name}}\" is used as typed."
+    }
   },
   "failover": {
     "lede": "A failover chain serves one model name from an ordered list of targets and moves requests to the next healthy one. When a worker stops answering, the router and the health monitor already reroute around it.",
@@ -482,116 +587,22 @@
     "single_other": "{{count}} models run on a single replica.",
     "singleSub": "If its node goes away, it stops until that node returns or a load lands elsewhere.",
     "addRule": "Run 2 replicas",
-    "singleMore": "and {{count}} more."
+    "singleMore": "and {{count}} more.",
+    "lostConnection": "Connection:"
   },
   "add": {
-    "back": "All nodes",
-    "title": "Add a node",
-    "sub": "Run one command on the machine you want to add. It appears here by itself.",
-    "join": {
-      "title": "How should it join?",
-      "worker": "Registered worker",
-      "peer": "Peer instance",
-      "shard": "Memory shard",
-      "workerSub": "The worker registers with this instance and waits for your approval. It needs the message bus and the database that distributed mode uses.",
-      "peerSub": "Another LocalAI instance joins over P2P and shares its models. Requests are balanced across the instances.",
-      "shardSub": "A machine lends its memory to hold part of one large model. It splits one model across machines instead of spreading requests."
-    },
-    "shard": {
-      "label": "Shard engine",
-      "llama": "llama.cpp RPC",
-      "mlx": "MLX (Apple Silicon)"
-    },
     "distributed": {
       "title": "Turn on distributed mode first",
       "sub": "This install runs on one machine. Start it with distributed mode, then add workers.",
       "docs": "Production setup is in the",
       "docsLink": "distributed mode documentation"
     },
-    "p2pOff": {
-      "title": "Turn on P2P first",
-      "sub": "P2P is not enabled on this instance. Start LocalAI with it enabled; it makes a network token that the new machine uses. Reload this page when it runs."
-    },
     "run": {
-      "title": "Run this on the new machine",
       "hardware": "Hardware",
       "how": "Run with",
       "docker": "Docker",
-      "cli": "CLI",
-      "kind": "Worker type",
-      "backend": "Backend worker",
-      "agent": "Agent worker",
-      "dev": "Dev",
-      "devTitle": "Use development (master) images instead of stable releases",
-      "tokenNote": "Set TOKEN to the registration token from the server configuration. This page never shows it.",
-      "p2pNote": "The token is the P2P network token of this instance. Every machine in the network uses the same one."
-    },
-    "wait": {
-      "title": "Waiting for the machine",
-      "foundTitle": "A machine arrived",
-      "listening": "Listening for a worker. This page updates when one registers.",
-      "open": "Open node",
-      "stuck": "Nothing arrives? Check that the machine reaches the message bus and that the token matches.",
-      "p2pListening": "Reading the P2P network.",
-      "p2pCount": "{{count}} peers online. This page updates when another joins.",
-      "p2pFound": "A new peer joined: {{count}} online.",
-      "p2pOpen": "Open P2P",
-      "p2pStuck": "Nothing arrives? Check that the machine reaches this network and uses the same token."
+      "cli": "CLI"
     }
-  },
-  "p2p": {
-    "title": "P2P",
-    "lede": "Peers join this instance over a shared network token. They need no message bus and no database.",
-    "peer": "Peer",
-    "unnamed": "Peer {{n}}",
-    "online": "Online",
-    "offline": "Offline",
-    "offTitle": "P2P is not enabled",
-    "offSub": "Turn on peer-to-peer networking to use other machines without a message bus or a database: share whole instances or split one model across machines.",
-    "features": {
-      "federation": {
-        "title": "Instance federation",
-        "text": "Balance requests across several LocalAI instances."
-      },
-      "sharding": {
-        "title": "Model sharding",
-        "text": "Split one large model across workers so it fits."
-      },
-      "sharing": {
-        "title": "Resource sharing",
-        "text": "Pool the memory and compute of devices you already have."
-      }
-    },
-    "enableTitle": "How to enable P2P",
-    "enableStart": "Start LocalAI with P2P on. It makes a network token for you.",
-    "enableToken": "Or start it with a token you already have from another instance.",
-    "enableThen": "Reload this page when it runs to see the token and connect machines.",
-    "docs": "P2P documentation",
-    "token": "Network token",
-    "copyToken": "Copy token",
-    "tokenCopied": "Token copied to clipboard",
-    "tokenNote": "Every machine in the network uses the same token. Pass it in the TOKEN environment variable.",
-    "sections": "P2P sections",
-    "federation": "Federation",
-    "sharding": "Model sharding",
-    "count": "{{online}}/{{total}} online",
-    "federationSub": "A federated server is the entry point: it takes API requests and balances them across the federated instances behind it.",
-    "instances": "Connected instances",
-    "noInstances": "No federated instances connected yet.",
-    "serverTitle": "Start the federated server",
-    "serverSub": "Run this on the machine that clients will call. It listens on port 8080 by default.",
-    "port": "To change the port, add -e ADDRESS=:9090.",
-    "addPeer": "Add a peer instance",
-    "addShard": "Add a memory shard",
-    "shardingSub": "Federation spreads whole requests. Model sharding splits one model across machines, each holding part of its layers.",
-    "llama": "llama.cpp RPC workers",
-    "llamaSub": "Each worker lends its GPU or CPU memory to hold a share of the model.",
-    "noLlama": "No llama.cpp workers connected yet.",
-    "mlx": "MLX distributed workers",
-    "mlxSub": "Apple Silicon Macs run the model together over native links.",
-    "mlxDocs": "MLX distributed documentation",
-    "noMlx": "No MLX workers connected yet.",
-    "shardCommands": "The commands to start a worker are in"
   },
   "nodeLogs": {
     "noneTitle": "No node or model selected",
@@ -606,19 +617,6 @@
     "allMerged": "All merged",
     "mergedTitle": "An interleaved timeline of every replica, to compare them side by side"
   },
-  "hero": {
-    "label": "Fleet health",
-    "ringAria": "{{healthy}} of {{total}} nodes healthy",
-    "healthy": "{{healthy}} of {{total}}",
-    "healthyLabel_one": "node healthy",
-    "healthyLabel_other": "nodes healthy",
-    "vram": "VRAM",
-    "ram": "RAM",
-    "models": "Running models",
-    "attention_one": "{{count}} needs attention",
-    "attention_other": "{{count}} need attention",
-    "allClear": "No node needs attention"
-  },
   "row": {
     "noHeartbeat": "No heartbeat",
     "idle": "No models loaded",
@@ -626,7 +624,6 @@
     "cpuNode": "CPU · {{ram}} RAM",
     "vram": "VRAM {{percent}}%",
     "ram": "RAM {{percent}}%",
-    "sparkAria": "Load over the last {{count}} readings, now {{percent}} percent",
     "selectAll": "Select all on this page",
     "groupNodes_one": "{{count}} node",
     "groupNodes_other": "{{count}} nodes",
@@ -636,7 +633,6 @@
   },
   "inspector": {
     "label": "Selected node",
-    "kicker": "Node",
     "empty": "Choose a node to see its details.",
     "vram": "VRAM",
     "ram": "RAM",
@@ -654,6 +650,49 @@
     "labels": "Labels",
     "logs": "Logs",
     "open": "Open full page",
-    "close": "Close details"
+    "close": "Close details",
+    "peer": "Peer ID"
+  },
+  "splitServer": {
+    "label": "Split server",
+    "make": "Make split server…",
+    "clear": "Stop being a split server…",
+    "open": "Set up a split server",
+    "title": "Set up a split server",
+    "desc": "A split server is a worker that runs models with the memory of model-split workers attached to it.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (split server)",
+    "changesTitle": "When you confirm, {{node}} becomes a split server:",
+    "changes": {
+      "ports": "It opens P2P ports and starts a P2P host for its model-split workers.",
+      "relay": "This instance admits it on the gated relays that you run, so that workers can reach it through them.",
+      "load": "The workers attached to it are used for the next llama.cpp or MLX model it loads. A model that is loaded now keeps its workers until it is loaded again.",
+      "undo": "You can turn it off on the Nodes page. Its workers are then detached."
+    },
+    "offline": "{{node}} is offline. Its workers wait until it comes back.",
+    "helpers": "Attach these model-split workers",
+    "noHelpers": "No other model-split worker is paired yet. You can attach workers later.",
+    "moveFrom": "now on {{node}}",
+    "noNodes": "The cluster has no backend worker yet. Add one first.",
+    "cancel": "Cancel",
+    "confirm": "Make split server and attach",
+    "confirmAttach": "Attach",
+    "clearTitle": "Stop {{node}} being a split server?",
+    "clearBody": "Its P2P host stops, your relays stop admitting it, and its model-split workers ({{count}}) are detached. They wait, attached to no node, until you attach them again.",
+    "clearConfirm": "Stop being a split server",
+    "clearing": "Stopping…",
+    "toast": {
+      "set": "{{node}} is a split server. Workers attached now: {{count}}. They are used for the next model it loads.",
+      "cleared": "{{node}} is no longer a split server. Workers detached: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Placement",
+    "supporting": "Where models run in the cluster, and what happens when a target stops answering.",
+    "views": {
+      "label": "Placement views",
+      "rules": "Rules",
+      "failover": "Failover"
+    }
   }
 }

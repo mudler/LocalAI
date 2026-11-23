@@ -344,7 +344,7 @@ var _ = Describe("the draft lists of a chat that does not exist yet", func() {
 	It("reads the add-on status inside a scope for the tools list", func() {
 		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
 		svc, _, _ := newCapsChat(broker, nil)
-		_, err := svc.DraftTools(context.Background(), alice, "m", "")
+		_, err := svc.DraftTools(context.Background(), alice, "m", "", studio.Switches{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 	It("reads the add-on status inside a scope for the tools of a stored chat", func() {

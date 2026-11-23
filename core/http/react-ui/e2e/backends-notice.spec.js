@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { UPGRADE_LLAMA, mockOperate } from './operate-fixtures.js'
 
 // An update is said where it can be acted on: in the row's state, in the
@@ -15,7 +16,7 @@ test('an update is a row state and a line above the list, not a banner or a rail
   const updates = page.getByTestId('backends-updates')
   await expect(updates).toContainText('1 update available')
   await expect(updates.getByRole('link', { name: 'Review' })).toBeVisible()
-  await expect(page.locator('.dk-hubtabs [data-hub-tab="updates"]').getByTestId('updates-tab-count')).toHaveText('1')
+  await expect(adminItem(page, '/app/updates').getByTestId('admin-signal-updates')).toContainText('1')
 
   // Nothing here is a filled card with an edge.
   await expect(page.locator('.bk-notice')).toHaveCount(0)

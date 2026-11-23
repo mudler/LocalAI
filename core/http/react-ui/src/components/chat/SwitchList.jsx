@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { Button, StatusChip, Switch } from '../ui'
@@ -12,18 +12,25 @@ import './switchlist.css'
 // so a refused change never moves the rows. On a phone the list is a sheet over
 // the bottom of the screen.
 
-// The chip and its menu. The menu closes on a click outside and on Escape,
+// The chip and its menu. The chip is the composer chip of ListPicker
+// (`.home-chip`, components/ui/picker.css) and the menu has the surface of its
+// menu (`.home-menu`), so the Tools, Skills and Setup chips read as one family
+// with the model picker. The rows stay switches: a switch list applies each
+// change at once and has bulk actions, reasons and controls under a row, which
+// a listbox cannot hold. The menu closes on a click outside and on Escape,
 // which gives the focus back to the chip.
 //
 //   icon, label, title   the chip
 //   count                the number on the chip (nothing at 0)
+//   dot                  true draws the green dot before the label (running)
 //   describedBy          the id of a note of the open menu, for the chip
 //   openRef              a ref that gets { open() }, for a slash command
 //   onOpen(menu)         called with the menu element once it is open
 //   disabled             the chip cannot open the menu (title says why)
 //   children(close)      the menu content
-export function SwitchPopover({ icon, label, title, count, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, children }) {
+export function SwitchPopover({ icon, label, title, count, dot, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, children }) {
   const [open, setOpen] = useState(false)
+  const [alignEnd, setAlignEnd] = useState(false)
   const ref = useRef(null)
   const buttonRef = useRef(null)
   const menuRef = useRef(null)
@@ -38,6 +45,17 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
 
   useEffect(() => {
     if (open && menuRef.current) onOpenRef.current?.(menuRef.current)
+  }, [open])
+
+  // As in ListPicker: a menu wider than the room to the right of its chip
+  // hangs from the chip's right edge instead.
+  useLayoutEffect(() => {
+    if (!open) { setAlignEnd(false); return }
+    const menu = menuRef.current
+    const root = ref.current
+    if (!menu || !root || typeof window === 'undefined') return
+    const box = root.getBoundingClientRect()
+    setAlignEnd(box.left + menu.offsetWidth > window.innerWidth - 8 && box.right - menu.offsetWidth >= 8)
   }, [open])
 
   useEffect(() => {
@@ -57,11 +75,11 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
   }, [open])
 
   return (
-    <div className="chat-mcp-dropdown chat-addons-dropdown" ref={ref} data-testid={testId}>
+    <div className="list-picker swl-pop" ref={ref} data-testid={testId}>
       <button
         ref={buttonRef}
         type="button"
-        className={`btn btn-sm ${count > 0 ? 'btn-primary' : 'btn-secondary'}`}
+        className="home-chip"
         title={title}
         aria-haspopup="true"
         aria-expanded={open}
@@ -70,11 +88,21 @@ export function SwitchPopover({ icon, label, title, count, describedBy, testId, 
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
       >
-        <Icon name={icon} /> {label}
-        {count > 0 && <span className="chat-mcp-badge" data-testid={`${testId}-count`}>{count}</span>}
+        {icon && <Icon name={icon} />}
+        {dot && <span className="home-dot" aria-hidden="true" />}
+        <span className="home-chip__text">{label}</span>
+        {count > 0 && <span className="home-chip__count" data-testid={`${testId}-count`}>{count}</span>}
+        <Icon name="chevron-down" className="home-chip__caret" />
       </button>
       {open && !disabled && (
-        <div ref={menuRef} className={`chat-mcp-dropdown-menu swl-menu ${menuClassName}`.trim()} role="group" aria-label={title} data-testid={`${testId}-menu`}>
+        <div
+          ref={menuRef}
+          className={`home-menu swl-menu ${menuClassName}`.trim()}
+          data-align={alignEnd ? 'end' : undefined}
+          role="group"
+          aria-label={title}
+          data-testid={`${testId}-menu`}
+        >
           {typeof children === 'function' ? children(() => { setOpen(false); buttonRef.current?.focus() }) : children}
         </div>
       )}

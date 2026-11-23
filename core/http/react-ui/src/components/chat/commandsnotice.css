@@ -103,3 +103,13 @@
   font-size: var(--fs-meta);
   color: var(--color-text-secondary);
 }
+
+/* The add-ons that lost tools to the cap, one short line each. */
+.cmd-notice__list {
+  margin: var(--sp-1) 0 0;
+  padding-left: var(--sp-4);
+}
+.cmd-notice__lost {
+  margin: var(--sp-2) 0 0;
+  color: var(--color-text-secondary);
+}

@@ -37,6 +37,8 @@ async function clearFormStorage(page) {
     try {
       window.localStorage.removeItem('import-form-tab')
       window.localStorage.removeItem('import-form-options')
+      window.localStorage.removeItem('localai.import.tab')
+      window.localStorage.removeItem('localai.import.options')
     } catch {
       // ignore quota / privacy mode
     }
@@ -53,8 +55,8 @@ test.describe('Import form UX — Batch B1 (source / YAML tabs)', () => {
     await page.goto('/app/import-model')
     const tabs = page.locator('[data-testid="import-tabs"]')
     await expect(tabs).toBeVisible({ timeout: 15_000 })
-    await expect(tabs.locator('[data-testid="import-tab-source"]')).toHaveClass(/is-active/)
-    await expect(tabs.locator('[data-testid="import-tab-yaml"]')).not.toHaveClass(/is-active/)
+    await expect(tabs.locator('[data-testid="import-tab-source"]')).toHaveAttribute('aria-selected', 'true')
+    await expect(tabs.locator('[data-testid="import-tab-yaml"]')).toHaveAttribute('aria-selected', 'false')
     await expect(page.locator('[data-testid="import-source-input"]')).toBeVisible()
   })
 
@@ -66,11 +68,11 @@ test.describe('Import form UX — Batch B1 (source / YAML tabs)', () => {
     await expect(page.locator('[data-testid="import-yaml"]')).toBeVisible()
     await expect(page.locator('[data-testid="import-create"]')).toBeVisible()
 
-    const stored = await page.evaluate(() => window.localStorage.getItem('import-form-tab'))
+    const stored = await page.evaluate(() => window.localStorage.getItem('localai.import.tab'))
     expect(stored).toBe('yaml')
 
     await page.reload()
-    await expect(page.locator('[data-testid="import-tab-yaml"]')).toHaveClass(/is-active/)
+    await expect(page.locator('[data-testid="import-tab-yaml"]')).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator('[data-testid="import-yaml"]')).toBeVisible()
   })
 

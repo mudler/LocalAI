@@ -16,7 +16,8 @@ import (
 
 // RepoOfURI reads the repository an installed file or model uri points at:
 // huggingface://owner/repo[/file], hf://, https://huggingface.co/owner/repo/...
-// or pirateface://owner/repo[/file]. It reports false for anything else.
+// pirateface://owner/repo[/file] or ollama://name[:tag] (as namespace/name:tag).
+// It reports false for anything else.
 func RepoOfURI(uri string) (string, bool) {
 	ref, err := modelsearch.ParseRepoURI(uri)
 	if err != nil {
@@ -26,7 +27,7 @@ func RepoOfURI(uri string) (string, bool) {
 	// reference in an installed config: only schemes and the Hugging Face
 	// host count.
 	lower := strings.ToLower(strings.TrimSpace(uri))
-	for _, p := range []string{"huggingface://", "hf://", "pirateface://", "https://huggingface.co/", "http://huggingface.co/", "huggingface.co/"} {
+	for _, p := range []string{"huggingface://", "hf://", "pirateface://", "ollama://", "https://huggingface.co/", "http://huggingface.co/", "huggingface.co/"} {
 		if strings.HasPrefix(lower, p) {
 			return strings.ToLower(ref.ID), true
 		}
@@ -85,7 +86,15 @@ func (x *InstalledIndex) Lookup(repoID string) (string, bool) {
 func EnrichSearch(resp *modelsearch.Response, idx *InstalledIndex) {
 	for i := range resp.Results {
 		r := &resp.Results[i]
-		if name, ok := idx.Lookup(r.ID); ok {
+		name, ok := idx.Lookup(r.ID)
+		if !ok {
+			// The row id is free text for a source such as Ollama; the uri
+			// names the repository exactly.
+			if repo, isRepo := RepoOfURI(r.URI); isRepo {
+				name, ok = idx.Lookup(repo)
+			}
+		}
+		if ok {
 			r.Installed, r.InstalledName = true, name
 		}
 		r.Backend = DeriveBackend(r)

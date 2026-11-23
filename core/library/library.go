@@ -189,6 +189,50 @@ func Add(store *catalog.Sources, kind catalog.Kind, url, id, name, format string
 
 // AddWithMirrors is Add for a source that also lists mirrors.
 func AddWithMirrors(store *catalog.Sources, kind catalog.Kind, url, id, name, format string, mirrors []string) (catalog.Source, error) {
+	return AddWithPolicy(store, kind, url, id, name, format, mirrors, catalog.VerificationPolicy{})
+}
+
+// checkPolicy accepts the policy a caller may set when it adds a source: none,
+// or an issuer with a signer on an oci:// add-on library. The signer is an
+// exact identity, or an identity pattern together with a source repository.
+// The signature is then required. A pattern alone is refused: a shared
+// signing workflow matches it for every repository that calls the workflow,
+// so an add-on install refuses it and the source would never verify. The
+// messages name the fields of the REST request; the CLI flags have the same
+// names with dashes.
+func checkPolicy(kind catalog.Kind, url, format string, p catalog.VerificationPolicy) (catalog.VerificationPolicy, error) {
+	issuer, identity := strings.TrimSpace(p.Issuer), strings.TrimSpace(p.Identity)
+	pattern, repo := strings.TrimSpace(p.IdentityRegex), strings.TrimSpace(p.SourceRepository)
+	if issuer == "" && identity == "" && pattern == "" && repo == "" && !p.RequireSignature {
+		return catalog.VerificationPolicy{}, nil
+	}
+	if identity != "" && pattern != "" {
+		return p, badRequest("set identity or identity_regex, not both")
+	}
+	if issuer == "" || (identity == "" && pattern == "") {
+		return p, badRequest("issuer and identity (or identity_regex) must be set together")
+	}
+	if kind != catalog.KindAddon || format != "" || !catalog.IsOCIAddress(url) {
+		return p, badRequest("issuer and identity apply to an oci:// add-on library only")
+	}
+	out := catalog.VerificationPolicy{RequireSignature: true, Issuer: issuer, Identity: identity, IdentityRegex: pattern, SourceRepository: repo}
+	if !out.ValidForAddon() {
+		return p, badRequest("identity_regex needs source_repository: a pattern alone admits a signature made for any repository that uses the same signing workflow")
+	}
+	if err := out.Check(); err != nil {
+		return p, badRequest("%s", strings.TrimPrefix(err.Error(), catalog.ErrInvalid.Error()+": "))
+	}
+	return out, nil
+}
+
+// AddWithPolicy is AddWithMirrors for a source that pins its signer: an
+// oci:// add-on library whose artifact must be signed by the given issuer and
+// identity, or identity pattern and source repository. An empty policy adds the source as AddWithMirrors does.
+func AddWithPolicy(store *catalog.Sources, kind catalog.Kind, url, id, name, format string, mirrors []string, p catalog.VerificationPolicy) (catalog.Source, error) {
+	p, err := checkPolicy(kind, url, format, p)
+	if err != nil {
+		return catalog.Source{}, err
+	}
 	for _, e := range store.Entries() {
 		if e.Kind == kind && e.URL == url && !e.IsTombstone() {
 			return catalog.Source{}, fmt.Errorf("%w: %s is already a %s source (%s)", ErrDuplicate, url, kind, e.ID)
@@ -204,7 +248,7 @@ func AddWithMirrors(store *catalog.Sources, kind catalog.Kind, url, id, name, fo
 	if name == "" {
 		name = id
 	}
-	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format, Mirrors: mirrors}
+	src := catalog.Source{ID: id, Name: name, URL: url, Enabled: true, Kind: kind, Format: format, Mirrors: mirrors, Policy: p}
 	if err := store.AddUser(src); err != nil {
 		return catalog.Source{}, err
 	}

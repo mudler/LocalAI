@@ -58,3 +58,17 @@ export function effectOutcome(outcome, verified) {
   if (outcome === 'completed' && verified === false) return 'not_applied'
   return outcome
 }
+
+// A stable text of a request without its operation identity. Part of an action
+// key, so a request that differs (other ticks, another candidate, a fresh
+// preview) never reuses the identity of an earlier one: the owner answers a
+// known ID with a different request as an operation conflict.
+export function requestFingerprint(body) {
+  const walk = (v) => {
+    if (Array.isArray(v)) return v.map(walk)
+    if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().map(k => [k, walk(v[k])]))
+    return v
+  }
+  const { operationId: _omitted, ...rest } = body || {}
+  return JSON.stringify(walk(rest))
+}

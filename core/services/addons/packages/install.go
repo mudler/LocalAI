@@ -13,23 +13,55 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/credentials"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
+// Progress is one report of a Stage. Phase is "verifying" (the signature),
+// "download" (Bytes of Total read so far; Total is zero when the size is not
+// known) and "verified" (Bytes is the size of the extracted tree).
 type Progress struct {
 	Phase string
 	Bytes int64
+	Total int64
+}
+
+// progressInterval bounds how often a download reports its bytes, so a fast
+// local registry does not flood the caller with one report per read.
+const progressInterval = 250 * time.Millisecond
+
+// progressReader reports the bytes read through it. done is the count of the
+// layers read before this one, so the report covers the whole package.
+type progressReader struct {
+	r           io.Reader
+	done, total int64
+	read        int64
+	last        time.Time
+	report      func(Progress)
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	p.read += int64(n)
+	if now := time.Now(); n > 0 && now.Sub(p.last) >= progressInterval {
+		p.last = now
+		p.report(Progress{Phase: "download", Bytes: p.done + p.read, Total: p.total})
+	}
+	return n, err
 }
 
 // Root must be a private owner-controlled directory, never addon-writable data.
@@ -75,9 +107,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	}
 	// Do not accept a caller's substituted artifact, policy, source or digest.
 	r.Selection = selection
-	// An add-on library names its signer exactly. A pattern is for backend
-	// sources only, so an add-on install refuses a policy that carries one.
-	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
+	// An add-on library names its signer exactly, or by a pattern together
+	// with the source repository. A shared signing workflow matches a pattern
+	// for every repository that calls it, so a pattern alone is refused.
+	if !r.Policy.ValidForAddon() || r.EntryKind() != catalog.KindAddon {
 		return out, ErrPackage
 	}
 	// The entry says what the package needs. A host that is too old refuses
@@ -107,7 +140,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, e
 	}
 	info, e := os.Lstat(root)
-	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 {
+	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return out, ErrPackage
+	}
+	// On Windows, which has no mode bits, the folder is made private to the
+	// current user (a new folder has the access control list of its parent).
+	if _, e = fsperm.RequirePrivate(root, info); e != nil {
 		return out, ErrPackage
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
@@ -119,8 +157,9 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			_ = os.RemoveAll(dir)
 		}
 	}()
+	report := func(Progress) {}
 	if progress != nil {
-		progress(Progress{Phase: "download"})
+		report = progress
 	}
 	x := &extraction{seen: map[string]bool{}}
 	verification := "sha256"
@@ -132,9 +171,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		pinned := ref.Context().Digest(r.Digest).Name()
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
-			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
+			report(Progress{Phase: "verifying"})
+			verifier, e := cosignverify.NewVerifier(r.Policy.CosignPolicy(), nil, transport)
 			if i.SignatureTrust != nil {
-				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport, i.SignatureTrust)
+				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(r.Policy.CosignPolicy(), nil, transport, i.SignatureTrust)
 			}
 			if e != nil {
 				return out, ErrPackage
@@ -164,13 +204,21 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil || len(layers) > i.fileLimit() {
 			return out, ErrPackage
 		}
-		var downloaded int64
-		for _, layer := range layers {
+		// The sizes are read first so every report carries the total.
+		var total int64
+		sizes := make([]int64, len(layers))
+		for n, layer := range layers {
 			size, e := layer.Size()
-			if e != nil || size < 0 || size > i.byteLimit()-downloaded {
+			if e != nil || size < 0 || size > i.byteLimit()-total {
 				return out, ErrPackage
 			}
-			downloaded += size
+			sizes[n] = size
+			total += size
+		}
+		report(Progress{Phase: "download", Total: total})
+		var downloaded int64
+		for n, layer := range layers {
+			size := sizes[n]
 			h, e := layer.Digest()
 			if e != nil || h.Algorithm != "sha256" {
 				return out, ErrPackage
@@ -179,8 +227,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			if e != nil {
 				return out, ErrPackage
 			}
-			f, e := i.download(ctx, rc, h.String(), root)
+			f, e := i.download(ctx, &progressReader{r: rc, done: downloaded, total: total, report: report}, h.String(), root)
 			_ = rc.Close()
+			downloaded += size
+			report(Progress{Phase: "download", Bytes: downloaded, Total: total})
 			if e != nil {
 				return out, e
 			}
@@ -208,7 +258,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, ErrPackage
 		}
-		resp, e := httpclient.New().Do(req)
+		// The archive is pinned by its SHA256, so a redirect changes where
+		// the bytes come from and never what is accepted; only the release
+		// download hosts are followed (see catalog.ReleaseAssetHosts).
+		opts := []httpclient.Option{httpclient.WithRedirectHosts(catalog.ReleaseAssetHosts...)}
+		if archiveTransport != nil {
+			opts = append(opts, httpclient.WithTransport(archiveTransport))
+		}
+		resp, e := httpclient.New(opts...).Do(req)
 		if e != nil {
 			return out, ErrPackage
 		}
@@ -216,9 +273,14 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if resp.StatusCode != 200 {
 			return out, ErrPackage
 		}
-		f, e := i.download(ctx, resp.Body, r.Digest, root)
+		total := max(resp.ContentLength, 0)
+		report(Progress{Phase: "download", Total: total})
+		f, e := i.download(ctx, &progressReader{r: resp.Body, total: total, report: report}, r.Digest, root)
 		if e != nil {
 			return out, e
+		}
+		if fi, e := f.Stat(); e == nil {
+			report(Progress{Phase: "download", Bytes: fi.Size(), Total: max(total, fi.Size())})
 		}
 		defer func() { _ = os.Remove(f.Name()) }()
 		defer func() { _ = f.Close() }()
@@ -241,10 +303,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if e = ctx.Err(); e != nil {
 		return out, e
 	}
-	if progress != nil {
-		progress(Progress{Phase: "verified", Bytes: x.bytes})
+	report(Progress{Phase: "verified", Bytes: x.bytes})
+	signer := ""
+	if verification == "sha256+sigstore" && !catalog.IsOfficialSource(r.SourceID, r.SourceURL) {
+		signer = r.Policy.SignerLabel()
 	}
-	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
+	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Signer: signer, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
 }
 
 // inspectStage reads and checks the staged tree: the manifest against the
@@ -272,9 +336,13 @@ func (i *Installer) inspectStage(dir string) (contract.Manifest, *PackageIcon, [
 		assets = append(assets, u.Entry)
 		assets = append(assets, u.CSS...)
 	}
+	// A Windows process cannot read Unix mode bits back from disk. When it
+	// stages for another OS, which only a test does since the host OS is the
+	// running OS, the executable is taken from the manifest.
+	modeBitsUnreadable := goruntime.GOOS == "windows" && i.Host.OS != "windows"
 	for _, asset := range assets {
 		info, e := os.Lstat(filepath.Join(dir, filepath.FromSlash(asset)))
-		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && info.Mode()&0100 == 0) {
+		if e != nil || !info.Mode().IsRegular() || (asset == m.Executable && !modeBitsUnreadable && !runnable(goruntime.GOOS, info, asset, m.RunsInWSL())) {
 			return contract.Manifest{}, nil, nil, ErrPackage
 		}
 	}
@@ -363,6 +431,10 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 // registry credential is never sent to the target. Any other redirect is
 // refused, so credentials cannot follow to another origin. The caller still
 // verifies the digest of the bytes it receives.
+// archiveTransport replaces the transport of an archive download in tests, so
+// a redirect to an allowed host can be served in process. Nil in production.
+var archiveTransport http.RoundTripper
+
 type boundTransport struct {
 	ctx               context.Context
 	base              http.RoundTripper
@@ -469,4 +541,21 @@ func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper)
 		}
 	}
 	return "", ErrPackage
+}
+
+// runnable reports whether the executable of a package can run on goos.
+// Windows has no execute bit: there the name must end in .exe, which is what
+// makes a file a program for Windows (a Windows package names its executable
+// so). Other systems need the owner execute bit. The executable of a
+// package that runs in WSL 2 is a Linux program that Windows does not run
+// itself: the copy in the distribution gets its execute bit, and the
+// supervisor checks that it is a Linux program at each launch.
+func runnable(goos string, info os.FileInfo, name string, inWSL bool) bool {
+	if inWSL {
+		return true
+	}
+	if goos == "windows" {
+		return strings.EqualFold(path.Ext(name), ".exe")
+	}
+	return info.Mode()&0100 != 0
 }

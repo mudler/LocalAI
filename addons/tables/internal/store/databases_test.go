@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/mudler/LocalAI/addons/tables/internal/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	_ "modernc.org/sqlite"
 )
 
 const (
@@ -47,7 +47,7 @@ func files(dir string) []string {
 
 func ledgerExec(dir, query string, args ...any) {
 	GinkgoHelper()
-	db, e := sql.Open("sqlite3", filepath.Join(dir, "ledger.sqlite"))
+	db, e := sql.Open("sqlite", filepath.Join(dir, "ledger.sqlite"))
 	Expect(e).NotTo(HaveOccurred())
 	defer func() { _ = db.Close() }()
 	_, e = db.Exec(query, args...)
@@ -78,7 +78,7 @@ var _ = Describe("Tables databases", func() {
 		Expect(di.Mode().Perm()).To(Equal(os.FileMode(0o700)))
 		root, _ := os.Stat(dir)
 		Expect(root.Mode().Perm()).To(Equal(os.FileMode(0o700)))
-		db, e := sql.Open("sqlite3", "file:"+path+"?mode=ro")
+		db, e := sql.Open("sqlite", "file:"+path+"?mode=ro")
 		Expect(e).NotTo(HaveOccurred())
 		defer func() { _ = db.Close() }()
 		var mode string
@@ -272,7 +272,7 @@ var _ = Describe("Tables databases", func() {
 		_, e := s.Create(ctx, idA, "Sales", "op-a")
 		Expect(e).NotTo(HaveOccurred())
 		short := open(dir, store.Options{BusyTimeout: 100 * time.Millisecond, OpTimeout: 400 * time.Millisecond})
-		lock, e := sql.Open("sqlite3", "file:"+filepath.Join(dir, "databases", idA+".db")+"?_txlock=exclusive")
+		lock, e := sql.Open("sqlite", "file:"+filepath.Join(dir, "databases", idA+".db")+"?_txlock=exclusive")
 		Expect(e).NotTo(HaveOccurred())
 		defer func() { _ = lock.Close() }()
 		tx, e := lock.Begin()

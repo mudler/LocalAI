@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "update": {"update": "업데이트 있음", "edited": "업데이트 있음, 선택 필요", "updating": "업그레이드 중", "failed": "업그레이드 실패", "held": "이 버전에 고정됨"},
     "supporting": "이 컴퓨터에 맞는 모델을 찾아 설치하고, 설치된 모델을 관리합니다.",
     "title": "Models",
     "navLabel": "Model lifecycle",
@@ -15,17 +16,17 @@
     },
     "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
     "actions": {
-      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "다시 불러오기", "reloading": "다시 불러오는 중…",
       "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
       "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
       "delete": "Delete model", "forModel": "Actions for {{model}}",
       "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
     },
-    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "다시 불러오기" },
     "toasts": {
       "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
       "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
-      "deleted": "Deleted {{model}}", "updated": "Models updated"
+      "deleted": "Deleted {{model}}", "reloaded": "모델 설정을 다시 불러왔습니다"
     },
     "confirm": {
       "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",

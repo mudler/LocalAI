@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,9 @@ var _ = Describe("the loopback carrier config", func() {
 		Expect(cfg.OwnerAddress).To(Equal("https://"+second), "owner address does not match listen address")
 		info, err := os.Stat(filepath.Join(root, loopbackPortFile))
 		Expect(err).ToNot(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)), "port file mode")
+		if runtime.GOOS != "windows" { // Windows has no permission bits
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)), "port file mode")
+		}
 	})
 
 	It("does not share state between different roots", func() {
@@ -55,6 +58,9 @@ var _ = Describe("the loopback carrier config", func() {
 	})
 
 	It("rejects a port file with a loose mode", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no group or other permission bits to set")
+		}
 		root := GinkgoT().TempDir()
 		path := filepath.Join(root, loopbackPortFile)
 		Expect(os.WriteFile(path, []byte("40123\n"), 0o600)).To(Succeed())

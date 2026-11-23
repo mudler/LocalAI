@@ -135,40 +135,6 @@ a.pj-row__name:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 720px) {
   .pj-tabswrap[data-start] > .pj-tabsmore--start, .pj-tabswrap[data-end] > .pj-tabsmore--end { display: grid; }
 }
-.pj-tabs {
-  display: flex;
-  gap: var(--sp-6);
-  border-bottom: 1px solid var(--dk-edge);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.pj-tab {
-  position: relative;
-  flex: none;
-  height: 40px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  font: 500 var(--fs-small)/1 var(--font-sans);
-  color: var(--dk-muted);
-  transition: color var(--dur-instant) var(--ease-out);
-}
-.pj-tab:hover, .pj-tab[aria-selected="true"] { color: var(--dk-text); }
-.pj-tab::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  border-radius: var(--r-xs);
-  background: var(--dk-text);
-  transform: scaleX(0);
-  transition: transform var(--dur-base) var(--ease-out);
-}
-.pj-tab[aria-selected="true"]::after { transform: scaleX(1); }
-
 .pj-panel { min-width: 0; }
 .pj-stack { display: flex; flex-direction: column; gap: var(--sp-6); }
 .pj-section { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }

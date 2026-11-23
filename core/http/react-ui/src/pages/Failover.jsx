@@ -8,10 +8,13 @@ import useFailoverChains from '../hooks/useFailoverChains'
 import { relative } from '../components/FailoverChainStatus'
 import { useNodeList, useReplicas, useRules } from '../hooks/useSwarm'
 import { isDown, isPlaceable, leavePreview, singleReplicaModels } from '../utils/swarm'
+import { nodeConnections } from '../utils/workerRoster'
 import { timeAgo } from '../components/nodes/nodeStatus'
 import LeaveList from '../components/swarm/LeaveList'
+import ConnectionChips from '../components/swarm/ConnectionChips'
 import Icon from '../components/Icon'
 import './swarm.css'
+import { Button, EmptyState } from '../components/ui'
 
 const POLICY = ['notAnswering', 'requests', 'replicas', 'back']
 
@@ -23,7 +26,8 @@ const POLICY = ['notAnswering', 'requests', 'replicas', 'back']
 // replicas and the rules what would stop if it went, labelled as a preview.
 //
 // A single install has chains and no nodes, so it shows only the chains.
-export default function Failover() {
+// `embedded` is the Failover view of the Placement page, which draws the title.
+export default function Failover({ embedded = false }) {
   const { t, i18n } = useTranslation('models')
   const { t: ts } = useTranslation('swarm')
   const { chains, loading, error } = useFailoverChains()
@@ -50,8 +54,8 @@ export default function Failover() {
   const single = useMemo(() => (rows ? singleReplicaModels(rows, nodes) : []), [rows, nodes])
 
   return (
-    <div className="page page--wide sw-page" data-testid="failover-overview">
-      <h1 className="dk-sr-only">{t('failover.overview.title')}</h1>
+    <div className={embedded ? 'sw-page' : 'page page--wide sw-page'} data-testid="failover-overview">
+      {!embedded && <h1 className="dk-sr-only">{t('failover.overview.title')}</h1>}
       <p className="sw-note">{ts('failover.lede')}</p>
 
       {cluster && lost.length > 0 && (
@@ -61,6 +65,17 @@ export default function Failover() {
             {ts('failover.lostSub', { when: lost[0].last_heartbeat ? timeAgo(lost[0].last_heartbeat) : ts('detail.never') })}{' '}
             <Link className="dk-link" to={`/app/nodes/${encodeURIComponent(lost[0].id)}`}>{ts('failover.openNode')}</Link>
           </p>
+          {lost.some(n => nodeConnections(n).length > 0) && (
+            <ul className="sw-banner__routes" data-testid="failover-lost-connections">
+              {lost.filter(n => nodeConnections(n).length > 0).map(n => (
+                <li key={n.id}>
+                  <span className="dk-mono">{n.name}</span>
+                  <span className="sw-banner__label">{ts('failover.lostConnection')}</span>
+                  <ConnectionChips connections={nodeConnections(n)} />
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
@@ -90,12 +105,16 @@ export default function Failover() {
         {loading ? (
           <div className="sw-loading"><LoadingSpinner /></div>
         ) : chains.length === 0 ? (
-          <div className="dk-empty">
-            <div className="dk-empty-icon"><Icon name="shuffle" /></div>
-            <h3 className="dk-empty-title">{t('failover.overview.empty.title')}</h3>
-            <p className="dk-empty-text">{t('failover.overview.empty.text')}</p>
-            <Link className="dk-btn dk-btn--primary" to="/app/model-editor?template=failover">{t('failover.overview.empty.cta')}</Link>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="shuffle"
+            title={t('failover.overview.empty.title')}
+            level={3}
+            body={t('failover.overview.empty.text')}
+            actions={<>
+              <Button variant="primary" to="/app/model-editor?template=failover">{t('failover.overview.empty.cta')}</Button>
+            </>}
+          />
         ) : (
           <div className="dk-table-wrap sw-wrap">
             <table className="dk-table sw-table">

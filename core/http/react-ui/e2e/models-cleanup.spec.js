@@ -255,6 +255,23 @@ test.describe('Cleanup sheet - confirm and dry run', () => {
     await expect(page.getByTestId('removal-undo-toast')).toHaveCount(0)
     expect(state.deletes).toHaveLength(0)
   })
+
+  // The confirmation is the shared dialog, and a modal layer over the sheet:
+  // focus starts on its action, and Escape closes only the confirmation.
+  test('Escape closes the confirmation first and the sheet stays open', async ({ page }) => {
+    const state = await openSheet(page)
+    await selectSafe(page)
+    await removeButton(page).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toHaveClass(/\bdk-dialog\b/)
+    await expect(dialog.getByRole('button', { name: 'Remove 1 model' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(sheet(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(sheet(page)).toHaveCount(0)
+    expect(state.deletes).toHaveLength(0)
+  })
 })
 
 test.describe('Cleanup sheet - removal with an undo window', () => {

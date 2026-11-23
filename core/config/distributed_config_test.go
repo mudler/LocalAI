@@ -91,6 +91,17 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 	)
 })
 
+var _ = Describe("DistributedConfig without a NATS URL", func() {
+	It("is valid: a deployment with only PostgreSQL broadcasts over PostgreSQL", func() {
+		Expect(config.DistributedConfig{Enabled: true}.Validate()).To(Succeed())
+	})
+
+	It("keeps the NATS URL when one is given", func() {
+		o := config.NewApplicationConfig(config.WithNatsURL("nats://localhost:4222"))
+		Expect(o.Distributed.NatsURL).To(Equal("nats://localhost:4222"))
+	})
+})
+
 var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 	It("rejects a negative BackendInstallTimeout with the flag name in the error", func() {
 		c := config.DistributedConfig{

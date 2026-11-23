@@ -6,21 +6,38 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
 
 // DistributedConfig holds configuration for horizontal scaling mode.
-// When Enabled is true, PostgreSQL and NATS are required.
+// When Enabled is true, PostgreSQL is required. NATS is needed only while the
+// cluster runs on the NATS carrier.
 type DistributedConfig struct {
 	Enabled    bool   // --distributed / LOCALAI_DISTRIBUTED
 	InstanceID string // --instance-id / LOCALAI_INSTANCE_ID (auto-generated UUID if empty)
 	// InstanceIDGenerated is set when the ID above was generated at startup. A generated
 	// ID changes on every start, so on-disk state must not be keyed by it.
 	InstanceIDGenerated bool
-	NatsURL             string // --nats-url / LOCALAI_NATS_URL
-	StorageURL          string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
-	RegistrationToken   string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
+	// PeerAddress is the host and port at which the other frontends dial this
+	// one, to reach a worker tunnel that this one holds. Empty means that the
+	// address is found from the route to the database. LOCALAI_PEER_ADDRESS.
+	PeerAddress string
+	// PeerTLS makes this frontend dial the other frontends over wss. They must sit
+	// behind TLS at the address that they publish. LOCALAI_PEER_TLS.
+	PeerTLS bool
+	// PeerTLSCA is a PEM file with the certificate authority that signs the
+	// certificate of the other frontends. Empty uses the system roots.
+	// LOCALAI_PEER_TLS_CA.
+	PeerTLSCA string
+	// NatsURL is the NATS server of a deployment that has one. A deployment with
+	// no URL broadcasts over PostgreSQL, and its workers hold the tunnel. The URL
+	// is copied into the cluster settings when none is stored there, and the
+	// cluster setting wins afterwards, so that every replica uses the same one.
+	NatsURL           string // --nats-url / LOCALAI_NATS_URL
+	StorageURL        string // --storage-url / LOCALAI_STORAGE_URL (S3 endpoint)
+	RegistrationToken string // --registration-token / LOCALAI_REGISTRATION_TOKEN (required token for node registration)
 	// RegistrationRequireAuth fails startup when distributed mode is enabled but
 	// RegistrationToken is empty. The default (false) keeps the historical
 	// fail-open behavior with a loud warning; production should set it so the
@@ -155,9 +172,9 @@ func (c DistributedConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if c.NatsURL == "" {
-		return fmt.Errorf("distributed mode requires --nats-url / LOCALAI_NATS_URL")
-	}
+	// No NATS URL is required. The carrier is a setting of the cluster in the
+	// database: a new deployment with only PostgreSQL runs on the tunnel, and a
+	// deployment with a NATS URL stays on NATS.
 	// S3 credentials must be paired
 	if (c.StorageAccessKey != "" && c.StorageSecretKey == "") ||
 		(c.StorageAccessKey == "" && c.StorageSecretKey != "") {
@@ -179,7 +196,11 @@ func (c DistributedConfig) Validate() error {
 	if err := c.NatsTLSFiles().Validate(); err != nil {
 		return err
 	}
-	c.NatsAuthConfig().WarnIfInsecure(true)
+	// A deployment with no NATS URL runs on the tunnel and has no NATS bus to warn
+	// about. The warning comes back when a URL is configured.
+	if c.NatsURL != "" {
+		c.NatsAuthConfig().WarnIfInsecure(true)
+	}
 	// Check for negative durations
 	for name, d := range map[string]time.Duration{
 		FlagMCPToolTimeout:          c.MCPToolTimeout,
@@ -219,10 +240,34 @@ func WithDistributedInstanceID(id string) AppOption {
 	}
 }
 
+// WithDistributedPeerAddress sets the address at which other frontends dial this
+// one.
+func WithDistributedPeerAddress(addr string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerAddress = addr
+	}
+}
+
+// WithDistributedPeerTLS makes this frontend dial its peers over wss, trusting
+// the CA in caFile, or the system roots when caFile is empty.
+func WithDistributedPeerTLS(caFile string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.PeerTLS = true
+		o.Distributed.PeerTLSCA = caFile
+	}
+}
+
 func WithNatsURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.NatsURL = url
 	}
+}
+
+// WorkerAuthToken is the bearer token between the frontends and the workers for
+// the data plane. It is derived from the registration token, and empty when
+// there is none.
+func (c DistributedConfig) WorkerAuthToken() string {
+	return workerctl.WorkerAuthToken(c.RegistrationToken)
 }
 
 func WithRegistrationToken(token string) AppOption {

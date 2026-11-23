@@ -1,29 +1,24 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useState, useEffect, useRef } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Navigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import UsersPanel from '../components/users/UsersPanel'
-import InvitesPanel from '../components/users/InvitesPanel'
-import ApiKeysPanel from '../components/users/ApiKeysPanel'
+import InviteSheet from '../components/users/InviteSheet'
+import AdminPage from '../components/admin/AdminPage'
+import { Button } from '../components/ui'
 import './access.css'
 
-const TABS = [
-  { id: 'users', labelKey: 'tabs.users' },
-  { id: 'invites', labelKey: 'tabs.invites' },
-  { id: 'keys', labelKey: 'tabs.keys' },
-]
-
-// People, invites and API keys, on one page under the Settings tab. The tab is
-// kept in the address (?tab=invites) so a link opens it.
+// People who can sign in, and what each of them can use. "Invite someone" is
+// the page's one primary action and opens a side sheet with the invite links.
+// The old tab addresses keep working: ?tab=keys leads to API keys and
+// ?tab=invites opens the sheet.
 export default function Users() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('admin')
-  const { t: ta } = useTranslation('auth')
   const [params, setParams] = useSearchParams()
-  const tab = TABS.some(x => x.id === params.get('tab')) ? params.get('tab') : 'users'
   const [registrationMode, setRegistrationMode] = useState('')
-  const refs = useRef({})
+  const [inviting, setInviting] = useState(params.get('tab') === 'invites' || params.get('invite') === '1')
 
   useEffect(() => {
     let live = true
@@ -31,43 +26,28 @@ export default function Users() {
     return () => { live = false }
   }, [])
 
-  const select = (id, focus = false) => {
-    setParams(id === 'users' ? {} : { tab: id }, { replace: true })
-    if (focus) refs.current[id]?.focus()
-  }
+  // The address that opened the sheet is spent: the page's own address stays.
+  useEffect(() => {
+    if (params.get('tab') === 'invites' || params.get('invite')) {
+      const next = new URLSearchParams(params)
+      next.delete('tab'); next.delete('invite')
+      setParams(next, { replace: true })
+    }
+  }, [params, setParams])
 
-  const onKey = (e) => {
-    const i = TABS.findIndex(x => x.id === tab)
-    if (e.key === 'ArrowRight') { e.preventDefault(); select(TABS[(i + 1) % TABS.length].id, true) }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); select(TABS[(i + TABS.length - 1) % TABS.length].id, true) }
-    else if (e.key === 'Home') { e.preventDefault(); select(TABS[0].id, true) }
-    else if (e.key === 'End') { e.preventDefault(); select(TABS[TABS.length - 1].id, true) }
-  }
+  if (params.get('tab') === 'keys') return <Navigate to="/app/api-keys" replace />
 
   return (
-    <div className="page page--wide us-page" data-testid="users-page">
-      <header className="us-head">
-        <h1 className="us-title">{t('users.title')}</h1>
-        <p className="us-lede">{t('users.subtitle')}</p>
-      </header>
-
-      <div className="dk-tabs" role="tablist" aria-label={t('users.title')} onKeyDown={onKey}>
-        {TABS.map(x => (
-          <button
-            key={x.id} ref={el => { refs.current[x.id] = el }} type="button" role="tab" id={`us-tab-${x.id}`}
-            className="dk-tab" aria-selected={tab === x.id} aria-controls={`us-panel-${x.id}`} tabIndex={tab === x.id ? 0 : -1}
-            onClick={() => select(x.id)}
-          >
-            {t(x.labelKey)}
-          </button>
-        ))}
-      </div>
-
-      <div className="dk-tabpanel" role="tabpanel" id={`us-panel-${tab}`} aria-labelledby={`us-tab-${tab}`}>
-        {tab === 'users' && <UsersPanel addToast={addToast} onInvite={() => select('invites')} registrationMode={registrationMode} />}
-        {tab === 'invites' && <InvitesPanel addToast={addToast} registrationMode={registrationMode} />}
-        {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={ta('keys.adminIntro')} />}
-      </div>
-    </div>
+    <AdminPage
+      width="full"
+      className="us-page"
+      data-testid="users-page"
+      title={t('users.title')}
+      supporting={t('users.subtitle')}
+      action={<Button variant="primary" icon="plus" onClick={() => setInviting(true)} data-testid="users-invite">{t('users.invite')}</Button>}
+      sheet={inviting ? <InviteSheet addToast={addToast} registrationMode={registrationMode} onClose={() => setInviting(false)} /> : null}
+    >
+      <UsersPanel addToast={addToast} registrationMode={registrationMode} initialQuery={params.get('q') || ''} onInvite={() => setInviting(true)} />
+    </AdminPage>
   )
 }

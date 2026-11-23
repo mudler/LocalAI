@@ -1,5 +1,195 @@
 {
+  "split": {
+    "title": "Workers de modelos divididos",
+    "online": "{{online}} de {{total}} online",
+    "note": "Não são nós do cluster: sem backends e sem regras de alocação. Emprestam memória aos modelos que rodam nesta instância.",
+    "slowTitle": "Dividir um modelo funciona melhor por um caminho direto ou aberto com hole punching.",
+    "slowBody": "Só um relay alcança {{names}}. Funciona, mas cada token espera o relay. Escolha Usar mesmo assim ou deixe o worker de fora. Abrir a porta 4001 UDP e TCP na rede dele dá um caminho direto.",
+    "limitedTitle": "Um relay público não consegue levar as camadas do modelo.",
+    "limitedBody": "O único caminho até este worker é um relay público, cujos limites você não pode mudar. Dê ao worker um caminho direto, ou um relay seu dos dois lados.",
+    "cutTitle": "Um relay seu corta cada conexão nos limites dele.",
+    "cutBody": "{{names}} passa por um relay seu que encerra cada conexão após o limite de dados ou de tempo. Usar mesmo assim funciona, devagar, até o relay cortar a conexão; depois carregue o modelo de novo. Aumente ou remova os limites do relay para sessões mais longas.",
+    "cutHint": "Corta após {{limits}}",
+    "relayLimits": "Limites do relay",
+    "memoryInUse": "Memória somada pelos workers em uso: {{memory}}.",
+    "add": {
+      "p2pTitle": "Primeiro compartilhe esta instância por P2P",
+      "p2pBody": "Um worker de modelos divididos pareia com um convite, e convites precisam do modo P2P Conectar e compartilhar.",
+      "p2pOpen": "Abrir configurações de P2P",
+      "engineTitle": "Motor",
+      "engineSub": {
+        "llama": "O modelo roda nesta instância. O worker guarda algumas das camadas na própria memória.",
+        "mlx": "O modelo roda nesta instância e no worker, como ranks de um anel MLX. Só Apple Silicon."
+      },
+      "inviteTitle": "Criar um convite",
+      "name": "Nome do worker (opcional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Criar convite",
+      "inviteReady": "Convite pronto",
+      "inviteExpired": "Convite expirado",
+      "inviteUsed": "Convite usado",
+      "inviteMeta": "Uso único · expira em {{time}}",
+      "noPass": "O relay não estava acessível, então o link não leva passe de relay.",
+      "pathTitle": "Dividir um modelo funciona melhor por um caminho direto ou aberto com hole punching.",
+      "pathBody": "As camadas conversam a cada token. Por um relay funciona, mas cada token espera o relay. Se só houver um caminho por relay, você decide se adiciona o worker.",
+      "runTitle": "Execute isto no worker",
+      "runFirst": "Crie o convite primeiro: o comando leva o link dele.",
+      "runNote": "O volume guarda a identidade e o pareamento do worker, então o mesmo comando funciona após reiniciar. O nome antigo p2p-worker ainda funciona.",
+      "runNoteMlx": "O worker guarda a identidade e o pareamento em ./p2p/mlx-distributed, então o mesmo comando funciona após reiniciar.",
+      "waitTitle": "Esperando o worker",
+      "waiting": "Esperando o worker se conectar…",
+      "pairedTitle": "O worker pareou",
+      "pairedWaiting": "O worker usou o convite. Esperando a conexão dele.",
+      "foundTitle": "O worker está em uso",
+      "foundBody": "Ele aparece na página Nós, em Workers de modelos divididos, com a memória que soma. Carregue o modelo de novo para usá-lo.",
+      "openNodes": "Abrir Nós",
+      "relayTitle": "O worker se conectou só por um relay",
+      "slowTitle": "Lento: por um relay.",
+      "slowBody": "{{name}} não tem caminho direto nem aberto com hole punching até esta instância. A divisão funciona pelo seu relay, mas cada token espera por ele. Abrir a porta 4001 UDP e TCP em qualquer um dos lados pode dar um caminho direto depois.",
+      "slowCut": "O relay encerra cada conexão após {{limits}}: o modelo então para até ser carregado de novo. Aumente ou remova os limites para ir mais longe.",
+      "addAnyway": "Adicionar mesmo assim",
+      "notNow": "Agora não",
+      "engineSubNode": {
+        "llama": "O modelo roda no nó que você escolher a seguir. O worker guarda algumas das camadas na própria memória.",
+        "mlx": "O modelo roda no nó que você escolher a seguir e no worker, como ranks de um mesmo anel MLX. Somente Apple Silicon."
+      },
+      "nodeTitle": "Nó",
+      "nodeLabel": "Vincular o worker a",
+      "nodeSub": "Os modelos que este nó carregar usam o worker. Fixe o modelo neste nó com uma regra de alocação para que ele seja carregado lá. Você pode trocar o nó depois na página Nós.",
+      "nodeServer": "Esta instância (em um cluster ela não roda modelos)",
+      "nodePick": "Escolha um servidor de divisão",
+      "nodeOffline": "{{name}} (offline)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Motor",
+      "path": "Caminho",
+      "memory": "Memória somada",
+      "status": "Status",
+      "actions": "Ações",
+      "node": "Vinculado a"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direto",
+      "holePunched": "Hole punching",
+      "relayed": "Por {{relay}}",
+      "relayedUnknown": "Por um relay",
+      "none": "Sem caminho",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Lento: por um relay",
+      "limited": "Relay público: não usado",
+      "refused": "Recusado"
+    },
+    "useAnyway": "Usar mesmo assim",
+    "stopUsing": "Parar de usar",
+    "revoke": "Revogar…",
+    "revokeTitle": "Revogar {{name}}?",
+    "revokeBody": "O worker é desconectado na hora e precisa parear de novo com um convite novo. Um modelo carregado com ele falha até ser carregado de novo.",
+    "revokeConfirm": "Revogar",
+    "revoking": "Revogando…",
+    "addWorker": "Adicionar um worker de modelos divididos",
+    "toast": {
+      "used": "{{name}} é usado pelo relay.",
+      "stopped": "{{name}} não é mais usado pelo relay.",
+      "revoked": "{{name}} foi revogado.",
+      "attached": "{{name}} está vinculado a {{node}}. Os modelos que {{node}} carregar a partir de agora o usam.",
+      "detached": "{{name}} está vinculado a esta instância."
+    },
+    "noteCluster": "Não são nós do cluster: sem backends e sem regras de alocação. Cada um empresta memória aos modelos do nó ao qual está vinculado.",
+    "thisServer": "Esta instância",
+    "nodeLabel": "Nó de {{name}}",
+    "unattachedTitle": "Estes workers não estão em uso: vincule-os a um nó.",
+    "unattachedBody": "Vinculados a esta instância: {{names}}. Em um cluster os modelos rodam nos nós de backend, não nesta instância. Escolha um nó para cada um.",
+    "noServerTitle": "Nenhum worker é servidor de divisão ainda.",
+    "noServerBody": "Um worker de divisão do modelo só pode ser vinculado a um worker que seja servidor de divisão. Crie um aqui ou inicie o worker com --split-server.",
+    "offlineTitle": "O nó de um worker de divisão do modelo está offline.",
+    "offlineBody": "{{names}} continua vinculado e espera o nó voltar. Nada o move para outro nó.",
+    "relayRefusedTitle": "Seus relays não admitem um nó.",
+    "relayRefusedBody": "Os workers só alcançam {{names}} diretamente ou por hole punching: {{reason}}.",
+    "nextLoad": "Mudanças nos workers de um nó valem para o próximo modelo que ele carregar.",
+    "nodeOffline": "Nó offline",
+    "relay": {
+      "admitted": "Relay: admitido",
+      "refused": "Relay: recusado",
+      "pending": "Relay: pendente",
+      "notNeeded": "Relay: não necessário"
+    }
+  },
   "nodes": {
-    "retry": "Tentar novamente"
+    "retry": "Tentar novamente",
+    "title": "Workers"
+  },
+  "add": {
+    "run": {}
+  },
+  "inspector": {
+    "peer": "ID de par"
+  },
+  "splitServer": {
+    "label": "Servidor de divisão",
+    "make": "Tornar servidor de divisão…",
+    "clear": "Deixar de ser servidor de divisão…",
+    "open": "Configurar um servidor de divisão",
+    "title": "Configurar um servidor de divisão",
+    "desc": "Um servidor de divisão é um worker que roda modelos com a memória dos workers de divisão vinculados a ele.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (servidor de divisão)",
+    "changesTitle": "Ao confirmar, {{node}} se torna um servidor de divisão:",
+    "changes": {
+      "ports": "Ele abre portas P2P e inicia um host P2P para seus workers de divisão.",
+      "relay": "Esta instância o admite nos relays protegidos que você mantém, para que os workers o alcancem por eles.",
+      "load": "Os workers vinculados são usados no próximo modelo llama.cpp ou MLX que ele carregar. Um modelo já carregado mantém seus workers até ser carregado de novo.",
+      "undo": "Você pode desligar isso na página Nós. Os workers dele são desvinculados."
+    },
+    "offline": "{{node}} está offline. Os workers dele esperam ele voltar.",
+    "helpers": "Vincular estes workers de divisão",
+    "noHelpers": "Nenhum outro worker de divisão foi pareado ainda. Você pode vincular workers depois.",
+    "moveFrom": "agora em {{node}}",
+    "noNodes": "O cluster ainda não tem worker de backend. Adicione um primeiro.",
+    "cancel": "Cancelar",
+    "confirm": "Tornar servidor de divisão e vincular",
+    "confirmAttach": "Vincular",
+    "clearTitle": "{{node}} deixa de ser servidor de divisão?",
+    "clearBody": "O host P2P dele para, seus relays deixam de admiti-lo e os workers de divisão dele ({{count}}) são desvinculados. Eles esperam, sem nó, até você vinculá-los de novo.",
+    "clearConfirm": "Deixar de ser servidor de divisão",
+    "clearing": "Parando…",
+    "toast": {
+      "set": "{{node}} é um servidor de divisão. Workers vinculados agora: {{count}}. Eles são usados no próximo modelo que ele carregar.",
+      "cleared": "{{node}} não é mais servidor de divisão. Workers desvinculados: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Posicionamento",
+    "supporting": "Onde os modelos rodam no cluster e o que acontece quando um destino para de responder.",
+    "views": {
+      "label": "Visões de posicionamento",
+      "rules": "Regras",
+      "failover": "Failover"
+    }
+  },
+  "rules": {
+    "byPrefix": "A política dele é prefix cache.",
+    "byRound": "A política dele é round robin.",
+    "kind": {
+      "inactive": "Só política"
+    },
+    "route": {
+      "default": "Política padrão",
+      "prefix_cache": "Política de prefix cache",
+      "round_robin": "Política de round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Conexão:"
   }
 }

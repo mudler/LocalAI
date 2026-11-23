@@ -1,17 +1,20 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Suspense, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { useBranding, isDefaultBranding } from '../../contexts/BrandingContext'
 import Mascot from '../ui/Mascot'
 import { useHubAuth } from '../hub/useHubAuth'
-// eslint-disable-next-line no-unused-vars
 import StarterModels from '../StarterModels'
-// eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
 import Segmented from '../ui/Segmented'
 import RemoteConnectStep from '../remotes/RemoteConnectStep'
 import RemoteChooseStep from '../remotes/RemoteChooseStep'
+import RemoteInviteStep from '../remotes/RemoteInviteStep'
+import ConnectWith from '../remotes/ConnectWith'
+import HomeShareStep from './HomeShareStep'
 import { useRemoteConnect } from '../remotes/useRemoteConnect'
+import { useRemoteInvite } from '../remotes/useRemoteInvite'
 import { useRemotes } from '../../hooks/useRemotes'
 
 // The guide that prints a coding agent's config, under API keys in Account.
@@ -44,6 +47,11 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
   const [where, setWhere] = useState('local')
   const whereId = useId()
   const remote = useRemoteConnect({ onDone: onRemoteDone })
+  const invite = useRemoteInvite({ onDone: onRemoteDone })
+  // How step 1 connects: the address of a server or service, or an invite
+  // link from another LocalAI. Step 2 reads the one in use.
+  const [connectWith, setConnectWith] = useState('address')
+  const chosen = connectWith === 'invite' ? invite : remote
   // A server without the remote routes offers no such choice.
   const { unsupported } = useRemotes({ enabled: isAdmin })
   const canRemote = isAdmin && !unsupported
@@ -89,17 +97,20 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
               <b>{t('remoteSetup.step1Title')}</b>
               <span className="home-step__desc">{t('remoteSetup.step1Body')}</span>
               <div className="home-step__extra home-step__extra--block">
-                <Suspense fallback={null}><RemoteConnectStep remote={remote} /></Suspense>
+                <Suspense fallback={null}>
+                  <ConnectWith value={connectWith} onChange={setConnectWith} locked={invite.phase === 'connecting' || Boolean(invite.saved) || remote.locked} />
+                  {connectWith === 'invite' ? <RemoteInviteStep invite={invite} /> : <RemoteConnectStep remote={remote} />}
+                </Suspense>
               </div>
             </div>
           </li>
-          <li className="home-step" data-state={remote.phase === 'ok' ? 'now' : 'todo'} data-testid="home-step-choose">
+          <li className="home-step" data-state={chosen.phase === 'ok' ? 'now' : 'todo'} data-testid="home-step-choose">
             <span className="home-step__num" aria-hidden="true">2</span>
             <div className="home-step__main">
               <b>{t('remoteSetup.step2Title')}</b>
               <span className="home-step__desc">{t('remoteSetup.step2Body')}</span>
               <div className="home-step__extra home-step__extra--block">
-                <Suspense fallback={null}><RemoteChooseStep remote={remote} /></Suspense>
+                <Suspense fallback={null}><RemoteChooseStep remote={chosen} /></Suspense>
               </div>
             </div>
           </li>
@@ -158,6 +169,9 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
             </div>
           </div>
         </li>
+      )}
+      {!remoteMode && isAdmin && (
+        <Suspense fallback={null}><HomeShareStep authEnabled={authEnabled} /></Suspense>
       )}
     </ol>
   )

@@ -48,6 +48,11 @@ var _ = Describe("Worker per-replica process keying", func() {
 			Expect(labels).To(HaveKeyWithValue("node.replica-slots", "4"))
 		})
 
+		It("sends the split server declaration of the worker", func() {
+			Expect((&Config{Addr: "worker.example.com:50051"}).registrationBody()["split_server"]).To(BeFalse())
+			Expect((&Config{Addr: "worker.example.com:50051", SplitServer: true}).registrationBody()["split_server"]).To(BeTrue())
+		})
+
 		It("coerces zero/unset MaxReplicasPerModel to 1", func() {
 			cfg := &Config{Addr: "worker.example.com:50051"}
 			body := cfg.registrationBody()

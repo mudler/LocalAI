@@ -38,6 +38,13 @@ type Limits struct {
 // field it does not know.
 const ActTimeout = 30 * time.Minute
 
+// ActAuthorityLife is how long the authority of an action call lasts. It
+// outlives the longest call, which includes the wait of a first command for
+// the guest image pull, so the call's host operations (the user's files) are
+// still live when the command starts. A shorter life made the first command
+// on a machine with an empty image cache fail with no_live_operation.
+const ActAuthorityLife = ActTimeout + time.Minute
+
 func DefaultLimits() Limits {
 	return Limits{ManifestBytes: 64 << 10, EnvelopeBytes: 2 << 20, PayloadBytes: 1 << 20, ReadTimeout: 30 * time.Second, PreviewTimeout: 30 * time.Second, ApplyTimeout: 60 * time.Second, ShutdownTimeout: 10 * time.Second, BackoffInitial: 250 * time.Millisecond, BackoffMax: 30 * time.Second, BackoffAttempts: 5, BatchSize: 100, QueryDepth: 8, QueryRows: 1000, QueryBytes: 1 << 20, ProposalExpiry: 5 * time.Minute, ArtifactExpiry: time.Hour, ArtifactBytes: 100 << 20, ArtifactQuotaBytes: 1 << 30, ArtifactCount: 100, Concurrency: 4}
 }

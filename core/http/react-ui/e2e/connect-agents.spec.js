@@ -86,10 +86,10 @@ test.describe('Connect a coding agent', () => {
     await expect(page.getByTestId('agent-connect-auth')).toContainText('just created')
   })
 
-  test('the admin Users page does not show the guide', async ({ page }) => {
+  test('the admin API keys page does not show the guide', async ({ page }) => {
     await mockAccess(page)
     await chatModels(page, [])
-    await page.goto('/app/users?tab=keys')
+    await page.goto('/app/api-keys')
     await expect(page.getByTestId('api-keys-panel')).toBeVisible()
     await expect(page.getByTestId('agent-connect')).toHaveCount(0)
   })

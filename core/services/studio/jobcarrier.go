@@ -2,15 +2,16 @@ package studio
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
-	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 )
 
-// NewJobCarrier returns a bgjob.Carrier on the cluster's message bus: one
-// request/reply subject per node, chats.jobs.<instance>, a copy of the carrier
+// NewJobCarrier returns a bgjob.Carrier on the request and reply between
+// processes: one subject per node, chats.jobs.<instance>, a copy of the carrier
 // of the event replay. It lives here, not in bgjob, so that the sandbox
 // packages (which the Sandbox add-on shares) do not pull the message bus in.
 func NewJobCarrier(mc ReplyRequester, log *slog.Logger) bgjob.Carrier {
@@ -30,10 +31,13 @@ func (b *busJobs) Ask(instance string, req bgjob.Request) (bgjob.Reply, error) {
 	if err != nil {
 		return bgjob.Reply{}, err
 	}
-	data, err := b.mc.Request(bgjob.Subject(instance), raw, bgjob.AskTimeout)
+	data, err := nodes.RequestInstance(b.mc, instance, bgjob.Subject(instance), raw, bgjob.AskTimeout)
 	if err != nil {
-		if messaging.IsNoResponders(err) {
-			return bgjob.Reply{}, fmt.Errorf("%w: %v", bgjob.ErrNoRoute, err)
+		// Only a node that nobody serves is a route that does not exist. A request
+		// that the carrier could not deliver, a peer that does not answer and a
+		// timeout are doubts: the sweep counts none of them toward a lost job.
+		if errors.Is(err, nodes.ErrNoRoute) {
+			return bgjob.Reply{}, fmt.Errorf("%w: %w", bgjob.ErrNoRoute, err)
 		}
 		return bgjob.Reply{}, err
 	}

@@ -80,8 +80,8 @@ test.describe('Updates: the nodes of a backend', () => {
     await nodes.click()
     await expect(page).toHaveURL(/\/app\/updates\/backend\/llama-cpp$/)
     await expect(page.getByRole('heading', { level: 1, name: 'llama-cpp' })).toBeVisible()
-    // The Updates tab stays the current one.
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveAttribute('aria-current', 'page')
+    // The Updates item stays the current one.
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveAttribute('aria-current', 'page')
   })
 
   test('a single node has no Nodes action and its Update starts at once, with no dialog', async ({ page }) => {

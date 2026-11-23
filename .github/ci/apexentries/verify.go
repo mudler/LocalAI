@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -222,8 +223,14 @@ func featureDeclaration(e verifyEntry, feature string) (decl string, configured,
 	switch e.Overrides.Backend {
 	case "llama-cpp":
 		decl = "spec_type:draft-" + feature
+		accepted := []string{decl}
+		if feature == "dflash" {
+			// DSpark is a DFlash-family speculative drafter (llama.cpp
+			// docs/speculative.md), so draft-dspark earns the dflash tag.
+			accepted = append(accepted, "spec_type:draft-dspark")
+		}
 		for _, o := range e.Overrides.Options {
-			if strings.TrimSpace(o) == decl {
+			if slices.Contains(accepted, strings.TrimSpace(o)) {
 				return decl, true, true
 			}
 		}

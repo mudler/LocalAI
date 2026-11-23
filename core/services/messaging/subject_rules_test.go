@@ -94,7 +94,7 @@ var _ = Describe("Subject rules", func() {
 			messaging.SubjectNodeBackendInstall(id), messaging.SubjectNodeBackendUpgrade(id),
 			messaging.SubjectNodeBackendList(id), messaging.SubjectNodeBackendStop(id),
 			messaging.SubjectNodeModelStop(id), messaging.SubjectNodeModelOp(id), messaging.SubjectNodeBackendDelete(id),
-			messaging.SubjectNodeModelUnload(id), messaging.SubjectNodeModelDelete(id),
+			messaging.SubjectNodeModelUnload(id), messaging.SubjectNodeModelDelete(id), messaging.SubjectNodeModelPrefetch(id),
 			messaging.SubjectNodeModelsRunning(id), messaging.SubjectNodeStop(id),
 			messaging.SubjectNodeFilesEnsure(id), messaging.SubjectNodeFilesStage(id),
 			messaging.SubjectNodeFilesRelease(id), messaging.SubjectNodeFilesTemp(id),
@@ -104,5 +104,31 @@ var _ = Describe("Subject rules", func() {
 		for _, s := range subjects {
 			Expect(messaging.ValidateSubject(s)).To(Succeed(), "subject %q", s)
 		}
+	})
+})
+
+var _ = Describe("ValidateBroadcastSubject", func() {
+	DescribeTable("accepts the subjects of the broadcast roots",
+		func(subject string) {
+			Expect(messaging.ValidateBroadcastSubject(subject)).To(Succeed())
+		},
+		Entry("exact", "gallery.j1.progress"),
+		Entry("wildcard", "chats.events.*"),
+		Entry("finetune", "finetune.job1.progress"),
+	)
+
+	DescribeTable("refuses a control root with the class of an unserved subject",
+		func(subject string) {
+			err := messaging.ValidateBroadcastSubject(subject)
+			Expect(errors.Is(err, messaging.ErrUnservedSubject)).To(BeTrue(), "got %v", err)
+			Expect(err.Error()).To(ContainSubstring(subject))
+		},
+		Entry("nodes", "nodes.n1.backend.stop"),
+		Entry("mcp", "mcp.a1.tools"),
+	)
+
+	It("keeps every refusal that ValidateSubject makes", func() {
+		Expect(errors.Is(messaging.ValidateBroadcastSubject("bogus.x"), messaging.ErrUnservedSubject)).To(BeTrue())
+		Expect(errors.Is(messaging.ValidateBroadcastSubject("gallery.>"), messaging.ErrUnsupportedWildcard)).To(BeTrue())
 	})
 })

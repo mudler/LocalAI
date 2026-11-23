@@ -27,9 +27,10 @@ import { AddonUpgradeAction, UpgradeConfirm } from './UpgradeControls'
 import { useAddonUpgrade } from './useAddonUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
 import FirstRun from './FirstRun'
-import { attentionOf, filterByState, groupTiles, listState, loadLastKnown, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
+import { attentionOf, fileOperation, filterByState, groupTiles, listState, loadLastKnown, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
+import AddonOpStatus from './AddonOpStatus'
 import { pendingApprovals } from './hostGrantsState'
 import { useAddonActions } from './useAddonActions'
 
@@ -45,7 +46,7 @@ const NO_RECORDS = {}
 // add-ons"; the stored copy stands in for the list, marked stale.
 const browserStore = () => { try { return globalThis.sessionStorage || null } catch { return null } }
 
-export default function AppsView({ api, adapter, onSummary, grants }) {
+export default function AppsView({ api, adapter, onSummary, grants, queue, fileOp = null }) {
   const { t, i18n } = useTranslation('addons')
   const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
@@ -159,10 +160,14 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   // and opened again, or from Activity: the lists are read again whenever one
   // ends.
   const endedCount = upgrade.records.length
+  const grantsRef = useRef(grants)
+  grantsRef.current = grants
   useEffect(() => {
     if (endedCount === 0) return
     reloadRef.current()
     setInstalledReload(n => n + 1)
+    // An approved upgrade that ended also settles the approval the page lists.
+    grantsRef.current?.reload?.()
   }, [endedCount])
   const installedList = useMemo(() => Object.values(installedInfo), [installedInfo])
 
@@ -322,7 +327,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                   </ul>
                 </Callout>
               )}
-              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} onReview={() => setApproving(a)} />)}
+              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} op={upgrade.opOf(a.id)} upgrade={upgrade} onReview={() => setApproving(a)} />)}
             </section>
           )}
           {!firstRun && (
@@ -340,7 +345,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
             </div>
           )}
           {view === 'first-run' ? (
-            <FirstRun adapter={adapter} actions={actions} />
+            <FirstRun adapter={adapter} queue={queue} />
           ) : view === 'no-match' ? (
             <EmptyState
               variant="no-results"
@@ -365,6 +370,10 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                     {group.tiles.map(tile => {
                       const rec = installedInfo[tile.id]
                       const uv = isAdmin && rec ? updateView(rec.update) : null
+                      // An install from a file whose dialog was closed shows on its row like an upgrade does.
+                      const fileRow = isAdmin && tile.app && fileOp && fileOp.addonId === tile.id ? fileOp : null
+                      const op = isAdmin && tile.app ? (upgrade.opOf(tile.id) || (fileRow ? fileOperation(fileRow, tile.id) : null)) : null
+                      const note = isAdmin && tile.app && !op ? upgrade.noteOf(tile.id) : null
                       return (
                         <AddonRow
                           key={tile.id}
@@ -375,6 +384,8 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                           needsSetup={setupIds.has(tile.id)}
                           updateVersion={uv && uv.state === 'update-available' ? uv.version : ''}
                           waitingApproval={waitingIds.has(tile.id)}
+                          upgrading={op && op.state !== 'failed' ? op : null}
+                          operation={op || note ? <AddonOpStatus op={op} note={note} name={titleOf(tile)} version={tile.app.version} onCancel={upgrade.cancel} onDismiss={fileRow && !upgrade.opOf(tile.id) ? undefined : upgrade.dismiss} onDismissNote={upgrade.closeNote} /> : null}
                           sourceId={rec ? rec.sourceId : ''}
                           onPin={onPin}
                           onMove={nav.move}
@@ -457,10 +468,9 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
         <ApproveUpgradeDialog
           addon={approving}
           sourceId={installedInfo[approving.id]?.sourceId}
-          api={api}
-          actions={actions}
+          upgrade={upgrade}
           onClose={() => setApproving(null)}
-          onDone={() => { setApproving(null); grants?.reload(); reloadRef.current() }}
+          onDone={(done) => { setApproving(cur => (cur && cur.id === done.id ? null : cur)); grants?.reload(); reloadRef.current() }}
         />
       )}
       {limit && (

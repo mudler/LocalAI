@@ -127,8 +127,8 @@ test.describe('Placement rules page', () => {
     await page.goto('/app/scheduling')
     await page.getByRole('button', { name: 'Edit llama-3.3' }).click()
 
-    await expect(page.getByLabel('Model')).toHaveValue('llama-3.3')
-    await expect(page.getByLabel('Model')).toHaveAttribute('readonly', '')
+    await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama-3.3')
+    await expect(page.getByLabel('Model', { exact: true })).toHaveAttribute('readonly', '')
     await expect(page.getByRole('radio', { name: 'Auto-scaling' })).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByLabel('Node selector').getByText('gpu.vendor=nvidia', { exact: true })).toBeVisible()
     await expect(page.getByLabel('Min replicas')).toHaveValue('2')
@@ -242,7 +242,7 @@ test.describe('Placement rules page', () => {
 
       const picker = page.getByRole('button', { name: 'Model' })
       await picker.click()
-      await expect(page.getByRole('option', { name: /production/ }).locator('.home-menu__tag')).toHaveText('alias of llama-3.3')
+      await expect(page.getByRole('option', { name: /production/ }).locator('.ui-tag')).toHaveText('alias of llama-3.3')
 
       await page.getByRole('option', { name: /production/ }).click()
       await expect(page.getByText(/production is an alias for llama-3\.3/)).toBeVisible()

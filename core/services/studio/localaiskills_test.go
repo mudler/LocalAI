@@ -163,7 +163,11 @@ func recipeNames() []string {
 // size (8,656 bytes) plus about 10%.
 // 9,500 to 9,700: the index lists the media skill assemble-media, so the
 // measured size is below the budget.
-const adminTurnPromptBudget = 9700
+// 9,700 to 9,900: the model upgrades add the recipe upgrade_model (its name
+// and description in the compact prompt and in the index) and upgrade_model in
+// safety rule 1; the measured size went from 9,680 to 9,889 bytes. No shorter
+// form keeps the rule and the recipe.
+const adminTurnPromptBudget = 9900
 
 var _ = Describe("the admin recipes as skills", func() {
 	ctx := context.Background()

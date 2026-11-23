@@ -125,7 +125,35 @@ var _ = Describe("package layout", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Publishable).To(BeFalse())
 		_, err = p.build("windows/amd64", "1.2.3", exe("x"))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("not enabled")))
+		_, err = p.build("windows/arm64", "1.2.3", exe("x"), "--local-check")
+		Expect(err).To(MatchError(ContainSubstring("is not os/arch")))
+	})
+
+	It("names the executable of a Windows package with .exe", func() {
+		p := newProject(map[string][]string{amd: nil, "windows/amd64": nil})
+		dir := p.mustBuild("windows/amd64", "1.2.3", "windows bin")
+		Expect(p.verify(dir, "windows/amd64", "1.2.3")).To(Succeed())
+		dest := filepath.Join(GinkgoT().TempDir(), "out")
+		_, err := run("extract", "--config", p.config, "--layout", dir, "--platform", "windows/amd64", "--version", "1.2.3", "--dest", dest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(filepath.Join(dest, "tables.exe")).To(BeARegularFile())
+		Expect(filepath.Join(dest, "tables")).NotTo(BeAnExistingFile())
+		b, err := os.ReadFile(filepath.Join(dest, "manifest.json"))
+		Expect(err).NotTo(HaveOccurred())
+		var m struct {
+			Executable, OS, Arch string
+		}
+		Expect(json.Unmarshal(b, &m)).To(Succeed())
+		Expect(m.Executable).To(Equal("tables.exe"))
+		Expect(m.OS).To(Equal("windows"))
+		Expect(m.Arch).To(Equal("amd64"))
+		// The other platforms keep the plain name.
+		linux := p.mustBuild(amd, "1.2.3", "linux bin")
+		dest = filepath.Join(GinkgoT().TempDir(), "out")
+		_, err = run("extract", "--config", p.config, "--layout", linux, "--platform", amd, "--version", "1.2.3", "--dest", dest)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(filepath.Join(dest, "tables")).To(BeARegularFile())
 	})
 
 	It("refuses an invalid version, an existing layout and an empty executable", func() {
@@ -349,13 +377,17 @@ var _ = Describe("platform matrix", func() {
 			head + "  - platform: linux/amd64\n    enabled: true\n",
 			head + "  - platform: linux/amd64\n    enabled: true\n    runner: r\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n  - platform: linux/amd64\n    enabled: false\n",
-			head + "  - platform: windows/amd64\n    enabled: false\n",
+			head + "  - platform: windows/arm64\n    enabled: false\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n    registry: quay.io/x\n",
 			head + "  - platform: linux/amd64\n    enabled: false\n    runtime: [../escape]\n",
 		} {
 			_, err := run("matrix", "--config", write(body))
 			Expect(err).To(HaveOccurred(), body)
 		}
+	})
+	It("refuses a runtime file named as the executable of a Windows package", func() {
+		_, err := run("matrix", "--config", write(head+"  - platform: windows/amd64\n    enabled: false\n    runtime: [tables.exe]\n"))
+		Expect(err).To(MatchError(ContainSubstring("invalid runtime file")))
 	})
 	It("prints the enabled platforms with their native runners", func() {
 		out, err := run("matrix", "--config", write(head+"  - platform: linux/arm64\n    enabled: true\n    runner: r2\n    native_check: executable-start\n  - platform: linux/amd64\n    enabled: true\n    runner: r1\n    native_check: executable-start\n  - platform: darwin/arm64\n    enabled: false\n"))
@@ -955,7 +987,7 @@ var _ = Describe("catalog template", func() {
 		Expect(err).To(MatchError(ContainSubstring("development channel only")))
 	})
 	It("renders an entry for every first-party add-on from its own template", func() {
-		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "sandbox", "ssh", "web"} {
+		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "ollama-search", "sandbox", "ssh", "web"} {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
 			repoName := newRegistry().repo("addons")
@@ -1037,12 +1069,12 @@ var _ = Describe("catalog template", func() {
 		Expect(string(stripped)).NotTo(ContainSubstring("toolCount"))
 		index := filepath.Join(GinkgoT().TempDir(), "index.yaml")
 		Expect(os.WriteFile(index, stripped, 0o600)).To(Succeed())
-		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons")
+		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons", hostOpsFlag)
 		Expect(err).NotTo(HaveOccurred())
 		again, err := os.ReadFile(index)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(again)).To(Equal(string(raw)), "the committed index is what the generator writes")
-		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons")
+		_, err = run("catalog-tools", "--index", index, "--addons", "../../../addons", hostOpsFlag)
 		Expect(err).NotTo(HaveOccurred())
 		twice, _ := os.ReadFile(index)
 		Expect(string(twice)).To(Equal(string(again)))
@@ -1052,7 +1084,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 15, "gdrive": 8, "gmail": 7, "home-assistant": 11, "jellyfin": 16, "calendar": 12, "contacts": 11, "mail": 8, "office": 11, "pikvm": 8, "pirateface-search": 1, "sandbox": 6, "ssh": 3, "web": 5}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 15, "gdrive": 8, "gmail": 7, "home-assistant": 11, "jellyfin": 16, "calendar": 12, "contacts": 11, "mail": 8, "office": 11, "pikvm": 8, "pirateface-search": 1, "ollama-search": 1, "sandbox": 6, "ssh": 3, "web": 5}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()
@@ -1214,7 +1246,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
 		expect(mutate("node \"addons/$ADDON/ui/build.mjs\"\n      - name: Fill", "node addons/tables/ui/build.mjs\n      - name: Fill"), "P_ADDON_PATH")
-		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, sandbox, ssh, web]\n", "        platform: [x]\n"), "P_MATRIX")
+		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]\n", "        platform: [x]\n"), "P_MATRIX")
 	})
 	It("rejects a plan that does not refuse an add-on without an enabled platform", func() {
 		expect(mutate("has no enabled platform; refusing to publish", "has no platform"), "P_FAIL_CLOSED")
@@ -1264,13 +1296,13 @@ var _ = Describe("workflow policy", func() {
 
 // firstPartyAddons are the add-ons the release workflow packages. The list is
 // written out so a new add-on is a deliberate change here and in the workflow.
-var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "sandbox", "ssh", "web"}
+var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "ollama-search", "sandbox", "ssh", "web"}
 
 // uilessAddons are the first-party add-ons that ship no UI: a source of the
 // model search, say. The host draws what they give, and the library entry
 // carries a fixed title and description from its template, so the checks of a
 // UI package and of its translations do not apply to them.
-var uilessAddons = []string{"pirateface-search"}
+var uilessAddons = []string{"pirateface-search", "ollama-search"}
 
 // addonsWithUI are the first-party add-ons that have a UI package.
 var addonsWithUI = slices.DeleteFunc(slices.Clone(firstPartyAddons), func(id string) bool { return slices.Contains(uilessAddons, id) })

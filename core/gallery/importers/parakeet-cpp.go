@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -121,7 +122,7 @@ func (i *ParakeetCppImporter) Import(details Details) (gallery.ModelConfig, erro
 		if err != nil {
 			return gallery.ModelConfig{}, err
 		}
-		target := filepath.Join("parakeet-cpp", "models", name, fileName)
+		target := path.Join("parakeet-cpp", "models", name, fileName)
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: target,
@@ -151,7 +152,7 @@ func (i *ParakeetCppImporter) Import(details Details) (gallery.ModelConfig, erro
 			modelConfig.KnownUsecaseStrings = []string{"diarization"}
 		}
 		if chosen, ok := pickPreferredGGMLFile(ggufFiles, quants); ok {
-			target := filepath.Join("parakeet-cpp", "models", name, filepath.Base(chosen.Path))
+			target := path.Join("parakeet-cpp", "models", name, filepath.Base(chosen.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
 				URI:      chosen.URL,
 				Filename: target,

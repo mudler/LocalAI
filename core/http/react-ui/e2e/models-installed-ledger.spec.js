@@ -23,7 +23,7 @@ test.describe('Installed ledger - table', () => {
   test('every installed model is a row, with state filters that carry counts', async ({ page }) => {
     await open(page)
     await expect(rows(page)).toHaveCount(13)
-    const tab = (name) => page.getByRole('tab', { name: new RegExp(`^${name}`) })
+    const tab = (name) => page.getByTestId('ledger-states').getByRole('button', { name: new RegExp(`^${name}`) })
     await expect(tab('All')).toContainText('13')
     await expect(tab('Running')).toContainText('2')
     await expect(tab('Idle')).toContainText('10')
@@ -33,7 +33,7 @@ test.describe('Installed ledger - table', () => {
     await tab('Running').click()
     await expect(page).toHaveURL(/[?&]state=running/)
     await expect(rows(page)).toHaveCount(2)
-    await expect(tab('Running')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab('Running')).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('each row says what state the model is in', async ({ page }) => {

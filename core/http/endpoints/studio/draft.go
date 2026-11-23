@@ -42,6 +42,7 @@ func (h *Handlers) draftQuery(c echo.Context) (model, agentID string, ok bool) {
 // @Tags chats
 // @Param model query string false "the model of the new chat"
 // @Param agent_id query string false "a saved agent of yours"
+// @Param addons_off query string false "comma-separated add-on IDs the draft switched off; they free room under the limit on add-on tools (tool_cap)"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their default switches"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Refused"
@@ -52,7 +53,7 @@ func (h *Handlers) DraftTools(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	p, err := h.svc.DraftTools(c.Request().Context(), userID(c), model, agentID)
+	p, err := h.svc.DraftTools(c.Request().Context(), userID(c), model, agentID, draftSwitches(c))
 	if err != nil {
 		return failFor(c, err)
 	}

@@ -45,9 +45,14 @@ export const API_KEY_SECRET = 'api_key'
 export const WORKER_TOKEN_SECRET = 'worker_token'
 export const ENV_PREFIX = 'env:'
 export const envSecret = (name: string) => `${ENV_PREFIX}${name}`
+export const CRED_PREFIX = 'cred:'
+export const credSecret = (id: string) => `${CRED_PREFIX}${id}`
+/** The id of a registry credential rule: short, no separators that could escape a name. */
+export const CRED_ID = /^[A-Za-z0-9_-]{1,64}$/
 
 export function isSecretName(name: string): boolean {
   if (name === API_KEY_SECRET || name === WORKER_TOKEN_SECRET) return true
+  if (name.startsWith(CRED_PREFIX)) return CRED_ID.test(name.slice(CRED_PREFIX.length))
   if (!name.startsWith(ENV_PREFIX)) return false
   const env = name.slice(ENV_PREFIX.length)
   return env.length > 0 && env.length <= MAX_ENV_NAME && ENV_NAME.test(env)
@@ -314,6 +319,16 @@ export class SecretStore {
       const had = this.persisted.delete(name)
       const hadLocked = this.locked.delete(name)
       if (had || hadLocked) await this.write()
+    })
+  }
+
+  /**
+   * Drops the in-memory copy of `name` and keeps a stored value. Used when a
+   * new value could not be stored and must not hide the old one.
+   */
+  forgetSession(name: string): Promise<void> {
+    return this.serial(async () => {
+      this.session.delete(name)
     })
   }
 

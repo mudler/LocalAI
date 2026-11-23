@@ -83,9 +83,11 @@ var _ = Describe("runtime settings registry", func() {
 		src.CORS = true
 		src.DisableCSRF = true
 		src.CORSAllowOrigins = "https://example.com"
-		src.P2PToken = "tok"
-		src.P2PNetworkID = "netid"
-		src.Federated = true
+		src.P2P = P2PSettings{
+			Mode: "share", DisablePublicDHT: true, NoRelayPaired: true, RelayMode: "on", RelayRateLimit: 65536, DisableMDNS: true,
+			BootstrapPeers: []string{"/ip4/192.0.2.1/tcp/4001/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN"},
+			Relays:         []P2PRelay{{ID: "r1", Addr: "/ip4/192.0.2.2/tcp/4001/p2p/12D3KooWDpJ7As7BWAwRMfu1VU2WCqNjvq387JEYKDBj4kx6nXTN", Label: "home"}},
+		}
 		src.Galleries = []Gallery{{Name: "g1", URL: "https://g1"}}
 		src.BackendGalleries = []Gallery{{Name: "b1", URL: "https://b1"}}
 		src.AutoloadGalleries = true

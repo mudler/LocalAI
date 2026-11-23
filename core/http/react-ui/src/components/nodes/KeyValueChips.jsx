@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 
 import { suggestKeys, suggestValues } from '../../utils/nodeLabelSuggestions'
 import Icon from '../Icon'
+import { Button } from '../ui'
 
 /**
  * Controlled chip-builder for { key: value } maps. Replaces the prior
@@ -152,15 +153,9 @@ export default function KeyValueChips({
       <div className="kvchips__row" ref={rowRef}>
         <input {...inputProps('key', k, setK, placeholderKey, ariaLabelKey)} />
         <input {...inputProps('value', v, setV, placeholderValue, ariaLabelValue)} />
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm kvchips__add"
-          onClick={add}
-          disabled={!k.trim()}
-          aria-label={addLabel}
-        >
-          <Icon name="plus" /> Add
-        </button>
+        <Button size="sm" icon="plus" className="kvchips__add" onClick={add} disabled={!k.trim()} aria-label={addLabel}>
+          Add
+        </Button>
         {options.length > 0 && (
           <ul className="kvchips__suggestions" id={listId} role="listbox" data-testid="label-suggestions">
             {options.map((option, index) => (

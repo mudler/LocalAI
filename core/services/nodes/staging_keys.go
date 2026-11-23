@@ -22,10 +22,12 @@ type StagingKeyMapper struct {
 func (m *StagingKeyMapper) Key(localPath string) string {
 	if m.FrontendModelsDir != "" {
 		if rel, err := filepath.Rel(m.FrontendModelsDir, localPath); err == nil && !strings.HasPrefix(rel, "..") && rel != "." {
-			return storage.ModelKey(filepath.Join(m.TrackingKey, rel))
+			return storage.ModelKey(filepath.ToSlash(filepath.Join(m.TrackingKey, rel)))
 		}
 	}
-	return storage.ModelKey(filepath.Join(m.TrackingKey, filepath.Base(localPath)))
+	// Keys always use "/": a Windows frontend must not send backslashes, which
+	// the key checks reject and a Linux worker would read as part of a name.
+	return storage.ModelKey(filepath.ToSlash(filepath.Join(m.TrackingKey, filepath.Base(localPath))))
 }
 
 // DeriveRemoteModelPath computes the worker's ModelPath from the staged
@@ -38,8 +40,14 @@ func (m *StagingKeyMapper) Key(localPath string) string {
 //	remotePath = "/worker/models/my-model/sd-cpp/models/flux.gguf"
 //	relative   = "sd-cpp/models/flux.gguf"
 //	→ returns    "/worker/models/my-model"
+//
+// The worker path and the relative path can use different separators (a
+// Windows worker behind a Linux frontend, or the other way round), so the
+// suffix is matched with either separator and the result keeps the worker's
+// separator.
 func DeriveRemoteModelPath(remotePath, relative string) string {
-	return filepath.Clean(strings.TrimSuffix(remotePath, relative))
+	trimmed, _ := trimRemoteSuffix(remotePath, relative)
+	return cleanRemoteDir(trimmed)
 }
 
 // relativeToModelsDir returns the staged file's path relative to the frontend

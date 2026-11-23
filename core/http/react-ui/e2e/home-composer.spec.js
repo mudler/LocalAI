@@ -94,7 +94,7 @@ test.describe('Home composer', () => {
     const text = await token('--dk-text', 'color')
     for (const id of ['chat-tools-button', 'chat-skills-button']) {
       const chip = page.getByTestId(id)
-      await expect(chip).toHaveClass(/btn-primary/)
+      await expect(chip).toHaveClass(/home-chip/)
       await chip.hover()
       await expect(chip).toHaveCSS('background-color', surface)
       await expect(chip).toHaveCSS('color', text)
@@ -235,12 +235,57 @@ test.describe('Home composer', () => {
     expect(seen.created[0]).not.toHaveProperty('switches')
   })
 
+  test('the agent picker is the composer picker: filter, arrows, Enter and Escape', async ({ page }) => {
+    // Nine agents: enough for the filter box. Each row has its description
+    // under the name and its model at the end.
+    const agents = ['Planner', 'Writer', 'Reviewer', 'Translator', 'Tester', 'Designer', 'Researcher', 'Editor', 'Coder']
+      .map((name, i) => ({ id: `a${i}`, name, description: `${name} agent`, model: i === 2 ? 'qwen3-32b-instruct' : '' }))
+    const seen = await server(page, { agents })
+    await ready(page)
+    const chip = page.getByTestId('chat-agent-button')
+    await expect(chip).toHaveClass(/home-chip/)
+    await expect(chip).toContainText('Agent')
+    // ArrowDown on the chip opens the menu with the focus in the filter box.
+    await chip.focus()
+    await page.keyboard.press('ArrowDown')
+    const menu = page.getByTestId('chat-agent-menu')
+    await expect(menu).toBeVisible()
+    const filter = menu.getByRole('combobox')
+    await expect(filter).toBeFocused()
+    await expect(menu.getByRole('option')).toHaveCount(10)
+    const reviewer = menu.getByRole('option', { name: /^Reviewer/ })
+    await expect(reviewer).toContainText('Reviewer agent')
+    await expect(reviewer).toContainText('qwen3-32b-instruct')
+    // "No agent" stays on top while filtering; ArrowDown moves past it.
+    await page.keyboard.type('rev')
+    await expect(menu.getByRole('option')).toHaveCount(2)
+    await page.keyboard.press('ArrowDown')
+    await expect(reviewer).toHaveAttribute('data-active', 'true')
+    await page.keyboard.press('Enter')
+    await expect(menu).toHaveCount(0)
+    await expect(chip).toBeFocused()
+    await expect(chip).toContainText('Reviewer')
+    await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-32b-instruct')
+    // Escape closes and gives the focus back to the chip, and changes nothing.
+    await page.keyboard.press('ArrowDown')
+    await expect(menu).toBeVisible()
+    await expect(menu.getByRole('option', { name: /^Reviewer/ })).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(chip).toBeFocused()
+    await expect(chip).toContainText('Reviewer')
+    await page.getByTestId('home-input').fill('Review this')
+    await page.getByTestId('home-send').click()
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    expect(seen.created[0].agent_id).toBe('a2')
+  })
+
   test('the saved agent chosen on Home starts the chat', async ({ page }) => {
     const seen = await server(page, { agents: [{ id: 'a1', name: 'Reviewer', model: '' }] })
     await ready(page)
     await page.getByTestId('chat-agent-picker').getByRole('button').click()
     // Choosing closes the menu.
-    await page.getByRole('radio', { name: 'Reviewer' }).click()
+    await page.getByRole('option', { name: /^Reviewer/ }).click()
     await expect(page.getByTestId('chat-agent-picker').getByRole('button')).toContainText('Reviewer')
     await page.getByTestId('home-input').fill('Review this')
     await page.getByTestId('home-send').click()

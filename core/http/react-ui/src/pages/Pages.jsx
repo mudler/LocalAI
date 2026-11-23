@@ -7,7 +7,7 @@ import PageHeader from '../components/PageHeader'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PageShareDialog from '../components/pages/PageShareDialog'
-import { Button } from '../components/ui'
+import { Button, SearchField, Tag } from '../components/ui'
 import { filesApi, pagesApi, sharedPagesApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { authorOf, pageIndexPath } from '../utils/pages'
@@ -60,20 +60,20 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
               onChange={(e) => setName(e.target.value.toLowerCase())} data-testid="page-rename-input"
               aria-invalid={!NAME_RE.test(name)} aria-describedby={`pg-rename-${page.name}-hint`}
             />
-            <button type="submit" className="btn btn-primary btn-sm" disabled={!NAME_RE.test(name)}>{t('card.renameSave')}</button>
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setName(page.name); setRenaming(false) }}>{t('card.renameCancel')}</button>
+            <Button variant="primary" size="sm" type="submit" disabled={!NAME_RE.test(name)}>{t('card.renameSave')}</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setName(page.name); setRenaming(false) }}>{t('card.renameCancel')}</Button>
             <span className="pg-row__meta" id={`pg-rename-${page.name}-hint`}>{t('card.renameHint')}</span>
           </form>
         ) : (
           <span className="pg-row__titleline">
             <Link className="pg-row__title" to={open}>{page.title}</Link>
             {page.others_can_edit === true && (
-              <span className="pg-badge pg-badge--warn" data-testid="page-others-edit-badge"><Icon name="pencil" /> {t('card.othersEdit')}</span>
+              <Tag tone="warn" icon="pencil" testId="page-others-edit-badge">{t('card.othersEdit')}</Tag>
             )}
             {shared > 0 && (
-              <span className="pg-badge pg-badge--plain" data-testid="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
-                <Icon name="users" /> {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
-              </span>
+              <Tag icon="users" testId="page-shared-badge" title={t('card.sharedWith', { count: shared })}>
+                {t('card.shared')}<b data-testid="page-shared-count">{shared}</b>
+              </Tag>
             )}
           </span>
         )}
@@ -84,14 +84,12 @@ function PageRow({ page, shares, pinned, onPin, onShare, onDelete, onRename, age
         </span>
       </div>
       <div className="pg-row__actions">
-        <Link className="btn btn-secondary btn-sm" to={open}>{t('card.open')}</Link>
-        <button
-          type="button" className={`btn btn-ghost btn-sm pg-pin${pinned ? ' pg-pin--on' : ''}`} aria-pressed={pinned}
+        <Button size="sm" to={open}>{t('card.open')}</Button>
+        <Button
+          variant="ghost" size="sm" icon="pin" className={`pg-pin${pinned ? ' pg-pin--on' : ''}`} aria-pressed={pinned}
           aria-label={pinned ? t('card.unpin') : t('card.pin')} title={pinned ? t('card.unpin') : t('card.pin')}
           onClick={() => onPin(page.name, !pinned)} data-testid="page-pin"
-        >
-          <Icon name="pin" />
-        </button>
+        />
         <ActionMenu
           ariaLabel={t('card.menu', { title: page.title })}
           items={[
@@ -135,7 +133,7 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
           {open
             ? <Link className="pg-row__title" to={sharedPagePath(page)}>{page.title}</Link>
             : <span className="pg-row__title">{page.title}</span>}
-          <span className={`pg-badge pg-badge--${b.tone}`} data-testid="shared-badge"><Icon name={b.icon} /> {t(`shared.badge.${b.key}`)}</span>
+          <Tag tone={b.tone} icon={b.icon} testId="shared-badge">{t(`shared.badge.${b.key}`)}</Tag>
         </span>
         {page.description && <p className="pg-row__desc">{page.description}</p>}
         <span className="pg-row__meta">
@@ -159,9 +157,9 @@ function SharedRow({ page, enabled, userSharesOn, onStop, age, t }) {
       )}
       {open && (
         <div className="pg-row__actions">
-          <Link className={`btn btn-sm ${allowed ? 'btn-primary' : 'btn-secondary'}`} to={sharedPagePath(page)} data-testid="shared-open">
+          <Button variant={allowed ? 'primary' : 'secondary'} size="sm" to={sharedPagePath(page)} data-testid="shared-open">
             {allowed ? t('card.open') : t('shared.review')}
-          </Link>
+          </Button>
           <Button
             variant="ghost" size="sm" icon="columns" aria-label={t('dock.openInDock')} title={t('dock.openInDock')}
             onClick={() => navigate('/app/chats', { state: { dock: { name: page.name, folder: page.folder_id } } })} data-testid="shared-dock"
@@ -263,7 +261,7 @@ export default function Pages() {
     body = (
       <div className="pg-note pg-note--error" role="alert">
         <span>{t('error', { message: error })}</span>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={refreshPages}>{t('retry')}</button>
+        <Button size="sm" onClick={refreshPages}>{t('retry')}</Button>
       </div>
     )
   } else if (pages.length === 0 && shared.pages.length === 0) {
@@ -272,17 +270,14 @@ export default function Pages() {
         <span className="icon-chip pg-empty__chip" aria-hidden="true"><Icon name="layers" /></span>
         <h2 className="pg-empty__title">{t('empty.title')}</h2>
         <p className="pg-empty__text">{t('empty.text')}</p>
-        <button type="button" className="btn btn-primary" onClick={askNew} data-testid="pages-ask">
-          <Icon name="sparkles" /> {t('empty.ask')}
-        </button>
+        <Button variant="primary" icon="sparkles" onClick={askNew} data-testid="pages-ask">
+          {t('empty.ask')}
+        </Button>
         <div className="pg-empty__actions">
           {STARTERS.map(s => (
-            <button
-              key={s.id} type="button" className="btn btn-secondary btn-sm" onClick={() => start(s.id)} disabled={!!starting}
-              data-testid={s.id === 'task-board' ? 'pages-starter' : 'pages-starter-reading'}
-            >
+            <Button size="sm" key={s.id} onClick={() => start(s.id)} disabled={!!starting} data-testid={s.id === 'task-board' ? 'pages-starter' : 'pages-starter-reading'}>
               <Icon name={starting === s.id ? 'spinner' : s.icon} spin={starting === s.id} /> {starting === s.id ? t('empty.starting') : t(s.key)}
-            </button>
+            </Button>
           ))}
         </div>
         <p className="pg-empty__note">{t('empty.note')} <a href={DOCS_MAKE_YOURS} target="_blank" rel="noopener noreferrer">{t('empty.learn')}</a></p>
@@ -296,8 +291,7 @@ export default function Pages() {
             <h2 className="pg-group" id="pg-yours">{t('yours')} <span className="pg-group__count">{pages.length}</span></h2>
             {pages.length > FILTER_FROM && (
               <div className="pg-filter">
-                <label className="pg-sr" htmlFor="pg-filter">{t('filter')}</label>
-                <input id="pg-filter" className="dk-input" type="search" placeholder={t('filter')} value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="pages-filter" />
+                <SearchField id="pg-filter" label={t('filter')} value={filter} onChange={setFilter} testId="pages-filter" />
               </div>
             )}
             <ul className="pg-list" aria-label={t('card.list')}>
@@ -324,7 +318,7 @@ export default function Pages() {
       <PageHeader
         title={t('title')} supporting={t('subtitle')}
         actions={pages.length > 0 || shared.pages.length > 0 ? (
-          <button type="button" className="btn btn-secondary" onClick={askNew} data-testid="pages-ask-new"><Icon name="sparkles" /> {t('askNew')}</button>
+          <Button icon="sparkles" onClick={askNew} data-testid="pages-ask-new">{t('askNew')}</Button>
         ) : undefined}
       />
       {body}

@@ -30,6 +30,17 @@ var (
 	ErrModelBusy = errors.New("model is still busy")
 )
 
+// processLauncher starts a backend process.
+// Implementations are selected by build tag: processLauncherWindows on
+// Windows, processLauncherOther everywhere else.
+type processLauncher interface {
+	launch(proc *process.Process, runtime *backendProcessRuntime, processName string, processArgs []string, workDir string, env []string) error
+}
+
+// backendProcessLauncher is the platform-specific process launcher. It is
+// initialized by the platform-specific newLauncher() function.
+var backendProcessLauncher processLauncher = newLauncher()
+
 const (
 	gracefulShutdownTimeout = 30 * time.Second
 	forcedShutdownTimeout   = 30 * time.Second
@@ -178,7 +189,7 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 	var localErr error
 	if err := process.Stop(); err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
-		if !process.IsAlive() {
+		if !ProcessAlive(process) {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
 			store.Delete(s)
@@ -270,6 +281,21 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// Include --addr in processArgs so the launcher passes it to the backend
+	// process. On Windows resolveLauncher also rewrites --addr <addr> to
+	// --addr=<addr>.
+	processArgs := append(args, []string{"--addr", serverAddress}...)
+
+	// The gallery contract names a run.sh stub as the backend entrypoint. On a
+	// Windows host that stub cannot run (no POSIX shell), so resolveLauncher
+	// substitutes the bundled run.ps1 through the system PowerShell; elsewhere
+	// it returns the stub and its arguments unchanged. See
+	// process_launcher_windows.go / process_launcher_other.go.
+	processName, processArgs, err := resolveLauncher(grpcProcess, workDir, processArgs)
+	if err != nil {
+		return nil, err
+	}
+
 	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
@@ -300,13 +326,18 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	env = vulkanICDEnv(workDir, env)
+	// Platform hook: on Windows this puts the backend's lib directory on PATH.
+	env = prepareBackendEnv(workDir, env)
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(processArgs...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
+		// Windows only, ignored elsewhere: Stop ends the whole process tree and
+		// the tree dies with LocalAI.
+		process.WithJobObject(true),
 	)
 
 	if ml.wd != nil {
@@ -314,7 +345,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		ml.wd.AddAddressModelMap(serverAddress, id)
 	}
 
-	if err := grpcControlProcess.Run(); err != nil {
+	// Run() starts the process. On Windows WithJobObject above makes the
+	// library create it suspended inside a kill-on-close job, so the whole
+	// tree is owned before it runs.
+	if err := backendProcessLauncher.launch(grpcControlProcess, runtime, processName, processArgs, workDir, env); err != nil {
 		ml.untrackProcess(grpcControlProcess)
 		runtime.cleanup()
 		return grpcControlProcess, err
@@ -329,7 +363,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		// its pidfile. Calling Stop again then fails with "failed to read PID".
 		// Skip when it's already gone; this handler still covers processes that
 		// StopAllGRPC doesn't track (e.g. worker-supervised backends).
-		if !grpcControlProcess.IsAlive() {
+		if !ProcessAlive(grpcControlProcess) {
 			return
 		}
 		ml.stoppingProcs.Store(grpcControlProcess, struct{}{})

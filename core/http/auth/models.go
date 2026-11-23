@@ -29,6 +29,10 @@ type User struct {
 	Status       string `gorm:"size:20;default:active"` // "active", "pending"
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	// LastActiveAt is when the person last made an authenticated request, to
+	// the minute-scale of LastActiveThrottle. Only admins can read it. Nil
+	// means no activity was recorded yet.
+	LastActiveAt *time.Time `gorm:"index"`
 }
 
 // Session represents a user login session.
@@ -69,6 +73,11 @@ type UserAPIKey struct {
 	// Models lists the models a client key may use, by name. Deny by default:
 	// a key with the client_inference feature and no entry uses no model.
 	Models ModelList `gorm:"type:text"`
+	// AllModels lets a client key with client_inference use every model that
+	// passes the model check of LocalAI, the ones added later too, instead of
+	// a list. Models is then empty. A remote paired over P2P without a list
+	// of models holds such a key.
+	AllModels bool `gorm:"not null;default:false"`
 	// ReadFolders and WriteFolder are the folder grant of a client key
 	// (client_folders): folders of the owner's workspace the key may read, and
 	// the one it may write. Deny by default: empty means no access.

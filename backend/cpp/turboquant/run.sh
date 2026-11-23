@@ -28,6 +28,14 @@ if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
 	fi
 fi
 
+# LLAMACPP_BINARY overrides the choice above: the name of a binary in this
+# directory to run instead. LocalAI workers set it to turboquant-rpc-server to start the
+# RPC server with the same library path, GPU environment and bundled loader
+# as the gRPC server. It must name a file next to this script.
+if [ -n "${LLAMACPP_BINARY:-}" ]; then
+	BINARY="$LLAMACPP_BINARY"
+fi
+
 # Newer ROCm releases split the TensileLibrary data per GPU architecture
 # (library/gfx1151/...). rocBLAS and hipBLASLt look for their kernels directly in
 # the directory the *_TENSILE_LIBPATH variable names, so pointing at the parent
@@ -35,7 +43,20 @@ fi
 # and fall back to slower paths. Point at the architecture folder when the bundle
 # carries exactly one and nothing at the top level; otherwise keep the directory.
 rocm_tensile_dir() {
-	local dir="$1"
+	local dir="$1" f v a
+	# ROCm 10 ships TensileLibrary data for many architectures: older ones at the
+	# top level, newer ones in per-architecture folders (library/gfx1151/...), and
+	# several of those. Take the folder of the GPU in this machine when the bundle
+	# carries one; the KFD topology names it (gfx_target_version 110501 -> gfx1151).
+	for f in "${ROCM_KFD_TOPOLOGY:-/sys/class/kfd/kfd/topology/nodes}"/*/properties; do
+		v=$(awk '$1=="gfx_target_version"{print $2}' "$f" 2>/dev/null)
+		[ -n "$v" ] && [ "$v" != 0 ] || continue
+		a=$(printf 'gfx%d%x%x' $((v / 10000)) $((v / 100 % 100)) $((v % 100)))
+		if [ -n "$(find "$dir/$a" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then
+			echo "$dir/$a"
+			return
+		fi
+	done
 	if [ -z "$(find "$dir" -maxdepth 1 -type f -print -quit)" ]; then
 		set -- "$dir"/gfx*/
 		if [ "$#" -eq 1 ] && [ -d "$1" ]; then

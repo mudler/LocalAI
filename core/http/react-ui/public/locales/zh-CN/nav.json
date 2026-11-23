@@ -51,8 +51,8 @@
     "users": "用户",
     "backends": "后端",
     "traces": "追踪",
-    "nodes": "节点",
-    "scheduling": "调度",
+    "nodes": "工作节点",
+    "scheduling": "部署",
     "swarm": "Swarm",
     "system": "系统",
     "settings": "设置",
@@ -62,7 +62,7 @@
     "overview": "概览",
     "thisMachine": "本机",
     "failover": "故障转移",
-    "p2p": "P2P",
+    "p2p": "共享",
     "addons": "附加组件",
     "voiceLibrary": "Voice Library",
     "logs": "Logs",
@@ -76,7 +76,8 @@
     "chatsAdmin": "所有用户的聊天",
     "pages": "页面",
     "allChats": "全部对话",
-    "inbox": "通知"
+    "inbox": "通知",
+    "apiKeys": "API 密钥"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "活动",
   "navLinkExternal": "确认后在新标签页中打开 {{site}}",
   "navLinkAsk": "打开此链接？",
-  "startPage": "起始页"
+  "startPage": "起始页",
+  "admin": {
+    "nav": {
+      "overview": "概览",
+      "apiReference": "API 参考",
+      "back": "返回 {{name}}",
+      "search": "搜索",
+      "label": "管理",
+      "crumbs": "面包屑导航"
+    },
+    "groups": {
+      "machine": "本机",
+      "cluster": "集群",
+      "runtime": "模型与运行时",
+      "access": "访问"
+    },
+    "palette": {
+      "label": "搜索管理页面",
+      "input": "搜索页面、用户、工作节点和设置",
+      "placeholder": "页面、用户、工作节点、设置",
+      "results": "结果",
+      "none": "没有与“{{query}}”匹配的内容。",
+      "move": "移动",
+      "open": "打开",
+      "kinds": {
+        "page": "页面",
+        "setting": "设置",
+        "worker": "工作节点",
+        "person": "用户"
+      }
+    },
+    "filters": {
+      "label": "筛选",
+      "active": "已设置 {{count}} 项",
+      "sort": "排序"
+    }
+  }
 }

@@ -58,6 +58,38 @@ func (s *remotesAuthStub) Adopt(context.Context, string, []remotes.UpstreamModel
 	return remotes.Result{Remote: remotes.Remote{ID: "r1"}}, nil
 }
 
+// federationAuthStub answers every federation call with an empty success
+// and counts the calls on the remotes stub.
+type federationAuthStub struct {
+	remotes.Federation
+	s *remotesAuthStub
+}
+
+func (f federationAuthStub) View(context.Context) (remotes.FederationView, error) {
+	f.s.calls++
+	return remotes.FederationView{}, nil
+}
+func (f federationAuthStub) Group(context.Context, string) (remotes.Group, error) {
+	f.s.calls++
+	return remotes.Group{}, nil
+}
+func (f federationAuthStub) CreateGroup(context.Context, remotes.GroupRequest) (remotes.Group, error) {
+	f.s.calls++
+	return remotes.Group{}, nil
+}
+func (f federationAuthStub) UpdateGroup(context.Context, string, remotes.GroupUpdate) (remotes.Group, error) {
+	f.s.calls++
+	return remotes.Group{}, nil
+}
+func (f federationAuthStub) DeleteGroup(context.Context, string) error {
+	f.s.calls++
+	return nil
+}
+func (f federationAuthStub) Drain(context.Context, string, string, bool) (remotes.Group, error) {
+	f.s.calls++
+	return remotes.Group{}, nil
+}
+
 var _ = Describe("remote routes access", func() {
 	var (
 		e     *echo.Echo
@@ -74,6 +106,12 @@ var _ = Describe("remote routes access", func() {
 		{http.MethodDelete, "/api/remotes/r1", ""},
 		{http.MethodPost, "/api/remotes/r1/refresh", ""},
 		{http.MethodPost, "/api/remotes/r1/adopt", `{"models":[{"id":"m"}]}`},
+		{http.MethodGet, "/api/federation", ""},
+		{http.MethodPost, "/api/federation/groups", `{"name":"g","members":["a","b"]}`},
+		{http.MethodGet, "/api/federation/groups/g", ""},
+		{http.MethodPatch, "/api/federation/groups/g", `{"policy":"round_robin"}`},
+		{http.MethodDelete, "/api/federation/groups/g", ""},
+		{http.MethodPost, "/api/federation/groups/g/drain", `{"model":"a","drain":true}`},
 	}
 	do := func(method, path, token, body string) int {
 		req := httptest.NewRequest(method, path, bytes.NewReader([]byte(body)))
@@ -104,6 +142,7 @@ var _ = Describe("remote routes access", func() {
 		e.Use(auth.RequireRouteFeature(db))
 		registerClientRoutes(context.Background(), e, db, "", auth.RequireAdmin(), func() clienthttp.Host { return nil }, func(context.Context, string, string) {}, testModelCheck)
 		registerRemoteRoutes(e, func() remotes.Service { return stub }, auth.RequireAdmin())
+		registerFederationRoutes(e, func() remotes.Federation { return federationAuthStub{s: stub} }, auth.RequireAdmin())
 	})
 
 	It("refuses a request without credentials", func() {

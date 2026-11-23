@@ -118,6 +118,9 @@
     "emptyBody": "Diese Liste ist leer.",
     "emptyFiltered": "Nichts passt zur Suche. Ändere die Wörter oder die Bibliothek.",
     "emptyTitle": "Nichts anzuzeigen",
+    "failedBody": "Die Bibliotheken, die geladen wurden, sind unten aufgeführt.",
+    "failedTitle_one": "Eine Bibliothek konnte nicht gelesen werden.",
+    "failedTitle_other": "{{count}} Bibliotheken konnten nicht gelesen werden.",
     "libraries": "Bibliotheken",
     "loading": "Ergebnisse werden geladen",
     "next": "Nächste Seite",
@@ -180,6 +183,7 @@
       "urlCredentials": "Die Adresse darf keinen Benutzernamen und kein Passwort enthalten.",
       "urlQuery": "Die Adresse darf keinen Query-String und kein Fragment enthalten.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -193,6 +197,7 @@
       "requireSignature": "Signatur verlangen",
       "url": "Katalog-URL",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -202,13 +207,16 @@
       "reference": "Der Name von Zugangsdaten, die ein Administrator auf diesem Server eingerichtet hat. Füge hier nie ein Token oder Passwort ein.",
       "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Zuletzt geladen {{when}}",
     "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
     "lead": "Eine Bibliothek ist ein Verzeichnis, das Add-ons, Backends oder Modelle auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Add-on-Bibliothek nennt Zugangsdaten, die ein Administrator auf diesem Server eingerichtet hat.",
     "listLabel": "Bibliotheken",
     "loading": "Bibliotheken werden geladen",
+    "neverLoaded": "Nie geladen",
     "notRefreshed": "Noch nicht aktualisiert",
     "reference": "Zugangsdaten-Referenz: {{name}}",
     "refresh": "Aktualisieren",
@@ -394,6 +402,7 @@
     "platform": "Plattform",
     "selection": "Ausgewählt als",
     "signatureRequired": "Signatur erforderlich",
+    "sourceRepository": "Source repository",
     "verification": "Verifizierung",
     "version": "Version"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach der Aktualisierung.",
     "checkAgain": "Jetzt prüfen",
-    "open": "Aktualisierungen öffnen"
+    "open": "Aktualisierungen öffnen",
+    "cancelledNote": "Das Update von {{name}} wurde abgebrochen. Version {{version}} läuft weiter.",
+    "cancelling": "Wird abgebrochen…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +730,8 @@
     "skillShadow": "Dieses Add-on ersetzt den integrierten Skill {{skill}}.",
     "skillShadowWarning": "Dieses Add-on ersetzt den integrierten Skill {{skill}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge. Solange Sie nichts wählen, stellt das zuerst installierte es bereit.",
     "skillProvides": "Dieses Add-on stellt die Fähigkeit {{skill}} bereit.",
-    "skillProvidesWarning": "Dieses Add-on stellt die Fähigkeit {{skill}} bereit. Ein anderes Add-on ({{name}}) stellt sie ebenfalls bereit. Nur eines kann aktiv sein; wähle unter Einstellungen > Werkzeuge. Ohne Auswahl wird das zuerst installierte verwendet."
+    "skillProvidesWarning": "Dieses Add-on stellt die Fähigkeit {{skill}} bereit. Ein anderes Add-on ({{name}}) stellt sie ebenfalls bereit. Nur eines kann aktiv sein; wähle unter Einstellungen > Werkzeuge. Ohne Auswahl wird das zuerst installierte verwendet.",
+    "background": "Das läuft im Hintergrund. Sie können dieses Fenster schließen; das Schließen stoppt es nicht."
   },
   "family": {
     "pages": "Du suchst Seiten, die du oder ein Agent erstellt hast? Sie sind unter <go>Seiten</go>."
@@ -787,7 +799,8 @@
       "action": "Freigeben und aktualisieren",
       "body": "Version {{current}} von {{name}} läuft weiter. Gibst du frei, darf die neue Version diese Aktionen ausführen. Neue sind markiert.",
       "done": "{{name}} wurde aktualisiert.",
-      "title": "Host-Zugriff für {{name}} {{version}} freigeben"
+      "title": "Host-Zugriff für {{name}} {{version}} freigeben",
+      "running": "Das Update läuft im Hintergrund. Sie können dieses Fenster schließen; das Schließen stoppt es nicht. Mit „Abbrechen“ stoppen Sie es."
     },
     "asksNothing": "Dieses Add-on fordert keinen Host-Zugriff an.",
     "blanket": {
@@ -891,6 +904,7 @@
     "newOptional": "Die neue Version fordert auch {{ops}} an. Diese sind optional und nicht erlaubt.",
     "noLongerRequested": "Diese Version fordert es nicht mehr an. Du kannst es ausschalten.",
     "notOfficialWarning": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek. Es läuft als vertrauenswürdiger Code auf diesem Server und kann die Zugangsdaten nutzen, die es erhält. Installiere es nur, wenn du seinem Autor vertraust.",
+    "signedNotReviewed": "Signiert von {{signer}}. Nicht von LocalAI geprüft. Es läuft als vertrauenswürdiger Code auf diesem Server und kann die Zugangsdaten nutzen, die es erhält. Installiere es nur, wenn du dem Signierer vertraust.",
     "op": {
       "alreadyAllowed": "Bereits erlaubt",
       "blocked": "Von der Administratorrichtlinie blockiert",
@@ -924,7 +938,12 @@
       "body": "Die neue Version fordert Host-Zugriff an, den die aktuelle nicht hat. Version {{current}} läuft weiter, bis du freigibst. Hinzukommende Operationen: {{count}}.",
       "review": "Prüfen und freigeben",
       "reviewNamed": "Den Host-Zugriff von {{name}} prüfen und freigeben",
-      "title": "{{name}} {{version}} wartet auf deine Freigabe"
+      "title": "{{name}} {{version}} wartet auf deine Freigabe",
+      "updatingTitle": "{{name}} wird auf {{version}} aktualisiert",
+      "queuedBody": "Es steht in der Warteschlange und läuft im Hintergrund.",
+      "cancellingTitle": "Die Aktualisierung von {{name}} wird abgebrochen",
+      "failedTitle": "Die Aktualisierung von {{name}} auf {{version}} ist fehlgeschlagen",
+      "reviewAgain": "Erneut prüfen"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "Ältere Version",
       "downgrade": "Dies installiert Version {{version}}, die älter ist als die installierte Version {{installed}}. Eine ältere Version kann Daten, die eine neuere geschrieben hat, eventuell nicht lesen.",
       "downgradeConfirm": "Ich möchte die ältere Version installieren"
-    }
+    },
+    "progress": "{{name}} wird aus einer Datei installiert. Es läuft im Hintergrund.",
+    "failedTitle": "Die Installation von {{name}} aus einer Datei ist fehlgeschlagen",
+    "failedHint": "Die Datei bleibt eine Stunde erhalten. Wählen Sie „Erneut versuchen“, um sie noch einmal zu verwenden."
   },
   "notice": {
     "enableFailedTitle": "{{name}} konnte nicht eingeschaltet werden",
@@ -1058,5 +1080,28 @@
       "off": "Aus",
       "attention": "Einrichtung nötig"
     }
+  },
+  "queue": {
+    "title": "Installationswarteschlange",
+    "select": "Zur Warteschlange hinzufügen",
+    "selectNamed": "{{name}} zur Installationswarteschlange hinzufügen",
+    "inQueue": "In der Warteschlange",
+    "selectionLabel": "Für die Installation ausgewählte Add-ons",
+    "selected": "Ausgewählt: {{count}}",
+    "reviewPicked": "Prüfen und einreihen",
+    "clear": "Leeren",
+    "position": "Add-on {{number}} von {{total}}.",
+    "batchNote": "Es wird nichts eingereiht, bis du das letzte geprüft hast.",
+    "confirmBody": "Version {{version}} aus der Quelle {{library}} kommt in die Installationswarteschlange. Sie wird im Hintergrund geladen und vor der Installation geprüft. Sie wird nicht eingeschaltet.",
+    "add": "Zur Warteschlange hinzufügen",
+    "acceptNext": "Annehmen und weiter",
+    "acceptLast": "Annehmen und alle einreihen",
+    "skip": "Überspringen",
+    "unpinned": "Dieser Entwicklungseintrag ist nicht an ein Paket gebunden. Es wird installiert, was die Quelle gerade liefert.",
+    "reviewTitle": "Prüfung nötig.",
+    "reviewBody": "Das Paket verlangt mehr Host-Zugriff, als du genehmigt hast. Prüfe die Liste noch einmal, bevor es installiert wird.",
+    "refused": "{{name}} wurde nicht eingereiht. {{reason}}",
+    "noAnswer": "Der Server hat dazu nicht geantwortet.",
+    "notInLibrary": "Dieses Add-on ist in deinen Bibliotheken nicht mehr vorhanden."
   }
 }

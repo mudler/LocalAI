@@ -512,14 +512,14 @@ test.describe('Operations in the inbox: a phone', () => {
   })
 })
 
-test.describe('Operations in the inbox: chats off', () => {
-  // With the chats off there is no inbox, but an administrator still has the
-  // operations: the entry, the ring and the Activity pane, and no request to the
-  // chats for notifications or changes.
-  const chatsOff = (page) => page.route('**/api/features', route => route.fulfill({ json: { chats: false } }))
+test.describe('Operations in the inbox: no notification center', () => {
+  // With no notification center (and the chats off) there is no inbox, but an
+  // administrator still has the operations: the entry, the ring and the Activity
+  // pane, and no request for notifications or changes.
+  const chatsOff = (page) => page.route('**/api/features', route => route.fulfill({ json: { chats: false, notifications: false } }))
   const chatCalls = (page) => {
     const seen = []
-    page.on('request', (req) => { if (/\/api\/chats\/(notifications\?.*limit=50|changes)/.test(req.url())) seen.push(req.url()) })
+    page.on('request', (req) => { if (/\/api\/(notifications\?.*limit=50|chats\/changes)/.test(req.url())) seen.push(req.url()) })
     return seen
   }
 

@@ -8,6 +8,7 @@ import { Button, EmptyState, LoadError, Page, PageHeader, SearchField, Segmented
 import ProjectSheet from '../components/projects/ProjectSheet'
 import SharedProjects from '../components/projects/SharedProjects'
 import { usePolling } from '../hooks/usePolling'
+import { keepIfSame } from '../utils/sameData'
 import { deleteProjectWithUndo, usePendingProjectDeletes } from '../components/projects/projectUndo'
 import { filterProjects, isProjectsOff, projectCounts, projectFolderLink, sortProjects, whenAgo } from '../utils/projects'
 import './projects.css'
@@ -41,7 +42,7 @@ export default function Projects() {
   const load = useCallback(async () => {
     try {
       const list = await chatProjectsApi.list()
-      setProjects(list.projects || [])
+      setProjects(prev => keepIfSame(prev, list.projects || []))
       setOff('')
       setError(null)
       setLoaded(true)
@@ -51,11 +52,7 @@ export default function Projects() {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 5000)
-    return () => clearInterval(interval)
-  }, [load])
+  usePolling(load, 5000)
 
   // The projects shared with the person. Best effort and quiet: a failed read
   // hides the section (a poll that fails keeps the rows it has), and it never
@@ -64,7 +61,7 @@ export default function Projects() {
   const loadShared = useCallback(async () => {
     try {
       const r = await chatProjectsApi.shared()
-      setShared(r?.projects || [])
+      setShared(prev => keepIfSame(prev, r?.projects || []))
     } catch { /* the section stays as it was, or hidden */ }
   }, [])
   usePolling(loadShared, 5000)

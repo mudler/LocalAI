@@ -16,11 +16,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -87,6 +90,18 @@ type Client struct {
 	HTTP *http.Client
 	// Now is the clock; a test fixes it.
 	Now func() time.Time
+	// Logger receives one line for each refusal of GitHub (a 4xx answer),
+	// with the reason GitHub gave. It is slog.Default when nil. It never gets
+	// the token, a request body or a query.
+	Logger *slog.Logger
+}
+
+type toolKey struct{}
+
+// WithTool returns a context that names the tool of a call, so the log line of
+// a refusal says which tool GitHub refused.
+func WithTool(ctx context.Context, tool string) context.Context {
+	return context.WithValue(ctx, toolKey{}, tool)
 }
 
 // New returns a client of the real API.
@@ -187,6 +202,9 @@ func (c *Client) do(ctx context.Context, method, token, path string, query url.V
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return out, nil
 	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		c.logRefusal(ctx, method, path, resp.StatusCode, resp.Header, body)
+	}
 	return out, c.failure(resp.StatusCode, resp.Header, body)
 }
 
@@ -222,6 +240,61 @@ func (c *Client) failure(status int, h http.Header, body []byte) error {
 		return ErrUnavailable
 	}
 	return &StatusError{Status: status, Err: ErrInvalid}
+}
+
+// maxLogText bounds each piece of GitHub text in a log line, in bytes.
+const maxLogText = 500
+
+// logHeaders are the headers of a refusal that tell its cause apart.
+var logHeaders = []string{"X-RateLimit-Remaining", "X-RateLimit-Resource", "Retry-After", "X-GitHub-Request-Id", "X-Accepted-GitHub-Permissions"}
+
+// logRefusal writes one server-side line with the reason GitHub gave for a
+// refusal, so an operator can tell a missing permission from a rate limit or a
+// rejected content. The text stays in the log: failure never returns it. The
+// line holds the path without its query, and never the token, the
+// Authorization header or the request body.
+func (c *Client) logRefusal(ctx context.Context, method, path string, status int, h http.Header, body []byte) {
+	var m struct {
+		Message string          `json:"message"`
+		DocURL  string          `json:"documentation_url"`
+		Errors  json.RawMessage `json:"errors"`
+	}
+	_ = json.Unmarshal(body, &m)
+	tool, _ := ctx.Value(toolKey{}).(string)
+	attrs := []any{"tool", logText(tool), "method", method, "path", logText(path), "status", status,
+		"message", logText(m.Message), "documentation_url", logText(m.DocURL)}
+	for _, name := range logHeaders {
+		if v := h.Get(name); v != "" {
+			attrs = append(attrs, strings.ToLower(name), logText(v))
+		}
+	}
+	if status == http.StatusUnprocessableEntity && len(m.Errors) > 0 {
+		attrs = append(attrs, "errors", logText(string(m.Errors)))
+	}
+	l := c.Logger
+	if l == nil {
+		l = slog.Default()
+	}
+	l.WarnContext(ctx, "github: call refused", attrs...)
+}
+
+// logText makes text from the network fit a log line: control characters
+// become spaces and the text is cut to maxLogText bytes on a character boundary.
+func logText(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
+	if len(s) <= maxLogText {
+		return s
+	}
+	cut := maxLogText
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "...(cut)"
 }
 
 func (c *Client) limitWait(status int, h http.Header, body []byte) (int, bool) {

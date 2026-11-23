@@ -148,7 +148,7 @@ var _ = Describe("the switchable groups of built-in tools", func() {
 		Expect(shell.Usable).To(BeFalse(), "nothing runs commands here")
 		Expect(shell.Reason).To(ContainSubstring("nothing here runs commands"))
 
-		draft, err := svc.DraftTools(context.Background(), alice, "m", "")
+		draft, err := svc.DraftTools(context.Background(), alice, "m", "", studio.Switches{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(builtinGroupNames(draft.Builtins)).To(Equal(builtinGroupNames(p.Builtins)))
 

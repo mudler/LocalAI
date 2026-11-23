@@ -163,6 +163,18 @@ echo "== modes with no HTTP surface report healthy rather than false-unhealthy"
 run_hc 0 "local-ai agent-worker"
 expect_url ""
 
+echo "== the standalone workers of the worker group have no HTTP surface"
+for child in llama-cpp-rpc mlx-distributed vllm ds4-distributed; do
+    run_hc 0 "local-ai worker $child"
+    expect_url ""
+    run_hc 0 "local-ai p2p-worker $child"
+    expect_url ""
+done
+
+echo "== the old p2p-worker name with no child is the distributed-mode worker"
+run_hc 0 "local-ai p2p-worker --register-to http://x"
+expect_url "http://localhost:50050/readyz"
+
 echo "== an argv with no local-ai in it falls back to the frontend endpoint"
 # e.g. `init: true` puts docker-init at PID 1. Guessing the frontend is the
 # safer default than skipping the probe entirely.

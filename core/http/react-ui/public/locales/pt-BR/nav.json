@@ -53,8 +53,8 @@
     "backends": "Backends",
     "voiceLibrary": "Biblioteca de Vozes",
     "traces": "Rastreamentos",
-    "nodes": "Nós",
-    "scheduling": "Agendamento",
+    "nodes": "Workers",
+    "scheduling": "Posicionamento",
     "swarm": "Swarm",
     "system": "Sistema",
     "settings": "Configurações",
@@ -63,7 +63,7 @@
     "overview": "Visão geral",
     "thisMachine": "Esta máquina",
     "failover": "Failover",
-    "p2p": "P2P",
+    "p2p": "Compartilhamento",
     "addons": "Complementos",
     "logs": "Logs",
     "trafficModels": "Models",
@@ -76,7 +76,8 @@
     "chatsAdmin": "Chats de todos os usuários",
     "pages": "Páginas",
     "allChats": "Todos os chats",
-    "inbox": "Notificações"
+    "inbox": "Notificações",
+    "apiKeys": "Chaves de API"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "Atividade",
   "navLinkExternal": "Abre {{site}} em uma nova guia após você confirmar",
   "navLinkAsk": "Abrir este link?",
-  "startPage": "Página inicial"
+  "startPage": "Página inicial",
+  "admin": {
+    "nav": {
+      "overview": "Visão geral",
+      "apiReference": "Referência da API",
+      "back": "Voltar para {{name}}",
+      "search": "Pesquisar",
+      "label": "Administração",
+      "crumbs": "Trilha de navegação"
+    },
+    "groups": {
+      "machine": "Esta máquina",
+      "cluster": "Cluster",
+      "runtime": "Modelos e execução",
+      "access": "Acesso"
+    },
+    "palette": {
+      "label": "Pesquisar na administração",
+      "input": "Pesquisar páginas, pessoas, workers e configurações",
+      "placeholder": "Páginas, pessoas, workers, configurações",
+      "results": "Resultados",
+      "none": "Nada corresponde a \"{{query}}\".",
+      "move": "mover",
+      "open": "abrir",
+      "kinds": {
+        "page": "Páginas",
+        "setting": "Configurações",
+        "worker": "Workers",
+        "person": "Pessoas"
+      }
+    },
+    "filters": {
+      "label": "Filtros",
+      "active": "{{count}} definido(s)",
+      "sort": "Ordenar"
+    }
+  }
 }

@@ -52,8 +52,8 @@
     "middleware": "미들웨어",
     "backends": "백엔드",
     "traces": "트레이스",
-    "nodes": "노드",
-    "scheduling": "스케줄링",
+    "nodes": "워커",
+    "scheduling": "배치",
     "swarm": "Swarm",
     "system": "시스템",
     "settings": "설정",
@@ -62,7 +62,7 @@
     "overview": "개요",
     "thisMachine": "이 머신",
     "failover": "페일오버",
-    "p2p": "P2P",
+    "p2p": "공유",
     "addons": "애드온",
     "voiceLibrary": "Voice Library",
     "logs": "Logs",
@@ -76,7 +76,8 @@
     "chatsAdmin": "모든 사용자의 채팅",
     "pages": "페이지",
     "allChats": "모든 채팅",
-    "inbox": "알림"
+    "inbox": "알림",
+    "apiKeys": "API 키"
   },
   "footer": {
     "github": "GitHub",
@@ -138,5 +139,41 @@
   "activityEntry": "활동",
   "navLinkExternal": "확인하면 {{site}}을(를) 새 탭에서 엽니다",
   "navLinkAsk": "이 링크를 열까요?",
-  "startPage": "시작 페이지"
+  "startPage": "시작 페이지",
+  "admin": {
+    "nav": {
+      "overview": "개요",
+      "apiReference": "API 레퍼런스",
+      "back": "{{name}}(으)로 돌아가기",
+      "search": "검색",
+      "label": "관리",
+      "crumbs": "이동 경로"
+    },
+    "groups": {
+      "machine": "이 컴퓨터",
+      "cluster": "클러스터",
+      "runtime": "모델 및 런타임",
+      "access": "접근"
+    },
+    "palette": {
+      "label": "관리 검색",
+      "input": "페이지, 사용자, 워커, 설정 검색",
+      "placeholder": "페이지, 사용자, 워커, 설정",
+      "results": "결과",
+      "none": "\"{{query}}\"와(과) 일치하는 항목이 없습니다.",
+      "move": "이동",
+      "open": "열기",
+      "kinds": {
+        "page": "페이지",
+        "setting": "설정",
+        "worker": "워커",
+        "person": "사용자"
+      }
+    },
+    "filters": {
+      "label": "필터",
+      "active": "{{count}}개 설정됨",
+      "sort": "정렬"
+    }
+  }
 }

@@ -118,6 +118,9 @@
     "emptyBody": "Esta lista está vacía.",
     "emptyFiltered": "Nada coincide con la búsqueda. Cambia las palabras o la biblioteca.",
     "emptyTitle": "Nada que mostrar",
+    "failedBody": "Abajo se muestran las bibliotecas que se cargaron.",
+    "failedTitle_one": "No se pudo leer una biblioteca.",
+    "failedTitle_other": "No se pudieron leer {{count}} bibliotecas.",
     "libraries": "Bibliotecas",
     "loading": "Cargando resultados",
     "next": "Página siguiente",
@@ -180,6 +183,7 @@
       "urlCredentials": "La dirección no debe contener usuario ni contraseña.",
       "urlQuery": "La dirección no debe contener cadena de consulta ni fragmento.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -193,6 +197,7 @@
       "requireSignature": "Exigir una firma",
       "url": "URL del catálogo",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -202,13 +207,16 @@
       "reference": "El nombre de una credencial que un administrador configuró en este servidor. Nunca pegues aquí un token ni una contraseña.",
       "url": "Una dirección https sin credenciales ni cadena de consulta.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Última carga {{when}}",
     "lastRefresh": "Actualizada {{when}}, {{count}} entradas",
     "lead": "Una biblioteca es un índice que enumera complementos, backends o modelos. Las credenciales nunca se escriben aquí: una biblioteca privada de complementos nombra una credencial que un administrador configuró en este servidor.",
     "listLabel": "Bibliotecas",
     "loading": "Cargando bibliotecas",
+    "neverLoaded": "Nunca cargada",
     "notRefreshed": "Aún sin actualizar",
     "reference": "Referencia de credencial: {{name}}",
     "refresh": "Actualizar",
@@ -394,6 +402,7 @@
     "platform": "Plataforma",
     "selection": "Seleccionado como",
     "signatureRequired": "Firma obligatoria",
+    "sourceRepository": "Source repository",
     "verification": "Verificación",
     "version": "Versión"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "El servicio de complementos se está iniciando. LocalAI vuelve a preguntar por la actualización en {{seconds}} s.",
     "checkAgain": "Comprobar ahora",
-    "open": "Abrir Actualizaciones"
+    "open": "Abrir Actualizaciones",
+    "cancelledNote": "La actualización de {{name}} se canceló. La versión {{version}} sigue en ejecución.",
+    "cancelling": "Cancelando…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +730,8 @@
     "skillShadow": "Este complemento reemplaza la habilidad integrada {{skill}}.",
     "skillShadowWarning": "Este complemento reemplaza la habilidad integrada {{skill}}. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero.",
     "skillProvides": "Este complemento proporciona la habilidad {{skill}}.",
-    "skillProvidesWarning": "Este complemento proporciona la habilidad {{skill}}. Otro complemento ({{name}}) también la proporciona. Solo uno puede estar activo; elige en Configuración > Herramientas. Sin una elección, se usa el instalado primero."
+    "skillProvidesWarning": "Este complemento proporciona la habilidad {{skill}}. Otro complemento ({{name}}) también la proporciona. Solo uno puede estar activo; elige en Configuración > Herramientas. Sin una elección, se usa el instalado primero.",
+    "background": "Se ejecuta en segundo plano. Puede cerrar esta ventana; cerrarla no lo detiene."
   },
   "family": {
     "pages": "¿Buscas páginas que creaste tú o un agente? Están en <go>Páginas</go>."
@@ -787,7 +799,8 @@
       "action": "Aprobar y actualizar",
       "body": "La versión {{current}} de {{name}} sigue funcionando. Si apruebas, la nueva versión puede ejecutar estas acciones. Las nuevas están marcadas.",
       "done": "{{name}} se actualizó.",
-      "title": "Aprobar el acceso al host de {{name}} {{version}}"
+      "title": "Aprobar el acceso al host de {{name}} {{version}}",
+      "running": "La actualización se ejecuta en segundo plano. Puede cerrar esta ventana; cerrarla no la detiene. Elija Cancelar para detenerla."
     },
     "asksNothing": "Este complemento no pide acceso al host.",
     "blanket": {
@@ -891,6 +904,7 @@
     "newOptional": "La nueva versión también pide {{ops}}. Son opcionales y no están permitidos.",
     "noLongerRequested": "Esta versión ya no lo pide. Puedes desactivarlo.",
     "notOfficialWarning": "Este complemento viene de {{library}}, no de la biblioteca oficial. Se ejecuta como código de confianza en este servidor y puede usar las credenciales que se le entregan. Instálalo solo si confías en su autor.",
+    "signedNotReviewed": "Firmado por {{signer}}. No revisado por LocalAI. Se ejecuta como código de confianza en este servidor y puede usar las credenciales que se le den. Instálalo solo si confías en quien lo firmó.",
     "op": {
       "alreadyAllowed": "Ya permitido",
       "blocked": "Bloqueado por la política del administrador",
@@ -924,7 +938,12 @@
       "body": "La nueva versión pide un acceso al host que la actual no tiene. La versión {{current}} sigue funcionando hasta que apruebes. Operaciones que añade: {{count}}.",
       "review": "Revisar y aprobar",
       "reviewNamed": "Revisar y aprobar el acceso al host de {{name}}",
-      "title": "{{name}} {{version}} espera tu aprobación"
+      "title": "{{name}} {{version}} espera tu aprobación",
+      "updatingTitle": "Actualizando {{name}} a {{version}}",
+      "queuedBody": "Está en cola y se ejecuta en segundo plano.",
+      "cancellingTitle": "Cancelando la actualización de {{name}}",
+      "failedTitle": "Falló la actualización de {{name}} a {{version}}",
+      "reviewAgain": "Revisar de nuevo"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "Versión anterior",
       "downgrade": "Esto instala la versión {{version}}, que es anterior a la versión instalada {{installed}}. Una versión anterior puede no leer los datos que escribió una más nueva.",
       "downgradeConfirm": "Quiero instalar la versión anterior"
-    }
+    },
+    "progress": "Instalando {{name}} desde un archivo. Se ejecuta en segundo plano.",
+    "failedTitle": "Falló la instalación de {{name}} desde un archivo",
+    "failedHint": "El archivo se conserva una hora. Elija Reintentar para usarlo de nuevo."
   },
   "notice": {
     "enableFailedTitle": "No se pudo activar {{name}}",
@@ -1058,5 +1080,28 @@
       "off": "Desactivada",
       "attention": "Falta configurarla"
     }
+  },
+  "queue": {
+    "title": "Cola de instalación",
+    "select": "Añadir a la cola",
+    "selectNamed": "Añadir {{name}} a la cola de instalación",
+    "inQueue": "En cola",
+    "selectionLabel": "Complementos seleccionados para instalar",
+    "selected": "Seleccionados: {{count}}",
+    "reviewPicked": "Revisar y poner en cola",
+    "clear": "Quitar selección",
+    "position": "Complemento {{number}} de {{total}}.",
+    "batchNote": "No se pone nada en cola hasta que termines con el último.",
+    "confirmBody": "La versión {{version}} de la fuente {{library}} se añade a la cola de instalación. Se descarga en segundo plano y se comprueba antes de instalarla. No se activa.",
+    "add": "Añadir a la cola",
+    "acceptNext": "Aceptar y siguiente",
+    "acceptLast": "Aceptar y poner todo en cola",
+    "skip": "Omitir",
+    "unpinned": "Esta entrada de desarrollo no está fijada a un paquete. Instala lo que la fuente sirva ahora.",
+    "reviewTitle": "Revisión necesaria.",
+    "reviewBody": "El paquete pide más acceso al host del que aprobaste. Revisa la lista otra vez antes de instalarlo.",
+    "refused": "{{name}} no se puso en cola. {{reason}}",
+    "noAnswer": "El servidor no respondió sobre este complemento.",
+    "notInLibrary": "Este complemento ya no está en tus bibliotecas."
   }
 }

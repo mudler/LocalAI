@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -11,9 +12,12 @@ import (
 	"github.com/mudler/LocalAI/core/services/messaging"
 )
 
-// NATSAgentControl sends the frontend's MCP verbs to the agent-worker queue
-// group as NATS request/reply.
+// NATSAgentControl sends the frontend's MCP verbs as NATS request/reply: to the
+// agent-worker queue group when the call names no node, and to the subject of
+// one agent worker when it does (NodeAgentControl).
 type NATSAgentControl struct{ bus messaging.MessagingClient }
+
+var _ NodeAgentControl = (*NATSAgentControl)(nil)
 
 func NewNATSAgentControl(bus messaging.MessagingClient) *NATSAgentControl {
 	return &NATSAgentControl{bus: bus}
@@ -33,6 +37,26 @@ func (a *NATSAgentControl) DiscoverMCPTools(ctx context.Context, req mcpremote.M
 		return nil, err
 	}
 	return controlRequestJSON[mcpremote.MCPDiscoveryRequest, mcpremote.MCPDiscoveryResponse](a.bus, messaging.SubjectMCPDiscovery, req, timeout)
+}
+
+// ExecuteMCPToolOn runs one MCP tool on the agent worker nodeID. No worker
+// listening on the subject of the node wraps ErrNoRoute.
+func (a *NATSAgentControl) ExecuteMCPToolOn(ctx context.Context, nodeID string, req mcpremote.MCPToolRequest) (*mcpremote.MCPToolResponse, error) {
+	timeout, err := agentRequestTimeout(ctx, config.DefaultMCPToolTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return controlRequestJSON[mcpremote.MCPToolRequest, mcpremote.MCPToolResponse](a.bus, messaging.SubjectNodeMCPToolExecute(nodeID), req, timeout)
+}
+
+// DiscoverMCPToolsOn asks the agent worker nodeID for the MCP servers and tools
+// of a model.
+func (a *NATSAgentControl) DiscoverMCPToolsOn(ctx context.Context, nodeID string, req mcpremote.MCPDiscoveryRequest) (*mcpremote.MCPDiscoveryResponse, error) {
+	timeout, err := agentRequestTimeout(ctx, config.DefaultMCPDiscoveryTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return controlRequestJSON[mcpremote.MCPDiscoveryRequest, mcpremote.MCPDiscoveryResponse](a.bus, messaging.SubjectNodeMCPDiscovery(nodeID), req, timeout)
 }
 
 // agentRequestTimeout reads only the deadline of ctx, never its cancellation:
@@ -56,47 +80,65 @@ func agentRequestTimeout(ctx context.Context, fallback time.Duration) (time.Dura
 type NATSAgentRPCServer struct {
 	bus    messaging.MessagingClient
 	nodeID string
+	// tool and discovery keep one tool call and one discovery at a time,
+	// whichever of the two subjects of each delivers it.
+	tool      sync.Mutex
+	discovery sync.Mutex
 }
 
 // NewNATSAgentRPCServer serves on bus for the agent worker registered as
-// nodeID. The node id scopes only the backend stop subject: the MCP requests
-// are shared by the agent-workers queue group, so any worker may answer them.
+// nodeID. The MCP requests arrive in the agent-workers queue group, where any
+// worker may answer them, and on the subjects of this node, for a call that
+// names it.
 func NewNATSAgentRPCServer(bus messaging.MessagingClient, nodeID string) *NATSAgentRPCServer {
 	return &NATSAgentRPCServer{bus: bus, nodeID: nodeID}
 }
 
-// ServeMCPTool answers tool requests in the agent-workers queue group. The
-// handler runs inline on the delivery goroutine, so a worker serves one tool
-// call at a time, and on context.Background because the handler sets its own
-// budget: a call in flight when the worker is told to stop runs to that budget.
+// ServeMCPTool answers tool requests in the agent-workers queue group and on the
+// tool subject of this node. The handler runs on the delivery goroutine and one
+// tool call runs at a time, as it always did, and on context.Background because
+// the handler sets its own budget: a call in flight when the worker is told to
+// stop runs to that budget.
 func (s *NATSAgentRPCServer) ServeMCPTool(h mcpremote.ToolHandler) error {
-	_, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	handler := func(data []byte, reply func([]byte)) {
 		var req mcpremote.MCPToolRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			sendAgentReply(reply, mcpremote.MCPToolResponse{Error: fmt.Sprintf("unmarshal error: %v", err)})
 			return
 		}
+		s.tool.Lock()
+		defer s.tool.Unlock()
 		sendAgentReply(reply, h(context.Background(), req))
-	})
-	if err != nil {
+	}
+	if _, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPToolExecute, messaging.QueueAgentWorkers, handler); err != nil {
 		return fmt.Errorf("serving mcp tool on %s: %w", messaging.SubjectMCPToolExecute, err)
+	}
+	subject := messaging.SubjectNodeMCPToolExecute(s.nodeID)
+	if _, err := s.bus.SubscribeReply(subject, handler); err != nil {
+		return fmt.Errorf("serving mcp tool on %s: %w", subject, err)
 	}
 	return nil
 }
 
 // ServeMCPDiscovery answers discovery requests like ServeMCPTool answers tool
-// requests. Its own subscription lets a discovery overlap a tool call.
+// requests. Its own subscriptions let a discovery overlap a tool call.
 func (s *NATSAgentRPCServer) ServeMCPDiscovery(h mcpremote.DiscoveryHandler) error {
-	_, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func(data []byte, reply func([]byte)) {
+	handler := func(data []byte, reply func([]byte)) {
 		var req mcpremote.MCPDiscoveryRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			sendAgentReply(reply, mcpremote.MCPDiscoveryResponse{Error: fmt.Sprintf("unmarshal error: %v", err)})
 			return
 		}
+		s.discovery.Lock()
+		defer s.discovery.Unlock()
 		sendAgentReply(reply, h(context.Background(), req))
-	})
-	if err != nil {
+	}
+	if _, err := s.bus.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, handler); err != nil {
 		return fmt.Errorf("serving mcp discovery on %s: %w", messaging.SubjectMCPDiscovery, err)
+	}
+	subject := messaging.SubjectNodeMCPDiscovery(s.nodeID)
+	if _, err := s.bus.SubscribeReply(subject, handler); err != nil {
+		return fmt.Errorf("serving mcp discovery on %s: %w", subject, err)
 	}
 	return nil
 }

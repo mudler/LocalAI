@@ -28,6 +28,12 @@ type PackageReceipt struct {
 	Selection    string `json:"selection"`
 	Reference    string `json:"reference"`
 	Verification string `json:"verification"`
+	// Signer is the identity the package was verified against, recorded only
+	// when the verification was a signature check and the source is not the
+	// official library. When the library names the signer by a pattern, it is
+	// the pinned source repository (see catalog.VerificationPolicy.SignerLabel).
+	// It lets the UI say who signed an add-on LocalAI did not review.
+	Signer string `json:"signer,omitempty"`
 	// Origin says in words where an unlisted package came from. It is set
 	// for a package installed from a local file ("local file, unsigned") and
 	// empty for a library package, whose source and verification say it all.

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,9 +15,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -129,7 +128,11 @@ type Manager struct {
 	upgradeActive, upgradeClosing bool
 	// opMu serializes Submit and Reconcile as whole operations, so mu can be
 	// released around a slow fetch without letting another operation in.
-	opMu                    sync.Mutex
+	opMu sync.Mutex
+	// stageMu keeps Reconcile from cleaning the stage folder while a host
+	// access preview stages a package. A preview holds it for reading and
+	// never opMu, so a slow preview download does not hold back an install.
+	stageMu                 sync.RWMutex
 	toolCache               map[string]toolDeclaration
 	config                  OwnerConfig
 	catalog                 catalog.Catalog
@@ -576,6 +579,11 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		op.Status.Stage = m.journal.Operations[cmd.OperationID].Status.Stage
 		op.Status.Phase = string(lifecycleFailed)
 		op.Status.FailureCode = "upgrade_failed"
+		if ctx.Err() != nil {
+			// A fetch stopped by a cancel reports a fetch error, not the
+			// cancel; the context says what happened.
+			op.Status.FailureCode = "interrupted"
+		}
 		for _, c := range cause {
 			if errors.Is(c, context.Canceled) || errors.Is(c, context.DeadlineExceeded) {
 				op.Status.FailureCode = "interrupted"
@@ -645,6 +653,8 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if e := m.upgradeStage(cmd.OperationID, stagePreparing); e != nil {
 				return op.Status, e
 			}
+			report := installProgressFrom(ctx)
+			report(InstallProgress{Phase: InstallPhaseResolving, Cancellable: true})
 			m.mu.Unlock()
 			fromFile := cmd.SourceID == zipformat.SourceID
 			var staged packages.StagedPackage
@@ -660,7 +670,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					r, resolveErr = m.resolveRelease(ctx, cmd)
 				}
 				if resolveErr == nil {
-					staged, stageErr = m.installer.Stage(ctx, r, nil)
+					staged, stageErr = m.installer.Stage(ctx, r, stageProgress(report))
 				}
 			}
 			m.mu.Lock()
@@ -721,32 +731,43 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
 				// the library or the channel, whatever the add-on holds.
-				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); !ok || recovery.CheckCompatible(last, staged.Receipt()) != nil || staged.Receipt().Digest != cmd.CandidateDigest {
-					return fail()
+				last, ok := lastReceipt(m.journal.Addons[cmd.AddonID])
+				if !ok {
+					return fail(logOnly("the add-on has no installed generation to upgrade"))
+				}
+				if e := recovery.CheckCompatible(last, staged.Receipt()); e != nil {
+					return fail(logOnly("the candidate is not compatible with the installed generation: " + e.Error()))
+				}
+				if staged.Receipt().Digest != cmd.CandidateDigest {
+					return fail(logOnly("the candidate digest is not the one that was reviewed"))
 				}
 			}
 			if m.recovery != nil && m.recovery.HasData(cmd.AddonID) {
 				// Retained data is only handed to the same trusted identity
 				// and never to an older data format: this holds for an
 				// upgrade and for a reinstall alike.
-				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.CheckCompatible(last, staged.Receipt()) != nil {
-					return fail()
+				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok {
+					if e := recovery.CheckCompatible(last, staged.Receipt()); e != nil {
+						return fail(logOnly("the package is not compatible with the retained data: " + e.Error()))
+					}
 				}
 				if cmd.Action != "upgrade" {
 					// A reinstall has no running generation to back up, and
 					// the candidate would migrate the retained data when it
 					// starts. Only an upgrade takes a verified backup first.
 					if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.FormatChanged(last, staged.Receipt()) {
-						return fail()
+						return fail(logOnly("a reinstall cannot migrate the retained data without a backup, and the package changes the data format"))
 					}
 				}
 				if cmd.Action == "upgrade" {
+					report(InstallProgress{Phase: InstallPhaseStarting})
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
 			}
 			if e = m.upgradeStage(cmd.OperationID, stageCommitting); e != nil {
 				return op.Status, e
 			}
+			report(InstallProgress{Phase: InstallPhaseCommitting})
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
 				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("commit: %w", e)})
@@ -773,6 +794,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if e := m.upgradeStage(cmd.OperationID, stageStarting); e != nil {
 				return op.Status, e
 			}
+			installProgressFrom(ctx)(InstallProgress{Phase: InstallPhaseStarting})
 			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
 				if ctx.Err() != nil {
 					// The caller went away, which says nothing about the
@@ -784,7 +806,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					m.canceled[cmd.OperationID] = receipt
 					return op.Status, e
 				}
-				return fail()
+				return fail(startCause(e))
 			}
 		}
 	case "enable":
@@ -793,7 +815,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
-			return fail()
+			return fail(logOnly("the retained data needs recovery before the add-on can be served"))
 		}
 		// A package the host cannot run would only fail to start and leave
 		// the add-on off with no reason. Say so, and keep the upgrade open.
@@ -841,15 +863,48 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	return result, m.syncFor(ctx, cmd.AddonID)
 }
 
+// logOnly is a cause that only the owner log shows. It has no wire code, so
+// the answer to the client stays the generic failure. It does not unwrap, so
+// no typed handling in fail() applies to the text.
+type logOnly string
+
+func (c logOnly) Error() string { return string(c) }
+
+// maxCauseText bounds one cause in the log, in runes.
+const maxCauseText = 400
+
+var (
+	causeURLUserinfo = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/\s@]+@`)
+	causeSecretPair  = regexp.MustCompile(`(?i)\b([a-z0-9_.-]*(?:token|secret|password|passwd|apikey|api_key|authorization|credential)[a-z0-9_.-]*)\s*[=:]\s*\S+`)
+)
+
+// boundCause makes the text of an error fit one log field: one line, no
+// credentials in URLs or in key=value pairs, at most maxCauseText runes.
+func boundCause(text string) string {
+	text = strings.Join(strings.Fields(text), " ")
+	text = causeURLUserinfo.ReplaceAllString(text, "${1}[redacted]@")
+	text = causeSecretPair.ReplaceAllString(text, "${1}=[redacted]")
+	if r := []rune(text); len(r) > maxCauseText {
+		text = string(r[:maxCauseText]) + "..."
+	}
+	return text
+}
+
+// startCause is the log cause of a candidate generation that did not start or
+// did not complete its handshake. The previous generation was restored.
+func startCause(e error) error {
+	return logOnly("the new generation did not start; the previous generation was kept: " + boundCause(e.Error()))
+}
+
 // describeCauses is the text of the errors a failed operation had, for the log.
 func describeCauses(causes []error) string {
 	var parts []string
 	for _, c := range causes {
 		var typed *FailureCause
 		if errors.As(c, &typed) && typed.detail != nil {
-			parts = append(parts, typed.Code+": "+typed.detail.Error())
+			parts = append(parts, typed.Code+": "+boundCause(typed.detail.Error()))
 		} else if c != nil {
-			parts = append(parts, c.Error())
+			parts = append(parts, boundCause(c.Error()))
 		}
 	}
 	if len(parts) == 0 {
@@ -921,7 +976,12 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		return e
 	}
 	m.uncertain = false
-	if e := m.cleanStages(); e != nil {
+	// A preview stages under stageMu only, so it does not wait for an
+	// install; the stage folder is cleaned only when no preview stages.
+	m.stageMu.Lock()
+	e := m.cleanStages()
+	m.stageMu.Unlock()
+	if e != nil {
 		return e
 	}
 	for id, op := range m.journal.Operations {
@@ -980,6 +1040,12 @@ func syncPackage(root string) error {
 			return e
 		}
 		e = f.Sync()
+		if e != nil && atomicfile.SyncDenied(e) {
+			// Windows: a Sync through a read-only handle fails (FlushFileBuffers
+			// needs a writable handle) even though the data is durable; the
+			// immutable 0400 files of an installed package are read-only.
+			e = nil
+		}
 		return errors.Join(e, f.Close())
 	})
 	if e != nil {
@@ -991,87 +1057,16 @@ func syncPackage(root string) error {
 		if e != nil {
 			return e
 		}
-		e = f.Sync()
+		// The established directory-sync helper: on Windows the directory
+		// handle's Sync fails with "Access is denied" and the file data is
+		// already durable.
+		e = atomicfile.SyncDirTolerant(f)
 		e = errors.Join(e, f.Close())
 		if e != nil {
 			return e
 		}
 	}
 	return nil
-}
-
-// Only unpublished Installer staging is collectible. An unreferenced published
-// package may be the result of a crash before prepared; retain it for inspection.
-func (m *Manager) cleanStages() error {
-	root, e := openPackageRoot(m.installer.Root)
-	if os.IsNotExist(e) {
-		return nil
-	}
-	if e != nil {
-		return e
-	}
-	defer func() { _ = root.Close() }()
-	entries, e := fs.ReadDir(root.FS(), ".")
-	if e != nil {
-		return e
-	}
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), "stage-") {
-			continue
-		}
-		if e = fs.WalkDir(root.FS(), entry.Name(), func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if !d.IsDir() {
-				return nil
-			}
-			// Descriptor chmod avoids following a link swapped in after WalkDir.
-			f, err := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_DIRECTORY, 0)
-			if err != nil {
-				return err
-			}
-			return errors.Join(f.Chmod(0700), f.Close()) // #nosec G122 -- the tree is owned by this process and locked; the walk only normalises its own files
-		}); e != nil {
-			return e
-		}
-		if e = root.RemoveAll(entry.Name()); e != nil {
-			return e
-		}
-	}
-	return nil
-}
-
-// Pin each ancestor and reject links, including the package root, before any
-// enumeration or mutation. Root operations keep later path races contained.
-func openPackageRoot(path string) (*os.Root, error) {
-	root, err := os.OpenRoot(string(filepath.Separator))
-	if err != nil {
-		return nil, err
-	}
-	for _, part := range strings.Split(strings.TrimPrefix(filepath.Clean(path), string(filepath.Separator)), string(filepath.Separator)) {
-		info, e := root.Lstat(part)
-		if e != nil {
-			_ = root.Close()
-			return nil, e
-		}
-		if !info.IsDir() {
-			_ = root.Close()
-			return nil, ErrConfiguration
-		}
-		next, e := root.OpenRoot(part)
-		_ = root.Close()
-		if e != nil {
-			return nil, e
-		}
-		pinned, e := next.Stat(".")
-		if e != nil || !os.SameFile(info, pinned) {
-			_ = next.Close()
-			return nil, ErrConfiguration
-		}
-		root = next
-	}
-	return root, nil
 }
 
 // AttachRuntime is owner-only. Durable reconciliation precedes process execution.
@@ -1099,6 +1094,20 @@ func (m *Manager) syncFor(ctx context.Context, id string) error {
 		return e
 	}
 	return m.startFailed[id]
+}
+
+// StartFailure is the reason, for people, why an enabled add-on is not
+// running, when its last start gave one (WSL 2 cannot run an add-on that
+// needs it, for one). It is empty otherwise, also for a failure whose text is
+// not meant for people. It is an observation of this owner process.
+func (m *Manager) StartFailure(id string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var r *addonruntime.StartRefusal
+	if errors.As(m.startFailed[id], &r) {
+		return r.Reason
+	}
+	return ""
 }
 
 // startCandidate stops the running generation of an enabled add-on and starts
@@ -1241,6 +1250,7 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 				continue
 			}
 			m.startFailed[l.id] = l.err
+			xlog.Warn("An add-on did not start", "addon", l.id, "error", l.err)
 			continue
 		}
 		delete(m.startFailed, l.id)

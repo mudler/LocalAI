@@ -8,11 +8,11 @@ import { useModels } from '../hooks/useModels'
 import { usePolling } from '../hooks/usePolling'
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip, Tabs } from '../components/ui'
 import { SharedAccess, unavailableText } from '../components/projects/SharedProjects'
 import { chatPath } from '../components/projects/ProjectChats'
 import { readChatStart, readLastModel } from '../utils/lastModel'
-import { MEMORY_INDEX, isProjectsOff, pickStartModel, whenAgo, withPulled, wrapKey } from '../utils/projects'
+import { MEMORY_INDEX, isProjectsOff, pickStartModel, whenAgo, withPulled } from '../utils/projects'
 import { decodeSharedRef, sharedAccess, sharedUsable, memorySnippet } from '../utils/sharedProjects'
 import { renderSharedMarkdown } from '../utils/sharedMarkdown'
 import './projects.css'
@@ -42,7 +42,6 @@ export default function SharedProjectPage() {
   const [menuAt, setMenuAt] = useState(null)
   const [pulling, setPulling] = useState(false)
   const { models, loading: modelsLoading } = useModels(CAP_CHAT)
-  const tabRefs = useRef({})
   const loaded = useRef(false)
 
   // The project and its memory. A poll that fails keeps what is shown; a 404
@@ -91,17 +90,11 @@ export default function SharedProjectPage() {
   }, [])
 
   useEffect(() => {
-    tabRefs.current[tab]?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
+    document.getElementById(`shared-tab-${tab}`)?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
   }, [tab, state])
 
   const setTab = (next) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
-  const onTabKey = (e) => {
-    const to = wrapKey(e.key, TABS.indexOf(tab), TABS.length)
-    if (to < 0) return
-    e.preventDefault()
-    setTab(TABS[to])
-    tabRefs.current[TABS[to]]?.focus()
-  }
+
 
   // Pulls the project into a new chat, or into one the person already has.
   const pull = async (chat) => {
@@ -199,25 +192,14 @@ export default function SharedProjectPage() {
             </Callout>
           )}
 
-        <div className="pj-tabs" role="tablist" aria-label={t('tabs.label')} onKeyDown={onTabKey}>
-          {TABS.map(k => (
-            <button
-              key={k}
-              ref={el => { tabRefs.current[k] = el }}
-              type="button"
-              role="tab"
-              id={`shared-tab-${k}`}
-              aria-selected={tab === k}
-              aria-controls={`shared-panel-${k}`}
-              tabIndex={tab === k ? 0 : -1}
-              className="pj-tab"
-              data-testid={`shared-tab-${k}`}
-              onClick={() => setTab(k)}
-            >
-              {t(`tabs.${k}`)}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('tabs.label')}
+          idPrefix="shared"
+          value={tab}
+          onChange={setTab}
+          itemTestId="shared-tab-"
+          items={TABS.map(k => ({ id: k, label: t(`tabs.${k}`) }))}
+        />
         <div role="tabpanel" id={`shared-panel-${tab}`} aria-labelledby={`shared-tab-${tab}`} className="pj-panel">
           {tab === 'overview' && <Overview project={project} memory={memory} usable={usable} write={write} onMemory={() => setTab('memory')} memoryFailed={memoryFailed} onRetry={refetch} t={t} />}
           {tab === 'memory' && <SharedMemory memory={memory} html={html} failed={memoryFailed} onRetry={refetch} t={t} />}

@@ -11,6 +11,7 @@ import { useUpdates } from '../contexts/UpdatesContext'
 import { entryOf } from '../utils/nodeUpdates'
 import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { Tabs } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import ActionMenu from '../components/ActionMenu'
 import CapacityEditor from '../components/nodes/CapacityEditor'
@@ -296,31 +297,18 @@ export default function NodeDetail() {
         </section>
       )}
 
-      <div className="dk-tabs sw-tabs" role="tablist" aria-label={t('detail.tabs')}>
-        {TABS.filter(key => !(isAgent && key === 'backends')).map(key => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            id={`sw-tab-${key}`}
-            aria-controls={`sw-panel-${key}`}
-            aria-selected={tab === key}
-            tabIndex={tab === key ? 0 : -1}
-            className="dk-tab"
-            onClick={() => setTab(key)}
-            onKeyDown={e => {
-              const keys = TABS.filter(k => !(isAgent && k === 'backends'))
-              const at = keys.indexOf(key)
-              const go = e.key === 'ArrowRight' ? keys[(at + 1) % keys.length] : e.key === 'ArrowLeft' ? keys[(at + keys.length - 1) % keys.length] : null
-              if (go) { e.preventDefault(); setTab(go); requestAnimationFrame(() => document.getElementById(`sw-tab-${go}`)?.focus()) }
-            }}
-          >
-            {t(`detail.tab.${key}`)}
-            {key === 'models' && <span className="sw-tab__n"> {models.length}</span>}
-            {key === 'backends' && !backends.error && <span className="sw-tab__n"> {backends.list.length}</span>}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="sw-tabs"
+        label={t('detail.tabs')}
+        idPrefix="sw"
+        value={tab}
+        onChange={setTab}
+        items={TABS.filter(key => !(isAgent && key === 'backends')).map(key => ({
+          id: key,
+          label: t(`detail.tab.${key}`),
+          count: key === 'models' ? models.length : key === 'backends' && !backends.error ? backends.list.length : undefined,
+        }))}
+      />
 
       {tab === 'models' && (
         <div className="dk-tabpanel" role="tabpanel" id="sw-panel-models" aria-labelledby="sw-tab-models" tabIndex={0}>

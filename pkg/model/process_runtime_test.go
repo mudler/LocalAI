@@ -3,6 +3,7 @@ package model
 import (
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -54,7 +55,11 @@ var _ = Describe("Backend process runtime directory", func() {
 		info, err := os.Stat(runtime.tempDir)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(info.IsDir()).To(BeTrue())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+		if goruntime.GOOS != "windows" {
+			// Windows has no owner-only permission bits; the directory lives in
+			// the user's profile, which its ACL already restricts.
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o700)))
+		}
 	})
 
 	It("overrides inherited temp variables for the backend only", func() {

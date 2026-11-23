@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -131,7 +130,11 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 		It("restarts an add-on that crashed, and counts the restart", func() {
 			pids := addonPIDs("tables")
 			Expect(pids).To(HaveLen(1))
-			Expect(syscall.Kill(pids[0], syscall.SIGKILL)).To(Succeed())
+			// An abrupt kill on every platform: os.FindProcess + Kill is the
+			// cross-platform form of SIGKILL (TerminateProcess on Windows).
+			p, err := os.FindProcess(pids[0])
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Kill()).To(Succeed())
 			Eventually(func() []int { return addonPIDs("tables") }, 60*time.Second, 300*time.Millisecond).Should(HaveLen(1))
 			Expect(addonPIDs("tables")[0]).NotTo(Equal(pids[0]))
 			Eventually(func() string { return admin.state("tables") }, 60*time.Second, 300*time.Millisecond).Should(Equal("running"))

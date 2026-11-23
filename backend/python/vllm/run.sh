@@ -51,7 +51,7 @@ fi
 # vllm's own CLI instead of LocalAI's backend.py gRPC server. The
 # follower speaks ZMQ directly to the head node's vllm ranks — there
 # is no LocalAI gRPC on the follower side. Reaches this path via
-# `local-ai p2p-worker vllm`.
+# `local-ai worker vllm`.
 if [ "${1:-}" = "serve" ]; then
     ensureVenv
     if [ "x${PORTABLE_PYTHON}" == "xtrue" ] || [ -x "$(_portable_python)" ]; then

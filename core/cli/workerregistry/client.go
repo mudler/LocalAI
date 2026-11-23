@@ -9,6 +9,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"maps"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,16 +18,93 @@ import (
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
 // RegistrationClient talks to the frontend's /api/node/* endpoints.
+//
+// Registration is the one call that takes a join token or the shared
+// registration token. It returns the own credential of the node, and every
+// other call, and every later registration, presents that credential.
 type RegistrationClient struct {
-	FrontendURL       string
+	FrontendURL string
+	// RegistrationToken is the shared registration token of the deployment. It
+	// is sent in registration only.
 	RegistrationToken string
+	// JoinToken is a single-use token that an admin minted. It is sent in
+	// registration only, and only until the node holds its own credential.
+	JoinToken string
+	// Credential keeps the own credential of the node between runs, so that a
+	// restart needs no join token. Nil keeps it in memory only.
+	Credential CredentialStore
 	HTTPTimeout       time.Duration // used for registration calls; defaults to 10s
-	client            *http.Client
-	clientOnce        sync.Once
+	// HTTPClient, when set, carries every call instead of a client built from
+	// HTTPTimeout: a worker that joined over P2P reaches the frontend through
+	// the P2P layer, whatever host FrontendURL names.
+	HTTPClient *http.Client
+	client     *http.Client
+	clientOnce sync.Once
+
+	credMu      sync.Mutex
+	credLoaded  bool
+	nodeToken   string
+	workerToken string
+}
+
+// CredentialStore keeps the own credential of a node.
+type CredentialStore interface {
+	// Load returns the stored credential, or the empty string when there is none
+	// for this frontend and node name.
+	Load() (string, error)
+	// Save stores the credential.
+	Save(token string) error
+}
+
+// NodeToken returns the own credential of the node, loading it from the store on
+// first use. It is empty until the node has registered.
+func (c *RegistrationClient) NodeToken() string {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	if !c.credLoaded {
+		c.credLoaded = true
+		if c.Credential != nil {
+			tok, err := c.Credential.Load()
+			if err != nil {
+				xlog.Warn("Could not read the stored node credential", "error", err)
+			}
+			c.nodeToken = tok
+		}
+	}
+	return c.nodeToken
+}
+
+// WorkerToken returns the data plane token that the last registration handed
+// over, or empty. A worker that registered with the shared registration token
+// derives it from that token instead (workerctl.WorkerAuthToken).
+func (c *RegistrationClient) WorkerToken() string {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	return c.workerToken
+}
+
+func (c *RegistrationClient) adopt(res *RegisterResponse) {
+	c.credMu.Lock()
+	defer c.credMu.Unlock()
+	if res.WorkerToken != "" {
+		c.workerToken = res.WorkerToken
+	}
+	if res.NodeToken == "" {
+		return
+	}
+	c.credLoaded = true
+	c.nodeToken = res.NodeToken
+	if c.Credential != nil {
+		if err := c.Credential.Save(res.NodeToken); err != nil {
+			// The worker runs on, and needs a new join token after a restart.
+			xlog.Error("Could not store the node credential: a restart will need a new join token", "error", err)
+		}
+	}
 }
 
 // httpTimeout returns the configured timeout or a sensible default.
@@ -39,6 +118,10 @@ func (c *RegistrationClient) httpTimeout() time.Duration {
 // httpClient returns the shared HTTP client, initializing it on first use.
 func (c *RegistrationClient) httpClient() *http.Client {
 	c.clientOnce.Do(func() {
+		if c.HTTPClient != nil {
+			c.client = c.HTTPClient
+			return
+		}
 		c.client = httpclient.NewWithTimeout(c.httpTimeout())
 	})
 	return c.client
@@ -49,20 +132,55 @@ func (c *RegistrationClient) baseURL() string {
 	return strings.TrimRight(c.FrontendURL, "/")
 }
 
-// setAuth adds an Authorization header when a token is configured.
+// setAuth adds the own credential of the node as the Authorization header. The
+// registration token is not a credential for any call but registration.
 func (c *RegistrationClient) setAuth(req *http.Request) {
-	if c.RegistrationToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.RegistrationToken)
+	if tok := c.NodeToken(); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 }
 
+// The routes a worker can ask a credential for, as the frontend names them.
+// They mirror the names of the route columns of a node (nodes.RoutesOf) and are
+// copied rather than imported, for the reason statusPending is.
+const (
+	// RouteNATS is NATS for the control verbs and a direct dial of the worker
+	// for the data. Its credential is the NATS user JWT and the handover of the
+	// NATS address.
+	RouteNATS = "nats"
+	// RouteTunnel is the tunnel that the worker holds open to a frontend, over a
+	// websocket or over P2P. Its credential is the tunnel token of the node.
+	RouteTunnel = "tunnel"
+)
+
 // RegisterResponse is the JSON body returned by /api/node/register.
+//
+// The frontend mints a credential only for the routes that the registration
+// asks for ("routes" in the body): the tunnel token for the tunnel, and the
+// NATS user JWT with the address of NATS for NATS. A registration that asks for
+// no route gets the node ID and the status, and no credential.
 type RegisterResponse struct {
 	ID           string `json:"id"`
 	Status       string `json:"status,omitempty"` // "pending" until an admin approves the node
 	APIToken     string `json:"api_token,omitempty"`
 	NatsJWT      string `json:"nats_jwt,omitempty"`
 	NatsUserSeed string `json:"nats_user_seed,omitempty"`
+	// NodeToken is the own credential of the node for the node routes
+	// (heartbeat, drain, deregister) and for registering again. It is sent once,
+	// to a registration that used a join token or the registration token.
+	NodeToken string `json:"node_token,omitempty"`
+	// WorkerToken is the bearer token between the frontends and this worker for
+	// the data plane. Empty when the deployment has none.
+	WorkerToken string `json:"worker_token,omitempty"`
+	// TunnelToken is the own credential of the node for the tunnel. It is sent
+	// once, and only to a registration that asks for the tunnel.
+	TunnelToken string `json:"tunnel_token,omitempty"`
+	// NatsURL is the address workers use for NATS, NatsCA the CA of the server as
+	// PEM, and NatsClientTLS says the server asks for a client certificate, which
+	// the frontend cannot hand over. Sent to a registration that asks for NATS.
+	NatsURL       string `json:"nats_url,omitempty"`
+	NatsCA        string `json:"nats_ca,omitempty"`
+	NatsClientTLS bool   `json:"nats_client_tls,omitempty"`
 }
 
 // RegisterFull sends a single registration request and returns the full
@@ -70,6 +188,20 @@ type RegisterResponse struct {
 // Re-registration is idempotent: the frontend preserves the node row and mints
 // a fresh NATS JWT each call, so this doubles as the credential-refresh call.
 func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]any) (*RegisterResponse, error) {
+	// What the worker holds goes in the request. The frontend tries the own
+	// credential first, then the join token, then the registration token, so a
+	// worker that restarts never spends a join token.
+	body = maps.Clone(body)
+	if body == nil {
+		body = map[string]any{}
+	}
+	delete(body, "token")
+	if c.RegistrationToken != "" {
+		body["token"] = c.RegistrationToken
+	}
+	if c.JoinToken != "" {
+		body["join_token"] = c.JoinToken
+	}
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/register"
 
@@ -94,61 +226,85 @@ func (c *RegistrationClient) RegisterFull(ctx context.Context, body map[string]a
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
+	c.adopt(&result)
 	return &result, nil
 }
 
-// Register sends a single registration request and returns the node ID and
-// optional credentials (API token for agent workers, NATS JWT when configured).
-func (c *RegistrationClient) Register(ctx context.Context, body map[string]any) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
-	res, err := c.RegisterFull(ctx, body)
+// RegisterWithRetry retries registration with exponential backoff.
+func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+	res, err := c.RegisterFullWithRetry(ctx, body, maxRetries)
 	if err != nil {
 		return "", "", "", "", err
 	}
 	return res.ID, res.APIToken, res.NatsJWT, res.NatsUserSeed, nil
 }
 
-// RegisterWithRetry retries registration with exponential backoff.
-func (c *RegistrationClient) RegisterWithRetry(ctx context.Context, body map[string]any, maxRetries int) (nodeID, apiToken, natsJWT, natsSeed string, err error) {
+// RegisterFullWithRetry is RegisterWithRetry that returns the whole response.
+func (c *RegistrationClient) RegisterFullWithRetry(ctx context.Context, body map[string]any, maxRetries int) (*RegisterResponse, error) {
+	if maxRetries < 1 {
+		return nil, fmt.Errorf("registering: %d attempts allowed, want at least one", maxRetries)
+	}
 	backoff := 2 * time.Second
 	maxBackoff := 30 * time.Second
 
+	var err error
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		nodeID, apiToken, natsJWT, natsSeed, err = c.Register(ctx, body)
+		var res *RegisterResponse
+		res, err = c.RegisterFull(ctx, body)
 		if err == nil {
-			return nodeID, apiToken, natsJWT, natsSeed, nil
+			return res, nil
 		}
 		if attempt == maxRetries {
-			return "", "", "", "", fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
+			return nil, fmt.Errorf("failed after %d attempts: %w", maxRetries, err)
 		}
 		xlog.Warn("Registration failed, retrying", "attempt", attempt, "next_retry", backoff, "error", err)
 		select {
 		case <-ctx.Done():
-			return "", "", "", "", ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, maxBackoff)
 	}
-	return nodeID, apiToken, natsJWT, natsSeed, err
+	return nil, err
 }
 
-// Heartbeat sends a single heartbeat POST with the given body.
+// Heartbeat sends a single heartbeat POST with the given body. It fails only when
+// the request cannot be made.
 func (c *RegistrationClient) Heartbeat(ctx context.Context, nodeID string, body map[string]any) error {
+	resp, err := c.post(ctx, nodeID, body)
+	if err != nil {
+		return err
+	}
+	return resp.Body.Close()
+}
+
+// SendHeartbeat sends a heartbeat and fails when the frontend refuses it, for
+// example for a node that it does not know. Heartbeat, by contrast, fails only
+// when the request cannot be made.
+func (c *RegistrationClient) SendHeartbeat(ctx context.Context, nodeID string, body map[string]any) error {
+	resp, err := c.post(ctx, nodeID, body)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("heartbeat refused with status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *RegistrationClient) post(ctx context.Context, nodeID string, body map[string]any) (*http.Response, error) {
 	jsonBody, _ := json.Marshal(body)
 	url := c.baseURL() + "/api/node/" + nodeID + "/heartbeat"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return fmt.Errorf("creating heartbeat request: %w", err)
+		return nil, fmt.Errorf("creating heartbeat request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	c.setAuth(req)
-
-	resp, err := c.httpClient().Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	return nil
+	return c.httpClient().Do(req)
 }
 
 // HeartbeatLoop runs heartbeats at the given interval until ctx is cancelled.
@@ -283,4 +439,34 @@ func (c *RegistrationClient) GracefulDeregister(nodeID string) {
 	} else {
 		xlog.Info("Deregistered from frontend")
 	}
+}
+
+// SplitSync sends the split report of a node and returns the model-split
+// workers attached to it (POST /api/node/{id}/split). An error leaves the
+// caller with its last answer: the frontend may be down, or may not share
+// over P2P.
+func (c *RegistrationClient) SplitSync(ctx context.Context, nodeID string, rep workerctl.SplitReport) (*workerctl.SplitAssignment, error) {
+	body, err := json.Marshal(rep)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL()+"/api/node/"+nodeID+"/split", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("creating split report request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.setAuth(req)
+	resp, err := c.httpClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("split report refused with status %d", resp.StatusCode)
+	}
+	var out workerctl.SplitAssignment
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&out); err != nil {
+		return nil, fmt.Errorf("reading the split assignment: %w", err)
+	}
+	return &out, nil
 }

@@ -6,7 +6,9 @@ import Icon from '../Icon'
 // A command to paste into a terminal, with a Copy button. The block scrolls
 // sideways on a narrow screen instead of wrapping, because a wrapped command
 // is a broken command. The text is real text: select it, or copy it.
-export default function CommandBlock({ command, label, addToast }) {
+// `shown` is what the block draws when it must not be the whole command (a
+// token hidden on the page); the copy button always copies `command`.
+export default function CommandBlock({ command, shown, label, addToast, disabled = false }) {
   const { t } = useTranslation('swarm')
   const [copied, setCopied] = useState(false)
   const timer = useRef(null)
@@ -26,8 +28,8 @@ export default function CommandBlock({ command, label, addToast }) {
 
   return (
     <div className="sw-cmd" data-testid="command-block">
-      <pre className="sw-cmd__text" tabIndex={0} aria-label={label}><code>{command}</code></pre>
-      <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm sw-cmd__copy" onClick={copy} aria-label={t('command.copyAria')}>
+      <pre className="sw-cmd__text" tabIndex={0} aria-label={label}><code>{shown ?? command}</code></pre>
+      <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm sw-cmd__copy" onClick={copy} disabled={disabled} aria-label={t('command.copyAria')}>
         <Icon name={copied ? 'check' : 'copy'} /> {copied ? t('command.done') : t('command.copy')}
       </button>
     </div>

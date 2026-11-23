@@ -563,7 +563,17 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
         const bool no_spec_type = params.speculative.types.empty() ||
             (params.speculative.types.size() == 1 && params.speculative.types[0] == COMMON_SPECULATIVE_TYPE_NONE);
         if (no_spec_type) {
-            params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT_SIMPLE };
+            // Let the draft GGUF pick its own type, as llama.cpp does without
+            // --spec-type: a DFlash-family head (dflash, DSpark) or an MTP head
+            // resolves from general.architecture and the tensors. A plain draft
+            // LM has neither, so the historical draft-simple stays the fallback.
+            // Forks that predate common_speculative_types_from_gguf keep draft-simple.
+#if LOCALAI_HAS_SPEC_TYPES_FROM_GGUF
+            params.speculative.types = common_speculative_types_from_gguf(request->draftmodel());
+#endif
+            if (params.speculative.types.empty()) {
+                params.speculative.types = { COMMON_SPECULATIVE_TYPE_DRAFT_SIMPLE };
+            }
         }
     }
 
@@ -4446,7 +4456,12 @@ public:
                 return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
                     "This decision model requires an image-capable projector for image input");
             }
+#if LOCALAI_HAS_DECISION_AUDIO_INPUT
+            // A spoken question needs a model with an audio encoder, as in upstream's /decision route.
+            const auto questions = decision.parse_questions(body, ctx_server.impl->chat_params.allow_audio);
+#else
             const auto questions = decision.parse_questions(body);
+#endif
             std::vector<raw_buffer> files;
             const json state = decision.parse_state(body, files);
             if (context->IsCancelled()) {

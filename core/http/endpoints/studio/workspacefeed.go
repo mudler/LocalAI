@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/mudler/LocalAI/core/http/sse"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/wsfeed"
 )
@@ -43,7 +44,7 @@ func (h *Handlers) WorkspaceEvents(c echo.Context) error {
 		return failFile(c, err)
 	}
 	defer cancel()
-	return streamSSEWithIDs(c, ch, feedHeartbeat, func(ev wsfeed.Event) (string, string, any) {
+	return sse.Stream(c, ch, feedHeartbeat, func(ev wsfeed.Event) (string, string, any) {
 		id := strconv.FormatInt(ev.Revision, 10)
 		if ev.Resync {
 			return id, "resync", schema.WorkspaceChange{Revision: ev.Revision}

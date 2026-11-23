@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/fsperm"
 )
 
 type CA struct {
@@ -58,7 +60,7 @@ func LoadOrCreateCA(dir string) (*CA, error) {
 	if err := os.WriteFile(certPath, certPEMOut, 0o644); err != nil {
 		return nil, fmt.Errorf("mitm: write ca cert %q: %w", certPath, err)
 	}
-	if err := os.WriteFile(keyPath, keyPEMOut, 0o600); err != nil {
+	if err := fsperm.WriteFile(keyPath, keyPEMOut, 0o600); err != nil {
 		return nil, fmt.Errorf("mitm: write ca key %q: %w", keyPath, err)
 	}
 	return ca, nil

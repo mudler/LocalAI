@@ -21,33 +21,13 @@ For high-bandwidth setups (e.g., Thunderbolt-connected Macs), **JACCL** (tensor 
 - Network connectivity between all nodes (TCP for Ring, RDMA/Thunderbolt for JACCL)
 - Same model accessible on all nodes (e.g., from Hugging Face cache)
 
-## Quick Start with P2P
+## Quick Start
 
-The simplest way to use MLX distributed is with LocalAI's P2P auto-discovery.
+Run LocalAI natively on the Mac. Containers cannot use Metal, so there is no container image for this setup. Install the [desktop app]({{% relref "/start/install/desktop" %}}) or the [binary]({{% relref "/start/install" %}}#install-script).
 
-### 1. Start LocalAI with P2P
-
-Run LocalAI natively on the Mac. Containers cannot use Metal, so there is no container image for this setup. Install the [desktop app]({{% relref "/start/install/desktop" %}}) or the [binary]({{% relref "/start/install" %}}#install-script), then run:
-
-```bash
-local-ai run --p2p
-```
-
-This generates a network token. Copy it for the next step.
-
-### 2. Start MLX Workers
-
-On each additional Mac, run the worker with the same binary:
-
-```bash
-TOKEN="<your-token>" local-ai p2p-worker p2p-mlx
-```
-
-Workers auto-register on the P2P network. The LocalAI server discovers them and generates a hostfile for MLX distributed.
-
-### 3. Use the Model
-
-Load any MLX-compatible model. The `mlx-distributed` backend will automatically shard it across all available ranks:
+1. Write a hostfile that lists every machine, with entry `i` being rank `i`'s listen address (see [Ring Backend](#ring-backend-tcp)).
+2. On each additional Mac, start a worker with `local-ai worker mlx-distributed --hostfile hosts.json --rank <n>` (see [Starting Workers](#starting-workers)).
+3. Point a model at the hostfile and load it:
 
 ```yaml
 name: llama-distributed
@@ -55,6 +35,10 @@ backend: mlx-distributed
 parameters:
   model: mlx-community/Llama-3.2-1B-Instruct-4bit
 ```
+
+The `mlx-distributed` backend shards the model across all the ranks in the hostfile.
+
+> The earlier `local-ai p2p-worker p2p-mlx` command, which found its peers with a P2P token and wrote the hostfile for you, was removed. It exits with a message that points here. To let LocalAI assign the ranks and write the hostfiles, pair each worker with an invite: `local-ai worker mlx-distributed --join <invite link>`. See [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}}). `p2p-worker` still works as the old name of the `worker` command group.
 
 ## Model Configuration
 
@@ -189,21 +173,10 @@ Starts a worker or manual rank 0 process.
 | `--addr` | `MLX_DISTRIBUTED_ADDR` | `localhost:50051` | gRPC API listen address (rank 0 only, for LocalAI or external access) |
 | `--coordinator` | `MLX_JACCL_COORDINATOR` | | JACCL coordinator `ip:port` - rank 0's address for RDMA setup (all ranks must use the same value) |
 
-### `p2p-worker p2p-mlx`
-
-P2P mode - auto-discovers peers and generates hostfile.
-
-| Flag | Env | Default | Description |
-|------|-----|---------|-------------|
-| `--token` | `TOKEN` | *(required)* | P2P network token |
-| `--mlx-listen-port` | `MLX_LISTEN_PORT` | `5555` | Port for MLX communication |
-| `--mlx-backend` | `MLX_DISTRIBUTED_BACKEND` | `ring` | Backend type: `ring` or `jaccl` |
-
 ## Troubleshooting
 
 - **All ranks download the model independently.** Each node auto-downloads from Hugging Face on first use via `mlx_lm.load()`. On rank 0 (started by LocalAI), models are downloaded to LocalAI's model directory (`HF_HOME` is set automatically). On workers, models go to the default HF cache (`~/.cache/huggingface/hub`) unless you set `HF_HOME` yourself.
 - **Timeout errors:** If ranks can't connect, check firewall rules. The Ring backend uses TCP on the ports listed in the hostfile. Start workers before loading the model.
-- **Rank assignment:** In P2P mode, rank 0 is always the LocalAI server. Worker ranks are assigned by sorting node IDs.
 - **Performance:** Pipeline parallelism adds latency proportional to the number of ranks. For best results, use the fewest ranks needed to fit your model in memory.
 
 ## Acknowledgements

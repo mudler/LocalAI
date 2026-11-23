@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	process "github.com/mudler/go-processmanager"
@@ -40,6 +39,7 @@ func (b *freeHookBackend) Free(context.Context, *pb.HealthMessage) (*pb.Result, 
 // starts a grandchild and records its pid, so a spec can tell that the whole
 // group is gone and not only the leader.
 func startGroupProcess() (*process.Process, int) {
+	skipOnWindows("the spec needs a Unix process group and a shell that reports Unix pids")
 	pidFile := filepath.Join(GinkgoT().TempDir(), "grandchild.pid")
 	proc := process.New(process.WithTemporaryStateDir(), process.WithName("/bin/sh"),
 		process.WithArgs("-c", "sleep 300 & echo $! > "+pidFile+"; wait"))
@@ -327,8 +327,6 @@ var _ = Describe("model.unload", func() {
 })
 
 func grandAlive(pid int) bool { return pidAlive(strconv.Itoa(pid)) }
-
-func syscallKill(pid int) error { return syscall.Kill(pid, syscall.SIGKILL) }
 
 func startRegisteredBackend(register func(*gogrpc.Server)) (string, int, func()) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")

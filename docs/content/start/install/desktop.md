@@ -1,11 +1,11 @@
 ---
 title: "Desktop app"
-description: "Install the LocalAI desktop app on Linux (AppImage) or macOS (DMG) to run LocalAI on your computer or to connect to a LocalAI server."
+description: "Install the LocalAI desktop app on Linux (AppImage), macOS (DMG) or Windows (installer) to run LocalAI on your computer or to connect to a LocalAI server."
 icon: desktop_windows
 weight: 45
 aliases:
   - "/installation/launcher/"
-keywords: ["launcher", "desktop", "appimage", "dmg", "macos", "linux", "install", "update channel"]
+keywords: ["launcher", "desktop", "appimage", "dmg", "macos", "linux", "windows", "installer", "install", "update channel"]
 ---
 
 The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in its own window, with a thin status bar at the bottom. It also has pages for logs, settings and a Connect page that shows how other devices and apps reach the server.
@@ -33,13 +33,15 @@ chmod +x LocalAI-Launcher-x86_64.AppImage
 ./LocalAI-Launcher-x86_64.AppImage
 ```
 
-You can also start the file from your file manager. The file is large (about 120 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
+You can also start the file from your file manager. The file is large (about 140 MB), because it contains Electron and Chromium. It needs the libraries of a normal desktop (X11 or Wayland).
 
-An AppImage needs FUSE 2 to mount itself. Ubuntu 24.04 and later do not install it by default. Install it with `sudo apt install libfuse2t64` (Ubuntu 24.04 and later) or `sudo apt install libfuse2` (Ubuntu 22.04). If you cannot install FUSE 2, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
+An AppImage mounts itself with FUSE. The x86_64 file carries its own FUSE support, so it does not need the `libfuse2` package. It does need the FUSE kernel module and the `fusermount` (or `fusermount3`) program of your distribution. If FUSE is not available, start the AppImage with this option. It extracts the image to a temporary folder and runs it from there:
 
 ```bash
 ./LocalAI-Launcher-x86_64.AppImage --appimage-extract-and-run
 ```
+
+The x86_64 AppImage also starts on Linux systems that do not use glibc, such as Alpine and other musl-based distributions. It carries its own glibc and libraries for that case. The system needs `bash`, and the app uses software rendering there. The launcher keeps a small private folder (the loader) in `$XDG_RUNTIME_DIR`, in `~/.cache` or in `/tmp`, and runs from it.
 
 ### Sandbox on Ubuntu 24.04 and later
 
@@ -72,12 +74,34 @@ spctl --assess --type execute --verbose "/Applications/LocalAI Launcher.app"
 codesign --verify --deep --strict --verbose=2 "/Applications/LocalAI Launcher.app"
 ```
 
+## Install on Windows
+
+1. When the app is released, download `LocalAI-Launcher-Setup-x64.exe` from the [releases page](https://github.com/mudler/LocalAI/releases). It is for Windows 10 and 11 on x86-64. There is no Windows build for ARM64 CPUs. The release also has a `.sha256` file for the installer.
+2. Run the installer. It installs the app for your user account only, in `%LOCALAPPDATA%\Programs\LocalAI Launcher`. It does not ask for administrator rights. It adds a Start menu shortcut and a desktop shortcut.
+3. Start **LocalAI Launcher** from the Start menu.
+
+To check the download, run this command in PowerShell in the folder with the files, and compare the result with the first word in the `.sha256` file:
+
+```powershell
+(Get-FileHash .\LocalAI-Launcher-Setup-x64.exe -Algorithm SHA256).Hash.ToLower()
+```
+
+The release also has `LocalAI-Launcher-win-x64.zip`, a portable copy. Extract it to a folder and run `local-ai-launcher.exe`. The portable copy does not update itself: to update it, download the new zip. Use the installer if you want updates from the app.
+
+{{% callout style="note" %}}
+The installer and the app are signed only when the release was built with a code signing certificate. If they are not signed, Windows Defender SmartScreen shows "Windows protected your PC" at the first start. Select **More info**, then **Run anyway**. To see if a file is signed, open its **Properties** and look for the **Digital Signatures** tab.
+{{% /callout %}}
+
+When you close the window, the app stays in the notification area of the taskbar and keeps the server running. To quit, right-click the LocalAI icon there and select **Quit**. The local server is the native Windows server. Read [Install on Windows]({{% relref "/start/install/windows" %}}) for what it supports.
+
 ## First start
 
 On the first start the app asks you to choose:
 
-- **Run LocalAI on this computer.** The app downloads the latest LocalAI server release into `~/.localai`, checks its checksum, and starts it. The first start needs an internet connection. Models and backends are downloaded later, when you use them.
+- **Run LocalAI on this computer.** The app downloads the latest LocalAI server release into `~/.localai` (`%LOCALAPPDATA%\LocalAI\launcher` on Windows), checks its checksum, and starts it. The first start needs an internet connection. Models and backends are downloaded later, when you use them.
 - **Connect to a LocalAI server.** You give the address of a server that runs somewhere else, for example `https://localai.example.com`. The app tests the address and then opens that server in its window.
+
+On Windows the server is `local-ai.exe`, and the app keeps it in `%LOCALAPPDATA%\LocalAI\launcher\bin`.
 
 When the server is ready, the window shows the LocalAI web interface. You can use it as you would in a browser.
 
@@ -92,6 +116,8 @@ Open **Settings > Servers** to keep several LocalAI servers. One of them is the 
 - **This computer** is the server that the app manages for you.
 - A remote server is a server you reach by address. Add it with its address, for example `https://localai.example.com`. The app tests it before it saves it. A server that asks you to sign in counts as reachable. You sign in in the web interface.
 
+- A server **over P2P** is a server you reach with an invite link, also when it is behind a home router. Select **Have an invite link? Paste it instead** in the add form, and paste the link that the server owner made in **Swarm**, **P2P**, **Share** (a device invite). The app pairs this computer with the server and shows a four-word **confirmation phrase**. The server shows the same words: check that they match. Pairing needs LocalAI on this computer, because the app uses its `local-ai p2p pair` and `local-ai p2p forward` commands. The server then opens at a fixed local address, `http://127.0.0.1:<port>`, and you sign in as usual. The list shows **P2P** and how the app reaches the server: direct, hole punched or through a relay. See [P2P]({{% relref "/administration/p2p" %}}).
+
 If a remote server is the default, the app opens it at once. It does not install, start or update the local server. To keep the local server running in the background anyway, turn on **Keep this computer's server running too**.
 
 To change the server, use the switcher in the status bar. The shortcut is Ctrl+Shift+S, or Cmd+Shift+S on macOS. If you pick a server in the switcher, it becomes the default. If you pick This computer, the app starts it, and installs it first when it is missing.
@@ -102,7 +128,7 @@ If the address is plain `http`, the app shows a warning and a **Remote, not encr
 
 ## Updates
 
-The app checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The app also updates itself from the same releases. On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded.
+The app checks for a new LocalAI server version once a day. It never installs an update without asking you. Open **Settings > Updates** to check by hand, to see the installed version and to change the update channel. The app also updates itself from the same releases. On Linux, **Restart to update** replaces the AppImage file. On macOS it installs the update it downloaded. On Windows it runs the new installer, which closes the app, installs the update and starts the app again. The portable zip does not update itself.
 
 ### Update channels
 
@@ -118,12 +144,12 @@ When you leave the Development channel with **Back to Stable**, the app keeps th
 
 ## Development builds for testers
 
-Each change to the app on the `master` branch makes development builds. When the builds pass, the AppImages (x86-64 and ARM64) and the DMG are attached to the rolling [`dev-master` pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master), next to the server binaries. Each new build replaces the files of the last one. The builds are also kept as GitHub Actions artifacts, which you can download after you sign in to GitHub. Each artifact contains the AppImage or the DMG and its `.sha256` file. The file names have `dev` in them, for example `LocalAI-Launcher-dev-x86_64.AppImage` and `LocalAI-Launcher-dev.dmg`, so you can tell them from release files. The release files stay until the next master build replaces them. Artifacts of master builds are kept for 14 days and artifacts of pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
+Each change to the app on the `master` branch makes development builds. When the builds pass, the AppImages (x86-64 and ARM64), the DMG, and the Windows installer and zip are attached to the rolling [`dev-master` pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master), next to the server binaries. Each new build replaces the files of the last one. The builds are also kept as GitHub Actions artifacts, which you can download after you sign in to GitHub. Each artifact contains the AppImage, the DMG, or the Windows installer and zip, each with its `.sha256` file. The file names have `dev` in them, for example `LocalAI-Launcher-dev-x86_64.AppImage`, `LocalAI-Launcher-dev.dmg` and `LocalAI-Launcher-dev-Setup-x64.exe`, so you can tell them from release files. The release files stay until the next master build replaces them. Artifacts of master builds are kept for 14 days and artifacts of pull request builds for 7 days. Pull requests have only the x86-64 AppImage. With the GitHub CLI (run `gh auth login` first):
 
 ```bash
 # The last runs on master
 gh run list --repo mudler/LocalAI --workflow launcher-electron-dev.yaml --branch master --limit 5
-# Download the x86-64 AppImage of one run (use -linux-arm64 or -macos-arm64 for the others)
+# Download the x86-64 AppImage of one run (use -linux-arm64, -macos-arm64 or -windows-amd64 for the others)
 gh run download RUN_ID --repo mudler/LocalAI --name localai-launcher-dev-linux-amd64
 ```
 
@@ -142,24 +168,61 @@ The older launcher was a different program with the same purpose. It does not up
 
 The new app reads the same `~/.localai` folder. Your models, backends and settings stay. From now on the app updates itself from the releases page.
 
+## Registry credentials
+
+The server on this computer can pull backends, models and add-ons from private registries. To give it the credentials, open **Settings > Advanced** and use **Registry credentials**. Each rule has:
+
+- **Registry**: the registry host, with an optional port and path, for example `registry.example` or `registry.example:5000/team`. You can add `https://` in front. Plain `http://` registries are not supported here.
+- **Type**: **Basic** (a user name and a password) or **Bearer token**.
+- The secret: the password or the token.
+
+The app keeps the secret in its secret store, with the API key, and does not show it again. To change a rule, select **Edit**. Leave the secret empty to keep the stored one. If you change the type or the registry host, you must type the secret again.
+
+When the server starts, the app writes `registry-credentials.yaml` next to `launcher.json`. This file contains the rules and the names of environment variables, but not the secrets. The app gives the secrets to the server in those environment variables and sets `LOCALAI_CREDENTIALS_FILE` to the file. For the format of the file and how a rule matches a pull, see [Private Registries and Galleries]({{% relref "/models/private-sources" %}}).
+
+- While there is at least one rule, this file replaces the `credentials.yaml` of the data folder. The server does not read your `credentials.yaml` then.
+- If you set `LOCALAI_CREDENTIALS_FILE` yourself, the app does not use its rules. Settings shows a notice.
+- The server reads the file only when it starts. After you add, change or remove a rule, restart the server.
+
+**Test** sends a request with the credential to `https://<registry>/v2/` and shows the result. It sends the credential only to that registry, never follows a redirect to another address, and never skips certificate errors. Some registries, such as Docker Hub, GHCR and Quay, use a separate sign-in service that gives out tokens. For these, Test cannot check the credential and shows **Cannot check here: this registry uses token sign-in.** The server can still use the credential.
+
 ## Where your data is
 
-The app keeps everything for the local server under `~/.localai`:
+On Linux and macOS, the app keeps everything for the local server under `~/.localai`:
 
 - Models and backends. To move them, open Settings and select **Change...** next to the folder, then choose a folder in the dialog.
 - `bin`, with the `local-ai` server binary and `local-ai.previous`, the copy that the app keeps for a rollback.
 - The server configuration.
 - `launcher.json`, the settings of the app, including the saved server addresses.
 
-The app also keeps the API key of the local server and other secrets there, in a separate file. The system keyring encrypts them when one exists.
+On Windows, the app uses the same folders as `local-ai.exe` started from a terminal (see [Where LocalAI keeps its files]({{% relref "/start/install/windows" %}}#where-localai-keeps-its-files)), so both find the same models:
 
-To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher from Applications to the Trash on macOS. This does not delete `~/.localai`, so your models stay. To remove all data, delete the `~/.localai` folder after you quit the app. The app also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the app.
+- `%LOCALAPPDATA%\LocalAI`: models, backends, the server data and configuration, and the logs.
+- `%LOCALAPPDATA%\LocalAI\launcher`: `launcher.json`, the secrets file, and `bin` with `local-ai.exe` and `local-ai.previous.exe`. This is not the `bin` folder of the PowerShell installer, so the two do not replace each other's server.
+
+If an earlier build of the app left a `launcher.json` in `%USERPROFILE%\.localai`, the app keeps using that folder for everything. It does not move files. To move to the standard folders, quit the app, move the `models` and `backends` folders to `%LOCALAPPDATA%\LocalAI`, and move or delete `%USERPROFILE%\.localai`.
+
+On every system, when `LOCALAI_BASE_PATH` is set to a full path, the app uses it as the default data folder instead. Folders that you chose in Settings win.
+
+Do not run the app's server and a `local-ai run` from a terminal at the same time on the same folders.
+
+The app keeps the API key of the local server and other secrets in a separate file next to `launcher.json`. The system keyring encrypts them when one exists. On Windows the app encrypts them for your user account with the Windows data protection API.
+
+To remove the app, delete the AppImage file on Linux, or drag LocalAI Launcher from Applications to the Trash on macOS. On Windows, quit the app, then remove **LocalAI Launcher** in **Settings > Apps > Installed apps** (or delete the folder of the portable copy). This does not delete `~/.localai` (on Windows `%LOCALAPPDATA%\LocalAI`), so your models stay. To remove all data, delete that folder after you quit the app. The app also adds an autostart entry only if you turn on **Launch at login** in Settings. Turn it off before you remove the app.
 
 ## Troubleshooting
 
 ### The AppImage does not start
 
-If you see an error about FUSE or `libfuse.so.2`, install `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later), or run the file with `--appimage-extract-and-run` as shown above. Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
+If you see an error about FUSE, install `fuse3` (or `fuse`) so that `fusermount` is available, or run the file with `--appimage-extract-and-run` as shown above. An AppImage from an earlier release needs `libfuse2` (`libfuse2t64` on Ubuntu 24.04 and later). Check that the file is executable: `chmod +x LocalAI-Launcher-x86_64.AppImage`.
+
+### Windows asks about the firewall
+
+The app starts the server on `127.0.0.1`, which only this computer can reach, so Windows does not ask. If you let other devices reach the server (the Connect page), the server listens on your network, and Windows Defender Firewall can ask if `local-ai.exe` may accept connections. Allow it for private networks only.
+
+### Stopping the server on Windows
+
+On Windows the app cannot ask the server to shut down. It ends the server and the backends it started at once, with `taskkill`. Requests that run at that time stop. Models, settings and downloads that are complete are not affected.
 
 ### The status bar shows "Sandbox off"
 

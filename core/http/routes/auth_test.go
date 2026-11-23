@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/http/routes"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
@@ -277,15 +278,7 @@ func newTestAuthApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 
 	// Admin: GET /api/auth/admin/users
 	adminMw := auth.RequireAdmin()
-	e.GET("/api/auth/admin/users", func(c echo.Context) error {
-		var users []auth.User
-		db.Order("created_at ASC").Find(&users)
-		result := make([]map[string]any, 0, len(users))
-		for _, u := range users {
-			result = append(result, map[string]any{"id": u.ID, "role": u.Role, "email": u.Email})
-		}
-		return c.JSON(http.StatusOK, map[string]any{"users": result})
-	}, adminMw)
+	e.GET("/api/auth/admin/users", routes.AdminListUsersHandler(db), adminMw)
 
 	// Admin: PUT /api/auth/admin/users/:id/role
 	e.PUT("/api/auth/admin/users/:id/role", func(c echo.Context) error {
@@ -763,13 +756,50 @@ var _ = Describe("Auth Routes", Label("auth"), func() {
 			Expect(users).To(HaveLen(2))
 		})
 
-		It("returns 403 for non-admin user", func() {
+		It("returns 403 for non-admin user, with none of the activity fields", func() {
 			user := createRouteTestUser(db, "nonadmin@test.com", auth.RoleUser)
 			sessionID, _ := auth.CreateSession(db, user.ID, "")
 			app := newTestAuthApp(db, appConfig)
 
 			rec := doAuthRequest(app, "GET", "/api/auth/admin/users", nil, withSession(sessionID))
 			Expect(rec.Code).To(Equal(http.StatusForbidden))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("lastActiveAt"))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("apiKeyCount"))
+		})
+
+		It("carries lastActiveAt and apiKeyCount, a count and never the keys", func() {
+			admin := createRouteTestUser(db, "admin@test.com", auth.RoleAdmin)
+			member := createRouteTestUser(db, "member@test.com", auth.RoleUser)
+			// These ids repeat across the specs of this file, each on a new database.
+			auth.ForgetLastActive(admin.ID)
+			auth.ForgetLastActive(member.ID)
+			for _, n := range []string{"alpha-key", "beta-key"} {
+				_, _, err := auth.CreateAPIKey(db, member.ID, n, auth.RoleUser, "", nil)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			seen := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)
+			Expect(db.Model(&auth.User{}).Where("id = ?", member.ID).UpdateColumn("last_active_at", seen).Error).To(Succeed())
+			sessionID, _ := auth.CreateSession(db, admin.ID, "")
+			app := newTestAuthApp(db, appConfig)
+
+			rec := doAuthRequest(app, "GET", "/api/auth/admin/users", nil, withSession(sessionID))
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("alpha-key"))
+			Expect(rec.Body.String()).ToNot(ContainSubstring("key_hash"))
+
+			var resp struct {
+				Users []map[string]any `json:"users"`
+			}
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			byEmail := map[string]map[string]any{}
+			for _, u := range resp.Users {
+				byEmail[u["email"].(string)] = u
+			}
+			Expect(byEmail["member@test.com"]["apiKeyCount"]).To(BeNumerically("==", 2))
+			Expect(byEmail["member@test.com"]["lastActiveAt"]).To(Equal(seen.Format(time.RFC3339)))
+			Expect(byEmail["admin@test.com"]["apiKeyCount"]).To(BeNumerically("==", 0))
+			// The admin's own request above recorded activity for the admin only.
+			Expect(byEmail["admin@test.com"]["lastActiveAt"]).ToNot(BeNil())
 		})
 	})
 

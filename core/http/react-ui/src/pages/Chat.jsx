@@ -122,6 +122,7 @@ import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
 import { usePages } from '../hooks/usePages'
 import { CHAT_UNDO_MS, useChatDelete } from '../hooks/useChatDelete'
 import { announceChats } from '../hooks/useRecentChats'
+import { readSidebarCollapsed } from '../utils/sidebarState'
 import './chat.css'
 import './chats.css'
 
@@ -518,9 +519,7 @@ function ChatPage() {
   useLayoutEffect(() => {
     if (focusActive) {
       if (prevAppCollapseRef.current === null) {
-        try {
-          prevAppCollapseRef.current = localStorage.getItem('localai_sidebar_collapsed') === 'true'
-        } catch { prevAppCollapseRef.current = false }
+        prevAppCollapseRef.current = readSidebarCollapsed()
       }
       window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: true } }))
     } else if (prevAppCollapseRef.current !== null) {
@@ -558,7 +557,7 @@ function ChatPage() {
         }
         return
       }
-      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, .chat-mcp-dropdown-menu, [role="dialog"], [role="alertdialog"]')
+      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, [role="dialog"], [role="alertdialog"]')
       // An Escape that a popover or a sheet already used to close itself must
       // not also stop the turn.
       if (e.key === 'Escape' && !overlay && !e.defaultPrevented) {

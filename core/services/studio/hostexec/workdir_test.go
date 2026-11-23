@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package hostexec_test
 
 import (

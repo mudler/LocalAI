@@ -114,3 +114,27 @@ var _ = Describe("DownloadFilesWithContext", func() {
 		Expect(percentages[len(percentages)-1]).To(Equal(float64(100)))
 	})
 })
+
+var _ = Describe("TotalSize", func() {
+	It("adds the size of local files and says when one size is unknown", func() {
+		dir := GinkgoT().TempDir()
+		a := filepath.Join(dir, "a.bin")
+		b := filepath.Join(dir, "b.bin")
+		Expect(os.WriteFile(a, []byte("12345"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(b, []byte("123"), 0o600)).To(Succeed())
+
+		total, complete := downloader.TotalSize(context.Background(), []downloader.FileTask{
+			{URI: downloader.URI("file://" + a)},
+			{URI: downloader.URI("file://" + b)},
+		})
+		Expect(total).To(Equal(int64(8)))
+		Expect(complete).To(BeTrue())
+
+		total, complete = downloader.TotalSize(context.Background(), []downloader.FileTask{
+			{URI: downloader.URI("file://" + a)},
+			{URI: downloader.URI("file://" + filepath.Join(dir, "missing.bin"))},
+		})
+		Expect(total).To(Equal(int64(5)))
+		Expect(complete).To(BeFalse())
+	})
+})

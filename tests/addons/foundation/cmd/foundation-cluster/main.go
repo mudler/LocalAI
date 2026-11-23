@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+//go:build !windows
+
 // Command foundation-cluster runs the foundation fixture for the browser
 // checks: one owner and two frontends, the catalog on loopback, and the UI
 // package already installed and enabled through a frontend. It writes a

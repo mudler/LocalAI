@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 
 	"github.com/mudler/LocalAI/pkg/addons/sdk/atomicfile"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
 )
 
 // The release sets this with -ldflags "-X main.guestImage=...". A build that
@@ -192,6 +193,13 @@ func fileSHA256(p string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
+// ownerInWSL reports whether a Windows host runs this add-on in WSL 2.
+var ownerInWSL = protocol.InWSL
+
+// errHostInWSL is why the host backend is off in WSL 2: there it would not be
+// a Linux host of its own, but the Windows computer of the user.
+var errHostInWSL = unsupported("the host backend is off when LocalAI runs on Windows: in WSL 2 its commands could read the Windows drives under /mnt and start Windows programs with your rights. Use gVisor or KVM")
+
 // newSelector builds the choice of backend over the data directory.
 func newSelector(dataDir string) (*backends.Selector, error) {
 	noImage := func() error {
@@ -244,6 +252,9 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 			return vz.New(vz.Options{StateDir: filepath.Join(dataDir, "run", "vz"), CacheDir: filepath.Join(dataDir, "images", "vz"), DefaultImage: guestImage})
 		},
 		Host: func() (sandbox.Backend, error) {
+			if ownerInWSL() {
+				return nil, errHostInWSL
+			}
 			return host.New(host.Options{Root: filepath.Join(dataDir, "run", "host"), Log: func(principal, command string) {
 				// The record of what ran on the host, with the user it ran for.
 				xlog.Warn("sandbox: host command", "user", principal, "command", command)

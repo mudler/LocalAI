@@ -88,10 +88,10 @@ test('setup reason: without setups to manage there is no button', () => {
 
 // The chip itself stays off while the agent decides the chat: a setup can be
 // neither applied nor saved from it.
-const SwitchPopover = ({ disabled, testId, label }) =>
-  React.createElement('button', { 'data-testid': `${testId}-button`, disabled }, label)
+const ListPicker = React.forwardRef(({ disabled, triggerProps, triggerContent }, _ref) =>
+  React.createElement('button', { 'data-testid': triggerProps['data-testid'], disabled }, triggerContent))
 const SetupChip = load('components/chat/SetupChip.jsx', 'SetupChip', {
-  React, useTranslation, Icon, Button, SwitchHead: () => null, SwitchPopover, setupSummary: () => '',
+  React, useMemo: React.useMemo, useRef: React.useRef, useTranslation, Icon, Button, ListPicker, setupSummary: () => '',
 })
 
 test('setup chip: a picked saved agent keeps applying and saving off', () => {

@@ -12,6 +12,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_backends` — List installed backends.
 - `list_backend_library_updates` — List installed library backends that have a newer build in their library. Read-only. To take one, confirm, then call `install_library_backend` with the listed `sourceId`, `name` and `version`.
 - `backend_updates` — Gallery and library backends that have a newer build, with when each source was last checked and whether it failed. `action` is `list` (cached, default) or `check` (contacts the registries and waits). Never say there are no updates while a source failed or was never checked. To take one, confirm, then call `upgrade_backend` or `install_library_backend`.
+- `model_updates` — Installed gallery models by state: `update-available`, `edited` (with the changed keys), `held`, `failed`, `gone`, `unknown`. `action` `list` (last check, default) or `check` (reads the galleries now). Never automatic.
 - `list_known_backends` — List backends available to install from configured backend galleries.
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.
@@ -34,6 +35,14 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_router_corpus_stats` — Inspect a KNN router corpus by count and label only; exemplar texts are never returned.
 - `list_aliases` — List configured model aliases and their targets.
 - `list_failover_chains` — List failover chains, their active target and target health.
+- `get_carrier_weights` — Read the carrier weights of a distributed cluster (`nats`, `websocket`, `p2p`; 0 to 1000, higher wins, defaults 100, 50 and 25). A weight only breaks a tie between nodes that fit a request equally well. Returns `distributed=false` when the server is not distributed.
+- `get_p2p_status` — Show the P2P mode (off, connect, share), peer ID, reachability and counts.
+- `list_p2p_devices` — List the paired P2P devices and how each one is connected.
+- `list_p2p_invites` — List the P2P invites and their state, never the links.
+- `list_p2p_relays` — List the P2P relays and their sync state.
+- `list_federation` — List the LocalAI instances (this server and LocalAI remotes) and the federation groups with member health and load.
+- `list_p2p_split_workers` — List the model-split workers (llama.cpp RPC, MLX), their state, path and memory.
+- `get_p2p_relay_limits` — Read the data, time and bandwidth limits of one circuit on a P2P relay, the ceiling the relay operator set for each, and whether this server may change them.
 
 ## Mutating (require user confirmation per safety rule 1)
 
@@ -43,6 +52,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `install_backend` — Install a backend. Fails with "backend installation is disabled" on servers that manage backends outside LocalAI; report that rather than retrying.
 - `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
 - `upgrade_backend` — Upgrade an installed backend by name. Same refusal as `install_backend` on such servers.
+- `upgrade_model` — One `action` on a gallery model: `upgrade`, `config_only`, `retry`, `remove_old`, `hold`, `unhold`, `adopt`. An upgrade is a job: poll `get_job_status`.
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
 - `cancel_model_load` — Cancel one distributed load by the exact job_id from load-status. `stopping` means pending, not proof the work stopped.
@@ -65,3 +75,11 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `delete_scheduling` — Remove a distributed per-model scheduling config.
 - `pin_failover_target` — Force a failover chain to one target.
 - `unpin_failover_target` — Remove a failover pin.
+- `revoke_p2p_device` — Revoke a paired P2P device; it is cut off at once.
+- `cancel_p2p_invite` — Cancel a pending P2P invite.
+- `manage_federation_group` — Create, update or delete a federation group, or drain or undrain one member.
+- `set_p2p_split_slow_path` — Use a model-split worker over a relay ("Use anyway"), or stop; a relay of the user with limits cuts each connection at them.
+- `set_p2p_split_node` — Attach a model-split worker to a backend node of the cluster, or to this server; pin the model to that node.
+- `set_node_split_server` — Declare a backend node a split server so model-split workers can be attached to it, or clear it (detaches its workers, stops its P2P host).
+- `set_carrier_weights` — Change one or more carrier weights (whole numbers 0 to 1000; a weight left out stays). 0 means: use that carrier only when no other fits. Applies to every frontend within seconds.
+- `set_p2p_relay_limits` — Change the data, time or bandwidth limit of one circuit on a P2P relay this server administers, up to the relay's ceiling (a value above it is refused); a new data or time limit restarts the relay's circuit service.

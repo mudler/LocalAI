@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatWhen } from '../addons/updateState'
 import { Link, useLocation } from 'react-router-dom'
-import { Callout, LoadError, SkeletonRows, Switch } from '../ui'
+import { Callout, LoadError, SearchField, SkeletonRows, Switch } from '../ui'
 import { chatBuiltinToolsApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
 import { addonSettingsAddress } from '../../utils/addonSettings'
@@ -103,9 +103,8 @@ function WebSearchTest() {
     <div className="st-tools__choice" data-testid="settings-tools-web-test">
       <p className="st-row__desc">{t('settingsTools.webTest.intro')}</p>
       <div className="st-tools__switch">
-        <label htmlFor={inputId} className="dk-sr-only">{t('settingsTools.webTest.queryLabel')}</label>
-        <input id={inputId} className="dk-input" type="search" value={query} disabled={state.busy} onChange={e => setQuery(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') run() }} data-testid="settings-tools-web-test-query" />
+        <SearchField id={inputId} label={t('settingsTools.webTest.queryLabel')} value={query} disabled={state.busy} onChange={setQuery}
+          onKeyDown={e => { if (e.key === 'Enter') run() }} testId="settings-tools-web-test-query" />
         <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={run} disabled={state.busy} aria-busy={state.busy || undefined} data-testid="settings-tools-web-test-run">
           {state.busy ? t('settingsTools.webTest.running') : t('settingsTools.webTest.run')}
         </button>

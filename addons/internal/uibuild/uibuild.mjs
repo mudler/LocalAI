@@ -5,7 +5,7 @@
 // bundles React: the host's React arrives through the SDK. The same method as
 // addons/tables/ui/build.mjs, for add-ons that share this builder.
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { deflateSync } from 'node:zlib'
@@ -136,7 +136,7 @@ const reactImport = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(['"])(rea
 
 export async function buildAddonUI({ root, name, rgb, glyph, compat }) {
   const out = join(root, 'dist')
-  const { build: bundle } = await import(require.resolve('rolldown'))
+  const { build: bundle } = await import(pathToFileURL(require.resolve('rolldown')).href)
   rmSync(out, { recursive: true, force: true })
   mkdirSync(join(out, 'ui'), { recursive: true })
   const sheets = []

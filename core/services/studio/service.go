@@ -20,6 +20,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/notify"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/bgjob"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -31,7 +32,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
-	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/projects"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
@@ -45,25 +45,18 @@ import (
 
 // AnonymousPrincipal is the owner of conversations when auth is off. The loop
 // needs a non-empty owner, so the empty user becomes this one.
-const AnonymousPrincipal = "anonymous"
-
-// ErrNoModel means a conversation was created without a model.
-var ErrNoModel = errors.New("studio: a conversation needs a model")
-
-// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
-var ErrAgentsOff = errors.New("studio: saved agents are not available")
-
-// ErrPushOff means browser push is off: the server keeps nothing across a
-// restart, or it has no push service.
-var ErrPushOff = errors.New("studio: browser push is not available")
+const AnonymousPrincipal = notify.AnonymousPrincipal
 
 // ErrConnectorsOff means the service has no connector manager.
 var ErrConnectorsOff = errors.New("studio: " + msgConnectorsOff)
 
 const msgConnectorsOff = "connectors are not available"
 
-// ErrNotificationsOff means the service has no inbox.
-var ErrNotificationsOff = errors.New("studio: notifications are not available")
+// ErrNoModel means a conversation was created without a model.
+var ErrNoModel = errors.New("studio: a conversation needs a model")
+
+// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
+var ErrAgentsOff = errors.New("studio: saved agents are not available")
 
 // ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
 // It runs with the tools its parent chose, so only the parent starts it.
@@ -1512,6 +1505,14 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	last := store.TurnDone
 	if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && info.Last != "" {
 		last = info.Last
+	}
+	if last == store.TurnInterrupted {
+		// The chat waits for its resume. A claim that is only given back would
+		// restart the count of resumes and move the time of the next one, so
+		// with no message waiting the chat is left as it is.
+		if waiting, perr := s.d.Store.Pending(ctx, p, conv); perr == nil && len(waiting) == 0 {
+			return false, nil
+		}
 	}
 	if err := s.d.Store.ClaimTurn(ctx, p, conv, runID); err != nil {
 		if errors.Is(err, store.ErrTurnRunning) {

@@ -268,6 +268,24 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(string(raw)).To(ContainSubstring(`"chats_max_iterations": 80`))
 	})
 
+	It("checks and saves the limit on add-on tools of a chat", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsAddonToolLimit()).To(Equal(config.DefaultChatsAddonToolLimit), "unset: the default")
+		for _, body := range []string{`{"chats_addon_tool_limit":0}`, `{"chats_addon_tool_limit":15}`, `{"chats_addon_tool_limit":257}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_addon_tool_limit"), body)
+		}
+		for _, body := range []string{`{"chats_addon_tool_limit":16}`, `{"chats_addon_tool_limit":256}`, `{"chats_addon_tool_limit":96}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusOK), body+" "+rec.Body.String())
+		}
+		Expect(cfg.EffectiveChatsAddonToolLimit()).To(Equal(96), "applies at once, with no restart")
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_addon_tool_limit": 96`))
+	})
+
 	It("checks and saves the limits of a chat's goal", func() {
 		cfg := app.ApplicationConfig()
 		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(config.DefaultChatsGoalMaxTurns), "unset: the default")
@@ -296,19 +314,22 @@ var _ = Describe("Settings endpoints", func() {
 		cfg := app.ApplicationConfig()
 		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(config.DefaultChatsLoopMinInterval), "unset: the default")
 		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(config.DefaultChatsLoopMaxPerChat))
+		Expect(cfg.EffectiveChatsLoopDailyScriptChecks()).To(Equal(config.DefaultChatsLoopDailyScriptChecks), "unset: the default")
 		for _, body := range []string{`{"chats_loop_min_interval":"10s"}`, `{"chats_loop_min_interval":"soon"}`,
-			`{"chats_loop_max_runs":0}`, `{"chats_loop_max_per_chat":21}`, `{"chats_loop_max_per_user":0}`, `{"chats_loop_daily_runs":100001}`} {
+			`{"chats_loop_max_runs":0}`, `{"chats_loop_max_per_chat":21}`, `{"chats_loop_max_per_user":0}`, `{"chats_loop_daily_runs":100001}`,
+			`{"chats_loop_daily_script_checks":0}`, `{"chats_loop_daily_script_checks":100001}`} {
 			rec := post(body)
 			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
 			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_loop_"), body)
 		}
-		rec := post(`{"chats_loop_min_interval":"2m","chats_loop_max_runs":50,"chats_loop_max_per_chat":2,"chats_loop_max_per_user":5,"chats_loop_daily_runs":40}`)
+		rec := post(`{"chats_loop_min_interval":"2m","chats_loop_max_runs":50,"chats_loop_max_per_chat":2,"chats_loop_max_per_user":5,"chats_loop_daily_runs":40,"chats_loop_daily_script_checks":300}`)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(2 * time.Minute))
 		Expect(cfg.EffectiveChatsLoopMaxRuns()).To(Equal(50))
 		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(2))
 		Expect(cfg.EffectiveChatsLoopMaxPerUser()).To(Equal(5))
 		Expect(cfg.EffectiveChatsLoopDailyRuns()).To(Equal(40))
+		Expect(cfg.EffectiveChatsLoopDailyScriptChecks()).To(Equal(300))
 		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(raw)).To(ContainSubstring(`"chats_loop_min_interval": "2m`))

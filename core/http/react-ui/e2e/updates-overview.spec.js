@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminGroup } from './admin-nav.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import { MEMBER, statusFixture } from './access-fixtures.js'
 import {
@@ -323,6 +324,24 @@ test.describe('Updates page: one update, done only when it is done', () => {
     await expect(rowOf(page, 'llama-cpp')).toContainText('The update could not start')
   })
 
+  test('a queued update shows an empty bar and says it waits; a running one shows its progress', async ({ page }) => {
+    await mockOperate(page)
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('piper', '1', '2'), galleryItem('whisper', '1', '2')]),
+      operations: [runningOp('whisper'), runningOp('piper', { isQueued: true, progress: 40, message: 'queued' })],
+    })
+    await page.goto('/app/updates')
+    const queued = rowOf(page, 'piper')
+    await expect(queued).toContainText('Queued, waiting for a free slot')
+    await expect(queued.getByRole('progressbar')).toHaveAttribute('data-queued', '')
+    await expect(queued.getByRole('progressbar')).not.toHaveAttribute('data-indeterminate', '')
+    await expect(queued.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    await expect(queued.locator('.dk-progress-bar')).toHaveCSS('width', '0px')
+    const running = rowOf(page, 'whisper')
+    await expect(running.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '62')
+    await expect(running).not.toContainText('Queued, waiting')
+  })
+
   test('Cancel on an updating row cancels its operation', async ({ page }) => {
     await mockOperate(page)
     await mockUpdates(page, { snapshot: snapshotOf([galleryItem('piper', '1', '2')]), operations: [runningOp('piper')] })
@@ -336,14 +355,17 @@ test.describe('Updates page: one update, done only when it is done', () => {
 })
 
 test.describe('Updates page: update ready', () => {
-  test('runs the rows one after another and counts each as done only when it is', async ({ page }) => {
+  test('submits every row at once and counts each as done only when it is', async ({ page }) => {
     await mockOperate(page)
     const state = await mockUpdates(page, {
       snapshot: snapshotOf([galleryItem('alpha', '1', '2'), galleryItem('beta', '1', '2')]),
       installed: [installedBackend('alpha', '1'), installedBackend('beta', '1')],
       onUpgrade: (name, jobID, s) => {
-        s.operations = [runningOp(name, { jobID })]
-        setTimeout(() => { s.operations = []; s.finished = [...(s.finished || []), { name, at: Date.now() }] }, 1800)
+        s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })]
+        setTimeout(() => {
+          s.operations = s.operations.filter(o => o.name !== name)
+          s.finished = [...(s.finished || []), { name, at: Date.now() }]
+        }, 1800)
       },
       onCheck: (s) => snapshotOf(s.snapshot.items.filter(i => !(s.finished || []).some(f => f.name === i.name))),
     })
@@ -351,14 +373,33 @@ test.describe('Updates page: update ready', () => {
     const button = page.getByTestId('updates-update-ready')
     await expect(button).toContainText('Update 2 ready')
     await button.click()
-    await expect(button).toContainText('Updating 1 of 2')
-    await expect(page.getByTestId('updates-check-result')).toContainText('Updating 1 of 2')
+    await expect(button).toContainText('Updating 2 of 2')
     await expect(page.getByTestId('updates-check-result')).toContainText('2 updated, 0 failed, 0 skipped', { timeout: 30_000 })
-    expect(state.upgrades).toEqual(['alpha', 'beta'])
-    // The second update starts only after the first one really ended.
-    const firstEnd = state.finished.find(f => f.name === 'alpha').at
-    expect(state.upgradeTimes[1]).toBeGreaterThanOrEqual(firstEnd)
+    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta'])
+    // Neither start waited for the other update to end: the server queues them.
+    const firstEnd = Math.min(...state.finished.map(f => f.at))
+    expect(Math.max(...state.upgradeTimes)).toBeLessThan(firstEnd)
     await expect(page.getByTestId('updates-headline')).toHaveText('Everything is up to date')
+  })
+
+  test('Cancel all cancels the operations of the rows that have not finished', async ({ page }) => {
+    await mockOperate(page)
+    const cancelled = []
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('alpha', '1', '2'), galleryItem('beta', '1', '2')]),
+      installed: [],
+      onUpgrade: (name, jobID, s) => { s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })] },
+    })
+    await page.route('**/api/operations/*/cancel', route => { cancelled.push(route.request().url()); return route.fulfill({ json: {} }) })
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await expect(page.getByTestId('updates-cancel-run')).toBeVisible()
+    await expect(rowOf(page, 'alpha')).toHaveAttribute('data-state', 'updating')
+    await expect(rowOf(page, 'beta')).toHaveAttribute('data-state', 'updating')
+    await page.getByTestId('updates-cancel-run').click()
+    await expect.poll(() => cancelled.length).toBe(2)
+    expect(cancelled.join(' ')).toContain('job-alpha')
+    expect(cancelled.join(' ')).toContain('job-beta')
   })
 
   test('a failure in the middle does not stop the rest, and Retry failed runs only the failed one', async ({ page }) => {
@@ -369,11 +410,11 @@ test.describe('Updates page: update ready', () => {
       installed: [],
       onUpgrade: (name, jobID, s) => {
         if (name === 'beta' && betaTries++ === 0) {
-          s.operations = [failedOp('beta', 'disk full', { jobID })]
+          s.operations = [...s.operations, failedOp('beta', 'disk full', { jobID })]
           return
         }
-        s.operations = [runningOp(name, { jobID })]
-        setTimeout(() => { s.operations = []; s.finished = [...(s.finished || []), { name }] }, 1500)
+        s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })]
+        setTimeout(() => { s.operations = s.operations.filter(o => o.name !== name); s.finished = [...(s.finished || []), { name }] }, 1500)
       },
       onCheck: (s) => snapshotOf(s.snapshot.items.filter(i => !(s.finished || []).some(f => f.name === i.name))),
     })
@@ -381,14 +422,16 @@ test.describe('Updates page: update ready', () => {
     await page.goto('/app/updates')
     await page.getByTestId('updates-update-ready').click()
     await expect(page.getByTestId('updates-check-result')).toContainText('2 updated, 1 failed, 0 skipped', { timeout: 40_000 })
-    expect(state.upgrades).toEqual(['alpha', 'beta', 'gamma'])
+    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta', 'gamma'])
     const retry = page.getByTestId('updates-retry-failed')
     await expect(retry).toContainText('Retry failed (1)')
     // beta is the only row left, failed by its operation.
     state.operations = []
+    // The page reads the list once a second: let it drop the failed operation first.
+    await page.waitForTimeout(2500)
     await retry.click()
     await expect(page.getByTestId('updates-check-result')).toContainText('1 updated, 0 failed', { timeout: 30_000 })
-    expect(state.upgrades).toEqual(['alpha', 'beta', 'gamma', 'beta'])
+    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta', 'beta', 'gamma'])
   })
 
   test('held and blocked rows are never part of the run, and a row can be left out', async ({ page }) => {
@@ -473,19 +516,18 @@ test.describe('Updates page: access and layout', () => {
     page.on('request', req => { if (/\/api\/(backends\/updates|addons\/host-grants)/.test(req.url())) seen.push(req.url()) })
     await page.goto('/app/updates')
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveCount(0)
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveCount(0)
     await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
     expect(seen).toEqual([])
   })
 
-  test('the tab sits between Runtime and Traffic and has no second accessible name', async ({ page }) => {
+  test('the item is the last of Models and runtime and has no second accessible name', async ({ page }) => {
     await mixed(page)
     await page.goto('/app/updates')
-    await expect(page.locator('[data-hub-tab="updates"]')).toBeVisible()
-    const tabs = await page.locator('.dk-hubtabs [data-hub-tab]').evaluateAll(els => els.map(el => el.getAttribute('data-hub-tab')))
-    expect(tabs.indexOf('updates')).toBe(tabs.indexOf('runtime') + 1)
-    expect(tabs.indexOf('traffic')).toBe(tabs.indexOf('updates') + 1)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toBeVisible()
+    const items = await adminGroup(page, 'runtime').locator('a[data-admin-item]').evaluateAll(els => els.map(el => el.getAttribute('data-admin-item')))
+    expect(items.at(-1)).toBe('/app/updates')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveAttribute('aria-current', 'page')
   })
 
   test('keyboard: every action is a named button reached with Tab, and Enter starts it', async ({ page }) => {

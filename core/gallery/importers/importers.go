@@ -1,6 +1,7 @@
 package importers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"github.com/mudler/LocalAI/pkg/oci"
 )
 
 // ErrAmbiguousImport is returned when HuggingFace metadata hints at a known
@@ -204,6 +206,10 @@ type Details struct {
 	HuggingFace *hfapi.ModelDetails
 	URI         string
 	Preferences json.RawMessage
+	// Ollama is what the Ollama registry says about an ollama:// URI: the
+	// sampling defaults of the model and whether it has a vision projector.
+	// DiscoverModelConfig fills it; it is nil for any other URI.
+	Ollama *oci.OllamaModelInfo
 }
 
 type Importer interface {
@@ -256,6 +262,7 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	var modelConfig gallery.ModelConfig
 
 	var hfDetails *hfapi.ModelDetails
+	var ollamaInfo *oci.OllamaModelInfo
 	if ref, ok := pirateFaceImportRef(uri); ok {
 		// A Pirate Face page URL or pirateface:// shorthand. The index lists
 		// the files; the config downloads them over BitTorrent.
@@ -267,12 +274,20 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 			xlog.Debug("Failed to list Pirate Face model", "uri", uri, "error", err)
 			hfDetails = nil
 		}
+	} else if strings.HasPrefix(uri, downloader.OllamaPrefix) {
+		// An Ollama model is not a Hugging Face repository, so skip that
+		// lookup. The Ollama registry is asked instead: a missing model or a
+		// file that is not a GGUF fails the import here.
+		ctx, cancel := context.WithTimeout(context.Background(), ollamaLookupTimeout)
+		defer cancel()
+		ollamaInfo, err = oci.OllamaDescribeModel(ctx, strings.TrimPrefix(uri, downloader.OllamaPrefix))
+		if err != nil {
+			return gallery.ModelConfig{}, err
+		}
 	} else {
 		hf := hfapi.NewClient()
 
-		hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
-		hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
-		hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
+		hfrepoID := huggingFaceRepoID(uri)
 
 		hfDetails, err = hf.GetModelDetails(hfrepoID)
 		if err != nil {
@@ -328,10 +343,40 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		HuggingFace: hfDetails,
 		URI:         uri,
 		Preferences: preferences,
+		Ollama:      ollamaInfo,
 	}
 
 	modelConfig, _, err = matchImporters(details)
 	return modelConfig, err
+}
+
+// huggingFaceRepoID turns the ways users write a Hugging Face repository
+// reference into the "owner/name" ID the Hub API takes. It accepts the
+// huggingface:// and hf:// schemes, http(s) URLs, and the same hosts without a
+// scheme (for example "huggingface.co/owner/name", as copied from a browser
+// address bar). A trailing slash, a "/tree/<ref>" suffix, a query string and a
+// fragment are dropped. Anything else is returned unchanged.
+func huggingFaceRepoID(uri string) string {
+	id := strings.TrimSpace(uri)
+	for _, prefix := range []string{
+		"huggingface://", "hf://",
+		"https://huggingface.co/", "http://huggingface.co/",
+		"https://www.huggingface.co/", "http://www.huggingface.co/",
+		"https://hf.co/", "http://hf.co/",
+		"huggingface.co/", "www.huggingface.co/", "hf.co/",
+	} {
+		if rest, ok := strings.CutPrefix(id, prefix); ok {
+			id = rest
+			break
+		}
+	}
+	if i := strings.IndexAny(id, "?#"); i >= 0 {
+		id = id[:i]
+	}
+	if i := strings.Index(id, "/tree/"); i >= 0 {
+		id = id[:i]
+	}
+	return strings.TrimRight(id, "/")
 }
 
 // matchImporters runs the importer registry on details that are already

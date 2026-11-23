@@ -65,5 +65,6 @@ func DeleteUserCascade(db *gorm.DB, userID string) error {
 	}
 
 	quotaCache.invalidateUser(userID)
+	ForgetLastActive(userID)
 	return nil
 }

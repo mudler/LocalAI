@@ -3,8 +3,8 @@ package nodes
 import "github.com/mudler/LocalAI/pkg/clusterrouting"
 
 // ReplicaCandidate aliases the canonical type in pkg/clusterrouting. The policy
-// implementation moved there so the p2p federation server can share it without
-// importing this package (which pulls in gorm). Because this is a type alias,
+// implementation lives there so a caller can share it without importing this
+// package (which pulls in gorm). Because this is a type alias,
 // existing references such as the LoadedReplicaStats interface method and the
 // ReplicaCandidate(rw) row conversion in registry.go remain valid unchanged.
 type ReplicaCandidate = clusterrouting.ReplicaCandidate

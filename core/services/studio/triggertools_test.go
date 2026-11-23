@@ -341,7 +341,7 @@ var _ = Describe("triggertools: the Triggers switch group", func() {
 		Expect(g).To(MatchFields(IgnoreExtras, Fields{"Off": BeFalse(), "Usable": BeTrue(), "Reason": BeEmpty(), "Provider": Equal("builtin")}))
 		Expect(g.Tools).To(Equal(panel))
 
-		d, err := r.svc.DraftTools(ctx, alice, "m", "")
+		d, err := r.svc.DraftTools(ctx, alice, "m", "", studio.Switches{})
 		Expect(err).NotTo(HaveOccurred())
 		g, ok = triggersGroup(d)
 		Expect(ok).To(BeTrue(), "draft = %+v", d.Builtins)

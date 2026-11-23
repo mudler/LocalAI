@@ -60,7 +60,7 @@ export function BulkUpgradeDialog({ bulk }) {
       {run && (
         <p className="up-progress" role="status" data-testid="bulk-upgrade-progress">
           {running
-            ? t('dialog.progress', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
+            ? t('dialog.progress', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
             : t('dialog.summary', summary)}
           {running && <span className="up-progress__note"> {t('dialog.runningNote')}</span>}
         </p>

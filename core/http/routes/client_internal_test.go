@@ -327,6 +327,49 @@ var _ = Describe("client routes", func() {
 		Expect(code).To(Equal(http.StatusForbidden), "the key cannot change its own list")
 	})
 
+	It("grants every model with allModels, refuses it with a list, and leaves the default as it was", func() {
+		inference := []string{auth.FeatureClientInference}
+
+		// allModels together with a list says which of the two is meant.
+		code, out := do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": inference, "allModels": true, "models": []string{"m1"}})
+		Expect(code).To(Equal(http.StatusBadRequest))
+		Expect(out["error"]).To(ContainSubstring("allModels"))
+		Expect(out["error"]).To(ContainSubstring("models"))
+		// allModels is for client_inference only.
+		code, _ = do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": []string{auth.FeatureClientSelf}, "allModels": true})
+		Expect(code).To(Equal(http.StatusBadRequest))
+		// Without allModels an empty list is refused, as before.
+		code, _ = do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": inference, "models": []string{}})
+		Expect(code).To(Equal(http.StatusBadRequest))
+		code, _ = do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": inference, "allModels": false})
+		Expect(code).To(Equal(http.StatusBadRequest))
+
+		code, made := do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": inference, "allModels": true})
+		Expect(code).To(Equal(http.StatusCreated))
+		Expect(made["allModels"]).To(BeTrue())
+		Expect(made["models"]).To(BeEmpty())
+		_, listed := do(http.MethodGet, clientCodesPath, admin, nil)
+		Expect(listed["codes"].([]any)[0].(map[string]any)["allModels"]).To(BeTrue())
+
+		_, paired := do(http.MethodPost, clientPairPath, "", map[string]string{"code": made["code"].(string)})
+		Expect(paired["allModels"]).To(BeTrue())
+		key := paired["key"].(string)
+		var stored auth.UserAPIKey
+		Expect(db.Where("id = ?", paired["id"]).First(&stored).Error).To(Succeed())
+		Expect(stored.AllModels).To(BeTrue())
+		// The key allows every model name; the model check of the request then
+		// keeps out the models that fail it (see client_models_test.go).
+		for _, name := range []string{"m1", "m2", "voice"} {
+			Expect(stored.AllowsModel(name)).To(BeTrue(), name)
+		}
+		_ = key
+
+		// A code with a list keeps allModels false.
+		code, made = do(http.MethodPost, clientCodesPath, admin, map[string]any{"features": inference, "models": []string{"m1"}})
+		Expect(code).To(Equal(http.StatusCreated))
+		Expect(made["allModels"]).To(BeFalse())
+	})
+
 	It("carries the folder grant on the code and on the key, checks it, shows it, and lets the owner change it", func() {
 		folders := []string{auth.FeatureClientSelf, auth.FeatureClientFolders}
 		for name, body := range map[string]map[string]any{

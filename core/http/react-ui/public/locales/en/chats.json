@@ -342,6 +342,53 @@
           "library": "backend library",
           "addons": "add-ons"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installed",
+          "delete": "{{kind}} {{name}} removed",
+          "upgrade": "{{kind}} {{name}} upgraded"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: install failed",
+          "delete": "{{kind}} {{name}}: removal failed",
+          "upgrade": "{{kind}} {{name}}: upgrade failed"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: install cancelled",
+          "delete": "{{kind}} {{name}}: removal cancelled",
+          "upgrade": "{{kind}} {{name}}: upgrade cancelled"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} needs your review to install"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} model update available",
+          "title_other": "{{count}} model updates available"
+        },
+        "done": {
+          "title": "Model {{name}} upgraded",
+          "body": "From {{from}} to {{to}}."
+        },
+        "failed": {
+          "title": "Model {{name}}: the upgrade failed",
+          "rolledBack": "The old version was put back and keeps serving. Reason: {{error}}",
+          "rolledBackPlain": "The old version was put back and keeps serving.",
+          "kept": "The old version keeps serving. Reason: {{error}}",
+          "keptPlain": "The old version keeps serving."
+        },
+        "removed": {
+          "title": "Model {{name}}: old version removed",
+          "body_one": "{{count}} old file deleted.",
+          "body_other": "{{count}} old files deleted."
+        }
       }
     },
     "tabs": {
@@ -376,7 +423,9 @@
         "removed": "Removed {{name}}",
         "staged": "Staged {{name}}"
       }
-    }
+    },
+    "chatsOff": "Chats are off",
+    "emptyBodyNoChats": "Updates and finished operations appear here."
   },
   "connectorsPage": {
     "title": "Connections",
@@ -559,6 +608,15 @@
     "servedByBuiltin": "built-in",
     "fallbackBuiltin": "{{addon}} replaces {{tool}} but cannot serve this chat now (stopped, switched off here or not granted): the built-in {{tool}} serves.",
     "fallbackNone": "{{addon}} replaces {{tool}} but cannot serve this chat now, and the built-in {{tool}} is off: this chat has no {{tool}}.",
+    "toolCap": {
+      "title": "Some add-on tools are not available in this chat",
+      "reason": "{{offered}} of {{total}} add-on tools are available. A chat can use only a limited number of them.",
+      "who": "Switch off the add-ons you do not use in this chat to make room, or ask an administrator to raise the limit.",
+      "whoAdmin": "Switch off the add-ons you do not use in this chat to make room, or raise the limit in Settings.",
+      "fix": "Open the setting",
+      "addon": "{{name}}: {{count}} not available",
+      "lost": "Add-ons that lost tools"
+    },
     "addons": "Add-ons",
     "servers": "MCP servers of the model",
     "connectors": "Your connectors",

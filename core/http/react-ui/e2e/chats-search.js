@@ -3,6 +3,9 @@
 import { mockChat } from './chat-fixtures.js'
 
 export const minutesAgo = (n) => new Date(Date.now() - n * 60_000).toISOString()
+// Like minutesAgo, but never before the start of the local day, so that the
+// chat stays in the Today group however late a long run reaches it.
+const todayAgo = (n) => new Date(Math.max(Date.now() - n * 60_000, new Date().setHours(0, 0, 1, 0))).toISOString()
 
 export const RECENT = [
   { id: 'c1', title: 'Vector database setup', model: 'qwen3-8b', kind: 'chat', created: minutesAgo(300), updated: minutesAgo(20), running: false },
@@ -25,15 +28,18 @@ export async function mockSearch(page, { answer, delay = 0, fail = false } = {})
   await mockChat(page)
   await page.route(/\/api\/chats(\?.*)?$/, (route) => {
     const origin = new URL(route.request().url()).searchParams.get('origin') || ''
-    const conversations = origin === 'automated' ? [TRIG] : origin === 'person' ? RECENT : [...RECENT, TRIG]
+    // The fixtures are built when the worker loads this file. A run of an hour
+    // or more can cross midnight before this test, so date the Today chat now.
+    const recent = RECENT.map(c => (c.id === 'c1' ? { ...c, updated: todayAgo(20) } : c))
+    const conversations = origin === 'automated' ? [TRIG] : origin === 'person' ? recent : [...recent, TRIG]
     route.fulfill({ json: { conversations, persistent: true, files: true } })
   })
   await page.route('**/api/chats/agents', route => route.fulfill({ json: { agents: [{ id: 'helper', name: 'Helper' }, { id: 'writer', name: 'Writer' }] } }))
   await page.route(/\/api\/chats\/connectors(\?.*)?$/, route => route.fulfill({ json: { connectors: [] } }))
   await page.route('**/api/chats/connectors/kinds', route => route.fulfill({ json: { kinds: [] } }))
   await page.route(/\/api\/chats\/triggers(\?.*)?$/, route => route.fulfill({ json: { triggers: [{ id: 'trig1', name: 'Morning digest', kind: 'schedule', enabled: true }] } }))
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0, total: 0 } }))
-  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0, total: 0 } }))
+  await page.route('**/api/notifications/events', route => route.abort())
   await page.route(/\/api\/chats\/search(\?.*)?$/, async (route) => {
     const params = Object.fromEntries(new URL(route.request().url()).searchParams)
     requests.push(params)

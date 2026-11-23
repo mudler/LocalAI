@@ -14,7 +14,7 @@ aliases = ["/features/studio/"]
 | Needs | The models for the kind of media you want to make. |
 
 {{% callout style="note" %}}
-Install Studio from **Find add-ons** with **Install and turn on** (see the [user guide]({{% relref "/addons/user-guide" %}})). It then shows in **My add-ons**, and you can pin it to the sidebar. It opens at `/app/addons/studio/studio`.
+Install Studio from **Find add-ons** with **Install**, then turn it on in **My add-ons** (see the [user guide]({{% relref "/addons/user-guide" %}})). It then shows in **My add-ons**, and you can pin it to the sidebar. It opens at `/app/addons/studio/studio`.
 {{% /callout %}}
 
 Make images, video, 3D models, speech and sound with the models you have installed, and find what you made later. Studio opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.

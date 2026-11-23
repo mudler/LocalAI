@@ -62,46 +62,6 @@
 
 .ws-sub { margin: 0; font-size: var(--dk-text-15); font-weight: var(--font-weight-semibold); }
 
-/* ---- tabs ------------------------------------------------------------------ */
-
-.ws-tabs {
-  display: flex;
-  gap: var(--sp-1);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.ws-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-height: var(--ctl-h);
-  padding: 0 var(--sp-3);
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font: inherit;
-  font-size: var(--dk-text-13);
-  font-weight: var(--font-weight-medium);
-  transition: color var(--dur-fast) var(--ease-out);
-}
-.ws-tab:hover { color: var(--color-text-primary); }
-.ws-tab:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: -2px; border-radius: var(--r-sm); }
-.ws-tab--on { color: var(--color-text-primary); border-bottom-color: var(--dk-accent); }
-.ws-tab__count {
-  min-width: 18px;
-  padding: 0 var(--sp-1);
-  border-radius: var(--r-lg);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  font-size: var(--dk-text-12);
-  line-height: 18px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
 .ws-alert { margin: 0; }
 
 /* ---- files section and its bar ---------------------------------------------- */
@@ -166,15 +126,6 @@ button.ws-crumb:focus-visible { outline: 2px solid var(--focus-ring-color); outl
 .ws-crumb__home { flex: none; }
 
 .ws-search { position: relative; flex: 0 1 280px; min-width: 160px; }
-.ws-search__icon {
-  position: absolute;
-  left: var(--sp-3);
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-.ws-search__input { width: 100%; height: var(--ctl-h); padding-left: calc(var(--sp-3) * 2 + 1em); }
 
 .ws-views {
   flex: none;

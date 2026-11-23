@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
-  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf,
+  hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, linkDisabled,
 } from '../../src/utils/inbox.js'
 
 const note = (extra = {}) => ({ id: 1, kind: 'run_ended', status: 'ok', title: 'T', body: '', link: '', read: false, created: '', ...extra })
@@ -42,6 +42,20 @@ test('inbox: only paths in the app are opened; a connector without one opens its
   assert.equal(targetOf(note({ link: '//example.com' })), '')
   assert.equal(targetOf(note({ source: 'connector', kind: 'needs_attention' })), '/app/chats/connectors')
   assert.equal(targetOf(note({ source: 'trigger', kind: 'needs_attention' })), '')
+})
+
+test('inbox: with the chats off a link into the chats opens nothing and says why', () => {
+  const chat = note({ link: '/app/chats/c1' })
+  assert.equal(targetOf(chat, false), '')
+  assert.equal(linkDisabled(chat, false), true)
+  assert.equal(linkDisabled(chat, true), false)
+  assert.equal(targetOf(note({ source: 'connector', kind: 'needs_attention' }), false), '')
+  assert.equal(linkDisabled(note({ source: 'connector', kind: 'needs_attention' }), false), true)
+  // A page that is not a chat page stays a link, and an item with no link is not "disabled".
+  assert.equal(targetOf(note({ link: '/app/updates?filter=ready' }), false), '/app/updates?filter=ready')
+  assert.equal(linkDisabled(note({ link: '/app/updates' }), false), false)
+  assert.equal(linkDisabled(note({ link: '' }), false), false)
+  assert.equal(targetOf(note({ link: '/app/chatsx' }), false), '/app/chatsx')
 })
 
 test('inbox: a reason starts with a capital', () => {
@@ -147,6 +161,32 @@ test('inbox: a failed check names the sources', async () => {
   assert.match(out.body, /Could not check: backend gallery, backend library\./)
 })
 
+test('inbox: the end of an operation is worded for every action and outcome, in every language', async () => {
+  const en = await translator('en')
+  const op = (code, params, extra = {}) => note({ code, title: 'stored', body: 'download interrupted', params, ...extra })
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'install', name: 'qwen3-8b' }), en).title, 'Model qwen3-8b installed')
+  assert.equal(textOf(op('updates.opDone', { kind: 'backend', action: 'upgrade', name: 'llama-cpp' }), en).title, 'Backend llama-cpp upgraded')
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'delete', name: 'old' }), en).title, 'Model old removed')
+  const bad = textOf(op('updates.opFailed', { kind: 'backend', action: 'install', name: 'whisper', outcome: 'failed' }), en)
+  assert.deepEqual(bad, { title: 'Backend whisper: install failed', body: 'download interrupted' })
+  assert.equal(textOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'cancelled' }), en).title, 'Model m: install cancelled')
+  // Nonsense params show the stored text.
+  assert.equal(textOf(op('updates.opDone', { kind: 'thing', action: 'install', name: 'x' }), en).title, 'stored')
+  assert.equal(textOf(op('updates.opDone', { kind: 'model', action: 'install' }), en).title, 'stored')
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    for (const action of ['install', 'delete', 'upgrade']) {
+      for (const [code, outcome] of [['updates.opDone'], ['updates.opFailed', 'failed'], ['updates.opFailed', 'cancelled']]) {
+        const title = textOf(op(code, { kind: 'model', action, name: 'NAME', outcome }), t).title
+        assert.ok(title.includes('NAME') && !title.includes('{{') && title !== 'stored', `${l} ${code} ${action}: ${title}`)
+      }
+    }
+  }
+  assert.equal(iconOf(op('updates.opDone', { kind: 'model', action: 'install', name: 'm' }, { status: 'ok' })), 'check-circle')
+  assert.equal(iconOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'failed' }, { status: 'failed' })), 'alert-circle')
+  assert.equal(iconOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'cancelled' }, { status: 'ok' })), 'info')
+})
+
 test('inbox: an unknown code, missing params or nonsense params show the stored text', async () => {
   const t = await translator('en')
   const stored = { title: 'stored title', body: 'stored body' }
@@ -184,4 +224,65 @@ test('inbox: an update item has the arrow icon, whatever its source', () => {
   assert.equal(iconOf(digest()), 'arrow-up')
   assert.equal(iconOf(note({ code: 'updates.result', status: 'failed' })), 'arrow-up')
   assert.equal(iconOf(note({ source: 'trigger' })), 'bolt')
+})
+
+// ---- Model update items -----------------------------------------------------
+
+const D1 = 'sha256:1111111111111111aaaa'
+const D2 = 'sha256:2222222222222222bbbb'
+const modelNote = (code, params, extra = {}) => ({ id: 'n', code, title: 'stored', body: 'stored body', status: 'ok', params, ...extra })
+
+test('inbox: the model codes are worded from their params', async () => {
+  const t = await translator('en')
+  assert.deepEqual(textOf(modelNote('models.updateAvailable', { family: 'models', count: 2, names: ['qwen3-8b', 'whisper-1'] }), t), { title: '2 model updates available', body: 'qwen3-8b, whisper-1' })
+  assert.equal(textOf(modelNote('models.updateAvailable', { family: 'models', count: 1, names: ['a'] }), t).title, '1 model update available')
+  assert.deepEqual(textOf(modelNote('models.upgradeDone', { name: 'qwen3-8b', from: D1, to: D2 }), t), { title: 'Model qwen3-8b upgraded', body: 'From sha256:111111111111 to sha256:222222222222.' })
+  assert.deepEqual(
+    textOf(modelNote('models.upgradeFailed', { name: 'q', rolledBack: true, error: 'the model did not load' }, { status: 'failed' }), t),
+    { title: 'Model q: the upgrade failed', body: 'The old version was put back and keeps serving. Reason: the model did not load' },
+  )
+  assert.equal(textOf(modelNote('models.upgradeFailed', { name: 'q', rolledBack: false }, { body: '' }), t).body, 'The old version keeps serving.')
+  assert.deepEqual(textOf(modelNote('models.removedOld', { name: 'q', files: 3 }), t), { title: 'Model q: old version removed', body: '3 old files deleted.' })
+  // Params that do not fit show the stored text.
+  assert.deepEqual(textOf(modelNote('models.updateAvailable', { family: 'backends', count: 2 }), t), { title: 'stored', body: 'stored body' })
+  assert.deepEqual(textOf(modelNote('models.upgradeDone', {}), t), { title: 'stored', body: 'stored body' })
+  assert.deepEqual(textOf(modelNote('models.future', { name: 'x' }), t), { title: 'stored', body: 'stored body' })
+  assert.equal(iconOf(modelNote('models.upgradeDone', { name: 'q' })), 'check-circle')
+  assert.equal(iconOf(modelNote('models.upgradeFailed', { name: 'q' }, { status: 'failed' })), 'alert-circle')
+  assert.equal(iconOf(modelNote('models.removedOld', { name: 'q', files: 1 })), 'trash')
+  assert.equal(iconOf(modelNote('models.updateAvailable', { family: 'models', count: 1 })), 'arrow-up')
+})
+
+test('inbox: the model codes are worded in every language', async () => {
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    const out = [
+      textOf(modelNote('models.updateAvailable', { family: 'models', count: 2, names: ['NAME'] }), t),
+      textOf(modelNote('models.upgradeDone', { name: 'NAME', from: D1, to: D2 }), t),
+      textOf(modelNote('models.upgradeFailed', { name: 'NAME', rolledBack: true, error: 'ERR' }), t),
+      textOf(modelNote('models.upgradeFailed', { name: 'NAME', rolledBack: false }, { body: '' }), t),
+      textOf(modelNote('models.removedOld', { name: 'NAME', files: 2 }), t),
+    ]
+    for (const o of out) {
+      assert.ok(o.title !== 'stored' && !o.title.includes('{{') && !o.body.includes('{{'), `${l}: ${JSON.stringify(o)}`)
+    }
+    assert.ok(out[2].body.includes('ERR'), l)
+  }
+})
+
+test('inbox: an add-on install is worded, and one that needs a new review says so, in every language', async () => {
+  const en = await translator('en')
+  const op = (code, params) => note({ code, title: 'stored', body: 'the add-on needs your approval again', params })
+  assert.equal(textOf(op('updates.opDone', { kind: 'addon', action: 'install', name: 'notes' }), en).title, 'Add-on notes installed')
+  assert.equal(textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'failed' }), en).title, 'Add-on notes: install failed')
+  const review = textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'failed', needsApproval: true }), en)
+  assert.deepEqual(review, { title: 'Add-on notes needs your review to install', body: 'the add-on needs your approval again' })
+  // The flag only matters for a failure, not for a model or a cancel.
+  assert.equal(textOf(op('updates.opFailed', { kind: 'model', action: 'install', name: 'm', outcome: 'failed', needsApproval: true }), en).title, 'Model m: install failed')
+  assert.equal(textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'notes', outcome: 'cancelled', needsApproval: true }), en).title, 'Add-on notes: install cancelled')
+  for (const l of LOCALES) {
+    const t = await translator(l)
+    const title = textOf(op('updates.opFailed', { kind: 'addon', action: 'install', name: 'NAME', outcome: 'failed', needsApproval: true }), t).title
+    assert.ok(title.includes('NAME') && !title.includes('{{') && title !== 'stored', `${l}: ${title}`)
+  }
 })

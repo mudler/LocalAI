@@ -1,15 +1,8 @@
 /* Setups: the chip of the composer, its status line and the Manage sheet.
    The chip, the menu rows and every control come from the kit and the Tools
    menu; this file only places them. */
-.setup-chip__name { min-width: 0; max-width: 12rem; overflow: hidden; text-overflow: ellipsis; }
-.setup-chip__edited { flex: none; color: var(--color-text-muted); font-weight: 400; }
-.setup-chip__caret { margin-left: -2px; }
-
-.setup-row { width: 100%; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; }
-.setup-row .swl-row__name { color: var(--color-text-primary); }
-.setup-row__desc { font-family: var(--font-mono); }
-.setup-row__check { flex: none; align-self: center; color: var(--color-accent, var(--dk-accent)); }
-.setup-empty { margin: 0; padding: var(--sp-4) var(--sp-3); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.setup-chip__name { max-width: 12rem; }
+.setup-menu__foot { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); padding-top: var(--sp-1); border-top: 1px solid var(--dk-edge); }
 
 .setup-line { flex-wrap: wrap; row-gap: var(--sp-1); }
 .setup-line__what { display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 100%; }

@@ -48,6 +48,18 @@ var _ = Describe("HTTP access log", func() {
 		Expect(line).To(ContainSubstring(`"path":"/chat/completions"`))
 	})
 
+	It("never logs the query string of a join script, where the join token is", func() {
+		logs.Reset()
+		e := echo.New()
+		e.Use(accessLog(true, nil))
+		e.GET("/join.sh", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+		req := httptest.NewRequest(http.MethodGet, "/join.sh?t=ljt_0123456789abcdef.SECRETSECRET&routes=nats", nil)
+		e.ServeHTTP(httptest.NewRecorder(), req)
+		Expect(logs.String()).To(ContainSubstring(`"path":"/join.sh"`))
+		Expect(logs.String()).NotTo(ContainSubstring("SECRETSECRET"))
+		Expect(logs.String()).NotTo(ContainSubstring("ljt_"))
+	})
+
 	It("ignores a forged X-Forwarded-For and X-Real-Ip", func() {
 		line := serve(true, func(r *http.Request) {
 			r.Header.Set("X-Forwarded-For", "203.0.113.99")

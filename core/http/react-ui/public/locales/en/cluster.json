@@ -1,0 +1,323 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "How frontends and workers connect"
+  },
+  "unavailable": {
+    "title": "This server is not part of a cluster",
+    "body": "The cluster settings appear when distributed mode is on."
+  },
+  "loadFailed": "Could not load the cluster settings.",
+  "sheet": {
+    "title": "Cluster settings",
+    "description": "How frontends and workers connect. Changes reach every frontend within seconds.",
+    "close": "Close cluster settings",
+    "openSettings": "Open in Settings",
+    "done": "Done"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "Frontends listen on every bus they can reach. They publish on NATS while it is reachable, and on PostgreSQL otherwise.",
+    "state": {
+      "nats": "NATS connected",
+      "postgres": "PostgreSQL",
+      "unknown": "Unknown"
+    },
+    "publishing": {
+      "nats": "Publishing on NATS",
+      "postgres": "Publishing on PostgreSQL",
+      "unknown": "Unknown"
+    },
+    "unreachable": "NATS is configured, but this frontend does not reach it. It broadcasts over PostgreSQL and is not ready until NATS is back.",
+    "noReplica": "No live frontend reported.",
+    "replicas": "Frontends",
+    "unknownVersion": "unknown version",
+    "workers": "Workers never connect to PostgreSQL. They talk to the frontends over the connections below."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Saving checks that this frontend reaches the NATS server. The frontends use a new address after a restart.",
+    "state": {
+      "connected": "Reachable",
+      "unreachable": "Not reachable",
+      "off": "Not set"
+    },
+    "url": "NATS address",
+    "urlHint": "Frontends connect here.",
+    "workerUrl": "Address given to workers",
+    "workerUrlHint": "Only if workers reach NATS at a different address. Empty means the address above.",
+    "save": "Save",
+    "saved": "Saved. Restart the frontends to use the new address.",
+    "savedReachable": "Saved. This frontend reaches the NATS server. Restart the frontends to use the new address.",
+    "failed": "The settings were not saved."
+  },
+  "weights": {
+    "title": "Connection preference",
+    "note": "A worker can join over NATS, WebSocket or P2P, all at once. If two workers fit a request equally well, the one reached over the connection with the higher weight gets it. A weight never beats fit. 0 means: use only when nothing else fits.",
+    "about": {
+      "nats": "Fastest. Workers dial the message bus.",
+      "websocket": "Works anywhere. Workers dial this server.",
+      "p2p": "Invite link. May go through a relay."
+    },
+    "sliderLabel": "{{connection}} weight",
+    "resetOne": "Back to the default, {{value}}",
+    "default": "Default {{value}}",
+    "error": {
+      "empty": "Enter a whole number from 0 to 1000.",
+      "whole": "Use a whole number from 0 to 1000.",
+      "range": "A weight is from 0 to 1000."
+    },
+    "live": "If two workers fit equally, {{sentence}}.",
+    "wins": "{{winner}} wins over {{loser}}",
+    "ties": "{{a}} and {{b}} tie",
+    "apply": "Apply weights",
+    "useDefaults": "Use defaults",
+    "saved": "Saved. Every frontend uses the new weights within a few seconds.",
+    "defaultsBack": "The default weights are back. Every frontend uses them within a few seconds.",
+    "failed": "The weights were not saved."
+  },
+  "joining": {
+    "title": "Joining",
+    "note": "How a new worker is let in when it joins with a join token.",
+    "autoApprove": "Approve workers automatically",
+    "autoApproveHint": "Off by default. A worker that joins with a token waits for you to approve it. A token you mint can still choose otherwise.",
+    "autoApproveOn": "Anyone who holds a valid join token joins without your approval. Keep tokens short-lived and single-use.",
+    "failed": "The setting was not saved."
+  },
+  "page": {
+    "supporting": "Machines that run your models. {{online}} of {{total}} are online.",
+    "supportingEmpty": "Machines that run your models.",
+    "add": "Add worker",
+    "search": "Search workers",
+    "searchPlaceholder": "Search workers, models, labels",
+    "chip": {
+      "all": "All",
+      "healthy": "Healthy",
+      "attention": "Needs attention",
+      "offline": "Offline",
+      "pending": "Pending"
+    },
+    "type": {
+      "backend": "backend",
+      "agent": "agent",
+      "model-split": "model-split"
+    },
+    "reason": "Needs attention for",
+    "anyReason": "Any reason"
+  },
+  "pill": {
+    "frontends_one": "{{count}} frontend",
+    "frontends_other": "{{count}} frontends"
+  },
+  "strip": {
+    "label": "Fleet summary",
+    "online": "Workers online",
+    "ofTotal": "of {{total}}",
+    "models": "Models loaded",
+    "onWorkers_one": "on {{count}} worker",
+    "onWorkers_other": "on {{count}} workers",
+    "inFlight": "In flight",
+    "requests_one": "request",
+    "requests_other": "requests",
+    "attention": "Needs attention",
+    "allClear": "All clear",
+    "offline": "{{count}} offline",
+    "degraded": "{{count}} degraded"
+  },
+  "roster": {
+    "worker": "Worker",
+    "state": "State",
+    "connections": "Connections",
+    "load": "Load",
+    "seen": "Seen",
+    "splitMark": "Model-split",
+    "splitGroup": "Model-split workers",
+    "attachedTo": "attached to {{node}}",
+    "lends": "lends {{memory}}"
+  },
+  "conn": {
+    "label": "Connections",
+    "of": "Connections of {{name}}",
+    "name": {
+      "nats": "NATS",
+      "websocket": "WebSocket",
+      "p2p": "P2P",
+      "heartbeat": "Heartbeat"
+    },
+    "live": "live",
+    "reconnecting": "reconnecting",
+    "down": "down",
+    "notReported": "Not reported",
+    "state": {
+      "live": "Live",
+      "reconnecting": "Reconnecting",
+      "down": "Down"
+    },
+    "path": {
+      "direct": "direct",
+      "holePunched": "hole-punched",
+      "relayed": "relayed via {{relay}}",
+      "relayedUnknown": "relayed",
+      "none": "no path"
+    },
+    "rtt": "{{ms}} ms",
+    "limited": "Limited",
+    "limitedHint": "The relay limits the data or the time of this connection. Model files do not go through it."
+  },
+  "inspector": {
+    "kicker": "Worker",
+    "splitKicker": "Model-split worker",
+    "connections": "Connections",
+    "noConnections": "This worker has not reported a connection yet.",
+    "weight": "Weight {{weight}}",
+    "heartbeat": "heartbeat {{ago}}",
+    "update": "Update backends",
+    "splitNote": "It lends its memory to one big model that runs across machines. It has no backends and no placement rules."
+  },
+  "add": {
+    "title": "Add worker",
+    "supporting": "Connect a new machine in three steps.",
+    "cancel": "Cancel",
+    "back": "Back",
+    "continue": "Continue",
+    "backToWorker": "Back to a worker with a join token",
+    "stepsLabel": "Steps",
+    "step": {
+      "choose": "Choose connections",
+      "run": "Run the command",
+      "wait": "Wait for the worker"
+    },
+    "choose": {
+      "title": "How should the worker connect?",
+      "note": "Pick one or more. A worker can use all of them at once. You can add more later.",
+      "none": "Pick at least one connection."
+    },
+    "availability": "Availability",
+    "needs": "Needs",
+    "weight": "Preference weight {{weight}}",
+    "way": {
+      "nats": {
+        "name": "NATS",
+        "tag": "Fastest",
+        "about": "Fastest. The worker dials the message bus.",
+        "needs": "The NATS address must be reachable from the worker.",
+        "ready": "Available, NATS is connected",
+        "unreachable": "Configured, but this frontend does not reach it",
+        "off": "Unavailable",
+        "offNote": "NATS is not set up.",
+        "offLink": "Set it up in the cluster settings"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "tag": "Works anywhere",
+        "about": "The worker dials this server's address with a token. Works through NAT and firewalls.",
+        "needs": "Only this server's address.",
+        "ready": "Available"
+      },
+      "p2p": {
+        "name": "P2P",
+        "tag": "Invite link",
+        "about": "Join with an invite link. No open port. May go through a relay.",
+        "needs": "P2P sharing turned on.",
+        "ready": "Available",
+        "off": "Unavailable",
+        "checking": "Checking",
+        "offNote": "P2P sharing is off.",
+        "offLink": "Turn it on in Sharing"
+      }
+    },
+    "split": {
+      "question": "Running one large model across several machines?",
+      "answer": "Add a model-split worker instead.",
+      "action": "Model-split worker"
+    },
+    "single": {
+      "splitNote": "A model-split worker needs no cluster."
+    },
+    "run": {
+      "title": "Run the command on the new machine",
+      "attach": "This worker will attach over {{ways}}",
+      "weights": "weights {{weights}}",
+      "change": "Change connections",
+      "ran": "I ran it, wait for the worker"
+    },
+    "token": {
+      "title": "Join token",
+      "show": "Show the token",
+      "hide": "Hide the token",
+      "copy": "Copy the token",
+      "expires": "Expires",
+      "in": "in",
+      "expired": "Expired",
+      "connections": "Connections",
+      "any": "Any",
+      "uses": "Uses",
+      "one": "1 worker",
+      "many": "Several",
+      "count": "How many workers",
+      "max": "Up to {{max}}.",
+      "usesHint": "How many workers may join with this token. Use several for Kubernetes or Compose.",
+      "valid": "Valid for",
+      "ttl": {
+        "600": "10 minutes",
+        "3600": "1 hour",
+        "86400": "24 hours"
+      },
+      "again": "Mint a new one",
+      "retry": "Try again",
+      "making": "Making a join token…",
+      "failed": "The join token was not made: {{message}}",
+      "expiredNote": "This token has expired. Mint a new one to get a command that works.",
+      "hiddenNote": "The token is hidden here and added when you copy.",
+      "shownNote": "The token is shown here. Hide it before you share your screen."
+    },
+    "tabs": {
+      "label": "Ways to run the worker",
+      "install": "Install script",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "kubernetes": "Kubernetes",
+      "manual": "Manual"
+    },
+    "tabNote": {
+      "compose": "Several replicas may start together: choose how many workers may use the token.",
+      "kubernetes": "Applies a Secret and a StatefulSet. Choose how many workers may use the token for the replicas you run."
+    },
+    "os": {
+      "label": "Operating system",
+      "unix": "Linux and macOS",
+      "windows": "Windows"
+    },
+    "copyCommand": "Copy command",
+    "copiedShort": "Copied",
+    "copied": "Copied to the clipboard",
+    "copyFailed": "Could not copy. Select the text and copy it.",
+    "invite": {
+      "title": "P2P invite",
+      "note": "A single-use invite link. The worker joins over P2P with it: no token and no open port.",
+      "ready": "Invite ready",
+      "single": "Single use",
+      "making": "Making an invite…",
+      "hardware": "Hardware",
+      "how": "How to run it",
+      "cli": "Command line"
+    },
+    "wait": {
+      "title": "Wait for the worker",
+      "listening": "Listening for the worker",
+      "listeningNote": "Start the command on the new machine. This page updates when it connects. Nothing is stored until then.",
+      "valid": "Token valid for {{time}}",
+      "found_one": "Worker found",
+      "found_other": "{{count}} workers found",
+      "open": "Open",
+      "usesLeft_one": "{{count}} use of the token left.",
+      "usesLeft_other": "{{count}} uses of the token left.",
+      "usedUp": "The token has no use left.",
+      "checkPeer": "Check the peer ID on the machine before you approve it.",
+      "stuck": "Nothing yet? Check that the machine reaches this server, and that the command ran with no error.",
+      "stuckInvite": "Nothing yet? Check that the machine runs the command with the invite link, and that the link has not expired.",
+      "another": "Add another worker",
+      "done": "Done"
+    }
+  }
+}

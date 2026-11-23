@@ -360,6 +360,19 @@ export function untrustedSource(entry, preview) {
   return !entry || entry.official !== true
 }
 
+// Who signed an add-on that is not official: the identity the administrator
+// pinned for its library, which the host stamps on the entry and on the
+// preview. It is shown as data next to the warning, never instead of it, and
+// the host sends it only for a signed, non-official source. The preview wins
+// because the host builds it for this install. It is not proof by itself: a
+// preview from an index hint is not verified yet, and the install enforces
+// the pinned signer it carries. An official entry names nobody.
+export function signedBy(entry, preview) {
+  if (entry && entry.official === true) return ''
+  const pick = (v) => (v && typeof v.signer === 'string' ? v.signer.trim() : '')
+  return pick(preview) || pick(entry)
+}
+
 // ---- Icons, groups and categories ---------------------------------------------
 
 // The category of an add-on, for the groups of the installed list and the
@@ -392,4 +405,15 @@ export function groupTiles(tiles, opts) {
   const out = GROUPS.map(id => ({ id, tiles: [] }))
   for (const tile of tiles) out.find(g => g.id === groupOf(tile, opts)).tiles.push(tile)
   return out.filter(g => g.tiles.length > 0)
+}
+
+// The entry of the install from a file whose dialog was closed, as an
+// operation the row can show: it runs (no queue, no stop) or it failed, with
+// the words of the failure. The server runs a file install inline, so it has
+// no job to cancel.
+export function fileOperation(file, id) {
+  return {
+    jobID: `file:${id}`, addonId: id, isAddon: true, taskType: 'upgrade', state: file.state, phase: 'working', progress: 0, cancellable: false,
+    fileFailure: file.state === 'failed' ? { outcome: file.outcome, error: file.error } : null,
+  }
 }

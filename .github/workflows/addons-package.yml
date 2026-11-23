@@ -55,6 +55,12 @@ name: 'add-on packages'
 # Sandbox package as SANDBOX_GUEST_IMAGE; a publishing event fails without it.
 # An event that publishes nothing pushes no image, so its Sandbox leg is a
 # local-check build.
+#
+# Sandbox on macOS. The darwin/arm64 leg runs on a macOS runner, so the build,
+# the ad hoc signing with the virtualization entitlement (codesign, by
+# scripts/addons/package.sh) and the native check all happen on a Mac. The
+# merge and publish jobs only move the signed layout, on Linux, and never
+# re-sign it. A Linux job that packaged darwin/arm64 would need rcodesign.
 
 on:
   pull_request:
@@ -103,7 +109,9 @@ on:
     types: [published]
 
 concurrency:
-  group: ci-addons-package-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/master' && 'master') || github.sha }}-${{ github.repository }}
+  # The release-event run has its own group. It waits for the tag-push run of
+  # the same commit, so it must not queue behind that run (or block a re-run of it).
+  group: ci-addons-package-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/master' && 'master') || format('{0}-{1}', github.sha, github.event_name) }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -119,7 +127,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, sandbox, ssh, web]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -242,7 +250,7 @@ jobs:
           # that publishes nothing: that add-on gets no legs. On a publishing
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
-          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search sandbox ssh web"
+          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search ollama-search sandbox ssh web"
           ids=$all_ids
           if [ "$EVENT" = "pull_request" ]; then
             # A pull request builds only the add-ons whose own files changed,
@@ -323,9 +331,19 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    env:
+      # A single dropped connection (ECONNRESET) must not fail the whole matrix.
+      npm_config_fetch_retries: '5'
+      npm_config_fetch_retry_mintimeout: '10000'
+      npm_config_fetch_retry_maxtimeout: '120000'
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    # The steps are POSIX shell. A Windows runner runs them with the bash of
+    # Git for Windows instead of its default PowerShell.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:
@@ -383,6 +401,22 @@ jobs:
           fi
           if [ -d "$RUNNER_TEMP/runtime" ]; then set -- "$@" --runtime-dir "$RUNNER_TEMP/runtime"; fi
           sh scripts/addons/package.sh "$@"
+      - name: Check the virtualization entitlement of the macOS Sandbox executable
+        # The leg runs on a Mac, so package.sh signs with codesign (no rcodesign
+        # is needed). Read the signature back from the packaged file, not from
+        # the build output: Virtualization.framework refuses an executable
+        # without com.apple.security.virtualization.
+        if: matrix.addon == 'sandbox' && matrix.platform == 'darwin/arm64'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -eu
+          go run ./scripts/addons/cmd/addonpkg extract --config addons/sandbox/package/platforms.yaml \
+            --layout layout --platform "$PLATFORM" --version "$VERSION" --dest "$RUNNER_TEMP/signed"
+          codesign --verify --strict "$RUNNER_TEMP/signed/sandbox"
+          codesign -d --entitlements - "$RUNNER_TEMP/signed/sandbox" 2>&1 | tee "$RUNNER_TEMP/entitlements.txt"
+          grep -q 'com.apple.security.virtualization' "$RUNNER_TEMP/entitlements.txt"
       - name: Native runtime check
         env:
           ADDON: ${{ matrix.addon }}
@@ -619,7 +653,7 @@ jobs:
     needs: [plan]
     if: github.event_name == 'release' && !github.event.release.draft
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 240
     permissions:
       contents: write
       actions: read
@@ -633,9 +667,34 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -eu
-          run=$(gh run list --workflow addons-package.yml --event push --branch "$TAG" --status success \
-            --json databaseId,headSha --jq "[.[] | select(.headSha == \"$SHA\")][0].databaseId // empty")
-          [ -n "$run" ] || { echo "no successful add-on package run for the tag $TAG at $SHA" >&2; exit 1; }
+          # The tag-push run builds and signs the packages. This run can start
+          # before it ends, and the push run can be re-run after a failure, so
+          # wait for it instead of failing at once.
+          deadline=$(( $(date +%s) + 220 * 60 ))
+          grace=900
+          failed_at=
+          while :; do
+            runs=$(gh run list --workflow addons-package.yml --event push --branch "$TAG" --limit 50 \
+              --json databaseId,headSha,status,conclusion --jq "[.[] | select(.headSha == \"$SHA\")]")
+            run=$(echo "$runs" | jq -r '[.[] | select(.status == "completed" and .conclusion == "success")][0].databaseId // empty')
+            [ -z "$run" ] || break
+            if [ "$(echo "$runs" | jq '[.[] | select(.status != "completed")] | length')" -gt 0 ]; then
+              failed_at=
+              echo "the add-on package run for $TAG at $SHA is still running; waiting"
+            elif [ "$(echo "$runs" | jq 'length')" -gt 0 ]; then
+              # Ended without success. Allow a short time for a re-run to start.
+              [ -n "$failed_at" ] || failed_at=$(date +%s)
+              if [ $(( $(date +%s) - failed_at )) -ge "$grace" ]; then
+                echo "the add-on package run for $TAG at $SHA did not succeed: $(echo "$runs" | jq -c '[.[] | {databaseId, conclusion}]')" >&2
+                exit 1
+              fi
+              echo "the add-on package run ended without success; waiting for a re-run"
+            else
+              echo "no add-on package run for $TAG at $SHA yet; waiting"
+            fi
+            [ "$(date +%s)" -lt "$deadline" ] || { echo "timed out waiting for a successful add-on package run for $TAG at $SHA" >&2; exit 1; }
+            sleep 60
+          done
           gh run download "$run" --name addons-release-index --dir index
           test -s index/addons-index.yaml
           gh release upload "$TAG" index/addons-index.yaml --clobber

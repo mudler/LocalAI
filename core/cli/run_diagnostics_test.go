@@ -11,9 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -34,7 +32,7 @@ var _ = Describe("Diagnostics CLI", Serial, func() {
 		r := &command.Run
 		// Match cmd/local-ai/main.go, including gallery substitutions. Parsing
 		// must fail for the supplied value, not an unrelated missing variable.
-		p, err := kong.New(&command, kong.Vars{
+		p, err := kong.New(&command, kong.Vars{"backendssystempath": "/var/lib/local-ai/backends",
 			"basepath":             kong.ExpandPath("."),
 			"generatedcontentpath": DefaultGeneratedContentPath(),
 			"uploadpath":           DefaultUploadPath(),
@@ -113,7 +111,13 @@ var _ = Describe("Diagnostics CLI", Serial, func() {
 
 var _ = Describe("Diagnostics inline startup", Serial, func() {
 	fixture := func() *RunCMD {
-		dir := GinkgoT().TempDir()
+		dir, err := os.MkdirTemp("", "diagnostics-startup")
+		Expect(err).NotTo(HaveOccurred())
+		// The startup that failed may leave a background writer that still
+		// holds a file for a moment; Windows refuses to remove a file in use.
+		DeferCleanup(func() {
+			Eventually(func() error { return os.RemoveAll(dir) }, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		})
 		return &RunCMD{
 			PprofAddress: diagnostics.DefaultOptions().Address,
 			ModelsPath:   filepath.Join(dir, "models"), BackendsPath: filepath.Join(dir, "backends"),
@@ -177,37 +181,23 @@ func (h *diagnosticsListenerFailure) Handle(ctx context.Context, record slog.Rec
 		h.cancelOnce.Do(func() { close(h.canceled) })
 	}
 	if record.Message == "LocalAI is started and running" {
-		entries, err := os.ReadDir("/proc/self/fd")
+		found, err := shutdownListenerOnPort(h.port)
 		if err != nil {
 			h.failed <- err
 			return nil
 		}
-		for _, entry := range entries {
-			fd, err := strconv.Atoi(entry.Name())
-			if err != nil {
-				continue
-			}
-			address, err := syscall.Getsockname(fd)
-			if err != nil {
-				continue
-			}
-			if address, ok := address.(*syscall.SockaddrInet4); ok && address.Port == h.port {
-				if err := syscall.Shutdown(fd, syscall.SHUT_RDWR); err != nil {
-					h.failed <- err
-					return nil
-				}
-				// Application's cancellation log acknowledges the real run context,
-				// without sleeps or a production lifecycle injection point.
-				select {
-				case <-h.canceled:
-					h.failed <- nil
-				case <-time.After(5 * time.Second):
-					h.failed <- fmt.Errorf("run context was not canceled")
-				}
-				return nil
-			}
+		if !found {
+			h.failed <- fmt.Errorf("private listener not found")
+			return nil
 		}
-		h.failed <- fmt.Errorf("private listener not found")
+		// Application's cancellation log acknowledges the real run context,
+		// without sleeps or a production lifecycle injection point.
+		select {
+		case <-h.canceled:
+			h.failed <- nil
+		case <-time.After(5 * time.Second):
+			h.failed <- fmt.Errorf("run context was not canceled")
+		}
 	}
 	return nil
 }

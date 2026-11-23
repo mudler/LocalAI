@@ -193,8 +193,11 @@ var _ = Describe("Load operations on the worker", func() {
 		Expect(stops).To(HaveLen(1))
 		Expect(stops[0].OperationID).To(Equal(job.Generation))
 		Expect(stops[0].ProcessKey).To(Equal("ops-timeout#0"))
-		Expect(secondsUntil("ops-timeout", "stop_deadline")).To(BeNumerically("<=", loadJobFailureReport.Seconds()+3),
-			"an acknowledged stop frees the model in seconds, not after the full stop window")
+		// The confirmation and the shorter hold are two updates, so a read between
+		// them sees the first without the second.
+		Eventually(func() float64 { return secondsUntil("ops-timeout", "stop_deadline") }, 5*time.Second, 50*time.Millisecond).
+			Should(BeNumerically("<=", loadJobFailureReport.Seconds()+3),
+				"an acknowledged stop frees the model in seconds, not after the full stop window")
 
 		// A request inside the report window reads the cause as a 503 answer.
 		err := route("ops-timeout")

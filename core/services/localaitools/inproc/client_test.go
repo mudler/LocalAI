@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/system"
 	"gorm.io/driver/sqlite"
@@ -257,6 +258,7 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(created.NodeSelector).To(Equal(`{"gpu":"nvidia"}`))
 		Expect(created.RoutePolicy).To(Equal("prefix_cache"))
 		Expect(created.MinPrefixMatch).To(Equal(0.4))
+		Expect(created.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyStopAndStart), "no strategy reads as the default")
 		Expect(schedulingJSONKeys(created)).ToNot(Or(
 			HaveKey("id"),
 			HaveKey("unsatisfiable_until"),
@@ -270,12 +272,21 @@ var _ = Describe("inproc.Client model scheduling", func() {
 		Expect(listed).To(HaveLen(1))
 		Expect(listed[0].ModelName).To(Equal("qwen"))
 
+		canary, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
+			ModelName: "qwen", MinReplicas: 1, MaxReplicas: 2, UpgradeStrategy: stringp(nodes.UpgradeStrategyCanary),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(canary.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary))
+		_, err = c.SetScheduling(ctx, localaitools.SetSchedulingRequest{ModelName: "qwen", UpgradeStrategy: stringp("rolling")})
+		Expect(err).To(MatchError(ContainSubstring("upgrade_strategy")))
+
 		updated, err := c.SetScheduling(ctx, localaitools.SetSchedulingRequest{
 			ModelName:   "qwen",
 			MinReplicas: 2,
 			MaxReplicas: 3,
 		})
 		Expect(err).ToNot(HaveOccurred())
+		Expect(updated.UpgradeStrategy).To(Equal(nodes.UpgradeStrategyCanary), "an omitted strategy is kept")
 		Expect(updated.MinReplicas).To(Equal(2))
 		Expect(updated.MaxReplicas).To(Equal(3))
 		Expect(updated.RoutePolicy).To(Equal("prefix_cache"))
@@ -336,3 +347,57 @@ func (s *stubUpdates) CheckNow(context.Context) backendupdates.Snapshot {
 	s.checked++
 	return backendupdates.Snapshot{Items: []backendupdates.Item{}}
 }
+
+var _ = Describe("Model updates", func() {
+	It("says that model upgrades are off without a model gallery", func() {
+		c := &Client{}
+		_, err := c.ModelUpdates(context.Background())
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.UpgradeModel(context.Background(), "tiny", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.SetModelHold(context.Background(), "tiny", true)
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.RemoveOldModelVersion(context.Background(), "tiny")
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+		_, err = c.AdoptModel(context.Background(), "tiny", "", "")
+		Expect(err).To(MatchError(ContainSubstring("not available")))
+	})
+
+	It("refuses what the REST route refuses, before anything is queued", func() {
+		dir := GinkgoT().TempDir()
+		systemState, err := system.GetSystemState(system.WithModelPath(dir))
+		Expect(err).ToNot(HaveOccurred())
+		up := &modelupdates.Upgrader{SystemState: systemState}
+		svc := modelupdates.New(modelupdates.Options{SystemState: systemState})
+		c := &Client{
+			Gallery:             &galleryop.GalleryService{},
+			ModelUpgrader:       func() *modelupdates.Upgrader { return up },
+			ModelUpdatesService: func() *modelupdates.Service { return svc },
+		}
+		ctx := context.Background()
+
+		_, err = c.UpgradeModel(ctx, "missing", false, nil)
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.UpgradeModel(ctx, "missing", false, map[string]string{"k": "theirs"})
+		Expect(err).To(MatchError(modelupdates.ErrBadChoice))
+		_, err = c.RetryModelUpgrade(ctx, "missing")
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.SetModelHold(ctx, "missing", true)
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.AdoptModel(ctx, "missing", "", "")
+		Expect(err).To(MatchError(modelupdates.ErrNotFound))
+		_, err = c.UpgradeModel(ctx, "", false, nil)
+		Expect(err).To(MatchError(ContainSubstring("name is required")))
+
+		snap, err := c.ModelUpdates(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(snap.Items).To(BeEmpty())
+
+		By("refusing a held model, as the REST route does")
+		Expect(os.WriteFile(filepath.Join(dir, "held.yaml"), []byte("name: held\n"), 0600)).To(Succeed())
+		Expect(gallery.WriteSidecar(dir, "held", &gallery.ModelConfig{Name: "held", Version: gallery.SidecarVersion, Hold: true,
+			Origin: &gallery.Origin{Gallery: "g", EntryName: "held", EntryDigest: "sha256:a"}})).To(Succeed())
+		_, err = c.UpgradeModel(ctx, "held", false, nil)
+		Expect(err).To(MatchError(modelupdates.ErrHeld))
+	})
+})

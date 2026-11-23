@@ -25,14 +25,27 @@ const (
 	QueueAgentWorkers     = "agent-workers"
 )
 
-// Chat starts (Request-Reply via NATS — load-balanced across chat workers).
-// A frontend sends the start of an unattended chat run here; one chat worker
-// runs the turn and replies whether it started or queued the message. The
-// turn's events and stop keep using the chats.events and chats.control subjects.
-const (
-	SubjectChatStart = "chats.start"
-	QueueChatWorkers = "chat-workers"
-)
+// subjectMCPPrefix is the root of the agent RPC subjects.
+const subjectMCPPrefix = "mcp."
+
+// SubjectNodeMCPToolExecute is the MCP tool call of one agent worker. A call
+// that names a node goes here; a call that does not goes to the queue group on
+// SubjectMCPToolExecute.
+func SubjectNodeMCPToolExecute(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".tools.execute"
+}
+
+// SubjectNodeMCPDiscovery is the MCP discovery of one agent worker, as
+// SubjectNodeMCPToolExecute is its tool call.
+func SubjectNodeMCPDiscovery(nodeID string) string {
+	return subjectMCPPrefix + sanitizeSubjectToken(nodeID) + ".discovery"
+}
+
+// SubjectChatStart is the chat start: a request over the peer link to one
+// chat worker that the frontend picks from the node list. The worker runs the
+// turn and replies whether it started or queued the message. The turn's events
+// and stop keep using the chats.events and chats.control subjects.
+const SubjectChatStart = "chats.start"
 
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {
@@ -179,6 +192,12 @@ func SubjectNodeModelUnload(nodeID string) string {
 	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.unload"
 }
 
+// SubjectNodeModelPrefetch asks a worker node to download, place or drop the
+// files of a model upgrade (workerctl.ModelPrefetchRequest).
+func SubjectNodeModelPrefetch(nodeID string) string {
+	return subjectNodePrefix + sanitizeSubjectToken(nodeID) + ".model.prefetch"
+}
+
 // SubjectNodeModelDelete tells a worker node to delete model files from disk.
 // Uses NATS request-reply.
 func SubjectNodeModelDelete(nodeID string) string {
@@ -248,6 +267,11 @@ const (
 	// 6-hour upgrade-available cache flips to fresh on every replica, not
 	// just the one that handled the request.
 	SubjectCacheInvalidateBackends = "cache.invalidate.backends"
+	// SubjectCacheInvalidateP2PPeers is broadcast after a P2P device is paired
+	// or revoked. Each frontend has its own P2P identity and allowlist; peers
+	// reload theirs from the shared store at once instead of at the next
+	// periodic reload.
+	SubjectCacheInvalidateP2PPeers = "cache.invalidate.p2ppeers"
 )
 
 // CacheInvalidateEvent is the payload for cache invalidation broadcasts.

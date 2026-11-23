@@ -23,7 +23,7 @@ const WIDTHS = [360, 390, 768]
 // (the Settings tabs outgrow 390 px with a wider font). The agent editor nav
 // is one row of chips that scrolls inside itself on a phone, and so is the
 // add-ons tab strip (it first overflowed at 360, the width added here).
-const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups', '.dk-hubtabs', '.aed-nav', '.ad-tabs']
+const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups', '.dk-hubtabs', '.aed-nav', '.dk-tabs']
 
 const join = (n, s) => Array.from({ length: n }, (_, i) => `${s}${i}`).join('_')
 const WORD = join(9, 'unbroken_name_segment')
@@ -97,8 +97,8 @@ async function chatSetup(page) {
   await page.route(/\/api\/chats\/c1$/, route => route.fulfill({ json: detail }))
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [detail], persistent: true, files: true } }))
   await page.route('**/api/chats/agents*', route => route.fulfill({ json: { agents: longAgents } }))
-  await page.route('**/api/chats/push/**', route => route.fulfill({ status: 409, json: { error: { message: 'off' } } }))
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
+  await page.route('**/api/notifications/push/**', route => route.fulfill({ status: 409, json: { error: { message: 'off' } } }))
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
 }
 
 const PAGES = [
@@ -120,7 +120,7 @@ const PAGES = [
       await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ addon: 'slack', kind: 'slack', title: `Slack_${WORD}`, description: URL, page: 'bots' }] } }))
       await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => r.fulfill({ json: { connectors: longBindings.map(b => ({ ...b, addon: 'slack', active: true, accept_any: false, allow: [WORD, URL], has_token: true })) } }))
       await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+      await page.route('**/api/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
     },
   },
   { name: 'MCP connectors', url: '/app/mcp-connectors', ready: '.page', setup: (page) => agentsSetup(page, { connectors: longConnectors.map(c => ({ ...c, url: URL, description: URL })) }) },

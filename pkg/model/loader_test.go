@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	grpcPkg "github.com/mudler/LocalAI/pkg/grpc"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -57,6 +59,15 @@ func (b *lifecycleBackend) Free(ctx context.Context) error {
 	}
 }
 
+// touch creates an empty file and closes it: Windows cannot delete a file that
+// is still open.
+func touch(path string) {
+	GinkgoHelper()
+	f, err := os.Create(path)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(f.Close()).To(Succeed())
+}
+
 var _ = Describe("ModelLoader", func() {
 	var (
 		modelLoader *model.ModelLoader
@@ -66,8 +77,7 @@ var _ = Describe("ModelLoader", func() {
 
 	BeforeEach(func() {
 		// Setup the model loader with a test directory
-		modelPath = "/tmp/test_model_path"
-		os.Mkdir(modelPath, 0755)
+		modelPath = GinkgoT().TempDir()
 
 		systemState, err := system.GetSystemState(
 			system.WithModelPath(modelPath),
@@ -92,7 +102,7 @@ var _ = Describe("ModelLoader", func() {
 	Context("ExistsInModelPath", func() {
 		It("should return true if a file exists in the model path", func() {
 			testFile := filepath.Join(modelPath, "test.model")
-			os.Create(testFile)
+			touch(testFile)
 			Expect(modelLoader.ExistsInModelPath("test.model")).To(BeTrue())
 		})
 
@@ -103,9 +113,9 @@ var _ = Describe("ModelLoader", func() {
 
 	Context("ListFilesInModelPath", func() {
 		It("should list all valid model files in the model path", func() {
-			os.Create(filepath.Join(modelPath, "test.model"))
-			os.Create(filepath.Join(modelPath, "model.gguf"))
-			os.Create(filepath.Join(modelPath, "README.md"))
+			touch(filepath.Join(modelPath, "test.model"))
+			touch(filepath.Join(modelPath, "model.gguf"))
+			touch(filepath.Join(modelPath, "README.md"))
 
 			files, err := modelLoader.ListFilesInModelPath()
 			Expect(err).To(BeNil())
@@ -115,10 +125,10 @@ var _ = Describe("ModelLoader", func() {
 		})
 
 		It("should skip archives and checksum files", func() {
-			os.Create(filepath.Join(modelPath, "test.model"))
-			os.Create(filepath.Join(modelPath, "voice.tar.bz2"))
-			os.Create(filepath.Join(modelPath, "voice.tar.bz2.sha256"))
-			os.Create(filepath.Join(modelPath, "VOICE.SHA256"))
+			touch(filepath.Join(modelPath, "test.model"))
+			touch(filepath.Join(modelPath, "voice.tar.bz2"))
+			touch(filepath.Join(modelPath, "voice.tar.bz2.sha256"))
+			touch(filepath.Join(modelPath, "VOICE.SHA256"))
 
 			files, err := modelLoader.ListFilesInModelPath()
 			Expect(err).To(BeNil())
@@ -199,6 +209,34 @@ var _ = Describe("ModelLoader", func() {
 			// Within TTL, should return the model without health check
 			result := modelLoader.CheckIsLoaded("healthy-remote")
 			Expect(result).To(Equal(loaded), "recently-healthy model should be returned from cache")
+		})
+	})
+
+	Context("Remote model whose transport failed", func() {
+		// A client with its own dialer, as a tunnel gives. Its dial fails in the
+		// transport and says nothing about the backend.
+		failing := func(dialErr error) grpcPkg.Backend {
+			return grpcPkg.NewClientWithDialer("10.0.0.5:50051", false, nil, false, "", func(context.Context, string) (net.Conn, error) {
+				return nil, dialErr
+			})
+		}
+
+		load := func(id string, client grpcPkg.Backend) {
+			GinkgoHelper()
+			remote := model.NewModelWithClient(id, "10.0.0.5:50051", client)
+			_, err := modelLoader.LoadModel(id, "test.model", func(string, string, string) (*model.Model, error) { return remote, nil })
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("keeps the model cached when the transport could not reach the worker", func() {
+			load("unreachable", failing(errors.New("no tunnel is held for that node")))
+			Expect(modelLoader.CheckIsLoaded("unreachable")).ToNot(BeNil(),
+				"a worker that cannot be reached from here has not been shown to have lost the model")
+		})
+
+		It("evicts the model when the worker answered that the backend is gone", func() {
+			load("gone", failing(backendGone{errors.New("the worker could not reach the backend")}))
+			Expect(modelLoader.CheckIsLoaded("gone")).To(BeNil())
 		})
 	})
 
@@ -531,6 +569,77 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 
+	Context("Blocked loads", func() {
+		It("refuses every load of a blocked model until it is unblocked", func() {
+			var loads int32
+			loader := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				atomic.AddInt32(&loads, 1)
+				return model.NewModel(modelID, modelName, nil), nil
+			}
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", loader)
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+			Expect(blocked.ModelID).To(Equal("upgrading"))
+			Expect(atomic.LoadInt32(&loads)).To(BeZero())
+
+			By("leaving the other models alone")
+			_, err = modelLoader.LoadModel("other", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+
+			modelLoader.UnblockLoads("upgrading")
+			_, err = modelLoader.LoadModel("upgrading", "test.model", loader)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(atomic.LoadInt32(&loads)).To(Equal(int32(2)))
+		})
+
+		It("waits for a load in flight, so the stop that follows sees its model", func() {
+			started := make(chan struct{})
+			release := make(chan struct{})
+			loaded := make(chan error, 1)
+			go func() {
+				_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+					close(started)
+					<-release
+					return model.NewModel(modelID, modelName, nil), nil
+				})
+				loaded <- err
+			}()
+			Eventually(started).Should(BeClosed())
+
+			blockReturned := make(chan struct{})
+			go func() {
+				modelLoader.BlockLoads("upgrading")
+				close(blockReturned)
+			}()
+			Consistently(blockReturned, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			close(release)
+			Eventually(blockReturned).Should(BeClosed())
+			Expect(<-loaded).ToNot(HaveOccurred())
+			By("having the model registered when BlockLoads returns")
+			Expect(modelLoader.ListLoadedModels()).To(HaveLen(1))
+
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+
+		It("refuses a blocked model in distributed mode too", func() {
+			modelLoader.SetModelRouter(func(context.Context, string, string, string, string, string, *pb.ModelOptions, bool) (*model.Model, error) {
+				return nil, errors.New("must not route")
+			})
+			modelLoader.BlockLoads("upgrading")
+			_, err := modelLoader.LoadModel("upgrading", "test.model", func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, errors.New("must not load")
+			})
+			var blocked *model.ModelLoadsBlockedError
+			Expect(errors.As(err, &blocked)).To(BeTrue())
+		})
+	})
+
 	Context("Load failure cooldown", func() {
 		It("records a missing backend as the cause of the cooldown", func() {
 			modelLoader.SetLoadFailureCooldown(time.Minute, time.Minute)
@@ -631,3 +740,9 @@ var _ = Describe("ModelLoader", func() {
 		})
 	})
 })
+
+// backendGone is the error of a dialer whose host answered that the backend is
+// gone: evidence about the backend, like a refused connection.
+type backendGone struct{ error }
+
+func (backendGone) IsBackendAnswer() bool { return true }

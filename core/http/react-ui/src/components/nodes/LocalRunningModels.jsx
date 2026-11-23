@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { SearchField } from '../ui'
 import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -97,13 +98,11 @@ export default function LocalRunningModels({ machine, addToast, limit, moreHref 
         <>
           {!limit && (
             <div className="op-running__tools">
-              <input
-                className="dk-input"
-                type="search"
-                aria-label={t('machine.searchLabel')}
+              <SearchField
+                label={t('machine.searchLabel')}
                 placeholder={t('machine.searchPlaceholder')}
                 value={query}
-                onChange={event => setQuery(event.target.value)}
+                onChange={setQuery}
               />
             </div>
           )}

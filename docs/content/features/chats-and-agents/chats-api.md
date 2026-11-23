@@ -119,6 +119,7 @@ To show these switches before the chat exists, read what a chat on a model
 
 ```bash
 curl -s 'localhost:8080/api/chats/draft/tools?model=my-model'
+curl -s 'localhost:8080/api/chats/draft/tools?model=my-model&addons_off=notes,crm'
 curl -s 'localhost:8080/api/chats/draft/addons?model=my-model&agent_id=<agent>'
 curl -s localhost:8080/api/chats/skills
 ```
@@ -126,6 +127,20 @@ curl -s localhost:8080/api/chats/skills
 The answers have the shapes of `GET /api/chats/{id}/tools` and `GET
 /api/chats/{id}/addons`. A model you may not use is `403`, a model the server
 does not have is `400`, and another user's agent is `404`.
+
+`GET /api/chats/{id}/tools` and `GET /api/chats/draft/tools` carry `tool_cap`
+only when the limit on add-on tools (`chats_addon_tool_limit`, 64 by default)
+left tools out of the chat:
+
+```json
+{"tool_cap": {"limit": 64, "offered": 64, "total": 80, "cut": 16,
+  "addons": [{"id": "notes", "title": "Notes", "cut": 11}, {"id": "crm", "cut": 5}]}}
+```
+
+The limit applies to the add-ons the chat uses, so an add-on in the chat's
+`addons_off` list takes no room. The draft takes the same list as the query
+parameter `addons_off` (comma-separated), so the answer is the one the chat would
+get.
 
 The draft add-ons list also takes the switches the composer has so far, as
 comma-separated query parameters `addons_off`, `builtins_off` and `builtins_on`

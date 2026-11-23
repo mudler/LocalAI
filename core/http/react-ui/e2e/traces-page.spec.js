@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem, adminGroup } from './admin-nav.js'
 import { mockTraffic, TRACES } from './traffic-fixtures.js'
 
 test.describe('Traces list', () => {
@@ -154,11 +155,11 @@ test.describe('A trace', () => {
     await expect(page).toHaveURL(/\/app\/traces$/)
   })
 
-  test('the Traffic tab stays lit on a trace page', async ({ page }) => {
+  test('the Traffic group stays open and Traces lit on a trace page', async ({ page }) => {
     await mockTraffic(page)
     await page.goto('/app/traces/t2')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="traffic"]')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.hub-subnav').getByRole('link', { name: 'Traces' })).toHaveAttribute('aria-current', 'page')
+    await expect(adminGroup(page, 'traffic').getByRole('button', { name: /Traffic/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(adminItem(page, '/app/traces')).toHaveAttribute('aria-current', 'page')
   })
 })
 

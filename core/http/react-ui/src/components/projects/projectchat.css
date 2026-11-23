@@ -93,15 +93,6 @@
 .ac-filter .dk-select-wrap { flex: 1; min-width: 0; }
 
 /* ---- Projects shared with you ---- */
-.pjc-badge {
-  flex: none;
-  padding: 0 6px;
-  border-radius: var(--radius-full);
-  background: var(--dk-accent-wash);
-  color: var(--dk-accent-text);
-  font-size: var(--fs-meta);
-  font-weight: var(--font-weight-medium);
-}
 .pjc-item__title { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .pjc-pulled__by { color: var(--color-text-secondary); font-size: var(--fs-caption, var(--fs-small)); margin-inline-start: auto; padding-inline-start: var(--sp-2); white-space: nowrap; }
 .pjc-chips--head .pjc-chip[data-shared="true"] .pjc-chip__tag { display: none; }

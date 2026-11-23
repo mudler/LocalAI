@@ -27,9 +27,11 @@ export function StateChip({ app, className = '' }) {
 // The operation the owner runs on an add-on now ("Upgrading… Downloading and
 // checking"). It is separate from the process state: the old generation can
 // keep running while the next one is fetched and checked.
-export function OperationChip({ app, className = '' }) {
+export function OperationChip({ app, className = '', upgrading = null }) {
   const { t } = useTranslation('addons')
-  const op = operationOf(app)
+  // An upgrade this browser follows tells its state before the owner's own
+  // list does: waiting for a slot, or at work.
+  const op = operationOf(app) || (upgrading ? { kind: 'upgrade', phase: upgrading.phase === 'queued' ? 'queued' : 'working', since: '' } : null)
   if (!op) return null
   const text = `${t(`operation.kind.${op.kind}`)} · ${t(`operation.phase.${op.phase}`)}`
   return (
@@ -96,9 +98,12 @@ export function VersionText({ version }) {
 }
 
 // The warning for an add-on that does not come from the official library.
-// See untrustedSource for when it shows.
-export function UntrustedNotice({ library, testId = 'untrusted-source' }) {
+// See untrustedSource for when it shows. When the library pins a signer (see
+// signedBy) the notice says who signed it and that LocalAI did not review it;
+// the warning still applies, so the install confirmation stays.
+export function UntrustedNotice({ library, signer = '', testId = 'untrusted-source' }) {
   const { t } = useTranslation('addons')
+  if (signer) return <Callout tone="warn" testId={testId} data-signer={signer}>{t('hostAccess.signedNotReviewed', { signer })}</Callout>
   return <Callout tone="warn" testId={testId}>{t('hostAccess.notOfficialWarning', { library })}</Callout>
 }
 

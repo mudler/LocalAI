@@ -235,11 +235,6 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/page-starters/:id/copy", h.CopyPageStarter)
 	e.GET(base+"/conversion", h.Conversion)
 	e.POST(base+"/import/browser", h.ImportBrowserChats)
-	e.GET(base+"/notifications", h.ListNotifications)
-	e.DELETE(base+"/notifications", h.DeleteNotifications)
-	e.GET(base+"/notifications/count", h.CountNotifications)
-	e.POST(base+"/notifications/read", h.ReadNotifications)
-	e.GET(base+"/notifications/events", h.NotificationEvents)
 	// The change feed of the user's files belongs to the chats feature: the
 	// files are the chats' workspace.
 	e.GET("/api/workspace/events", h.WorkspaceEvents)
@@ -278,9 +273,6 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/triggers/:id/enable", h.EnableTrigger)
 	e.POST(base+"/triggers/:id/disable", h.DisableTrigger)
 	e.GET(base+"/triggers/:id/runs", h.TriggerRuns)
-	e.GET(base+"/push/key", h.PushKey)
-	e.POST(base+"/push/subscribe", h.PushSubscribe)
-	e.DELETE(base+"/push/subscribe", h.PushUnsubscribe)
 	e.GET(base+"/connectors", h.ListConnectors)
 	e.GET(base+"/connectors/kinds", h.ConnectorKinds)
 	e.POST(base+"/connectors", h.CreateConnector)

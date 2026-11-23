@@ -126,15 +126,15 @@ test.describe('Installed: remote models', () => {
   test('the Remote filter counts the remote rows and filters to them', async ({ page }) => {
     await open(page)
     await expect(rows(page).first()).toBeVisible({ timeout: 15_000 })
-    const tab = (name) => page.getByRole('tab', { name: new RegExp(`^${name}`) })
+    const tab = (name) => page.getByTestId('ledger-states').getByRole('button', { name: new RegExp(`^${name}`) })
     await expect(tab('Remote')).toContainText('3')
     // After Distributed.
-    const names = await page.locator('.ledger-states [role="tab"]').allTextContents()
+    const names = await page.getByTestId('ledger-states').getByRole('button').allTextContents()
     expect(names.findIndex(n => n.startsWith('Remote'))).toBe(names.findIndex(n => n.startsWith('Distributed')) + 1)
     await tab('Remote').click()
     await expect(page).toHaveURL(/state=remote/)
     await expect(rows(page)).toHaveCount(3)
-    await expect(tab('Remote')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab('Remote')).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('a remote row has a mark, its remote, "Remote" for a size, and no Load or Stop', async ({ page }) => {
@@ -164,7 +164,7 @@ test.describe('Installed: remote models', () => {
     await expect(r.locator('.ledger-state')).toHaveAttribute('data-state', 'unavailable')
     await expect(r.locator('.ledger-state')).toContainText('Unavailable upstream')
     await expect(r.locator('.dk-dot--warn')).toHaveCount(1)
-    await expect(page.getByRole('tab', { name: /^All/ })).toContainText('16')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^All/ })).toContainText('16')
   })
 
   test('a local model still has Load', async ({ page }) => {
@@ -199,6 +199,24 @@ test.describe('Remotes tab', () => {
     await expect(c.locator('.dk-dot--ok')).toHaveCount(1)
     await expect(c).toContainText('2 models from this remote')
     await expect(c.getByTestId('remote-new')).toHaveCount(0)
+  })
+
+  test('a remote over P2P shows how it is reached', async ({ page }) => {
+    const peer = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+    const p2p = (over) => remote({ url: `p2p://${peer}`, transport: 'p2p', p2p: { peer_id: peer, local_port: 41231, state: 'up', path: 'relayed', limited: true, ...over } })
+    await open(page, { remotes: [p2p()], url: '/app/models?view=remotes' })
+    const path = cards(page).first().getByTestId('remote-p2p-path')
+    await expect(path).toHaveText('P2P · Through a relay (limited)')
+    await expect(path).toHaveAttribute('data-state', 'up')
+
+    await open(page, { remotes: [p2p({ state: 'off', path: undefined, limited: false })], url: '/app/models?view=remotes' })
+    await expect(cards(page).first().getByTestId('remote-p2p-path')).toHaveText('P2P · P2P is off')
+  })
+
+  test('an address remote has no P2P mark', async ({ page }) => {
+    await open(page, { remotes: [CONNECTED], url: '/app/models?view=remotes' })
+    await expect(cards(page).first()).toBeVisible({ timeout: 15_000 })
+    await expect(cards(page).first().getByTestId('remote-p2p-path')).toHaveCount(0)
   })
 
   test('never refreshed reads as such', async ({ page }) => {
@@ -265,7 +283,7 @@ test.describe('Remotes tab', () => {
     await page.getByTestId('remote-view').click()
     await expect(page).toHaveURL(/view=installed/)
     await expect(page).toHaveURL(/state=remote/)
-    await expect(page.getByRole('tab', { name: /^Remote/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('ledger-states').getByRole('button', { name: /^Remote/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
   test('with no remote the tab says so and offers the sheet', async ({ page }) => {

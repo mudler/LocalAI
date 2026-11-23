@@ -119,7 +119,22 @@
     "noUsableTitle": "Keine nutzbaren Modelle.",
     "noUsableText": "Die Remote hat geantwortet, listet aber keine Modelle auf, die dieser Server nutzen kann.",
     "refreshWarn": "{{name}} aktualisiert, aber es hat keine nutzbaren Modelle.",
-    "authTextLocalai": "Verwenden Sie einen Schlüssel, der die Modelle dieses Servers auflisten darf, und verbinden Sie erneut."
+    "authTextLocalai": "Verwenden Sie einen Schlüssel, der die Modelle dieses Servers auflisten darf, und verbinden Sie erneut.",
+    "p2p": {
+      "badge": "P2P",
+      "path": {
+        "direct": "Direkt",
+        "hole_punched": "Per Hole Punching",
+        "relayed": "Über ein Relay"
+      },
+      "limited": "begrenzt",
+      "state": {
+        "off": "P2P ist aus",
+        "listening": "Noch nicht benutzt",
+        "down": "Nicht erreichbar",
+        "error": "Tunnel läuft nicht"
+      }
+    }
   },
   "empty": {
     "title": "Keine Gegenstelle verbunden",

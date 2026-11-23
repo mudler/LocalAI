@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -146,6 +147,9 @@ var _ = Describe("OCI download staging", func() {
 		if os.Geteuid() == 0 {
 			Skip("permission bits do not restrict root")
 		}
+		if runtime.GOOS == "windows" {
+			Skip("a read-only directory does not block creating entries in it on Windows")
+		}
 		root := GinkgoT().TempDir()
 		// A read-only parent stands in for a container's root-owned "/",
 		// where the default staging directory resolves to /downloading.
@@ -230,6 +234,19 @@ var _ = Describe("Tar extraction fallback for link-less filesystems", func() {
 				New: "/backends/lib/libcublas.so",
 				Err: syscall.ENOTSUP,
 			})).To(BeTrue())
+		})
+
+		It("recognises the Windows symlink privilege error", func() {
+			// os.Symlink on Windows without the symlink privilege.
+			Expect(isLinkUnsupportedError(&os.LinkError{
+				Op:  "symlink",
+				Old: "llama.dll",
+				New: `C:\backends\lib\llama.dll`,
+				Err: errors.New("A required privilege is not held by the client."),
+			})).To(BeTrue())
+			if runtime.GOOS == "windows" {
+				Expect(isLinkUnsupportedError(errorPrivilegeNotHeld)).To(BeTrue())
+			}
 		})
 
 		It("does not misclassify unrelated errors", func() {

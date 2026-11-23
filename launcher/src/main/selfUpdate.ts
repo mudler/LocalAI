@@ -4,10 +4,11 @@
 // event mapping it uses is tested in policy.test.ts and selfUpdateGate.test.ts,
 // and the Linux install in appImageUpdate.test.ts.
 import { app } from 'electron'
+import fs from 'node:fs'
 import { autoUpdater, type UpdateDownloadedEvent } from 'electron-updater'
 import type { UpdaterStatus } from '../shared/types'
 import { appImageEntry, installPath, swapAppImage, type DownloadedAppImage } from './appImageUpdate'
-import { launcherUpdateAction, normalizeUpdaterEvent, selfUpdateGate, updaterSettings, type RawUpdaterEvent } from './updaterStatus'
+import { isPortableWindows, launcherUpdateAction, normalizeUpdaterEvent, selfUpdateGate, updaterSettings, type RawUpdaterEvent } from './updaterStatus'
 
 let status: UpdaterStatus = { phase: 'unsupported', message: 'self-update runs in packaged builds only' }
 let push: (s: UpdaterStatus) => void = () => undefined
@@ -26,9 +27,15 @@ export function getUpdaterStatus(): UpdaterStatus {
 
 export function initSelfUpdate(onStatus: (s: UpdaterStatus) => void, o: { includePrereleases: boolean }): void {
   push = onStatus
-  const gate = selfUpdateGate({ packaged: app.isPackaged, version: app.getVersion(), feedUrl: process.env.LOCALAI_LAUNCHER_FEED_URL })
+  const gate = selfUpdateGate({
+    packaged: app.isPackaged,
+    version: app.getVersion(),
+    feedUrl: process.env.LOCALAI_LAUNCHER_FEED_URL,
+    portable: isPortableWindows(process.platform, process.execPath, (d) => { try { return fs.readdirSync(d) } catch { return [] } }),
+  })
   if (!gate.enabled) {
     if (gate.reason === 'dev-build') status = { phase: 'unsupported', message: 'development builds do not update themselves' }
+    if (gate.reason === 'portable') status = { phase: 'unsupported', message: 'the zip build does not update itself; use the installer, or download the new zip' }
     return
   }
   enabled = true
@@ -76,7 +83,11 @@ interface UpdateInstaller {
   install(hooks: InstallHooks): Promise<void>
 }
 
-/** macOS (and any build that is not an AppImage): electron-updater's own install. */
+/**
+ * macOS, and Windows (the next NSIS installer, which closes the launcher,
+ * installs and starts it again): electron-updater's own install. Any build
+ * that is not an AppImage.
+ */
 const electronUpdaterInstall: UpdateInstaller = {
   async install(hooks) {
     await hooks.beforeQuit()
@@ -105,7 +116,7 @@ const appImageSwapInstall: UpdateInstaller = {
 
 /**
  * The user's "Restart to update": installs a downloaded update (the
- * AppImage swap on Linux, electron-updater on macOS), or downloads an
+ * AppImage swap on Linux, electron-updater on macOS and Windows), or downloads an
  * available one. Packaged release builds only.
  */
 export async function installLauncherUpdate(hooks: InstallHooks): Promise<void> {

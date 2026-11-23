@@ -90,7 +90,7 @@ curl http://localhost:8080/system
 
 `cpu_percent` covers the time since the previous call to this endpoint, so a
 dashboard polling every few seconds gets a current reading. The web interface's
-**This machine** tab polls it every five seconds. Find it under **Administration** in the sidebar, on the **Admin** page. In distributed mode, the **Swarm** tab replaces it.
+**This machine** page polls it every five seconds. Find it under **Administration** in the sidebar, in the **This machine** group. In distributed mode, the **Cluster** group replaces it.
 
 ---
 

@@ -7,6 +7,13 @@ name: 'sandbox tests'
 #             the real-add-on end to end suite (tests/addons/actione2e), the UI
 #             unit tests of the add-on and the check of the privilege drop in
 #             entrypoint.sh
+#   macos     on a macOS runner with Apple silicon: the Go tests of the add-on
+#             and the smoke test of the darwin/arm64 package. On macOS the
+#             smoke test checks the package, the signature with the
+#             virtualization entitlement and that the executable starts, then
+#             runs it under the real supervisor. A hosted runner cannot start
+#             a nested VM, so the tools must answer that the host cannot run
+#             commands.
 #   gvisor    the gVisor integration suite, on amd64 and arm64, with the pinned
 #             runsc, its AppArmor profile loaded and the guest image built on
 #             the runner; then the release smoke test with the host required to
@@ -80,6 +87,37 @@ jobs:
           node addons/sandbox/ui/test/run.mjs
       - name: Privilege drop of the image entrypoint
         run: bash scripts/build/entrypoint-privileges_test.sh
+
+  macos:
+    name: macos arm64
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Generate the gRPC stubs the host packages import
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-osx-aarch_64.zip -o protoc.zip
+          mkdir -p "$HOME/protoc"
+          unzip -j -d "$HOME/protoc" protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$HOME/protoc:$PATH:$HOME/go/bin" make protogen-go
+      - name: Go tests of the add-on
+        run: go test -tags "auth nosqlite purego_utp" -count=1 ./addons/sandbox/...
+      - name: Install the host UI build tools
+        run: npm ci --prefix core/http/react-ui
+      - name: Release smoke test of the macOS package
+        # --local-check: a pull request has no guest image digest to stamp.
+        run: sh scripts/addons/sandbox_smoke.sh --local-check
 
   gvisor:
     name: gvisor ${{ matrix.arch }}

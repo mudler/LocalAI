@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { keepIfSame } from '../utils/sameData'
+import { usePolling } from '../hooks/usePolling'
 // eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -79,15 +81,16 @@ export default function Agents() {
         chatAgentsApi.list(),
         chatsApi.list(200).catch(() => ({ conversations: [] })),
       ])
-      setAgents(list.agents || [])
+      setAgents(prev => keepIfSame(prev, list.agents || []))
       // Project agents: the flag says a project folder was replaced, which the
       // list of agents alone does not tell. A failed read leaves the flags.
       const ids = [...new Set((list.agents || []).map(a => a.project_id).filter(Boolean))]
       if (ids.length) {
         const rows = await Promise.all(ids.map(id => chatProjectsApi.agents(id).then(r => r.agents || []).catch(() => null)))
-        setFlags(Object.fromEntries(rows.flatMap(r => (r || []).map(x => [x.id, x.unavailable]))))
+        const next = Object.fromEntries(rows.flatMap(r => (r || []).map(x => [x.id, x.unavailable])))
+        setFlags(prev => keepIfSame(prev, next))
       }
-      setChats(convs.conversations || [])
+      setChats(prev => keepIfSame(prev, convs.conversations || []))
       setOff('')
       setError(null)
       setLoaded(true)
@@ -97,11 +100,8 @@ export default function Agents() {
     }
   }, [])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 5000)
-    return () => clearInterval(interval)
-  }, [load])
+  // Pauses while the tab is hidden.
+  usePolling(load, 5000)
 
   // The runs of an agent are the chats that ran with it, newest first. An
   // agent waiting out its Undo window is already gone from the list.
@@ -225,7 +225,7 @@ export default function Agents() {
           />
           {templates && (templates.length > 0 || AGENT_TEMPLATES.length > 1) && (
             <section className="ag-group" aria-labelledby="ag-start-h">
-              <h2 className="ag-eyebrow" id="ag-start-h">{t('empty.startWith')}</h2>
+              <h2 className="ag-h3" id="ag-start-h">{t('empty.startWith')}</h2>
               <ul className="ag-list">
                 {templates.length > 0 ? templates.map(x => (
                   <li key={x.id} className="ag-row ag-row--two" data-testid="agent-template">

@@ -1,6 +1,6 @@
 {
   "title": "Mises à jour",
-  "supporting": "Les backends, backends de bibliothèque et add-ons qui ont une version plus récente.",
+  "supporting": "Les backends, backends de bibliothèque, add-ons et modèles de la galerie qui ont une version plus récente.",
   "loading": "Chargement des mises à jour",
   "adminOnly": {
     "title": "Les mises à jour sont réservées aux administrateurs",
@@ -40,7 +40,8 @@
     "name": {
       "gallery": "Galerie de backends",
       "library": "Bibliothèque de backends",
-      "addons": "Add-ons"
+      "addons": "Add-ons",
+      "models": "Galerie de modèles"
     },
     "checked": "vérifié {{when}}",
     "ok": "vérifié",
@@ -66,7 +67,8 @@
     "title": {
       "gallery": "La vérification de la galerie de backends a échoué, des mises à jour de backends peuvent donc manquer.",
       "library": "La vérification de la bibliothèque a échoué, des mises à jour de backends de bibliothèque peuvent donc manquer.",
-      "addons": "La vérification des add-ons a échoué, des mises à jour d'add-ons peuvent donc manquer."
+      "addons": "La vérification des add-ons a échoué, des mises à jour d'add-ons peuvent donc manquer.",
+      "models": "La vérification de la galerie de modèles a échoué : des mises à jour de modèles peuvent manquer."
     },
     "lastGood": "La liste ci-dessous vient de la dernière vérification réussie, {{when}}. Raison : {{error}}.",
     "noGood": "Aucune vérification n'a encore réussi. Raison : {{error}}.",
@@ -90,18 +92,22 @@
     "selectAll": "Sélectionner toutes les prêtes",
     "selectNone": "Ne rien sélectionner",
     "show": "Afficher",
-    "hide": "Masquer"
+    "hide": "Masquer",
+    "other": "Autres modèles"
   },
   "row": {
     "tag": {
       "gallery": "Backend",
       "library": "Backend de bibliothèque",
-      "addon": "Add-on"
+      "addon": "Add-on",
+      "model": "Modèle"
     },
     "origin": {
       "gallery": "Galerie de backends",
       "library": "Bibliothèque : {{id}}",
-      "libraryUnnamed": "Bibliothèque"
+      "libraryUnnamed": "Bibliothèque",
+      "model": "Galerie {{gallery}}",
+      "modelUnnamed": "Galerie de modèles"
     },
     "signed": "signé",
     "versions": "{{from}} vers {{to}}",
@@ -136,6 +142,7 @@
     },
     "updatingPhase": "Mise à jour : {{phase}}",
     "updatingPlain": "Mise à jour",
+    "queued": "En file d'attente, en attente d'une place libre",
     "addonConfirm": "Demande votre confirmation dans ce navigateur",
     "nodesAction": "Nœuds",
     "nodesNamed": "Afficher les nœuds de {{name}}",
@@ -146,6 +153,7 @@
     "running": "Mise à jour {{current}} sur {{total}}",
     "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
     "details": "Détails",
+    "cancelAll": "Tout annuler",
     "retryFailed": "Réessayer les échecs ({{count}})",
     "dismiss": "Fermer"
   },
@@ -266,5 +274,138 @@
     "otherOrigin": "Bibliothèque {{library}}",
     "otherOriginChannel": "Bibliothèque {{library}}, canal {{channel}}",
     "runningNote": "Arrêter empêche les nœuds qui n’ont pas commencé de démarrer."
+  },
+  "model": {
+    "chip": {
+      "edited": "Modifié",
+      "held": "Bloqué",
+      "unknown": "Inconnu",
+      "gone": "Absent de la galerie",
+      "cleanup": "Ancienne version conservée"
+    },
+    "phase": {
+      "queued": "en attente de démarrage",
+      "starting": "démarrage",
+      "preflight": "vérification du disque, du backend et des fichiers",
+      "staging": "téléchargement des nouveaux fichiers",
+      "unloading": "arrêt du modèle",
+      "committing": "passage à la nouvelle version",
+      "loading": "démarrage de la nouvelle version",
+      "confirmed": "terminé",
+      "rolling-back": "remise en place de l'ancienne version",
+      "rolled-back": "ancienne version remise en place",
+      "failed": "échec",
+      "resolving": "recherche des fichiers",
+      "downloading": "téléchargement",
+      "verifying": "vérification des fichiers",
+      "persisting": "enregistrement"
+    },
+    "detail": {
+      "failed": "La mise à niveau a échoué : {{message}}. L'ancienne version continue de servir.",
+      "rolledBack": "La mise à niveau a échoué et l'ancienne version a été remise en place : {{message}}. L'ancienne version continue de servir.",
+      "updating": "Mise à niveau : {{phase}}",
+      "edited_one": "Vous avez modifié {{count}} clé que cette mise à jour change aussi. Choisissez la valeur à garder.",
+      "edited_other": "Vous avez modifié {{count}} clés que cette mise à jour change aussi. Choisissez la valeur à garder.",
+      "configOnly": "Seuls la configuration ou les modèles de prompt changent. Rien à télécharger.",
+      "files_one": "{{count}} fichier change.",
+      "files_other": "{{count}} fichiers changent.",
+      "held": "Bloqué sur cette version.",
+      "heldNewer": "Bloqué sur cette version. La galerie en propose une plus récente.",
+      "legacy": "LocalAI n'a pas enregistré l'origine de ce modèle. Adoptez-le pour recevoir les mises à jour. Votre configuration ne change pas.",
+      "notChecked": "Pas encore vérifié.",
+      "checkFailed": "La vérification n'a pas pu lire l'entrée de la galerie : {{message}}",
+      "unreadable": "Les fichiers du modèle sont illisibles : {{message}}",
+      "gone": "Aucune galerie ne propose plus {{entry}}. La version installée continue de fonctionner.",
+      "cleanup_one": "Mis à niveau. L'ancienne version reste sur le disque ({{count}} fichier) jusqu'à ce que vous la supprimiez.",
+      "cleanup_other": "Mis à niveau. L'ancienne version reste sur le disque ({{count}} fichiers) jusqu'à ce que vous la supprimiez."
+    },
+    "action": {
+      "upgrade": "Mettre à niveau",
+      "upgradeNamed": "Mettre à niveau {{name}}",
+      "removeOld": "Supprimer l'ancienne version",
+      "removeOldNamed": "Supprimer l'ancienne version de {{name}}",
+      "hold": "Bloquer cette version",
+      "release": "Débloquer",
+      "releaseNamed": "Débloquer {{name}}",
+      "more": "Plus d'actions pour {{name}}",
+      "adopt": "Adopter",
+      "adoptNamed": "Adopter {{name}}"
+    },
+    "dialog": {
+      "title": "Mettre à niveau {{name}} ?",
+      "intro": "De {{from}} à {{to}}. Rien ne change avant votre confirmation.",
+      "loadedTitle": "{{name}} est chargé en ce moment.",
+      "loadedBody": "La mise à niveau l'arrête, remplace les fichiers et la configuration, puis le redémarre. Les requêtes vers ce modèle attendent ou échouent jusqu'à son retour. Si la nouvelle version ne démarre pas, l'ancienne est remise en place.",
+      "notLoaded": "{{name}} n'est pas chargé en ce moment. La mise à niveau démarre une fois la nouvelle version pour vérifier qu'elle fonctionne, et remet l'ancienne en place sinon.",
+      "loadUnknown": "Impossible de savoir si {{name}} est chargé. Si c'est le cas, la mise à niveau l'arrête puis le redémarre.",
+      "filesTitle": "Fichiers",
+      "noFiles": "Aucun fichier ne change.",
+      "disk": "Les nouveaux fichiers se téléchargent à côté des anciens : le disque doit avoir de la place pour les deux. La galerie n'indique pas la taille des fichiers, donc l'espace nécessaire n'est pas connu avant le téléchargement.",
+      "diskNone": "Rien à télécharger.",
+      "uncheckedTitle_one": "{{count}} fichier n'a pas de somme de contrôle dans la galerie.",
+      "uncheckedTitle_other": "{{count}} fichiers n'ont pas de somme de contrôle dans la galerie.",
+      "uncheckedBody": "La mise à niveau ne télécharge pas de poids sans somme de contrôle : elle s'arrête à la première vérification.",
+      "configOnly": "Appliquer seulement la configuration et les modèles de prompt",
+      "configOnlyHint": "Cette mise à jour ne change aucun fichier du modèle : rien ne se télécharge.",
+      "keysTitle": "Clés que vous avez modifiées et que la mise à jour change aussi",
+      "keysIntro": "Choisissez la valeur à garder pour chaque clé. La mise à niveau ne peut pas démarrer tant qu'une clé n'a pas de choix.",
+      "keepMine": "Garder la mienne",
+      "takeGallery": "Prendre celle de la galerie",
+      "notSet": "non défini",
+      "kept_one": "Gardée telle que vous l’avez définie : {{keys}}. La mise à jour ne la change pas.",
+      "kept_other": "Gardées telles que vous les avez définies : {{keys}}. La mise à jour ne les change pas.",
+      "after": "L'ancienne version reste sur le disque après la mise à niveau. Supprimez-la avec « Supprimer l'ancienne version ».",
+      "missing_one": "Choisissez une valeur pour {{count}} clé",
+      "missing_other": "Choisissez une valeur pour {{count}} clés",
+      "confirm": "Mettre à niveau",
+      "confirmStop": "Arrêter et mettre à niveau",
+      "needChoices": "Le serveur demande un choix pour d'autres clés. Choisissez une valeur pour chacune, puis confirmez à nouveau.",
+      "startFailed": "La mise à niveau n'a pas pu démarrer : {{message}}"
+    },
+    "change": {
+      "added": "nouveau",
+      "changed": "modifié",
+      "removed": "supprimé"
+    },
+    "role": {
+      "weights": "poids",
+      "mmproj": "projecteur de vision",
+      "template": "modèle de prompt",
+      "artifact": "artefact",
+      "config": "configuration"
+    },
+    "remove": {
+      "title": "Supprimer l'ancienne version de {{name}} ?",
+      "body_one": "Cela supprime {{count}} ancien fichier que la mise à niveau a gardé. Le modèle continue avec la nouvelle version. Cette action est irréversible.",
+      "body_other": "Cela supprime {{count}} anciens fichiers que la mise à niveau a gardés. Le modèle continue avec la nouvelle version. Cette action est irréversible.",
+      "confirm": "Supprimer l'ancienne version",
+      "pending": "Suppression…"
+    },
+    "live": {
+      "started": "La mise à niveau de {{name}} a démarré.",
+      "failed": "{{name}} : {{message}}",
+      "removed_one": "{{name}} : {{count}} ancien fichier supprimé.",
+      "removed_other": "{{name}} : {{count}} anciens fichiers supprimés.",
+      "held": "{{name}} est bloqué sur cette version.",
+      "released": "{{name}} n'est plus bloqué.",
+      "adopted": "{{name}} adopté depuis la galerie {{gallery}}. LocalAI vérifie maintenant ses mises à jour.",
+      "adoptedDiffers": "{{name}} adopté depuis la galerie {{gallery}}. Ses fichiers diffèrent de l'entrée de la galerie, donc une mise à jour est proposée.",
+      "adoptedNoCheck": "{{name}} adopté, mais la vérification des mises à jour a échoué : {{message}}",
+      "adoptFailed": "{{name}} n'a pas pu être adopté : {{message}}"
+    },
+    "card": {
+      "title": "Mises à jour",
+      "current": "À jour",
+      "open": "Ouvrir les mises à jour",
+      "holdHint": "Ne proposer aucune mise à jour pour ce modèle tant que cette option est activée."
+    },
+    "adopt": {
+      "title": "Adopter {{name}}",
+      "intro": "Plusieurs galeries listent ce modèle. Choisissez l'entrée dont il provient.",
+      "legend": "Entrées de la galerie",
+      "gallery": "Galerie {{gallery}}",
+      "after": "LocalAI enregistre l'entrée et vérifie ses mises à jour. Votre configuration ne change pas.",
+      "failed": "Adoption impossible : {{message}}"
+    }
   }
 }

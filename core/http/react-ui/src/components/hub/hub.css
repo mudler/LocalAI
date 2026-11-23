@@ -1,10 +1,10 @@
 /* ==========================================================================
-   Hub layout: the page frame of Administration (and the legacy Add-ons hub).
+   Hub layout: the page frame of the legacy Add-ons hub. (Administration has
+   its own sidebar and frame: components/admin.)
 
-   One header, one tab level. The hub name is the page title; the page on
-   screen fills the supporting line and the actions (HubHeader.jsx). The tabs
-   are an underline row; a tab that owns several pages shows them as a
-   segmented control under it, so the two levels never look alike.
+   One tab level. The tabs are an underline row; a tab that owns several pages
+   shows them as a segmented control under it, so the two levels never look
+   alike.
    ========================================================================== */
 
 .hub-layout {
@@ -23,36 +23,6 @@
   padding: 0 var(--page-gutter);
   min-width: 0;
 }
-
-/* ---- Header -------------------------------------------------------------- */
-
-/* The same frame as PageHeader (components/ui): a 28/34 title, a supporting
-   line up to 64 characters, the actions at the bottom right, 24 px to the
-   tabs. Its own classes, so a page's .page-title stays the only one. */
-.hub-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--sp-4) var(--sp-6);
-  margin: 0 0 var(--sp-6);
-}
-.hub-head__lead { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.hub-title {
-  margin: 0;
-  font: 600 var(--fs-title) / var(--lh-title) var(--font-sans);
-  letter-spacing: -0.02em;
-  color: var(--dk-text);
-}
-.hub-head__supporting {
-  max-width: 64ch;
-  font-size: var(--fs-body);
-  line-height: var(--lh-body);
-  color: var(--color-text-secondary, var(--dk-muted));
-}
-.hub-head__slot { display: contents; }
-.hub-head__slot > * { margin: 0; }
-.hub-head__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
-.hub-head__actions:empty { display: none; }
 
 /* ---- Tabs: one underline row -------------------------------------------- */
 
@@ -181,26 +151,8 @@
 
 @media (max-width: 768px) {
   .hub-layout { padding-top: var(--sp-4); }
-  .hub-head { flex-direction: column; align-items: stretch; margin-bottom: var(--sp-4); }
-  /* The hub's own line says nothing a phone needs above the fold; a page's
-     line (the Status sentence, the Settings hint) still shows. */
-  .hub-head__default { display: none; }
   .hub-bar .dk-hubtabs { gap: var(--sp-5); }
   /* The row runs to the screen edge so a half-visible tab says "scroll". */
   .hub-bar .dk-hubtabs { margin-right: calc(-1 * var(--page-gutter)); }
   .hub-subnav { margin-top: var(--sp-4); }
 }
-
-/* The count on the Updates tab: the accent wash of the shell badges, red when
-   an update failed. The text is the number, so colour is never the only cue. */
-.hub-updates-count {
-  background: var(--color-primary-light);
-  color: var(--dk-accent-text);
-  font-weight: var(--dk-weight-semibold);
-}
-.hub-updates-count[data-level="error"] {
-  background: var(--color-error-light);
-  color: var(--dk-error-text);
-}
-.dk-hubtab[aria-current="page"] .hub-updates-count { background: var(--color-primary-light); }
-.dk-hubtab[aria-current="page"] .hub-updates-count[data-level="error"] { background: var(--color-error-light); }

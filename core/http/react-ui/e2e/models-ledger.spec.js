@@ -91,7 +91,7 @@ test.describe('Models ledger - fit on this machine', () => {
   test('Fits in GPU hides the rows that do not fit and keeps the ones with no estimate', async ({ page }) => {
     await open(page)
     await expect(row(page, 'llama-3.3-70b-instruct-iq2')).toBeVisible()
-    await page.locator('label.filter-bar-group__toggle', { hasText: 'Fits in GPU' }).locator('.toggle__track').click()
+    await page.getByRole('switch', { name: 'Fits in GPU' }).click()
     await expect(row(page, 'llama-3.3-70b-instruct-iq2')).toHaveCount(0)
     await expect(row(page, 'qwen3-4b-instruct')).toBeVisible()
   })

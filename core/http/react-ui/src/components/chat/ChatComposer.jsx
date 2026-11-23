@@ -32,6 +32,7 @@ import { agentFolderLine, folderState } from '../../utils/chatAgents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { useUserCommands } from '../../hooks/useUserCommands'
 import { ToolFallbacks } from './ToolFallbacks'
+import { ToolCapNotice } from './ToolCapNotice'
 import Button from '../ui/Button'
 import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills, reservedNames } from '../../utils/slashCommands'
 import { CHAT_SLASH_ACTIONS } from './chatActions'
@@ -164,8 +165,8 @@ export default function ChatComposer({
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={scopeLine || commands.info || network || profiles || switches.fallbacks.length > 0 || memoryIsOff || (switches.attachedCollections || []).length > 0
-          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{(switches.attachedCollections || []).length > 0 ? <p className="cmd-notice__line" data-testid="chat-tools-project-collections">{t('tools.projectCollections', { names: (switches.attachedCollections || []).join(', ') })}</p> : null}{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}{profiles ? <SandboxProfileRow view={sandboxProfile} /> : null}</>
+        notice={scopeLine || commands.info || network || profiles || switches.fallbacks.length > 0 || switches.toolCap?.cut > 0 || memoryIsOff || (switches.attachedCollections || []).length > 0
+          ? <><MemoryLine memory={switches.memory} builtins={switches.builtins} />{(switches.attachedCollections || []).length > 0 ? <p className="cmd-notice__line" data-testid="chat-tools-project-collections">{t('tools.projectCollections', { names: (switches.attachedCollections || []).join(', ') })}</p> : null}{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} /><ToolCapNotice cap={switches.toolCap} isAdmin={isAdmin} />{network ? <ChatToolsControls egress={egress} /> : null}{profiles ? <SandboxProfileRow view={sandboxProfile} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>

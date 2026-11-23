@@ -67,6 +67,7 @@ All outbound HTTP must go through `github.com/mudler/LocalAI/pkg/httpclient` rat
 The reason is GHSA-3mj3-57v2-4636: the std default client follows redirects, and on a *cross-host* redirect Go forwards custom credential headers (e.g. Anthropic's `x-api-key`) to the redirect target, leaking the secret. `httpclient` fails closed instead.
 
 - Need to follow redirects (download CDNs, registry blobs, GitHub asset URLs)? Pass `httpclient.WithFollowRedirects()` — it still strips credential headers on any cross-host hop.
+- Fetching from a fixed upstream that redirects to a known CDN (a GitHub release asset redirects to its object store)? Pass `httpclient.WithRedirectHosts(hosts...)`: it follows only https hops to the listed hosts, checks every hop against the external URL policy, and drops the request headers on a hop to another origin.
 - Have a custom transport (IP-pinned dialer, HTTP/2 tuning, a credential-injecting `RoundTripper`)? Pass `httpclient.WithTransport(rt)`, basing the transport on `httpclient.HardenedTransport()` to keep the TLS floor. Handed a `*http.Client` by a library? `httpclient.Harden(c)` applies the policy in place.
 
 This is enforced by `forbidigo` (see `.golangci.yml`): `http.DefaultClient` and `http.Get`/`Post`/`PostForm`/`Head` are flagged. The `&http.Client{}` composite literal can't be matched precisely by forbidigo without also flagging legitimate `*http.Client` type references, so that form is caught by review — don't construct raw clients.
@@ -133,10 +134,13 @@ link and the translated words. `tests/unit/uikitpackage.test.mjs` checks these
 rules.
 
 - Use the kit for every button (`Button`), text input (`dk-input`), select
-  (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
-  className="dk-check">`), segmented control (`Segmented`), pill
-  (`StatusChip`), callout (`Callout`), pane (`SidePane`) and sheet
-  (`SideSheet`). Do not write a new one. Do not restyle one with a page class:
+  (`dk-select` for a short fixed list, `ListPicker` for a long or rich list,
+  several picks or a chip; the rule is in the kit README), switch (`Switch`),
+  checkbox (`<input type="checkbox" className="dk-check">`), segmented control
+  (`Segmented`), tabs (`Tabs` and `TabPanel`), state pill (`StatusChip`),
+  label tag (`Tag`), callout (`Callout`), pane (`SidePane`) and sheet
+  (`SideSheet`). Do not write `role="tab"` markup or a `badge` class in a
+  page. Do not write a new one. Do not restyle one with a page class:
   no size, colour, radius or width override.
 - A switch applies at once. A checkbox applies when the person presses Save.
   Do not pair a switch with a Save button.
@@ -148,6 +152,13 @@ rules.
 - A detail beside a list is a `SidePane` (360 px, `wide` 400 px). A create or
   edit form is a `SideSheet` (480 px, `wide` 720 px). Never write `dk-sheet`
   markup in a page. Never set a width on a sheet or a pane.
+- A question that stops the page is a `Dialog` (`src/components/Dialog.jsx`);
+  a yes or no before an action is a `ConfirmDialog`. A row menu is an
+  `ActionMenu`, and any other floating panel a `Popover`. All of them draw the
+  one floating surface of the kit (the look of the home model menu). Never
+  write `dk-veil`, `dk-dialog` or a menu surface by hand, and never redefine
+  `.popover` or `.action-menu` in page CSS; a page may only place or size the
+  kebab trigger.
 - A form with more than about eight fields becomes steps or a disclosure.
   Required fields come first.
 - `src/components/Toggle.jsx` is legacy. Do not import it in new code. Use

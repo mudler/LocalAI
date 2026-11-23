@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/remotes"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/fsperm"
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
@@ -223,7 +225,10 @@ var _ = Describe("stores", func() {
 			for _, name := range []string{remotes.JSONFileName, remotes.JSONKeyName} {
 				st, err := os.Stat(filepath.Join(dir, name))
 				Expect(err).NotTo(HaveOccurred())
-				Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), name)
+				if runtime.GOOS != "windows" {
+					Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), name)
+				}
+				Expect(fsperm.Check(filepath.Join(dir, name))).To(Succeed(), name)
 			}
 			entries, _ := os.ReadDir(dir)
 			Expect(entries).To(HaveLen(2))
@@ -248,7 +253,20 @@ var _ = Describe("stores", func() {
 			Expect(string(raw)).To(Equal("{not json"))
 			Expect(s.Create(context.Background(), rec("a", "home"))).To(Succeed())
 		})
+		It("reuses its key file after a restart", func() {
+			s, _ := remotes.NewJSONStore(dir)
+			first, err := s.EnsureKey(context.Background(), remotes.NewSealKey)
+			Expect(err).NotTo(HaveOccurred())
+			again, err := remotes.NewJSONStore(dir)
+			Expect(err).NotTo(HaveOccurred())
+			second, err := again.EnsureKey(context.Background(), remotes.NewSealKey)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(second).To(Equal(first))
+		})
 		It("refuses a key file that others can read", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows has no mode bits; pkg/fsperm tests the access control list")
+			}
 			s, _ := remotes.NewJSONStore(dir)
 			_, err := s.EnsureKey(context.Background(), remotes.NewSealKey)
 			Expect(err).NotTo(HaveOccurred())
@@ -270,6 +288,9 @@ var _ = Describe("stores", func() {
 			Expect(filepath.Join(dir, remotes.JSONKeyName)).NotTo(BeAnExistingFile())
 		})
 		It("closes a directory and a store file that others can read", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows has no mode bits; pkg/fsperm tests the access control list")
+			}
 			Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
 			Expect(os.Chmod(dir, 0o755)).To(Succeed())
 			s, err := remotes.NewJSONStore(dir)

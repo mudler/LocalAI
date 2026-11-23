@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import { Button } from '../ui'
+import { Button, Tag } from '../ui'
 import DockFrame from './DockFrame'
 import { usePages } from '../../hooks/usePages'
 import { folderLabel, useSharedPages } from '../../hooks/useSharedPages'
@@ -297,8 +297,8 @@ export default function PageDock({ dock, update, chatId, onOpen, fresh, phone, o
 
       {tab && !showPicker && (
         <div className="pd-strip" data-testid="dock-strip">
-          <span className="pd-pill pd-pill--accent" data-testid="dock-origin" data-by={by}><Icon name={by === 'shared' ? 'users' : by === 'assistant' ? 'sparkles' : 'user'} /> {origin}</span>
-          <span className="pd-pill" title={t('view.runsAsYouHint')} data-testid="dock-runs-as-you"><Icon name="user" /> {t('view.runsAsYou')}</span>
+          <Tag tone="accent" icon={by === 'shared' ? 'users' : by === 'assistant' ? 'sparkles' : 'user'} testId="dock-origin" data-by={by}>{origin}</Tag>
+          <Tag icon="user" title={t('view.runsAsYouHint')} testId="dock-runs-as-you">{t('view.runsAsYou')}</Tag>
           {!tab.folder && (
             <button type="button" className="pd-strip__ask" onClick={() => onAsk(t('dock.askPrompt', { name: tab.page, title }))} data-testid="dock-ask">
               <Icon name="arrow-up" className="pd-strip__askicon" /> {t('view.ask')}

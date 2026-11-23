@@ -25,7 +25,7 @@ Open **Admin → Settings** in the web UI (`/app/settings`). The page lists ever
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging |
 | Chats and collections | The collections service (Knowledge in the sidebar), the helper models of the chats, the response store TTL, shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "/features/pages-and-home/pages" %}})), the pages that people share (`user_page_shares_enabled`), the page area of Home (`home_page_area_enabled`), the offers from the assistant |
 | Tools | The built-in chat tools (web search, web pages, LocalAI client and admin tools), commands on this machine and their network limits, limits for steps, goals, loops and triggers |
-| Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check |
+| Swarm and sharing | The disk headroom check of distributed mode |
 | Look and feel | Instance name, tagline, the three logos |
 
 With the default name "LocalAI", the sidebar, the sign-in page and the mobile title draw "AI" in the brand colour, and the first-run guide on Home shows the LocalAI llama beside step 1. When you set your own instance name or logo, the name is plain text, your logo is used as before, and the llama is not shown.
@@ -88,7 +88,7 @@ You can configure these settings via the web UI or through environment variables
 
 - **Threads**: Number of threads used for parallel computation (recommended: number of physical cores)
 - **Context Size**: Context size for models that set no `context_size` of their own. A value in a model's configuration always wins, and so does any value you set here over the automatic size. Unset (the default), a model that can serve chats gets `32768` tokens, capped by what it was trained for and by the memory of the machine, and other models get at most `8192`. The chat needs at least `16384`: see [the context window a chat needs]({{% relref "/features/chats-and-agents/chats-long-conversations#the-context-window-a-chat-needs" %}}).
-- **Concurrent Backend Operations**: How many backend installs, upgrades and deletes run at once. `1` runs them one after the other (default: `1`, minimum `1`). Operations on the same backend never overlap, whatever the value. Model operations run in their own queue and are not held up by backend operations. In distributed mode the same limit bounds how many nodes receive one operation at the same time. The limit is per frontend. A change applies to operations that start after the change
+- **Concurrent Model Operations** and **Concurrent Backend Operations**: How many model (or backend) installs, upgrades and deletes run at once (default: `2` each, minimum `1`). `1` runs them one after the other. Operations on the same model (or backend) never overlap, whatever the value, and the others wait as queued and can be cancelled. Models and backends have their own queues, so neither holds up the other. Add-on installs and add-on upgrades share the backend queue and its limit; the add-on owner still runs one add-on operation at a time, so a second one waits for the first. The limits are per frontend, and a change applies to operations that start after it. In distributed mode the backend limit also bounds how many nodes receive one operation at the same time. The flags are `--max-concurrent-model-operations` and `--max-concurrent-backend-operations`
 - **Artifact Download Concurrency**: Maximum number of artifact files downloaded at once. `1` downloads sequentially (default: `1`)
 - **F16**: Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16
 - **VRAM Budget**: Cap on VRAM used for model allocation (for example `80%` or `12GB`; empty means no cap). See [VRAM Management]({{%relref "/models/vram-management" %}})
@@ -110,13 +110,11 @@ For multi-user authentication with roles, OAuth, and usage tracking, see [Authen
 
 ### P2P Settings
 
-Configure peer-to-peer networking for distributed inference:
-
-- **P2P Token**: Authentication token for P2P network
-- **P2P Network ID**: Network identifier for P2P connections
-- **Federated Mode**: Enable federated mode for P2P network
-
-Changes to P2P settings automatically restart the P2P stack with the new configuration.
+The P2P layer: `p2p_mode` (`off`, `connect` or `share`), `p2p_public_dht`,
+`p2p_bootstrap_peers`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`,
+`p2p_relay_rate_limit` and `p2p_mdns`. Mode `share` is refused while
+authentication is off, and every mode but `off` is refused without a data path.
+A change of one of them restarts the P2P layer. See [P2P]({{%relref "/administration/p2p#settings" %}}).
 
 ### Gallery Settings
 
@@ -175,14 +173,18 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - Settings > Tools and `POST /api/settings` refuse a bad value of `chats_egress_ports`, `chats_egress_extra_registries` or `chats_egress_allowed_hosts` with the reason, and a runtime settings file with one keeps the value in force. A bad value that reaches a frontend another way (a hand edit, a value a newer version reads more strictly) neither empties nor widens the list: the frontend keeps the last valid value it used and logs a warning once. A frontend that never saw a valid value uses the default (no hosts, ports `80,443`). The last valid value is kept in the memory of each frontend.
   - `chats_egress_audit_days` (1 to 365, default 30): how long the audit of the network requests, and the audit of the commands run on this machine (`chats_host_exec`), keep a line. A value of 0 means a setting never set, and the page shows 30 days.
 - **Jobs from a paired client** (`client_jobs_allow_all_tools`, default off, applies to jobs that already run; set it with `POST /api/settings` or in the runtime settings file, because Settings > Tools has no control for it and it has no environment variable): a job that an add-on starts for a [paired client]({{%relref "/addons/addon-clients" %}}) reads and reports only. Turn this on to let such jobs use the write and act tools that the agent of their task is set up with, as an ordinary job of that task may. It never gives a grant the agent does not hold. It does not change jobs that people or triggers start.
+- **Add-on tools per chat** (`chats_addon_tool_limit`, 16 to 256, default 64, applies at once, with no restart): the most add-on tools one chat is offered. Every tool is described to the model on every turn, so a higher limit costs model context and can make the model choose worse; the floor keeps room for the tools that replace a built-in one (such as the shell) and a few add-ons. Each add-on can offer at most 32 tools whatever this says. The limit applies to the add-ons a chat uses: an add-on switched off in the chat, or not granted by the chat's saved agent, takes no room. Tools that replace a built-in chat tool come first, then the rest in add-on ID order. When tools are left out, the server logs a warning once (the limit, how many tools were cut and the add-on IDs), and the Tools menu of the chat tells the person which add-ons lost tools, with a link to this setting for an administrator. A value out of range is refused by `POST /api/settings`.
 - **Steps per chat turn** (`chats_max_iterations`, 1 to 500, default 40, applies at the next turn): how many rounds of tool calls the model may make in one chat turn before it must answer. This covers chats, saved agents, triggers and connector turns. A turn that reaches the limit shows as **Paused** with a **Continue** button (see [The status line]({{% relref "/features/chats-and-agents/chats-api#the-status-line" %}})). A model whose configuration sets `agent.max_iterations` uses its own limit.
 - **Automatic turns per goal** (`chats_goal_max_turns`, 1 to 200, default 20, applies when a turn ends): how many turns a chat with a goal may start by itself before the goal pauses. Resuming the goal starts a new count (see [Goals]({{% relref "/features/chats-and-agents/chats-goals#goals" %}})).
 - **Steps per goal** (`chats_goal_max_steps`, 1 to 10000, default 400, applies when a turn ends): how many rounds of tool calls all the turns of one goal may make together before the goal pauses.
 - **Loops of the chats** (apply at once; see [Loops]({{% relref "/features/chats-and-agents/chats-loops#loops-repeat-a-prompt-in-a-chat" %}})):
   - `chats_loop_min_interval` (a duration from `30s` to `24h`, default `1m`): the shortest interval of a loop, and the shortest wait a self-paced loop may ask for.
-  - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends.
-  - `chats_loop_max_per_chat` (1 to 20, default 3) and `chats_loop_max_per_user` (1 to 200, default 10): how many loops that are not ended one chat and one user may have.
-  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. After that the loops wait for the next day.
+  - `chats_loop_daily_runs` (1 to 100000, default 200): how many loop runs one user may start in a UTC day, over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.
+  - `chats_loop_max_per_chat` (1 to 20, default 3): how many loops and waits that are not ended one chat may have. Waits count too.
+  - Under **Advanced** in Settings > Tools:
+    - `chats_loop_max_per_user` (1 to 200, default 10): how many loops and waits that are not ended one user may have, over all their chats.
+    - `chats_loop_max_runs` (1 to 10000, default 100): the runs after which a loop ends. In a chat that a connector, a trigger, a job or a page started, a loop ends after a fifth of this, at least 1 (20 with the default). The page shows that number under the field.
+    - `chats_loop_daily_script_checks` (1 to 100000, default 1500): how many checks of waits on a command one user may spend in a UTC day, over all their waits. A check starts a process and calls no model, so this budget is apart from `chats_loop_daily_runs`. When it is used up, the wait ends and the model is told that the condition is not known.
 - **Triggers of the chats** (apply at once; see [Triggers]({{%relref "/features/chats-and-agents/chats" %}})):
   - `chats_trigger_run_limit` (a duration from `1m` to `24h`, default `15m`): the longest one trigger run may take. A longer run is stopped and fails. A trigger can set a shorter time limit of its own (`run_limit`); this setting is the ceiling, so a trigger that asks for more runs at this one. A change applies to the runs that start after it and to the check of a run that is found running after a restart.
   - `chats_trigger_max_per_user` (1 to 1000, default 50): how many triggers a user may have. A user who has more keeps them but cannot add another.
@@ -193,7 +195,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
 
 ## Configuration Persistence
 
-All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
+All settings are automatically saved to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory (default: `BASEPATH/configuration`, where `BASEPATH` is the current folder on Linux and macOS, `%LOCALAPPDATA%\LocalAI` on Windows, or `LOCALAI_BASE_PATH` when it is set). This file is watched for changes, so modifications made directly to the file will also be applied at runtime.
 
 ## Settings Precedence
 
@@ -233,14 +235,12 @@ The `runtime_settings.json` file follows this structure. The `galleries` and `ba
   "context_size": 2048,
   "artifact_download_concurrency": 4,
   "max_concurrent_backend_operations": 2,
+  "max_concurrent_model_operations": 2,
   "f16": false,
   "debug": false,
   "cors": true,
   "csrf": false,
   "cors_allow_origins": "*",
-  "p2p_token": "",
-  "p2p_network_id": "",
-  "federated": false,
   "galleries": [
     {
       "url": "https://index.localai.io/models",
@@ -328,7 +328,8 @@ If the watchdog is not functioning:
 ### P2P Not Starting
 
 If P2P is not starting:
-1. Verify the P2P token is set (non-empty)
+1. Check `p2p_mode`: `share` needs authentication, and every mode but `off` needs a data path or `--p2p-identity`
 2. Check network connectivity
-3. Ensure the P2P network ID matches across nodes (if using federated mode)
-4. Review logs for P2P-related errors
+3. Review logs for P2P-related errors
+
+See [P2P]({{% relref "/administration/p2p" %}}#troubleshooting). The old P2P token, network ID and federated mode are removed: see [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).

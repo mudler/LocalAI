@@ -18,6 +18,10 @@
 #       --version <semver> --signer-ref refs/tags/v<semver> \
 #       --merged-root <dir> --out <file>
 #
+# Both indexes carry the hostOperations hint of each entry. A host that predates
+# the field (before commit f36dd6a5d) refuses an index with an unknown field, so
+# it must update before it can list the add-ons of the development index.
+#
 # --check (the repository defaults to the one of the committed index) compares the committed gallery/addons/index.yaml with the generated
 # development index and fails when they differ. --owner-repo defaults to
 # mudler/LocalAI.
@@ -89,11 +93,11 @@ for tmpl in gallery/addons/*.yaml.tmpl; do
     if [ "$channel" = development ]; then
         "$tool" catalog --config "$config" --template "$tmpl" --from-manifest \
             --repository "$repository" --channel development \
-            --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
+            --host-operations-in-index --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
     else
         "$tool" catalog --config "$config" --template "$tmpl" --merged "$merged_root/$id" \
             --repository "$repository" --tag "$version" --channel latest \
-            --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
+            --host-operations-in-index --owner-repo "$owner_repo" --signer-ref "$signer_ref" --out "$part" > /dev/null
     fi
     cat "$part" >> "$result"
 done

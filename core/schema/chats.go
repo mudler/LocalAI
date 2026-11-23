@@ -1692,7 +1692,24 @@ type ChatsTriggerDelivery struct {
 	// ConnectionName is the name the owner gave the connection of the channel,
 	// for a trigger that was proposed in Studio and reports there.
 	ConnectionName string `json:"connection_name,omitempty"`
-	InThread       bool   `json:"in_thread,omitempty"`
+	// ChannelRef and ChatRef are the channel ID (target channel) or the chat
+	// (target origin), shortened: never a whole ID.
+	ChannelRef string `json:"channel_ref,omitempty"`
+	ChatRef    string `json:"chat_ref,omitempty"`
+	// ConnectionID, ConnectionKind, ConnectionKindTitle and ConnectionAddon
+	// say which connection the channel or chat belongs to and which service it
+	// is. ConnectionID is empty when the connection is gone.
+	ConnectionID        string `json:"connection_id,omitempty"`
+	ConnectionKind      string `json:"connection_kind,omitempty"`
+	ConnectionKindTitle string `json:"connection_kind_title,omitempty"`
+	ConnectionAddon     string `json:"connection_addon,omitempty"`
+	// State says whether the destination can receive a report now: ok, off
+	// (the connection is switched off), gone (deleted), unavailable (its
+	// add-on does not run or it cannot receive reports), no_channel (the
+	// channel is not listed and approved any more) or blocked (the owner does
+	// not let the connection write there). Empty for the inbox.
+	State    string `json:"state,omitempty"`
+	InThread bool   `json:"in_thread,omitempty"`
 	// Mode is when a run reports: always (the default), on_change (only when
 	// the answer differs from the run before) or on_problem (only when a run
 	// fails).
@@ -2218,6 +2235,9 @@ type ChatsConnectorCapability struct {
 	Sensitive bool `json:"sensitive"`
 	// Usual capabilities are what a one-click preset turns on.
 	Usual bool `json:"usual"`
+	// BindingOnly capabilities are never granted to a role, even when a kind
+	// lists them: the owner turns them on for the whole binding.
+	BindingOnly bool `json:"binding_only,omitempty"`
 	// Language is the language of localized_title and localized_description:
 	// the one the request asked for (lang, else Accept-Language) among the
 	// translated ones. Absent for English and for a language with no
@@ -2232,6 +2252,9 @@ type ChatsConnectorCapability struct {
 type ChatsConnectorPermission struct {
 	Name      string `json:"name"`
 	Sensitive bool   `json:"sensitive"`
+	// BindingOnly says that the listing grants nothing to a role: the
+	// capability belongs to the binding alone.
+	BindingOnly bool `json:"binding_only,omitempty"`
 }
 
 // ChatsConnectorFiles are the file limits of a binding or of a kind, for both
@@ -2874,6 +2897,34 @@ type ChatsToolsPanel struct {
 	// Memory says whether memory works in this chat and, when it does not,
 	// which level turned it off and where to turn it on again.
 	Memory ChatsMemoryState `json:"memory"`
+	// ToolCap is present only when the server limits how many add-on tools a
+	// chat is offered and that limit left some out. Absent otherwise.
+	ToolCap *ChatsToolCap `json:"tool_cap,omitempty"`
+}
+
+// ChatsToolCap says that the limit on add-on tools left some tools out of
+// every chat. Switching add-ons off for one chat does not bring them back:
+// stop or disable add-ons you do not use, or ask an administrator.
+type ChatsToolCap struct {
+	// Limit is the most add-on tools one chat is offered.
+	Limit int `json:"limit" example:"64"`
+	// Offered is how many add-on tools are offered.
+	Offered int `json:"offered" example:"64"`
+	// Total is how many your add-ons declare: offered plus cut.
+	Total int `json:"total" example:"80"`
+	// Cut is how many tools were left out.
+	Cut int `json:"cut" example:"16"`
+	// Addons are the add-ons that lost tools, by ID.
+	Addons []ChatsToolCapAddon `json:"addons"`
+}
+
+// ChatsToolCapAddon is one add-on that lost tools to the limit.
+type ChatsToolCapAddon struct {
+	ID string `json:"id" example:"notes"`
+	// Title is what the add-on declares for people, or empty.
+	Title string `json:"title,omitempty" example:"Notes"`
+	// Cut is how many tools of the add-on were left out.
+	Cut int `json:"cut" example:"16"`
 }
 
 // ChatsMemoryState is whether memory works in one chat. The narrowest level

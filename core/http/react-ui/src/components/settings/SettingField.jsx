@@ -122,23 +122,6 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
           onChange={(e) => set(e.target.value)}
         />
       )
-    case 'token':
-      return (
-        <div className="st-token">
-          <input
-            id={id} className="dk-input dk-input--mono" value={value} placeholder="No token set"
-            autoComplete="off" spellCheck={false} onChange={(e) => set(e.target.value)}
-          />
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" title="Generate a new P2P token (applied when you apply)" onClick={() => set('0')}>
-            <Icon name="refresh" /> Generate
-          </button>
-          {value && (
-            <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label="Clear token" title="Clear token (stops P2P when you apply)" onClick={() => set('')}>
-              <Icon name="close" />
-            </button>
-          )}
-        </div>
-      )
     case 'asset': {
       const a = assets.state(field.asset)
       return (
@@ -199,7 +182,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
   const was = OLD_SECTIONS[field.was]
 
   return (
-    <div className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
+    <div id={`settings-field-${field.key}`} className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
       <div className="st-row__main">
         <div className="st-row__title">
           <label id={labelId} htmlFor={field.kind === 'bool' ? undefined : id} className="st-row__label">{labelOf(field)}</label>
@@ -207,6 +190,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
           {changed && <span className="st-tag" data-tone="changed">Changed</span>}
         </div>
         <p className="st-row__desc">{field.desc}</p>
+        {field.extra && <p className="st-row__desc st-row__extra" data-testid={`st-extra-${field.key}`}>{field.extra(settings)}</p>}
         <div className="st-row__meta">
           {showWhere && <span className="st-where">{where}{was && was !== where ? <> · was {was}</> : null}</span>}
           {showKey && !field.asset && <code className="st-key">{field.key}</code>}

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../ConfirmDialog'
 import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import SideSheet from '../SideSheet'
 import { useModels } from '../../hooks/useModels'
 import { useGalleryEnrichment } from '../../hooks/useGalleryEnrichment'
 import { useModelSizes } from '../../hooks/useModelSizes'
@@ -13,6 +15,7 @@ import { systemApi } from '../../utils/api'
 import { buildCleanupPlan, totalSize, UNDO_MS } from '../../utils/cleanupPlan'
 import { diskEntry } from '../../utils/modelStorage'
 import { gbLabel } from '../../utils/modelLedger'
+import { Button, EmptyState, Tag } from '../ui'
 
 const TIERS = ['safe', 'probably', 'call']
 
@@ -111,9 +114,6 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
   const [confirm, setConfirm] = useState(null)
   const [checking, setChecking] = useState(false)
   const [showProtected, setShowProtected] = useState(false)
-  const sheetRef = useRef(null)
-  const closeRef = useRef(null)
-  const openerRef = useRef(null)
 
   useEffect(() => { if (open) refetch() }, [open, refreshToken, refetch])
 
@@ -174,37 +174,6 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
       return next.size === prev.size ? prev : next
     })
   }, [byId])
-
-  // Focus goes to Close on open and back to the opener when the sheet goes.
-  useEffect(() => {
-    openerRef.current = document.activeElement
-    closeRef.current?.focus()
-    return () => {
-      const opener = openerRef.current
-      if (opener && typeof opener.focus === 'function') opener.focus()
-    }
-  }, [])
-
-  // Escape closes the sheet, or the confirm above it, and Tab stays inside the
-  // sheet.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape' && !confirm) {
-        e.preventDefault()
-        onClose()
-        return
-      }
-      if (e.key !== 'Tab' || confirm || !sheetRef.current) return
-      const focusable = sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [confirm, onClose])
 
   const toggle = (id) => setSelected(prev => {
     const next = new Set(prev)
@@ -313,181 +282,21 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
 
   return (
     <>
-    <div className="dk-sheet-veil ledger-veil" data-state="open" onClick={onClose}>
-      <div
-        ref={sheetRef}
-        className="dk-sheet ledger-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cleanup-title"
-        data-state="open"
-        data-testid="cleanup-sheet"
-        onClick={e => e.stopPropagation()}
-      >
-        <span className="dk-sheet-grip" aria-hidden="true" />
-        <div className="dk-sheet-head">
-          <div>
-            <h2 className="dk-sheet-title" id="cleanup-title">{t('cleanup.title')}</h2>
-            {disk && (
-              <p className="dk-sheet-desc">
-                {t('cleanup.desc', { free: gbLabel(disk.free), total: gbLabel(disk.total), models: gbLabel(disk.models) })}
-              </p>
-            )}
-          </div>
-          <button
-            ref={closeRef}
-            type="button"
-            className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm"
-            aria-label={t('cleanup.close')}
-            onClick={onClose}
-          >
-            <Icon name="close" />
-          </button>
-        </div>
-
-        <div className="dk-sheet-body ledger-sheet__body" aria-busy={!ready}>
-          {disk && (
-            <div className="ledger-space">
-              <div
-                className="dk-meter"
-                role="img"
-                aria-label={t('cleanup.meterAria', { other: gbLabel(disk.other), models: gbLabel(disk.models), free: gbLabel(disk.free) })}
-              >
-                <span className="dk-meter-seg ledger-space__other" style={wStyle(pct(disk.other))} />
-                <span className="dk-meter-seg" style={wStyle(Math.max(0, pct(disk.models) - freedFraction))} />
-                {freedFraction > 0 && <span className="dk-meter-seg ledger-space__freed" style={wStyle(freedFraction)} />}
-              </div>
-              <ul className="dk-meter-legend">
-                <li><span className="dk-swatch ledger-space__other-swatch" />{t('cleanup.legend.other')} <span className="ledger-space__fig">{gbLabel(disk.other)}</span></li>
-                <li><span className="dk-swatch" />{t('cleanup.legend.models')} <span className="ledger-space__fig">{gbLabel(disk.models)}</span></li>
-                {freedFraction > 0 && <li><span className="dk-swatch ledger-space__freed-swatch" />{t('cleanup.legend.frees')} <span className="ledger-space__fig">{gbLabel(frees.bytes)}</span></li>}
-                <li><span className="dk-swatch ledger-space__free-swatch" />{t('cleanup.legend.free')} <span className="ledger-space__fig">{gbLabel(disk.free)}</span></li>
-              </ul>
-            </div>
-          )}
-
-          <p className="ledger-note" data-testid="cleanup-honesty">
-            <Icon name="info" />
-            <span>
-              <strong>{t('cleanup.noUsage.title')}</strong> {t('cleanup.noUsage.text')}
-            </span>
-          </p>
-          {ready && modelCount + plan.protected.length > 0 && (
-            <p className="ledger-note" data-testid="cleanup-sizes">
-              <Icon name="hard-drive" />
-              <span>{storage.status === 'ready' ? t('cleanup.sizes.disk') : t('cleanup.sizes.estimate')}</span>
-            </p>
-          )}
-          {ready && brokenModels.length > 0 && (
-            <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-missing">
-              <Icon name="alert-circle" /> <span>{t('cleanup.missing.note', { models: brokenModels.join(', ') })}</span>
-            </p>
-          )}
-          {!facts.verified && facts.loaded && (
-            <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-unverified">
-              <Icon name="alert-circle" /> <span>{t('cleanup.unverified')}</span>
-            </p>
-          )}
-          {modelsError && (
-            <p className="ledger-note ledger-note--warn" role="alert">
-              <Icon name="alert-circle" /> <span>{t('lifecycle.errors.loadList', { message: modelsError })}</span>
-            </p>
-          )}
-
-          {!ready && (
-            <div className="ledger-sheet__loading" data-testid="cleanup-loading">
-              {[0, 1, 2, 3].map(i => <span key={i} className="dk-skeleton dk-skeleton--line" />)}
-            </div>
-          )}
-
-          {ready && modelCount === 0 && (
-            <div className="dk-empty">
-              <h3 className="dk-empty-title">{t('cleanup.empty.title')}</h3>
-              <p className="dk-empty-text">{t('cleanup.empty.text')}</p>
-            </div>
-          )}
-
-          {ready && TIERS.map(tier => {
-            const items = plan.groups[tier]
-            if (items.length === 0) return null
-            const sum = totalSize(items, storage.index)
-            const allOn = items.every(item => selected.has(item.id))
-            return (
-              <section key={tier} className="ledger-tier" data-testid={`cleanup-tier-${tier}`} aria-labelledby={`cleanup-tier-${tier}-h`}>
-                <div className="ledger-tier__head">
-                  <h3 id={`cleanup-tier-${tier}-h`}>{t(`cleanup.tier.${tier}.title`)}</h3>
-                  <span className="ledger-tier__count">
-                    {t('cleanup.count', { count: items.length })}
-                    {sum.bytes > 0 && <> &middot; {gbLabel(sum.bytes)}</>}
-                  </span>
-                  <button type="button" className="dk-link ledger-tier__all" onClick={() => toggleTier(tier)}>
-                    {allOn ? t('cleanup.clearGroup') : t('cleanup.selectAll')}
-                  </button>
-                </div>
-                <p className="ledger-tier__hint">{t(`cleanup.tier.${tier}.hint`)}</p>
-                <ul className="ledger-tier__list">
-                  {items.map(item => (
-                    <li key={item.id}>
-                      <label className="ledger-cr" data-selected={selected.has(item.id) ? 'true' : 'false'}>
-                        <input
-                          className="dk-check"
-                          type="checkbox"
-                          checked={selected.has(item.id)}
-                          onChange={() => toggle(item.id)}
-                          aria-label={t('cleanup.selectModel', { model: item.id })}
-                        />
-                        <span className="ledger-cr__main">
-                          <span className="ledger-cr__name">
-                            {item.id}
-                            {item.backend && <span className="dk-badge">{item.backend}</span>}
-                          </span>
-                          <span className="ledger-cr__why">{reasonText(t, item.reason)}</span>
-                          <FactLines t={t} item={item} />
-                        </span>
-                        <span className="ledger-cr__size">{sizeText(t, item)}</span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )
-          })}
-
-          {ready && plan.protected.length > 0 && (
-            <section className="ledger-tier ledger-tier--protected" data-testid="cleanup-protected">
-              <button
-                type="button"
-                className="ledger-protected__toggle"
-                aria-expanded={showProtected}
-                aria-controls="cleanup-protected-list"
-                onClick={() => setShowProtected(v => !v)}
-              >
-                <Icon name={showProtected ? 'chevron-down' : 'chevron-right'} />
-                <h3>{t('cleanup.protected.title')}</h3>
-                <span className="ledger-tier__count">
-                  {t('cleanup.count', { count: plan.protected.length })} &middot; {t('cleanup.protected.never')}
-                </span>
-              </button>
-              {showProtected && (
-                <ul className="ledger-tier__list" id="cleanup-protected-list">
-                  {plan.protected.map(item => (
-                    <li key={item.id} className="ledger-cr ledger-cr--locked">
-                      <Icon name="lock" className="ledger-cr__lock" />
-                      <span className="ledger-cr__main">
-                        <span className="ledger-cr__name">{item.id}</span>
-                        <span className="ledger-cr__why">{protectedText(t, item.reasons)}</span>
-                        <FactLines t={t} item={item} />
-                      </span>
-                      <span className="ledger-cr__size">{item.sizeSource === 'disk' || item.size ? sizeText(t, item) : ''}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-        </div>
-
-        <div className="dk-sheet-foot ledger-effect" data-testid="cleanup-effect" data-empty={chosen.length === 0 ? 'true' : 'false'}>
+    <SideSheet
+      title={t('cleanup.title')}
+      description={disk ? t('cleanup.desc', { free: gbLabel(disk.free), total: gbLabel(disk.total), models: gbLabel(disk.models) }) : null}
+      closeLabel={t('cleanup.close')}
+      labelId="cleanup-title"
+      testId="cleanup-sheet"
+      initialFocus="close"
+      veilClass="ledger-veil"
+      bodyClass="ledger-sheet__body"
+      bodyProps={{ 'aria-busy': !ready }}
+      footClass="ledger-effect"
+      footProps={{ 'data-testid': 'cleanup-effect', 'data-empty': chosen.length === 0 ? 'true' : 'false' }}
+      onClose={onClose}
+      footer={(
+        <>
           <div className="ledger-effect__text" aria-live="polite">
             {chosen.length === 0 ? (
               <>
@@ -514,34 +323,164 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
             {removalPending && <span className="ledger-effect__wait">{t('cleanup.effect.pending')}</span>}
           </div>
           {chosen.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSelected(new Set())}>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
               {t('cleanup.clear')}
-            </button>
+            </Button>
           )}
           {chosen.length === 0 && plan.groups.safe.length > 0 && (
-            <button
-              type="button"
-              className="dk-btn dk-btn--secondary dk-btn--sm"
-              data-testid="cleanup-pick-safe"
-              onClick={() => setSelected(new Set(plan.groups.safe.map(item => item.id)))}
-            >
+            <Button variant="secondary" size="sm" data-testid="cleanup-pick-safe" onClick={() => setSelected(new Set(plan.groups.safe.map(item => item.id)))}>
               {t('cleanup.pickSafe', { count: plan.groups.safe.length })}
-            </button>
+            </Button>
           )}
+          <Button variant="danger" icon="trash" data-testid="cleanup-remove" disabled={chosen.length === 0 || removalPending || checking} aria-busy={checking || undefined} onClick={review}>
+            {t('cleanup.remove', { count: chosen.length })}
+          </Button>
+        </>
+      )}
+    >
+      {disk && (
+        <div className="ledger-space">
+          <div
+            className="dk-meter"
+            role="img"
+            aria-label={t('cleanup.meterAria', { other: gbLabel(disk.other), models: gbLabel(disk.models), free: gbLabel(disk.free) })}
+          >
+            <span className="dk-meter-seg ledger-space__other" style={wStyle(pct(disk.other))} />
+            <span className="dk-meter-seg" style={wStyle(Math.max(0, pct(disk.models) - freedFraction))} />
+            {freedFraction > 0 && <span className="dk-meter-seg ledger-space__freed" style={wStyle(freedFraction)} />}
+          </div>
+          <ul className="dk-meter-legend">
+            <li><span className="dk-swatch ledger-space__other-swatch" />{t('cleanup.legend.other')} <span className="ledger-space__fig">{gbLabel(disk.other)}</span></li>
+            <li><span className="dk-swatch" />{t('cleanup.legend.models')} <span className="ledger-space__fig">{gbLabel(disk.models)}</span></li>
+            {freedFraction > 0 && <li><span className="dk-swatch ledger-space__freed-swatch" />{t('cleanup.legend.frees')} <span className="ledger-space__fig">{gbLabel(frees.bytes)}</span></li>}
+            <li><span className="dk-swatch ledger-space__free-swatch" />{t('cleanup.legend.free')} <span className="ledger-space__fig">{gbLabel(disk.free)}</span></li>
+          </ul>
+        </div>
+      )}
+
+      <p className="ledger-note" data-testid="cleanup-honesty">
+        <Icon name="info" />
+        <span>
+          <strong>{t('cleanup.noUsage.title')}</strong> {t('cleanup.noUsage.text')}
+        </span>
+      </p>
+      {ready && modelCount + plan.protected.length > 0 && (
+        <p className="ledger-note" data-testid="cleanup-sizes">
+          <Icon name="hard-drive" />
+          <span>{storage.status === 'ready' ? t('cleanup.sizes.disk') : t('cleanup.sizes.estimate')}</span>
+        </p>
+      )}
+      {ready && brokenModels.length > 0 && (
+        <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-missing">
+          <Icon name="alert-circle" /> <span>{t('cleanup.missing.note', { models: brokenModels.join(', ') })}</span>
+        </p>
+      )}
+      {!facts.verified && facts.loaded && (
+        <p className="ledger-note ledger-note--warn" role="status" data-testid="cleanup-unverified">
+          <Icon name="alert-circle" /> <span>{t('cleanup.unverified')}</span>
+        </p>
+      )}
+      {modelsError && (
+        <p className="ledger-note ledger-note--warn" role="alert">
+          <Icon name="alert-circle" /> <span>{t('lifecycle.errors.loadList', { message: modelsError })}</span>
+        </p>
+      )}
+
+      {!ready && (
+        <div className="ledger-sheet__loading" data-testid="cleanup-loading">
+          {[0, 1, 2, 3].map(i => <span key={i} className="dk-skeleton dk-skeleton--line" />)}
+        </div>
+      )}
+
+      {ready && modelCount === 0 && (
+        <EmptyState
+          variant="first-run"
+          title={t('cleanup.empty.title')}
+          level={3}
+          body={t('cleanup.empty.text')}
+        />
+      )}
+
+      {ready && TIERS.map(tier => {
+        const items = plan.groups[tier]
+        if (items.length === 0) return null
+        const sum = totalSize(items, storage.index)
+        const allOn = items.every(item => selected.has(item.id))
+        return (
+          <section key={tier} className="ledger-tier" data-testid={`cleanup-tier-${tier}`} aria-labelledby={`cleanup-tier-${tier}-h`}>
+            <div className="ledger-tier__head">
+              <h3 id={`cleanup-tier-${tier}-h`}>{t(`cleanup.tier.${tier}.title`)}</h3>
+              <span className="ledger-tier__count">
+                {t('cleanup.count', { count: items.length })}
+                {sum.bytes > 0 && <> &middot; {gbLabel(sum.bytes)}</>}
+              </span>
+              <button type="button" className="dk-link ledger-tier__all" onClick={() => toggleTier(tier)}>
+                {allOn ? t('cleanup.clearGroup') : t('cleanup.selectAll')}
+              </button>
+            </div>
+            <p className="ledger-tier__hint">{t(`cleanup.tier.${tier}.hint`)}</p>
+            <ul className="ledger-tier__list">
+              {items.map(item => (
+                <li key={item.id}>
+                  <label className="ledger-cr" data-selected={selected.has(item.id) ? 'true' : 'false'}>
+                    <input
+                      className="dk-check"
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                      aria-label={t('cleanup.selectModel', { model: item.id })}
+                    />
+                    <span className="ledger-cr__main">
+                      <span className="ledger-cr__name">
+                        {item.id}
+                        {item.backend && <Tag>{item.backend}</Tag>}
+                      </span>
+                      <span className="ledger-cr__why">{reasonText(t, item.reason)}</span>
+                      <FactLines t={t} item={item} />
+                    </span>
+                    <span className="ledger-cr__size">{sizeText(t, item)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
+
+      {ready && plan.protected.length > 0 && (
+        <section className="ledger-tier ledger-tier--protected" data-testid="cleanup-protected">
           <button
             type="button"
-            className="dk-btn dk-btn--danger"
-            data-testid="cleanup-remove"
-            disabled={chosen.length === 0 || removalPending || checking}
-            aria-busy={checking || undefined}
-            onClick={review}
+            className="ledger-protected__toggle"
+            aria-expanded={showProtected}
+            aria-controls="cleanup-protected-list"
+            onClick={() => setShowProtected(v => !v)}
           >
-            <Icon name="trash" /> {t('cleanup.remove', { count: chosen.length })}
+            <Icon name={showProtected ? 'chevron-down' : 'chevron-right'} />
+            <h3>{t('cleanup.protected.title')}</h3>
+            <span className="ledger-tier__count">
+              {t('cleanup.count', { count: plan.protected.length })} &middot; {t('cleanup.protected.never')}
+            </span>
           </button>
-        </div>
-        {dupLoading && <span className="dk-sr-only" role="status">{t('cleanup.checkingBuilds')}</span>}
-      </div>
-    </div>
+          {showProtected && (
+            <ul className="ledger-tier__list" id="cleanup-protected-list">
+              {plan.protected.map(item => (
+                <li key={item.id} className="ledger-cr ledger-cr--locked">
+                  <Icon name="lock" className="ledger-cr__lock" />
+                  <span className="ledger-cr__main">
+                    <span className="ledger-cr__name">{item.id}</span>
+                    <span className="ledger-cr__why">{protectedText(t, item.reasons)}</span>
+                    <FactLines t={t} item={item} />
+                  </span>
+                  <span className="ledger-cr__size">{item.sizeSource === 'disk' || item.size ? sizeText(t, item) : ''}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {dupLoading && <span className="dk-sr-only" role="status">{t('cleanup.checkingBuilds')}</span>}
+    </SideSheet>
 
     <ConfirmDialog
         open={!!confirm}

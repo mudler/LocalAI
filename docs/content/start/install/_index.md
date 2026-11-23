@@ -8,13 +8,14 @@ aliases:
 keywords: ["install", "desktop", "launcher", "appimage", "script", "docker", "macos", "linux", "kubernetes", "setup"]
 ---
 
-Install the server with a script, a binary, a container or Helm. The desktop app, which installs and runs the server for you, is in the 5.0 release.
+Install the server with a script, a binary, a container or Helm. Windows has a PowerShell install script and a native binary. The desktop app, which installs and runs the server for you, is in the 5.0 release.
 
 | You have | Use | Command or guide |
 |---|---|---|
 | Linux, or a Mac with Apple Silicon | Install script | See [below](#install-script) |
 | Linux or macOS, and you want to choose the file | Binary | [Binary]({{% relref "/start/install/linux" %}}) |
-| Windows (WSL2), an Intel Mac, a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
+| Windows on amd64 | PowerShell script or binary | [Windows]({{% relref "/start/install/windows" %}}) |
+| An Intel Mac, a server, or a GPU image | Container | [Containers]({{% relref "/start/install/containers" %}}) |
 | A cluster | Helm chart | [Kubernetes]({{% relref "/start/install/kubernetes" %}}) |
 | A change to the code | Source | [Build from source]({{% relref "/contributing/build-from-source" %}}) |
 
@@ -40,7 +41,27 @@ You can set these environment variables before the command:
 | `LOCALAI_NO_SUDO` | Set to `1` to never ask for `sudo`. LocalAI then installs into `~/.local/bin`. |
 | `GITHUB_TOKEN` | A GitHub token, used only to avoid GitHub API rate limits when the script looks up the latest release. |
 
-The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon). There is no binary for Intel Macs. Use a container there.
+The script supports Linux on amd64 and arm64, and macOS on arm64 (Apple Silicon). There is no binary for Intel Macs. Use a container there. On Windows, use the PowerShell script in [Windows]({{% relref "/start/install/windows" %}}).
+
+### Install a worker
+
+The script has a worker mode that installs the binary and then a service that runs `local-ai worker` and joins a cluster. You normally do not type this yourself: an admin mints a join token on the Workers page (**Add worker**), and the page gives you a command such as `curl -fsSL 'https://ai.example.com/join.sh?t=...' | sudo sh`, which runs this mode. See [Join tokens]({{% relref "/administration/distributed-mode" %}}#join-tokens).
+
+```bash
+LOCALAI_REGISTER_TO=https://ai.example.com LOCALAI_JOIN_TOKEN=ljt_... sudo -E sh install.sh --worker
+```
+
+Run it as root. It writes a systemd unit on Linux (a launchd daemon on macOS, not tested on every macOS version), keeps the settings in `/etc/localai/worker.env` (readable by root only), and starts the service. The join token is read from the environment, never from a command line, and the script never prints it. Running it again is safe: the worker keeps its own credential in its state directory and needs the token once.
+
+| Variable | Effect |
+|---|---|
+| `LOCALAI_REGISTER_TO` | The URL of the frontend. Required. |
+| `LOCALAI_JOIN_TOKEN` | The join token. Required the first time. |
+| `LOCALAI_WORKER_ROUTES` | `nats`, `websocket` or both. Optional. |
+| `LOCALAI_WORKER_NAME` | The node name. The default is the host name. |
+| `LOCALAI_WORKER_DIR` | The state directory (models, backends, credential). The default is `/var/lib/local-ai` on Linux. |
+
+To remove the worker: `sudo systemctl disable --now localai-worker`, then remove `/etc/localai/worker.env`, `/etc/systemd/system/localai-worker.service` and the state directory, and delete the worker on the Workers page.
 
 ## Container
 
@@ -54,7 +75,7 @@ Podman works the same way for the CPU image. For GPU images and persistent stora
 
 The desktop app installs, updates, starts and stops the LocalAI server on your computer and shows the web interface in a window. It can also connect to a LocalAI server that runs somewhere else.
 
-The 5.0 release has the DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64). Download them from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
+The 5.0 release has the DMG for a Mac with Apple Silicon and the AppImages for Linux (x86-64 and ARM64). Later releases also have a Windows installer for x86-64. Download them from the [latest release](https://github.com/mudler/LocalAI/releases/latest). See [Desktop app]({{% relref "/start/install/desktop" %}}) for the steps, the first start, the update channels and troubleshooting.
 
 ## Development builds
 

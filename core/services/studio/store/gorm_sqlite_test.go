@@ -18,6 +18,13 @@ import (
 
 // openSQLite opens a file database the way LocalAI does in production: the
 // pure-Go driver, a busy timeout, and the write lock taken at BEGIN.
+//
+// A spec that changes the table by hand and then starts a second store opens
+// the file again for that store, as a restart does. The connections of the
+// first pool still hold the old schema: a "SELECT *" prepared there runs
+// against the new one, and the driver then pairs the old column names with
+// the new values (the Scan error on egress_rev that came and went with the
+// load of the machine).
 func openSQLite(path string) *gorm.DB {
 	db, err := auth.OpenSQLiteFile(path)
 	Expect(err).NotTo(HaveOccurred())
@@ -42,7 +49,7 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(first.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		// The table as it was before the column.
 		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN scoped_agent").Error).To(Succeed())
-		second, err := store.NewGORM(db)
+		second, err := store.NewGORM(openSQLite(path))
 		Expect(err).NotTo(HaveOccurred())
 		got, err := second.GetChat(context.Background(), "alice", "old")
 		Expect(err).NotTo(HaveOccurred())
@@ -56,7 +63,7 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(first.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN collections").Error).To(Succeed())
-		second, err := store.NewGORM(db)
+		second, err := store.NewGORM(openSQLite(path))
 		Expect(err).NotTo(HaveOccurred())
 		got, err := second.GetChat(context.Background(), "alice", "old")
 		Expect(err).NotTo(HaveOccurred())
@@ -76,7 +83,7 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(db.Exec("DROP INDEX idx_studio_chats_project_id").Error).To(Succeed())
 		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN project_id").Error).To(Succeed())
 		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN pulled_projects").Error).To(Succeed())
-		second, err := store.NewGORM(db)
+		second, err := store.NewGORM(openSQLite(path))
 		Expect(err).NotTo(HaveOccurred())
 		got, err := second.GetChat(context.Background(), "alice", "old")
 		Expect(err).NotTo(HaveOccurred())
@@ -103,7 +110,7 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(got.AllowedTools).To(Equal([]string{"get_status", "search_all"}))
 		// The table as it was before the column.
 		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN allowed_tools").Error).To(Succeed())
-		second, err := store.NewGORM(db)
+		second, err := store.NewGORM(openSQLite(path))
 		Expect(err).NotTo(HaveOccurred())
 		got, err = second.GetChat(ctx, "alice", "kid")
 		Expect(err).NotTo(HaveOccurred())

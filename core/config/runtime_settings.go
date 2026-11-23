@@ -40,6 +40,7 @@ type RuntimeSettings struct {
 	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
 
 	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
+	MaxConcurrentModelOperations   *int `json:"max_concurrent_model_operations,omitempty"`
 
 	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
 	F16                  *bool   `json:"f16,omitempty"`
@@ -54,10 +55,15 @@ type RuntimeSettings struct {
 	CSRF             *bool   `json:"csrf,omitempty"`
 	CORSAllowOrigins *string `json:"cors_allow_origins,omitempty"`
 
-	// P2P settings
-	P2PToken     *string `json:"p2p_token,omitempty"`
-	P2PNetworkID *string `json:"p2p_network_id,omitempty"`
-	Federated    *bool   `json:"federated,omitempty"`
+	// P2P layer. A change of any of them restarts the P2P host.
+	P2PMode           *string     `json:"p2p_mode,omitempty"`             // off, connect or share (default: off)
+	P2PPublicDHT      *bool       `json:"p2p_public_dht,omitempty"`       // use the public DHT for discovery and hole punching (default: true)
+	P2PBootstrapPeers *[]string   `json:"p2p_bootstrap_peers,omitempty"`  // bootstrap peers, multiaddrs with /p2p/ (default: the public ones)
+	P2PRelays         *[]P2PRelay `json:"p2p_relays,omitempty"`           // relays the server knows: {id, addr, label}
+	P2PRelayPaired    *bool       `json:"p2p_relay_paired,omitempty"`     // relay for paired devices (default: true)
+	P2PRelayMode      *string     `json:"p2p_relay_mode,omitempty"`       // when to relay: auto (while publicly reachable), on or off (default: auto)
+	P2PRelayRateLimit *int64      `json:"p2p_relay_rate_limit,omitempty"` // bytes per second per relayed circuit, 0 for none (default: 0)
+	P2PMDNS           *bool       `json:"p2p_mdns,omitempty"`             // discover peers on the local network (default: true)
 
 	// Gallery settings
 	Galleries                *[]Gallery `json:"galleries,omitempty"`
@@ -125,6 +131,9 @@ type RuntimeSettings struct {
 	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
 	// 40). Read at each turn.
 	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most add-on tools one chat is offered, 16 to 256 (default: 64).
+	// Read at each discovery, so a change applies at once.
+	ChatsAddonToolLimit *int `json:"chats_addon_tool_limit,omitempty"`
 	// The most turns the server starts by itself for one goal of a chat, 1 to
 	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
 	// 10000 (default: 400). Read when a turn ends.
@@ -132,13 +141,16 @@ type RuntimeSettings struct {
 	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
 	// The loops of the chats: the shortest interval (a duration, 30s to 24h,
 	// default 1m), the runs after which a loop ends (default 100), the loops
-	// one chat and one user may have (defaults 3 and 10), and the loop runs
-	// one user may start in a UTC day (default 200). Read at each use.
-	ChatsLoopMinInterval *string `json:"chats_loop_min_interval,omitempty"`
-	ChatsLoopMaxRuns     *int    `json:"chats_loop_max_runs,omitempty"`
-	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
-	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
-	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
+	// and waits one chat and one user may have (defaults 3 and 10), the loop
+	// runs one user may start in a UTC day (default 200), and the checks of
+	// waits on a command one user may spend in a UTC day (1 to 100000,
+	// default 1500). Read at each use.
+	ChatsLoopMinInterval       *string `json:"chats_loop_min_interval,omitempty"`
+	ChatsLoopMaxRuns           *int    `json:"chats_loop_max_runs,omitempty"`
+	ChatsLoopMaxPerChat        *int    `json:"chats_loop_max_per_chat,omitempty"`
+	ChatsLoopMaxPerUser        *int    `json:"chats_loop_max_per_user,omitempty"`
+	ChatsLoopDailyRuns         *int    `json:"chats_loop_daily_runs,omitempty"`
+	ChatsLoopDailyScriptChecks *int    `json:"chats_loop_daily_script_checks,omitempty"`
 	// The triggers of the chats: the longest one run may take (a duration,
 	// 1m to 24h, default 15m), the triggers one user may have (1 to 1000,
 	// default 50) and the highest daily limit one trigger may have (1 to 1000,

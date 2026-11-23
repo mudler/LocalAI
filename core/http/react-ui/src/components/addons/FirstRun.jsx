@@ -3,18 +3,15 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Callout, EmptyState, SkeletonRows } from '../ui'
 import { AppIcon, EntryAdds, VersionText } from './AddonBits'
-import FlowStatus from './InstallFlow'
-import InstallDialog from './InstallDialog'
 import { featuredEntries, localizeEntry } from './addonState'
 import { describeError } from './errors'
 
 // Nothing is installed yet. An administrator sees what add-ons are for, the
 // way to find them, and three add-ons from the sources as rows with Install:
-// one confirmation, then the install and the turn on run one after the other.
-export default function FirstRun({ adapter, actions }) {
+// the review of the host access, then the install runs in the background queue.
+export default function FirstRun({ adapter, queue }) {
   const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', entries: [], error: null })
-  const [confirm, setConfirm] = useState(null)
 
   useEffect(() => {
     const ctl = new AbortController()
@@ -24,8 +21,7 @@ export default function FirstRun({ adapter, actions }) {
     return () => ctl.abort()
   }, [adapter])
 
-  const flowOf = (entry) => actions.flows[`flow:${entry.key}`]
-  const busy = (entry) => ['install', 'turn-on'].includes(flowOf(entry)?.step) || Boolean(actions.unknown[entry.id])
+  const busy = (entry) => queue.busy.has(entry.id)
   const none = state.status === 'ready' && state.entries.length === 0
 
   return (
@@ -58,17 +54,15 @@ export default function FirstRun({ adapter, actions }) {
                     <EntryAdds entry={entry} />
                     <span className="ad-meta"><span className="ad-meta__item"><VersionText version={entry.version} /></span></span>
                   </div>
-                  <FlowStatus flow={confirm && confirm.key === entry.key ? undefined : flowOf(entry)} name={entry.title} onRetry={flowOf(entry)?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flowOf(entry).failedStep === 'turn-on' }) : undefined} />
                 </div>
                 <div className="ad-entry__acts">
-                  <Button size="sm" icon="download" busy={busy(entry)} disabled={busy(entry)} onClick={() => setConfirm(entry)} aria-label={t('flow.installNamed', { name: entry.title })}>{t('flow.install')}</Button>
+                  <Button size="sm" icon="download" busy={busy(entry)} disabled={busy(entry)} onClick={() => queue.start([entry])} aria-label={t('flow.installNamed', { name: entry.title })}>{t('flow.install')}</Button>
                 </div>
               </li>
             ))}
           </ul>
         </>
       )}
-      <InstallDialog entry={confirm} flow={confirm ? actions.flows[`flow:${confirm.key}`] : undefined} actions={actions} onClose={() => setConfirm(null)} />
     </section>
   )
 }

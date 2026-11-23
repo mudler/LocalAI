@@ -459,6 +459,15 @@
     "servedByBuiltin": "integrato",
     "fallbackBuiltin": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat (fermo, disattivato qui o non concesso): si usa {{tool}} integrato.",
     "fallbackNone": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat, e {{tool}} integrato è disattivato: questa chat non ha {{tool}}.",
+    "toolCap": {
+      "title": "Alcuni strumenti degli add-on non sono disponibili in questa chat",
+      "reason": "{{offered}} strumenti degli add-on su {{total}} sono disponibili. Una chat ne può usare solo un numero limitato.",
+      "who": "Disattiva in questa chat gli add-on che non usi per liberare spazio, oppure chiedi a un amministratore di alzare il limite.",
+      "whoAdmin": "Disattiva in questa chat gli add-on che non usi per liberare spazio, oppure alza il limite nelle Impostazioni.",
+      "fix": "Apri l'impostazione",
+      "addon": "{{name}}: {{count}} non disponibili",
+      "lost": "Add-on che hanno perso strumenti"
+    },
     "shell": {
       "machine": "Questa macchina",
       "isolated": "I comandi girano isolati"
@@ -758,6 +767,53 @@
           "library": "libreria dei backend",
           "addons": "componenti aggiuntivi"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modello",
+          "backend": "Backend",
+          "addon": "Componente aggiuntivo"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installato",
+          "delete": "{{kind}} {{name}} rimosso",
+          "upgrade": "{{kind}} {{name}} aggiornato"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: installazione non riuscita",
+          "delete": "{{kind}} {{name}}: rimozione non riuscita",
+          "upgrade": "{{kind}} {{name}}: aggiornamento non riuscito"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: installazione annullata",
+          "delete": "{{kind}} {{name}}: rimozione annullata",
+          "upgrade": "{{kind}} {{name}}: aggiornamento annullato"
+        },
+        "needsReview": {
+          "install": "Il componente aggiuntivo {{name}} richiede il tuo controllo per essere installato"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} aggiornamento di modelli disponibile",
+          "title_other": "{{count}} aggiornamenti di modelli disponibili"
+        },
+        "done": {
+          "title": "Modello {{name}} aggiornato",
+          "body": "Da {{from}} a {{to}}."
+        },
+        "failed": {
+          "title": "Modello {{name}}: l'aggiornamento non è riuscito",
+          "rolledBack": "La versione precedente è stata ripristinata e continua a funzionare. Motivo: {{error}}",
+          "rolledBackPlain": "La versione precedente è stata ripristinata e continua a funzionare.",
+          "kept": "La versione precedente continua a funzionare. Motivo: {{error}}",
+          "keptPlain": "La versione precedente continua a funzionare."
+        },
+        "removed": {
+          "title": "Modello {{name}}: versione precedente rimossa",
+          "body_one": "{{count}} file vecchio eliminato.",
+          "body_other": "{{count}} file vecchi eliminati."
+        }
       }
     },
     "tabs": {
@@ -792,7 +848,9 @@
         "removed": "{{name}} rimosso",
         "staged": "{{name}} trasferito"
       }
-    }
+    },
+    "chatsOff": "Le chat sono disattivate",
+    "emptyBodyNoChats": "Qui compaiono gli aggiornamenti e le operazioni concluse."
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",

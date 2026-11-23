@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -138,7 +139,7 @@ func (i *PrivacyFilterImporter) Import(details Details) (gallery.ModelConfig, er
 		if err != nil {
 			return gallery.ModelConfig{}, err
 		}
-		target := filepath.Join("privacy-filter", "models", name, fileName)
+		target := path.Join("privacy-filter", "models", name, fileName)
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: target,
@@ -157,7 +158,7 @@ func (i *PrivacyFilterImporter) Import(details Details) (gallery.ModelConfig, er
 			}
 		}
 		if chosen, ok := pickPreferredGGMLFile(ggufFiles, quants); ok {
-			target := filepath.Join("privacy-filter", "models", name, filepath.Base(chosen.Path))
+			target := path.Join("privacy-filter", "models", name, filepath.Base(chosen.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
 				URI:      chosen.URL,
 				Filename: target,

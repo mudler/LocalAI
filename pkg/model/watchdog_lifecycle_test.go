@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -218,6 +219,9 @@ var _ = Describe("Watchdog backend lifecycle", func() {
 	})
 
 	It("untracks a backend after an unexpected exit", func() {
+		if runtime.GOOS == "windows" {
+			Skip("the fixture backend is a shell script, which Windows cannot execute")
+		}
 		backend := filepath.Join(GinkgoT().TempDir(), "backend")
 		Expect(os.WriteFile(backend, []byte("#!/bin/sh\nexit 42\n"), 0o700)).To(Succeed())
 		p, err := loader.startProcess(backend, "model", "old", nil)

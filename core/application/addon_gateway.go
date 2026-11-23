@@ -46,7 +46,7 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 	if a.addonGateway == nil {
 		return nil
 	}
-	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway).WithToolLimit(a.addonToolLimit), a.AddonOwnershipMode())
 	if db := a.AuthDB(); db != nil {
 		has := addonFeatureCheck(db)
 		authority := a.addonAuthority()
@@ -189,7 +189,16 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
 		Store:     f.Store(),
 		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
-		DataDir:   func(id string) string { return filepath.Join(root, id) },
+		// An add-on in WSL 2 keeps its data in the file system of its
+		// distribution; the supervisor knows the path this host reaches.
+		DataDir: func(id string) string {
+			if a.addonHostDataDir != nil {
+				if d := a.addonHostDataDir(id); d != "" {
+					return d
+				}
+			}
+			return filepath.Join(root, id)
+		},
 		// The chats service is built after the broker: it is looked up at
 		// each call. A chat's call gets the chat's access, so a chat whose
 		// agent has a folder reaches only that folder through an add-on;
@@ -670,7 +679,13 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
+	return &studioAddons{gw: a.addonGateway, adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName).WithToolLimit(a.addonToolLimit), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has, startFailure: a.addonStartFailure}
+}
+
+// addonToolLimit is the cap on add-on tools one chat is offered now
+// (chats_addon_tool_limit).
+func (a *Application) addonToolLimit() int {
+	return a.applicationConfig.EffectiveChatsAddonToolLimit()
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -697,6 +712,17 @@ func (l lateStudioAddons) Unavailable(ctx context.Context, user, addonID string,
 func (l lateStudioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
 	if g, ok := l.a.StudioAddonTools().(studio.AddonSkillLister); ok {
 		return g.AddonSkills(ctx, user)
+	}
+	return nil, nil
+}
+
+// AddonShadowers forwards to the broker when it lists the add-ons that replace
+// a built-in chat tool in any state. Without it the chats see only the add-ons
+// whose tools a discovery lists, and miss one that is stopped or cut by the
+// tool cap.
+func (l lateStudioAddons) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.ShadowLister); ok {
+		return g.AddonShadowers(ctx, user)
 	}
 	return nil, nil
 }
@@ -734,6 +760,19 @@ func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]stu
 		return g.AddonListings(ctx, user)
 	}
 	return nil, nil
+}
+
+// ToolsScoped forwards to the broker when it caps its tools.
+func (l lateStudioAddons) ToolsScoped(ctx context.Context, user string, excluded func(string) bool) ([]studio.AddonTool, *studio.ToolCap, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonToolScoper); ok {
+		return g.ToolsScoped(ctx, user, excluded)
+	}
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return nil, nil, nil
+	}
+	tools, err := b.Tools(ctx, user)
+	return tools, nil, err
 }
 
 // ResourceChoices forwards to the broker when it can list the resources a
@@ -832,6 +871,10 @@ type studioAddons struct {
 	ids func() []string
 	// has answers whether a user holds a host feature. Nil offers every tool.
 	has func(userID, feature string) bool
+	// startFailure says why an enabled add-on did not start, when the owner of
+	// this process knows a reason for people (see Manager.StartFailure). Nil
+	// or "" says nothing.
+	startFailure func(addonID string) string
 }
 
 // hostOpFeatures maps the prefix of a host operation to the feature the host
@@ -888,6 +931,16 @@ func filterByFeature(tools []studio.AddonTool, hostOps hostops.Authority, has fu
 	return out
 }
 
+// addonStartFailure is why an enabled add-on of the owner in this process did
+// not start, when there is a reason for people. A frontend has no owner here
+// and says nothing.
+func (a *Application) addonStartFailure(id string) string {
+	if a.addonManager == nil {
+		return ""
+	}
+	return a.addonManager.StartFailure(id)
+}
+
 // installed lists the installed add-ons, or none when no list is wired.
 func (s *studioAddons) installed() []string {
 	if s.ids == nil {
@@ -914,6 +967,12 @@ func hasWorkspaceOperation(operations []string) bool {
 func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
 	if !workspace && s.needsWorkspace(addonID) {
 		return "the Files workspace is off on this server, so there is no place for files or code"
+	}
+	// An add-on that could not start has no status of its own to give.
+	if s.startFailure != nil {
+		if reason := s.startFailure(addonID); reason != "" {
+			return reason
+		}
 	}
 	value, explanation := studio.ExecutionObservation(ctx, user, addonID)
 	if value.Readiness == "unavailable" {
@@ -976,18 +1035,34 @@ func (s *studioAddons) actor(user string) (contract.Actor, error) {
 }
 
 func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	tools, _, err := s.ToolsScoped(ctx, user, nil)
+	return tools, err
+}
+
+// ToolsScoped lists the tools of the user less the add-ons that excluded names
+// (nil keeps all). The people who may not use an add-on, for want of a feature
+// its host operations need, are excluded here too, before the cap, so a model
+// is not offered a tool that can only answer "no permission" and such an
+// add-on takes no room. The second result says what the cap on add-on tools
+// left out, or is nil when it cut nothing.
+func (s *studioAddons) ToolsScoped(ctx context.Context, user string, excluded func(string) bool) ([]studio.AddonTool, *studio.ToolCap, error) {
 	actor, err := s.actor(user)
 	if err != nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	defs, err := s.adapter.Discover(ctx, actor)
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
+	skip := func(id string) bool { return denied[id] || (excluded != nil && excluded(id)) }
+	if len(denied) == 0 && excluded == nil {
+		skip = nil
+	}
+	defs, report, err := s.adapter.DiscoverWithReport(ctx, actor, skip)
 	if errors.Is(err, gateway.ErrForbidden) {
 		// A user without the add-ons feature has no add-on tools. The chat
 		// and its tools panel still work.
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := make([]studio.AddonTool, 0, len(defs))
 	for _, d := range defs {
@@ -998,7 +1073,15 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
 			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed, OwnerData: d.OwnerData, ApprovalOverridable: d.ApprovalOverridable, Tool: d.Tool, ResourceScoped: d.ResourceScoped})
 	}
-	return filterByFeature(out, s.hostOps, s.has, actor), nil
+	out = filterByFeature(out, s.hostOps, s.has, actor)
+	if !report.Truncated() {
+		return out, nil, nil
+	}
+	capped := &studio.ToolCap{Cap: report.Cap, Offered: report.Offered, Cut: report.Cut}
+	for _, a := range report.Addons {
+		capped.Addons = append(capped.Addons, studio.ToolCapAddon{ID: a.ID, Title: a.Title, Cut: a.Cut})
+	}
+	return out, capped, nil
 }
 
 // AddonSkills lists the add-ons that ship skills and that the user can see,

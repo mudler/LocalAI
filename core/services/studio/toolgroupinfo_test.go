@@ -108,7 +108,7 @@ func mustTools(svc *studio.Service, id string) studio.ToolsPanel {
 }
 
 func mustDraft(svc *studio.Service, agentID string) studio.ToolsPanel {
-	p, err := svc.DraftTools(context.Background(), alice, "m", agentID)
+	p, err := svc.DraftTools(context.Background(), alice, "m", agentID, studio.Switches{})
 	Expect(err).NotTo(HaveOccurred())
 	return p
 }

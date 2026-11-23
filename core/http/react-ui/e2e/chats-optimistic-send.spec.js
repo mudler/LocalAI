@@ -165,6 +165,8 @@ test.describe('Chat follows what grows under it', () => {
     // The transfer starts: the card gets a phase, a bar and a note, and grows.
     state.ops = [{ id: 'op1', jobID: 'op1', taskType: 'staging', name: 'qwen3-8b', progress: 40, message: 'Copying the model to the node. '.repeat(8), nodeName: 'node-a' }]
     await expect(page.getByTestId('chat-load-phase')).toBeVisible({ timeout: 5000 })
+    // One spinner for the whole card, not one for the title and one per phase.
+    await expect(page.getByTestId('chat-load').locator('.dk-spin')).toHaveCount(1)
     await expect.poll(() => gap(page), { timeout: 3000 }).toBeLessThan(5)
   })
 

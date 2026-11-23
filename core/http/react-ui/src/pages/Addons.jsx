@@ -1,17 +1,22 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { Button, Page, PageHeader } from '../components/ui'
+import { Button, Page, PageHeader, Tabs } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
 import LibrariesView from '../components/addons/LibrariesView'
 import HostAccessView from '../components/addons/HostAccessView'
-import InstallFromFile from '../components/addons/InstallFromFile'
+import InstallFromFile, { FileInstallBanner } from '../components/addons/InstallFromFile'
+import { useFileInstall } from '../components/addons/useFileInstall'
+import InstallDialog from '../components/addons/InstallDialog'
+import AddonQueue from '../components/addons/AddonQueue'
+import { useInstallQueue } from '../components/addons/useInstallQueue'
 import { useHostGrants } from '../components/addons/useHostGrants'
-import { pendingApprovals } from '../components/addons/hostGrantsState'
+import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
+import { awaitingApproval } from '../components/addons/hostGrantsState'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
 import '../components/addons/addons.css'
 
@@ -34,11 +39,38 @@ export default function Addons() {
   const manage = resolveManage(params, isAdmin)
   const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
   const tabs = visibleTabs(isAdmin)
-  const refs = useRef({})
   // Host access is read once here: the tab shows how many approvals wait, and
   // the list of add-ons shows the same banners.
   const grants = useHostGrants({ enabled: Boolean(isAdmin) })
-  const waiting = grants.data ? pendingApprovals(grants.data).length : 0
+  // An approval whose upgrade is queued or running no longer waits for anyone.
+  const upgrades = useAddonUpgrades()
+  const waiting = awaitingApproval(grants.data, (id) => upgrades.live.find(op => op.addonId === id) || null).length
+  // The installs of the background queue and the dialog that reviews them.
+  // They live on the page, not on a tab: the rows stay in view while the
+  // person moves between the tabs.
+  const queue = useInstallQueue({ adapter: addonsCatalog })
+  // The install from a file lives here, above the tabs, so a dialog the person
+  // closed still tells how its install goes from whatever tab is open.
+  const fileInstall = useFileInstall({ onInstalled: () => setListKey(n => n + 1) })
+  const [installed, setInstalled] = useState({})
+  useEffect(() => {
+    if (!queue.current) return undefined
+    const ctl = new AbortController()
+    addonsApi.installed(ctl.signal)
+      .then(list => setInstalled(Object.fromEntries(list.map(a => [a.id, a]))))
+      .catch(() => {})
+    return () => ctl.abort()
+  }, [queue.current, queue.tick]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A link to review one add-on again (from the Activity page): open its
+  // review and drop the parameter so a reload does not ask twice.
+  const reviewId = params.get('review')
+  const reviewing = useRef('')
+  useEffect(() => {
+    if (!isAdmin || !reviewId || reviewing.current === reviewId) return
+    reviewing.current = reviewId
+    setParams(prev => { const out = new URLSearchParams(prev); out.delete('review'); return out }, { replace: true })
+    queue.reviewId(reviewId)
+  }, [isAdmin, reviewId, queue, setParams])
 
   const select = useCallback((next) => {
     setParams(prev => {
@@ -49,19 +81,6 @@ export default function Addons() {
       return out
     })
   }, [setParams])
-
-  const onKeyDown = (e) => {
-    const index = tabs.indexOf(tab)
-    let next = index
-    if (e.key === 'ArrowRight') next = (index + 1) % tabs.length
-    else if (e.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length
-    else if (e.key === 'Home') next = 0
-    else if (e.key === 'End') next = tabs.length - 1
-    else return
-    e.preventDefault()
-    select(tabs[next])
-    refs.current[tabs[next]]?.focus()
-  }
 
   // Add-ons and Pages are one family: installed software here, pages a person
   // or an agent made on the Pages screen. Say where the other kind lives.
@@ -77,40 +96,47 @@ export default function Addons() {
         actions={isAdmin && tab === 'apps' ? (
           <>
             {showFind && <Button variant="primary" icon="store" to="/app/addons?tab=browse" data-testid="addons-add">{t('drawer.add')}</Button>}
-            <InstallFromFile onInstalled={() => setListKey(n => n + 1)} />
+            <InstallFromFile install={fileInstall} />
           </>
         ) : null}
       />
 
       {tabs.length > 1 && (
-        <div className="ad-tabs" role="tablist" aria-label={t('tabs.label')} onKeyDown={onKeyDown}>
-          {tabs.map(id => (
-            <button
-              key={id}
-              ref={el => { refs.current[id] = el }}
-              type="button"
-              role="tab"
-              id={`ad-tab-${id}`}
-              className="ad-tab"
-              aria-selected={tab === id}
-              aria-controls={tab === id ? `ad-panel-${id}` : undefined}
-              tabIndex={tab === id ? 0 : -1}
-              onClick={() => select(id)}
-            >
-              {t(`tabs.${id}`)}
-              {id === 'apps' && summary && summary.count > 0 && <span className="ad-tab__count">{summary.count}</span>}
-              {id === 'access' && waiting > 0 && <span className="ad-tab__count ad-tab__count--warn" data-testid="access-waiting" aria-label={t('hostAccess.tabWaiting', { count: waiting })}>{waiting}</span>}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('tabs.label')}
+          idPrefix="ad"
+          value={tab}
+          onChange={select}
+          items={tabs.map(id => ({
+            id,
+            label: t(`tabs.${id}`),
+            ...(id === 'apps' && summary && summary.count > 0 ? { count: summary.count } : {}),
+            ...(id === 'access' && waiting > 0 ? { count: waiting, countTone: 'warn', countTestId: 'access-waiting', countLabel: t('hostAccess.tabWaiting', { count: waiting }) } : {}),
+          }))}
+        />
       )}
 
+      {isAdmin && <AddonQueue queue={queue} />}
+      {isAdmin && <FileInstallBanner install={fileInstall} onRetry={() => select('apps')} />}
+
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView key={listKey} api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} />}
-        {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
+        {tab === 'apps' && <AppsView key={`${listKey}:${queue.tick}`} api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} queue={queue} fileOp={fileInstall.activity} />}
+        {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} queue={queue} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
         {tab === 'access' && <HostAccessView grants={grants} />}
       </div>
+      {isAdmin && (
+        <InstallDialog
+          entry={queue.current}
+          installed={installed}
+          batch={queue.batch}
+          review={queue.review}
+          sending={queue.sending}
+          onAccept={queue.accept}
+          onSkip={queue.skip}
+          onClose={queue.close}
+        />
+      )}
     </Page>
   )
 }

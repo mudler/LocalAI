@@ -24,6 +24,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [llama.cpp](https://github.com/ggerganov/llama.cpp) | LLM inference in C/C++. Supports LLaMA, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | GPT, Functions | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
 | [ik_llama.cpp](https://github.com/ikawrakow/ik_llama.cpp) | Hard fork of llama.cpp optimized for CPU/hybrid CPU+GPU with IQK quants, custom quant mixes, and MLA for DeepSeek | GPT | yes | yes | CPU (AVX2+) |
 | [turboquant](https://github.com/TheTom/llama-cpp-turboquant) | llama.cpp fork adding the TurboQuant KV-cache quantization scheme | GPT | yes | yes | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Jetson L4T |
+| [olala](https://github.com/OVHai-LLM/llama.cpp) | llama.cpp fork (OVHai LLM) that adds the `olala` architecture (Mamba3 hybrid MoE) of the Olala models | GPT, Functions | no | yes | CPU (x86-64), CUDA 12 |
 | [ds4](https://github.com/antirez/ds4) | DeepSeek V4 Flash single-model inference engine, optimized for Metal and CUDA | GPT | no | yes | CPU, CUDA 12/13, Metal, Jetson L4T |
 | [vllm.cpp](https://github.com/mudler/vllm.cpp) | From-scratch C++20 port of vLLM by the LocalAI team: paged KV cache, continuous batching, prefix caching, safetensors + GGUF, engine-enforced structured output, no Python at inference | GPT, Functions | no | yes | CPU, CUDA 13 (Ampere through Blackwell), Vulkan, Metal, Jetson L4T (Orin, Thor, GB10) |
 | [vLLM](https://github.com/vllm-project/vllm) | Fast LLM serving with PagedAttention; GPTQ/AWQ/FP8 quantization | GPT, Functions, Multimodal | no | yes | CUDA 12/13, ROCm, Intel SYCL, Jetson L4T |
@@ -133,7 +134,7 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | Backend | Description | Acceleration |
 |---------|-------------|-------------|
 | [rerankers](https://github.com/AnswerDotAI/rerankers) | Document reranking for RAG | CUDA 12, ROCm, Intel SYCL, Metal |
-| [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML engine for the openai-privacy-filter PII/NER token-classification model family (powers LocalAI's PII redaction tier) | CPU, CUDA 13, Vulkan |
+| [privacy-filter.cpp](https://github.com/localai-org/privacy-filter.cpp) | Standalone GGML engine for the openai-privacy-filter PII/NER token-classification model family (powers LocalAI's PII redaction tier) | CPU, CUDA 13, ROCm, Vulkan |
 | [local-store](https://github.com/mudler/LocalAI) | Local-first vector database for embeddings | CPU, Metal |
 | [valkey-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Valkey Search (FLAT or HNSW) | CPU, Metal |
 | [qdrant-store](https://github.com/mudler/LocalAI) | Durable vector store for embeddings backed by Qdrant (HNSW; self-hosted, clustered or Qdrant Cloud) | CPU, Metal |

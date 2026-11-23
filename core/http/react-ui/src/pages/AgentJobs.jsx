@@ -1,5 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
+import { Fragment, useState, useCallback, useMemo } from 'react'
+import { keepIfSame } from '../utils/sameData'
+import { usePolling } from '../hooks/usePolling'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatTriggersApi } from '../utils/api'
@@ -18,6 +20,9 @@ import { jobSentence } from '../utils/agentJobText'
 import { AgentViews, StatusMark } from '../components/agents/AgentBits'
 import { ClockTime, OutputBlock, RelTime, RunItem } from '../components/agents/RunBits'
 import { ReadOnlyTag } from '../components/TriggerActs'
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+import ReportsTo from '../components/agents/ReportsTo'
+import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 import { Button, EmptyState, LoadError, Page, PageHeader, Segmented, SkeletonRows, Switch } from '../components/ui'
 import './agents.css'
@@ -58,6 +63,7 @@ export default function AgentJobs() {
   const [jobs, setJobs] = useState([])
   const [proposals, setProposals] = useState([])
   const { agents, projects } = useAgentProjects()
+  const icons = useAddonIcons()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [off, setOff] = useState('')
@@ -72,12 +78,14 @@ export default function AgentJobs() {
     try {
       const [list, props] = await Promise.all([chatTriggersApi.list(), chatTriggersApi.proposals().catch(() => ({ triggers: [] }))])
       const triggers = list.triggers || []
-      setTasks(triggers)
-      setProposals(props.triggers || [])
+      setTasks(prev => keepIfSame(prev, triggers))
+      setProposals(prev => keepIfSame(prev, props.triggers || []))
       setOff('')
       // The runs of every trigger make the history: the server keeps them per trigger.
-      const runs = await Promise.all(triggers.map(x => chatTriggersApi.runs(x.id).then(r => (r.runs || []).map(run => jobOfRun(run, x.id))).catch(() => [])))
-      setJobs(runs.flat())
+      // A failed read of one trigger's runs fails the poll (said in the page,
+      // rows kept) instead of showing that trigger as having no runs.
+      const runs = await Promise.all(triggers.map(x => chatTriggersApi.runs(x.id).then(r => (r.runs || []).map(run => jobOfRun(run, x.id)))))
+      setJobs(prev => keepIfSame(prev, runs.flat()))
       setError(null)
     } catch (err) {
       // Said in the page; a failed poll keeps the rows already on screen.
@@ -88,14 +96,13 @@ export default function AgentJobs() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchData()
-    const interval = setInterval(fetchData, 5000)
-    return () => clearInterval(interval)
-  }, [fetchData])
+  // Pauses while the tab is hidden.
+  usePolling(fetchData, 5000)
 
   // Names of the agents, for the line under a trigger. Best effort.
   const agentName = (id) => agents.find(a => a.id === id)?.name || ''
+
+  const taskById = useMemo(() => new Map(tasks.map(x => [x.id, x])), [tasks])
 
   const nameOf = useMemo(() => {
     const map = new Map()
@@ -189,7 +196,7 @@ export default function AgentJobs() {
           {error && <LoadError title={t('load.triggersStale')} error={error} onRetry={fetchData} />}
           {proposals.length > 0 && (
             <section className="aj-sec" aria-labelledby="aj-prop-h" data-testid="proposals">
-              <div className="aj-sec__head"><h2 className="ag-eyebrow" id="aj-prop-h">{t('chats:triggersPage.proposals')}</h2></div>
+              <div className="aj-sec__head"><h2 className="ag-label" id="aj-prop-h">{t('chats:triggersPage.proposals')}</h2></div>
               <p className="ag-note">{t('chats:triggersPage.proposalsNote')}</p>
               <div className="ag-runs">
                 {proposals.map(p => (
@@ -253,6 +260,7 @@ export default function AgentJobs() {
                         project={projectOfTrigger(task, agents, projects)}
                         jobs={jobsOf(jobs, task.id)}
                         agent={agentName(task.agent_id)}
+                        icons={icons}
                         onToggle={() => toggleEnabled(task)}
                         onRun={() => act(() => chatTriggersApi.run(task.id), t('jobs.tasks.started', { name: task.name || task.id }))}
                         onOpen={() => navigate(`/app/triggers/${encodeURIComponent(task.id)}`)}
@@ -323,7 +331,7 @@ export default function AgentJobs() {
                                 when={<ClockTime iso={job.started_at || job.created_at} />}
                                 took={took != null ? formatDuration(took) : ''}
                               >
-                                <JobDetail job={job} t={t} />
+                                <JobDetail job={job} t={t} task={taskById.get(job.task_id)} icons={icons} />
                               </RunItem>
                             )
                           })}
@@ -352,7 +360,7 @@ export default function AgentJobs() {
 
 // The open row of the history: why it failed or was skipped, the file that
 // started it, and the way into the chat it started.
-function JobDetail({ job, t }) {
+function JobDetail({ job, t, task, icons }) {
   const failed = job.status === 'failed'
   const why = job.reason || job.error
   return (
@@ -363,6 +371,7 @@ function JobDetail({ job, t }) {
         <p className="ag-note">{jobSentence(job, t)}</p>
       )}
       {job.file && <p className="ag-note">{t('jobs.history.file', { file: job.file })}</p>}
+      {task && <p className="ag-note"><ReportsTo trigger={task} icons={icons} compact /></p>}
       {job.chat_id && (
         <div className="aj-detail__acts">
           <Link className="ag-link" to={`/app/chats/${encodeURIComponent(job.chat_id)}`}>{t('jobs.history.openRun')}</Link>
@@ -376,7 +385,7 @@ function JobDetail({ job, t }) {
 // it and when it runs in words, how its last runs went, and on/off, Run now
 // and a menu. The words of the schedule are the server's ("Every weekday at
 // 08:00").
-function TriggerRow({ task, project, jobs, agent, onToggle, onRun, onOpen, onEdit, onDelete }) {
+function TriggerRow({ task, project, jobs, agent, icons, onToggle, onRun, onOpen, onEdit, onDelete }) {
   const { t } = useTranslation('agents')
   const last = jobs[0]
   const off = !task.enabled
@@ -396,6 +405,7 @@ function TriggerRow({ task, project, jobs, agent, onToggle, onRun, onOpen, onEdi
           {off && <span>{t('jobs.task.disabled')}</span>}
           {project && <ProjectChip project={project} testId="trigger-project" />}
           <ReadOnlyTag trigger={task} />
+          <ReportsTo trigger={task} icons={icons} compact />
         </span>
       </div>
       <div className="ag-row__record">

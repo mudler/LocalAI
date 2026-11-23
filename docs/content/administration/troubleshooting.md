@@ -91,6 +91,18 @@ uname -m
 
 **Solution:** The app in the release DMG and the `local-ai` binary are signed with an Apple Developer ID and notarized, so a current release opens without a workaround. Check that you downloaded `LocalAI.dmg` from the [releases page](https://github.com/mudler/LocalAI/releases/latest). To check the signature, run the `spctl` command in the [desktop app guide]({{% relref "/start/install/desktop" %}}#install-on-macos). A copy that was modified or downloaded from another place fails this check.
 
+### Audio requests fail with "ffmpeg not found"
+
+**Symptoms:** transcription, text to speech in a format other than WAV, or an audio upload fails with `ffmpeg not found`. At start the log shows `ffmpeg is not available; audio conversion will fail`.
+
+**Solution:** LocalAI runs the `ffmpeg` program to convert audio. It does not bundle it. Install it and restart LocalAI:
+
+- Windows: `winget install Gyan.FFmpeg` or `choco install ffmpeg`. You can also download a build and put the folder of `ffmpeg.exe` on `PATH`.
+- macOS: `brew install ffmpeg`.
+- Linux: use the package manager, for example `apt install ffmpeg`.
+
+To use a program that is not on `PATH`, set `LOCALAI_FFMPEG_PATH` to its full path, for example `LOCALAI_FFMPEG_PATH=C:\tools\ffmpeg\bin\ffmpeg.exe`.
+
 ## Model Loading Problems
 
 ### Model Not Found
@@ -453,38 +465,15 @@ for Docker, Podman, and UnRAID guidance.
 
 ## Network and P2P Issues
 
-### P2P Workers Not Discovered
+### P2P machines do not connect
 
-**Symptoms:** Distributed inference setup but workers are not found.
+**Symptoms:** a device, remote or worker that you paired with an invite does not connect, or the invite fails.
 
-**Key requirements:**
+- Check that the server runs in the right P2P mode: `share` to accept paired machines, `connect` to only use other servers.
+- Open **Cluster**, **Sharing** on the server and check the peer ID, the reachability and the path of each device.
+- Behind strict NAT on both sides, add a relay that you run. See [Run a relay]({{% relref "/administration/p2p-relay" %}}).
 
-- Use `--net host` or `network_mode: host` in Docker
-- Share the same P2P token across all nodes
-
-**Debug P2P connectivity:**
-
-```bash
-LOCALAI_P2P_LOGLEVEL=debug \
-LOCALAI_P2P_LIB_LOGLEVEL=debug \
-LOCALAI_P2P_ENABLE_LIMITS=true \
-LOCALAI_P2P_TOKEN="<TOKEN>" \
-local-ai run
-```
-
-**If DHT is causing issues**, try disabling it to use local mDNS discovery instead:
-
-```bash
-LOCALAI_P2P_DISABLE_DHT=true local-ai run
-```
-
-### P2P Limitations
-
-- Only a single model is currently supported for distributed inference
-- Workers must be detected before inference starts - you cannot add workers mid-inference
-- Workers mode supports llama-cpp compatible models only
-
-See the [Distributed Inferencing guide]({{% relref "/administration/p2p-federated-inference" %}}) for full setup instructions.
+The [P2P troubleshooting section]({{% relref "/administration/p2p" %}}#troubleshooting) has the full list. A setup that still uses a P2P token, `--p2p` or `--federated` does not start: see [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).
 
 ## Still Having Issues?
 

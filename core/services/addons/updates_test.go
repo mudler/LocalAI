@@ -51,11 +51,19 @@ type updateLibrary struct {
 
 func (l *updateLibrary) publish(version, channel, content string, requires catalog.Requirements) catalog.Release {
 	GinkgoHelper()
+	return l.publishAs("sample", version, channel, content, requires)
+}
+
+// publishAs publishes a release of the add-on id, so a spec can hold several
+// add-ons in one library.
+func (l *updateLibrary) publishAs(id, version, channel, content string, requires catalog.Requirements) catalog.Release {
+	GinkgoHelper()
 	manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
 	Expect(e).NotTo(HaveOccurred())
 	var m map[string]any
 	Expect(json.Unmarshal(manifest, &m)).To(Succeed())
 	m["version"] = version
+	m["id"] = id
 	files := map[string][]byte{"bin/sample": []byte(content)}
 	if l.transform != nil {
 		for name, data := range l.transform(m) {
@@ -79,16 +87,16 @@ func (l *updateLibrary) publish(version, channel, content string, requires catal
 		Expect(e).NotTo(HaveOccurred())
 	}
 	Expect(tw.Close()).To(Succeed())
-	name := fmt.Sprintf("/%s-%s-%x.tar", version, channel, sha256.Sum256([]byte(content)))
+	name := fmt.Sprintf("/%s-%s-%s-%x.tar", id, version, channel, sha256.Sum256([]byte(content)))
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.archives[name] = b.Bytes()
-	r := catalog.Release{ID: "sample", Name: "Sample", Version: version, Channel: channel, Artifact: l.server.URL + name,
+	r := catalog.Release{ID: id, Name: "Sample", Version: version, Channel: channel, Artifact: l.server.URL + name,
 		Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64", Requires: requires}
 	// One entry per version and channel: a moving channel is replaced.
 	kept := l.releases[:0]
 	for _, o := range l.releases {
-		if o.Version != version || o.Channel != channel {
+		if o.ID != id || o.Version != version || o.Channel != channel {
 			kept = append(kept, o)
 		}
 	}

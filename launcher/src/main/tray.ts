@@ -46,7 +46,9 @@ export async function createTray(h: TrayHandlers): Promise<LauncherTray | undefi
   let tray: Tray | undefined
   let constructed = false
   try {
-    tray = new Tray(nativeImage.createFromPath(h.iconPath).resize({ width: 22, height: 22 }))
+    // The Windows notification area draws 16 px icons (at 100 % scale).
+    const size = process.platform === 'win32' ? 16 : 22
+    tray = new Tray(nativeImage.createFromPath(h.iconPath).resize({ width: size, height: size }))
     constructed = true
   } catch {
     constructed = false

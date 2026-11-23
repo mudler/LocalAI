@@ -198,7 +198,8 @@ if { [ "${BUILD_TYPE:-}" = "cublas" ] || [ "${BUILD_TYPE:-}" = "l4t" ]; } && [ "
         "libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}" \
         "libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}" \
         "libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}" \
-        "libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}"
+        "libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}" \
+        "cuda-nvml-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}"
     if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "${TARGETARCH:-}" ]; then
         apt_retry install -y --no-install-recommends \
             "libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}" \

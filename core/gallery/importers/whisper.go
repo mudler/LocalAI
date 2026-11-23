@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -104,7 +105,7 @@ func (i *WhisperImporter) Import(details Details) (gallery.ModelConfig, error) {
 		if err != nil {
 			return gallery.ModelConfig{}, err
 		}
-		target := filepath.Join("whisper", "models", name, fileName)
+		target := path.Join("whisper", "models", name, fileName)
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: target,
@@ -123,7 +124,7 @@ func (i *WhisperImporter) Import(details Details) (gallery.ModelConfig, error) {
 			}
 		}
 		if chosen, ok := pickPreferredGGMLFile(ggmlFiles, quants); ok {
-			target := filepath.Join("whisper", "models", name, filepath.Base(chosen.Path))
+			target := path.Join("whisper", "models", name, filepath.Base(chosen.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
 				URI:      chosen.URL,
 				Filename: target,

@@ -34,6 +34,7 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp
     vulkan: vulkan-llama-cpp
+    windows: windows-llama-cpp
 - name: ik-llama-cpp
   alias: ik-llama-cpp
   license: mit
@@ -2514,7 +2515,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -3127,6 +3128,7 @@
     nvidia-l4t-cuda-12: nvidia-l4t-arm64-llama-cpp-development
     nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-llama-cpp-development
     vulkan: vulkan-llama-cpp-development
+    windows: windows-llama-cpp-development
 - name: ik-llama-cpp-development
   alias: ik-llama-cpp
   license: mit
@@ -6168,6 +6170,44 @@
   uri: quay.io/go-skynet/local-ai-backends:master-cpu-ik-llama-cpp
   mirrors:
     - localai/localai-backends:master-cpu-ik-llama-cpp
+- name: windows-llama-cpp
+  alias: llama-cpp
+  license: mit
+  description: |
+    LLM inference in C/C++ for Windows
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  capabilities:
+    default: cpu-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:latest-windows-amd64-llama-cpp
+  mirrors:
+    - localai/localai-backends:latest-windows-amd64-llama-cpp
+- name: windows-llama-cpp-development
+  alias: llama-cpp
+  license: mit
+  description: |
+    LLM inference in C/C++ for Windows
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - text-to-speech
+    - TTS
+    - LLM
+    - CPU
+    - GPU
+  capabilities:
+    default: cpu-llama-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-windows-amd64-llama-cpp
+  mirrors:
+    - localai/localai-backends:master-windows-amd64-llama-cpp
 - name: cpu-turboquant
   alias: turboquant
   license: mit
@@ -14269,7 +14309,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14301,7 +14341,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14333,7 +14373,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14344,6 +14384,38 @@
   uri: quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-privacy-filter
   mirrors:
     - localai/localai-backends:latest-gpu-vulkan-privacy-filter
+- name: rocm-privacy-filter
+  alias: privacy-filter
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-privacy-filter
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-privacy-filter
 - name: vulkan-privacy-filter-development
   alias: privacy-filter
   license: apache-2.0
@@ -14365,7 +14437,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14376,6 +14448,38 @@
   uri: quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-privacy-filter
   mirrors:
     - localai/localai-backends:master-gpu-vulkan-privacy-filter
+- name: rocm-privacy-filter-development
+  alias: privacy-filter
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/5fd5e18a90b6dc4633f6d292/QPiv8pt4JNxr0FdGnpFef.png
+  description: |
+    Standalone GGML engine (privacy-filter.cpp) for the OpenMed privacy-filter
+    PII/NER token-classification model family. It runs the openai-privacy-filter
+    architecture (a gpt-oss-style sparse-MoE bidirectional token classifier) on
+    stock upstream GGML — no llama.cpp coupling and no Python — and serves the
+    TokenClassify RPC (constrained BIOES Viterbi decode into UTF-8 byte-offset
+    entity spans) used by LocalAI's NER PII redaction tier.
+  urls:
+    - https://github.com/localai-org/privacy-filter.cpp
+  tags:
+    - token-classification
+    - ner
+    - pii
+    - privacy
+    - CPU
+    - GPU
+  capabilities:
+    amd: rocm-privacy-filter
+    default: cpu-privacy-filter
+    intel: vulkan-privacy-filter
+    metal: metal-privacy-filter
+    nvidia: vulkan-privacy-filter
+    nvidia-cuda-12: vulkan-privacy-filter
+    nvidia-cuda-13: cuda13-privacy-filter
+    vulkan: vulkan-privacy-filter
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-privacy-filter
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-privacy-filter
 - name: metal-privacy-filter
   alias: privacy-filter
   license: apache-2.0
@@ -14397,7 +14501,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14429,7 +14533,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14461,7 +14565,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -14493,7 +14597,7 @@
     - CPU
     - GPU
   capabilities:
-    amd: vulkan-privacy-filter
+    amd: rocm-privacy-filter
     default: cpu-privacy-filter
     intel: vulkan-privacy-filter
     metal: metal-privacy-filter
@@ -29371,3 +29475,159 @@
   uri: quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-strata
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-strata
+- name: olala
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala
+    nvidia: cuda12-olala
+    nvidia-cuda-12: cuda12-olala
+- name: olala-development
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala-development
+    nvidia: cuda12-olala-development
+    nvidia-cuda-12: cuda12-olala-development
+- name: cpu-olala
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala
+    nvidia: cuda12-olala
+    nvidia-cuda-12: cuda12-olala
+  uri: quay.io/go-skynet/local-ai-backends:latest-cpu-olala
+  mirrors:
+    - localai/localai-backends:latest-cpu-olala
+- name: cuda12-olala
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala
+    nvidia: cuda12-olala
+    nvidia-cuda-12: cuda12-olala
+  uri: quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-olala
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-olala
+- name: cpu-olala-development
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala
+    nvidia: cuda12-olala
+    nvidia-cuda-12: cuda12-olala
+  uri: quay.io/go-skynet/local-ai-backends:master-cpu-olala
+  mirrors:
+    - localai/localai-backends:master-cpu-olala
+- name: cuda12-olala-development
+  alias: olala
+  license: mit
+  description: |
+    Fork of llama.cpp (OVHai LLM) that adds the `olala` architecture, a Mamba3 hybrid
+    mixture-of-experts, used by the Olala models. Reuses the LocalAI llama.cpp gRPC
+    server sources against the fork's libllama, so it serves these models with the same
+    OpenAI-compatible API as the stock llama.cpp backend. Use the bf16 file on GPU:
+    quantized weights can give NaN there.
+  urls:
+    - https://github.com/OVHai-LLM/llama.cpp
+    - https://huggingface.co/OVHaiLLM
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - olala
+    - mamba
+  capabilities:
+    default: cpu-olala
+    nvidia: cuda12-olala
+    nvidia-cuda-12: cuda12-olala
+  uri: quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-olala
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-olala

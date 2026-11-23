@@ -19,8 +19,8 @@ var _ = Describe("getSystemCapabilities", func() {
 	)
 
 	BeforeEach(func() {
-		if runtime.GOOS == "darwin" {
-			Skip("darwin short-circuits before reaching CUDA logic")
+		if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+			Skip("platform short-circuits before reaching CUDA logic")
 		}
 
 		origEnv = os.Getenv(capabilityEnv)
@@ -168,6 +168,7 @@ var _ = Describe("BackendPreferenceTokens", func() {
 		Entry("metal", metal, []string{"metal", "cpu"}),
 		Entry("darwin-x86", darwinX86, []string{"darwin-x86", "cpu"}),
 		Entry("vulkan", vulkan, []string{"vulkan", "cpu"}),
+		Entry("windows", windows, []string{"windows", "cpu"}),
 		Entry("unknown capability", "some-future-accelerator", []string{"cpu"}),
 	)
 
@@ -175,7 +176,7 @@ var _ = Describe("BackendPreferenceTokens", func() {
 		// The generic form of the lock above: whatever anyone adds to the build
 		// tag table later, an engine name in it is a merged vocabulary.
 		engineNames := []string{"vllm", "sglang", "llama-cpp", "mlx"}
-		for _, capability := range []string{"nvidia", AMD, Intel, metal, darwinX86, vulkan, "default"} {
+		for _, capability := range []string{"nvidia", AMD, Intel, metal, darwinX86, vulkan, windows, "default"} {
 			Expect(tokensFor(capability)).ToNot(ContainElements(engineNames),
 				"capability %q leaked an engine name into the build tag table", capability)
 		}
@@ -235,8 +236,8 @@ var _ = Describe("EnginePreferenceTokens", func() {
 	It("names only engines, never a build tag", func() {
 		// The mirror of the lock on BackendPreferenceTokens. A build tag here
 		// matches no gallery `backend:` value and silently disables ranking.
-		buildTags := []string{"cuda", "rocm", "hip", "sycl", "vulkan", "metal", "cpu", "darwin-x86"}
-		for _, capability := range []string{"nvidia", AMD, Intel, metal, vulkan, defaultCapability, darwinX86} {
+		buildTags := []string{"cuda", "rocm", "hip", "sycl", "vulkan", "metal", "cpu", "darwin-x86", "windows"}
+		for _, capability := range []string{"nvidia", AMD, Intel, metal, vulkan, defaultCapability, darwinX86, windows} {
 			Expect(tokensFor(capability)).ToNot(ContainElements(buildTags),
 				"capability %q leaked a build tag into the engine table", capability)
 		}
@@ -251,6 +252,10 @@ var _ = Describe("EnginePreferenceTokens", func() {
 
 	It("prefers llama.cpp on an intel mac, where nothing accelerates", func() {
 		Expect(tokensFor(darwinX86)).To(Equal([]string{"llama-cpp", "vllm", "sglang"}))
+	})
+
+	It("prefers llama.cpp on windows, the only engine with native windows builds", func() {
+		Expect(tokensFor(windows)).To(Equal([]string{"llama-cpp"}))
 	})
 
 	It("ranks the GPU serving engines below llama.cpp rather than leaving them tied", func() {
@@ -383,5 +388,65 @@ var _ = Describe("ServingFeaturePreferenceTokens", func() {
 		first := ServingFeaturePreferenceTokens()
 		first[0] = "clobbered"
 		Expect(ServingFeaturePreferenceTokens()[0]).To(Equal("dflash"))
+	})
+})
+
+var _ = Describe("a Windows host", func() {
+	var previous string
+
+	BeforeEach(func() {
+		previous = os.Getenv(capabilityEnv)
+		Expect(os.Setenv(capabilityEnv, windows)).To(Succeed())
+	})
+
+	AfterEach(func() {
+		if previous == "" {
+			Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
+		} else {
+			Expect(os.Setenv(capabilityEnv, previous)).To(Succeed())
+		}
+	})
+
+	It("accepts only backends that carry the windows token", func() {
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("windows-llama-cpp", "quay.io/x/local-ai-backends:latest-windows-amd64-llama-cpp")).To(BeTrue())
+		Expect(s.IsBackendCompatible("windows-llama-cpp-development", "")).To(BeTrue())
+	})
+
+	It("rejects Linux CPU backends and GPU backends", func() {
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("cpu-llama-cpp", "quay.io/x/local-ai-backends:latest-cpu-llama-cpp")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cpu-whisper", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cuda12-llama-cpp", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("metal-llama-cpp", "")).To(BeFalse())
+	})
+
+	It("does not pick a default or cpu entry of a meta backend", func() {
+		withWindows := map[string]string{"default": "cpu-x", "windows": "windows-x"}
+		Expect(PickCapability(windows, withWindows)).To(Equal(windows))
+		withoutWindows := map[string]string{"default": "cpu-x", "cpu": "cpu-x", "nvidia": "cuda12-x"}
+		Expect(withoutWindows[PickCapability(windows, withoutWindows)]).To(BeEmpty())
+	})
+
+	It("keeps the fallback to default for other hosts", func() {
+		Expect(PickCapability("default", map[string]string{"default": "cpu-x"})).To(Equal("default"))
+		Expect(PickCapability("some-gpu", map[string]string{"default": "cpu-x"})).To(Equal("default"))
+	})
+})
+
+var _ = Describe("a non-Windows host", func() {
+	It("rejects Windows backends", func() {
+		previous := os.Getenv(capabilityEnv)
+		Expect(os.Setenv(capabilityEnv, "default")).To(Succeed())
+		DeferCleanup(func() {
+			if previous == "" {
+				Expect(os.Unsetenv(capabilityEnv)).To(Succeed())
+			} else {
+				Expect(os.Setenv(capabilityEnv, previous)).To(Succeed())
+			}
+		})
+		s := &SystemState{}
+		Expect(s.IsBackendCompatible("windows-llama-cpp", "")).To(BeFalse())
+		Expect(s.IsBackendCompatible("cpu-llama-cpp", "")).To(BeTrue())
 	})
 })

@@ -2,6 +2,7 @@ package workerregistry
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -50,7 +51,7 @@ func (f *fakeRegister) count() int {
 	return f.calls
 }
 
-var _ = Describe("NATSCredentialManager", func() {
+var _ = Describe("CredentialManager", func() {
 	approved := func(jwt, seed string) *RegisterResponse {
 		return &RegisterResponse{ID: "node-1", Status: "healthy", NatsJWT: jwt, NatsUserSeed: seed}
 	}
@@ -63,7 +64,7 @@ var _ = Describe("NATSCredentialManager", func() {
 				{res: approved("", "")},            // approved but JWT not minted yet
 				{res: approved("jwt-1", "seed-1")}, // finally minted
 			}}
-			m := NewNATSCredentialManager(f.fn(), true /* requireCreds */)
+			m := NewCredentialManager(f.fn(), true /* requireCreds */)
 			m.initialBackoff = time.Millisecond
 			m.maxBackoff = time.Millisecond
 
@@ -81,7 +82,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("returns immediately on the first success when credentials are not required (anonymous NATS)", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}}
-			m := NewNATSCredentialManager(f.fn(), false /* requireCreds */)
+			m := NewCredentialManager(f.fn(), false /* requireCreds */)
 
 			res, err := m.Acquire(context.Background())
 			Expect(err).ToNot(HaveOccurred())
@@ -92,7 +93,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("aborts when the context is cancelled while waiting for approval", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}}
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.initialBackoff = 10 * time.Millisecond
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -103,7 +104,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("gives up after a bounded number of attempts so the worker exits and alerts", func() {
 			f := &fakeRegister{steps: []step{{res: pending}}} // never approved
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.initialBackoff = time.Millisecond
 			m.maxBackoff = time.Millisecond
 			m.maxAttempts = 5
@@ -116,10 +117,107 @@ var _ = Describe("NATSCredentialManager", func() {
 		})
 	})
 
+	Describe("Reregister", func() {
+		tunnelRes := func(token string) *RegisterResponse {
+			return &RegisterResponse{ID: "node-1", Status: "healthy", TunnelToken: token}
+		}
+
+		It("replaces the tunnel token with the one that the new registration minted", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("token-2")}}}
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).To(Succeed())
+			Expect(m.TunnelToken()).To(Equal("token-2"))
+			Expect(f.count()).To(Equal(2), "one registration and no retry")
+		})
+
+		It("keeps the old token and returns the error when registration fails", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {err: errors.New("frontend down")}}}
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).To(MatchError(ContainSubstring("frontend down")))
+			Expect(m.TunnelToken()).To(Equal("token-1"))
+			Expect(f.count()).To(Equal(2))
+		})
+
+		It("keeps the old token when the answer mints none", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("token-1")}, {res: tunnelRes("")}}}
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(m.Reregister(context.Background())).ToNot(Succeed())
+			Expect(m.TunnelToken()).To(Equal("token-1"))
+		})
+	})
+
+	Describe("Acquire on the tunnel route", func() {
+		tunnelRes := func(status, token string) *RegisterResponse {
+			return &RegisterResponse{ID: "node-1", Status: status, TunnelToken: token}
+		}
+
+		It("returns at once with the token, also for a node that waits for approval", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("pending", "token-1")}}}
+			m := NewCredentialManagerFor(f.fn(), true, RouteTunnel)
+
+			res, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TunnelToken).To(Equal("token-1"))
+			Expect(f.count()).To(Equal(1))
+			Expect(m.TunnelToken()).To(Equal("token-1"))
+			Expect(m.HasCredentials()).To(BeFalse(), "a tunnel worker holds no NATS credentials")
+		})
+
+		It("waits when the frontend did not mint a token", func() {
+			f := &fakeRegister{steps: []step{
+				{res: tunnelRes("healthy", "")},
+				{res: tunnelRes("healthy", "token-2")},
+			}}
+			m := NewCredentialManagerFor(f.fn(), false, RouteTunnel)
+			m.initialBackoff = time.Millisecond
+			m.maxBackoff = time.Millisecond
+
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.count()).To(Equal(2))
+			Expect(m.TunnelToken()).To(Equal("token-2"))
+		})
+
+		It("gives the token of the latest registration, because every registration mints a new one", func() {
+			f := &fakeRegister{steps: []step{{res: tunnelRes("healthy", "token-1")}, {res: tunnelRes("healthy", "token-2")}}}
+			m := NewCredentialManagerFor(f.fn(), true, RouteTunnel)
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(m.TunnelToken()).To(Equal("token-1"))
+
+			m.store(&RegisterResponse{ID: "node-1", TunnelToken: "token-2"})
+			Expect(m.TunnelToken()).To(Equal("token-2"))
+		})
+
+		It("does not touch the NATS route: it still waits for the JWT", func() {
+			f := &fakeRegister{steps: []step{
+				{res: &RegisterResponse{ID: "node-1", Status: "healthy"}},
+				{res: &RegisterResponse{ID: "node-1", Status: "healthy", NatsJWT: "jwt", NatsUserSeed: "seed"}},
+			}}
+			m := NewCredentialManagerFor(f.fn(), true, RouteNATS)
+			m.initialBackoff = time.Millisecond
+			m.maxBackoff = time.Millisecond
+
+			_, err := m.Acquire(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(f.count()).To(Equal(2))
+			Expect(m.TunnelToken()).To(BeEmpty())
+		})
+	})
+
 	Describe("RefreshLoop (#5 — renew before the JWT expires)", func() {
 		It("re-registers before expiry and updates the credentials served to new connections", func() {
 			f := &fakeRegister{steps: []step{{res: approved("jwt-2", "seed-2")}}}
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.refreshLead = 0.5
 			m.refreshRetry = time.Millisecond
 			// jwt-1 expires soon; jwt-2 is long-lived so the loop then idles.
@@ -147,7 +245,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("returns an error after the bounded number of consecutive failures so the caller can exit", func() {
 			f := &fakeRegister{steps: []step{{err: context.DeadlineExceeded}}} // refresh always fails
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.refreshLead = 0.5
 			m.refreshRetry = time.Millisecond
 			m.maxAttempts = 3
@@ -161,7 +259,7 @@ var _ = Describe("NATSCredentialManager", func() {
 
 		It("exits promptly when the current credential has no expiry (nothing to refresh)", func() {
 			f := &fakeRegister{steps: []step{{res: approved("x", "y")}}}
-			m := NewNATSCredentialManager(f.fn(), true)
+			m := NewCredentialManager(f.fn(), true)
 			m.expiryOf = func(string) (time.Time, bool) { return time.Time{}, false }
 			m.store(approved("static", "seed"))
 

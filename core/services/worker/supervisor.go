@@ -118,6 +118,11 @@ func (s *backendSupervisor) backendIdentity(name string) map[string]struct{} {
 // backendSupervisor manages multiple backend gRPC processes on different ports.
 // Each backend type (e.g., llama-cpp, bert-embeddings) gets its own process and port.
 type backendSupervisor struct {
+	// bindHost is the host that the backend processes listen on. It is empty for
+	// all interfaces. A worker that is reached only through its tunnel sets
+	// loopback.
+	bindHost string
+
 	cfg         *Config
 	ml          *model.ModelLoader
 	systemState *system.SystemState
@@ -375,6 +380,14 @@ func (s *backendSupervisor) allocateFreePort(key string) (int, error) {
 	return 0, fmt.Errorf("%w: every port tried was already in use", ErrNoFreePort)
 }
 
+// backendBindHost returns the host that a backend process listens on.
+func (s *backendSupervisor) backendBindHost() string {
+	if s.bindHost == "" {
+		return "0.0.0.0"
+	}
+	return s.bindHost
+}
+
 // portIsFree reports whether nothing listens on port on this host. Two checks,
 // because neither is enough everywhere. A connect to loopback finds a listener
 // bound to a specific address, which a bind of the wildcard address can miss on
@@ -535,7 +548,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			s.mu.Unlock()
 			return "", fmt.Errorf("backend %s is stopping", backend)
 		}
-		if bp.proc != nil && bp.proc.IsAlive() {
+		if bp.proc != nil && model.ProcessAlive(bp.proc) {
 			s.mu.Unlock()
 			return bp.addr, nil
 		}
@@ -548,7 +561,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		s.mu.Unlock()
 		return "", fmt.Errorf("allocating gRPC port for backend %s: %w", backend, err)
 	}
-	bindAddr := fmt.Sprintf("0.0.0.0:%d", port)
+	bindAddr := net.JoinHostPort(s.backendBindHost(), strconv.Itoa(port))
 	clientAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	proc, err := s.ml.StartProcess(backendPath, backend, bindAddr, snapshot)
@@ -596,7 +609,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// 4s window made the worker reply Success on a not-yet-listening port,
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
-	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.RegistrationToken)
+	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.dataToken)
 	const (
 		readinessPollInterval = 200 * time.Millisecond
 		readinessTimeout      = 30 * time.Second
@@ -610,7 +623,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		// An answer only counts when the process this worker started is still
 		// alive. A child that lost the bind to an orphan exits at once, and the
 		// orphan's answer is not its own.
-		if ok && !proc.IsAlive() {
+		if ok && !model.ProcessAlive(proc) {
 			ok = false
 		}
 		if ok {
@@ -630,7 +643,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		cancel()
 
 		// Check if the process died (e.g. OOM, CUDA error, missing libs)
-		if !proc.IsAlive() {
+		if !model.ProcessAlive(proc) {
 			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
 			xlog.Warn("Backend process died during startup", "backend", backend, "healthError", lastHealthErr, "stderr", stderrTail)
 			s.releaseBackendStart(backend, bp)
@@ -964,7 +977,7 @@ func (s *backendSupervisor) stopBackendExactBP(key string, bp *backendProcess, f
 
 func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force bool) error {
 	if !force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
 		if err := client.Free(freeCtx); err != nil {
@@ -1029,7 +1042,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	s.mu.Unlock()
 
 	if !req.Force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()
@@ -1089,7 +1102,7 @@ func (s *backendSupervisor) finishBackendStop(key string, bp *backendProcess, st
 	if current, exists := s.processes[key]; !exists || current != bp {
 		return nil
 	}
-	if stopErr != nil && bp.proc.IsAlive() {
+	if stopErr != nil && model.ProcessAlive(bp.proc) {
 		bp.stopping = false
 		return fmt.Errorf("stopping backend process %s: %w", key, stopErr)
 	}
@@ -1143,7 +1156,7 @@ func (s *backendSupervisor) isRunning(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, key := range keys {
-		if bp, ok := s.processes[key]; ok && bp.proc != nil && bp.proc.IsAlive() {
+		if bp, ok := s.processes[key]; ok && bp.proc != nil && model.ProcessAlive(bp.proc) {
 			return true
 		}
 	}

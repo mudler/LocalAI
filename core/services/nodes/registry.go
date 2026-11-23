@@ -2,6 +2,9 @@ package nodes
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -12,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -27,13 +31,39 @@ type BackendNode struct {
 	WorkerIncarnation string `gorm:"size:36" json:"worker_incarnation,omitempty"`
 	ID                string `gorm:"primaryKey;size:36" json:"id"`
 	Name              string `gorm:"uniqueIndex;size:255" json:"name"`
-	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`    // backend, agent
-	Address           string `gorm:"size:255" json:"address"`                     // host:port for gRPC
-	HTTPAddress       string `gorm:"size:255" json:"http_address"`                // host:port for HTTP file transfer
-	Status            string `gorm:"size:32;default:registering" json:"status"`   // registering, healthy, unhealthy, draining, pending
-	TokenHash         string `gorm:"size:64" json:"-"`                            // SHA-256 of registration token
-	TotalVRAM         uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
-	AvailableVRAM     uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
+	NodeType          string `gorm:"size:32;default:backend" json:"node_type"`  // backend, agent
+	Address           string `gorm:"size:255" json:"address"`                   // host:port for gRPC
+	HTTPAddress       string `gorm:"size:255" json:"http_address"`              // host:port for HTTP file transfer
+	Status            string `gorm:"size:32;default:registering" json:"status"` // registering, healthy, unhealthy, draining, pending
+	TokenHash         string `gorm:"size:64" json:"-"`                          // SHA-256 of registration token
+	// TunnelTokenHash is the SHA-256 of the own credential of this node for the
+	// tunnel: the token that it presents at GET /api/cluster/connect. It is not
+	// the registration token. Registration mints a new random secret for each
+	// node, returns it once and stores only this hash, so a registration token
+	// that leaked does not open a tunnel for every node whose ID can be read.
+	//
+	// Empty means that no tunnel credential was minted for the node. A node that
+	// registered before the column existed looks like this, and it cannot open a
+	// tunnel until it registers again. The column cannot be filled in, because
+	// the secret exists only in the response that minted it.
+	TunnelTokenHash string `gorm:"size:64" json:"-"`
+	// NodeTokenHash is the SHA-256 of the own credential of this node for the
+	// self-service routes (heartbeat, drain, resume, deregister, its models, its
+	// split report) and for registering again. Registration with a join token or
+	// with the registration token mints it, returns the secret once and stores
+	// only this hash. The registration token itself opens none of those routes.
+	// Empty means that the node holds no credential yet: it registered before the
+	// column existed, and it must register again.
+	NodeTokenHash string `gorm:"size:64" json:"-"`
+	// JoinTokenID names the join token that the node registered with, or is empty
+	// for a node that registered another way. It is not a secret.
+	JoinTokenID string `gorm:"size:32" json:"join_token_id,omitempty"`
+	// JoinRoutes are the connections that the join token allowed (nats,
+	// websocket), comma separated. Empty means any. A registration of the node
+	// with its own credential may ask for those routes only.
+	JoinRoutes    string `gorm:"size:64" json:"join_routes,omitempty"`
+	TotalVRAM     uint64 `gorm:"column:total_vram" json:"total_vram"`         // Total GPU VRAM in bytes
+	AvailableVRAM uint64 `gorm:"column:available_vram" json:"available_vram"` // Available GPU VRAM in bytes
 	// ReservedVRAM is a soft, in-tick reservation deducted by the scheduler when
 	// it picks this node to load a model. Workers reset it back to 0 on each
 	// heartbeat (the worker is the source of truth for actual free VRAM); the
@@ -96,12 +126,43 @@ type BackendNode struct {
 	// registration. Empty for workers registered before this field existed.
 	Version string `gorm:"column:version;size:64" json:"version,omitempty"`
 	// Commit is the git commit hash the worker binary was built from.
-	Commit        string    `gorm:"column:commit;size:64" json:"commit,omitempty"`
-	APIKeyID      string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
-	AuthUserID    string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
-	LastHeartbeat time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	Commit string `gorm:"column:commit;size:64" json:"commit,omitempty"`
+	// Attached lists the routes ("nats", "tunnel") that the worker reported it
+	// holds and is connected on, separated by commas. nodes.RoutesOf reads it.
+	Attached string `gorm:"column:attached;size:64" json:"attached,omitempty"`
+	// Follow lists the routes the operator gave the worker, separated by commas,
+	// and FollowError is why some of them are not held, in the words of the
+	// worker. A node that never sent a heartbeat has neither.
+	Follow      string `gorm:"column:follow;size:64" json:"follow,omitempty"`
+	FollowError string `gorm:"column:follow_error;size:255" json:"follow_error,omitempty"`
+	// SplitServer is set when the node is a split server: it may serve
+	// model-split workers (llama.cpp RPC and MLX helpers). A worker becomes
+	// one only by a choice of its operator (the worker's --split-server flag,
+	// sent at registration) or of the admin (the Nodes page, REST or MCP).
+	// Only a split server runs the P2P host for split workers, accepts them
+	// and is admitted on the relays for them.
+	SplitServer bool `gorm:"column:split_server;default:false" json:"split_server"`
+	// SplitServerManuallySet marks SplitServer as the admin's choice, which a
+	// re-registration does not overwrite (see MaxReplicasPerModelManuallySet).
+	SplitServerManuallySet bool `gorm:"column:split_server_manually_set;default:false" json:"split_server_manually_set,omitempty"`
+	// PeerID is the P2P peer ID of a worker that joined with a worker invite.
+	// The node is pinned to it: registration, the node routes and the tunnel
+	// accept such a node only from that peer, over P2P. Empty for a node that
+	// registers with the registration token.
+	PeerID string `gorm:"column:peer_id;size:64;index" json:"peer_id,omitempty"`
+	// TunnelTransport is how the tunnel of the worker reaches a frontend, as
+	// the worker reported it: "websocket" or "p2p". Empty when the worker holds
+	// no tunnel or does not report it. TunnelPath is the path of a P2P tunnel
+	// (direct, hole_punched or relayed), and TunnelLimited says that the relay
+	// of that path limits its data or its time.
+	TunnelTransport string    `gorm:"column:tunnel_transport;size:16" json:"tunnel_transport,omitempty"`
+	TunnelPath      string    `gorm:"column:tunnel_path;size:16" json:"tunnel_path,omitempty"`
+	TunnelLimited   bool      `gorm:"column:tunnel_limited;default:false" json:"tunnel_limited,omitempty"`
+	APIKeyID        string    `gorm:"size:36" json:"-"` // auto-provisioned API key ID (for cleanup)
+	AuthUserID      string    `gorm:"size:36" json:"-"` // auto-provisioned user ID (for cleanup)
+	LastHeartbeat   time.Time `gorm:"column:last_heartbeat" json:"last_heartbeat"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 const (
@@ -138,6 +199,10 @@ var (
 	// ErrNodeStatusConflict reports that a node exists but no longer has the
 	// status required by a conditional lifecycle transition.
 	ErrNodeStatusConflict = errors.New("node status conflict")
+	// ErrNodePinned reports a registration under the name of a node that
+	// belongs to another P2P peer, or that belongs to the registration token
+	// while the caller is a P2P worker (or the other way round).
+	ErrNodePinned = errors.New("the node name belongs to another worker")
 )
 
 // NodeModel tracks which models are loaded on which nodes.
@@ -241,6 +306,10 @@ type ModelSchedulingConfig struct {
 	BalanceRelThreshold float64            `gorm:"column:balance_rel_threshold;default:0" json:"balance_rel_threshold,omitempty"`
 	MinPrefixMatch      float64            `gorm:"column:min_prefix_match;default:0" json:"min_prefix_match,omitempty"`
 	ScorerWeights       map[string]float64 `gorm:"column:routing_scorer_weights;serializer:json" json:"scorer_weights,omitempty"`
+	// UpgradeStrategy is how an upgrade of the model replaces its running
+	// replicas (UpgradeStrategyStopAndStart, UpgradeStrategyCanary). Empty
+	// means stop and start.
+	UpgradeStrategy string `gorm:"column:upgrade_strategy;size:32" json:"upgrade_strategy,omitempty"`
 	// UnsatisfiableUntil is set by the reconciler when no candidate node has
 	// free capacity for this model; while in the future, the reconciler skips
 	// scale-up attempts for this model. Cleared on cluster events that could
@@ -281,6 +350,37 @@ type ModelSchedulingConfig struct {
 	Shadowed bool `gorm:"-" json:"shadowed,omitempty"`
 }
 
+// The upgrade strategies of a model in a cluster.
+const (
+	// UpgradeStrategyStopAndStart stops every replica, switches the files and
+	// the config, and loads the new version as the load check. It is the
+	// default, and the only strategy a standalone server has.
+	UpgradeStrategyStopAndStart = "stop_and_start"
+	// UpgradeStrategyCanary loads one replica of the new version next to the
+	// old ones and replaces the others after its check. It is accepted and
+	// stored, but not available yet: an upgrade stops and starts.
+	UpgradeStrategyCanary = "canary"
+)
+
+// ValidUpgradeStrategy reports whether s is a strategy a rule may store. The
+// empty string means the default.
+func ValidUpgradeStrategy(s string) bool {
+	switch s {
+	case "", UpgradeStrategyStopAndStart, UpgradeStrategyCanary:
+		return true
+	}
+	return false
+}
+
+// EffectiveUpgradeStrategy is the strategy the rule asks for, with the
+// default for an empty value.
+func (c ModelSchedulingConfig) EffectiveUpgradeStrategy() string {
+	if c.UpgradeStrategy == "" {
+		return UpgradeStrategyStopAndStart
+	}
+	return c.UpgradeStrategy
+}
+
 // Target returns the model this rule governs. It falls back to ModelName when
 // the rule was built by hand rather than read through the registry, so a rule
 // that was never alias-resolved still governs itself.
@@ -301,6 +401,10 @@ type NodeWithExtras struct {
 	// first: VRAM use on a node with a GPU, CPU use otherwise. It lives in
 	// memory only and is absent for a worker that has not reported yet.
 	LoadHistory []float64 `json:"load_history,omitempty"`
+	// RouteState says, for each route of the node (the heartbeat, NATS, the
+	// tunnel), if it is live: what the health monitor judges the node by. The
+	// registry does not fill it; the node endpoints do, in distributed mode.
+	RouteState []RouteState `json:"route_state,omitempty"`
 }
 
 // PendingBackendOp is a durable intent for a backend lifecycle operation
@@ -398,6 +502,11 @@ const (
 // NodeRegistry manages backend node registration and lookup in PostgreSQL.
 type NodeRegistry struct {
 	db *gorm.DB
+	// weightSource and ranks break ties between equally fit nodes by the carrier
+	// that reaches them (see carrier_rank.go). weightSource is nil until
+	// SetCarrierWeights.
+	weightSource atomic.Pointer[CarrierWeightSource]
+	ranks        rankCache
 	// clock stamps display fields of load jobs. Tests replace it to prove that
 	// the lease never depends on it. nil means time.Now.
 	clock func() time.Time
@@ -537,7 +646,10 @@ const heartbeatMaterialDelta = 256 << 20 // 256 MiB
 // when multiple instances (frontend + workers) start at the same time.
 func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{})
+		if err := db.AutoMigrate(&BackendNode{}, &NodeModel{}, &NodeLabel{}, &ModelSchedulingConfig{}, &PendingBackendOp{}, &ModelLoadInfo{}, &ModelLoadJob{}, &ModelConfigState{}, &NodeSplitReport{}); err != nil {
+			return err
+		}
+		return dropRemovedNodeColumns(db)
 	}); err != nil {
 		return nil, fmt.Errorf("migrating node tables: %w", err)
 	}
@@ -590,6 +702,26 @@ func NewNodeRegistry(db *gorm.DB) (*NodeRegistry, error) {
 	}, nil
 }
 
+// removedNodeColumns are columns of backend_nodes that nothing reads any more:
+// attached_epoch was the epoch of the old change of carrier that a worker had
+// followed.
+var removedNodeColumns = []string{"attached_epoch"}
+
+// dropRemovedNodeColumns drops the removedNodeColumns that a database still
+// has. It uses the migrator of gorm, so it runs on PostgreSQL and on SQLite.
+func dropRemovedNodeColumns(db *gorm.DB) error {
+	m := db.Migrator()
+	for _, col := range removedNodeColumns {
+		if !m.HasColumn(&BackendNode{}, col) {
+			continue
+		}
+		if err := m.DropColumn(&BackendNode{}, col); err != nil {
+			return fmt.Errorf("dropping column backend_nodes.%s: %w", col, err)
+		}
+	}
+	return nil
+}
+
 // resolveVRAMBudgetBytes turns a budget string into an absolute byte ceiling
 // against the node's raw total VRAM, clamped to that total. 0 means no cap or
 // unparseable (fail-open at this layer; the endpoint validates input).
@@ -634,8 +766,21 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 	var existing BackendNode
 	err := r.db.WithContext(ctx).Where("name = ?", node.Name).First(&existing).Error
 	if err == nil {
+		// A node that joined over P2P belongs to its peer, and a node that
+		// registered with the registration token belongs to that path. Neither
+		// may take the name of the other: a holder of the registration token
+		// would otherwise take over a P2P worker by its name, and a paired
+		// worker would take over a node it never was.
+		if existing.PeerID != node.PeerID {
+			return fmt.Errorf("%w: node %s", ErrNodePinned, node.Name)
+		}
 		// Re-registration (node restart): preserve ID, respect approval history
 		node.ID = existing.ID
+		// A node that registers again may bind its split host to a new peer,
+		// for example after it lost its key.
+		if err := unpinSplitPeer(r.db.WithContext(ctx), existing.ID); err != nil {
+			return err
+		}
 		if autoApprove || existing.Status != StatusPending {
 			// Auto-approve enabled, or node was previously approved — restore healthy
 			node.Status = StatusHealthy
@@ -654,6 +799,11 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 			// scheduler will actually use.
 			node.MaxReplicasPerModel = existing.MaxReplicasPerModel
 			node.MaxReplicasPerModelManuallySet = true
+		}
+		if existing.SplitServerManuallySet {
+			updateDB = updateDB.Omit("split_server", "split_server_manually_set")
+			node.SplitServer = existing.SplitServer
+			node.SplitServerManuallySet = true
 		}
 		// Preserve an admin-set VRAM budget across worker re-registration;
 		// otherwise the worker-reported budget (wired in a later task) wins.
@@ -684,6 +834,14 @@ func (r *NodeRegistry) Register(ctx context.Context, node *BackendNode, autoAppr
 					ColAvailableVRAM:   node.AvailableVRAM,
 				}).Error; err != nil {
 				return fmt.Errorf("clearing worker VRAM budget for node %s: %w", node.Name, err)
+			}
+		}
+		// The start flag of the worker decides while the admin has not: write
+		// it even when false, which Updates(struct) above skips.
+		if !existing.SplitServerManuallySet {
+			if err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", node.ID).
+				Update("split_server", node.SplitServer).Error; err != nil {
+				return fmt.Errorf("recording the split server declaration of node %s: %w", node.Name, err)
 			}
 		}
 		// Force-write the disk columns. Updates(struct) above zero-skips, and a
@@ -891,7 +1049,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	var node BackendNode
 	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?)",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels).
-		Order("(available_vram - reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
 	if err == nil {
 		return &node, nil
@@ -901,7 +1059,7 @@ func (r *NodeRegistry) FindNodeWithVRAM(ctx context.Context, minBytes uint64) (*
 	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ?",
 		StatusHealthy, NodeTypeBackend, minBytes).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes with %d bytes available VRAM: %w", minBytes, err)
@@ -981,6 +1139,9 @@ func (r *NodeRegistry) Deregister(ctx context.Context, nodeID string) error {
 		}
 		if err := tx.Where("id = ?", nodeID).Delete(&BackendNode{}).Error; err != nil {
 			return fmt.Errorf("deleting node %s: %w", nodeID, err)
+		}
+		if err := tx.Where("node_id = ?", nodeID).Delete(&NodeSplitReport{}).Error; err != nil {
+			return fmt.Errorf("deleting the split report of node %s: %w", nodeID, err)
 		}
 		// Clean up auto-provisioned auth user (cascades to API keys via FK)
 		if node.AuthUserID != "" {
@@ -1150,6 +1311,34 @@ type HeartbeatUpdate struct {
 	CPULoad1        *float64 `json:"cpu_load_1,omitempty"`
 	// WorkerIncarnation is the worker process identity. See BackendNode.
 	WorkerIncarnation string `json:"worker_incarnation,omitempty"`
+
+	// The route report. A worker sends it in every heartbeat: the routes its
+	// operator gave it (Routes, never empty in a report, so it tells a report
+	// from its absence), the routes it holds and is connected on (Attached), and
+	// why each of the others is not (RouteError).
+	Routes     []string `json:"routes,omitempty"`
+	Attached   []string `json:"attached,omitempty"`
+	RouteError string   `json:"route_error,omitempty"`
+	// The tunnel the worker holds: its transport ("websocket" or "p2p"), and
+	// for P2P the path and whether a relay limits it. See BackendNode.
+	TunnelTransport string `json:"tunnel_transport,omitempty"`
+	TunnelPath      string `json:"tunnel_path,omitempty"`
+	TunnelLimited   bool   `json:"tunnel_limited,omitempty"`
+}
+
+// RouteReport returns the route report of a heartbeat, and false when the
+// worker sent none. The routes the worker was given are stored in the follow
+// column, and why some are not held in follow_error.
+func (u HeartbeatUpdate) RouteReport() (RouteReport, bool) {
+	if len(u.Routes) == 0 {
+		return RouteReport{}, false
+	}
+	return RouteReport{
+		Attached:    parseRoutes(u.Attached),
+		Follow:      parseRoutes(u.Routes),
+		FollowError: utils.TruncateUTF8(u.RouteError, followErrorMax),
+		Tunnel:      parseTunnelRoute(u.TunnelTransport, u.TunnelPath, u.TunnelLimited),
+	}, true
 }
 
 func clampCPUUsage(usage float64) float64 {
@@ -1347,6 +1536,66 @@ func (r *NodeRegistry) GetWithExtras(ctx context.Context, nodeID string) (*NodeW
 		Labels:        labels,
 		LoadHistory:   r.loadHist.snapshot(nodeID),
 	}, nil
+}
+
+// SetTunnelTokenHash stores the hash of the tunnel credential of a node. An
+// empty hash clears it. It writes the one column on its own because Register
+// updates from a struct, and a struct update skips an empty value, so it could
+// not clear a credential.
+func (r *NodeRegistry) SetTunnelTokenHash(ctx context.Context, nodeID, hash string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).Update("tunnel_token_hash", hash)
+	if res.Error != nil {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("storing the tunnel credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// SetNodeCredential stores the hash of the own credential of a node, the join
+// token that it registered with (empty when none) and the connections that
+// token allowed. It replaces the previous
+// credential, which stops working at once.
+func (r *NodeRegistry) SetNodeCredential(ctx context.Context, nodeID, hash, joinTokenID, joinRoutes string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"node_token_hash": hash, "join_token_id": joinTokenID, "join_routes": joinRoutes})
+	if res.Error != nil {
+		return fmt.Errorf("storing the credential of node %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("storing the credential of node %s: %w", nodeID, gorm.ErrRecordNotFound)
+	}
+	return nil
+}
+
+// HashNodeSecret is the hash that the database holds for the credential of a
+// node, or for any other secret that a worker presents.
+func HashNodeSecret(secret string) string {
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
+}
+
+// NodeCredentialMatches reports whether secret is the credential of the node, in
+// constant time. A node with no credential matches nothing.
+func NodeCredentialMatches(node *BackendNode, secret string) bool {
+	if node == nil || node.NodeTokenHash == "" || secret == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(HashNodeSecret(secret)), []byte(node.NodeTokenHash)) == 1
+}
+
+// ClearAddresses removes the addresses of a node. A worker that holds only a
+// tunnel advertises none, and Register does not clear a column when the new
+// value is empty, so a node that registered with addresses before would keep
+// them.
+func (r *NodeRegistry) ClearAddresses(ctx context.Context, nodeID string) error {
+	err := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"address": "", "http_address": ""}).Error
+	if err != nil {
+		return fmt.Errorf("clearing the addresses of node %s: %w", nodeID, err)
+	}
+	return nil
 }
 
 // GetByName returns a single node by name.
@@ -1846,6 +2095,11 @@ type RoutePreference struct {
 // spec ("agrees with PickBestReplica on a seeded dataset") fails fast if they
 // drift.
 //
+// One deliberate difference: when a carrier weight source is set (distributed
+// mode), the ORDER BY adds the carrier weight after in_flight, and puts a
+// replica behind a data-limited relay last (see warmOrder). PickBestReplica has
+// no such key. With no source the two agree exactly.
+//
 // When candidateNodeIDs is non-empty, only nodes in that set are considered.
 // Pass nil (or empty) to consider any node. This lets callers pre-filter by
 // NodeSelector so a cached replica on a now-excluded node isn't picked over a
@@ -1916,7 +2170,7 @@ func (r *NodeRegistry) FindAndLockNodeWithModel(ctx context.Context, modelName s
 		}
 		if !picked {
 			if err := base.
-				Order("node_models.in_flight ASC, node_models.last_used ASC, backend_nodes.available_vram DESC").
+				Scopes(func(q *gorm.DB) *gorm.DB { return q.Clauses(r.warmOrder(ctx)) }).
 				First(&nm).Error; err != nil {
 				return err
 			}
@@ -2064,7 +2318,7 @@ func (r *NodeRegistry) FindLeastLoadedNode(ctx context.Context) (*BackendNode, e
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding least loaded node: %w", err)
@@ -2083,7 +2337,7 @@ func (r *NodeRegistry) FindIdleNode(ctx context.Context) (*BackendNode, error) {
 		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?)", StatusHealthy, NodeTypeBackend, loadedModels).
-		Order("available_vram DESC").
+		Scopes(r.weightTail(ctx, "available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, err
@@ -2270,6 +2524,21 @@ func (r *NodeRegistry) GetAllNodeLabelsMap(ctx context.Context) (map[string]map[
 	return result, nil
 }
 
+// LabelValuesOfHealthy returns the distinct values of the label key on the
+// healthy nodes of nodeType that carry every label of selector. It reads only
+// those rows, so a caller on a hot path does not load the whole label table.
+func (r *NodeRegistry) LabelValuesOfHealthy(ctx context.Context, nodeType string, selector map[string]string, key string) ([]string, error) {
+	db := r.db.WithContext(ctx).Model(&NodeLabel{}).
+		Joins("JOIN backend_nodes ON backend_nodes.id = node_labels.node_id").
+		Where("node_labels.key = ? AND node_labels.value <> '' AND backend_nodes.status = ? AND backend_nodes.node_type = ?", key, StatusHealthy, nodeType)
+	for k, v := range selector {
+		db = db.Where("EXISTS (SELECT 1 FROM node_labels AS s WHERE s.node_id = node_labels.node_id AND s.key = ? AND s.value = ?)", k, v)
+	}
+	var values []string
+	err := db.Distinct().Pluck("node_labels.value", &values).Error
+	return values, err
+}
+
 // --- Selector-based queries ---
 
 // FindNodesBySelector returns healthy backend nodes matching ALL key-value pairs in the selector.
@@ -2309,7 +2578,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 	var node BackendNode
 	err := db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND id NOT IN (?) AND id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, loadedModels, nodeIDs).
-		Order("(available_vram - reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "(available_vram - reserved_vram) DESC")).
 		First(&node).Error
 	if err == nil {
 		return &node, nil
@@ -2319,7 +2588,7 @@ func (r *NodeRegistry) FindNodeWithVRAMFromSet(ctx context.Context, minBytes uin
 	err = db.Where("status = ? AND node_type = ? AND (available_vram - reserved_vram) >= ? AND backend_nodes.id IN ?",
 		StatusHealthy, NodeTypeBackend, minBytes, nodeIDs).
 		Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, (backend_nodes.available_vram - backend_nodes.reserved_vram) DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("no healthy nodes in set with %d bytes available VRAM: %w", minBytes, err)
@@ -2337,7 +2606,7 @@ func (r *NodeRegistry) FindIdleNodeFromSet(ctx context.Context, nodeIDs []string
 		Where("node_models.state = ?", "loaded").
 		Group("node_id")
 	err := db.Where("status = ? AND node_type = ? AND id NOT IN (?) AND id IN ?", StatusHealthy, NodeTypeBackend, loadedModels, nodeIDs).
-		Order("available_vram DESC").
+		Scopes(r.weightTail(ctx, "available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, err
@@ -2358,7 +2627,7 @@ func (r *NodeRegistry) FindLeastLoadedNodeFromSet(ctx context.Context, nodeIDs [
 		Group("node_id")
 
 	err := query.Joins("LEFT JOIN (?) AS load ON load.node_id = backend_nodes.id", subquery).
-		Order("COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC").
+		Scopes(r.weightTail(ctx, "COALESCE(load.total_inflight, 0) ASC, backend_nodes.available_vram DESC")).
 		First(&node).Error
 	if err != nil {
 		return nil, fmt.Errorf("finding least loaded node in set: %w", err)
@@ -2380,7 +2649,7 @@ func (r *NodeRegistry) SetModelScheduling(ctx context.Context, config *ModelSche
 			DoUpdates: clause.AssignmentColumns([]string{
 				"node_selector", "min_replicas", "max_replicas", "spread_all",
 				"route_policy", "balance_abs_threshold", "balance_rel_threshold", "min_prefix_match",
-				"routing_scorer_weights", "target_model", "updated_at",
+				"routing_scorer_weights", "upgrade_strategy", "target_model", "updated_at",
 			}),
 		}).
 		Create(config).Error
@@ -2608,6 +2877,34 @@ func (r *NodeRegistry) ResetMaxReplicasPerModel(ctx context.Context, nodeID stri
 		Update("max_replicas_per_model_manually_set", false)
 	if res.Error != nil {
 		return fmt.Errorf("clearing max_replicas_per_model override on %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// SetSplitServer declares a node a split server, or clears the declaration,
+// as the admin's choice: a re-registration keeps it until ResetSplitServer.
+func (r *NodeRegistry) SetSplitServer(ctx context.Context, nodeID string, on bool) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Updates(map[string]any{"split_server": on, "split_server_manually_set": true})
+	if res.Error != nil {
+		return fmt.Errorf("updating the split server declaration of %s: %w", nodeID, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("node %s not found", nodeID)
+	}
+	return nil
+}
+
+// ResetSplitServer hands the split server declaration back to the start flag
+// of the worker: the next registration sets it. The current value stays.
+func (r *NodeRegistry) ResetSplitServer(ctx context.Context, nodeID string) error {
+	res := r.db.WithContext(ctx).Model(&BackendNode{}).Where("id = ?", nodeID).
+		Update("split_server_manually_set", false)
+	if res.Error != nil {
+		return fmt.Errorf("resetting the split server declaration of %s: %w", nodeID, res.Error)
 	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("node %s not found", nodeID)

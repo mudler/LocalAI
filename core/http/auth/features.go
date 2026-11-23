@@ -332,6 +332,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/addons/host-grants", FeatureAddons},
 	{"POST", "/api/addons/host-grants/preview", FeatureAddons},
 	{"POST", "/api/addons/host-grants/install", FeatureAddons},
+	{"POST", "/api/addons/host-grants/queue", FeatureAddons},
 	{"PUT", "/api/addons/host-grants/blanket", FeatureAddons},
 	{"PUT", "/api/addons/host-grants/deny", FeatureAddons},
 	{"PUT", "/api/addons/host-grants/:addonId", FeatureAddons},

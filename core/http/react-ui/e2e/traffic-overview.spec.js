@@ -1,15 +1,16 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem, adminGroup } from './admin-nav.js'
 import { mockTraffic } from './traffic-fixtures.js'
 
 test.describe('Traffic overview', () => {
   test('opens on the overview, with the five figures and no tiles', async ({ page }) => {
     await mockTraffic(page)
     await page.goto('/app/traffic')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="traffic"]')).toHaveAttribute('aria-current', 'page')
-    const sub = page.locator('.hub-subnav')
-    await expect(sub.getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
-    await expect(sub.getByRole('link', { name: 'Usage' })).not.toHaveAttribute('aria-current', 'page')
-    // Every page of the hub is one link away. Alerts is not among them.
+    // Traffic is folded until one of its pages is open, and open on this one.
+    await expect(adminItem(page, '/app/traffic')).toHaveAttribute('aria-current', 'page')
+    const sub = adminGroup(page, 'traffic')
+    await expect(adminItem(page, '/app/usage')).not.toHaveAttribute('aria-current', 'page')
+    // Every page of the group is one link away. Alerts is not among them.
     for (const name of ['Usage', 'Models', 'GPU and host', 'Traces', 'Middleware', 'Prometheus']) {
       await expect(sub.getByRole('link', { name })).toBeVisible()
     }
@@ -121,7 +122,7 @@ test.describe('Traffic overview', () => {
     await page.goto('/app/traffic')
     await page.getByRole('radio', { name: '7 d' }).click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Traffic, last 7 days')
-    await page.locator('.hub-subnav').getByRole('link', { name: 'Usage' }).click()
+    await adminItem(page, '/app/usage').click()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Usage, last 7 days')
     await expect(page.getByRole('radio', { name: '7 d' })).toHaveAttribute('aria-checked', 'true')
     expect(periods).toContain('week')

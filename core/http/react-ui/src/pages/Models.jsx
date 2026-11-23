@@ -18,7 +18,6 @@ import { modelBudget } from '../utils/modelBudget'
 import { UNDO_MS } from '../utils/cleanupPlan'
 import { diskState, fitFor, fitStyle, leavesFree, gbLabel, gbNumber } from '../utils/modelLedger'
 import SearchableSelect from '../components/SearchableSelect'
-import Toggle from '../components/Toggle'
 import RecommendedModels from '../components/RecommendedModels'
 // eslint-disable-next-line no-unused-vars
 import ExploreTable from '../components/models/ExploreTable'
@@ -37,7 +36,7 @@ import React from 'react'
 import { addFlag, removeFlag, FALLBACK_MS } from '../utils/installFlags'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, PageHeader } from '../components/ui'
+import { Button, Callout, EmptyState, PageHeader, StatusChip, Switch, Tag } from '../components/ui'
 import SideSheet from '../components/SideSheet'
 import ConnectRemote, { doneMessageParts } from '../components/remotes/ConnectRemote'
 import RemotesView from '../components/remotes/RemotesView'
@@ -47,6 +46,7 @@ import { useAuth } from '../context/AuthContext'
 import KindLibraries from '../components/catalog/KindLibraries'
 // eslint-disable-next-line no-unused-vars
 import RemoteNotice from '../components/models/RemoteNotice'
+import { readStored, writeStored } from '../utils/storage'
 import { sourceText } from '../utils/modelSearch'
 import SourceFilters from '../components/models/SourceFilters'
 import SourcesPanel from '../components/models/SourcesPanel'
@@ -62,6 +62,8 @@ import './models-ledger.css'
 // The ledger pages through the gallery thirty rows at a time: enough for the
 // groups to mean something, few enough that a page of estimates arrives fast.
 const PAGE_SIZE = 30
+// The status chip tone of a variant's fit verdict (utils/remoteModels.js).
+const FIT_CHIP_TONE = { success: 'ok', warning: 'warn', error: 'error' }
 
 // How many estimates to have in flight at once. See the fetch effect: this
 // exists to leave connections free for whatever the user clicks next.
@@ -73,9 +75,12 @@ const CHART_LABEL_ROOM = 15
 // The first step is the server's estimate default (DEFAULT_ESTIMATE_CONTEXT_SIZE).
 const CONTEXT_SIZES = [8192, 16384, 32768, 65536, 131072, 262144]
 const CONTEXT_LABELS = ['8K', '16K', '32K', '64K', '128K', '256K']
-const FITS_FILTER_STORAGE_KEY = 'localai-models-fits-filter'
-const COLLAPSE_VARIANTS_STORAGE_KEY = 'localai-models-collapse-variants-filter'
-const DENSITY_STORAGE_KEY = 'localai-models-density'
+const FITS_FILTER_STORAGE_KEY = 'models.fits-filter'
+const COLLAPSE_VARIANTS_STORAGE_KEY = 'models.collapse-variants'
+const DENSITY_STORAGE_KEY = 'models.density'
+// The keys of earlier builds, carried over on the first read.
+const OLD_KEYS = { [FITS_FILTER_STORAGE_KEY]: ['localai-models-fits-filter'], [COLLAPSE_VARIANTS_STORAGE_KEY]: ['localai-models-collapse-variants-filter'], [DENSITY_STORAGE_KEY]: ['localai-models-density'] }
+const readPref = (key) => readStored(key, OLD_KEYS[key])
 // The deduplicated gallery is what a user asking "what can I install" wants, so
 // that is the default. The control exists for the other job: browsing every
 // build the gallery holds, which the collapsed view makes impossible however
@@ -93,22 +98,14 @@ const VARIANT_DETAIL_SEARCH_ITEMS = 100
 // rather than that anyone picked a view, and honouring them would pin a
 // visitor to a default they never chose.
 const readCollapseVariantsPreference = () => {
-  try {
-    const stored = localStorage.getItem(COLLAPSE_VARIANTS_STORAGE_KEY)
-    if (stored === 'on') return true
-    if (stored === 'off') return false
-    return COLLAPSE_VARIANTS_DEFAULT
-  } catch {
-    return COLLAPSE_VARIANTS_DEFAULT
-  }
+  const stored = readPref(COLLAPSE_VARIANTS_STORAGE_KEY)
+  if (stored === 'on') return true
+  if (stored === 'off') return false
+  return COLLAPSE_VARIANTS_DEFAULT
 }
 
 const readDensity = () => {
-  try {
-    return localStorage.getItem(DENSITY_STORAGE_KEY) === 'compact' ? 'compact' : 'comfortable'
-  } catch {
-    return 'comfortable'
-  }
+  return readPref(DENSITY_STORAGE_KEY) === 'compact' ? 'compact' : 'comfortable'
 }
 
 const FILTERS = [
@@ -315,11 +312,7 @@ export default function Models() {
   // its description, licence, tags, links and files become reachable.
   const [variantDetails, setVariantDetails] = useState({})
   const [fitsFilter, setFitsFilter] = useState(() => {
-    try {
-      return localStorage.getItem(FITS_FILTER_STORAGE_KEY) === '1'
-    } catch {
-      return false
-    }
+    return readPref(FITS_FILTER_STORAGE_KEY) === '1'
   })
   // Collapses the listing to one row per model by hiding the individual builds
   // another entry already offers as variants. Server-side, unlike fitsFilter,
@@ -677,27 +670,15 @@ export default function Models() {
   }
 
   useEffect(() => {
-    try {
-      localStorage.setItem(FITS_FILTER_STORAGE_KEY, fitsFilter ? '1' : '0')
-    } catch {
-      // Ignore storage errors (e.g., private browsing restrictions).
-    }
+    writeStored(FITS_FILTER_STORAGE_KEY, fitsFilter ? '1' : '0')
   }, [fitsFilter])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
-    } catch {
-      // Ignore storage errors (e.g., private browsing restrictions).
-    }
+    writeStored(COLLAPSE_VARIANTS_STORAGE_KEY, collapseVariants ? 'on' : 'off')
   }, [collapseVariants])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(DENSITY_STORAGE_KEY, density)
-    } catch {
-      // Ignore storage errors.
-    }
+    writeStored(DENSITY_STORAGE_KEY, density)
   }, [density])
 
   const { counts: facetCounts, stale: facetsStale } = useFacetCounts({
@@ -1157,30 +1138,38 @@ export default function Models() {
   if (remote && visibleModels.length === 0 && !remoteBusy) {
     if (noLatest(remote.id)) {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-hint">
-          <div className="dk-empty-icon"><Icon name="search" /></div>
-          <h2 className="dk-empty-title">{t('remote.hint.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{t('remote.noLatest', { source: sourceLabel })}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="search"
+          title={t('remote.hint.title', { source: sourceLabel })}
+          body={t('remote.noLatest', { source: sourceLabel })}
+          testId="remote-hint"
+        />
       )
     } else if (remoteFailed) {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-unavailable">
-          <div className="dk-empty-icon"><Icon name="cloud" /></div>
-          <h2 className="dk-empty-title">{t('remote.failed.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{remoteSearch.error || t('remote.failed.text')}</p>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setRemoteReload(n => n + 1)}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="cloud"
+          title={t('remote.failed.title', { source: sourceLabel })}
+          body={remoteSearch.error || t('remote.failed.text')}
+          testId="remote-unavailable"
+          actions={<>
+            <Button variant="secondary" size="sm" icon="refresh" onClick={() => setRemoteReload(n => n + 1)}>
+            {t('ledger.retry')}
+            </Button>
+          </>}
+        />
       )
     } else {
       remoteEmpty = (
-        <div className="dk-empty ledger-empty" data-testid="remote-empty">
-          <div className="dk-empty-icon"><Icon name="search" /></div>
-          <h2 className="dk-empty-title">{t('remote.none.title', { source: sourceLabel })}</h2>
-          <p className="dk-empty-text">{remoteRows.length > 0 ? t('remote.none.fits') : ggufOnly ? t('remote.none.gguf') : t('remote.none.text')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="search"
+          title={t('remote.none.title', { source: sourceLabel })}
+          body={remoteRows.length > 0 ? t('remote.none.fits') : ggufOnly ? t('remote.none.gguf') : t('remote.none.text')}
+          testId="remote-empty"
+        />
       )
     }
   }
@@ -1284,9 +1273,9 @@ export default function Models() {
         onChanged={() => setRefreshToken(n => n + 1)}
         extraChips={sources.map(src => ({ id: src.id, label: sourceName(src), tag: src.p2p ? t('remote.p2p') : '' }))}
         extraActions={(installedSources.length > 1 || missingSources.length > 0 || sources.length === 0) && (
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
-            <Icon name="cloud" /> {t('remote.sourcesButton')}
-          </button>
+          <Button variant="ghost" size="sm" icon="cloud" data-testid="model-sources-open" onClick={() => setSourcesOpen(true)}>
+            {t('remote.sourcesButton')}
+          </Button>
         )}
         extraPicked={remote?.id || ''}
         onExtraPick={pickSource}
@@ -1296,7 +1285,7 @@ export default function Models() {
           {sources.length === 0 ? t('remote.noSources') : t('remote.missingHint', { sources: missingSources.map(id => t(`remote.sources.${id}`, { defaultValue: id })).join(', ') })}
           {' '}
           {sources.length === 0
-            ? <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</button>
+            ? <Button variant="ghost" size="sm" onClick={() => setSourcesOpen(true)}>{t('remote.sourcesButton')}</Button>
             : <Link to="/addons">{t('remote.missingInstall')}</Link>}
         </p>
       )}
@@ -1378,6 +1367,7 @@ export default function Models() {
                 value={backendFilter}
                 onChange={(v) => { setBackendFilter(v); setPage(1) }}
                 options={allBackends}
+                variant="chip"
                 placeholder={t('filters.allBackends')}
                 allOption={t('filters.allBackends')}
                 searchPlaceholder={t('filters.searchBackends')}
@@ -1393,8 +1383,9 @@ export default function Models() {
                 them. */}
             {!remote && (
               <label className="filter-bar-group__toggle" data-testid="models-collapse-variants">
-                <Toggle
+                <Switch
                   checked={collapseVariants}
+                  label={t('filters.collapseVariants')}
                   onChange={(v) => { setCollapseVariants(v); setPage(1) }}
                 />
                 <span>{t('filters.collapseVariants')}</span>
@@ -1402,7 +1393,7 @@ export default function Models() {
             )}
             {sectionIds.length > 0 && (
               <label className="filter-bar-group__toggle" data-testid="remote-gguf-only">
-                <Toggle checked={ggufOnly} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
+                <Switch checked={ggufOnly} label={t('remote.ggufOnly')} onChange={(v) => { setGgufOnly(v); setRemoteLimit(REMOTE_PAGE_STEP); setSectionLimits({}) }} />
                 <span>{t('remote.ggufOnly')}</span>
               </label>
             )}
@@ -1421,7 +1412,7 @@ export default function Models() {
             )}
             {totalGpuMemory > 0 && (
               <label className="filter-bar-group__toggle">
-                <Toggle checked={fitsFilter} onChange={setFitsFilter} />
+                <Switch checked={fitsFilter} label={hasGpu ? t('filters.fitsGpu') : t('filters.fitsMemory')} onChange={setFitsFilter} />
                 <span>{hasGpu ? t('filters.fitsGpu') : t('filters.fitsMemory')}</span>
               </label>
             )}
@@ -1525,18 +1516,26 @@ export default function Models() {
             loadError ? (
               // The list could not be fetched, which is not the same as an empty
               // gallery. The banner above holds the reason and the way out.
-              <div className="dk-empty ledger-empty" data-testid="gallery-unavailable">
-                <div className="dk-empty-icon"><Icon name="cloud" /></div>
-                <h2 className="dk-empty-title">{t('ledger.offline.emptyTitle')}</h2>
-                <p className="dk-empty-text">{t('ledger.offline.emptyText')}</p>
-              </div>
+              <EmptyState
+                variant="unavailable"
+                icon="cloud"
+                title={t('ledger.offline.emptyTitle')}
+                body={t('ledger.offline.emptyText')}
+                testId="gallery-unavailable"
+              />
             ) : (
-            <div className="dk-empty ledger-empty" data-testid="gallery-empty">
-              <div className="dk-empty-icon"><Icon name="search" /></div>
-              <h2 className="dk-empty-title">{t('empty.title')}</h2>
-              <p className="dk-empty-text">
-                {librarySource ? t('empty.library', { name: librarySource.name }) : filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
-              </p>
+            <EmptyState
+              variant="no-results"
+              icon="search"
+              title={t('empty.title')}
+              body={librarySource ? t('empty.library', { name: librarySource.name }) : filtersActive ? t('empty.withFilters') : t('empty.noFilters')}
+              testId="gallery-empty"
+              actions={filtersActive && (
+                <Button variant="secondary" size="sm" icon="close" onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}>
+                  {t('search.clearFilters')}
+                </Button>
+              )}
+            >
               {/* Only the fits filter can leave the collapse to blame. The term,
                   the chips and the backend are applied server-side over every build
                   the gallery holds, and a match there is always reported as some
@@ -1546,17 +1545,9 @@ export default function Models() {
                   judges that entry's own size: the build that fits can still be
                   filtered out along with a parent that does not. */}
               {collapseVariants && fitsFilter && (
-                <p className="empty-state-hint dk-empty-text">{t('empty.collapsedVariantsHint')}</p>
+                <p className="ui-empty__body" data-testid="gallery-empty-hint">{t('empty.collapsedVariantsHint')}</p>
               )}
-              {filtersActive && (
-                <button
-                  className="dk-btn dk-btn--secondary dk-btn--sm"
-                  onClick={() => { handleSearch(''); setFilters([]); setBackendFilter(''); setFitsFilter(false); setCollapseVariants(COLLAPSE_VARIANTS_DEFAULT); setPage(1) }}
-                >
-                  <Icon name="close" /> {t('search.clearFilters')}
-                </button>
-              )}
-            </div>
+            </EmptyState>
             )
           )}
           {(remote || firstLoad || visibleModels.length > 0 || onlineHasContent) && (
@@ -1600,15 +1591,9 @@ export default function Models() {
 
           {remote && !remoteEmpty && canLoadMore(remoteSearch.results, remoteLimit) && (
             <div className="ledger-more">
-              <button
-                type="button"
-                className="dk-btn dk-btn--secondary dk-btn--sm"
-                data-testid="remote-load-more"
-                disabled={remoteBusy}
-                onClick={() => setRemoteLimit(nextLimit)}
-              >
+              <Button variant="secondary" size="sm" data-testid="remote-load-more" disabled={remoteBusy} onClick={() => setRemoteLimit(nextLimit)}>
                 {remoteBusy ? <Icon name="spinner" spin /> : <Icon name="plus" />} {t('remote.loadMore')}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -1831,16 +1816,16 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
         <tbody>
           <DetailRow label={t('detail.gallery')}>
             {model.gallery && (
-              <span className="dk-badge">
+              <Tag>
                 {typeof model.gallery === 'string' ? model.gallery : model.gallery.name || '—'}
-              </span>
+              </Tag>
             )}
           </DetailRow>
           <DetailRow label={t('detail.backend')}>
             {model.backend && (
-              <span className="dk-badge">
+              <Tag>
                 {model.backend}
-              </span>
+              </Tag>
             )}
           </DetailRow>
           <DetailRow label={t('detail.size')}>
@@ -1941,23 +1926,17 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
                       </span>
                       <span className="variant-row__size">{variantSizeLabel(v, t)}</span>
                       <span className="variant-row__status">
-                        {isAuto && (
-                          <span className="badge badge-success">
-                            <Icon name="check-circle" /> {t('variants.autoSelected')}
-                          </span>
-                        )}
-                        {v.fitNote && <span className={`badge badge-${v.fitTone}`}>{v.fitNote}</span>}
-                        {v.recommended && !isAuto && <span className="badge badge-info">{t('remote.recommended')}</span>}
-                        {!v.fits && !v.fitNote && <span className="badge badge-warning">{t('variants.doesNotFit')}</span>}
-                        {v.is_base && !isAuto && <span className="badge badge-info">{t('variants.base')}</span>}
+                        {isAuto && <StatusChip tone="ok" icon="check-circle" label={t('variants.autoSelected')} />}
+                        {v.fitNote && <StatusChip tone={FIT_CHIP_TONE[v.fitTone] || 'idle'} label={v.fitNote} />}
+                        {v.recommended && !isAuto && <Tag tone="accent">{t('remote.recommended')}</Tag>}
+                        {!v.fits && !v.fitNote && <StatusChip tone="warn" label={t('variants.doesNotFit')} />}
+                        {v.is_base && !isAuto && <Tag>{t('variants.base')}</Tag>}
                         {/* The room the detail row has over the dropdown is
                             spent here: "DFLASH" names nothing to a user who
                             has not met it, whereas the spelled-out feature
                             says why this build is worth choosing. */}
                         {(v.features || []).map(f => (
-                          <span key={f} className="badge badge-info">
-                            <Icon name="bolt" /> {variantFeatureLabel(f, t)}
-                          </span>
+                          <Tag key={f} tone="accent" icon="bolt">{variantFeatureLabel(f, t)}</Tag>
                         ))}
                       </span>
                       <Icon name={variantChoice ? (variantChoice.chosen === v.model ? 'check-circle' : 'circle') : 'download'} className="variant-row__action" />
@@ -2000,7 +1979,7 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
             {model.tags?.length > 0 && (
               <div className="ledger-detail__tags">
                 {model.tags.map(tag => (
-                  <span key={tag} className="dk-badge">{tag}</span>
+                  <Tag key={tag}>{tag}</Tag>
                 ))}
               </div>
             )}
@@ -2018,22 +1997,18 @@ function ModelDetail({ model, fit, sizeDisplay, vramDisplay, expandedFiles, setE
           </DetailRow>
           {model.trustRemoteCode && (
             <DetailRow label={t('detail.warning')}>
-              <span className="dk-badge dk-badge--error">
-                <Icon name="alert-circle" /> {t('detail.requiresTrustRemoteCode')}
-              </span>
+              <Tag tone="error" icon="alert-circle">
+                {t('detail.requiresTrustRemoteCode')}
+              </Tag>
             </DetailRow>
           )}
           {files.length > 0 && (
             <DetailRow label={t('detail.files')}>
               <div>
-                <button
-                  className="dk-btn dk-btn--secondary dk-btn--sm"
-                  aria-expanded={expandedFiles}
-                  onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}
-                >
+                <Button variant="secondary" size="sm" aria-expanded={expandedFiles} onClick={(e) => { e.stopPropagation(); setExpandedFiles(!expandedFiles) }}>
                   <Icon name={`chevron-${expandedFiles ? 'down' : 'right'}`} />
                   {t('detail.fileCount', { count: files.length })}
-                </button>
+                </Button>
                 {expandedFiles && (
                   <div className="dk-table-wrap ledger-files">
                     <table className="dk-table dk-table--compact">
@@ -2248,29 +2223,23 @@ function DiscoverDetail({
           ) : model.installed ? (
             <>
               {openUseCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={name} label={t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${useCase.labelKey}`) })} className="dk-btn dk-btn--primary dk-btn--sm" />)}
-              <button className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onManage(name)}>
-                <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
-              </button>
+              <Button variant="ghost" size="sm" icon="sliders" onClick={() => onManage(name)}>
+                {t('lifecycle.actions.manageInstallation')}
+              </Button>
             </>
           ) : failed ? (
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onRetry(name, failed)} data-testid="discover-install">
-              <Icon name="refresh" /> {t('ledger.retry')}
-            </button>
+            <Button variant="primary" size="sm" icon="refresh" onClick={() => onRetry(name, failed)} data-testid="discover-install">
+              {t('ledger.retry')}
+            </Button>
           ) : (
-            <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onInstall(name)} disabled={!!installBlocked} title={installBlocked || undefined} data-testid="discover-install">
-              <Icon name="download" /> {t('actions.install')}
-            </button>
+            <Button variant="primary" size="sm" icon="download" onClick={() => onInstall(name)} disabled={!!installBlocked} title={installBlocked || undefined} data-testid="discover-install">
+              {t('actions.install')}
+            </Button>
           )}
           {onOpenPage && (
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost dk-btn--sm"
-              onClick={() => onOpenPage(name)}
-              data-testid="inspector-open-page"
-              aria-keyshortcuts="o"
-            >
-              <Icon name="arrow-right" /> {t('page.openDetails')}
-            </button>
+            <Button variant="ghost" size="sm" icon="arrow-right" onClick={() => onOpenPage(name)} data-testid="inspector-open-page" aria-keyshortcuts="o">
+              {t('page.openDetails')}
+            </Button>
           )}
         </>
       )}

@@ -9,6 +9,11 @@ import (
 // chain name are served by its highest-priority healthy target. See
 // core/services/failover for the runtime side.
 type FailoverConfig struct {
+	// Policy picks the target of each request. The default, priority, serves
+	// every request from the first healthy target. The balanced policies
+	// spread requests over every healthy target and keep the failover: a
+	// target that fails is tripped and the request moves to the next one.
+	Policy   FailoverPolicy   `yaml:"policy,omitempty" json:"policy,omitempty"`
 	Targets  []FailoverTarget `yaml:"targets" json:"targets"`
 	Probe    FailoverProbe    `yaml:"probe,omitempty" json:"probe,omitempty"`
 	Trip     FailoverTrip     `yaml:"trip,omitempty" json:"trip,omitempty"`
@@ -20,6 +25,37 @@ type FailoverTarget struct {
 	// Warm keeps a local target loaded and exempt from eviction, so a switch
 	// does not wait for a cold load.
 	Warm bool `yaml:"warm,omitempty" json:"warm,omitempty"`
+	// Drain stops new requests to the target. Requests in flight finish,
+	// the health checks go on, and a pin can still choose the target.
+	Drain bool `yaml:"drain,omitempty" json:"drain,omitempty"`
+}
+
+// FailoverPolicy is how a chain picks the target of a request.
+type FailoverPolicy string
+
+const (
+	// FailoverPolicyPriority serves from the first healthy target in list
+	// order. It is the default.
+	FailoverPolicyPriority FailoverPolicy = "priority"
+	// FailoverPolicyLeastBusy serves from the healthy target with the
+	// fewest requests in flight from this server.
+	FailoverPolicyLeastBusy FailoverPolicy = "least_busy"
+	// FailoverPolicyRoundRobin serves from each healthy target in turn.
+	FailoverPolicyRoundRobin FailoverPolicy = "round_robin"
+)
+
+func (p FailoverPolicy) valid() bool {
+	switch p {
+	case "", FailoverPolicyPriority, FailoverPolicyLeastBusy, FailoverPolicyRoundRobin:
+		return true
+	}
+	return false
+}
+
+// Balanced reports whether the chain spreads requests over its targets
+// instead of using them in priority order.
+func (f FailoverConfig) Balanced() bool {
+	return f.Policy == FailoverPolicyLeastBusy || f.Policy == FailoverPolicyRoundRobin
 }
 
 type FailoverProbe struct {
@@ -120,8 +156,15 @@ func (c *ModelConfig) validateFailover() error {
 	if len(f.Targets) < 2 {
 		return fmt.Errorf("failover chain %q needs at least 2 targets", c.Name)
 	}
+	if !f.Policy.valid() {
+		return fmt.Errorf("failover chain %q: unknown policy %q (use priority, least_busy or round_robin)", c.Name, f.Policy)
+	}
 	seen := map[string]bool{}
+	drained := 0
 	for _, t := range f.Targets {
+		if t.Drain {
+			drained++
+		}
 		switch {
 		case t.Model == "":
 			return fmt.Errorf("failover chain %q has a target with no model", c.Name)
@@ -131,6 +174,9 @@ func (c *ModelConfig) validateFailover() error {
 			return fmt.Errorf("failover chain %q lists %q twice", c.Name, t.Model)
 		}
 		seen[t.Model] = true
+	}
+	if drained == len(f.Targets) {
+		return fmt.Errorf("failover chain %q: every target is drained; leave at least one in service", c.Name)
 	}
 	for key, v := range map[string]string{
 		"probe.interval":     f.Probe.Interval,

@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -115,7 +116,7 @@ func (i *MossTranscribeCppImporter) Import(details Details) (gallery.ModelConfig
 		if err != nil {
 			return gallery.ModelConfig{}, err
 		}
-		target := filepath.Join("moss-transcribe-cpp", "models", name, fileName)
+		target := path.Join("moss-transcribe-cpp", "models", name, fileName)
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: target,
@@ -134,7 +135,7 @@ func (i *MossTranscribeCppImporter) Import(details Details) (gallery.ModelConfig
 			}
 		}
 		if chosen, ok := pickPreferredGGMLFile(ggufFiles, quants); ok {
-			target := filepath.Join("moss-transcribe-cpp", "models", name, filepath.Base(chosen.Path))
+			target := path.Join("moss-transcribe-cpp", "models", name, filepath.Base(chosen.Path))
 			cfg.Files = append(cfg.Files, gallery.File{
 				URI:      chosen.URL,
 				Filename: target,

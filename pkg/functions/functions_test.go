@@ -1,6 +1,8 @@
 package functions_test
 
 import (
+	"encoding/json"
+
 	. "github.com/mudler/LocalAI/pkg/functions"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -108,5 +110,21 @@ var _ = Describe("LocalAI grammar functions", func() {
 			Expect(len(functions)).To(Equal(1))
 			Expect(functions[0].Name).To(Equal("create_event"))
 		})
+	})
+})
+
+var _ = Describe("Tool JSON", func() {
+	It("omits strict when it is false so upstream providers do not see a disabled strict mode", func() {
+		tool := Tool{Type: "function", Function: Function{Name: "lookup", Parameters: map[string]any{"type": "object"}}}
+		data, err := json.Marshal(tool)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(data)).ToNot(ContainSubstring("strict"))
+	})
+
+	It("keeps strict when it is true", func() {
+		tool := Tool{Type: "function", Function: Function{Name: "lookup", Parameters: map[string]any{"type": "object"}, Strict: true}}
+		data, err := json.Marshal(tool)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(data)).To(ContainSubstring(`"strict":true`))
 	})
 })

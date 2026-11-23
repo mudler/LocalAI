@@ -31,7 +31,7 @@ export const GROUPS = [
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
   { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, stored responses', icon: 'robot' },
   { id: 'tools', label: 'Tools', hint: 'Built-in chat tools, commands on this machine, add-ons that replace them', icon: 'wrench' },
-  { id: 'swarm', label: 'Swarm and sharing', hint: 'Peer-to-peer network, scheduling checks', icon: 'network' },
+  { id: 'swarm', label: 'Swarm and sharing', hint: 'Scheduling checks of distributed mode', icon: 'network' },
   { id: 'look', label: 'Look and feel', hint: 'Instance name, tagline, logos', icon: 'palette' },
 ]
 
@@ -45,7 +45,6 @@ export const OLD_SECTIONS = {
   performance: 'Performance',
   tracing: 'Tracing',
   api: 'API & CORS',
-  p2p: 'P2P Network',
   galleries: 'Galleries',
   apikeys: 'API Keys',
   chats: 'Chats',
@@ -113,7 +112,9 @@ export const FIELDS = [
   { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
     desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
   { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
-    desc: 'Backend installs, updates and deletes that run at once. 1 runs them one after the other. Operations on the same backend never overlap.', default: 1, min: 1 },
+    desc: 'How many backend installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same backend never overlap.', default: 2, min: 1 },
+  { key: 'max_concurrent_model_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent model operations',
+    desc: 'How many model installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same model never overlap.', default: 2, min: 1 },
   { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
     desc: 'Use 16-bit floating point for reduced memory use.', default: false },
 
@@ -151,7 +152,7 @@ export const FIELDS = [
   { key: 'csrf', group: 'access', was: 'api', kind: 'bool', label: 'CSRF protection', inverted: true,
     desc: 'Block forged cross-site browser requests. Requests that carry an API key are exempt.', default: true },
   { key: 'api_keys', group: 'access', was: 'apikeys', kind: 'lines', label: 'Shared API keys', sensitive: true, apply: 'live',
-    desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Users and keys.',
+    desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Access, API keys.',
     placeholder: 'sk-key-1\nsk-key-2' },
   { key: 'mcp_connectors_allow_private', group: 'access', was: 'chats', kind: 'bool', label: 'MCP connectors may reach private networks',
     desc: 'Let the MCP servers that users add as connectors in the chats use addresses on private networks: this machine, link-local, private ranges and cloud metadata. Off, a connector can only reach public hosts, and every connection and redirect is checked at connect time. Turn it on only if your users are trusted: a connector can then probe your internal network through this server.',
@@ -285,6 +286,11 @@ export const FIELDS = [
   { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
     desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
     placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The most add-on tools one chat is offered (core/config/runtime_settings_registry.go;
+  // read at each discovery, so live). Each add-on is limited to 32 tools apart from this.
+  { key: 'chats_addon_tool_limit', group: 'tools', was: 'chats', kind: 'int', label: 'Add-on tools per chat',
+    desc: 'The most add-on tools one chat is offered, from 16 to 256. Tools that replace a built-in one, such as the shell, come first. Every tool is described to the model on every turn, so a higher limit costs model context and can make the model choose worse; raise it only if chats show that add-on tools are left out. An add-on can offer at most 32 tools whatever this says.',
+    placeholder: '64', default: 64, min: 16, max: 256, apply: 'live' },
   // The limits of a chat's goal (core/config/runtime_settings_registry.go;
   // read when a turn ends, so live).
   { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',
@@ -293,23 +299,6 @@ export const FIELDS = [
   { key: 'chats_goal_max_steps', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per goal',
     desc: 'How many rounds of tool calls all the turns of one goal may make together before the goal pauses (1 to 10000).',
     placeholder: '400', default: 400, min: 1, max: 10000, apply: 'live' },
-  // The loops of the chats (core/config/runtime_settings_registry.go; read at
-  // each use, so live).
-  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', kind: 'duration', label: 'Shortest loop interval',
-    desc: 'How often a loop of a chat may run at most, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
-    placeholder: '1m', default: '1m', apply: 'live' },
-  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Runs per loop',
-    desc: 'A loop ends by itself after this many runs (1 to 10000).',
-    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
-  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per chat',
-    desc: 'How many loops one chat may have at once (1 to 20). Loops that ended do not count.',
-    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
-  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per user',
-    desc: 'How many loops one user may have at once, over all their chats (1 to 200).',
-    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
-  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Loop runs per day',
-    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
-    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
   // The triggers of the chats (core/config/runtime_settings_registry.go; read
   // at each use, so live).
   { key: 'chats_trigger_run_limit', group: 'tools', was: 'chats', kind: 'duration', label: 'Trigger run time limit',
@@ -324,6 +313,33 @@ export const FIELDS = [
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
     desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
+  // The loops of the chats (core/config/runtime_settings_registry.go; read at
+  // each use, so live). Three limits show first; the rest sit under the
+  // block's Advanced disclosure (see layoutFields). Waits count as loops.
+  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', block: 'loops', kind: 'duration', label: 'Shortest interval',
+    desc: 'How often a loop may run at most, and how often a wait may check, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
+    placeholder: '1m', default: '1m', apply: 'live' },
+  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loop runs per day',
+    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.',
+    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loops and waits per chat',
+    desc: 'How many loops and waits one chat may have at once (1 to 20). Waits count too. Loops and waits that ended do not count.',
+    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
+  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Loops and waits per user',
+    desc: 'How many loops and waits one user may have at once, over all their chats (1 to 200).',
+    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Runs per loop',
+    desc: 'A loop ends by itself after this many runs (1 to 10000). In a chat of a messaging app, a trigger, a job or a page, a loop ends after a fifth of this, at least 1.',
+    extra: (settings) => {
+      const v = Number(getValue(FIELD_BY_KEY.chats_loop_max_runs, settings))
+      const n = v >= 1 ? v : 100
+      const times = (x) => (x === 1 ? 'once' : `${x} times`)
+      return `With ${n}: a loop in your own chat runs at most ${times(n)}, and in a chat of a messaging app, a trigger, a job or a page at most ${times(systemLoopRuns(n))}.`
+    },
+    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
+  { key: 'chats_loop_daily_script_checks', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Command checks per day',
+    desc: 'How many checks of waits that run a command one user may spend in a day (UTC), over all their waits (1 to 100000). A check runs the command and calls no model. When the budget is used up, the wait ends and the model is told.',
+    placeholder: '1500', default: 1500, min: 1, max: 100000, apply: 'live' },
   { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Isolated commands may reach private networks',
     desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
     default: false, fallback: false, apply: 'live', custom: 'tools' },
@@ -337,15 +353,6 @@ export const FIELDS = [
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
 
   // ---- Swarm and sharing ---------------------------------------------------
-  { key: 'p2p_token', group: 'swarm', was: 'p2p', kind: 'token', label: 'P2P Token', sensitive: true, apply: 'live', default: '',
-    desc: 'Generate a new token or paste an existing one to join a network. An empty token stops P2P.',
-    note: 'The peer-to-peer stack restarts.' },
-  { key: 'p2p_network_id', group: 'swarm', was: 'p2p', kind: 'text', label: 'P2P Network ID',
-    desc: 'Network identifier for grouping instances.', placeholder: 'Network ID', default: '', apply: 'live',
-    note: 'The peer-to-peer stack restarts.' },
-  { key: 'federated', group: 'swarm', was: 'p2p', kind: 'bool', label: 'Federated Mode',
-    desc: 'Enable federated instance mode for load balancing.', default: false, apply: 'live',
-    note: 'The peer-to-peer stack restarts.' },
   { key: 'distributed_disk_headroom_check', group: 'swarm', was: 'distributed', kind: 'bool', label: 'Disk headroom check',
     desc: 'Reject worker nodes that lack free space for the model, at scheduling time instead of partway through staging. Free space is measured on each worker and compared with the model size plus a small margin. Off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node.',
     default: true, fallback: true, apply: 'live' },
@@ -550,6 +557,53 @@ export function groupOf(id) { return GROUPS.find(g => g.id === id) }
 
 // Fields matching every word of the query, by name, description, wire key, the
 // group, the old section name, and the current value of a short text.
+// The run limit of a loop in a chat of a messaging app, a trigger, a job or a
+// page: a fifth of chats_loop_max_runs, at least 1 (maxRunsFor in
+// core/services/studio/looptools.go).
+export function systemLoopRuns(maxRuns) {
+  const n = Number(maxRuns) || 0
+  return Math.max(1, Math.floor(n / 5))
+}
+
+// The blocks of related fields inside a group. A block has a heading, and
+// its advanced fields go in a disclosure right after its other fields.
+export const BLOCKS = {
+  loops: { label: 'Loops and waits', advanced: 'Advanced loop limits' },
+}
+
+// The order a group draws its fields in: each field as { field }, and after
+// the last plain field of a block, its advanced fields as
+// { block, advanced: [fields] }. A block with no plain field still gets its
+// disclosure, where its first field would be.
+export function layoutFields(fields) {
+  const out = []
+  const advancedOf = new Map()
+  for (const f of fields) {
+    if (f.block && f.advanced) {
+      if (!advancedOf.has(f.block)) advancedOf.set(f.block, [])
+      advancedOf.get(f.block).push(f)
+    }
+  }
+  const lastPlain = new Map()
+  fields.forEach((f, i) => { if (f.block && !f.advanced) lastPlain.set(f.block, i) })
+  const placed = new Set()
+  fields.forEach((f, i) => {
+    if (f.block && f.advanced) {
+      if (!lastPlain.has(f.block) && !placed.has(f.block)) {
+        out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+        placed.add(f.block)
+      }
+      return
+    }
+    out.push({ field: f })
+    if (f.block && lastPlain.get(f.block) === i && advancedOf.has(f.block)) {
+      out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+      placed.add(f.block)
+    }
+  })
+  return out
+}
+
 export function searchFields(query, settings) {
   const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []

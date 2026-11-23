@@ -118,6 +118,9 @@
     "emptyBody": "Questo elenco è vuoto.",
     "emptyFiltered": "Nessun risultato per la ricerca. Cambia le parole o la libreria.",
     "emptyTitle": "Niente da mostrare",
+    "failedBody": "Le librerie che si sono caricate sono elencate qui sotto.",
+    "failedTitle_one": "Una libreria non ha potuto essere letta.",
+    "failedTitle_other": "{{count}} librerie non hanno potuto essere lette.",
     "libraries": "Librerie",
     "loading": "Caricamento dei risultati",
     "next": "Pagina successiva",
@@ -180,6 +183,7 @@
       "urlCredentials": "L'indirizzo non deve contenere nome utente o password.",
       "urlQuery": "L'indirizzo non deve contenere una stringa di query o un frammento.",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -193,6 +197,7 @@
       "requireSignature": "Richiedi una firma",
       "url": "URL del catalogo",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -202,13 +207,16 @@
       "reference": "Il nome di una credenziale configurata da un amministratore su questo server. Non incollare mai qui un token o una password.",
       "url": "Un indirizzo https senza credenziali né stringa di query.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "Ultimo caricamento {{when}}",
     "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
     "lead": "Una libreria è un indice che elenca componenti, backend o modelli. Le credenziali non si digitano mai qui: una libreria privata di componenti indica una credenziale configurata da un amministratore su questo server.",
     "listLabel": "Librerie",
     "loading": "Caricamento delle librerie",
+    "neverLoaded": "Mai caricata",
     "notRefreshed": "Non ancora aggiornata",
     "reference": "Riferimento credenziale: {{name}}",
     "refresh": "Aggiorna",
@@ -394,6 +402,7 @@
     "platform": "Piattaforma",
     "selection": "Selezionato come",
     "signatureRequired": "Firma richiesta",
+    "sourceRepository": "Source repository",
     "verification": "Verifica",
     "version": "Versione"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "Il servizio dei componenti aggiuntivi si sta avviando. LocalAI chiede di nuovo dell'aggiornamento tra {{seconds}} s.",
     "checkAgain": "Controlla ora",
-    "open": "Apri Aggiornamenti"
+    "open": "Apri Aggiornamenti",
+    "cancelledNote": "L’aggiornamento di {{name}} è stato annullato. La versione {{version}} continua a funzionare.",
+    "cancelling": "Annullamento…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +730,8 @@
     "skillShadow": "Questo componente sostituisce la skill integrata {{skill}}.",
     "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo.",
     "skillProvides": "Questo componente aggiuntivo fornisce la competenza {{skill}}.",
-    "skillProvidesWarning": "Questo componente aggiuntivo fornisce la competenza {{skill}}. Anche un altro componente aggiuntivo ({{name}}) la fornisce. Solo uno può essere attivo; scegli in Impostazioni > Strumenti. Senza una scelta, viene usato quello installato per primo."
+    "skillProvidesWarning": "Questo componente aggiuntivo fornisce la competenza {{skill}}. Anche un altro componente aggiuntivo ({{name}}) la fornisce. Solo uno può essere attivo; scegli in Impostazioni > Strumenti. Senza una scelta, viene usato quello installato per primo.",
+    "background": "Va avanti in background. Puoi chiudere questa finestra; chiuderla non lo ferma."
   },
   "family": {
     "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."
@@ -787,7 +799,8 @@
       "action": "Approva e aggiorna",
       "body": "La versione {{current}} di {{name}} continua a funzionare. Se approvi, la nuova versione può eseguire queste azioni. Le nuove sono segnate.",
       "done": "{{name}} è stato aggiornato.",
-      "title": "Approva l'accesso all'host per {{name}} {{version}}"
+      "title": "Approva l'accesso all'host per {{name}} {{version}}",
+      "running": "L'aggiornamento va avanti in background. Puoi chiudere questa finestra; chiuderla non lo ferma. Scegli Annulla per fermarlo."
     },
     "asksNothing": "Questo add-on non chiede accesso all'host.",
     "blanket": {
@@ -891,6 +904,7 @@
     "newOptional": "La nuova versione chiede anche {{ops}}. Sono facoltative e non consentite.",
     "noLongerRequested": "Questa versione non lo chiede più. Puoi spegnerlo.",
     "notOfficialWarning": "Questo add-on viene da {{library}}, non dalla libreria ufficiale. Gira come codice fidato su questo server e può usare le credenziali che gli vengono date. Installalo solo se ti fidi di chi lo ha scritto.",
+    "signedNotReviewed": "Firmato da {{signer}}. Non verificato da LocalAI. Gira come codice fidato su questo server e può usare le credenziali che riceve. Installalo solo se ti fidi di chi lo ha firmato.",
     "op": {
       "alreadyAllowed": "Già consentito",
       "blocked": "Bloccato dalla politica dell'amministratore",
@@ -924,7 +938,12 @@
       "body": "La nuova versione chiede un accesso all'host che quella attuale non ha. La versione {{current}} continua a funzionare finché non approvi. Operazioni aggiunte: {{count}}.",
       "review": "Controlla e approva",
       "reviewNamed": "Controlla e approva l'accesso all'host di {{name}}",
-      "title": "{{name}} {{version}} aspetta la tua approvazione"
+      "title": "{{name}} {{version}} aspetta la tua approvazione",
+      "updatingTitle": "Aggiornamento di {{name}} alla {{version}}",
+      "queuedBody": "È in coda e va avanti in background.",
+      "cancellingTitle": "Annullamento dell'aggiornamento di {{name}}",
+      "failedTitle": "L'aggiornamento di {{name}} alla {{version}} non è riuscito",
+      "reviewAgain": "Controlla di nuovo"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "Versione precedente",
       "downgrade": "Questo installa la versione {{version}}, più vecchia della versione installata {{installed}}. Una versione più vecchia può non leggere i dati scritti da una più nuova.",
       "downgradeConfirm": "Voglio installare la versione precedente"
-    }
+    },
+    "progress": "Installazione di {{name}} da un file. Va avanti in background.",
+    "failedTitle": "Installazione di {{name}} da un file non riuscita",
+    "failedHint": "Il file resta per un’ora. Scegli Riprova per usarlo di nuovo."
   },
   "notice": {
     "enableFailedTitle": "Impossibile attivare {{name}}",
@@ -1058,5 +1080,28 @@
       "off": "Spenta",
       "attention": "Da configurare"
     }
+  },
+  "queue": {
+    "title": "Coda di installazione",
+    "select": "Aggiungi alla coda",
+    "selectNamed": "Aggiungi {{name}} alla coda di installazione",
+    "inQueue": "In coda",
+    "selectionLabel": "Componenti aggiuntivi selezionati per l'installazione",
+    "selected": "Selezionati: {{count}}",
+    "reviewPicked": "Controlla e metti in coda",
+    "clear": "Deseleziona",
+    "position": "Componente aggiuntivo {{number}} di {{total}}.",
+    "batchNote": "Non viene messo in coda nulla finché non finisci l'ultimo.",
+    "confirmBody": "La versione {{version}} dalla fonte {{library}} viene aggiunta alla coda di installazione. Si scarica in background e viene controllata prima dell'installazione. Non viene attivata.",
+    "add": "Aggiungi alla coda",
+    "acceptNext": "Accetta e continua",
+    "acceptLast": "Accetta e metti tutto in coda",
+    "skip": "Salta",
+    "unpinned": "Questa voce di sviluppo non è legata a un pacchetto preciso. Installa ciò che la fonte offre in questo momento.",
+    "reviewTitle": "Serve un controllo.",
+    "reviewBody": "Il pacchetto chiede più accesso all'host di quello che hai approvato. Controlla di nuovo l'elenco prima dell'installazione.",
+    "refused": "{{name}} non è stato messo in coda. {{reason}}",
+    "noAnswer": "Il server non ha risposto per questo componente aggiuntivo.",
+    "notInLibrary": "Questo componente aggiuntivo non è più nelle tue librerie."
   }
 }

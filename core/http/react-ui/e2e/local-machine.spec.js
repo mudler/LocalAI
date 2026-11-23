@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem, ADMIN_NAV } from './admin-nav.js'
 
 // "This machine": the Nodes route on a single-node install, and the Operate
 // overview's "Running now" preview. Both read GET /system (loaded models and
@@ -141,25 +142,25 @@ test.describe('This machine (single node)', () => {
     await expect(page.getByLabel('VRAM capacity', { exact: true })).toContainText('No GPU detected', { timeout: 15_000 })
   })
 
-  test('the Operate overview previews the heaviest five and links to the full view', async ({ page }) => {
+  test('the Overview card names this machine, counts the loaded models and links to the full view', async ({ page }) => {
     await mockSingleNode(page, [1, 2, 3, 4, 5, 6].map(n => model(`m${n}`, 'llama-cpp', n, 1)))
     await page.goto('/app/operate')
-    await page.getByTestId('operate-row-running').locator('.op-row__head').click()
 
-    const preview = page.getByTestId('local-running-models')
-    await expect(preview.getByTestId('local-model-row')).toHaveCount(5, { timeout: 15_000 })
-    await expect(preview.getByTestId('local-model-row').first()).toContainText('m6')
-    await expect(preview).toContainText('1 more not shown')
-    // The preview is not a second search surface.
-    await expect(preview.getByRole('searchbox')).toHaveCount(0)
+    // The card is a summary: loaded models and memory, not the list of models.
+    const card = page.getByTestId('overview-cluster')
+    await expect(card.getByRole('heading', { name: 'This machine' })).toBeVisible({ timeout: 15_000 })
+    await expect(card.locator('.ov-stat').filter({ hasText: 'Loaded' })).toContainText('6')
+    await expect(card.locator('.ov-stat').filter({ hasText: 'Memory' })).toContainText('75%')
+    await expect(card.getByTestId('local-model-row')).toHaveCount(0)
 
-    const tab = page.locator('.dk-hubtabs a[href="/app/nodes"]')
+    const tab = adminItem(page, '/app/nodes')
     await expect(tab).toContainText('This machine')
-    await expect(tab.locator('.dk-hubtab-count')).toContainText('6')
+    await expect(tab.getByTestId('admin-signal-running')).toContainText('6')
 
-    await preview.getByRole('link', { name: /Open this machine/ }).click()
+    await card.getByRole('link', { name: 'Open this machine' }).click()
     await expect(page).toHaveURL(/\/app\/nodes$/)
     await expect(page.getByTestId('local-machine')).toBeVisible()
+    await expect(page.getByTestId('local-model-row')).toHaveCount(6)
   })
 })
 
@@ -170,12 +171,13 @@ test.describe('This machine (distributed)', () => {
     await page.route('**/api/nodes', route => route.fulfill({ json: [{ id: 'n1', name: 'atlas', status: 'healthy' }] }))
     await page.route('**/system', route => { systemCalls.push(route.request().url()); return route.fulfill({ json: { loaded_models: [] } }) })
     await page.goto('/app/operate')
-    await expect(page.getByTestId('operate-row-running')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('operate-row-running').locator('.op-row__head').click()
 
-    await expect(page.getByRole('link', { name: /Running models/ })).toHaveAttribute('href', '/app/nodes', { timeout: 15_000 })
+    // The card says Cluster and points at the workers; it lists no local models.
+    const card = page.getByTestId('overview-cluster')
+    await expect(card.getByRole('heading', { name: 'Cluster' })).toBeVisible({ timeout: 15_000 })
+    await expect(card.getByRole('link', { name: 'Open workers' })).toHaveAttribute('href', '/app/nodes')
     await expect(page.getByTestId('local-running-models')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs a', { hasText: 'This machine' })).toHaveCount(0)
+    await expect(page.locator(ADMIN_NAV).getByRole('link', { name: 'This machine' })).toHaveCount(0)
     expect(systemCalls).toEqual([])
   })
 })

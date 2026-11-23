@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -168,6 +169,46 @@ var _ = Describe("Backend discovery with cluster install state", func() {
 		It("keeps single-node install state unchanged with no provider", func() {
 			flags := installedFlags(nvidiaWorker, nil)
 			Expect(flags).To(HaveKeyWithValue("gpu-trainer", false))
+			Expect(flags).To(HaveKeyWithValue("cpu-trainer", true))
+		})
+	})
+
+	Describe("GET /backends/known", func() {
+		installedFlags := func(installed ClusterInstalledProvider) map[string]bool {
+			e := echo.New()
+			svc := CreateBackendEndpointService(galleries, systemState, nil, nil)
+			e.GET("/backends/known", svc.ListKnownBackendsEndpoint(systemState, installed))
+
+			req := httptest.NewRequest(http.MethodGet, "/backends/known", nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+
+			var backends []schema.KnownBackend
+			Expect(json.Unmarshal(rec.Body.Bytes(), &backends)).To(Succeed())
+
+			flags := map[string]bool{}
+			for _, b := range backends {
+				flags[b.Name] = b.Installed
+			}
+			return flags
+		}
+
+		It("reports a worker-installed backend as installed", func() {
+			flags := installedFlags(installedOnWorker)
+			Expect(flags).To(HaveKeyWithValue("gpu-trainer", true))
+			Expect(flags).To(HaveKeyWithValue("cpu-trainer", true))
+		})
+
+		It("keeps single-node install state unchanged with no provider", func() {
+			flags := installedFlags(nil)
+			Expect(flags).NotTo(HaveKey("gpu-trainer"))
+			Expect(flags).To(HaveKeyWithValue("cpu-trainer", true))
+		})
+
+		It("degrades to the local install state when the registry errors", func() {
+			flags := installedFlags(registryDown)
+			Expect(flags).NotTo(HaveKey("gpu-trainer"))
 			Expect(flags).To(HaveKeyWithValue("cpu-trainer", true))
 		})
 	})

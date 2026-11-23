@@ -459,6 +459,15 @@
     "servedByBuiltin": "intégré",
     "fallbackBuiltin": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant (arrêté, désactivé ici ou non accordé) : {{tool}} intégré est utilisé.",
     "fallbackNone": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant, et {{tool}} intégré est désactivé : cette discussion n'a pas de {{tool}}.",
+    "toolCap": {
+      "title": "Certains outils de modules complémentaires ne sont pas disponibles dans ce chat",
+      "reason": "{{offered}} outils de modules complémentaires sur {{total}} sont disponibles. Un chat n'en utilise qu'un nombre limité.",
+      "who": "Désactivez dans ce chat les modules que vous n'utilisez pas pour libérer de la place, ou demandez à un administrateur d'augmenter la limite.",
+      "whoAdmin": "Désactivez dans ce chat les modules que vous n'utilisez pas pour libérer de la place, ou augmentez la limite dans les paramètres.",
+      "fix": "Ouvrir le paramètre",
+      "addon": "{{name}} : {{count}} indisponibles",
+      "lost": "Modules qui ont perdu des outils"
+    },
     "shell": {
       "machine": "Cette machine",
       "isolated": "Les commandes s’exécutent isolées"
@@ -758,6 +767,53 @@
           "library": "bibliothèque de backends",
           "addons": "modules complémentaires"
         }
+      },
+      "op": {
+        "kind": {
+          "model": "Modèle",
+          "backend": "Backend",
+          "addon": "Module"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installé",
+          "delete": "{{kind}} {{name}} supprimé",
+          "upgrade": "{{kind}} {{name}} mis à jour"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: échec de l'installation",
+          "delete": "{{kind}} {{name}}: échec de la suppression",
+          "upgrade": "{{kind}} {{name}}: échec de la mise à jour"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: installation annulée",
+          "delete": "{{kind}} {{name}}: suppression annulée",
+          "upgrade": "{{kind}} {{name}}: mise à jour annulée"
+        },
+        "needsReview": {
+          "install": "Le module {{name}} doit être vérifié pour être installé"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} mise à jour de modèle disponible",
+          "title_other": "{{count}} mises à jour de modèles disponibles"
+        },
+        "done": {
+          "title": "Modèle {{name}} mis à niveau",
+          "body": "De {{from}} à {{to}}."
+        },
+        "failed": {
+          "title": "Modèle {{name}} : la mise à niveau a échoué",
+          "rolledBack": "L'ancienne version a été remise en place et continue de servir. Raison : {{error}}",
+          "rolledBackPlain": "L'ancienne version a été remise en place et continue de servir.",
+          "kept": "L'ancienne version continue de servir. Raison : {{error}}",
+          "keptPlain": "L'ancienne version continue de servir."
+        },
+        "removed": {
+          "title": "Modèle {{name}} : ancienne version supprimée",
+          "body_one": "{{count}} ancien fichier supprimé.",
+          "body_other": "{{count}} anciens fichiers supprimés."
+        }
       }
     },
     "tabs": {
@@ -792,7 +848,9 @@
         "removed": "{{name}} supprimé",
         "staged": "{{name}} transféré"
       }
-    }
+    },
+    "chatsOff": "Les chats sont désactivés",
+    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici."
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",

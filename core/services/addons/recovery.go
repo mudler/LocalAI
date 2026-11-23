@@ -254,7 +254,7 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 	case e != nil:
 		return fail(e)
 	}
-	return fail()
+	return fail(logOnly("the upgrade ended without publishing a generation and without an error"))
 }
 
 // Recovery returns the data recovery of the owner for an administrator. It

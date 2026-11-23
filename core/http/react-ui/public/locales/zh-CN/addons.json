@@ -118,6 +118,9 @@
     "emptyBody": "此列表为空。",
     "emptyFiltered": "没有匹配的结果。请更换关键词或库。",
     "emptyTitle": "没有可显示的内容",
+    "failedBody": "下面列出了已加载的库。",
+    "failedTitle_one": "有 1 个库无法读取。",
+    "failedTitle_other": "有 {{count}} 个库无法读取。",
     "libraries": "库",
     "loading": "正在加载结果",
     "next": "下一页",
@@ -180,6 +183,7 @@
       "urlCredentials": "地址不能包含用户名或密码。",
       "urlQuery": "地址不能包含查询字符串或片段。",
       "either": "Use the exact identity or the pattern, not both.",
+      "sourceRepository": "Enter an https address, such as https://github.com/owner/repo.",
       "urlEmpty": "Enter the address of the index.",
       "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
     },
@@ -193,6 +197,7 @@
       "requireSignature": "要求签名",
       "url": "目录 URL",
       "identityRegex": "Signer identity pattern (optional)",
+      "sourceRepository": "Source repository (optional)",
       "kind": "Kind",
       "format": "Index format",
       "mirrors": "Mirrors"
@@ -202,13 +207,16 @@
       "reference": "管理员在此服务器上配置的凭据名称。切勿在此粘贴令牌或密码。",
       "url": "不含凭据和查询字符串的 https 地址。",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
+      "sourceRepository": "The https address of the repository the signature must be made for, such as https://github.com/owner/repo. LocalAI compares it exactly with the signing certificate.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
+    "lastGood": "上次加载 {{when}}",
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
     "lead": "库是列出附加组件、后端或模型的索引。凭据绝不在此输入：私有附加组件库只引用管理员在此服务器上配置的凭据。",
     "listLabel": "库",
     "loading": "正在加载库",
+    "neverLoaded": "从未加载",
     "notRefreshed": "尚未刷新",
     "reference": "凭据引用:{{name}}",
     "refresh": "刷新",
@@ -394,6 +402,7 @@
     "platform": "平台",
     "selection": "选定为",
     "signatureRequired": "需要签名",
+    "sourceRepository": "Source repository",
     "verification": "验证",
     "version": "版本"
   },
@@ -644,7 +653,9 @@
     },
     "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询更新状态。",
     "checkAgain": "立即检查",
-    "open": "打开更新"
+    "open": "打开更新",
+    "cancelledNote": "{{name}} 的更新已取消。版本 {{version}} 继续运行。",
+    "cancelling": "正在取消…"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -719,7 +730,8 @@
     "skillShadow": "此插件会替换内置技能 {{skill}}。",
     "skillShadowWarning": "此插件会替换内置技能 {{skill}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。",
     "skillProvides": "此插件提供 {{skill}} 技能。",
-    "skillProvidesWarning": "此插件提供 {{skill}} 技能。另一个插件（{{name}}）也提供此技能。只能启用一个；请在设置 > 工具中选择。如果未选择，则使用最先安装的插件。"
+    "skillProvidesWarning": "此插件提供 {{skill}} 技能。另一个插件（{{name}}）也提供此技能。只能启用一个；请在设置 > 工具中选择。如果未选择，则使用最先安装的插件。",
+    "background": "此操作在后台运行。您可以关闭此窗口，关闭不会停止它。"
   },
   "family": {
     "pages": "在找你或智能体创建的页面?它们在<go>页面</go>中。"
@@ -787,7 +799,8 @@
       "action": "批准并更新",
       "body": "{{name}} 的 {{current}} 版本继续运行。批准后，新版本可以运行这些操作。新增项已标出。",
       "done": "{{name}} 已更新。",
-      "title": "批准 {{name}} {{version}} 的主机访问"
+      "title": "批准 {{name}} {{version}} 的主机访问",
+      "running": "更新在后台运行。您可以关闭此窗口，关闭不会停止它。选择“取消”可停止。"
     },
     "asksNothing": "此插件不请求主机访问。",
     "blanket": {
@@ -891,6 +904,7 @@
     "newOptional": "新版本还请求 {{ops}}。这些是可选的，且未被允许。",
     "noLongerRequested": "此版本不再请求它。你可以将其关闭。",
     "notOfficialWarning": "此插件来自 {{library}}，不是官方库。它在此服务器上作为受信任的代码运行，并可以使用交给它的凭据。只有在你信任其作者时才安装。",
+    "signedNotReviewed": "由 {{signer}} 签名。未经 LocalAI 审核。它在此服务器上作为受信任代码运行，可以使用授予它的凭据。仅在你信任签名者时安装。",
     "op": {
       "alreadyAllowed": "已允许",
       "blocked": "被管理员策略禁止",
@@ -924,7 +938,12 @@
       "body": "新版本请求当前版本没有的主机访问。批准之前，{{current}} 版本继续运行。新增的操作数：{{count}}。",
       "review": "查看并批准",
       "reviewNamed": "查看并批准 {{name}} 的主机访问",
-      "title": "{{name}} {{version}} 等待你的批准"
+      "title": "{{name}} {{version}} 等待你的批准",
+      "updatingTitle": "正在将 {{name}} 更新到 {{version}}",
+      "queuedBody": "已在队列中，将在后台运行。",
+      "cancellingTitle": "正在取消 {{name}} 的更新",
+      "failedTitle": "将 {{name}} 更新到 {{version}} 失败",
+      "reviewAgain": "重新查看"
     }
   },
   "oauthClient": {
@@ -1008,7 +1027,10 @@
       "downgradeTitle": "较旧的版本",
       "downgrade": "这会安装 {{version}} 版本，它比已安装的 {{installed}} 版本更旧。较旧的版本可能无法读取较新版本写入的数据。",
       "downgradeConfirm": "我要安装较旧的版本"
-    }
+    },
+    "progress": "正在从文件安装 {{name}}。它在后台运行。",
+    "failedTitle": "从文件安装 {{name}} 失败",
+    "failedHint": "文件会保留一小时。选择“重试”即可再次使用它。"
   },
   "notice": {
     "enableFailedTitle": "无法打开 {{name}}",
@@ -1058,5 +1080,28 @@
       "off": "已关闭",
       "attention": "需要设置"
     }
+  },
+  "queue": {
+    "title": "安装队列",
+    "select": "加入队列",
+    "selectNamed": "将 {{name}} 加入安装队列",
+    "inQueue": "队列中",
+    "selectionLabel": "已选择安装的附加组件",
+    "selected": "已选择：{{count}}",
+    "reviewPicked": "检查并加入队列",
+    "clear": "清除",
+    "position": "第 {{number}} 个，共 {{total}} 个附加组件。",
+    "batchNote": "检查完最后一个之前，不会有任何内容加入队列。",
+    "confirmBody": "来自源 {{library}} 的 {{version}} 版会加入安装队列。它在后台下载，安装前会先校验，且不会被启用。",
+    "add": "加入队列",
+    "acceptNext": "接受并继续",
+    "acceptLast": "接受并全部加入队列",
+    "skip": "跳过",
+    "unpinned": "此开发条目未固定到某个包，将安装源当前提供的内容。",
+    "reviewTitle": "需要检查。",
+    "reviewBody": "该包请求的主机访问权限超出你批准的范围。安装前请再检查一遍列表。",
+    "refused": "{{name}} 未加入队列。{{reason}}",
+    "noAnswer": "服务器没有对它作出回应。",
+    "notInLibrary": "你的库中已没有这个附加组件。"
   }
 }

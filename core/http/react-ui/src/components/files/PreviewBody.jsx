@@ -16,6 +16,7 @@ import { OFFICE_SIZE_CAP, officePlan, officeState } from '../../utils/officePrev
 import hljs from '../../utils/hljs'
 import TableView from './TableView'
 import './preview.css'
+import { Button } from '../ui'
 
 // The drawing of Word, Excel and PowerPoint files is its own chunk, fetched
 // when the first such file is opened.
@@ -167,9 +168,9 @@ export function UnknownCard({ item, t, note }) {
       </p>
       <p className="pv-card__note">{note || t('preview.none')}</p>
       {item.type === 'file' && (
-        <a className="btn btn-secondary btn-sm" href={filesApi.contentUrl(item.path)} download={item.name}>
-          <Icon name="download" /> {t('download')}
-        </a>
+        <Button size="sm" icon="download" href={filesApi.contentUrl(item.path)} download={item.name}>
+          {t('download')}
+        </Button>
       )}
     </div>
   )

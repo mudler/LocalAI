@@ -5,6 +5,8 @@
 // except a port number checked by the caller.
 import { execFile } from 'node:child_process'
 import net from 'node:net'
+import path from 'node:path'
+import { minimalEnv } from './platform'
 import type { HardwareSummaryView, PortProcessView } from '../shared/types'
 
 // ---- free port ----------------------------------------------------------------
@@ -37,7 +39,8 @@ export type Run = (file: string, args: string[]) => Promise<RunResult>
 /** Runs a fixed command with a short timeout and a small output limit. */
 export const runCommand: Run = (file, args) =>
   new Promise((resolve) => {
-    execFile(file, args, { timeout: 3000, maxBuffer: 64 * 1024, windowsHide: true, env: { PATH: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin', LC_ALL: 'C' } }, (err, stdout) => {
+    const env = process.platform === 'win32' ? minimalEnv() : { PATH: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin', LC_ALL: 'C' }
+    execFile(file, args, { timeout: 3000, maxBuffer: 256 * 1024, windowsHide: true, env }, (err, stdout) => {
       if (err && (err as NodeJS.ErrnoException).code === 'ENOENT') return resolve({ ok: false, missing: true })
       // ss and lsof exit non-zero when nothing matches; the output still counts.
       if (err && !stdout) return resolve(typeof (err as { code?: unknown }).code === 'number' ? { ok: true, stdout: '' } : { ok: false, missing: false })
@@ -83,6 +86,56 @@ export function parseLsof(out: string): PortProcessView {
 }
 
 /**
+ * Reads `netstat -ano`: the pids of the TCP sockets that listen on `port`.
+ * The state column is translated on Windows in other languages, so a
+ * listening socket is found by its foreign address, which is `*:0`
+ * (0.0.0.0:0 or [::]:0) only while it listens.
+ */
+export function parseNetstatPids(out: string, port: number): number[] {
+  const pids: number[] = []
+  for (const l of out.split(/\r?\n/)) {
+    const f = l.trim().split(/\s+/)
+    if (f.length < 5 || f[0].toUpperCase() !== 'TCP') continue
+    const local = f[1]
+    const foreign = f[2]
+    if (!/^(?:0\.0\.0\.0|\[::\]|\*):0$/.test(foreign)) continue
+    if (local.slice(local.lastIndexOf(':') + 1) !== String(port)) continue
+    const pid = Number(f[f.length - 1])
+    if (Number.isInteger(pid) && pid > 0 && !pids.includes(pid)) pids.push(pid)
+  }
+  return pids
+}
+
+/** Reads `tasklist /FO CSV /NH`: the image name of the first row, or undefined. */
+export function parseTasklistName(out: string): string | undefined {
+  for (const l of out.split(/\r?\n/)) {
+    const m = /^"((?:[^"]|"")*)","(\d+)"/.exec(l.trim())
+    if (m) return cleanName(m[1].replace(/""/g, '"'))
+  }
+  return undefined
+}
+
+/** A program in the Windows system folder, never one from PATH. */
+export function system32(file: string, env: NodeJS.ProcessEnv = process.env): string {
+  return path.win32.join(env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows', 'System32', file)
+}
+
+async function windowsPortProcess(port: number, run: Run): Promise<PortProcessView> {
+  const r = await run(system32('netstat.exe'), ['-ano'])
+  if (!r.ok) return { status: 'unavailable' }
+  const pids = parseNetstatPids(r.stdout, port).slice(0, MAX_PROCESSES)
+  if (pids.length === 0) return { status: 'none' }
+  const processes: { pid: number; name: string }[] = []
+  for (const pid of pids) {
+    const t = await run(system32('tasklist.exe'), ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'])
+    processes.push({ pid, name: (t.ok && parseTasklistName(t.stdout)) || '' })
+  }
+  // No name at all: the processes ended meanwhile, or tasklist could not read them.
+  if (processes.every((p) => p.name === '')) return { status: 'hidden' }
+  return { status: 'found', processes }
+}
+
+/**
  * Best effort: which process listens on `port`. Only the process name and
  * pid are returned, never the raw output. A stable `unavailable` when the
  * platform has no tool for it or the tool is missing.
@@ -97,6 +150,7 @@ export async function portProcess(port: number, platform: NodeJS.Platform, run: 
     const r = await run('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fpc'])
     if (r.ok) return parseLsof(r.stdout)
   }
+  if (platform === 'win32') return windowsPortProcess(port, run)
   return { status: 'unavailable' }
 }
 
@@ -109,6 +163,8 @@ export interface HardwareFacts {
   totalMem: number
   /** Whether a path exists; only fixed paths are asked. */
   exists(p: string): boolean
+  /** For SystemRoot on Windows. Default: process.env. */
+  env?: NodeJS.ProcessEnv
 }
 
 /** CPU, memory and a GPU hint that costs one file check. No commands, no network. */
@@ -118,6 +174,10 @@ export function hardwareSummary(f: HardwareFacts): HardwareSummaryView {
   else if (f.platform === 'linux') {
     if (f.exists('/proc/driver/nvidia/version')) gpu = 'nvidia'
     else if (f.exists('/dev/kfd')) gpu = 'amd'
+  } else if (f.platform === 'win32') {
+    // Files that the NVIDIA and the AMD display drivers put in the system folder.
+    if (f.exists(system32('nvapi64.dll', f.env))) gpu = 'nvidia'
+    else if (f.exists(system32('atiadlxx.dll', f.env))) gpu = 'amd'
   }
   const model = cleanName((f.cpus[0]?.model ?? '').replace(/\s+/g, ' '))
   return { cpuModel: model || undefined, cpuCount: f.cpus.length, memoryBytes: f.totalMem, gpu }

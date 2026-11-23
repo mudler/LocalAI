@@ -1,12 +1,31 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/strata
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/olala backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin backends/strata
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
+.NOTPARALLEL: backends/llama-cpp-windows backends/llama-cpp-windows-all backends/llama-cpp-windows-cpu backends/llama-cpp-windows-vulkan backends/llama-cpp-windows-cuda backends/llama-cpp-windows-rpc backends/llama-cpp-windows-fallback
+
+# Native GNU make for Windows (e.g. ezwinports) only behaves like the Unix
+# make when it can find sh.exe: otherwise recipe lines run under cmd.exe and
+# $(shell ...) degrades to bare CreateProcess, which breaks every POSIX
+# recipe and the uname/tput expansion below. Seed the exported PATH with the
+# sh directories from the standard Git-for-Windows / MSYS2 installs (missing
+# entries are harmless in a Windows PATH) and force SHELL to sh, mirroring
+# what CI does. Detection uses the cmd environment OS variable (Windows_NT);
+# OS is re-derived from uname further down. Nothing matches on
+# Linux/macOS/WSL, so the block is inert there.
+ifeq ($(findstring Windows,$(OS)),Windows)
+  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/mingw64/bin;$(PATH)
+  export SHELL := sh
+endif
 
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
-BINARY_NAME=local-ai
+# Windows builds get the .exe suffix so the artifact is runnable from cmd /
+# PowerShell (an extensionless PE needs a POSIX shell to launch it). OS is
+# assigned below via uname; this is a recursive = so the suffix is expanded
+# at use time, after OS exists. Empty on Linux/macOS, so nothing else changes.
+BINARY_NAME=local-ai$(if $(findstring NT,$(OS)),.exe)
 
 UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
@@ -152,7 +171,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -380,6 +399,22 @@ test-e2e-distributed: protogen-go
 	@echo 'Running distributed e2e tests (label Distributed, incl. NatsJWT)'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='Distributed && !VLLMMultinode' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
 
+## A worker that joins over P2P with a worker invite (`local-ai worker --join`),
+## with real processes: PostgreSQL and NATS in containers, a frontend in P2P
+## mode share, and the worker. The spec carries the P2PWorker label.
+test-e2e-distributed-p2p-worker: protogen-go build-mock-backend
+	@echo 'Running the P2P worker e2e (label P2PWorker)'
+	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='P2PWorker' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
+## A worker that joins with a join token (`local-ai worker --join-token`), with
+## real processes: PostgreSQL and NATS in containers, a frontend and the worker.
+## The spec carries the JoinTokenWorker label.
+test-e2e-distributed-join-token: protogen-go build-mock-backend
+	@echo 'Running the join token worker e2e (label JoinTokenWorker)'
+	LOCALAI_E2E_MOCK_BACKEND=$(abspath tests/e2e/mock-backend/mock-backend) \
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter='JoinTokenWorker' --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e/distributed
+
 # Platform e2e: MCP connectors and apps, collections, the process flags and the
 # permission of the new routes, against the real local-ai binary. The suite builds
 # the binary (with the auth tag), the mock backend and an MCP fixture server
@@ -442,6 +477,17 @@ test-e2e: build-mock-backend build-cloud-proxy-backend build-localai-proxy-backe
 	$(MAKE) clean-localai-proxy-backend
 	$(MAKE) teardown-e2e
 	docker rmi localai-tests
+
+# Windows host smoke test: builds a real local-ai.exe and the mock-backend,
+# lays the mock backend into a --backends-path the way the gallery ships it
+# (run.sh for discovery + run.ps1 to launch), then boots local-ai.exe and
+# asserts a chat completion plus job-object process cleanup. The suite builds
+# both binaries itself into a temp dir (CGO_ENABLED=0) and skips entirely on
+# non-Windows hosts. To reuse pre-built binaries instead, pass LOCAL_AI_EXE
+# and MOCK_BACKEND_EXE to the ginkgo invocation.
+.PHONY: test-windows-smoke
+test-windows-smoke: protogen-go react-ui
+	go run github.com/onsi/ginkgo/v2/ginkgo -v ./tests/e2e/windows
 
 # `docker stop` returns as soon as the container exits, but Docker reaps a
 # `--rm` container asynchronously after that. The `docker rmi localai-tests` in
@@ -608,10 +654,18 @@ help: ## Show this help.
 .PHONY: protogen
 protogen: protogen-go
 
+# The win64 protoc zip ships bin/protoc.exe while the unix zips ship
+# bin/protoc. protogen-go invokes a bare ./protoc, and the protoc target must
+# stay up-to-date once the binary is in place, so on Windows we extract the
+# .exe and rename it to ./protoc (MSYS sh runs extensionless PE binaries).
+PROTOC_MEMBER := bin/protoc$(if $(findstring NT,$(OS)),.exe)
+
 protoc:
 	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
 	ARCH_NAME=$$(uname -m); \
-	if [ "$$OS_NAME" = "darwin" ]; then \
+	if echo "$$OS_NAME" | grep -qE 'mingw|msys|cygwin'; then \
+	  FILE=protoc-31.1-win64.zip; \
+	elif [ "$$OS_NAME" = "darwin" ]; then \
 	  if [ "$$ARCH_NAME" = "arm64" ]; then \
 	    FILE=protoc-31.1-osx-aarch_64.zip; \
 	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
@@ -638,20 +692,24 @@ protoc:
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
 	curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 $$URL -o protoc.zip && \
-	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+	unzip -o -j -d $(CURDIR) protoc.zip $(PROTOC_MEMBER) && \
+	rm -f protoc.zip && \
+	[ ! -f ./protoc.exe ] || mv -f ./protoc.exe ./protoc
 
 .PHONY: protogen-go
 protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
 	# install-go-tools writes protoc-gen-go and protoc-gen-go-grpc into
-	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. protoc
-	# resolves its code-gen plugins via PATH, so without this prefix the
-	# generate step fails with "protoc-gen-go: program not found". Prepend
-	# GOPATH/bin so the freshly-installed plugins win without requiring a
-	# shell-profile change.
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	# $(shell go env GOPATH)/bin, which isn't on every dev's PATH. Point
+	# protoc at the plugins explicitly (--plugin) so discovery doesn't depend
+	# on PATH separator conventions (POSIX ':' vs Windows ';').
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    --plugin=protoc-gen-go-grpc="$$(go env GOPATH)/bin/protoc-gen-go-grpc$(if $(findstring NT,$(OS)),.exe,)" \
     backend/backend.proto
-	PATH="$$(go env GOPATH)/bin:$$PATH" ./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
+	./protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative \
+    --plugin=protoc-gen-go="$$(go env GOPATH)/bin/protoc-gen-go$(if $(findstring NT,$(OS)),.exe,)" \
+    pkg/motion/proto/motion.proto
 
 core/config/inference_defaults.json: ## Fetch inference defaults from unsloth (only if missing)
 	$(GOCMD) generate ./core/config/...
@@ -939,7 +997,7 @@ test-extra-backend-vllm: docker-build-vllm
 	$(MAKE) test-extra-backend
 
 ## vllm multi-node data-parallel smoke test. Runs LocalAI head + a
-## `local-ai p2p-worker vllm` follower in docker compose against
+## `local-ai worker vllm` follower in docker compose against
 ## Qwen2.5-0.5B with data_parallel_size=2. Requires 2 NVIDIA GPUs and
 ## nvidia-container-runtime on the host — vLLM v1's DP coordinator is
 ## not viable on CPU so this cannot run in CI without GPU.
@@ -1378,6 +1436,72 @@ backends/audio-cpp-darwin: build
 	bash ./scripts/build/audio-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/audio-cpp.tar)"
 
+# Windows-specific backends (keep as explicit targets since they have special build logic).
+# Built on windows-latest under MSYS2 — see .github/workflows/backend_build_windows.yml.
+# Mirrors the Linux shape (`backends/%: docker-build-% docker-save-% build`) and
+# the darwin targets: the app is built first (`build`), then the backend image,
+# then it is installed. The build script still builds local-ai itself when it
+# is missing so the script also runs standalone outside make.
+# `ocifile://` hands the path straight to tarball.ImageFromPath, which on
+# Windows needs a drive-letter path — $(abspath) yields the MSYS /d/... form,
+# so it is converted via cygpath -m.
+# On a native Windows host (OS=Windows_NT) the recipe shell is Git for
+# Windows' sh, which cannot reach the UCRT64 toolchain, so the work is handed
+# to scripts/build/llama-cpp-windows.ps1: it locates MSYS2 (installing it via
+# winget with user confirmation on first use, then pacman-installing the
+# mingw-w64-ucrt toolchain) and runs the sh script under the real MSYS2 bash.
+# Under the msys2 CI shell OS is Windows_NT too, and the same PowerShell
+# dispatcher finds the setup-msys2 install through PATH.
+#
+# Variant targets (see scripts/build/llama-cpp-windows.sh, "Variant selection"):
+#   backends/llama-cpp-windows            default image: one main build with
+#                                         Vulkan support (CPU inference
+#                                         everywhere, GPU offload when a
+#                                         Vulkan driver is present)
+#   backends/llama-cpp-windows-all        everything the CI publishes:
+#                                         vulkan + rpc + fallback
+#   backends/llama-cpp-windows-cpu        CPU-only main build
+#   backends/llama-cpp-windows-vulkan     the vulkan main build alone
+#   backends/llama-cpp-windows-cuda       CUDA build (needs the NVIDIA
+#                                         toolkit + Visual Studio C++)
+#   backends/llama-cpp-windows-rpc        rpc companion build
+#   backends/llama-cpp-windows-fallback   static fallback build
+# The per-variant targets produce llama-cpp-<variant>.tar and install it under
+# its own image name so several variants can coexist as separate backends.
+# $(1)=variant set, $(2)=output tar (repo-relative), $(3)=image name
+llama-cpp-windows-build = $(if $(findstring NT,$(OS)),\
+  powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build/llama-cpp-windows.ps1 -Variants "$(1)" -OutputTar "./$(2)" -ImageName "$(3)",\
+  LLAMA_CPP_WINDOWS_VARIANTS="$(1)" OUTPUT_TAR="./$(2)" IMAGE_NAME="$(3)" bash ./scripts/build/llama-cpp-windows.sh)
+
+backends/llama-cpp-windows: build
+	$(call llama-cpp-windows-build,vulkan,backend-images/llama-cpp.tar,localai/llama-cpp-windows)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
+backends/llama-cpp-windows-all: build
+	$(call llama-cpp-windows-build,vulkan rpc fallback,backend-images/llama-cpp.tar,localai/llama-cpp-windows)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp.tar))"
+
+backends/llama-cpp-windows-cpu: build
+	$(call llama-cpp-windows-build,cpu,backend-images/llama-cpp-cpu.tar,localai/llama-cpp-windows-cpu)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-cpu.tar))"
+
+backends/llama-cpp-windows-vulkan: build
+	$(call llama-cpp-windows-build,vulkan,backend-images/llama-cpp-vulkan.tar,localai/llama-cpp-windows-vulkan)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-vulkan.tar))"
+
+backends/llama-cpp-windows-cuda: build
+	$(call llama-cpp-windows-build,cuda,backend-images/llama-cpp-cuda.tar,localai/llama-cpp-windows-cuda)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-cuda.tar))"
+
+backends/llama-cpp-windows-rpc: build
+	$(call llama-cpp-windows-build,rpc,backend-images/llama-cpp-rpc.tar,localai/llama-cpp-windows-rpc)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-rpc.tar))"
+
+backends/llama-cpp-windows-fallback: build
+	$(call llama-cpp-windows-build,fallback,backend-images/llama-cpp-fallback.tar,localai/llama-cpp-windows-fallback)
+	./$(BINARY_NAME) backends install "ocifile://$(shell cygpath -m $(abspath ./backend-images/llama-cpp-fallback.tar))"
+
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -1431,6 +1555,10 @@ BACKEND_TURBOQUANT = turboquant|turboquant|.|false|false
 # weight-quant kernels the Bonsai / Ternary-Bonsai models ship in. Reuses
 # backend/cpp/llama-cpp grpc-server sources via a thin wrapper Makefile.
 BACKEND_BONSAI = bonsai|bonsai|.|false|false
+# olala is a llama.cpp fork (OVHai LLM) adding the `olala` architecture (Mamba3 hybrid
+# MoE) that the Olala models need. Reuses backend/cpp/llama-cpp grpc-server sources via
+# a thin wrapper Makefile.
+BACKEND_OLALA = olala|olala|.|false|false
 # ds4 is antirez/ds4, a DeepSeek V4 Flash-specific inference engine.
 # Single-model; hardware-only validation lives at tests/e2e-backends/
 # (BACKEND_BINARY mode); see docs/superpowers/plans/2026-05-11-ds4-backend.md.
@@ -1554,6 +1682,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_IK_LLAMA_CPP)))
 $(eval $(call generate-docker-build-target,$(BACKEND_TURBOQUANT)))
 $(eval $(call generate-docker-build-target,$(BACKEND_BONSAI)))
+$(eval $(call generate-docker-build-target,$(BACKEND_OLALA)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DS4)))
 $(eval $(call generate-docker-build-target,$(BACKEND_PRIVACY_FILTER)))
 $(eval $(call generate-docker-build-target,$(BACKEND_AUDIO_CPP)))
@@ -1647,7 +1776,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp docker-build-strata
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-olala docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp docker-build-strata
 docker-build-backends: docker-build-whisper-medusa
 docker-build-backends: docker-build-funasr
 
@@ -1770,7 +1899,7 @@ test-i18n:
 ## "PostgreSQL"; the focus selects them. The packages are listed one by one
 ## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
 POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
-	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
+	./core/services/notify ./core/services/studio/store ./core/services/studio/triggers \
 	./core/services/studio/workspace/gormstore ./core/services/studio/jobs ./core/services/studio/projects ./core/http/auth
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
@@ -1793,6 +1922,46 @@ test-distributed-fakebus:
 		./core/services/testutil/... ./core/services/messaging/... ./core/services/studio/... \
 		./core/services/collections/... ./core/services/syncstate/... \
 		./core/services/modeladmin/... ./core/services/failover/...
+
+## Unit and race tests of the P2P packages (the lean libp2p host, the gated
+## relay and the pairing service). Packages that do not exist yet are skipped,
+## so the target stays green while the layer is built up.
+P2P_PACKAGES=p2pnet p2prelay p2ppair
+P2P_TEST_DIRS=$(foreach p,$(P2P_PACKAGES),$(if $(wildcard core/services/$(p)),./core/services/$(p)/...))
+
+test-p2p:
+ifeq ($(strip $(P2P_TEST_DIRS)),)
+	@echo 'test-p2p: none of the P2P packages ($(P2P_PACKAGES)) exists under core/services yet, nothing to test'
+else
+	@echo 'Running P2P unit tests under the race detector: $(P2P_TEST_DIRS)'
+	$(GOTEST) -race -count=1 -timeout 15m $(P2P_TEST_DIRS)
+endif
+
+## P2P NAT lab (needs Docker and a Linux kernel with iptables NAT). Builds the
+## real relay (cmd/localai-relay) and the lab binary (tests/e2e/p2p/labbin) as
+## static linux binaries and runs the cases in tests/e2e/p2p/lab in Docker
+## containers behind two NAT routers. Logs go to P2P_LAB_LOGS. P2P_LAB_BIN and
+## P2P_LAB_RELAY_BIN use binaries you built, P2P_LAB_ARGS picks cases (see
+## tests/e2e/p2p/README.md).
+P2P_LAB_DIR=tests/e2e/p2p/lab
+P2P_LAB_BIN?=
+P2P_LAB_RELAY_BIN?=
+P2P_LAB_LOGS?=$(abspath $(P2P_LAB_DIR)/logs)
+P2P_LAB_ARGS?=
+
+test-e2e-p2p:
+	@mkdir -p $(P2P_LAB_DIR)/bin
+	@if [ -z "$(strip $(P2P_LAB_BIN))" ]; then \
+		echo 'Building the P2P lab binary'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -o $(P2P_LAB_DIR)/bin/p2plab ./tests/e2e/p2p/labbin || exit 1; \
+	fi
+	@if [ -z "$(strip $(P2P_LAB_RELAY_BIN))" ]; then \
+		echo 'Building the relay'; \
+		CGO_ENABLED=0 GOOS=linux $(GOCMD) build -trimpath -tags nosqlite,purego_utp -o $(P2P_LAB_DIR)/bin/localai-relay ./cmd/localai-relay || exit 1; \
+	fi
+	LAB_BIN=$(abspath $(or $(P2P_LAB_BIN),$(P2P_LAB_DIR)/bin/p2plab)) \
+	LAB_RELAY_BIN=$(abspath $(or $(P2P_LAB_RELAY_BIN),$(P2P_LAB_DIR)/bin/localai-relay)) \
+	LAB_LOGS=$(P2P_LAB_LOGS) $(P2P_LAB_DIR)/run.sh $(P2P_LAB_ARGS)
 
 ## The add-on suites of scripts/addons/suites.json that need the integration
 ## build (UI server, mock backend, browser). ADDON_SUITES picks the ones to run;
@@ -1856,11 +2025,6 @@ clean-ui-test-server:
 .PHONY: swagger
 swagger:
 	swag init -g core/http/app.go --output swagger
-
-# DEPRECATED: gen-assets is for the Explorer page (Alpine.js). Remove when the Explorer page moves to the React UI.
-.PHONY: gen-assets
-gen-assets:
-	$(GOCMD) run core/dependencies_manager/manager.go webui_static.yaml core/http/static/assets
 
 ## Documentation and website
 # The published site is two Hugo sites: website/ owns the root, docs/ is nested

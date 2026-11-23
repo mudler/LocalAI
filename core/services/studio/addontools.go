@@ -179,6 +179,57 @@ type AddonLister interface {
 	AddonListings(ctx context.Context, user string) ([]AddonListing, error)
 }
 
+// ToolCap says that the add-on tool cap left tool definitions out of what the
+// user's add-ons declare. Cap is the limit, Offered how many definitions were
+// offered, Cut how many were left out. Addons names the add-ons that lost
+// tools.
+type ToolCap struct {
+	Cap, Offered, Cut int
+	Addons            []ToolCapAddon
+}
+
+// ToolCapAddon is one add-on that lost tools to the cap.
+type ToolCapAddon struct {
+	ID, Title string
+	Cut       int
+}
+
+// AddonToolScoper is implemented by a broker that caps the tools it offers. It
+// lists the tools of the user as Tools does, but without the add-ons that
+// excluded names, which neither count against the cap nor are returned, and
+// says what the cap left out of the rest (nil when nothing). It is optional:
+// without it Tools answers and no notice is shown.
+type AddonToolScoper interface {
+	ToolsScoped(ctx context.Context, user string, excluded func(addonID string) bool) ([]AddonTool, *ToolCap, error)
+}
+
+// addonToolsScoped lists the tools of user less the add-ons excluded names,
+// with the cap report of that list.
+func (s *Service) addonToolsScoped(ctx context.Context, user string, excluded func(string) bool) ([]AddonTool, *ToolCap, error) {
+	if sc, ok := s.d.AddonTools.(AddonToolScoper); ok {
+		return sc.ToolsScoped(ctx, user, excluded)
+	}
+	tools, err := s.d.AddonTools.Tools(ctx, user)
+	if err != nil || excluded == nil {
+		return tools, nil, err
+	}
+	out := tools[:0:0]
+	for _, t := range tools {
+		if !excluded(t.AddonID) {
+			out = append(out, t)
+		}
+	}
+	return out, nil, nil
+}
+
+// addonExcluder says which add-ons a chat does not use: those it switched off
+// and, for a chat with a saved agent, those the agent does not grant. The cap
+// on add-on tools applies to what is left, so it describes this chat.
+func addonExcluder(rec session.ChatRecord, sc *scope) func(string) bool {
+	off := set(rec.AddonsOff)
+	return func(id string) bool { return off[id] || (sc != nil && !sc.addons[id]) }
+}
+
 // SetAddonsOff sets the add-ons a chat has switched off, replacing the earlier
 // list. An ID appears once. The chat of another user is session.ErrNotFound.
 func (s *Service) SetAddonsOff(ctx context.Context, user, conv string, off []string) error {
@@ -215,17 +266,41 @@ func (s *Service) Addons(ctx context.Context, user, conv string) ([]AddonInfo, e
 	if err != nil {
 		return nil, err
 	}
-	return s.addonsFor(ctx, user, rec)
+	list, _, err := s.addonsFor(ctx, user, rec, s.scopeOf(ctx, rec))
+	return list, err
 }
 
-// addonsFor lists the add-ons of Addons with the switches of rec.
-func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRecord) ([]AddonInfo, error) {
+// addonsFor lists the add-ons of Addons with the switches of rec, and says what
+// the cap on add-on tools leaves out for this chat. The tools of an add-on the
+// chat uses are the ones the chat is really offered, with the cap applied to
+// the add-ons the chat uses; an add-on the chat does not use (switched off, or
+// outside its agent) keeps the tools it would have, so it can be switched on
+// again.
+func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRecord, sc *scope) ([]AddonInfo, *ToolCap, error) {
 	if s.d.AddonTools == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
-	tools, err := s.d.AddonTools.Tools(ctx, principal(user))
-	if err != nil {
-		return nil, err
+	var tools []AddonTool
+	var capped *ToolCap
+	var err error
+	if _, ok := s.d.AddonTools.(AddonToolScoper); ok {
+		excluded := addonExcluder(rec, sc)
+		if tools, capped, err = s.addonToolsScoped(ctx, principal(user), excluded); err != nil {
+			return nil, nil, err
+		}
+		if len(rec.AddonsOff) > 0 || sc != nil {
+			all, _, err := s.addonToolsScoped(ctx, principal(user), nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			for _, t := range all {
+				if excluded(t.AddonID) {
+					tools = append(tools, t)
+				}
+			}
+		}
+	} else if tools, err = s.d.AddonTools.Tools(ctx, principal(user)); err != nil {
+		return nil, nil, err
 	}
 	off := map[string]bool{}
 	for _, id := range rec.AddonsOff {
@@ -266,7 +341,7 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 		out = append(out, info)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out, nil
+	return out, capped, nil
 }
 
 // addonTools turns the add-on tools the chat's user may use, less the add-ons
@@ -294,7 +369,9 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 		}
 		return nil, nil, nil, nil
 	}
-	defs, err := s.d.AddonTools.Tools(ctx, a.Principal)
+	// The cap on add-on tools applies to the add-ons this chat uses, so a
+	// switched-off add-on frees room for the others.
+	defs, _, err := s.addonToolsScoped(ctx, a.Principal, addonExcluder(rec, sc))
 	if err != nil {
 		s.log.Warn("studio: add-on tools unavailable", "chat", a.ChatID, "error", err)
 		return nil, nil, nil, nil
@@ -458,7 +535,7 @@ func (s *Service) addonToolsHeld(ctx context.Context, a workspace.Actor, rec ses
 	var missing []string
 	if sc != nil {
 		for _, id := range sc.addonNames {
-			if !have[id] {
+			if !have[id] && !off[id] {
 				missing = append(missing, "add-on "+id)
 			}
 		}

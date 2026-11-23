@@ -1,11 +1,21 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// RemoveIfPresent removes a file and treats "already gone" as success.
+func RemoveIfPresent(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
+}
 
 func ExistsInPath(path string, s string) bool {
 	_, err := os.Stat(filepath.Join(path, s))

@@ -274,6 +274,8 @@ func TestRunRefusesAGalleryGivenAsTheLibraryAndAnEmptyCommand(t *testing.T) {
 func TestGuessPlatformFollowsTheBuildMatrixTags(t *testing.T) {
 	for uri, want := range map[string]string{
 		"q/b:latest-metal-darwin-arm64-x": "darwin/arm64",
+		"q/b:latest-windows-amd64-x":      "windows/amd64",
+		"q/b:master-windows-amd64-x":      "windows/amd64",
 		"q/b:latest-nvidia-l4t-arm64-x":   "linux/arm64",
 		"q/b:latest-gpu-nvidia-cuda-12-x": "linux/amd64",
 		"q/b:master-cpu-x":                "linux/amd64",

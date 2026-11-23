@@ -2,6 +2,7 @@
 import SideSheet from '../SideSheet'
 import { FIELD_BY_KEY } from '../../utils/settingsSchema'
 import { displayValue } from '../../utils/settingsPending'
+import { Button, EmptyState } from '../ui'
 
 function when(at) {
   const d = new Date(at)
@@ -21,14 +22,16 @@ export default function HistorySheet({ entries, onRevert, onClear, onClose }) {
       description="Changes applied from this browser. LocalAI keeps no settings log, so changes made elsewhere do not appear. Revert puts the old value back as an edit; nothing applies until you apply it."
       onClose={onClose} closeLabel="Close history" testId="settings-history" labelId="settings-history-title"
       footer={entries.length > 0 ? (
-        <button type="button" className="dk-btn dk-btn--ghost" onClick={onClear}>Clear this list</button>
+        <Button variant="ghost" onClick={onClear}>Clear this list</Button>
       ) : null}
     >
       {entries.length === 0 ? (
-        <div className="dk-empty">
-          <h3 className="dk-empty-title">Nothing applied yet</h3>
-          <p className="dk-empty-text">Settings you apply from this browser are listed here, up to the last 50.</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          title="Nothing applied yet"
+          level={3}
+          body="Settings you apply from this browser are listed here, up to the last 50."
+        />
       ) : (
         <ul className="st-history">
           {entries.map((e, i) => {

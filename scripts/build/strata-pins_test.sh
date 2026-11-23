@@ -11,6 +11,8 @@
 #      with no package would build an image that cannot start.
 #   3. A target Strata does not support (cpu, vulkan, Jetson) is refused with a
 #      message, not built into an empty image.
+#   4. Every package of the engine has a matching Hy4-Flash package pin, with the
+#      file name upstream publishes, and the bump script reads both families.
 set -euo pipefail
 
 REPO_ROOT=$(dirname "$(dirname "$(dirname "$(realpath "$0")")")")
@@ -53,6 +55,22 @@ expect "" intel "" aarch64
 
 if make -C "$DIR" -s engine-packages BUILD_TYPE=vulkan UNAME_S=Linux UNAME_M=x86_64 >/dev/null 2>&1; then
     fail "make engine-packages accepted BUILD_TYPE=vulkan"
+fi
+
+# Hy4-Flash: one pin set per package, named like upstream's files.
+for pkg in $(packages_for cublas 12 x86_64) $(packages_for cublas 13 x86_64) $(packages_for cublas 13 aarch64) \
+    $(packages_for hipblas "" x86_64) $(packages_for intel "" x86_64) $(make -C "$DIR" -s print-packages UNAME_S=Darwin UNAME_M=arm64); do
+    for var in TAG VERSION SHA256; do
+        grep -q "^STRATA_HY4_${var}_${pkg}?=" "$DIR/Makefile" || fail "no STRATA_HY4_${var}_${pkg} pin"
+    done
+done
+want="strata-hy4-0.1.64-linux-x86_64-cuda-cuda12.tar.gz"
+got=$(make -C "$DIR" -s print-asset-hy4 PKG=linux_x86_64_cuda_cuda12)
+[ "$got" = "$want" ] || fail "Hy4 asset name: want '$want', got '$got'"
+grep -q '"HY4": "strata-hy4"' "$REPO_ROOT/.github/bump_strata.sh" || fail "bump_strata.sh does not read the Hy4 packages"
+# `make engine` fetches the Hy4 packages into engines-hy4/ with the program strata-hy4.
+if ! make -C "$DIR" -n engine BUILD_TYPE=cublas CUDA_MAJOR_VERSION=12 UNAME_S=Linux UNAME_M=x86_64 | grep -q "strata-hy4-0.1.64-linux-x86_64-cuda-cuda12.tar.gz.*engines-hy4 strata-hy4"; then
+    fail "make engine does not fetch the Hy4 package into engines-hy4"
 fi
 
 # Every strata matrix entry must resolve to a package.

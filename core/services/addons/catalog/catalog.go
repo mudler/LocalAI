@@ -10,8 +10,10 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 )
 
 var (
@@ -28,9 +30,47 @@ type VerificationPolicy struct {
 	Issuer           string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 	Identity         string `json:"identity,omitempty" yaml:"identity,omitempty"`
 	// IdentityRegex is an anchored pattern for the signer identity, used
-	// instead of Identity so that master and tagged builds both verify. Only a
-	// library that serves backends may use it; an add-on install refuses it.
+	// instead of Identity so that master and tagged builds both verify. A
+	// backend install accepts it alone. An add-on install and an oci:// add-on
+	// library accept it only with SourceRepository: a shared signing workflow
+	// signs for every repository that calls it, so the pattern alone would
+	// admit a signature made for any of them.
 	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
+	// SourceRepository pins the repository the signature was made for: an
+	// https URL compared exactly with the source-repository extension of the
+	// signing certificate, such as https://github.com/<owner>/<repo>. It is
+	// valid only when a signature is required.
+	SourceRepository string `json:"sourceRepository,omitempty" yaml:"sourceRepository,omitempty"`
+}
+
+// CosignPolicy is the verifier policy of p. Every signer field goes through,
+// so a pattern and a source repository are checked as the source names them.
+func (p VerificationPolicy) CosignPolicy() cosignverify.Policy {
+	return cosignverify.Policy{Issuer: p.Issuer, Identity: p.Identity, IdentityRegex: p.IdentityRegex, SourceRepository: p.SourceRepository}
+}
+
+// ValidForAddon reports whether p may verify an add-on: an exact identity,
+// with or without a source repository, or a pattern with a source repository.
+// A pattern alone is refused because a shared signing workflow matches it for
+// every repository that calls the workflow.
+func (p VerificationPolicy) ValidForAddon() bool {
+	return p.IdentityRegex == "" || p.SourceRepository != ""
+}
+
+// SignerLabel is the signer a verified package is shown with. It names only
+// what the signature check compared exactly: the identity when it is exact,
+// otherwise the pinned source repository. A pattern with no pin names no one
+// signer, so the label is then empty, as it is without a required signature.
+func (p VerificationPolicy) SignerLabel() string {
+	switch {
+	case !p.RequireSignature:
+		return ""
+	case p.Identity != "":
+		return p.Identity
+	case p.IdentityRegex != "" && p.SourceRepository != "":
+		return p.SourceRepository
+	}
+	return ""
 }
 
 // MaxEntryTools bounds the tool names of one entry, as apps.MaxTools bounds
@@ -129,6 +169,12 @@ type Release struct {
 	// another address does not qualify. It is the library half of the test; the
 	// receipt of an installed package adds the signature.
 	Official bool `json:"official"`
+	// Signer is stamped with the source, never read from remote metadata: the
+	// signer identity an administrator pinned, or the source repository when
+	// the identity is a pattern, set only for an entry of a source that
+	// requires a signature and is not the official library. It
+	// lets the UI say who vouches for a package that LocalAI did not review.
+	Signer string `json:"signer,omitempty"`
 	// ID is the identifier of the entry for every kind, the same field the
 	// shared envelope uses. For a backend it is the backend name, which is also
 	// its directory name.
@@ -165,6 +211,13 @@ type Release struct {
 	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say),
 	// from the manifest's skill definitions, for the same warning. A hint.
 	SkillShadows []string `json:"skillShadows,omitempty"`
+	// HostOperations repeats the host operations the manifest of the package
+	// requests, so the install dialog can show them without a download. Nil
+	// means the index gives no hint (an older index); an empty value means the
+	// package requests none. It is a hint, never authority: the install
+	// compares the verified manifest with what the administrator accepted and
+	// holds the add-on when the manifest asks for more.
+	HostOperations *contract.HostOperations `json:"hostOperations,omitempty"`
 
 	// The fields below describe a backend and are refused on any other kind.
 	// They carry what the backend gallery carries beyond the image, so the
@@ -230,6 +283,20 @@ type Query struct {
 type Page struct {
 	Releases []Release `json:"releases"`
 	Total    int       `json:"total"`
+	// Failed names the libraries that were left out of the listing because
+	// their last fetch failed. The releases of the others are all there. It is
+	// empty when every library loaded, and a listing that names one library
+	// answers with the refresh error instead.
+	Failed []FailedSource `json:"failed,omitempty"`
+}
+
+// FailedSource is a library a listing could not read: why, and when it last
+// loaded (zero when it never did).
+type FailedSource struct {
+	SourceID    string    `json:"sourceId"`
+	Name        string    `json:"name"`
+	Error       string    `json:"error,omitempty"`
+	LastSuccess time.Time `json:"lastSuccess,omitzero"`
 }
 type Catalog struct {
 	Sources *Sources
@@ -273,6 +340,8 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	all := []Release{}
+	var failed []FailedSource
+	loaded, pending := 0, 0
 	own := s.entryOwners()
 	for id, src := range s.sources {
 		if !src.readByCatalog() || (q.SourceID != "" && q.SourceID != id) {
@@ -280,11 +349,22 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 		}
 		cache, ok := s.cache[id]
 		if !ok {
-			return Page{}, ErrUnavailable
+			// Its first refresh has not finished. A request that names this
+			// library has nothing to show; any other listing goes on without it.
+			if q.SourceID != "" {
+				return Page{}, ErrUnavailable
+			}
+			pending++
+			continue
 		}
 		if cache.failed {
-			return Page{}, ErrRefresh
+			if q.SourceID != "" {
+				return Page{}, ErrRefresh
+			}
+			failed = append(failed, FailedSource{SourceID: id, Name: src.Name, Error: cache.err, LastSuccess: cache.result.LastSuccess})
+			continue
 		}
+		loaded++
 		for _, r := range cache.releases {
 			if !r.matchesPlatform(targetOS, targetArch) || !q.matchesKind(r) {
 				continue
@@ -302,8 +382,19 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 			}
 		}
 	}
+	// With nothing loaded there is nothing to show: say why, as a listing of a
+	// single library does.
+	if loaded == 0 {
+		if len(failed) > 0 {
+			return Page{}, ErrRefresh
+		}
+		if pending > 0 {
+			return Page{}, ErrUnavailable
+		}
+	}
 	sort.Slice(all, func(i, j int) bool { return releaseKey(all[i]) < releaseKey(all[j]) })
-	p := Page{Total: len(all), Releases: []Release{}}
+	sort.Slice(failed, func(i, j int) bool { return failed[i].SourceID < failed[j].SourceID })
+	p := Page{Total: len(all), Releases: []Release{}, Failed: failed}
 	if q.Offset < len(all) {
 		p.Releases = all[q.Offset:min(len(all), q.Offset+q.Limit)]
 	}

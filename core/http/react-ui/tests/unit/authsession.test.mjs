@@ -59,7 +59,10 @@ test('session: retry only means something while unreachable', () => {
 
 test('session: a failed refresh does not sign out a signed-in person', () => {
   const s = run([SIGNED_IN])
-  assert.equal(sessionStep(s, { type: 'status-failed' }), s)
+  const failed = sessionStep(s, { type: 'status-failed' })
+  assert.equal(failed.status, 'signed-in')
+  assert.equal(failed.user, s.user)
+  assert.equal(failed.stale, true)
 })
 
 test('session: parallel 401s end the session once', () => {
@@ -87,6 +90,14 @@ test('session: a 401 when nobody is signed in or auth is off changes nothing', (
   for (const start of [initialSession, run([ANON]), run([AUTH_OFF]), run([{ type: 'status-failed' }])]) {
     assert.equal(sessionStep(start, { type: 'unauthorized', url: API }), start)
   }
+})
+
+test('session: a 401 ends a static API key session too', () => {
+  const key = run([{ type: 'status-ok', data: { authEnabled: false, staticApiKeyRequired: true, user: { id: 'legacy-api-key', role: 'admin' } } }])
+  assert.equal(key.status, 'signed-in')
+  const expired = sessionStep(key, { type: 'unauthorized', url: API })
+  assert.equal(expired.status, 'expired')
+  assert.equal(expired.user, null)
 })
 
 test('session: after expiry a new status read signs in again', () => {

@@ -9,7 +9,7 @@ import { useBranding } from './contexts/BrandingContext'
 import BrandName from './components/BrandName'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
-import { hubs, hubOwnsPath } from './components/hub/hubConfig'
+import { hubs, hubOwnsPath, operateHub } from './components/hub/hubConfig'
 import Icon from './components/Icon'
 // eslint-disable-next-line no-unused-vars
 import AppearanceSync from './components/wellknown/AppearanceSync'
@@ -18,9 +18,9 @@ import { displayVersion } from './utils/version'
 import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
 import { UpdatesProvider } from './contexts/UpdatesContext'
+import { OperateSummaryProvider } from './contexts/OperateSummaryContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
-
-const COLLAPSED_KEY = 'localai_sidebar_collapsed'
+import { readSidebarCollapsed } from './utils/sidebarState'
 
 // The page wrapper is keyed so its transition replays on navigation. Within a
 // hub, collapse the key to the hub id so the layout (and its tab bar)
@@ -47,9 +47,8 @@ function pageTransitionKey(pathname) {
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
-  })
+  // Read once; the Sidebar owns the stored value and announces changes.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
   const { toasts, addToast, removeToast, dropToast } = useToast()
   const [version, setVersion] = useState('')
   // The server's feature switches, read once for the sidebar and the inbox.
@@ -58,7 +57,7 @@ export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
-  const { authEnabled, user } = useAuth()
+  const { authEnabled, user, isAdmin } = useAuth()
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
@@ -124,6 +123,9 @@ export default function App() {
   return (
     <InboxProvider features={features}>
     <UpdatesProvider features={features}>
+    {/* The Administration sidebar draws its counts from the summary, so the
+        provider sits above it; it asks for nothing off an Administration page. */}
+    <OperateSummaryProvider enabled={isAdmin && hubOwnsPath(operateHub, location.pathname)}>
       <div className={layoutClasses}>
         <AppearanceSync />
         <SoundSync />
@@ -215,6 +217,7 @@ export default function App() {
         {/* On a chat page the stack rises above the composer. */}
         <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
       </div>
+    </OperateSummaryProvider>
     </UpdatesProvider>
     </InboxProvider>
   )

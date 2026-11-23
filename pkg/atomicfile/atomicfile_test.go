@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,7 +28,11 @@ var _ = Describe("Write", func() {
 		Expect(string(got)).To(Equal("two"))
 		st, err := os.Stat(path)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o640)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o640)))
+		}
 	})
 
 	It("leaves no temporary file behind", func() {

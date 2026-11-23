@@ -38,7 +38,8 @@
     },
     "verb": {
       "upgrading": "Aggiornamento {{kind}}",
-      "failedUpgrade": "Impossibile aggiornare {{kind}}"
+      "failedUpgrade": "Impossibile aggiornare {{kind}}",
+      "needsReview": "Serve il tuo controllo"
     },
     "filter": {
       "addons": "Add-on"
@@ -61,7 +62,14 @@
       "healthy": "Candidate healthy",
       "publishing": "Publishing generation",
       "completed": "Update completed",
-      "failed": "Update failed"
+      "failed": "Update failed",
+      "queued": "In coda",
+      "starting": "Avvio",
+      "resolving": "Risoluzione del pacchetto",
+      "verifying": "Verifica di firma e digest",
+      "downloading": "Download in corso",
+      "checking": "Controllo del pacchetto",
+      "committing": "Completamento"
     },
     "addonFailure": {
       "upgrade_failed": "Update failed. Check the owner logs for details.",
@@ -87,6 +95,42 @@
       "committing": "Finalizzazione",
       "persisting": "Salvataggio della configurazione"
     },
-    "retryFailed": "Nuovo tentativo non riuscito: {{message}}"
+    "retryFailed": "Nuovo tentativo non riuscito: {{message}}",
+    "addonNeedsReview": "Il pacchetto chiede più accesso all'host di quello che hai approvato.",
+    "review": "Controlla",
+    "reviewLabel": "Controlla {{name}}"
+  },
+  "overview": {
+    "title": "Panoramica",
+    "openWorker": "Apri worker",
+    "approve": "Approva",
+    "approveAll": "Approva tutti",
+    "signups_one": "{{count}} registrazione attende approvazione",
+    "signups_other": "{{count}} registrazioni attendono approvazione",
+    "approved_one": "{{count}} registrazione approvata",
+    "approved_other": "{{count}} registrazioni approvate",
+    "approveFailed": "Impossibile approvare: {{message}}",
+    "cluster": "Cluster",
+    "machine": "Questa macchina",
+    "openWorkers": "Apri worker",
+    "openMachine": "Apri questa macchina",
+    "online": "Online",
+    "ofTotal": "di {{total}}",
+    "loaded": "Caricati",
+    "inFlight": "In corso",
+    "memory": "Memoria",
+    "disk": "Disco",
+    "diskFree": "{{free}} liberi su {{total}}",
+    "traffic": "Traffico, {{hours}} h",
+    "openUsage": "Apri utilizzo",
+    "requests": "Richieste",
+    "failed": "Fallite",
+    "p95": "P95",
+    "barsLabel": "Richieste delle ultime {{hours}} ore",
+    "access": "Accesso",
+    "users": "Utenti",
+    "waiting": "In attesa",
+    "admins": "Amministratori",
+    "openUsers": "Apri utenti"
   }
 }

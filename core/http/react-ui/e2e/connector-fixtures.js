@@ -147,7 +147,7 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
         return r.fulfill({ json: { connectors: s.items } })
       })
       await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+      await page.route('**/api/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
       // Registered last, so it answers before the route of one binding.
       await page.route(/\/api\/chats\/connectors\/kinds(\?.*)?$/, r => r.fulfill({ json: { kinds: [{ addon: kind, kind, title: kind, files, ...kindExtra }], capabilities } }))
     },

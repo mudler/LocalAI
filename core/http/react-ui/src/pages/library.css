@@ -156,7 +156,6 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-addmenu__done { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); color: var(--dk-muted); }
 
 /* ---- Tabs and panes ------------------------------------------------------- */
-.lib-tabs { border-bottom: 1px solid var(--dk-edge); }
 .lib-section { display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .lib-section + .lib-section { padding-top: var(--dk-space-2); }
 .lib-section h3 { margin: 0; }
@@ -250,8 +249,6 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-empty__acts { display: flex; gap: var(--dk-space-2); flex-wrap: wrap; justify-content: center; }
 
 /* ---- Simulate sheet ---------------------------------------------------------- */
-.lib-sheet { width: min(560px, 100%); }
-.lib-sheet .dk-sheet-head { border-bottom: 1px solid var(--dk-edge); padding-bottom: var(--dk-space-3); }
 .lib-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-4); }
 .lib-sim-row { display: flex; gap: var(--dk-space-3); align-items: flex-start; }
 .lib-sim-grow { flex: 1 1 auto; min-width: 0; }
@@ -268,9 +265,9 @@ a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px;
 .lib-sim-item:first-child { border-top: 0; }
 .lib-sim-item__end { margin-left: auto; font-variant-numeric: tabular-nums; font-size: var(--fs-meta); color: var(--dk-muted); text-align: right; }
 .lib-sim-group { display: flex; flex-direction: column; gap: 4px; }
-.lib-veil ~ .dk-toast-region { left: calc((100% - min(560px, 100%)) / 2); }
+body:has(.lib-veil) .dk-toast-region { left: calc((100% - min(480px, 100%)) / 2); }
 @media (max-width: 640px) {
-  .lib-veil ~ .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
+  body:has(.lib-veil) .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
   .lib-passage { grid-template-columns: 18px minmax(0, 1fr); }
   .lib-passage .lib-score { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; }
 }

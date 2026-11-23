@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout, LoadError, SkeletonRows, Switch } from '../ui'
+import { Button, Callout, LoadError, SearchField, SkeletonRows, Switch } from '../ui'
 import { chatEgressApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
 import { useAddonTitle } from '../../addons/useAddonRegistry'
@@ -69,10 +69,8 @@ function AuditTable() {
             {VERDICTS.map(v => <option key={v} value={v}>{t(`settings.egress.audit.verdicts.${v || 'any'}`)}</option>)}
           </select>
         </label>
-        <input className="dk-input" type="search" placeholder={t('settings.egress.audit.host')} aria-label={t('settings.egress.audit.host')}
-          value={filter.host} onChange={e => setFilter(f => ({ ...f, host: e.target.value }))} />
-        <input className="dk-input" type="search" placeholder={t('settings.egress.audit.user')} aria-label={t('settings.egress.audit.user')}
-          value={filter.user} onChange={e => setFilter(f => ({ ...f, user: e.target.value }))} />
+        <SearchField label={t('settings.egress.audit.host')} value={filter.host} onChange={host => setFilter(f => ({ ...f, host }))} />
+        <SearchField label={t('settings.egress.audit.user')} value={filter.user} onChange={user => setFilter(f => ({ ...f, user }))} />
         <Button size="sm" variant="ghost" onClick={() => setReload(n => n + 1)}>{t('settings.egress.audit.refresh')}</Button>
       </div>
       {state.loading && <SkeletonRows rows={2} />}

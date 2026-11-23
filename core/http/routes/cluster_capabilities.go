@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 )
 
@@ -43,10 +44,25 @@ func ClusterInstalledProviderFor(app *application.Application) localai.ClusterIn
 		if err != nil {
 			return nil, err
 		}
-		names := make([]string, 0, len(backends))
-		for name := range backends {
-			names = append(names, name)
-		}
-		return names, nil
+		return installedBackendNames(backends), nil
 	}
+}
+
+// installedBackendNames names every backend a cluster-wide listing shows as
+// installed, aliases included.
+//
+// Workers list only concrete backends and keep alias resolution to themselves
+// (see gallery.AvailableOnCluster), while a local listing also carries an
+// entry per alias. Reporting each concrete's alias makes a name such as
+// "llama-cpp" count as installed when a worker holds "cuda13-llama-cpp", as it
+// does on a single node.
+func installedBackendNames(backends gallery.SystemBackends) []string {
+	names := make([]string, 0, len(backends))
+	for name, b := range backends {
+		names = append(names, name)
+		if b.Metadata != nil && b.Metadata.Alias != "" {
+			names = append(names, b.Metadata.Alias)
+		}
+	}
+	return names
 }

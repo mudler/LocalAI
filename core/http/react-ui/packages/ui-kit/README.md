@@ -25,12 +25,15 @@ state, open `/app/ui-catalog` in the web UI.
 | `src/EmptyState.jsx`, `src/Mascot.jsx` | The empty state and the llama picture |
 | `src/StatusChip.jsx`, `src/status.js` | The status chip and the status vocabulary |
 | `src/Switch.jsx`, `src/Segmented.jsx`, `src/SearchField.jsx` | Switch, segmented filter, search box |
+| `src/Tabs.jsx`, `src/tabsModel.js` | Tabs, their panel and the keyboard rules |
+| `src/Tag.jsx` | The tag: a label that is not a state |
 | `src/Slider.jsx`, `src/sliderModel.js` | The number slider |
 | `src/Page.jsx` | The page frame |
 | `src/Icon.jsx`, `src/icons.js`, `src/brandGlyphs.jsx` | The icon, drawn inline |
 | `styles.css` | The one CSS entry for an app without the web UI theme |
 | `css/kit.css` | The rules of the controls, the icons and the page frame |
 | `css/defaults.css` | The product tokens that `kit.css` reads |
+| `css/tabs.css`, `css/tag.css` | The rules of the tabs (on top of the vendored `dk-tabs`) and of the tag |
 | `themes/localai.css` | The LocalAI palette: the `--dk-*` colour roles, light and dark |
 | `vendor/` | The vendored shared kit: base tokens, motion, `dk-*` classes, icon sprite |
 | `scripts/gen-icons.mjs` | Writes `src/icons.js` from `vendor/icons/sprite.svg` |
@@ -94,6 +97,8 @@ overrides an earlier one.
    `dk-input`).
 5. `css/defaults.css`: the product tokens that `kit.css` reads.
 6. `css/kit.css`: the rules of the controls, the icons and the page frame.
+7. `css/tabs.css`: the icon and count of a tab, and the vertical tab list.
+8. `css/tag.css`: the tag.
 
 Load your own rules after `styles.css`, so that a class of yours on the same
 element wins over a base rule of the kit.
@@ -111,6 +116,8 @@ import '<kit>/vendor/components.css'
 import '<web UI>/src/index.css'   // global rules: body, focus, reduced motion
 import '<web UI>/src/theme.css'   // product tokens and the --color-* names
 import '<kit>/css/kit.css'
+import '<kit>/css/tabs.css'
+import '<kit>/css/tag.css'
 ```
 
 `src/theme.css` also points the kit's own tokens at the product scale (Geist,

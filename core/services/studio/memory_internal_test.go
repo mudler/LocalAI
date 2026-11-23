@@ -385,7 +385,7 @@ var _ = Describe("memory served by the host", func() {
 		})
 
 		It("lists the memory group in the Tools menu, off for a private chat and unusable when the person switched it off", func() {
-			panel, err := svc.DraftTools(ctx, "alice", "m", "")
+			panel, err := svc.DraftTools(ctx, "alice", "m", "", Switches{})
 			Expect(err).NotTo(HaveOccurred())
 			var got *BuiltinGroup
 			for i := range panel.Builtins {
@@ -398,7 +398,7 @@ var _ = Describe("memory served by the host", func() {
 			Expect(got.Usable).To(BeTrue())
 			Expect(got.Title).To(Equal("Memory"))
 			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
-			panel, err = svc.DraftTools(ctx, "alice", "m", "")
+			panel, err = svc.DraftTools(ctx, "alice", "m", "", Switches{})
 			Expect(err).NotTo(HaveOccurred())
 			for _, g := range panel.Builtins {
 				if g.Group == "memory" {

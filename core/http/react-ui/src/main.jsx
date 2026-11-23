@@ -20,6 +20,10 @@ import './theme.css'
 // The kit's rules sit between the tokens and the app's own rules: a page's
 // class on the same element still wins over a kit component's base rule.
 import '../packages/ui-kit/css/kit.css'
+import '../packages/ui-kit/css/tabs.css'
+import '../packages/ui-kit/css/tag.css'
+// ListPicker's menu and chip, also drawn by pickers that do not use it.
+import './components/ui/picker.css'
 import './App.css'
 import './components/remotes/remotes.css'
 import { ShellFallback } from './components/RouteFallback'
@@ -30,21 +34,22 @@ function BootFallback() {
   return <ShellFallback />
 }
 
-// BrandingProvider sits outside AuthProvider so the login screen — which
+// ThemeProvider sits inside AuthProvider because the theme is kept per
+// account. BrandingProvider sits outside AuthProvider so the login screen — which
 // renders before authentication completes — can pick up the configured
 // instance name and logo from the public /api/branding endpoint.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Suspense fallback={<BootFallback />}>
-      <ThemeProvider>
-        <BrandingProvider>
-          <AuthProvider>
+      <BrandingProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <OperationsProvider>
               <RouterProvider router={router} />
             </OperationsProvider>
-          </AuthProvider>
-        </BrandingProvider>
-      </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </BrandingProvider>
     </Suspense>
   </StrictMode>,
 )

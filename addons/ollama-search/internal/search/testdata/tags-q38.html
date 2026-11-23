@@ -1,0 +1,1356 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!doctype html>
+<html class="h-full overflow-y-scroll">
+  <head>
+    <title>Tags · qwen3.8</title>
+
+    <meta charset="utf-8" />
+    <meta name="description" content="Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks."/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="Tags · qwen3.8" />
+    <meta property="og:description" content="Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks." />
+    <meta property="og:url" content="https://ollama.com/library/qwen3.8/tags" />
+    <meta property="og:image" content="https://ollama.com/public/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="628" />
+    <meta property="og:image:alt" content="Ollama's black-and-white logo" />
+    <meta property="og:type" content="website" />
+
+    <meta name="robots" content="index, follow" />
+
+    <meta property="twitter:card" content="summary" />
+    <meta property="twitter:title" content="Tags · qwen3.8" />
+    <meta property="twitter:description" content="Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks." />
+    <meta property="twitter:site" content="ollama" />
+
+    <meta property="twitter:image:src" content="https://ollama.com/public/og-twitter.png" />
+    <meta property="twitter:image:width" content="1200" />
+    <meta property="twitter:image:height" content="628" />
+    <meta property="twitter:image:alt" content="Ollama's black-and-white logo" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <link rel="icon" type="image/png" sizes="16x16" href="/public/icon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/public/icon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/public/icon-64x64.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/android-chrome-icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/public/android-chrome-icon-512x512.png" />
+
+    
+    
+
+    <link href="/public/tailwind.css?v=c3f4edf32afb30830f1adcd77f700f29" rel="stylesheet" />
+    <link href="/public/vendor/prism/prism.css?v=c3f4edf32afb30830f1adcd77f700f29" rel="stylesheet" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://ollama.com/#organization",
+            "name": "Ollama",
+            "legalName": "Ollama Inc.",
+            "url": "https://ollama.com",
+            "logo": "https://ollama.com/public/ollama.png",
+            "sameAs": ["https://github.com/ollama/ollama", "https://twitter.com/ollama"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://ollama.com/#website",
+            "name": "Ollama",
+            "url": "https://ollama.com",
+            "publisher": { "@id": "https://ollama.com/#organization" }
+          }
+        ]
+      }
+    </script>
+
+    <script type="text/javascript">
+      function copyToClipboard(element) {
+        let commandElement = null;
+        const preElement = element.closest('pre');
+        const languageNoneElement = element.closest('.language-none');
+
+        if (preElement) {
+          commandElement = preElement.querySelector('code');
+        } else if (languageNoneElement) {
+          commandElement = languageNoneElement.querySelector('.command');
+        } else {
+          const parent = element.parentElement;
+          if (parent) {
+            commandElement = parent.querySelector('.command');
+          }
+        }
+
+        if (!commandElement) {
+          console.error('No code or command element found');
+          return;
+        }
+
+        const code = commandElement.textContent ? commandElement.textContent.trim() : commandElement.value;
+
+        navigator.clipboard
+          .writeText(code)
+          .then(() => {
+            const copyIcon = element.querySelector('.copy-icon')
+            const checkIcon = element.querySelector('.check-icon')
+
+            copyIcon.classList.add('hidden')
+            checkIcon.classList.remove('hidden')
+
+            setTimeout(() => {
+              copyIcon.classList.remove('hidden')
+              checkIcon.classList.add('hidden')
+            }, 2000)
+          })
+      }
+    </script>
+    
+    <script>
+      
+      function getIcon(url) {
+        url = url.toLowerCase();
+        if (url.includes('x.com') || url.includes('twitter.com')) return 'x';
+        if (url.includes('github.com')) return 'github';
+        if (url.includes('linkedin.com')) return 'linkedin';
+        if (url.includes('youtube.com')) return 'youtube';
+        if (url.includes('hf.co') || url.includes('huggingface.co') || url.includes('huggingface.com')) return 'hugging-face';
+        return 'default';
+      }
+
+      function setInputIcon(input) {
+        const icon = getIcon(input.value);
+        const img = input.previousElementSibling.querySelector('img');
+        img.src = `/public/social/${icon}.svg`;
+        img.alt = `${icon} icon`;
+      }
+
+      function setDisplayIcon(imgElement, url) {
+        const icon = getIcon(url);
+        imgElement.src = `/public/social/${icon}.svg`;
+        imgElement.alt = `${icon} icon`;
+      }
+    </script>
+    
+    <script src="/public/vendor/htmx/bundle.js"></script>
+  </head>
+
+  <body
+    class="
+      antialiased
+      bg-white
+      min-h-screen
+      w-full
+      m-0
+      flex
+      flex-col
+    "
+    hx-on:keydown="
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        // Ignore key events in input fields.
+        return;
+      }
+      if ((event.metaKey && event.key === 'k') || event.key === '/') {
+        const sp = htmx.find('#search') || htmx.find('#form-input') || htmx.find('#filter');
+        if (sp) {
+          event.preventDefault();
+          sp.focus();
+        }
+      }
+    "
+  >
+    
+      
+<header class="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b border-transparent bg-white px-5 sm:px-6 lg:px-8 text-black data-[scrolled]:border-black/[0.12] lg:static lg:border-b-0">
+  <nav aria-label="Main navigation" class="flex w-full items-center justify-between gap-6 text-lg leading-6 tracking-tight font-normal">
+    <div class="flex min-w-0 flex-1 items-center gap-6">
+      <a href="/" aria-label="Ollama home" class="-ml-0.5 flex-none"><img src="/public/ollama-nav.png" alt="Ollama logo" width="37" height="43" class="h-auto w-[37px]" /></a>
+      
+<div class="relative w-full max-w-md">
+  
+<form action="/search" autocomplete="off">
+  <div 
+    class="relative flex w-full appearance-none bg-black/5 border border-neutral-100 items-center rounded-full"
+    hx-on:focusout="
+      if (!this.contains(event.relatedTarget)) {
+        const searchPreview = document.querySelector('#searchpreview');
+        if (searchPreview) {
+          htmx.addClass('#searchpreview', 'hidden');
+        }
+      }
+    "
+  >
+  <span id="searchIcon" class="pl-2 text-2xl text-neutral-500">
+    <svg class="ml-1.5 h-5 w-5 fill-current" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <path d="m8.5 3c3.0375661 0 5.5 2.46243388 5.5 5.5 0 1.24832096-.4158777 2.3995085-1.1166416 3.3225711l4.1469717 4.1470988c.2928932.2928932.2928932.767767 0 1.0606602-.2662666.2662665-.6829303.2904726-.9765418.0726181l-.0841184-.0726181-4.1470988-4.1469717c-.9230626.7007639-2.07425014 1.1166416-3.3225711 1.1166416-3.03756612 0-5.5-2.4624339-5.5-5.5 0-3.03756612 2.46243388-5.5 5.5-5.5zm0 1.5c-2.209139 0-4 1.790861-4 4s1.790861 4 4 4 4-1.790861 4-4-1.790861-4-4-4z" />
+    </svg>
+  </span>
+  <input
+    id="search"
+    hx-get="/search"
+    hx-trigger="keyup changed delay:100ms, focus"
+    hx-target="#searchpreview"
+    hx-swap="innerHTML"
+    name="q"
+    class="resize-none rounded-full border-0 py-2.5 bg-transparent text-sm w-full placeholder:text-neutral-500 focus:outline-hidden focus:ring-0"
+    placeholder="Search models"
+    autocomplete="off"
+    hx-on:keydown="
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        window.location.href = '/search?q=' + encodeURIComponent(this.value);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.value = '';
+        this.blur();
+        htmx.addClass('#searchpreview', 'hidden');
+        return;
+      }
+      if (event.key === 'Tab') { 
+        htmx.addClass('#searchpreview', 'hidden');
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        let first = document.querySelector('#search-preview-list a:first-of-type');
+        first?.focus();
+        event.preventDefault();
+      }
+      if (event.key === 'ArrowUp') {
+        let last = document.querySelector('#view-all-link');
+        last?.focus();
+        event.preventDefault();
+      }
+      htmx.removeClass('#searchpreview', 'hidden');
+    "
+    hx-on:focus="
+      htmx.removeClass('#searchpreview', 'hidden')
+    "
+  />
+</form>
+<div id="searchpreview" class="hidden absolute left-0 right-0 top-12 z-50" style="width: calc(100% + 2px); margin-left: -1px;"></div>
+</div>
+
+</div>
+
+    </div>
+    <div class="hidden items-center gap-7 md:flex">
+      <a href="https://github.com/ollama/ollama" class="flex items-center gap-1.5 text-[17px]">
+        <svg class="h-[18px] w-[18px] flex-none" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg>
+        <span class="sr-only">GitHub</span>
+        <span class="tabular-nums">187.8K</span>
+      </a>
+      <a href="/download" class="underline-offset-4 hover:underline">Download</a>
+      <a href="/search" class="underline-offset-4 hover:underline">Models</a>
+      <a href="https://docs.ollama.com" class="underline-offset-4 hover:underline">Docs</a>
+      <a href="/pricing" class="underline-offset-4 hover:underline">Pricing</a>
+      
+        <a href="/signin" class="underline-offset-4 hover:underline">Sign in</a>
+      
+    </div>
+    <div class="flex items-center md:hidden">
+      <input type="checkbox" id="menu" class="peer hidden" />
+      <label for="menu" aria-label="Open menu" class="z-50 block cursor-pointer peer-checked:hidden">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+      </label>
+      <label for="menu" aria-label="Close menu" class="fixed right-5 sm:right-6 lg:right-8 top-[26px] z-50 hidden cursor-pointer peer-checked:block">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </label>
+      <div class="fixed inset-0 z-40 hidden overflow-y-auto bg-white peer-checked:block">
+        <div class="flex flex-col space-y-5 px-5 sm:px-6 lg:px-8 pb-8 pt-[5.5rem] text-3xl">
+          
+          <a href="/download">Download</a>
+          <a href="/search">Models</a>
+          <a href="https://docs.ollama.com">Docs</a>
+          <a href="/pricing">Pricing</a>
+          
+            <a href="/signin">Sign in</a>
+          
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<script>
+  (function (header) {
+    function update() { header.toggleAttribute('data-scrolled', window.scrollY > 0); }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })(document.currentScript.previousElementSibling);
+</script>
+
+    
+
+    
+<div class="mx-auto flex w-full max-w-[52rem] flex-col px-6 py-10 md:py-24 lg:px-8">
+	<div class="flex flex-col space-y-3">
+    <div class="flex items-center min-w-0">
+        <div class="flex items-center min-w-0 space-x-2">
+            <div class="flex items-center min-w-0">
+                
+                <span class="text-xl tracking-tight sm:text-[28px] min-w-0 truncate font-medium leading-normal text-black decoration-2">
+                    <a  href="/library/qwen3.8" title="qwen3.8" class="underline-offset-[5px] hover:underline">qwen3.8</a>
+                </span>
+                    
+                    
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex flex-col space-y-2">
+      <div class="flex flex-col space-y-2">
+          <p class="flex space-x-5 text-[13px] font-medium text-neutral-500">
+              
+                <span class="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"></path>
+                  </svg>
+                  <span >7.2M</span>
+                  <span class="hidden sm:flex">&nbsp;Downloads</span>
+                </span>
+              
+              
+                  <span class="flex items-center" title="Nov 8, 2026 12:42 AM UTC">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="mr-1.5 h-[14px] w-[14px] sm:h-4 sm:w-4">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"></path>
+                      </svg>
+                      <span class="hidden sm:flex">Updated&nbsp;</span>
+                      <span >1 week ago</span>
+                  </span>
+              
+          </p>
+      </div>
+      <div id="summary" class="flex flex-col gap-2">
+          <h2 id="summary-display" class="break-words text-neutral-800">
+              <span id="summary-content">
+                
+                    Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks.
+                
+              </span>
+              
+          </h2>
+          <div id="summary-edit-form" class="hidden">
+              <form
+                  class="w-full text-sm"
+                  hx-post="/library/qwen3.8"
+                  hx-target="#summary-content"
+                  hx-swap="innerHTML"
+                  hx-on::after-request="
+                      htmx.removeClass('#summary-display', 'hidden');
+                      htmx.addClass('#summary-edit-form', 'hidden');
+                  "
+              >
+                  <textarea
+                      id="summary-textarea"
+                      maxlength="255"
+                      class="w-full relative px-1 py-1 resize-none overflow-y-hidden rounded-md border border-neutral-200 focus:border-blue-400 focus:outline-hidden focus:ring-3 focus:ring-blue-300/75 placeholder:text-gray-400 placeholder:text-[15px]"
+                      name="summary"
+                      rows="1"
+                      placeholder="Add a summary"
+                      oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px';"
+                      onfocus="
+                              this.style.height='auto'; this.style.height=this.scrollHeight+'px';
+                              var temp_value=this.value; this.value=''; this.value=temp_value;
+                      "
+                      onkeydown="
+                              if ((event.metaKey || event.ctrlKey) && (event.keyCode === 13 || event.which === 13)) {
+                                      event.preventDefault();
+                                      htmx.trigger(this.closest('form'), 'submit');
+                              }
+                              else if (event.keyCode === 13 || event.which === 13) {
+                                      event.preventDefault();
+                              }
+                      "
+                  >Qwen3.8 delivers substantial gains across coding, professional work, research, and long-horizon agentic tasks.</textarea>
+                  <div class="space-x-2 flex justify-end">
+                      <button
+                          type="button"
+                          class="underline text-[13px] text-neutral-500 cursor-pointer"
+                          hx-on:click="
+                              htmx.removeClass('#summary-display', 'hidden');
+                              htmx.addClass('#summary-edit-form', 'hidden');
+                          "
+                      >
+                          Cancel
+                      </button>
+                      <input type="submit" value="Save changes" class="underline text-[13px] cursor-pointer">
+                  </div>
+              </form>
+          </div>
+      </div>
+      <div class="mb-0 flex flex-wrap gap-2">
+          
+          <span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">vision</span>
+          
+          
+          
+              <span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">tools</span>
+          
+          
+          
+              <span class="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 sm:text-[13px]">thinking</span>
+          
+          
+          
+          
+          
+              <span  class="inline-flex items-center rounded-md bg-[#ddf4ff] px-2 py-0.5 text-xs font-medium text-blue-600 sm:text-[13px]">27b</span>
+          
+      </div>
+      
+    </div>
+  </div>
+	
+<section class="w-full max-w-full mt-8 mb-4 md:mt-16 md:mb-2">
+  
+    
+    
+    <div class="overflow-hidden rounded-lg border border-neutral-200">
+      <div class="min-w-full divide-y divide-gray-200">
+        <div class="items-center grid bg-neutral-50 px-4 py-3 text-xs grid-cols-12 text-neutral-900">
+          <p class="col-span-6 hidden md:block">Name</p>
+          <p class="block col-span-6 md:hidden">13 models</p>
+          <p class="col-span-2 hidden md:block">Size / Usage</p>
+          <p class="col-span-2 hidden md:block">Context</p>
+          <p class="col-span-2 hidden md:block">Input</p>
+        </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:latest" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:latest</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    e118e4d12a70</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    1 month ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    1 month ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:latest" class="group-hover:underline">qwen3.8:latest</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:latest" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">e118e4d12a70</span>&nbsp;·&nbsp;1 month ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b</span>
+                    </span>
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-blue-500 text-blue-600">latest</span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    e118e4d12a70</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    1 month ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    1 month ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b" class="group-hover:underline">qwen3.8:27b</a>
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-blue-500 text-blue-600">latest</span>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">e118e4d12a70</span>&nbsp;·&nbsp;1 month ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-dflash2-nvfp4" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-dflash2-nvfp4</span>
+                    </span>
+                    
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    34a4a4b5084f</span> • 19GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 weeks ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 weeks ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-dflash2-nvfp4" class="group-hover:underline">qwen3.8:27b-dflash2-nvfp4</a>
+                  
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                  
+                  <input class="command hidden" value="qwen3.8:27b-dflash2-nvfp4" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">19GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">34a4a4b5084f</span>&nbsp;·&nbsp;3 weeks ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mlx" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mlx</span>
+                    </span>
+                    
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    5642e97495e1</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mlx" class="group-hover:underline">qwen3.8:27b-mlx</a>
+                  
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mlx" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">5642e97495e1</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mlx-bf16" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mlx-bf16</span>
+                    </span>
+                    
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    65e5e1c72d2d</span> • 56GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mlx-bf16" class="group-hover:underline">qwen3.8:27b-mlx-bf16</a>
+                  
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mlx-bf16" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">56GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">65e5e1c72d2d</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mtp-q4_K_M" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mtp-q4_K_M</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    22130167c4c2</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mtp-q4_K_M" class="group-hover:underline">qwen3.8:27b-mtp-q4_K_M</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mtp-q4_K_M" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">22130167c4c2</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mtp-q8_0" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mtp-q8_0</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    8a1582877303</span> • 30GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mtp-q8_0" class="group-hover:underline">qwen3.8:27b-mtp-q8_0</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mtp-q8_0" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">30GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">8a1582877303</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mtp-bf16" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mtp-bf16</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    197257101a8c</span> • 56GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mtp-bf16" class="group-hover:underline">qwen3.8:27b-mtp-bf16</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mtp-bf16" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">56GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">197257101a8c</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-mxfp8" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-mxfp8</span>
+                    </span>
+                    
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    569f507f4d14</span> • 30GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    1 week ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    1 week ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-mxfp8" class="group-hover:underline">qwen3.8:27b-mxfp8</a>
+                  
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                  
+                  <input class="command hidden" value="qwen3.8:27b-mxfp8" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">30GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">569f507f4d14</span>&nbsp;·&nbsp;1 week ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-nvfp4" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-nvfp4</span>
+                    </span>
+                    
+                    
+                      <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    5642e97495e1</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-nvfp4" class="group-hover:underline">qwen3.8:27b-nvfp4</a>
+                  
+                  
+                    <span class="ml-2 inline-flex items-center rounded-full px-2 py-px text-xs font-medium border border-neutral-600 text-neutral-600">MLX</span>
+                  
+                  <input class="command hidden" value="qwen3.8:27b-nvfp4" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">5642e97495e1</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-q4_K_M" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-q4_K_M</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    25b843619e94</span> • 18GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-q4_K_M" class="group-hover:underline">qwen3.8:27b-q4_K_M</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-q4_K_M" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">18GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">25b843619e94</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-q8_0" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-q8_0</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    8f5fb6b71ea0</span> • 30GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-q8_0" class="group-hover:underline">qwen3.8:27b-q8_0</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-q8_0" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">30GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">8f5fb6b71ea0</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+          <div class="group px-4 py-3">
+            
+            <a href="/library/qwen3.8:27b-bf16" class="md:hidden flex flex-col space-y-[6px] group">
+              <div class="flex items-center font-medium">
+                <div class="flex items-center justify-between w-full">
+                  <div>
+                    <span class="group-hover:underline">qwen3.8:27b-bf16</span>
+                    </span>
+                    
+                    
+                  </div>              
+                  
+                </div>
+              </div>
+              <div class="flex flex-col text-neutral-500 text-[13px]">
+                <span>
+                  <span class="font-mono">
+                    1aa85dae8b2d</span> • 56GB • 256K context window  •
+                  <span class="hidden sm:inline">
+                    Text, Image input • 
+                    3 months ago
+                  </span>
+                </span>
+                  <div class="flex sm:hidden">
+                    Text, Image input • 
+                    3 months ago
+                  </div>
+                </span>
+              </div>
+            </a>
+            
+            <div class="hidden md:flex flex-col space-y-[6px]">
+              <div class="grid grid-cols-12 items-center">
+                <span class="flex items-center font-medium col-span-6 group text-sm">
+                  <a href="/library/qwen3.8:27b-bf16" class="group-hover:underline">qwen3.8:27b-bf16</a>
+                  
+                  
+                  <input class="command hidden" value="qwen3.8:27b-bf16" />
+                  <button 
+                    class="hidden group-hover:inline-flex ml-1.5 text-neutral-500 hover:text-black items-center"
+                    onclick="copyToClipboard(this)"
+                  >
+                    <svg class="copy-icon h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 8.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v8.25A2.25 2.25 0 006 16.5h2.25m8.25-8.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-7.5A2.25 2.25 0 018.25 18v-1.5m8.25-8.25h-6a2.25 2.25 0 00-2.25 2.25v6"></path>
+                    </svg>
+                    <svg class="check-icon hidden h-[18px] w-[18px]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  </button>
+                </span>
+                
+                <p  class="col-span-2 text-neutral-500 text-[13px]">56GB</p>
+                
+                <p class="col-span-2 text-neutral-500 text-[13px]">256K</p>
+                <div class="col-span-2 text-neutral-500 text-[13px] ">
+                  Text, Image
+                  
+                </div>
+              </div>
+              <div class="flex text-neutral-500 text-xs items-center">
+                <span class="font-mono text-[11px]">1aa85dae8b2d</span>&nbsp;·&nbsp;3 months ago
+              </div>
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  
+</section>
+
+</div>
+
+
+    
+      
+<footer class="mt-auto underline-offset-4">
+  <div class="flex flex-col items-center justify-center px-4 py-4 md:flex-row md:justify-between md:px-6 md:py-3.5 lg:px-gutter">
+    <div class="order-2 mt-2 text-sm text-neutral-500 md:order-1 md:mt-0 md:text-xs">&copy; 2026 Ollama</div>
+    <ul data-footer-links class="order-1 flex flex-wrap items-center justify-center text-sm text-neutral-500 md:order-2 md:gap-x-6 md:text-xs">
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/blog" class="hover:underline">Blog</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://docs.ollama.com" class="hover:underline">Docs</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://github.com/ollama/ollama" class="hover:underline">GitHub</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://discord.com/invite/ollama" class="hover:underline">Discord</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://twitter.com/ollama" class="hover:underline">X (Twitter)</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/support" class="hover:underline">Support</a>
+      </li>
+      <li class="mx-2 my-1 md:hidden">
+        <a href="https://lu.ma/ollama" class="hover:underline">Meetups</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://jobs.ashbyhq.com/ollama" class="hover:underline">Careers</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/privacy" class="hover:underline">Privacy</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/terms" class="hover:underline">Terms</a>
+      </li>
+    </ul>
+  </div>
+</footer>
+
+    
+
+    
+    <span class="hidden" id="end_of_template"></span>
+  </body>
+</html>

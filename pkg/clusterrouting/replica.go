@@ -1,16 +1,15 @@
 // Package clusterrouting holds the transport-agnostic replica selection policy
-// shared by the NATS distributed mode (core/services/nodes) and the p2p
-// federation server (core/p2p). It deliberately depends on nothing heavier than
-// the standard library so either transport can import it without pulling in a
-// database driver or message bus.
+// of the distributed mode (core/services/nodes). It deliberately depends on
+// nothing heavier than the standard library so any transport can import it
+// without pulling in a database driver or message bus.
 package clusterrouting
 
 import "time"
 
 // ReplicaCandidate is the minimum view of a loaded model replica needed to
 // apply the routing policy. It is intentionally decoupled from any storage
-// model (gorm rows on the NATS side, gossiped NodeData on the p2p side) so the
-// same picker runs against fresh DB rows, an in-memory snapshot, or p2p gossip.
+// model (gorm rows on the NATS side) so the same picker runs against fresh DB
+// rows or an in-memory snapshot.
 type ReplicaCandidate struct {
 	NodeID        string
 	Address       string

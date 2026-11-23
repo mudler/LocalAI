@@ -9,6 +9,7 @@ import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
 import { fieldsFromSchema, checkField, changedValues, editMeetsChange, parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import { accentContrast } from './contrast'
 import './wellKnown.css'
+import { Tag } from '../ui'
 
 // shown is a value as the conflict note lists it: text as it is, an object as JSON.
 function shown(v) {
@@ -262,7 +263,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       <StoredIn
         file={file} versionsOf={name} busy={busy}
         onReverted={(d) => { wk.reload(); done(d) }}
-        badge={doc && !doc.valid ? <span className="wk-badge wk-badge--error" data-testid={`wk-badge-invalid-${name}`}>{t('discovery.versions.invalidBadge')}</span> : null}
+        badge={doc && !doc.valid ? <Tag tone="error" testId={`wk-badge-invalid-${name}`}>{t('discovery.versions.invalidBadge')}</Tag> : null}
       />
 
       {wk.error && !doc && (

@@ -31,6 +31,72 @@ a version. The category comes from what the library says the add-on gives:
 tools, a page, or the id of a first-party add-on. The filter narrows the page
 of results that is on screen.
 
+### The install queue
+
+Installs from a library run in the background, in the order you queued them.
+They share the queue and the limit of backend operations (**Concurrent Backend
+Operations** in the runtime settings), and the add-on owner installs one add-on
+at a time. You can queue several add-ons at once:
+
+1. In **Find add-ons**, tick **Add to queue** on each add-on to install, then
+   choose **Review and queue**. For one add-on, choose **Install**.
+2. Review the host access of each add-on and accept it (**Accept and next**, or
+   **Skip** to leave one out). Nothing is queued until you finish the last one. When the library lists
+   the host operations of the package, the list shows at once. When it does not,
+   the server downloads the package to read it first.
+3. The add-ons go to the queue. Each row shows the step (queued, resolving,
+   verifying, downloading, checking, committing), a progress bar with the bytes
+   downloaded, and **Cancel** while the install can still stop.
+
+The queue does not turn an add-on on. When its install ends, the add-on shows in
+**My add-ons** as off: turn it on there. The notification center tells you when
+an install ends, fails, or needs you.
+
+Each install is an operation of the server, like a model or backend install, so
+it also shows in the operations list of the other pages. Cancel works while the
+install waits and while it downloads; the server removes what it had downloaded.
+Once the package is being written, the install can no longer stop.
+
+The server checks the package again when it installs it. If the verified
+package asks for host access that you did not review, the server installs and
+grants nothing, and the row asks you to review the add-on again. A failed
+install offers **Retry**, which asks for the host access review again, and
+**Dismiss**.
+
+The queue is not kept across a restart of the server. An install that is queued
+or running when the server stops is recorded as interrupted, and is never
+started again by itself: queue it again.
+
+With several frontends, each frontend runs the installs that were queued
+through it, and the add-on owner still runs one add-on operation at a time. The
+rows show on every frontend. The download progress in bytes shows only when the
+frontend and the add-on owner are the same process; otherwise the row shows the
+step only.
+
+An install from a file (see [Install from a file](#install-from-a-file)) does not
+use the queue. It runs at once, and you can close its dialog while it runs: the
+page then shows the install in progress, on the row of the add-on when it is an
+upgrade. If it fails after you closed the dialog, the page shows the reason in a
+notice that stays until you close it. **Try again** opens the dialog on the same
+file with a new review, because the first approval is used up.
+
+The approval of an upgrade that waits for host access (**Review and approve**) goes
+to the same queue. After you approve, the dialog can be closed. The row of the
+add-on shows the upgrade as queued ("Queued, waiting for a free slot"), then
+running with its progress, then the result, as for any other upgrade. **Cancel**
+on the row, or in the dialog when you open it again, stops it while it waits and
+while it can still stop. After a cancel the row returns to its state, the
+version that runs keeps running, and the approval is asked again.
+
+The API is `POST /api/addons/host-grants/queue`, which takes the same approval
+as `POST /api/addons/host-grants/install` for each add-on and answers with the
+job ID of each install. An item with `"action": "upgrade"` queues the upgrade of
+an installed add-on (the pins `expectedDigest` and `candidateDigest` are optional,
+both or neither); without `action` the item is an install. A local file is never
+queued. Like every change of host access, it accepts only the
+administrator's own browser session. Read the progress with `GET /api/operations`
+(the rows with `isAddon`) and cancel with `POST /api/operations/{jobID}/cancel`.
+
 ### Add-on icons
 
 Every add-on has an icon. The page picks it in this order:
@@ -67,9 +133,9 @@ On the first start, when the owner has no `sources.json` in the `addons` folder 
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
 Sandbox and Web, plus the other first-party add-ons including Google Drive and Gmail). The index has one entry for each enabled platform of each add-on, so an
-install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
-its own platform. The Sandbox add-on runs on Linux, and on macOS with Apple silicon through Virtualization.framework; its macOS platform is listed in the platform file and stays disabled until a macOS runner shows its native check passing. No add-on is built for Windows yet, so the
-official library lists nothing there.
+install on Linux (amd64 or arm64), on macOS (Apple silicon or Intel) and on Windows (amd64) finds the add-ons for
+its own platform. The Sandbox add-on runs on Linux, and on macOS with Apple silicon through Virtualization.framework. It has no package for macOS on Intel. Its Windows package runs the Linux add-on in WSL 2, and it stays disabled until a Windows runner with WSL shows its native check passing, so the
+official library has no Sandbox entry for Windows yet.
 
 Which index the library reads depends on the build:
 
@@ -88,6 +154,15 @@ signed, and never a development build signed by master. The first start writes t
 and signer of the running build into `sources.json`. After an upgrade, the next start moves
 the `official` library to the index and signer of the new build; a library that you pointed at
 another URL is left as it is.
+
+GitHub answers a release asset URL with a redirect to a short-lived URL on its object
+store. LocalAI follows a redirect of a library index or of an archive download only to an
+https URL on a GitHub download host (`github.com`, `raw.githubusercontent.com`,
+`objects.githubusercontent.com`, `release-assets.githubusercontent.com`), at most five
+times, and never to an address on a private network. It does not send the credential of
+the library to the redirect host. Any other redirect fails the refresh, and the server log
+names the reason. The content keeps its own checks: the signature policy of the library and
+the digest of each entry.
 
 The index has the same format as the other libraries (see
 [Catalog document and limits]({{% relref "/addons/contract-reference/packages-and-runtime#catalog-document-and-limits" %}})). A package that the named
@@ -118,8 +193,9 @@ To get them on a new install:
 1. Sign in as an administrator (with authentication off, you already are one) and open
    **Add-ons**, then **Find add-ons**. The list is the official library for this machine's
    operating system and architecture.
-2. Pick the add-on and choose **Install and turn on**. The install checks the signature
-   against the library policy before anything runs. Studio is the usual first one: it holds the
+2. Pick the add-on and choose **Install**. The add-on goes to the install queue (see
+   [The install queue](#the-install-queue)). The install checks the signature
+   against the library policy before anything runs. When it ends, turn the add-on on. Studio is the usual first one: it holds the
    image, video, 3D, speech, sound and audio tools.
 3. The add-on then appears in **My add-ons**. Use **Show in sidebar** to pin it.
 
@@ -160,7 +236,7 @@ To restore access:
    [Private catalog service]({{% relref "/addons/contract-reference/packages-and-runtime#private-catalog-service" %}}) and
    [Library sources](#library-sources)).
 2. Grant the `addons` feature to each user who should keep them, in
-   **Settings → Users and keys** (see [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})
+   **Administration → Access → Users** (see [Chats permissions]({{% relref "/administration/chats-deployment#permissions" %}})
    for the same screen). The calls the pages make still need the user's own
    features: `images` for an image, `audio_speech` for speech, and so on.
 
@@ -176,7 +252,7 @@ administrator and sees every installed add-on.
 > packages). With authentication on, the add-on pages need the `addons` feature,
 > which is off by default and is not granted at the upgrade, so users who used
 > Studio or Talk lose access until an administrator grants `addons` to them in
-> **Settings → Users and keys**.
+> **Administration → Access → Users**.
 
 ## Install from a file
 
@@ -219,7 +295,7 @@ Compare the sha256 with the `.sha256` file that came with the zip, or with
 On the Add-ons page, an administrator selects **Install from file** and picks
 the zip. The server checks the file and shows the install dialog. Then:
 
-- A new add-on is installed and turned on, as for a library add-on.
+- A new add-on is installed and turned on.
 - A file with the same ID as an installed add-on and a higher version is an
   upgrade. It goes through the same generations, backup, migration and recovery
   as every upgrade. It does not change whether the add-on is on or off.
@@ -338,8 +414,8 @@ dist/addons/web-0.1.0-linux-amd64.zip.sha256
 | `ADDON_EXECUTABLE` | A built executable to pack, instead of building one. Use it with one platform. A relative path is relative to the directory where you start `make`. |
 | `ADDONS_ZIP_DIR` | The output folder. |
 
-The build needs Go and Node.js, as `package.sh` does; the Tables add-on also
-needs a C toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
+The build needs Go and Node.js, as `package.sh` does. No add-on needs a C
+toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
 `SANDBOX_GUEST_IMAGE` is set, because its executable needs the reference of its
 guest image (see `scripts/addons/package.sh`). The same layout gives the same
 zip bytes, so you can rebuild a file and compare the sha256.
@@ -421,7 +497,7 @@ routes, so they do not need the add-ons owner to run. On a frontend they go to t
 | Method and path | What it does |
 |---|---|
 | `GET /api/library/sources` | List every source of all kinds, tombstones included |
-| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery"}`. `id`, `name` and `format` are optional. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
+| `POST /api/library/sources` | Add a source: `{"kind": "addon\|backend\|model", "url": "...", "id": "...", "name": "...", "format": "library\|gallery", "issuer": "...", "identity": "...", "identity_regex": "...", "source_repository": "..."}`. `id`, `name`, `format`, `issuer`, `identity`, `identity_regex` and `source_repository` are optional. `issuer` and `identity` go together and apply to an `oci://` add-on library only: its artifact must then be signed by that issuer and that exact identity, for example `{"kind": "addon", "url": "oci://registry.example/fixture-addon/library:1", "issuer": "https://issuer.example", "identity": "signer@registry.example"}`. One without the other, or either on another kind of source, is `400`. `identity_regex` can take the place of `identity` only together with `source_repository` (see [Signer identity pattern for an add-on library](#signer-identity-pattern-for-an-add-on-library)); a pattern alone is `400`. The same kind and URL twice, or a taken id, is `409`. An add-on library at an `http` address of this machine is `400`: the owner refuses packages that do not come over `https`, so such a library would never list anything |
 | `POST /api/library/sources/{id}/enable` | Turn a source on. This also brings back a removed default |
 | `POST /api/library/sources/{id}/disable` | Turn a source off without removing it |
 | `DELETE /api/library/sources/{id}` | Remove a source. A default leaves a tombstone |
@@ -432,6 +508,91 @@ The list answers `{"sources": [...], "officialLibraries": true}`. Each source ha
 source, `refresh` (the last fetch). A source that does not exist is `404`. Changes to
 model and backend sources apply to the running server. No MCP tool maps to these
 routes.
+
+### Add-on libraries in an OCI registry
+
+An add-on library can be an artifact in an OCI registry, not only a file at an `https`
+address. Give the source an `oci://` address:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon
+```
+
+The artifact must have the type `application/vnd.localai.library.v1` and must hold one
+file named `index.yaml`, the library index. An image or an artifact of another type is
+refused. LocalAI keeps an unpacked copy under the add-on data directory and reads the
+registry again only when that copy is older than one hour. If the registry cannot be
+reached, the last good copy answers. A copy is never used after the signature check
+fails, or after the registry refuses the credentials when LocalAI resolves the address.
+A `401` or `403` on a later read of the artifact content counts as an outage, so the last
+good copy, which passed its checks when it was stored, can answer.
+
+The registry uses the same credentials as backend libraries. Write a rule for the
+registry host in the [credentials file]({{% relref "/models/private-sources" %}}), and
+keep the secret in the environment:
+
+```yaml
+- match: registry.example
+  username: reader
+  password_env: LIBRARY_REGISTRY_PASSWORD
+```
+
+Without a matching rule or docker login, a private registry answers `401` or `403` and
+the source refresh fails with a credential error. At start, LocalAI logs one warning when
+an `oci://` add-on library is on and no credentials file was loaded: neither
+`<data-path>/credentials.yaml` nor the file that `LOCALAI_CREDENTIALS_FILE` names. The warning also shows for a setup that relies on docker login alone; it is then only a reminder.
+
+The add-on owner process reads the credentials file, not the browser and not a frontend.
+Put the file, and the variables it names, on the machine where the add-on owner runs.
+
+To require a signature, add `--issuer` and `--identity` together:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon \
+  --issuer https://issuer.example --identity signer@registry.example
+```
+
+LocalAI then resolves the artifact to a digest, checks that the artifact is signed by
+that issuer and that identity, and only then pulls it. A failed check lists nothing. The
+identity is an exact string. If you write a regular expression in `--identity`, LocalAI
+stores it as the literal text, and it will not match any signer. To name the signer by a
+pattern, use `--identity-regex` with `--source-repository`, as the next section shows.
+
+### Signer identity pattern for an add-on library
+
+A publisher often signs with a shared, reusable signing workflow. The signer identity of
+such a signature names the shared workflow, not the repository that called it, so a
+pattern for that identity also matches a signature that the same workflow made for any
+other repository. For this reason an add-on library accepts a pattern only together with
+the source repository. The source repository is compared exactly with the
+source-repository extension of the signing certificate, so it pins the repository that
+the signature was made for:
+
+```bash
+local-ai library add oci://registry.example/libraries/fixture-addon:1 --kind addon \
+  --issuer https://token.actions.githubusercontent.com \
+  --identity-regex '^https://github\.com/example-org/signing-workflows/\.github/workflows/sign\.yml@refs/tags/v.+$' \
+  --source-repository https://github.com/example-org/example-repo
+```
+
+The REST request takes the same values as `identity_regex` and `source_repository`.
+The rules:
+
+- The pattern must be one expression that starts with `^` and ends with `$`. Set
+  `identity` or `identity_regex`, not both.
+- The source repository is an `https` URL, such as `https://github.com/<owner>/<repo>`,
+  with no spaces around it. It is valid only when a signature is required.
+- A pattern without a source repository is refused for an `oci://` add-on library and
+  for an add-on install. An exact identity is valid with or without a source repository.
+- The Sources editor of the Add-ons page has a Source repository field next to the
+  signer identity and the identity pattern.
+
+The install dialog still warns about an add-on that is not from the official library.
+For an add-on of a library with a pinned signer, the notice reads "Signed by
+`<identity>`. Not reviewed by LocalAI." and names that identity. It is the identity you
+pinned. When the library names the signer by a pattern, the notice names the source
+repository instead, because that is the value the check compared exactly. LocalAI records it when the package is verified, and the catalog never takes it
+from the library index. The install confirmation stays.
 
 ## Backends in the library
 
@@ -539,9 +700,12 @@ workflow signed on master and on a tag both verify:
 
 Set `identity` or `identityRegex`, not both. The pattern must be one expression that
 starts with `^` and ends with `$`. A pattern with a top-level alternation, such as
-`^a|b$`, is refused, because one branch would match a part of the identity only. An
-add-on install refuses a library policy that has a pattern: add-on libraries name the
-signer exactly.
+`^a|b$`, is refused, because one branch would match a part of the identity only. A
+policy can also set `sourceRepository`, the `https` URL of the repository the signature
+must be made for. A backend install accepts a pattern alone. An add-on install accepts
+a pattern only together with `sourceRepository`, and refuses it before it downloads
+anything otherwise (see
+[Signer identity pattern for an add-on library](#signer-identity-pattern-for-an-add-on-library)).
 
 ### Install a backend from a library
 

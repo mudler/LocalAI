@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { readStored, writeStored } from '../utils/storage'
 import { modelsApi, backendsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { FEATURE_BACKEND_INSTALL } from '../utils/capabilities'
@@ -10,6 +11,7 @@ import { useResources } from '../hooks/useResources'
 import { detectSource, fitFor, importChecks, importRequest, machineFacts, requestText } from '../utils/tools'
 import { createTransferRateSampler } from '../utils/transferRate'
 import PageHeader from '../components/PageHeader'
+import { Tabs, Tag } from '../components/ui'
 import CodeEditor from '../components/CodeEditor'
 import SearchableSelect from '../components/SearchableSelect'
 import AmbiguityAlert from '../components/AmbiguityAlert'
@@ -146,10 +148,10 @@ export default function ImportModel() {
   // Simple/Power modes they replace, which were the same form at two
   // different lengths.
   const [tab, setTab] = useState(() => {
-    try { return localStorage.getItem('import-form-tab') === 'yaml' ? 'yaml' : 'source' } catch { return 'source' }
+    return readStored('import.tab', ['import-form-tab']) === 'yaml' ? 'yaml' : 'source'
   })
   const [showOptions, setShowOptions] = useState(() => {
-    try { return localStorage.getItem('import-form-options') === 'open' } catch { return false }
+    return readStored('import.options', ['import-form-options']) === 'open'
   })
 
   const optionsToggleRef = useRef(null)
@@ -213,11 +215,11 @@ export default function ImportModel() {
   }, [])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-tab', tab) } catch { /* ignore quota / privacy mode */ }
+    writeStored('import.tab', tab)
   }, [tab])
 
   useEffect(() => {
-    try { localStorage.setItem('import-form-options', showOptions ? 'open' : 'closed') } catch { /* ignore */ }
+    writeStored('import.options', showOptions ? 'open' : 'closed')
   }, [showOptions])
 
   useEffect(() => {
@@ -711,35 +713,23 @@ export default function ImportModel() {
         title={t('title')}
         supporting={isYaml ? t('subtitle.yaml') : t('subtitle.source')}
         actions={
-          <div className="dk-segmented" role="tablist" aria-label={t('tabs.ariaLabel')} data-testid="import-tabs">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={!isYaml}
-              className={`dk-seg${!isYaml ? ' is-active' : ''}`}
-              onClick={() => setTab('source')}
-              data-testid="import-tab-source"
-            >
-              {t('tabs.source')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isYaml}
-              className={`dk-seg${isYaml ? ' is-active' : ''}`}
-              onClick={() => setTab('yaml')}
-              data-testid="import-tab-yaml"
-            >
-              {t('tabs.yaml')}
-            </button>
-          </div>
+          <Tabs
+            variant="pill"
+            label={t('tabs.ariaLabel')}
+            idPrefix="import"
+            value={isYaml ? 'yaml' : 'source'}
+            onChange={setTab}
+            testId="import-tabs"
+            itemTestId="import-tab-"
+            items={[{ id: 'source', label: t('tabs.source') }, { id: 'yaml', label: t('tabs.yaml') }]}
+          />
         }
       />
 
       {!isYaml && <ToolSteps steps={steps} current={current} label={t('steps.label')} />}
 
       {!isYaml && (
-        <div className={`import-split${isSplit ? '' : ' import-split--stacked'}`}>
+        <div className={`import-split${isSplit ? '' : ' import-split--stacked'}`} role="tabpanel" id="import-panel-source" aria-labelledby="import-tab-source">
           <form
             className="import-main"
             data-testid="import-form"
@@ -767,7 +757,7 @@ export default function ImportModel() {
               </div>
               <p className="import-source__kind" data-testid="import-source-kind" data-kind={source?.kind || ''}>
                 {source
-                  ? <><span className={`dk-badge${source.ok ? ' dk-badge--accent' : ' dk-badge--warn'}`}>{t(`found.kind.${source.kind}`)}</span> <span className="dk-hint">{t('found.untouched')}</span></>
+                  ? <><Tag tone={source.ok ? 'accent' : 'warn'}>{t(`found.kind.${source.kind}`)}</Tag> <span className="dk-hint">{t('found.untouched')}</span></>
                   : <span className="dk-hint">{t('form.uriHint')}</span>}
               </p>
               {!source && (
@@ -983,7 +973,7 @@ export default function ImportModel() {
       )}
 
       {isYaml && (
-        <div className="import-yaml" data-testid="import-yaml">
+        <div className="import-yaml" role="tabpanel" id="import-panel-yaml" aria-labelledby="import-tab-yaml" data-testid="import-yaml">
           <div className="import-yaml__head">
             <span className="dk-label">{t('form.yamlEditor')}</span>
             <div className="import-yaml__acts">

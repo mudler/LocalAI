@@ -10,8 +10,8 @@ const list = { conversations: [detail], persistent: true, files: true }
 async function stub(page, hits, { inbox = 409, chat = 200 } = {}) {
   await mockChat(page)
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: list }))
-  await page.route('**/api/chats/notifications/events', route => { hits.inboxEvents++; return route.abort() })
-  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill(
+  await page.route('**/api/notifications/events', route => { hits.inboxEvents++; return route.abort() })
+  await page.route(/\/api\/notifications(\?.*)?$/, route => route.fulfill(
     inbox === 409 ? { status: 409, json: { error: { message: 'no inbox' } } } : { json: { notifications: [], unread: 0 } }))
   await page.route('**/api/chats/c1/events', route => { hits.chatEvents++; return route.abort() })
   await page.route('**/api/chats/c1/messages*', route => route.fulfill({ json: { messages: [] } }))
