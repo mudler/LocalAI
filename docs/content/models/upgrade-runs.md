@@ -105,7 +105,9 @@ still runs), `progress`, `message` and `error_key`.
 
 - Cancelling a queued item removes it from the run. A running item can be
   cancelled only while its operation says it can stop. For example, a model
-  upgrade cannot stop while it switches the files.
+  upgrade cannot stop while it switches the files. The `cancellable` field of
+  an item is `true` only for a running item whose operation can stop now; a
+  queued item has `cancellable: false` and can always be cancelled.
 - Cancelling the run cancels the queued items and stops the running ones when
   they can stop. The run then ends `cancelled`.
 - Retry starts a new run with the items of a finished run that failed, rolled

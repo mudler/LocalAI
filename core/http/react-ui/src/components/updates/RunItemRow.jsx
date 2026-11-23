@@ -88,6 +88,14 @@ function nodeReason(node, ta) {
   return ''
 }
 
+// Whether an item offers Cancel: a queued item always (the server drops it
+// before it starts; it never marks a queued item cancellable), a running one
+// only while its operation says it can stop.
+export function canCancel(item) {
+  if (!item || isEnded(item)) return false
+  return item.phase === 'queued' || (item.phase === 'running' && Boolean(item.cancellable))
+}
+
 // One item of the update run, in the markup of the other rows of the page.
 //   item      the run item, with displayName set by the page
 //   row       the page row of the same key, when the lists still have one
@@ -169,7 +177,7 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
         <StatusChip {...chip} label={chip.status ? undefined : t(`run.phase.${item.phase}`)} testId="run-item-chip" />
       </div>
       <div className="uc-row__acts">
-        {runActive && !isEnded(item) && !checking && item.cancellable && (
+        {runActive && canCancel(item) && !checking && (
           <Button size="sm" variant="ghost" disabled={Boolean(busy)} onClick={() => onCancel(item.key)} aria-label={t('row.cancelNamed', { name })} data-testid="run-item-cancel">{t('row.cancel')}</Button>
         )}
         {!runActive && attention && item.retryable && (

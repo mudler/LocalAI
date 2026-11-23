@@ -201,6 +201,12 @@ test.describe('Updates: the run', () => {
     // An item of the run is not listed a second time in the other groups.
     await expect(rowOf(page, 'kokoro')).toHaveCount(0)
     await expect(rowOf(page, 'qwen3-8b')).toHaveCount(1)
+    // A queued item can be cancelled: the server drops it. The server marks
+    // only a running operation cancellable, so the page offers Cancel for
+    // every queued item and for a running one the server says can stop.
+    await expect(runRow(page, 'addon:notes').getByTestId('run-item-cancel')).toBeVisible()
+    await expect(runRow(page, 'gallery:kokoro').getByTestId('run-item-cancel')).toBeVisible()
+    await expect(runRow(page, 'gallery:piper').getByTestId('run-item-cancel')).toHaveCount(0)
     // The cancel of one item and of the rest.
     await runRow(page, 'addon:tables').getByTestId('run-item-cancel').click()
     await expect.poll(() => runs.itemCancels).toEqual(['addon:tables'])

@@ -147,7 +147,8 @@ runs. You can close the page: the run continues, and the page shows it again
 when you come back (the address `/app/updates?run=<id>` opens one run).
 
 While the run is active, the top of the page says how many items are updated,
-running and waiting, with a progress bar and **Cancel remaining**. The group
+running and waiting, with a progress bar and **Cancel remaining**. Each queued
+item has **Cancel**, and a running item has it while its update can still stop. The group
 **This update run** lists the items in the order they run, with their state:
 queued (with the reason it waits), updating (with progress), updated, failed,
 rolled back, cancelled, skipped, or not confirmed. An item is updated only when
