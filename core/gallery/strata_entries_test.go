@@ -23,7 +23,10 @@ import (
 //   - a Hy4-Flash set (family:hy4): the .strata build, the Engram file and the
 //     vision file. There is no pack; the backend reads the tokenizer from the
 //     build file. The three builds share one directory, so the Engram and
-//     vision files are downloaded once.
+//     vision files are downloaded once;
+//   - an Inkling 2 Mini set (family:inkling): a .strata build or a GGUF, the
+//     vision file, the tokenizer files and, for a GGUF, the DSpark drafter. The
+//     entries share one directory. There is no pack.
 var _ = Describe("gallery/index.yaml strata entries", func() {
 	strataEntries := func() []gallery.GalleryModel {
 		entries, err := loadGalleryIndex()
@@ -50,6 +53,15 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		return false
 	}
 
+	isInkling := func(e gallery.GalleryModel) bool {
+		for _, o := range optionList(e) {
+			if o == "family:inkling" {
+				return true
+			}
+		}
+		return false
+	}
+
 	isBuilt := func(e gallery.GalleryModel) bool {
 		for _, o := range optionList(e) {
 			if strings.HasPrefix(o, "pack_gguf:") {
@@ -66,6 +78,8 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			dir := modelDir(e)
 			if isHy4(e) {
 				Expect(dir).To(Equal("strata/models/hy4-flash"), e.Name)
+			} else if isInkling(e) {
+				Expect(dir).To(Equal("strata/models/inkling-2-mini"), e.Name)
 			} else {
 				Expect(dir).To(Equal("strata/models/"+e.Name), e.Name)
 			}
@@ -86,6 +100,7 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 		fileOptions := map[string]bool{
 			"native": true, "native_dense_gguf": true, "ple_gguf": true, "embd_gguf": true,
 			"expert_profile": true, "mtp": true, "pack_gguf": true, "engram": true,
+			"vision": true, "dspark": true, "tokenizer_json": true, "chat_template": true,
 		}
 		for _, e := range strataEntries() {
 			dir := modelDir(e)
@@ -108,6 +123,11 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 						Expect(have).To(HaveKey(path.Clean(v)), e.Name+" vision file")
 					}
 				}
+				Expect(e.Overrides["known_input_modalities"]).To(ContainElement("image"), e.Name)
+				Expect(e.Overrides).ToNot(HaveKey("mmproj"), e.Name)
+			}
+			if isInkling(e) {
+				Expect(seen).To(HaveKey("vision"), e.Name)
 				Expect(e.Overrides["known_input_modalities"]).To(ContainElement("image"), e.Name)
 				Expect(e.Overrides).ToNot(HaveKey("mmproj"), e.Name)
 			}
@@ -134,6 +154,28 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 				for rel := range have {
 					Expect(rel).ToNot(HavePrefix("pack/"), e.Name)
 					Expect(rel).To(HaveSuffix(".strata"), e.Name)
+				}
+				continue
+			}
+			if isInkling(e) {
+				opts := map[string]string{}
+				for _, o := range optionList(e) {
+					k, v, _ := strings.Cut(o, ":")
+					opts[k] = v
+				}
+				Expect(opts["native"]).To(MatchRegexp(`^Inkling-2-Mini-(SQ-(10|15|20)\.strata|UD-[A-Z0-9_]+\.gguf)$`), e.Name)
+				Expect(opts["vision"]).To(Equal("Inkling-2-Mini-Vision.strata"), e.Name)
+				// The tokenizer is made from tokenizer.json (a Strata build has the
+				// chat template inside) and, for a GGUF, chat_template.jinja too.
+				Expect(have).To(HaveKey("tokenizer.json"), e.Name)
+				if strings.HasSuffix(opts["native"], ".gguf") {
+					Expect(have).To(HaveKey("chat_template.jinja"), e.Name)
+					Expect(opts["dspark"]).To(Equal("dspark-Inkling-2-Mini-Q8_0.gguf"), e.Name)
+				} else {
+					Expect(opts).ToNot(HaveKey("dspark"), e.Name)
+				}
+				for rel := range have {
+					Expect(rel).ToNot(HavePrefix("pack/"), e.Name)
 				}
 				continue
 			}
@@ -229,6 +271,11 @@ var _ = Describe("gallery/index.yaml strata entries", func() {
 			"swift-1.5-qwen3.8-flash-next-iq3_s",
 			"qwen3.6-35b-a3b-ud-q4_k_xl-strata", "qwen3.6-35b-a3b-ud-q6_k_xl-strata", "qwen3.6-35b-a3b-q8_0-strata",
 			"hy4-flash-sq-64-strata", "hy4-flash-sq-96-strata", "hy4-flash-sq-128-strata",
+			"inkling-2-mini-sq-10-strata", "inkling-2-mini-sq-15-strata", "inkling-2-mini-sq-20-strata",
+			"inkling-2-mini-ud-q8_k_xl-strata", "inkling-2-mini-ud-q4_k_xl-strata", "inkling-2-mini-ud-q4_k_m-strata",
+			"inkling-2-mini-ud-iq4_xs-strata", "inkling-2-mini-ud-q3_k_xl-strata", "inkling-2-mini-ud-iq3_xxs-strata",
+			"inkling-2-mini-ud-q2_k_xl-strata", "inkling-2-mini-ud-iq2_xxs-strata", "inkling-2-mini-ud-iq1_m-strata",
+			"inkling-2-mini-ud-iq1_s-strata",
 		} {
 			Expect(names).To(HaveKey(want))
 		}
