@@ -75,8 +75,8 @@ step only.
 
 An upgrade through `POST /api/addons/{id}/upgrade`, and an add-on item of an
 [upgrade run]({{% relref "/models/upgrade-runs#add-on-items" %}}), is an upgrade
-run of one item or part of a larger run: it waits while another run runs (the
-route answers `409` with type `run_active`), and its answer adds the run. A run
+run of one item or part of a larger run: while another run runs it is refused
+(the route answers `409` with type `run_active`), and its answer adds the run. A run
 upgrades an add-on for the administrator who started it, with the same checks
 and the same browser session rule as the explicit upgrade.
 
