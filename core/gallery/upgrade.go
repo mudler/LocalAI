@@ -287,6 +287,9 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if systemState.DisableBackendInstall {
 		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, backendName)
 	}
+	if err := ValidateBackendName(backendName); err != nil {
+		return WithUpgradeCode(UpgradeFailureUnknown, err)
+	}
 	// Look up the installed backend
 	installedBackends, err := ListSystemBackends(systemState)
 	if err != nil {
@@ -306,6 +309,18 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
 		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
 		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
+	}
+
+	// The requested name can be an alias, which may also be the name of
+	// another backend's directory. The build to replace is the directory of
+	// the run file the name resolves to; upgrade it under its own name.
+	dirName := filepath.Base(filepath.Dir(installed.RunFile))
+	if filepath.Dir(filepath.Dir(installed.RunFile)) != filepath.Clean(systemState.Backend.BackendsPath) {
+		return WithUpgradeCode(UpgradeFailureUnknown, fmt.Errorf("%w: backend %q is not a directory of the backends path", ErrInvalidBackendName, backendName))
+	}
+	if dirName != backendName {
+		xlog.Info("Backend name resolves to another directory, upgrading that one", "name", backendName, "directory", dirName)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, dirName, downloadStatus, requireIntegrity)
 	}
 
 	// Find the gallery entry. Unfiltered for the same reason as the check

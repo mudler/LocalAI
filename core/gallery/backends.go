@@ -254,6 +254,11 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 
 	if backend.IsMeta() {
 		xlog.Debug("Backend is a meta backend", "systemState", systemState, "name", name)
+		// Its directory is created below, after the concrete install; refuse
+		// a name that is not one path element before anything is installed.
+		if err := ValidateBackendName(name); err != nil {
+			return err
+		}
 
 		// Then, let's try to find the best backend based on the capabilities map
 		bestBackend := backend.FindBestBackendFromMeta(systemState, backends)
@@ -347,6 +352,11 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	}
 
 	name := config.Name
+	// The name comes from a gallery: refuse one that would build a path
+	// outside the backends path before anything is written.
+	if err := ValidateBackendName(name); err != nil {
+		return err
+	}
 	backendPath := filepath.Join(systemState.Backend.BackendsPath, name)
 	// Clean up legacy flat-layout artefacts: earlier dev builds of the
 	// golang backends dropped the compiled binary directly at

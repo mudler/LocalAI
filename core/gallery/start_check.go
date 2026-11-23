@@ -73,6 +73,12 @@ const failedSuffix = ".failed"
 // The new build is moved aside to backendPath+".failed" first, so a restore
 // never deletes the only copy of either build before the other is in place.
 func restoreBackup(backendPath, backupPath string) error {
+	// Nothing is moved or removed unless both paths are a backend directory
+	// and its swap directory. rename and RemoveAll act on a symbolic link
+	// itself, never on what it points to.
+	if err := checkSwapPaths(backendPath, backupPath); err != nil {
+		return err
+	}
 	failedPath := backendPath + failedSuffix
 	_ = os.RemoveAll(failedPath)
 	if err := renameBackend(backendPath, failedPath); err != nil {
