@@ -178,5 +178,24 @@ var _ = Describe("Hardware-driven config defaults", func() {
 			ApplyHardwareDefaults(cfg, GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
 			Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")))
 		})
+		It("adds the VRAM-scaled parallel option for a pinned llama.cpp variant", func() {
+			// A pinned gallery variant ("cuda12-llama-cpp", "vulkan-llama-cpp",
+			// ...) runs the same llama.cpp server as the "llama-cpp" meta name,
+			// so it must get the concurrency default too. Gating on the exact
+			// name left every pinned deployment at n_parallel=1, serializing
+			// requests while the meta name got 8 slots.
+			for _, backend := range []string{"cpu-llama-cpp", "cuda12-llama-cpp", "metal-llama-cpp", "vulkan-llama-cpp", "rocm-llama-cpp", "cuda13-nvidia-l4t-arm64-llama-cpp", "llama-cpp-development"} {
+				cfg := &ModelConfig{Backend: backend}
+				ApplyHardwareDefaults(cfg, GPU{VRAM: 119 * gib})
+				Expect(cfg.Options).To(ContainElement("parallel:8"), "backend %q", backend)
+			}
+		})
+		It("adds no parallel option for the llama.cpp quantizer channel", func() {
+			for _, backend := range []string{"llama-cpp-quantization", "cpu-llama-cpp-quantization"} {
+				cfg := &ModelConfig{Backend: backend}
+				ApplyHardwareDefaults(cfg, GPU{VRAM: 119 * gib})
+				Expect(cfg.Options).ToNot(ContainElement(ContainSubstring("parallel")), "backend %q", backend)
+			}
+		})
 	})
 })
