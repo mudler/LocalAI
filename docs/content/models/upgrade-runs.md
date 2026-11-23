@@ -140,3 +140,175 @@ runner.
   operations it follows at a regular interval, so the reaper does not fail
   them. When the runner dies, it stops doing that, and the reaper handles
   them as usual.
+
+## Where the runs are kept
+
+In a cluster the runs are rows in the shared database. On a single server
+they are in the authentication database when authentication is on, and
+otherwise in the SQLite file `upgrade_runs.db` under the data path. A server
+with neither does not keep runs: the run routes answer `503`, and the single
+upgrade routes below queue their upgrade directly, as before.
+
+## Add-on items
+
+An add-on item goes through the same path as
+`POST /api/addons/{id}/upgrade`. The add-on owner records the upgrade for the
+administrator who started the run, with the installed digest and the candidate
+digest pinned, and checks it as it checks the explicit upgrade. The operation
+queue then runs it for that administrator, and the owner checks the pins again
+when it starts. A run never upgrades an add-on as a system identity.
+
+The explicit upgrade is accepted only from the administrator's own browser
+session. A run keeps that rule: its add-on items run only when the request
+that started the run came from that session, with the header
+`X-LocalAI-Confirm: upgrade-run`. Otherwise each add-on item ends `skipped`:
+
+| Error key | Why |
+|-----------|-----|
+| `not_human_surface` | The run was started with an API key, by the assistant, or without the confirmation header. |
+| `forbidden` | The account that started the run is not an add-on administrator. |
+
+A refusal of the owner ends the item `failed` with the type of the owner, for
+example `stale_installed`, `candidate_changed`, `incompatible` or
+`upgrade_conflict`. An upgrade that needs host access nobody approved fails
+with the failure code of the owner (`approval_required`); approve it on the
+add-on page. A retry of a run with add-on items needs the same browser
+session and header.
+
+The list of add-ons with an update comes from the add-on owner. In a cluster,
+only the frontend that is the add-on owner lists add-ons, so a preview or a
+start of an add-on item on another frontend does not find it.
+
+## REST API
+
+All routes need an administrator. Their definitions are in the API reference
+(Swagger, tag `updates`). A refusal has the same shape on every route:
+
+```json
+{"code": "run_active", "key": "", "message": "another upgrade run is running (2f0c...)"}
+```
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| `invalid` | `400` | The request is malformed: no item, an unknown kind, an empty name, a source other than `manual`. |
+| `not_found` | `404` | No such run, or no such item in the run. |
+| `no_update` | `409` | The item is not installed, has no update, or cannot be updated on this server. |
+| `stale` | `409` | The update no longer goes to `expected_to`. Preview again. |
+| `source_unchecked` | `409` | The check of the kind of the item did not answer. Check again. |
+| `run_active` | `409` | Another run is running. |
+| `not_cancellable` | `409` | The item cannot stop now. |
+| `run_finished` | `409` | The run is over. |
+| `run_not_finished` | `409` | The run still runs (retry and dismiss). |
+| `nothing_to_retry` | `409` | No item of the run can be retried, or none still has an update. |
+| `not_human_surface` | `409` | A retry that includes add-on items did not come from the administrator's browser session. |
+| `unavailable` | `503` | The server keeps no runs. |
+
+`key` names the item when the refusal is about one.
+
+| Route | Answer |
+|-------|--------|
+| `POST /api/updates/runs/preview` | `200`, the plan |
+| `POST /api/updates/runs` | `202`, the run |
+| `GET /api/updates/runs` | `200`, `{"runs": [...]}`, the running run first, then the newest. `?active=1` lists only the running run; `?limit=` caps the list (default 20). Dismissed runs are left out. |
+| `GET /api/updates/runs/{id}` | `200`, the run |
+| `POST /api/updates/runs/{id}/cancel` | `200`, the run |
+| `POST /api/updates/runs/{id}/items/{key}/cancel` | `200`, the run. Encode the key: `library:main%2Fwhisper`. |
+| `POST /api/updates/runs/{id}/retry` | `200`, the new run |
+| `DELETE /api/updates/runs/{id}` | `204` |
+
+A cancel answers at once; the runner applies it, so the item changes phase a
+moment later.
+
+Preview. The body is optional; an empty list previews every item with an
+update:
+
+```bash
+curl -X POST http://localhost:8080/api/updates/runs/preview \
+  -H "Content-Type: application/json" \
+  -d '{"items": [{"kind": "gallery", "name": "kokoro"}, {"kind": "model", "name": "qwen3-8b"}]}'
+```
+
+```json
+{
+  "items": [
+    {"key": "gallery:kokoro", "kind": "gallery", "name": "kokoro", "from": "v1.2.0", "to": "v1.3.0",
+     "expected_to": "v1.3.0", "stage": 1, "order": 0, "startable": true,
+     "risks": ["stops_models"], "selected": true,
+     "default_selected": true, "risk": [{"code": "stops_models", "params": {}}]},
+    {"key": "model:qwen3-8b", "kind": "model", "name": "qwen3-8b", "from": "sha256:aa", "to": "sha256:bb",
+     "expected_to": "sha256:bb", "stage": 2, "order": 1, "startable": true,
+     "risks": ["stops_model", "downloads"], "selected": false,
+     "default_selected": false, "risk": [{"code": "stops_model", "params": {}}, {"code": "downloads", "params": {}}]}
+  ],
+  "order": ["gallery:kokoro", "model:qwen3-8b"],
+  "complete": true
+}
+```
+
+`reason` says why an item cannot start: `held`, `edited_keys`, `in_run`,
+`no_update` or a reason of the server such as `installs_disabled`.
+`active_run_id` is set while a run runs. `complete` is `false` when a source
+did not answer, so items may be missing.
+
+Start. Send back the `expected_to` of each item:
+
+```bash
+curl -X POST http://localhost:8080/api/updates/runs \
+  -H "Content-Type: application/json" \
+  -d '{"items": [{"kind": "gallery", "name": "kokoro", "expected_to": "v1.3.0"}], "source": "manual"}'
+```
+
+```json
+{
+  "id": "2f0c6a52-0f7e-4b5e-9a3e-0c8a1f7f3c11",
+  "source": "manual",
+  "actor": "admin-user-id",
+  "created_at": "2026-11-23T10:00:00Z",
+  "state": "running",
+  "items": [
+    {"key": "gallery:kokoro", "kind": "gallery", "name": "kokoro", "from": "v1.2.0", "to": "v1.3.0",
+     "expected_to": "v1.3.0", "phase": "running", "progress": 12, "message": "downloading",
+     "retryable": false, "cancellable": true, "job_id": "8d1e..."}
+  ]
+}
+```
+
+`job_id` is the operation of `/api/operations` that runs the item. `actor` is
+the id of the account that started the run.
+
+## The single upgrade routes
+
+These routes keep their answers for existing clients. Each starts a run of one
+item and adds the run to its answer:
+
+| Route | Answer | Added |
+|-------|--------|-------|
+| `POST /api/backends/upgrade/{name}` | `200`, `jobID`, `uuid`, `statusUrl`, `message` | `run` |
+| `POST /backends/upgrade/{name}` | `200`, `id`, `status_url` | `run` |
+| `POST /api/models/upgrade/{name}` | `200`, `id`, `jobID`, `status_url`, `message` | `run` |
+| `POST /api/addons/{id}/upgrade` | `200`, the operation status with `jobId` | `run` in the payload |
+
+While another run runs, they answer `409` with code `run_active` (the add-on
+route in its error type). The backend routes take an optional `expected_to`, in
+the query or the JSON body, and answer `409` `stale` when it moved. When the
+item cannot start, they answer `409` with the error key of the item as `code`.
+When the check of the run does not list the item (it was not checked yet, or
+an older listing), or the server keeps no runs, they queue the upgrade
+directly, as before. A model upgrade with `config_only` or `choices` is always
+direct: a run makes no such choice. The per-node route
+`POST /api/nodes/{id}/backends/upgrade` does not start a run.
+
+## From the assistant
+
+The [LocalAI Assistant]({{% relref "/features/chats-and-agents/localai-assistant" %}})
+starts, reads and cancels runs of backends and models:
+
+- `upgrade_run_start` takes `items`, each `{kind, name, expected_to}` with kind
+  `gallery`, `library` or `model`. It refuses add-ons: their upgrade needs your
+  own browser session.
+- `upgrade_run_status` reads a run by `id`, or the running and recent runs.
+- `upgrade_run_cancel` cancels a run, or one item with `key`.
+
+The assistant asks you to confirm before it starts or cancels a run.
+`upgrade_backend` and `upgrade_model` still upgrade one item; they start a run
+of one item too.

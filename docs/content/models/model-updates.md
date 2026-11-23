@@ -307,12 +307,14 @@ curl -X POST http://localhost:8080/api/models/upgrade/qwen3-4b \
 {"id": "<job>", "jobID": "<job>", "status_url": "http://localhost:8080/models/jobs/<job>", "message": "Upgrade started"}
 ```
 
-Follow the job on `status_url` or on `/api/operations`. The route answers:
+Follow the job on `status_url` or on `/api/operations`. Without `config_only`
+and `choices`, the upgrade runs as an [upgrade run]({{% relref "/models/upgrade-runs" %}})
+of one item, and the answer also has the run in `run`. The route answers:
 
 | Status | Meaning |
 |--------|---------|
 | `404` | The model is not installed. |
-| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. |
+| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. With `code` `run_active`, another upgrade run is running. |
 | `422` | The model was not installed from a gallery with a recorded origin. |
 | `400` | A choice is not `mine` or `gallery`. |
 | `500` | An unexpected error. The answer does not repeat its text, which can name paths of the server; the server log has it. |
