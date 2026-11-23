@@ -1,6 +1,7 @@
 package grammars_test
 
 import (
+	"regexp"
 	"strings"
 
 	. "github.com/mudler/LocalAI/pkg/functions"
@@ -64,7 +65,7 @@ var testFunctionsName = []Item{
 func rootResult(s string) string {
 	return `root-0-name ::= "\"create_event\""
 freestring ::= (
-		[^"\\] |
+		[^\x00] |
 		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "{" space "\"arguments\"" space ":" space root-0-arguments "," space "\"name\"" space ":" space root-0-name "}" space
@@ -75,7 +76,7 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"name\"" space ":" space root-1-name "}" space
 string ::= "\"" (
-[^"\\] |
+[^"\\\x7F\x00-\x1F] |
 "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 arr  ::=
@@ -121,7 +122,7 @@ const (
 
 	inputResult1 = `root-0-function ::= "\"create_event\""
 freestring ::= (
-		[^"\\] |
+		[^\x00] |
 		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "{" space "\"arguments\"" space ":" space root-0-arguments "," space "\"function\"" space ":" space root-0-function "}" space
@@ -131,14 +132,14 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"function\"" space ":" space root-1-function "}" space
 string ::= "\"" (
-	[^"\\] |
+	[^"\\\x7F\x00-\x1F] |
 	"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 root-1-function ::= "\"search\""`
 
 	inputResult2 = `root-0-function ::= "\"create_event\""
 freestring ::= (
-		[^"\\] |
+		[^\x00] |
 		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "{" space "\"arguments\"" space ":" space root-0-arguments "," space "\"function\"" space ":" space root-0-function "}" space
@@ -149,7 +150,7 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"function\"" space ":" space root-1-function "}" space
 string ::= "\"" (
-	[^"\\] |
+	[^"\\\x7F\x00-\x1F] |
 	"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 arr  ::=
@@ -193,7 +194,7 @@ root-1-function ::= "\"search\""`
 
 	inputResult3 = `root-0-name ::= "\"create_event\""
 freestring ::= (
-		[^"\\] |
+		[^\x00] |
 		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "{" space "\"arguments\"" space ":" space root-0-arguments "," space "\"name\"" space ":" space root-0-name "}" space
@@ -203,14 +204,14 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"name\"" space ":" space root-1-name "}" space
 string ::= "\"" (
-[^"\\] |
+[^"\\\x7F\x00-\x1F] |
 "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 root-1-name ::= "\"search\""`
 
 	inputResult4 = `root-0-name ::= "\"create_event\""
 freestring ::= (
-		[^"\\] |
+		[^\x00] |
 		"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
   )* space
 root-0 ::= "{" space "\"arguments\"" space ":" space root-0-arguments "," space "\"name\"" space ":" space root-0-name "}" space
@@ -221,7 +222,7 @@ space ::= " "?
 root-0-arguments ::= "{" space "\"date\"" space ":" space string "," space "\"time\"" space ":" space string "," space "\"title\"" space ":" space string "}" space
 root-1 ::= "{" space "\"arguments\"" space ":" space root-1-arguments "," space "\"name\"" space ":" space root-1-name "}" space
 string ::= "\"" (
-[^"\\] |
+[^"\\\x7F\x00-\x1F] |
 "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 )* "\"" space
 arr  ::=
@@ -673,5 +674,95 @@ var _ = Describe("JSON schema grammar cyclic $ref handling", func() {
 		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
 		Expect(err).To(BeNil())
 		Expect(grammar).ToNot(BeEmpty())
+	})
+})
+
+var _ = Describe("JSON string grammar control character exclusion (issue #13414)", func() {
+	extractRule := func(grammar, ruleName string) string {
+		prefix := ruleName + " ::= "
+		lines := strings.Split(grammar, "\n")
+		start := -1
+		for i, line := range lines {
+			if strings.HasPrefix(line, prefix) {
+				start = i
+				break
+			}
+		}
+		Expect(start).To(BeNumerically(">=", 0), "expected rule %q in grammar:\n%s", ruleName, grammar)
+		var ruleLines []string
+		ruleLines = append(ruleLines, lines[start])
+		for _, line := range lines[start+1:] {
+			if strings.Contains(line, " ::= ") || strings.Contains(line, "  ::=") {
+				break
+			}
+			ruleLines = append(ruleLines, line)
+		}
+		return strings.Join(ruleLines, "\n")
+	}
+
+	It("excludes unescaped control characters in JSON schema string rules", func() {
+		const schema = `{
+			"type": "object",
+			"properties": {
+				"description": {"type": "string"}
+			},
+			"required": ["description"]
+		}`
+
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).ToNot(HaveOccurred())
+
+		stringRule := extractRule(grammar, "string")
+		Expect(stringRule).To(ContainSubstring(`[^"\\\x7F\x00-\x1F]`))
+		Expect(stringRule).ToNot(ContainSubstring(`[^"\\]`))
+		Expect(stringRule).To(ContainSubstring(`"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])`))
+
+		// Verify the emitted character class actually rejects every RFC 8259
+		// control character (U+0000-U+001F), DEL (U+007F), quote, and backslash,
+		// while allowing printable ASCII and Unicode characters.
+		charClassMatch := regexp.MustCompile(`\[\^[^\]]+\]`).FindString(stringRule)
+		Expect(charClassMatch).ToNot(BeEmpty())
+		charClassRE := regexp.MustCompile("^" + charClassMatch + "$")
+
+		for r := rune(0x00); r <= 0x1F; r++ {
+			Expect(charClassRE.MatchString(string(r))).To(BeFalse(), "control char U+%04X must be excluded", r)
+		}
+		Expect(charClassRE.MatchString(string(rune(0x7F)))).To(BeFalse(), "DEL U+007F must be excluded")
+		Expect(charClassRE.MatchString(`"`)).To(BeFalse())
+		Expect(charClassRE.MatchString(`\`)).To(BeFalse())
+
+		for _, r := range []rune{' ', 'a', 'Z', '0', '~', 'é', '中'} {
+			Expect(charClassRE.MatchString(string(r))).To(BeTrue(), "printable char %q must be allowed", r)
+		}
+
+		// freestring is used for non-JSON prose outside tool calls and must
+		// keep allowing raw newlines and other characters except NUL.
+		freeStringRule := extractRule(grammar, "freestring")
+		Expect(freeStringRule).To(ContainSubstring(`[^\x00]`))
+	})
+
+	It("excludes unescaped control characters for root-level string schemas", func() {
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(`{"type": "string"}`))
+		Expect(err).ToNot(HaveOccurred())
+
+		rootRule := extractRule(grammar, "root")
+		Expect(rootRule).To(ContainSubstring(`[^"\\\x7F\x00-\x1F]`))
+		Expect(rootRule).ToNot(ContainSubstring(`[^"\\]`))
+	})
+
+	It("excludes unescaped control characters for multi-type string unions", func() {
+		const schema = `{
+			"type": "object",
+			"properties": {
+				"description": {"type": ["string", "null"]}
+			}
+		}`
+
+		grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schema))
+		Expect(err).ToNot(HaveOccurred())
+
+		propRule := extractRule(grammar, "root-description")
+		Expect(propRule).To(ContainSubstring(`[^"\\\x7F\x00-\x1F]`))
+		Expect(propRule).ToNot(ContainSubstring(`[^"\\]`))
 	})
 })
