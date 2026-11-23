@@ -407,6 +407,20 @@ test.describe('Updates: the run', () => {
     await page.goto('/app/updates')
     await expect(page.getByTestId('updates-headline')).toHaveText('Update run cancelled, 1 updated')
   })
+
+  test('a model row\'s own Upgrade starts a run of one, and the page shows it at once', async ({ page }) => {
+    const state = await fleet(page)
+    const runs = await mockUpdateRuns(page, {})
+    const one = runOf([runItem('model:qwen3-8b', 'running', { from: DIGEST_A, to: DIGEST_B, progress: 5, message: 'downloading' })], { id: 'run-9' })
+    // The server answers the upgrade and lists the run of one it started.
+    state.onModelAction = (action) => { if (action === 'upgrade') { runs.active = [one]; runs.polls = [one] } }
+    await page.goto('/app/updates')
+    await rowOf(page, 'qwen3-8b').getByRole('button', { name: 'Upgrade qwen3-8b' }).click()
+    await page.getByTestId('model-upgrade-dialog').getByTestId('model-upgrade-confirm').click()
+    // Well before the idle look for runs (every 15 seconds).
+    await expect(page.getByTestId('updates-strip')).toHaveAttribute('data-run', 'run-9', { timeout: 4000 })
+    await expect(runRow(page, 'model:qwen3-8b')).toBeVisible()
+  })
 })
 
 test.describe('Updates: no runs on this server', () => {

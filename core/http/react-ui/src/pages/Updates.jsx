@@ -70,10 +70,16 @@ function UpdatesPage({ updates }) {
   const narrow = useNarrow()
   const actions = useUpdateActions({ updates })
   const outlet = useOutletContext()
-  const model = useModelUpgradeActions({ readModels: updates.readModels, addToast: outlet && outlet.addToast })
+  // A model row's Upgrade or Retry may start a run of one on the server: look
+  // for it at once (the hook is made below, hence the ref).
+  const runRefresh = useRef(null)
+  const model = useModelUpgradeActions({
+    readModels: updates.readModels, addToast: outlet && outlet.addToast, onStarted: () => { if (runRefresh.current) runRefresh.current() },
+  })
   const { refresh } = updates
   // The run is the server's. When it ends the lists change: read them again.
   const upgrade = useUpgradeRun({ runId: runParam, onEnded: () => refresh() })
+  runRefresh.current = upgrade.refresh
   const shownRun = upgrade.run
   const runActive = isRunning(shownRun)
 
@@ -386,7 +392,7 @@ function UpdatesPage({ updates }) {
           addon={actions.review}
           upgrade={actions.addonUpgrade}
           onClose={() => actions.setReview(null)}
-          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons() }}
+          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons(); upgrade.refresh() }}
         />
       )}
       <ReviewDialog

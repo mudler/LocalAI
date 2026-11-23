@@ -147,7 +147,9 @@ reviews that row only. The server makes the plan of the review:
 - An item that cannot start (for example a held add-on) shows the reason and
   cannot be selected.
 
-The primary button starts an **update run** with the selected items. The server
+The primary button starts an **update run** with the selected items. The
+**Upgrade** and **Retry** of a model row, and an approved add-on upgrade, start
+a run of one item; the page shows that run as soon as the server accepts it. The server
 owns the run. It updates the backends first, then the models, then the add-ons
 one at a time. Each update keeps the previous version until the new version
 runs. You can close the page: the run continues, and the page shows it again

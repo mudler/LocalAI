@@ -50,6 +50,19 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
   const running = isRunning(run)
   const runKey = run ? run.id : ''
 
+  // Looks for a run that runs now and shows it when it is not the shown one.
+  // The idle poll calls it, and so does the page right after an action that
+  // can start a run of one (a model row's Upgrade or Retry, an add-on's
+  // approved upgrade), so the run shows at once and not at the next idle look.
+  const refresh = useCallback(async () => {
+    try {
+      const out = await updateRunsApi.active()
+      const next = out && Array.isArray(out.runs) ? out.runs.find(isRunning) : null
+      const cur = stateRef.current.run
+      if (next && (!cur || cur.id !== next.id)) send({ type: 'run', run: next })
+    } catch { /* nothing to show */ }
+  }, [send])
+
   // Poll the run while it runs; otherwise look for a new one now and then.
   useEffect(() => {
     if (!state.loaded) return undefined
@@ -60,17 +73,12 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
           send({ type: 'run', run: await updateRunsApi.get(runKey), from: 'poll' })
         } catch { /* the next tick asks again */ }
       } else {
-        try {
-          const out = await updateRunsApi.active()
-          const next = out && Array.isArray(out.runs) ? out.runs.find(isRunning) : null
-          const cur = stateRef.current.run
-          if (next && (!cur || cur.id !== next.id)) send({ type: 'run', run: next })
-        } catch { /* nothing to show */ }
+        await refresh()
       }
     }
     timer = setInterval(tick, running ? pollMs : idleMs)
     return () => clearInterval(timer)
-  }, [state.loaded, running, runKey, run, pollMs, idleMs, send])
+  }, [state.loaded, running, runKey, run, pollMs, idleMs, send, refresh])
 
   // The end of a run the page watched: the lists change now.
   const wasRunning = useRef(false)
@@ -151,6 +159,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     selectAll: useCallback(() => send({ type: 'selectAll' }), [send]),
     selectNone: useCallback(() => send({ type: 'selectNone' }), [send]),
     start,
+    refresh,
     cancel,
     cancelItem,
     retry,
