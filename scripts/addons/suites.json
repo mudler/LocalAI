@@ -2367,7 +2367,8 @@
           "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
-          "fails an add-on item with a typed reason when the owner cannot be reached"
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway"
         ]
       },
       {
@@ -3392,7 +3393,8 @@
           "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
-          "fails an add-on item with a typed reason when the owner cannot be reached"
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway"
         ]
       }
     ]
@@ -3946,7 +3948,8 @@
           "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
-          "fails an add-on item with a typed reason when the owner cannot be reached"
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway"
         ]
       }
     ]
@@ -4530,7 +4533,8 @@
           "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
-          "fails an add-on item with a typed reason when the owner cannot be reached"
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway"
         ]
       }
     ]
