@@ -4727,6 +4727,12 @@ definitions:
         items:
           type: string
         type: array
+      omit_lan_addrs:
+        description: |-
+          OmitLANAddrs keeps the private addresses of this server out of the
+          link. By default the link carries them, so a device on the same network
+          can redeem it with no relay and no multicast discovery.
+        type: boolean
       relays:
         description: Relays is "auto", "none" or a list of relay IDs.
         example: auto
