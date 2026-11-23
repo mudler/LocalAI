@@ -11,7 +11,7 @@ import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useOperations } from '../hooks/useOperations'
 import { useDistributedMode } from '../hooks/useDistributedMode'
 import { useUpdates } from '../contexts/UpdatesContext'
-import { galleryUpdateMap } from '../utils/updates'
+import { galleryUpdateMap, withMetaUpdates } from '../utils/updates'
 import { isClusterRow } from '../utils/nodeUpdates'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendState, libraryOrigin, opForBackend, shortDigest, sortInstalled, versionLabel } from '../utils/backendRows'
@@ -297,7 +297,7 @@ export default function Backends() {
   // one reader of that fact. Updating is done on the Updates page.
   const updates = useUpdates()
   const updateRows = updates && updates.rows
-  const upgrades = useMemo(() => galleryUpdateMap(updateRows), [updateRows])
+  const upgrades = useMemo(() => withMetaUpdates(galleryUpdateMap(updateRows), installed), [updateRows, installed])
   const updateNames = Object.keys(upgrades)
   const installedCount = installed.length
   const recommended = activeView === 'catalog' && !search && !catalogFilter && installedOnce.current && installedCount === 0

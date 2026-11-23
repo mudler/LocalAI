@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
-import { updateForBackend } from '../../src/utils/updates.js'
+import { updateForBackend, withMetaUpdates } from '../../src/utils/updates.js'
 import { failureView, isStaleFailure, savedFailure, keptAbove, STALE_FAILURE_MS } from '../../src/utils/chatFailure.js'
 
 const locales = new URL('../../public/locales/', import.meta.url)
@@ -146,4 +146,18 @@ test('chat failure: a backend too old is worded in every language', () => {
     assert.ok(failureView(t, { code: 'model_backend_outdated', model: 'm', backend: 'b' }, { isAdmin: true }).hint, lng)
     assert.ok(failureView(t, { code: 'model_backend_outdated' }).reason, lng)
   }
+})
+
+test('backends list: the meta backend that points at an outdated build shows that build\'s update', () => {
+  const upgrades = { 'metal-llama-cpp': { backend_name: 'metal-llama-cpp', available_version: 'v2' } }
+  const installed = [
+    { Name: 'llama-cpp', Metadata: { meta_backend_for: 'metal-llama-cpp' } },
+    { Name: 'metal-llama-cpp', Metadata: {} },
+    { Name: 'whisper', Metadata: { meta_backend_for: 'cpu-whisper' } },
+  ]
+  const out = withMetaUpdates(upgrades, installed)
+  assert.equal(out['llama-cpp'].available_version, 'v2')
+  assert.equal(out['metal-llama-cpp'].available_version, 'v2')
+  assert.equal(out.whisper, undefined, 'no update for the build, none for the meta backend')
+  assert.deepEqual(withMetaUpdates({}, undefined), {})
 })

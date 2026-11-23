@@ -242,6 +242,20 @@ export function galleryUpdateMap(rows) {
     }]))
 }
 
+// The update of a meta backend is the update of the build it points at. The
+// updates are keyed by the installed build ("metal-llama-cpp"), while the
+// Backends list hides the builds of a meta backend and shows the meta backend
+// itself ("llama-cpp"), so without this the visible row of an outdated backend
+// shows no update. `installed` is the list of the installed backends.
+export function withMetaUpdates(upgrades, installed) {
+  const out = { ...upgrades }
+  for (const b of installed || []) {
+    const target = b && b.Metadata && b.Metadata.meta_backend_for
+    if (target && !out[b.Name] && upgrades[target]) out[b.Name] = upgrades[target]
+  }
+  return out
+}
+
 // The number on the tab and on the Operate item: what needs a person. A ready
 // update that an automatic setting will apply is not in it. A failed or held
 // update is, whatever the setting says. An update that this server refuses by
