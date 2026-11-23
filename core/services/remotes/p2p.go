@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -201,4 +202,66 @@ func StartTunnels(ctx context.Context, svc Service) {
 			xlog.Warn("remotes: could not open a P2P tunnel", "remote", r.Name, "error", err)
 		}
 	}
+}
+
+// MaxP2PAddrs is how many direct addresses of a remote over P2P the store
+// keeps. It is the number of addresses an invite link can carry.
+const MaxP2PAddrs = 4
+
+var errAddrsUnchanged = errors.New("remotes: the addresses did not change")
+
+// mergeAddr returns stored with addr first. An address that is already
+// stored moves to the front and is not repeated. At most max addresses stay:
+// the ones that were learned longest ago drop out first, so an address of the
+// invite stays until newer ones push it out. A circuit address is never a
+// dial address and is refused.
+func mergeAddr(stored []string, addr string, max int) []string {
+	if addr == "" || strings.Contains(addr, "/p2p-circuit") || max <= 0 {
+		return stored
+	}
+	out := make([]string, 0, min(len(stored)+1, max))
+	out = append(out, addr)
+	for _, a := range stored {
+		if len(out) == max {
+			break
+		}
+		if !slices.Contains(out, a) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// LearnAddr records addr as the newest direct address of the remote over P2P
+// with the given id. Call it when a connection to the remote's peer works:
+// the address that worked is the best guess for the next dial, for example
+// after the peer got a new IP address. It returns the addresses that are now
+// stored and whether it wrote anything; it writes nothing when addr is
+// already the first address. It does nothing for a service without Tunnels,
+// and fails with ErrNotFound for an id that is not a remote over P2P.
+func LearnAddr(ctx context.Context, svc Service, id, addr string) ([]string, bool, error) {
+	s, ok := svc.(*service)
+	if !ok || s.o.Tunnels == nil {
+		return nil, false, nil
+	}
+	var addrs []string
+	rec, err := s.o.Store.Update(ctx, id, func(r *record) error {
+		if r.Transport != TransportP2P || r.P2P == nil {
+			return ErrNotFound
+		}
+		merged := mergeAddr(r.P2P.Addrs, addr, MaxP2PAddrs)
+		if slices.Equal(merged, r.P2P.Addrs) {
+			addrs = slices.Clone(r.P2P.Addrs)
+			return errAddrsUnchanged
+		}
+		r.P2P.Addrs = merged
+		return nil
+	})
+	if errors.Is(err, errAddrsUnchanged) {
+		return addrs, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return slices.Clone(rec.P2P.Addrs), true, nil
 }

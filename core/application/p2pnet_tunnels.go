@@ -204,6 +204,10 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 		ids = append(ids, id)
 	}
 	t.mu.Unlock()
+	// Remember the address of every working connection to a remote's peer,
+	// so that a remote whose server got a new IP address is found again
+	// after a restart too.
+	rt.host.WatchDialedAddrs(func(p p2pnet.ID, a p2pnet.Multiaddr) { t.learn(rt, p, a) })
 	svc := t.n.app.Remotes()
 	if svc == nil || len(ids) == 0 {
 		return
@@ -216,6 +220,46 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 			if _, err := svc.Refresh(rt.ctx, id); err != nil && !errors.Is(err, remotes.ErrNotFound) {
 				xlog.Debug("Refresh of a remote over P2P failed", "remote", id, "error", err)
 			}
+		}
+	})
+}
+
+// learn stores addr, an address that a dial to p reached, as the newest
+// direct address of the remotes whose server is p. It runs off the thread of
+// the connection: the store may be a database.
+func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addr p2pnet.Multiaddr) {
+	t.mu.Lock()
+	t.init()
+	var ids []string
+	for id, tn := range t.want {
+		if tn.Peer == p.String() {
+			ids = append(ids, id)
+		}
+	}
+	t.mu.Unlock()
+	svc := t.n.app.Remotes()
+	if len(ids) == 0 || svc == nil || rt.ctx.Err() != nil {
+		return
+	}
+	rt.wg.Go(func() {
+		for _, id := range ids {
+			addrs, changed, err := remotes.LearnAddr(rt.ctx, svc, id, addr.String())
+			if err != nil {
+				if !errors.Is(err, remotes.ErrNotFound) && rt.ctx.Err() == nil {
+					xlog.Warn("P2P: could not store the address of a remote", "remote", id, "error", err)
+				}
+				continue
+			}
+			if !changed {
+				continue
+			}
+			xlog.Info("P2P: stored a new address of a remote", "remote", id, "address", addr.String())
+			t.mu.Lock()
+			if tn, ok := t.want[id]; ok {
+				tn.Addrs = addrs
+				t.want[id] = tn
+			}
+			t.mu.Unlock()
 		}
 	})
 }
