@@ -202,10 +202,10 @@ type Run struct {
 }
 
 // Active reports whether the run still runs.
-func (r *Run) Active() bool { return r.State == RunRunning }
+func (r Run) Active() bool { return r.State == RunRunning }
 
 // Item returns the item with key, or nil.
-func (r *Run) Item(key string) *Item {
+func (r Run) Item(key string) *Item {
 	for i := range r.Items {
 		if r.Items[i].Key == key {
 			return &r.Items[i]
