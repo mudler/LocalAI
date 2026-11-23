@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	ma "github.com/multiformats/go-multiaddr"
@@ -33,7 +32,13 @@ type fakeNet struct {
 
 func (f *fakeNet) set(a ...string) { f.mu.Lock(); f.addrs = a; f.mu.Unlock() }
 
-func (f *fakeNet) runner(debounce time.Duration) *mdnsRunner {
+func (f *fakeNet) get() ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.addrs...), f.err
+}
+
+func (f *fakeNet) runner() *mdnsRunner {
 	return &mdnsRunner{
 		addrs: func() ([]string, error) {
 			f.mu.Lock()
@@ -50,8 +55,6 @@ func (f *fakeNet) runner(debounce time.Duration) *mdnsRunner {
 			f.started = append(f.started, s)
 			return s
 		},
-		debounce: debounce,
-		done:     make(chan struct{}),
 	}
 }
 
@@ -95,7 +98,7 @@ var _ = Describe("Local network discovery restarts", func() {
 		g := NewWithT(GinkgoT())
 		f := &fakeNet{}
 		f.set("/ip4/192.0.2.1/tcp/1")
-		r := f.runner(time.Millisecond)
+		r := f.runner()
 
 		r.refresh(true)
 		g.Expect(f.services()).To(HaveLen(1))
@@ -121,7 +124,7 @@ var _ = Describe("Local network discovery restarts", func() {
 	It("starts when an address appears and stops when all are gone", func() {
 		g := NewWithT(GinkgoT())
 		f := &fakeNet{}
-		r := f.runner(time.Millisecond)
+		r := f.runner()
 		r.refresh(true)
 		g.Expect(f.services()).To(BeEmpty())
 
@@ -140,7 +143,7 @@ var _ = Describe("Local network discovery restarts", func() {
 		g := NewWithT(GinkgoT())
 		f := &fakeNet{failing: true}
 		f.set("/ip4/192.0.2.1/tcp/1")
-		r := f.runner(time.Millisecond)
+		r := f.runner()
 		r.refresh(true)
 		g.Expect(f.services()).To(HaveLen(1))
 
@@ -150,83 +153,6 @@ var _ = Describe("Local network discovery restarts", func() {
 		r.refresh(false) // same addresses, but the service did not start: try again
 		g.Expect(f.services()).To(HaveLen(2))
 		g.Expect(f.services()[1].closed.Load()).To(BeFalse())
-	})
-
-	It("waits for a burst of events to end, then restarts once, and stops with its context", func() {
-		g := NewWithT(GinkgoT())
-		f := &fakeNet{}
-		f.set("/ip4/192.0.2.1/tcp/1")
-		r := f.runner(100 * time.Millisecond)
-		r.refresh(true)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		events := make(chan any, 8)
-		go r.run(ctx, events)
-
-		f.set("/ip4/192.0.2.2/tcp/1")
-		for range 5 {
-			events <- struct{}{}
-			time.Sleep(20 * time.Millisecond)
-		}
-		// The burst is still inside the debounce time: no restart yet.
-		g.Expect(f.services()).To(HaveLen(1))
-		g.Eventually(func() int { return len(f.services()) }, 2*time.Second, 10*time.Millisecond).Should(Equal(2))
-
-		// An event that changes nothing does not restart.
-		events <- struct{}{}
-		time.Sleep(300 * time.Millisecond)
-		g.Expect(f.services()).To(HaveLen(2))
-
-		// A second change is handled after a restart.
-		f.set("/ip4/192.0.2.3/tcp/1")
-		events <- struct{}{}
-		g.Eventually(func() int { return len(f.services()) }, 2*time.Second, 10*time.Millisecond).Should(Equal(3))
-
-		cancel()
-		g.Eventually(r.done, 2*time.Second).Should(BeClosed())
-		g.Expect(r.close()).To(Succeed())
-		g.Expect(f.services()[2].closed.Load()).To(BeTrue())
-	})
-
-	It("finds an address change by polling when libp2p emits no event", func() {
-		g := NewWithT(GinkgoT())
-		f := &fakeNet{}
-		f.set("/ip4/192.0.2.1/tcp/1")
-		r := f.runner(50 * time.Millisecond)
-		r.poll = 20 * time.Millisecond
-		r.refresh(true)
-		g.Expect(f.services()).To(HaveLen(1))
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go r.run(ctx, make(chan any))
-
-		// Nothing changes: no restart, however many polls pass.
-		time.Sleep(200 * time.Millisecond)
-		g.Expect(f.services()).To(HaveLen(1))
-
-		f.set("/ip4/192.0.2.2/tcp/1")
-		g.Eventually(func() int { return len(f.services()) }, 2*time.Second, 10*time.Millisecond).Should(Equal(2))
-		g.Expect(f.services()[0].closed.Load()).To(BeTrue())
-
-		// A start that failed is not retried at every poll.
-		f.mu.Lock()
-		f.failing = true
-		f.mu.Unlock()
-		f.set("/ip4/192.0.2.3/tcp/1")
-		g.Eventually(func() int { return len(f.services()) }, 2*time.Second, 10*time.Millisecond).Should(Equal(3))
-		time.Sleep(300 * time.Millisecond)
-		g.Expect(f.services()).To(HaveLen(3))
-	})
-
-	It("stops when the events end", func() {
-		g := NewWithT(GinkgoT())
-		f := &fakeNet{}
-		r := f.runner(time.Hour)
-		events := make(chan any)
-		go r.run(context.Background(), events)
-		close(events)
-		g.Eventually(r.done, 2*time.Second).Should(BeClosed())
 	})
 
 	It("reads the interface addresses of a wildcard listener without libp2p's cache", func() {
@@ -246,7 +172,7 @@ var _ = Describe("Local network discovery restarts", func() {
 		g.Expect(liveHost{h.h}.ID()).To(Equal(h.ID()))
 	})
 
-	It("stops the runner when the host closes", func() {
+	It("stops the watcher and the runner when the host closes", func() {
 		g := NewWithT(GinkgoT())
 		h, err := New(context.Background(), Config{
 			IdentityPath: filepath.Join(GinkgoT().TempDir(), "identity.key"),
@@ -255,8 +181,9 @@ var _ = Describe("Local network discovery restarts", func() {
 		})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(h.disco).ToNot(BeNil())
+		g.Expect(h.addrs).ToNot(BeNil())
 		g.Expect(h.Close()).To(Succeed())
-		g.Expect(h.disco.done).To(BeClosed())
+		g.Expect(h.addrs.done).To(BeClosed())
 		g.Expect(h.Close()).To(Succeed())
 	})
 })

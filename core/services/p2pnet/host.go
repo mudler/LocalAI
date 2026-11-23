@@ -97,9 +97,12 @@ type Host struct {
 	dht   atomic.Pointer[dht.IpfsDHT]
 	gate  Gate
 	disco *mdnsRunner
+	addrs *addrWatcher
 	punch *punchTracer
 	reach atomic.Int32
 	sub   event.Subscription
+	// redial is nil when the gate cannot name the paired peers.
+	redial *redialer
 
 	static []peer.AddrInfo
 
@@ -228,6 +231,11 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 			return fmt.Errorf("p2pnet: bootstrap DHT: %w", err)
 		}
 	}
+	w := newAddrWatcher(liveAddrSet(n.h))
+	n.addrs = w
+	if err := n.startRedial(w); err != nil {
+		return fmt.Errorf("p2pnet: start redial: %w", err)
+	}
 	// Start-up does not wait for bootstrap peers or relays: a slow or dead
 	// peer must not delay the server.
 	n.connectAll(boot)
@@ -237,10 +245,22 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 		// start it still works. A host with no listen address, such as one in
 		// mode connect, has no address to announce, and discovery waits for
 		// one.
-		if err := n.startMDNS(); err != nil {
-			return err
-		}
+		n.startMDNS(w)
 	}
+	return n.watchAddrs(w)
+}
+
+// watchAddrs runs w until the host closes. It checks the addresses after
+// each EvtLocalAddressesUpdated event and at every poll.
+func (n *Host) watchAddrs(w *addrWatcher) error {
+	sub, err := n.h.EventBus().Subscribe(new(event.EvtLocalAddressesUpdated))
+	if err != nil {
+		return fmt.Errorf("p2pnet: watch addresses: %w", err)
+	}
+	n.wg.Go(func() {
+		defer func() { _ = sub.Close() }()
+		w.run(n.ctx, sub.Out())
+	})
 	return nil
 }
 
@@ -295,6 +315,9 @@ func (n *Host) Libp2p() host.Host { return n.h }
 func (n *Host) Revoke(p peer.ID) {
 	if d, ok := n.gate.(interface{ Disallow(peer.ID) }); ok {
 		d.Disallow(p)
+	}
+	if n.redial != nil {
+		n.redial.forget(p)
 	}
 	if err := n.h.Network().ClosePeer(p); err != nil {
 		xlog.Debug("p2p: close revoked peer", "peer", p.String(), "error", err)
