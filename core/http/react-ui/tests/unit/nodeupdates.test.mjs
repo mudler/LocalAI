@@ -3,9 +3,8 @@ import assert from 'node:assert/strict'
 import {
   entriesFromPairs, entryOf, hasNodeView, isClusterRow, splitUpdate, nodeConfirmed, nodeStateOf, nodeView, planEntries, planTotals, stopKind,
 } from '../../src/utils/nodeUpdates.js'
-import { runNodeRow, confirmNodeUpdated, runAddonRow } from '../../src/utils/updateRun.js'
+import { runNodeRow, confirmNodeUpdated } from '../../src/utils/updateRun.js'
 import { beginRun, runSequential } from '../../src/utils/bulkUpgrade.js'
-import { bulkItemsOf } from '../../src/utils/updates.js'
 
 const item = (over = {}) => ({
   id: 'gallery:llama-cpp', kind: 'gallery', name: 'llama-cpp', state: 'update',
@@ -268,23 +267,3 @@ test('review: with only node backends selected the others list is empty', () => 
   assert.equal(review.restIds.size, 0)
 })
 
-test('the plain bulk path upgrades a selected add-on without any confirmation step', async () => {
-  // Documents what "Update ready" does with an add-on row: it goes straight to
-  // the upgrade of the store (runRow -> runAddonRow), no per-add-on dialog.
-  const row = addonRow('notes')
-  const items = bulkItemsOf([row])
-  assert.equal(items.length, 1)
-  assert.equal(items[0].startable, true)
-  const started = []
-  const run = beginRun(null, items, new Set([row.id]))
-  const done = await runSequential(run, async (it) => {
-    const res = await runAddonRow({
-      row: it.row,
-      upgrade: async (rec) => { started.push(rec.id); return { ok: true } },
-      reread: async () => [{ id: 'notes', update: { state: 'up-to-date' } }],
-    })
-    return res.ok ? { ok: true } : { ok: false, message: res.error }
-  })
-  assert.deepEqual(started, ['notes'])
-  assert.equal(done.status[row.id].phase, 'done')
-})

@@ -20,12 +20,16 @@ function chipOf(row) {
 }
 
 // The origin line: where the new version comes from.
-function useOrigin(row) {
-  const { t } = useTranslation('updates')
+export function originText(row, t) {
   if (row.kind === 'model') return row.gallery ? t('row.origin.model', { gallery: row.gallery }) : t('row.origin.modelUnnamed')
   if (row.kind === 'gallery') return t('row.origin.gallery')
   const source = row.sourceId ? t('row.origin.library', { id: row.sourceId }) : t('row.origin.libraryUnnamed')
   return row.signed ? `${source} · ${t('row.signed')}` : source
+}
+
+function useOrigin(row) {
+  const { t } = useTranslation('updates')
+  return originText(row, t)
 }
 
 // The words under the name: why the row is where it is. Empty when the row says
@@ -50,7 +54,6 @@ function useDetail(row) {
     case 'ready':
       if (row.needsCheck) return { tone: 'muted', text: reasonText(row.availability, ta) }
       if (row.reason) return { tone: 'muted', text: row.reason }
-      if (row.kind === 'addon') return { tone: 'muted', text: t('row.addonConfirm') }
       return null
     default:
       return null
@@ -60,9 +63,11 @@ function useDetail(row) {
 // One thing that can be updated. The same markup for a backend, a library
 // backend and an add-on: the kind only changes the tag, the origin and the
 // words under the name. The row is one list item with one chip and at most one
-// button to act on it. A backend on several nodes adds a link to its
-// per-node page, which is a place to look, not a second question.
-export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, model = null }) {
+// button to act on it; Update opens the review of that row. The first column
+// stays empty so the rows line up with the items of an update run. A backend
+// on several nodes adds a link to its per-node page, where each node can be
+// updated on its own.
+export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, model = null }) {
   const { t } = useTranslation('updates')
   const origin = useOrigin(row)
   const otherDetail = useDetail(row)
@@ -71,7 +76,6 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
   const detail = isModel ? modelDetail : otherDetail
   const chip = isModel ? null : chipOf(row)
   const ownChip = isModel ? modelChip(row, t) : null
-  const canSelect = row.state === 'ready' && row.startable
   const tone = row.state === 'ready' ? 'accent' : row.state === 'updating' ? 'accent' : row.state === 'current' ? 'ok' : row.state === 'failed' ? 'error' : (row.state === 'on-hold' || row.state === 'unknown') ? 'idle' : row.state === 'cleanup' ? 'accent' : 'warn'
   const icon = STATE_ICON[row.state] || TILE_ICON[row.kind]
   const nodes = row.nodeCount > 1 ? t('row.nodes', { count: row.nodeCount }) : ''
@@ -88,18 +92,7 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
       data-state={row.state}
       data-name={row.name}
     >
-      <span className="uc-row__check">
-        {canSelect && (
-          <input
-            type="checkbox"
-            className="dk-check"
-            checked={Boolean(selected)}
-            disabled={locked}
-            onChange={() => onToggle(row.id)}
-            aria-label={t('row.select', { name: row.name })}
-          />
-        )}
-      </span>
+      <span className="uc-row__check" />
       <span className="uc-row__tile" data-tone={tone}><Icon name={icon} /></span>
       <div className="uc-row__main">
         <div className="uc-row__name">

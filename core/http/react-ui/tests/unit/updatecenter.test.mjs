@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  addonRows, addonSource, ageParts, applyLocal, backendRows, badgeOf, needsPersonRows, breakdownOf, bulkItemsOf, currentBackendRows,
-  filterCounts, filterRows, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob, verdictOf, addonStillListed,
+  addonRows, addonSource, ageParts, backendRows, badgeOf, needsPersonRows, breakdownOf, currentBackendRows,
+  filterCounts, filterRows, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob,
 } from '../../src/utils/updates.js'
 
 const okSource = (extra = {}) => ({ state: 'ok', checkedAt: '2026-11-08T10:00:00Z', lastSuccessAt: '2026-11-08T10:00:00Z', ...extra })
@@ -94,21 +94,6 @@ test('updates: a source that failed keeps its list and marks the rows old', () =
 test('updates: nodes and drift come through for a cluster row', () => {
   const [row] = backendRows(snapshot([gallery('a', { nodes: [{ nodeId: 'n1' }, { nodeId: 'n2' }, { nodeId: 'n3' }], driftNodes: 2, state: 'drift' })]))
   assert.deepEqual([row.nodeCount, row.driftNodes, row.subtype], [3, 2, 'drift'])
-})
-
-test('updates: local state shows a started update before the list does, and a failed end as failed', () => {
-  const rows = backendRows(snapshot([gallery('a'), gallery('b'), gallery('c')]))
-  const out = applyLocal(rows, {
-    'gallery:a': { phase: 'running', progress: 10, message: 'x' },
-    'gallery:b': { phase: 'failed', message: 'The update ended but the version did not change.' },
-  })
-  assert.equal(out[0].state, 'updating')
-  assert.equal(out[1].state, 'failed')
-  assert.equal(out[1].error, 'The update ended but the version did not change.')
-  assert.equal(out[2].state, 'ready')
-  // A real operation wins over what the page thinks.
-  const live = backendRows(snapshot([gallery('a')]), { operations: [{ name: 'a', jobID: 'j', progress: 50 }] })
-  assert.equal(applyLocal(live, { 'gallery:a': { phase: 'failed', message: 'old' } })[0].state, 'updating')
 })
 
 test('updates: add-on states', () => {
@@ -253,18 +238,6 @@ test('current backends: only those whose source answered, never system or listed
   assert.equal(rows[0].from, 'v2.0')
 })
 
-test('bulk items: only ready rows, startable ones can run, order follows the list', () => {
-  const rows = [
-    { id: 'b', name: 'b', state: 'ready', startable: true, from: '1', to: '2' },
-    { id: 'a', name: 'a', state: 'ready', startable: false, needsCheck: 'needs-check', from: '1', to: '2' },
-    { id: 'h', name: 'h', state: 'held', startable: false },
-    { id: 'f', name: 'f', state: 'failed', startable: false },
-  ]
-  const items = bulkItemsOf(rows)
-  assert.deepEqual(items.map(i => [i.id, i.startable]), [['a', false], ['b', true]])
-  assert.equal(items[0].reason, 'needs-check')
-})
-
 test('track: an operation that is listed is waited for, one that left it has ended', () => {
   let t = { seen: false, since: 0 }
   let out = trackJob(t, [{ jobID: 'j' }], 'j', 100)
@@ -283,28 +256,6 @@ test('track: an operation never seen is waited for a moment, then taken as ended
   const t = { seen: false, since: 1000 }
   assert.equal(trackJob(t, [], 'j', 1500, 4000).verdict, 'wait')
   assert.equal(trackJob(t, [{ jobID: 'other' }], 'j', 5100, 4000).verdict, 'ended')
-})
-
-test('verdict: done needs the fresh check to stop listing the item', () => {
-  assert.equal(verdictOf({ listed: false }), 'done')
-  assert.equal(verdictOf({ listed: true }), 'unchanged')
-  assert.equal(verdictOf({ listed: false, sourceFailed: true }), 'unconfirmed')
-  assert.equal(verdictOf({ listed: true, sourceFailed: true }), 'unconfirmed')
-})
-
-test('verdict: a throttled answer is asked again until the tries are used', () => {
-  assert.equal(verdictOf({ listed: true, throttled: true, tries: 0 }), 'retry')
-  assert.equal(verdictOf({ listed: true, throttled: true, tries: 3, maxTries: 4 }), 'retry')
-  assert.equal(verdictOf({ listed: true, throttled: true, tries: 4, maxTries: 4 }), 'unchanged')
-  assert.equal(verdictOf({ listed: false, throttled: true }), 'done')
-})
-
-test('add-on done: the record must no longer carry the update the row showed', () => {
-  const row = { to: 'v1.1.0' }
-  assert.equal(addonStillListed(addon('a', available), row), true)
-  assert.equal(addonStillListed(addon('a', { state: 'up-to-date' }), row), false)
-  assert.equal(addonStillListed(addon('a', { ...available, version: '1.2.0' }), row), false, 'a newer candidate is another update')
-  assert.equal(addonStillListed(undefined, row), false)
 })
 
 test('age: the largest fitting unit, and nothing for a bad time', () => {

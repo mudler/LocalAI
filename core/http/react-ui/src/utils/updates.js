@@ -80,26 +80,6 @@ export function backendRows(snapshot, { operations = [], auto = false } = {}) {
   })
 }
 
-// What this page knows about an update it started that the lists do not show
-// (yet): { [id]: { phase: 'running'|'failed', message, progress } }. A running
-// update that the operations list does not show yet is Updating, not Ready. A
-// failed one (the operation ended and the item is still listed, or no source
-// could confirm it) is Failed: the lists alone would call it Ready again.
-export function applyLocal(rows, local) {
-  if (!local) return rows
-  return rows.map((row) => {
-    const mine = local[row.id]
-    if (!mine || row.state === 'updating') return row
-    if (mine.phase === 'running' && (row.state === 'ready' || row.state === 'failed')) {
-      return { ...row, state: 'updating', progress: mine.progress || 0, phase: mine.message || '', jobID: mine.jobID || row.jobID, cancellable: Boolean(mine.jobID), startable: false }
-    }
-    if (mine.phase === 'failed' && row.state === 'ready') {
-      return { ...row, state: 'failed', error: mine.message || '', startable: false }
-    }
-    return row
-  })
-}
-
 // The rows of the add-ons. `installed` are the owner's records (already
 // localized), `grants` the host-access overview (held upgrades), `live` the
 // upgrades the store of this browser follows.
@@ -335,21 +315,7 @@ export function breakdownOf(rows) {
   return { ready: g.ready.length, updating: g.updating.length, needs: g.needs.length }
 }
 
-// ---- Bulk and completion ----------------------------------------------------
-
-// The candidates of "Update all ready" in the shape of useBulkUpgrade. Only the
-// ready ones that can start take part; held and blocked rows never run.
-export function bulkItemsOf(rows) {
-  return sortRows(rows).filter(r => r.state === 'ready' && r.kind !== 'model').map(r => ({
-    id: r.id,
-    name: r.name,
-    from: r.from,
-    to: r.to,
-    startable: Boolean(r.startable),
-    reason: r.needsCheck || '',
-    row: r,
-  }))
-}
+// ---- Completion of a node update ---------------------------------------------
 
 // How an operation of /api/operations moves a followed job to its end. `track`
 // is { seen, since }, kept by the caller between calls. The list never says
@@ -363,25 +329,6 @@ export function trackJob(track, operations, jobID, now, graceMs = 4000) {
   if (track.seen) return { track, verdict: 'ended' }
   if (now - track.since >= graceMs) return { track, verdict: 'ended' }
   return { track, verdict: 'wait' }
-}
-
-// The end of an update, from the check that ran after the operation ended. Done
-// means the operation ended without error and the fresh check no longer lists
-// the item. A throttled answer is seconds old and may predate the update, so
-// it is asked again while tries remain. A source that failed cannot confirm.
-export function verdictOf({ listed, throttled = false, sourceFailed = false, tries = 0, maxTries = 4 }) {
-  if (sourceFailed) return 'unconfirmed'
-  if (!listed) return 'done'
-  if (throttled && tries < maxTries) return 'retry'
-  return 'unchanged'
-}
-
-// Whether an add-on record still carries the update the row showed.
-export function addonStillListed(record, row) {
-  if (!record) return false
-  const view = updateView(record.update)
-  if (view.state !== 'update-available') return false
-  return versionLabel(view.version) === row.to || !row.to
 }
 
 // How long ago a time was, as a whole number of the largest fitting unit, for
