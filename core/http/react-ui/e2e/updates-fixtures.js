@@ -267,7 +267,8 @@ export function runOf(items, extra = {}) {
 //
 //   preview(items)  the answer of POST /preview for the requested { kind, name } list
 //                   (default: one startable item each, models not selected)
-//   active          the runs GET ?active=1 lists
+//   active          the runs GET lists: not dismissed, the running one first (as
+//                   the server lists them); with ?active=1 only the running ones
 //   polls           the answers of GET /runs/:id in order; the last one repeats
 //   startReply(body, state) the answer of POST /runs: a run, or { status, json } to refuse
 //   previews, starts, cancels, itemCancels, retries, dismissed: what the page sent
@@ -315,7 +316,12 @@ export async function mockUpdateRuns(page, options = {}) {
       if (out && out.id) state.active = [out]
       return route.fulfill({ status: 202, json: out })
     }
-    return route.fulfill({ json: { runs: state.active } })
+    const url = new URL(req.url())
+    const onlyRunning = url.searchParams.get('active') === '1' || url.searchParams.get('active') === 'true'
+    const runs = onlyRunning ? state.active.filter(r => r.state === 'running') : state.active
+    const limit = Number(url.searchParams.get('limit')) || 0
+    state.lists = (state.lists || 0) + 1
+    return route.fulfill({ json: { runs: limit > 0 ? runs.slice(0, limit) : runs } })
   })
   await page.route(/\/api\/updates\/runs\/[^/?]+$/, (route) => {
     const req = route.request()

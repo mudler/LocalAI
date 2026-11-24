@@ -141,7 +141,8 @@
     "updatingPlain": "Actualizando",
     "queued": "En cola, esperando un hueco libre",
     "nodesAction": "Nodos",
-    "nodesNamed": "Mostrar los nodos de {{name}}"
+    "nodesNamed": "Mostrar los nodos de {{name}}",
+    "heldBack": "Retenida: esta versión no arrancó. Las actualizaciones automáticas la omiten hasta que salga una versión nueva. Actualícela aquí para volver a intentarlo."
   },
   "bulk": {
     "start": "Actualizar {{count}} listas",
@@ -494,6 +495,7 @@
       "none": "El servidor no dio más detalles."
     },
     "busy": "Hay una tanda de actualizaciones en curso.",
-    "unavailable": "Las tandas de actualizaciones no están disponibles en este servidor."
+    "unavailable": "Las tandas de actualizaciones no están disponibles en este servidor.",
+    "auto": "Actualización automática"
   }
 }

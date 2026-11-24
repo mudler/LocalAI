@@ -141,7 +141,8 @@
     "updatingPlain": "Atualizando",
     "queued": "Na fila, aguardando uma vaga livre",
     "nodesAction": "Nós",
-    "nodesNamed": "Mostrar os nós de {{name}}"
+    "nodesNamed": "Mostrar os nós de {{name}}",
+    "heldBack": "Retida: esta versão não iniciou. As atualizações automáticas a ignoram até sair uma nova versão. Atualize aqui para tentar de novo."
   },
   "bulk": {
     "start": "Atualizar {{count}} prontas",
@@ -494,6 +495,7 @@
       "none": "O servidor não deu mais detalhes."
     },
     "busy": "Há uma rodada de atualizações em andamento.",
-    "unavailable": "As rodadas de atualizações não estão disponíveis neste servidor."
+    "unavailable": "As rodadas de atualizações não estão disponíveis neste servidor.",
+    "auto": "Atualização automática"
   }
 }

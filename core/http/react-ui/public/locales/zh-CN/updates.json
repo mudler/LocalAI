@@ -141,7 +141,8 @@
     "updatingPlain": "更新中",
     "queued": "已排队,等待空闲名额",
     "nodesAction": "节点",
-    "nodesNamed": "显示 {{name}} 的节点"
+    "nodesNamed": "显示 {{name}} 的节点",
+    "heldBack": "已暂缓:此版本未能启动。在新版本发布前,自动更新会跳过它。可在此处更新以重试。"
   },
   "bulk": {
     "start": "更新 {{count}} 项就绪",
@@ -494,6 +495,7 @@
       "none": "服务器没有提供更多详情。"
     },
     "busy": "有一次更新正在进行。",
-    "unavailable": "此服务器不支持批量更新。"
+    "unavailable": "此服务器不支持批量更新。",
+    "auto": "自动更新"
   }
 }

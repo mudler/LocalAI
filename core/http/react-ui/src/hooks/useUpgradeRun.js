@@ -14,8 +14,8 @@ const IDLE_MS = 15000
 // The update run of the Updates page. The server owns the run; this hook asks
 // for the plan of a review, starts the run, reads it every two seconds while it
 // runs, and sends cancel, retry and dismiss. Closing the page does not stop a
-// run, and a reload finds it again: the page reads the active run (or the one
-// named by `runId`) from the server.
+// run, and a reload finds it again: the page reads the newest run that is not
+// dismissed (or the one named by `runId`) from the server.
 //
 // onEnded() is called once when a run this hook watched stops running, so the
 // page can read the lists again.
@@ -30,13 +30,15 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
   const send = useCallback((action) => { if (alive.current) dispatch(action) }, [])
 
   // The run to show: the one the address names, else the first the server
-  // lists (it lists the active ones first).
+  // lists. The list leaves out dismissed runs and puts the running one first,
+  // so a run that ended stays on the page, also after a reload, until it is
+  // dismissed.
   const load = useCallback(async () => {
     try {
       if (runId) {
         send({ type: 'run', run: await updateRunsApi.get(runId) })
       } else {
-        const out = await updateRunsApi.active()
+        const out = await updateRunsApi.list(1)
         const runs = out && Array.isArray(out.runs) ? out.runs : []
         send({ type: 'run', run: runs[0] || null })
       }
