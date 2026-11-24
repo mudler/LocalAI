@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  CONFIRM_HEADERS, attentionOf, busyCount, confirmedPost, isBusy, isEnded, needsAttention, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionOf, busyCount, endedNow, confirmedPost, isBusy, isEnded, needsAttention, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
   nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -104,6 +104,31 @@ test('upgrade run: a poll answers only for the run it asked about, and a dismiss
   assert.equal(upgradeRunReducer(s, { type: 'run', run: runOf([]) }).run, null, 'the active list may still name it for a moment')
   assert.equal(upgradeRunReducer(s, { type: 'run', run: other }).run.id, 'r2', 'a new run shows')
   assert.equal(upgradeRunReducer(s, { type: 'run', run: other, from: 'poll' }).run, null, 'a poll never brings a run of its own')
+})
+
+test('upgrade run: an answer older than the last one shown is dropped, so a cancel never shows running again', () => {
+  // A poll asked (1), then the cancel (2); the cancel answers first.
+  let s = reduce([{ type: 'run', run: runOf([item('gallery:kokoro', 'running')]), seq: 0 }])
+  s = upgradeRunReducer(s, { type: 'run', run: runOf([item('gallery:kokoro', 'cancelled')], { state: 'cancelled' }), seq: 2 })
+  assert.equal(s.run.state, 'cancelled')
+  const late = upgradeRunReducer(s, { type: 'run', run: runOf([item('gallery:kokoro', 'running')]), from: 'poll', seq: 1 })
+  assert.equal(late.run.state, 'cancelled', 'the late poll is dropped')
+  assert.equal(upgradeRunReducer(s, { type: 'run', run: runOf([], { state: 'cancelled' }), from: 'poll', seq: 3 }).run.items.length, 0, 'a newer poll shows')
+})
+
+test('upgrade run: the end of a run is told once, whatever answers come after it', () => {
+  const finished = runOf([], { state: 'finished' })
+  let fired = ''
+  const step = (was, run) => {
+    const out = endedNow(was, run, fired)
+    if (out) fired = run.id
+    return out
+  }
+  assert.equal(step(false, runOf([])), false, 'a run that runs did not end')
+  assert.equal(step(true, finished), true)
+  assert.equal(step(true, finished), false, 'the same end is not told again')
+  assert.equal(step(true, { ...finished, id: 'r2' }), true, 'the end of another run is told')
+  assert.equal(step(false, finished), false, 'a run that was not watched running is not told')
 })
 
 test('upgrade run: an action that fails says why, with the code of the refusal, and frees the buttons', () => {

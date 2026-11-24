@@ -190,6 +190,13 @@ export function riskText(risk, t) {
   }
 }
 
+// Whether the end of a run is to be told now: the page watched it run, it
+// does not run any more, and its end was not told yet (firedFor is the id of
+// the last run whose end was told).
+export function endedNow(wasRunning, run, firedFor) {
+  return Boolean(wasRunning && run && !isRunning(run) && run.id !== firedFor)
+}
+
 // ---- The state of the hook -----------------------------------------------------
 
 export const initialRunState = {
@@ -207,6 +214,9 @@ export const initialRunState = {
   // Ids of runs the person dismissed: a poll that was already on its way does
   // not bring one back.
   dismissed: [],
+  // The number of the request whose answer is shown; an older answer is
+  // dropped.
+  seq: -1,
   // The open review: { status: 'loading'|'ready'|'error', single, items, order,
   // selected, error, code }, or null.
   review: null,
@@ -216,11 +226,17 @@ export function upgradeRunReducer(state, action) {
   switch (action.type) {
     case 'run': {
       const run = action.run || null
-      if (run && state.dismissed.includes(run.id)) return { ...state, loaded: true }
+      // Each request numbers its answer (seq) when it is asked. An answer
+      // asked before the one shown is older: a poll that left before a cancel
+      // and came back after it would show the run running again.
+      const seq = Number.isInteger(action.seq) ? action.seq : null
+      if (seq !== null && seq < state.seq) return state
+      const next = seq !== null ? seq : state.seq
+      if (run && state.dismissed.includes(run.id)) return { ...state, loaded: true, seq: next }
       // A poll answers for the run it asked about; one that comes back after
       // the page moved to another run is dropped.
       if (action.from === 'poll' && (!state.run || !run || state.run.id !== run.id)) return state
-      return { ...state, run, loaded: true, unavailable: false }
+      return { ...state, run, loaded: true, unavailable: false, seq: next }
     }
     // A server that cannot list runs has none to show; the page says nothing
     // about it (the next look comes with the idle poll).
@@ -269,7 +285,8 @@ export function upgradeRunReducer(state, action) {
     case 'startFailed':
       return { ...state, busy: '', unavailable: state.unavailable || action.code === 'unavailable', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
     case 'started':
-      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true }
+      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true,
+        seq: Number.isInteger(action.seq) ? Math.max(action.seq, state.seq) : state.seq }
     case 'dismissed': {
       const id = state.run ? state.run.id : action.id
       return { ...state, busy: '', error: '', errorCode: '', run: null, dismissed: id ? [...state.dismissed, id] : state.dismissed }
