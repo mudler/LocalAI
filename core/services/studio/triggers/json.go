@@ -241,6 +241,28 @@ func (s *jsonStore) SetRunStatus(_ context.Context, r Run) error {
 	return ErrNotFound
 }
 
+func (s *jsonStore) AppendRunPayload(_ context.Context, runID, payload string, keep int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, x := range s.d.Runs {
+		if x.ID != runID {
+			continue
+		}
+		if x.Status != StatusQueued {
+			return ErrNotFound
+		}
+		prev := x
+		x.Payload = MergePayload(x.Payload, payload, keep)
+		s.d.Runs[i] = x
+		if err := s.save(); err != nil {
+			s.d.Runs[i] = prev
+			return err
+		}
+		return nil
+	}
+	return ErrNotFound
+}
+
 func (s *jsonStore) ListRuns(_ context.Context, triggerID string, limit int) ([]Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

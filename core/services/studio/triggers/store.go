@@ -62,6 +62,10 @@ type Store interface {
 	// error, and stores nothing, when only the ID is taken.
 	// Two concurrent calls with the same key return true once.
 	Claim(ctx context.Context, r Run) (bool, error)
+	// AppendRunPayload merges payload into the Payload of the run with the ID,
+	// as MergePayload does with keep. It does so only while the run is queued
+	// and returns ErrNotFound for an unknown run or one that is not queued.
+	AppendRunPayload(ctx context.Context, runID, payload string, keep int) error
 	// GetRun returns ErrNotFound for an unknown ID.
 	GetRun(ctx context.Context, id string) (Run, error)
 	// SetRunStatus replaces Status, Reason, ChatID, Started and Ended of the

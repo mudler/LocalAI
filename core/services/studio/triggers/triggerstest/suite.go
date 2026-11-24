@@ -2,6 +2,7 @@ package triggerstest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -126,6 +127,32 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
 		got, _ = s.GetRun(ctx, "er1")
 		Expect(got.Payload).To(Equal(r.Payload), "a status change keeps the payload")
+	})
+	It("appends a payload to a queued run only", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("e1", "1"))).To(Succeed())
+		r := run("ap1", "e1", "event@d1", triggers.StatusQueued)
+		r.Payload = `{"n":0}`
+		_, err := s.Claim(ctx, r)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 1; i <= 10; i++ {
+			Expect(s.AppendRunPayload(ctx, "ap1", fmt.Sprintf(`{"n":%d}`, i), 8)).To(Succeed())
+		}
+		got, err := s.GetRun(ctx, "ap1")
+		Expect(err).NotTo(HaveOccurred())
+		var items []json.RawMessage
+		Expect(json.Unmarshal([]byte(got.Payload), &items)).To(Succeed())
+		Expect(items).To(HaveLen(9), "the count and 8 payloads")
+		Expect(string(items[0])).To(Equal(`{"dropped":3}`))
+		Expect(string(items[1])).To(Equal(`{"n":3}`))
+		Expect(string(items[8])).To(Equal(`{"n":10}`))
+		Expect(len(got.Payload)).To(BeNumerically("<=", triggers.MaxPayloadBytes))
+		Expect(got.Status).To(Equal(triggers.StatusQueued))
+
+		r.Status = triggers.StatusRunning
+		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
+		Expect(s.AppendRunPayload(ctx, "ap1", `{"n":11}`, 8)).To(MatchError(triggers.ErrNotFound), "a running run")
+		Expect(s.AppendRunPayload(ctx, "nope", `{}`, 8)).To(MatchError(triggers.ErrNotFound), "an unknown run")
 	})
 	It("stores the connector place and the delivery of a trigger", func() {
 		s := newStore()

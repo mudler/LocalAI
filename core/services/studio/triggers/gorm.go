@@ -296,6 +296,28 @@ func (s *gormStore) SetRunStatus(ctx context.Context, r Run) error {
 	return nil
 }
 
+func (s *gormStore) AppendRunPayload(ctx context.Context, runID, payload string, keep int) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var row runRow
+		err := tx.Where("id = ? AND status = ?", runID, string(StatusQueued)).Take(&row).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		res := tx.Model(&runRow{}).Where("id = ? AND status = ? AND payload = ?", runID, string(StatusQueued), row.Payload).
+			Update("payload", MergePayload(row.Payload, payload, keep))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+}
+
 func (s *gormStore) runs(q *gorm.DB) ([]Run, error) {
 	var rows []runRow
 	if err := q.Find(&rows).Error; err != nil {
