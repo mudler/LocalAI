@@ -1,0 +1,132 @@
+{
+  "title": "Correo",
+  "intro": "Deja que tus agentes lean un buzón por IMAP y, si lo permites, escriban correos por SMTP. Funciona con cualquier proveedor que ofrezca IMAP y SMTP.",
+  "limits": "Esta conexión no responde al correo entrante por sí sola. Un agente trabaja con tu correo solo cuando se lo pides en un chat. Todo el buzón es accesible, así que conecta solo un buzón que quieras que el agente lea.",
+  "new": "Nueva conexión de correo",
+  "edit": "Editar la conexión de correo",
+  "name": "Nombre",
+  "agent": "Agente",
+  "agentNone": "Elige un agente",
+  "agentCredentialsOnly": "Sin agente (solo credenciales)",
+  "credentialsOnly": "Solo credenciales",
+  "agentNoModel": "{{name}} (necesita un modelo)",
+  "test": "Probar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Guardado. La comprobación del inicio de sesión falló: {{reason}}",
+  "checkSeveral": "Las comprobaciones de inicio de sesión funcionan cuando tienes una sola conexión de correo, porque desde esta página no se puede saber a cuál te refieres. En un chat, activa las conexiones en el menú Herramientas.",
+  "check": {
+    "title": "Comprobación de {{name}}",
+    "running": "Comprobando los dos inicios de sesión...",
+    "at": "Comprobado a las {{time}}",
+    "imapOk": "Lectura de correo (IMAP): el inicio de sesión funciona.",
+    "smtpOk": "Envío de correo (SMTP): el inicio de sesión funciona.",
+    "imapFailed": "Falló la lectura de correo (IMAP). {{reason}}",
+    "smtpFailed": "Falló el envío de correo (SMTP). {{reason}}"
+  },
+  "save": "Guardar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Eliminar",
+  "empty": "Aún no hay conexiones de correo.",
+  "noAddress": "Sin dirección",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "No se está ejecutando: {{reason}}.",
+  "confirmDelete": {
+    "title": "¿Eliminar {{name}}?",
+    "message": "El agente ya no puede acceder a este buzón y se elimina la contraseña guardada con él. Para configurarlo de nuevo tendrás que introducir todo otra vez.",
+    "confirm": "Eliminar"
+  },
+  "replace": "Cambiar los datos del servidor o del inicio de sesión",
+  "savedAs": "Guardado para {{address}}. Los servidores y la contraseña se guardan cifrados y no se pueden mostrar. Para cambiar cualquiera de ellos, introduce todos de nuevo.",
+  "address": "Dirección del buzón",
+  "addressHelp": "La dirección del buzón. También es la dirección de remitente de los correos que envía el agente.",
+  "addressShape": "Escribe una sola dirección sencilla, por ejemplo nombre@example.com.",
+  "display": "Nombre del remitente",
+  "displayHelp": "Se muestra junto a la dirección en los correos que envía el agente.",
+  "displayShape": "Usa hasta 100 caracteres en una sola línea.",
+  "username": "Usuario",
+  "usernameHelp": "El inicio de sesión de ambos servidores. A menudo es la dirección completa.",
+  "userShape": "Introduce el usuario del buzón.",
+  "password": "Contraseña",
+  "passwordHelp": "Muchos proveedores piden aquí una contraseña de aplicación, no la normal. Se guarda cifrada y no se vuelve a mostrar.",
+  "passMissing": "Introduce la contraseña.",
+  "passShape": "La contraseña tiene hasta 512 caracteres y ningún salto de línea.",
+  "host": "Servidor",
+  "port": "Puerto",
+  "imap": {
+    "title": "Lectura de correo (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Envío de correo (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Escribe solo el nombre del servidor IMAP, como imap.example.com: sin https://, puerto ni ruta.",
+  "smtpHostShape": "Escribe solo el nombre del servidor SMTP, como smtp.example.com: sin https://, puerto ni ruta.",
+  "imapPortShape": "El puerto IMAP es 993 o 143.",
+  "smtpPortShape": "El puerto SMTP es 465 o 587.",
+  "imapPortSecurityMismatch": "El puerto 993 usa TLS; el puerto 143 usa STARTTLS. Haz que el puerto y la protección coincidan.",
+  "smtpPortSecurityMismatch": "El puerto 465 usa TLS; el puerto 587 usa STARTTLS. Haz que el puerto y la protección coincidan.",
+  "plainNotConfirmed": "Confirma que aceptas enviar la contraseña sin protección, o elige TLS o STARTTLS.",
+  "security": {
+    "label": "Protección",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Ninguna (no es seguro)",
+    "plainWarning": "Sin protección, la contraseña y todo el correo viajan como texto sin cifrar. Cualquiera en el camino de la red puede leerlos. Úsalo solo en una red de confianza.",
+    "plainConfirm": "Acepto que la contraseña y el correo se envíen sin protección."
+  },
+  "folders": "Carpetas que puede usar el agente",
+  "foldersHelp": "Una por línea. Déjalo vacío para permitir todas las carpetas. Una carpeta que no está en la lista se rechaza, y INBOX se compara sin distinguir mayúsculas de minúsculas.",
+  "foldersMany": "Como máximo 20 carpetas.",
+  "foldersShape": "El nombre de una carpeta tiene hasta 200 caracteres en una sola línea.",
+  "drafts": "Carpeta de borradores",
+  "draftsHelp": "Solo hace falta cuando el servidor no marca su carpeta de borradores. Los borradores van primero a la carpeta que el servidor marca como borradores.",
+  "tooLong": "La conexión es demasiado larga para guardarla. Acorta la lista de carpetas.",
+  "setup": {
+    "title": "Cómo conectar un buzón",
+    "step1": "Busca los nombres de los servidores IMAP y SMTP de tu proveedor en sus páginas de ayuda. Ambos usan TLS o STARTTLS.",
+    "step2": "Si el proveedor lo permite, crea una contraseña de aplicación para LocalAI y úsala como contraseña. Una contraseña normal a menudo no funciona con IMAP.",
+    "step3": "Introduce la dirección, el usuario, la contraseña y los dos servidores, y guarda. Al guardar se inicia sesión en ambos servidores.",
+    "step4": "Elige si el agente también puede enviar correos y guardar borradores, y si te pregunta primero. Con Permitir todo actúa sin preguntar, y un correo enviado no se puede retirar.",
+    "private": "Los servidores de correo deben estar en internet público: se rechazan las direcciones dentro de una red privada."
+  },
+  "writeMode": {
+    "label": "Qué puede hacer el agente con el correo",
+    "hint": "Enviar y guardar borradores. Nunca borra, mueve, marca ni reenvía correos.",
+    "off": "Solo lectura",
+    "propose": "Te pregunta primero",
+    "line": {
+      "off": "Solo puede leer.",
+      "propose": "Cada envío y cada borrador espera tu visto bueno.",
+      "auto": "Tus chats envían y guardan al instante."
+    },
+    "note": {
+      "off": "El acceso de escritura está desactivado: esta conexión solo lee.",
+      "propose": "Cada envío y cada borrador espera en tus aprobaciones hasta que lo confirmes. Un correo enviado no se puede retirar, y todos los de Para y Cc lo leerán.",
+      "auto": "Un chat tuyo envía y guarda correos al instante, sin preguntar. Un correo enviado no se puede retirar, y todos los de Para y Cc lo leerán. Las ejecuciones sin ti presente siguen esperando tu confirmación."
+    },
+    "row": {
+      "off": "Solo lectura",
+      "propose": "Te pregunta primero",
+      "auto": "Permitir todo"
+    },
+    "auto": "Permitir todo"
+  },
+  "approval": {
+    "action": {
+      "send-message": "Enviar un correo electrónico",
+      "save-draft": "Guardar un borrador de correo"
+    },
+    "from": "De",
+    "to": "Para",
+    "cc": "Cc",
+    "subject": "Asunto",
+    "reply": "Respuesta",
+    "replyYes": "Parte de una conversación existente",
+    "text": "Texto del correo",
+    "cut": "El texto mostrado aquí está cortado. Se usa el texto completo, {{bytes}} bytes.",
+    "noteSend": "El envío no se puede deshacer. Todos los de Para y Cc leerán esto desde tu dirección.",
+    "noteDraft": "Esto se guarda en tu carpeta de borradores. No se envía nada."
+  }
+}

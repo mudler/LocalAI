@@ -1,0 +1,21 @@
+# Add-ons named on /features/addons/. Text only, no third-party logos.
+# Add a name only after you check its code under addons/ and its docs page.
+groups:
+  - title: Chat apps
+    items:
+      - {name: Slack, what: "Message an agent from Slack. A bot is bound to one agent."}
+      - {name: Telegram, what: "Message an agent from Telegram. A bot is bound to one agent."}
+      - {name: Discord, what: "Message an agent from Discord. A bot is bound to one agent."}
+  - title: Work tools
+    items:
+      - {name: Office, what: "Make and read Word, Excel, PDF and PowerPoint files. Files are saved in Files."}
+      - {name: Sandbox, what: "Run Python and shell commands on your files in an isolated sandbox. The network is off by default."}
+      - {name: Tables, what: "Keep data in tables that the assistant can read and change."}
+      - {name: Calendar, what: "A calendar that lives inside LocalAI."}
+  - title: Services
+    items:
+      - {name: GitHub, what: "Work with GitHub repositories from chat."}
+      - {name: Home Assistant, what: "Connect the assistant to Home Assistant."}
+      - {name: Gmail, what: "Search and read mail, and write drafts. Sending a draft is a separate step.", needs: "Each person connects their own Google account. An admin saves the OAuth client first. Mail text goes to the model the chat uses."}
+      - {name: Mail, what: "Read and send mail over IMAP and SMTP, with any provider.", needs: "Mail text goes to the model the chat uses."}
+      - {name: Google Drive, what: "Search and read files, and save text files.", needs: "Each person connects their own Google account."}

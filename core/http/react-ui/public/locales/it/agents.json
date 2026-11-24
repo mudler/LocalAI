@@ -1,0 +1,1147 @@
+{
+  "title": "Agenti",
+  "subtitle": "Gestisci agenti AI autonomi",
+  "actions": {
+    "import": "Importa",
+    "createAgent": "Crea agente",
+    "edit": "Modifica",
+    "chat": "Chat",
+    "export": "Esporta",
+    "delete": "Elimina",
+    "newAgent": "Nuovo agente"
+  },
+  "table": {
+    "name": "Nome",
+    "status": "Stato",
+    "events": "Eventi",
+    "actions": "Azioni",
+    "eventsTooltip": "{{count}} eventi - Clicca per visualizzare"
+  },
+  "search": {
+    "placeholder": "Cerca agenti...",
+    "summary_one": "{{shown}} di {{total}} agente",
+    "summary_other": "{{shown}} di {{total}} agenti"
+  },
+  "empty": {
+    "noConfigured": "Nessun agente configurato",
+    "noConfiguredText": "Crea un agente per iniziare con i flussi di lavoro AI autonomi.",
+    "noMatching": "Nessun agente corrispondente",
+    "noMatchingText": "Nessun agente corrisponde a \"{{query}}\"",
+    "clearSearch": "Cancella ricerca"
+  },
+  "deleteDialog": {
+    "title": "Elimina agente",
+    "message": "Eliminare l'agente \"{{name}}\"? Questa azione non può essere annullata.",
+    "confirm": "Elimina"
+  },
+  "toasts": {
+    "loadFailed": "Caricamento agenti fallito: {{message}}",
+    "deleted": "Agente \"{{name}}\" eliminato",
+    "deleteFailed": "Eliminazione agente fallita: {{message}}",
+    "exported": "Agente \"{{name}}\" esportato",
+    "parseFailed": "Analisi del file agente fallita: {{message}}",
+    "notAnAgent": "The file is not an exported agent",
+    "deletedUndo": "“{{name}}” eliminato.",
+    "undoLate": "“{{name}}” era già stato eliminato.",
+    "restored": "“{{name}}” ripristinato.",
+    "exportedFolder": "Agente \"{{name}}\" esportato. Il file indica la sua cartella, {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste."
+  },
+  "facts": {
+    "addons": "Add-ons",
+    "connector": "MCP connector",
+    "folder": "Cartella",
+    "toolsNone": "Nessun add-on o server MCP"
+  },
+  "agent": {
+    "triggers": "Triggers",
+    "newTrigger": "New trigger",
+    "noTriggers": "No trigger starts this agent.",
+    "untitled": "Untitled chat",
+    "triggerOn": "On",
+    "triggerOff": "Off",
+    "origin": {
+      "trigger": "Started by a trigger",
+      "connector": "Started by a connector"
+    },
+    "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
+    "missingText": "It may have been deleted, or it belongs to another user.",
+    "backToList": "Torna agli agenti",
+    "bindings": "Connessioni",
+    "bindingsAll": "Tutte le connessioni",
+    "noBindings": "Nessuna app di messaggistica è collegata a questo agente.",
+    "noBindingsLink": "Aggiungine una in Add-on.",
+    "bindingState": {
+      "ok": "Attiva",
+      "off": "Spenta",
+      "attention": "Richiede attenzione"
+    },
+    "openSettings": "Apri impostazioni",
+    "openSettingsFor": "Apri le impostazioni di {{name}}"
+  },
+  "record": {
+    "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
+    "none": "No runs yet"
+  },
+  "create": {
+    "sections": {
+      "BasicInfo": "Basic info",
+      "ModelSettings": "Model",
+      "PromptsGoals": "Instructions",
+      "MemorySettings": "Conoscenza",
+      "Skills": "Skills",
+      "Addons": "Add-ons",
+      "MCP": "MCP servers",
+      "export": "Export",
+      "Files": "File",
+      "Tools": "Strumenti",
+      "Notes": "Memoria",
+      "Connections": "Connessioni",
+      "Effective": "Vista effettiva",
+      "Uses": "Cosa può usare"
+    },
+    "name": "Name",
+    "description": "Description",
+    "descriptionHelp": "One line that says what the agent is for. It shows in the list.",
+    "model": "Model",
+    "modelPlaceholder": "Any model (the chat picks one)",
+    "modelHelp": "Leave it empty and a chat with this agent uses the model you pick in the chat. Set one to fix it.",
+    "anyModel": "Any model",
+    "instructions": "Instructions",
+    "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
+    "collections": "Collections",
+    "collectionsHint": "Collection name",
+    "collectionsHelp": "Le raccolte in cui una chat con questo agente può cercare. L'elenco è esatto: un elenco vuoto non ne concede nessuna.",
+    "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
+    "noSkills": "No skills yet.",
+    "manageSkills": "Write or manage skills",
+    "addonsHelp": "The add-ons whose tools a chat with this agent may use.",
+    "noAddons": "No add-on offers tools to a model.",
+    "mcpHelp": "The MCP servers of the fixed model and the MCP connectors a chat with this agent may use.",
+    "mcpServers": "MCP servers",
+    "mcpHint": "Server name",
+    "mcpConnectors": "MCP connectors",
+    "noConnectors": "No MCP connectors yet.",
+    "manageConnectors": "Manage MCP connectors",
+    "connectorOff": "off",
+    "gone": "not found",
+    "countCollections_one": "{{count}} collection",
+    "countCollections_other": "{{count}} collections",
+    "countAddons_one": "{{count}} add-on",
+    "countAddons_other": "{{count}} add-ons",
+    "needsName": "Needs a name",
+    "loadFailed": "Failed to load the agent: {{message}}",
+    "saveFailed": "Save failed: {{message}}",
+    "created": "Agent \"{{name}}\" created",
+    "updated": "Agent \"{{name}}\" updated",
+    "exportSummary": "Download as JSON",
+    "exportHelp": "Download the definition of this agent as a JSON file. It holds no id, no dates and no secrets. Import it on another instance from the agents list.",
+    "exportButton": "Export agent",
+    "importNew": "Imported from an exported agent. Read the form, then save.",
+    "importLegacy": "Imported from the export of an older agent. Name, description, model, instructions and skills were read; the rest has no counterpart here.",
+    "importDropped": "Not imported: {{keys}}.",
+    "subEdit": "A chat that is running keeps the version it started with. Its next turn uses the new one.",
+    "configNote": "The definition this form will save.",
+    "previewNew": "The agent this form will save.",
+    "previewEdit": "The agent this form will save, and how it differs from the saved one.",
+    "default": "Default",
+    "network": "Rete dei comandi nelle esecuzioni non presidiate",
+    "networkHelp": "Quando un trigger o un connettore esegue questo agente, i suoi comandi raggiungono questa parte della rete, fino al limite fissato da un amministratore. Un’esecuzione non chiede mai: un host al di fuori viene bloccato. Anche una chat che avvii con questo agente parte così.",
+    "networkPresets": {
+      "off": "Disattivata",
+      "registries": "Personalizzato",
+      "all": "Tutti i siti pubblici"
+    },
+    "toolsSummary": "{{on}} su {{total}} attivi",
+    "toolsHelp": "Scegli cosa può usare una chat con questo agente. Sono gli stessi interruttori del menu Strumenti di una chat, con le opzioni di ciascuno sotto. Uno strumento disattivato non viene mai offerto al modello. Senza opzioni spuntate, l'agente mantiene i valori predefiniti delle sue connessioni di messaggistica; appena ne spunti una, funzionano solo quelle spuntate.",
+    "toolsHeading": "Strumenti di questo agente",
+    "skillsLater": "Una chat con questo agente legge solo le skill attive.",
+    "skillsHeading": "Skill di questo agente",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Proponi anche dalle app di messaggistica",
+      "triggers_run": "Lascia partire i trigger dalle app di messaggistica",
+      "talkback_channels": "Rispondere sui canali noti",
+      "files_upload": "Ricevere file dalle app di messaggistica"
+    },
+    "memoryOffUser": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa imposti qui.",
+    "memoryOffFix": "Impostazioni, Memoria",
+    "nav": {
+      "label": "Sezioni",
+      "identity": "Identità",
+      "capabilities": "Capacità",
+      "memory": "Memoria e conoscenza",
+      "advanced": "Avanzate",
+      "connections": "Connessioni",
+      "effective": "Vista effettiva"
+    },
+    "lead": {
+      "identity": "Chi è l'agente e come si comporta.",
+      "capabilities": "Cosa può usare e raggiungere l'agente.",
+      "memory": "Cosa ricorda l'agente e cosa può consultare.",
+      "advanced": "Server aggiuntivi ed esportazione.",
+      "connections": "Quali connessioni può usare questo agente.",
+      "effective": "Cosa può fare questo agente adesso."
+    },
+    "header": {
+      "unnamed": "Agente senza nome",
+      "modeEdit": "Modifica agente",
+      "modeCreate": "Nuovo agente",
+      "summary": "Riepilogo di questo agente"
+    },
+    "status": {
+      "clean": "Nessuna modifica non salvata",
+      "new": "Non ancora creato",
+      "unsaved": "Modifiche non salvate ({{count}})"
+    },
+    "preset": {
+      "label": "Livello degli strumenti",
+      "loading": "Caricamento dell'elenco degli strumenti",
+      "current": "Livello: {{name}}. Se cambi un interruttore qui sotto diventa una combinazione personalizzata.",
+      "custom": "Combinazione personalizzata di interruttori. Scegli un livello per sostituirla.",
+      "applied": "Livello {{name}} applicato",
+      "appliedBody": "Gli interruttori qui sotto sono cambiati. Non viene salvato nulla finché non salvi.",
+      "readonly": {
+        "title": "Solo consultazione",
+        "body": "Cerca sul web e nelle tue raccolte. Niente file, niente comandi, niente trigger."
+      },
+      "assistant": {
+        "title": "Assistente",
+        "body": "Aggiunge agenti salvati, trigger e modifiche suggerite. Niente file, niente comandi."
+      },
+      "full": {
+        "title": "Completo",
+        "body": "Tutti gli strumenti elencati dal server. I permessi sensibili restano disattivati."
+      }
+    },
+    "tpl": {
+      "applied": "Partito da {{name}}",
+      "appliedBody": "Nome, descrizione, istruzioni e strumenti sono cambiati. Non viene salvato nulla finché non salvi.",
+      "tools": "Strumenti: {{level}}",
+      "noTools": "Strumenti: invariati"
+    },
+    "undo": "Annulla",
+    "keep": "Mantieni",
+    "modelCaps": "Cosa sa fare questo modello",
+    "modelChat": "Chat",
+    "connections": {
+      "addonsTitle": "Add-on che usano una connessione",
+      "addonsNone": "Nessun add-on ha bisogno di una connessione.",
+      "messagingTitle": "Dove è connesso questo agente",
+      "messagingNone": "Nessuna connessione di messaggistica usa ancora questo agente. Salva l'agente, poi aggiungine una.",
+      "messagingHelp": "Le connessioni di messaggistica si impostano nella loro pagina.",
+      "allows_one": "consente {{count}} permesso",
+      "allows_other": "consente {{count}} permessi",
+      "open": "Apri",
+      "addonOff": "disattivato",
+      "noneYet": "Ancora nessuna connessione.",
+      "add": "Aggiungi una connessione",
+      "groupLabel": "Connessioni per {{name}}",
+      "chosenHelp": "Le chat di questo agente possono usare solo le connessioni selezionate.",
+      "perChat": "Nessuna selezionata: ogni chat sceglie la sua.",
+      "summary_one": "{{count}} connessione",
+      "summary_other": "{{count}} connessioni"
+    },
+    "more": "Altre azioni",
+    "eff": {
+      "summaryOk": "Niente è bloccato.",
+      "summaryBlocked_one": "{{count}} cosa è bloccata.",
+      "summaryBlocked_other": "{{count}} cose sono bloccate.",
+      "unsaved": "Questo elenco segue il modulo com'è ora, con le modifiche non salvate.",
+      "unsavedConn": "Strumenti, memoria e conoscenza seguono il modulo com'è ora. Le righe delle connessioni vengono dall'agente salvato e dalla connessione salvata.",
+      "state": {
+        "allowed": "Può",
+        "asks": "Chiede prima",
+        "off": "Disattivato",
+        "blocked": "Bloccato",
+        "info": "Nota"
+      },
+      "more_one": "e altri {{count}}",
+      "more_other": "e altri {{count}}",
+      "fixHere": "Correggi qui",
+      "fixOpen": "Apri la pagina che lo corregge",
+      "model": {
+        "fixed": "Usa {{model}}.",
+        "any": "Usa il modello scelto in ogni chat."
+      },
+      "tools": {
+        "none": "Nessuno strumento è attivo. Può rispondere solo con ciò che sa.",
+        "some_one": "Può usare {{count}} strumento: {{names}}.",
+        "some_other": "Può usare {{count}} strumenti: {{names}}.",
+        "blocked": "{{name}} è attivo ma ora non può funzionare. {{reason}}"
+      },
+      "skills": {
+        "some_one": "Può usare {{count}} competenza: {{names}}.",
+        "some_other": "Può usare {{count}} competenze: {{names}}.",
+        "withAddons_one": "Può usare {{count}} skill che arriva con un add-on: {{names}}.",
+        "withAddons_other": "Può usare {{count}} skill che arrivano con gli add-on: {{names}}.",
+        "addonOff": "La skill {{name}} è attiva, ma il suo add-on {{addon}} è spento, quindi non fa nulla. Attiva l'add-on."
+      },
+      "files": {
+        "all": "Può raggiungere tutti i tuoi file.",
+        "folders_one": "Può raggiungere solo la {{count}} cartella scelta.",
+        "folders_other": "Può raggiungere solo le {{count}} cartelle scelte.",
+        "none": "Non può raggiungere nessuno dei tuoi file."
+      },
+      "grants": {
+        "parentOff": "{{name}} è consentito, ma non funziona finché {{parent}} è disattivato. Attiva {{parent}}.",
+        "connection": "{{name}} è consentito per l'agente, ma non su questa connessione: {{connection}}",
+        "some_one": "Ha {{count}} permesso in più: {{names}}.",
+        "some_other": "Ha {{count}} permessi in più: {{names}}.",
+        "unattended_one": "Quando nessuno guarda, può usare {{count}} permesso da solo: {{names}}.",
+        "unattended_other": "Quando nessuno guarda, può usare {{count}} permessi da solo: {{names}}."
+      },
+      "memory": {
+        "userOff": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa scelga qui.",
+        "none": "La memoria è disattivata per questo agente. Non legge e non salva note.",
+        "mine_and_own": "Legge le tue note e le sue, e salva nelle sue.",
+        "own": "Legge e salva solo le proprie note.",
+        "mine": "Legge le tue note e salva in esse.",
+        "asBefore": "La memoria funziona come prima: legge le note quando un add-on nomina Memory.",
+        "level": {
+          "auto": "Salva le note subito.",
+          "ask": "Salva le note (prima chiede): ogni nota aspetta la tua conferma.",
+          "always": "Salva le note, ma ogni nota aspetta te e nulla lo allenta.",
+          "never": "Legge le note ma non ne salva: il tuo livello di salvataggio è Mai.",
+          "agentAuto": "Salva le note subito e te lo dice, con Annulla. È la scelta propria dell'agente."
+        },
+        "readsOnly": "Legge le note ma non può salvare.",
+        "connectionLimit": "Su queste connessioni di messaggistica le note non vengono salvate: {{names}}."
+      },
+      "knowledge": {
+        "some_one": "Può cercare in {{count}} raccolta: {{names}}.",
+        "some_other": "Può cercare in {{count}} raccolte: {{names}}.",
+        "none": "Nessuna raccolta di conoscenza in cui cercare."
+      },
+      "connections": {
+        "unsaved": "Non ancora usato nelle app di messaggistica. Salva l'agente, poi aggiungi una connessione.",
+        "none": "Non usato in nessuna app di messaggistica.",
+        "loading": "Controllo di {{name}}...",
+        "error": "Impossibile controllare {{name}}. Aprila per vedere i suoi permessi.",
+        "summary": "{{name}}: {{allowed}} consentiti, {{blocked}} non consentiti.",
+        "blocked": "{{name}} non può usare {{capability}}. {{message}}"
+      },
+      "addons": {
+        "noConnection": "{{name}} è attivo ma ora non può funzionare: non hai un account per esso. Aggiungine uno.",
+        "stale": "{{name}} è attivo ma ora non può funzionare: gli account salvati non esistono più. Scegli un account.",
+        "pick": "{{name}} è attivo ma ora non può funzionare: nessun account è scelto. Un'esecuzione senza nessuno presente non ne riceve gli strumenti.",
+        "resourcesNone": "{{name}} è attivo ma ora non può funzionare: nessun elemento ({{noun}}) è selezionato.",
+        "account": "{{name}} usa {{names}}.",
+        "resources": "{{name}} può usare {{n}} ({{plural}}) e modificarne {{w}}.",
+        "resourcesRead": "{{name}} può leggere {{n}} ({{plural}}) e non modificarne nessuno."
+      },
+      "mcp": {
+        "ignored": "{{name}} è tra i server MCP dell'agente, ma non esiste nulla con questo nome, quindi è ignorato. Rimuovilo."
+      }
+    },
+    "try": {
+      "open": "Prova",
+      "title": "Prova questo agente",
+      "desc": "Invia un messaggio a una chat di prova che usa le impostazioni di questo modulo. Non viene salvato nulla.",
+      "noModel": "Nessun modello di chat installato. Installa o scegli prima un modello.",
+      "defaultModel": "Nessun modello impostato, quindi la prova usa {{model}}.",
+      "skipped": "La prova non usa: {{what}}. Appartengono a un agente salvato.",
+      "skip": {
+        "grants": "permessi",
+        "memory": "memoria",
+        "knowledge": "raccolte di conoscenza",
+        "folders": "cartelle condivise"
+      },
+      "empty": "Invia un messaggio per iniziare.",
+      "role": {
+        "user": "Tu",
+        "assistant": "Agente",
+        "tool": "Strumento"
+      },
+      "toolRan": "Ha usato uno strumento: {{name}}",
+      "working": "Al lavoro...",
+      "label": "Messaggio all'agente",
+      "placeholder": "Chiedi qualcosa che questo agente deve saper gestire",
+      "send": "Invia",
+      "stop": "Ferma",
+      "deleted": "La chat di prova viene eliminata alla chiusura di questo pannello.",
+      "chatTitle": "Prova di {{name}}",
+      "failed": "La prova non è riuscita: {{message}}",
+      "slow": "L'agente sta ancora lavorando. Fermalo o chiudi il pannello."
+    },
+    "uses": {
+      "presetNote": "Un livello imposta solo gli strumenti integrati e i permessi. Add-on, account, server MCP e skill restano come sono.",
+      "needsSummary_one": "{{count}} add-on non può ancora funzionare",
+      "needsSummary_other": "{{count}} add-on non possono ancora funzionare",
+      "builtins": {
+        "title": "Strumenti integrati",
+        "lead": "Forniti da LocalAI. Le opzioni stanno sotto il loro interruttore."
+      },
+      "addons": {
+        "title": "Add-on",
+        "lead": "Una riga ciascuno: attivalo, scegli l'account che usa, guarda cosa offre.",
+        "none": "Nessun add-on installato.",
+        "gone": "Concesso, ma non installato o non disponibile per te. Disattivalo per rimuoverlo."
+      },
+      "mcp": {
+        "title": "Server MCP",
+        "lead": "Server esterni a LocalAI. I loro strumenti possono costare o raggiungere altri sistemi.",
+        "search": "Cerca server MCP",
+        "none": "Nessun connettore MCP definito. Aggiungine uno nella pagina dei connettori MCP.",
+        "connector": "Un connettore MCP che hai definito.",
+        "server": "Un server MCP del modello.",
+        "unknown": "Non definito: non esiste nulla con questo nome, quindi l'agente lo ignora.",
+        "unverified": "Il modello è scelto in ogni chat, quindi questo nome è verificato lì.",
+        "remove": "Rimuovi {{name}}",
+        "noMatch": "Nessun server MCP corrisponde a “{{query}}”.",
+        "removeShort": "Rimuovi"
+      },
+      "account": {
+        "label": "Account che usa",
+        "group": "Account per {{name}}",
+        "none": "Ancora nessun account.",
+        "add": "Aggiungi un account",
+        "kept": "Conservato per dopo"
+      },
+      "meta": {
+        "account": "richiede un account",
+        "resources": "limitato a: {{plural}} che selezioni"
+      },
+      "tools_one": "{{count}} strumento",
+      "tools_other": "{{count}} strumenti",
+      "toolsSplit_one": "{{count}} strumento ({{read}} in lettura, {{write}} modificano dati)",
+      "toolsSplit_other": "{{count}} strumenti ({{read}} in lettura, {{write}} modificano dati)",
+      "writes": "modifica dati",
+      "now": {
+        "label": "In questo momento:",
+        "off": "Spento. Non offre nulla.",
+        "offKept": "Spento. Non offre nulla. Account conservati per dopo: {{names}}.",
+        "noAccountNeeded": "Attivo. Offre: {{tools}}. Non richiede un account.",
+        "only": "Attivo. Offre: {{tools}}, con {{names}}, il tuo unico account.",
+        "using": "Attivo. Offre: {{tools}}, con {{names}}.",
+        "usingMany": "Attivo. Offre: {{tools}}, con {{names}}. Il modello indica l'account in ogni chiamata.",
+        "pick": "Attivo, ma nessun account è scelto. Una chat ti chiede di sceglierne uno prima di dare strumenti; un'esecuzione senza nessuno presente non ne riceve. Seleziona sopra l'account da usare.",
+        "noConnection": "Attivo, ma non hai ancora un account per questo, quindi nessuno dei suoi strumenti è offerto. Aggiungi un account, qui sopra.",
+        "stale": "Attivo, ma gli account salvati non esistono più, quindi nessuno dei suoi strumenti è offerto. Scegli un account. Seleziona un account, qui sopra.",
+        "resourcesNone": "Attivo, ma nessun elemento ({{noun}}) è selezionato, quindi non può usarne nessuno. Selezionane uno, qui sopra.",
+        "resourcesRead": "Attivo. Offre: {{tools}}, su {{n}} elementi selezionati ({{plural}}), solo lettura. Gli strumenti che modificano dati non possono girare.",
+        "resources": "Attivo. Offre: {{tools}}, su {{n}} elementi selezionati ({{plural}}); può modificarne {{w}}."
+      },
+      "res": {
+        "heading": "Quali <n>{{plural}}</n> può usare",
+        "headingPlain": "Quali {{plural}} può usare",
+        "loading": "Caricamento dell'elenco.",
+        "error": "Impossibile leggere l'elenco.",
+        "empty": "Non hai ancora <n>{{plural}}</n> da assegnare.",
+        "truncated": "L'elenco è troncato.",
+        "gone": "non disponibile",
+        "access": "Accesso a {{name}}",
+        "read": "Lettura",
+        "write": "Lettura e modifica",
+        "none": "Nessuno selezionato: non può usare alcun elemento (<n>{{noun}}</n>).",
+        "some": "Solo quelli selezionati. Ti serve comunque il tuo accesso a ciascuno."
+      },
+      "skills": {
+        "summaryOff_one": "{{count}} skill si attiva con esso",
+        "summaryOff_other": "{{count}} skill si attivano con esso",
+        "summaryOn": "{{on}} skill su {{total}} attive"
+      },
+      "addonOn": {
+        "title": "{{name}} attivato",
+        "body_one": "{{count}} skill attivata con esso: {{names}}. Nulla è salvato finché non salvi.",
+        "body_other": "{{count}} skill attivate con esso: {{names}}. Nulla è salvato finché non salvi."
+      },
+      "skillAddonOff": "Il suo add-on è spento, quindi questa skill non fa nulla.",
+      "memorySkills": {
+        "title": "Skill della memoria",
+        "from": "da {{slot}}",
+        "on": "Attive finché la memoria è attiva.",
+        "off": "Disattivate finché la memoria di questo agente è disattivata.",
+        "offUser": "Disattivate, perché la memoria è disattivata nelle tue Impostazioni."
+      },
+      "slot": {
+        "memory": "Memoria"
+      }
+    },
+    "memoryLevelApplied": {
+      "title": "Memoria: {{name}}",
+      "off": "Non legge e non salva note, e il permesso di ricordare è disattivato. Nulla viene salvato finché non salvi.",
+      "reads": "Il permesso di ricordare è disattivato, quindi legge le note ma non può salvarne. Nulla viene salvato finché non salvi.",
+      "saves": "Il permesso di ricordare è attivo. Nulla viene salvato finché non salvi."
+    },
+    "sandboxProfile": "Profilo sandbox",
+    "sandboxProfileDefault": "Predefinito",
+    "sandboxProfileHelp": "Usato dalle esecuzioni non presidiate e come profilo iniziale delle sue chat."
+  },
+  "run": {
+    "workingLine": "Working"
+  },
+  "jobs": {
+    "title": "Triggers",
+    "newTask": "New trigger",
+    "createTask": "Create trigger",
+    "loading": "Loading triggers",
+    "loadFailed": "Failed to load: {{message}}",
+    "actionFailed": "The action failed: {{message}}",
+    "summary": {
+      "stopped": "{{count}} skipped",
+      "lastFailed_one": "The last run of {{names}} failed.",
+      "lastFailed_other": "The last run failed for {{names}}."
+    },
+    "tasks": {
+      "title": "Triggers, {{count}}",
+      "caption": "Triggers",
+      "task": "Trigger",
+      "noSchedule": "No schedule",
+      "noAgent": "No agent",
+      "fileKind": "When a file arrives",
+      "open": "Open",
+      "started": "Trigger \"{{name}}\" started",
+      "toggleLabel": "Run {{name}} by itself",
+      "toggleFailed": "Could not change the trigger: {{message}}",
+      "deleted": "Trigger deleted",
+      "noneYet": "You have no triggers yet.",
+      "noModel": "No model",
+      "next": "Prossima"
+    },
+    "history": {
+      "filterTask": "Trigger",
+      "allTasks": "All triggers",
+      "task": "Trigger",
+      "unknownTask": "Unknown trigger",
+      "cancelledLine": "Skipped",
+      "doneLine": "Finished. Open the chat for the answer.",
+      "doneFile": "Finished for {{file}}. Open the chat for the answer.",
+      "pendingLine": "Waiting to start",
+      "emptyText": "A run starts when you press Run now, when a schedule fires, or when a file arrives in a watched folder.",
+      "openRun": "Open the chat",
+      "reason": "Reason",
+      "file": "Started by the file {{file}}."
+    },
+    "status": {
+      "done": "Done",
+      "failed": "Failed",
+      "running": "Working",
+      "queued": "Waiting",
+      "skipped": "Skipped"
+    },
+    "empty": {
+      "title": "No triggers yet",
+      "text": "A trigger starts a chat for you by itself: at a time, or when a file arrives in a folder. Each run is an ordinary chat that you can open.",
+      "step1": "Write what the chat should do.",
+      "step2": "Pick an agent, or a model, to run it.",
+      "step3": "Choose when it runs, or press Run now."
+    },
+    "task": {
+      "back": "Triggers",
+      "missingTitle": "Trigger not found",
+      "agent": "Agent",
+      "model": "Model",
+      "schedule": "Schedule",
+      "cap": "Most runs a day",
+      "watches": "Watches the folder {{folder}}",
+      "noRuns": "This trigger has not run yet.",
+      "runMeta": "took {{time}}",
+      "prompt": "What to do",
+      "acts": "Permessi",
+      "runLimit": "Time limit",
+      "project": "Progetto"
+    },
+    "edit": {
+      "titleNew": "New trigger",
+      "subNew": "Name it, write what to do and choose when it runs.",
+      "subEdit": "Changes apply from the next run.",
+      "save": "Save trigger",
+      "create": "Create trigger",
+      "nameRequired": "A trigger needs a name",
+      "promptRequired": "Write what the trigger should do",
+      "created": "Trigger created",
+      "updated": "Trigger updated",
+      "sections": {
+        "basics": "Basics",
+        "prompt": "What to do",
+        "schedule": "When",
+        "limits": "Limits",
+        "acts": "Permessi"
+      },
+      "summary": {
+        "basics": "{{name}}, {{model}}",
+        "basicsNoModel": "{{name}}, no agent or model yet",
+        "promptEmpty": "Nothing to do yet",
+        "folderEmpty": "Needs a folder",
+        "cap": "Up to {{count}} runs a day",
+        "capDefault": "Default limit",
+        "acts_one": "Può usare {{count}} tipo di azione",
+        "acts_other": "Può usare {{count}} tipi di azione",
+        "runLimit": "{{limit}} a run at most"
+      },
+      "name": "Name",
+      "namePlaceholder": "daily-digest",
+      "noAgent": "No agent",
+      "model": "Model",
+      "enabled": "On",
+      "enabledHint": "A trigger that is off keeps its schedule but does not run.",
+      "prompt": "What to do",
+      "promptPlaceholder": "Summarise what is new in my Reports folder.",
+      "promptHint": "This text starts the chat each time the trigger fires.",
+      "capHint": "The most chats this trigger may start in one day. Empty uses the default.",
+      "previewEdit": "What the next run would send, and what differs from the saved trigger.",
+      "previewNew": "What the first run would send.",
+      "promptAsSent": "The text a run starts with",
+      "noChanges": "Nothing differs from the saved trigger.",
+      "loadingTask": "Loading trigger",
+      "changed_one": "{{count}} change",
+      "changed_other": "{{count}} changes",
+      "watchNoFiles": "Questo agente ha «Nessun file»: un’esecuzione di questo trigger sa che è arrivato un file, ma non può aprirlo. Dagli l’accesso ai file nel suo editor o scegli un altro agente.",
+      "runLimitHint": "The longest one run may take, such as 30m or 2h (1 minute to 24 hours). Empty uses the default. The administrator's limit is the ceiling: a longer value is cut to it.",
+      "runLimitPlaceholder": "default",
+      "agentInProject": "{{name}} (progetto {{project}})",
+      "projectAgentHint": "Questo agente appartiene al progetto. Un trigger di file osserva per impostazione predefinita i file del progetto.",
+      "folder": {
+        "choose": "Scegli una cartella",
+        "sub": "Cartella al suo interno",
+        "subPlaceholder": "Facoltativo: una cartella al suo interno",
+        "hint": "Una delle cartelle di questo agente e, se vuoi, una cartella al suo interno.",
+        "empty": "Scegli la cartella da osservare.",
+        "dots": "Il nome di una cartella non può contenere \"..\".",
+        "outside": "Questo agente può osservare solo cartelle all’interno delle proprie: {{folders}}.",
+        "noFolders": "Questo agente non ha alcuna cartella utilizzabile. Scegli una cartella nelle impostazioni dell’agente."
+      }
+    },
+    "subtitle": "Avvia un agente secondo un orario o quando arriva un file. Ogni esecuzione è una chat che puoi aprire.",
+    "projectFilter": {
+      "label": "Progetto",
+      "all": "Tutti i progetti",
+      "none": "Nessun progetto",
+      "empty": "Nessun trigger per questa scelta."
+    },
+    "reports": {
+      "label": "Riporta a",
+      "inbox": "Posta in arrivo",
+      "channel": "Canale {{channel}}",
+      "chat": "Chat {{chat}}",
+      "thread": "Thread nella chat {{chat}}",
+      "problem": {
+        "off": "Connessione disattivata",
+        "gone": "Connessione eliminata",
+        "unavailable": "Connessione non disponibile",
+        "no_channel": "Canale non approvato",
+        "blocked": "Invio non consentito"
+      },
+      "fallback": "Finché non è risolto, i report vanno nella Posta in arrivo.",
+      "manage": "Gestisci connessione",
+      "connections": "Apri le connessioni",
+      "mode": {
+        "on_change": "Solo quando la risposta cambia",
+        "on_problem": "Solo quando un'esecuzione fallisce"
+      }
+    }
+  },
+  "views": {
+    "label": "Area agenti",
+    "agents": "Agenti"
+  },
+  "now": {
+    "failedTitle": "{{name}} non è riuscito.",
+    "workingTitle": "{{name}} sta lavorando.",
+    "openRun": "Apri l'esecuzione"
+  },
+  "load": {
+    "agents": "Impossibile caricare i tuoi agenti.",
+    "agentsStale": "Impossibile aggiornare l'elenco. Mostra lo stato precedente.",
+    "agent": "Impossibile caricare questo agente.",
+    "agentStale": "Impossibile aggiornare questa pagina. Mostra lo stato precedente.",
+    "agentForm": "Impossibile caricare questo agente per la modifica.",
+    "triggers": "Impossibile caricare i tuoi trigger.",
+    "triggersStale": "Impossibile aggiornare i trigger. Mostrano lo stato precedente.",
+    "trigger": "Impossibile caricare questo trigger.",
+    "triggerStale": "Impossibile aggiornare questo trigger. Mostra lo stato precedente.",
+    "tasks": "Impossibile caricare le attività.",
+    "tasksStale": "Impossibile aggiornare le attività. Mostrano lo stato precedente."
+  },
+  "meta": {
+    "anyModel": "Qualsiasi modello",
+    "addons_one": "{{count}} add-on",
+    "addons_other": "{{count}} add-on"
+  },
+  "chips": {
+    "lastFailed": "Ultima esecuzione non riuscita"
+  },
+  "tasks": {
+    "title": "Attività degli agenti",
+    "allUsers": "Tutti gli utenti",
+    "new": "Nuova attività",
+    "newTitle": "Nuova attività",
+    "editTitle": "Modifica attività",
+    "name": "Nome",
+    "description": "Descrizione",
+    "runner": "Eseguita da",
+    "byModel": "Un modello",
+    "byAgent": "Uno dei tuoi agenti",
+    "model": "Modello",
+    "agent": "Agente",
+    "pick": "Scegli…",
+    "prompt": "Prompt",
+    "promptHint": "Scrivi un parametro come {{example}}; ogni esecuzione ne chiede il valore.",
+    "webhooksKept_one": "Questa attività ha {{count}} webhook. Resta com'è; i webhook si cambiano tramite API.",
+    "webhooksKept_other": "Questa attività ha {{count}} webhook. Restano come sono; i webhook si cambiano tramite API.",
+    "save": "Salva attività",
+    "cancel": "Annulla",
+    "saved": "Attività «{{name}}» salvata",
+    "runTitle": "Esegui {{name}}",
+    "runNow": "Esegui ora",
+    "started": "Attività «{{name}}» avviata",
+    "tasks": "Attività",
+    "off": "Spenta",
+    "run": "Esegui",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "deleted": "Attività «{{name}}» eliminata",
+    "task": "Attività",
+    "cancelJob": "Annulla",
+    "rerun": "Esegui di nuovo",
+    "rerunStarted": "Avviata di nuovo",
+    "stillRunning": "Ancora in corso.",
+    "noResult": "Nessun risultato.",
+    "traces_one": "{{count}} passaggio",
+    "traces_other": "{{count}} passaggi",
+    "webhookSent": "Il webhook è stato chiamato.",
+    "webhookFailed": "Il webhook non è riuscito: {{message}}",
+    "actionFailed": "Non ha funzionato: {{message}}",
+    "state": {
+      "pending": "In attesa",
+      "running": "In corso",
+      "completed": "Completata",
+      "failed": "Fallita",
+      "cancelled": "Annullata"
+    },
+    "lede": "Prompt che un modello o uno dei tuoi agenti esegue in background. Avviali da qui o da uno script tramite l'API.",
+    "searchLabel": "Cerca attività",
+    "filter": {
+      "label": "Mostra attività",
+      "all": "Tutte",
+      "on": "Attive",
+      "off": "Spente"
+    },
+    "noMatch": "Nessuna attività corrisponde.",
+    "on": "Attiva",
+    "offLine": "Spenta. Non si avvia finché non la attivi.",
+    "onDemand": "Si avvia quando la lanci",
+    "asksFor": "Chiede {{list}}",
+    "webhooks_one": "{{count}} webhook",
+    "webhooks_other": "{{count}} webhook",
+    "runsCount_one": "{{count}} esecuzione",
+    "runsCount_other": "{{count}} esecuzioni",
+    "runsOf_one": "{{count}} esecuzione di {{name}}",
+    "runsOf_other": "{{count}} esecuzioni di {{name}}",
+    "toggleLabel": "{{name}} può avviarsi",
+    "turnedOn": "«{{name}}» è attiva",
+    "turnedOff": "«{{name}}» è spenta",
+    "moreFor": "Altre azioni per {{name}}",
+    "open": "Apri",
+    "openTask": "Apri {{name}}",
+    "runFor": "Esegui {{name}}",
+    "rerunFor": "Esegui di nuovo {{name}}",
+    "jobMoreFor": "Altre azioni per questa esecuzione di {{name}}",
+    "detailsFor": "Dettagli dell'esecuzione di {{name}}",
+    "openChat": "Apri la chat",
+    "deleteJob": "Elimina esecuzione",
+    "jobDeleted": "Esecuzione eliminata",
+    "cancelled": "Esecuzione fermata",
+    "confirmJob": {
+      "title": "Eliminare questa esecuzione?",
+      "message": "La risposta e i passaggi vengono eliminati. Non si può annullare."
+    },
+    "line": {
+      "pending": "In attesa di partire",
+      "running": "Al lavoro",
+      "cancelled": "Fermata prima della fine"
+    },
+    "startedBy": {
+      "manual": "Avviata da qui",
+      "api": "Avviata tramite API",
+      "cron": "Avviata da una pianificazione"
+    },
+    "output": {
+      "answer": "Risposta",
+      "error": "Errore",
+      "values": "Valori"
+    },
+    "traceKind": {
+      "reasoning": "Ragionamento",
+      "tool_call": "Strumento",
+      "tool_result": "Risultato dello strumento",
+      "status": "Stato"
+    },
+    "empty": {
+      "title": "Ancora nessuna attività",
+      "body": "Un'attività è un prompt che scrivi una volta ed esegui tante volte. Scrivi {{example}} dove un valore cambia, e ogni esecuzione te lo chiede.",
+      "fact1": "La esegue un modello o uno dei tuoi agenti",
+      "fact2": "Avviala da qui o da uno script tramite l'API",
+      "fact3": "Ogni esecuzione conserva la risposta e i passaggi"
+    },
+    "sheet": {
+      "optional": "(facoltativo)",
+      "newDesc": "Scrivi il prompt una volta, poi eseguilo quando ti serve.",
+      "editDesc": "Le modifiche valgono dalla prossima esecuzione.",
+      "about": "Informazioni",
+      "nameHelp": "Gli script usano questo nome per eseguire l'attività tramite l'API.",
+      "descHelp": "Una riga che dice a cosa serve l'attività.",
+      "who": "Chi la esegue",
+      "modelHelp": "Il modello risponde al prompt senza strumenti.",
+      "agentHelp": "L'agente risponde con le sue istruzioni e i suoi strumenti.",
+      "what": "Cosa fa",
+      "promptPlaceholder": "Per esempio: Riassumi il ticket {{example}} in tre righe.",
+      "inputs": "Ogni esecuzione chiede:",
+      "noInputs": "Questo prompt non chiede nulla. Ogni esecuzione lo invia così com'è.",
+      "on": "Attiva",
+      "onHelp": "Un'attività spenta conserva le esecuzioni ma non può avviarsi.",
+      "runDesc": "Inserisci i valori per questa esecuzione.",
+      "runNone": "Questa attività non chiede nulla. Esegue il prompt così com'è.",
+      "preview": "Cosa riceve l'attività"
+    },
+    "errors": {
+      "name": "Dai un nome all'attività.",
+      "prompt": "Scrivi cosa deve fare l'attività.",
+      "model": "Scegli un modello.",
+      "agent": "Scegli un agente."
+    },
+    "pane": {
+      "label": "Dettagli dell'attività",
+      "overview": "Panoramica",
+      "runs": "Esecuzioni",
+      "settings": "Impostazioni",
+      "inputs": "Chiede",
+      "noInputs": "Niente",
+      "changed": "Modificata",
+      "api": "Eseguila tramite API",
+      "apiHint": "Invia i valori come oggetto JSON. La risposta contiene l'id dell'esecuzione, per leggerne il risultato.",
+      "noRuns": "Ancora nessuna esecuzione. Esegui l'attività e la risposta comparirà qui.",
+      "webhooks": "Webhook",
+      "noWebhooks": "Nessuno. Aggiungi webhook tramite API per sapere quando un'esecuzione finisce.",
+      "deleteTitle": "Elimina questa attività",
+      "deleteHelp": "Le sue esecuzioni restano fino alla fine del periodo di conservazione."
+    },
+    "history": {
+      "title": "Cronologia",
+      "filterLabel": "Mostra esecuzioni",
+      "all": "Tutte",
+      "active": "In corso",
+      "completed": "Completate",
+      "failed": "Fallite",
+      "cancelled": "Annullate",
+      "allTasks": "Tutte le attività",
+      "emptyBody": "Esegui un'attività e la risposta comparirà qui.",
+      "more": "Mostra altre {{count}}"
+    }
+  },
+  "folder": {
+    "all": "Tutti i miei file",
+    "one": "Solo queste cartelle",
+    "scopeLabel": "File che questo agente può raggiungere",
+    "allHelp": "Le chat con questo agente raggiungono tutti i tuoi file, come una chat senza agente.",
+    "choose": "Scegli cartella",
+    "chooseOther": "Scegli un'altra cartella",
+    "change": "Cambia",
+    "home": "Home",
+    "modeLabel": "Accesso",
+    "read": "Può leggere",
+    "write": "Può leggere e modificare",
+    "readShort": "sola lettura",
+    "writeShort": "lettura e modifica",
+    "help": "Le chat con questo agente vedono solo questa cartella e la propria cartella della chat. Le cartelle condivise e le skill restano leggibili. I server MCP e gli strumenti web che concedi non sono limitati a questa cartella.",
+    "commands": "I comandi di questo agente girano solo in un add-on che li isola, mai direttamente su questa macchina.",
+    "nextMessage": "Una modifica vale dal messaggio successivo di ogni chat.",
+    "missing": "Questa cartella non esiste più. Scegli un'altra cartella per usare questo agente.",
+    "unset": "Nessuna cartella scelta. Scegli una cartella per usare questo agente.",
+    "needsChoice": "Scegli una cartella, oppure Tutti i miei file.",
+    "summaryRead": "{{path}}, può leggere",
+    "summaryWrite": "{{path}}, può leggere e modificare",
+    "summaryMissing": "Cartella mancante",
+    "summaryUnset": "Nessuna cartella scelta",
+    "dialogTitle": "Scegli una cartella",
+    "dialogText": "Apri la cartella in cui lavora questo agente, poi usala.",
+    "use": "Usa {{folder}}",
+    "useAll": "Usa tutta la Home",
+    "cancel": "Annulla",
+    "managedHint": "Cartella gestita da LocalAI",
+    "sharedHint": "Le cartelle condivise non si possono scegliere",
+    "exportNote": "Il file indica la cartella {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste, oppure ti chiede di sceglierne una.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Cartella mancante",
+    "chipUnset": "Nessuna cartella scelta",
+    "add": "Aggiungi cartella",
+    "remove": "Rimuovi {{path}}",
+    "removeRow": "Rimuovi",
+    "count": "{{n}} di {{max}} cartelle",
+    "summaryMany": "{{n}} cartelle",
+    "effectiveRead": "È dentro una cartella di sola lettura, quindi questa si può solo leggere.",
+    "effectiveWrite": "È dentro una cartella modificabile, quindi anche questa si può modificare.",
+    "notMounted": "{{n}} cartelle condivise non rientrano nel limite di accesso di una chat e non sono montate.",
+    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre.",
+    "none": "Nessun file",
+    "noneHelp": "Questo agente non può raggiungere nessuno dei tuoi file. I file che alleghi a una chat restano in quella chat. Controllare una cartella richiede l’accesso ai file: un trigger che controlla una cartella parte comunque per questo agente, ma non può aprire i file in arrivo."
+  },
+  "templates": {
+    "researcher": {
+      "description": "Cerca, legge le fonti e scrive brevi sintesi."
+    },
+    "reviewer": {
+      "description": "Esamina una modifica ed elenca prima ciò che va corretto."
+    },
+    "digest": {
+      "description": "Raccoglie le novità su un argomento e le riassume."
+    },
+    "blank": {
+      "description": "Vuoto. Parti da zero."
+    }
+  },
+  "wizard": {
+    "title": "Nuovo agente",
+    "supporting": "Quattro passaggi brevi. Servono solo un nome e le istruzioni.",
+    "stepsLabel": "Passaggi",
+    "back": "Indietro",
+    "next": "Continua",
+    "defaultTools": "Strumenti predefiniti",
+    "step": {
+      "purpose": "Scopo",
+      "abilities": "Capacità",
+      "where": "Dove lavora",
+      "review": "Riepilogo"
+    },
+    "purpose": {
+      "title": "A cosa serve questo agente?",
+      "lead": "Parti da un modello o scrivi il tuo. Potrai cambiare tutto più tardi.",
+      "needs": "Servono un nome e le istruzioni per continuare.",
+      "modelLine": "Modello: quello che scegli in ogni chat.",
+      "modelChoose": "Scegli un modello fisso",
+      "modelEach": "Quello che scelgo in ogni chat"
+    },
+    "abilities": {
+      "title": "Quanto può fare da solo?",
+      "lead": "Non sai? Lascia così: l'agente parte con gli strumenti predefiniti. Oppure scegli un livello, che li sostituisce.",
+      "defaultNote": "Nessun livello scelto. L'agente parte con gli strumenti predefiniti.",
+      "files": "Quali dei tuoi file può vedere?",
+      "fine": "Regola i singoli strumenti",
+      "templateHint": "Questo modello suggerisce il livello {{level}}.",
+      "templateUse": "Usa {{level}}"
+    },
+    "where": {
+      "title": "Dove deve lavorare?",
+      "lead": "Facoltativo. Scegli i posti in cui questo agente deve lavorare. Per ora non è collegato nulla.",
+      "chat": "App di chat",
+      "chatLead": "App in cui le persone possono parlare con questo agente.",
+      "tools": "Strumenti e servizi",
+      "toolsLead": "Add-on che gli danno nuove capacità.",
+      "notInstalled": "Non installato",
+      "generic": "Completa la configurazione di {{title}}",
+      "loading": "Cerco le app",
+      "empty": "Non ci sono ancora app disponibili.",
+      "note": "Scegliere un'app non la collega. Dopo aver creato l'agente, una breve lista ti guida nella configurazione di ognuna.",
+      "find": "Trova add-on"
+    },
+    "review": {
+      "title": "Pronto da creare",
+      "lead": "Controlla il riepilogo. Potrai cambiare tutto più tardi.",
+      "named": "Ha un nome e le istruzioni",
+      "tools": "Strumenti: {{level}}",
+      "modelFixed": "Modello: {{model}}",
+      "modelEach": "Modello: quello che scegli in ogni chat",
+      "apps": "App da configurare dopo la creazione: {{count}}",
+      "filesTitle": "Può vedere tutti i tuoi file.",
+      "filesBody": "Tutto ciò che puoi aprire in File, questo agente può leggerlo. Puoi limitarlo a delle cartelle.",
+      "limit": "Limita alle cartelle",
+      "setupNext": "Dopo aver creato l'agente, la sua pagina elenca i passaggi di configurazione per le app scelte.",
+      "project": "Lavora nel progetto {{name}}.",
+      "projectUnnamed": "Lavora nel progetto che hai scelto."
+    },
+    "rail": {
+      "title": "Il tuo agente",
+      "unnamed": "Senza nome",
+      "abilities": "Capacità",
+      "modelEach": "Scelto in ogni chat",
+      "files": "File",
+      "folders": "Solo cartelle scelte ({{count}})",
+      "works": "Lavora in",
+      "thisApp": "Questa app"
+    }
+  },
+  "setup": {
+    "title": "Completa la configurazione",
+    "count": "{{done}} di {{total}} completati",
+    "dismiss": "Nascondi",
+    "progress": "Avanzamento della configurazione",
+    "done": "Fatto",
+    "stays": "La lista resta in questa pagina finché ogni app è a posto, o finché non la nascondi.",
+    "connect": "Nuova connessione",
+    "account": "Scegli l'account",
+    "turnOn": "Attiva",
+    "find": "Vedi negli add-on",
+    "actionFor": "{{action}}: {{title}}"
+  },
+  "share": {
+    "action": "Condividi",
+    "intro": "Le persone che aggiungi usano questo agente come se stesse, con i propri file, raccolte e connessioni.",
+    "roles": {
+      "use": "Può usare",
+      "useHelp": "Usa l'agente nelle proprie chat e vede di cosa ha bisogno.",
+      "viewer": "Può vedere",
+      "viewerHelp": "Può anche leggere le istruzioni e gli strumenti."
+    },
+    "kind": {
+      "addon": "Componente aggiuntivo",
+      "collection": "Raccolta",
+      "skill": "Abilità",
+      "folder": "Cartella",
+      "connection": "Connessione",
+      "addon-resource": "Risorsa di un componente",
+      "mcp": "Server MCP",
+      "builtin": "Permesso integrato",
+      "network": "Rete",
+      "tool-group": "Gruppo di strumenti"
+    },
+    "ownAccess": "Serve un accesso proprio",
+    "refsApplied_one": "Condivisa anche {{count}} cosa che usa.",
+    "refsApplied_other": "Condivise anche {{count}} cose che usa.",
+    "refsFailed": "Impossibile condividere: {{names}}.",
+    "refsSkipped": "Non condivisi con tutti: {{names}}. Condividili con ogni persona.",
+    "failed": "Impossibile aprire la condivisione. {{message}}"
+  },
+  "shared": {
+    "readOnly": "Puoi usare questo agente in chat. Solo il proprietario può modificarlo."
+  },
+  "needs": {
+    "title": "Di cosa ha bisogno questo agente",
+    "intro": "L'agente lavora come te, con i tuoi accessi.",
+    "none": "Questo agente non usa nulla oltre alla chat.",
+    "loadError": "Impossibile verificare di cosa ha bisogno questo agente.",
+    "state": {
+      "ok": "Ce l'hai",
+      "missing": "Non condiviso con te",
+      "unavailable": "Non disponibile per te",
+      "ask": "Spento all’avvio della chat"
+    },
+    "noticeTitle_one": "Questo agente ha bisogno di {{count}} cosa che non hai:",
+    "noticeTitle_other": "Questo agente ha bisogno di {{count}} cose che non hai:",
+    "noticeLink": "Vedi di cosa ha bisogno",
+    "asksTitle_one": "Questo agente chiede {{count}} cosa che la tua chat non ha all’avvio:",
+    "asksTitle_other": "Questo agente chiede {{count}} cose che la tua chat non ha all’avvio:",
+    "asksHelp": "Funziona come te. Attivale nella chat solo se ti fidi dell’agente e della persona che lo ha condiviso."
+  },
+  "project": {
+    "chip": "Progetto: {{name}}",
+    "deleted": "progetto eliminato",
+    "files": "File del progetto",
+    "filesMode": "Modalità dei file",
+    "canEdit": "Può modificare",
+    "readOnly": "Sola lettura",
+    "filesHelp": "L’agente lavora solo nella cartella dei file di {{name}}. Le cartelle condivise e le skill restano leggibili.",
+    "filesHelpNoName": "L’agente lavora solo nella cartella dei file del suo progetto. Le cartelle condivise e le skill restano leggibili.",
+    "memory": "Memoria del progetto",
+    "memoryHelp": "L’agente può salvare una nota nella memoria del progetto solo con il permesso «Remember things in the project»: propone una modifica che confermi tu. Senza il permesso, la memoria è di sola lettura.",
+    "limited": "Limitato dal progetto",
+    "noShare": "Gli agenti di progetto non si possono condividere.",
+    "exportHelp": "L’esportazione scrive un file di agente. Il progetto si sceglie quando il file viene importato.",
+    "paused": "Questo agente è in pausa perché il suo progetto è {{reason}}.",
+    "reason": {
+      "archived": "archiviato",
+      "deleted": "eliminato",
+      "changed": "cambiato"
+    },
+    "fix": {
+      "archived": "Apri il progetto e ripristinalo. Poi l’agente torna a funzionare.",
+      "deleted": "Il progetto non c’è più. Ripristinalo dal Cestino in File e l’agente tornerà a funzionare.",
+      "changed": "Una cartella del progetto è stata sostituita, rinominata o spostata. Ricollega l’agente per legarlo di nuovo alle cartelle del progetto.",
+      "deletedDetach": "Il progetto non c'è più. Scollega l'agente per usarlo di nuovo, oppure ripristina il progetto dal Cestino in File."
+    },
+    "openProject": "Apri progetto",
+    "reconnect": "Ricollega",
+    "reconnected": "{{name}} è di nuovo collegato al progetto.",
+    "reconnectFailed": "Impossibile ricollegare l’agente: {{message}}",
+    "unavailable": "Non disponibile",
+    "listReason": {
+      "archived": "Il suo progetto è archiviato.",
+      "deleted": "Il suo progetto è stato eliminato.",
+      "changed": "Le cartelle del suo progetto sono cambiate. Aprilo per ricollegarlo."
+    },
+    "fact": "Progetto",
+    "memoryFact": "Memoria",
+    "memoryReadOnly": "Memoria del progetto, sola lettura",
+    "runsPaused": "Le esecuzioni riprendono quando il progetto torna attivo."
+  },
+  "importProject": {
+    "title": "Questo agente appartiene a un progetto",
+    "text": "Scegli dove metterlo. Gli agenti di progetto lavorano solo dentro il loro progetto. Le cartelle condivise e le skill restano leggibili.",
+    "textNamed": "Il file è per l’agente «{{agent}}». Scegli dove metterlo. Gli agenti di progetto lavorano solo dentro il loro progetto. Le cartelle condivise e le skill restano leggibili.",
+    "label": "Progetto",
+    "choose": "Scegli un progetto",
+    "create": "Crea un progetto chiamato '{{name}}'",
+    "createUnnamed": "Crea un nuovo progetto per questo agente",
+    "help": "Sono elencati solo i tuoi progetti attivi.",
+    "createHelp": "Viene creato un nuovo progetto chiamato {{name}} e l’agente vi viene aggiunto.",
+    "needsChoice": "Scegli un progetto, o creane uno, per importare questo agente.",
+    "cancel": "Annulla",
+    "import": "Importa"
+  },
+  "projectField": {
+    "title": "Progetto",
+    "leadNew": "Metti l'agente in un progetto, oppure lascialo da solo.",
+    "leadEdit": "Il progetto in cui lavora l'agente. Spostarlo cambia ciò che può raggiungere.",
+    "label": "Progetto",
+    "none": "Nessun progetto",
+    "choose": "Scegli un progetto",
+    "archivedName": "{{name}} (archiviato)",
+    "create": "Crea un nuovo progetto...",
+    "help": "Un agente di progetto lavora solo nei file e nella memoria del suo progetto. Sono elencati solo i tuoi progetti attivi.",
+    "helpEdit": "Scegli un altro progetto, oppure Nessun progetto, poi premi Sposta.",
+    "saveFirst": "Salva o annulla le modifiche prima di spostare l'agente."
+  },
+  "move": {
+    "open": "Sposta...",
+    "title": "Sposta in {{name}}",
+    "leaveTitle": "Togli l'agente dal suo progetto",
+    "detachTitle": "Scollega dal progetto",
+    "text": "{{agent}} lavorerà solo nei file e nella memoria di {{name}}. Controlla cosa cambia prima di confermare.",
+    "leaveText": "{{agent}} lascia {{name}}. Scegli i file che mantiene, poi controlla cosa cambia.",
+    "detachText": "Il progetto di questo agente è stato eliminato. Scegli i file che l'agente mantiene, poi scollegalo.",
+    "cancel": "Annulla",
+    "confirm": "Sposta l'agente",
+    "detach": "Scollega dal progetto",
+    "keepLabel": "File che l'agente mantiene",
+    "keepOne": "Solo questa cartella",
+    "keepAll": "Tutti i miei file",
+    "keepAllHelp": "L'agente lavora su tutti i tuoi file, come un agente senza cartella.",
+    "keepNone": "Nessuna cartella scelta.",
+    "effectsTitle": "Cosa cambia",
+    "pickFolder": "Scegli una cartella per vedere cosa cambia.",
+    "checking": "Controllo...",
+    "effect": {
+      "chats_one": "{{count}} chat di questo agente resta leggibile ma non accetta nuovi messaggi. Avvia una nuova chat per continuare.",
+      "chats_other": "{{count}} chat di questo agente restano leggibili ma non accettano nuovi messaggi. Avvia una nuova chat per continuare.",
+      "loops_one": "{{count}} loop in quelle chat termina.",
+      "loops_other": "{{count}} loop in quelle chat terminano.",
+      "triggers_one": "{{count}} trigger di file controlla una cartella fuori dalle nuove cartelle: {{names}}.",
+      "triggers_other": "{{count}} trigger di file controllano una cartella fuori dalle nuove cartelle: {{names}}.",
+      "shares_one": "L'agente è condiviso con {{count}} persona.",
+      "shares_other": "L'agente è condiviso con {{count}} persone.",
+      "proposals_one": "{{count}} nota in attesa per la memoria del progetto viene scartata.",
+      "proposals_other": "{{count}} note in attesa per la memoria del progetto vengono scartate.",
+      "dropped_one": "I limiti del nuovo progetto tolgono {{count}} strumento: {{names}}.",
+      "dropped_other": "I limiti del nuovo progetto tolgono {{count}} strumenti: {{names}}.",
+      "grant": "Il permesso di scrivere nella memoria del progetto viene rimosso. Puoi concederlo di nuovo nelle impostazioni dell'agente.",
+      "notes": "Le note proprie dell'agente ripartono vuote. Le vecchie note restano nei tuoi file, in Memory sotto Moved agent notes.",
+      "foldersInto": "L'agente lavora solo nelle cartelle dei file e della memoria di {{name}}.",
+      "foldersOut": "L'agente non appartiene più a un progetto.",
+      "attachedLost_one": "Il vecchio progetto collegava {{count}} strumento che non vale più: {{names}}.",
+      "attachedLost_other": "Il vecchio progetto collegava {{count}} strumenti che non valgono più: {{names}}.",
+      "attachedGained_one": "Il nuovo progetto collega {{count}} strumento che l’agente riceve: {{names}}.",
+      "attachedGained_other": "Il nuovo progetto collega {{count}} strumenti che l’agente riceve: {{names}}.",
+      "projectSkills": "Le skill del vecchio progetto non valgono più e quelle del nuovo progetto iniziano a valere."
+    },
+    "blocked": {
+      "busy": "Una chat di questo agente sta eseguendo un turno. Fermala, poi sposta l'agente."
+    },
+    "revoke_one": "Interrompi la condivisione: questo agente è condiviso con {{count}} persona e un agente di progetto non può essere condiviso.",
+    "revoke_other": "Interrompi la condivisione: questo agente è condiviso con {{count}} persone e un agente di progetto non può essere condiviso.",
+    "disable_one": "Disattiva {{count}} trigger di file che controlla una cartella fuori dalle nuove cartelle ({{names}}).",
+    "disable_other": "Disattiva {{count}} trigger di file che controllano una cartella fuori dalle nuove cartelle ({{names}}).",
+    "done": "{{name}} è stato spostato nel nuovo progetto.",
+    "doneOut": "{{name}} non appartiene più a un progetto."
+  }
+}

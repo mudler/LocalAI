@@ -1,0 +1,17 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="crumb"><a href="{{ "blog/" | relURL }}">Blog</a> / <a href="{{ "tags/" | relURL }}">Tags</a></p>
+  <h1>{{ .Title }}</h1>
+  <p class="lede">{{ len .Pages }} post{{ if ne (len .Pages) 1 }}s{{ end }} tagged {{ .Title }}.</p>
+</div></header>
+<section><div class="shell">
+  <div class="grid">
+    {{ range .Pages.ByDate.Reverse }}
+    <a class="fcard rv" href="{{ .RelPermalink }}"><p class="kicker">{{ with .Params.category }}{{ . }}{{ else }}Post{{ end }}</p><h2>{{ .Title }}</h2><p>{{ .Params.summary | default (.Summary | plainify) }}</p><span class="go">Read the post &rarr;</span></a>
+    {{ end }}
+  </div>
+  <p class="mt-s"><a class="btn btn--o" href="{{ "blog/" | relURL }}">All posts</a></p>
+</div></section>
+</main>
+{{ end }}

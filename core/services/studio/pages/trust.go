@@ -1,0 +1,312 @@
+package pages
+
+import (
+	"context"
+	"errors"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+)
+
+// Consent states of a shared page for its viewer.
+const (
+	StateNone    = "none"    // never allowed, or the consent was revoked
+	StateAllowed = "allowed" // the viewer allowed this version
+	StateChanged = "changed" // the viewer allowed an earlier version
+)
+
+// ErrChanged means the page changed between the review and the consent: the
+// viewer must look at the new version first.
+var ErrChanged = errors.New("pages: the page changed while you were reviewing it; review it again")
+
+// ErrCodeChanged means a frame of an earlier version of a shared page read a
+// file of the page's code that changed since: the viewer must review the new
+// version before it runs.
+var ErrCodeChanged = errors.New("pages: the code of this page changed since you allowed it; reload the page to review the change")
+
+// Trust keeps the consents of the viewers of shared pages and checks them on
+// every call of a shared page's bridge, so a consent that is revoked, in this
+// tab or anywhere else, stops an open page at its next call.
+type Trust struct {
+	pages *Service
+	store ConsentStore
+	now   func() time.Time
+}
+
+// NewTrust returns the trust of the shared pages of svc, kept in store.
+func NewTrust(svc *Service, store ConsentStore) *Trust {
+	return &Trust{pages: svc, store: store, now: time.Now}
+}
+
+// WithNow sets the clock, for tests.
+func (t *Trust) WithNow(now func() time.Time) *Trust { t.now = now; return t }
+
+// Review is what the viewer allowed of a shared page, against what it is now.
+type Review struct {
+	State   string
+	Allowed *Consent // the lasting consent, when there is one
+	// Embed is true when the viewer allowed this version on Home and in the
+	// slots too (AllowEmbed).
+	Embed bool
+}
+
+// State says whether the viewer allowed the current version of p.
+func (t *Trust) State(ctx context.Context, principal string, p Page) (Review, error) {
+	c, ok, err := t.store.Always(ctx, principal, p.PageID)
+	if err != nil {
+		return Review{}, err
+	}
+	switch {
+	case !ok:
+		return Review{State: StateNone}, nil
+	case c.Hash == p.Hash:
+		return Review{State: StateAllowed, Allowed: &c, Embed: c.Embed && !p.UserShared && !p.OthersCanEdit}, nil
+	}
+	return Review{State: StateChanged, Allowed: &c}, nil
+}
+
+// Allow records the viewer's consent to the version hash of a shared page,
+// for good (once false) or for one visit (once true, whose token the result
+// carries). The hash must be the page's current one. A lasting consent keeps
+// the Home and slot consent (AllowEmbed) of the same version.
+func (t *Trust) Allow(ctx context.Context, principal string, folderID int64, name, hash string, once bool) (Consent, error) {
+	return t.allow(ctx, principal, folderID, name, hash, once, false)
+}
+
+// AllowEmbed records a lasting consent to the version hash of a shared page
+// that also lets it run on Home and in the slots of the app (ui.json slots).
+// There a page starts as soon as the screen shows, without a click, so the
+// viewer says yes to that apart from opening the page. A changed page needs a
+// new consent, as for Allow. A page that a person shared is never allowed
+// there (ErrNoEmbed): the code of a stranger does not start by itself.
+func (t *Trust) AllowEmbed(ctx context.Context, principal string, folderID int64, name, hash string) (Consent, error) {
+	return t.allow(ctx, principal, folderID, name, hash, false, true)
+}
+
+// source reads the page a consent is about, with its HTML.
+type source func(ctx context.Context) (Page, string, error)
+
+func (t *Trust) shared(principal string, folderID int64, name string) source {
+	return func(ctx context.Context) (Page, string, error) {
+		return t.pages.SharedSource(ctx, principal, folderID, name)
+	}
+}
+
+func (t *Trust) own(principal, name string) source {
+	return func(ctx context.Context) (Page, string, error) {
+		l, err := t.pages.own(ctx, principal, name)
+		if err != nil {
+			return Page{}, "", err
+		}
+		if !l.guarded {
+			return Page{}, "", ErrNotFound // an own page that nobody else may write needs no consent
+		}
+		return t.pages.Source(ctx, principal, name)
+	}
+}
+
+func (t *Trust) allow(ctx context.Context, principal string, folderID int64, name, hash string, once, embed bool) (Consent, error) {
+	return t.allowFrom(ctx, principal, t.shared(principal, folderID, name), hash, once, embed)
+}
+
+func (t *Trust) allowFrom(ctx context.Context, principal string, src source, hash string, once, embed bool) (Consent, error) {
+	p, html, err := src(ctx)
+	if err != nil {
+		return Consent{}, err
+	}
+	if hash == "" || hash != p.Hash {
+		return Consent{}, ErrChanged
+	}
+	if embed && (p.UserShared || p.OthersCanEdit) {
+		return Consent{}, ErrNoEmbed
+	}
+	now := t.now().UTC()
+	c := Consent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Kind: ConsentAlways,
+		Size: p.Size, MetaSize: p.MetaSize, Lines: strings.Count(html, "\n") + 1, At: now}
+	action := "allow"
+	switch {
+	case once:
+		c.Kind, c.Token, c.Expires, action = ConsentOnce, NewToken(), now.Add(OnceTTL), "allow_once"
+	case embed:
+		c.Embed, action = true, "allow_embed"
+	default:
+		// Allowing the same version again keeps its consent for Home and
+		// the slots: the viewer already said yes to this code there.
+		prev, ok, err := t.store.Always(ctx, principal, p.PageID)
+		if err != nil {
+			return Consent{}, err
+		}
+		// Never for a page that a person shared or that others can edit, even
+		// if a consent with embed is stored for it.
+		c.Embed = ok && prev.Embed && prev.Hash == p.Hash && !p.UserShared && !p.OthersCanEdit
+	}
+	ev := ConsentEvent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Action: action, At: now}
+	if err := t.store.Put(ctx, c, ev); err != nil {
+		return Consent{}, err
+	}
+	xlog.Info("pages: a shared page was allowed", "user", principal, "folder", p.Folder, "page", p.Name, "hash", p.Hash, "kind", c.Kind, "embed", c.Embed)
+	return c, nil
+}
+
+// ConsentStates returns, for each principal, whether it allowed the version
+// hash of the page pageID: StateNone, StateAllowed or StateChanged.
+func (t *Trust) ConsentStates(ctx context.Context, pageID int64, hash string, principals []string) (map[string]string, error) {
+	out := make(map[string]string, len(principals))
+	for _, p := range principals {
+		c, ok, err := t.store.Always(ctx, p, pageID)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case !ok:
+			out[p] = StateNone
+		case c.Hash == hash:
+			out[p] = StateAllowed
+		default:
+			out[p] = StateChanged
+		}
+	}
+	return out, nil
+}
+
+// Revoke removes the viewer's consents to a shared page. The page's open
+// frames stop at their next call of the bridge.
+func (t *Trust) Revoke(ctx context.Context, principal string, folderID int64, name string) error {
+	return t.revokeFrom(ctx, principal, t.shared(principal, folderID, name))
+}
+
+func (t *Trust) revokeFrom(ctx context.Context, principal string, src source) error {
+	p, _, err := src(ctx)
+	if err != nil {
+		return err
+	}
+	ev := ConsentEvent{Principal: principal, PageID: p.PageID, Folder: p.Folder, Name: p.Name, Hash: p.Hash, Action: "revoke", At: t.now().UTC()}
+	if err := t.store.Revoke(ctx, principal, p.PageID, ev); err != nil {
+		return err
+	}
+	xlog.Info("pages: a shared page is no longer allowed", "user", principal, "folder", p.Folder, "page", p.Name)
+	return nil
+}
+
+// Check says whether a frame that runs the version hash of a shared page may
+// call the bridge: the viewer allowed that version of that page, for good or
+// for the visit token. A frame keeps the version it loaded, so a page that its
+// author changed while it is open goes on until it is reloaded, and a consent
+// for the code of another page, even the same code, never counts.
+func (t *Trust) Check(ctx context.Context, principal string, folderID int64, name, hash, token string) error {
+	_, err := t.check(ctx, principal, folderID, name, hash, token)
+	return err
+}
+
+// OwnAllow records the owner's consent to the version hash of an own page that
+// another account may write (Page.OthersCanEdit). Such a page never gets the
+// consent for Home and the slots (ErrNoEmbed).
+func (t *Trust) OwnAllow(ctx context.Context, principal, name, hash string, once, embed bool) (Consent, error) {
+	return t.allowFrom(ctx, principal, t.own(principal, name), hash, once, embed)
+}
+
+// OwnRevoke removes the owner's consents to such a page.
+func (t *Trust) OwnRevoke(ctx context.Context, principal, name string) error {
+	return t.revokeFrom(ctx, principal, t.own(principal, name))
+}
+
+// OwnCheck is Check for a page of the owner that others may write.
+func (t *Trust) OwnCheck(ctx context.Context, principal, name, hash, token string) error {
+	_, err := t.checkPage(ctx, principal, t.ownPage(principal, name), hash, token)
+	return err
+}
+
+// OwnCheckRead is CheckRead for a page of the owner that others may write.
+func (t *Trust) OwnCheckRead(ctx context.Context, principal, name, hash, token, rel string) error {
+	p, err := t.checkPage(ctx, principal, t.ownPage(principal, name), hash, token)
+	if err != nil {
+		return err
+	}
+	if p.Hash != hash && isCode(p, rel) {
+		return ErrCodeChanged
+	}
+	return nil
+}
+
+func (t *Trust) ownPage(principal, name string) func(context.Context) (Page, error) {
+	return func(ctx context.Context) (Page, error) {
+		l, err := t.pages.own(ctx, principal, name)
+		if err != nil {
+			return Page{}, err
+		}
+		if !l.guarded {
+			return Page{}, ErrNotFound
+		}
+		return t.pages.Get(ctx, principal, name)
+	}
+}
+
+// CheckRead is Check for a read of the file rel. The code of the page
+// (index.html, page.json and the files of its CodeFiles) is read only by a
+// frame of the current version: a frame that loaded an earlier version and
+// reads a script the author has changed since would run code the viewer never
+// allowed.
+func (t *Trust) CheckRead(ctx context.Context, principal string, folderID int64, name, hash, token, rel string) error {
+	p, err := t.check(ctx, principal, folderID, name, hash, token)
+	if err != nil {
+		return err
+	}
+	if p.Hash != hash && isCode(p, rel) {
+		return ErrCodeChanged
+	}
+	return nil
+}
+
+// isCode says whether rel is a file of the page's code. The workspace finds a
+// file whatever the case of its name (and in NFC), so the names are compared
+// in the store's own form: Index.html or JS/App.js reads the same file as
+// index.html or js/app.js.
+func isCode(p Page, rel string) bool {
+	f := workspace.FoldName(rel)
+	if f == workspace.FoldName(IndexFile) || f == workspace.FoldName(MetaFile) {
+		return true
+	}
+	return slices.ContainsFunc(p.CodeFiles, func(c string) bool { return workspace.FoldName(c) == f })
+}
+
+func (t *Trust) check(ctx context.Context, principal string, folderID int64, name, hash, token string) (Page, error) {
+	return t.checkPage(ctx, principal, func(ctx context.Context) (Page, error) {
+		return t.pages.GetShared(ctx, principal, folderID, name)
+	}, hash, token)
+}
+
+func (t *Trust) checkPage(ctx context.Context, principal string, get func(context.Context) (Page, error), hash, token string) (Page, error) {
+	p, err := get(ctx)
+	if err != nil {
+		return Page{}, err
+	}
+	if hash == "" {
+		return Page{}, ErrNoConsent
+	}
+	if token != "" {
+		c, ok, err := t.store.Once(ctx, principal, token)
+		if err != nil {
+			return Page{}, err
+		}
+		if ok && c.PageID == p.PageID && c.Hash == hash && t.now().Before(c.Expires) {
+			return p, nil
+		}
+	}
+	c, ok, err := t.store.Always(ctx, principal, p.PageID)
+	if err != nil {
+		return Page{}, err
+	}
+	if ok && c.Hash == hash {
+		return p, nil
+	}
+	return Page{}, ErrNoConsent
+}
+
+// Events returns the audit of a viewer's consents, newest first.
+func (t *Trust) Events(ctx context.Context, principal string, limit int) ([]ConsentEvent, error) {
+	return t.store.Events(ctx, principal, limit)
+}

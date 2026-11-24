@@ -1,0 +1,183 @@
+// eslint-disable-next-line no-unused-vars
+import { Link, NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { recordStats, stripOf, STRIP_LENGTH } from '../../utils/agentRuns'
+import { filesOff, folderName, folderRows, folderState } from '../../utils/chatAgents'
+import { useAuth } from '../../context/AuthContext'
+import { useHubAuth } from '../hub/useHubAuth'
+// eslint-disable-next-line no-unused-vars
+import StatusChip from '../ui/StatusChip'
+// eslint-disable-next-line no-unused-vars
+import Tag from '../ui/Tag'
+import Icon from '../Icon'
+
+// The Agents area's states drawn with the product's status chip: a tone, an
+// icon and the words. A run in flight spins; amber is kept for decisions, so
+// a paused trigger is idle, not a warning.
+const STATUS_TONE = { running: 'accent', done: 'ok', failed: 'error', stopped: 'idle', ready: 'idle', paused: 'idle' }
+
+export function StatusMark({ status, label }) {
+  const { t } = useTranslation('agents')
+  const tone = STATUS_TONE[status] || 'idle'
+  return (
+    <StatusChip
+      className="ag-state"
+      status={status === 'running' ? 'starting' : undefined}
+      tone={tone}
+      label={label || t(`state.${status}`)}
+    />
+  )
+}
+
+// The views of the Agents area, as one underline row: the agents, their
+// triggers and the background tasks. A view the server or the account does
+// not offer is left out; with only one view left the row is not drawn.
+export function AgentViews() {
+  const { t } = useTranslation('agents')
+  const { hasFeature } = useAuth()
+  const { features } = useHubAuth()
+  const views = [
+    { to: '/app/agents', label: t('views.agents'), end: true },
+    hasFeature('triggers') && features.triggers !== false && { to: '/app/triggers', label: t('actions.triggers') },
+    hasFeature('mcp_jobs') && features.agent_jobs !== false && { to: '/app/agent-tasks', label: t('actions.tasks') },
+  ].filter(Boolean)
+  if (views.length < 2) return null
+  return (
+    <nav className="ag-views" aria-label={t('views.label')}>
+      {views.map(v => (
+        <NavLink key={v.to} to={v.to} end={v.end} className="ag-view">{v.label}</NavLink>
+      ))}
+    </nav>
+  )
+}
+
+// The last 14 runs, oldest first: round finished, square failed, hollow
+// stopped. Empty places keep the strip the same width for every agent.
+export function RunStrip({ runs }) {
+  const { t } = useTranslation('agents')
+  const strip = stripOf(runs)
+  const pad = Math.max(0, STRIP_LENGTH - strip.length)
+  const describe = strip.length
+    ? t('strip.label', { count: strip.length, done: strip.filter(s => s.status === 'done').length, failed: strip.filter(s => s.status === 'failed').length })
+    : t('strip.none')
+  return (
+    <span className="ag-strip" role="img" aria-label={describe} data-testid="agent-run-strip">
+      {Array.from({ length: pad }).map((_, i) => <i key={`e${i}`} className="ag-pip" data-state="empty" />)}
+      {strip.map(s => <i key={s.id} className="ag-pip" data-state={s.status} />)}
+    </span>
+  )
+}
+
+// "93% of 41 runs finished, median 38 s", or the honest empty line.
+export function RecordLine({ runs }) {
+  const { t } = useTranslation('agents')
+  if (runs.length === 0) return <span className="ag-muted">{t('record.none')}</span>
+  const s = recordStats(runs)
+  const pct = Math.round((s.finished / s.total) * 100)
+  return (
+    <span className="ag-muted">
+      {t('record.line', { pct, count: s.total })}
+    </span>
+  )
+}
+
+// What an agent may use, on its page: a tag, a link when it opens something.
+export function Chip({ to, icon, children, mono = false, count, title, warn = false, testId }) {
+  return (
+    <Tag
+      as={to ? Link : 'span'}
+      to={to}
+      tone={warn ? 'warn' : 'neutral'}
+      icon={icon}
+      mono={mono}
+      title={title}
+      testId={testId}
+    >
+      <span className="ag-chip__text">{children}</span>
+      {count != null && <span className="ag-chip__count">{count}</span>}
+    </Tag>
+  )
+}
+
+// The folder an agent works in: its name, with a lock when the agent can only
+// read it; a warning that opens the editor when the folder is gone or was
+// never chosen. An agent with No files says so. An agent on all the files
+// shows nothing, or with `all` the words "All my files".
+//   meta   drawn as an item of the list's meta line instead of a chip
+export function FolderChip({ agent, all = false, meta = false }) {
+  const { t } = useTranslation('agents')
+  if (filesOff(agent)) {
+    return meta
+      ? <span data-testid="agent-folder-chip"><Icon name="lock" />{t('folder.none')}</span>
+      : <Chip icon="lock" testId="agent-folder-chip">{t('folder.none')}</Chip>
+  }
+  const st = folderState(agent)
+  if (st === 'none') return all ? <span className="ag-muted">{t('folder.all')}</span> : null
+  if (st !== 'ok') {
+    if (meta) {
+      return (
+        <Link to={agentPath(agent.id, '/edit')} className="ag-meta__warn" data-testid="agent-folder-chip" title={t(st === 'missing' ? 'folder.missing' : 'folder.unset')}>
+          <Icon name="warning" />{t(st === 'missing' ? 'folder.chipMissing' : 'folder.chipUnset')}
+        </Link>
+      )
+    }
+    return (
+      <Chip to={agentPath(agent.id, '/edit')} icon="warning" warn testId="agent-folder-chip" title={t(st === 'missing' ? 'folder.missing' : 'folder.unset')}>
+        {t(st === 'missing' ? 'folder.chipMissing' : 'folder.chipUnset')}
+      </Chip>
+    )
+  }
+  const rows = folderRows(agent)
+  const read = rows.every(f => (f.effective || f.mode) !== 'write')
+  const name = (folderName(rows[0].path) || t('folder.home')) + (rows.length > 1 ? ` +${rows.length - 1}` : '')
+  const mode = t(read ? 'folder.read' : 'folder.write')
+  const where = rows.map(f => `${f.path === '/' ? t('folder.home') : f.path} · ${t((f.effective || f.mode) === 'write' ? 'folder.write' : 'folder.read')}`).join('; ')
+  if (meta) {
+    return (
+      <span data-testid="agent-folder-chip" title={where}>
+        <Icon name={read ? 'lock' : 'folder'} />{t('folder.chip', { name, mode: t(read ? 'folder.readShort' : 'folder.writeShort') })}
+      </span>
+    )
+  }
+  return (
+    <Chip icon={read ? 'lock' : 'folder'} testId="agent-folder-chip" title={where}>
+      {t('folder.chip', { name, mode: t(read ? 'folder.readShort' : 'folder.writeShort') })}
+    </Chip>
+  )
+}
+
+// The collections and skills an agent may use, as chips that open the shared
+// Library and the skills page. An agent with none says so.
+export function LibraryChips({ info, kind }) {
+  const { t } = useTranslation('agents')
+  if (kind === 'memory') {
+    if (info.memory.length === 0) return <span className="ag-muted">{t('chips.none')}</span>
+    return info.memory.map(m => <Chip key={m} to="/app/collections" icon="database">{m}</Chip>)
+  }
+  if (info.skills.length === 0) return <span className="ag-muted">{t('chips.none')}</span>
+  return info.skills.map(s => <Chip key={s} to="/app/skills" icon="sparkles">{s}</Chip>)
+}
+
+export function formatWhen(ts, now = Date.now()) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const today = new Date(now)
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === today.toDateString()) return time
+  const yesterday = new Date(now - 86400000)
+  if (d.toDateString() === yesterday.toDateString()) return `${yesterdayWord()} ${time}`
+  const sameYear = d.getFullYear() === today.getFullYear()
+  return d.toLocaleDateString([], sameYear ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+function yesterdayWord() {
+  try {
+    return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-1, 'day')
+  } catch {
+    return 'Yesterday'
+  }
+}
+
+export function agentPath(id, tail = '') {
+  return `/app/agents/${encodeURIComponent(id)}${tail}`
+}

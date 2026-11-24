@@ -1,0 +1,16 @@
+# Garage (S3-compatible object store) for docker-compose.distributed.yaml.
+# Single node, no replication. Example values only: change the rpc_secret
+# (`openssl rand -hex 32`) for anything beyond a local test.
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "lmdb"
+
+replication_factor = 1
+
+rpc_bind_addr = "0.0.0.0:3901"
+rpc_public_addr = "garage:3901"
+rpc_secret = "1799bccfd7411eddcf9ebd316bc1f5287ad12a68094e1c6ac968d46e6e4d6b4c"
+
+[s3_api]
+s3_region = "us-east-1"
+api_bind_addr = "0.0.0.0:3900"

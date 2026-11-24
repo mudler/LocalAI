@@ -1,0 +1,563 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!doctype html>
+<html class="h-full overflow-y-scroll">
+  <head>
+    <title>zzqxjkvv · Ollama</title>
+
+    <meta charset="utf-8" />
+    <meta name="description" content="Search for models on Ollama."/>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta property="og:title" content="zzqxjkvv · Ollama" />
+    <meta property="og:description" content="Search for models on Ollama." />
+    <meta property="og:url" content="https://ollama.com/search" />
+    <meta property="og:image" content="https://ollama.com/public/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="628" />
+    <meta property="og:image:alt" content="Ollama's black-and-white logo" />
+    <meta property="og:type" content="website" />
+
+    <meta name="robots" content="index, follow" />
+
+    <meta property="twitter:card" content="summary" />
+    <meta property="twitter:title" content="zzqxjkvv · Ollama" />
+    <meta property="twitter:description" content="Search for models on Ollama." />
+    <meta property="twitter:site" content="ollama" />
+
+    <meta property="twitter:image:src" content="https://ollama.com/public/og-twitter.png" />
+    <meta property="twitter:image:width" content="1200" />
+    <meta property="twitter:image:height" content="628" />
+    <meta property="twitter:image:alt" content="Ollama's black-and-white logo" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+    <link rel="icon" type="image/png" sizes="16x16" href="/public/icon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/public/icon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/public/icon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/public/icon-64x64.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/public/android-chrome-icon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/public/android-chrome-icon-512x512.png" />
+
+    
+    
+
+    <link href="/public/tailwind.css?v=c3f4edf32afb30830f1adcd77f700f29" rel="stylesheet" />
+    <link href="/public/vendor/prism/prism.css?v=c3f4edf32afb30830f1adcd77f700f29" rel="stylesheet" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://ollama.com/#organization",
+            "name": "Ollama",
+            "legalName": "Ollama Inc.",
+            "url": "https://ollama.com",
+            "logo": "https://ollama.com/public/ollama.png",
+            "sameAs": ["https://github.com/ollama/ollama", "https://twitter.com/ollama"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://ollama.com/#website",
+            "name": "Ollama",
+            "url": "https://ollama.com",
+            "publisher": { "@id": "https://ollama.com/#organization" }
+          }
+        ]
+      }
+    </script>
+
+    <script type="text/javascript">
+      function copyToClipboard(element) {
+        let commandElement = null;
+        const preElement = element.closest('pre');
+        const languageNoneElement = element.closest('.language-none');
+
+        if (preElement) {
+          commandElement = preElement.querySelector('code');
+        } else if (languageNoneElement) {
+          commandElement = languageNoneElement.querySelector('.command');
+        } else {
+          const parent = element.parentElement;
+          if (parent) {
+            commandElement = parent.querySelector('.command');
+          }
+        }
+
+        if (!commandElement) {
+          console.error('No code or command element found');
+          return;
+        }
+
+        const code = commandElement.textContent ? commandElement.textContent.trim() : commandElement.value;
+
+        navigator.clipboard
+          .writeText(code)
+          .then(() => {
+            const copyIcon = element.querySelector('.copy-icon')
+            const checkIcon = element.querySelector('.check-icon')
+
+            copyIcon.classList.add('hidden')
+            checkIcon.classList.remove('hidden')
+
+            setTimeout(() => {
+              copyIcon.classList.remove('hidden')
+              checkIcon.classList.add('hidden')
+            }, 2000)
+          })
+      }
+    </script>
+    
+    <script>
+      
+      function getIcon(url) {
+        url = url.toLowerCase();
+        if (url.includes('x.com') || url.includes('twitter.com')) return 'x';
+        if (url.includes('github.com')) return 'github';
+        if (url.includes('linkedin.com')) return 'linkedin';
+        if (url.includes('youtube.com')) return 'youtube';
+        if (url.includes('hf.co') || url.includes('huggingface.co') || url.includes('huggingface.com')) return 'hugging-face';
+        return 'default';
+      }
+
+      function setInputIcon(input) {
+        const icon = getIcon(input.value);
+        const img = input.previousElementSibling.querySelector('img');
+        img.src = `/public/social/${icon}.svg`;
+        img.alt = `${icon} icon`;
+      }
+
+      function setDisplayIcon(imgElement, url) {
+        const icon = getIcon(url);
+        imgElement.src = `/public/social/${icon}.svg`;
+        imgElement.alt = `${icon} icon`;
+      }
+    </script>
+    
+    <script src="/public/vendor/htmx/bundle.js"></script>
+  </head>
+
+  <body
+    class="
+      antialiased
+      bg-white
+      min-h-screen
+      w-full
+      m-0
+      flex
+      flex-col
+    "
+    hx-on:keydown="
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        // Ignore key events in input fields.
+        return;
+      }
+      if ((event.metaKey && event.key === 'k') || event.key === '/') {
+        const sp = htmx.find('#search') || htmx.find('#form-input') || htmx.find('#filter');
+        if (sp) {
+          event.preventDefault();
+          sp.focus();
+        }
+      }
+    "
+  >
+    
+      
+<header class="sticky top-0 z-40 flex h-20 shrink-0 items-center border-b border-transparent bg-white px-5 sm:px-6 lg:px-8 text-black data-[scrolled]:border-black/[0.12] lg:static lg:border-b-0">
+  <nav aria-label="Main navigation" class="flex w-full items-center justify-between gap-6 text-lg leading-6 tracking-tight font-normal">
+    <div class="flex min-w-0 flex-1 items-center gap-6">
+      <a href="/" aria-label="Ollama home" class="-ml-0.5 flex-none"><img src="/public/ollama-nav.png" alt="Ollama logo" width="37" height="43" class="h-auto w-[37px]" /></a>
+      
+    </div>
+    <div class="hidden items-center gap-7 md:flex">
+      <a href="https://github.com/ollama/ollama" class="flex items-center gap-1.5 text-[17px]">
+        <svg class="h-[18px] w-[18px] flex-none" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z" /></svg>
+        <span class="sr-only">GitHub</span>
+        <span class="tabular-nums">187.8K</span>
+      </a>
+      <a href="/download" class="underline-offset-4 hover:underline">Download</a>
+      <a href="/search" class="underline-offset-4 hover:underline">Models</a>
+      <a href="https://docs.ollama.com" class="underline-offset-4 hover:underline">Docs</a>
+      <a href="/pricing" class="underline-offset-4 hover:underline">Pricing</a>
+      
+        <a href="/signin" class="underline-offset-4 hover:underline">Sign in</a>
+      
+    </div>
+    <div class="flex items-center md:hidden">
+      <input type="checkbox" id="menu" class="peer hidden" />
+      <label for="menu" aria-label="Open menu" class="z-50 block cursor-pointer peer-checked:hidden">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+      </label>
+      <label for="menu" aria-label="Close menu" class="fixed right-5 sm:right-6 lg:right-8 top-[26px] z-50 hidden cursor-pointer peer-checked:block">
+        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </label>
+      <div class="fixed inset-0 z-40 hidden overflow-y-auto bg-white peer-checked:block">
+        <div class="flex flex-col space-y-5 px-5 sm:px-6 lg:px-8 pb-8 pt-[5.5rem] text-3xl">
+          
+          <a href="/download">Download</a>
+          <a href="/search">Models</a>
+          <a href="https://docs.ollama.com">Docs</a>
+          <a href="/pricing">Pricing</a>
+          
+            <a href="/signin">Sign in</a>
+          
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+<script>
+  (function (header) {
+    function update() { header.toggleAttribute('data-scrolled', window.scrollY > 0); }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+  })(document.currentScript.previousElementSibling);
+</script>
+
+    
+
+    
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const formSearch = htmx.find('#form-input');
+    formSearch.setSelectionRange(formSearch.value.length, formSearch.value.length);
+    formSearch.focus();
+
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+
+    const sortControl = document.getElementById('search-sort-control');
+    const sortSelect = document.getElementById('search-sort');
+    const sortButton = document.getElementById('search-sort-button');
+    const sortMenu = document.getElementById('search-sort-menu');
+    const sortItems = [...sortMenu.querySelectorAll('[role=menuitemradio]')];
+
+    function syncSort() {
+      const label = sortSelect.selectedOptions[0].textContent;
+      document.getElementById('search-sort-label').textContent = label;
+      sortButton.setAttribute('aria-label', 'Sort: ' + label);
+      sortItems.forEach(item => item.setAttribute('aria-checked', item.dataset.value === sortSelect.value));
+    }
+
+    function focusSortItem(index) {
+      sortItems.forEach((item, i) => item.tabIndex = i === index ? 0 : -1);
+      sortItems[index].focus();
+    }
+
+    function openSort(index = 0) {
+      sortMenu.hidden = false;
+      sortButton.setAttribute('aria-expanded', 'true');
+      focusSortItem(index);
+    }
+
+    function closeSort(restoreFocus = false) {
+      sortMenu.hidden = true;
+      sortButton.setAttribute('aria-expanded', 'false');
+      if (restoreFocus) sortButton.focus();
+    }
+
+    sortButton.addEventListener('click', () => sortMenu.hidden ? openSort() : closeSort());
+    sortButton.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        openSort(event.key === 'ArrowUp' ? sortItems.length - 1 : 0);
+      }
+    });
+    sortMenu.addEventListener('click', event => {
+      const item = event.target.closest('[role=menuitemradio]');
+      if (!item) return;
+      if (sortSelect.value !== item.dataset.value) {
+        sortSelect.value = item.dataset.value;
+        sortSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      closeSort(true);
+    });
+    sortMenu.addEventListener('keydown', event => {
+      const index = sortItems.indexOf(document.activeElement);
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        if (event.key === 'Escape') event.preventDefault();
+        closeSort(true);
+      } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? sortItems.length - 1 :
+          (index + (event.key === 'ArrowDown' ? 1 : -1) + sortItems.length) % sortItems.length;
+        focusSortItem(next);
+      } else if (event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const next = sortItems.map((_, i) => (index + i + 1) % sortItems.length)
+          .find(i => sortItems[i].textContent.trim().toLowerCase().startsWith(event.key.toLowerCase()));
+        if (next !== undefined) {
+          event.preventDefault();
+          focusSortItem(next);
+        }
+      }
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!sortControl.contains(event.target)) closeSort();
+    });
+    sortControl.addEventListener('focusout', event => {
+      if (!sortControl.contains(event.relatedTarget)) closeSort();
+    });
+    sortSelect.addEventListener('change', syncSort);
+    syncSort();
+    document.getElementById('search-sort-native').hidden = true;
+    sortButton.hidden = false;
+  });
+</script>
+
+<main class="w-full px-5 pb-16 text-ink sm:px-6">
+  <form
+    class="mx-auto max-w-[44rem] xl:grid xl:max-w-none xl:grid-cols-[minmax(0,1fr)_minmax(0,44rem)_minmax(23.25rem,1fr)] xl:grid-rows-[auto_1fr]"
+    hx-get="/search"
+    hx-target="#searchresults"
+    hx-trigger="submit, keyup changed delay:100ms from:[name=q], search"
+    hx-include="[name=q], [name=c], [name=o], [name=s]"
+    hx-replace-url="true"
+    hx-on:change="
+      const size = this.querySelector('[name=s]');
+      if (this.querySelector('[value=cloud]:checked')) size.value = '';
+      document.getElementById('filters-count').textContent = [...this.querySelectorAll('input[name=c]:checked')].filter(i => i.value).length + (size.value ? 1 : 0) || '';
+    "
+  >
+    <input type="checkbox" id="filters-toggle" class="peer sr-only">
+
+    <div class="flex h-[5.75rem] items-center gap-1.5 xl:col-start-2 xl:row-start-1">
+      <h1 class="sr-only">Models</h1>
+      <div class="flex h-[3.25rem] min-w-0 flex-1 items-center rounded-full bg-fill pr-1.5 text-muted">
+        <label for="form-input" class="flex h-full min-w-0 flex-1 cursor-text items-center gap-3 pl-[1.125rem]">
+          <svg class="flex-none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20.5 20.5-4.5-4.5"/></svg>
+          <input
+            id="form-input"
+            name="q"
+            type="search"
+            value="zzqxjkvv"
+            class="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-ink placeholder:text-muted focus:outline-hidden focus:ring-0"
+            placeholder="Search models"
+            aria-label="Search models"
+            autofocus
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        
+
+<div id="search-sort-control" class="relative flex-none">
+<label id="search-sort-native" class="relative flex h-10 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-body font-medium text-secondary hover:bg-hover hover:text-ink has-[:focus-visible]:bg-hover max-sm:px-2.5">
+  <svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4v16M4 16.5 7.5 20l3.5-3.5M16.5 20V4M13 7.5 16.5 4 20 7.5"/></svg>
+  <select id="search-sort" hx-get="/search" name="o" aria-label="Sort" class="cursor-pointer appearance-none border-0 bg-transparent bg-none p-0 text-body font-medium text-current [field-sizing:content] focus:outline-hidden focus:ring-0 max-sm:absolute max-sm:inset-0 max-sm:opacity-0">
+    <option value="popular" >Popular</option>
+    <option value="newest" >Newest</option>
+    <option value="name" >Name</option>
+    <option value="price" >Price</option>
+    <option value="context" >Context</option>
+  </select>
+</label>
+<button hidden id="search-sort-button" type="button" tabindex="0" aria-label="Sort: Popular" aria-haspopup="menu" aria-expanded="false" aria-controls="search-sort-menu" class="flex h-10 items-center gap-1.5 rounded-full px-3.5 text-body font-medium text-secondary hover:bg-hover hover:text-ink aria-expanded:bg-hover max-sm:px-2.5">
+  <svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 4v16M4 16.5 7.5 20l3.5-3.5M16.5 20V4M13 7.5 16.5 4 20 7.5"/></svg>
+  <span id="search-sort-label" class="hidden sm:inline">Popular</span>
+</button>
+<div hidden id="search-sort-menu" role="menu" aria-label="Sort models" class="absolute right-0 top-full z-50 mt-1 w-44 rounded-2xl border border-line bg-white p-1.5 shadow-lg">
+  <button type="button" role="menuitemradio" aria-checked="true" data-value="popular" tabindex="-1" class="group flex min-h-10 w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-ui text-secondary hover:bg-hover focus:bg-hover">
+    <span>Popular</span>
+    <svg aria-hidden="true" class="invisible size-4 group-aria-checked:visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+  </button>
+  <button type="button" role="menuitemradio" aria-checked="false" data-value="newest" tabindex="-1" class="group flex min-h-10 w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-ui text-secondary hover:bg-hover focus:bg-hover">
+    <span>Newest</span>
+    <svg aria-hidden="true" class="invisible size-4 group-aria-checked:visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+  </button>
+  <button type="button" role="menuitemradio" aria-checked="false" data-value="name" tabindex="-1" class="group flex min-h-10 w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-ui text-secondary hover:bg-hover focus:bg-hover">
+    <span>Name</span>
+    <svg aria-hidden="true" class="invisible size-4 group-aria-checked:visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+  </button>
+  <button type="button" role="menuitemradio" aria-checked="false" data-value="price" tabindex="-1" class="group flex min-h-10 w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-ui text-secondary hover:bg-hover focus:bg-hover">
+    <span>Price</span>
+    <svg aria-hidden="true" class="invisible size-4 group-aria-checked:visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+  </button>
+  <button type="button" role="menuitemradio" aria-checked="false" data-value="context" tabindex="-1" class="group flex min-h-10 w-full items-center justify-between gap-4 rounded-xl px-3 py-2 text-left text-ui text-secondary hover:bg-hover focus:bg-hover">
+    <span>Context</span>
+    <svg aria-hidden="true" class="invisible size-4 group-aria-checked:visible" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>
+  </button>
+</div>
+</div>
+
+      </div>
+      <label for="filters-toggle" aria-label="Filters" class="relative grid size-11 flex-none cursor-pointer select-none place-items-center rounded-full hover:bg-hover xl:hidden">
+        <svg class="flex-none" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+        <span id="filters-count" class="absolute right-0 top-0 grid h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full bg-ink px-1 text-[0.6875rem] font-semibold tabular-nums text-white empty:hidden">1</span>
+      </label>
+    </div>
+
+    <div class="group mb-6 hidden peer-checked:block xl:sticky xl:top-0 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mb-0 xl:ml-[2.75rem] xl:block xl:max-h-screen xl:w-[20.5rem] xl:self-start xl:overflow-y-auto xl:px-1 xl:pb-8 xl:pt-[1.625rem] xl:[scrollbar-width:none]">
+      
+
+
+<h2 class="sr-only">Filters</h2>
+<div class="flex flex-col gap-8">
+  <fieldset>
+    <legend class="sr-only">Where</legend>
+    <div class="group/where relative isolate grid h-10 grid-cols-3">
+      <span aria-hidden="true" class="absolute inset-y-0 left-0 -z-10 w-1/3 rounded-full border border-black/25 bg-white transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] group-has-[[value=local]:checked]/where:translate-x-full group-has-[[value=cloud]:checked]/where:translate-x-[200%]"></span>
+      
+      <label class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full text-body font-semibold text-muted transition-colors hover:text-ink has-[:checked]:text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="radio" name="c" value=""  class="sr-only">Any</label>
+      
+      <label class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full text-body font-semibold text-muted transition-colors hover:text-ink has-[:checked]:text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="radio" name="c" value="local" checked class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/><path d="M10 3.5v3M14 3.5v3M10 17.5v3M14 17.5v3M3.5 10h3M3.5 14h3M17.5 10h3M17.5 14h3"/></svg>Local</label>
+      
+      <label class="flex cursor-pointer items-center justify-center gap-1.5 rounded-full text-body font-semibold text-muted transition-colors hover:text-ink has-[:checked]:text-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="radio" name="c" value="cloud"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.5 19h9.5a4.5 4.5 0 0 0 .4-9 6 6 0 0 0-11.6 1.6A3.8 3.8 0 0 0 7.5 19z"/></svg>Cloud</label>
+      
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend class="mb-3 text-body font-medium">Capabilities</legend>
+    <div class="grid grid-cols-2 gap-2">
+      
+      <label class="flex h-10 cursor-pointer items-center gap-2.5 rounded-full border-[0.5px] border-outline pl-3.5 pr-4 text-body font-medium hover:bg-hover has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:checked]:hover:bg-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="checkbox" name="c" value="tools"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.6 3.8a5 5 0 0 0-5.5 6.6l-5.3 5.3a2 2 0 0 0 0 2.8l1.7 1.7a2 2 0 0 0 2.8 0l5.3-5.3a5 5 0 0 0 6.6-5.5l-3 3-2.9-.7-.7-2.9z"/></svg>Tools
+      </label>
+      
+      <label class="flex h-10 cursor-pointer items-center gap-2.5 rounded-full border-[0.5px] border-outline pl-3.5 pr-4 text-body font-medium hover:bg-hover has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:checked]:hover:bg-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="checkbox" name="c" value="thinking"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3.5a5.8 5.8 0 0 0-3.4 10.5c.6.5 1 1.2 1 2v.5h4.8V16c0-.8.4-1.5 1-2A5.8 5.8 0 0 0 12 3.5z"/></svg>Thinking
+      </label>
+      
+      <label class="flex h-10 cursor-pointer items-center gap-2.5 rounded-full border-[0.5px] border-outline pl-3.5 pr-4 text-body font-medium hover:bg-hover has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:checked]:hover:bg-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="checkbox" name="c" value="vision"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Vision
+      </label>
+      
+      <label class="flex h-10 cursor-pointer items-center gap-2.5 rounded-full border-[0.5px] border-outline pl-3.5 pr-4 text-body font-medium hover:bg-hover has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:checked]:hover:bg-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="checkbox" name="c" value="embedding"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.5 8.5 4.5-8.5 4.5L3.5 8z"/><path d="m3.5 12 8.5 4.5 8.5-4.5M3.5 16l8.5 4.5 8.5-4.5"/></svg>Embedding
+      </label>
+      
+      <label class="flex h-10 cursor-pointer items-center gap-2.5 rounded-full border-[0.5px] border-outline pl-3.5 pr-4 text-body font-medium hover:bg-hover has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:checked]:hover:bg-ink has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-black/10">
+        <input hx-get="/search" type="checkbox" name="c" value="decision"  class="sr-only"><svg class="flex-none" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5V14L6.5 8.5M12 14l5.5-5.5"/><path d="M6.5 13V8.5H11M17.5 13V8.5H13"/></svg>Decision
+      </label>
+      
+    </div>
+  </fieldset>
+  <fieldset class="group-has-[[value=cloud]:checked]:hidden">
+    <legend class="mb-3 text-body font-medium">Download size</legend>
+    <select id="search-size" hx-get="/search" name="s" aria-label="Download size" class="h-10 w-full cursor-pointer rounded-full border-[0.5px] border-outline bg-white bg-[position:right_1rem_center] pl-4 pr-10 text-body font-medium focus:border-black/30 focus:ring-0">
+      <option value="" selected>Any size</option>
+      <option value="8" >Up to 8 GB</option>
+      <option value="16" >Up to 16 GB</option>
+      <option value="32" >Up to 32 GB</option>
+      <option value="64" >Up to 64 GB</option>
+      <option value="over64" >Over 64 GB</option>
+    </select>
+  </fieldset>
+</div>
+
+      <button type="button" id="filters-done" class="mt-8 h-10 w-full rounded-full bg-ink text-body font-medium text-white xl:hidden" hx-on:click="document.getElementById('filters-toggle').checked = false; document.getElementById('searchresults').scrollIntoView()">Show 0 models</button>
+    </div>
+
+    <div
+      id="searchresults"
+      class="min-w-0 scroll-mt-24 xl:col-start-2 xl:row-start-2"
+      hx-on::after-swap="
+        const count = this.querySelector('[data-result-count]');
+        const total = Number(count.dataset.resultCount);
+        document.getElementById('filters-done').textContent = 'Show ' + total.toLocaleString('en-US') + (count.dataset.hasMore === 'true' ? '+' : '') + (total === 1 ? ' model' : ' models');
+
+        const title = this.querySelector('[data-seo=title]');
+        const description = this.querySelector('[data-seo=description]');
+
+        if (title) {
+          document.title = title.textContent;
+        }
+        if (title && description) {
+          document.querySelector('meta[property=\'og:title\']').setAttribute('content', title.textContent);
+          document.querySelector('meta[property=\'og:description\']').setAttribute('content', description.textContent);
+
+          document.querySelector('meta[property=\'twitter:title\']').setAttribute('content', title.textContent);
+          document.querySelector('meta[property=\'twitter:description\']').setAttribute('content', description.textContent);
+
+          document.querySelector('meta[name=\'description\']').setAttribute('content', description.textContent);
+        }
+      "
+    >
+      
+<div hidden data-seo="title">zzqxjkvv · Ollama</div>
+<div hidden data-seo="description">Search for models on Ollama.</div>
+<div hidden data-result-count="0" data-has-more="false"></div>
+<ul role="list" class="overflow-hidden rounded-3xl border-[0.5px] border-line">
+  
+    <li class="px-6 py-16 text-center text-base text-muted">
+      No models found.
+    </li>
+  
+</ul>
+
+    </div>
+  </form>
+</main>
+<style>
+  #form-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    height: 16px;
+    width: 16px;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><line x1='18' y1='6' x2='6' y2='18'></line><line x1='6' y1='6' x2='18' y2='18'></line></svg>");
+    background-size: 16px 16px;
+    cursor: pointer;
+    margin-right: 5px;
+  }
+</style>
+
+
+    
+      
+<footer class="mt-auto underline-offset-4">
+  <div class="flex flex-col items-center justify-center px-4 py-4 md:flex-row md:justify-between md:px-6 md:py-3.5 lg:px-gutter">
+    <div class="order-2 mt-2 text-sm text-neutral-500 md:order-1 md:mt-0 md:text-xs">&copy; 2026 Ollama</div>
+    <ul data-footer-links class="order-1 flex flex-wrap items-center justify-center text-sm text-neutral-500 md:order-2 md:gap-x-6 md:text-xs">
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/blog" class="hover:underline">Blog</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://docs.ollama.com" class="hover:underline">Docs</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://github.com/ollama/ollama" class="hover:underline">GitHub</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://discord.com/invite/ollama" class="hover:underline">Discord</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://twitter.com/ollama" class="hover:underline">X (Twitter)</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/support" class="hover:underline">Support</a>
+      </li>
+      <li class="mx-2 my-1 md:hidden">
+        <a href="https://lu.ma/ollama" class="hover:underline">Meetups</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="https://jobs.ashbyhq.com/ollama" class="hover:underline">Careers</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/privacy" class="hover:underline">Privacy</a>
+      </li>
+      <li class="mx-2 my-1 md:mx-0 md:my-0">
+        <a href="/terms" class="hover:underline">Terms</a>
+      </li>
+    </ul>
+  </div>
+</footer>
+
+    
+
+    
+    <span class="hidden" id="end_of_template"></span>
+  </body>
+</html>

@@ -1,0 +1,689 @@
+package auth
+
+import (
+	"bytes"
+	"crypto/subtle"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"slices"
+	"strings"
+
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/schema"
+	"gorm.io/gorm"
+)
+
+const (
+	contextKeyUser                = "auth_user"
+	contextKeyRole                = "auth_role"
+	contextKeyAPIKey              = "auth_apikey" // #nosec G101 -- the name of a request context key, not a credential
+	contextKeySource              = "auth_source"
+	contextKeyHeaderAuthenticated = "auth_header_authenticated"
+)
+
+// Middleware returns an Echo middleware that handles authentication.
+//
+// Resolution order:
+//  1. If auth not enabled AND no legacy API keys → pass through
+//  2. If auth enabled (db != nil):
+//     a. Try "session" cookie → DB lookup
+//     b. Try Authorization: Bearer → session ID, then user API key
+//     c. Try x-api-key / xi-api-key → user API key
+//     d. Try "token" cookie → legacy API key check
+//     e. Check all extracted keys against legacy ApiKeys → synthetic admin
+//  3. If auth not enabled → delegate to legacy API key validation
+//  4. Allow authenticated requests, public routes, PathWithoutAuth overrides,
+//     and route groups that apply alternative authentication
+//  5. Apply the legacy GET regex override when configured
+//  6. Deny every other request
+func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// An in-process caller (see WithInternalUser) is already authenticated.
+			if u, ok := internalUser(c.Request().Context()); ok {
+				c.Set(contextKeyUser, u)
+				c.Set(contextKeyRole, u.Role)
+				c.Set(contextKeySource, UsageSourceChats)
+				return next(c)
+			}
+
+			authEnabled := db != nil
+			hasLegacyKeys := len(appConfig.ApiKeys) > 0
+
+			// 1. No auth at all
+			if !authEnabled && !hasLegacyKeys {
+				return next(c)
+			}
+
+			path := c.Request().URL.Path
+			authenticated := false
+
+			// 2. Try to authenticate (populates user in context if possible)
+			if authEnabled {
+				user := tryAuthenticate(c, db, appConfig)
+				if user != nil {
+					c.Set(contextKeyUser, user)
+					c.Set(contextKeyRole, user.Role)
+					authenticated = true
+					// A paired client's key is a device acting for its owner, not
+					// the person being active.
+					if key, ok := c.Get(contextKeyAPIKey).(*UserAPIKey); !ok || !key.IsClientKey() {
+						TouchLastActive(db, user)
+					}
+
+					// Session rotation for cookie-based sessions
+					if session, ok := c.Get("_auth_session").(*Session); ok {
+						MaybeRotateSession(c, db, session, appConfig.Auth.APIKeyHMACSecret)
+					}
+				}
+			}
+
+			// 3. Legacy API key validation (works whether auth is enabled or not)
+			if !authenticated && hasLegacyKeys {
+				key := extractKey(c)
+				if key != "" && isValidLegacyKey(key, appConfig) {
+					syntheticUser := &User{
+						ID:   "legacy-api-key",
+						Name: "API Key User",
+						Role: RoleAdmin,
+					}
+					c.Set(contextKeyUser, syntheticUser)
+					c.Set(contextKeyRole, RoleAdmin)
+					c.Set(contextKeySource, UsageSourceLegacy)
+					for _, name := range []string{"Authorization", "X-Api-Key", "Xi-Api-Key"} {
+						if value := c.Request().Header.Get(name); value != "" {
+							c.Set(contextKeyTicketCredential, ticketCredential{name, value})
+							break
+						}
+					}
+					if c.Get(contextKeyTicketCredential) == nil {
+						if cookie, err := c.Cookie("token"); err == nil {
+							c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
+						}
+					}
+					c.Set(contextKeyHeaderAuthenticated, extractHeaderKey(c) != "")
+					authenticated = true
+				}
+			}
+
+			// 4. Public rules are evaluated after authentication so public handlers
+			// can still observe a valid user when credentials are supplied.
+			public := isPublicRoute(c.Request().Method, path)
+			overridden := isExemptPath(path, appConfig)
+			alternativeAuth := usesAlternativeAuthentication(path)
+			if authenticated || public || overridden || alternativeAuth {
+				return next(c)
+			}
+
+			// 5. Check GET exemptions for legacy keys.
+			if hasLegacyKeys && appConfig.DisableApiKeyRequirementForHttpGet && c.Request().Method == http.MethodGet {
+				for _, rx := range appConfig.HttpGetExemptedEndpoints {
+					if rx.MatchString(c.Path()) {
+						return next(c)
+					}
+				}
+			}
+
+			return authError(c, appConfig)
+		}
+	}
+}
+
+// RequireAdmin returns middleware that checks the user has admin role.
+func RequireAdmin() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			user := GetUser(c)
+			if user == nil {
+				return c.JSON(http.StatusUnauthorized, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "Authentication required",
+						Code:    http.StatusUnauthorized,
+						Type:    "authentication_error",
+					},
+				})
+			}
+			if user.Role != RoleAdmin {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "Admin access required",
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			return next(c)
+		}
+	}
+}
+
+// NoopMiddleware returns a middleware that does nothing (pass-through).
+// Used when auth is disabled to satisfy route registration that expects
+// an admin middleware parameter.
+func NoopMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return next
+	}
+}
+
+// RequireFeature returns middleware that checks the user has access to the given feature.
+// If no auth DB is provided, it passes through (backward compat).
+// Admins always pass. Regular users must have the feature enabled in their permissions.
+func RequireFeature(db *gorm.DB, feature string) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			user := GetUser(c)
+			if user == nil {
+				return c.JSON(http.StatusUnauthorized, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "Authentication required",
+						Code:    http.StatusUnauthorized,
+						Type:    "authentication_error",
+					},
+				})
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "feature not enabled for your account",
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			val, exists := perm.Permissions[feature]
+			if !exists {
+				if !isDefaultOnFeature(feature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "feature not enabled for your account",
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+			} else if !val {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "feature not enabled for your account",
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			return next(c)
+		}
+	}
+}
+
+// GetUser returns the authenticated user from the echo context, or nil.
+func GetUser(c echo.Context) *User {
+	u, ok := c.Get(contextKeyUser).(*User)
+	if !ok {
+		return nil
+	}
+	return u
+}
+
+// GetUserRole returns the role of the authenticated user, or empty string.
+func GetUserRole(c echo.Context) string {
+	role, _ := c.Get(contextKeyRole).(string)
+	return role
+}
+
+// GetAPIKey returns the resolved API key from the echo context, or nil.
+// Nil for session-cookie and legacy-env-key authentication.
+func GetAPIKey(c echo.Context) *UserAPIKey {
+	k, _ := c.Get(contextKeyAPIKey).(*UserAPIKey)
+	return k
+}
+
+// GetSource returns the request's authentication source: UsageSourceAPIKey,
+// UsageSourceWeb, UsageSourceLegacy, or empty if no authentication was performed.
+func GetSource(c echo.Context) string {
+	s, _ := c.Get(contextKeySource).(string)
+	return s
+}
+
+// routeFeatureLookups splits the registry into two maps keyed "METHOD:pattern":
+// the feature a user needs and the client feature a client key needs. A client
+// row of a shared feature does not gate users. A client row of any other
+// client feature gates users too when the route has no user row, so a user
+// session cannot use a route that belongs to client keys.
+func routeFeatureLookups(registry []RouteFeature) (user, client map[string]string) {
+	user, client = map[string]string{}, map[string]string{}
+	for _, rf := range registry {
+		key := rf.Method + ":" + rf.Pattern
+		if IsClientFeature(rf.Feature) {
+			client[key] = rf.Feature
+		} else {
+			user[key] = rf.Feature
+		}
+	}
+	for key, f := range client {
+		if _, has := user[key]; !has && !slices.Contains(sharedClientFeatures, f) {
+			user[key] = f
+		}
+	}
+	return user, client
+}
+
+// RequireRouteFeature returns a global middleware that checks the user has access
+// to the feature required by the matched route. It uses the RouteFeatureRegistry
+// to look up the required feature for each route pattern + HTTP method.
+// If no entry matches, the request passes through (no restriction).
+func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	lookup, clientLookup := routeFeatureLookups(RouteFeatureRegistry)
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			path := c.Path() // Echo route pattern (e.g. "/v1/engines/:model/completions")
+			method := c.Request().Method
+			feature := lookup[method+":"+path]
+			if feature == "" {
+				feature = lookup["*:"+path]
+			}
+			clientFeature := clientLookup[method+":"+path]
+			if clientFeature == "" {
+				clientFeature = clientLookup["*:"+path]
+			}
+			// A client key is deny by default: it passes only a registered route
+			// whose feature is in its allow-list. An unregistered route, a user
+			// feature and a feature the key does not hold are all refused.
+			// A public route ignores the credential, so a client that still sends
+			// its key can pair again and a probe can read the health routes.
+			// OPTIONS is the exception: it is public so that a browser preflight,
+			// which carries no credential, reaches the CORS middleware. A request
+			// that does carry a client key is no preflight, and a route that a
+			// later change registers for every method (Any) would otherwise
+			// answer it. It takes the same deny-by-default path as any other.
+			if ck := ClientKey(c); ck != nil && (method == http.MethodOptions || !isPublicRoute(method, c.Request().URL.Path)) {
+				if clientFeature == "" || !ck.ClientAllows(clientFeature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "this credential cannot use this route",
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+				return next(c)
+			}
+			if feature == "" {
+				return next(c) // no restriction for this route
+			}
+			user := GetUser(c)
+			if user == nil {
+				return next(c) // auth middleware handles unauthenticated
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "failed to check permissions",
+						Code:    http.StatusInternalServerError,
+						Type:    "server_error",
+					},
+				})
+			}
+			val, exists := perm.Permissions[feature]
+			if !exists {
+				if !isDefaultOnFeature(feature) {
+					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+						Error: &schema.APIError{
+							Message: "feature not enabled for your account: " + feature,
+							Code:    http.StatusForbidden,
+							Type:    "authorization_error",
+						},
+					})
+				}
+			} else if !val {
+				return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "feature not enabled for your account: " + feature,
+						Code:    http.StatusForbidden,
+						Type:    "authorization_error",
+					},
+				})
+			}
+			return next(c)
+		}
+	}
+}
+
+// RequireModelAccess returns a global middleware that checks the user is allowed
+// to use the resolved model. It extracts the model name directly from the request
+// (path param, query param, JSON body, or form value) rather than relying on a
+// context key set by downstream route-specific middleware.
+func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			user := GetUser(c)
+			if user == nil {
+				return next(c)
+			}
+			if user.Role == RoleAdmin {
+				return next(c)
+			}
+			// Client routes name no model, and the body of a client request is
+			// read once, with a limit, by the client proxy.
+			if ClientKey(c) != nil {
+				return next(c)
+			}
+
+			// Check if this user even has a model allowlist enabled before
+			// doing the expensive body read. Most users won't have restrictions.
+			// Uses request-scoped cache to avoid duplicate DB hit when
+			// RequireRouteFeature already fetched permissions.
+			perm, err := GetCachedUserPermissions(c, db, user.ID)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "failed to check permissions",
+						Code:    http.StatusInternalServerError,
+						Type:    "server_error",
+					},
+				})
+			}
+			allowlist := perm.AllowedModels
+			if !allowlist.Enabled {
+				return next(c)
+			}
+
+			modelName := extractModelFromRequest(c)
+			if modelName == "" {
+				return next(c)
+			}
+
+			for _, m := range allowlist.Models {
+				if m == modelName {
+					return next(c)
+				}
+			}
+
+			return c.JSON(http.StatusForbidden, schema.ErrorResponse{
+				Error: &schema.APIError{
+					Message: "access denied to model: " + modelName,
+					Code:    http.StatusForbidden,
+					Type:    "authorization_error",
+				},
+			})
+		}
+	}
+}
+
+// extractModelFromRequest extracts the model name from various request sources.
+// It checks URL path params, query params, JSON body, and form values.
+// For JSON bodies, it peeks at the body and resets it so downstream handlers
+// can still read it.
+func extractModelFromRequest(c echo.Context) string {
+	// 1. URL path param (e.g. /v1/engines/:model/completions)
+	if model := c.Param("model"); model != "" {
+		return model
+	}
+	// 2. Query param
+	if model := c.QueryParam("model"); model != "" {
+		return model
+	}
+	// 3. Peek at JSON body
+	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "application/json") {
+		body, err := io.ReadAll(c.Request().Body)
+		c.Request().Body = io.NopCloser(bytes.NewReader(body)) // always reset
+		if err == nil && len(body) > 0 {
+			var m struct {
+				Model string `json:"model"`
+			}
+			if json.Unmarshal(body, &m) == nil && m.Model != "" {
+				return m.Model
+			}
+		}
+	}
+	// 4. Form value (multipart/form-data)
+	if model := c.FormValue("model"); model != "" {
+		return model
+	}
+	return ""
+}
+
+// RequireQuota returns a global middleware that enforces per-user quota rules.
+// If no auth DB is provided, it's a no-op. Admin users always bypass quotas.
+// Only inference routes (those listed in RouteFeatureRegistry) count toward quota.
+func RequireQuota(db *gorm.DB) echo.MiddlewareFunc {
+	if db == nil {
+		return NoopMiddleware()
+	}
+	// Pre-build lookup set from RouteFeatureRegistry — only these routes
+	// should count toward quota. Mirrors RequireRouteFeature's approach.
+	inferenceRoutes := map[string]bool{}
+	for _, rf := range RouteFeatureRegistry {
+		// A row of a shared client feature adds a way in for a client key; it
+		// is not a modality of a user (GET /v1/models has no user row).
+		if slices.Contains(sharedClientFeatures, rf.Feature) {
+			continue
+		}
+		inferenceRoutes[rf.Method+":"+rf.Pattern] = true
+	}
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// Only enforce quotas on inference routes
+			path := c.Path()
+			method := c.Request().Method
+			if !inferenceRoutes[method+":"+path] && !inferenceRoutes["*:"+path] {
+				return next(c)
+			}
+
+			user := GetUser(c)
+			if user == nil {
+				return next(c)
+			}
+			if user.Role == RoleAdmin || ClientKey(c) != nil {
+				return next(c)
+			}
+
+			model := extractModelFromRequest(c)
+
+			exceeded, retryAfter, msg := QuotaExceeded(db, user.ID, model)
+			if exceeded {
+				c.Response().Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
+				return c.JSON(http.StatusTooManyRequests, schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: msg,
+						Code:    http.StatusTooManyRequests,
+						Type:    "quota_exceeded",
+					},
+				})
+			}
+
+			return next(c)
+		}
+	}
+}
+
+// tryAuthenticate attempts to authenticate the request using the database.
+//
+// On success it returns the user and, as a side effect, sets the following
+// values on the Echo context:
+//   - contextKeySource ("auth_source"): always set, one of UsageSourceWeb /
+//     UsageSourceAPIKey. UsageSourceLegacy is set elsewhere by the parent
+//     Middleware when a legacy env key matches.
+//   - contextKeyAPIKey ("auth_apikey"): set to the resolved *UserAPIKey for
+//     named-key branches (Bearer, x-api-key, xi-api-key, token cookie).
+//   - "_auth_session": session record, used by Middleware to drive cookie
+//     rotation. Only set on the session-cookie branch.
+//
+// contextKeyUser and contextKeyRole are populated by the parent Middleware
+// after this function returns.
+func tryAuthenticate(c echo.Context, db *gorm.DB, appConfig *config.ApplicationConfig) *User {
+	hmacSecret := appConfig.Auth.APIKeyHMACSecret
+
+	// a. Session cookie -> web UI
+	if cookie, err := c.Cookie(sessionCookie); err == nil && cookie.Value != "" {
+		if user, session := ValidateSession(db, cookie.Value, hmacSecret); user != nil {
+			// Store session for rotation check in middleware
+			c.Set("_auth_session", session)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
+			c.Set(contextKeySource, UsageSourceWeb)
+			return user
+		}
+	}
+
+	// b. Authorization: Bearer
+	authHeader := c.Request().Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// b1. Session token via Bearer -> still web UI
+		if user, _ := ValidateSession(db, token, hmacSecret); user != nil {
+			c.Set(contextKeyHeaderAuthenticated, true)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
+			c.Set(contextKeySource, UsageSourceWeb)
+			return user
+		}
+
+		// b2. Named API key
+		if key, err := ValidateCredentialKey(db, token, hmacSecret); err == nil {
+			c.Set(contextKeyHeaderAuthenticated, true)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Authorization", authHeader})
+			c.Set(contextKeySource, UsageSourceAPIKey)
+			c.Set(contextKeyAPIKey, key)
+			return keyUser(key)
+		}
+	}
+
+	// c. x-api-key / xi-api-key -> named API key
+	for _, header := range []string{"x-api-key", "xi-api-key"} {
+		if k := c.Request().Header.Get(header); k != "" {
+			if apiKey, err := ValidateCredentialKey(db, k, hmacSecret); err == nil {
+				c.Set(contextKeyHeaderAuthenticated, true)
+				c.Set(contextKeyTicketCredential, ticketCredential{header, k})
+				c.Set(contextKeySource, UsageSourceAPIKey)
+				c.Set(contextKeyAPIKey, apiKey)
+				return keyUser(apiKey)
+			}
+		}
+	}
+
+	// d. token cookie -> named API key
+	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
+		if key, err := ValidateCredentialKey(db, cookie.Value, hmacSecret); err == nil {
+			c.Set(contextKeySource, UsageSourceAPIKey)
+			c.Set(contextKeyTicketCredential, ticketCredential{"Cookie", cookie.String()})
+			c.Set(contextKeyAPIKey, key)
+			return keyUser(key)
+		}
+	}
+
+	return nil
+}
+
+// keyUser returns the identity a key authenticates as. A user key is its
+// owner. A client key is the owner's record with the role of an ordinary user,
+// whatever the owner is, so that no admin check passes for a client even if a
+// route forgot its client gate.
+func keyUser(k *UserAPIKey) *User {
+	if !k.IsClientKey() {
+		return &k.User
+	}
+	u := k.User
+	u.Role = RoleUser
+	return &u
+}
+
+// extractKey extracts an API key from headers, falling back to the token cookie.
+func extractKey(c echo.Context) string {
+	if key := extractHeaderKey(c); key != "" || c.Request().Header.Get("Authorization") != "" {
+		return key
+	}
+	if cookie, err := c.Cookie("token"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	return ""
+}
+
+func extractHeaderKey(c echo.Context) string {
+	auth := c.Request().Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+	if auth != "" {
+		return auth
+	}
+	if key := c.Request().Header.Get("x-api-key"); key != "" {
+		return key
+	}
+	return c.Request().Header.Get("xi-api-key")
+}
+
+// isValidLegacyKey checks if the key matches any configured API key
+// using constant-time comparison to prevent timing attacks.
+func isValidLegacyKey(key string, appConfig *config.ApplicationConfig) bool {
+	for _, validKey := range appConfig.ApiKeys {
+		if subtle.ConstantTimeCompare([]byte(key), []byte(validKey)) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+// isExemptPath returns true if the path should skip authentication.
+func isExemptPath(path string, appConfig *config.ApplicationConfig) bool {
+	for _, p := range appConfig.PathWithoutAuth {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// authError returns an appropriate error response.
+func authError(c echo.Context, appConfig *config.ApplicationConfig) error {
+	c.Response().Header().Set("WWW-Authenticate", "Bearer")
+
+	if appConfig.OpaqueErrors {
+		return c.NoContent(http.StatusUnauthorized)
+	}
+
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		return c.JSON(http.StatusUnauthorized, schema.ErrorResponse{
+			Error: &schema.APIError{
+				Message: "An authentication key is required",
+				Code:    http.StatusUnauthorized,
+				Type:    "invalid_request_error",
+			},
+		})
+	}
+
+	return c.JSON(http.StatusUnauthorized, schema.ErrorResponse{
+		Error: &schema.APIError{
+			Message: "An authentication key is required",
+			Code:    http.StatusUnauthorized,
+			Type:    "invalid_request_error",
+		},
+	})
+}
+
+// HeaderAuthenticated reports validation of an explicitly supplied credential.
+func HeaderAuthenticated(c echo.Context) bool {
+	validated, _ := c.Get(contextKeyHeaderAuthenticated).(bool)
+	return validated && GetUser(c) != nil
+}

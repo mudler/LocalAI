@@ -1,0 +1,113 @@
+{
+  "title": "Conocimiento",
+  "subtitle": "Colecciones de documentos en las que los agentes pueden buscar. Busca en cualquiera desde aquí o añade una a un agente cuando quieras que la use.",
+  "newPlaceholder": "Nombre de la nueva colección...",
+  "actions": {
+    "create": "Crear",
+    "details": "Detalles",
+    "reset": "Restablecer",
+    "delete": "Eliminar",
+    "viewDetails": "Ver detalles",
+    "resetCollection": "Restablecer colección",
+    "deleteCollection": "Eliminar colección",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "sections": {
+    "yourCollections": "Tus colecciones",
+    "otherUsersCollections": "Colecciones de otros usuarios",
+    "sharedWithYou": "Compartidas contigo"
+  },
+  "empty": {
+    "title": "Aún no hay colecciones",
+    "text": "Las colecciones te permiten organizar documentos en bases de conocimiento que los agentes pueden buscar usando RAG (Retrieval-Augmented Generation). Crea una colección arriba para empezar.",
+    "noPersonal": "Aún no tienes colecciones.",
+    "learn": "Cómo funciona el conocimiento"
+  },
+  "deleteDialog": {
+    "title": "Eliminar colección",
+    "message": "¿Eliminar la colección \"{{name}}\"? Esto eliminará todas las entradas y no se puede deshacer.",
+    "confirm": "Eliminar"
+  },
+  "resetDialog": {
+    "title": "Restablecer colección",
+    "message": "¿Restablecer la colección \"{{name}}\"? Esto eliminará todas las entradas pero mantendrá la colección.",
+    "confirm": "Restablecer"
+  },
+  "toasts": {
+    "created": "Colección \"{{name}}\" creada",
+    "createFailed": "Error al crear colección: {{message}}",
+    "deleted": "Colección \"{{name}}\" eliminada",
+    "deleteFailed": "Error al eliminar colección: {{message}}",
+    "reset": "Colección \"{{name}}\" restablecida",
+    "resetFailed": "Error al restablecer colección: {{message}}"
+  },
+  "loadFailed": "No se pudieron cargar tus colecciones.",
+  "sources": {
+    "loadFailed": "No se pudieron cargar las fuentes web.",
+    "noneShared": "Sin fuentes web."
+  },
+  "entries": {
+    "loadFailed": "No se pudieron cargar los archivos.",
+    "filter": "Filtrar archivos",
+    "countAll_one": "{{count}} archivo",
+    "countAll_other": "{{count}} archivos",
+    "countOf": "{{shown}} de {{total}} archivos",
+    "noMatch": "Ningún archivo coincide."
+  },
+  "starting": {
+    "title": "El conocimiento se está iniciando.",
+    "text": "El servidor aún está preparando el servicio de conocimiento. Esta página vuelve a preguntar sola."
+  },
+  "embedding": {
+    "missingTitle": "No hay ningún modelo de embeddings instalado.",
+    "missingText": "Las colecciones usan {{model}} para indexar los archivos y buscar en ellos. Hasta que se instale, añadir archivos y buscar fallan.",
+    "noneSet": "No hay ningún modelo de embeddings configurado para las colecciones (collections_embedding_model), así que añadir archivos y buscar fallan.",
+    "install": "Buscarlo en Modelos",
+    "askAdmin": "Pide a un administrador que lo instale."
+  },
+  "searchMode": {
+    "label": "Búsqueda: {{mode}}",
+    "semantic": "semántica",
+    "hybrid": "híbrida",
+    "semanticHint": "Encuentra pasajes por su significado, no por palabras o códigos exactos.",
+    "hybridHint": "Encuentra pasajes por su significado y por palabras exactas."
+  },
+  "pane": {
+    "addFile": "Añadir archivo"
+  },
+  "share": {
+    "label": "Compartir",
+    "button": "Compartir {{name}}",
+    "intro": "Las personas que añadas encuentran esta colección en su lista y sus agentes pueden buscar en ella por su nombre.",
+    "failed": "No se pudo compartir la colección: {{message}}",
+    "roles": {
+      "viewer": "Puede ver",
+      "viewerHelp": "Puede buscar en ella y leer sus archivos.",
+      "editor": "Puede editar",
+      "editorHelp": "También puede añadir y quitar archivos."
+    },
+    "noteViewer": "Puedes buscar en ella y leer sus archivos.",
+    "noteEditor": "Puedes buscar en ella y añadir o quitar archivos."
+  },
+  "create": {
+    "title": "Nueva colección",
+    "hint": "Ponle un nombre que reconozcas. Añadirás archivos y páginas web cuando exista."
+  },
+  "sort": {
+    "label": "Ordenar colecciones",
+    "name": "Nombre, de A a Z",
+    "name-desc": "Nombre, de Z a A",
+    "used": "Más usadas",
+    "unused": "Sin usar primero"
+  },
+  "list": {
+    "countAll_one": "{{count}} colección",
+    "countAll_other": "{{count}} colecciones",
+    "countOf": "{{shown}} de {{total}} colecciones",
+    "menu": "Acciones de {{name}}"
+  },
+  "menu": {
+    "try": "Probar una pregunta"
+  }
+}

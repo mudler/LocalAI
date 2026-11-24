@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+accelerate
+torch
+torchvision
+torchaudio
+transformers

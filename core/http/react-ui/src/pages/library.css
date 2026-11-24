@@ -1,0 +1,321 @@
+/* Library: Skills and Memory. A list of what you have on one side, the open
+   item on the other. Everything is named lib-*. Colours, radii and spacing come
+   from the kit roles (--dk-*). Selection is a surface step and a mark, never a
+   bar on the left edge. On a phone the list and the item take turns. */
+
+.lib-page :is(a, button, summary, select, input, textarea, [tabindex]):focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.lib-muted { color: var(--dk-muted); }
+.lib-mono { font-family: var(--font-mono); }
+.lib-eyebrow {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.lib-count { margin-left: 6px; font-weight: 500; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.lib-head-actions { display: flex; align-items: center; gap: var(--dk-space-2); flex-wrap: wrap; }
+.lib-file { display: none; }
+
+/* ---- Split ---------------------------------------------------------------- */
+.lib-split { grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); align-items: start; }
+/* The rail is a fixed toolbar over a list that scrolls inside it. Its height is
+   bounded by the window, so two hundred items never make the page two hundred
+   rows tall, and it stays in view while the open item scrolls with the page. */
+.lib-rail {
+  display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden;
+  position: sticky; top: var(--dk-space-4);
+  max-height: max(360px, calc(100dvh - 176px));
+}
+.lib-bar { flex: none; display: flex; flex-direction: column; gap: var(--dk-space-2); padding: var(--dk-space-3); border-bottom: 1px solid var(--dk-edge); }
+.lib-bar__row { display: flex; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.lib-bar__select { flex: 1 1 0; min-width: 0; }
+.lib-bar .ui-search { flex: 1 1 auto; }
+.lib-bar .ui-seg { flex: 1 1 auto; }
+.lib-bar .ui-seg__item { flex: 1 1 auto; justify-content: center; }
+.lib-bar__sort { flex: none; display: inline-flex; }
+.lib-bar__sort .action-menu__trigger { opacity: 1; width: var(--ctl-h); height: var(--ctl-h); border-color: var(--dk-control-edge); background: var(--dk-card); color: var(--dk-text); }
+.lib-bar__sort .action-menu__trigger:hover, .lib-bar__sort .action-menu__trigger.is-open { background: var(--dk-hover); border-color: var(--dk-control-edge); }
+.lib-countline { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-2) var(--dk-space-4); font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.lib-countline__clear { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
+.lib-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--dk-space-2) var(--dk-space-2); scrollbar-gutter: stable; }
+.lib-rows { display: flex; flex-direction: column; gap: 1px; margin: 0; padding: 0; list-style: none; }
+.lib-row-count { font-variant-numeric: tabular-nums; }
+.lib-rail__none { margin: 0; padding: var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); }
+.lib-nomatch { display: flex; flex-direction: column; align-items: center; gap: var(--dk-space-2); padding: var(--dk-space-6) var(--dk-space-4); text-align: center; color: var(--dk-muted); font-size: var(--fs-small); }
+.lib-nomatch .lai-icon { width: 22px; height: 22px; }
+.lib-nomatch p { margin: 0; max-width: 26ch; }
+
+/* A heading over a run of rows stays at the top of the list while its rows scroll. */
+.lib-heading { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--dk-space-2); padding: var(--dk-space-3) var(--dk-space-3) var(--dk-space-1); background: var(--dk-card); font-size: var(--fs-meta); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.lib-heading__text { margin: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+.lib-heading__count { font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.lib-more-row { display: flex; justify-content: center; padding: var(--dk-space-2) 0; }
+
+/* A row, and the quiet menu of its actions. The menu sits over the right edge:
+   it takes the place of the row's badge while the row is hovered or has focus. */
+.lib-item { position: relative; }
+.lib-row { min-height: 48px; padding-right: var(--dk-space-3); }
+.lib-item__menu { position: absolute; top: 50%; right: var(--dk-space-2); transform: translateY(-50%); }
+.lib-item .action-menu__trigger { opacity: 0; background: var(--dk-card); border-color: var(--dk-edge); }
+.lib-item:hover .action-menu__trigger,
+.lib-item:focus-within .action-menu__trigger,
+.lib-item .action-menu__trigger.is-open { opacity: 1; }
+.lib-item:hover .lib-row__end,
+.lib-item:focus-within .lib-row__end,
+.lib-item:has(.action-menu__trigger.is-open) .lib-row__end { visibility: hidden; }
+.lib-row__end { flex: none; }
+.lib-row__title { min-width: 0; }
+@media (hover: none) {
+  .lib-item .action-menu__trigger { opacity: 1; }
+  .lib-row { padding-right: 44px; }
+  .lib-item:hover .lib-row__end, .lib-item:focus-within .lib-row__end { visibility: visible; }
+}
+
+/* Compact rows: one line each, the note after the name. About twice the rows
+   in the same height. */
+.lib-rail[data-density="compact"] .lib-row { min-height: 36px; padding-block: 4px; gap: var(--dk-space-2); }
+.lib-rail[data-density="compact"] .dk-row-lead { width: 24px; height: 24px; }
+.lib-rail[data-density="compact"] .dk-row-main { flex-direction: row; align-items: baseline; gap: var(--dk-space-3); }
+.lib-rail[data-density="compact"] .lib-row__title { flex: 0 1 auto; }
+.lib-rail[data-density="compact"] .lib-row__meta { flex: 1 1 0; min-width: 0; }
+.lib-rail[data-density="compact"] .share-badge { display: none; }
+
+/* The loading rail has the shape of the loaded one. */
+.lib-skel__search { height: 36px; border-radius: var(--dk-radius-2); }
+.lib-skel__bar { height: 28px; width: 70%; }
+.lib-skel__row { display: flex; align-items: center; gap: var(--dk-space-3); padding: 8px var(--dk-space-3); min-height: 52px; }
+.lib-skel__lead { width: 32px; height: 32px; border-radius: var(--dk-radius-1); flex: none; }
+.lib-skel__text { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; }
+.lib-skel__a { width: 55%; }
+.lib-skel__b { width: 35%; height: 9px; }
+.lib-skel__wide { width: 70%; }
+
+.lib-others { margin-top: var(--dk-space-2); }
+/* The collections that other people shared with the user, under the user's own. */
+.lib-shared { margin-top: var(--dk-space-2); }
+.lib-rows .dk-row .share-badge { margin-top: 2px; }
+.lib-pane__title .share-badge { margin-top: var(--dk-space-1); }
+.lib-pane { padding: var(--dk-space-5); min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.lib-pane__empty { padding: var(--dk-space-7) var(--dk-space-4); text-align: center; color: var(--dk-muted); }
+.lib-back { display: none; }
+
+@media (max-width: 1200px) {
+  .lib-split { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+  .lib-bar .ui-seg__item { padding: 0 var(--sp-2); gap: 4px; }
+}
+@media (max-width: 900px) {
+  .lib-split { grid-template-columns: minmax(0, 1fr); }
+  .lib-split[data-view="pane"] .lib-rail { display: none; }
+  .lib-split[data-view="list"] .lib-pane { display: none; }
+  .lib-back { display: inline-flex; align-self: flex-start; margin-left: -8px; }
+  .lib-pane { padding: var(--dk-space-4); }
+  /* On a phone the page scrolls, not the rail: a list inside a page that
+     scrolls is a trap for a thumb. "Show more" keeps the page short. */
+  .lib-rail { position: static; max-height: none; overflow: visible; }
+  .lib-scroll { overflow: visible; }
+}
+
+/* ---- Pane header ---------------------------------------------------------- */
+.lib-pane__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-pane__title { min-width: 0; }
+.lib-pane__title h2 { margin: 0; font-family: var(--font-sans); font-size: var(--fs-section); line-height: var(--lh-section); font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.lib-pane__sub { margin: 4px 0 0; color: var(--color-text-secondary); font-size: var(--fs-small); max-width: 64ch; }
+.lib-pane__acts { display: flex; align-items: center; gap: var(--dk-space-2); flex-wrap: wrap; }
+.lib-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lib-fact { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 10px; border-radius: var(--dk-radius-pill); background: var(--dk-inset); font-size: var(--fs-meta); color: var(--color-text-secondary); }
+
+/* ---- Used by -------------------------------------------------------------- */
+.lib-usedby { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-usedby__end { margin-left: auto; display: inline-flex; gap: var(--dk-space-2); }
+.lib-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.lib-chip { max-width: 100%; }
+.lib-chip__link { color: var(--dk-text); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.lib-chip__link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.lib-chip__note { font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-notused { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.lib-notused p { margin: 0; flex: 1 1 260px; font-size: var(--fs-small); color: var(--color-text-secondary); }
+.lib-notused strong { color: var(--dk-text); }
+.lib-notused__acts { display: inline-flex; gap: var(--dk-space-2); flex-wrap: wrap; }
+
+/* ---- Add to menu ---------------------------------------------------------- */
+.lib-addmenu { width: 340px; max-width: calc(100vw - 32px); padding: var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-2); z-index: var(--dk-z-popover); }
+.lib-addmenu__title { margin: 0; font-weight: 600; font-size: var(--fs-small); }
+.lib-addmenu__sub { margin: 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-addmenu__empty { font-size: var(--fs-small); color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 8px; }
+.lib-addmenu__empty p { margin: 0; }
+.lib-addmenu__list { margin: 0; padding: 0; list-style: none; max-height: 300px; overflow: auto; display: flex; flex-direction: column; }
+.lib-addmenu__row { display: flex; align-items: center; gap: var(--dk-space-3); padding: 8px 4px; border-top: 1px solid var(--dk-edge); }
+.lib-addmenu__row:first-child { border-top: 0; }
+.lib-addmenu__main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lib-addmenu__name { font-weight: 600; font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-addmenu__hint { font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-addmenu__done { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-meta); color: var(--dk-muted); }
+
+/* ---- Tabs and panes ------------------------------------------------------- */
+.lib-section { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.lib-section + .lib-section { padding-top: var(--dk-space-2); }
+.lib-section h3 { margin: 0; }
+.lib-section__title { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.lib-section__title .lib-count { margin-left: 0; font-variant-numeric: tabular-nums; }
+.lib-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px var(--dk-space-5); margin: 0; font-size: var(--fs-small); }
+.lib-kv dt { color: var(--dk-muted); }
+.lib-kv dd { margin: 0; overflow-wrap: anywhere; }
+.lib-pre { margin: 0; padding: var(--dk-space-3) var(--dk-space-4); max-height: 420px; overflow: auto; border-radius: var(--dk-radius-2); background: var(--dk-inset); font-family: var(--font-mono); font-size: var(--fs-meta); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lib-files { margin: 0; padding: 0; list-style: none; }
+.lib-file-row { display: flex; align-items: center; gap: var(--dk-space-3); padding: 8px 0; border-top: 1px solid var(--dk-edge); font-size: var(--fs-small); }
+.lib-file-row:first-child { border-top: 0; }
+.lib-file-row .lib-mono { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-note { margin: 0; padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.lib-note--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.lib-note--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+
+/* ---- Git repositories ------------------------------------------------------ */
+.lib-git-form { display: flex; gap: var(--dk-space-2); flex-wrap: wrap; }
+.lib-git-form .dk-input { flex: 1 1 240px; min-width: 0; }
+.lib-repo { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; padding: var(--dk-space-3) 0; border-top: 1px solid var(--dk-edge); }
+.lib-repo:first-child { border-top: 0; }
+.lib-repo__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lib-repo__name { font-weight: 600; overflow-wrap: anywhere; }
+.lib-repo__url { font-size: var(--fs-meta); color: var(--dk-muted); overflow-wrap: anywhere; }
+.lib-repo__acts { display: inline-flex; gap: var(--dk-space-2); }
+
+/* ---- Memory ---------------------------------------------------------------- */
+.lib-ask { display: flex; gap: var(--dk-space-2); }
+.lib-ask .dk-input-icon { flex: 1 1 auto; min-width: 0; }
+.lib-ask__tune { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; font-size: var(--fs-small); color: var(--dk-muted); }
+.lib-ask__tune .dk-input { width: 84px; }
+.lib-passages { margin: 0; padding: 0; list-style: none; }
+.lib-passage { display: grid; grid-template-columns: 22px minmax(0, 1fr) 96px; gap: var(--dk-space-3); padding: var(--dk-space-3) 0; border-top: 1px solid var(--dk-edge); }
+.lib-passage:first-child { border-top: 0; }
+.lib-passage__n { font-variant-numeric: tabular-nums; font-size: var(--fs-meta); color: var(--dk-muted); padding-top: 2px; }
+.lib-passage__main { min-width: 0; }
+.lib-passage__text { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lib-passage__meta { display: flex; flex-wrap: wrap; gap: var(--dk-space-3); margin: 4px 0 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-score { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.lib-score__n { font-variant-numeric: tabular-nums; font-size: var(--fs-small); font-weight: 600; }
+.lib-score__track { width: 92px; height: 4px; border-radius: var(--r-xs); background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); overflow: hidden; }
+.lib-score__fill { display: block; height: 100%; background: var(--dk-accent); }
+.lib-ledger { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; }
+.lib-line { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); padding: 12px 0; border-top: 1px solid var(--dk-edge); }
+.lib-line:first-child { border-top: 0; }
+.lib-line__lead { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--dk-radius-1); background: var(--dk-inset); color: var(--dk-muted); }
+.lib-line__main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lib-line__name { font-weight: 600; font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lib-line__meta { font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-line__acts { display: inline-flex; gap: 4px; align-items: center; }
+.lib-ledger--dense .lib-line { padding: 6px 0; }
+.lib-ledger--dense .lib-line__lead { width: 24px; height: 24px; }
+.lib-ledger--dense .lib-line__name { font-weight: 500; }
+.lib-ledger--dense .lib-line:hover { background: var(--dk-hover); }
+.lib-filebar { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-filebar .ui-search { flex: 1 1 14rem; max-width: 28rem; }
+.lib-filebar__count { font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.lib-ledger--dense .lib-line__acts .dk-btn { opacity: .6; }
+.lib-ledger--dense .lib-line:hover .lib-line__acts .dk-btn, .lib-ledger--dense .lib-line:focus-within .lib-line__acts .dk-btn { opacity: 1; }
+@media (hover: none) { .lib-ledger--dense .lib-line__acts .dk-btn { opacity: 1; } }
+.lib-more-files { align-self: flex-start; }
+.lib-line[data-state="failed"] .lib-line__meta { color: var(--dk-error-text); }
+.lib-line__err { grid-column: 2 / -1; margin: 0; padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-error-wash); color: var(--dk-error-text); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.lib-line__prog { grid-column: 2 / -1; }
+.lib-adding { display: flex; flex-direction: column; gap: var(--dk-space-4); padding: var(--dk-space-4); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); }
+.lib-adding__row { display: flex; align-items: flex-end; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-adding__row .dk-field { flex: 1 1 200px; min-width: 0; }
+.lib-adding__row .lib-narrow { flex: 0 0 160px; }
+.lib-adding .dk-input[type="file"] { padding-top: 7px; }
+.lib-disc { border-top: 1px solid var(--dk-edge); padding-top: var(--dk-space-3); }
+.lib-disc > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-small); list-style: none; display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.lib-disc > summary::-webkit-details-marker { display: none; }
+.lib-disc > summary .lai-icon { transition: transform var(--dk-dur-2) var(--dk-ease-out); }
+.lib-disc[open] > summary .lai-icon { transform: rotate(90deg); }
+.lib-disc__body { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: var(--dk-space-2); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.lib-disc__body p { margin: 0; }
+.lib-paths { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.lib-paths li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: var(--fs-meta); }
+.lib-paths .lib-verb { min-width: 52px; font-family: var(--font-mono); font-size: var(--fs-meta); font-weight: 600; color: var(--dk-muted); }
+.lib-paths code { font-family: var(--font-mono); overflow-wrap: anywhere; color: var(--dk-text); }
+
+/* ---- Empty states ----------------------------------------------------------- */
+.lib-empty { max-width: 560px; margin: var(--dk-space-6) auto; display: flex; flex-direction: column; align-items: center; gap: var(--dk-space-3); text-align: center; }
+.lib-empty .dk-empty-icon { margin: 0; }
+.lib-empty h2 { margin: 0; font: var(--dk-weight-semibold) var(--dk-text-21) / 1.25 var(--dk-font-display); }
+.lib-empty p { margin: 0; color: var(--color-text-secondary); max-width: 52ch; }
+.lib-empty__steps { margin: var(--dk-space-2) 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; text-align: left; color: var(--color-text-secondary); font-size: var(--fs-small); }
+.lib-empty__steps li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; }
+.lib-empty__steps .lib-step-n { font-family: var(--font-mono); color: var(--dk-muted); }
+.lib-empty__acts { display: flex; gap: var(--dk-space-2); flex-wrap: wrap; justify-content: center; }
+
+/* ---- Simulate sheet ---------------------------------------------------------- */
+.lib-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.lib-sim-row { display: flex; gap: var(--dk-space-3); align-items: flex-start; }
+.lib-sim-grow { flex: 1 1 auto; min-width: 0; }
+.lib-sim-narrow { flex: 0 0 96px; }
+.lib-only { display: flex; flex-direction: column; gap: 8px; padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.lib-sim-actions { display: flex; align-items: center; gap: var(--dk-space-3); flex-wrap: wrap; }
+.lib-sim-note { font-size: var(--fs-meta); }
+.lib-result { display: flex; flex-direction: column; gap: var(--dk-space-5); }
+.lib-sim-block { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.lib-sim-total { margin: 4px 0 0; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
+.lib-sim-fine { margin: 0; font-size: var(--fs-meta); }
+.lib-sim-list { margin: 0; padding: 0; list-style: none; }
+.lib-sim-item { display: flex; align-items: center; gap: var(--dk-space-3); padding: 8px 0; border-top: 1px solid var(--dk-edge); font-size: var(--fs-small); }
+.lib-sim-item:first-child { border-top: 0; }
+.lib-sim-item__end { margin-left: auto; font-variant-numeric: tabular-nums; font-size: var(--fs-meta); color: var(--dk-muted); text-align: right; }
+.lib-sim-group { display: flex; flex-direction: column; gap: 4px; }
+body:has(.lib-veil) .dk-toast-region { left: calc((100% - min(480px, 100%)) / 2); }
+@media (max-width: 640px) {
+  body:has(.lib-veil) .dk-toast-region { left: 50%; bottom: auto; top: var(--dk-space-3); }
+  .lib-passage { grid-template-columns: 18px minmax(0, 1fr); }
+  .lib-passage .lib-score { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-disc > summary .lai-icon { transition: none; }
+}
+
+.lib-kv__pair { display: contents; }
+.lib-gap { margin-left: var(--dk-space-2); }
+.lib-fine { margin: 0; font-size: var(--fs-meta); }
+.lib-mode { margin: 0 0 var(--dk-space-3); font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.lib-mode strong { color: var(--dk-text); font-weight: 600; }
+.lib-more { align-self: flex-start; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--dk-accent-text); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Hints under the skill and memory pickers of the agent form */
+.lib-hint { margin-top: 2px; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-hint--total, .lib-hint--block { margin-top: var(--dk-space-3); font-size: var(--fs-small); }
+/* The kit's segments are fixed shares plus a gap; let them shrink so the bar
+   never runs past the sheet. */
+.lib-result .dk-meter-seg { flex: 0 1 var(--dk-w, 0%); }
+
+/* ---- Skill editor ---------------------------------------------------- */
+.lib-edit { display: flex; flex-direction: column; gap: var(--dk-space-4); max-width: 880px; }
+.ag-edit__head ~ .lib-edit, .ag-edit__head ~ .dk-callout { margin-top: var(--sp-6); }
+.lib-edit__card { display: flex; flex-direction: column; gap: var(--dk-space-4); padding: var(--dk-space-5); }
+.lib-edit__card h2 { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.lib-edit__set { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.lib-edit__field { display: flex; flex-direction: column; gap: 6px; }
+.lib-edit__hint { display: flex; justify-content: space-between; gap: var(--dk-space-3); margin: 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lib-edit__hint--error { color: var(--dk-error-text); }
+.lib-edit__body { font-family: var(--font-mono); font-size: var(--fs-small); min-height: 320px; }
+.lib-edit__bar { position: sticky; bottom: 0; z-index: 2; display: flex; justify-content: flex-end; gap: var(--dk-space-2); padding: var(--dk-space-3) 0; background: var(--dk-page, var(--color-bg-primary)); border-top: 1px solid var(--dk-edge); }
+@media (max-width: 700px) { .lib-edit__card { padding: var(--dk-space-4); } }
+
+/* ---- Motion ------------------------------------------------------------------
+   What the person just added enters in place: a collection, a file being
+   indexed, a source, the add panel and the create form. Transform and opacity
+   only; @starting-style, so no keyframes. Reduced motion ends it at once (the
+   global rule in index.css). */
+.lib-line,
+.lib-rows .dk-row,
+.lib-adding,
+.lib-pane__head {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+@starting-style {
+  .lib-line, .lib-rows .dk-row, .lib-adding, .lib-create--page { opacity: 0; transform: translateY(4px); }
+  .lib-pane__head { opacity: 0; }
+}
+.lib-rail[data-density="compact"] .dk-row-main { overflow: hidden; }

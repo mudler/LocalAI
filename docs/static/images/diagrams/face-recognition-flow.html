@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Face recognition</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Face recognition</p>
+<h1>Identify, with a <span class="hl">liveness</span> gate</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch">
+<div class="fl"><div class="row" style="margin-bottom:22px"><div class="rowlab">Register</div><div class="flow" style="flex:1"><div class="node cen"><b>Photo</b><span>enroll one face</span></div><div class="ar"></div><div class="node cen"><b>Embed</b><span>face vector</span></div><div class="ar"></div><div class="node cen"><b>Store</b><span>under a name</span></div></div></div><div class="row" style="margin-bottom:22px"><div class="rowlab">Identify</div><div class="flow" style="flex:1"><div class="node cen"><b>Probe image</b><span>a query face</span></div><div class="ar"></div><div class="node cen"><b>Embed</b><span>face vector</span></div><div class="ar"></div><div class="node cen"><b>Top-K</b><span>cosine search</span></div><div class="ar"></div><div class="node cen"><b>Match</b><span>best candidate</span></div></div></div><div class="row" style="margin-bottom:22px"><div class="rowlab">Verify</div><div class="flow" style="flex:1"><div class="node cen"><b>Match</b><span>1 against 1 or 1:N</span></div><div class="ar"></div><div class="node warn cen"><b>Liveness</b><span>anti-spoofing can veto</span></div><div class="ar"></div><div class="node soft cen"><b>Verified</b><span>both must pass</span></div></div></div></div>
+<div class="ar" style="width:50px;margin:0 6px"></div>
+<div class="col" style="justify-content:center;width:250px"><div class="node core cen"><b>Vector store</b><span>face embeddings</span></div></div></div>
+
+</div>
+<div class="foot">Register once. <b>A spoof check can reject a match</b> that scored well.</div>
+</body></html>

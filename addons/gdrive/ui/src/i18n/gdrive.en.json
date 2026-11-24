@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Let your agents read the files in the Drive folders you list. If you allow it, they can also create and change text files there.",
+  "limits": "Select Connect with Google to add a connection and sign in to your Google account. This page sets the folders and the write mode of each connection. An agent works in Drive only when you ask it in a chat.",
+  "edit": "Edit Google Drive connection",
+  "name": "Name",
+  "folders": "Folders the agent may use",
+  "foldersHelp": "One folder ID or folder address per line. {{count}} listed. A folder includes everything inside it. Any other file is refused.",
+  "foldersShape": "\"{{entry}}\" is not a folder ID. Copy it from the address of the folder in your browser, after /folders/.",
+  "foldersMany": "At most 50 folders.",
+  "allFolders": {
+    "label": "All folders (My Drive and shared drives)",
+    "hint": "The agent can read every file your Google login can see, in My Drive and in shared drives. With this off, it uses only the folders you list.",
+    "warning": "This lets the agent read every file that your Google login can reach, not only the files in a folder. The write mode below still applies.",
+    "confirm": "I understand: allow all folders",
+    "row": "All folders (My Drive and shared drives)"
+  },
+  "agent": "Agent",
+  "agentNone": "Choose an agent",
+  "agentCredentialsOnly": "No agent (credentials only)",
+  "agentOptionalHint": "Optional. Without an agent this connection only holds the login, the folder list and the write mode for your chats. It answers no messages and listens for nothing.",
+  "credentialsOnly": "Credentials only",
+  "agentNoModel": "{{name}} (needs a model)",
+  "test": "Test",
+  "testOk": "Connected as {{bot}}.",
+  "checkFailed": "Saved. The check failed: {{reason}}",
+  "save": "Save",
+  "cancel": "Cancel",
+  "editButton": "Edit",
+  "delete": "Delete",
+  "empty": "No Google Drive connections yet. Select Connect with Google to add one.",
+  "connect": "Connect with Google",
+  "defaultName": "Google Drive",
+  "noFolders": "No folders listed: the agent can read nothing.",
+  "foldersOf": "{{count}} folders: {{list}}",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Not running: {{reason}}.",
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "message": "The agent can no longer reach these folders. LocalAI asks Google to revoke the login, then forgets it.",
+    "confirm": "Delete"
+  },
+  "setup": {
+    "title": "How to choose folders",
+    "step1": "Open the folder in Google Drive in your browser. The address ends with /folders/ and the ID of the folder.",
+    "step2": "Copy the whole address, or only the ID, and paste it in the list. Use root for the top of My Drive.",
+    "step3": "The write mode below also needs the optional access to be allowed when you connect. Without it the agent can only read."
+  },
+  "writeMode": {
+    "label": "What the agent may change in Drive",
+    "hint": "Create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file or deletes one for good.",
+    "off": "Read only",
+    "propose": "Asks you first",
+    "auto": "Allow all",
+    "line": {
+      "off": "It cannot change anything in Drive.",
+      "propose": "Each change waits for your OK.",
+      "auto": "Your chats make the change at once."
+    },
+    "note": {
+      "off": "Write access is off: this connection only reads.",
+      "propose": "Each change waits in your approvals until you confirm it. It also needs the optional write access that you allow when you connect.",
+      "auto": "A chat of yours makes each change at once, without asking, and LocalAI cannot undo it. Runs without you present still wait for your confirmation. It also needs the optional write access that you allow when you connect."
+    },
+    "row": {
+      "off": "Read only",
+      "propose": "Asks you first",
+      "auto": "Allow all"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Create a file",
+      "update-file": "Change a file",
+      "move-file": "Move a file",
+      "trash-file": "Move a file to the trash"
+    },
+    "file": "File",
+    "name": "Name",
+    "newName": "New name",
+    "in": "In folder",
+    "allowedFolder": "The folder you allowed",
+    "moveTo": "Move to",
+    "type": "Type",
+    "text": "Text that will be saved ({{bytes}} bytes)",
+    "cut": "The text shown here is cut. The full text, {{bytes}} bytes, is saved.",
+    "trashNote": "The file goes to the trash. You can restore it from there.",
+    "replaceNote": "The new text replaces the whole text of the file."
+  }
+}

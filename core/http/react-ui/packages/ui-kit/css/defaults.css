@@ -1,0 +1,70 @@
+/* Product tokens for an app that does not load the web UI's src/theme.css.
+   The kit rules (kit.css) read these names: spacing, type, radii, control
+   heights, motion, focus and a few text and border roles. Each value is the
+   one src/theme.css sets on :root (tests/unit/uikitpackage.test.mjs checks
+   that they match), so the kit looks the same with either file. The web UI
+   loads theme.css instead of this file. The colours come from the --dk-*
+   roles of the theme (themes/localai.css). */
+:root {
+  --color-bg-primary: var(--dk-canvas);
+  --color-border-card: color-mix(in srgb, var(--dk-edge) 88%, var(--dk-text));
+  --color-border-subtle: color-mix(in srgb, var(--dk-edge) 65%, var(--dk-canvas));
+  --color-text-muted: var(--dk-muted);
+  --color-text-primary: var(--dk-text);
+  --color-text-secondary: color-mix(in srgb, var(--dk-text) 78%, var(--dk-muted));
+  --ctl-h: 36px;
+  --ctl-h-sm: 28px;
+  --dur-base: 200ms;
+  --dur-fast: 140ms;
+  --dur-instant: 90ms;
+  --dur-slow: 280ms;
+  --duration-normal: var(--dur-base);
+  --ease-default: var(--ease-out);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-strong: cubic-bezier(0.16, 1, 0.3, 1);
+  --focus-ring: 0 0 0 2px var(--dk-canvas), 0 0 0 4px var(--focus-ring-color);
+  --focus-ring-color: color-mix(in srgb, var(--dk-accent) 70%, transparent);
+  --font-sans: "Geist Variable", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --fs-body: 15px;
+  --fs-lead: 17px;
+  --fs-meta: 12px;
+  --fs-section: var(--fs-lead);
+  --fs-small: 13px;
+  --fs-title: 28px;
+  --lh-body: 22px;
+  --lh-lead: 24px;
+  --lh-meta: 16px;
+  --lh-section: var(--lh-lead);
+  --lh-small: 18px;
+  --lh-title: 34px;
+  --page-max-content: 1120px;
+  --page-max-default: 1600px;
+  --r-lg: 12px;
+  --r-md: 8px;
+  --r-sm: 6px;
+  --r-xl: 16px;
+  --r-xs: 4px;
+  --radius-full: 9999px;
+  --shadow-subtle: 0 1px 2px rgb(var(--dk-shadow-tint) / calc(.06 * var(--dk-shadow-k, 1)));
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 64px;
+  --sp-1: 4px;
+  --sp-10: 40px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --spacing-2xl: 3rem;
+  --spacing-xl: var(--sp-8);
+}
+
+/* The button edge in dark (kit.css reads it only there). */
+[data-theme="dark"] {
+  --ctl-edge-dark: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-edge));
+}

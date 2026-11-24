@@ -1,0 +1,43 @@
+{
+  "note": "LocalAI theme for the 36 colour roles of the product-neutral design kit (variable prefix --dk-). Source of truth: edit this file, then run scripts/gen-theme.py to write theme-localai.css. Provisional until the team confirms the logo teal, the status colours and the series set. Check with: python3 -I scripts/contrast.py --theme",
+  "version": "0.1.0-provisional",
+  "brand": {
+    "logo-teal": "#005b69",
+    "periwinkle": "#7f8fd0",
+    "periwinkle-deep": "#4a5aa0",
+    "yellow": "#ffc93c",
+    "orange": "#ff8a2b",
+    "ink": "#232a52",
+    "cream": "#fff4dc",
+    "sun": "#ffe3a3",
+    "dark": "#0c1211",
+    "lens-teal": "#0ea595",
+    "teal-bright": "#6fd8ca"
+  },
+  "light": {
+    "canvas": "#fff4dc", "inset": "#f9e6bd", "card": "#fffdf7", "hover": "#f3dca8",
+    "text": "#232a52", "muted": "#4d5478", "edge": "#e6d9bd", "control-edge": "#6c78b0",
+    "accent": "#4a5aa0", "on-accent": "#ffffff", "accent-text": "#3d4c93", "accent-wash": "#dfe4f7",
+    "ok": "#1f7a4c", "on-ok": "#ffffff", "ok-text": "#1d6e46", "ok-wash": "#dcefe3",
+    "warn": "#8c5400", "on-warn": "#ffffff", "warn-text": "#7a4a00", "warn-wash": "#f8e6c4",
+    "error": "#b3261e", "on-error": "#ffffff", "error-text": "#a51d16", "error-wash": "#f8dcd8",
+    "inverse": "#232a52", "on-inverse": "#fff4dc",
+    "scrim": "rgb(35 42 82 / .38)", "shadow-tint": "35 42 82", "shadow-k": "1",
+    "series-1": "#3a732c", "series-2": "#6e519d", "series-3": "#9a4729",
+    "series-4": "#006d93", "series-5": "#c26e16", "series-6": "#97386b",
+    "grid": "#e8dcc2"
+  },
+  "dark": {
+    "canvas": "#0c1211", "inset": "#080d0c", "card": "#141c1b", "hover": "#1f2a29",
+    "text": "#fff4dc", "muted": "#b9bfd0", "edge": "#27332f", "control-edge": "#6f7fbd",
+    "accent": "#7f8fd0", "on-accent": "#0c1211", "accent-text": "#9aa8e0", "accent-wash": "#1d2442",
+    "ok": "#7fd39b", "on-ok": "#0c1211", "ok-text": "#8fdcaa", "ok-wash": "#14291f",
+    "warn": "#ffc93c", "on-warn": "#0c1211", "warn-text": "#ffd466", "warn-wash": "#2b2410",
+    "error": "#ff9d92", "on-error": "#0c1211", "error-text": "#ffaea5", "error-wash": "#33191a",
+    "inverse": "#fff4dc", "on-inverse": "#0c1211",
+    "scrim": "rgb(0 0 0 / .62)", "shadow-tint": "0 0 0", "shadow-k": "2.5",
+    "series-1": "#69a45c", "series-2": "#9e80d1", "series-3": "#d07758",
+    "series-4": "#299fcd", "series-5": "#cf7b26", "series-6": "#a54477",
+    "grid": "#222d2b"
+  }
+}

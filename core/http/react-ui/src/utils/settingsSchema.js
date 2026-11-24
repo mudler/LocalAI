@@ -1,0 +1,620 @@
+// What the Settings page knows about each setting.
+//
+// GET /api/settings returns values only: no defaults, no descriptions, no
+// groups. Everything below is a client-side description of those real fields,
+// and each fact in it comes from the code (cited per field) or from the page
+// as it was before the rebuild.
+//
+//   group    the intent group the field is shown under. The groups are a
+//            reorganisation of the fifteen sections the page used to have;
+//            `was` keeps the old section so search still finds a setting by
+//            the name people knew.
+//   default  the built-in default, taken from the CLI flag defaults in
+//            core/cli/run.go (and the registry in
+//            core/config/runtime_settings_registry.go). A field with no
+//            `default` key has no default we can ground, so the page draws no
+//            "changed from default" marker for it. An environment variable or
+//            CLI flag can change the value a server starts with; the marker
+//            compares with the built-in default, not with the startup value.
+//   apply    'live'    the save handler applies it at once
+//                      (core/http/endpoints/localai/settings.go)
+//             'restart' the setting is read at start (docs/content/administration/
+//                      runtime-settings.md, the page's own hint)
+//             none      the code does not say, so the page says nothing
+//   note     what applying does, only where the handler says it
+
+export const GROUPS = [
+  { id: 'memory', label: 'Models in memory', hint: 'When models stop, what gets evicted, GPU budget', icon: 'memory' },
+  { id: 'speed', label: 'Speed and defaults', hint: 'Threads, context window, downloads', icon: 'gauge' },
+  { id: 'backends', label: 'Backends and galleries', hint: 'Updates, gallery sources, start-up loading', icon: 'boxes' },
+  { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
+  { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
+  { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, stored responses', icon: 'robot' },
+  { id: 'tools', label: 'Tools', hint: 'Built-in chat tools, commands on this machine, add-ons that replace them', icon: 'wrench' },
+  { id: 'swarm', label: 'Swarm and sharing', hint: 'Scheduling checks of distributed mode', icon: 'network' },
+  { id: 'look', label: 'Look and feel', hint: 'Instance name, tagline, logos', icon: 'palette' },
+]
+
+// The sections of the page before the rebuild, for "was Watchdog" and for
+// searching by the old name. Labels are the old sidebar labels.
+export const OLD_SECTIONS = {
+  branding: 'Branding',
+  watchdog: 'Watchdog',
+  memory: 'Memory Reclaimer',
+  backends: 'Backend Management',
+  performance: 'Performance',
+  tracing: 'Tracing',
+  api: 'API & CORS',
+  galleries: 'Galleries',
+  apikeys: 'API Keys',
+  chats: 'Chats',
+  collections: 'Collections',
+  distributed: 'Distributed',
+  responses: 'Open Responses',
+}
+
+const AGENT_RESTART = { apply: 'restart' }
+const WATCHDOG_LIVE = { apply: 'live', note: 'The watchdog restarts with the new values.' }
+
+// One row per real setting. `kind` picks the control:
+//   bool, text, int, duration, percent, select, model, json, lines, hosts, token,
+//   asset (the three branding images, saved at once by their own endpoint).
+export const FIELDS = [
+  // ---- Models in memory ---------------------------------------------------
+  { key: 'watchdog_enabled', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Watchdog', composite: true,
+    desc: 'Automatically monitor and manage backend processes. Switches the idle and busy checks together.',
+    default: false, ...WATCHDOG_LIVE },
+  { key: 'watchdog_idle_enabled', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Stop idle models',
+    desc: 'Automatically stop backends that have been idle too long.',
+    default: false, ...WATCHDOG_LIVE },
+  { key: 'watchdog_idle_timeout', group: 'memory', was: 'watchdog', kind: 'duration', label: 'Idle timeout',
+    desc: 'Time before an idle backend is stopped, for example 15m or 1h.',
+    placeholder: '15m', default: '15m', ...WATCHDOG_LIVE, needs: 'watchdog_idle_enabled' },
+  { key: 'watchdog_busy_enabled', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Stop stuck models',
+    desc: 'Stop busy processes that exceed the busy timeout.',
+    default: false, ...WATCHDOG_LIVE },
+  { key: 'watchdog_busy_timeout', group: 'memory', was: 'watchdog', kind: 'duration', label: 'Busy timeout',
+    desc: 'Time before a busy backend is stopped, for example 5m.',
+    placeholder: '5m', default: '5m', ...WATCHDOG_LIVE, needs: 'watchdog_busy_enabled' },
+  { key: 'watchdog_interval', group: 'memory', was: 'watchdog', kind: 'duration', label: 'Check interval',
+    desc: 'How often the watchdog checks backends, for example 2s.',
+    placeholder: '500ms', default: '500ms', ...WATCHDOG_LIVE },
+  { key: 'force_eviction_when_busy', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Evict even when busy',
+    desc: 'Allow model eviction during active API calls. This can interrupt requests in flight.',
+    default: false, apply: 'live' },
+  { key: 'size_aware_eviction', group: 'memory', was: 'watchdog', kind: 'bool', label: 'Evict the largest model first',
+    desc: 'Evict the largest loaded model first instead of the least recently used one.',
+    default: false },
+  { key: 'lru_eviction_max_retries', group: 'memory', was: 'watchdog', kind: 'int', label: 'Eviction retries',
+    desc: 'Maximum retries while waiting for busy models to become idle before eviction.',
+    placeholder: '30', default: 30, min: 0, apply: 'live' },
+  { key: 'lru_eviction_retry_interval', group: 'memory', was: 'watchdog', kind: 'duration', label: 'Eviction retry interval',
+    desc: 'Wait between eviction retries, for example 1s.',
+    placeholder: '1s', default: '1s', apply: 'live' },
+  { key: 'memory_reclaimer_enabled', group: 'memory', was: 'memory', kind: 'bool', label: 'Free memory automatically',
+    desc: 'Evict backends when memory use passes the threshold below.',
+    default: false, ...WATCHDOG_LIVE },
+  { key: 'memory_reclaimer_threshold', group: 'memory', was: 'memory', kind: 'percent', label: 'Memory threshold',
+    desc: 'Eviction starts when usage passes this share of GPU memory (RAM on a machine without a GPU).',
+    min: 50, max: 100, fallback: 0.8, default: 0.95, ...WATCHDOG_LIVE, needs: 'memory_reclaimer_enabled' },
+  { key: 'max_active_backends', group: 'memory', was: 'backends', kind: 'int', label: 'Models kept loaded',
+    desc: 'Maximum models to keep loaded at once. 0 means no limit, 1 keeps a single model.',
+    placeholder: '0', default: 0, min: 0, ...WATCHDOG_LIVE },
+  { key: 'vram_budget', group: 'memory', was: 'performance', kind: 'text', label: 'GPU memory budget',
+    desc: 'Cap the VRAM used for model allocation on this node. A percentage (80%) or an amount (12GB). Empty uses all detected VRAM.',
+    placeholder: 'e.g. 80% or 12GB', default: '', apply: 'live' },
+
+  // ---- Speed and defaults --------------------------------------------------
+  { key: 'threads', group: 'speed', was: 'performance', kind: 'int', label: 'Default threads',
+    desc: 'CPU threads for inference. 0 means auto-detect.', placeholder: '0', min: 0 },
+  { key: 'context_size', group: 'speed', was: 'performance', kind: 'int', label: 'Default context size',
+    desc: 'Context window size for models that do not set their own. Leave it empty for automatic: LocalAI picks the window from the model and the memory of this machine.', placeholder: 'Automatic', min: 0 },
+  { key: 'artifact_download_concurrency', group: 'speed', was: 'performance', kind: 'int', label: 'Artifact Download Concurrency',
+    desc: 'Maximum artifact files downloaded at once. 1 downloads one after the other.', default: 1, min: 1 },
+  { key: 'max_concurrent_backend_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent backend operations',
+    desc: 'How many backend installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same backend never overlap.', default: 2, min: 1 },
+  { key: 'max_concurrent_model_operations', group: 'backends', was: 'backends', kind: 'int', label: 'Concurrent model operations',
+    desc: 'How many model installs, upgrades and deletes run at once. The default is 2; 1 runs them one after the other. Operations on the same model never overlap.', default: 2, min: 1 },
+  { key: 'f16', group: 'speed', was: 'performance', kind: 'bool', label: 'F16 precision',
+    desc: 'Use 16-bit floating point for reduced memory use.', default: false },
+
+  // ---- Backends and galleries ----------------------------------------------
+  { key: 'official_libraries', group: 'backends', was: 'backends', kind: 'bool', label: 'Use official libraries',
+    desc: 'Read the default library sources of add-ons, backends and models. Off hides them from search and from the model and backend lists; they stay on the Libraries tab, shown as off, and come back when this is on. Libraries you added are not affected.', default: true },
+  { key: 'auto_upgrade_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Update backends automatically',
+    desc: 'Update backends when a new version is found.', default: false },
+  { key: 'auto_upgrade_addons', group: 'backends', was: 'backends', kind: 'bool', label: 'Update add-ons automatically',
+    desc: 'Update installed add-ons when their library lists a newer version. Each update runs the same checks as an update you start by hand, including the backup.', default: false },
+  { key: 'prefer_development_backends', group: 'backends', was: 'backends', kind: 'bool', label: 'Prefer development backends',
+    desc: 'Show development backend versions first in the backends gallery.', default: false },
+  { key: 'autoload_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Load and pre-warm galleries on boot',
+    desc: 'Load model galleries and pre-warm their remote size and VRAM estimates when LocalAI starts.', default: true },
+  { key: 'autoload_backend_galleries', group: 'backends', was: 'galleries', kind: 'bool', label: 'Autoload Backend Galleries',
+    desc: 'Load backend galleries when LocalAI starts.', default: true },
+  { key: 'vram_persistent_cache', group: 'backends', was: 'galleries', kind: 'bool', label: 'Persist remote VRAM estimates',
+    desc: 'Reuse successful remote model metadata probes across restarts. Off when gallery autoload is off.', default: true },
+  { key: 'galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Model galleries',
+    desc: 'The model library sources, read-only here. Add, turn on or off, refresh, edit or remove them in the Manage libraries panel on the Models page.', apply: 'live',
+    readOnlySources: 'model',
+    placeholder: '[\n  { "url": "https://...", "name": "my-gallery", "mirrors": ["https://fallback/..."] }\n]' },
+  { key: 'backend_galleries', group: 'backends', was: 'galleries', kind: 'json', label: 'Backend galleries',
+    desc: 'The backend library sources, read-only here. Manage them in the Manage libraries panel on the Backends page.', apply: 'live',
+    readOnlySources: 'backend',
+    placeholder: '[\n  { "url": "https://...", "name": "my-backends", "mirrors": ["https://fallback/..."] }\n]' },
+
+  // ---- Access and security -------------------------------------------------
+  { key: 'cors', group: 'access', was: 'api', kind: 'bool', label: 'Allow cross-origin requests',
+    desc: 'Enable Cross-Origin Resource Sharing.', default: false },
+  { key: 'cors_allow_origins', group: 'access', was: 'api', kind: 'text', label: 'Allowed origins',
+    desc: 'Comma-separated list of origins that may call the API from a browser.', placeholder: '*', default: '', needs: 'cors' },
+  // The wire field "csrf" carries DisableCSRF (core/config/runtime_settings_registry.go),
+  // so the switch shows the inverse and writes the inverse.
+  { key: 'csrf', group: 'access', was: 'api', kind: 'bool', label: 'CSRF protection', inverted: true,
+    desc: 'Block forged cross-site browser requests. Requests that carry an API key are exempt.', default: true },
+  { key: 'api_keys', group: 'access', was: 'apikeys', kind: 'lines', label: 'Shared API keys', sensitive: true, apply: 'live',
+    desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Access, API keys.',
+    placeholder: 'sk-key-1\nsk-key-2' },
+  { key: 'mcp_connectors_allow_private', group: 'access', was: 'chats', kind: 'bool', label: 'MCP connectors may reach private networks',
+    desc: 'Let the MCP servers that users add as connectors in the chats use addresses on private networks: this machine, link-local, private ranges and cloud metadata. Off, a connector can only reach public hosts, and every connection and redirect is checked at connect time. Turn it on only if your users are trusted: a connector can then probe your internal network through this server.',
+    default: false, fallback: false, apply: 'live' },
+
+  // ---- Debugging and traces ------------------------------------------------
+  { key: 'debug', group: 'debug', was: 'performance', kind: 'bool', label: 'Verbose debug logging',
+    desc: 'Write verbose debug logs.', default: false },
+  { key: 'enable_tracing', group: 'debug', was: 'tracing', kind: 'bool', label: 'Record API traces',
+    desc: 'Keep API requests, responses and backend operations for the Traces page.', default: false },
+  { key: 'tracing_max_items', group: 'debug', was: 'tracing', kind: 'int', label: 'Traces kept',
+    desc: 'Maximum number of trace items to keep. 0 means no limit.', placeholder: '1024', default: 1024, min: 0, needs: 'enable_tracing' },
+  { key: 'tracing_max_body_bytes', group: 'debug', was: 'tracing', kind: 'int', label: 'Largest trace body (bytes)',
+    desc: 'Per-field cap on captured request and response bodies and backend trace data. It keeps large chat histories or audio from locking the Traces page. 0 means no cap.',
+    placeholder: '65536', default: 65536, min: 0, needs: 'enable_tracing' },
+  { key: 'enable_backend_logging', group: 'debug', was: 'tracing', kind: 'bool', label: 'Enable Backend Logging',
+    desc: 'Capture backend process output per model, without needing debug mode.', apply: 'live' },
+
+  // ---- Agents and responses ------------------------------------------------
+  { key: 'collections_enabled', group: 'agents', was: 'collections', kind: 'bool', label: 'Collections',
+    desc: 'Turn the collections (the knowledge base) on or off.', default: true, ...AGENT_RESTART, fallback: true },
+  { key: 'collections_default_model', group: 'agents', was: 'collections', kind: 'model', label: 'Default model for collections',
+    desc: 'Default language model of the collections service.', placeholder: 'e.g. gpt-4', default: '', ...AGENT_RESTART },
+  { key: 'collections_embedding_model', group: 'agents', was: 'collections', kind: 'model', label: 'Embedding model',
+    desc: 'Model used for knowledge base embeddings.', placeholder: 'granite-embedding-107m-multilingual',
+    default: 'granite-embedding-107m-multilingual', ...AGENT_RESTART },
+  { key: 'collections_max_chunking_size', group: 'agents', was: 'collections', kind: 'int', label: 'Max Chunking Size',
+    desc: 'Maximum chunk size for knowledge base documents.', default: 400, min: 0, fallback: 400, ...AGENT_RESTART },
+  { key: 'collections_chunk_overlap', group: 'agents', was: 'collections', kind: 'int', label: 'Chunk Overlap',
+    desc: 'Overlap between chunks of knowledge base documents.', default: 0, min: 0, fallback: 0, ...AGENT_RESTART },
+  { key: 'collections_db_path', group: 'agents', was: 'collections', kind: 'text', label: 'Collection DB Path',
+    desc: 'Database path for the collections. Empty uses the default.', placeholder: 'Leave empty for default', default: '', ...AGENT_RESTART },
+  { key: 'collections_vector_engine', group: 'agents', was: 'collections', kind: 'select', label: 'Vector Engine',
+    desc: 'Store for collection embeddings. chromem is in memory; postgres uses pgvector and needs a database URL.',
+    options: ['chromem', 'postgres'], default: 'chromem', fallback: 'chromem', ...AGENT_RESTART },
+  { key: 'collections_database_url', group: 'agents', was: 'collections', kind: 'text', label: 'Database URL', sensitive: true,
+    desc: 'PostgreSQL connection string used when the vector engine is postgres.', placeholder: 'postgres://...', default: '',
+    ...AGENT_RESTART, needsValue: ['collections_vector_engine', 'postgres'] },
+  { key: 'chats_vision_model', group: 'agents', was: 'chats', kind: 'model', label: 'Chat image model',
+    desc: 'Model the chats use to describe images. Empty uses the first installed model that can see images.',
+    placeholder: 'e.g. qwen2.5-vl', default: '', apply: 'live' },
+  { key: 'chats_transcription_model', group: 'agents', was: 'chats', kind: 'model', label: 'Chat transcription model',
+    desc: 'Model the chats use to turn audio into text. Empty uses the first installed transcription model.',
+    placeholder: 'e.g. whisper-base', default: '', apply: 'live' },
+  { key: 'chats_suggestions', group: 'agents', was: 'chats', kind: 'bool', label: 'Offers from the assistant',
+    desc: 'Let the assistant offer, at most once a day and never during a task, to remember something a user said, make a shortcut or update a Home widget on a schedule. This is the default for users who did not choose; each user can switch it in Account, About you and the assistant.',
+    default: true, fallback: true, apply: 'live' },
+  // ---- Tools (the Tools tab draws these two with its own controls) ----------
+  { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
+    desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
+    default: '', apply: 'live', custom: 'tools' },
+  { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool or skill',
+    desc: 'When several add-ons replace one built-in tool or skill, the one that serves it: a map from the tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to the add-on ID. With none chosen, the first by add-on ID serves.',
+    placeholder: '{ "bash": "<add-on ID>" }', apply: 'live', custom: 'tools' },
+  // The Tools tab draws the switches of the web tools on their rows.
+  { key: 'chats_web_search', group: 'tools', was: 'chats', kind: 'bool', label: 'Web search',
+    desc: 'Offer the chats the built-in web_search, which searches the web without a key (DuckDuckGo, then Brave Search, then Bing) or with your SearXNG instance.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_web_fetch', group: 'tools', was: 'chats', kind: 'bool', label: 'Read web pages',
+    desc: 'Offer the chats the built-in web_fetch, which reads a public web page or file by its address.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The Tools tab draws these switches on the rows of the two LocalAI groups.
+  { key: 'chats_localai_client', group: 'tools', was: 'chats', kind: 'bool', label: 'LocalAI client tools',
+    desc: 'Offer the chats the LocalAI client tools: images, speech, sound, video, embeddings, detection and more, run with the models installed here. Each user needs the permission of the feature, and each chat can switch the group off.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_localai_admin', group: 'tools', was: 'chats', kind: 'bool', label: 'LocalAI admin tools',
+    desc: 'Offer the chats of administrators the LocalAI admin tools, which manage this server: models, backends, settings and the state. Each chat, or saved agent, must switch the group on; a sub-agent and a run that starts by itself never has it.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_tool_search', group: 'tools', was: 'chats', kind: 'select', options: ['auto', 'on', 'off'], label: 'Load LocalAI tools on demand',
+    desc: 'The LocalAI client and admin tool groups, and the tools that an add-on marks as deferred, are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas of a source would take a tenth or more of the model\'s context window; each source is decided on its own. on: always, and the tools of the user\'s MCP connectors load on demand too. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
+    default: 'auto', fallback: 'auto', emptyIsDefault: true, apply: 'live' },
+  // The Tools tab draws this switch on the list_agents row.
+  { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
+    desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The work folder of each chat (read at each turn, so live).
+  { key: 'chats_work_folder', group: 'tools', was: 'chats', kind: 'bool', label: 'Work folder for helper files',
+    desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The Files pane of a chat lists them apart in either case.',
+    default: true, fallback: true, apply: 'live' },
+  // The text index of the documents in the files (read at each pass of the
+  // indexer, so live).
+  { key: 'chats_index_files', group: 'tools', was: 'chats', kind: 'bool', label: 'Search inside documents',
+    desc: 'Read the text of PDF, Word, Excel and PowerPoint files when they are uploaded or written, so file search and the chats find a document by what it says. The text stays on this server, in its own store, and only users who can read a file find it. Scanned PDFs have no text to read.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'chats_index_max_text_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Text kept per document',
+    desc: 'The most text kept for one document, from 65536 to 16777216 bytes. Text past it is not searched; reading the document in a chat still reads past it.',
+    default: 2097152, fallback: 2097152, emptyIsDefault: true, min: 65536, max: 16777216, unit: 'bytes', apply: 'live' },
+  { key: 'chats_extract_max_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Extract: most bytes per archive',
+    desc: 'The most data one archive may expand to when a user chooses Extract here on the Files page, counted on the bytes that are really read. From 1048576 to 68719476736 bytes. An archive over the limit is refused and nothing is written.',
+    default: 1073741824, fallback: 1073741824, emptyIsDefault: true, min: 1048576, max: 68719476736, unit: 'bytes', apply: 'live' },
+  { key: 'chats_extract_max_entries', group: 'tools', was: 'chats', kind: 'int', label: 'Extract: most entries per archive',
+    desc: 'The most files and folders one archive may have when a user chooses Extract here on the Files page, from 1 to 1000000. An archive over the limit is refused and nothing is written.',
+    default: 20000, fallback: 20000, emptyIsDefault: true, min: 1, max: 1000000, apply: 'live' },
+  { key: 'chats_extract_7z_rar', group: 'tools', was: 'chats', kind: 'bool', label: 'Extract: allow 7z and RAR',
+    desc: 'Let Extract here on the Files page open 7z and RAR archives. Their readers run inside the LocalAI server and cannot limit their own memory: a crafted file can make the server run out of memory. Turn this on only when you trust the users who can upload files. ZIP and TAR archives are always allowed.',
+    default: false, fallback: false, apply: 'live' },
+  { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
+    desc: 'The address of your SearXNG instance (it must allow the JSON format). When it is set and the provider order is empty, web search uses SearXNG alone.',
+    placeholder: 'https://searx.example.org', default: '', apply: 'live' },
+  { key: 'chats_web_search_providers', group: 'tools', was: 'chats', kind: 'text', label: 'Search providers',
+    desc: 'The providers of web search in the order they are tried, comma separated: searxng, duckduckgo, brave_html, bing_html. Leave one out to never use it. Empty: searxng when an instance is set, else duckduckgo, brave_html, bing_html. Test search on the web_search row says what each one did.',
+    placeholder: 'duckduckgo,brave_html,bing_html', default: '', apply: 'live' },
+  { key: 'chats_web_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Web pages may be on private networks',
+    desc: 'Let web_fetch reach addresses inside your network. Any user of the chats can then read an internal web service the server can reach. The cloud metadata addresses stay refused.',
+    default: false, fallback: false, apply: 'live' },
+  { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages', emptyIsDefault: true,
+    desc: 'The ports web_fetch may use, comma separated.',
+    placeholder: '80,443', default: '80,443', apply: 'live' },
+  // The network of the commands (core/config/runtime_settings_registry.go;
+  // read at each check of the proxy, so live). The Tools tab draws the
+  // private switch itself, with its typed phrase. emptyIsDefault: the server
+  // stores '' (or 0) for a setting never set and reads it as the default, so
+  // that value is not "changed" and a select or number shows the default.
+  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network limit', fallback: 'off', emptyIsDefault: true,
+    desc: 'The widest network any chat\'s isolated commands may use: off, Custom (the package registries plus the extra registries and always allowed hosts below), or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
+    default: 'off', apply: 'live' },
+  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network of a new chat', fallback: 'off', emptyIsDefault: true,
+    desc: 'The network preset a new chat starts with, capped by the limit above.',
+    default: 'off', apply: 'live' },
+  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Command network ports', emptyIsDefault: true,
+    desc: 'The ports isolated commands may reach, comma separated. 22 and 25 are always refused.',
+    placeholder: '80,443', default: '80,443', apply: 'live' },
+  { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
+    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Custom choice (HTTPS only), and chats see them in their Custom list. To allow a host for any request, use Always allowed hosts. No patterns.',
+    placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
+  { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
+    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. Chats on the Custom choice see this list. The owner validates every change.',
+    placeholder: 'api.example.org', default: '', apply: 'live' },
+  // The step limit of a chat turn (core/config/runtime_settings_registry.go;
+  // read when a turn starts, so live). A model's agent.max_iterations wins.
+  { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
+    desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
+    placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The most add-on tools one chat is offered (core/config/runtime_settings_registry.go;
+  // read at each discovery, so live). Each add-on is limited to 32 tools apart from this.
+  { key: 'chats_addon_tool_limit', group: 'tools', was: 'chats', kind: 'int', label: 'Add-on tools per chat',
+    desc: 'The most add-on tools one chat is offered, from 16 to 256. Tools that replace a built-in one, such as the shell, come first. Every tool is described to the model on every turn, so a higher limit costs model context and can make the model choose worse; raise it only if chats show that add-on tools are left out. An add-on can offer at most 32 tools whatever this says.',
+    placeholder: '64', default: 64, min: 16, max: 256, apply: 'live' },
+  // The limits of a chat's goal (core/config/runtime_settings_registry.go;
+  // read when a turn ends, so live).
+  { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',
+    desc: 'How many turns a chat with a goal may start by itself before the goal pauses (1 to 200). The person can resume it, which starts a new count.',
+    placeholder: '20', default: 20, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_goal_max_steps', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per goal',
+    desc: 'How many rounds of tool calls all the turns of one goal may make together before the goal pauses (1 to 10000).',
+    placeholder: '400', default: 400, min: 1, max: 10000, apply: 'live' },
+  // The triggers of the chats (core/config/runtime_settings_registry.go; read
+  // at each use, so live).
+  { key: 'chats_trigger_run_limit', group: 'tools', was: 'chats', kind: 'duration', label: 'Trigger run time limit',
+    desc: 'The longest one run of a trigger may take, for example 15m. A run that takes longer is stopped and fails. From 1m to 24h.',
+    placeholder: '15m', default: '15m', apply: 'live' },
+  { key: 'chats_trigger_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Triggers per user',
+    desc: 'How many triggers one user may have at once (1 to 1000). A user who has more already keeps them but cannot add another.',
+    placeholder: '50', default: 50, min: 1, max: 1000, apply: 'live' },
+  { key: 'chats_trigger_max_daily_cap', group: 'tools', was: 'chats', kind: 'int', label: 'Highest daily limit of a trigger',
+    desc: 'The most runs a day that one trigger may be set to (1 to 1000). A trigger set higher runs at this limit.',
+    placeholder: '1000', default: 1000, min: 1, max: 1000, apply: 'live' },
+  { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
+    desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
+    default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
+  // The loops of the chats (core/config/runtime_settings_registry.go; read at
+  // each use, so live). Three limits show first; the rest sit under the
+  // block's Advanced disclosure (see layoutFields). Waits count as loops.
+  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', block: 'loops', kind: 'duration', label: 'Shortest interval',
+    desc: 'How often a loop may run at most, and how often a wait may check, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
+    placeholder: '1m', default: '1m', apply: 'live' },
+  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loop runs per day',
+    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. The wake-up of a wait counts as a run. After that the loops wait for the next day.',
+    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', block: 'loops', kind: 'int', label: 'Loops and waits per chat',
+    desc: 'How many loops and waits one chat may have at once (1 to 20). Waits count too. Loops and waits that ended do not count.',
+    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
+  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Loops and waits per user',
+    desc: 'How many loops and waits one user may have at once, over all their chats (1 to 200).',
+    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Runs per loop',
+    desc: 'A loop ends by itself after this many runs (1 to 10000). In a chat of a messaging app, a trigger, a job or a page, a loop ends after a fifth of this, at least 1.',
+    extra: (settings) => {
+      const v = Number(getValue(FIELD_BY_KEY.chats_loop_max_runs, settings))
+      const n = v >= 1 ? v : 100
+      const times = (x) => (x === 1 ? 'once' : `${x} times`)
+      return `With ${n}: a loop in your own chat runs at most ${times(n)}, and in a chat of a messaging app, a trigger, a job or a page at most ${times(systemLoopRuns(n))}.`
+    },
+    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
+  { key: 'chats_loop_daily_script_checks', group: 'tools', was: 'chats', block: 'loops', advanced: true, kind: 'int', label: 'Command checks per day',
+    desc: 'How many checks of waits that run a command one user may spend in a day (UTC), over all their waits (1 to 100000). A check runs the command and calls no model. When the budget is used up, the wait ends and the model is told.',
+    placeholder: '1500', default: 1500, min: 1, max: 100000, apply: 'live' },
+  { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Isolated commands may reach private networks',
+    desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
+    default: false, fallback: false, apply: 'live', custom: 'tools' },
+  { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
+    desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'home_page_area_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Page area on Home',
+    desc: 'Let users show one of their pages below the composer on Home. Turning it off hides the area for everyone and says why there; the Home layouts and the pages are kept.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'open_responses_store_ttl', group: 'agents', was: 'responses', kind: 'duration', label: 'Response Store TTL', allowZero: true,
+    desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
+
+  // ---- Swarm and sharing ---------------------------------------------------
+  { key: 'distributed_disk_headroom_check', group: 'swarm', was: 'distributed', kind: 'bool', label: 'Disk headroom check',
+    desc: 'Reject worker nodes that lack free space for the model, at scheduling time instead of partway through staging. Free space is measured on each worker and compared with the model size plus a small margin. Off restores selection that ignores free disk; the check still runs and warns when it would have rejected every node.',
+    default: true, fallback: true, apply: 'live' },
+
+  // ---- Look and feel -------------------------------------------------------
+  { key: 'instance_name', group: 'look', was: 'branding', kind: 'text', label: 'Instance Name',
+    desc: 'Replaces "LocalAI" in the sidebar, footer and browser tab. Shown on the sign-in screen.', placeholder: 'LocalAI' },
+  { key: 'instance_tagline', group: 'look', was: 'branding', kind: 'text', label: 'Tagline',
+    desc: 'Optional short subtitle under the instance name.', placeholder: '(none)' },
+  { key: 'asset:logo', group: 'look', was: 'branding', kind: 'asset', asset: 'logo', label: 'Square Logo', immediate: true,
+    desc: 'Used as the icon-sized logo in the sidebar and on small screens.' },
+  { key: 'asset:logo_horizontal', group: 'look', was: 'branding', kind: 'asset', asset: 'logo_horizontal', label: 'Horizontal Logo', immediate: true,
+    desc: 'Wide logo shown in the sidebar header on desktop.' },
+  { key: 'asset:favicon', group: 'look', was: 'branding', kind: 'asset', asset: 'favicon', label: 'Favicon', immediate: true,
+    desc: 'Browser tab icon: PNG, SVG or ICO. Browsers cache it, so a hard reload may be needed.' },
+]
+
+export const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f => [f.key, f]))
+
+// ---- Values ------------------------------------------------------------------
+// `settings` is the object GET /api/settings returned, with the edits applied.
+// get() and set() hide the places where the page's control and the wire field
+// are not the same thing.
+
+export function getValue(field, s) {
+  switch (field.key) {
+    case 'watchdog_enabled':
+      return !!(s.watchdog_idle_enabled || s.watchdog_busy_enabled)
+    case 'csrf':
+      return !s.csrf
+    case 'galleries':
+      return s.galleries_json ?? (s.galleries ? JSON.stringify(s.galleries, null, 2) : '')
+    case 'backend_galleries':
+      return s.backend_galleries_json ?? (s.backend_galleries ? JSON.stringify(s.backend_galleries, null, 2) : '')
+    case 'api_keys':
+      return s.api_keys_text ?? (s.api_keys || []).join('\n')
+    case 'chats_tool_providers':
+      return s.chats_tool_providers_json ?? (s.chats_tool_providers && Object.keys(s.chats_tool_providers).length ? JSON.stringify(s.chats_tool_providers, null, 2) : '')
+    case 'memory_reclaimer_threshold':
+      return s.memory_reclaimer_threshold || field.fallback
+    default: {
+      const v = s[field.key]
+      if (v === undefined || v === null || (field.emptyIsDefault && field.kind !== 'text' && (v === 0 || v === ''))) return 'fallback' in field ? field.fallback : emptyOf(field)
+      return v
+    }
+  }
+}
+
+function emptyOf(field) {
+  if (field.kind === 'bool') return false
+  if (field.kind === 'int' || field.kind === 'percent') return ''
+  return ''
+}
+
+export function setValue(field, s, value) {
+  switch (field.key) {
+    case 'watchdog_enabled':
+      return { ...s, watchdog_idle_enabled: value, watchdog_busy_enabled: value, watchdog_enabled: value }
+    case 'csrf':
+      return { ...s, csrf: !value }
+    case 'galleries':
+      return { ...s, galleries_json: value }
+    case 'backend_galleries':
+      return { ...s, backend_galleries_json: value }
+    case 'api_keys':
+      return { ...s, api_keys_text: value }
+    case 'chats_tool_providers':
+      return { ...s, chats_tool_providers_json: value }
+    default:
+      return { ...s, [field.key]: value }
+  }
+}
+
+// ---- Durations ---------------------------------------------------------------
+// Go's time.ParseDuration, which is what the server runs on every duration it
+// is sent: "1h30m", "500ms", "1.5s", "15m0s". Returns milliseconds, or null
+// when Go would reject it.
+const UNIT_MS = { ns: 1e-6, us: 1e-3, 'µs': 1e-3, 'μs': 1e-3, ms: 1, s: 1000, m: 60000, h: 3600000 }
+
+export function parseGoDuration(text) {
+  const s = String(text ?? '').trim()
+  if (!s) return null
+  if (s === '0') return 0
+  let rest = s
+  let sign = 1
+  if (rest[0] === '-' || rest[0] === '+') { if (rest[0] === '-') sign = -1; rest = rest.slice(1) }
+  if (!rest) return null
+  let total = 0
+  const re = /^(\d+\.?\d*|\.\d+)(ns|us|µs|μs|ms|s|m|h)/
+  while (rest) {
+    const m = re.exec(rest)
+    if (!m) return null
+    total += parseFloat(m[1]) * UNIT_MS[m[2]]
+    rest = rest.slice(m[0].length)
+  }
+  return sign * total
+}
+
+// "15m0s" (how Go prints a duration) as "15m", so a field reads like the
+// placeholder and the diff shows what a person would type.
+export function compactDuration(text) {
+  const ms = parseGoDuration(text)
+  if (ms === null || ms < 0) return text
+  if (ms === 0) return '0'
+  const h = Math.floor(ms / 3600000)
+  let rest = ms - h * 3600000
+  const m = Math.floor(rest / 60000)
+  rest -= m * 60000
+  let out = ''
+  if (h) out += `${h}h`
+  if (m) out += `${m}m`
+  if (rest > 0) {
+    if (rest % 1000 === 0) out += `${rest / 1000}s`
+    else out += (h || m || rest >= 1000) ? `${Number((rest / 1000).toFixed(3))}s` : `${rest}ms`
+  }
+  return out
+}
+
+// The settings as the page holds them: durations in their short form. The
+// server accepts both forms, and a value that already equals its short form
+// is sent unchanged.
+export function normalizeLoaded(data) {
+  const out = { ...data }
+  for (const field of FIELDS) {
+    if (field.kind === 'duration' && typeof out[field.key] === 'string') out[field.key] = compactDuration(out[field.key])
+  }
+  return out
+}
+
+// ---- VRAM budget -------------------------------------------------------------
+// Mirrors pkg/vrambudget.Parse: empty (no cap), "80%", "0.8", "12GB", "12GiB",
+// or a byte count. Returns an error string, or '' when the server would
+// accept it.
+const SIZE_SUFFIXES = ['KIB', 'MIB', 'GIB', 'TIB', 'KB', 'MB', 'GB', 'TB', 'B']
+
+export function vramBudgetError(text) {
+  const s = String(text ?? '').trim()
+  if (!s) return ''
+  const upper = s.toUpperCase()
+  if (upper.endsWith('%')) {
+    const n = Number(upper.slice(0, -1).trim())
+    if (!Number.isFinite(n) || upper.slice(0, -1).trim() === '') return 'Use a number before the percent sign, for example 80%.'
+    if (n < 0 || n > 100) return 'A percentage must be between 0 and 100.'
+    return ''
+  }
+  for (const suffix of SIZE_SUFFIXES) {
+    if (upper.endsWith(suffix)) {
+      const raw = upper.slice(0, -suffix.length).trim()
+      const n = Number(raw)
+      if (raw === '' || !Number.isFinite(n) || n < 0) return 'Use a size such as 12GB.'
+      return ''
+    }
+  }
+  const n = Number(s)
+  if (!Number.isFinite(n) || n < 0) return 'Use a percentage (80%) or a size (12GB).'
+  if (n > 1 && n !== Math.trunc(n)) return 'A number above 1 is a byte count and must be whole.'
+  return ''
+}
+
+// ---- Comparing ---------------------------------------------------------------
+
+function sameValue(field, a, b) {
+  switch (field.kind) {
+    case 'duration': {
+      const x = parseGoDuration(a)
+      const y = parseGoDuration(b)
+      if (x !== null && y !== null) return x === y
+      return String(a ?? '').trim() === String(b ?? '').trim()
+    }
+    case 'int':
+      return Number(a === '' ? 0 : a) === Number(b === '' ? 0 : b)
+    case 'percent':
+      return Math.abs(Number(a) - Number(b)) < 0.0005
+    case 'bool':
+      return !!a === !!b
+    case 'json':
+      return normalJson(a) === normalJson(b)
+    default:
+      return String(a ?? '').trim() === String(b ?? '').trim()
+  }
+}
+
+function normalJson(text) {
+  const t = String(text ?? '').trim()
+  if (!t) return ''
+  try { return JSON.stringify(JSON.parse(t)) } catch { return t }
+}
+
+export function valuesEqual(field, a, b) { return sameValue(field, a, b) }
+
+export function hasDefault(field) { return Object.prototype.hasOwnProperty.call(field, 'default') }
+
+export function isChanged(field, s) {
+  if (!hasDefault(field)) return false
+  if (field.emptyIsDefault && [undefined, null, '', 0].includes(s?.[field.key])) return false
+  return !sameValue(field, getValue(field, s), field.default)
+}
+
+// ---- Search ------------------------------------------------------------------
+
+export function groupOf(id) { return GROUPS.find(g => g.id === id) }
+
+// Fields matching every word of the query, by name, description, wire key, the
+// group, the old section name, and the current value of a short text.
+// The run limit of a loop in a chat of a messaging app, a trigger, a job or a
+// page: a fifth of chats_loop_max_runs, at least 1 (maxRunsFor in
+// core/services/studio/looptools.go).
+export function systemLoopRuns(maxRuns) {
+  const n = Number(maxRuns) || 0
+  return Math.max(1, Math.floor(n / 5))
+}
+
+// The blocks of related fields inside a group. A block has a heading, and
+// its advanced fields go in a disclosure right after its other fields.
+export const BLOCKS = {
+  loops: { label: 'Loops and waits', advanced: 'Advanced loop limits' },
+}
+
+// The order a group draws its fields in: each field as { field }, and after
+// the last plain field of a block, its advanced fields as
+// { block, advanced: [fields] }. A block with no plain field still gets its
+// disclosure, where its first field would be.
+export function layoutFields(fields) {
+  const out = []
+  const advancedOf = new Map()
+  for (const f of fields) {
+    if (f.block && f.advanced) {
+      if (!advancedOf.has(f.block)) advancedOf.set(f.block, [])
+      advancedOf.get(f.block).push(f)
+    }
+  }
+  const lastPlain = new Map()
+  fields.forEach((f, i) => { if (f.block && !f.advanced) lastPlain.set(f.block, i) })
+  const placed = new Set()
+  fields.forEach((f, i) => {
+    if (f.block && f.advanced) {
+      if (!lastPlain.has(f.block) && !placed.has(f.block)) {
+        out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+        placed.add(f.block)
+      }
+      return
+    }
+    out.push({ field: f })
+    if (f.block && lastPlain.get(f.block) === i && advancedOf.has(f.block)) {
+      out.push({ block: f.block, advanced: advancedOf.get(f.block) })
+      placed.add(f.block)
+    }
+  })
+  return out
+}
+
+export function searchFields(query, settings) {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean)
+  if (!words.length) return []
+  return FIELDS.filter(field => {
+    const wire = field.asset ? `asset ${field.asset}` : field.key
+    const value = field.kind === 'text' || field.kind === 'duration' || field.kind === 'int'
+      ? String(getValue(field, settings) ?? '') : ''
+    const hay = [
+      field.label, field.desc, wire, wire.replace(/_/g, ' '),
+      groupOf(field.group)?.label, OLD_SECTIONS[field.was], value,
+    ].join(' ').toLowerCase()
+    return words.every(w => hay.includes(w))
+  })
+}

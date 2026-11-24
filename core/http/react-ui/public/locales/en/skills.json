@@ -1,0 +1,143 @@
+{
+  "title": "Skills",
+  "subtitle": "Instructions all your chats can use when a task matches. Agents use the ones you add to them.",
+  "unavailable": {
+    "subtitle": "Skills need Files, and Files are off on this server."
+  },
+  "actions": {
+    "newSkill": "New skill",
+    "createSkill": "Create skill",
+    "edit": "Edit",
+    "delete": "Delete",
+    "import": "Import",
+    "export": "Export"
+  },
+  "search": {
+    "placeholder": "Search skills",
+    "label": "Search skills"
+  },
+  "card": {
+    "noDescription": "No description",
+    "readOnly": "Read-only",
+    "editTitle": "Edit skill",
+    "deleteTitle": "Delete skill",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "This skill was skipped: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Provided by {{name}}",
+    "proposedBy": "Proposed by {{name}} and confirmed by you. Only that agent uses it.",
+    "replacedBy": "Replaced by {{name}}",
+    "notActive": "Not active: the built-in skill serves",
+    "notActiveBy": "Not active: {{name}} provides it",
+    "fallback": "In use because the {{name}} add-on's own skill is off or not running",
+    "new": "New",
+    "newTitle": "Imported and not used yet",
+    "newLong": "Imported and not used yet. Read it before you add it to an agent. A chat's first use clears this mark.",
+    "exportTitle": "Download this skill as a zip file"
+  },
+  "empty": {
+    "title": "Skills are instructions an agent can follow",
+    "text": "Write one once, then add it to the agents that should follow it. A skill that nobody uses stays in the library.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Failed to load skills",
+    "deleted": "Skill \"{{name}}\" deleted",
+    "deleteFailed": "Failed to delete skill",
+    "exportFailed": "Export failed: {{message}}"
+  },
+  "filters": {
+    "label": "Show",
+    "all": "All",
+    "used": "Used",
+    "unused": "Not used yet"
+  },
+  "list": {
+    "label": "Skills",
+    "none": "No skill matches.",
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skills",
+    "countOf": "{{shown}} of {{total}} skills",
+    "menu": "Actions for {{name}}"
+  },
+  "pane": {
+    "back": "All skills",
+    "pick": "Pick a skill to see what it says and who uses it.",
+    "tabs": "Skill sections",
+    "tab": {
+      "overview": "Overview",
+      "instructions": "Instructions"
+    },
+    "tokens": "About {{count}} tokens",
+    "tokensTitle": "Estimate: characters divided by four",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate).",
+    "noContent": "This skill has no instructions.",
+    "startsWith": "Starts with",
+    "showAll": "Show all instructions",
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read."
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "agent": "Agent",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Add-on",
+    "project": "Project"
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a skill from your files is changed in Files.",
+    "counter": "{{count}} of {{max}}",
+    "nameInvalid": "Use lowercase letters, digits and single hyphens.",
+    "bodyHelp": "Written in markdown. A chat reads it when a task matches the description."
+  },
+  "load": {
+    "title": "Could not load your skills."
+  },
+  "import": {
+    "failedTitle": "Could not import the skills",
+    "failed": "The import failed.",
+    "dismiss": "Dismiss",
+    "done_one": "Imported {{count}} skill",
+    "done_other": "Imported {{count}} skills",
+    "scriptsStored": "Scripts and other files are stored as they are. Scripts are stored, never run by the import.",
+    "newNote": "It is marked New until a chat uses it."
+  },
+  "sort": {
+    "label": "Sort skills",
+    "name": "Name, A to Z",
+    "name-desc": "Name, Z to A",
+    "used": "Most used",
+    "source": "Group by source"
+  },
+  "source": {
+    "label": "Show skills from",
+    "all": "All sources ({{count}})"
+  }
+}

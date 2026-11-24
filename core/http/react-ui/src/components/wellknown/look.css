@@ -1,0 +1,53 @@
+/* The look of ui.json (look: font, radius, bubble, messageWidth, codeTheme).
+   AppearanceSync puts one data attribute per key on <html>, only for a value
+   that is not the default, so without the key the app looks as it always did.
+   Each value sets design tokens or picks theme roles: no colour is written
+   here, so every value follows the light and the dark theme. The preview of
+   the Appearance tab (.wk-lookprev) reads the same rules. */
+
+/* Font of messages and the message box. Code keeps the mono font. */
+:root { --cx-font: var(--font-sans); }
+:root[data-look-font="system"] { --cx-font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+:root[data-look-font="serif"] { --cx-font: ui-serif, "Iowan Old Style", Charter, Georgia, Cambria, "Times New Roman", serif; }
+:root[data-look-font="mono"] { --cx-font: var(--font-mono); }
+:root[data-look-font] :is(.cx-prose, .cx-bubble, .home-textarea, .cx-ta, .wk-lookprev__text) { font-family: var(--cx-font); }
+
+/* Corners: the radius scale of the theme. */
+:root[data-look-radius="sharp"] { --r-xs: 2px; --r-sm: 2px; --r-md: 3px; --r-lg: 4px; --r-xl: 6px; }
+:root[data-look-radius="round"] { --r-xs: 6px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px; }
+
+/* Your own messages. */
+:root[data-look-bubble="filled"] :is(.cx-bubble:not(.cx-bubble--edit), .wk-lookprev__bubble) { background: var(--dk-accent); color: var(--dk-on-accent); box-shadow: none; }
+:root[data-look-bubble="tinted"] :is(.cx-bubble:not(.cx-bubble--edit), .wk-lookprev__bubble) { background: var(--dk-accent-wash); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-accent) 28%, transparent); }
+:root[data-look-bubble="outline"] :is(.cx-bubble:not(.cx-bubble--edit), .wk-lookprev__bubble) { background: transparent; box-shadow: inset 0 0 0 1px var(--dk-control-edge); }
+:root[data-look-bubble="plain"] :is(.cx-bubble:not(.cx-bubble--edit), .wk-lookprev__bubble) { background: none; box-shadow: none; padding-inline: 0; }
+
+/* Width of the chat: the thread, the message box and the prose. */
+:root[data-look-messagewidth="narrow"] { --cx-width: 640px; --cx-prose-width: 620px; }
+:root[data-look-messagewidth="wide"] { --cx-width: 920px; --cx-prose-width: 880px; }
+:root[data-look-messagewidth="full"] { --cx-width: none; --cx-prose-width: none; }
+
+/* Code. auto is the palette of chat.css; each theme maps the token groups of
+   highlight.js to other roles of the theme. */
+:root[data-look-codetheme="mono"] :is(.cx-page, .wk-lookprev) :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag, .hljs-string, .hljs-regexp, .hljs-addition, .hljs-attr, .hljs-title, .hljs-function, .hljs-built_in, .hljs-type, .hljs-number, .hljs-symbol, .hljs-variable, .hljs-deletion) { color: var(--dk-text); }
+:root[data-look-codetheme="mono"] :is(.cx-page, .wk-lookprev) :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: var(--dk-muted); font-style: italic; }
+
+:root[data-look-codetheme="vivid"] :is(.cx-page, .wk-lookprev) :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag) { color: var(--dk-series-2); }
+:root[data-look-codetheme="vivid"] :is(.cx-page, .wk-lookprev) :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attr) { color: var(--dk-series-1); }
+:root[data-look-codetheme="vivid"] :is(.cx-page, .wk-lookprev) :is(.hljs-title, .hljs-function, .hljs-built_in, .hljs-type) { color: var(--dk-series-4); }
+:root[data-look-codetheme="vivid"] :is(.cx-page, .wk-lookprev) :is(.hljs-number, .hljs-symbol, .hljs-variable) { color: var(--dk-series-3); }
+:root[data-look-codetheme="vivid"] :is(.cx-page, .wk-lookprev) :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: var(--dk-muted); font-style: italic; }
+
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.code-block, .cx-prose pre:not([data-enhanced])) { background: var(--dk-inverse); box-shadow: none; }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) .code-block pre,
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) .cx-prose pre { color: var(--dk-on-inverse); }
+:root[data-look-codetheme="ink"] .cx-page .code-block__head { box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--dk-on-inverse) 18%, transparent); }
+:root[data-look-codetheme="ink"] .cx-page .code-block :is(.code-block__lang, .code-copy-btn, .code-download-btn) { color: color-mix(in srgb, var(--dk-on-inverse) 72%, var(--dk-inverse)); }
+:root[data-look-codetheme="ink"] .cx-page .code-block :is(.code-copy-btn, .code-download-btn, .code-preview-btn):hover { background: color-mix(in srgb, var(--dk-on-inverse) 12%, transparent); color: var(--dk-on-inverse); }
+:root[data-look-codetheme="ink"] .cx-page .code-block .code-preview-btn { color: color-mix(in srgb, var(--dk-on-inverse) 70%, var(--dk-accent)); }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag) { color: color-mix(in srgb, var(--dk-on-inverse) 62%, var(--dk-accent)); }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-attr) { color: color-mix(in srgb, var(--dk-on-inverse) 62%, var(--dk-warn)); }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.hljs-title, .hljs-function, .hljs-built_in, .hljs-type) { color: var(--dk-on-inverse); }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.hljs-number, .hljs-symbol, .hljs-variable) { color: color-mix(in srgb, var(--dk-on-inverse) 62%, var(--dk-ok)); }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: color-mix(in srgb, var(--dk-on-inverse) 58%, var(--dk-inverse)); font-style: italic; }
+:root[data-look-codetheme="ink"] :is(.cx-page, .wk-lookprev) .hljs-deletion { color: color-mix(in srgb, var(--dk-on-inverse) 55%, var(--dk-error)); }

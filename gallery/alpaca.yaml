@@ -1,0 +1,18 @@
+---
+name: "alpaca"
+
+config_file: |
+  backend: "llama-cpp"
+  context_size: 4096
+  f16: true
+  mmap: true
+  template:
+    chat: |
+        Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+        ### Instruction:
+        {{.Input}}
+
+        ### Response:
+    completion: |
+        {{.Input}}

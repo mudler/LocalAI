@@ -1,0 +1,871 @@
+import ModelLaunch from '../addons/ModelLaunch'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
+import ActionMenu from '../components/ActionMenu'
+import ConfirmDialog from '../components/ConfirmDialog'
+import NodeDistributionChip from '../components/NodeDistributionChip'
+import DetailHeader from '../components/split/DetailHeader'
+import StatGrid from '../components/split/StatGrid'
+import { rowKeyDown, useRestoreRowFocus } from '../components/models/rowKeys'
+import { gbLabel } from '../utils/modelLedger'
+import { diskEntry, sharedWith } from '../utils/modelStorage'
+import { formatBytes } from '../utils/format'
+import { publishWalk } from '../utils/modelWalk'
+import { useModelSizes } from '../hooks/useModelSizes'
+import { useModelStorage } from '../hooks/useModelStorage'
+import { useModels } from '../hooks/useModels'
+import { useGalleryEnrichment } from '../hooks/useGalleryEnrichment'
+import { useOperations } from '../hooks/useOperations'
+import useFailoverChains from '../hooks/useFailoverChains'
+import { modelsApi, nodesApi, systemApi } from '../utils/api'
+import { useModelActions } from '../hooks/useModelActions'
+import { renderMarkdown, stripMarkdown } from '../utils/markdown'
+import { safeHref } from '../utils/url'
+import {
+  CAP_CHAT, CAP_COMPLETION, CAP_IMAGE, CAP_VIDEO, CAP_TTS,
+  CAP_TRANSCRIPT, CAP_SOUND_GENERATION, CAP_FACE_RECOGNITION,
+  CAP_SPEAKER_RECOGNITION, CAP_EMBEDDINGS, CAP_RERANK,
+  CAP_VAD, CAP_SCORE, CAP_DECISIONS,
+} from '../utils/capabilities'
+import Icon from '../components/Icon'
+import { Button, EmptyState, Segmented, Tag } from '../components/ui'
+import { remoteIndex, remoteSubline } from '../utils/remotes'
+import { useUpdates } from '../contexts/UpdatesContext'
+import { modelIndicator, modelRowsByName } from '../utils/modelUpdates'
+import { useModelUpgradeActions } from '../hooks/useModelUpgradeActions'
+import ModelUpdateCard from '../components/updates/ModelUpdateCard'
+import { ModelActionDialogs } from '../components/updates/ModelUpgradeDialog'
+
+const USE_CASES = [
+  { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
+  { cap: CAP_COMPLETION, labelKey: 'completion', route: id => `/app/chats?model=${encodeURIComponent(id)}`, hideIf: CAP_CHAT },
+  { cap: CAP_IMAGE, labelKey: 'image' },
+  { cap: CAP_VIDEO, labelKey: 'video' },
+  { cap: CAP_TTS, labelKey: 'tts' },
+  { cap: CAP_TRANSCRIPT, labelKey: 'transcribe' },
+  { cap: CAP_SOUND_GENERATION, labelKey: 'sound' },
+  { cap: CAP_FACE_RECOGNITION, labelKey: 'face' },
+  { cap: CAP_SPEAKER_RECOGNITION, labelKey: 'voice' },
+  { cap: CAP_EMBEDDINGS, labelKey: 'embeddings' },
+  { cap: CAP_RERANK, labelKey: 'rerank' },
+  { cap: CAP_VAD, labelKey: 'vad' },
+  { cap: CAP_SCORE, labelKey: 'score' },
+  { cap: CAP_DECISIONS, labelKey: 'decisions' },
+]
+
+export function modelUseCases(model) {
+  const capabilities = Array.isArray(model?.capabilities) ? model.capabilities : []
+  return USE_CASES.filter(item => (
+    capabilities.includes(item.cap) && !(item.hideIf && capabilities.includes(item.hideIf))
+  ))
+}
+
+export function ModelLifecycleDetailShell({
+  testId,
+  icon,
+  name,
+  lede,
+  ledeTitle,
+  onBack,
+  backLabel,
+  closeIcon,
+  warning,
+  actions,
+  stats,
+  error,
+  children,
+}) {
+  return (
+    <div className="detail-pane">
+      <DetailHeader
+        testId={testId}
+        icon={icon}
+        name={name}
+        lede={lede}
+        ledeTitle={ledeTitle}
+        onBack={onBack}
+        backLabel={backLabel}
+        closeIcon={closeIcon}
+        warning={warning}
+        actions={actions}
+      />
+      {Array.isArray(stats) && <StatGrid stats={stats} />}
+      {error && (
+        <div className="attention-callout attention-callout--error" role="alert">
+          <span><Icon name="alert-circle" className="icon-before" />{error}</span>
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
+// A small glyph after a model's name that says one thing about it. The words
+// are on the glyph as its name and tooltip, not as text, so the same words in
+// the inspector are the only visible copy of them.
+function RowMark({ icon, label }) {
+  return (
+    <span className="ledger-name__pin" role="img" aria-label={label} title={label}>
+      <Icon name={icon} />
+    </span>
+  )
+}
+
+// How many rows the loading state draws.
+const SKELETON_ROWS = 6
+
+export default function InstalledModels({
+  addToast,
+  query,
+  state,
+  selectedName,
+  onQueryChange,
+  onStateChange,
+  onClearFilters,
+  onSelect,
+  onOpen,
+  hiddenIds,
+  refreshToken,
+  density,
+  onDensity,
+  searchRef,
+  onOpenCleanup,
+  disk,
+  remotes,
+}) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { t } = useTranslation('models')
+  const { models: allModels, loading, error: loadError, refetch } = useModels()
+  const { enrichModel } = useGalleryEnrichment()
+  const { operations } = useOperations()
+  const { byName: failoverChains } = useFailoverChains()
+  // The update state of the gallery models, from the shell's one poll
+  // (administrators only; null or disabled for anyone else).
+  const updates = useUpdates()
+  const updatesOn = Boolean(updates && updates.enabled)
+  const updateRows = updatesOn ? updates.rows : null
+  const updateByName = useMemo(() => modelRowsByName(updateRows), [updateRows])
+  const modelUpgrade = useModelUpgradeActions({ readModels: updatesOn ? updates.readModels : null, addToast })
+  const [loadedModelIds, setLoadedModelIds] = useState(() => new Set())
+  const [aliasTargets, setAliasTargets] = useState({})
+  const [distributedMode, setDistributedMode] = useState(false)
+  // The on-disk sizes. Admin only: for anyone else, or when the read fails, the
+  // table falls back to the gallery's estimates and says so.
+  const storage = useModelStorage(true, refreshToken)
+  const [sort, setSort] = useState({ key: 'name', dir: 'asc' })
+  const loadedOnce = useRef(false)
+  const bodyRef = useRef(null)
+  // Models waiting in the cleanup sheet's undo window are out of the list: they
+  // are as good as gone, and showing them would invite a second action on them.
+  const models = allModels.filter(model => !hiddenIds?.has(model.id))
+
+  const fetchLoadedModels = useCallback(async () => {
+    try {
+      const info = await systemApi.info()
+      const loaded = Array.isArray(info?.loaded_models) ? info.loaded_models : []
+      setLoadedModelIds(new Set(loaded.map(model => model.id)))
+    } catch {
+      setLoadedModelIds(new Set())
+    }
+  }, [])
+
+  const fetchAliases = useCallback(async () => {
+    try {
+      const aliases = await modelsApi.listAliases()
+      const next = {}
+      for (const alias of Array.isArray(aliases) ? aliases : []) next[alias.name] = alias.target
+      setAliasTargets(next)
+    } catch {
+      setAliasTargets({})
+    }
+  }, [])
+
+  const afterAction = useCallback(async () => {
+    refetch()
+    await fetchLoadedModels()
+  }, [refetch, fetchLoadedModels])
+  const {
+    pendingActions, actionErrors, confirmDialog, setConfirmDialog,
+    load: handleLoad, stop: handleStop, toggleState: handleToggleState,
+    togglePinned: handleTogglePinned, remove, reload: handleReload,
+  } = useModelActions({ addToast, afterAction })
+  const handleDelete = modelName => remove(modelName, () => onSelect(null))
+
+  useEffect(() => {
+    fetchLoadedModels()
+    fetchAliases()
+    nodesApi.list().then(() => setDistributedMode(true)).catch(() => setDistributedMode(false))
+  }, [fetchAliases, fetchLoadedModels])
+
+  useEffect(() => {
+    if (!distributedMode) return
+    const interval = setInterval(() => {
+      refetch()
+      fetchLoadedModels()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [distributedMode, fetchLoadedModels, refetch])
+
+  useEffect(() => {
+    if (!loading) loadedOnce.current = true
+  }, [loading])
+
+  useEffect(() => {
+    refetch()
+    fetchLoadedModels()
+  }, [operations.length, refreshToken, fetchLoadedModels, refetch])
+
+  const isRunning = useCallback(model => (
+    !model.disabled && (
+      loadedModelIds.has(model.id) ||
+      (Array.isArray(model.loaded_on) && model.loaded_on.length > 0)
+    )
+  ), [loadedModelIds])
+
+  const remoteById = useMemo(() => remoteIndex(remotes), [remotes])
+
+  const matchesStateKey = (model, key) => {
+    if (key === 'running') return isRunning(model)
+    if (key === 'idle') return !model.disabled && !isRunning(model)
+    if (key === 'disabled') return !!model.disabled
+    if (key === 'pinned') return !!model.pinned
+    if (key === 'distributed') return Array.isArray(model.loaded_on) && model.loaded_on.length > 0
+    if (key === 'remote') return !!model.remote
+    return true
+  }
+  const countFor = key => models.filter(model => matchesStateKey(model, key)).length
+  const filters = [
+    { key: 'all', label: t('lifecycle.filters.all'), icon: 'layers' },
+    { key: 'running', label: t('lifecycle.filters.running'), icon: 'play-circle' },
+    { key: 'idle', label: t('lifecycle.filters.idle'), icon: 'pause' },
+    { key: 'disabled', label: t('lifecycle.filters.disabled'), icon: 'ban' },
+    { key: 'pinned', label: t('lifecycle.filters.pinned'), icon: 'pin' },
+    { key: 'distributed', label: t('lifecycle.filters.distributed'), icon: 'server' },
+    { key: 'remote', label: t('remotes.filter'), icon: 'cloud' },
+  ].map(f => ({ ...f, count: f.key === 'all' ? models.length : countFor(f.key) }))
+
+  const normalizedQuery = query.trim().toLowerCase()
+  const matching = models.filter(model => (
+    matchesStateKey(model, state) && (
+      !normalizedQuery ||
+      model.id.toLowerCase().includes(normalizedQuery) ||
+      (model.backend || '').toLowerCase().includes(normalizedQuery)
+    )
+  ))
+
+  // A size is what the model really takes on disk. Where the server gives no
+  // such figure (the model is not in its report, or the caller may not read it),
+  // the size of the files the gallery lists stands in, and a model the gallery
+  // does not list has none: the cell says so rather than guessing. The gallery
+  // is only asked after the report has answered, and only about the rest.
+  const diskOf = id => diskEntry(storage.index, id)
+  const estimable = storage.status === 'loading'
+    ? []
+    : models.filter(model => !diskOf(model.id) && enrichModel(model.id)).map(model => model.id)
+  const sizes = useModelSizes(estimable, true)
+  const sizeOf = id => {
+    const disk = diskOf(id)
+    return disk ? disk.size : sizes[id] ?? null
+  }
+
+  // The footer line: what the models directory holds in all, counting a file
+  // that several models use once, how much of it is shared, and how many
+  // references point at nothing.
+  const totals = useMemo(() => {
+    const index = storage.index
+    // An empty report says nothing about the disk: no line is better than "0.0 GB on disk".
+    if (!index || index.byPath.size === 0) return null
+    let shared = 0
+    let missing = 0
+    for (const f of index.byPath.values()) {
+      if (f.missing) missing += 1
+      else if (f.models.length > 1) shared += f.size
+    }
+    return { total: index.total, shared, missing }
+  }, [storage.index])
+
+  const direction = sort.dir === 'asc' ? 1 : -1
+  const visibleModels = [...matching].sort((a, b) => {
+    if (sort.key === 'size') {
+      // Unknown sizes sort last in both directions: a model with no reading is
+      // not the smallest one, it is the one we know least about.
+      const sa = sizeOf(a.id)
+      const sb = sizeOf(b.id)
+      if (sa == null && sb == null) return a.id.localeCompare(b.id)
+      if (sa == null) return 1
+      if (sb == null) return -1
+      return (sa - sb) * direction || a.id.localeCompare(b.id)
+    }
+    return a.id.localeCompare(b.id) * direction
+  })
+  const selectedModel = selectedName
+    ? models.find(model => model.id === selectedName) || null
+    : null
+
+  const onSort = key => setSort(prev => (
+    prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }
+  ))
+
+  // The same menu on a row and in the inspector, so the two cannot drift.
+  const menuFor = model => [
+    {
+      key: 'toggle',
+      icon: model.disabled ? 'toggle-on' : 'toggle-off',
+      label: model.disabled ? t('lifecycle.actions.enable') : t('lifecycle.actions.disable'),
+      onClick: () => handleToggleState(model.id, model.disabled),
+      disabled: pendingActions.has(model.id),
+    },
+    {
+      key: 'pin',
+      icon: 'pin',
+      label: model.pinned ? t('lifecycle.actions.unpin') : t('lifecycle.actions.pin'),
+      onClick: () => handleTogglePinned(model.id, model.pinned),
+      disabled: pendingActions.has(model.id) || !!model.disabled,
+    },
+    {
+      key: 'edit',
+      icon: 'edit',
+      label: t('lifecycle.actions.edit'),
+      onClick: () => navigate(`/app/model-editor/${encodeURIComponent(model.id)}`, {
+        state: fromState(location, t('lifecycle.title')),
+      }),
+    },
+    {
+      key: 'logs',
+      icon: 'terminal',
+      label: t('lifecycle.actions.logs'),
+      onClick: () => navigate(`/app/backend-logs/${encodeURIComponent(model.id)}`),
+    },
+    { divider: true },
+    {
+      key: 'delete',
+      icon: 'trash',
+      label: t('lifecycle.actions.delete'),
+      danger: true,
+      onClick: () => handleDelete(model.id),
+    },
+  ]
+
+  const move = useCallback(name => {
+    onSelect(name, { replace: true })
+    bodyRef.current?.querySelector(`[data-entity="${CSS.escape(name)}"]`)?.focus()
+  }, [onSelect])
+  useRestoreRowFocus(selectedName, bodyRef)
+  const names = visibleModels.map(model => model.id)
+  // What "previous" and "next" on a model's page walk: this list, in this order.
+  const order = names.join('\n')
+  useEffect(() => { publishWalk('installed', order ? order.split('\n') : []) }, [order])
+  const tabbable = names.includes(selectedName) ? selectedName : names[0]
+
+  const stateOf = model => {
+    if (model.disabled) return { key: 'disabled', label: t('lifecycle.states.disabled') }
+    if (pendingActions.has(model.id)) return { key: 'busy', label: t('lifecycle.states.working') }
+    if (isRunning(model)) return { key: 'running', label: t('lifecycle.states.running') }
+    // The remote stopped listing this model. The entry stays, and a request
+    // to it may fail, so it says so; it has no filter of its own.
+    if (model.upstream_state === 'unavailable') return { key: 'unavailable', label: t('remotes.unavailable') }
+    return { key: 'idle', label: t('lifecycle.states.idle') }
+  }
+
+  const rowActions = model => {
+    const pending = pendingActions.has(model.id)
+    const running = isRunning(model)
+    return (
+      <>
+        {!model.remote && !model.disabled && !running && (
+          <Button variant="primary" size="sm" onClick={e => { e.stopPropagation(); handleLoad(model.id) }} disabled={pending}>
+            <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
+            {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
+          </Button>
+        )}
+        {!model.remote && running && (
+          <Button variant="secondary" size="sm" icon="stop" onClick={e => { e.stopPropagation(); handleStop(model.id) }} disabled={pending}>
+            {t('lifecycle.actions.stop')}
+          </Button>
+        )}
+        {model.disabled && (
+          <Button variant="secondary" size="sm" icon="toggle-on" onClick={e => { e.stopPropagation(); handleToggleState(model.id, true) }} disabled={pending}>
+            {t('lifecycle.actions.enable')}
+          </Button>
+        )}
+        <span onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+          <ActionMenu
+            ariaLabel={t('lifecycle.actions.forModel', { model: model.id })}
+            triggerLabel={t('lifecycle.actions.forModel', { model: model.id })}
+            items={menuFor(model)}
+          />
+        </span>
+        <button
+          type="button"
+          className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm ledger-open"
+          data-row-open
+          data-testid="row-open"
+          aria-label={t('page.openFor', { model: model.id })}
+          title={t('page.openFor', { model: model.id })}
+          onClick={e => { e.stopPropagation(); onOpen?.(model.id) }}
+        >
+          <Icon name="arrow-right" />
+        </button>
+      </>
+    )
+  }
+
+  const selectedPane = selectedModel ? (() => {
+    const enriched = enrichModel(selectedModel.id)
+    const useCases = modelUseCases(selectedModel)
+    const running = isRunning(selectedModel)
+    const chain = failoverChains[selectedModel.id]
+    const pending = pendingActions.has(selectedModel.id)
+    return (
+      <ModelLifecycleDetailShell
+        testId="installed-models"
+        icon="brain"
+        name={selectedModel.id}
+        lede={enriched?.description ? stripMarkdown(enriched.description).slice(0, 220) : null}
+        ledeTitle={enriched?.description ? stripMarkdown(enriched.description) : null}
+        onBack={() => onSelect(null)}
+        backLabel={t('ledger.closeInspector')}
+        closeIcon
+        error={actionErrors[selectedModel.id]}
+        stats={[
+          {
+            label: t('lifecycle.detail.state'),
+            value: selectedModel.disabled
+              ? t('lifecycle.states.disabled')
+              : running
+                ? t('lifecycle.states.running')
+                : t('lifecycle.states.idle'),
+            tone: running ? 'ok' : undefined,
+          },
+          { label: t('lifecycle.detail.backend'), value: selectedModel.backend || t('lifecycle.detail.auto') },
+          sizeOf(selectedModel.id) != null
+            ? { label: t('ledger.columns.size'), value: gbLabel(sizeOf(selectedModel.id)) }
+            : null,
+          diskOf(selectedModel.id)?.missing.length > 0
+            ? {
+                label: t('lifecycle.detail.missingFiles'),
+                value: t('lifecycle.detail.missingCount', { count: diskOf(selectedModel.id).missing.length }),
+                tone: 'warn',
+              }
+            : null,
+          selectedModel.pinned
+            ? { label: t('lifecycle.detail.pinned'), value: t('lifecycle.detail.yes'), tone: 'warn' }
+            : null,
+        ]}
+        actions={(
+          <>
+            <Button variant="ghost" size="sm" icon="arrow-right" onClick={() => onOpen?.(selectedModel.id)} data-testid="inspector-open-page" aria-keyshortcuts="o">
+              {t('page.openDetails')}
+            </Button>
+            {!selectedModel.remote && !selectedModel.disabled && !running && (
+              <Button variant="primary" size="sm" onClick={() => handleLoad(selectedModel.id)} disabled={pending}>
+                <Icon name={pending ? 'spinner' : 'bolt'} spin={Boolean(pending)} />
+                {pending ? t('lifecycle.actions.loading') : t('lifecycle.actions.load')}
+              </Button>
+            )}
+            {!selectedModel.remote && running && (
+              <Button variant="secondary" size="sm" icon="stop" onClick={() => handleStop(selectedModel.id)} disabled={pending}>
+                {t('lifecycle.actions.stop')}
+              </Button>
+            )}
+            <ActionMenu
+              ariaLabel={t('lifecycle.actions.forModel', { model: selectedModel.id })}
+              triggerLabel={t('lifecycle.actions.forModel', { model: selectedModel.id })}
+              items={menuFor(selectedModel)}
+            />
+          </>
+        )}
+      >
+        {(aliasTargets[selectedModel.id] || selectedModel.source === 'registry-only' || chain) && (
+          <div className="ui-tags">
+            {selectedModel.source === 'registry-only' && (
+              <Tag tone="warn" icon="ghost" title={t('lifecycle.detail.adoptedHint')}>{t('lifecycle.detail.adopted')}</Tag>
+            )}
+            {aliasTargets[selectedModel.id] && (
+              <Tag tone="accent" icon="swap" title={t('lifecycle.detail.aliasTitle', { target: aliasTargets[selectedModel.id] })}>{t('lifecycle.detail.alias', { target: aliasTargets[selectedModel.id] })}</Tag>
+            )}
+            {chain && (
+              <Tag icon="shuffle" title={t('lifecycle.detail.chainTitle', { target: chain.active })}>{t('lifecycle.detail.chain', { target: chain.active })}</Tag>
+            )}
+          </div>
+        )}
+
+        {useCases.length > 0 && (
+          <div>
+            <span className="detail-pane__label">{t('lifecycle.open.title')}</span>
+            <div className="hstack">
+              {useCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={selectedModel.id} label={t(`lifecycle.open.${useCase.labelKey}`)} />)}
+            </div>
+          </div>
+        )}
+
+        {updateByName[selectedModel.id] && <ModelUpdateCard row={updateByName[selectedModel.id]} model={modelUpgrade} />}
+
+        <InstalledModelDetail
+          model={selectedModel}
+          enriched={enriched}
+          disk={diskOf(selectedModel.id)}
+          sharing={sharedWith(storage.index, selectedModel.id)}
+          onSelectModel={onSelect}
+          distributedMode={distributedMode}
+          t={t}
+        />
+      </ModelLifecycleDetailShell>
+    )
+  })() : null
+
+  const firstLoad = loading && !loadedOnce.current
+  const sortAria = key => (sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined)
+
+  return (
+    <>
+      <div className="ledger-controls">
+        <div className="ledger-controls__row">
+          <div className="dk-input-icon ledger-search">
+            <Icon name="search" className="dk-icon" />
+            <input
+              ref={searchRef}
+              className="dk-input"
+              data-testid="models-search"
+              placeholder={t('lifecycle.installed.searchPlaceholder')}
+              aria-label={t('lifecycle.installed.searchPlaceholder')}
+              aria-keyshortcuts="/"
+              value={query ?? ''}
+              onChange={e => onQueryChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Escape') e.currentTarget.blur() }}
+            />
+            <kbd className="dk-kbd ledger-search__key" aria-hidden="true">/</kbd>
+          </div>
+          <div className="ledger-controls__end">
+            {disk && (
+              <Button variant="ghost" size="sm" icon="broom" onClick={onOpenCleanup} data-testid="installed-cleanup">
+                {t('disk.freeUp')}
+              </Button>
+            )}
+            <div className="dk-segmented ledger-density" role="group" aria-label={t('ledger.density.label')}>
+              <button type="button" className="dk-seg" aria-pressed={density === 'comfortable'} aria-label={t('ledger.density.comfortable')} title={t('ledger.density.comfortable')} onClick={() => onDensity('comfortable')}>
+                <Icon name="list" />
+              </button>
+              <button type="button" className="dk-seg" aria-pressed={density === 'compact'} aria-label={t('ledger.density.compact')} title={t('ledger.density.compact')} onClick={() => onDensity('compact')}>
+                <Icon name="equals" />
+              </button>
+            </div>
+            <Button variant="secondary" size="sm" onClick={handleReload} disabled={pendingActions.has('models')}>
+              <Icon name={pendingActions.has('models') ? 'spinner' : 'refresh'} spin={Boolean(pendingActions.has('models'))} />
+              {pendingActions.has('models') ? t('lifecycle.actions.reloading') : t('lifecycle.actions.reload')}
+            </Button>
+          </div>
+        </div>
+        <div className="ledger-controls__row">
+          <Segmented
+            className="ledger-states"
+            label={t('lifecycle.installed.filterLabel')}
+            value={state}
+            onChange={onStateChange}
+            testId="ledger-states"
+            options={filters.map(f => ({ id: f.key, label: f.label, count: f.count }))}
+          />
+        </div>
+      </div>
+
+      {loadError && (
+        <div className="ledger-banner ledger-banner--error" role="alert">
+          <Icon name="alert-circle" />
+          <span>{t('lifecycle.errors.loadList', { message: loadError })}</span>
+          <Button variant="secondary" size="sm" icon="refresh" onClick={() => refetch()}>
+            {t('ledger.retry')}
+          </Button>
+        </div>
+      )}
+      {actionErrors.models && (
+        <div className="ledger-banner ledger-banner--error" role="alert">
+          <Icon name="alert-circle" />
+          <span>{actionErrors.models}</span>
+        </div>
+      )}
+
+      {!firstLoad && models.length === 0 && !loadError ? (
+        <EmptyState
+          variant="first-run"
+          icon="brain"
+          title={t('lifecycle.empty.title')}
+          body={t('lifecycle.empty.text')}
+          testId="installed-empty"
+          actions={<>
+            <Button variant="primary" size="sm" icon="store" onClick={() => navigate('/app/models')}>
+            {t('lifecycle.empty.explore')}
+            </Button>
+            <Button variant="secondary" size="sm" icon="upload" onClick={() => navigate('/app/import-model')}>
+            {t('lifecycle.empty.import')}
+            </Button>
+          </>}
+        />
+      ) : (
+        <div className={`ledger ledger--installed${selectedModel ? ' ledger--detail' : ' ledger--solo'}`} data-testid="installed-models">
+          <div className="ledger__table-col">
+            {!firstLoad && visibleModels.length === 0 ? (
+              <EmptyState
+                variant="no-results"
+                icon="filter"
+                body={t('lifecycle.empty.noMatches')}
+                actions={<>
+                  <Button variant="ghost" size="sm" onClick={onClearFilters}>
+                  {t('lifecycle.empty.clear')}
+                  </Button>
+                </>}
+              />
+            ) : (
+              <div className="dk-table-wrap ledger-wrap" role="region" aria-label={t('lifecycle.views.installed')} data-testid="installed-models-rail">
+                <table className={`dk-table ledger-table ledger-table--installed${density === 'compact' ? ' dk-table--compact' : ''}`} aria-busy={firstLoad || undefined}>
+                  <caption className="dk-sr-only">{t('lifecycle.installed.count', { shown: visibleModels.length, total: models.length })}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" className="ledger-mark-cell"><span className="dk-sr-only">{t('ledger.selected')}</span></th>
+                      <th scope="col" aria-sort={sortAria('name')}>
+                        <button type="button" className="dk-table-sort" onClick={() => onSort('name')}>{t('table.modelName')}<Icon name="arrow-up" /></button>
+                      </th>
+                      <th scope="col">{t('lifecycle.detail.state')}</th>
+                      <th scope="col" className="dk-num dk-hide-phone" aria-sort={sortAria('size')}>
+                        <button type="button" className="dk-table-sort" onClick={() => onSort('size')}>{t('ledger.columns.size')}<Icon name="arrow-up" /></button>
+                      </th>
+                      <th scope="col"><span className="dk-sr-only">{t('table.actions')}</span></th>
+                    </tr>
+                  </thead>
+                  {firstLoad ? (
+                    <tbody data-testid="gallery-loader" className="ledger-skeleton">
+                      {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                        <tr key={i} className="dk-table-loading" aria-hidden="true">
+                          <td className="ledger-mark-cell" />
+                          <td><span className="dk-skeleton dk-skeleton--line ledger-skeleton__name" /><span className="dk-skeleton dk-skeleton--line ledger-skeleton__sub" /></td>
+                          <td><span className="dk-skeleton dk-skeleton--line" /></td>
+                          <td className="dk-hide-phone"><span className="dk-skeleton dk-skeleton--line" /></td>
+                          <td className="ledger-status"><span className="dk-skeleton dk-skeleton--line ledger-skeleton__action" /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ) : (
+                    <tbody ref={bodyRef}>
+                      {visibleModels.map(model => {
+                        const st = stateOf(model)
+                        const selected = model.id === selectedName
+                        const chain = failoverChains[model.id]
+                        return (
+                          <tr
+                            key={model.id}
+                            data-row
+                            data-clickable
+                            data-entity={model.id}
+                            data-testid="installed-models-rail-item"
+                            data-selected={selected ? 'true' : 'false'}
+                            data-error={actionErrors[model.id] ? '' : undefined}
+                            aria-current={selected ? 'true' : undefined}
+                            tabIndex={model.id === tabbable ? 0 : -1}
+                            onClick={() => onSelect(model.id)}
+                            onDoubleClick={() => onOpen?.(model.id)}
+                            onKeyDown={e => rowKeyDown(e, { names, current: model.id, move, close: () => onSelect(null) })}
+                          >
+                            <td className="ledger-mark-cell">
+                              <span className="ledger-mark" aria-hidden="true"><Icon name="check" /></span>
+                            </td>
+                            <td className="ledger-name-cell">
+                              <span className="dk-table-name ledger-name">
+                                <span className="ledger-name__text">{model.id}</span>
+                                {model.remote && <RowMark icon="cloud" label={t('remotes.rowMark')} />}
+                                {model.pinned && <RowMark icon="pin" label={t('lifecycle.detail.pinned')} />}
+                                {modelIndicator(updateByName[model.id]) && (
+                                  <RowMark icon={modelIndicator(updateByName[model.id]).icon} label={t(`lifecycle.update.${modelIndicator(updateByName[model.id]).key}`)} />
+                                )}
+                                {aliasTargets[model.id] && <RowMark icon="swap" label={t('lifecycle.detail.alias', { target: aliasTargets[model.id] })} />}
+                                {chain && <RowMark icon="shuffle" label={t('lifecycle.detail.chain', { target: chain.active })} />}
+                                {Array.isArray(model.loaded_on) && model.loaded_on.length > 0 && distributedMode && (
+                                  <RowMark icon="server" label={t('lifecycle.detail.distributed')} />
+                                )}
+                                {diskOf(model.id)?.missing.length > 0 && (
+                                  <RowMark icon="alert-circle" label={t('lifecycle.detail.missingCount', { count: diskOf(model.id).missing.length })} />
+                                )}
+                              </span>
+                              <span className="dk-table-sub">
+                                {actionErrors[model.id] || [model.remote ? remoteSubline(model, remoteById, t('lifecycle.detail.auto')) : (model.backend || t('lifecycle.detail.auto')), model.source === 'registry-only' ? t('lifecycle.detail.adopted') : ''].filter(Boolean).join(' · ')}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="dk-status ledger-state" data-state={st.key}>
+                                <span className={`dk-dot${st.key === 'running' ? ' dk-dot--ok' : st.key === 'busy' ? ' dk-dot--accent' : st.key === 'unavailable' ? ' dk-dot--warn' : ''}`} />
+                                {st.label}
+                              </span>
+                            </td>
+                            <td className="dk-num dk-hide-phone ledger-size">
+                              {model.remote ? <span>{t('remotes.sizeRemote')}</span> : <SizeCell
+                                size={sizeOf(model.id)}
+                                disk={diskOf(model.id)}
+                                sharedWith={sharedWith(storage.index, model.id)}
+                                loading={storage.status === 'loading'}
+                                t={t}
+                              />}
+                            </td>
+                            <td className="dk-table-actions ledger-status">
+                              <span className="ledger-rowactions">{rowActions(model)}</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  )}
+                </table>
+              </div>
+            )}
+            {!firstLoad && models.length > 0 && (
+              <p className="ledger-bar__count ledger-bar__count--foot">
+                {t('lifecycle.installed.count', { shown: visibleModels.length, total: models.length })}
+                {totals && (
+                  <span data-testid="installed-models-storage-summary">
+                    {' \u00b7 '}{t('lifecycle.installed.storageSummary', { total: gbLabel(totals.total), shared: gbLabel(totals.shared) })}
+                    {totals.missing > 0 && (
+                      <span className="ledger-bar__warn"> {'\u00b7 '}{t('lifecycle.installed.storageMissing', { count: totals.missing })}</span>
+                    )}
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+          {selectedModel && (
+            <aside className="ledger__pane" data-testid="installed-models-pane" aria-label={t('ledger.inspector')}>
+              {selectedPane}
+            </aside>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
+      {updatesOn && <ModelActionDialogs model={modelUpgrade} />}
+    </>
+  )
+}
+
+// The Size cell. The on-disk size comes first, and what part of it other models
+// share is a line under it, since removing this model leaves that part behind.
+// Without a report the gallery's estimate stands in, marked as one; without
+// either, the cell says the size is not known.
+// eslint-disable-next-line no-unused-vars
+function SizeCell({ size, disk, sharedWith: sharing, loading, t }) {
+  if (disk) {
+    return (
+      <>
+        <span title={t('ledger.sizeOnDiskTitle', { exact: formatBytes(disk.size) })}>{gbLabel(disk.size)}</span>
+        {disk.shared > 0 && (
+          <span
+            className="dk-table-sub ledger-size__shared"
+            title={t('ledger.sharedSizeTitle', { size: formatBytes(disk.shared), models: sharing.map(s => s.model).join(', ') })}
+          >
+            {t('ledger.sharedSize', { size: gbLabel(disk.shared) })}
+          </span>
+        )}
+      </>
+    )
+  }
+  if (size != null) return <span title={t('ledger.sizeEstimateTitle')}>{gbLabel(size)}</span>
+  if (loading) return <span className="dk-skeleton dk-skeleton--line ledger-size__loading" aria-hidden="true" />
+  return <span title={t('ledger.sizeUnknownTitle')}>&mdash;</span>
+}
+
+function InstalledModelDetail({ model, enriched, disk, sharing, onSelectModel, distributedMode, t }) {
+  const description = enriched?.description
+  const license = enriched?.license
+  const tags = Array.isArray(enriched?.tags) ? enriched.tags : []
+  const urls = Array.isArray(enriched?.urls) ? enriched.urls : []
+  const files = Array.isArray(enriched?.additionalFiles)
+    ? enriched.additionalFiles
+    : Array.isArray(enriched?.files)
+      ? enriched.files
+      : []
+
+  return (
+    <div className="resource-row__detail">
+      <h3><Icon name="info" /> {t('lifecycle.detail.title')}</h3>
+      <dl className="resource-row__detail-grid">
+        <dt>{t('lifecycle.detail.description')}</dt>
+        <dd>
+          {description ? (
+            <div
+              className="resource-row__detail-md markdown-body"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(description) }}
+            />
+          ) : (
+            <span className="cell-muted">{t('lifecycle.detail.noDescription')}</span>
+          )}
+        </dd>
+
+        <dt>{t('lifecycle.detail.backend')}</dt>
+        <dd><Tag>{model.backend || t('lifecycle.detail.auto')}</Tag></dd>
+
+        {license && (<>
+          <dt>{t('lifecycle.detail.license')}</dt>
+          <dd>{license}</dd>
+        </>)}
+
+        {tags.length > 0 && (<>
+          <dt>{t('lifecycle.detail.tags')}</dt>
+          <dd><div className="hstack">{tags.map(tag => <Tag key={tag}>{tag}</Tag>)}</div></dd>
+        </>)}
+
+        {urls.length > 0 && (<>
+          <dt>{t('lifecycle.detail.links')}</dt>
+          <dd>
+            <div className="stack stack--xs">
+              {urls.map(url => (
+                <a key={url} href={safeHref(url)} target="_blank" rel="noopener noreferrer" className="dk-link">
+                  <Icon name="external-link" className="icon-before text-xs" />{url}
+                </a>
+              ))}
+            </div>
+          </dd>
+        </>)}
+
+        {distributedMode && Array.isArray(model.loaded_on) && model.loaded_on.length > 0 && (<>
+          <dt>{t('lifecycle.detail.distributed')}</dt>
+          <dd><NodeDistributionChip nodes={model.loaded_on} context="models" compactThreshold={20} /></dd>
+        </>)}
+
+        {model.source && (<>
+          <dt>{t('lifecycle.detail.source')}</dt>
+          <dd className="cell-muted">{model.source}</dd>
+        </>)}
+
+        {sharing.length > 0 && (<>
+          <dt>{t('lifecycle.detail.sharesFiles')}</dt>
+          <dd>
+            <div className="hstack">
+              {sharing.map(item => (
+                <button
+                  key={item.model}
+                  type="button"
+                  className="dk-chip dk-chip--sm"
+                  title={formatBytes(item.bytes)}
+                  onClick={() => onSelectModel(item.model)}
+                >
+                  {item.model}
+                </button>
+              ))}
+            </div>
+          </dd>
+        </>)}
+
+        {(disk || files.length > 0) && (<>
+          <dt>{t('lifecycle.detail.files')}</dt>
+          <dd className="cell-muted">{t('lifecycle.detail.fileCount', { count: disk ? disk.files.length : files.length })}</dd>
+        </>)}
+      </dl>
+    </div>
+  )
+}

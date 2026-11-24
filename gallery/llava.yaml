@@ -1,0 +1,19 @@
+---
+name: "llava"
+
+config_file: |
+  backend: llama-cpp
+  context_size: 4096
+  f16: true
+
+  mmap: true
+  roles:
+    user: "USER:"
+    assistant: "ASSISTANT:"
+    system: "SYSTEM:"
+
+  template:
+    chat: |
+      A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.
+      {{.Input}}
+      ASSISTANT:

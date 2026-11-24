@@ -1,0 +1,839 @@
+import { test, expect as baseExpect } from '@playwright/test'
+import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
+
+// A wait on the page is longer than the default 5 s: on a loaded machine the page and its
+// lazy chunks arrive late, and a spec that fails there says nothing about the page.
+const expect = baseExpect.configure({ timeout: 15_000 })
+
+// Host access of add-ons: the step of the install dialog, the approval of a
+// held upgrade, the Host access page, the deny rules and the blanket switch.
+// The owner decides every answer, so these specs drive the page against a
+// stand-in for /api/addons/host-grants/* that gives the shapes of the design
+// and records what the page sent.
+
+const shots = process.env.UI_SHOTS_DIR
+
+async function shoot(page, name, fullPage = true) {
+  if (!shots) return
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.waitForTimeout(400)
+  await page.screenshot({ path: `${shots}/${name}.png`, fullPage })
+}
+
+const op = (name, title, text, risk, over = {}) => ({ name, title, text, risk, status: 'not_allowed', ...over })
+
+const PREVIEW = {
+  digest: 'sha256:' + 'b'.repeat(64), version: '1.0.0', revision: 7, nonce: 'nonce-1', official: true,
+  requested: { required: ['workspace.materialize', 'workspace.commit'], optional: ['egress.check', 'quantize.start'] },
+  ops: [
+    op('workspace.materialize', 'Copy files in', 'Copy files of a chat into the working area of the add-on.', 'changes data'),
+    op('workspace.commit', 'Write files back', 'Write results back to the files of a chat.', 'changes data', { status: 'allowed', source: 'deployment' }),
+    op('egress.check', 'Ask about the network', 'Ask the host whether a network connection is allowed.', 'network'),
+    op('quantize.start', 'Start quantization', 'Start or stop quantization jobs.', 'runs jobs', { status: 'blocked', reason: 'denied_by_admin' }),
+  ],
+}
+
+function overview(over = {}) {
+  return {
+    revision: 3, locked: false,
+    blanket: { mode: 'off', includeOptional: false, setBy: 'ui', revision: 0 },
+    floor: { source: 'file', addons: [] },
+    deny: { file: { '*': ['connector.'] }, ui: {} },
+    addons: [
+      {
+        id: 'notes', title: 'Notes', version: '1.2.0', state: 'running', sourceId: 'main',
+        requested: { required: ['workspace.materialize'], optional: ['egress.check'] },
+        ops: [
+          op('workspace.materialize', 'Copy files in', 'Copy files of a chat into the working area of the add-on.', 'changes data', { status: 'allowed', source: 'install', at: '2026-11-03T10:00:00Z' }),
+          op('workspace.commit', 'Write files back', 'Write results back to the files of a chat.', 'changes data', { status: 'allowed', source: 'file' }),
+          op('egress.check', 'Ask about the network', 'Ask the host whether a network connection is allowed.', 'network', { status: 'allowed', source: 'blanket', at: '2026-11-03T10:00:00Z' }),
+          op('quantize.start', 'Start quantization', 'Start or stop quantization jobs.', 'runs jobs', { status: 'blocked', reason: 'denied_by_admin' }),
+        ],
+        noLongerRequested: [],
+      },
+    ],
+    ...over,
+  }
+}
+
+// The stand-in for the host-grants routes. `state.overview` and `state.preview`
+// are what the owner answers; every request is logged.
+async function mockHostGrants(page, appsState, options = {}) {
+  const state = { overview: options.overview || overview(), preview: options.preview || PREVIEW, log: [], affects: options.affects || [], failInstall: options.failInstall || null, previewDelayMs: options.previewDelayMs || 0, holdInstall: Boolean(options.holdInstall), dropInstalls: options.dropInstalls || 0, holdCancel: Boolean(options.holdCancel) }
+  state.release = null
+  state.held = new Promise(r => { state.release = r })
+  // The approved upgrades the host queued: each one is a job of /api/operations
+  // that waits, runs and ends. `holdInstall` keeps a job queued until the spec
+  // moves it with `setPhase`; without it the job is done at once.
+  state.jobs = new Map()
+  state.cancels = []
+  state.cancelRelease = null
+  state.cancelHeld = new Promise(r => { state.cancelRelease = r })
+  const applyUpgrade = (job) => {
+    const a = state.overview.addons.find(x => x.id === job.addonId)
+    const rec = appsState.installed.find(x => x.id === job.addonId)
+    if (rec) { rec.version = job.version; rec.generation += 1 }
+    if (a) { a.version = job.version; delete a.pendingUpgrade }
+    state.overview.revision += 1
+  }
+  state.setPhase = (phase, failureCode = '') => {
+    for (const job of state.jobs.values()) {
+      if (job.phase === 'completed' || job.phase === 'failed') continue
+      job.phase = phase === 'cancelled' ? 'failed' : phase
+      job.failureCode = phase === 'cancelled' ? 'cancelled' : failureCode
+      if (phase === 'completed') applyUpgrade(job)
+    }
+  }
+  const jobRow = (job) => ({
+    id: `addon:${job.addonId}`, name: job.addonId, fullName: job.addonId, jobID: job.jobID, isAddon: true, taskType: 'upgrade', isBackend: false, isDeletion: false,
+    isQueued: job.phase === 'queued', progress: job.phase === 'running' ? 40 : 0, cancellable: true, message: job.phase === 'queued' ? 'queued' : 'downloading', phase: job.phase === 'queued' ? 'queued' : 'downloading',
+  })
+  await page.route('**/api/operations', route => route.fulfill({ json: { operations: [...state.jobs.values()].filter(j => j.phase === 'queued' || j.phase === 'running').map(jobRow) } }))
+  await page.route(/\/api\/operations\/[^/]+\/cancel$/, async route => {
+    const jobID = new URL(route.request().url()).pathname.split('/').at(-2)
+    state.cancels.push(jobID)
+    // A cancel the host has not finished: the add-on stays "canceling" until the spec lets it end.
+    if (state.holdCancel) await state.cancelHeld
+    for (const job of state.jobs.values()) if (job.jobID === jobID) { job.phase = 'failed'; job.failureCode = 'cancelled' }
+    return route.fulfill({ json: { success: true } })
+  })
+  await page.route('**/api/addons/dispatch', route => {
+    const body = route.request().postDataJSON() || {}
+    const job = body.action === 'operation-status' ? state.jobs.get(body.operationId) : null
+    if (!job) return route.fallback()
+    const status = job.phase === 'queued' ? { Phase: 'accepted', jobId: job.jobID }
+      : job.phase === 'running' ? { Phase: 'running', stage: 'downloading' }
+        : job.phase === 'failed' ? { Phase: 'failed', failureCode: job.failureCode }
+          : { Phase: 'completed', Generation: 2 }
+    return route.fulfill({ json: { payload: { OperationID: body.operationId, AddonID: body.addonId, ...status } } })
+  })
+  await page.route(/\/api\/addons\/host-grants(\/.*)?(\?.*)?$/, async route => {
+    const req = route.request()
+    const url = new URL(req.url())
+    const path = url.pathname.replace('/api/addons/host-grants', '') || '/'
+    const body = req.postData() ? JSON.parse(req.postData()) : null
+    state.log.push({ method: req.method(), path, query: url.search, body, confirm: req.headers()['x-localai-confirm'] })
+    const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
+    if (req.method() === 'GET' && path === '/') return json(state.overview)
+    if (path === '/preview') {
+      // A slow owner: it downloads and verifies the package before it answers.
+      if (state.previewDelayMs) await new Promise(r => setTimeout(r, state.previewDelayMs))
+      return json(state.preview)
+    }
+    if (path === '/install') {
+      // A network failure for the first calls, then the owner answers.
+      if (state.dropInstalls > 0) { state.dropInstalls -= 1; return route.abort('failed') }
+      // An approval that is still running: the owner answers when the test lets it.
+      if (state.holdInstall) await state.held
+      if (state.failInstall) return json({ error: { type: state.failInstall, message: state.failInstall } }, 409)
+      if (body.action === 'upgrade') {
+        const a = state.overview.addons.find(x => x.id === body.addonId)
+        const rec = appsState.installed.find(x => x.id === body.addonId)
+        if (rec) { rec.version = body.version; rec.generation += 1 }
+        if (a) { a.version = body.version; delete a.pendingUpgrade }
+      } else {
+        appsState.installed.push(installedAddon({ id: body.addonId, title: body.addonId, enabled: false, state: 'stopped', generation: 1, version: body.version }))
+      }
+      state.overview.revision += 1
+      return json({ payload: { OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 1 } })
+    }
+    if (path === '/queue') {
+      // A network failure for the first calls, then the owner answers.
+      if (state.dropInstalls > 0) { state.dropInstalls -= 1; return route.abort('failed') }
+      // An approved upgrade becomes a job of the operations list.
+      if (body.items.some(i => i.action === 'upgrade')) {
+        if (state.failInstall) return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, error: { type: state.failInstall, code: 409, message: state.failInstall } })) })
+        return json({
+          items: body.items.map(i => {
+            const job = { jobID: `job-${i.operationId}`, operationId: i.operationId, addonId: i.addonId, version: i.version, phase: state.holdInstall ? 'queued' : 'completed' }
+            state.jobs.set(i.operationId, job)
+            if (job.phase === 'completed') applyUpgrade(job)
+            return { addonId: i.addonId, operationId: i.operationId, jobId: job.jobID }
+          }),
+        })
+      }
+      // A library install is queued and runs in the background. The stand-in
+      // answers one job per item, or the refusal of the owner for each.
+      if (state.failInstall) return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, error: { type: state.failInstall, code: 409, message: state.failInstall } })) })
+      for (const i of body.items) appsState.installed.push(installedAddon({ id: i.addonId, title: i.addonId, enabled: false, state: 'stopped', generation: 1, version: i.version }))
+      state.overview.revision += 1
+      return json({ items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, jobId: `job-${i.operationId}` })) })
+    }
+    if (path === '/blanket') {
+      state.overview.blanket = { ...state.overview.blanket, mode: body.mode, includeOptional: body.includeOptional, revision: state.overview.blanket.revision + 1 }
+      state.overview.revision += 1
+      return json({ revision: state.overview.revision, blanket: state.overview.blanket, changed: [] })
+    }
+    if (path === '/deny') {
+      if (body.dryRun) return json({ affects: state.affects })
+      state.overview.deny.ui = body.deny
+      state.overview.revision += 1
+      return json({ revision: state.overview.revision })
+    }
+    // PUT and DELETE of one add-on.
+    const id = decodeURIComponent(path.slice(1))
+    const a = state.overview.addons.find(x => x.id === id)
+    if (!a) return json({ error: { type: 'addon_error', message: 'unknown' } }, 404)
+    if (req.method() === 'PUT') {
+      a.ops = a.ops.map(o => (o.status === 'allowed' && o.source !== 'file' && !body.ops.includes(o.name) ? { ...o, status: 'not_allowed', source: '' } : o))
+    } else {
+      a.ops = a.ops.map(o => (o.status === 'allowed' && o.source !== 'file' ? { ...o, status: 'not_allowed', source: '' } : o))
+    }
+    state.overview.revision += 1
+    return json({ revision: state.overview.revision })
+  })
+  return state
+}
+
+async function signIn(page, user = ADMIN) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons: true }) }))
+}
+
+async function open(page, { apps, installed, hostgrants, releases } = {}) {
+  await signIn(page)
+  const state = await mockAddons(page, { apps: apps || [app()], installed: installed || [installedAddon()], releases })
+  const host = await mockHostGrants(page, state, hostgrants)
+  return { state, host }
+}
+
+test.describe('Host access: install dialog', () => {
+  test('lists required operations locked and ticked, optional ones unticked, and sends the approval', async ({ page }) => {
+    const { state, host } = await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })] })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    const step = dialog.getByTestId('install-host-access')
+    await expect(step).toBeVisible()
+    const row = (name) => step.locator(`[data-op="${name}"]`)
+    // Required: on, cannot be turned off.
+    await expect(row('workspace.materialize').getByRole('switch')).toHaveAttribute('aria-checked', 'true')
+    await expect(row('workspace.materialize').getByRole('switch')).toBeDisabled()
+    await expect(row('workspace.materialize')).toContainText('Required. The add-on cannot run without it.')
+    // Optional: off by default, can be turned on.
+    await expect(row('egress.check').getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    await expect(row('egress.check').getByRole('switch')).toBeEnabled()
+    // Held by the deployment: on, no tick needed.
+    await expect(row('workspace.commit')).toContainText('Already allowed by the deployment')
+    // Blocked by policy: greyed, off, with the reason and without the layer.
+    await expect(row('quantize.start').getByRole('switch')).toBeDisabled()
+    await expect(row('quantize.start')).toContainText('Blocked by the administrator policy')
+    await expect(step).not.toContainText('denied_by_admin')
+    // The host-access step itself never repeats the source warning.
+    await expect(step).not.toContainText('not the official library')
+    await shoot(page, 'install-dialog')
+    await row('egress.check').getByRole('switch').click()
+    await dialog.getByTestId('install-confirm').click()
+    // The install is queued, not run in the dialog: the dialog closes.
+    await expect(page.getByTestId('install-dialog')).toHaveCount(0)
+    await expect.poll(() => host.log.filter(l => l.path === '/queue').length).toBe(1)
+    const sent = host.log.find(l => l.path === '/queue')
+    expect(sent.body.items).toHaveLength(1)
+    expect(sent.body.items[0].approve).toEqual({ digest: PREVIEW.digest, ops: ['workspace.materialize', 'egress.check'], revision: 7, nonce: 'nonce-1' })
+    expect(sent.body.items[0]).toMatchObject({ addonId: 'notes', sourceId: 'main', version: '1.0.0' })
+    expect(sent.confirm).toBe('queue')
+    // Neither the install route nor the plain install was used for this add-on.
+    expect(host.log.filter(l => l.path === '/install')).toHaveLength(0)
+    expect(state.log.dispatch.filter(d => d.action === 'install')).toHaveLength(0)
+  })
+
+  test('says what it waits for when the owner is slow, then shows the permissions, with no sideways scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 800 })
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { previewDelayMs: 4500 } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    const loading = dialog.getByTestId('hostaccess-loading')
+    await expect(loading).toHaveText('Reading what this add-on asks for...')
+    // The install stays closed while the owner has not confirmed anything.
+    await expect(dialog.getByTestId('install-confirm')).toBeDisabled()
+    await expect(loading).toContainText('downloaded and its signature checked', { timeout: 6000 })
+    expect(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)).toBe(false)
+    await expect(dialog.getByTestId('install-host-access')).toBeVisible({ timeout: 8000 })
+    await expect(loading).toHaveCount(0)
+  })
+
+  test('says so when the add-on comes from another library than the official one', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { preview: { ...PREVIEW, official: false } } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+    // One warning: the callout, with no quieter line that repeats its first sentence.
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByText('not the official library')).toHaveCount(1)
+    await shoot(page, 'install-host-access-not-official')
+  })
+
+  test('warns in the first step of an add-on from another library that asks for no host operation', async ({ page }) => {
+    const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community', official: false })], hostgrants: { preview: none } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('This add-on comes from community, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.')
+    await expect(dialog.getByTestId('install-host-access')).toHaveCount(0)
+    await expect(dialog.getByTestId('install-confirm')).toBeEnabled()
+    await shoot(page, 'install-untrusted')
+  })
+
+  test('does not warn about the source for an entry and a preview that are both official', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'official', official: true })], hostgrants: { preview: PREVIEW } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    await expect(page.getByTestId('install-dialog').getByTestId('install-host-access')).toBeVisible()
+    await expect(page.getByTestId('untrusted-source')).toHaveCount(0)
+  })
+
+  test('blocks the install when a required operation is blocked by the administrator policy', async ({ page }) => {
+    const blocked = { ...PREVIEW, blockedRequired: ['workspace.materialize'], canInstall: false, ops: PREVIEW.ops.map(o => (o.name === 'workspace.materialize' ? { ...o, status: 'blocked' } : o)) }
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { preview: blocked } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('hostaccess-blocked')).toContainText('which your administrator policy blocks. It cannot be installed.')
+    await expect(dialog.getByTestId('install-confirm')).toBeDisabled()
+    await shoot(page, 'install-blocked')
+  })
+
+  test('an add-on that asks for nothing shows no host access step', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { preview: { ...PREVIEW, requested: { required: [], optional: [] }, ops: [] } } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('install-confirm')).toBeEnabled()
+    await expect(dialog.getByTestId('install-host-access')).toHaveCount(0)
+  })
+
+  test('a stale approval is refused with words, and nothing is claimed as installed', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { failInstall: 'approval_stale' } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await dialog.getByTestId('install-confirm').click()
+    // The owner refuses the item: the page says so and claims nothing as installed.
+    await expect(page.getByTestId('queue-refused')).toContainText('The package changed since you looked at it.')
+    await expect(page.getByTestId('entry-queued')).toHaveCount(0)
+  })
+})
+
+test.describe('Host access: held upgrade', () => {
+  const waiting = () => {
+    const o = overview()
+    o.addons[0].pendingUpgrade = { version: '1.3.0', delta: ['workspace.export'] }
+    return o
+  }
+  const upgradePreview = {
+    ...PREVIEW, version: '1.3.0', added: ['workspace.export'],
+    requested: { required: ['workspace.materialize', 'workspace.export'], optional: [] },
+    ops: [
+      op('workspace.materialize', 'Copy files in', 'Copy files of a chat into the working area of the add-on.', 'changes data', { status: 'allowed', source: 'install' }),
+      op('workspace.export', 'Export files', 'Export files from the workspace of a chat.', 'changes data'),
+    ],
+  }
+
+  test('warns above the approval form when the package is not from the official library', async ({ page }) => {
+    await open(page, { hostgrants: { overview: waiting(), preview: { ...upgradePreview, official: false } } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+  })
+
+  const tileOf = (page) => page.locator('[data-testid="addon-tile"][data-app="notes"]')
+  const queuedWrites = (host) => host.log.filter(l => l.path === '/queue')
+
+  test('shows a banner and a chip, keeps the old version, and approves with the upgrade action', async ({ page }) => {
+    const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await expect(banner).toContainText('Notes 1.3.0 waits for your approval')
+    await expect(banner).toContainText('Version 1.2.0 keeps running')
+    await expect(page.getByTestId('approval-chip')).toBeVisible()
+    await expect(page.getByTestId('access-waiting')).toHaveText('1')
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+    await expect(banner.getByTestId('host-waiting-review')).toHaveText('Review and approve')
+    await expect(banner.getByTestId('addon-op')).toHaveCount(0)
+    await shoot(page, 'upgrade-banner')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.locator('[data-op="workspace.export"]')).toHaveAttribute('data-added', 'true')
+    await expect(dialog.locator('[data-op="workspace.materialize"]')).not.toHaveAttribute('data-added', 'true')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toHaveCount(0)
+    await shoot(page, 'upgrade-approve')
+    await dialog.getByTestId('approve-confirm').click()
+    // The approval goes to the queue of the host as an upgrade of the add-on, not to the inline route.
+    await expect.poll(() => queuedWrites(host).length).toBe(1)
+    expect(host.log.filter(l => l.path === '/install')).toHaveLength(0)
+    const sent = queuedWrites(host)[0]
+    expect(sent.confirm).toBe('queue')
+    expect(sent.body.items[0]).toMatchObject({ action: 'upgrade', addonId: 'notes', version: '1.3.0', approve: { ops: ['workspace.export'], digest: PREVIEW.digest } })
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
+  })
+
+  // What the banner of the add-on says and offers once the approval is given.
+  const expectNotAskingApproval = async (banner) => {
+    await expect(banner).not.toContainText('waits for your approval')
+    await expect(banner.getByTestId('host-waiting-review')).toHaveCount(0)
+    await expect(banner.getByRole('button', { name: /Review and approve/ })).toHaveCount(0)
+  }
+
+  test('the approval dialog closes at any moment, and the banner and the row show the queued then the running upgrade', async ({ page }) => {
+    const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    let dialog = page.getByTestId('approve-dialog')
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(dialog.getByTestId('approve-running')).toBeVisible()
+    await expect(dialog.getByTestId('addon-op')).toHaveAttribute('data-state', 'queued')
+    await shoot(page, 'approve-running-dialog', false)
+    // The close button closes it although the approval is still queued.
+    await dialog.getByTestId('dialog-close').click()
+    await expect(page.getByTestId('approve-dialog')).toHaveCount(0)
+    // Queued: the banner stops asking for approval and says what is going on, with Cancel.
+    await expect(banner).toHaveAttribute('data-stage', 'queued')
+    await expect(banner).toContainText('Updating Notes to 1.3.0')
+    await expect(banner.getByTestId('host-waiting-progress')).toHaveText('It is queued and runs in the background.')
+    await expectNotAskingApproval(banner)
+    await expect(banner.getByTestId('addon-op-cancel')).toBeVisible()
+    // The tab no longer counts it: nobody has to approve anything.
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+    // The row says what the operations list says: queued, waiting for a free slot, with an empty bar.
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'queued')
+    await expect(row).toContainText('Queued, waiting for a free slot')
+    await expect(row.getByRole('progressbar')).toHaveAttribute('data-queued', '')
+    await expect(tileOf(page).getByTestId('operation-chip')).toContainText('waiting')
+    await expect(tileOf(page).getByTestId('approval-chip')).toHaveCount(0)
+    await shoot(page, 'approve-queued-row', false)
+    // It runs: the banner and the row show its phase and its progress.
+    host.setPhase('running')
+    await expect(row).toHaveAttribute('data-state', 'running')
+    await expect(row).toContainText('Updating: Downloading')
+    await expect(row).toContainText('40%')
+    await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '40')
+    await expect(banner).toHaveAttribute('data-stage', 'running')
+    await expect(banner).toContainText('Updating Notes to 1.3.0')
+    await expect(banner.getByTestId('addon-op-text')).toContainText('Updating: Downloading')
+    await expect(banner.getByTestId('addon-op-text')).toContainText('40%')
+    await expect(banner.getByTestId('host-waiting-progress')).toHaveCount(0)
+    await expectNotAskingApproval(banner)
+    await expect(banner.getByTestId('addon-op-cancel')).toBeVisible()
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+    await shoot(page, 'approve-running-row', false)
+    // Nothing was cancelled or sent again: one queue request, no other write.
+    expect(queuedWrites(host)).toHaveLength(1)
+    expect(host.log.filter(l => l.method !== 'GET' && l.path !== '/queue' && l.path !== '/preview')).toHaveLength(0)
+    expect(host.cancels).toEqual([])
+    // The result: the row and the banner go back to a plain row on the new version, and no badge.
+    host.setPhase('completed')
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+    expect(state.installed.find(a => a.id === 'notes').version).toBe('1.3.0')
+  })
+
+  test('Cancel on the row stops the queued approval, the row returns to its state with a note, and the next approval is a new request', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'queued')
+    await expect(banner).toHaveAttribute('data-stage', 'queued')
+    await row.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels).toEqual([`job-${queuedWrites(host)[0].body.items[0].operationId}`])
+    // The row is back to what it was: the approval chip, the banner that asks again, the badge, and a note that says it was canceled.
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+    await expect(banner).toContainText('Notes 1.3.0 waits for your approval')
+    await expect(page.getByTestId('access-waiting')).toHaveText('1')
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
+    await expect(tileOf(page).getByTestId('addon-op-note')).toContainText('The update of Notes was canceled. Version 1.2.0 keeps running.')
+    await shoot(page, 'approve-cancelled-row', false)
+    await expect(banner).toBeVisible()
+    await expect(banner.getByTestId('host-waiting-review')).toBeEnabled()
+    // The note goes away when it is closed.
+    await tileOf(page).getByTestId('addon-op-note-dismiss').click()
+    await expect(tileOf(page).getByTestId('addon-op-note')).toHaveCount(0)
+    // Approving again reads a fresh preview and sends a new request under a new operation id.
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+    await dialog.getByTestId('approve-confirm').click()
+    await expect.poll(() => queuedWrites(host).length).toBe(2)
+    expect(host.log.filter(l => l.path === '/preview')).toHaveLength(2)
+    const ids = queuedWrites(host).map(l => l.body.items[0].operationId)
+    expect(ids[0]).not.toBe(ids[1])
+    host.setPhase('completed')
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+  })
+
+  test('Cancel on the banner stops a running approval, shows a neutral line while it stops, then asks again', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true, holdCancel: true } })
+    await page.goto('/app/addons')
+    const banner = page.getByTestId('host-waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    host.setPhase('running')
+    await expect(banner).toHaveAttribute('data-stage', 'running')
+    await banner.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels.length).toBe(1)
+    // The host has not stopped it yet: a neutral line, no approval prompt, no buttons, no badge.
+    await expect(banner).toHaveAttribute('data-stage', 'cancelling')
+    await expect(banner).toContainText('Canceling the update of Notes')
+    await expect(banner.getByRole('button')).toHaveCount(0)
+    await expectNotAskingApproval(banner)
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+    await shoot(page, 'approve-cancelling-banner', false)
+    host.cancelRelease()
+    // It ended: the add-on waits for approval again, with the prompt, the button and the badge.
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+    await expect(banner.getByTestId('host-waiting-review')).toBeEnabled()
+    await expect(page.getByTestId('access-waiting')).toHaveText('1')
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
+  })
+
+  test('an approval the host refuses, or that fails when it runs, is a failure of the row in its own words, and a new try is a new review', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    host.setPhase('failed', 'approval_stale')
+    const row = tileOf(page).getByTestId('addon-op')
+    await expect(row).toHaveAttribute('data-state', 'failed')
+    await expect(row).toContainText('The package changed since you looked at it.')
+    const banner = page.getByTestId('host-waiting')
+    await expect(banner).toHaveAttribute('data-stage', 'failed')
+    await expect(banner).toContainText('The update of Notes to 1.3.0 failed')
+    await expect(banner).not.toContainText('waits for your approval')
+    await expect(page.getByTestId('host-waiting-failed')).toContainText('The package changed since you looked at it.')
+    await expect(banner.getByTestId('addon-op-cancel')).toHaveCount(0)
+    // A new try is a new review: the failure keeps the badge, and its button opens the review.
+    await expect(page.getByTestId('access-waiting')).toHaveText('1')
+    await expect(banner.getByTestId('host-waiting-review')).toHaveText('Review again')
+    await shoot(page, 'approve-failed-banner', false)
+    await banner.getByTestId('host-waiting-review').click()
+    await expect(page.getByTestId('approve-dialog')).toBeVisible()
+    await expect(page.getByTestId('approve-dialog').getByTestId('approve-confirm')).toBeEnabled()
+    await page.keyboard.press('Escape')
+    await row.getByTestId('addon-op-dismiss').click()
+    await expect(tileOf(page).getByTestId('addon-op')).toHaveCount(0)
+    await expect(tileOf(page).getByTestId('approval-chip')).toBeVisible()
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+  })
+
+  test('a retry of the same approval keeps its operation id', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, dropInstalls: 1 } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(dialog.getByTestId('approve-failed')).toBeVisible()
+    await dialog.getByTestId('approve-confirm').click()
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    const sent = queuedWrites(host)
+    expect(sent).toHaveLength(2)
+    expect(sent[1].body.items[0].operationId).toBe(sent[0].body.items[0].operationId)
+  })
+
+  test('the Host access page follows the approval: queued, running, canceled and done, without asking again', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview, holdInstall: true } })
+    await page.goto('/app/addons?tab=access')
+    const banner = page.getByTestId('host-waiting')
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    await expect(banner.getByTestId('addon-op')).toHaveAttribute('data-state', 'queued')
+    await expect(banner).toHaveAttribute('data-stage', 'queued')
+    await expectNotAskingApproval(banner)
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+    host.setPhase('running')
+    await expect(banner).toHaveAttribute('data-stage', 'running')
+    await expectNotAskingApproval(banner)
+    await banner.getByTestId('addon-op-cancel').click()
+    await expect.poll(() => host.cancels.length).toBe(1)
+    await expect(banner.getByTestId('addon-op-note')).toContainText('was canceled')
+    await expect(banner).toHaveAttribute('data-stage', 'waiting')
+    await expect(banner.getByTestId('host-waiting-review')).toBeEnabled()
+    await expect(page.getByTestId('access-waiting')).toHaveText('1')
+    await banner.getByRole('button', { name: /Review and approve/ }).click()
+    await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+    await page.keyboard.press('Escape')
+    host.setPhase('completed')
+    await expect(page.getByTestId('host-waiting')).toHaveCount(0)
+    await expect(page.getByTestId('access-waiting')).toHaveCount(0)
+  })
+})
+
+// Screenshots of the row of an add-on whose approved upgrade is queued, running
+// and canceled, in the dark theme on a desktop and on a phone. Saved only when
+// UI_SHOTS_DIR is set.
+test.describe('Host access: upgrade row screenshots', () => {
+  for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone', { width: 390, height: 800 }]]) {
+    test(`queued, running and canceled row, dark, ${name}`, async ({ page }) => {
+      test.skip(!shots, 'screenshots are saved only when UI_SHOTS_DIR is set')
+      await page.addInitScript(() => { try { localStorage.setItem('localai-theme', 'dark') } catch { /* private window */ } })
+      await page.setViewportSize(size)
+      const o = overview()
+      o.addons[0].pendingUpgrade = { version: '1.3.0', delta: ['workspace.export'] }
+      const { host } = await open(page, { hostgrants: { overview: o, preview: { ...PREVIEW, version: '1.3.0', added: ['workspace.export'] }, holdInstall: true } })
+      await page.goto('/app/addons')
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+      const banner = page.getByTestId('host-waiting')
+      await expect(page.getByTestId('approval-chip')).toBeVisible()
+      await shoot(page, `row-before-${name}-dark`, name === 'phone')
+      await banner.getByRole('button', { name: /Review and approve/ }).click()
+      await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+      await page.keyboard.press('Escape')
+      const row = page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('addon-op')
+      await expect(row).toHaveAttribute('data-state', 'queued')
+      await expect(banner).toHaveAttribute('data-stage', 'queued')
+      await shoot(page, `row-queued-${name}-dark`, name === 'phone')
+      host.setPhase('running')
+      await expect(row).toHaveAttribute('data-state', 'running')
+      await expect(row).toContainText('40%')
+      await expect(banner).toHaveAttribute('data-stage', 'running')
+      await shoot(page, `row-running-${name}-dark`, name === 'phone')
+      await banner.getByTestId('addon-op-cancel').click()
+      await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('addon-op-note')).toBeVisible()
+      await expect(banner).toHaveAttribute('data-stage', 'waiting')
+      await shoot(page, `row-after-cancel-${name}-dark`, name === 'phone')
+      await page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('addon-op-note-dismiss').click()
+      await banner.getByRole('button', { name: /Review and approve/ }).click()
+      await page.getByTestId('approve-dialog').getByTestId('approve-confirm').click()
+      await page.keyboard.press('Escape')
+      host.setPhase('failed', 'approval_stale')
+      await expect(banner).toHaveAttribute('data-stage', 'failed')
+      await shoot(page, `row-failed-${name}-dark`, name === 'phone')
+    })
+  }
+})
+
+// Screenshots of the source warning, saved only when UI_SHOTS_DIR is set: the
+// first step of the dialog in both themes, on a desktop and on a phone.
+test.describe('Host access: source warning screenshots', () => {
+  test.skip(!shots, 'set UI_SHOTS_DIR to save screenshots')
+  const sizes = { desktop: { width: 1280, height: 800 }, phone: { width: 390, height: 844 } }
+  const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+  for (const theme of ['light', 'dark']) {
+    for (const [size, viewport] of Object.entries(sizes)) {
+      for (const [name, preview] of [['no-ops', none], ['host-ops', { ...PREVIEW, official: false }]]) {
+        test(`install dialog, other library, ${name}, ${theme}, ${size}`, async ({ page }) => {
+          await page.setViewportSize(viewport)
+          await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
+          await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community-library', official: false })], hostgrants: { preview } })
+          await page.goto('/app/addons?tab=browse')
+          await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+          const dialog = page.getByTestId('install-dialog')
+          await expect(dialog.getByTestId('untrusted-source')).toBeVisible()
+          if (name === 'host-ops') await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+          await shoot(page, `install-untrusted-${name}-${theme}-${size}`, false)
+        })
+      }
+    }
+  }
+})
+
+test.describe('Host access: page', () => {
+  test('is for administrators only', async ({ page }) => {
+    await signIn(page, MEMBER)
+    await mockAddons(page, {})
+    await page.goto('/app/addons?tab=access')
+    await expect(page.getByRole('tab', { name: 'Host access' })).toHaveCount(0)
+    await expect(page.getByTestId('host-access')).toHaveCount(0)
+  })
+
+  test('shows what each add-on holds, from where, and greys the deployment and blocked ones', async ({ page }) => {
+    await open(page)
+    await page.goto('/app/addons?tab=access')
+    const card = page.getByTestId('host-addon')
+    await expect(card).toBeVisible()
+    const row = (name) => card.locator(`[data-op="${name}"]`)
+    await expect(row('workspace.materialize')).toHaveAttribute('data-source', 'you')
+    await expect(row('egress.check')).toHaveAttribute('data-source', 'blanket')
+    await expect(row('egress.check')).toContainText('Blanket')
+    await expect(row('workspace.commit')).toHaveAttribute('data-source', 'deployment')
+    await expect(row('workspace.commit').getByRole('switch')).toBeDisabled()
+    await expect(row('workspace.commit')).toContainText("Set in the deployment's policy file or flags.")
+    await expect(row('quantize.start').getByRole('switch')).toBeDisabled()
+    await expect(row('quantize.start')).toContainText('Blocked by the administrator policy')
+    await shoot(page, 'host-access')
+  })
+
+  test('revokes one operation, and asks first when the add-on requires it', async ({ page }) => {
+    const { host } = await open(page)
+    await page.goto('/app/addons?tab=access')
+    const card = page.getByTestId('host-addon')
+    await card.locator('[data-op="egress.check"]').getByRole('switch').click()
+    await expect.poll(() => host.log.filter(l => l.method === 'PUT' && l.path === '/notes').length).toBe(1)
+    const put = host.log.find(l => l.method === 'PUT' && l.path === '/notes')
+    expect(put.body).toEqual({ revision: 3, ops: ['workspace.materialize'] })
+    expect(put.confirm).toBe('notes')
+    await expect(card.locator('[data-op="egress.check"]')).toHaveAttribute('data-status', 'not_allowed')
+    // A required operation: the administrator is told the add-on will stop.
+    await card.locator('[data-op="workspace.materialize"]').getByRole('switch').click()
+    const confirm = page.getByRole('alertdialog')
+    await expect(confirm).toContainText('cannot run without Copy files in')
+    await shoot(page, 'revoke-required')
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    expect(host.log.filter(l => l.method === 'PUT')).toHaveLength(1)
+  })
+
+  test('revokes all the host access of an add-on after a confirmation', async ({ page }) => {
+    const { host } = await open(page)
+    await page.goto('/app/addons?tab=access')
+    await page.getByTestId('host-revoke-all').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Revoke all' }).click()
+    await expect.poll(() => host.log.filter(l => l.method === 'DELETE').length).toBe(1)
+    expect(host.log.find(l => l.method === 'DELETE').query).toBe('?revision=3')
+  })
+
+  test('keeps the deployment rules locked and adds a rule after showing what it takes away', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { affects: [{ id: 'notes', loses: ['egress.check'], willStop: false }] } })
+    await page.goto('/app/addons?tab=access')
+    const deny = page.getByTestId('host-deny')
+    const fileRule = deny.locator('[data-origin="file"]')
+    await expect(fileRule).toContainText('connector.')
+    await expect(fileRule).toContainText('Set in the deployment')
+    await expect(fileRule.getByRole('button')).toHaveCount(0)
+    await deny.getByTestId('deny-target').selectOption('notes')
+    await deny.getByTestId('deny-entry').fill('egress.')
+    await deny.getByTestId('deny-add').click()
+    const dialog = page.getByTestId('deny-confirm-dialog')
+    await expect(dialog.getByTestId('deny-affects')).toContainText('egress.check')
+    await shoot(page, 'deny-confirm')
+    // The dry run changed nothing.
+    expect(host.log.filter(l => l.path === '/deny').map(l => !!l.body.dryRun)).toEqual([true])
+    await dialog.getByTestId('deny-confirm').click()
+    await expect.poll(() => host.log.filter(l => l.path === '/deny').length).toBe(2)
+    expect(host.log.filter(l => l.path === '/deny')[1].body).toEqual({ revision: 3, deny: { notes: ['egress.'] } })
+    await expect(deny.locator('[data-origin="ui"]')).toContainText('egress.')
+  })
+
+  test('a typo in a rule is explained before anything is sent', async ({ page }) => {
+    const { host } = await open(page)
+    await page.goto('/app/addons?tab=access')
+    await page.getByTestId('deny-entry').fill('Egress Check')
+    await page.getByTestId('deny-add').click()
+    await expect(page.getByTestId('deny-error')).toContainText('Write an operation such as')
+    expect(host.log.filter(l => l.path === '/deny')).toHaveLength(0)
+  })
+
+  test('is read-only when the deployment locks it', async ({ page }) => {
+    const { host } = await open(page, { hostgrants: { overview: overview({ locked: true }) } })
+    await page.goto('/app/addons?tab=access')
+    await expect(page.getByTestId('host-locked')).toBeVisible()
+    await expect(page.getByTestId('host-addon').locator('[data-op="egress.check"]').getByRole('switch')).toBeDisabled()
+    await expect(page.getByTestId('host-revoke-all')).toHaveCount(0)
+    await expect(page.getByTestId('deny-form')).toHaveCount(0)
+    await expect(page.getByTestId('blanket-switch')).toBeDisabled()
+    expect(host.log.filter(l => l.method !== 'GET')).toHaveLength(0)
+  })
+})
+
+test.describe('Host access: blanket switch', () => {
+  test('needs the typed sentence, states the risk, and sends the scope', async ({ page }) => {
+    const { host } = await open(page)
+    await page.goto('/app/addons?tab=access')
+    const panel = page.getByTestId('host-blanket')
+    await expect(panel.getByTestId('blanket-state')).toContainText('Off.')
+    await panel.getByTestId('blanket-switch').click()
+    const dialog = page.getByTestId('blanket-on-dialog')
+    const confirm = dialog.getByTestId('blanket-confirm')
+    await expect(confirm).toBeDisabled()
+    await expect(dialog.getByTestId('blanket-risk')).toContainText('official library')
+    await dialog.getByTestId('blanket-phrase').fill('grant official add-ons what they declare')
+    await expect(confirm).toBeEnabled()
+    // Widening the scope clears the phrase and shows the plain statement.
+    await dialog.getByRole('button', { name: 'Any library' }).click()
+    await expect(confirm).toBeDisabled()
+    await expect(dialog.getByTestId('blanket-risk')).toContainText('Any entry of any library receives what it declares')
+    await expect(dialog.getByTestId('blanket-risk')).toContainText('malicious or compromised entry gets those operations at once')
+    await dialog.getByTestId('blanket-phrase').fill('grant official add-ons what they declare')
+    await expect(confirm).toBeDisabled()
+    await dialog.getByTestId('blanket-phrase').fill('grant any library add-on what it declares')
+    await shoot(page, 'blanket-any')
+    await confirm.click()
+    await expect.poll(() => host.log.filter(l => l.path === '/blanket').length).toBe(1)
+    expect(host.log.find(l => l.path === '/blanket').body).toEqual({ revision: 3, mode: 'any', includeOptional: false, confirm: 'grant any library add-on what it declares', applyToInstalled: false })
+    expect(host.log.find(l => l.path === '/blanket').confirm).toBe('blanket')
+    await expect(panel.getByTestId('blanket-state')).toContainText('any library')
+  })
+
+  test('turning it off keeps the grants it made, marked blanket, with a button that revokes them all', async ({ page }) => {
+    const on = overview({ blanket: { mode: 'official', includeOptional: false, setBy: 'ui', revision: 2 } })
+    const { host } = await open(page, { hostgrants: { overview: on } })
+    await page.goto('/app/addons?tab=access')
+    const panel = page.getByTestId('host-blanket')
+    await expect(panel.getByTestId('blanket-held')).toContainText('Notes')
+    await panel.getByTestId('blanket-switch').click()
+    const dialog = page.getByTestId('blanket-off-dialog')
+    await expect(dialog).toContainText('The grants the switch already made stay')
+    await expect(dialog.getByTestId('blanket-also-revoke')).toHaveAttribute('aria-checked', 'false')
+    await shoot(page, 'blanket-off')
+    await dialog.getByTestId('blanket-off-confirm').click()
+    await expect.poll(() => host.log.filter(l => l.path === '/blanket').length).toBe(1)
+    expect(host.log.find(l => l.path === '/blanket').body).toEqual({ revision: 3, mode: 'off', includeOptional: false, revokeOnOff: false })
+    // The grant stays, still marked blanket, and can be revoked in one click.
+    await expect(page.getByTestId('host-addon').locator('[data-op="egress.check"]')).toHaveAttribute('data-source', 'blanket')
+    await expect(panel.getByTestId('blanket-revoke-all')).toBeVisible()
+    await panel.getByTestId('blanket-revoke-all').click()
+    await expect.poll(() => host.log.filter(l => l.method === 'PUT' && l.path === '/notes').length).toBe(1)
+    expect(host.log.find(l => l.method === 'PUT' && l.path === '/notes').body.ops).toEqual(['workspace.materialize'])
+    await expect(page.getByTestId('host-addon').locator('[data-op="egress.check"]')).toHaveAttribute('data-status', 'not_allowed')
+  })
+
+  test('is read-only when the deployment sets it', async ({ page }) => {
+    await open(page, { hostgrants: { overview: overview({ blanket: { mode: 'official', includeOptional: false, setBy: 'deployment', revision: 1 } }) } })
+    await page.goto('/app/addons?tab=access')
+    await expect(page.getByTestId('blanket-fixed')).toBeVisible()
+    await expect(page.getByTestId('blanket-switch')).toBeDisabled()
+  })
+})
+
+test.describe('Host access: small screen and dark theme', () => {
+  test('fits 390 px without scrolling sideways, in the dark theme, and the dialog keeps its actions in view', async ({ page }) => {
+    await page.addInitScript(() => { try { localStorage.setItem('localai-theme', 'dark') } catch { /* private window */ } })
+    await page.setViewportSize({ width: 390, height: 800 })
+    const o = overview()
+    o.addons[0].pendingUpgrade = { version: '1.3.0', delta: ['workspace.export'] }
+    await open(page, { hostgrants: { overview: o } })
+    await page.goto('/app/addons?tab=access')
+    await expect(page.getByTestId('host-addon')).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth)
+    expect(wide).toBe(false)
+    await shoot(page, 'host-access-390-dark')
+    await page.getByTestId('blanket-switch').click()
+    const dialog = page.getByTestId('blanket-on-dialog')
+    const box = await dialog.boundingBox()
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    expect(box.y + box.height).toBeLessThanOrEqual(800)
+    await expect(dialog.getByTestId('blanket-confirm')).toBeInViewport()
+    await shoot(page, 'blanket-dialog-390-dark', false)
+  })
+
+  test('keyboard: the dialog traps focus, Escape closes it and focus returns to the switch', async ({ page }) => {
+    await open(page)
+    await page.goto('/app/addons?tab=access')
+    const toggle = page.getByTestId('blanket-switch')
+    await toggle.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByTestId('blanket-on-dialog')
+    await expect(dialog.getByTestId('blanket-phrase')).toBeFocused()
+    for (let i = 0; i < 8; i += 1) await page.keyboard.press('Tab')
+    expect(await dialog.evaluate(el => el.contains(document.activeElement))).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(toggle).toBeFocused()
+  })
+})

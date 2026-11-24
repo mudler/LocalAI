@@ -1,0 +1,78 @@
+// Pure rules of the primary sidebar items. No React, no imports, so a node
+// test drives it directly.
+
+// Files, Projects, Pages (once there is one), Agents, Connections, Memory, Skills, Models and Add-ons. Home and the
+// Operate hub keep the place they have today (see hubConfig.js and
+// destinations.js). Settings is a tab of the Operate hub, not a primary item.
+// Chats is not an item: Home is where a chat starts, and the sidebar lists the
+// recent chats under the items, with All chats (allChatsDestination).
+// `match` lists other paths that light the item up: the pages that belong to it.
+export const primaryDestinations = Object.freeze([
+  // The user's own files: a workspace of folders, with a Trash and history.
+  { id: 'files', path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
+  // Projects: the files, memory, tool choices and chats of one stream.
+  { id: 'projects', path: '/app/projects', icon: 'layers', labelKey: 'items.projects', feature: 'chats' },
+  // The user's pages (pages/<name>/index.html in the files). Shown only once
+  // the user has a page; pinned pages are listed under it.
+  { id: 'pages', path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },
+  // Saved agents, with what runs them by itself: triggers.
+  {
+    id: 'agents', path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents',
+    match: ['/app/triggers', '/app/agent-tasks'],
+  },
+  // Everything the user connects: accounts (Gmail, Drive, GitHub, ...),
+  // messaging bots and MCP servers. One item, three tabs; the tabs are two
+  // routes (see connectionsTabs.js), so both light the item.
+  {
+    id: 'connections', path: '/app/chats/connectors', icon: 'plug', labelKey: 'items.connections', feature: 'chats',
+    match: ['/app/mcp-connectors'],
+  },
+  // Collections the chats search. Off when the server answers collections false.
+  { id: 'memory', path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections', requiresCollections: true },
+  // Skills: instructions every chat can use, and agents too. Not a part of
+  // Agents, so Agents does not light up on the skills pages.
+  { id: 'skills', path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
+  { id: 'models', path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
+  // Shown to a viewer who holds the addons feature or sees a built-in tile.
+  { id: 'addons', path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },
+])
+
+// Home is the first entry of the sidebar and of nav.json. Its path is the one
+// of destinations.js; it is here so the ids of nav.json are all in one place.
+export const homeDestination = Object.freeze({ id: 'home', path: '/app', icon: 'home', labelKey: 'items.home' })
+
+// The entries nav.json can move, rename and hide, in the order the sidebar
+// shows them without a nav.json. Its ids are the ones the server lists
+// (NavBuiltinIDs in Go).
+export const navBuiltins = Object.freeze([homeDestination, ...primaryDestinations])
+
+// `features` is the /api/features map. An absent `addons` key (an older server)
+// counts as on; only an explicit false hides the Add-ons entry.
+export function visiblePrimary(items, { isAdmin, hasFeature, hasBuiltin, features, hasPages }) {
+  return items.filter(item => {
+    if (item.pagesEntry && (!hasPages || !hasFeature('chats'))) return false
+    if (item.adminOnly && !isAdmin) return false
+    if (item.requiresCollections && features?.collections === false) return false
+    if (item.feature && !hasFeature(item.feature)) return false
+    if (item.addonsEntry && features?.addons === false) return false
+    if (item.addonsEntry && !isAdmin && !hasFeature('addons') && !hasBuiltin) return false
+    return true
+  })
+}
+
+function under(pathname, p) {
+  return pathname === p || pathname.startsWith(p + '/')
+}
+
+// Whether the item is the current place: its own path or one of its `match`
+// paths, unless the path belongs to another item (`exclude`).
+export function primaryActive(item, pathname) {
+  if ((item.exclude || []).some(p => under(pathname, p))) return false
+  return under(pathname, item.path) || (item.match || []).some(p => under(pathname, p))
+}
+
+// The chat history: search, rename, export and delete. The sidebar links it
+// under the recent chats, and the 404 page and the legacy layout list it.
+export const allChatsDestination = Object.freeze({
+  path: '/app/chats/all', icon: 'history', labelKey: 'items.allChats', feature: 'chats',
+})

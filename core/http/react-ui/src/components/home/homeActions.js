@@ -1,0 +1,54 @@
+// The slash actions on the Home command bar. Every entry has a destination in
+// the product today; the page decides what each one does (navigate, open the
+// model list, start a chat). `needs` hides an action the person cannot use:
+// the admin pages, stopping a model when none is loaded, or the assistant.
+
+
+export const SLASH_GROUPS = ['chat', 'models', 'go']
+
+export const SLASH_ACTIONS = [
+  { id: 'model', cmd: '/model', icon: 'cube', group: 'chat', needs: 'models' },
+  { id: 'new', cmd: '/new', icon: 'plus', group: 'chat' },
+  { id: 'chat', cmd: '/chat', icon: 'chat', group: 'chat' },
+  { id: 'assistant', cmd: '/assistant', icon: 'robot', group: 'chat', needs: 'assistant' },
+  { id: 'gallery', cmd: '/gallery', icon: 'download', group: 'models', needs: 'admin' },
+  { id: 'installed', cmd: '/installed', icon: 'boxes', group: 'models', needs: 'admin' },
+  { id: 'import', cmd: '/import', icon: 'upload', group: 'models', needs: 'admin' },
+  { id: 'stop', cmd: '/stop', icon: 'stop', group: 'models', needs: 'loaded' },
+  { id: 'agents', cmd: '/agents', icon: 'robot', group: 'go', needs: 'chats' },
+  { id: 'mcp', cmd: '/mcp', icon: 'plug', group: 'go', needs: 'chats' },
+  // The id stays 'memory' (stored links and tests use it); the name is /knowledge and
+  // /memory still works as an alias.
+  { id: 'memory', cmd: '/knowledge', aliases: ['/memory'], icon: 'database', group: 'go', needs: 'collections' },
+  { id: 'apps', cmd: '/apps', icon: 'puzzle', group: 'go', needs: 'addons' },
+  { id: 'settings', cmd: '/settings', icon: 'settings', group: 'go', needs: 'admin' },
+  { id: 'docs', cmd: '/docs', icon: 'book', group: 'go' },
+]
+
+// hasChats, hasCollections }
+export function availableActions(ctx) {
+  return SLASH_ACTIONS.filter(a => {
+    if (a.needs === 'addons') return ctx.hasAddons === true
+    if (a.needs === 'admin') return ctx.isAdmin
+    if (a.needs === 'models') return ctx.hasModels
+    if (a.needs === 'loaded') return ctx.isAdmin && ctx.loadedCount > 0
+    // The server says whether the LocalAI assistant is on; only an admin may use it.
+    if (a.needs === 'assistant') return ctx.isAdmin && ctx.assistantAvailable === true
+    if (a.needs === 'chats') return ctx.hasChats === true
+    if (a.needs === 'collections') return ctx.hasCollections === true
+    return true
+  })
+}
+
+// Every name a command answers to, without the slash: its own, then its aliases.
+export const commandNames = (a) => [a.cmd, ...(a.aliases || [])].map(n => n.slice(1).toLowerCase())
+
+// `query` is what follows the slash, lowercase. A command matches when its name
+// starts with the query or its label contains it. Order stays grouped.
+export function filterActions(actions, query, labelOf, groups = SLASH_GROUPS) {
+  const q = query.trim()
+  const matched = q
+    ? actions.filter(a => commandNames(a).some(n => n.startsWith(q)) || labelOf(a).toLowerCase().includes(q))
+    : actions
+  return groups.flatMap(g => matched.filter(a => a.group === g))
+}

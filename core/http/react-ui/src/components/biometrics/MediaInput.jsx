@@ -1,0 +1,224 @@
+import { useEffect, useRef, useState } from 'react'
+import { useMediaCapture } from '../../hooks/useMediaCapture'
+import { fileToBase64 } from '../../utils/api'
+import Icon from '../Icon'
+import { Button, TabPanel, Tabs } from '../ui'
+
+// MediaInput — one control, three ways to supply a sample.
+// mode: 'image' | 'audio'. onChange receives null | { base64, dataUrl, mime, source }.
+function UnsupportedNotice({ mode }) {
+  // Detect the likely cause so we can tell the user what to do, instead of just "not supported".
+  const isSecure = typeof window !== 'undefined' && (window.isSecureContext ?? true)
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const thing = mode === 'image' ? 'webcam' : 'microphone'
+
+  if (!isSecure) {
+    return (
+      <div className="biometrics-mediainput__notice">
+        <Icon name="lock" />
+        <div>
+          <strong>{thing} needs a secure origin</strong>
+          <p>
+            Your browser only exposes <code>getUserMedia</code> over HTTPS, <code>localhost</code>,
+            or <code>127.0.0.1</code>. You're on <code>{origin || hostname}</code>. Reach the UI
+            via <code>http://localhost:&lt;port&gt;</code> (or put a TLS terminator in front) and the
+            live {thing} will light up. Upload still works fine from here.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="biometrics-mediainput__notice">
+      <Icon name="info" />
+      <div>
+        <strong>Live {thing} not available</strong>
+        <p>
+          This browser doesn't expose <code>navigator.mediaDevices.getUserMedia</code>. Try another
+          browser, or use the upload tab — the backend accepts either.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default function MediaInput({ mode, label, value, onChange, onError, maxBytes, preferBlob = false, idPrefix = 'media' }) {
+  const [tab, setTab] = useState('file') // 'file' | 'live'
+  const fileRef = useRef(null)
+  const cap = useMediaCapture(mode)
+
+  // Release the device when switching away from the live tab.
+  useEffect(() => {
+    if (tab !== 'live' && cap.active) cap.stop()
+  }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const acceptFile = async (f, source = 'file') => {
+    if (maxBytes && f.size > maxBytes) {
+      const error = new Error(`Selected file exceeds the ${Math.round(maxBytes / (1024 * 1024))} MiB limit`)
+      if (fileRef.current) fileRef.current.value = ''
+      onChange(null)
+      onError?.(error)
+      return
+    }
+    try {
+      const name = source === 'paste'
+        ? `pasted-image.${(f.type.split('/')[1] || 'png').replace('+xml', '')}`
+        : f.name
+      if (preferBlob) {
+        onChange({ blob: f, mime: f.type, source, name })
+        return
+      }
+      const base64 = await fileToBase64(f)
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(reader.error)
+        reader.onload = () => resolve(reader.result)
+        reader.readAsDataURL(f)
+      })
+      onChange({ base64, blob: f, dataUrl, mime: f.type, source, name })
+    } catch (error) {
+      onChange(null)
+      onError?.(error)
+    }
+  }
+
+  const handleFile = async (e) => {
+    const f = e.target.files?.[0]
+    if (!f) { onChange(null); return }
+    await acceptFile(f)
+  }
+
+  const handlePaste = async (e) => {
+    if (mode !== 'image') return
+    const item = Array.from(e.clipboardData?.items || []).find(entry => entry.type.startsWith('image/'))
+    const f = item?.getAsFile()
+      || Array.from(e.clipboardData?.files || []).find(file => file.type.startsWith('image/'))
+    if (!f) return
+    e.preventDefault()
+    setTab('file')
+    await acceptFile(f, 'paste')
+  }
+
+  const handleSnap = () => {
+    const shot = cap.snap()
+    if (shot) onChange({ ...shot, source: 'live' })
+  }
+
+  const handleRecordToggle = async () => {
+    if (cap.recording) {
+      cap.stopRecording()
+    } else {
+      const pending = cap.startRecording()
+      if (!pending) return
+      const result = await pending
+      onChange(preferBlob
+        ? { blob: result.blob, mime: result.mime, source: 'live', name: 'recording.wav' }
+        : { ...result, source: 'live' })
+    }
+  }
+
+  const clear = () => {
+    onChange(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  const inputId = `${idPrefix}-${mode}-file`
+
+  return (
+    <div
+      className="biometrics-mediainput"
+      onPaste={handlePaste}
+      tabIndex={mode === 'image' ? 0 : undefined}
+      role={mode === 'image' ? 'group' : undefined}
+      aria-label={mode === 'image' ? `${label || 'Image'} upload or clipboard paste` : undefined}
+    >
+      {label && <label className="form-label" htmlFor={inputId}>{label}</label>}
+
+      <Tabs
+        variant="pill"
+        className="biometrics-mediainput__tabs"
+        label={`${label || 'Media'} source`}
+        idPrefix={`${idPrefix}-${mode}-src`}
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'file', label: 'Upload', icon: 'upload' },
+          { id: 'live', label: mode === 'image' ? 'Webcam' : 'Record', icon: mode === 'image' ? 'camera' : 'mic' },
+        ]}
+      />
+
+      {tab === 'file' && (
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="file" flush className="biometrics-mediainput__body">
+          <input
+            ref={fileRef}
+            id={inputId}
+            type="file"
+            className="input"
+            accept={mode === 'image' ? 'image/*' : 'audio/*'}
+            onChange={handleFile}
+          />
+          {mode === 'image' && (
+            <p className="form-hint"><Icon name="clipboard" /> Paste an image from the clipboard</p>
+          )}
+        </TabPanel>
+      )}
+
+      {tab === 'live' && (
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="live" flush className="biometrics-mediainput__body">
+          {!cap.supported && <UnsupportedNotice mode={mode} />}
+          {cap.supported && !cap.active && (
+            <Button className="biometrics-mediainput__start" icon={mode === 'image' ? 'camera' : 'mic'} onClick={cap.start}>
+              {mode === 'image' ? 'Start webcam' : 'Enable microphone'}
+            </Button>
+          )}
+          {cap.active && mode === 'image' && (
+            <div className="biometrics-mediainput__live">
+              <video ref={cap.videoRef} autoPlay muted playsInline className="biometrics-mediainput__video" />
+              <div className="biometrics-mediainput__controls">
+                <Button variant="primary" icon="circle-dot" onClick={handleSnap}>
+                  Capture
+                </Button>
+                <Button onClick={cap.stop}>Stop</Button>
+              </div>
+            </div>
+          )}
+          {cap.active && mode === 'audio' && (
+            <div className="biometrics-mediainput__live">
+              <div className={`biometrics-mediainput__meter ${cap.recording ? 'recording' : ''}`}>
+                <Icon name="mic" />
+                <span>{cap.recording ? `Recording… ${cap.elapsed.toFixed(1)}s` : 'Microphone ready'}</span>
+              </div>
+              <div className="biometrics-mediainput__controls">
+                <Button variant={cap.recording ? 'secondary' : 'primary'} icon={cap.recording ? 'stop' : 'circle'} onClick={handleRecordToggle}>
+                  {cap.recording ? 'Stop' : 'Record'}
+                </Button>
+                <Button onClick={cap.stop} disabled={cap.recording}>Close</Button>
+              </div>
+            </div>
+          )}
+          {cap.error && (
+            <p className="biometrics-mediainput__error" role="alert">{cap.error}</p>
+          )}
+        </TabPanel>
+      )}
+
+      {value && (
+        <div className="biometrics-mediainput__preview">
+          {mode === 'image'
+            ? <img src={value.dataUrl} alt="" />
+            : <audio controls src={value.dataUrl} />}
+          <div className="biometrics-mediainput__preview-meta">
+            <span className="biometrics-mediainput__source-pill">
+              <Icon name={value.source === 'live' ? mode === 'image' ? 'camera' : 'mic' : value.source === 'paste' ? 'clipboard' : 'file'} />
+              {value.source === 'live' ? ' Captured' : value.source === 'paste' ? ' Pasted image' : ` ${value.name || 'Uploaded'}`}
+            </span>
+            <button type="button" className="biometrics-mediainput__clear" onClick={clear} aria-label="Remove sample">
+              <Icon name="close" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,0 +1,122 @@
+{
+  "title": "Competenze",
+  "subtitle": "Istruzioni che tutte le tue chat possono usare quando un compito corrisponde. Gli agenti usano quelle che aggiungi loro.",
+  "unavailable": {
+    "subtitle": "Le competenze richiedono File, e File è disattivato su questo server."
+  },
+  "actions": {
+    "newSkill": "Nuova competenza",
+    "createSkill": "Crea competenza",
+    "edit": "Modifica",
+    "delete": "Elimina",
+    "import": "Importa",
+    "export": "Esporta"
+  },
+  "search": {
+    "placeholder": "Cerca competenze..."
+  },
+  "card": {
+    "noDescription": "Nessuna descrizione",
+    "readOnly": "Sola lettura",
+    "editTitle": "Modifica competenza",
+    "deleteTitle": "Elimina competenza",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Questa competenza è stata saltata: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fornita da {{name}}",
+    "replacedBy": "Sostituita da {{name}}",
+    "notActive": "Non attiva: si usa la skill integrata",
+    "notActiveBy": "Non attiva: la fornisce {{name}}",
+    "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione",
+    "proposedBy": "Proposto da {{name}} e confermato da te. Lo usa solo quell'agente.",
+    "new": "Nuova",
+    "newTitle": "Importata e non ancora usata",
+    "newLong": "Importata e non ancora usata. Leggila prima di aggiungerla a un agente. Il primo uso in una chat toglie questo segno.",
+    "exportTitle": "Scarica questa skill come file zip"
+  },
+  "empty": {
+    "title": "Nessuna competenza trovata",
+    "text": "Crea una competenza o importane una per iniziare.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Caricamento competenze fallito",
+    "deleted": "Competenza \"{{name}}\" eliminata",
+    "deleteFailed": "Eliminazione competenza fallita",
+    "exportFailed": "Esportazione non riuscita: {{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Componente",
+    "agent": "Agente",
+    "project": "Progetto"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Questa competenza qui è di sola lettura. Una competenza integrata viene con il server, e una competenza dei tuoi file si modifica in File.",
+    "counter": "{{count}} di {{max}}",
+    "nameInvalid": "Usa lettere minuscole, cifre e trattini singoli.",
+    "bodyHelp": "Scritta in markdown. Una chat la legge quando un compito corrisponde alla descrizione."
+  },
+  "load": {
+    "title": "Impossibile caricare le tue skill."
+  },
+  "import": {
+    "failedTitle": "Impossibile importare le skill",
+    "failed": "Importazione non riuscita.",
+    "dismiss": "Chiudi",
+    "done_one": "{{count}} skill importata",
+    "done_other": "{{count}} skill importate",
+    "scriptsStored": "Gli script e gli altri file sono salvati così come sono. Gli script sono solo salvati, mai eseguiti dall'importazione.",
+    "newNote": "Resta segnata Nuova finché una chat non la usa."
+  },
+  "sort": {
+    "label": "Ordina le skill",
+    "name": "Nome, dalla A alla Z",
+    "name-desc": "Nome, dalla Z alla A",
+    "used": "Più usate",
+    "source": "Raggruppa per origine"
+  },
+  "source": {
+    "label": "Mostra le skill da",
+    "all": "Tutte le origini ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skill",
+    "countOf": "{{shown}} di {{total}} skill",
+    "menu": "Azioni per {{name}}"
+  }
+}

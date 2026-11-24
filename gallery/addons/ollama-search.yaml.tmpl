@@ -1,0 +1,18 @@
+id: "{{addon}}"
+name: Ollama search
+description: "Adds Ollama as a source of the model search. Models come from the public Ollama library; they install through the ollama:// scheme."
+version: "{{version}}"
+channel: "{{channel}}"
+artifact: "oci://{{repository}}:{{tag}}"
+digest: "{{digest}}"
+os: "{{os}}"
+arch: "{{arch}}"
+policy:
+  requireSignature: true
+  issuer: "{{issuer}}"
+  identity: "{{identity}}"
+ui:
+  title: "Ollama search"
+  description: "Adds Ollama as a source of the model search. Models come from the public Ollama library; they install through the ollama:// scheme."
+  mainPage: "{{main_page}}"
+  icon: "{{icon}}"

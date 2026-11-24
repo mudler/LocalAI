@@ -1,0 +1,19 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="kicker">Get started</p>
+  <h1>Running in <span class="hl">minutes</span>.</h1>
+  <p class="lede">Install LocalAI, run a model, then open it in your browser.</p>
+</div></header>
+<section><div class="shell">
+  <ol class="steps">
+    <li class="rv"><div><h2>Install it</h2><p>Use the script on Linux and on a Mac with Apple Silicon, a container on any platform, or the desktop app on Linux and macOS.</p></div>{{ partial "install.html" . }}</li>
+    <li class="rv"><div><h2>Start LocalAI</h2><p>The script installs the program and does not start it. This command starts the server. The first time a model needs an engine, LocalAI downloads it.</p></div>
+      <div class="cmd"><span class="p" aria-hidden="true">$</span><code>local-ai</code><button class="cpy" type="button" data-copy="local-ai" aria-label="Copy the command local-ai">copy</button></div></li>
+    <li class="rv"><div><h2>Open it and pick a model</h2><p>Go to <code>http://localhost:8080</code> in your browser. On a fresh install, the page recommends a model for your hardware. Accept it, then start a chat. The API is on the same address. To run a model directly, name it: <code>local-ai run gemma-4-e2b-it-qat-q4_0</code> is a small model that runs on a CPU.</p></div></li>
+    <li class="rv"><div><h2>Add more</h2><p>Ask an admin to install add-ons such as Office or Sandbox, and to turn on the features your team needs.</p><p class="need need--dev">New in LocalAI 5.0. Needs 5.0 or newer.</p></div>
+      <div class="acts"><a class="btn" href="{{ .Site.Params.docsURL }}start/quickstart/">Quickstart in the docs</a><a class="btn btn--o" href="{{ "features/" | relURL }}">See the features</a></div></li>
+  </ol>
+</div></section>
+</main>
+{{ end }}

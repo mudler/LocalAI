@@ -1,0 +1,254 @@
+{
+  "subtitle": "De petits outils créés par l’assistant pour vous. Ils s’ouvrent ici, dans un bac à sable, et gardent leurs données dans vos fichiers.",
+  "card": {
+    "pin": "Épingler à la barre latérale",
+    "unpin": "Détacher de la barre latérale",
+    "changedBy": {
+      "you": "Modifiée {{when}} par vous",
+      "assistant": "Modifiée {{when}} par l’assistant"
+    },
+    "menu": "Plus pour {{title}}",
+    "files": "Afficher ses fichiers",
+    "rename": "Renommer",
+    "renameLabel": "Nouveau nom de dossier",
+    "renameHint": "Minuscules, chiffres et tirets.",
+    "renameSave": "Enregistrer",
+    "renameCancel": "Annuler",
+    "renameFailed": "La page n’a pas été renommée : {{message}}",
+    "delete": "Supprimer la page",
+    "deleteTitle": "Supprimer « {{title}} » ?",
+    "deleteMessage": "Le dossier {{folder}} va dans la corbeille. Vous pouvez le restaurer depuis Fichiers.",
+    "deleted": "{{title}} est dans la corbeille.",
+    "deleteFailed": "La page n’a pas été supprimée : {{message}}",
+    "share": "Partager",
+    "shared": "Partagée",
+    "sharedWith_one": "Partagée avec {{count}} personne",
+    "sharedWith_other": "Partagée avec {{count}} personnes",
+    "sharedEveryone": "Partagée avec tout le monde",
+    "someone": "quelqu’un",
+    "othersEdit": "D’autres peuvent modifier"
+  },
+  "empty": {
+    "text": "Une page est un petit outil, comme un tableau de tâches ou une liste de lecture. Demandez-en une à l’assistant dans un chat, ou partez d’une page prête.",
+    "starting": "Copie de la page",
+    "starterFailed": "La page n’a pas été copiée : {{message}}",
+    "ask": "Demander une page",
+    "askPrompt": "Créez-moi une page qui ",
+    "starterReading": "Partir d’une liste de lecture",
+    "note": "Cette entrée quitte la barre latérale quand vous n’avez aucune page. Elle revient avec la suivante.",
+    "learn": "Comment fonctionnent les pages"
+  },
+  "askNew": "Demander une nouvelle page",
+  "yours": "Les vôtres",
+  "filter": "Filtrer les pages",
+  "shared": {
+    "yours": "Les vôtres",
+    "group": "Partagées avec vous",
+    "note": "Une page partagée ne s’exécute qu’après votre autorisation. Si son auteur la modifie, la question vous est reposée.",
+    "offNotice": "Les pages partagées sont désactivées sur ce serveur. Un administrateur les a désactivées.",
+    "off": "Les pages partagées sont désactivées sur ce serveur. Un administrateur les a désactivées.",
+    "gone": "Cette page n’est plus dans le dossier partagé, ou vous n’y avez plus accès.",
+    "review": "Examiner",
+    "from": "De {{author}}",
+    "menu": "Menu de la page",
+    "badge": {
+      "notAllowed": "Pas encore autorisée",
+      "changed": "Modifiée depuis votre autorisation",
+      "allowed": "Autorisée"
+    },
+    "userOff": "Désactivée par un administrateur.",
+    "stopFailed": "La page n'a pas été arrêtée : {{message}}"
+  },
+  "viewer": {
+    "stopAllowing": "Ne plus autoriser cette page",
+    "authorChanged": "{{author}} a modifié cette page. La version autorisée continue jusqu’à ce que vous examiniez la modification.",
+    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau.",
+    "sandboxUser": "Dans un bac à sable. S’exécute en votre nom, dans son propre dossier uniquement, sans accès au réseau."
+  },
+  "trust": {
+    "title": "Ouvrir « {{title}} » ?",
+    "desc": "Cette page vient d’un dossier partagé. Les pages s’exécutent en votre nom, vérifiez-la donc avant qu’elle ne s’exécute.",
+    "who": "Écrite par {{author}}",
+    "whereLabel": "Dossier partagé",
+    "whereWhen": ", modifiée {{when}}",
+    "someone": "quelqu’un",
+    "close": "Fermer",
+    "canTitle": "Elle peut",
+    "canStillTitle": "Elle peut toujours",
+    "cannotTitle": "Elle ne peut pas",
+    "items": {
+      "files": "Lire et écrire des fichiers dans son propre dossier",
+      "readOnly": "Vous ne pouvez que lire ce dossier partagé, la page ne peut donc pas enregistrer ses modifications.",
+      "chat": "Écrire un message dans un chat",
+      "chatNote": "Vous voyez le message dans le chat avant que l’assistant n’y réponde.",
+      "noFiles": "Lire vos autres fichiers ou chats",
+      "noNet": "Accéder au réseau ou à d’autres sites",
+      "noNetNote": "Une limite : elle peut charger une autre adresse dans son propre cadre. Cela envoie une requête vers l’extérieur, puis la page s’arrête.",
+      "noTools": "Utiliser des outils ou modifier vos réglages"
+    },
+    "warn": "Elle agit en votre nom dans son dossier. Si {{author}} la modifie, la question vous est reposée.",
+    "viewSource": "Voir la source",
+    "cancel": "Annuler",
+    "allowOnce": "Autoriser une fois",
+    "allow": "Autoriser",
+    "changed": {
+      "title": "« {{title}} » a été modifiée",
+      "desc": "Vous avez autorisé une version précédente. Vérifiez ce qui a changé avant qu’elle ne s’exécute à nouveau.",
+      "who": "Modifiée par {{author}} {{when}}",
+      "allowed": "Vous avez autorisé la version du {{date}}",
+      "what": "Ce qui a changé",
+      "same": "Ce qu’elle peut faire est inchangé.",
+      "warn": "Si vous l’autorisez, cette version s’exécute à chaque ouverture, jusqu’à ce que {{author}} la modifie à nouveau.",
+      "view": "Voir les modifications",
+      "lines": "{{before}} → {{after}} lignes",
+      "code": "Un script, une feuille de style ou un module de la page a changé : {{files}}"
+    },
+    "pill": {
+      "notYet": "Pas encore autorisée",
+      "not": "Non autorisée",
+      "once": "Autorisée pour cette visite",
+      "allowed": "Autorisée",
+      "changed": "Modifiée depuis votre autorisation"
+    },
+    "from": "De {{author}}",
+    "frame": {
+      "chrome": "Page partagée de {{folder}}. Elle ne s’est pas exécutée."
+    },
+    "blocked": {
+      "title": "Cette page ne s’est pas exécutée",
+      "body": "Vous avez choisi de ne pas l’exécuter. Elle vient du dossier partagé {{folder}} de {{author}}. Rien ne s’y est exécuté et rien n’a été enregistré.",
+      "review": "Examiner et autoriser"
+    },
+    "waiting": {
+      "title": "En attente de vous",
+      "body": "Rien dans cette page ne s’exécute avant votre autorisation."
+    },
+    "stopped": {
+      "revoked": "Vous n’autorisez plus cette page. Elle s’est arrêtée et rien ne s’y exécute jusqu’à une nouvelle autorisation.",
+      "refused": "Cette page n’est plus autorisée et a été arrêtée. Examinez-la pour l’autoriser à nouveau.",
+      "off": "Les pages partagées ont été désactivées sur ce serveur, cette page a donc été arrêtée."
+    },
+    "changedMeanwhile": "La page a changé pendant votre examen. Voici la nouvelle version.",
+    "sourceTitle": "Source de « {{title}} »",
+    "sourceLines_one": "{{count}} ligne",
+    "sourceLines_other": "{{count}} lignes",
+    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici.",
+    "embed": {
+      "desc": "Vous avez autorisé l'ouverture de cette page. Sur l'accueil, dans un emplacement et dans le volet, elle s'exécute dès que l'écran s'affiche, sans clic : il lui faut donc un accord à part.",
+      "item": "S'exécuter sur l'accueil, dans les emplacements de l'app et dans le volet",
+      "note": "Elle démarre à l'affichage de l'écran, sans clic. Une modification de son auteur redemande l'accord.",
+      "allow": "Autoriser sur l'accueil, dans les emplacements et dans le volet"
+    },
+    "user": {
+      "desc": "Une personne a partagé cette page avec vous. Les pages s’exécutent en votre nom : vérifiez-la avant de la lancer.",
+      "who": "Écrite par {{author}}. Non vérifiée par un administrateur.",
+      "unchecked": "Non vérifiée par un administrateur.",
+      "where": "Page partagée",
+      "readOnly": "Vous ne pouvez que regarder cette page, elle ne peut donc pas enregistrer ses changements.",
+      "chrome": "Page partagée. Elle ne s’est pas exécutée.",
+      "blocked": "Vous avez choisi de ne pas l’exécuter. Elle vient de {{author}}. Rien ne s’est exécuté et rien n’a été enregistré.",
+      "files": "Lire et écrire des fichiers dans son propre dossier"
+    },
+    "owner": {
+      "desc": "D’autres peuvent modifier cette page. Les pages s’exécutent en votre nom : vérifiez-la avant de la lancer.",
+      "who": "D’autres peuvent modifier cette page. Vérifiez-la avant de la lancer.",
+      "changedWho": "Cette page a changé depuis que vous l’avez autorisée.",
+      "where": "Votre page",
+      "warn": "Elle agit en votre nom dans son dossier. Si quelqu’un la modifie, on vous redemande.",
+      "changedWarn": "Si vous l’autorisez, cette version s’exécute à chaque ouverture, jusqu’à ce que quelqu’un la modifie de nouveau.",
+      "blocked": "Vous avez choisi de ne pas l’exécuter. D’autres peuvent la modifier. Rien ne s’est exécuté et rien n’a été enregistré.",
+      "stale": "Cette page a changé. Vérifiez-la de nouveau."
+    }
+  },
+  "frame": {
+    "filesFailed": "Des fichiers à côté de cette page ne se sont pas chargés : {{files}}. La console du navigateur indique pourquoi.",
+    "tooLarge": "Cette page intègre plus de {{limit}} de fichiers de son dossier, certains ont donc été omis. Chargez plutôt les données avec fetch().",
+    "dismiss": "Fermer"
+  },
+  "link": {
+    "label": "La page veut ouvrir un lien",
+    "open": "Ouvrir {{site}}",
+    "cancel": "Annuler",
+    "lookalike": "Cette adresse utilise des lettres d'autres alphabets et se lit {{display}}. Elle peut imiter un autre site : vérifiez-la avant de l'ouvrir."
+  },
+  "view": {
+    "startPage": "Page de démarrage",
+    "makeStart": "En faire ma première page épinglée",
+    "startAlone": "C'est votre seule page épinglée.",
+    "startFailed": "La page de démarrage n'a pas pu être enregistrée : {{message}}"
+  },
+  "dock": {
+    "button": "Volet",
+    "buttonTitle": "Afficher ou masquer le volet (Ctrl+\\)",
+    "region": "Pages à côté de la discussion",
+    "tabs": "Pages du volet",
+    "closeTab": "Fermer {{title}}",
+    "add": "Ouvrir une autre page dans le volet",
+    "hide": "Masquer le volet",
+    "hideKeys": "Masquer le volet (Ctrl+\\)",
+    "openFull": "Ouvrir {{title}} en pleine page",
+    "by": {
+      "assistant": "Page créée par l'assistant",
+      "you": "Page créée par vous"
+    },
+    "shared": "Partagée : {{folder}}",
+    "askPrompt": "Modifie la page {{title}} dans pages/{{name}}/ pour que ",
+    "live": "En direct : se met à jour quand les fichiers changent",
+    "liveShort": "En direct",
+    "sandboxed": "Isolée, sans réseau",
+    "resize": "Largeur du volet",
+    "resizeHint": "Faites glisser le bord ou utilisez les flèches. Un double-clic ou Entrée rétablit la largeur.",
+    "fullScreen": "Volet en plein écran",
+    "halfScreen": "Volet à mi-écran",
+    "sheetHint": "Tirez la poignée vers le haut pour le plein écran, vers le bas pour fermer",
+    "pickTitle": "Ouvrir une page dans le volet",
+    "pickEmpty": "Vous n'avez pas encore de pages. Demandez à l'assistant d'en créer une.",
+    "missing": "La page {{name}} n'existe plus, ou vous ne pouvez pas la lire pour le moment.",
+    "off": "Un administrateur a désactivé les pages partagées.",
+    "error": "La page n'a pas pu être chargée.",
+    "allowText": "Cette page vient d'un dossier partagé. Elle ne s'exécute ici qu'après votre autorisation.",
+    "allow": "Examiner et autoriser",
+    "run": "L'exécuter ici",
+    "sendLabel": "La page demande d'envoyer ce message à cette discussion :",
+    "saveFailed": "Le volet n'a pas été enregistré : {{message}}",
+    "openInDock": "Ouvrir dans le volet"
+  },
+  "share": {
+    "intro": "Choisissez qui peut ouvrir cette page. La page reste où elle est.",
+    "warning": "Les personnes avec qui vous partagez exécutent le code de cette page dans leur navigateur, avec leurs propres droits, après l'avoir autorisé. Elles sont sollicitées de nouveau quand vous modifiez le code.",
+    "role": {
+      "view": "Voir",
+      "use": "Utiliser",
+      "edit": "Modifier"
+    },
+    "roleHelp": {
+      "view": "Peut exécuter la page et lire ses données. Ne peut pas enregistrer.",
+      "use": "Peut exécuter la page et y enregistrer des données. Ne peut pas modifier son code.",
+      "edit": "Peut tout modifier, y compris le code."
+    },
+    "count": {
+      "people_one": "Partagée avec {{count}} personne.",
+      "people_other": "Partagée avec {{count}} personnes.",
+      "everyone": "Partagée avec tout le monde.",
+      "everyoneAnd_one": "Partagée avec tout le monde et {{count}} personne nommée.",
+      "everyoneAnd_other": "Partagée avec tout le monde et {{count}} personnes nommées.",
+      "allowed_one": "{{count}} a autorisé cette version.",
+      "allowed_other": "{{count}} ont autorisé cette version."
+    },
+    "offAdmin": "Un administrateur a désactivé le partage de pages. Vous pouvez toujours arrêter le partage avec les personnes ci-dessous.",
+    "lost": "Vous ne pouvez plus partager cette page.",
+    "askAgain_one": "Vous avez modifié le code. {{count}} personne devra l’autoriser de nouveau.",
+    "askAgain_other": "Vous avez modifié le code. {{count}} personnes devront l’autoriser de nouveau.",
+    "viewOnly": "Vous pouvez regarder cette page, pas la modifier",
+    "editNote": "Avec Modifier, cette page s’ouvre aussi pour vous par l’étape d’autorisation.",
+    "tile": {
+      "title": "Ouvrez cette page pour l’exécuter",
+      "text": "Une personne l’a partagée avec vous. Elle ne s’exécute pas sur l’accueil ni dans un emplacement. Ouvrez-la pour l’exécuter.",
+      "open": "Ouvrir la page",
+      "dock": "Une personne a partagé cette page avec vous. Ouvrez-la depuis Pages pour l’exécuter.",
+      "slot": "Ouvrez {{title}} pour l’exécuter",
+      "textOwn": "D’autres peuvent la modifier. Elle ne s’exécute pas sur l’accueil ni dans un emplacement. Ouvrez-la pour l’exécuter.",
+      "dockOwn": "D’autres peuvent modifier cette page. Ouvrez-la depuis Pages pour l’exécuter."
+    }
+  }
+}

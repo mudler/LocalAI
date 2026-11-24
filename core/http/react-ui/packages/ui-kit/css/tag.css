@@ -1,0 +1,34 @@
+/* ---- Tag ------------------------------------------------------------------ */
+/* A label on an item that is not a state: the look of the tags in the home
+   model picker. 20 px, small radius, muted text on the hover surface. Text on
+   each wash is 4.5:1 in both themes (the same pairs as the status chip). */
+.ui-tag {
+  --tag-ink: var(--dk-muted);
+  --tag-wash: var(--dk-hover);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 100%;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--tag-wash);
+  color: var(--tag-ink);
+  font: var(--font-weight-medium) var(--fs-meta) / 1 var(--font-sans);
+  white-space: nowrap;
+  vertical-align: middle;
+  text-decoration: none;
+}
+.ui-tag--accent { --tag-ink: var(--dk-accent-text); --tag-wash: var(--dk-accent-wash); }
+.ui-tag--ok { --tag-ink: var(--dk-ok-text); --tag-wash: var(--dk-ok-wash); }
+.ui-tag--warn { --tag-ink: var(--dk-warn-text); --tag-wash: var(--dk-warn-wash); }
+.ui-tag--error { --tag-ink: var(--dk-error-text); --tag-wash: var(--dk-error-wash); }
+.ui-tag--mono { font-family: var(--dk-font-mono); font-weight: var(--dk-weight-regular); }
+.ui-tag__icon { width: 12px; height: 12px; flex: none; }
+button.ui-tag, a.ui-tag { border: 0; cursor: pointer; }
+button.ui-tag:hover, a.ui-tag:hover { color: var(--dk-text); }
+button.ui-tag:focus-visible, a.ui-tag:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* A row of tags in a cell or a card. */
+.ui-tags { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }

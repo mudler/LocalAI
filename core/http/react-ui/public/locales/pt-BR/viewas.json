@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Ver como",
+    "readonlyTag": "Somente leitura",
+    "actingTag": "Atuando",
+    "readonlyLead": "Vendo como {{name}}.",
+    "readonlyRest": "Somente leitura.",
+    "actingLead": "Atuando como {{name}}.",
+    "actingRest": "As alterações são feitas na conta de {{name}} e são registradas.",
+    "allow": "Permitir alterações",
+    "exit": "Sair",
+    "exitLabel": "Sair de Ver como {{name}}"
+  },
+  "confirm": {
+    "title": "Permitir alterações na conta de {{name}}?",
+    "intro": "Você vai atuar como {{name}}. Isso vale agora, em todas as páginas que seguem Ver como.",
+    "can": "Você pode criar, editar e excluir os projetos de {{name}}.",
+    "logged": "Toda alteração é registrada com você como autor e {{name}} como conta.",
+    "back": "Você pode voltar para somente leitura pela barra a qualquer momento.",
+    "stay": "Continuar em somente leitura",
+    "allow": "Permitir alterações",
+    "close": "Fechar"
+  },
+  "scope": {
+    "chip": "Dados de {{name}}",
+    "navMark": "Mostra os dados de {{name}}",
+    "legend": "As páginas com esta marca mostram os dados de {{name}}. As outras mostram os seus.",
+    "notice": "Esta página mostra os seus próprios dados, não os de {{name}}."
+  },
+  "write": {
+    "hint": "Permita alterações para editar",
+    "blocked": "Somente leitura. Ative Permitir alterações na barra para editar os dados de {{name}}."
+  },
+  "notice": {
+    "idle": "As alterações foram desativadas após {{minutes}} minutos sem atividade. Voltou para somente leitura.",
+    "ended": "{{name}} não está mais disponível, então Ver como terminou."
+  },
+  "users": {
+    "action": "Ver como",
+    "actionFor": "Ver como {{name}}",
+    "hint": "Veja o que {{name}} vê. Primeiro somente leitura."
+  },
+  "palette": {
+    "kind": "Ver como",
+    "title": "Ver como {{name}}",
+    "where": "{{email}} · primeiro somente leitura"
+  }
+}

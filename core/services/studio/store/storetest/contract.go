@@ -1,0 +1,1233 @@
+// Package storetest is the conformance suite for store.Store. Every
+// implementation passes it, so the JSON and GORM stores behave the same. Run
+// registers Ginkgo specs, so call it inside a Describe of the implementation's
+// test package.
+package storetest
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+	"unicode/utf8"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+)
+
+// New returns an empty store for one spec. Clean up with DeferCleanup.
+type New func() store.Store
+
+var t0 = time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
+
+// ctx returns a context that is cancelled when the spec ends.
+func ctx() context.Context {
+	c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	DeferCleanup(cancel)
+	return c
+}
+
+func chat(s store.Store, id, principal string) {
+	Expect(s.CreateChat(ctx(), session.ChatRecord{ID: id, Principal: principal, Title: "New chat", Created: t0, Updated: t0})).To(Succeed())
+}
+
+func texts(ps []store.Pending) []string {
+	var out []string
+	for _, p := range ps {
+		out = append(out, p.Text)
+	}
+	return out
+}
+
+// Run registers the specs that check stores from newStore.
+func Run(newStore New) {
+	// The loop's own transcript contract.
+	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
+	runSearch(newStore)
+
+	It("skill switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetSkillsOff(ctx(), "alice", "c1", []string{"review", "notes"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.SkillsOff).To(Equal([]string{"review", "notes"}))
+		// The loop saves its own copy of the record at the end of a turn. That
+		// copy has no switches in it and must not wipe them.
+		stale := rec
+		stale.SkillsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.SkillsOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetSkillsOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetSkillsOff")
+		Expect(s.SetSkillsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.SkillsOff).To(BeEmpty(), "after clearing")
+	})
+
+	It("children of a chat belong to the owner and the parent", func() {
+		s := newStore()
+		chat(s, "p1", "alice")
+		chat(s, "p2", "alice")
+		for i, spec := range []struct{ id, owner, parent string }{{"k1", "alice", "p1"}, {"k2", "alice", "p1"}, {"k3", "alice", "p2"}, {"k4", "bob", "p1"}} {
+			rec := session.ChatRecord{ID: spec.id, Principal: spec.owner, Title: "child", Kind: session.KindSubAgent, ParentID: spec.parent,
+				Created: t0.Add(time.Duration(i) * time.Second), Updated: t0}
+			Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		}
+		kids, err := s.ListChildren(ctx(), "alice", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kids).To(HaveLen(2), "want k1 and k2: %+v", kids)
+		Expect(kids[0].ID).To(Equal("k1"))
+		Expect(kids[1].ID).To(Equal("k2"))
+		kids, _ = s.ListChildren(ctx(), "alice", "nothing")
+		Expect(kids).To(BeEmpty(), "children of an unknown parent")
+	})
+
+	It("chat meta and truncation", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		for _, txt := range []string{"a", "b", "c"} {
+			Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: txt})).Error().NotTo(HaveOccurred())
+		}
+		title, model := "Renamed", "m2"
+		set := session.ChatSettings{SystemPrompt: "be brief", ReasoningEffort: "low", ContextSize: 4096}
+		temp := 0.3
+		set.Temperature = &temp
+		Expect(s.SetChatMeta(ctx(), "alice", "c1", session.ChatMeta{Title: &title, Model: &model, Settings: &set})).To(Succeed())
+		rec, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"), "after SetChatMeta: %+v", rec)
+		Expect(rec.Model).To(Equal("m2"))
+		Expect(rec.Settings.SystemPrompt).To(Equal("be brief"))
+		Expect(rec.Settings.Temperature).NotTo(BeNil())
+		Expect(*rec.Settings.Temperature).To(Equal(0.3))
+		Expect(rec.Settings.ContextSize).To(BeEquivalentTo(4096))
+		// The loop's stale copy must not wipe the settings.
+		stale := rec
+		stale.Settings = session.ChatSettings{}
+		stale.Updated = t0.Add(time.Hour)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Settings.SystemPrompt).To(Equal("be brief"), "UpdateChat wiped the settings or the model: %+v", rec)
+		Expect(rec.Model).To(Equal("m2"), "UpdateChat wiped the settings or the model: %+v", rec)
+		Expect(s.SetChatMeta(ctx(), "bob", "c1", session.ChatMeta{Title: &title})).To(MatchError(session.ErrNotFound), "another principal's SetChatMeta")
+		empty := session.ChatSettings{}
+		Expect(s.SetChatMeta(ctx(), "alice", "c1", session.ChatMeta{Settings: &empty})).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Settings == (session.ChatSettings{})).To(BeTrue(), "settings not cleared: %+v", rec.Settings)
+		Expect(s.TruncateEntries(ctx(), "bob", "c1", 1)).To(MatchError(session.ErrNotFound), "another principal's TruncateEntries")
+		Expect(s.TruncateEntries(ctx(), "alice", "c1", 1)).To(Succeed())
+		es, _ := s.Entries(ctx(), "c1", 0, 0)
+		Expect(es).To(HaveLen(1), "entries after truncate = %+v", es)
+		Expect(es[0].Text).To(Equal("a"))
+		seq, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "d"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(seq).To(BeEquivalentTo(2), "next seq after truncate")
+	})
+
+	It("MCP switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetMcpOff(ctx(), "alice", "c1", []string{"search", "connector:abc"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.McpOff).To(Equal([]string{"search", "connector:abc"}))
+		stale := rec
+		stale.McpOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.McpOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetMcpOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetMcpOff")
+		Expect(s.SetMcpOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.McpOff).To(BeEmpty(), "after clearing")
+	})
+
+	It("built-in tool switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetBuiltinsOff(ctx(), "alice", "c1", []string{"web"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.BuiltinsOff).To(Equal([]string{"web"}))
+		stale := rec
+		stale.BuiltinsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOff).To(Equal([]string{"web"}), "want the switches kept")
+		Expect(s.SetBuiltinsOff(ctx(), "bob", "c1", []string{"web"})).To(MatchError(session.ErrNotFound), "another principal's SetBuiltinsOff")
+		Expect(s.SetBuiltinsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOff).To(BeEmpty(), "after clearing")
+	})
+
+	It("opt-in built-in tool switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetBuiltinsOn(ctx(), "alice", "c1", []string{"saved_agents"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+		stale := rec
+		stale.BuiltinsOn = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOn).To(Equal([]string{"saved_agents"}), "want the switches kept")
+		Expect(s.SetBuiltinsOn(ctx(), "bob", "c1", []string{"saved_agents"})).To(MatchError(session.ErrNotFound), "another principal's SetBuiltinsOn")
+		Expect(s.SetBuiltinsOn(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOn).To(BeEmpty(), "after clearing")
+	})
+
+	It("keeps the consent card that waits, survives a chat update and belongs to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetHostConsent(ctx(), "alice", "c1", &session.HostConsent{ID: "k1", Command: "ls -la"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.HostConsent).To(Equal(&session.HostConsent{ID: "k1", Command: "ls -la"}))
+		stale := rec
+		stale.HostConsent = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil(), "want the card kept")
+		Expect(s.SetHostConsent(ctx(), "bob", "c1", nil)).To(MatchError(session.ErrNotFound), "another principal's SetHostConsent")
+		Expect(s.SetHostConsent(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).To(BeNil(), "after clearing")
+	})
+
+	It("changes the consent card in one step, keeps it from another principal and leaves it on an error", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		asked := t0.Add(time.Minute)
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) {
+			Expect(cur).To(BeNil())
+			return &session.HostConsent{ID: "k1", Command: "ls", Turn: "r1", AskedAt: asked}, nil
+		})).To(Succeed())
+		rec, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil())
+		Expect(*rec.HostConsent).To(SatisfyAll(HaveField("ID", "k1"), HaveField("Turn", "r1"), HaveField("AskedAt", BeTemporally("==", asked))))
+		boom := errors.New("boom")
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(*session.HostConsent) (*session.HostConsent, error) { return nil, boom })).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil(), "an error changes nothing")
+		Expect(s.UpdateHostConsent(ctx(), "bob", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) { return nil, nil })).To(MatchError(session.ErrNotFound))
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) {
+			Expect(cur.ID).To(Equal("k1"))
+			return nil, nil
+		})).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).To(BeNil())
+	})
+
+	It("keeps the network state, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,
+			Egress: egress.ChatState{Preset: egress.PresetRegistries}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries), "CreateChat keeps the preset")
+		Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+			st.PutRule(egress.Rule{Host: "example.com", Port: 443, Allow: true, At: t0})
+			st.PutCard(egress.Card{ID: "k1", Host: "example.com", Port: 443, State: egress.CardPending, ToolSeq: 7, AskedAt: t0})
+			return nil
+		})).To(Succeed())
+		stale := rec
+		stale.Egress = egress.ChatState{}
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Rules).To(HaveLen(1), "UpdateChat keeps the rules")
+		card, ok := rec.Egress.Card("k1")
+		Expect(ok).To(BeTrue(), "the card is kept with the chat, so a reload shows it")
+		Expect(card.ToolSeq).To(Equal(int64(7)))
+		Expect(s.UpdateEgress(ctx(), "bob", "c1", func(*egress.ChatState) error { return nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+			st.Preset = egress.PresetAll
+			return boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries), "a failed change leaves the state")
+
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+					st.PutRule(egress.Rule{Host: "h.example", Port: 1000 + i, Allow: true})
+					return nil
+				})).To(Succeed())
+			}(i)
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Rules).To(HaveLen(9), "no change was lost")
+	})
+
+	It("keeps the job index, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		chat(s, "j1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "j1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Jobs).To(BeEmpty(), "a new chat has no jobs")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func(cur []session.JobStub) ([]session.JobStub, error) {
+			Expect(cur).To(BeEmpty())
+			return append(cur, session.JobStub{ID: "job-aaaaaa", Instance: "n1", Provider: "builtin", Label: "build", State: bgjob.StateRunning, Started: t0}), nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(rec.Jobs).To(HaveLen(1), "UpdateChat keeps the jobs")
+		Expect(rec.Jobs[0].ID).To(Equal("job-aaaaaa"))
+		Expect(rec.Jobs[0].State).To(Equal(bgjob.StateRunning))
+		Expect(rec.Jobs[0].Started.Equal(t0)).To(BeTrue())
+		rec.Jobs[0].Label = "changed on the copy"
+		again, _ := s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs[0].Label).To(Equal("build"), "GetChat returns a copy")
+
+		Expect(s.UpdateJobs(ctx(), "bob", "j1", func(c []session.JobStub) ([]session.JobStub, error) { return c, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func(c []session.JobStub) ([]session.JobStub, error) {
+			c[0].State = bgjob.StateExited
+			return c, boom
+		})).To(MatchError(boom))
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs[0].State).To(Equal(bgjob.StateRunning), "an error leaves the list as it was")
+
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateJobs(ctx(), "alice", "j1", func(c []session.JobStub) ([]session.JobStub, error) {
+					return append(c, session.JobStub{ID: fmt.Sprintf("job-%06d", i), State: bgjob.StateRunning}), nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs).To(HaveLen(9), "no concurrent change is lost")
+		Expect(s.UpdateJobs(ctx(), "alice", "j1", func([]session.JobStub) ([]session.JobStub, error) { return nil, nil })).To(Succeed())
+		again, _ = s.GetChat(ctx(), "alice", "j1")
+		Expect(again.Jobs).To(BeEmpty())
+	})
+
+	It("lets a change count the jobs and hold a place in one step, so parallel holds never pass a limit", func() {
+		s := newStore()
+		chat(s, "j2", "alice")
+		full := errors.New("full")
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		held, refused := 0, 0
+		for i := range 12 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				err := s.UpdateJobs(ctx(), "alice", "j2", func(c []session.JobStub) ([]session.JobStub, error) {
+					if len(c) >= 4 {
+						return nil, full
+					}
+					return append(c, session.JobStub{ID: fmt.Sprintf("starting-%02d", i), State: bgjob.StateStarting}), nil
+				})
+				mu.Lock()
+				defer mu.Unlock()
+				if errors.Is(err, full) {
+					refused++
+					return
+				}
+				Expect(err).NotTo(HaveOccurred())
+				held++
+			}()
+		}
+		wg.Wait()
+		Expect(held).To(Equal(4))
+		Expect(refused).To(Equal(8))
+		rec, err := s.GetChat(ctx(), "alice", "j2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Jobs).To(HaveLen(4))
+	})
+
+	It("keeps the goal, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal).To(BeNil(), "a new chat has no goal")
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(cur *session.Goal) (*session.Goal, error) {
+			Expect(cur).To(BeNil())
+			return &session.Goal{Text: "ship the report", State: session.GoalActive, Set: t0, Updated: t0}, nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal).NotTo(BeNil(), "UpdateChat keeps the goal")
+		Expect(rec.Goal.Text).To(Equal("ship the report"))
+		Expect(rec.Goal.State).To(Equal(session.GoalActive))
+		Expect(rec.Goal.Set.Equal(t0)).To(BeTrue())
+		rec.Goal.Text = "changed on the copy"
+		again, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(again.Goal.Text).To(Equal("ship the report"), "GetChat returns a copy")
+
+		Expect(s.UpdateGoal(ctx(), "bob", "c1", func(g *session.Goal) (*session.Goal, error) { return g, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(g *session.Goal) (*session.Goal, error) {
+			g.State = session.GoalDone
+			return g, boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal.State).To(Equal(session.GoalActive), "a failed change leaves the goal")
+
+		var wg sync.WaitGroup
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateGoal(ctx(), "alice", "c1", func(g *session.Goal) (*session.Goal, error) {
+					g.Turns++
+					return g, nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal.Turns).To(Equal(8), "no change was lost")
+
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(*session.Goal) (*session.Goal, error) { return nil, nil })).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal).To(BeNil(), "a nil goal clears it")
+	})
+
+	It("keeps the dock, survives a chat update, belongs to the owner and loses no concurrent page", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Dock).To(BeNil(), "a new chat has no dock")
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(cur *session.Dock) (*session.Dock, error) {
+			Expect(cur).To(BeNil())
+			return &session.Dock{Open: true, Width: 500, Tabs: []session.DockTab{{Page: "task-board"}, {Page: "news", Folder: 3}}, Active: 1}, nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock).NotTo(BeNil(), "UpdateChat keeps the dock")
+		Expect(*rec.Dock).To(Equal(session.Dock{Open: true, Width: 500, Tabs: []session.DockTab{{Page: "task-board"}, {Page: "news", Folder: 3}}, Active: 1}))
+		rec.Dock.Tabs[0].Page = "changed-on-the-copy"
+		again, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(again.Dock.Tabs[0].Page).To(Equal("task-board"), "GetChat returns a copy")
+
+		Expect(s.UpdateDock(ctx(), "bob", "c1", func(d *session.Dock) (*session.Dock, error) { return d, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(d *session.Dock) (*session.Dock, error) {
+			d.Open = false
+			return d, boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock.Open).To(BeTrue(), "a failed change leaves the dock")
+
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(*session.Dock) (*session.Dock, error) { return &session.Dock{}, nil })).To(Succeed())
+		var wg sync.WaitGroup
+		for i := range session.MaxDockTabs {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateDock(ctx(), "alice", "c1", func(d *session.Dock) (*session.Dock, error) {
+					return d.OpenTab(session.DockTab{Page: fmt.Sprintf("page-%d", i)}), nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock.Tabs).To(HaveLen(session.MaxDockTabs), "no page was lost")
+
+		Expect(s.UpdateDock(ctx(), "alice", "c1", func(*session.Dock) (*session.Dock, error) { return nil, nil })).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Dock).To(BeNil(), "a nil dock clears it")
+	})
+
+	It("creates a chat with its goal", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,
+			Goal: &session.Goal{Text: "g", State: session.GoalPaused, PausedBy: session.GoalPausedByUser, Turns: 2, Steps: 9}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal).NotTo(BeNil())
+		Expect(*rec.Goal).To(MatchFields(IgnoreExtras, Fields{"Text": Equal("g"), "State": Equal(session.GoalPaused),
+			"PausedBy": Equal(session.GoalPausedByUser), "Turns": Equal(2), "Steps": Equal(9)}))
+	})
+
+	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetAddonsOff(ctx(), "alice", "c1", []string{"office", "sandbox"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.AddonsOff).To(Equal([]string{"office", "sandbox"}))
+		stale := rec
+		stale.AddonsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.AddonsOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetAddonsOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetAddonsOff")
+		Expect(s.SetAddonsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.AddonsOff).To(BeEmpty(), "after clearing")
+	})
+
+	It("the connections of a chat round-trip, survive a chat update, copy on read and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetConnections(ctx(), "alice", "c1", connsets.Sets{"tracker": {"b1", "b3"}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}))
+		rec.Connections["tracker"][0] = "changed"
+		stale := rec
+		stale.Connections = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}), "want the choice kept")
+		Expect(s.SetConnections(ctx(), "bob", "c1", connsets.Sets{"tracker": {"b2"}})).To(MatchError(session.ErrNotFound), "another principal's SetConnections")
+		Expect(s.SetConnections(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(BeEmpty(), "after clearing")
+		made := session.ChatRecord{ID: "c2", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "m", Connections: connsets.Sets{"tracker": {"b1", "b3"}}}
+		Expect(s.CreateChat(ctx(), made)).To(Succeed())
+		got, _ := s.GetChat(ctx(), "alice", "c2")
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}), "a chat created with its choice keeps it")
+	})
+
+	It("a chat created with its switches keeps them", func() {
+		s := newStore()
+		rec := session.ChatRecord{ID: "c1", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
+			AddonsOff: []string{"office"}, McpOff: []string{"connector:k1"}, BuiltinsOff: []string{"web"},
+			BuiltinsOn: []string{"saved_agents"}, SkillsOff: []string{"builtin:pdf"}}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AddonsOff).To(Equal([]string{"office"}))
+		Expect(got.McpOff).To(Equal([]string{"connector:k1"}))
+		Expect(got.BuiltinsOff).To(Equal([]string{"web"}))
+		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+		Expect(got.SkillsOff).To(Equal([]string{"addon:pdf"}))
+	})
+
+	It("kind, parent, model, status and summary round-trip", func() {
+		s := newStore()
+		chat(s, "parent", "alice")
+		rec := session.ChatRecord{ID: "child", Principal: "alice", Title: "Sub", Created: t0, Updated: t0, Kind: session.KindSubAgent, ParentID: "parent", Model: "qwen3"}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		rec.Status, rec.Updated = "done", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), rec)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "child")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Kind).To(Equal(session.KindSubAgent), "got %+v", got)
+		Expect(got.ParentID).To(Equal("parent"))
+		Expect(got.Model).To(Equal("qwen3"))
+		Expect(got.Status).To(Equal("done"))
+	})
+
+	It("agent and origin round-trip and survive UpdateChat", func() {
+		s := newStore()
+		rec := session.ChatRecord{ID: "run1", Principal: "alice", Title: "Run", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
+			AgentID: "ag1", Origin: session.OriginTrigger, OriginID: "trg1"}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		stale := rec
+		stale.AgentID, stale.Origin, stale.OriginID, stale.Title, stale.Updated = "other", "", "", "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "run1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AgentID).To(Equal("ag1"), "got %+v", got)
+		Expect(got.Origin).To(Equal(session.OriginTrigger))
+		Expect(got.OriginID).To(Equal("trg1"))
+		Expect(got.Title).To(Equal("Renamed"))
+	})
+
+	It("the assistant flag round-trips and survives UpdateChat", func() {
+		s := newStore()
+		rec := session.ChatRecord{ID: "as1", Principal: "alice", Title: "Assistant", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3", Assistant: true}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		stale := rec
+		stale.Assistant, stale.Title, stale.Updated = false, "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "as1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Assistant).To(BeTrue(), "got %+v", got)
+		Expect(got.Title).To(Equal("Renamed"))
+	})
+
+	It("round-trips ScopedAgent and reads old chats as false", func() {
+		s := newStore()
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.ScopedAgent).To(BeFalse(), "a chat stored without the flag")
+
+		scoped := session.ChatRecord{ID: "sc1", Principal: "alice", Title: "Scoped", Created: t0, Updated: t0, AgentID: "ag1", ScopedAgent: true}
+		Expect(s.CreateChat(ctx(), scoped)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "sc1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ScopedAgent).To(BeTrue(), "CreateChat writes the flag")
+
+		// The loop saves its own copy of the record; a stale copy must not
+		// clear the flag, or a chat whose scoped agent is deleted would get
+		// the whole home.
+		stale := got
+		stale.ScopedAgent, stale.Title, stale.Updated = false, "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "sc1")
+		Expect(got.ScopedAgent).To(BeTrue(), "UpdateChat leaves the flag alone")
+		Expect(got.Title).To(Equal("Renamed"))
+
+		Expect(s.SetScopedAgent(ctx(), "bob", "sc1", false)).To(MatchError(session.ErrNotFound), "another principal's SetScopedAgent")
+		Expect(s.SetScopedAgent(ctx(), "alice", "missing", true)).To(MatchError(session.ErrNotFound))
+		Expect(s.SetScopedAgent(ctx(), "alice", "sc1", false)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "sc1")
+		Expect(got.ScopedAgent).To(BeFalse(), "after clearing")
+		Expect(s.SetScopedAgent(ctx(), "alice", "plain", true)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ScopedAgent).To(BeTrue(), "after setting")
+		list, err := s.ListChats(ctx(), "alice", session.ChatCursor{}, 0)
+		Expect(err).NotTo(HaveOccurred())
+		flags := map[string]bool{}
+		for _, r := range list {
+			flags[r.ID] = r.ScopedAgent
+		}
+		Expect(flags).To(Equal(map[string]bool{"plain": true, "sc1": false}), "ListChats carries the flag")
+	})
+
+	It("round-trips ProjectID and PulledProjects and lists the chats of a project", func() {
+		s := newStore()
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.ProjectID).To(BeEmpty(), "a chat stored without a project")
+		Expect(rec.PulledProjects).To(BeEmpty())
+
+		in := session.ChatRecord{ID: "p1", Principal: "alice", Title: "In", Created: t0, Updated: t0.Add(2 * time.Minute), ProjectID: "proj1", PulledProjects: []string{"x", "y"}}
+		Expect(s.CreateChat(ctx(), in)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ProjectID).To(Equal("proj1"), "CreateChat writes the project")
+		Expect(got.PulledProjects).To(Equal([]string{"x", "y"}))
+
+		// A stale copy of the record, as the loop saves it, must not clear
+		// the membership.
+		stale := got
+		stale.ProjectID, stale.PulledProjects, stale.Title, stale.Updated = "", nil, "Renamed", t0.Add(3*time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "p1")
+		Expect(got.ProjectID).To(Equal("proj1"), "UpdateChat leaves the project alone")
+		Expect(got.PulledProjects).To(Equal([]string{"x", "y"}), "UpdateChat leaves the pulled list alone")
+		Expect(got.Title).To(Equal("Renamed"))
+
+		Expect(s.SetProject(ctx(), "alice", "plain", "proj1")).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ProjectID).To(Equal("proj1"))
+		Expect(s.SetPulledProjects(ctx(), "alice", "plain", []string{"z"})).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.PulledProjects).To(Equal([]string{"z"}))
+
+		chat(s, "other", "alice")
+		Expect(s.SetProject(ctx(), "alice", "other", "proj2")).To(Succeed())
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "bobs", Principal: "bob", Title: "B", Created: t0, Updated: t0, ProjectID: "proj1"})).To(Succeed())
+
+		list, err := s.ListChatsInProject(ctx(), "alice", "proj1", 0)
+		Expect(err).NotTo(HaveOccurred())
+		ids := []string{}
+		for _, r := range list {
+			ids = append(ids, r.ID)
+		}
+		Expect(ids).To(Equal([]string{"p1", "plain"}), "this principal and this project only, newest first")
+		list, err = s.ListChatsInProject(ctx(), "alice", "proj1", 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1), "limit")
+		list, err = s.ListChatsInProject(ctx(), "alice", "nope", 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(BeEmpty())
+
+		Expect(s.SetProject(ctx(), "alice", "plain", "")).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ProjectID).To(BeEmpty(), "an empty ID clears the project")
+		Expect(s.SetPulledProjects(ctx(), "alice", "plain", nil)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.PulledProjects).To(BeEmpty())
+
+		Expect(s.SetProject(ctx(), "bob", "p1", "x")).To(MatchError(session.ErrNotFound), "another principal's SetProject")
+		Expect(s.SetPulledProjects(ctx(), "bob", "p1", []string{"x"})).To(MatchError(session.ErrNotFound))
+		Expect(s.SetProject(ctx(), "alice", "missing", "x")).To(MatchError(session.ErrNotFound))
+	})
+
+	It("round-trips Collections, isolates principals and keeps it through a stale UpdateChat", func() {
+		s := newStore()
+		t0 := time.Date(2026, 11, 14, 9, 0, 0, 0, time.UTC)
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Collections).To(BeEmpty())
+
+		in := session.ChatRecord{ID: "c1", Principal: "alice", Title: "In", Created: t0, Updated: t0, Collections: []string{"a", "b"}}
+		Expect(s.CreateChat(ctx(), in)).To(Succeed())
+		in.Collections[0] = "mutated"
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Collections).To(Equal([]string{"a", "b"}))
+
+		stale := got
+		stale.Collections, stale.Title, stale.Updated = nil, "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(got.Title).To(Equal("Renamed"))
+		Expect(got.Collections).To(Equal([]string{"a", "b"}), "UpdateChat leaves Collections alone")
+
+		Expect(s.SetCollections(ctx(), "alice", "plain", []string{"z"})).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.Collections).To(Equal([]string{"z"}))
+		Expect(s.SetCollections(ctx(), "alice", "plain", nil)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.Collections).To(BeEmpty())
+
+		Expect(s.SetCollections(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound))
+		Expect(s.SetCollections(ctx(), "alice", "missing", []string{"x"})).To(MatchError(session.ErrNotFound))
+		got, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(got.Collections).To(Equal([]string{"a", "b"}), "another principal changed nothing")
+	})
+
+	It("pending messages are taken once, in send order", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		for _, x := range []string{"one", "two", "three"} {
+			Expect(s.AddPending(ctx(), "alice", "c1", x)).Error().NotTo(HaveOccurred())
+		}
+		got, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(texts(got)).To(Equal([]string{"one", "two", "three"}), "first take")
+		again, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred(), "second take")
+		Expect(again).To(BeEmpty(), "second take = %v; want nothing", texts(again))
+		left, err := s.Pending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred(), "Pending after take")
+		Expect(left).To(BeEmpty(), "Pending after take = %v; want nothing", texts(left))
+	})
+
+	It("a pending message keeps its sender until it is taken", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		who := &session.Sender{ID: "U1", Name: "Ada", Standing: session.StandingChannel}
+		Expect(s.AddPendingFrom(ctx(), "alice", "c1", "from a person", who)).Error().NotTo(HaveOccurred())
+		Expect(s.AddPending(ctx(), "alice", "c1", "typed")).Error().NotTo(HaveOccurred())
+		got, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Sender).To(Equal(who))
+		Expect(got[1].Sender).To(BeNil())
+	})
+
+	It("edit and cancel work until the message is taken", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		a, _ := s.AddPending(ctx(), "alice", "c1", "keep")
+		b, _ := s.AddPending(ctx(), "alice", "c1", "drop")
+		c, _ := s.AddPending(ctx(), "alice", "c1", "typo")
+		Expect(s.EditPending(ctx(), "alice", "c1", c.ID, "fixed")).To(Succeed())
+		Expect(s.CancelPending(ctx(), "alice", "c1", b.ID)).To(Succeed())
+		got, _ := s.TakePending(ctx(), "alice", "c1")
+		Expect(texts(got)).To(Equal([]string{"keep", "fixed"}), "taken")
+		Expect(s.EditPending(ctx(), "alice", "c1", a.ID, "late")).To(MatchError(store.ErrDelivered), "edit after take")
+		Expect(s.CancelPending(ctx(), "alice", "c1", a.ID)).To(MatchError(store.ErrDelivered), "cancel after take")
+	})
+
+	It("restore puts taken messages back in their original order", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "one")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "two")
+		taken, _ := s.TakePending(ctx(), "alice", "c1")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "three")
+		var ids []string
+		for _, p := range taken {
+			ids = append(ids, p.ID)
+		}
+		Expect(s.RestorePending(ctx(), "alice", "c1", ids)).To(Succeed())
+		got, _ := s.TakePending(ctx(), "alice", "c1")
+		Expect(texts(got)).To(Equal([]string{"one", "two", "three"}), "after restore")
+	})
+
+	It("another principal sees ErrNotFound for every call", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		p, _ := s.AddPending(ctx(), "alice", "c1", "secret")
+		calls := map[string]error{}
+		_, calls["AddPending"] = s.AddPending(ctx(), "bob", "c1", "x")
+		_, calls["Pending"] = s.Pending(ctx(), "bob", "c1")
+		calls["EditPending"] = s.EditPending(ctx(), "bob", "c1", p.ID, "x")
+		calls["CancelPending"] = s.CancelPending(ctx(), "bob", "c1", p.ID)
+		_, calls["TakePending"] = s.TakePending(ctx(), "bob", "c1")
+		calls["RestorePending"] = s.RestorePending(ctx(), "bob", "c1", []string{p.ID})
+		calls["ClaimTurn"] = s.ClaimTurn(ctx(), "bob", "c1", "r1")
+		calls["ReleaseTurn"] = s.ReleaseTurn(ctx(), "bob", "c1", "r1", store.TurnDone)
+		_, calls["Turn"] = s.Turn(ctx(), "bob", "c1")
+		for name, err := range calls {
+			Expect(err).To(MatchError(session.ErrNotFound), "%s as another principal", name)
+		}
+	})
+
+	It("exactly one claim wins", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		c := ctx()
+		var wins, busy int32
+		var other []error
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		for i := range 8 {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				defer GinkgoRecover()
+				err := s.ClaimTurn(c, "alice", "c1", string(rune('a'+i))) // #nosec G115 -- i counts a few test turns
+				switch {
+				case err == nil:
+					atomic.AddInt32(&wins, 1)
+				case isTurnRunning(err):
+					atomic.AddInt32(&busy, 1)
+				default:
+					mu.Lock()
+					other = append(other, err)
+					mu.Unlock()
+				}
+			}(i)
+		}
+		wg.Wait()
+		Expect(other).To(BeEmpty(), "ClaimTurn failed unexpectedly")
+		Expect(wins).To(BeEquivalentTo(1))
+		Expect(busy).To(BeEquivalentTo(7))
+	})
+
+	It("release frees the chat and records the outcome", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		info, _ := s.Turn(ctx(), "alice", "c1")
+		Expect(info.Running).To(BeTrue(), "running turn = %+v", info)
+		Expect(info.RunID).To(Equal("r1"))
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "other", store.TurnDone)).To(MatchError(store.ErrNotClaimed), "release by another run")
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "r1", store.TurnStopped)).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Running).To(BeFalse(), "after release = %+v", info)
+		Expect(info.Last).To(Equal(store.TurnStopped))
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "claim after release")
+	})
+
+	It("records the owner of a turn until the next turn records its own", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		chat(s, "c2", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "other", "a")).To(MatchError(store.ErrNotClaimed), "an owner for a run that does not hold the chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c2", "r1", "a")).To(MatchError(store.ErrNotClaimed), "an owner for an idle chat")
+		Expect(s.SetTurnOwner(ctx(), "bob", "c1", "r1", "a")).To(MatchError(session.ErrNotFound), "another user's chat")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r1", "instance-a")).To(Succeed())
+		info, _ := s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"))
+		// The owner stays after the end: its last events may still be asked for.
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "r1", store.TurnDone)).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after the end")
+		// A claim alone keeps it; the turn that runs records its own.
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-a"), "after a claim")
+		Expect(s.SetTurnOwner(ctx(), "alice", "c1", "r2", "instance-b")).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Owner).To(Equal("instance-b"))
+	})
+
+	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
+		// The margin is wide: on a loaded runner under -race a few store calls
+		// can take longer than a tight threshold.
+		const stale = 300 * time.Millisecond
+		s := newStore()
+		chat(s, "stale", "alice")
+		chat(s, "alive", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-stale")).To(Succeed())
+		Expect(s.ClaimTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
+		time.Sleep(2 * stale)
+		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
+
+		got, err := s.ReapTurns(ctx(), stale)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1), "reaped = %+v, want only the chat that stopped beating", got)
+		Expect(got[0].ChatID).To(Equal("stale"))
+		Expect(got[0].Principal).To(Equal("alice"))
+		Expect(got[0].RunID).To(Equal("r-stale"))
+		info, _ := s.Turn(ctx(), "alice", "stale")
+		Expect(info.Running).To(BeFalse(), "reaped turn = %+v, want not running and interrupted", info)
+		Expect(info.Last).To(Equal(store.TurnInterrupted))
+		info, _ = s.Turn(ctx(), "alice", "alive")
+		Expect(info.Running).To(BeTrue(), "a turn that kept beating was reaped: %+v", info)
+		// The run that was reaped can no longer beat or release, and the chat is free.
+		Expect(s.TouchTurn(ctx(), "alice", "stale", "r-stale")).To(MatchError(store.ErrNotClaimed), "TouchTurn on a reaped run")
+		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-next")).To(Succeed(), "claim after reap")
+		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
+		again, _ := s.ReapTurns(ctx(), stale)
+		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
+	})
+
+	Describe("resume of an interrupted turn", func() {
+		// interrupt runs a turn on a new chat and ends it as interrupted with delay.
+		interrupt := func(s store.Store, id string, delay time.Duration) {
+			GinkgoHelper()
+			Expect(s.ClaimTurn(ctx(), "alice", id, "r-"+id)).To(Succeed())
+			Expect(s.MarkInterrupted(ctx(), "alice", id, "r-"+id, delay)).To(Succeed())
+		}
+
+		It("the reaper schedules the first resume after the default wait", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+			Expect(s.ReapTurns(ctx(), -time.Hour)).To(HaveLen(1))
+			info, err := s.Turn(ctx(), "alice", "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeAttempts).To(BeZero())
+			Expect(info.InterruptedAt).NotTo(BeZero())
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(0)), 2*time.Second))
+			Expect(info.WillResume).To(BeTrue(), "a resume is scheduled, though not due")
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "r2")).To(MatchError(store.ErrNotResumable), "the wait is not over yet")
+		})
+
+		It("a resume that is due is listed, and exactly one claim wins it", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.WillResume).To(BeTrue())
+			Expect(info.Running).To(BeFalse())
+			list, err := s.ListResumable(ctx())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list).To(ConsistOf(MatchFields(IgnoreExtras, Fields{"Principal": Equal("alice"), "ChatID": Equal("c1"), "Attempts": BeZero()})))
+
+			c := ctx()
+			var wins, busy int32
+			var wg sync.WaitGroup
+			for i := range 6 {
+				wg.Add(1)
+				go func(i int) {
+					defer wg.Done()
+					defer GinkgoRecover()
+					switch err := s.ClaimResume(c, "alice", "c1", string(rune('a'+i))); { // #nosec G115 -- i counts a few test runs
+					case err == nil:
+						atomic.AddInt32(&wins, 1)
+					case isTurnRunning(err) || errors.Is(err, store.ErrNotResumable):
+						atomic.AddInt32(&busy, 1)
+					default:
+						Fail("ClaimResume: " + err.Error())
+					}
+				}(i)
+			}
+			wg.Wait()
+			Expect(wins).To(BeEquivalentTo(1))
+			Expect(busy).To(BeEquivalentTo(5))
+			info, _ = s.Turn(ctx(), "alice", "c1")
+			Expect(info.Running).To(BeTrue())
+			Expect(info.ResumeAttempts).To(Equal(1), "a lost race spends no attempt")
+			Expect(info.WillResume).To(BeFalse())
+			Expect(s.ListResumable(ctx())).To(BeEmpty(), "a running turn is not resumable")
+		})
+
+		It("waits longer after each attempt, and a new turn starts the count again", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed())
+			// The resumed turn dies too: ReleaseTurn records it with the default wait.
+			Expect(s.ReleaseTurn(ctx(), "alice", "c1", "resume", store.TurnInterrupted)).To(Succeed())
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(Equal(1))
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(1)), 2*time.Second))
+			Expect(store.ResumeBackoff(1)).To(BeNumerically(">", store.ResumeBackoff(0)))
+
+			// A person's turn resets the count, and ending it cancels the resume.
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "person")).To(Succeed())
+			Expect(s.ReleaseTurn(ctx(), "alice", "c1", "person", store.TurnDone)).To(Succeed())
+			info, _ = s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(BeZero())
+			Expect(info.WillResume).To(BeFalse())
+		})
+
+		It("stops resuming by itself when the tries are used", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			for attempt := 1; attempt <= store.MaxResumeAttempts; attempt++ {
+				Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed(), "attempt %d", attempt)
+				Expect(s.MarkInterrupted(ctx(), "alice", "c1", "resume", 0)).To(Succeed())
+			}
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeAttempts).To(Equal(store.MaxResumeAttempts))
+			Expect(info.WillResume).To(BeFalse())
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "late")).To(MatchError(store.ErrNotResumable))
+			// A person can still resume it: the plain claim works.
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "person")).To(Succeed())
+		})
+
+		It("a negative delay, a cancel and any other outcome leave nothing to resume", func() {
+			s := newStore()
+			chat(s, "none", "alice")
+			chat(s, "cancel", "alice")
+			chat(s, "done", "alice")
+			interrupt(s, "none", -1)
+			info, _ := s.Turn(ctx(), "alice", "none")
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+			Expect(info.ResumeNotBefore).To(BeZero())
+			Expect(info.WillResume).To(BeFalse())
+
+			interrupt(s, "cancel", 0)
+			Expect(s.CancelResume(ctx(), "alice", "cancel")).To(Succeed())
+			Expect(s.CancelResume(ctx(), "alice", "cancel")).To(Succeed(), "a second cancel does nothing")
+			info, _ = s.Turn(ctx(), "alice", "cancel")
+			Expect(info.WillResume).To(BeFalse())
+
+			Expect(s.ClaimTurn(ctx(), "alice", "done", "r1")).To(Succeed())
+			Expect(s.ReleaseTurn(ctx(), "alice", "done", "r1", store.TurnFailed)).To(Succeed())
+			Expect(s.ClaimResume(ctx(), "alice", "done", "r2")).To(MatchError(store.ErrNotResumable), "a failed turn is not resumed by itself")
+			Expect(s.ListResumable(ctx())).To(BeEmpty())
+		})
+
+		It("a turn that holds the chat cannot be marked by another run, and other principals see nothing", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.MarkInterrupted(ctx(), "alice", "c1", "r1", 0)).To(MatchError(store.ErrNotClaimed), "no turn runs")
+			Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+			Expect(s.MarkInterrupted(ctx(), "alice", "c1", "other", 0)).To(MatchError(store.ErrNotClaimed))
+			Expect(s.MarkInterrupted(ctx(), "bob", "c1", "r1", 0)).To(MatchError(session.ErrNotFound))
+			Expect(s.ClaimResume(ctx(), "bob", "c1", "r2")).To(MatchError(session.ErrNotFound))
+			Expect(s.CancelResume(ctx(), "bob", "c1")).To(MatchError(session.ErrNotFound))
+		})
+
+		It("a new interruption of a resumed turn keeps the count", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			interrupt(s, "c1", 0)
+			Expect(s.ClaimResume(ctx(), "alice", "c1", "resume")).To(Succeed())
+			Expect(s.ReapTurns(ctx(), -time.Hour)).To(HaveLen(1))
+			info, _ := s.Turn(ctx(), "alice", "c1")
+			Expect(info.ResumeAttempts).To(Equal(1))
+			Expect(info.ResumeNotBefore).To(BeTemporally("~", info.InterruptedAt.Add(store.ResumeBackoff(1)), 2*time.Second))
+		})
+	})
+
+	Describe("the text of an answer being written", func() {
+		It("keeps it for the next turn, which takes it once", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			turn, text, err := s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(BeZero())
+			Expect(text).To(BeEmpty(), "nothing saved yet")
+
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 3, "The report starts with the totals")).To(Succeed(), "a later save replaces the earlier one")
+			turn, text, err = s.TakePartial(ctx(), "c1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(turn).To(Equal(3))
+			Expect(text).To(Equal("The report starts with the totals"))
+			_, text, _ = s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty(), "taken once")
+		})
+
+		It("is cleared by an empty save, and one caller wins a race to take it", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.SavePartial(ctx(), "c1", 0, "")).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "c1", 2, "half an answer")).To(Succeed())
+			c := ctx()
+			var got int32
+			var wg sync.WaitGroup
+			for range 6 {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					defer GinkgoRecover()
+					if _, text, err := s.TakePartial(c, "c1"); err == nil && text != "" {
+						atomic.AddInt32(&got, 1)
+					}
+				}()
+			}
+			wg.Wait()
+			Expect(got).To(BeEquivalentTo(1))
+		})
+
+		It("is cut at the limit, on a character boundary", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			Expect(s.SavePartial(ctx(), "c1", 1, strings.Repeat("é", session.MaxPartialBytes))).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(len(text)).To(BeNumerically("<=", session.MaxPartialBytes))
+			Expect(utf8.ValidString(text)).To(BeTrue())
+			Expect(text).NotTo(BeEmpty())
+		})
+
+		It("goes with the lines that a truncate removes, and for a chat that is not there is not found", func() {
+			s := newStore()
+			chat(s, "c1", "alice")
+			_, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "q"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.SavePartial(ctx(), "c1", 1, "half an answer")).To(Succeed())
+			Expect(s.TruncateEntries(ctx(), "alice", "c1", 0)).To(Succeed())
+			_, text, _ := s.TakePartial(ctx(), "c1")
+			Expect(text).To(BeEmpty())
+
+			Expect(s.SavePartial(ctx(), "nope", 1, "x")).To(MatchError(session.ErrNotFound))
+			_, _, err = s.TakePartial(ctx(), "nope")
+			Expect(err).To(MatchError(session.ErrNotFound))
+		})
+	})
+
+	It("a reaped turn gives back the messages its model request took but never confirmed", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		lost, _ := s.AddPending(ctx(), "alice", "c1", "taken, then the frontend died")
+		kept, _ := s.AddPending(ctx(), "alice", "c1", "taken and recorded")
+		Expect(s.TakePending(ctx(), "alice", "c1")).Error().NotTo(HaveOccurred())
+		Expect(s.ConfirmPending(ctx(), "alice", "c1", []string{kept.ID})).To(Succeed())
+		got, _ := s.ReapTurns(ctx(), -time.Hour)
+		Expect(got).To(HaveLen(1), "reaped = %+v, want the one turn", got)
+		pend, _ := s.Pending(ctx(), "alice", "c1")
+		Expect(pend).To(HaveLen(1), "pending after the reap = %+v, want only the unconfirmed message, undelivered", pend)
+		Expect(pend[0].ID).To(Equal(lost.ID))
+		Expect(pend[0].Delivered).To(BeFalse())
+	})
+
+	It("touch is refused for another principal and for a run that does not hold the chat", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_ = s.ClaimTurn(ctx(), "alice", "c1", "r1")
+		Expect(s.TouchTurn(ctx(), "bob", "c1", "r1")).To(MatchError(session.ErrNotFound), "TouchTurn as bob")
+		Expect(s.TouchTurn(ctx(), "alice", "c1", "other")).To(MatchError(store.ErrNotClaimed), "TouchTurn by another run")
+	})
+
+	It("racing takes never deliver a message twice", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		for i := range 20 {
+			_, _ = s.AddPending(ctx(), "alice", "c1", string(rune('a'+i)))
+		}
+		c := ctx()
+		var mu sync.Mutex
+		seen := map[string]int{}
+		var errs []error
+		var wg sync.WaitGroup
+		for range 6 {
+			wg.Go(func() {
+				defer GinkgoRecover()
+				got, err := s.TakePending(c, "alice", "c1")
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
+				}
+				for _, p := range got {
+					seen[p.ID]++
+				}
+			})
+		}
+		wg.Wait()
+		Expect(errs).To(BeEmpty(), "TakePending failed")
+		Expect(seen).To(HaveLen(20), "delivered %d distinct messages, want 20", len(seen))
+		for id, n := range seen {
+			Expect(n).To(Equal(1), "message %s delivered %d times", id, n)
+		}
+	})
+
+	It("deleting a chat removes its pending messages and claim", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "x")
+		_ = s.ClaimTurn(ctx(), "alice", "c1", "r1")
+		Expect(s.DeleteChat(ctx(), "alice", "c1")).To(Succeed())
+		_, err := s.Pending(ctx(), "alice", "c1")
+		Expect(err).To(MatchError(session.ErrNotFound), "Pending after delete")
+		chat(s, "c1", "alice") // the id can be reused, with a clean slate
+		got, _ := s.Pending(ctx(), "alice", "c1")
+		Expect(got).To(BeEmpty(), "a recreated chat inherited %v", texts(got))
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "a recreated chat inherited a claim")
+	})
+}
+
+// Seed writes a small, known state. CheckSeed reads it back from another
+// handle on the same storage (a reopened store), which proves persistence.
+func Seed(s store.Store) {
+	Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "seed", Principal: "alice", Title: "Kept", Created: t0, Updated: t0})).To(Succeed())
+	Expect(s.AppendEntry(ctx(), "seed", session.Entry{Role: "user", Text: "hello", Note: "\n\n[Text of a.pdf:\nx]",
+		Attachments: []session.Attachment{{Path: "/Chats/c/a.pdf", Name: "a.pdf", Size: 9, Mime: "application/pdf", Version: 1}}})).Error().NotTo(HaveOccurred())
+	Expect(s.AppendEntry(ctx(), "seed", session.Entry{Role: "user", Text: "check the build", Loop: &session.LoopMark{ID: "l1", Run: 4, SelfPaced: true}})).Error().NotTo(HaveOccurred())
+	Expect(s.AddPending(ctx(), "alice", "seed", "waiting")).Error().NotTo(HaveOccurred())
+	Expect(s.ClaimTurn(ctx(), "alice", "seed", "r1")).To(Succeed())
+	Expect(s.ReleaseTurn(ctx(), "alice", "seed", "r1", store.TurnStopped)).To(Succeed())
+}
+
+// CheckSeed fails the spec unless s holds the state Seed wrote.
+func CheckSeed(s store.Store) {
+	rec, err := s.GetChat(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(rec.Title).To(Equal("Kept"))
+	es, err := s.Entries(ctx(), "seed", 0, 10)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(es).To(HaveLen(2), "Entries = %+v", es)
+	Expect(es[0].Text).To(Equal("hello"))
+	Expect(es[0].Loop).To(BeNil())
+	Expect(es[1].Loop).To(Equal(&session.LoopMark{ID: "l1", Run: 4, SelfPaced: true}), "the loop run of a message")
+	Expect(es[0].Note).To(Equal("\n\n[Text of a.pdf:\nx]"))
+	Expect(es[0].Attachments).To(Equal([]session.Attachment{{Path: "/Chats/c/a.pdf", Name: "a.pdf", Size: 9, Mime: "application/pdf", Version: 1}}))
+	ps, err := s.Pending(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(texts(ps)).To(Equal([]string{"waiting"}), "Pending")
+	info, err := s.Turn(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(info.Running).To(BeFalse(), "Turn = %+v", info)
+	Expect(info.Last).To(Equal(store.TurnStopped))
+}
+
+func isTurnRunning(err error) bool { return errors.Is(err, store.ErrTurnRunning) }

@@ -1,0 +1,25 @@
+/* The "add a field" search box of the model editor and its result list. */
+.fb { position: relative; margin-bottom: var(--sp-4); }
+.fb__box { position: relative; }
+.fb__icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--dk-muted); pointer-events: none; }
+.fb__input { width: 100%; padding-left: 32px; }
+.fb__list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: var(--dk-z-dropdown); margin-top: var(--sp-1);
+  max-height: 320px; overflow-y: auto;
+  background: var(--dk-card); border: 1px solid var(--dk-edge); border-radius: var(--r-md);
+  box-shadow: var(--shadow-md);
+  animation: dropdownIn 120ms ease-out;
+}
+.fb__empty { padding: var(--sp-3) var(--sp-4); font-size: var(--fs-small); color: var(--dk-muted); font-style: italic; }
+.fb__item { padding: var(--sp-2) var(--sp-3); cursor: pointer; border-bottom: 1px solid var(--dk-edge); }
+.fb__item.is-focused { background: var(--dk-hover); }
+.fb__head { display: flex; align-items: center; gap: var(--sp-2); }
+.fb__section {
+  --fb-ink: var(--dk-muted);
+  padding: 1px 6px; border-radius: var(--r-sm); white-space: nowrap; font-weight: 600; font-size: var(--fs-meta);
+  background: color-mix(in srgb, var(--fb-ink) 15%, transparent); color: var(--fb-ink);
+}
+.fb__label { font-size: var(--fs-small); font-weight: 500; }
+.fb__enter { margin-left: auto; color: var(--dk-muted); font-size: var(--fs-meta); }
+.fb__desc { margin-top: 2px; font-size: var(--fs-meta); color: var(--dk-muted); }
+.fb__path { margin-top: 1px; font-size: var(--fs-meta); font-family: var(--font-mono); color: var(--dk-muted); }

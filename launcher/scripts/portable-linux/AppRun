@@ -1,0 +1,171 @@
+#!/bin/sh
+# AppRun of the portable LocalAI Launcher AppImage (x86_64).
+#
+# One file runs on hosts with glibc and on hosts without it (musl: Alpine,
+# Hadron, Void-musl). electron-builder's own start script, unchanged, is next
+# to this file as AppRun.electron-builder. This script only prepares the
+# loader, then hands over to it. It is POSIX sh, because the host may have no
+# bash until the next step (AppRun.electron-builder needs bash).
+#
+# The problem. The Electron binaries (local-ai-launcher and
+# chrome_crashpad_handler) name /lib64/ld-linux-x86-64.so.2 as their ELF
+# interpreter. A host without glibc has no such file, so the kernel refuses to
+# start them ("required file not found"). Running `ld.so program` instead does
+# not work: Chromium starts its child processes from /proc/self/exe, which
+# would then be the loader. So the interpreter field of both binaries is
+# changed at build time (scripts/portable-linux/patch-interp.cjs) to the
+# relative path "ld", padded with NUL bytes to the old size.
+#
+# The design. The kernel resolves a relative interpreter against the working
+# directory of the process that calls execve. Every Chromium child process
+# starts with the working directory of its parent, so if the launcher runs
+# with its working directory set to a directory that holds an executable
+# named "ld", every process of the app finds its loader there:
+#   - glibc host:   ld is a symbolic link to the system loader, so the host
+#                   libraries and GPU drivers are used (stable target:
+#                   /lib64/ld-linux-x86-64.so.2).
+#   - other host:   ld is a copy of the loader in this image, and the bundled
+#                   glibc and libraries are used (glibc/ and lib/). The host
+#                   GPU drivers (musl) cannot load into a glibc process, so
+#                   --disable-gpu is added.
+# The directory is private to the user (mode 0700, owner checked), taken in
+# this order: $XDG_RUNTIME_DIR/localai-launcher, $XDG_CACHE_HOME or
+# ~/.cache/localai-launcher, then /tmp, /var/tmp and /dev/shm, each as
+# .localai-launcher-<uid> (a shared sticky directory, so another user cannot
+# remove or rename ours; one who planted the name first only makes us skip it,
+# never use it). A candidate is
+# skipped when it is not owned by the user, is writable by others, or cannot
+# run a program (a noexec mount). The copy has a content-addressed directory
+# (ld-<sha256 prefix>), is verified by hash at every start, and is replaced
+# with an atomic rename, so concurrent instances and different versions of
+# the image never see a half-written file.
+#
+# Why not a fixed path such as /tmp/.localai-ld.so (the first prototype):
+# the path is the same for every user, so the first user owns it. A second
+# user cannot use or replace it (sticky /tmp, and fs.protected_symlinks stops
+# following a link of another user), and a link that points into the mount
+# point of one run is dead as soon as that run ends or another instance
+# mounts the image elsewhere. Verifying a file that another user owns before
+# the kernel opens it is a time-of-check to time-of-use race: its owner can
+# swap it in between, and run code as the victim. A private directory has no
+# such race, because only the user (and root) can write there. The directory
+# check uses one stat call without following links, so a planted symbolic
+# link or a directory of another user is refused, never followed.
+#
+# Trade-offs of the working directory. The launcher runs with a working
+# directory that is not the one it was started from. The original is in $OWD
+# (set here when the runtime did not set it). Relative file arguments are
+# therefore not supported; the launcher does not take any, and the LocalAI
+# server it starts gets an explicit working directory. Never start the
+# binaries inside the image directly: use this AppRun.
+set -eu
+
+THIS=$0
+if [ -z "${APPDIR:-}" ]; then
+  APPDIR=$(cd "$(dirname "$(readlink -f "$THIS")")" && pwd -P)
+fi
+export APPDIR
+: "${OWD:=$PWD}"
+export OWD
+
+uid=$(id -u)
+SYS_LD=/lib64/ld-linux-x86-64.so.2
+BUNDLED_LD=$APPDIR/glibc/ld-linux-x86-64.so.2
+
+die() {
+  echo "LocalAI Launcher: $*" >&2
+  exit 1
+}
+
+command -v bash >/dev/null 2>&1 || die "bash is required and was not found in PATH."
+
+# A directory of the user that no one else can write to.
+check_dir() {
+  st=$(stat -c '%u:%a:%F' -- "$1" 2>/dev/null) || return 1
+  case $st in
+    "$uid":7[0145][0145]:directory) return 0 ;;
+  esac
+  return 1
+}
+
+# Create the directory when it is missing (mode 0700), then check it.
+ensure_dir() {
+  [ -L "$1" ] && return 1
+  [ -e "$1" ] || (umask 077; mkdir -m 700 -- "$1" 2>/dev/null) || true
+  check_dir "$1"
+}
+
+sha_of() {
+  sha256sum -- "$1" | cut -d ' ' -f 1
+}
+
+# The system loader counts only when it is a glibc loader. A compatibility
+# shim on a musl host has the same file name but is not one.
+# LOCALAI_LAUNCHER_BUNDLED_GLIBC=1 uses the bundled glibc even on a glibc host
+# (for a host whose own libraries do not work with the app, and for tests).
+USE_SYSTEM_LD=0
+if [ "${LOCALAI_LAUNCHER_BUNDLED_GLIBC:-0}" != 1 ] && [ -x "$SYS_LD" ] && "$SYS_LD" --version 2>&1 | head -n 1 | grep -qE 'GLIBC|GNU libc'; then
+  USE_SYSTEM_LD=1
+elif [ ! -x "$BUNDLED_LD" ]; then
+  die "this host has no glibc and this image has no bundled glibc."
+fi
+
+if [ "$USE_SYSTEM_LD" = 0 ]; then
+  want=$(sha_of "$BUNDLED_LD")
+  SUB=ld-$(printf '%s' "$want" | cut -c 1-16)
+else
+  SUB=ld-system
+fi
+
+cache=${XDG_CACHE_HOME:-}
+[ -n "$cache" ] || { [ -z "${HOME:-}" ] || cache=$HOME/.cache; }
+
+LDDIR=
+for base in \
+  "${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/localai-launcher}" \
+  "${cache:+$cache/localai-launcher}" \
+  "/tmp/.localai-launcher-$uid" \
+  "/var/tmp/.localai-launcher-$uid" \
+  "/dev/shm/.localai-launcher-$uid"; do
+  [ -n "$base" ] || continue
+  case $base in /*) ;; *) continue ;; esac
+  parent=$(dirname "$base")
+  case $parent in
+    /tmp | /var/tmp | /dev/shm) ;; # shared directories: only the base is ours
+    *)
+      # The parent is the user's own directory. It must not be writable by others.
+      ensure_dir "$parent" || continue
+      ;;
+  esac
+  ensure_dir "$base" || continue
+  dir=$base/$SUB
+  ensure_dir "$dir" || continue
+  if [ "$USE_SYSTEM_LD" = 1 ]; then
+    if [ "$(readlink "$dir/ld" 2>/dev/null || true)" != "$SYS_LD" ]; then
+      rm -f -- "$dir/ld.$$"
+      ln -s "$SYS_LD" "$dir/ld.$$" && mv -f -- "$dir/ld.$$" "$dir/ld" || continue
+    fi
+  else
+    if [ -L "$dir/ld" ] || [ ! -f "$dir/ld" ] || [ "$(sha_of "$dir/ld")" != "$want" ]; then
+      cp -- "$BUNDLED_LD" "$dir/ld.$$" && chmod 755 "$dir/ld.$$" && mv -f -- "$dir/ld.$$" "$dir/ld" || { rm -f -- "$dir/ld.$$"; continue; }
+    fi
+  fi
+  # A noexec mount, or a loader that does not run here, rejects the candidate.
+  "$dir/ld" --version >/dev/null 2>&1 || continue
+  LDDIR=$dir
+  break
+done
+[ -n "$LDDIR" ] || die "no private directory that can run programs was found (tried XDG_RUNTIME_DIR, the cache directory, /tmp, /var/tmp and /dev/shm)."
+
+# The binaries have the relative interpreter "ld".
+cd "$LDDIR"
+
+if [ "$USE_SYSTEM_LD" = 0 ]; then
+  export LD_LIBRARY_PATH="$APPDIR/glibc:$APPDIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export SSL_CERT_FILE="$APPDIR/etc/ca-certificates.crt"
+  [ -e /etc/fonts/fonts.conf ] || export FONTCONFIG_PATH="$APPDIR/etc/fonts"
+  export NSS_DEFAULT_DB_TYPE=sql
+  set -- --disable-gpu "$@"
+fi
+
+exec "$APPDIR/AppRun.electron-builder" "$@"

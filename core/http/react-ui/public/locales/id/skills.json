@@ -1,0 +1,122 @@
+{
+  "title": "Skill",
+  "subtitle": "Instruksi yang dapat dipakai semua obrolan Anda saat sebuah tugas cocok. Agen memakai yang Anda tambahkan ke mereka.",
+  "unavailable": {
+    "subtitle": "Skill memerlukan Berkas, dan Berkas dinonaktifkan di server ini."
+  },
+  "actions": {
+    "newSkill": "Skill baru",
+    "createSkill": "Buat skill",
+    "edit": "Edit",
+    "delete": "Hapus",
+    "import": "Impor",
+    "export": "Ekspor"
+  },
+  "search": {
+    "placeholder": "Cari skill..."
+  },
+  "card": {
+    "noDescription": "Tidak ada deskripsi",
+    "readOnly": "Hanya baca",
+    "editTitle": "Edit skill",
+    "deleteTitle": "Hapus skill",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Skill ini dilewati: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Disediakan oleh {{name}}",
+    "replacedBy": "Digantikan oleh {{name}}",
+    "notActive": "Tidak aktif: skill bawaan yang dipakai",
+    "notActiveBy": "Tidak aktif: disediakan oleh {{name}}",
+    "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan",
+    "proposedBy": "Diusulkan oleh {{name}} dan dikonfirmasi oleh Anda. Hanya agen itu yang memakainya.",
+    "new": "Baru",
+    "newTitle": "Diimpor dan belum digunakan",
+    "newLong": "Diimpor dan belum digunakan. Baca isinya sebelum menambahkannya ke agen. Penggunaan pertama dalam obrolan menghapus tanda ini.",
+    "exportTitle": "Unduh skill ini sebagai berkas zip"
+  },
+  "empty": {
+    "title": "Tidak ada skill yang ditemukan",
+    "text": "Buat atau impor skill untuk memulai.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Gagal memuat skill",
+    "deleted": "Skill \"{{name}}\" berhasil dihapus",
+    "deleteFailed": "Gagal menghapus skill",
+    "exportFailed": "Ekspor gagal: {{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Add-on",
+    "agent": "Agen",
+    "project": "Proyek"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Skill ini hanya-baca di sini. Skill bawaan disertakan dengan server, dan skill dari berkas Anda diubah di Berkas.",
+    "counter": "{{count}} dari {{max}}",
+    "nameInvalid": "Gunakan huruf kecil, angka, dan tanda hubung tunggal.",
+    "bodyHelp": "Ditulis dalam markdown. Obrolan membacanya saat tugas cocok dengan deskripsi."
+  },
+  "load": {
+    "title": "Keterampilan Anda tidak dapat dimuat."
+  },
+  "import": {
+    "failedTitle": "Skill tidak dapat diimpor",
+    "failed": "Impor gagal.",
+    "dismiss": "Tutup",
+    "done_one": "{{count}} skill diimpor",
+    "done_other": "{{count}} skill diimpor",
+    "scriptsStored": "Skrip dan berkas lain disimpan apa adanya. Skrip hanya disimpan, tidak pernah dijalankan oleh impor.",
+    "newNote": "Ditandai Baru sampai sebuah obrolan menggunakannya."
+  },
+  "sort": {
+    "label": "Urutkan skill",
+    "name": "Nama, A ke Z",
+    "name-desc": "Nama, Z ke A",
+    "used": "Paling banyak dipakai",
+    "source": "Kelompokkan menurut sumber"
+  },
+  "source": {
+    "label": "Tampilkan skill dari",
+    "all": "Semua sumber ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} skill",
+    "countAll_other": "{{count}} skill",
+    "countOf": "{{shown}} dari {{total}} skill",
+    "menu": "Tindakan untuk {{name}}"
+  }
+}
