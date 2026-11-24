@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
@@ -599,6 +600,9 @@ func (t Trigger) validateEvent() error {
 		field, _, ok := strings.Cut(m, "=")
 		if !ok || field == "" {
 			return errors.New("a match is field=value, such as action=opened")
+		}
+		if slices.Contains(strings.Split(field, "."), "") {
+			return errors.New("a match field is a dot path, such as pull_request.state")
 		}
 		if len(m) > MaxEventField || hasControl(m, false) {
 			return fmt.Errorf("a match is one line of at most %d bytes", MaxEventField)

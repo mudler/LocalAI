@@ -43,6 +43,9 @@ var _ = Describe("Trigger types", func() {
 			}, "at most 8 matches"},
 			"no equals":       {func(t *Trigger) { t.Matches = []string{"action"} }, "field=value"},
 			"empty field":     {func(t *Trigger) { t.Matches = []string{"=x"} }, "field=value"},
+			"empty segment":   {func(t *Trigger) { t.Matches = []string{"a..b=x"} }, "dot path"},
+			"leading dot":     {func(t *Trigger) { t.Matches = []string{".a=x"} }, "dot path"},
+			"trailing dot":    {func(t *Trigger) { t.Matches = []string{"a.=x"} }, "dot path"},
 			"long match":      {func(t *Trigger) { t.Matches = []string{"a=" + long} }, "match"},
 			"control in type": {func(t *Trigger) { t.EventType = "a\nb" }, "event type"},
 		} {
