@@ -2,6 +2,7 @@ package upgraderun_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -109,5 +110,14 @@ var _ = Describe("The outcome of a run of one item", func() {
 		})).To(Succeed())
 		h.start(si(KindGallery, "kokoro"))
 		Expect(probed).To(Equal([]bool{false}), "the creating frontend holds the lock before the row is written")
+	})
+
+	It("shows the page an item whose update the server still checks", func() {
+		raw, err := json.Marshal(Item{Key: "gallery:a", Phase: PhaseUnconfirmed, Verifying: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"verifying":true`))
+		raw, err = json.Marshal(Item{Key: "gallery:a", Phase: PhaseUnconfirmed})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(`verifying`))
 	})
 })

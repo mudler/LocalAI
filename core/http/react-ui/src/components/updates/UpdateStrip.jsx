@@ -5,7 +5,7 @@ import { Button, Callout, Tag } from '../ui'
 import Icon from '../Icon'
 import { useWhen } from '../../hooks/useWhen'
 import { cssVars } from '../../utils/modelLedger'
-import { attentionOf, countsOf, isRunning, retryableKeys, runProgress } from '../../utils/upgradeRun'
+import { attentionOf, busyCount, countsOf, isBusy, isRunning, retryableKeys, runProgress } from '../../utils/upgradeRun'
 
 const SOURCE_KEYS = { gallery: 'gallery', library: 'library', addons: 'addons', models: 'models' }
 
@@ -97,10 +97,13 @@ export function RunStrip({ run, busy, result, onCheck, checking, cooling, onCanc
   const parts = []
   if (running) {
     if (counts.updated) parts.push(t('run.count.updated', { count: counts.updated }))
-    // An unconfirmed item of an active run waits for its check: it runs.
-    if (counts.running + counts.unconfirmed) parts.push(t('run.count.running', { count: counts.running + counts.unconfirmed }))
+    // A busy item runs, or the server checks it; an unconfirmed item that
+    // no check could answer needs a look.
+    const busy = busyCount(run)
+    if (busy) parts.push(t('run.count.running', { count: busy }))
     if (counts.queued) parts.push(t('run.count.waiting', { count: counts.queued }))
-    const failed = counts.failed + counts.rolled_back
+    const settled = (run.items || []).filter(i => i.phase === 'unconfirmed' && !isBusy(i)).length
+    const failed = counts.failed + counts.rolled_back + settled
     if (failed) parts.push(t('run.count.attention', { count: failed }))
   } else {
     parts.push(counts.unconfirmed > 0 ? t('run.result.unknown', { count: counts.unconfirmed }) : t('run.result.clean'))

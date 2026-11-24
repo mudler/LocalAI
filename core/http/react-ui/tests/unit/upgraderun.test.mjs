@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  CONFIRM_HEADERS, attentionOf, confirmedPost, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionOf, busyCount, confirmedPost, isBusy, isEnded, needsAttention, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
   nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -172,6 +172,25 @@ test('upgrade run: counts, progress and the items to retry', () => {
   assert.equal(countsOf({ ...run, counts: { total: 9, updated: 4 } }).updated, 4)
   assert.equal(runProgress(runOf([], { state: 'finished' })), 100)
   assert.equal(countsOf(null).total, 0)
+})
+
+test('upgrade run: an item the server still checks is busy, not ended, while one no check could answer is settled', () => {
+  const checking = item('gallery:kokoro', 'unconfirmed', { verifying: true, progress: 100 })
+  const settled = item('gallery:piper', 'unconfirmed', { retryable: true })
+  const verifyingRun = item('gallery:whisper', 'running', { verifying: true, progress: 100 })
+  assert.equal(isBusy(checking), true)
+  assert.equal(isEnded(checking), false)
+  assert.equal(needsAttention(checking), false)
+  assert.equal(isBusy(verifyingRun), true)
+  assert.equal(isBusy(settled), false)
+  assert.equal(isEnded(settled), true)
+  assert.equal(needsAttention(settled), true)
+  const run = runOf([checking, settled, verifyingRun, item('model:m', 'queued')])
+  // Two items are busy (the strip says two run), one needs a look.
+  assert.equal(busyCount(run), 2)
+  assert.equal(attentionOf(run), 1)
+  assert.deepEqual(retryableKeys(run), ['gallery:piper'])
+  assert.equal(runProgress(run), Math.round((100 + 100 + 100 + 0) / 4))
 })
 
 // ---- One failure-words map for every kind ---------------------------------------

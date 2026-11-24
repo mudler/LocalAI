@@ -134,6 +134,10 @@ the item is `unconfirmed`.
 | `skipped` | Held, edited keys, or no update any more |
 | `unconfirmed` | No check could confirm the result |
 
+While the check runs, the item has `verifying: true`: it is still in
+progress, also in the `unconfirmed` phase after a restart. An `unconfirmed`
+item without `verifying` is settled: no check could answer.
+
 The `error` and `message` of an item, and the `message` of each node, are
 cleaned where they enter the run, so the REST routes, the Updates page, the
 inbox, the history and the assistant all get the same text: one line of at

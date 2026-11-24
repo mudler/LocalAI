@@ -5,7 +5,7 @@ import { Button, StatusChip, Tag } from '../ui'
 import Icon from '../Icon'
 import { cssVars } from '../../utils/modelLedger'
 import { upgradeFailureWords } from '../addons/updateReview'
-import { isEnded, needsAttention, nodePhase } from '../../utils/upgradeRun'
+import { isBusy, isEnded, needsAttention, nodePhase } from '../../utils/upgradeRun'
 import { originText } from './UpdateRow'
 
 const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle', model: 'brain' }
@@ -109,11 +109,11 @@ export default function RunItemRow({ item, row, items, runActive, busy, onCancel
   const name = item.displayName || item.name
   const origin = row ? originText(row, t) : ''
   const nodes = Array.isArray(item.nodes) ? item.nodes : []
-  // While the run is active, an unconfirmed item is the server's fresh check
-  // after the operation: it is still in progress, not a problem. In a run that
-  // ended, no check could answer: it is settled and needs a look.
-  const checking = runActive && item.phase === 'unconfirmed'
-  const attention = needsAttention(item) && !checking
+  // An unconfirmed item that the server still checks (verifying) is in
+  // progress, not a problem. One that no check could answer is settled and
+  // needs a look, also while other items of the run go on.
+  const checking = item.phase === 'unconfirmed' && isBusy(item)
+  const attention = needsAttention(item)
   const chip = checking ? CHIP.running : (CHIP[item.phase] || CHIP.queued)
   let detail = null
   if (item.phase === 'queued') detail = { tone: 'muted', text: queuedText(item, items, t) }

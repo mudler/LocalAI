@@ -7,7 +7,7 @@
 // A run of GET /api/updates/runs/:id is
 //   { id, source, actor, state: 'running'|'finished'|'cancelled', created_at, finished_at?,
 //     items: [{ key, kind, name, title?, from, to, expected_to, phase, progress, message?,
-//               queued_reason?, error_key?, error?, retryable, cancellable, job_id?, nodes? }] }
+//               queued_reason?, error_key?, error?, retryable, cancellable, verifying?, job_id?, nodes? }] }
 // with the items in the order they run. Empty fields are left out; the page
 // counts the phases itself.
 
@@ -28,8 +28,15 @@ const NODE_PHASES = {
 }
 export const nodePhase = (node) => NODE_PHASES[node?.phase] || node?.phase || 'queued'
 
-export const isEnded = (item) => Boolean(item && ENDED.has(item.phase))
-export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase))
+// Whether an item still holds its place in the run: it runs, or the server
+// checks whether its update applied (verifying, also in the unconfirmed phase
+// after a restart). An unconfirmed item that no check could answer is
+// settled. The same rule as Item.Busy on the server.
+export const isBusy = (item) => Boolean(item && (item.phase === 'running' || (item.phase === 'unconfirmed' && item.verifying)))
+export const isEnded = (item) => Boolean(item && ENDED.has(item.phase) && !isBusy(item))
+export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase) && !isBusy(item))
+// How many items of a run are busy.
+export const busyCount = (run) => (run && Array.isArray(run.items) ? run.items.filter(isBusy).length : 0)
 export const isRunning = (run) => Boolean(run && run.state === 'running')
 
 // What the request of a run names for a row of the page: its kind and the part
@@ -70,7 +77,7 @@ export const countsAsAttention = (item) => Boolean(item && (needsAttention(item)
 // How many items of a run need attention.
 export const attentionOf = (run) => itemsOf(run).filter(countsAsAttention).length
 
-// How far the run is, from 0 to 100: an ended item counts whole, a running one
+// How far the run is, from 0 to 100: an ended item counts whole, a busy one
 // by its own progress.
 export function runProgress(run) {
   const items = itemsOf(run)
@@ -78,7 +85,7 @@ export function runProgress(run) {
   let sum = 0
   for (const item of items) {
     if (isEnded(item)) sum += 100
-    else if (item.phase === 'running') sum += Math.max(0, Math.min(100, Number(item.progress) || 0))
+    else if (isBusy(item)) sum += Math.max(0, Math.min(100, Number(item.progress) || 0))
   }
   return Math.round(sum / items.length)
 }

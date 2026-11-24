@@ -43763,6 +43763,10 @@ const docTemplate = `{
                 },
                 "to": {
                     "type": "string"
+                },
+                "verifying": {
+                    "description": "Verifying is set between the end of the operation and the answer of\nthe fresh check. The page reads it: an unconfirmed item that is\nverifying is still in progress (Busy), one that is not is settled.",
+                    "type": "boolean"
                 }
             }
         },
