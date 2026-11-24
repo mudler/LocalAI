@@ -48,6 +48,8 @@ curl -X POST "$URL" \
 
 The timestamp must be within 5 minutes of the server clock. Use this way when you write the sender yourself.
 
+The signature covers the timestamp and the body, and nothing else. The `X-Webhook-Event` header and the `source` query parameter are not signed: anyone who holds a signed call can change them and send it again within the 5 minutes. If the event type matters, put it in the signed body, in a text field `type`, and do not send `X-Webhook-Event`.
+
 ### GitHub
 
 GitHub signs the body with the secret and sends `X-Hub-Signature-256`. The server accepts that header as it is.
@@ -82,6 +84,7 @@ Send it only over HTTPS. Never put the secret in the URL (a query string ends up
 | `202` with `{"run": ""}` | The event is valid but does not match the trigger. No run. |
 | `404` | Refused. The body is the same for an unknown id, a trigger that is off, a wrong secret, a bad signature and a timestamp that is too old. The answer does not tell which. |
 | `413` | The body is larger than 256 KiB (262144 bytes). |
+| `503` with `{"error":"unavailable"}` | An internal failure. The event was not taken. Send it again. |
 | `429` | More than 60 authenticated calls in one minute for this trigger. `Retry-After` is 60. |
 
 ## How an event matches
@@ -107,7 +110,7 @@ An event run has only the tools that the trigger names, its `acts`, and only wit
 | Body of a call | 256 KiB. A larger one gets `413`. |
 | Calls for each trigger | 60 authenticated calls in a minute, counted for each server. A wrong secret is not counted. |
 | Payload in a run | 8000 bytes of text. A longer payload is cut. |
-| Runs in a day | 24 by default, at most 1000 (`daily_cap`). An event over the limit is recorded as a skipped run with the reason. |
+| Runs in a day | 24 by default, at most 1000 (`daily_cap`). An event over the limit is recorded as a skipped run with the reason, and the sender still gets `202` with the id of that skipped run. The day is a day of the time zone of the trigger, or UTC when it has none. An event that joins a waiting run is not counted. |
 | Gap between runs | 1 minute between two starts by default, at most 24 hours (`min_gap_seconds`). |
 | Payloads in one waiting run | 8 |
 
@@ -126,12 +129,13 @@ The sender should give each event a stable key, because the server uses it to ta
 - `X-Webhook-Id`;
 - the hash of the body and the current minute.
 
-A repeat of an event with the same key answers `202` and makes no new run.
+A repeat of an event with the same key answers `202` and makes no new run. This includes **Redeliver** in GitHub: it sends the same `X-GitHub-Delivery`, so it does nothing while the first run is still in the list of runs of the trigger. To run an event again, send a new one.
 
 ## Security
 
 - The secret is shown once, when you create the trigger or rotate the secret. Lists, reads and administrator views never show it. Store it in the secret store of the sender.
 - Rotate the secret when it may have been seen. Rotation takes effect at once.
+- **A run with no acts can still read your files, and its answer goes to the delivery target.** A pull request body, or any other text in a payload, can ask the run to read something and put it in its answer. The answer goes to the target of the trigger, and that can be a channel that other people read. Choose a private target, and name only the acts that the run needs.
 - Treat the payload as untrusted text. Anyone who can make the sender send text, for example the author of a pull request or an issue, controls part of what the model reads. The prompt tells the model it is data, but no prompt makes this safe by itself. Name only the acts that the run needs, so that a bad payload cannot do much.
 - A GitHub call and a bearer call can be replayed by anyone who captured one: the first has no timestamp, and the second is the secret itself. The repeat key stops a replay of the same delivery while the run that it made is kept in the list, but it is no protection against a sender that was never yours. A signed call cannot be replayed inside the 5 minute window, because its signature is the key, and it is refused after the window. Use a signed call when you control the sender.
 - Do not put the secret in a URL. Use the headers.
