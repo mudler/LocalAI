@@ -29,6 +29,10 @@ concurrency:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    # The fork's default token is read-only; the SARIF upload needs this scope.
+    permissions:
+      contents: read
+      security-events: write
     env:
       GO111MODULE: on
     steps:
