@@ -3,6 +3,7 @@ package upgraderun
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/distributed"
 )
 
 // runner runs one run on this frontend. Its goroutine is the only writer of
@@ -118,6 +120,11 @@ func (r *runner) apply(ev Event) {
 	// Store first, then show: a reader that sees the run ended must find it
 	// ended in the store too, or a start right after it is refused.
 	r.save(res.Run)
+	if r.ctx.Err() != nil {
+		// Fenced by another frontend, or stopping: nothing of this step is
+		// shown or done here.
+		return
+	}
 	r.mu.Lock()
 	r.run = res.Run
 	r.mu.Unlock()
@@ -159,6 +166,13 @@ func (r *runner) save(run Run) {
 		return
 	}
 	if err := r.svc.opts.Store.Save(rec, items); err != nil {
+		if errors.Is(err, distributed.ErrUpgradeRunFenced) {
+			// Another frontend took the run over: this runner lost its lock
+			// and stops without writing.
+			xlog.Warn("upgrade run: another frontend runs the run now; stopping here", "run", r.id)
+			r.stop()
+			return
+		}
 		xlog.Warn("upgrade run: could not store the run", "run", r.id, "error", err)
 		return
 	}

@@ -236,7 +236,11 @@ runner.
 - **Takeover.** When the frontend that runs a run dies, PostgreSQL frees its
   lock (in about 30 seconds). Every frontend looks for runs that nobody runs
   at a regular interval, and the first one that takes the lock continues the
-  run as after a restart.
+  run as after a restart. A frontend that loses its lock but keeps running
+  (a lost database session) leaves its operations running: the frontend that
+  takes the run over follows an item whose operation still has a status, and
+  checks only the others. From the takeover on, the run rows refuse the writes
+  of the frontend that lost the run.
 - **Admission.** A second advisory lock lets only one frontend at a time start
   a run, so two frontends cannot start two runs at the same time.
 - **Stale operations.** The 30-minute reaper of gallery operations fails an

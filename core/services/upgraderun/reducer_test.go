@@ -397,6 +397,26 @@ var _ = Describe("Reduce", func() {
 			Expect(starts(fx)).To(Equal([]string{"model:m"}))
 		})
 
+		It("keeps following an item whose operation is still live, instead of checking it at once", func() {
+			r, _ := newRun(item(KindGallery, "a"), item(KindGallery, "b"))
+			r = started(r, "gallery:a", "ja", true)
+			r = started(r, "gallery:b", "jb", true)
+			r, fx := step(r, RestartRecovered{Live: map[string]bool{"gallery:a": true}})
+			a := r.Item("gallery:a")
+			Expect(a.Phase).To(Equal(PhaseRunning), "the operation goes on: the new runner follows it")
+			Expect(a.JobID).To(Equal("ja"))
+			Expect(fx).NotTo(ContainElement(VerifyItem{Key: "gallery:a"}))
+			// An item whose operation has no status any more is checked.
+			Expect(phaseOf(r, "gallery:b")).To(Equal(PhaseUnconfirmed))
+			Expect(fx).To(ContainElement(VerifyItem{Key: "gallery:b"}))
+
+			// The followed operation ends later and is checked then.
+			r, fx = step(r, ItemJobEnded{Key: "gallery:a", Outcome: JobOK})
+			Expect(fx).To(ContainElement(VerifyItem{Key: "gallery:a"}))
+			r, _ = step(r, ItemVerified{Key: "gallery:a", Result: VerifyGone})
+			Expect(phaseOf(r, "gallery:a")).To(Equal(PhaseUpdated))
+		})
+
 		It("fails a recovered item the check still lists as interrupted by the restart", func() {
 			r, _ := newRun(item(KindGallery, "a"))
 			r = started(r, "gallery:a", "j", true)

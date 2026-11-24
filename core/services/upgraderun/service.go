@@ -291,9 +291,31 @@ func (s *Service) adopt(ctx context.Context, id string) {
 		lock.Close()
 		return
 	}
+	// From here on the previous runner, if it still lives without its lock,
+	// cannot overwrite the run.
+	if err := s.opts.Store.Claim(id, s.opts.Instance); err != nil {
+		lock.Close()
+		return
+	}
 	run := s.decode(rec, items)
 	xlog.Info("upgrade run: taking over a run nobody runs", "run", id, "previous_runner", rec.Runner)
-	s.startRunner(run, lock, []Event{RestartRecovered{}}, nil)
+	s.startRunner(run, lock, []Event{RestartRecovered{Live: s.liveItems(run)}}, nil)
+}
+
+// liveItems are the running items whose operation still has a status. A
+// runner that lost its lock leaves its operations running, and the gallery
+// operations keep going on the frontend that started them.
+func (s *Service) liveItems(run Run) map[string]bool {
+	live := map[string]bool{}
+	for _, it := range run.Items {
+		if it.Phase != PhaseRunning || it.Verifying || it.JobID == "" {
+			continue
+		}
+		if s.opts.Jobs.GetStatus(it.JobID) != nil {
+			live[it.Key] = true
+		}
+	}
+	return live
 }
 
 // Close stops the runners of this frontend. Their runs stay running in the

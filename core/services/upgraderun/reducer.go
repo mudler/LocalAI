@@ -126,9 +126,14 @@ type CancelItem struct{ Key string }
 // RetryRequested queues the retryable items of a running run again.
 type RetryRequested struct{}
 
-// RestartRecovered: a runner took the run over after a restart or the death of
-// the previous runner. The operations of the previous runner died with it.
-type RestartRecovered struct{}
+// RestartRecovered: a runner took the run over after a restart, the death of
+// the previous runner or the loss of its lock. Live holds the items whose
+// operation still has a status: a lost lock does not stop the operations, so
+// the new runner follows them. The operations of the other busy items died
+// with the previous runner, and a fresh check decides them.
+type RestartRecovered struct {
+	Live map[string]bool
+}
 
 // NodeResult is the state of one node of a cluster backend item.
 type NodeResult struct {
@@ -380,6 +385,13 @@ func Reduce(in Run, ev Event, env Env) Result {
 	case RestartRecovered:
 		for i := range r.Items {
 			it := &r.Items[i]
+			if it.Phase == PhaseRunning && !it.Verifying && it.JobID != "" && e.Live[it.Key] {
+				// The operation goes on: follow it. Its cancel is asked for
+				// again if it was wanted.
+				it.CancelSent = false
+				fx = append(fx, maybeCancel(it)...)
+				continue
+			}
 			if it.Busy() {
 				it.Phase, it.Verifying, it.Cancellable = PhaseUnconfirmed, true, false
 				it.CancelWanted, it.CancelSent = false, false
