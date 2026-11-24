@@ -74,7 +74,27 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/branding/asset/", Prefix: true},
 }
 
+// eventHookPrefix is the start of the hook path of an event trigger.
+const eventHookPrefix = "/api/chats/triggers/"
+
+// isEventHookPath tells whether path is exactly <prefix><id>/hook, with one
+// segment for the id. The hook of an event trigger is public because its
+// caller is a service with no session; the handler checks the secret of the
+// trigger. It is no prefix rule, so no other route under the triggers path
+// becomes public.
+func isEventHookPath(path string) bool {
+	rest, ok := strings.CutPrefix(path, eventHookPrefix)
+	if !ok {
+		return false
+	}
+	id, last, ok := strings.Cut(rest, "/")
+	return ok && id != "" && last == "hook"
+}
+
 func isPublicRoute(method, path string) bool {
+	if method == http.MethodPost && isEventHookPath(path) {
+		return true
+	}
 	for _, rule := range publicRouteRegistry {
 		if method != rule.Method {
 			continue

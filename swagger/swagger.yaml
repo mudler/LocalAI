@@ -27059,6 +27059,47 @@ paths:
       summary: Switch a trigger on.
       tags:
       - chats
+  /api/chats/triggers/{id}/hook:
+    post:
+      description: Starts a run of an event trigger. Sign the body with the secret
+        of the trigger (X-Webhook-Signature-V2 with X-Webhook-Timestamp, or X-Hub-Signature-256),
+        or send the secret as a bearer value. An event that the trigger does not match
+        answers 202 with no run.
+      parameters:
+      - description: The trigger id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: The run, or an empty run id when the trigger does not match
+            the event
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Refused, whatever the reason
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "413":
+          description: The body is over 256 KiB
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: More than 60 events in a minute
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Send an event to an event trigger.
+      tags:
+      - chats
   /api/chats/triggers/{id}/run:
     post:
       description: Starts a run at once, whether the trigger is on or not. The run

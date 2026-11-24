@@ -709,33 +709,42 @@ func renderEventPayload(payload string) string {
 // at its next pass. The sentinel errors of the Runner (ErrNotFound,
 // ErrNotEnabled, ErrNoMatch) come back as they are.
 func (h *Triggers) Publish(ctx context.Context, triggerID string, ev triggers.Event) error {
+	_, err := h.PublishRun(ctx, triggerID, ev)
+	return err
+}
+
+// PublishRun does what Publish does and returns the run that holds the event:
+// the run it made, the queued run it merged into, or the run of the same
+// dedupe key.
+func (h *Triggers) PublishRun(ctx context.Context, triggerID string, ev triggers.Event) (triggers.Run, error) {
 	var err error
+	var run triggers.Run
 	if h.o.Lead != nil && !h.o.Lead(ctx) {
 		// Not the leader: claim the run queued, and the leader starts it. A
 		// Runner made here is not kept: a kept one would make RunTrigger start
 		// runs on this frontend.
 		var r *triggers.Runner
 		if h.closed() {
-			return ErrTriggersClosed
+			return triggers.Run{}, ErrTriggersClosed
 		}
 		if r, err = h.newRunner(); err != nil {
-			return err
+			return triggers.Run{}, err
 		}
-		_, err = r.FireQueued(ctx, triggerID, ev)
+		run, err = r.FireQueued(ctx, triggerID, ev)
 	} else {
 		var r *triggers.Runner
 		if r, err = h.ensureRunner(); err != nil {
-			return err
+			return triggers.Run{}, err
 		}
-		_, err = r.Fire(ctx, triggerID, ev)
+		run, err = r.Fire(ctx, triggerID, ev)
 	}
 	if errors.Is(err, triggers.ErrStopped) {
-		return ErrTriggersClosed
+		return triggers.Run{}, ErrTriggersClosed
 	}
 	if err == nil {
 		h.Notify()
 	}
-	return err
+	return run, err
 }
 
 // switchOff turns a trigger off and tells the owner. It reads the trigger again
@@ -965,3 +974,10 @@ func limitText(d time.Duration) string { return triggers.ShortDuration(d) }
 
 // RunLimitText is the run limit of t that applies now, written the short way.
 func (h *Triggers) RunLimitText(t triggers.Trigger) string { return limitText(h.RunLimitOf(t)) }
+
+// EventTrigger returns a trigger by its id, whoever owns it, for the public
+// hook, which authenticates with the secret of the trigger and not with a
+// user. It returns triggers.ErrNotFound for an unknown id.
+func (h *Triggers) EventTrigger(ctx context.Context, id string) (triggers.Trigger, error) {
+	return h.o.Store.GetTrigger(ctx, id)
+}

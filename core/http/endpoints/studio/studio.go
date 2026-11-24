@@ -59,6 +59,8 @@ type Handlers struct {
 	oauth OAuthConfig
 	// userExists says whether a user id names a known user (see WithUserLookup).
 	userExists func(ctx context.Context, id string) (bool, error)
+	// hooks limits the calls of the public trigger hook.
+	hooks hookLimiter
 }
 
 // New returns the handlers. A nil models skips the model check.

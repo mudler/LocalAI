@@ -51,6 +51,12 @@ func (s *authModesServer) routesUnderTest() []*echo.Route {
 			continue
 		}
 		key := r.Method + " " + r.Path
+		// The hook of an event trigger is public by design: its caller has no
+		// login, and the secret of the trigger is the credential. Its own specs
+		// (routes/studio_triggerhook_test.go) cover it.
+		if r.Method == http.MethodPost && r.Path == "/api/chats/triggers/:id/hook" {
+			continue
+		}
 		if seen[key] || r.Method == http.MethodOptions || r.Method == http.MethodHead {
 			continue
 		}
