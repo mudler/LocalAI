@@ -72,12 +72,16 @@ type ModelUpgrade struct {
 	Failed, RolledBack bool
 	From, To           string
 	Err                string
+	// InRun is true for an upgrade that an upgrade run started. The run
+	// writes one end row for all its items, so this upgrade writes none.
+	InRun bool
 }
 
 // ModelUpgradeResult tells the administrators how a model upgrade ended. The
 // row is keyed by the operation (the same key as Operation), and posted once.
+// An upgrade of an upgrade run writes no row: the run tells it (see Operation).
 func (e *Emitter) ModelUpgradeResult(ctx context.Context, r ModelUpgrade) error {
-	if r.OpID == "" || r.Name == "" {
+	if r.OpID == "" || r.Name == "" || r.InRun {
 		return nil
 	}
 	n := notify.Notification{

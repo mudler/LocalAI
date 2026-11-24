@@ -147,6 +147,9 @@ type UpgradeResult struct {
 	From, To           string
 	Failed, RolledBack bool
 	Err                string
+	// InRun is Request.InRun: an upgrade run tells the end of this upgrade
+	// in its own rows.
+	InRun bool
 }
 
 // Request asks for one upgrade.
@@ -162,6 +165,9 @@ type Request struct {
 	// Retry runs a failed upgrade again with its choices; it fails when the
 	// last upgrade did not fail.
 	Retry bool
+	// InRun marks an upgrade that an upgrade run started. The result carries
+	// the mark, so the notifier leaves the end to the rows of the run.
+	InRun bool
 	// Progress, when set, gets each phase and the download progress.
 	Progress func(Progress)
 }
@@ -1325,7 +1331,7 @@ func (u *Upgrader) notifyRefused(ctx context.Context, req Request, err error) {
 	if u.Notifier == nil || req.OpID == "" || ctx.Err() != nil {
 		return
 	}
-	res := UpgradeResult{OpID: req.OpID, Name: req.Name, Failed: true, Err: u.relText(err.Error())}
+	res := UpgradeResult{OpID: req.OpID, Name: req.Name, Failed: true, Err: u.relText(err.Error()), InRun: req.InRun}
 	if nerr := u.Notifier.ModelUpgradeResult(context.WithoutCancel(ctx), res); nerr != nil {
 		xlog.Warn("Could not write the model upgrade notification", "model", req.Name, "error", nerr)
 	}
@@ -1336,7 +1342,7 @@ func (u *Upgrader) notify(ctx context.Context, r *upgradeRun, err error) {
 		return
 	}
 	j := r.j()
-	res := UpgradeResult{OpID: r.req.OpID, Name: r.name, From: j.FromEntryDigest, To: j.ToEntryDigest}
+	res := UpgradeResult{OpID: r.req.OpID, Name: r.name, From: j.FromEntryDigest, To: j.ToEntryDigest, InRun: r.req.InRun}
 	if err != nil {
 		res.Failed = true
 		res.RolledBack = j.Phase == gallery.PhaseRolledBack
