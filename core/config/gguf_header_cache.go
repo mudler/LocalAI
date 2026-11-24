@@ -1,0 +1,241 @@
+// SPDX-License-Identifier: MIT
+package config
+
+import (
+	gguf "github.com/gpustack/gguf-parser-go"
+
+	"github.com/mudler/LocalAI/core/config/harnessctx"
+	"github.com/mudler/xlog"
+)
+
+// ggufHeaderCacheSize bounds the in-memory header cache. Each entry is a few
+// hundred bytes, so this covers a large model directory while keeping the
+// memory footprint trivial. Entries past the bound are evicted least recently
+// used and simply re-parsed on their next use.
+const ggufHeaderCacheSize = 256
+
+// ggufParser matches gguf.ParseGGUFFile and is the seam tests use to count
+// header reads.
+type ggufParser func(string, ...gguf.GGUFReadOption) (*gguf.GGUFFile, error)
+
+// ggufHeader is the set of values model defaults read from a parsed GGUF. It
+// is the only thing kept between requests: the parser output (tensors, the
+// full metadata map) is not. Every field is a property of the file bytes, so a
+// snapshot stays valid for as long as the file identity does not change.
+type ggufHeader struct {
+	Name             string // general.name, falling back as the parser does
+	Architecture     string // general.architecture
+	MaxContextLength int    // architecture's trained maximum, 0 when absent
+	BOSTokenID       int64  // tokenizer, for diagnostic logging
+	EOSTokenID       int64  // tokenizer, for diagnostic logging
+
+	ChatTemplate    string // tokenizer.chat_template
+	HasChatTemplate bool
+
+	MTPLayers uint32 // <arch>.nextn_predict_layers, when an embedded MTP head exists
+	HasMTP    bool
+
+	// TrainedContext is the estimator's default context size (0 when the
+	// estimator yields nothing usable).
+	TrainedContext int
+	// trainedPanic is the value the estimator panicked with, if it did. The
+	// defaults path has never recovered from that panic locally; it is replayed
+	// at the same point so the outcome for such a file does not change.
+	trainedPanic any
+
+	// footprints holds the per-device VRAM footprint at each context that the
+	// auto-context logic may ask about. It is filled only when TrainedContext
+	// is positive, the same condition under which that logic runs.
+	footprints map[int]uint64
+	// ramFootprints is the same for a CPU-resident model (system memory), used
+	// on hosts with no VRAM ceiling.
+	ramFootprints map[int]uint64
+	// maxCtxFootprint is the VRAM estimate at MaxContextLength used by the
+	// context_size=-1 warning.
+	maxCtxFootprint uint64
+}
+
+// footprintAt returns the precomputed footprint at ctx. A context that was not
+// precomputed reports 0, the same "cannot confirm" answer as an estimate gap.
+func (h ggufHeader) footprintAt(ctx int) uint64 {
+	return h.footprints[ctx]
+}
+
+// ramFootprintAt returns the precomputed system-memory footprint at ctx, 0 when
+// it was not precomputed.
+func (h ggufHeader) ramFootprintAt(ctx int) uint64 {
+	return h.ramFootprints[ctx]
+}
+
+// readGGUFHeader converts a parsed file into a snapshot. It is the only place
+// the parser output is consumed on the defaults path.
+func readGGUFHeader(f *gguf.GGUFFile) ggufHeader {
+	var h ggufHeader
+	h.Name = f.Metadata().Name
+	tok := f.Tokenizer()
+	h.BOSTokenID = tok.BOSTokenID
+	h.EOSTokenID = tok.EOSTokenID
+
+	if t, ok := f.Header.MetadataKV.Get("tokenizer.chat_template"); ok {
+		h.ChatTemplate = t.ValueString()
+		h.HasChatTemplate = true
+	}
+
+	arch, ok := safeArchitecture(f)
+	if !ok {
+		// The parser cannot read the attention geometry of this file; a newer
+		// architecture whose metadata has a shape it does not expect makes it
+		// panic. The template, the name and the tokenizer above are still good,
+		// so keep them. The context stays unknown, which the defaults path
+		// handles as a model without an estimate.
+		h.Architecture = rawGGUFArchitecture(f)
+		xlog.Warn("[gguf] architecture metadata could not be read; the context size cannot be estimated for this model",
+			"model", h.Name, "architecture", h.Architecture)
+		return h
+	}
+	h.Architecture = arch.Architecture
+	h.MaxContextLength = int(arch.MaximumContextLength)
+
+	h.MTPLayers, h.HasMTP = HasEmbeddedMTPHead(f)
+
+	h.TrainedContext, h.trainedPanic = safeTrainedContext(f)
+	noKV := h.TrainedContext > 0 && hasNoUsableKV(f, min(h.TrainedContext, harnessctx.RecommendedContext))
+	if noKV {
+		// An estimate without a KV cache does not grow with the window, so
+		// every step of the ladder would look as cheap as the first and the
+		// fit checks would never lower it. Treat the footprint as unknown, the
+		// same answer as an estimator failure: the base cap still applies.
+		xlog.Warn("[gguf] the estimator found no KV cache in this header; memory-based context limits are skipped for it",
+			"model", h.Name, "architecture", h.Architecture)
+	} else if h.TrainedContext > 0 {
+		// The snapshot is shared by every model on this file, whatever it
+		// serves, so it holds the base cap of both targets (chat and other)
+		// and every step of the ladder.
+		h.footprints = map[int]uint64{}
+		h.ramFootprints = map[int]uint64{}
+		for _, target := range []int{harnessctx.RecommendedContext, DefaultAutoContextSize} {
+			chosen := min(h.TrainedContext, target)
+			h.footprints[chosen] = estimateContextVRAM(f, chosen)
+			h.ramFootprints[chosen] = estimateContextRAM(f, chosen)
+		}
+		for _, cand := range contextFitCandidates {
+			h.footprints[cand] = estimateContextVRAM(f, cand)
+			h.ramFootprints[cand] = estimateContextRAM(f, cand)
+		}
+	}
+
+	if h.MaxContextLength > 0 && !noKV {
+		h.maxCtxFootprint = estimateNonUMAAt(f, h.MaxContextLength)
+	}
+	return h
+}
+
+// hasNoUsableKV reports whether the estimator sizes no KV cache at all for f at
+// ctx tokens, which a text model never has: it means the attention metadata
+// was missing or not understood. A model that only embeds or reranks keeps no
+// KV cache in the estimator's view either, so it is not flagged.
+func hasNoUsableKV(f *gguf.GGUFFile, ctx int) (none bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			none = false // an estimator failure is handled where it is used
+		}
+	}()
+	est := f.EstimateLLaMACppRun(
+		gguf.WithLLaMACppContextSize(int32(ctx)),
+		gguf.WithLLaMACppOffloadLayers(0),
+	)
+	if est.EmbeddingOnly {
+		return false
+	}
+	var kv uint64
+	for _, d := range est.Devices {
+		kv += uint64(d.KVCache.Sum())
+	}
+	return kv == 0
+}
+
+// safeArchitecture returns the parsed architecture, and false when the parser
+// panics on the file's metadata.
+func safeArchitecture(f *gguf.GGUFFile) (arch gguf.GGUFArchitecture, ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+	return f.Architecture(), true
+}
+
+// rawGGUFArchitecture reads general.architecture without the parser's
+// architecture decoding, for the log line and the non-chat check.
+func rawGGUFArchitecture(f *gguf.GGUFFile) string {
+	if kv, ok := f.Header.MetadataKV.Get("general.architecture"); ok && kv.ValueType == gguf.GGUFMetadataValueTypeString {
+		return kv.ValueString()
+	}
+	return ""
+}
+
+// safeTrainedContext returns the estimator's default context size and, when the
+// estimator panics, the panic value instead of letting it escape.
+func safeTrainedContext(f *gguf.GGUFFile) (n int, panicked any) {
+	defer func() {
+		if r := recover(); r != nil {
+			n, panicked = 0, r
+		}
+	}()
+	return int(f.EstimateLLaMACppRun().ContextSize), nil
+}
+
+// estimateNonUMAAt returns the discrete-GPU footprint at ctx for the -1 warning.
+// It returns 0 on any estimator failure, which suppresses the warning as before.
+func estimateNonUMAAt(f *gguf.GGUFFile, ctx int) (used uint64) {
+	defer func() {
+		if r := recover(); r != nil {
+			used = 0
+		}
+	}()
+	sum := f.EstimateLLaMACppRun(gguf.WithLLaMACppContextSize(int32(ctx))).Summarize(true, 0, 0)
+	if len(sum.Items) == 0 {
+		return 0
+	}
+	for _, v := range sum.Items[0].VRAMs {
+		used += uint64(v.NonUMA)
+	}
+	return used
+}
+
+// ggufIdentity is what a cached header is validated against.
+type ggufIdentity = headerIdentity
+
+// ggufHeaderCache is the GGUF instance of the generic header cache.
+type ggufHeaderCache = headerCache[ggufHeader]
+
+// persistedGGUFCache is the GGUF cache file as read back from disk.
+type persistedGGUFCache = headerFile
+
+func newGGUFHeaderCache(max int) *ggufHeaderCache {
+	return newHeaderCache(ggufHeaderSpec, max)
+}
+
+// ggufHeaders is the process-wide header cache used by llamaCppDefaults.
+var ggufHeaders = newGGUFHeaderCache(ggufHeaderCacheSize)
+
+// parseGGUFHeader parses modelFile with parse and reduces the result to a
+// snapshot. Only the scalar metadata and array lengths are read, see
+// llamaCppDefaultsWithParser for why.
+func parseGGUFHeader(modelFile string, parse ggufParser) (ggufHeader, error) {
+	f, err := parse(modelFile, gguf.UseMMap(), gguf.SkipLargeMetadata())
+	if err != nil {
+		return ggufHeader{}, err
+	}
+	return readGGUFHeader(f), nil
+}
+
+// loadGGUFHeader returns the header snapshot for modelFile, parsing it only when
+// no cached snapshot matches the file's current identity. A file that cannot be
+// stat'ed or parsed is never cached, so the caller sees the same error path as
+// before the cache existed.
+func loadGGUFHeader(modelFile string, parse ggufParser) (ggufHeader, error) {
+	return ggufHeaders.loadVia(modelFile, func(p string) (ggufHeader, error) {
+		return parseGGUFHeader(p, parse)
+	})
+}

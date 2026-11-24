@@ -1,0 +1,218 @@
+{
+  "unsaved": {
+    "title": "Discard unsaved changes?",
+    "message": "You have unsaved changes that will be lost if you leave this page.",
+    "leave": "Leave"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "remove": "Remove",
+    "create": "Create",
+    "update": "Update",
+    "refresh": "Refresh",
+    "reload": "Reload",
+    "retry": "Retry",
+    "search": "Search",
+    "filter": "Filter",
+    "clear": "Clear",
+    "reset": "Reset",
+    "apply": "Apply",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "open": "Open",
+    "submit": "Submit",
+    "select": "Select",
+    "selectAll": "Select all",
+    "copy": "Copy",
+    "copied": "Copied",
+    "download": "Download",
+    "upload": "Upload",
+    "import": "Import",
+    "export": "Export",
+    "view": "View",
+    "details": "Details",
+    "settings": "Settings",
+    "help": "Help",
+    "yes": "Yes",
+    "no": "No",
+    "loading": "Loading..."
+  },
+  "status": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "ready": "Ready",
+    "running": "Running",
+    "stopped": "Stopped",
+    "starting": "Starting...",
+    "stopping": "Stopping...",
+    "pending": "Pending",
+    "active": "Active",
+    "inactive": "Inactive",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "online": "Online",
+    "offline": "Offline",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Info",
+    "empty": "No items",
+    "none": "None",
+    "unknown": "Unknown"
+  },
+  "dialogs": {
+    "confirmDelete": {
+      "title": "Confirm deletion",
+      "message": "Are you sure you want to delete this? This action cannot be undone.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "unsavedChanges": {
+      "title": "Unsaved changes",
+      "message": "You have unsaved changes. Do you want to discard them?",
+      "discard": "Discard",
+      "keepEditing": "Keep editing"
+    }
+  },
+  "forms": {
+    "required": "Required",
+    "optional": "Optional",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "value": "Value",
+    "search": "Search...",
+    "selectPlaceholder": "Select an option...",
+    "noMatch": "No matches"
+  },
+  "time": {
+    "now": "now",
+    "secondsAgo_one": "{{count}} second ago",
+    "secondsAgo_other": "{{count}} seconds ago",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "units": {
+    "bytes": "B",
+    "kilobytes": "KB",
+    "megabytes": "MB",
+    "gigabytes": "GB",
+    "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Try again",
+    "undo": "Undo",
+    "loadError": {
+      "title": "Could not load this.",
+      "serverSaid": "The server answered “{{message}}”.",
+      "nothingChanged": "Nothing was changed."
+    }
+  },
+  "chip": {
+    "running": "Running",
+    "starting": "Starting",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "updateAvailable": "Update available",
+    "ready": "Ready",
+    "noRunsYet": "No runs yet",
+    "updating": "Updating",
+    "heldForApproval": "Held for approval",
+    "cannotUpdate": "Cannot update",
+    "differsFromCluster": "Differs from the cluster"
+  },
+  "share": {
+    "title": "Share \"{{name}}\"",
+    "untitled": "Untitled",
+    "intro": "People you add see it in their own list.",
+    "disabled": {
+      "title": "Sharing is not available",
+      "text": "This LocalAI runs for one local owner, so there are no other accounts to share with."
+    },
+    "add": "Add people",
+    "search": "Find a person by name",
+    "searchHint": "Type at least three letters of a name.",
+    "newRole": "Role for people you add",
+    "searching": "Searching",
+    "noResults": "Nobody matches.",
+    "alreadyShared": "Everybody who matches already has access.",
+    "results": "People found",
+    "addPerson": "Add {{name}} as {{role}}",
+    "granted": "{{name}} now has access.",
+    "changed": "{{name}} is now {{role}}.",
+    "everyone": "Everyone",
+    "everyoneHelp": "Every account on this LocalAI, including new ones.",
+    "everyoneAdd": "Share with everyone",
+    "people": "People with access",
+    "loading": "Loading who has access",
+    "none": "Only you have access.",
+    "unnamed": "Unnamed account",
+    "roleOf": "Role of {{name}}",
+    "revoke": "Stop sharing",
+    "revokeAria": "Stop sharing with {{name}}",
+    "revokeConfirm": "Stop sharing with {{name}}? Their running work on it stops.",
+    "revoked": "Stopped sharing with {{name}}.",
+    "refs": {
+      "title": "Before you share",
+      "intro": "This uses other resources. Choose what the people you add get for each one.",
+      "label": "Access to {{name}}",
+      "choose": "Choose",
+      "pending": "Choose an option for every item above to share.",
+      "option": {
+        "view": "Can view",
+        "use": "Can use",
+        "none": "Do not share"
+      },
+      "own": "They need access of their own"
+    },
+    "roles": {
+      "owner": "Owner",
+      "use": "Can use",
+      "manage": "Can manage",
+      "viewer": "Viewer",
+      "editor": "Editor"
+    },
+    "roleHelp": {
+      "use": "Can open and run it.",
+      "manage": "Can also change it.",
+      "viewer": "Can read it.",
+      "editor": "Can read and change it."
+    },
+    "line": {
+      "sharedBy": "Shared by {{name}}",
+      "sharedEveryone": "Shared with everyone by {{name}}",
+      "sharedWith": "Shared with {{count}}",
+      "private": "Private"
+    },
+    "error": {
+      "withdrawn": "This page was closed.",
+      "auth": "Sign in again to share.",
+      "denied": "You can no longer share this. It may have been deleted.",
+      "unknown": "The change may not have been saved. Try again to be sure.",
+      "invalid": "The server refused this change.",
+      "network": "The server could not be reached.",
+      "unavailable": "Sharing did not answer. Try again in a moment.",
+      "generic": "Something went wrong."
+    }
+  },
+  "picker": {
+    "filter": "Filter",
+    "loading": "Loading",
+    "empty": "Nothing to choose yet",
+    "noMatch": "No matches",
+    "clear": "Clear"
+  }
+}

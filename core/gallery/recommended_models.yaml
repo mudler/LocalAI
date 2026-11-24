@@ -1,0 +1,58 @@
+# Built-in fallback of gallery/recommended.yaml, embedded in the binary. The
+# server uses it only when the served file cannot be fetched or is not valid.
+# The schema and the rules for an entry are described in that file. Every id here
+# must exist in gallery/index.yaml; core/gallery/recommended_test.go checks it.
+version: 1
+tiers:
+  cpu:
+    - rank: default
+      id: gemma-4-e2b-it-qat-q4_0
+      name: Gemma 4 E2B
+      reason: Google's smallest Gemma 4, built for devices without a GPU; it fits an 8 GB machine and reads images.
+    - rank: alternative
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: A step up in quality for machines with more memory; it follows tools and long instructions.
+    - rank: alternative
+      id: lfm2.5-24b-a2b-ud-q4
+      name: LFM2.5 24B A2B
+      reason: A 24B mixture-of-experts model with about 2.45B active parameters, fast on a CPU when the host has 16 GiB or more of RAM.
+  gpu-small:
+    - rank: default
+      id: qwen3.8-4b-q4
+      name: Qwen3.8 4B
+      reason: The most capable model that fits a small card with a full chat window.
+    - rank: alternative
+      id: gemma-4-e4b-it-qat-q4_0
+      name: Gemma 4 E4B
+      reason: Google's efficient 4B-class Gemma 4, and it reads images; it also fits a 4 GB card.
+    - rank: alternative
+      id: qwen3.8-2b-q4
+      name: Qwen3.8 2B
+      reason: Leaves most of the card free for other work.
+  gpu-mid:
+    - rank: default
+      id: qwen3.8-9b-q4
+      name: Qwen3.8 9B
+      reason: A strong all-round model that runs fast on a mid-range card.
+    - rank: alternative
+      id: gemma-4-12b-it-qat-q4_0
+      name: Gemma 4 12B
+      reason: A larger step up for cards with 12 GB or more, and it reads images.
+    - rank: alternative
+      id: gemma-4-e4b-it-qat-q4_0
+      name: Gemma 4 E4B
+      reason: Fast and light, with room to spare on an 8 GB card.
+  gpu-large:
+    - rank: default
+      id: gemma-4-26b-a4b-it-qat-q4_0
+      name: Gemma 4 26B A4B
+      reason: A mixture-of-experts model that fits a 24 GB card with a full chat window and answers fast.
+    - rank: alternative
+      id: qwen3.8-27b-q4
+      name: Qwen3.8 27B
+      reason: The strongest dense Qwen here; it needs about 32 GB for the full window.
+    - rank: alternative
+      id: gemma-4-31b-it-qat-q4_0
+      name: Gemma 4 31B
+      reason: The largest dense Gemma 4, for cards with 48 GB or more.

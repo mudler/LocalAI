@@ -1,0 +1,8 @@
+{
+  "name": "localai-fine-tuning-ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Native UI of the fine-tuning add-on: a standalone ES module that the host loads after its own build.",
+  "type": "module",
+  "scripts": { "build": "node build.mjs", "test": "node test/run.mjs" }
+}

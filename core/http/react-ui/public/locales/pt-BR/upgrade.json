@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "Atualização disponível",
+    "availableVersion": "Atualização disponível: {{version}}"
+  },
+  "reason": {
+    "checkAgain": "Verificar novamente",
+    "checking": "Verificando..."
+  }
+}

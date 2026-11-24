@@ -1,0 +1,258 @@
+package galleryop
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
+
+	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
+)
+
+func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend, any], systemState *system.SystemState) error {
+	utils.ResetDownloadTimers()
+
+	// Dedup check in distributed mode — skip if another instance is already processing this element
+	if g.galleryStore != nil && op.GalleryElementName != "" {
+		dup, err := g.galleryStore.FindDuplicate(op.GalleryElementName)
+		if err == nil && dup != nil && dup.ID != op.ID {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed: true,
+				Message:   fmt.Sprintf("already being processed by another instance (op %s)", dup.ID),
+			})
+			return nil
+		}
+	}
+
+	// Check if already cancelled
+	if op.Context != nil {
+		select {
+		case <-op.Context.Done():
+			g.UpdateStatus(op.ID, &OpStatus{
+				Cancelled:          true,
+				Processed:          true,
+				Message:            "cancelled",
+				GalleryElementName: op.GalleryElementName,
+			})
+			return op.Context.Err()
+		default:
+		}
+	}
+
+	// Starting the operation NARROWS what can be cancelled, which is the reverse
+	// of the usual shape: markQueued reports every queued op as cancellable
+	// because abandoning it before the worker takes it leaves no trace. From
+	// here on that only holds for an install or an upgrade, both of which take
+	// ctx. DeleteBackend takes no context and cannot be interrupted, so a Cancel
+	// button on a running removal is one the server cannot honour.
+	g.UpdateStatus(op.ID, &OpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: !op.Delete})
+	legacyCoalescer := newLegacyProgressCoalescer(250*time.Millisecond, func(update legacyProgressUpdate) {
+		status := &OpStatus{Message: fmt.Sprintf(processingMessage, update.fileName, update.total, update.current), FileName: update.fileName, Progress: update.percentage, TotalFileSize: update.total, DownloadedFileSize: update.current, Cancellable: true}
+		if currentBytes, ok := parseDisplayedBytes(update.current); ok {
+			if totalBytes, totalOK := parseDisplayedBytes(update.total); totalOK {
+				status.CurrentBytes = currentBytes
+				status.TotalBytes = totalBytes
+			}
+		}
+		status.GalleryElementName = op.GalleryElementName
+		g.UpdateStatus(op.ID, status)
+	})
+	defer legacyCoalescer.Close()
+
+	// displayDownload displays the download progress
+	progressCallback := func(fileName string, current string, total string, percentage float64) {
+		// Check for cancellation during progress updates
+		if op.Context != nil {
+			select {
+			case <-op.Context.Done():
+				return
+			default:
+			}
+		}
+		legacyCoalescer.Sink(fileName, current, total, percentage)
+		utils.DisplayDownloadFunction(fileName, current, total, percentage)
+	}
+
+	ctx := op.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var err error
+	if op.Upgrade {
+		err = g.backendManager.UpgradeBackend(ctx, op, progressCallback)
+	} else if op.Delete {
+		err = g.backendManager.DeleteBackend(op.GalleryElementName)
+	} else {
+		err = g.backendManager.InstallBackend(ctx, op, progressCallback)
+		// Update GalleryElementName for status tracking if a name was derived
+		if op.ExternalName != "" {
+			op.GalleryElementName = op.ExternalName
+		}
+	}
+	if err != nil {
+		legacyCoalescer.Close()
+		// Check if error is due to cancellation
+		if op.Context != nil && errors.Is(err, op.Context.Err()) {
+			g.UpdateStatus(op.ID, &OpStatus{
+				Cancelled:          true,
+				Processed:          true,
+				Message:            "cancelled",
+				GalleryElementName: op.GalleryElementName,
+			})
+			return err
+		}
+		if errors.Is(err, ErrWorkerStillInstalling) {
+			// Soft failure: at least one worker timed out replying but is
+			// still running the install in the background. Mark the op as
+			// processed with a non-error message so the admin UI shows a
+			// yellow in-progress state rather than red. The reconciler's
+			// next pass will reconcile the actual outcome via backend.list.
+			xlog.Info("worker still installing in background", "backend", op.GalleryElementName, "error", err)
+			g.UpdateStatus(op.ID, &OpStatus{
+				Processed: true,
+				// An upgrade whose reply is lost has no known outcome: the
+				// run must not count it as updated or failed.
+				Unconfirmed:        op.Upgrade,
+				GalleryElementName: op.GalleryElementName,
+				Message:            fmt.Sprintf("backend %s: worker still installing in background; reconciler will confirm completion (%v)", op.GalleryElementName, err),
+				Cancellable:        false,
+			})
+			return nil
+		}
+		if op.Upgrade {
+			// Every failed upgrade leaves with a code, so a reader never has
+			// to parse the text. The step that failed has already set its own.
+			err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, err)
+		}
+		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
+		// A refused op wrote nothing, so there is nothing to clean up — and
+		// the name may belong to an installed backend a forced reinstall
+		// targeted. An upgrade must never run this cleanup either: its name
+		// is the installed, working build, gallery.UpgradeBackend restores it
+		// when its own swap fails, and a failure before the swap leaves it
+		// untouched. Removing it here would turn a failed upgrade into a
+		// lost backend.
+		// A forced install whose new build failed its start check replaced a
+		// build that existed: the error carries a code, and the previous build
+		// is back in place (or kept aside). Removing the name would delete it.
+		if !op.Delete && !op.Upgrade && !errors.Is(err, gallery.ErrBackendInstallDisabled) && gallery.UpgradeCodeOf(err) == "" {
+			// If we didn't install the backend, we need to make sure we don't have a leftover directory
+			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
+		}
+		return err
+	}
+
+	// Tell peer replicas that the backend set has changed. UpgradeChecker
+	// caches upgrade-available bits for 6 hours, so without this peers would
+	// keep advertising an upgrade for a backend that already moved.
+	opName := "install"
+	switch {
+	case op.Delete:
+		opName = "delete"
+	case op.Upgrade:
+		opName = "upgrade"
+	}
+	g.publishCacheInvalidate(messaging.SubjectCacheInvalidateBackends, messaging.CacheInvalidateEvent{
+		Element: op.GalleryElementName,
+		Op:      opName,
+	})
+
+	legacyCoalescer.Close()
+	g.UpdateStatus(op.ID,
+		&OpStatus{
+			Deletion:           op.Delete,
+			Processed:          true,
+			GalleryElementName: op.GalleryElementName,
+			Message:            MessageCompleted,
+			Progress:           100,
+			Cancellable:        false})
+	return nil
+}
+
+// InstallExternalBackend installs a backend from an external source (OCI image, URL, or path).
+// This method contains the logic to detect the input type and call the appropriate installation function.
+// It can be used by both CLI and Web UI for installing backends from external sources.
+//
+// force applies only to the gallery-name fallback: a URI install (dir/OCI/file)
+// always writes, but a bare gallery name is an "ensure installed" — the
+// LOCALAI_EXTERNAL_BACKENDS boot loop runs it on every start and must not
+// re-download an installed, runnable backend.
+//
+// opts change how an installed build is replaced (gallery.WithStartCheck).
+func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string, force, requireIntegrity bool, opts ...gallery.BackendInstallOption) error {
+	uri := downloader.URI(backend)
+	switch {
+	case uri.LooksLikeDir():
+		if name == "" { // infer it from the path
+			name = filepath.Base(backend)
+		}
+		xlog.Info("Installing backend from path", "backend", backend, "name", name)
+		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	case uri.LooksLikeOCI() && !uri.LooksLikeOCIFile():
+		if name == "" {
+			return fmt.Errorf("specifying a name is required for OCI images")
+		}
+		xlog.Info("Installing backend from OCI image", "backend", backend, "name", name)
+		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	case uri.LooksLikeOCIFile():
+		derivedName, err := uri.FilenameFromUrl()
+		if err != nil {
+			return fmt.Errorf("failed to get filename from URL: %w", err)
+		}
+		// strip extension if any
+		derivedName = strings.TrimSuffix(derivedName, filepath.Ext(derivedName))
+		// Use provided name if available, otherwise use derived name
+		if name == "" {
+			name = derivedName
+		}
+
+		xlog.Info("Installing backend from OCI image", "backend", backend, "name", name)
+		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	default:
+		// Treat as gallery backend name
+		if name != "" || alias != "" {
+			return fmt.Errorf("specifying a name or alias is not supported for gallery backends")
+		}
+		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, force, requireIntegrity, opts...)
+		if err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	}
+
+	return nil
+}

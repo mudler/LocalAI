@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "업데이트 가능",
+    "availableVersion": "업데이트 가능: {{version}}"
+  },
+  "reason": {
+    "checkAgain": "다시 확인",
+    "checking": "확인 중..."
+  }
+}

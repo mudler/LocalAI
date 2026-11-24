@@ -1,0 +1,12 @@
+#!/bin/sh
+# Build-time check of the office profile: the fonts must be installed. Carlito
+# and Caladea have the same metrics as Calibri and Cambria, so the render of a
+# deck that names those fonts has the same line breaks as in PowerPoint.
+set -eu
+for family in "DejaVu Sans" "Liberation Sans" "Liberation Serif" "Liberation Mono" "Carlito" "Caladea"; do
+  found=$(fc-match -f '%{family}' "$family")
+  case ",$found," in
+  *",$family,"*) ;;
+  *) echo "check-office-fonts: font $family is missing (fc-match gave $found)" >&2; exit 1 ;;
+  esac
+done

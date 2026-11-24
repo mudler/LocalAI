@@ -1,0 +1,1195 @@
+Inkling 2 DSpark drafter support, from ggml-org/llama.cpp#32218.
+
+Taken from the pull request head 1989f96d8fda12b216dc5bd5c948bb7d50ebc92c,
+diffed against its merge base 29b52d398b294509746ec0a3f28948a3107c0213 and
+limited to common/, include/ and src/. Without it, the DSpark drafter of
+Inkling 2 (`spec_type: draft-dspark`) does not load: markov_w1 has the
+padded vocabulary size, and the head uses tensors that master lacks.
+Use the default greedy draft sampling: with `spec_draft_sampling:
+probabilistic` this version made no progress in a CPU test.
+
+Delete this file when LLAMA_VERSION reaches a commit that contains
+ggml-org/llama.cpp#32218. The patch is then already applied, prepare.sh
+stops at it, and the build fails until the file is removed.
+
+diff --git a/common/speculative.cpp b/common/speculative.cpp
+index b40eb5535..862a4147f 100644
+--- a/common/speculative.cpp
++++ b/common/speculative.cpp
+@@ -4,6 +4,7 @@
+ #include "ggml.h"
+ #include "ggml-cpp.h"
+ #include "llama.h"
++#include "../src/llama-ext.h"
+ #include "log.h"
+ #include "ngram-cache.h"
+ #include "ngram-map.h"
+@@ -980,6 +981,11 @@ struct common_speculative_impl_draft_eagle3 : public common_speculative_impl {
+     }
+ };
+ 
++static int32_t dflash_block_size(const llama_model * model) {
++    char buf[32] = {};
++    return llama_model_meta_val_str(model, "dflash.block_size", buf, sizeof(buf)) >= 0 ? std::atoi(buf) : 16;
++}
++
+ // DFlash: block-diffusion drafting with a draft-side KV cache injection
+ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+     common_params_speculative_draft params;
+@@ -995,7 +1001,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
+     std::vector<llama_sampler *> backend_chains;
+ 
+     int32_t n_embd_dec = 0;  // draft hidden size
+-    int32_t n_embd_enc = 0;  // target_layer_ids_n * target_hidden_size
++    size_t  n_embd_enc = 0;  // target_layer_ids_n * target_hidden_size
+     int32_t n_embd_tgt = 0;  // target model hidden size
+ 
+     int32_t     block_size    = 0;
+@@ -1049,15 +1055,11 @@ protected:
+ 
+         n_embd_tgt    = llama_model_n_embd(model_tgt);
+         n_embd_dec    = llama_model_n_embd(model_dft);
+-        n_embd_enc    = (int32_t) target_layer_ids_n * n_embd_tgt;
++        n_embd_enc    = (size_t) target_layer_ids_n * n_embd_tgt;
+ 
+-        // read the trained block size from the dflash.block_size metadata key
+-        block_size = 16;
++        block_size = dflash_block_size(model_dft);
+         {
+             char buf[32] = {};
+-            if (llama_model_meta_val_str(model_dft, "dflash.block_size", buf, sizeof(buf)) >= 0) {
+-                block_size = std::atoi(buf);
+-            }
+             if (llama_model_meta_val_str(model_dft, "dflash.attention.causal", buf, sizeof(buf)) >= 0) {
+                 causal_attn = std::strcmp(buf, "true") == 0;
+             }
+@@ -1140,7 +1142,6 @@ protected:
+         llama_set_causal_attn(ctx_dft, causal_attn); // DFlash needs non-causal attention unless the model says otherwise
+     }
+ 
+-    // only LiliCorr uses this, to keep the context features for its scorer; the other heads only need the KV cache
+     // called after the host copy injection of a chunk, while h_nextn still holds the context features of batch_inject
+     virtual void store_context_features(llama_seq_id /*seq_id*/, int32_t /*n_chunk*/) {}
+ 
+@@ -1267,7 +1268,7 @@ public:
+                 for (int32_t i = 0; i < n_chunk; ++i) {
+                     const llama_pos p = batch_in.tokens[i_batch_beg[seq_id] + offset + i].pos[0];
+                     const llama_pos pos_arr[4] = { p, p, p, 0 };
+-                    batch_inject.add_embd({ features_buf.data() + (size_t) i * n_embd_enc, 1, (size_t) n_embd_enc }, pos_arr, seq_id, false);
++                    batch_inject.add_embd({ features_buf.data() + (size_t) i * n_embd_enc, 1, n_embd_enc }, pos_arr, seq_id, false);
+                 }
+                 const int32_t rc = llama_process(ctx_dft, LLAMA_PROCESS_TYPE_DECODE, batch_inject.get());
+                 if (rc != 0) {
+@@ -1374,6 +1375,14 @@ struct common_speculative_impl_draft_dspark final : public common_speculative_im
+     // bonus anchor (SpecForge exports) when false: slot 0 is a bonus token, not a prediction slot
+     bool sample_from_anchor = true;
+ 
++    // The recurrent head uses the anchor features from the injection.
++    bool has_rnn_context = false;
++
++    size_t context_rows = 0;
++    std::vector<float>     context_embd;
++    std::vector<llama_pos> context_pos;
++    std::vector<std::pair<uint32_t, llama_sampler_ptr>> rnn_samplers;
++
+     common_speculative_impl_draft_dspark(const common_params_speculative & params, uint32_t n_seq)
+         : common_speculative_impl_draft_dflash(params, n_seq, COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK)
+     {
+@@ -1386,53 +1395,175 @@ struct common_speculative_impl_draft_dspark final : public common_speculative_im
+             }
+         }
+ 
++        has_rnn_context = llama_model_dflash_variant(model_dft) == LLAMA_DFLASH_VARIANT_DSPARK_INKLING2;
++
+         if (this->params.p_min > 0.0f) {
+             char buf[16] = {};
+-            const bool has_conf =
+-                llama_model_meta_val_str(model_dft, "dflash.has_confidence_head", buf, sizeof(buf)) < 0 ||
+-                std::strcmp(buf, "true") == 0;
++            const bool has_conf = !has_rnn_context &&
++                (llama_model_meta_val_str(model_dft, "dflash.has_confidence_head", buf, sizeof(buf)) < 0 ||
++                 std::strcmp(buf, "true") == 0);
+             if (!has_conf) {
+                 throw std::runtime_error("DSpark draft has no confidence head: please set --spec-draft-p-min 0");
+             }
+         }
+ 
++        if (has_rnn_context) {
++            const llama_model * model_tgt = llama_get_model(this->params.ctx_tgt);
++            if (n_embd_tgt != n_embd_dec || target_layer_ids[target_layer_ids_n - 1] != llama_model_n_layer(model_tgt)) {
++                throw std::runtime_error("DSpark target feature dimensions do not match");
++            }
++            if (sample_from_anchor || causal_attn) {
++                throw std::runtime_error("Inkling2 DSpark requires a noncausal block with an anchor");
++            }
++            context_rows = (size_t) block_size + 1;
++            const size_t slots = (size_t) n_seq * context_rows;
++            context_embd.resize(slots * (size_t) n_embd_dec);
++            context_pos.assign(slots, -1);
++            if (this->params.probabilistic) {
++                rnn_samplers.resize(n_seq);
++            }
++        }
++
+         LOG_INF("%s: - sample_from_anchor=%s\n", __func__, sample_from_anchor ? "true" : "false");
+ 
+         // anchor-first DSpark yields a full block_size draft tokens
++        // the recurrent head reads the context features back from h_nextn after a host copy injection
+         init({
+             /* .n_draft_max      = */ sample_from_anchor ? block_size : block_size - 1,
+-            /* .backend_sampling = */ true,
+-            /* .dev_features     = */ true,
+-            /* .nextn_masked     = */ true,
++            /* .backend_sampling = */ !has_rnn_context,
++            /* .dev_features     = */ !has_rnn_context,
++            /* .nextn_masked     = */ !has_rnn_context,
+         });
++
++        if (has_rnn_context) {
++            // Inkling2 uses host sampling to keep the first-maximum tie rule.
++            for (auto & s : smpls) {
++                common_params_sampling sparams;
++                sparams.no_perf  = false;
++                sparams.temp     = 0.0f;
++                sparams.samplers = { COMMON_SAMPLER_TYPE_TEMPERATURE };
++                s.reset(common_sampler_init(model_dft, sparams));
++            }
++        }
++    }
++
++protected:
++    void store_context_features(llama_seq_id seq_id, int32_t n_chunk) override {
++        if (!has_rnn_context) {
++            return;
++        }
++        // Keep the committed boundary when the target rejects part of a verification batch.
++        const float * projected = llama_get_embeddings_nextn(params.ctx_dft);
++        if (projected) {
++            const size_t seq_offset = (size_t) seq_id * context_rows;
++            const llama_pos pos_min = std::max(0, batch_inject.tokens.back().pos[0] - block_size);
++            for (int32_t i = 0; i < n_chunk; ++i) {
++                const llama_pos pos = batch_inject.tokens[i].pos[0];
++                if (pos < pos_min) {
++                    continue;
++                }
++                const size_t slot = seq_offset + (size_t) pos % context_rows;
++                std::memcpy(context_embd.data() + slot * (size_t) n_embd_dec,
++                        projected + (size_t) i * n_embd_dec, (size_t) n_embd_dec * sizeof(float));
++                context_pos[slot] = pos;
++            }
++        }
++    }
++
++public:
++
++    void begin(llama_seq_id seq_id, const llama_tokens & prompt) override {
++        common_speculative_impl_draft_dflash::begin(seq_id, prompt);
++        if (seq_id >= 0 && (size_t) seq_id < rnn_samplers.size()) {
++            rnn_samplers[seq_id].second.reset();
++        }
+     }
+ 
+     void draft(common_speculative_draft_params_vec & dparams) override {
++        draft_batch(dparams, false);
++        if (!rnn_samplers.empty()) {
++            draft_batch(dparams, true);
++        }
++    }
++
++private:
++    const float * anchor_context(llama_seq_id seq_id, llama_pos pos) const {
++        const size_t slot = (size_t) seq_id * context_rows + (size_t) pos % context_rows;
++        if (pos < 0 || context_pos[slot] != pos) {
++            throw std::runtime_error("DSpark committed context feature is missing");
++        }
++        return context_embd.data() + slot * (size_t) n_embd_dec;
++    }
++
++    bool draft_recurrent(llama_seq_id seq_id, common_speculative_draft_params & dp, int32_t beg,
++            const float * hidden, const float * base, int32_t n_vocab) {
++        auto & sampler = rnn_samplers[seq_id];
++        if (!sampler.second || sampler.first != dp.seed) {
++            sampler.first = dp.seed;
++            sampler.second.reset(llama_sampler_init_dist(dp.seed == LLAMA_DEFAULT_SEED ? dp.seed : dp.seed ^ 0x85ebca6bu));
++        }
++
++        const llama_embd context = { anchor_context(seq_id, dp.pos0 - 1), 1, (size_t) n_embd_dec };
++        std::vector<float> state, logits;
++        llama_token prev = dp.id_last;
++        for (int32_t i = 1; i <= params.n_max; ++i) {
++            const size_t row = beg + i;
++            if (!llama_decode_dspark_head(params.ctx_dft, prev,
++                    { hidden + row*n_embd_dec, 1, (size_t) n_embd_dec },
++                    { base + row*n_vocab, 1, (size_t) n_vocab }, context, state, logits)) {
++                return false;
++            }
++
++            const float max_logit = *std::max_element(logits.begin(), logits.end());
++            auto & q = dp.result_q->emplace_back(n_vocab);
++            for (int32_t id = 0; id < n_vocab; ++id) {
++                if (!std::isfinite(logits[id])) {
++                    return false;
++                }
++                q[id] = { id, (logits[id] - max_logit) / dp.temp, 0.0f };
++            }
++            llama_token_data_array candidates = { q.data(), q.size(), -1, false };
++            llama_sampler_apply(sampler.second.get(), &candidates);
++            if (candidates.selected < 0 || !(q[candidates.selected].p > 0.0f)) {
++                return false;
++            }
++
++            prev = q[candidates.selected].id;
++            dp.result->push_back(prev);
++        }
++        return true;
++    }
++
++    void draft_batch(common_speculative_draft_params_vec & dparams, bool sampled) {
+         auto & ctx_dft = params.ctx_dft;
+ 
+         batch.clear();
+ 
+         // build one batch holding every drafting sequence's noise block into a single decode
+-        // record where each block starts and its size
+         std::vector<int32_t> i_block_beg(n_seq, -1);
+-        std::vector<int32_t> n_block    (n_seq,  0);
++        const int32_t i_draft_beg = sample_from_anchor ? 0 : 1;
++        // Later mask rows affect earlier predictions through noncausal attention.
++        const int32_t n_block_tokens = has_rnn_context ? block_size : i_draft_beg + params.n_max;
+ 
+         for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
+             auto & dp = dparams[seq_id];
+-            if (!dp.drafting) {
++            const bool wants_sampling = !rnn_samplers.empty() && dp.result_q && dp.temp > 0.0f;
++            if (!dp.drafting || wants_sampling != sampled) {
+                 continue;
+             }
+ 
+-            common_sampler_reset(smpls[seq_id].get());
++            if (!sampled) {
++                common_sampler_reset(smpls[seq_id].get());
++            }
+ 
+             const int32_t n = (int32_t) dp.pos0;
+-
+-            const int32_t n_draft = params.n_max;
+-            const int32_t n_block_tokens = n_draft + (sample_from_anchor ? 0 : 1);
++            const float * context = has_rnn_context && !sampled ? anchor_context(seq_id, dp.pos0 - 1) : nullptr;
+             i_block_beg[seq_id] = batch.size();
+-            n_block    [seq_id] = n_block_tokens;
+             for (int32_t i = 0; i < n_block_tokens; ++i) {
+-                batch.add(i == 0 ? dp.id_last : mask_token_id, n + i, seq_id, true);
++                const int32_t idx = batch.add(i == 0 ? dp.id_last : mask_token_id, n + i, seq_id, true);
++                if (context) {
++                    batch.set_embd_state(idx, { context, 1, (size_t) n_embd_dec });
++                }
+             }
+         }
+ 
+@@ -1440,21 +1571,36 @@ struct common_speculative_impl_draft_dspark final : public common_speculative_im
+             return;
+         }
+ 
+-        // decode all sequence's noise block in a single batch
+-        int ret = llama_process(ctx_dft, LLAMA_PROCESS_TYPE_DECODE, batch.get());
++        const int ret = sampled ? llama_decode_dspark_backbone(ctx_dft, batch.get()) :
++            llama_process(ctx_dft, LLAMA_PROCESS_TYPE_DECODE, batch.get());
+         if (ret != 0) {
+             LOG_WRN("%s: llama_process returned %d\n", __func__, ret);
+             return;
+         }
+ 
++        const float * hidden = sampled ? llama_get_embeddings_nextn(ctx_dft) : nullptr;
++        const float * base = sampled ? llama_get_logits(ctx_dft) : nullptr;
++        const int32_t n_vocab = sampled ? llama_vocab_n_tokens(llama_model_get_vocab(llama_get_model(ctx_dft))) : 0;
++
+         for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
+             if (i_block_beg[seq_id] < 0) {
+                 continue;
+             }
+             auto & dp = dparams[seq_id];
+ 
+-            const int32_t beg            = i_block_beg[seq_id];
+-            const int32_t n_block_tokens = n_block[seq_id];
++            const int32_t beg = i_block_beg[seq_id];
++
++            if (sampled) {
++                if (!hidden || !base || !draft_recurrent(seq_id, dp, beg, hidden, base, n_vocab)) {
++                    LOG_ERR("%s: DSpark recurrent head sampling failed\n", __func__);
++                    dp.result->clear();
++                    dp.result_q->clear();
++                } else if (dp.result->size() < (size_t) params.n_min) {
++                    dp.result->clear();
++                    dp.result_q->clear();
++                }
++                continue;
++            }
+ 
+             auto * smpl = smpls[seq_id].get();
+ 
+@@ -1463,15 +1609,20 @@ struct common_speculative_impl_draft_dspark final : public common_speculative_im
+             // DSpark: read from the first draft slot, truncate below the confidence threshold
+             const float * conf = params.p_min > 0.0f ? llama_get_embeddings_nextn(ctx_dft) : nullptr;
+             // bonus-anchor drafts read the mask positions only, like DFlash
+-            const int32_t i_draft_beg = sample_from_anchor ? 0 : 1;
+-            for (int32_t i = i_draft_beg; i < n_block_tokens; ++i) {
++            for (int32_t i = i_draft_beg; i < i_draft_beg + params.n_max; ++i) {
+                 const int32_t idx = beg + i;
+ 
+                 if (conf && conf[(size_t) idx * n_embd_dec] < params.p_min) {
+                     break;
+                 }
+ 
+-                common_sampler_sample(smpl, ctx_dft, idx, true);
++                const llama_token sampled = common_sampler_sample(smpl, ctx_dft, idx, true);
++                if (has_rnn_context) {
++                    // Use the first maximum, as in the RNN conditioning graph.
++                    common_sampler_accept(smpl, sampled, true);
++                    result.push_back(sampled);
++                    continue;
++                }
+ 
+                 const auto * cur_p = common_sampler_get_candidates(smpl, true);
+ 
+@@ -3136,6 +3287,14 @@ common_speculative_init_result::common_speculative_init_result(
+ 
+         pimpl->model.reset(model_dft);
+ 
++        if (llama_model_dflash_variant(model_dft) == LLAMA_DFLASH_VARIANT_DSPARK_INKLING2) {
++            // Noncausal decode needs every sequence's full block in one ubatch.
++            const uint32_t rows = dflash_block_size(model_dft) * cparams.n_seq_max;
++            cparams.n_batch       = std::max(cparams.n_batch, rows);
++            cparams.n_ubatch      = cparams.n_ubatch ? std::max(cparams.n_ubatch, rows) : 0;
++            cparams.n_outputs_max = cparams.n_outputs_max ? std::max(cparams.n_outputs_max, rows) : 0;
++        }
++
+         llama_context * ctx_dft = llama_init_from_model(model_dft, cparams);
+         if (ctx_dft == nullptr) {
+             LOG_ERR("%s: failed to create MTP context\n", __func__);
+@@ -3251,6 +3410,7 @@ common_speculative * common_speculative_init(common_params_speculative & params,
+                 switch (llama_model_dflash_variant(llama_get_model(config.params.draft.ctx_dft))) {
+                     case LLAMA_DFLASH_VARIANT_DFLASH:   type_model = COMMON_SPECULATIVE_TYPE_DRAFT_DFLASH;   break;
+                     case LLAMA_DFLASH_VARIANT_DFLASH2:  type_model = COMMON_SPECULATIVE_TYPE_DRAFT_DFLASH2;  break;
++                    case LLAMA_DFLASH_VARIANT_DSPARK_INKLING2:
+                     case LLAMA_DFLASH_VARIANT_DSPARK:   type_model = COMMON_SPECULATIVE_TYPE_DRAFT_DSPARK;   break;
+                     case LLAMA_DFLASH_VARIANT_LILICORR: type_model = COMMON_SPECULATIVE_TYPE_DRAFT_LILICORR; break;
+                     case LLAMA_DFLASH_VARIANT_NONE:     break;
+diff --git a/common/speculative.h b/common/speculative.h
+index 949114f35..b37cfe1ac 100644
+--- a/common/speculative.h
++++ b/common/speculative.h
+@@ -73,7 +73,7 @@ struct common_speculative_draft_params {
+     // the generated draft from the last _draft() call
+     llama_tokens * result;
+ 
+-    // candidate distribution per drafted token; set it to make draft-simple, draft-mtp and draft-dflash2 sample
++    // proposal distribution per drafted token, requested for rejection sampling
+     std::vector<std::vector<llama_token_data>> * result_q = nullptr;
+ 
+     // the target's temp and seed, read only when the drafter samples probabilistically
+diff --git a/include/llama.h b/include/llama.h
+index 7122143e5..5ebe27439 100644
+--- a/include/llama.h
++++ b/include/llama.h
+@@ -230,11 +230,12 @@ extern "C" {
+ 
+     // the head on the block of a DFlash draft model
+     enum llama_dflash_variant {
+-        LLAMA_DFLASH_VARIANT_NONE     = -1, // not a DFlash draft model
+-        LLAMA_DFLASH_VARIANT_DFLASH   = 0,
+-        LLAMA_DFLASH_VARIANT_DFLASH2  = 1,
+-        LLAMA_DFLASH_VARIANT_DSPARK   = 2,
+-        LLAMA_DFLASH_VARIANT_LILICORR = 3,
++        LLAMA_DFLASH_VARIANT_NONE            = -1, // not a DFlash draft model
++        LLAMA_DFLASH_VARIANT_DFLASH          = 0,
++        LLAMA_DFLASH_VARIANT_DFLASH2         = 1,
++        LLAMA_DFLASH_VARIANT_DSPARK          = 2,
++        LLAMA_DFLASH_VARIANT_LILICORR        = 3,
++        LLAMA_DFLASH_VARIANT_DSPARK_INKLING2 = 4,
+     };
+ 
+     // TODO: simplify (https://github.com/ggml-org/llama.cpp/pull/9294#pullrequestreview-2286561979)
+diff --git a/src/llama-arch.cpp b/src/llama-arch.cpp
+index 3cda4f7fb..94791db70 100644
+--- a/src/llama-arch.cpp
++++ b/src/llama-arch.cpp
+@@ -582,6 +582,9 @@ static const std::map<llm_tensor, const char *> LLM_TENSOR_NAMES = {
+     { LLM_TENSOR_ATTN_V_CONV_PROJ,                       "blk.%d.attn_v_conv_proj" },
+     { LLM_TENSOR_ATTN_POST_CONV,                         "blk.%d.attn_post_conv" },
+     { LLM_TENSOR_ATTN_RES_QUERY,                         "blk.%d.attn_res_query" },
++    { LLM_TENSOR_ATTN_K_CTX,                             "blk.%d.attn_k_ctx" },
++    { LLM_TENSOR_ATTN_V_CTX,                             "blk.%d.attn_v_ctx" },
++    { LLM_TENSOR_ATTN_K_CTX_NORM,                        "blk.%d.attn_k_ctx_norm" },
+     { LLM_TENSOR_FFN_POST_NORM,                          "blk.%d.post_ffw_norm" },
+     { LLM_TENSOR_FFN_POST_NORM_1,                        "blk.%d.post_ffw_norm_1" },
+     { LLM_TENSOR_FFN_POST_NORM_2,                        "blk.%d.post_ffw_norm_2" },
+@@ -912,6 +915,10 @@ static const std::map<llm_tensor, const char *> LLM_TENSOR_NAMES = {
+     { LLM_TENSOR_DSPARK_CONF_PROJ,                       "conf_proj" },
+     { LLM_TENSOR_DSPARK_JOINT_PROJ,                      "joint_proj" },
+     { LLM_TENSOR_DSPARK_MASK_EMBD,                       "mask_embd" },
++    { LLM_TENSOR_DSPARK_FUSE,                            "dspark_fuse" },
++    { LLM_TENSOR_DSPARK_NORM,                            "dspark_norm" },
++    { LLM_TENSOR_DSPARK_HIDDEN_OUT,                      "dspark_hidden_out" },
++    { LLM_TENSOR_DFLARE_NORM,                            "blk.%d.dflare_norm" },
+     { LLM_TENSOR_ENGRAM_KV,                              "blk.%d.engram_kv" },
+     { LLM_TENSOR_ENGRAM_GATE,                            "blk.%d.engram_gate" },
+     { LLM_TENSOR_DFLASH_ATTN_CONV_BASE,                  "blk.%d.attn_conv_base" },
+@@ -1019,6 +1026,9 @@ static const std::map<llm_tensor, llm_tensor_info> LLM_TENSOR_INFOS = {
+     {LLM_TENSOR_ATTN_V_CONV_PROJ,           {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_ATTN_POST_CONV,             {LLM_TENSOR_LAYER_REPEATING, GGML_OP_SSM_CONV}},
+     {LLM_TENSOR_ATTN_RES_QUERY,             {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
++    {LLM_TENSOR_ATTN_K_CTX,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
++    {LLM_TENSOR_ATTN_V_CTX,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
++    {LLM_TENSOR_ATTN_K_CTX_NORM,            {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_FFN_GATE,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_FFN_DOWN,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_FFN_UP,                     {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+@@ -1339,6 +1349,10 @@ static const std::map<llm_tensor, llm_tensor_info> LLM_TENSOR_INFOS = {
+     {LLM_TENSOR_DSPARK_CONF_PROJ,           {LLM_TENSOR_LAYER_OUTPUT,    GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_DSPARK_JOINT_PROJ,          {LLM_TENSOR_LAYER_OUTPUT,    GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_DSPARK_MASK_EMBD,           {LLM_TENSOR_LAYER_INPUT,     GGML_OP_GET_ROWS}},
++    {LLM_TENSOR_DSPARK_FUSE,                {LLM_TENSOR_LAYER_OUTPUT,    GGML_OP_MUL}},
++    {LLM_TENSOR_DSPARK_NORM,                {LLM_TENSOR_LAYER_OUTPUT,    GGML_OP_MUL}},
++    {LLM_TENSOR_DSPARK_HIDDEN_OUT,          {LLM_TENSOR_LAYER_OUTPUT,    GGML_OP_MUL_MAT}},
++    {LLM_TENSOR_DFLARE_NORM,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_ENGRAM_KV,                  {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL_MAT}},
+     {LLM_TENSOR_ENGRAM_GATE,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_DFLASH_ATTN_CONV_BASE,      {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+diff --git a/src/llama-arch.h b/src/llama-arch.h
+index 1ac22ecee..3ea4e2092 100644
+--- a/src/llama-arch.h
++++ b/src/llama-arch.h
+@@ -583,6 +583,9 @@ enum llm_tensor {
+     LLM_TENSOR_ATTN_V_CONV_PROJ,
+     LLM_TENSOR_ATTN_POST_CONV,
+     LLM_TENSOR_ATTN_RES_QUERY,
++    LLM_TENSOR_ATTN_K_CTX,
++    LLM_TENSOR_ATTN_V_CTX,
++    LLM_TENSOR_ATTN_K_CTX_NORM,
+     LLM_TENSOR_FFN_GATE_INP,
+     LLM_TENSOR_FFN_GATE_INP_SHEXP,
+     LLM_TENSOR_FFN_NORM,
+@@ -917,6 +920,10 @@ enum llm_tensor {
+     LLM_TENSOR_DSPARK_CONF_PROJ,
+     LLM_TENSOR_DSPARK_JOINT_PROJ,
+     LLM_TENSOR_DSPARK_MASK_EMBD,
++    LLM_TENSOR_DSPARK_FUSE,
++    LLM_TENSOR_DSPARK_NORM,
++    LLM_TENSOR_DSPARK_HIDDEN_OUT,
++    LLM_TENSOR_DFLARE_NORM,
+     LLM_TENSOR_ENGRAM_KV,
+     LLM_TENSOR_ENGRAM_GATE,
+     LLM_TENSOR_DFLASH_ATTN_CONV_BASE,
+diff --git a/src/llama-batch.cpp b/src/llama-batch.cpp
+index ca3e308f4..666b5f8d7 100644
+--- a/src/llama-batch.cpp
++++ b/src/llama-batch.cpp
+@@ -1216,7 +1216,7 @@ size_t llama_batch_ext_select_n_embd_state(llama_context_type ctx_type, const ll
+         return hparams.n_embd_out();
+     }
+     // TODO: this probably should become a function of `llm_arch`
+-    if (hparams.lilicorr_candidate_topk > 0) {
++    if (hparams.lilicorr_candidate_topk > 0 || hparams.dflash_variant == LLAMA_DFLASH_VARIANT_DSPARK_INKLING2) {
+         return hparams.n_embd_inp();
+     }
+     return 0;
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index ea41283f9..4924cb1bc 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -2150,7 +2150,7 @@ static bool needs_raw_logits(const llama_ubatch & ubatch, const std::map<llama_s
+     return false; // all sequences use backend sampling
+ }
+ 
+-int llama_context::decode(const llama_batch_ext & batch_inp) {
++int llama_context::decode(const llama_batch_ext & batch_inp, llm_graph_type gtype) {
+     if (!memory) {
+         LLAMA_LOG_DEBUG("%s: cannot decode batches with this context (calling encode() instead)\n", __func__);
+         return encode(batch_inp);
+@@ -2377,7 +2377,8 @@ int llama_context::decode(const llama_batch_ext & batch_inp) {
+ 
+         ggml_status status;
+ 
+-        const auto * res = process_ubatch(ubatch, ctx_type_to_graph_type(cparams.ctx_type), mctx.get(), status);
++        const auto graph_type = gtype == LLM_GRAPH_TYPE_DEFAULT ? ctx_type_to_graph_type(cparams.ctx_type) : gtype;
++        const auto * res = process_ubatch(ubatch, graph_type, mctx.get(), status);
+ 
+         if (!res) {
+             // the last ubatch failed or was aborted -> remove all positions of that ubatch from the memory module
+@@ -5168,3 +5169,63 @@ llama_memory_breakdown llama_get_memory_breakdown(const struct llama_context * c
+ llama_context * llama_get_ctx_other(struct llama_context * ctx) {
+     return ctx->get_cparams().ctx_other;
+ }
++
++int32_t llama_decode_dspark_backbone(llama_context * ctx, const llama_batch_ext * batch) {
++    if (!ctx || !batch || !ctx->get_cparams().ctx_other ||
++            llama_model_dflash_variant(llama_get_model(ctx)) != LLAMA_DFLASH_VARIANT_DSPARK_INKLING2) {
++        return -1;
++    }
++    return ctx->decode(*batch, LLM_GRAPH_TYPE_DSPARK_BACKBONE);
++}
++
++bool llama_context::dspark_head(llama_token prev, llama_embd hidden, llama_embd base, llama_embd context,
++        std::vector<float> & state, std::vector<float> & logits_out) {
++    if (model.hparams.dflash_variant != LLAMA_DFLASH_VARIANT_DSPARK_INKLING2 || !cparams.ctx_other) {
++        return false;
++    }
++    const size_t width = model.hparams.n_embd;
++    const size_t vocab = model.vocab.n_tokens();
++    const size_t rank = model.dspark_markov_w1->ne[0];
++    const auto valid = [](llama_embd row, size_t size) { return row.data && row.n_rows == 1 && row.n_embd == size; };
++    if (prev < 0 || (size_t) prev >= vocab || !valid(hidden, width) || !valid(base, vocab) ||
++            !valid(context, width) || (!state.empty() && state.size() != rank)) {
++        return false;
++    }
++    if (state.empty()) {
++        state.resize(rank, 0.0f);
++    }
++
++    std::vector<float> inputs;
++    inputs.reserve(rank + 2*width + vocab);
++    inputs.insert(inputs.end(), state.begin(), state.end());
++    inputs.insert(inputs.end(), hidden.data, hidden.data + width);
++    inputs.insert(inputs.end(), context.data, context.data + width);
++    inputs.insert(inputs.end(), base.data, base.data + vocab);
++
++    llama_batch_allocr head_batch(model.hparams.n_pos_per_embd());
++    auto ubatch = head_batch.ubatch_reserve(1, 1);
++    ubatch.token[0] = prev;
++    ubatch.output[0] = true;
++    ubatch.n_seq_id[0] = 1;
++    ubatch.seq_id[0] = ubatch.seq_id_unq;
++    ubatch.embd_state = inputs.data();
++
++    const auto n_outputs_prev = n_outputs;
++    n_outputs = 1;
++    ggml_status status;
++    const auto * res = process_ubatch(ubatch, LLM_GRAPH_TYPE_DSPARK_HEAD, nullptr, status);
++    n_outputs = n_outputs_prev;
++    if (!res) {
++        return false;
++    }
++    ggml_backend_sched_synchronize(sched.get());
++    logits_out.resize(vocab);
++    ggml_backend_tensor_get(res->get_logits(), logits_out.data(), 0, vocab * sizeof(float));
++    ggml_backend_tensor_get(res->get_h_nextn(), state.data(), 0, rank * sizeof(float));
++    return true;
++}
++
++bool llama_decode_dspark_head(llama_context * ctx, llama_token prev, llama_embd hidden, llama_embd base, llama_embd context,
++        std::vector<float> & state, std::vector<float> & logits) {
++    return ctx && ctx->dspark_head(prev, hidden, base, context, state, logits);
++}
+diff --git a/src/llama-context.h b/src/llama-context.h
+index 3e3921c7d..6376f5ad0 100644
+--- a/src/llama-context.h
++++ b/src/llama-context.h
+@@ -161,7 +161,9 @@ struct llama_context {
+                        ggml_status & ret);
+ 
+     int encode(const llama_batch_ext & batch_inp);
+-    int decode(const llama_batch_ext & batch_inp);
++    int decode(const llama_batch_ext & batch_inp, llm_graph_type gtype = LLM_GRAPH_TYPE_DEFAULT);
++    bool dspark_head(llama_token prev, llama_embd hidden, llama_embd base, llama_embd context,
++            std::vector<float> & state, std::vector<float> & logits);
+ 
+     // compat version
+     int encode(const llama_batch & batch_inp);
+diff --git a/src/llama-ext.h b/src/llama-ext.h
+index b8b7fba0b..0b62f898f 100644
+--- a/src/llama-ext.h
++++ b/src/llama-ext.h
+@@ -165,3 +165,10 @@ LLAMA_API uint32_t llama_model_n_tokens_delay(const struct llama_model * model);
+ 
+ // each sequence is paired with an unconditional one at n_seq_max / 2 + seq_id, in a unified KV cache
+ LLAMA_API bool llama_model_classifier_free_guidance(const struct llama_model * model);
++
++// Decode the Inkling2 DSpark backbone, returning hidden rows and base logits in the context.
++LLAMA_API int32_t llama_decode_dspark_backbone(struct llama_context * ctx, const struct llama_batch_ext * batch);
++
++// Evaluate one Inkling2 DSpark recurrent step without changing the KV cache.
++LLAMA_API bool llama_decode_dspark_head(struct llama_context * ctx, llama_token prev, llama_embd hidden, llama_embd base, llama_embd context,
++        std::vector<float> & state, std::vector<float> & logits);
+diff --git a/src/llama-graph.h b/src/llama-graph.h
+index b5956ead9..1a455ea0f 100644
+--- a/src/llama-graph.h
++++ b/src/llama-graph.h
+@@ -44,6 +44,8 @@ enum llm_graph_type {
+     LLM_GRAPH_TYPE_ENCODER,
+     LLM_GRAPH_TYPE_DECODER,
+     LLM_GRAPH_TYPE_DECODER_MTP,
++    LLM_GRAPH_TYPE_DSPARK_BACKBONE,
++    LLM_GRAPH_TYPE_DSPARK_HEAD,
+ };
+ 
+ enum llm_fused_op {
+diff --git a/src/llama-hparams.h b/src/llama-hparams.h
+index 642f90118..39f808c41 100644
+--- a/src/llama-hparams.h
++++ b/src/llama-hparams.h
+@@ -304,6 +304,7 @@ struct llama_hparams {
+     uint32_t dflash_conv_group_size  = 0;
+     uint32_t dflash_selector_rank    = 0;
+     uint32_t dflash_selector_top_k   = 0;
++    llama_dflash_variant dflash_variant = LLAMA_DFLASH_VARIANT_NONE;
+     uint32_t lilicorr_hidden_size    = 0;
+     uint32_t lilicorr_candidate_topk = 0;
+     uint32_t lilicorr_num_heads      = 0;
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 4c77f6f68..3fce6ef7f 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -3650,19 +3650,7 @@ int32_t llama_model_n_layer_nextn(const llama_model * model) {
+ }
+ 
+ llama_dflash_variant llama_model_dflash_variant(const llama_model * model) {
+-    const auto * dflash = dynamic_cast<const llama_model_dflash *>(model);
+-    if (dflash == nullptr) {
+-        return LLAMA_DFLASH_VARIANT_NONE;
+-    }
+-
+-    switch (dflash->variant) {
+-        case llama_model_dflash::VARIANT_DFLASH:   return LLAMA_DFLASH_VARIANT_DFLASH;
+-        case llama_model_dflash::VARIANT_DFLASH2:  return LLAMA_DFLASH_VARIANT_DFLASH2;
+-        case llama_model_dflash::VARIANT_DSPARK:   return LLAMA_DFLASH_VARIANT_DSPARK;
+-        case llama_model_dflash::VARIANT_LILICORR: return LLAMA_DFLASH_VARIANT_LILICORR;
+-    }
+-
+-    return LLAMA_DFLASH_VARIANT_NONE;
++    return model ? model->hparams.dflash_variant : LLAMA_DFLASH_VARIANT_NONE;
+ }
+ 
+ int32_t llama_model_dflash_selector_top_k(const llama_model * model) {
+diff --git a/src/llama-model.h b/src/llama-model.h
+index e86e5e54f..8b79c30b4 100644
+--- a/src/llama-model.h
++++ b/src/llama-model.h
+@@ -710,6 +710,12 @@ struct llama_layer {
+     struct ggml_tensor * ffn_post_conv    = nullptr;
+     struct ggml_tensor * ffn_res_query    = nullptr;
+ 
++    // inkling2 dspark
++    struct ggml_tensor * attn_k_ctx      = nullptr;
++    struct ggml_tensor * attn_v_ctx      = nullptr;
++    struct ggml_tensor * attn_k_ctx_norm = nullptr;
++    struct ggml_tensor * dflare_norm     = nullptr;
++
+     struct llama_layer_posnet posnet;
+ 
+     struct llama_layer_convnext convnext;
+@@ -929,6 +935,10 @@ struct llama_model {
+     struct ggml_tensor * dspark_joint_proj   = nullptr; // rnn markov head
+     struct ggml_tensor * dspark_joint_proj_b = nullptr;
+     struct ggml_tensor * dspark_mask_embd    = nullptr; // per-slot mask embeddings
++    struct ggml_tensor * dspark_fuse         = nullptr;
++    struct ggml_tensor * dspark_norm         = nullptr;
++    struct ggml_tensor * dspark_hidden_out   = nullptr;
++    struct ggml_tensor * dspark_hidden_out_b = nullptr;
+ 
+     // zaya1
+     struct ggml_tensor * res_scale_in   = nullptr;
+diff --git a/src/models/dflash.cpp b/src/models/dflash.cpp
+index 98a8d1d9a..9942eb2d2 100644
+--- a/src/models/dflash.cpp
++++ b/src/models/dflash.cpp
+@@ -39,12 +39,14 @@ void llama_model_dflash::load_arch_hparams(llama_model_loader & ml) {
+     const bool has_markov   = ml.get_tensor_meta("markov_w1.weight")       != nullptr;
+     const bool has_selector = ml.get_tensor_meta("selector_hidden.weight") != nullptr;
+     const bool has_lilicorr = ml.get_key(LLM_KV_LILICORR_HIDDEN_SIZE, hparams.lilicorr_hidden_size, false);
+-    if (has_markov) {
+-        variant = VARIANT_DSPARK;
++    if (ml.get_tensor_meta("dspark_hidden_out.weight")) {
++        hparams.dflash_variant = LLAMA_DFLASH_VARIANT_DSPARK_INKLING2;
++    } else if (has_markov) {
++        hparams.dflash_variant = LLAMA_DFLASH_VARIANT_DSPARK;
+     } else if (has_selector) {
+-        variant = VARIANT_DFLASH2;
++        hparams.dflash_variant = LLAMA_DFLASH_VARIANT_DFLASH2;
+     } else if (has_lilicorr) {
+-        variant = VARIANT_LILICORR;
++        hparams.dflash_variant = LLAMA_DFLASH_VARIANT_LILICORR;
+         load_hparams_lilicorr(ml);
+     }
+ 
+@@ -52,8 +54,6 @@ void llama_model_dflash::load_arch_hparams(llama_model_loader & ml) {
+         throw std::runtime_error("DFlash model requires 'target_layers' in GGUF metadata");
+     }
+ 
+-    hparams.n_embd_inp_enc_impl = (uint32_t) target_layer_ids.size() * hparams.n_embd;
+-
+     std::string layers;
+     const char * sep = "";
+     for (const auto id : target_layer_ids) {
+@@ -64,7 +64,9 @@ void llama_model_dflash::load_arch_hparams(llama_model_loader & ml) {
+     LLAMA_LOG_INFO("%s: DFlash extract_layers = [%s]\n", __func__, layers.c_str());
+ 
+     ml.get_key(LLM_KV_HYPER_CONNECTION_COUNT, hparams.dsv4_hc_mult, false);
+-    if (hparams.dsv4_hc_mult > 0) {
++    if (hparams.dflash_variant == LLAMA_DFLASH_VARIANT_DSPARK_INKLING2) {
++        load_hparams_inkling2(ml);
++    } else if (hparams.dsv4_hc_mult > 0) {
+         load_hparams_dsv4(ml);
+         backbone = hparams.dsv4_hc_single_pass ? BACKBONE_DSV41 : BACKBONE_DSV4;
+     } else if (ml.get_key(LLM_KV_ATTENTION_KV_LORA_RANK, hparams.n_lora_kv, false)) {
+@@ -79,6 +81,8 @@ void llama_model_dflash::load_arch_hparams(llama_model_loader & ml) {
+         hparams.rope_freq_scale_train_swa = hparams.rope_freq_scale_train;
+     }
+ 
++    hparams.n_embd_inp_enc_impl = (uint32_t) target_layer_ids.size() * hparams.n_embd;
++
+     ml.get_key_or_arr(LLM_KV_ATTENTION_ROPE_PATTERN, hparams.rope_pattern, hparams.n_layer(), false);
+ 
+     type = LLM_TYPE_UNKNOWN;
+@@ -87,6 +91,11 @@ void llama_model_dflash::load_arch_hparams(llama_model_loader & ml) {
+ void llama_model_dflash::load_arch_tensors(llama_model_loader &) {
+     LLAMA_LOAD_LOCALS;
+ 
++    if (hparams.dflash_variant == LLAMA_DFLASH_VARIANT_DSPARK_INKLING2) {
++        load_tensors_inkling2();
++        return;
++    }
++
+     const int64_t n_embd_inp = hparams.n_embd_inp_enc();
+ 
+     tok_embd        = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD,       "weight"), { n_embd, n_vocab }, TENSOR_NOT_REQUIRED);
+@@ -100,11 +109,12 @@ void llama_model_dflash::load_arch_tensors(llama_model_loader &) {
+         LLAMA_LOG_INFO("%s: DFlash using d2t mapping (draft_vocab_size = %lld)\n", __func__, (long long) n_vocab_draft);
+     }
+ 
+-    switch (variant) {
+-        case VARIANT_DSPARK:   load_tensors_dspark(n_vocab_draft); break;
+-        case VARIANT_DFLASH2:  load_tensors_dflash2();             break;
+-        case VARIANT_LILICORR: load_tensors_lilicorr();            break;
+-        case VARIANT_DFLASH:                                       break;
++    switch (hparams.dflash_variant) {
++        case LLAMA_DFLASH_VARIANT_DSPARK:          load_tensors_dspark(n_vocab_draft); break;
++        case LLAMA_DFLASH_VARIANT_DFLASH2:         load_tensors_dflash2();             break;
++        case LLAMA_DFLASH_VARIANT_LILICORR:        load_tensors_lilicorr();            break;
++        case LLAMA_DFLASH_VARIANT_DFLASH:                                              break;
++        default: GGML_ABORT("invalid DFlash variant");
+     }
+ 
+     fc              = create_tensor(tn(LLM_TENSOR_FC,              "weight"), { n_embd_inp, n_embd }, 0);
+@@ -204,7 +214,7 @@ llama_model_dflash::graph<true>::graph(const llm_graph_params & params) : llm_gr
+ }
+ 
+ // target features of an injection batch: host embd rows, or rows of the target's layer input device buffer
+-static ggml_tensor * build_inp_target_features(llm_graph_context & g, llm_graph_input_embd & inp, int64_t n_embd_inp) {
++ggml_tensor * llama_model_dflash::build_inp_target_features(llm_graph_context & g, llm_graph_input_embd & inp, int64_t n_embd_inp) {
+     if (g.ubatch.embd_row) {
+         GGML_ASSERT(g.layer_inp_src != nullptr && g.layer_inp_src->ne[0] == n_embd_inp);
+ 
+@@ -533,6 +543,9 @@ std::unique_ptr<llm_graph_context> llama_model_dflash::build_arch_graph(const ll
+     switch (params.gtype) {
+         case LLM_GRAPH_TYPE_ENCODER:
+             return std::make_unique<graph<true>>(params);
++        case LLM_GRAPH_TYPE_DSPARK_BACKBONE:
++        case LLM_GRAPH_TYPE_DSPARK_HEAD:
++            return std::make_unique<graph_inkling2>(params);
+         case LLM_GRAPH_TYPE_DEFAULT:
+         case LLM_GRAPH_TYPE_DECODER:
+             switch (backbone) {
+@@ -541,11 +554,13 @@ std::unique_ptr<llm_graph_context> llama_model_dflash::build_arch_graph(const ll
+                 case BACKBONE_DSV41:          return std::make_unique<graph_dsv41>(params);
+                 case BACKBONE_MISTRAL_LARGE4: return std::make_unique<graph_mistral_large4>(params);
+             }
+-            switch (variant) {
+-                case VARIANT_DFLASH:   return std::make_unique<graph_dflash>(params);
+-                case VARIANT_DFLASH2:  return std::make_unique<graph_dflash2>(params);
+-                case VARIANT_DSPARK:   return std::make_unique<graph_dspark>(params);
+-                case VARIANT_LILICORR: return std::make_unique<graph_lilicorr>(params);
++            switch (hparams.dflash_variant) {
++                case LLAMA_DFLASH_VARIANT_DFLASH:          return std::make_unique<graph_dflash>(params);
++                case LLAMA_DFLASH_VARIANT_DFLASH2:         return std::make_unique<graph_dflash2>(params);
++                case LLAMA_DFLASH_VARIANT_DSPARK:          return std::make_unique<graph_dspark>(params);
++                case LLAMA_DFLASH_VARIANT_DSPARK_INKLING2: return std::make_unique<graph_inkling2>(params);
++                case LLAMA_DFLASH_VARIANT_LILICORR:        return std::make_unique<graph_lilicorr>(params);
++                case LLAMA_DFLASH_VARIANT_NONE:            break;
+             }
+             GGML_ABORT("invalid DFlash variant");
+         default:
+diff --git a/src/models/dspark.cpp b/src/models/dspark.cpp
+index b92c89761..ec6bf93d4 100644
+--- a/src/models/dspark.cpp
++++ b/src/models/dspark.cpp
+@@ -75,6 +75,40 @@ void llama_model_dflash::load_hparams_mistral_large4(llama_model_loader & ml) {
+     hparams.rope_freq_scale_train_swa = hparams.rope_freq_scale_train;
+ }
+ 
++void llama_model_dflash::load_hparams_inkling2(llama_model_loader & ml) {
++    ml.get_key(LLM_KV_VOCAB_SIZE, hparams.n_vocab_padded);
++    ml.get_key(LLM_KV_VOCAB_SIZE_UNPADDED, hparams.n_vocab_unpadded);
++    ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW, hparams.n_swa);
++    ml.get_key_or_arr(LLM_KV_ATTENTION_SLIDING_WINDOW_PATTERN, hparams.is_swa_impl, hparams.n_layer());
++
++    if (hparams.dflash_block_size != 8 || !hparams.n_swa || hparams.n_swa >= INT32_MAX) {
++        throw std::runtime_error("invalid Inkling2 DSpark block size or sliding window");
++    }
++    if (target_layer_ids.empty() || target_layer_ids.front() < 0 || target_layer_ids.back() > LLAMA_MAX_LAYERS ||
++            std::adjacent_find(target_layer_ids.begin(), target_layer_ids.end(), std::greater_equal<int32_t>()) != target_layer_ids.end()) {
++        throw std::runtime_error("Inkling2 DSpark target layers must be in range and strictly increasing");
++    }
++    if (target_layer_ids.size() * (uint64_t) hparams.n_embd > UINT32_MAX) {
++        throw std::runtime_error("Inkling2 DSpark target features exceed the input width");
++    }
++    if (!std::isfinite(hparams.f_norm_rms_eps) || hparams.f_norm_rms_eps <= 0 ||
++            !std::isfinite(hparams.f_final_logit_softcapping) || hparams.f_final_logit_softcapping <= 0) {
++        throw std::runtime_error("invalid Inkling2 DSpark RMS epsilon or logit softcap");
++    }
++    for (uint32_t il = 0; il < hparams.n_layer(); ++il) {
++        if (!hparams.n_head_kv(il) || hparams.n_head(il) % hparams.n_head_kv(il) ||
++                hparams.n_embd_head_k(il) != hparams.n_embd_head_v(il) || !hparams.n_ff(il) ||
++                hparams.n_rot(il) != hparams.n_embd_head_k(il) || hparams.n_rot(il) % 2) {
++            throw std::runtime_error("invalid Inkling2 DSpark attention dimensions");
++        }
++    }
++    // The anchor row includes the anchor and the window before it.
++    hparams.n_swa += 1;
++    hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
++    hparams.rope_freq_base_train_swa = hparams.rope_freq_base_train;
++    hparams.rope_freq_scale_train_swa = hparams.rope_freq_scale_train;
++}
++
+ // DSpark = DFlash + a semi-autoregressive Markov head and Confidence head
+ void llama_model_dflash::load_tensors_dspark(int64_t n_vocab_draft) {
+     LLAMA_LOAD_LOCALS;
+@@ -176,6 +210,49 @@ void llama_model_dflash::load_tensors_layers_mistral_large4() {
+     }
+ }
+ 
++void llama_model_dflash::load_tensors_inkling2() {
++    LLAMA_LOAD_LOCALS;
++
++    const int64_t rank = ml->require_tensor_meta("markov_w1.weight")->ne[0];
++    if (rank <= 0 || rank > n_embd) {
++        throw std::runtime_error("invalid Inkling2 DSpark recurrent rank");
++    }
++    // The greedy tie-break stores token ranks in F32.
++    if (n_vocab <= 0 || n_vocab != hparams.n_vocab_unpadded || n_vocab > hparams.n_vocab_padded || n_vocab > (1 << 24)) {
++        throw std::runtime_error("invalid Inkling2 DSpark vocabulary size");
++    }
++    output_norm = create_tensor(tn(LLM_TENSOR_OUTPUT_NORM, "weight"), {n_embd}, 0);
++    dspark_mask_embd = create_tensor(tn(LLM_TENSOR_DSPARK_MASK_EMBD, "weight"), {n_embd}, 0);
++    dspark_fuse = create_tensor(tn(LLM_TENSOR_DSPARK_FUSE, "weight"), {(int64_t) target_layer_ids.size(), n_layer + 1}, 0);
++    dspark_norm = create_tensor(tn(LLM_TENSOR_DSPARK_NORM, "weight"), {n_embd}, 0);
++    dspark_markov_w1 = create_tensor(tn(LLM_TENSOR_DSPARK_MARKOV_W1, "weight"), {rank, hparams.n_vocab_padded}, 0);
++    dspark_joint_proj = create_tensor(tn(LLM_TENSOR_DSPARK_JOINT_PROJ, "weight"), {2*rank + 2*n_embd, 3*rank}, 0);
++    dspark_joint_proj_b = create_tensor(tn(LLM_TENSOR_DSPARK_JOINT_PROJ, "bias"), {3*rank}, 0);
++    dspark_hidden_out = create_tensor(tn(LLM_TENSOR_DSPARK_HIDDEN_OUT, "weight"), {rank, n_embd}, 0);
++    dspark_hidden_out_b = create_tensor(tn(LLM_TENSOR_DSPARK_HIDDEN_OUT, "bias"), {n_embd}, 0);
++    for (int i = 0; i < n_layer; ++i) {
++        auto & l = layers[i];
++        const int64_t hd = hparams.n_embd_head_k(i);
++        const int64_t q = hd*hparams.n_head(i);
++        const int64_t kv = hd*hparams.n_head_kv(i);
++        l.attn_norm = create_tensor(tn(LLM_TENSOR_ATTN_NORM, "weight", i), {n_embd}, 0);
++        l.ffn_norm = create_tensor(tn(LLM_TENSOR_FFN_NORM, "weight", i), {n_embd}, 0);
++        l.dflare_norm = create_tensor(tn(LLM_TENSOR_DFLARE_NORM, "weight", i), {n_embd}, 0);
++        l.wq = create_tensor(tn(LLM_TENSOR_ATTN_Q, "weight", i), {n_embd, q}, 0);
++        l.wk = create_tensor(tn(LLM_TENSOR_ATTN_K, "weight", i), {n_embd, kv}, 0);
++        l.wv = create_tensor(tn(LLM_TENSOR_ATTN_V, "weight", i), {n_embd, kv}, 0);
++        l.wo = create_tensor(tn(LLM_TENSOR_ATTN_OUT, "weight", i), {q, n_embd}, 0);
++        l.attn_k_ctx = create_tensor(tn(LLM_TENSOR_ATTN_K_CTX, "weight", i), {n_embd, kv}, 0);
++        l.attn_v_ctx = create_tensor(tn(LLM_TENSOR_ATTN_V_CTX, "weight", i), {n_embd, kv}, 0);
++        l.attn_q_norm = create_tensor(tn(LLM_TENSOR_ATTN_Q_NORM, "weight", i), {hd}, 0);
++        l.attn_k_norm = create_tensor(tn(LLM_TENSOR_ATTN_K_NORM, "weight", i), {hd}, 0);
++        l.attn_k_ctx_norm = create_tensor(tn(LLM_TENSOR_ATTN_K_CTX_NORM, "weight", i), {hd}, 0);
++        l.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", i), {n_embd, hparams.n_ff(i)}, 0);
++        l.ffn_up = create_tensor(tn(LLM_TENSOR_FFN_UP, "weight", i), {n_embd, hparams.n_ff(i)}, 0);
++        l.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", i), {hparams.n_ff(i), n_embd}, 0);
++    }
++}
++
+ // DSpark (DFlash + Markov & Confidence head): Markov bias on the draft logits, chained per block position
+ static void build_dspark_markov_head(llm_graph_context & g, const llama_model & model, ggml_tensor * tokens, ggml_tensor * hidden = nullptr) {
+     ggml_context * ctx0 = g.ctx0;
+@@ -871,3 +948,177 @@ llama_model_dflash::graph_mistral_large4::graph_mistral_large4(const llm_graph_p
+         build_dspark_markov_head(*this, model, inp_tokens, cur);
+     }
+ }
++
++static ggml_tensor * build_inkling2_head(llm_graph_context & g, const llama_model & model, const llama_model & target,
++        ggml_tensor * prev, ggml_tensor * & state, ggml_tensor * hidden, ggml_tensor * base, ggml_tensor * context) {
++    auto * ctx0 = g.ctx0;
++    const int64_t rank = model.dspark_markov_w1->ne[0];
++    auto * joint = ggml_concat(ctx0, state, ggml_get_rows(ctx0, model.dspark_markov_w1, prev), 0);
++    joint = ggml_concat(ctx0, joint, ggml_concat(ctx0, hidden, context, 0), 0);
++    joint = ggml_add(ctx0, g.build_lora_mm(model.dspark_joint_proj, joint), model.dspark_joint_proj_b);
++    const auto chunk = [&](int64_t j) {
++        return ggml_cont(ctx0, ggml_view_2d(ctx0, joint, rank, joint->ne[1], joint->nb[1], j*rank*joint->nb[0]));
++    };
++    auto * gate = ggml_sigmoid(ctx0, chunk(0));
++    auto * candidate = ggml_tanh(ctx0, chunk(1));
++    state = ggml_add(ctx0, candidate, ggml_mul(ctx0, gate, ggml_sub(ctx0, state, candidate)));
++    auto * latent = ggml_tanh(ctx0, chunk(2));
++    auto * correction = ggml_add(ctx0, g.build_lora_mm(model.dspark_hidden_out, latent), model.dspark_hidden_out_b);
++    auto * bias = g.build_lora_mm(target.output, correction, target.output_s);
++    ggml_prec_set_acc(bias, GGML_PREC_F32);
++    if (bias->ne[0] != base->ne[0]) {
++        bias = ggml_cont(ctx0, ggml_view_2d(ctx0, bias, base->ne[0], bias->ne[1], bias->nb[1], 0));
++    }
++    auto * logits = ggml_add(ctx0, base, bias);
++    const float cap = model.hparams.f_final_logit_softcapping;
++    return ggml_scale(ctx0, ggml_tanh(ctx0, ggml_scale(ctx0, logits, 1.0f/cap)), cap);
++}
++
++// dspark_fuse has one row of target-layer mixing weights per draft layer and a final row for the recurrent head.
++llama_model_dflash::graph_inkling2::graph_inkling2(const llm_graph_params & params) : llm_graph_context(params) {
++    const int64_t rank = model.dspark_markov_w1->ne[0];
++    if (params.gtype == LLM_GRAPH_TYPE_DSPARK_HEAD) {
++        const int64_t width = rank + 2*n_embd + hparams.n_vocab_unpadded;
++        auto inp = std::make_unique<llm_graph_input_embd_h>(n_embd, width);
++        inp->tokens = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_tokens);
++        ggml_set_input(inp->tokens);
++        inp->h = build_inp_embd_state(inp.get(), width);
++        const auto view = [&](int64_t offset, int64_t size) {
++            return ggml_view_2d(ctx0, inp->h, size, n_tokens, inp->h->nb[1], offset*sizeof(float));
++        };
++        auto * state   = view(0, rank);
++        auto * hidden  = view(rank, n_embd);
++        auto * context = view(rank + n_embd, n_embd);
++        auto * base    = view(rank + 2*n_embd, hparams.n_vocab_unpadded);
++        res->t_logits = build_inkling2_head(*this, model, *llama_get_model(cparams.ctx_other), inp->tokens, state, hidden, base, context);
++        res->t_h_nextn = state;
++        ggml_build_forward_expand(gf, state);
++        res->add_input(std::move(inp));
++        return;
++    }
++
++    auto * positions = build_inp_pos();
++    auto * attn = build_attn_inp_kv_iswa();
++    const int64_t ntarget = model.target_layer_ids.size();
++    const auto mix = [&](ggml_tensor * features, int row, ggml_tensor * norm) {
++        auto * weights = ggml_soft_max(ctx0, ggml_view_1d(ctx0, model.dspark_fuse, ntarget, row*model.dspark_fuse->nb[1]));
++        auto * x = ggml_reshape_3d(ctx0, features, n_embd, ntarget, n_tokens);
++        x = ggml_cont(ctx0, ggml_permute(ctx0, x, 1, 0, 2, 3));
++        x = ggml_sum_rows(ctx0, ggml_mul(ctx0, x, weights));
++        return build_norm(ggml_reshape_2d(ctx0, x, n_embd, n_tokens), norm, nullptr, LLM_NORM_RMS, row == n_layer ? -1 : row);
++    };
++
++    if (ubatch.embd || ubatch.embd_row) {
++        auto inp = std::make_unique<llm_graph_input_embd>(hparams.n_embd_inp_enc());
++        auto * features = build_inp_target_features(*this, *inp, hparams.n_embd_inp_enc());
++        res->add_input(std::move(inp));
++        for (int il = 0; il < n_layer; ++il) {
++            const auto & l = model.layers[il];
++            const int64_t hd = hparams.n_embd_head_k(il);
++            const int64_t nk = hparams.n_head_kv(il);
++            auto * context = mix(features, il, l.dflare_norm);
++            cb(context, "dspark_context", il);
++            auto * k = ggml_reshape_3d(ctx0, build_lora_mm(l.attn_k_ctx, context), hd, nk, n_tokens);
++            auto * v = ggml_reshape_3d(ctx0, build_lora_mm(l.attn_v_ctx, context), hd, nk, n_tokens);
++            k = build_norm(k, l.attn_k_ctx_norm, nullptr, LLM_NORM_RMS, il);
++            k = build_rope(k, positions, il);
++            const bool swa = hparams.is_swa(il);
++            const auto * kv = swa ? attn->mctx->get_swa() : attn->mctx->get_base();
++            auto * k_rot = swa ? attn->self_k_rot_swa[il] : attn->self_k_rot[il];
++            auto * v_rot = swa ? attn->self_v_rot_swa[il] : attn->self_v_rot[il];
++            if (k_rot) {
++                k = llama_mul_mat_hadamard(ctx0, k, k_rot);
++            }
++            if (v_rot) {
++                v = llama_mul_mat_hadamard(ctx0, v, v_rot);
++            }
++            ggml_build_forward_expand(gf, kv->cpy_k(ctx0, k, swa ? attn->get_k_idxs_swa() : attn->get_k_idxs(), il));
++            ggml_build_forward_expand(gf, kv->cpy_v(ctx0, v, swa ? attn->get_v_idxs_swa() : attn->get_v_idxs(), il));
++        }
++        res->t_embd = res->t_h_nextn = mix(features, n_layer, model.dspark_norm);
++        cb(res->t_h_nextn, "dspark_f_rnn", -1);
++        ggml_build_forward_expand(gf, res->t_h_nextn);
++        return;
++    }
++
++    GGML_ASSERT(cparams.ctx_other);
++    const auto * target = llama_get_model(cparams.ctx_other);
++    GGML_ASSERT(target->tok_embd && target->tok_norm && target->output);
++    const bool backbone_only = params.gtype == LLM_GRAPH_TYPE_DSPARK_BACKBONE;
++    auto * tokens = ggml_new_tensor_1d(ctx0, GGML_TYPE_I32, n_tokens);
++    ggml_set_input(tokens);
++    ggml_tensor * f_rnn = nullptr;
++    if (backbone_only) {
++        auto inp = std::make_unique<llm_graph_input_embd>(n_embd);
++        inp->tokens = tokens;
++        res->add_input(std::move(inp));
++    } else {
++        auto inp = std::make_unique<llm_graph_input_embd_h>(n_embd, n_embd);
++        inp->tokens = tokens;
++        f_rnn = inp->h = build_inp_embd_state(inp.get(), n_embd);
++        res->add_input(std::move(inp));
++    }
++
++    const int64_t nb = ubatch.n_seqs_unq;
++    const int64_t block = n_tokens/nb;
++    auto * ids = ggml_cont_1d(ctx0, ggml_view_2d(ctx0, tokens, 1, nb, block*tokens->nb[0], 0), nb);
++    auto * anchors = ggml_get_rows(ctx0, target->tok_embd, ids);
++    anchors = ggml_mul(ctx0, ggml_rms_norm(ctx0, anchors, target->hparams.f_norm_rms_eps), target->tok_norm);
++    auto * cur = ggml_reshape_3d(ctx0, anchors, n_embd, 1, nb);
++    if (block > 1) {
++        auto * masks = ggml_repeat_4d(ctx0, ggml_cast(ctx0, model.dspark_mask_embd, GGML_TYPE_F32), n_embd, block - 1, nb, 1);
++        cur = ggml_concat(ctx0, cur, masks, 1);
++    }
++    cur = ggml_reshape_2d(ctx0, cur, n_embd, n_tokens);
++    attn->self_attn_mask_swa.block_uniform = true;
++    for (int il = 0; il < n_layer; ++il) {
++        const auto & l = model.layers[il];
++        const int64_t hd = hparams.n_embd_head_k(il);
++        auto * residual = cur;
++        cur = build_norm(cur, l.attn_norm, nullptr, LLM_NORM_RMS, il);
++        auto * q = ggml_reshape_3d(ctx0, build_lora_mm(l.wq, cur), hd, hparams.n_head(il), n_tokens);
++        auto * k = ggml_reshape_3d(ctx0, build_lora_mm(l.wk, cur), hd, hparams.n_head_kv(il), n_tokens);
++        auto * v = ggml_reshape_3d(ctx0, build_lora_mm(l.wv, cur), hd, hparams.n_head_kv(il), n_tokens);
++        q = build_rope(build_norm(q, l.attn_q_norm, nullptr, LLM_NORM_RMS, il), positions, il);
++        k = build_rope(build_norm(k, l.attn_k_norm, nullptr, LLM_NORM_RMS, il), positions, il);
++        cur = build_attn(attn, l.wo, nullptr, nullptr, q, k, v, nullptr, nullptr, nullptr, 1.0f/sqrtf(hd), il);
++        residual = ggml_add(ctx0, residual, cur);
++        cur = build_norm(residual, l.ffn_norm, nullptr, LLM_NORM_RMS, il);
++        cur = build_ffn(cur, l.ffn_up, nullptr, nullptr, l.ffn_gate, nullptr, nullptr,
++                l.ffn_down, nullptr, nullptr, nullptr, LLM_FFN_SILU, LLM_FFN_PAR, il);
++        cur = ggml_add(ctx0, residual, cur);
++        cb(cur, "dspark_layer", il);
++    }
++    cur = build_norm(cur, model.output_norm, nullptr, LLM_NORM_RMS, -1);
++    res->t_embd = cur;
++    auto * base = build_lora_mm(target->output, cur, target->output_s);
++    ggml_prec_set_acc(base, GGML_PREC_F32);
++    if (backbone_only || block > hparams.dflash_block_size) {
++        if (backbone_only) {
++            res->t_h_nextn = cur;
++        }
++        res->t_logits = ggml_cont(ctx0, ggml_view_2d(ctx0, base, hparams.n_vocab_unpadded, n_tokens, base->nb[1], 0));
++        return;
++    }
++    auto * state = ggml_fill(ctx0, ggml_new_tensor_2d(ctx0, GGML_TYPE_F32, rank, nb), 0.0f);
++    auto * logits = ggml_cont(ctx0, ggml_view_2d(ctx0, base, base->ne[0], nb, block*base->nb[1], 0));
++    const auto column = [&](ggml_tensor * t, int64_t i) {
++        return ggml_cont(ctx0, ggml_view_2d(ctx0, t, t->ne[0], nb, block*t->nb[1], i*t->nb[1]));
++    };
++    auto * context = column(f_rnn, 0);
++    auto * tie_rank = ggml_arange(ctx0, 0, hparams.n_vocab_unpadded, 1);
++    tie_rank = ggml_scale_bias(ctx0, tie_rank, -1.0f, hparams.n_vocab_unpadded);
++    auto * prev = ids;
++    for (int64_t i = 1; i < block; ++i) {
++        auto * col = build_inkling2_head(*this, model, *target, prev, state, column(cur, i), column(base, i), context);
++        logits = ggml_concat(ctx0, logits, col, 1);
++        // Select the first maximum, independent of backend argmax tie order.
++        auto * valid = ggml_cont(ctx0, ggml_view_2d(ctx0, col, hparams.n_vocab_unpadded, nb, col->nb[1], 0));
++        auto * maximum = ggml_pool_1d(ctx0, valid, GGML_OP_POOL_MAX, valid->ne[0], 1, 0);
++        auto * is_max = ggml_scale_bias(ctx0, ggml_step(ctx0, ggml_sub(ctx0, ggml_repeat(ctx0, maximum, valid), valid)), -1.0f, 1.0f);
++        prev = ggml_argmax(ctx0, ggml_mul(ctx0, is_max, tie_rank));
++    }
++    logits = ggml_reshape_3d(ctx0, logits, logits->ne[0], nb, block);
++    logits = ggml_reshape_2d(ctx0, ggml_cont(ctx0, ggml_permute(ctx0, logits, 0, 2, 1, 3)), logits->ne[0], n_tokens);
++    res->t_logits = ggml_cont(ctx0, ggml_view_2d(ctx0, logits, hparams.n_vocab_unpadded, n_tokens, logits->nb[1], 0));
++}
+diff --git a/src/models/inkling2-loop.cpp b/src/models/inkling2-loop.cpp
+index 0de66baee..90fe366b5 100644
+--- a/src/models/inkling2-loop.cpp
++++ b/src/models/inkling2-loop.cpp
+@@ -78,7 +78,9 @@ llama_model_inkling2_loop::graph::graph(const llm_graph_params & params) : llama
+ 
+     auto * cur = build_inputs();
+     std::vector<ggml_tensor *> blocks;
++    int visit = 0;
+     for (int il = 0; il < start; ++il) {
++        res->t_layer_inp[visit++] = cur;
+         cur = build_layer(il, il, cur, blocks);
+     }
+ 
+@@ -97,6 +99,7 @@ llama_model_inkling2_loop::graph::graph(const llm_graph_params & params) : llama
+         }
+         for (int ip = start; ip < end; ++ip) {
+             const int il = pass == 0 ? ip : m.n_phys + (pass - 1)*(end - start) + (ip - start);
++            res->t_layer_inp[visit++] = cur;
+             if (pass == 0) {
+                 cur = build_layer(il, ip, cur, blocks);
+                 continue;
+@@ -107,6 +110,7 @@ llama_model_inkling2_loop::graph::graph(const llm_graph_params & params) : llama
+     }
+ 
+     for (int il = end; il < m.n_phys; ++il) {
++        res->t_layer_inp[visit++] = cur;
+         cur = build_layer(il, il, cur, blocks);
+     }
+     build_output(cur, blocks);
+diff --git a/src/models/inkling2.cpp b/src/models/inkling2.cpp
+index 3e43ef418..e035d1a7b 100644
+--- a/src/models/inkling2.cpp
++++ b/src/models/inkling2.cpp
+@@ -423,6 +423,7 @@ ggml_tensor * llama_model_inkling2::graph::build_layer(int il, int ip, ggml_tens
+ void llama_model_inkling2::graph::build_output(ggml_tensor * cur, const std::vector<ggml_tensor *> & blocks) {
+     cur = ggml_reshape_2d(ctx0, mix(blocks, cur, model.output_res_query), n_embd, n_tokens);
+     cur = build_norm(cur, model.output_norm, nullptr, LLM_NORM_RMS, -1);
++    res->t_layer_inp[n_layer] = cur;
+ 
+     if (inp_out_ids) {
+         cur = ggml_get_rows(ctx0, cur, inp_out_ids);
+@@ -453,6 +454,7 @@ llama_model_inkling2::graph::graph(const llm_graph_params & params) : llm_graph_
+ 
+     std::vector<ggml_tensor *> blocks;
+     for (int il = 0; il < n_layer; ++il) {
++        res->t_layer_inp[il] = cur;
+         cur = build_layer(il, il, cur, blocks);
+     }
+ 
+diff --git a/src/models/models.h b/src/models/models.h
+index 636afeae9..2a210652f 100644
+--- a/src/models/models.h
++++ b/src/models/models.h
+@@ -1577,18 +1577,13 @@ struct llama_model_eagle3 : public llama_model_base {
+ };
+ 
+ struct llama_model_dflash : public llama_model_base {
+-    llama_model_dflash(const struct llama_model_params & params) : llama_model_base(params) {}
++    llama_model_dflash(const struct llama_model_params & params) : llama_model_base(params) {
++        hparams.dflash_variant = LLAMA_DFLASH_VARIANT_DFLASH;
++    }
+     void load_arch_hparams(llama_model_loader & ml) override;
+     void load_arch_tensors(llama_model_loader & ml) override;
+     uint32_t graph_nodes_per_tensor() const override;
+ 
+-    enum variant_type {
+-        VARIANT_DFLASH,
+-        VARIANT_DFLASH2,
+-        VARIANT_DSPARK,
+-        VARIANT_LILICORR,
+-    };
+-
+     enum backbone_type {
+         BACKBONE_BASE,
+         BACKBONE_DSV4,
+@@ -1596,12 +1591,12 @@ struct llama_model_dflash : public llama_model_base {
+         BACKBONE_MISTRAL_LARGE4,
+     };
+ 
+-    variant_type  variant  = VARIANT_DFLASH;
+     backbone_type backbone = BACKBONE_BASE;
+ 
+     void load_hparams_lilicorr(llama_model_loader & ml);
+     void load_hparams_dsv4(llama_model_loader & ml);
+     void load_hparams_mistral_large4(llama_model_loader & ml);
++    void load_hparams_inkling2(llama_model_loader & ml);
+     void load_tensors_dflash2();
+     void load_tensors_dflash2_conv();
+     void load_tensors_dspark(int64_t n_vocab_draft);
+@@ -1609,6 +1604,7 @@ struct llama_model_dflash : public llama_model_base {
+     void load_tensors_layers_base();
+     void load_tensors_layers_dsv4();
+     void load_tensors_layers_mistral_large4();
++    void load_tensors_inkling2();
+ 
+     template <bool is_enc>
+     struct graph : public llm_graph_context {
+@@ -1667,7 +1663,13 @@ struct llama_model_dflash : public llama_model_base {
+         graph_mistral_large4(const llm_graph_params & params);
+     };
+ 
++    // Inkling2 DSpark: decode the block, then run the recurrent head for each draft token
++    struct graph_inkling2 : public llm_graph_context {
++        graph_inkling2(const llm_graph_params & params);
++    };
++
+     // graph helpers shared by the backbones
++    static ggml_tensor * build_inp_target_features(llm_graph_context & g, llm_graph_input_embd & inp, int64_t n_embd_inp);
+     static ggml_tensor * build_inject_inp(llm_graph_context & g, const llama_model & model);
+     static ggml_tensor * get_tok_embd(const llm_graph_context & g, const llama_model & model);
+     static std::pair<ggml_tensor *, ggml_tensor *> get_lm_head(const llm_graph_context & g, const llama_model & model);

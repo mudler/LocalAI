@@ -1,0 +1,122 @@
+{
+  "title": "技能",
+  "subtitle": "任务匹配时，你的所有聊天都可以使用的指示。智能体使用你添加给它们的技能。",
+  "unavailable": {
+    "subtitle": "技能需要“文件”功能，而此服务器已关闭“文件”。"
+  },
+  "actions": {
+    "newSkill": "新技能",
+    "createSkill": "创建技能",
+    "edit": "编辑",
+    "delete": "删除",
+    "import": "导入",
+    "export": "导出"
+  },
+  "search": {
+    "placeholder": "搜索技能..."
+  },
+  "card": {
+    "noDescription": "无描述",
+    "readOnly": "只读",
+    "editTitle": "编辑技能",
+    "deleteTitle": "删除技能",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "已跳过此技能：{{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "由 {{name}} 提供",
+    "replacedBy": "已被 {{name}} 替换",
+    "notActive": "未生效：使用内置技能",
+    "notActiveBy": "未生效：由 {{name}} 提供",
+    "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用",
+    "proposedBy": "由 {{name}} 提出并经你确认。仅该智能体使用。",
+    "new": "新",
+    "newTitle": "已导入，尚未使用",
+    "newLong": "已导入，尚未使用。添加到智能体之前请先阅读内容。聊天首次使用后，此标记会消失。",
+    "exportTitle": "将此技能下载为 zip 文件"
+  },
+  "empty": {
+    "title": "未找到技能",
+    "text": "创建或导入一个技能以开始。",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "加载技能失败",
+    "deleted": "技能 \"{{name}}\" 已删除",
+    "deleteFailed": "删除技能失败",
+    "exportFailed": "导出失败：{{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "插件",
+    "agent": "智能体",
+    "project": "项目"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。",
+    "counter": "{{count}} / {{max}}",
+    "nameInvalid": "请使用小写字母、数字和单个连字符。",
+    "bodyHelp": "使用 Markdown 编写。当任务与描述相符时，聊天会读取它。"
+  },
+  "load": {
+    "title": "无法加载你的技能。"
+  },
+  "import": {
+    "failedTitle": "无法导入技能",
+    "failed": "导入失败。",
+    "dismiss": "关闭",
+    "done_one": "已导入 {{count}} 个技能",
+    "done_other": "已导入 {{count}} 个技能",
+    "scriptsStored": "脚本和其他文件按原样保存。脚本只保存，导入时绝不会运行。",
+    "newNote": "在聊天使用它之前，它会标记为新。"
+  },
+  "sort": {
+    "label": "技能排序",
+    "name": "名称，A 到 Z",
+    "name-desc": "名称，Z 到 A",
+    "used": "使用最多",
+    "source": "按来源分组"
+  },
+  "source": {
+    "label": "显示来源",
+    "all": "所有来源（{{count}}）"
+  },
+  "list": {
+    "countAll_one": "{{count}} 个技能",
+    "countAll_other": "{{count}} 个技能",
+    "countOf": "共 {{total}} 个技能中的 {{shown}} 个",
+    "menu": "{{name}} 的操作"
+  }
+}

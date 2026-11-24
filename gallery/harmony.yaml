@@ -1,0 +1,23 @@
+config_file: |
+    backend: llama-cpp
+    context_size: 8192
+    f16: true
+    known_usecases:
+        - chat
+    mmap: true
+    # Delegate templating to llama.cpp's jinja runtime so the C++ autoparser
+    # can classify the harmony <|channel|> sections into reasoning_content /
+    # content / tool_calls natively. Without use_jinja the autoparser falls
+    # back to a "pure content" PEG parser that leaks the channel tags into
+    # content.
+    options:
+        - use_jinja:true
+    template:
+        use_tokenizer_template: true
+    stopwords:
+        - <|im_end|>
+        - <dummy32000>
+        - </s>
+        - <|endoftext|>
+        - <|return|>
+name: harmony

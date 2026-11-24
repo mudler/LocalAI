@@ -1,0 +1,85 @@
+import { useAuth } from '../context/AuthContext'
+import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { backendsApi, modelsApi, nodesApi } from '../utils/api'
+import { addonsApi } from '../utils/addonsClient'
+import { addonUpgrades } from '../utils/addonUpgrades'
+import { upgradeFailureWords } from '../components/addons/updateReview'
+import { useOperations } from './useOperations'
+import { canRetryOp } from '../utils/opsActivity'
+
+// Retry means "do this again": install, or upgrade for an upgrade. A failed
+// deletion would need the delete endpoint and a staging operation is driven by
+// the router rather than by a user action, so neither is retryable.
+export function isRetryable(op) {
+  return canRetryOp(op)
+}
+
+// What a failed operation offers: install again, or let it go. Shared by the
+// Activity page and the Status page's "Needs you" row, so both do the same
+// thing with the same calls.
+export function useOperationActions(addToast) {
+  const { captureSessionAuthority } = useAuth()
+  const { t } = useTranslation('operate')
+  const { t: ta } = useTranslation('addons')
+  const { dismissFailedOp } = useOperations()
+
+  const retry = useCallback(async (op) => {
+    // An add-on upgrade is followed by the browser, not by the operations
+    // service. The store reads the add-on again, so a changed candidate is
+    // honoured, and an unknown outcome is only read, never submitted twice.
+    if (op.isAddon) {
+      const current = captureSessionAuthority()
+      const out = await addonUpgrades.retry(addonsApi, op.jobID, { current })
+      if (!current() || !out) return
+      if (!out.ok && out.outcome !== 'cancelled') addToast?.(t('activity.retryFailed', { message: upgradeFailureWords(out.message, ta) }), 'error')
+      return
+    }
+    // Dismiss before reinstalling, never after: the reinstall reuses the same
+    // opcache key, and overwriting a failed entry in place skips recordTerminal
+    // so the failure would never reach the record. Dismissing first is what
+    // puts it there.
+    //
+    // By jobID, because the guarantee only holds while both calls address the
+    // same job. Two ops can share an id (a local and a node-scoped install of
+    // one backend), and dismissing by id could retire the other one instead,
+    // leaving this failure to be overwritten in place by the reinstall below.
+    await dismissFailedOp(op.jobID)
+    // fullName is the gallery-qualified id the install endpoints expect;
+    // `name` has the repo prefix stripped for display. Node-scoped ops already
+    // had their prefix removed server side, so fullName is the bare slug there.
+    const target = op.fullName || op.id
+    try {
+      if (op.taskType === 'upgrade' && op.isBackend) {
+        // An upgrade is not an install of an installed backend: the install
+        // endpoints leave it as it is. Each scope has its own upgrade call.
+        if (op.nodeID) await nodesApi.upgradeBackend(op.nodeID, target)
+        else await backendsApi.upgrade(target)
+      } else if (op.nodeID) {
+        await nodesApi.installBackend(op.nodeID, target)
+      } else if (op.isBackend) {
+        await backendsApi.install(target)
+      } else {
+        // The variant is not on the payload yet, so a pinned model retries as
+        // an auto-select. ui_api.go already reads ?variant= at enqueue and
+        // stores it on the ManagementOp; it only has to reach the
+        // /api/operations payload and this call. Until then Retry stays,
+        // because nothing here tells a pinned install from an unpinned one and
+        // dropping it would cost every model the button.
+        await modelsApi.install(target)
+      }
+    } catch (err) {
+      addToast?.(t('activity.retryFailed', { message: err.message }), 'error')
+    }
+  }, [dismissFailedOp, addToast, t, ta, captureSessionAuthority])
+
+  const dismiss = useCallback((jobID) => {
+    if (String(jobID).startsWith('addon:')) {
+      addonUpgrades.dismiss(jobID)
+      return undefined
+    }
+    return dismissFailedOp(jobID)
+  }, [dismissFailedOp])
+
+  return { retry, dismiss }
+}

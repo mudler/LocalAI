@@ -1,0 +1,415 @@
+{
+  "lifecycle": {
+    "update": {"update": "有可用更新", "edited": "有可用更新，需要你做选择", "updating": "正在升级", "failed": "升级失败", "held": "已锁定在此版本"},
+    "supporting": "找到适合这台机器的模型并安装，管理已有的模型。",
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "重新加载", "reloading": "正在重新加载…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "重新加载" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "reloaded": "已重新加载模型配置"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
+  "subtitle": "从模型库浏览和安装 AI 模型",
+  "recommended": {
+    "title": "适合你硬件的推荐",
+    "cpuNote": "未检测到 GPU - 这些小模型在 CPU 上依然流畅。",
+    "gpuNote": "已按可用显存选择，并为上下文留出空间。",
+    "install": "安装",
+    "installing": "安装中",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}",
+    "window": "{{window}} 上下文",
+    "memory": "约占用 {{memory}} 内存",
+    "dismiss": "关闭推荐",
+    "summary": "已推荐 {{n}} 个模型",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
+  },
+  "stats": {
+    "available": "可用",
+    "installed": "已安装"
+  },
+  "actions": {
+    "addModel": "添加模型",
+    "importModel": "导入模型",
+    "install": "安装",
+    "reinstall": "重新安装",
+    "delete": "删除"
+  },
+  "filters": {
+    "sheetDone": "显示模型",
+    "sheetTitle": "筛选",
+    "sheetButtonCount": "筛选（{{count}}）",
+    "sheetButton": "筛选",
+    "all": "全部",
+    "llm": "LLM",
+    "image": "图像",
+    "multimodal": "多模态",
+    "vision": "视觉",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "说话人分离",
+    "embedding": "嵌入",
+    "rerank": "重排",
+    "fitsGpu": "适合 GPU",
+    "collapseVariants": "每个模型一行",
+    "allBackends": "所有后端",
+    "searchBackends": "搜索后端...",
+    "contextSize": "上下文：",
+    "useCaseLabel": "按用例筛选",
+    "unavailableForBackend": "所选后端不支持",
+    "someSelected": "已选 {{count}} 项",
+    "refineLabel": "细化"
+  },
+  "search": {
+    "placeholder": "搜索模型...",
+    "clearFilters": "清除筛选"
+  },
+  "table": {
+    "modelName": "模型名称",
+    "description": "描述",
+    "backend": "后端",
+    "sizeVram": "大小 / VRAM",
+    "status": "状态",
+    "actions": "操作",
+    "size": "大小：{{size}}",
+    "vram": "VRAM：{{vram}}",
+    "fits": "适合",
+    "mayNotFit": "可能不适合",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "正在安装",
+    "installingPct": "正在安装 · {{percent}}%",
+    "installed": "已安装",
+    "notInstalled": "未安装"
+  },
+  "detail": {
+    "description": "描述",
+    "gallery": "模型库",
+    "backend": "后端",
+    "size": "大小",
+    "vram": "VRAM",
+    "license": "许可证",
+    "tags": "标签",
+    "links": "链接",
+    "warning": "警告",
+    "files": "文件",
+    "fitsGpu": "适合 GPU",
+    "mayNotFitGpu": "可能不适合 GPU",
+    "requiresTrustRemoteCode": "需要 Trust Remote Code",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
+    "filename": "文件名",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "全部模型",
+    "vramAt": "{{context}} 时显存",
+    "headroom": "剩余显存",
+    "headroomOn": "{{node}} 上的余量"
+  },
+  "empty": {
+    "title": "未找到模型",
+    "withFilters": "没有模型与当前搜索或筛选条件匹配。",
+    "collapsedVariantsHint": "其他条目已经提供的替代构建已被隐藏。关闭“每个模型一行”即可将其包含在内。",
+    "noFilters": "模型库为空。"
+  },
+  "deleteDialog": {
+    "title": "删除模型",
+    "message": "删除模型 {{model}}？",
+    "confirm": "删除 {{model}}",
+    "deletingToast": "正在删除 {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "加载模型失败：{{message}}",
+    "installFailed": "安装失败：{{message}}",
+    "deleteFailed": "删除失败：{{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "权重格式",
+    "unknownQuantization": "未知格式",
+    "showDetails": "显示 {{variant}} 的完整详情",
+    "hideDetails": "隐藏 {{variant}} 的完整详情",
+    "detailsLoading": "正在加载详情...",
+    "detailsUnavailable": "无法加载 {{variant}} 的详情。",
+    "features": {
+      "dflash": "更快：DFlash",
+      "mtp": "更快：MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "排序模型",
+    "downloadingPct": "下载中 {{percent}}%",
+    "tooLarge": "{{size}} · 过大",
+    "fitsSize": "{{size}} · 可运行",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
+    "showingCount": "{{total}} 个中的 {{shown}} 个",
+    "sizing": "计算中…"
+  },
+  "groups": {
+    "text": "文本与推理",
+    "vision": "视觉",
+    "audio": "语音与音频",
+    "visual": "图像与视频",
+    "other": "其他"
+  },
+  "chart": {
+    "title": "各上下文长度所需显存",
+    "available": "可用 {{vram}}",
+    "barTitle": "{{context}} 上下文需要 {{vram}}",
+    "fitsEverywhere": "在此主机上可以任意上下文长度运行。",
+    "fitsNowhere": "在此主机上任何上下文长度都无法运行。",
+    "fitsUpTo": "最高可在 {{context}} 上下文下运行。"
+  },
+  "shelves": {
+    "hostLabel": "你的主机",
+    "heroWithGpu": "{{vram}} 显存，图库中有 {{count}} 个模型。",
+    "heroNoGpu": "图库中有 {{count}} 个模型。",
+    "heroHint": "在左侧选择模型，即可查看大小、变体以及能否在本机运行。",
+    "browsing": "浏览中",
+    "pickHint": "选择一个模型以查看详情。",
+    "heroWithRam": "{{ram}} 系统内存，图库中有 {{count}} 个模型。",
+    "heroWithCluster": "{{node}} 上 {{vram}}，为 {{nodes}} 个节点中最大，图库中有 {{count}} 个模型。",
+    "heroWithNode": "{{node}} 上 {{vram}}，图库中有 {{count}} 个模型。",
+    "byUseCase": "或从用途开始",
+    "pickText": "对话、推理、向量",
+    "pickVision": "读取图像与文档",
+    "pickAudio": "语音输入与输出",
+    "pickVisual": "生成图像与视频"
+  },
+  "failover": {
+    "title": "故障转移链",
+    "servedBy": "当前服务",
+    "changed": "{{time}}变更",
+    "pinnedTo": "已固定到 {{target}}",
+    "warm": "预热",
+    "never": "从未",
+    "states": {
+      "primary": "主用",
+      "fallback": "备用",
+      "degraded": "降级",
+      "healthy": "健康",
+      "down": "不可用",
+      "recovering": "恢复中",
+      "missing": "缺失"
+    },
+    "kinds": {
+      "local": "本地",
+      "remote": "远程"
+    },
+    "columns": {
+      "target": "目标",
+      "kind": "类型",
+      "warm": "预热",
+      "health": "健康状态",
+      "lastProbe": "上次探测",
+      "lastError": "上次错误",
+      "actions": "操作"
+    },
+    "actions": {
+      "pin": "固定",
+      "pinning": "正在固定…",
+      "unpin": "取消固定",
+      "unpinning": "正在取消固定…"
+    },
+    "confirm": {
+      "pinTitle": "固定 {{target}}？",
+      "pinMessage": "在取消固定之前，只有 {{target}} 为 {{chain}} 提供服务。此链的自动故障转移将停止。",
+      "unpinTitle": "取消固定 {{chain}}？",
+      "unpinMessage": "{{chain}} 将恢复自动故障转移。"
+    },
+    "errors": {
+      "pin": "固定失败：{{error}}",
+      "unpin": "取消固定失败：{{error}}"
+    },
+    "overview": {
+      "title": "故障转移链",
+      "subtitle": "每条故障转移链的实时健康状态和当前目标。",
+      "columns": {
+        "chain": "链",
+        "state": "状态",
+        "active": "当前目标",
+        "targets": "目标",
+        "changed": "变更时间"
+      },
+      "empty": {
+        "title": "尚无故障转移链",
+        "text": "添加故障转移链以自动绕过不健康的目标。",
+        "cta": "创建故障转移链"
+      }
+    }
+  },
+  "placement": {
+    "moe": {
+      "title": "Experts (MoE)",
+      "keepOn": "Keep experts on",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Some layers on CPU",
+        "all": "All on CPU"
+      },
+      "autoHint": "Auto-fit may move experts to system memory by itself. An explicit choice here overrides it.",
+      "layers": "Layers with experts on the CPU",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} of {{total}}",
+      "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number of layers.",
+      "cache": "Expert cache",
+      "cacheOff": "Off",
+      "cacheMib": "Expert cache in MiB",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "A cache on the GPU for experts held in system memory. It takes GPU memory. A cache that is too small thrashes. Experimental.",
+      "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
+      "estimateNote": "The estimate does not include expert placement."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "originGallery": "图库",
+    "originOnline": "在线",
+    "sourcesButton": "来源",
+    "sourcesTitle": "搜索来源",
+    "sourcesClose": "关闭",
+    "sourcesHelp": "选择模型搜索要查询的来源。Hugging Face 为内置来源，其他来源由附加组件提供。",
+    "sourcesError": "无法保存所选内容，请重试。",
+    "sourceBuiltin": "内置",
+    "sourceAddon": "来自附加组件",
+    "sourceNotInstalled": "附加组件未安装",
+    "missingHint": "{{sources}} 已开启，但其附加组件未安装。",
+    "missingInstall": "安装附加组件",
+    "noSources": "没有开启任何来源，因此不会搜索任何内容。",
+    "dropped_one": "已跳过 {{count}} 条结果",
+    "dropped_other": "已跳过 {{count}} 条结果",
+    "heading": "来自 {{source}}",
+    "latestHeading": "{{source}} 上的最新模型",
+    "placeholder": "在 {{source}} 中搜索",
+    "resultCount_one": "{{count}} 个结果",
+    "resultCount_other": "{{count}} 个结果",
+    "downloads": "次下载",
+    "seeds_one": "{{count}} 个做种",
+    "seeds_other": "{{count}} 个做种",
+    "gated": "需授权",
+    "ggufOnly": "仅 GGUF",
+    "hint": {
+      "title": "在 {{source}} 中搜索",
+      "text": "在搜索框中输入模型名称。结果实时来自该来源，而不是你的模型库。"
+    },
+    "failed": {
+      "title": "{{source}} 没有响应",
+      "text": "搜索失败。请稍后重试。",
+      "stale": "以下是上一次的结果。{{message}}"
+    },
+    "none": {
+      "title": "在 {{source}} 中没有找到",
+      "text": "换个名称试试。",
+      "gguf": "没有找到 GGUF 格式的结果。关闭“仅 GGUF”可扩大搜索范围。",
+      "fits": "所有结果对这台机器来说都太大。关闭“能放下”筛选即可查看。"
+    },
+    "loadMore": "加载更多",
+    "noLatest": "{{source}} 不提供最新模型列表。请按名称搜索以查看其模型。",
+    "chooseBuild": "选择版本 {{variant}}",
+    "recommended": "推荐",
+    "fits": "能放下",
+    "spill": "部分转到 CPU",
+    "over": "太大",
+    "installed": "{{model}} 已安装。",
+    "ambiguous": "有多个后端可以运行此模型。请在“导入模型”中选择一个。",
+    "gatedTitle": "访问受限。",
+    "gatedBody": "此仓库需要在 Hugging Face 上获得批准，因此 LocalAI 无法从这里安装。",
+    "gatedP2p": "此模型在 Hugging Face 上需要授权。种子下载不需要令牌，但该模型的许可条款仍然适用。",
+    "gatedHfInstall": "在 Hugging Face 上受限：需要批准，无法从这里安装。",
+    "sizesUnknown": "没有找到文件大小。Hugging Face 没有收录此仓库，因此无法估算是否能放下。",
+    "importError": "没有与这些文件匹配的后端。",
+    "importErrorBody": "安装仍可能失败。请在“导入模型”中选择后端。",
+    "approximate": "这是粗略估算。无法读取模型头信息，因此内存按文件大小加上上下文的经验值计算。",
+    "noEstimate": "大小未知，因此没有该模型的估算。",
+    "files": {
+      "failed": {
+        "title": "无法读取文件列表",
+        "body": "该来源没有响应。请重试。"
+      },
+      "rateLimited": {
+        "title": "该来源要求放慢速度",
+        "body": "请求过多。请等待一分钟后重试。"
+      },
+      "notFound": {
+        "title": "未找到仓库",
+        "body": "它是私有的、已被删除，或未被此来源收录。"
+      }
+    }
+  },
+  "remotes": {
+    "tab": "远程",
+    "filter": "远程",
+    "unavailable": "上游不可用",
+    "rowMark": "远程模型",
+    "sizeRemote": "远程",
+    "connectButton": "连接远程",
+    "sheetTitle": "连接远程",
+    "sheetDescription": "添加在其他服务器或服务上运行的模型。",
+    "toastDone": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastDone_other": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "toastSkipped": "有 {{count}} 个模型未添加。",
+    "toastSkipped_other": "有 {{count}} 个模型未添加。"
+  }
+}

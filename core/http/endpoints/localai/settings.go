@@ -1,0 +1,590 @@
+package localai
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/vram"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/xlog"
+)
+
+// These keys belong to the add-on owner, not the local runtime settings file.
+// Keep GET filtering and presence-aware POST rejection on the same list.
+var addonHostSettingsKeys = [...]string{
+	"chats_egress_ceiling", "chats_egress_default", "chats_egress_allow_private",
+	"chats_egress_ports", "chats_egress_extra_registries", "chats_egress_allowed_hosts",
+	"chats_tool_providers", "auto_upgrade_addons",
+}
+
+// GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
+func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		appConfig := app.ApplicationConfig()
+		settings := appConfig.ToRuntimeSettings()
+		if appConfig.Addons.Enabled {
+			// Do not expose stale local values as policy, even when the owner is
+			// unavailable. Unrelated settings remain readable without an owner RPC.
+			// This administrative endpoint already returns RuntimeSettings (including
+			// API keys) below. Preserve that authorized contract while removing the
+			// owner-only fields; this projection is not a public policy response.
+			body, err := json.Marshal(settings) // #nosec G117 -- authenticated administrator settings response; same fields as the non-add-on path.
+			if err != nil {
+				return err
+			}
+			var projection map[string]json.RawMessage
+			if err := json.Unmarshal(body, &projection); err != nil {
+				return err
+			}
+			for _, key := range addonHostSettingsKeys {
+				delete(projection, key)
+			}
+			projection["addon_host_settings_authority"] = json.RawMessage(`"owner_required"`)
+			return c.JSON(http.StatusOK, projection)
+		}
+		return c.JSON(http.StatusOK, settings)
+	}
+}
+
+// UpdateSettingsEndpoint updates settings, saves to file, and applies immediately
+func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		appConfig := app.ApplicationConfig()
+		startupConfig := app.StartupConfig()
+
+		if startupConfig == nil {
+			startupConfig = appConfig
+		}
+
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Failed to read request body: " + err.Error(),
+			})
+		}
+
+		if appConfig.Addons.Enabled {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(body, &fields); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false, Error: "Failed to parse JSON: " + err.Error(),
+				})
+			}
+			// Check presence before typed decoding: null and even invalid typed
+			// values must reject the entire patch before any local side effects.
+			// EqualFold matches encoding/json's case-insensitive tagged names.
+			for field := range fields {
+				for _, key := range addonHostSettingsKeys {
+					if strings.EqualFold(field, key) {
+						return c.JSON(http.StatusConflict, schema.SettingsResponse{
+							Success: false, Error: key + " is set on the add-on owner, not through /api/settings",
+						})
+					}
+				}
+			}
+		}
+
+		var settings config.RuntimeSettings
+		if err := json.Unmarshal(body, &settings); err != nil {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Failed to parse JSON: " + err.Error(),
+			})
+		}
+		config.MapRemovedRuntimeSettings(body, &settings)
+
+		// The ports and the SearXNG address of the chats' web tools.
+		if settings.ChatsWebPorts != nil {
+			if _, err := config.ParsePorts(*settings.ChatsWebPorts); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_ports: " + err.Error(),
+				})
+			}
+		}
+		if settings.ChatsWebSearXNGURL != nil {
+			if err := config.ValidateSearXNGURL(*settings.ChatsWebSearXNGURL); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_searxng_url: " + err.Error(),
+				})
+			}
+		}
+
+		if settings.ChatsWebSearchProviders != nil {
+			if _, err := config.ParseSearchProviders(*settings.ChatsWebSearchProviders, true); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_search_providers: " + err.Error(),
+				})
+			}
+		}
+
+		// The network of the Sandbox commands.
+		if msg := validateEgressSettings(settings, body, appConfig.ChatsEgressAllowPrivate); msg != "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
+		}
+
+		// Validate timeouts if provided
+		if settings.WatchdogIdleTimeout != nil {
+			if _, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid watchdog_idle_timeout format: " + err.Error(),
+				})
+			}
+		}
+		if settings.WatchdogBusyTimeout != nil {
+			if _, err := time.ParseDuration(*settings.WatchdogBusyTimeout); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid watchdog_busy_timeout format: " + err.Error(),
+				})
+			}
+		}
+		if settings.WatchdogInterval != nil {
+			if _, err := time.ParseDuration(*settings.WatchdogInterval); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid watchdog_interval format: " + err.Error(),
+				})
+			}
+		}
+		if settings.LRUEvictionRetryInterval != nil {
+			if _, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid lru_eviction_retry_interval format: " + err.Error(),
+				})
+			}
+		}
+		if settings.OpenResponsesStoreTTL != nil {
+			if *settings.OpenResponsesStoreTTL != "0" && *settings.OpenResponsesStoreTTL != "" {
+				if _, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err != nil {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+						Success: false,
+						Error:   "Invalid open_responses_store_ttl format: " + err.Error(),
+					})
+				}
+			}
+		}
+
+		// Reject a malformed VRAM budget up front so a bad value never reaches
+		// the config (ApplyRuntimeSettings is fail-open and would silently skip
+		// installing the cap). An empty string is allowed: it clears the cap.
+		if settings.VRAMBudget != nil && *settings.VRAMBudget != "" {
+			if _, err := vrambudget.Parse(*settings.VRAMBudget); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid vram_budget format: " + err.Error(),
+				})
+			}
+		}
+
+		// The built-in chat tools: a mode the chats understand, and pins only for
+		// tools and skills an add-on may replace.
+		if settings.ChatsHostExec != nil && !hostexec.ValidMode(*settings.ChatsHostExec) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_host_exec: use off, ask or on",
+			})
+		}
+		if settings.ChatsToolSearch != nil && !config.ValidToolSearch(strings.ToLower(strings.TrimSpace(*settings.ChatsToolSearch))) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_tool_search: use auto, on or off",
+			})
+		}
+		if settings.ChatsToolProviders != nil {
+			for tool, addon := range *settings.ChatsToolProviders {
+				if !(contract.Replaceable(tool) || contract.ReplaceableSkill(tool)) || !validAddonID(addon) {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+						Success: false,
+						Error:   "Invalid chats_tool_providers: map a replaceable tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to an add-on ID",
+					})
+				}
+			}
+		}
+
+		// The owner's value is the deployment's value. A frontend reads it from
+		// the owner at every refresh, so a change made here would be undone and
+		// would not reach the other frontends.
+		if app.AddonFrontend() && settings.OfficialLibraries != nil && *settings.OfficialLibraries != appConfig.OfficialLibraries {
+			return c.JSON(http.StatusConflict, schema.SettingsResponse{
+				Success: false,
+				Error:   "official_libraries is set on the add-on owner, not on a frontend",
+			})
+		}
+
+		if msg := validateP2PSettings(app, settings); msg != "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
+		}
+
+		// Save to file
+		if appConfig.DynamicConfigsDir == "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "DynamicConfigsDir is not set",
+			})
+		}
+
+		// Read whatever is already persisted: it is both the source of truth
+		// for branding asset filenames (below) and the base we merge this
+		// request onto before writing. A read failure must not let a Save
+		// silently discard the existing settings — surface it instead.
+		persisted, err := appConfig.ReadPersistedSettings()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+				Success: false,
+				Error:   "Failed to read existing settings: " + err.Error(),
+			})
+		}
+
+		// Branding asset filenames are owned exclusively by
+		// /api/branding/asset/{kind} (upload/delete). The Settings page also
+		// round-trips them via GET /api/settings, but its local state is stale
+		// once an asset has been uploaded — clicking Save would otherwise
+		// clobber the uploaded basename with the empty string the UI loaded
+		// at page open. Replace whatever the body sent for these three fields
+		// with the values currently on disk so /api/settings can never
+		// regress them.
+		settings.LogoFile = persisted.LogoFile
+		settings.LogoHorizontalFile = persisted.LogoHorizontalFile
+		settings.FaviconFile = persisted.FaviconFile
+
+		// The UI reads ApiKeys from GET /api/settings, which already returns the
+		// merged env+runtime list. When the user clicks Save, the same merged
+		// list comes back in the POST body. Strip the env-supplied keys from
+		// the incoming list before we persist or re-merge, otherwise each save
+		// duplicates the env keys on top of the previous merge (#9071).
+		if settings.ApiKeys != nil {
+			envKeys := startupConfig.ApiKeys
+			envSet := make(map[string]struct{}, len(envKeys))
+			for _, k := range envKeys {
+				envSet[k] = struct{}{}
+			}
+			runtimeOnly := make([]string, 0, len(*settings.ApiKeys))
+			for _, k := range *settings.ApiKeys {
+				if _, fromEnv := envSet[k]; fromEnv {
+					continue
+				}
+				runtimeOnly = append(runtimeOnly, k)
+			}
+			settings.ApiKeys = &runtimeOnly
+		}
+
+		// Persist as a partial update: overlay only the fields this request set
+		// onto the settings already on disk. Focused admin pages POST just the
+		// keys they own (the Middleware proxy tab sends only mitm_listen; the
+		// detector table only pii_default_detectors), so writing the request
+		// body verbatim would null every unrelated setting (the no-omitempty
+		// api_keys / pii_default_detectors fields even round-trip as JSON
+		// null). The full Settings page still round-trips every field, so its
+		// Save is unchanged.
+		toPersist := persisted
+		toPersist.MergeNonNil(settings)
+		if err := appConfig.WritePersistedSettings(toPersist); err != nil {
+			return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+				Success: false,
+				Error:   "Failed to write settings file: " + err.Error(),
+			})
+		}
+
+		// Apply settings using centralized method
+		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
+		// The legacy ApplyRuntimeSettings result drives live watchdog
+		// reconfiguration, not a server restart. Resolver preference changes
+		// take effect only at startup and must not cycle that unrelated service.
+		prevDevelopmentPreference := appConfig.PreferDevelopmentBackends
+		prevP2P := appConfig.P2P
+		watchdogChanged := appConfig.ApplyRuntimeSettings(&settings)
+		restartRequired := prevDevelopmentPreference != appConfig.PreferDevelopmentBackends
+		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
+		if settings.OfficialLibraries != nil {
+			// The shipped default sources of every kind follow the switch now.
+			if err := app.ApplyLibraries(); err != nil {
+				xlog.Warn("could not apply the official libraries setting", "error", err)
+			}
+		}
+		if settings.VRAMPersistentCache != nil || settings.AutoloadGalleries != nil {
+			if appConfig.VRAMPersistentCache && appConfig.AutoloadGalleries {
+				vram.ConfigurePersistentCache(filepath.Join(appConfig.SystemState.Model.ModelsPath, "..", "cache", "vram"), 24*time.Hour)
+			} else {
+				vram.DisablePersistentCache()
+			}
+		}
+
+		// Handle API keys specially (merge with startup keys)
+		if settings.ApiKeys != nil {
+			appConfig.ApiKeys = config.MergeAPIKeys(startupConfig.ApiKeys, *settings.ApiKeys)
+		}
+
+		// Update backend logging dynamically
+		if settings.EnableBackendLogging != nil {
+			app.ModelLoader().SetBackendLoggingEnabled(*settings.EnableBackendLogging)
+			xlog.Info("Updated backend logging setting", "enableBackendLogging", *settings.EnableBackendLogging)
+		}
+
+		// Update watchdog dynamically for settings that don't require restart
+		if settings.ForceEvictionWhenBusy != nil {
+			currentWD := app.ModelLoader().GetWatchDog()
+			if currentWD != nil {
+				currentWD.SetForceEvictionWhenBusy(*settings.ForceEvictionWhenBusy)
+				xlog.Info("Updated watchdog force eviction when busy setting", "forceEvictionWhenBusy", *settings.ForceEvictionWhenBusy)
+			}
+		}
+
+		// Update ModelLoader LRU eviction retry settings dynamically
+		maxRetries := appConfig.LRUEvictionMaxRetries
+		retryInterval := appConfig.LRUEvictionRetryInterval
+		if settings.LRUEvictionMaxRetries != nil {
+			maxRetries = *settings.LRUEvictionMaxRetries
+		}
+		if settings.LRUEvictionRetryInterval != nil {
+			if dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err == nil {
+				retryInterval = dur
+			}
+		}
+		if settings.LRUEvictionMaxRetries != nil || settings.LRUEvictionRetryInterval != nil {
+			app.ModelLoader().SetLRUEvictionRetrySettings(maxRetries, retryInterval)
+			xlog.Info("Updated LRU eviction retry settings", "maxRetries", maxRetries, "retryInterval", retryInterval)
+		}
+
+		// Update Open Responses store TTL dynamically
+		if settings.OpenResponsesStoreTTL != nil {
+			ttl := time.Duration(0)
+			if *settings.OpenResponsesStoreTTL != "0" && *settings.OpenResponsesStoreTTL != "" {
+				if dur, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err == nil {
+					ttl = dur
+				} else {
+					xlog.Warn("Invalid Open Responses store TTL format", "ttl", *settings.OpenResponsesStoreTTL, "error", err)
+				}
+			}
+			// Import the store package
+			store := openresponses.GetGlobalStore()
+			store.SetTTL(ttl)
+			xlog.Info("Updated Open Responses store TTL", "ttl", ttl)
+		}
+
+		// Restart watchdog if settings changed.
+		//
+		// The live start/stop decision derives from the post-apply config
+		// (WatchdogShouldRun) rather than the raw watchdog_enabled request
+		// field: the React master toggle only ever writes the idle/busy flags,
+		// so keying off watchdog_enabled left the live watchdog stopped on a
+		// cold enable until the next restart (#9125). WatchdogShouldRun mirrors
+		// the gating in startWatchdog, so a cold enable starts it immediately
+		// and a full disable (both checks off, no LRU / memory reclaimer) stops
+		// it.
+		if watchdogChanged {
+			if !appConfig.WatchdogShouldRun() {
+				if err := app.StopWatchdog(); err != nil {
+					xlog.Error("Failed to stop watchdog", "error", err)
+					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to stop watchdog: " + err.Error(),
+					})
+				}
+			} else {
+				if err := app.RestartWatchdog(); err != nil {
+					xlog.Error("Failed to restart watchdog", "error", err)
+					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
+					})
+				}
+			}
+		}
+
+		// Rebuild the MITM listener when its address OR the instance-wide
+		// default detectors change. The per-host detector map is resolved once
+		// at listener start (startMITMLocked → ResolvePIIPolicy), so a
+		// default-detector change is otherwise invisible to cloud-proxy traffic
+		// until the next restart — an admin toggling a default detector would
+		// see no redaction. RestartMITM is a no-op when the listener is
+		// disabled (empty address).
+		if settings.MITMListen != nil || settings.PIIDefaultDetectors != nil {
+			if err := app.RestartMITM(); err != nil {
+				xlog.Error("Failed to restart MITM proxy", "error", err)
+				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but failed to restart MITM proxy: " + err.Error(),
+				})
+			}
+		}
+
+		// A change of the P2P layer's settings restarts its host.
+		if !p2pSettingsEqual(prevP2P, appConfig.P2P) {
+			if err := app.RestartP2PNet(); err != nil {
+				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but P2P did not start: " + err.Error(),
+				})
+			}
+		}
+
+		return c.JSON(http.StatusOK, schema.SettingsResponse{
+			Success:         true,
+			Message:         "Settings updated successfully",
+			RestartRequired: restartRequired,
+		})
+	}
+}
+
+// validateP2PSettings checks the P2P settings of a request and returns the
+// error to show, or "".
+func validateP2PSettings(app *application.Application, s config.RuntimeSettings) string {
+	if s.P2PMode != nil {
+		if err := config.ValidateP2PMode(*s.P2PMode); err != nil {
+			return "Invalid p2p_mode: " + err.Error()
+		}
+		if err := app.CheckP2PMode(*s.P2PMode); err != nil {
+			return err.Error()
+		}
+	}
+	if s.P2PRelayMode != nil {
+		if err := config.ValidateP2PRelayMode(*s.P2PRelayMode); err != nil {
+			return "Invalid p2p_relay_mode: " + err.Error()
+		}
+	}
+	if s.P2PBootstrapPeers != nil {
+		if err := config.ValidateP2PPeerAddrs(*s.P2PBootstrapPeers); err != nil {
+			return "Invalid p2p_bootstrap_peers: " + err.Error()
+		}
+	}
+	if s.P2PRelays != nil {
+		if err := config.ValidateP2PRelays(*s.P2PRelays); err != nil {
+			return "Invalid p2p_relays: " + err.Error()
+		}
+	}
+	if s.P2PRelayRateLimit != nil && *s.P2PRelayRateLimit < 0 {
+		return "Invalid p2p_relay_rate_limit: use 0 (no limit) or a number of bytes per second"
+	}
+	return ""
+}
+
+// p2pSettingsEqual compares the P2P settings before and after a request, so
+// that a save of the whole settings page restarts the P2P host only when one
+// of them changed.
+func p2pSettingsEqual(a, b config.P2PSettings) bool {
+	return a.EffectiveMode() == b.EffectiveMode() && a.DisablePublicDHT == b.DisablePublicDHT &&
+		slices.Equal(a.BootstrapPeers, b.BootstrapPeers) && config.P2PRelaysEqual(a.Relays, b.Relays) &&
+		a.NoRelayPaired == b.NoRelayPaired && a.EffectiveRelayMode() == b.EffectiveRelayMode() &&
+		a.RelayRateLimit == b.RelayRateLimit && a.DisableMDNS == b.DisableMDNS
+}
+
+var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+
+func validAddonID(id string) bool { return addonIDShape.MatchString(id) }
+
+// validateEgressSettings checks the chats_egress_* settings of a request and
+// returns the error to show, or "". Turning chats_egress_allow_private on
+// needs chats_egress_private_confirm with the typed phrase in the same body;
+// the phrase is a person's act, it is not stored.
+func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn bool) string {
+	for name, v := range map[string]*string{"chats_egress_ceiling": s.ChatsEgressCeiling, "chats_egress_default": s.ChatsEgressDefault} {
+		if v != nil && !config.ValidEgressPreset(*v) {
+			return "Invalid " + name + ": use off, registries or all"
+		}
+	}
+	if s.ChatsEgressPorts != nil {
+		if _, err := config.ParseEgressPorts(*s.ChatsEgressPorts); err != nil {
+			return "Invalid chats_egress_ports: " + err.Error()
+		}
+	}
+	if s.ChatsEgressExtraRegistries != nil {
+		if _, err := config.ParseEgressHosts(*s.ChatsEgressExtraRegistries); err != nil {
+			return "Invalid chats_egress_extra_registries: " + err.Error()
+		}
+	}
+	if s.ChatsEgressAllowedHosts != nil {
+		// An IP literal is judged with the private switch as this request
+		// leaves it.
+		priv := privateOn
+		if s.ChatsEgressAllowPrivate != nil {
+			priv = *s.ChatsEgressAllowPrivate
+		}
+		if _, err := config.ParseEgressAllowedHosts(*s.ChatsEgressAllowedHosts, priv); err != nil {
+			return "Invalid chats_egress_allowed_hosts: " + err.Error()
+		}
+	}
+	if s.ChatsEgressAuditDays != nil && (*s.ChatsEgressAuditDays < 1 || *s.ChatsEgressAuditDays > 365) {
+		return "Invalid chats_egress_audit_days: use 1 to 365"
+	}
+	if s.ChatsIndexMaxTextBytes != nil && (*s.ChatsIndexMaxTextBytes < config.MinChatsIndexMaxTextBytes || *s.ChatsIndexMaxTextBytes > config.MaxChatsIndexMaxTextBytes) {
+		return fmt.Sprintf("Invalid chats_index_max_text_bytes: use %d to %d", config.MinChatsIndexMaxTextBytes, config.MaxChatsIndexMaxTextBytes)
+	}
+	if s.ChatsExtractMaxBytes != nil && (*s.ChatsExtractMaxBytes < config.MinChatsExtractMaxBytes || *s.ChatsExtractMaxBytes > config.MaxChatsExtractMaxBytes) {
+		return fmt.Sprintf("Invalid chats_extract_max_bytes: use %d to %d", config.MinChatsExtractMaxBytes, config.MaxChatsExtractMaxBytes)
+	}
+	if s.ChatsExtractMaxEntries != nil && (*s.ChatsExtractMaxEntries < config.MinChatsExtractMaxEntries || *s.ChatsExtractMaxEntries > config.MaxChatsExtractMaxEntries) {
+		return fmt.Sprintf("Invalid chats_extract_max_entries: use %d to %d", config.MinChatsExtractMaxEntries, config.MaxChatsExtractMaxEntries)
+	}
+	if s.ChatsAddonToolLimit != nil && (*s.ChatsAddonToolLimit < config.MinChatsAddonToolLimit || *s.ChatsAddonToolLimit > config.MaxChatsAddonToolLimit) {
+		return fmt.Sprintf("Invalid chats_addon_tool_limit: use %d to %d", config.MinChatsAddonToolLimit, config.MaxChatsAddonToolLimit)
+	}
+	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
+		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)
+	}
+	if s.ChatsGoalMaxTurns != nil && (*s.ChatsGoalMaxTurns < 1 || *s.ChatsGoalMaxTurns > config.MaxChatsGoalMaxTurns) {
+		return fmt.Sprintf("Invalid chats_goal_max_turns: use 1 to %d", config.MaxChatsGoalMaxTurns)
+	}
+	if s.ChatsGoalMaxSteps != nil && (*s.ChatsGoalMaxSteps < 1 || *s.ChatsGoalMaxSteps > config.MaxChatsGoalMaxSteps) {
+		return fmt.Sprintf("Invalid chats_goal_max_steps: use 1 to %d", config.MaxChatsGoalMaxSteps)
+	}
+	if s.ChatsLoopMinInterval != nil {
+		d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsLoopMinInterval))
+		if err != nil || d < config.MinChatsLoopInterval || d > config.MaxChatsLoopInterval {
+			return "Invalid chats_loop_min_interval: use a duration from 30s to 24h, such as 1m"
+		}
+	}
+	if s.ChatsTriggerRunLimit != nil {
+		d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsTriggerRunLimit))
+		if err != nil || d < config.MinChatsTriggerRunLimit || d > config.MaxChatsTriggerRunLimit {
+			return "Invalid chats_trigger_run_limit: use a duration from 1m to 24h, such as 15m"
+		}
+	}
+	for _, c := range []struct {
+		name string
+		v    *int
+		hi   int
+	}{
+		{"chats_trigger_max_per_user", s.ChatsTriggerMaxPerUser, config.MaxChatsTriggerMaxPerUser},
+		{"chats_trigger_max_daily_cap", s.ChatsTriggerMaxDailyCap, config.MaxChatsTriggerMaxDailyCap},
+		{"chats_loop_max_runs", s.ChatsLoopMaxRuns, config.MaxChatsLoopMaxRuns},
+		{"chats_loop_max_per_chat", s.ChatsLoopMaxPerChat, config.MaxChatsLoopMaxPerChat},
+		{"chats_loop_max_per_user", s.ChatsLoopMaxPerUser, config.MaxChatsLoopMaxPerUser},
+		{"chats_loop_daily_runs", s.ChatsLoopDailyRuns, config.MaxChatsLoopDailyRuns},
+		{"chats_loop_daily_script_checks", s.ChatsLoopDailyScriptChecks, config.MaxChatsLoopDailyScriptChecks},
+	} {
+		if c.v != nil && (*c.v < 1 || *c.v > c.hi) {
+			return fmt.Sprintf("Invalid %s: use 1 to %d", c.name, c.hi)
+		}
+	}
+	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
+		var confirm struct {
+			Phrase string `json:"chats_egress_private_confirm"`
+		}
+		_ = json.Unmarshal(body, &confirm)
+		if strings.TrimSpace(confirm.Phrase) != config.EgressPrivatePhrase {
+			return "Turning chats_egress_allow_private on needs chats_egress_private_confirm: \"" + config.EgressPrivatePhrase + "\""
+		}
+	}
+	return ""
+}

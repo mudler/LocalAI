@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Voice recognition</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>.node span{font-size:22px} .row .node b{font-size:28px}</style>
+</head>
+<body>
+<p class="k">Voice recognition</p>
+<h1>Register, identify, <span class="hl">forget</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch">
+<div class="fl"><div class="row" style="margin-bottom:22px"><div class="rowlab">Register</div><div class="flow" style="flex:1"><div class="node cen"><b>Enroll clip</b><span>POST /v1/voice/register</span></div><div class="ar"></div><div class="node cen"><b>Embed</b><span>speaker model</span></div><div class="ar"></div><div class="node cen"><b>Store</b><span>under a name</span></div></div></div><div class="row" style="margin-bottom:22px"><div class="rowlab">Identify</div><div class="flow" style="flex:1"><div class="node cen"><b>Probe clip</b><span>POST /v1/voice/identify</span></div><div class="ar"></div><div class="node cen"><b>Top-K</b><span>cosine search</span></div><div class="ar"></div><div class="node cen"><b>Identity</b><span>and a score</span></div></div></div><div class="row" style="margin-bottom:22px"><div class="rowlab">Verify</div><div class="flow" style="flex:1"><div class="node cen"><b>Two clips</b><span>POST /v1/voice/verify</span></div><div class="ar"></div><div class="node cen"><b>Compare</b><span>cosine score</span></div><div class="ar"></div><div class="node cen"><b>Same speaker?</b><span>yes or no</span></div></div></div><div class="row" style="margin-bottom:22px"><div class="rowlab">Forget</div><div class="flow" style="flex:1"><div class="node cen"><b>Name</b><span>POST /v1/voice/forget</span></div><div class="ar"></div><div class="node cen"><b>Remove</b><span>delete the voiceprint</span></div></div></div></div>
+<div class="ar" style="width:50px;margin:0 6px"></div>
+<div class="col" style="justify-content:center;width:250px"><div class="node core cen"><b>Vector store</b><span>voiceprints</span></div></div></div>
+
+</div>
+<div class="foot">Verify is <b>1:1</b>. Identify is <b>1:N</b> against the same store.</div>
+</body></html>

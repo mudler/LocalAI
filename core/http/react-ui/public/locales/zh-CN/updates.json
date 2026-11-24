@@ -1,0 +1,501 @@
+{
+  "title": "更新",
+  "supporting": "有较新版本的后端、库后端、插件和图库模型。",
+  "loading": "正在加载更新",
+  "adminOnly": {
+    "title": "更新仅限管理员",
+    "body": "请管理员查看此服务器上哪些内容已过期。"
+  },
+  "loadError": {
+    "title": "无法加载更新列表。"
+  },
+  "strip": {
+    "label": "更新摘要",
+    "checking": "正在检查更新...",
+    "checkNow": "立即检查",
+    "checkedJustNow": "刚刚检查过",
+    "ready": "{{count}} 项就绪",
+    "updating": "{{count}} 项更新中",
+    "needs_one": "{{count}} 项需要你处理",
+    "needs_other": "{{count}} 项需要你处理",
+    "lastCheck": "上次检查 {{when}}",
+    "headline": {
+      "loading": "正在加载更新",
+      "loadError": "无法加载更新列表",
+      "updates_one": "有 {{count}} 项可用更新",
+      "updates_other": "有 {{count}} 项可用更新",
+      "current": "全部已是最新",
+      "never": "还没有运行过检查",
+      "couldNot": "无法检查更新",
+      "noneButFailed": "未发现更新,但以下来源检查失败:{{sources}}",
+      "noneButNever": "未发现更新,但以下来源尚未检查:{{sources}}",
+      "unavailable": "此服务器无法检查更新"
+    }
+  },
+  "when": {
+    "justNow": "刚刚"
+  },
+  "source": {
+    "label": "更新来源",
+    "name": {
+      "gallery": "后端库",
+      "library": "后端资料库",
+      "addons": "插件",
+      "models": "模型图库"
+    },
+    "checked": "{{when}}已检查",
+    "ok": "已检查",
+    "never": "尚未检查",
+    "loading": "读取中",
+    "unavailable": "此服务器不可用",
+    "unavailableWhy": "不可用:{{reason}}",
+    "failed": "检查失败:{{error}}",
+    "addonsUnreadable": "无法读取插件"
+  },
+  "auto": {
+    "backends": "自动更新后端:",
+    "addons": "自动更新插件:",
+    "on": "开",
+    "off": "关",
+    "settings": "设置"
+  },
+  "disabled": {
+    "title": "此服务器已关闭后端更新。",
+    "body": "下面列出了这些后端,但这里无法更新它们。服务器配置已关闭后端安装。"
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "后端库检查失败,因此可能有未显示的后端更新。",
+      "library": "资料库检查失败,因此可能有未显示的库后端更新。",
+      "addons": "插件检查失败,因此可能有未显示的插件更新。",
+      "models": "模型图库检查失败，因此可能有模型更新没有显示。"
+    },
+    "lastGood": "下面的列表来自上一次成功的检查({{when}})。原因:{{error}}。",
+    "noGood": "还没有成功的检查。原因:{{error}}。",
+    "again": "再次检查"
+  },
+  "filter": {
+    "label": "筛选更新",
+    "all": "全部",
+    "ready": "就绪",
+    "needs-you": "需要你处理",
+    "updating": "更新中",
+    "current": "已是最新",
+    "none": "没有符合此筛选的项目。"
+  },
+  "group": {
+    "needs": "需要你处理",
+    "updating": "更新中",
+    "ready": "可更新",
+    "current_one": "{{count}} 项已是最新",
+    "current_other": "{{count}} 项已是最新",
+    "show": "显示",
+    "hide": "隐藏",
+    "other": "其他模型"
+  },
+  "row": {
+    "tag": {
+      "gallery": "后端",
+      "library": "库后端",
+      "addon": "插件",
+      "model": "模型"
+    },
+    "origin": {
+      "gallery": "后端库",
+      "library": "资料库:{{id}}",
+      "libraryUnnamed": "资料库",
+      "model": "图库 {{gallery}}",
+      "modelUnnamed": "模型图库"
+    },
+    "signed": "已签名",
+    "versions": "{{from}} 到 {{to}}",
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "drift_one": "{{count}} 个不同",
+    "drift_other": "{{count}} 个不同",
+    "old": "来自较早的检查",
+    "update": "更新",
+    "updateNamed": "更新 {{name}}",
+    "check": "检查",
+    "checkNamed": "检查 {{name}} 是否有更新",
+    "retry": "重试",
+    "retryNamed": "重试 {{name}}",
+    "review": "审阅",
+    "reviewNamed": "审阅 {{name}} 的更新",
+    "cancel": "取消",
+    "cancelNamed": "取消 {{name}} 的更新",
+    "progress": "{{name}} 的更新进度",
+    "failed": "更新失败:{{message}}",
+    "failedWhy": "更新失败:{{message}}",
+    "noReason": "未给出原因",
+    "startFailed": "更新无法开始:{{message}}",
+    "unchanged": "更新已结束,但版本没有变化。",
+    "unconfirmed": "更新已结束,但没有任何检查能确认它。",
+    "held": "等待批准。{{version}} 请求了你尚未批准的访问权限(新增 {{count}} 项)。",
+    "blocked": {
+      "installsDisabled": "此服务器已关闭后端更新。",
+      "incompatible": "{{version}} 版本无法在此主机上运行。",
+      "integrity": "资料库列出的已安装版本内容不同。没有做任何更改。"
+    },
+    "updatingPhase": "更新中:{{phase}}",
+    "updatingPlain": "更新中",
+    "queued": "已排队,等待空闲名额",
+    "nodesAction": "节点",
+    "nodesNamed": "显示 {{name}} 的节点",
+    "heldBack": "已暂缓:此版本未能启动。在新版本发布前,自动更新会跳过它。可在此处更新以重试。"
+  },
+  "bulk": {
+    "start": "更新 {{count}} 项就绪",
+    "running": "正在更新第 {{current}} 项,共 {{total}} 项",
+    "summary": "已更新 {{done}} 项,失败 {{failed}} 项,跳过 {{skipped}} 项",
+    "retryFailed": "重试失败项({{count}})",
+    "review": "查看更新"
+  },
+  "check": {
+    "result_one": "检查完成:{{count}} 项更新。",
+    "result_other": "检查完成:{{count}} 项更新。",
+    "failedSources_one": "{{count}} 个来源失败。",
+    "failedSources_other": "{{count}} 个来源失败。",
+    "throttled": "刚才已运行过一次检查。这是它的结果。"
+  },
+  "empty": {
+    "title": "暂时没有可更新的内容",
+    "body": "安装后端或插件后,它们的更新会显示在这里。",
+    "backends": "打开后端",
+    "addons": "打开应用"
+  },
+  "dialog": {
+    "close": "关闭"
+  },
+  "item": {
+    "queued": "排队中",
+    "upgrading": "更新中",
+    "done": "已更新",
+    "failed": "失败",
+    "skipped": "已跳过"
+  },
+  "node": {
+    "breadcrumb": "面包屑导航",
+    "reload": "重试",
+    "noneTitle": "{{name}} 没有需要更新的节点",
+    "noneBody": "此后端在任何节点上都没有列出的更新。它可能在各处都是最新的，或刚刚更新过。",
+    "back": "返回更新",
+    "supporting_one": "版本 {{version}} 可用。{{nodes}}已安装，其中 {{count}} 个需要更新。",
+    "supporting_other": "版本 {{version}} 可用。{{nodes}}已安装，其中 {{count}} 个需要更新。",
+    "supportingDrift_one": "各节点的构建不一致。{{nodes}}中有 {{count}} 个与集群不同。",
+    "supportingDrift_other": "各节点的构建不一致。{{nodes}}中有 {{count}} 个与集群不同。",
+    "warning": "更新会停止每个节点上使用此后端的模型。有请求需要时，模型会再次启动。",
+    "driftNote": "与集群不同的节点不一定落后，也可能更新。更新会把它调整到图库提供的版本。",
+    "tableLabel": "有 {{name}} 的节点",
+    "col": {
+      "node": "节点",
+      "installed": "已安装",
+      "models": "使用它的运行中模型",
+      "state": "状态",
+      "action": "操作"
+    },
+    "noneRecorded": "无记录",
+    "state": {
+      "current": "已是最新",
+      "unreachable": "无法访问"
+    },
+    "updateN_one": "更新 {{count}} 个节点",
+    "updateN_other": "更新 {{count}} 个节点",
+    "updateNamed": "更新 {{name}}",
+    "models_one": "{{count}} 个模型",
+    "models_other": "{{count}} 个模型",
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "stops": "停止 {{models}}",
+    "title_one": "在 {{count}} 个节点上更新 {{backend}}？",
+    "title_other": "在 {{count}} 个节点上更新 {{backend}}？",
+    "titleMany_one": "在{{nodes}}上更新 {{count}} 个后端？",
+    "titleMany_other": "在{{nodes}}上更新 {{count}} 个后端？",
+    "runningTitle": "正在更新节点",
+    "doneTitle": "更新已结束",
+    "intro": "每个节点会停止使用 {{backend}} 的模型，安装新版本，并在有请求需要时再次启动模型。无法在此撤销。",
+    "introMany": "每个节点会停止使用这些后端的模型，安装新版本，并在有请求需要时再次启动模型。无法在此撤销。",
+    "stopKnown_one": "将停止 {{count}} 个模型。",
+    "stopKnown_other": "将停止 {{count}} 个模型。",
+    "stopPartial_one": "记录显示将停止 {{count}} 个模型。其他节点没有记录到模型，但记录可能有遗漏，因此可能有更多模型停止。",
+    "stopPartial_other": "记录显示将停止 {{count}} 个模型。其他节点没有记录到模型，但记录可能有遗漏，因此可能有更多模型停止。",
+    "stopNone": "这些节点上没有记录到已加载的模型。记录并不完整，因此使用此后端的模型仍可能停止。",
+    "sequence": "节点依次更新。此窗口会在每个结果出来时显示。",
+    "confirmStop_one": "更新 {{count}} 个节点并停止 {{models}}",
+    "confirmStop_other": "更新 {{count}} 个节点并停止 {{models}}",
+    "confirmStopAtLeast_one": "更新 {{count}} 个节点并至少停止 {{models}}",
+    "confirmStopAtLeast_other": "更新 {{count}} 个节点并至少停止 {{models}}",
+    "confirmPlain_one": "更新 {{count}} 个节点",
+    "confirmPlain_other": "更新 {{count}} 个节点",
+    "cancel": "取消",
+    "stop": "此节点之后停止",
+    "listLabel": "要更新的节点",
+    "titleAll_one": "开始 {{count}} 项更新？",
+    "titleAll_other": "开始 {{count}} 项更新？",
+    "confirmPlus_one": "{{label}}，另加 {{count}} 项",
+    "confirmPlus_other": "{{label}}，另加 {{count}} 项",
+    "othersTitle": "确认后同时开始",
+    "othersLabel": "要开始的其他更新",
+    "othersIntro": "这些不在节点上运行。确认后会依次开始。附加组件在备份和迁移其数据期间会停止。如果新版本无法启动，当前版本会继续运行。",
+    "otherKind": {
+      "addon": "附加组件",
+      "library": "库后端",
+      "gallery": "后端"
+    },
+    "otherOrigin": "库 {{library}}",
+    "otherOriginChannel": "库 {{library}}，渠道 {{channel}}",
+    "runningNote": "停止会阻止尚未开始的节点开始。"
+  },
+  "model": {
+    "chip": {
+      "edited": "已编辑",
+      "held": "已锁定",
+      "unknown": "未知",
+      "gone": "不在图库中",
+      "cleanup": "已保留旧版本"
+    },
+    "phase": {
+      "queued": "等待开始",
+      "starting": "正在开始",
+      "preflight": "正在检查磁盘、后端和文件",
+      "staging": "正在下载新文件",
+      "unloading": "正在停止模型",
+      "committing": "正在切换到新版本",
+      "loading": "正在启动新版本",
+      "confirmed": "完成",
+      "rolling-back": "正在恢复旧版本",
+      "rolled-back": "已恢复旧版本",
+      "failed": "失败",
+      "resolving": "正在查找文件",
+      "downloading": "正在下载",
+      "verifying": "正在校验文件",
+      "persisting": "正在保存"
+    },
+    "detail": {
+      "failed": "升级失败：{{message}}。旧版本继续提供服务。",
+      "rolledBack": "升级失败，已恢复旧版本：{{message}}。旧版本继续提供服务。",
+      "updating": "正在升级：{{phase}}",
+      "edited_one": "你编辑过 {{count}} 个键，此更新也会修改它。请选择保留哪个值。",
+      "edited_other": "你编辑过 {{count}} 个键，此更新也会修改它们。请选择保留哪个值。",
+      "configOnly": "只有配置或提示模板发生变化，无需下载。",
+      "files_one": "{{count}} 个文件有变化。",
+      "files_other": "{{count}} 个文件有变化。",
+      "held": "已锁定在此版本。",
+      "heldNewer": "已锁定在此版本。图库中有更新的版本。",
+      "legacy": "LocalAI 没有记录此模型的来源。采用它即可获取更新。你的配置不会改变。",
+      "notChecked": "尚未检查。",
+      "checkFailed": "检查无法读取图库条目：{{message}}",
+      "unreadable": "无法读取模型文件：{{message}}",
+      "gone": "已没有图库列出 {{entry}}。已安装的版本仍可使用。",
+      "cleanup_one": "已升级。旧版本（{{count}} 个文件）会留在磁盘上，直到你删除它。",
+      "cleanup_other": "已升级。旧版本（{{count}} 个文件）会留在磁盘上，直到你删除它。"
+    },
+    "action": {
+      "upgrade": "升级",
+      "upgradeNamed": "升级 {{name}}",
+      "removeOld": "删除旧版本",
+      "removeOldNamed": "删除 {{name}} 的旧版本",
+      "hold": "锁定此版本",
+      "release": "解除锁定",
+      "releaseNamed": "解除 {{name}} 的锁定",
+      "more": "{{name}} 的更多操作",
+      "adopt": "采用",
+      "adoptNamed": "采用 {{name}}"
+    },
+    "dialog": {
+      "title": "升级 {{name}}？",
+      "intro": "从 {{from}} 到 {{to}}。确认之前不会有任何变化。",
+      "loadedTitle": "{{name}} 当前已加载。",
+      "loadedBody": "升级会停止它，替换文件和配置，然后重新启动。在此期间，对该模型的请求会等待或失败。如果新版本无法启动，会恢复旧版本。",
+      "notLoaded": "{{name}} 当前未加载。升级会启动一次新版本以确认可用，如果不可用则恢复旧版本。",
+      "loadUnknown": "无法确定 {{name}} 是否已加载。如果已加载，升级会停止并重新启动它。",
+      "filesTitle": "文件",
+      "noFiles": "没有文件变化。",
+      "disk": "新文件会下载到旧文件旁边，因此磁盘需要同时容纳两者。图库没有提供文件大小，所以下载前无法知道所需空间。",
+      "diskNone": "无需下载。",
+      "uncheckedTitle_one": "{{count}} 个文件在图库中没有校验和。",
+      "uncheckedTitle_other": "{{count}} 个文件在图库中没有校验和。",
+      "uncheckedBody": "升级不会下载没有校验和的权重文件，因此会在第一步检查时停止。",
+      "configOnly": "只应用配置和提示模板",
+      "configOnlyHint": "此更新不修改任何模型文件，因此无需下载。",
+      "keysTitle": "你编辑过且更新也会修改的键",
+      "keysIntro": "请为每个键选择要保留的值。所有键都选择后才能开始升级。",
+      "keepMine": "保留我的值",
+      "takeGallery": "使用图库的值",
+      "notSet": "未设置",
+      "kept_one": "保持你的设置：{{keys}}。更新不会修改它。",
+      "kept_other": "保持你的设置：{{keys}}。更新不会修改它们。",
+      "after": "升级后旧版本会留在磁盘上。用\"删除旧版本\"将其删除。",
+      "missing_one": "请为 {{count}} 个键选择值",
+      "missing_other": "请为 {{count}} 个键选择值",
+      "confirm": "升级",
+      "confirmStop": "停止并升级",
+      "needChoices": "服务器要求为更多键做出选择。请为每个键选择值，然后再次确认。",
+      "startFailed": "无法开始升级：{{message}}"
+    },
+    "change": {
+      "added": "新增",
+      "changed": "已修改",
+      "removed": "已删除"
+    },
+    "role": {
+      "weights": "权重",
+      "mmproj": "视觉投影器",
+      "template": "提示模板",
+      "artifact": "构件",
+      "config": "配置"
+    },
+    "remove": {
+      "title": "删除 {{name}} 的旧版本？",
+      "body_one": "这会删除升级保留的 {{count}} 个旧文件。模型继续使用新版本运行。此操作无法撤销。",
+      "body_other": "这会删除升级保留的 {{count}} 个旧文件。模型继续使用新版本运行。此操作无法撤销。",
+      "confirm": "删除旧版本",
+      "pending": "正在删除…"
+    },
+    "live": {
+      "started": "{{name}} 的升级已开始。",
+      "failed": "{{name}}：{{message}}",
+      "removed_one": "{{name}}：已删除 {{count}} 个旧文件。",
+      "removed_other": "{{name}}：已删除 {{count}} 个旧文件。",
+      "held": "{{name}} 已锁定在此版本。",
+      "released": "{{name}} 已解除锁定。",
+      "adopted": "已从图库 {{gallery}} 采用 {{name}}。LocalAI 现在会检查其更新。",
+      "adoptedDiffers": "已从图库 {{gallery}} 采用 {{name}}。其文件与图库条目不同，因此会提供更新。",
+      "adoptedNoCheck": "已采用 {{name}}，但更新检查失败：{{message}}",
+      "adoptFailed": "无法采用 {{name}}：{{message}}"
+    },
+    "card": {
+      "title": "更新",
+      "current": "已是最新",
+      "open": "打开更新",
+      "holdHint": "在你关闭此项之前，不为该模型提供更新。"
+    },
+    "adopt": {
+      "title": "采用 {{name}}",
+      "intro": "有多个图库列出了此模型。请选择它来自的条目。",
+      "legend": "图库条目",
+      "gallery": "图库 {{gallery}}",
+      "after": "LocalAI 会记录该条目并检查其更新。你的配置不会改变。",
+      "failed": "无法采用：{{message}}"
+    }
+  },
+  "review": {
+    "title_one": "查看 {{count}} 项更新",
+    "title_other": "查看 {{count}} 项更新",
+    "loadingTitle": "查看更新",
+    "intro": "开始之前不会有任何更改。",
+    "loading": "正在读取计划",
+    "loadError": "无法读取更新计划。",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "selected_one": "已选择 {{count}}/{{total}} 项",
+    "selected_other": "已选择 {{count}}/{{total}} 项",
+    "order": "先更新后端,然后是模型,最后逐个更新插件。每项更新都会保留旧版本,直到新版本运行。开始后,您可以关闭此窗口并离开页面。",
+    "group": {
+      "backends": "后端 ({{count}})",
+      "addons": "插件 ({{count}})",
+      "models": "模型 ({{count}})"
+    },
+    "item": "更新 {{name}}",
+    "backsUp": "会备份您的数据",
+    "modelNote": "默认不选:更新模型会重新加载它。在您确认之前,旧文件会保留。",
+    "blocked": "无法开始:{{reason}}",
+    "empty": "没有需要更新的内容。",
+    "start_one": "更新 {{count}} 项",
+    "start_other": "更新 {{count}} 项",
+    "startOne": "更新",
+    "cancel": "取消",
+    "singleTitle": "更新 {{name}}?",
+    "singleLoading": "更新",
+    "singleNote": "在新版本运行之前,旧版本会保留。",
+    "risk": {
+      "stopsModels_one": "切换期间会停止 {{count}} 个已加载的模型",
+      "stopsModels_other": "切换期间会停止 {{count}} 个已加载的模型",
+      "stopsModelsNodes_one": "切换期间会停止 {{nodes}} 个节点上的 {{count}} 个已加载模型",
+      "stopsModelsNodes_other": "切换期间会停止 {{nodes}} 个节点上的 {{count}} 个已加载模型",
+      "migratesData": "您的数据会被迁移。迁移前会先做一次经过验证的备份。",
+      "editedKeys_one": "您修改了此模型的 {{count}} 项设置。请在其所在行使用\"{{action}}\"来选择要保留的内容。",
+      "editedKeys_other": "您修改了此模型的 {{count}} 项设置。请在其所在行使用\"{{action}}\"来选择要保留的内容。",
+      "held": "此版本正在等待您的批准。",
+      "cluster_one": "在 {{count}} 个节点上更新",
+      "cluster_other": "在 {{count}} 个节点上更新",
+      "drift_one": "目前有 {{count}} 个节点运行着不同的构建。此次更新会把每个节点都换成新构建。",
+      "drift_other": "目前有 {{count}} 个节点运行着不同的构建。此次更新会把每个节点都换成新构建。",
+      "configOnly": "只更改模型的设置，不下载任何内容。"
+    },
+    "follow": "查看本次更新"
+  },
+  "run": {
+    "group": "本次更新",
+    "title_one": "正在更新 {{count}} 项",
+    "title_other": "正在更新 {{count}} 项",
+    "count": {
+      "updated_one": "{{count}} 项已更新",
+      "updated_other": "{{count}} 项已更新",
+      "running_one": "{{count}} 项进行中",
+      "running_other": "{{count}} 项进行中",
+      "waiting_one": "{{count}} 项等待中",
+      "waiting_other": "{{count}} 项等待中",
+      "attention_one": "{{count}} 项需要处理",
+      "attention_other": "{{count}} 项需要处理"
+    },
+    "started": "开始于{{when}}",
+    "finished": "完成于{{when}}",
+    "result": {
+      "attention_one": "{{updated}} 项已更新,{{count}} 项需要处理",
+      "attention_other": "{{updated}} 项已更新,{{count}} 项需要处理",
+      "done_one": "{{count}} 项已更新",
+      "done_other": "{{count}} 项已更新",
+      "cancelled_one": "本次更新已取消,{{count}} 项已更新",
+      "cancelled_other": "本次更新已取消,{{count}} 项已更新",
+      "clean": "没有任何项目停留在更新到一半的状态",
+      "unknown_one": "有 {{count}} 项结果尚未确认",
+      "unknown_other": "有 {{count}} 项结果尚未确认"
+    },
+    "progress": "本次更新的进度",
+    "cancelRemaining": "取消剩余项",
+    "retryFailed": "重试失败项",
+    "dismiss": "关闭",
+    "actionFailed": "请求失败:{{message}}",
+    "phase": {
+      "queued": "排队中",
+      "running": "更新中",
+      "updated": "已更新",
+      "failed": "失败",
+      "rolled_back": "已回滚",
+      "cancelled": "已取消",
+      "skipped": "已跳过",
+      "unconfirmed": "未确认"
+    },
+    "queued": {
+      "afterBackends": "正在等待后端。",
+      "oneAddon": "插件逐个更新。",
+      "waitingFor": "正在等待 {{name}}。",
+      "plain": "等待开始。",
+      "afterModels": "正在等待模型。",
+      "backendLimit": "正在等待空闲的后端名额。",
+      "sameBackend": "正在等待此后端的另一项操作。",
+      "oneModel": "模型逐个更新。"
+    },
+    "detail": {
+      "updating": "正在更新",
+      "node": "节点 {{index}}/{{count}}:{{message}}",
+      "failed": "{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
+      "rolledBack": "新版本未能启动:{{reason}}。{{name}} 仍是 {{version}},您的数据没有变化。",
+      "unconfirmed": "无法确认。请再次检查 {{name}} 当前的版本。",
+      "cancelled": "已取消。{{name}} 仍是 {{version}}。",
+      "skipped": "已跳过。",
+      "skippedWhy": "已跳过:{{reason}}。",
+      "checking": "正在检查更新是否已生效。"
+    },
+    "details": {
+      "toggle": "详情",
+      "code": "代码:{{code}}",
+      "node": "{{name}}:{{phase}}",
+      "none": "服务器没有提供更多详情。"
+    },
+    "busy": "有一次更新正在进行。",
+    "unavailable": "此服务器不支持批量更新。",
+    "auto": "自动更新"
+  }
+}

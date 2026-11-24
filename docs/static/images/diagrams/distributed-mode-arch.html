@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Distributed mode architecture</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.g { display:grid; grid-template-columns: 290px 56px 560px 160px 1fr; grid-template-rows: auto auto; row-gap: 44px; align-items: center; }
+.f3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+.f3 .node { padding: 12px 14px; } .f3 .node b { font-size: 27px; } .f3 .node span { font-size: 21px; }
+</style>
+</head>
+<body>
+<p class="k">Distributed mode</p>
+<h1>One control plane, many <span class="hl">workers</span></h1>
+<img class="mark" src="tile.svg" alt="">
+
+<div class="stage c"><div class="g">
+  <div style="grid-row:1;grid-column:1"><div class="node cen"><b>Clients</b><span>API and web UI</span></div><div class="ar v" style="height:36px;margin:0 auto"></div><div class="node cen"><b>Load balancer</b><span>any HTTP one</span></div></div>
+  <div class="ar" style="grid-row:1;grid-column:2;width:44px"></div>
+  <div class="panel" style="grid-row:1;grid-column:3"><h3>Frontends, stateless</h3><div class="f3"><div class="node"><b>Frontend</b><span>SmartRouter</span></div><div class="node"><b>Frontend</b><span>SmartRouter</span></div><div class="node"><b>Frontend</b><span>SmartRouter</span></div></div></div>
+  <div class="ar" data-l="gRPC" style="grid-row:1;grid-column:4;width:110px;justify-self:center"></div>
+  <div class="panel" style="grid-row:1 / span 2;grid-column:5;align-self:stretch"><h3>Workers, generic</h3><div class="col" style="gap:12px">
+    <div class="node rowline"><b>Worker 1</b><span>llama.cpp</span></div>
+    <div class="node rowline"><b>Worker 2</b><span>whisper.cpp</span></div>
+    <div class="node rowline"><b>Worker 3</b><span>images</span></div>
+    <div class="lab" style="margin:8px 0 0;text-transform:none;letter-spacing:0;font-size:22px">One gRPC process per loaded model, installed on demand.</div></div></div>
+  <div class="panel" style="grid-row:2;grid-column:3"><h3>Shared plane</h3><div class="f3"><div class="node"><b>Broadcast bus</b><span>NATS or PostgreSQL</span></div><div class="node"><b>PostgreSQL</b><span>state, nodes</span></div><div class="node dash"><b>S3</b><span>optional</span></div></div></div>
+  <div class="ar" data-l="backend.install" style="grid-row:2;grid-column:4 / span 1;width:110px;justify-self:center"></div>
+</div></div>
+<div class="foot">Add a frontend or a worker and <b>nothing else changes</b>. Workers attach over NATS, WebSocket or P2P and never use PostgreSQL.</div>
+</body></html>

@@ -1,0 +1,12 @@
+embeddings: true
+name: text-embedding-ada-002
+backend: llama-cpp
+# nomic-embed-text-v1.5 has a 2048-token context, unlike the previous 512-token
+# granite model. The larger context is what makes the long-input embedding test
+# (e2e_test.go) meaningful: it exercises the auto-batch fix where n_batch is
+# sized up to the context window (core/backend/options.go EffectiveBatchSize) so
+# a >512-token input embeds in a single pass instead of failing with "input is
+# too large to process" against the default 512 batch.
+context_size: 2048
+parameters:
+  model: huggingface://nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf

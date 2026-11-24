@@ -1,0 +1,95 @@
+# llama.cpp Backend
+
+The llama.cpp backend (`backend/cpp/llama-cpp/grpc-server.cpp`) is a gRPC adaptation of the upstream HTTP server (`llama.cpp/tools/server/server.cpp`). It uses the same underlying server infrastructure from `llama.cpp/tools/server/server-context.cpp`.
+
+## Building and Testing
+
+- Test llama.cpp backend compilation: `make backends/llama-cpp`
+- The backend is built as part of the main build process
+- Check `backend/cpp/llama-cpp/Makefile` for build configuration
+
+## Architecture
+
+- **grpc-server.cpp**: gRPC server implementation, adapts HTTP server patterns to gRPC
+- Uses shared server infrastructure: `server-context.cpp`, `server-task.cpp`, `server-queue.cpp`, `server-common.cpp`
+- The gRPC server mirrors the HTTP server's functionality but uses gRPC instead of HTTP
+
+## Common Issues When Updating llama.cpp
+
+When fixing compilation errors after upstream changes:
+1. Check how `server.cpp` (HTTP server) handles the same change
+2. Look for new public APIs or getter methods
+3. Store copies of needed data instead of accessing private members
+4. Update function calls to match new signatures
+5. Test with `make backends/llama-cpp`
+
+## Key Differences from HTTP Server
+
+- gRPC uses `BackendServiceImpl` class with gRPC service methods
+- HTTP server uses `server_routes` with HTTP handlers
+- Both use the same `server_context` and task queue infrastructure
+- gRPC methods: `LoadModel`, `Predict`, `PredictStream`, `Embedding`, `Rerank`, `TokenizeString`, `GetMetrics`, `Health`
+
+## Tool Call Parsing Maintenance
+
+When working on JSON/XML tool call parsing functionality, always check llama.cpp for reference implementation and updates:
+
+### Checking for XML Parsing Changes
+
+1. **Review XML Format Definitions**: Check `llama.cpp/common/chat-parser-xml-toolcall.h` for `xml_tool_call_format` struct changes
+2. **Review Parsing Logic**: Check `llama.cpp/common/chat-parser-xml-toolcall.cpp` for parsing algorithm updates
+3. **Review Format Presets**: Check `llama.cpp/common/chat-parser.cpp` for new XML format presets (search for `xml_tool_call_format form`)
+4. **Review Model Lists**: Check `llama.cpp/common/chat.h` for `COMMON_CHAT_FORMAT_*` enum values that use XML parsing:
+   - `COMMON_CHAT_FORMAT_GLM_4_5`
+   - `COMMON_CHAT_FORMAT_MINIMAX_M2`
+   - `COMMON_CHAT_FORMAT_KIMI_K2`
+   - `COMMON_CHAT_FORMAT_QWEN3_CODER_XML`
+   - `COMMON_CHAT_FORMAT_APRIEL_1_5`
+   - `COMMON_CHAT_FORMAT_XIAOMI_MIMO`
+   - Any new formats added
+
+### Model Configuration Options
+
+Always check `llama.cpp` for new model configuration options that should be supported in LocalAI:
+
+1. **Check Server Context**: Review `llama.cpp/tools/server/server-context.cpp` for new parameters
+2. **Check Chat Params**: Review `llama.cpp/common/chat.h` for `common_chat_params` struct changes
+3. **Check Server Options**: Review `llama.cpp/tools/server/server.cpp` for command-line argument changes
+4. **Examples of options to check**:
+   - `ctx_shift` - Context shifting support
+   - `parallel_tool_calls` - Parallel tool calling
+   - `reasoning_format` - Reasoning format options
+   - Any new flags or parameters
+
+### Speculative Decoding Types
+
+The `spec_type` option in `grpc-server.cpp` delegates to upstream's `common_speculative_types_from_names()`, so new speculative types added to the `common_speculative_type_from_name` map in `common/speculative.cpp` are picked up automatically with no code changes - only docs need an entry in `docs/content/models/model-configuration.md`. Current values: `none`, `draft-simple`, `draft-eagle3`, `draft-mtp`, `draft-dflash`, `draft-dspark`, `ngram-simple`, `ngram-map-k`, `ngram-map-k4v`, `ngram-mod`, `ngram-cache`.
+
+When `draft_model` is set and no `spec_type` is configured, `params_parse` asks `common_speculative_types_from_gguf()` (guarded by `LOCALAI_HAS_SPEC_TYPES_FROM_GGUF`, probed in `prepare.sh` for forks that lack it) to read the draft GGUF's `general.architecture`, and falls back to `draft-simple`. The importer (`core/gallery/importers/llama-cpp.go`) writes `draft_model` plus an explicit `spec_type` for `dspark-`, `dflash-`, `eagle3-` and `mtp-` sidecars, using the same keywords as llama.cpp's `common/download.cpp`.
+
+`draft-mtp` (Multi-Token Prediction, [ggml-org/llama.cpp#22673](https://github.com/ggml-org/llama.cpp/pull/22673)) does not need a separate draft GGUF: when `spec_type` includes `draft-mtp` and `draftmodel` is empty, the upstream server creates an MTP context off the target model itself. LocalAI's gRPC layer needs no changes for this — it works through the existing `params.speculative.types` plumbing and the derived `cparams.n_rs_seq = params.speculative.need_n_rs_seq()` in `common_context_params_to_llama`.
+
+### Implementation Guidelines
+
+1. **Feature Parity**: Always aim for feature parity with llama.cpp's implementation
+2. **Test Coverage**: Add tests for new features matching llama.cpp's behavior
+3. **Documentation**: Update relevant documentation when adding new formats or options
+4. **Backward Compatibility**: Ensure changes don't break existing functionality
+
+### Files to Monitor
+
+- `llama.cpp/common/chat-parser-xml-toolcall.h` - Format definitions
+- `llama.cpp/common/chat-parser-xml-toolcall.cpp` - Parsing logic
+- `llama.cpp/common/chat-parser.cpp` - Format presets and model-specific handlers
+- `llama.cpp/common/chat.h` - Format enums and parameter structures
+- `llama.cpp/tools/server/server-context.cpp` - Server configuration options
+
+## Speech-to-speech (AudioToAudioStream)
+
+`grpc-server.cpp` implements `AudioToAudioStream` on upstream's realtime slot (`server_realtime_slot`, task type `SERVER_TASK_TYPE_REALTIME`, `server-realtime.cpp`). It is compiled only when `prepare.sh` finds the realtime task type (`LOCALAI_HAS_REALTIME`); forks without it answer `UNIMPLEMENTED`.
+
+- `RealtimeStreamSession` (in `grpc-server.cpp`) feeds the slot with `SERVER_TASK_TYPE_CONTROL` tasks and writes the events. A reader thread handles client messages, the RPC thread consumes slot results.
+- `realtime_session.h` holds everything that needs no model: the turn text derived from the chat template, the conversation state machine and the translation of slot results into events. The text of a response goes through the splitter that `grpc-server.cpp` builds from a `common_chat_session` (grammar, preserved tokens and incremental parser of the chat template). `realtime_session_test.cpp` tests it (picked up by `backend/cpp/run-unit-tests.sh`). `realtime_chat_check.cpp` checks it against the LFM3 template of the llama.cpp tree and runs under ctest (`-DLLAMA_GRPC_BUILD_TESTS=ON`).
+- No proto change: tools travel in `AudioToAudioConfig.tools` (OpenAI format) and `tool_choice` in its `params`, tool calls leave as `response.function_call_arguments.done`, `response.done` carries `raw_text` for a Go-side parse when the C++ parser found no call, tool results arrive as a `conversation.item.create` control with a `function_call_output` item. The event names are listed in the comments of `backend.proto`.
+- Upstream's slot has no voice selection and no VAD. Tool calls follow upstream's `server-realtime.cpp`: the session grammar goes into the sampling of the response (`server_control_response::sampling`), the tool turn is derived from the template. A requested voice is reported in `session.created` with `voice_applied: false`.
+- Upstream renames controls and moves the slot often. After a llama.cpp bump, build the backend and run the `realtime_*` tests first.

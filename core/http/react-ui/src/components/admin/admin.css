@@ -1,0 +1,234 @@
+/* ==========================================================================
+   Administration shell: the sidebar that replaces the main one, the page
+   frame, the breadcrumb, the summary strip, the filter bar and the command
+   palette. The sidebar reuses .sidebar-nav, .nav-item and .nav-badge, so the
+   icon rail and the phone drawer treat it like the main one.
+   ========================================================================== */
+
+/* ---- Sidebar ------------------------------------------------------------- */
+
+.admin-header { min-height: 56px; }
+.admin-back {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-h);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-md);
+  color: var(--dk-muted);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-decoration: none;
+  min-width: 0;
+}
+.admin-back:hover { background: var(--dk-hover); color: var(--dk-text); }
+.admin-back:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.admin-back .nav-icon { flex: none; }
+
+.admin-search-row { padding: 0 var(--sp-2) var(--sp-2); }
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: var(--ctl-h);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  color: var(--dk-muted);
+  font: 400 var(--fs-small) / 1 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.admin-search:hover { color: var(--dk-text); }
+.admin-search:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.admin-search__label { flex: 1; min-width: 0; }
+.admin-search__key,
+.palette kbd {
+  padding: 1px 6px;
+  border-radius: var(--r-sm);
+  background: var(--dk-inset);
+  color: var(--dk-muted);
+  font: 500 var(--fs-meta) / var(--lh-meta) var(--font-mono);
+}
+
+.admin-nav__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4) var(--sp-1);
+  color: var(--dk-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.admin-group[data-divider="true"],
+.admin-group--external { margin-top: var(--sp-2); border-top: 1px solid var(--color-border-divider); }
+.admin-group--external .nav-item { color: var(--dk-muted); font-size: var(--fs-small); }
+.admin-group[data-open="false"] .sidebar-section-items { display: none; }
+.admin-group .sidebar-section-toggle:disabled { cursor: default; }
+.admin-group .sidebar-section-toggle .admin-badge { margin-left: auto; margin-right: var(--sp-2); }
+.admin-group .sidebar-section-title { padding-top: var(--sp-3); }
+
+/* The count at the end of an item. Colour backs the number, never replaces it. */
+.admin-badge { margin-left: auto; }
+.admin-badge[data-level="quiet"] { background: var(--dk-inset); color: var(--dk-muted); }
+.admin-badge[data-level="attn"] { background: var(--color-warning-light); color: var(--dk-warn-text); }
+.admin-badge[data-level="update"] { background: var(--color-primary-light); color: var(--dk-accent-text); }
+.admin-badge[data-level="error"] { background: var(--color-error-light); color: var(--dk-error-text); }
+
+/* A phone has no keyboard shortcut to teach. */
+@media (max-width: 639px) {
+  .admin-search__key { display: none; }
+}
+
+/* The icon rail has no heading or label column, so a folded group opens in
+   full: its pages are icons like the others. */
+@media (min-width: 640px) {
+  .sidebar.collapsed .admin-group[data-open="false"] .sidebar-section-items { display: block; }
+  .sidebar.collapsed .admin-search { justify-content: center; padding: 0; }
+  .sidebar.collapsed .admin-search__label,
+  .sidebar.collapsed .admin-search__key,
+  .sidebar.collapsed .admin-nav__title .nav-label { display: none; }
+  .sidebar.collapsed .admin-nav__title { justify-content: center; padding-inline: 0; }
+  .sidebar.collapsed .admin-search-row { padding-inline: var(--sp-2); }
+  .sidebar.collapsed .admin-back { justify-content: center; }
+  .sidebar.collapsed .admin-group { border-top: 0; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+  .sidebar:not(.open) .admin-group[data-open="false"] .sidebar-section-items { display: block; }
+  .sidebar:not(.open) .admin-search { justify-content: center; padding: 0; }
+  .sidebar:not(.open) .admin-search__label,
+  .sidebar:not(.open) .admin-search__key,
+  .sidebar:not(.open) .admin-nav__title .nav-label { display: none; }
+  .sidebar:not(.open) .admin-nav__title { justify-content: center; padding-inline: 0; }
+  .sidebar:not(.open) .admin-back { justify-content: center; }
+  .sidebar:not(.open) .admin-group { border-top: 0; }
+}
+
+/* ---- Page frame ---------------------------------------------------------- */
+
+.admin-layout { display: flex; flex-direction: column; padding-top: var(--page-gutter); }
+.admin-frame {
+  width: 100%;
+  max-width: var(--page-max-default);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+  min-width: 0;
+}
+.admin-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-4) var(--sp-6); margin-bottom: var(--sp-5); }
+.admin-head__slot { display: contents; }
+.admin-head__slot > * { margin: 0; max-width: 64ch; color: var(--color-text-secondary); font-size: var(--fs-body); line-height: var(--lh-body); }
+.admin-head__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
+.admin-head:not(:has(.admin-head__slot > *, .admin-head__actions > *)) { display: none; }
+.admin-body { flex: 1 1 auto; min-width: 0; width: 100%; }
+/* The layout's own padding opens the page; the page keeps its side gutter. */
+.admin-body > .page { padding-top: 0; }
+/* The breadcrumb that stands alone (a page that draws no header of its own). */
+.admin-frame > .admin-crumbs { margin-bottom: var(--sp-3); }
+
+/* A split view needs a ceiling to scroll inside (as the hub layout did). */
+.admin-layout:has(.page--app) { flex: 1; min-height: 0; }
+.admin-layout:has(.page--app) > .admin-body { min-height: 0; display: flex; flex-direction: column; }
+@media (max-width: 900px) {
+  .admin-layout:has(.page--app) { flex: none; }
+  .admin-layout:has(.page--app) > .admin-body { display: block; }
+}
+@media (max-width: 768px) {
+  .admin-layout { padding-top: var(--sp-4); }
+  .admin-head { flex-direction: column; align-items: stretch; margin-bottom: var(--sp-4); }
+}
+
+.admin-crumbs { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.admin-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.admin-crumbs li + li::before { content: "/"; margin-right: var(--sp-1); opacity: 0.6; }
+.admin-crumbs a { color: inherit; text-decoration: none; }
+.admin-crumbs a:hover { color: var(--dk-text); text-decoration: underline; }
+.admin-crumbs [aria-current="page"] { color: var(--dk-text); font-weight: 600; }
+.page-header__lead > .admin-crumbs { margin-bottom: var(--sp-1); }
+
+/* ---- Summary strip ------------------------------------------------------- */
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 0 0 var(--sp-5);
+  padding: 0;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+}
+.admin-summary__item { padding: var(--sp-4) var(--sp-5); min-width: 0; }
+.admin-summary__item + .admin-summary__item { border-left: 1px solid var(--dk-edge); }
+.admin-summary dt { margin: 0 0 var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.admin-summary dd { display: flex; align-items: baseline; gap: var(--sp-2); margin: 0; }
+.admin-summary dd strong { font-size: var(--fs-lead); line-height: var(--lh-lead); font-weight: 600; font-variant-numeric: tabular-nums; }
+.admin-summary dd span { color: var(--dk-muted); font-size: var(--fs-small); }
+.admin-summary__item[data-tone="warn"] dd strong { color: var(--dk-warn-text); }
+.admin-summary__item[data-tone="error"] dd strong { color: var(--dk-error-text); }
+@media (max-width: 639px) {
+  .admin-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-summary__item:nth-child(odd) { border-left: 0; }
+  .admin-summary__item:nth-child(n + 3) { border-top: 1px solid var(--dk-edge); }
+}
+
+/* ---- Filter bar ---------------------------------------------------------- */
+
+.admin-filters { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin: 0 0 var(--sp-4); }
+.admin-filters__search { flex: 1 1 220px; max-width: 320px; min-width: 0; }
+.admin-filters__chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.admin-filters__panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 240px; padding: var(--sp-1); }
+.admin-filters__field { display: flex; flex-direction: column; gap: var(--sp-1); color: var(--dk-muted); font-size: var(--fs-small); }
+.admin-filters__end { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); margin-left: auto; }
+.admin-filters__sort { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); font-size: var(--fs-small); }
+@media (max-width: 639px) {
+  .admin-filters__search { flex-basis: 100%; max-width: none; }
+  .admin-filters__end { margin-left: 0; width: 100%; }
+}
+
+/* ---- Command palette ----------------------------------------------------- */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh var(--sp-4) var(--sp-4);
+  background: var(--color-modal-backdrop);
+}
+.palette {
+  display: flex;
+  flex-direction: column;
+  width: min(620px, 100%);
+  max-height: min(560px, 76vh);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+.palette__bar { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-4); border-bottom: 1px solid var(--dk-edge); color: var(--dk-muted); }
+.palette__input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--dk-text);
+  font: 400 var(--fs-body) / var(--lh-body) var(--font-sans);
+}
+.palette__input:focus { outline: none; }
+.palette__bar:focus-within { box-shadow: inset 0 -2px 0 var(--dk-accent); }
+.palette__list { flex: 1; overflow-y: auto; padding: var(--sp-2); }
+.palette__kind { margin: var(--sp-2) var(--sp-3) var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.palette__row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); color: var(--dk-text); cursor: pointer; }
+.palette__row[aria-selected="true"] { background: var(--color-primary-light); }
+.palette__words { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.palette__title { font-size: var(--fs-small); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette__where { color: var(--dk-muted); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette__go { color: var(--dk-muted); }
+.palette__empty { margin: 0; padding: var(--sp-6) var(--sp-4); color: var(--dk-muted); font-size: var(--fs-small); text-align: center; }
+.palette__foot { display: flex; align-items: center; gap: var(--sp-2); margin: 0; padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--dk-edge); color: var(--dk-muted); font-size: var(--fs-meta); }

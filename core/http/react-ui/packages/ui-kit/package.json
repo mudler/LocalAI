@@ -1,0 +1,22 @@
+{
+  "name": "@localai/ui-kit",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The LocalAI UI kit: the shared controls, their CSS, the icon set and the LocalAI theme.",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.js",
+    "./styles.css": "./styles.css",
+    "./css/*": "./css/*",
+    "./themes/*": "./themes/*",
+    "./vendor/*": "./vendor/*",
+    "./src/*": "./src/*"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "main": "./src/index.js"
+}

@@ -1,0 +1,410 @@
+{
+  "manage": {
+    "title": "Système",
+    "subtitle": "Gérer les modèles et backends installés"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Configurer les paramètres d'exécution de LocalAI",
+    "saved": "Paramètres enregistrés",
+    "saveFailed": "Échec de l'enregistrement : {{message}}",
+    "loadFailed": "Échec du chargement des paramètres : {{message}}",
+    "sections": {
+      "branding": "Image de marque",
+      "watchdog": "Watchdog",
+      "memory": "Mémoire",
+      "backends": "Backends",
+      "performance": "Performance",
+      "tracing": "Traçage",
+      "api": "API et CORS",
+      "p2p": "P2P",
+      "galleries": "Galeries",
+      "apikeys": "Clés d'API",
+      "agents": "Tâches d'agents",
+      "agentpool": "Pool d'agents",
+      "assistant": "Assistant LocalAI",
+      "distributed": "Distribué",
+      "responses": "Réponses"
+    },
+    "loadFailedTitle": "Impossible de charger les paramètres.",
+    "egress": {
+      "title": "Réseau des commandes",
+      "intro": "Les commandes exécutées en isolation n’atteignent le réseau que par un proxy qui consulte LocalAI pour chaque connexion. Réglez ci-dessous la limite, le préréglage d’un nouveau chat, les ports, les registres supplémentaires et la durée du journal ; chaque personne choisit le préréglage de chaque chat dans son menu Outils, dans la limite, et autorise un hôte bloqué sur une carte.",
+      "serves": "Les commandes s’exécutent isolées dans le module {{name}}",
+      "servesHost": "Les commandes s’exécutent sur cette machine via {{name}}",
+      "servesNone": "Aucun add-on n’exécute encore de commandes",
+      "hostNote": "Le backend hôte exécute les commandes sur cette machine avec son réseau : ces réglages ne s’y appliquent pas.",
+      "counts": "Dernières 24 heures : {{allowed}} autorisées, {{blocked}} bloquées.",
+      "private": "Laisser la règle d’un administrateur atteindre les réseaux privés",
+      "privateWarning": "Un hôte autorisé par un administrateur pourra alors atteindre des adresses de votre réseau. Un préréglage seul ne le fait jamais ; les adresses de métadonnées du cloud et du serveur restent refusées.",
+      "typePhrase": "Pour l’activer, tapez : {{phrase}}",
+      "registries": "Registres de paquets ({{count}})",
+      "showAudit": "Afficher le journal",
+      "hideAudit": "Masquer le journal",
+      "loadFailed": "Les réglages réseau des commandes n’ont pas pu être lus",
+      "audit": {
+        "verdict": "Verdict",
+        "host": "Hôte",
+        "user": "Utilisateur",
+        "at": "Quand",
+        "reason": "Raison",
+        "bytes": "Octets envoyés / reçus",
+        "refresh": "Actualiser",
+        "empty": "Aucune demande ne correspond.",
+        "loadFailed": "Le journal n’a pas pu être lu",
+        "verdicts": {
+          "any": "Tous les verdicts",
+          "allow": "Autorisée",
+          "block": "Bloquée",
+          "done": "Terminée"
+        }
+      }
+    },
+    "addons": {
+      "title": "Modules",
+      "hint": "Les paramètres apportés par les modules",
+      "intro": "Chaque module garde ses paramètres sur sa propre page, dans l'onglet Paramètres de ses détails. Ouvrez-en un pour les modifier.",
+      "off": "Désactivé. Activez-le pour modifier ses paramètres.",
+      "open": "Ouvrir les paramètres",
+      "openNamed": "Ouvrir les paramètres de {{name}}",
+      "count_one": "{{count}} module avec des paramètres",
+      "count_other": "{{count}} modules avec des paramètres"
+    },
+    "hosts": {
+      "add": "Ajouter",
+      "listLabel": "Hôtes toujours autorisés",
+      "remove": "Retirer {{host}}",
+      "empty": "Aucun hôte pour l'instant. Saisissez un nom d'hôte, ou hôte:port pour fixer le port.",
+      "hint": "Noms exacts uniquement. Ajoutez :port pour n'autoriser qu'un port ; sinon, les ports réseau des commandes s'appliquent.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Saisissez un nom d'hôte.",
+        "wildcard": "« {{value}} » : saisissez un nom d'hôte exact, pas un motif.",
+        "shape": "« {{value}} » n'est pas un nom d'hôte. Saisissez seulement l'hôte, sans schéma ni chemin.",
+        "port": "« {{value}} » : le port doit être compris entre 1 et 65535, et 22 et 25 sont toujours refusés.",
+        "private": "« {{value}} » est une adresse privée ou locale. Activez d'abord l'interrupteur du réseau privé.",
+        "numeric": "« {{value}} » : écrivez une adresse IP sous la forme de quatre nombres décimaux.",
+        "duplicate": "« {{value}} » est déjà dans la liste.",
+        "full": "La liste contient au plus {{max}} hôtes."
+      }
+    },
+    "network": {
+      "title": "Réseau des commandes",
+      "where": "{{name}} garde sur sa propre page les paramètres réseau des commandes qu’il exécute."
+    },
+    "autoUpgradeAddons": "Mettre à jour les add-ons automatiquement",
+    "addonUpdates": {
+      "label": "Mises à jour des add-ons",
+      "note": "Le propriétaire des add-ons applique ce réglage. Les nouvelles générations peuvent exécuter du code.",
+      "unavailable": "Réglages du propriétaire indisponibles ou modifiés : {{message}}",
+      "reload": "Recharger et rebaser les modifications",
+      "retry": "Réessayer la même opération",
+      "policy": "Politique du propriétaire · révision {{revision}}",
+      "apply": "Appliquer le réglage de mise à jour"
+    }
+  },
+  "traces": {
+    "title": "Traces",
+    "subtitle": "Consulter les requêtes et réponses d'API enregistrées, ainsi que les opérations des backends"
+  },
+  "users": {
+    "title": "Utilisateurs",
+    "subtitle": "Les personnes qui peuvent se connecter et ce que chacune peut utiliser.",
+    "invite": "Inviter quelqu'un",
+    "summary": {
+      "label": "Utilisateurs en un coup d'œil",
+      "total": "Utilisateurs",
+      "totalUnit": "au total",
+      "active": "Actifs",
+      "activeUnit": "peuvent se connecter",
+      "waiting": "En attente d'approbation",
+      "waitingUnit": "inscriptions",
+      "admins": "Administrateurs",
+      "adminsUnit": "sur {{count}}"
+    },
+    "filters": {
+      "label": "Filtrer les utilisateurs",
+      "all": "Tous",
+      "pending": "En attente",
+      "admins": "Administrateurs",
+      "disabled": "Désactivés",
+      "inactive": "Inactifs depuis 30 j+"
+    },
+    "popover": {
+      "signIn": "Méthode de connexion",
+      "access": "Accès",
+      "any": "Tous",
+      "custom": "Accès personnalisé"
+    },
+    "search": {
+      "label": "Rechercher par nom ou e-mail",
+      "placeholder": "Rechercher un nom ou un e-mail"
+    },
+    "sort": {
+      "label": "Trier",
+      "name": "Nom",
+      "role": "Rôle",
+      "status": "Statut",
+      "provider": "Connexion",
+      "lastActive": "Dernière activité",
+      "keys": "Clés API"
+    },
+    "refresh": "Actualiser les utilisateurs",
+    "loading": "Chargement des utilisateurs",
+    "region": "Utilisateurs",
+    "caption": "Utilisateurs avec rôle, accès, statut, dernière activité et clés API",
+    "columns": {
+      "user": "Utilisateur",
+      "role": "Rôle",
+      "access": "Accès",
+      "status": "Statut",
+      "lastActive": "Dernière activité",
+      "keys": "Clés",
+      "actions": "Actions"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "utilisateur"
+    },
+    "state": {
+      "active": "Actif",
+      "pending": "En attente",
+      "disabled": "Désactivé"
+    },
+    "access": {
+      "all": "Accès complet",
+      "default": "Accès par défaut",
+      "models_one": "{{count}} modèle seulement",
+      "models_other": "{{count}} modèles seulement",
+      "more_one": "{{count}} fonctionnalité en plus",
+      "more_other": "{{count}} fonctionnalités en plus",
+      "fewer_one": "{{count}} fonctionnalité en moins",
+      "fewer_other": "{{count}} fonctionnalités en moins",
+      "limits_one": "{{count}} limite",
+      "limits_other": "{{count}} limites"
+    },
+    "noName": "(sans nom)",
+    "you": "vous",
+    "created": "Créé le {{date}}",
+    "never": "Jamais",
+    "approve": "Approuver l'utilisateur",
+    "approveShort": "Approuver",
+    "enable": "Activer",
+    "disable": "Désactiver l'utilisateur",
+    "disableFor": "Désactiver {{name}}",
+    "editAccessFor": "Modifier l'accès de {{name}}",
+    "actionsFor": "Actions pour {{name}}",
+    "showing": "{{shown}} sur {{total}} affichés.",
+    "cancel": "Annuler",
+    "undo": "Annuler l'action",
+    "dismiss": "Fermer",
+    "menu": {
+      "editAccess": "Modifier l'accès",
+      "makeAdmin": "Passer admin",
+      "makeUser": "Passer utilisateur",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "delete": "Supprimer…"
+    },
+    "sheet": {
+      "account": "Compte",
+      "activity": "Activité",
+      "apiKeys": "Clés API"
+    },
+    "empty": {
+      "title": "Aucun utilisateur pour l'instant",
+      "body": "Les personnes apparaissent ici lorsqu'elles s'inscrivent ou acceptent une invitation."
+    },
+    "noMatch": {
+      "title": "Aucun utilisateur correspondant",
+      "body": "Essayez une autre recherche ou un autre filtre.",
+      "clear": "Effacer les filtres"
+    },
+    "error": {
+      "title": "Impossible de charger les utilisateurs.",
+      "stale": "Impossible de joindre le serveur.",
+      "staleNote": "La liste ci-dessous date de {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} approuvé",
+      "disabled": "{{name}} désactivé",
+      "approveFailed": "Échec de l'approbation : {{message}}",
+      "disableFailed": "Échec de la désactivation : {{message}}",
+      "disabledUndo": "{{name}} désactivé. Annuler le réactive.",
+      "restored": "{{name}} est de nouveau actif",
+      "restoreFailed": "Échec de la restauration : {{message}}",
+      "roleChanged": "{{name}} est maintenant {{role}}",
+      "roleFailed": "Échec de la mise à jour du rôle : {{message}}",
+      "deleted": "Utilisateur supprimé",
+      "deleteFailed": "Échec de la suppression : {{message}}",
+      "passwordReset": "Mot de passe réinitialisé pour {{name}}",
+      "resetFailed": "Échec de la réinitialisation du mot de passe : {{message}}"
+    },
+    "reset": {
+      "title": "Réinitialiser le mot de passe",
+      "description": "Définissez un nouveau mot de passe pour {{name}}. Toutes les sessions existantes seront invalidées.",
+      "label": "Nouveau mot de passe",
+      "placeholder": "Nouveau mot de passe (12 caractères min.)",
+      "confirm": "Réinitialiser le mot de passe",
+      "busy": "Réinitialisation…",
+      "anyway": "Utiliser quand même ce mot de passe"
+    },
+    "delete": {
+      "title": "Supprimer l'utilisateur",
+      "description": "Ses sessions et ses clés API seront aussi supprimées. Cette action est irréversible.",
+      "type": "Saisissez <n>{{name}}</n> pour confirmer",
+      "confirm": "Supprimer",
+      "busy": "Suppression…"
+    }
+  },
+  "usage": {
+    "title": "Utilisation",
+    "subtitle": "Statistiques d'utilisation des jetons d'API",
+    "sources": {
+      "tab": "Sources",
+      "mixTitle": "Répartition des sources",
+      "ribbonAria": "{{apikey}} % clés d'API, {{web}} % interface web, {{legacy}} % hérité",
+      "topSources": "Principales sources dans le temps",
+      "searchPlaceholder": "Rechercher par nom ou préfixe",
+      "sortBy": "Trier",
+      "sortTokens": "Jetons",
+      "sortRequests": "Requêtes",
+      "sortLastUsed": "Dernière utilisation",
+      "sortName": "Nom",
+      "sortUser": "Utilisateur",
+      "webUI": "Interface web",
+      "legacy": "Hérité",
+      "revoked": "révoqué",
+      "filteredTo": "Filtré sur : {{name}}",
+      "clearFilter": "Effacer le filtre",
+      "other": "Autres ({{count}})",
+      "noTrafficShort": "Aucune requête sur cette période.",
+      "noKeysYet": "Dès que des requêtes arriveront, vous les verrez détaillées ici.",
+      "createKey": "Créer votre première clé d'API",
+      "truncatedWarning": "Affichage des 200 principales clés. Appliquez un filtre pour affiner."
+    }
+  },
+  "settingsTools": {
+    "intro": "Les chats ont quelques outils intégrés qu'un module peut remplacer. Quand le module est installé, en marche et activé pour un chat, le chat utilise l'outil du module, sous le même nom.",
+    "empty": "Aucun outil intégré n'est gérable sur ce serveur.",
+    "loadFailed": "Impossible de lire les outils intégrés",
+    "switch": "Activé",
+    "byBuiltin": "Intégré",
+    "byAddon": "Module : {{name}}",
+    "byNone": "Désactivé",
+    "unavailable": "Ce serveur ne peut pas l'exécuter : {{reason}}.",
+    "replaceExplain": "Ces modules remplacent {{tool}} : celui choisi le fournit dans chaque chat où il est activé et en marche, et l'outil intégré est masqué. Un seul peut être actif. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
+    "defaultInstalledFirst": "Par défaut : installé en premier",
+    "installedOn": "Installé {{when}}",
+    "choose_one": "{{count}} module remplace {{tool}} : choisissez lequel utiliser.",
+    "choose_other": "{{count}} modules remplacent {{tool}} : choisissez lequel utiliser.",
+    "labels": {
+      "bash": "Commandes (bash)",
+      "web_search": "Recherche web",
+      "web_fetch": "Lire des pages web",
+      "list_agents": "Agents enregistrés",
+      "localai_client": "Outils client LocalAI",
+      "localai_admin": "Outils d'administration LocalAI"
+    },
+    "descriptions": {
+      "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun module ne fournit bash. Un module qui exécute des commandes isolées le remplace.",
+      "web_search": "Recherche sur le web pour les chats sans clé (DuckDuckGo, puis Brave Search, puis Bing), ou avec votre instance SearXNG si elle est définie.",
+      "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
+      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils.",
+      "localai_client": "Permet aux chats d'exécuter les modèles installés ici pour les images, la voix, le son, la vidéo, les embeddings et la détection, dans les droits de chaque utilisateur.",
+      "localai_admin": "Permet aux chats des administrateurs de gérer ce serveur : modèles, backends, réglages et état. Chaque chat, ou agent enregistré, l'active."
+    },
+    "bash": {
+      "switch": "Laisser les chats exécuter des commandes sur cette machine",
+      "modeLegend": "Qui peut exécuter des commandes",
+      "ask": "Demander à chaque fois.",
+      "askHint": "Seuls les chats des administrateurs l'obtiennent, et chaque commande attend leur accord dans le chat.",
+      "on": "Autoriser pour tous.",
+      "onHint": "Les chats de tous les utilisateurs exécutent des commandes ici sans demander, y compris les exécutions planifiées et les sous-agents.",
+      "default": "Non défini : la valeur par défaut s'applique ({{mode}}).",
+      "warning": "Les commandes s'exécutent sous l'utilisateur de LocalAI, sans isolation et avec le réseau de cette machine : elles peuvent lire ce que LocalAI peut lire et joindre Internet, votre réseau et l'API LocalAI. Chaque commande est journalisée. Installez un module qui isole les commandes."
+    },
+    "modes": {
+      "off": "désactivé",
+      "ask": "demander à chaque fois",
+      "on": "autorisé pour tous"
+    },
+    "skillsTitle": "Compétences remplacées par des modules",
+    "skillsIntro": "Un module peut remplacer une compétence intégrée par la sienne, écrite pour ses outils. Si plusieurs modules remplacent la même, choisissez celui qui est utilisé.",
+    "skillLabel": "Compétence {{skill}}",
+    "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée.",
+    "toolNotRunning": "Le module qui remplace cet outil ne tourne pas : l'outil intégré est utilisé.",
+    "stopped": "arrêté",
+    "webTest": {
+      "intro": "Lance une recherche avec chaque fournisseur des paramètres enregistrés et montre ce que chacun a fait. Appliquez d’abord vos modifications.",
+      "queryLabel": "Requête",
+      "run": "Tester la recherche",
+      "running": "Test en cours…",
+      "answered": "Les chats reçoivent les résultats de {{host}}.",
+      "noneAnswered": "Aucun fournisseur n’a répondu.",
+      "failed": "Le test n’a pas pu s’exécuter : {{error}}",
+      "results_one": "{{count}} résultat",
+      "results_other": "{{count}} résultats",
+      "outcomes": {
+        "ok": "Fonctionne",
+        "no_results": "Aucun résultat",
+        "challenged": "Contrôle anti-robot",
+        "blocked": "Bloqué",
+        "timeout": "Trop lent",
+        "error": "Erreur",
+        "skipped": "Ignoré"
+      }
+    },
+    "addonSettings": "Paramètres de {{name}}"
+  },
+  "invites": {
+    "title": "Inviter quelqu'un",
+    "description": "Créez un lien qui permet à une personne de s'inscrire. Le lien reste valable jusqu'à son expiration.",
+    "close": "Fermer",
+    "lifetime": "Nouveau lien d'invitation valable",
+    "life": {
+      "24": "1 jour",
+      "168": "7 jours",
+      "720": "30 jours"
+    },
+    "generate": "Générer le lien d'invitation",
+    "created": "Lien d'invitation créé",
+    "createFailed": "Échec de la création de l'invitation : {{message}}",
+    "copiedToast": "URL d'invitation copiée dans le presse-papiers",
+    "copyFailed": "Échec de la copie de l'URL",
+    "copyUrl": "Copier l'URL d'invitation",
+    "copy": "Copier",
+    "revoked": "Invitation révoquée",
+    "revokeFailed": "Échec de la révocation de l'invitation : {{message}}",
+    "loading": "Chargement des invitations",
+    "loadFailed": "Impossible de charger les invitations.",
+    "region": "Invitations",
+    "caption": "Liens d'invitation avec leur créateur et leur utilisateur",
+    "empty": {
+      "title": "Aucun lien d'invitation.",
+      "body": "Générez-en un pour permettre à quelqu'un de s'inscrire."
+    },
+    "columns": {
+      "link": "Lien d'invitation",
+      "createdBy": "Créé par",
+      "usedBy": "Utilisé par",
+      "expires": "Expire le",
+      "actions": "Actions"
+    },
+    "state": {
+      "open": "Disponible",
+      "used": "Utilisé",
+      "expired": "Expiré"
+    },
+    "revoke": "Révoquer",
+    "revokeTitle": "Révoquer l'invitation",
+    "revokeDialog": {
+      "title": "Révoquer l'invitation",
+      "description": "Le lien cesse de fonctionner immédiatement. Les personnes déjà inscrites avec ce lien conservent leur compte.",
+      "body": "Révoquer le lien d'invitation qui commence par {{prefix}} ?"
+    }
+  },
+  "apiKeys": {
+    "title": "Clés API",
+    "subtitle": "Vos propres clés pour les programmes qui appellent ce serveur."
+  }
+}

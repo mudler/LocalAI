@@ -1,0 +1,182 @@
+package auth
+
+import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+// ErrPauseInPast is returned when a pause end time is not in the future.
+var ErrPauseInPast = errors.New("paused_until must be in the future")
+
+const (
+	apiKeyPrefix    = "lai-"
+	apiKeyRandBytes = 32 // 32 bytes = 64 hex chars
+	keyPrefixLen    = 8  // display prefix length (from the random part)
+)
+
+// GenerateAPIKey generates a new API key. Returns the plaintext key,
+// its HMAC-SHA256 hash, and a display prefix.
+func GenerateAPIKey(hmacSecret string) (plaintext, hash, prefix string, err error) {
+	b := make([]byte, apiKeyRandBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", "", fmt.Errorf("failed to generate API key: %w", err)
+	}
+
+	randHex := hex.EncodeToString(b)
+	plaintext = apiKeyPrefix + randHex
+	hash = HashAPIKey(plaintext, hmacSecret)
+	prefix = plaintext[:len(apiKeyPrefix)+keyPrefixLen]
+
+	return plaintext, hash, prefix, nil
+}
+
+// HashAPIKey returns the HMAC-SHA256 hex digest of the given plaintext key.
+// If hmacSecret is empty, falls back to plain SHA-256 for backward compatibility.
+func HashAPIKey(plaintext, hmacSecret string) string {
+	if hmacSecret == "" {
+		h := sha256.Sum256([]byte(plaintext))
+		return hex.EncodeToString(h[:])
+	}
+	mac := hmac.New(sha256.New, []byte(hmacSecret))
+	mac.Write([]byte(plaintext))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// CreateAPIKey generates and stores a new API key for the given user.
+// Returns the plaintext key (shown once) and the database record.
+func CreateAPIKey(db *gorm.DB, userID, name, role, hmacSecret string, expiresAt *time.Time) (string, *UserAPIKey, error) {
+	plaintext, hash, prefix, err := GenerateAPIKey(hmacSecret)
+	if err != nil {
+		return "", nil, err
+	}
+
+	record := &UserAPIKey{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Name:      name,
+		KeyHash:   hash,
+		KeyPrefix: prefix,
+		Role:      role,
+		ExpiresAt: expiresAt,
+	}
+
+	if err := db.Create(record).Error; err != nil {
+		return "", nil, fmt.Errorf("failed to store API key: %w", err)
+	}
+
+	return plaintext, record, nil
+}
+
+// ValidateAPIKey looks up an API key by hashing the plaintext and searching
+// the database. Returns the key record if found, or an error.
+// Updates LastUsed on successful validation.
+//
+// A client key is refused here: it is not a stand-in for its owner, so the
+// callers that turn a key into a user session or a user identity never accept
+// it. Request authentication uses ValidateCredentialKey, which does.
+func ValidateAPIKey(db *gorm.DB, plaintext, hmacSecret string) (*UserAPIKey, error) {
+	key, err := ValidateCredentialKey(db, plaintext, hmacSecret)
+	if err != nil {
+		return nil, err
+	}
+	if key.IsClientKey() {
+		return nil, fmt.Errorf("invalid API key")
+	}
+	return key, nil
+}
+
+// ValidateCredentialKey validates a key of any kind, including a client key.
+// Only the request middleware should call it, and it must then apply the
+// client allow-list (see RequireRouteFeature).
+func ValidateCredentialKey(db *gorm.DB, plaintext, hmacSecret string) (*UserAPIKey, error) {
+	hash := HashAPIKey(plaintext, hmacSecret)
+
+	var key UserAPIKey
+	if err := db.Preload("User").Where("key_hash = ?", hash).First(&key).Error; err != nil {
+		return nil, fmt.Errorf("invalid API key")
+	}
+
+	now := time.Now()
+	if err := key.CheckUsable(now); err != nil {
+		return nil, err
+	}
+
+	// Update LastUsed
+	db.Model(&key).Update("last_used", now)
+
+	return &key, nil
+}
+
+// ListAPIKeys returns the user keys of the given user (without plaintext).
+// Client keys are listed by ListClientKeys.
+func ListAPIKeys(db *gorm.DB, userID string) ([]UserAPIKey, error) {
+	var keys []UserAPIKey
+	if err := db.Where("user_id = ? AND (kind IS NULL OR kind <> ?)", userID, KeyKindClient).Order("created_at DESC").Find(&keys).Error; err != nil {
+		return nil, err
+	}
+	return keys, nil
+}
+
+// CountAPIKeysByUser returns how many user keys each person holds, by user
+// id, in one query. Client keys are not counted: the list a person sees does
+// not hold them either. It returns counts only, never a key or its name.
+func CountAPIKeysByUser(db *gorm.DB) (map[string]int64, error) {
+	var rows []struct {
+		UserID string
+		N      int64
+	}
+	if err := db.Model(&UserAPIKey{}).
+		Select("user_id, COUNT(*) AS n").
+		Where("kind IS NULL OR kind <> ?", KeyKindClient).
+		Group("user_id").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]int64, len(rows))
+	for _, r := range rows {
+		out[r.UserID] = r.N
+	}
+	return out, nil
+}
+
+// RevokeAPIKey deletes an API key. Only the owner can revoke their own key.
+func RevokeAPIKey(db *gorm.DB, keyID, userID string) error {
+	result := db.Where("id = ? AND user_id = ?", keyID, userID).Delete(&UserAPIKey{})
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("API key not found or not owned by user")
+	}
+	return result.Error
+}
+
+// SetAPIKeyPause pauses or resumes an API key. Only the owner can change it.
+// A paused key is rejected by ValidateAPIKey. Pass disabled=true to pause
+// until resumed, or a pausedUntil in the future to pause until that time.
+// Pass disabled=false and a nil pausedUntil to resume.
+func SetAPIKeyPause(db *gorm.DB, keyID, userID string, disabled bool, pausedUntil *time.Time) error {
+	if pausedUntil != nil && !pausedUntil.After(time.Now()) {
+		return ErrPauseInPast
+	}
+
+	result := db.Model(&UserAPIKey{}).
+		Where("id = ? AND user_id = ?", keyID, userID).
+		Updates(map[string]any{"disabled": disabled, "paused_until": pausedUntil})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("API key not found or not owned by user")
+	}
+	return nil
+}
+
+// CleanExpiredAPIKeys removes all API keys that have passed their expiry time.
+func CleanExpiredAPIKeys(db *gorm.DB) error {
+	return db.Where("expires_at IS NOT NULL AND expires_at < ?", time.Now()).Delete(&UserAPIKey{}).Error
+}

@@ -1,0 +1,55 @@
+package backend
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+	model "github.com/mudler/LocalAI/pkg/model"
+)
+
+// ImageUpscale loads the model specified in modelConfig and calls UpscaleImage
+// on the backend, writing the result to dst.
+func ImageUpscale(ctx context.Context, src, dst string, scale int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
+	inferenceModel, err := loader.Load(opts...)
+	if err != nil {
+		recordModelLoadFailure(appConfig, modelConfig.Name, modelConfig.Backend, err, nil)
+		return nil, err
+	}
+
+	fn := func() error {
+		release, err := AcquireGlobalBackendSlot()
+		if err != nil {
+			return err
+		}
+		defer release()
+		result, err := inferenceModel.UpscaleImage(
+			ctx,
+			&proto.UpscaleImageRequest{
+				Src:   src,
+				Dst:   dst,
+				Scale: int32(scale),
+			},
+		)
+		if err != nil {
+			return err
+		}
+		if result == nil {
+			return fmt.Errorf("image upscale returned nil result")
+		}
+		if !result.Success {
+			if result.Message != "" {
+				return fmt.Errorf("image upscale failed: %s", result.Message)
+			}
+			return fmt.Errorf("image upscale failed")
+		}
+		return nil
+	}
+
+	return fn, nil
+}
+
+// ImageUpscaleFunc is a test-friendly indirection.
+var ImageUpscaleFunc = ImageUpscale

@@ -1,0 +1,347 @@
+---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
+name: 'tests'
+
+on:
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/addons/contract-reference/**'
+      - 'docs/content/addons/catalogue/work/tables.md'
+      - 'docs/content/addons/tables-reference.md'
+      - 'docs/content/addons/manage-addons.md'
+      - 'docs/content/addons/install-and-update.md'
+      - 'docs/content/addons/catalogue/work/sandbox-settings.md'
+      - 'docs/content/models/capabilities/vision/image-generation.md'
+      - 'docs/content/administration/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/administration/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
+  push:
+    branches: [master]
+    tags: ['*', '!dev-master']
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/addons/contract-reference/**'
+      - 'docs/content/addons/catalogue/work/tables.md'
+      - 'docs/content/addons/tables-reference.md'
+      - 'docs/content/addons/manage-addons.md'
+      - 'docs/content/addons/install-and-update.md'
+      - 'docs/content/addons/catalogue/work/sandbox-settings.md'
+      - 'docs/content/models/capabilities/vision/image-generation.md'
+      - 'docs/content/administration/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/administration/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-tests-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
+jobs:
+  tests-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    # The PostgreSQL stores of the chats, agents, connectors, notifications,
+    # workspace and triggers skip without a database, so a regression that only
+    # shows on a cluster passed unseen. The coverage run below sees the URL,
+    # and a separate step fails when any of those tests skipped. The tests
+    # wipe their own tables, so the database is throwaway.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: localai
+          POSTGRES_PASSWORD: localai
+          POSTGRES_DB: localai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U localai -d localai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LOCALAI_TEST_POSTGRES_URL: postgres://localai:localai@localhost:5432/localai_test?sslmode=disable
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      # No free-disk-space step here on purpose. That action exists to make room
+      # for docker buildx layers, and this job runs no buildx step. It was also
+      # sized for a `make test` that downloaded multi-GB GGUF/whisper fixtures
+      # and built llama-cpp/whisper/stablediffusion-ggml; after the test-suite
+      # reorg it does neither (see the Makefile test target). It cost ~3min of
+      # every run, and its tool-cache:true wipe also forced setup-go and
+      # setup-node to re-download toolchains that ship preinstalled.
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install curl ffmpeg libopus-dev poppler-utils
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
+      # Runs the core suite with coverage and fails if total coverage dropped
+      # below the committed baseline (coverage-baseline.txt). The gate is
+      # strict — any decrease fails. Raise the baseline with
+      # `make test-coverage-baseline` and commit it when coverage rises.
+      - name: Test (with coverage gate)
+        run: |
+          PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+      # The coverage run above set the URL, but a skipped test is a passed test
+      # to it. This runs the PostgreSQL stores alone and fails on any skip.
+      - name: Test the PostgreSQL stores (no skips)
+        run: PATH="$PATH:$HOME/go/bin" make test-postgres
+      # tests/integration is outside the coverage roots because its store specs
+      # need a live backend. test-stores builds and installs local-store before
+      # running the complete suite, so new local-store specs are collected
+      # automatically without adding another workflow entry.
+      - name: Test local-store integration
+        run: PATH="$PATH:$HOME/go/bin" make test-stores
+      # Runs the real local-ai binary (MCP connectors and apps, collections,
+      # process flags, route permissions). The suite builds the binary, the
+      # mock backend and an MCP fixture itself and needs no Docker.
+      - name: Test platform e2e
+        run: PATH="$PATH:$HOME/go/bin" make test-e2e-platform
+      - name: Upload coverage report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-linux
+          path: |
+            coverage/coverage.out
+            coverage/coverage.html
+          if-no-files-found: ignore
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
+
+  tests-apple:
+    # macOS runners are slow and scarce, so pull requests skip this job. It
+    # runs on push to master, on tags and on manual dispatch.
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg poppler
+          pip install --user --no-cache-dir grpcio-tools grpcio
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Build React UI
+        run: make react-ui
+      - name: Test
+        run: |
+          export C_INCLUDE_PATH=/usr/local/include
+          export CPLUS_INCLUDE_PATH=/usr/local/include
+          export CC=/opt/homebrew/opt/llvm/bin/clang
+          # Used to run the newer GNUMake version from brew that supports --output-sync
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
+      # tmate keeps the runner busy until the 6 hour job limit, so a single
+      # failure costs a whole runner slot. Only open a session when someone
+      # asked for one by labelling the pull request `ci-debug`, and cap the
+      # session so a forgotten label cannot idle a runner either.
+      - name: Setup tmate session if tests fail
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        timeout-minutes: 30
+        uses: mxschmitt/action-tmate@v3.23
+        with:
+          detached: true
+          connect-timeout-seconds: 180
+          limit-access-to-actor: true
+
+  # Unit tests on a real Windows host for the pure Go packages that the
+  # Windows server uses: file permissions (ACLs), atomic writes, paths, the
+  # backend process code, downloads, OCI extraction, the gallery and the CLI.
+  # The vet-windows job in build-test.yaml only compiles them. CGO is off, as in
+  # the Windows release, so no C toolchain, backend or Docker is needed. Files
+  # named *_windows_test.go hold the tests that only run here. Extend the list
+  # when a package gets Windows code; see .agents/building-and-testing.md.
+  tests-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    # Non-blocking until the job has passed once: these tests have not run on
+    # a Windows host before. Remove continue-on-error after the first green run.
+    continue-on-error: true
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # make is not on the runner image. The Makefile runs its recipes through
+      # the sh of Git for Windows, and protogen-go downloads protoc itself.
+      - name: Add Git usr/bin to PATH
+        run: |
+          echo "$env:ProgramFiles\Git\usr\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Install GNU Make
+        run: |
+          # The Chocolatey feed answers 503 now and then, and choco can still
+          # exit with 0 then. Retry, and check the shim that the install makes.
+          $shim = Join-Path $env:ChocolateyInstall 'bin\make.exe'
+          foreach ($i in 1..5) {
+            choco install make -y
+            if (Test-Path $shim) { break }
+            Write-Host "make is not installed (try $i of 5)"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not (Test-Path $shim)) { exit 1 }
+      # The ffmpeg specs of pkg/utils run the real binary.
+      - name: Install ffmpeg
+        run: |
+          # The Chocolatey feed answers 503 now and then, and choco can still
+          # exit with 0 then. Retry, and check the shim that the install makes.
+          $shim = Join-Path $env:ChocolateyInstall 'bin\ffmpeg.exe'
+          foreach ($i in 1..5) {
+            choco install ffmpeg -y --no-progress
+            if (Test-Path $shim) { break }
+            Write-Host "ffmpeg is not installed (try $i of 5)"
+            Start-Sleep -Seconds (10 * $i)
+          }
+          if (-not (Test-Path $shim)) { exit 1 }
+      # The React UI is embedded at build time. An empty dist folder is enough
+      # for the packages under test, so the UI build is skipped.
+      - name: Generate protobuf code
+        run: |
+          make protogen-go
+          New-Item -ItemType Directory -Force core/http/react-ui/dist | Out-Null
+          New-Item -ItemType File -Force core/http/react-ui/dist/index.html | Out-Null
+      - name: Test
+        env:
+          CGO_ENABLED: '0'
+        run: >-
+          go test -timeout 30m
+          ./pkg/fsperm/...
+          ./pkg/jobobject/...
+          ./pkg/atomicfile/...
+          ./pkg/utils/...
+          ./pkg/system/...
+          ./pkg/xsysinfo/...
+          ./pkg/signals/...
+          ./pkg/safefile/...
+          ./pkg/downloader/...
+          ./pkg/oci/...
+          ./pkg/model/...
+          ./core/gallery/...
+          ./core/cli/...
+          ./core/services/remotes/...
+          ./core/services/studio/connectors/...
+          ./core/services/worker/...
+          ./core/services/addons/runtime/...
+          ./core/services/addons/gateway/...
+          ./core/services/addons/packages/...
+          ./core/services/addons/hostsettings/...
+
+  # Fast standalone unit tests for the backends' pure C++ helpers - currently the
+  # llama-cpp message reconstruction (backend/cpp/llama-cpp/message_content.h),
+  # which guards the OpenAI chat content normalization (mudler/LocalAI#10524,
+  # #7324, #7528). The runner discovers every *_test.cpp under backend/cpp/, so
+  # new pure-C++ unit tests are picked up with no CI changes. These need only the
+  # C++ stdlib + nlohmann/json, so they run on every PR without the full
+  # llama.cpp + gRPC backend build. (The same suite is also wired as an opt-in
+  # CMake/ctest target, -DLLAMA_GRPC_BUILD_TESTS=ON, for in-backend-build runs.)
+  tests-backend-cpp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Run backend C++ unit tests
+        run: make test-backend-cpp

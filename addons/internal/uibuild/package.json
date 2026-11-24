@@ -1,0 +1,8 @@
+{
+  "name": "localai-addon-uibuild",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared bundle builder of the first-party add-on UIs.",
+  "type": "module",
+  "scripts": { "test": "node --test test/uibuild.test.mjs" }
+}

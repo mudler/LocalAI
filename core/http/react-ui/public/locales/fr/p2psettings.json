@@ -1,0 +1,291 @@
+{
+  "title": "Paramètres P2P",
+  "lede": {
+    "off": "P2P est désactivé. Choisissez un mode pour utiliser d'autres instances ou pour partager celle-ci.",
+    "connect": "Connexion seule : ce serveur utilise des instances distantes en P2P et n'accepte personne.",
+    "share": "Connexion et partage : ce serveur accepte aussi les appareils que vous appairez."
+  },
+  "loadError": "Impossible de charger les paramètres P2P",
+  "notRunning": "P2P n'est pas en cours d'exécution.",
+  "saved": "Enregistré. P2P redémarre avec le nouveau paramètre.",
+  "saveFailed": "Le serveur n'a pas enregistré le paramètre.",
+  "sections": {
+    "label": "Sections des paramètres P2P",
+    "network": "Réseau",
+    "relays": "Relais",
+    "identity": "Identité"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "copy": "Copier",
+    "done": "Terminé"
+  },
+  "units": {
+    "kibps": "KiB/s",
+    "gib": "GiB",
+    "minutes": "minutes"
+  },
+  "modes": {
+    "off": {
+      "title": "Désactivé",
+      "body": "Pas de P2P. Les nœuds sur NATS et WebSocket ne sont pas concernés."
+    },
+    "connect": {
+      "title": "Connexion seule",
+      "body": "Utilisez les modèles d'autres instances en P2P. Ce serveur n'accepte personne. Aucune authentification requise."
+    },
+    "share": {
+      "title": "Connexion et partage",
+      "body": "Accepte aussi les appareils appairés, les instances distantes et les nœuds P2P. Nécessite l'authentification activée."
+    }
+  },
+  "network": {
+    "title": "Réseau",
+    "mode": {
+      "title": "Mode P2P",
+      "lede": "Ce que fait cette instance en P2P. Un changement s'applique immédiatement.",
+      "needsAuth": "Nécessite l'authentification",
+      "replaces": "Remplace --p2p"
+    },
+    "defaultOn": "Activé par défaut",
+    "shareOnly": "Uniquement en Connexion et partage",
+    "shareOnlyNote": "Affichés uniquement en Connexion et partage : Partager cette instance, Appareils et invitations, Relais pour les appareils appairés et Relais.",
+    "dht": {
+      "title": "DHT publique",
+      "desc": "Trouvez et soyez trouvé via le réseau libp2p public. Elle n'est jamais nécessaire pour rejoindre : une invitation contient le peer ID et l'indication du relais, et le client contacte le peer ID."
+    },
+    "mdns": {
+      "title": "Découverte sur le réseau local",
+      "desc": "Trouve les autres instances du même réseau local (mDNS), pour qu'elles se connectent directement sans internet."
+    },
+    "bootstrap": {
+      "title": "Pairs d'amorçage",
+      "desc": "Vos propres points d'entrée vers le réseau libp2p, une adresse par ligne. Chaque adresse se termine par /p2p/<peer ID>. Laissez vide pour utiliser les pairs d'amorçage publics."
+    },
+    "relayPaired": {
+      "title": "Relais pour les appareils appairés",
+      "desc": "Ce serveur fait passer le trafic entre ses propres appareils appairés quand ils ne peuvent pas se connecter directement. Affiché comme Via votre serveur."
+    },
+    "relayMode": {
+      "title": "Quand ce serveur relaie",
+      "desc": "En automatique, le relais ne tourne que tant que d'autres pairs peuvent joindre ce serveur depuis internet.",
+      "auto": "Automatique : quand ce serveur est joignable",
+      "on": "Toujours",
+      "off": "Jamais"
+    },
+    "relayRate": {
+      "title": "Débit par circuit",
+      "desc": "La limite de chaque connexion relayée par ce serveur. 0 signifie sans limite."
+    }
+  },
+  "share": {
+    "title": "Partager cette instance d'ici",
+    "body": "Laissez votre ordinateur portable utiliser les modèles de ce serveur et ajoutez des nœuds P2P. Chaque appareil qui s'appaire reçoit sa propre clé d'API, donc le partage nécessite l'authentification activée.",
+    "authOn": "L'authentification est activée. Le changement ajoute Appareils et invitations, Partager cette instance et Relais. Vos instances distantes restent connectées.",
+    "turnOnAuth": "Activer l'authentification",
+    "switch": "Passer à Connexion et partage"
+  },
+  "relays": {
+    "title": "Relais",
+    "run": "Lancer un relais…",
+    "lede": "LocalAI n'exploite aucun relais public. Les relais libp2p publics coordonnent le hole punching et transportent l'appairage et les petites requêtes ; ils réinitialisent une connexion après environ 128 KiB. Certaines paires de réseaux ne peuvent pas se connecter directement, alors lancez votre propre relais. Un relais restreint n'admet que les pairs que ce serveur a appairés. Un relais ouvert peut être utilisé dans les invitations, avec un avertissement.",
+    "loadError": "Impossible de charger les relais",
+    "col": {
+      "relay": "Relais",
+      "health": "État",
+      "invites": "Invitations",
+      "limits": "Limites",
+      "actions": "Actions"
+    },
+    "thisServer": "Ce serveur",
+    "self": {
+      "running": "En relais",
+      "reason": {
+        "off": "Désactivé",
+        "not_share": "Désactivé : ne partage pas",
+        "not_public": "En attente : non joignable depuis internet"
+      },
+      "pairedOnly": "Appareils appairés uniquement",
+      "limits": "Définies sous Réseau"
+    },
+    "yourRelay": "Votre relais",
+    "admins_one": "{{count}} administrateur",
+    "admins_other": "{{count}} administrateurs",
+    "state": {
+      "in_sync": "Restreint, synchronisé",
+      "out_of_sync": "Restreint, désynchronisé",
+      "open": "Ouvert : tout le monde peut l'utiliser",
+      "unclaimed": "Pas encore réclamé",
+      "not_admin": "Ce serveur n'est pas administrateur",
+      "denied": "Refuse ce serveur",
+      "unreachable": "Injoignable",
+      "checking": "Vérification"
+    },
+    "latency": "Aller-retour {{ms}} ms",
+    "checked": {
+      "now": "Vérifié à l'instant",
+      "minutes_one": "Vérifié il y a {{count}} min",
+      "minutes_other": "Vérifié il y a {{count}} min",
+      "hours_one": "Vérifié il y a {{count}} h",
+      "hours_other": "Vérifié il y a {{count}} h",
+      "days_one": "Vérifié il y a {{count}} jour",
+      "days_other": "Vérifié il y a {{count}} jours"
+    },
+    "pass": {
+      "pass": "Laissez-passer du relais",
+      "open": "Avec un avertissement",
+      "none": "Non utilisé"
+    },
+    "members_one": "{{count}} pair autorisé",
+    "members_other": "{{count}} pairs autorisés",
+    "noLimit": "Sans limite",
+    "perCircuit": "{{limits}} par circuit",
+    "sync": "Synchroniser maintenant",
+    "synced": "Le relais a la liste à jour des appareils appairés.",
+    "claim": "Réclamer",
+    "limitsOf": "Limites de {{name}}",
+    "checkOf": "Vérifier {{name}} à nouveau",
+    "removeOf": "Retirer {{name}}",
+    "empty": {
+      "title": "Pas encore de relais à vous",
+      "body": "Les appareils derrière des routeurs stricts ne peuvent pas se connecter directement. Un petit relais sur une machine avec une adresse publique leur permet d'entrer."
+    },
+    "outOfSync": {
+      "title": "{{name}} est désynchronisé.",
+      "body_one": "Il peut encore admettre un appareil que vous avez révoqué. Synchroniser maintenant envoie la liste à jour de {{count}} appareil appairé.",
+      "body_other": "Il peut encore admettre un appareil que vous avez révoqué. Synchroniser maintenant envoie la liste à jour de {{count}} appareils appairés."
+    },
+    "claimTitle": "Réclamer ce relais",
+    "claimLede": "Le relais n'a pas encore d'administrateur. Il a affiché un code de réclamation à usage unique au démarrage.",
+    "claimed": "Ce serveur est maintenant l'administrateur du relais.",
+    "removeTitle": "Retirer ce relais ?",
+    "removeBody": "{{name}} n'est plus utilisé dans les nouvelles invitations. Le relais continue de tourner ; arrêtez-le sur sa machine.",
+    "remove": "Retirer",
+    "removed": "Relais retiré."
+  },
+  "run": {
+    "title": "Lancer un relais",
+    "lede": "Pour les pairs qui ne peuvent pas se connecter directement. Il n'admet que les pairs que ce serveur a appairés.",
+    "step1": "1. Lancez-le sur une machine avec une adresse publique",
+    "dockerLabel": "Lancer le relais avec Docker",
+    "orBinary": "Ou avec le binaire :",
+    "binaryLabel": "Lancer le relais avec le binaire local-ai",
+    "explain": "Ouvrez le port 4001 en UDP et TCP. Le volume conserve la clé du relais, donc son peer ID survit aux redémarrages. <b>--admin</b> désigne ce serveur : le relais n'admet que les pairs que ce serveur a appairés, et ce serveur met à jour cette liste quand vous appairez ou révoquez un appareil. Deux serveurs peuvent partager un relais : ajoutez un <b>--admin</b> pour chacun. Le relais est une petite image séparée, <b>localai/relay</b>. Limites par circuit : <b>--circuit-max-bytes</b>, <b>--circuit-max-duration</b>, <b>--rate-limit</b>, <b>--max-circuits-per-peer</b>. Avec <b>--open</b>, tout le monde peut l'utiliser, et il démarre à 64 KiB/s par circuit.",
+    "step2": "2. Collez l'adresse du relais",
+    "addrHint": "Le relais affiche son adresse au démarrage.",
+    "addrInvalid": "Collez l'adresse complète. Elle commence par / et se termine par /p2p/ et le peer ID du relais.",
+    "check": "Vérifier la joignabilité",
+    "claimLabel": "Code de réclamation",
+    "claim": "Réclamer",
+    "claimFailed": "Le relais a refusé le code de réclamation : {{error}}",
+    "add": "Ajouter le relais",
+    "added": "Relais ajouté. Les nouvelles invitations le mentionnent.",
+    "ready": "Prêt à ajouter.",
+    "nothingSaved": "Rien n'est enregistré tant que vous n'ajoutez pas le relais.",
+    "steps": {
+      "reserve": {
+        "waiting": "Réserver un emplacement sur le relais",
+        "ok": "Emplacement réservé sur le relais",
+        "failed": "Réserver un emplacement : pas de réponse",
+        "skipped": "Réserver un emplacement"
+      },
+      "circuit": {
+        "waiting": "Test de circuit",
+        "ok": "Test de circuit : les données ont traversé le relais",
+        "failed": "Échec du test de circuit",
+        "skipped": "Test de circuit : ignoré, ce serveur n'est pas administrateur"
+      },
+      "allowlist": {
+        "waiting": "Envoyer la liste d'autorisation",
+        "ok": "Liste d'autorisation envoyée. Ce serveur est administrateur.",
+        "failed": "Liste d'autorisation non envoyée",
+        "skipped": "Liste d'autorisation : inutile pour un relais ouvert"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "Le relais fonctionne et il est restreint.",
+        "body": "Il entre dans chaque nouvelle invitation comme indication de relais, avec un laissez-passer du relais."
+      },
+      "open": {
+        "title": "Le relais fonctionne, mais il est ouvert.",
+        "body": "Tout le monde peut l'utiliser. Les invitations ne le mentionnent qu'avec un avertissement. Lancez-le avec --admin pour le restreindre."
+      },
+      "wrong_peer": {
+        "title": "Peer ID incorrect.",
+        "body": "Le relais a répondu en tant que {{actual}}, mais l'adresse indique {{expected}}. Copiez à nouveau l'adresse depuis le journal du relais. Si le relais a redémarré sans son volume de clé, il a créé un nouvel ID."
+      },
+      "unreachable": {
+        "title": "Impossible de joindre le relais.",
+        "body": "Vérifiez qu'il tourne et que le port 4001 UDP et TCP est ouvert sur sa machine et son routeur. Puis vérifiez à nouveau."
+      },
+      "circuit": {
+        "title": "Le relais répond, mais aucune donnée ne l'a traversé.",
+        "body": "Ses limites sont peut-être trop basses, ou il est surchargé. Consultez son journal, puis vérifiez à nouveau."
+      },
+      "unclaimed": {
+        "title": "Le relais n'a pas encore d'administrateur.",
+        "body": "Saisissez le code de réclamation qu'il a affiché au démarrage, ou relancez-le avec --admin et le peer ID de ce serveur."
+      },
+      "not_admin": {
+        "title": "Ce serveur n'est pas administrateur du relais.",
+        "body": "Lancez le relais avec --admin et le peer ID de ce serveur, comme à l'étape 1. Puis vérifiez à nouveau."
+      }
+    }
+  },
+  "limits": {
+    "title": "Limites de {{name}}",
+    "ledeOpen": "Relais ouvert : tout le monde peut l'utiliser.",
+    "ledeGated": "Relais restreint : seuls les pairs appairés l'utilisent.",
+    "reset": "Rétablir les valeurs par défaut",
+    "noLimitTitle": "Sans limite.",
+    "noLimitOpen": "Un inconnu peut utiliser toute la bande passante et toutes les données de ce relais, et vos propres pairs ralentissent.",
+    "noLimitGated": "Un pair appairé peut utiliser toute la bande passante de ce relais, par exemple pour copier un modèle.",
+    "mode": "Mode",
+    "limited": "Limité",
+    "none": "Sans limite",
+    "fields": {
+      "dataGiB": "Données par circuit",
+      "minutes": "Durée par circuit",
+      "kibps": "Débit par circuit"
+    },
+    "zeroHint": "0 signifie sans limite pour cette valeur.",
+    "invalid": "Chaque valeur doit être un nombre supérieur ou égal à 0.",
+    "applyHint": "Une nouvelle limite de bande passante s'applique au prochain circuit. Une nouvelle limite de données ou de durée redémarre le service de circuits du relais : les circuits ouverts gardent les anciennes limites jusqu'à leur fermeture, et les appareils appairés se reconnectent via le relais en quelques instants.",
+    "save": "Enregistrer les limites",
+    "saved": "Limites enregistrées sur {{name}}.",
+    "savedRestarted": "Limites enregistrées sur {{name}}. Le relais a redémarré son service de circuits ; les appareils se reconnectent dans un instant.",
+    "loadError": "Impossible de lire les limites du relais.",
+    "readOnlyTitle": "Ce serveur ne peut pas modifier ces limites.",
+    "readOnlyOpen": "Ce relais est ouvert et ce serveur n'en est pas l'administrateur. Définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit.",
+    "readOnlyMember": "Ce serveur n'est pas administrateur de ce relais. Demandez à son administrateur, ou définissez les limites là où le relais s'exécute, avec --circuit-max-bytes, --circuit-max-duration et --rate-limit.",
+    "max": "Maximum : {{value}}",
+    "noMax": "Pas de maximum",
+    "ceilingTitle": "L'opérateur du relais a fixé des maximums.",
+    "ceilingBody": "L'opérateur de ce relais a fixé une borne supérieure pour chaque limite avec ses options de démarrage. Vous pouvez modifier une limite jusqu'à son maximum, pas au-delà, et vous ne pouvez pas supprimer une limite qui a un maximum.",
+    "issue": {
+      "above": "Au-dessus du maximum de {{max}}.",
+      "required": "Saisissez une valeur jusqu'à {{max}} : une limite avec maximum ne peut pas être supprimée."
+    },
+    "refusedTitle": "Le relais a refusé la modification."
+  },
+  "identity": {
+    "title": "Identité",
+    "lede": "Les clients épinglent ce peer ID quand ils utilisent une invitation. Vos relais le désignent comme leur administrateur. Il reste le même après les redémarrages.",
+    "notRunning": "P2P n'est pas en cours d'exécution, donc ce serveur n'a pas de peer ID à afficher.",
+    "copied": "Peer ID copié.",
+    "copyFailed": "Impossible de copier le peer ID.",
+    "regenerateTitle": "Régénérer le peer ID",
+    "regenerateDesc": "Crée une nouvelle clé d'identité. L'ancienne clé est conservée en sauvegarde à côté de la nouvelle. Ne le faites que si la clé d'identité a fuité.",
+    "regenerateButton": "Régénérer…",
+    "regenerate": "Régénérer",
+    "regenerated": "Nouveau peer ID créé. Envoyez une nouvelle invitation à chaque appareil et instance distante.",
+    "confirmTitle": "Régénérer le peer ID ?",
+    "confirmBody": "Chaque appareil appairé, instance distante et worker P2P a épinglé l'ID actuel. Ils cessent de se connecter et refusent le nouvel ID comme un avertissement de sécurité. Vous devez envoyer à chacun une nouvelle invitation. Les invitations en attente cessent de fonctionner.",
+    "confirmOnly": "Ne le faites que si la clé d'identité a fuité.",
+    "confirmCheck_one": "Je comprends que {{count}} appareil appairé doit s'appairer à nouveau",
+    "confirmCheck_other": "Je comprends que {{count}} appareils appairés doivent s'appairer à nouveau"
+  }
+}

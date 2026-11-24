@@ -1,0 +1,415 @@
+{
+  "lifecycle": {
+    "update": {"update": "Update verfügbar", "edited": "Update verfügbar, braucht Ihre Wahl", "updating": "Upgrade läuft", "failed": "Upgrade fehlgeschlagen", "held": "Auf dieser Version gehalten"},
+    "supporting": "Finde ein Modell, das auf diesen Rechner passt, installiere es und pflege die vorhandenen.",
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "Neu laden", "reloading": "Wird neu geladen…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "neu laden" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "reloaded": "Modellkonfigurationen neu geladen"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
+  "subtitle": "Durchsuchen und installieren Sie KI-Modelle aus der Galerie",
+  "recommended": {
+    "title": "Empfohlen für Ihre Hardware",
+    "cpuNote": "Keine GPU erkannt - kleine Modelle, die auf der CPU reaktionsschnell bleiben.",
+    "gpuNote": "Passend zum verfügbaren VRAM, mit Spielraum für den Kontext.",
+    "install": "Installieren",
+    "installing": "Installation läuft",
+    "installStarted": "{{model}} wird installiert…",
+    "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "window": "{{window}} Kontext",
+    "memory": "ca. {{memory}} Speicher",
+    "dismiss": "Empfehlungen ausblenden",
+    "summary": "{{n}} Modelle vorgeschlagen",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
+  },
+  "stats": {
+    "available": "Verfügbar",
+    "installed": "Installiert"
+  },
+  "actions": {
+    "addModel": "Modell hinzufügen",
+    "importModel": "Modell importieren",
+    "install": "Installieren",
+    "reinstall": "Neu installieren",
+    "delete": "Löschen"
+  },
+  "filters": {
+    "sheetDone": "Modelle anzeigen",
+    "sheetTitle": "Filter",
+    "sheetButtonCount": "Filter ({{count}})",
+    "sheetButton": "Filter",
+    "all": "Alle",
+    "llm": "LLM",
+    "image": "Bild",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarisierung",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "fitsGpu": "Passt in die GPU",
+    "collapseVariants": "Eine Zeile pro Modell",
+    "allBackends": "Alle Backends",
+    "searchBackends": "Backends suchen...",
+    "contextSize": "Kontext:",
+    "useCaseLabel": "Nach Anwendungsfall filtern",
+    "unavailableForBackend": "Für das gewählte Backend nicht verfügbar",
+    "someSelected": "{{count}} ausgewählt",
+    "refineLabel": "Verfeinern"
+  },
+  "search": {
+    "placeholder": "Modelle suchen...",
+    "clearFilters": "Filter zurücksetzen"
+  },
+  "table": {
+    "modelName": "Modellname",
+    "description": "Beschreibung",
+    "backend": "Backend",
+    "sizeVram": "Größe / VRAM",
+    "status": "Status",
+    "actions": "Aktionen",
+    "size": "Größe: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Passt",
+    "mayNotFit": "Passt möglicherweise nicht",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Installation",
+    "installingPct": "Installation · {{percent}}%",
+    "installed": "Installiert",
+    "notInstalled": "Nicht installiert"
+  },
+  "detail": {
+    "description": "Beschreibung",
+    "gallery": "Galerie",
+    "backend": "Backend",
+    "size": "Größe",
+    "vram": "VRAM",
+    "license": "Lizenz",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Warnung",
+    "files": "Dateien",
+    "fitsGpu": "Passt in die GPU",
+    "mayNotFitGpu": "Passt möglicherweise nicht in die GPU",
+    "requiresTrustRemoteCode": "Erfordert Trust Remote Code",
+    "fileCount_one": "{{count}} Datei",
+    "fileCount_other": "{{count}} Dateien",
+    "filename": "Dateiname",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Alle Modelle",
+    "vramAt": "VRAM bei {{context}}",
+    "headroom": "Spielraum",
+    "headroomOn": "Spielraum auf {{node}}"
+  },
+  "empty": {
+    "title": "Keine Modelle gefunden",
+    "withFilters": "Keine Modelle entsprechen den aktuellen Such- oder Filterkriterien.",
+    "collapsedVariantsHint": "Alternative Builds, die ein anderer Eintrag bereits anbietet, sind ausgeblendet. Schalte \"Eine Zeile pro Modell\" aus, um sie einzubeziehen.",
+    "noFilters": "Die Modellgalerie ist leer."
+  },
+  "deleteDialog": {
+    "title": "Modell löschen",
+    "message": "Modell {{model}} löschen?",
+    "confirm": "{{model}} löschen",
+    "deletingToast": "{{model}} wird gelöscht..."
+  },
+  "errors": {
+    "loadFailed": "Laden der Modelle fehlgeschlagen: {{message}}",
+    "installFailed": "Installation fehlgeschlagen: {{message}}",
+    "deleteFailed": "Löschen fehlgeschlagen: {{message}}"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "Gewichtsformat",
+    "unknownQuantization": "Format unbekannt",
+    "showDetails": "Alle Details zu {{variant}} anzeigen",
+    "hideDetails": "Alle Details zu {{variant}} ausblenden",
+    "detailsLoading": "Details werden geladen...",
+    "detailsUnavailable": "Details zu {{variant}} konnten nicht geladen werden.",
+    "features": {
+      "dflash": "Schneller: DFlash",
+      "mtp": "Schneller: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Modelle sortieren",
+    "downloadingPct": "Download {{percent}}%",
+    "tooLarge": "{{size}} · zu groß",
+    "fitsSize": "{{size}} · passt",
+    "previousPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
+    "showingCount": "{{shown}} von {{total}}",
+    "sizing": "wird berechnet…"
+  },
+  "groups": {
+    "text": "Text und Reasoning",
+    "vision": "Bildverstehen",
+    "audio": "Sprache und Audio",
+    "visual": "Bild und Video",
+    "other": "Alles Übrige"
+  },
+  "chart": {
+    "title": "VRAM nach Kontextlänge",
+    "available": "{{vram}} verfügbar",
+    "barTitle": "Kontext {{context}} benötigt {{vram}}",
+    "fitsEverywhere": "Läuft auf diesem Host bei jeder Kontextlänge.",
+    "fitsNowhere": "Passt auf diesem Host bei keiner Kontextlänge.",
+    "fitsUpTo": "Passt bis zu einem Kontext von {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Dein Host",
+    "heroWithGpu": "{{vram}} GPU-Speicher, {{count}} Modelle in der Galerie.",
+    "heroNoGpu": "{{count}} Modelle in der Galerie.",
+    "heroHint": "Wähle links ein Modell, um Größe, Varianten und Lauffähigkeit zu sehen.",
+    "browsing": "Durchsuchen",
+    "pickHint": "Wähle ein Modell, um die Details zu sehen.",
+    "heroWithRam": "{{ram}} Systemspeicher, {{count}} Modelle in der Galerie.",
+    "heroWithCluster": "{{vram}} auf {{node}}, dem größten von {{nodes}} Knoten, {{count}} Modelle in der Galerie.",
+    "heroWithNode": "{{vram}} auf {{node}}, {{count}} Modelle in der Galerie.",
+    "byUseCase": "Oder mit einem Anwendungsfall starten",
+    "pickText": "Chat, Reasoning, Embeddings",
+    "pickVision": "Bilder und Dokumente lesen",
+    "pickAudio": "Sprache rein, Sprache raus",
+    "pickVisual": "Bilder und Video erzeugen"
+  },
+  "failover": {
+    "title": "Failover-Kette",
+    "servedBy": "Bedient von",
+    "changed": "geändert {{time}}",
+    "pinnedTo": "Fixiert auf {{target}}",
+    "warm": "Vorgeladen",
+    "never": "Nie",
+    "states": {
+      "primary": "Primär",
+      "fallback": "Fallback",
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "down": "Ausgefallen",
+      "recovering": "Erholt sich",
+      "missing": "Fehlt"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "remote": "Remote"
+    },
+    "columns": {
+      "target": "Ziel",
+      "kind": "Art",
+      "warm": "Vorgeladen",
+      "health": "Zustand",
+      "lastProbe": "Letzte Prüfung",
+      "lastError": "Letzter Fehler",
+      "actions": "Aktionen"
+    },
+    "actions": {
+      "pin": "Fixieren",
+      "pinning": "Wird fixiert…",
+      "unpin": "Lösen",
+      "unpinning": "Wird gelöst…"
+    },
+    "confirm": {
+      "pinTitle": "{{target}} fixieren?",
+      "pinMessage": "Nur {{target}} bedient {{chain}}, bis Sie die Fixierung lösen. Das automatische Failover ist für diese Kette angehalten.",
+      "unpinTitle": "{{chain}} lösen?",
+      "unpinMessage": "{{chain}} kehrt zum automatischen Failover zurück."
+    },
+    "errors": {
+      "pin": "Fixieren fehlgeschlagen: {{error}}",
+      "unpin": "Lösen fehlgeschlagen: {{error}}"
+    },
+    "overview": {
+      "title": "Failover-Ketten",
+      "subtitle": "Live-Zustand und aktives Ziel für jede Failover-Kette.",
+      "columns": {
+        "chain": "Kette",
+        "state": "Status",
+        "active": "Aktives Ziel",
+        "targets": "Ziele",
+        "changed": "Geändert"
+      },
+      "empty": {
+        "title": "Noch keine Failover-Ketten",
+        "text": "Fügen Sie eine Failover-Kette hinzu, um fehlerhafte Ziele automatisch zu umgehen.",
+        "cta": "Failover-Kette erstellen"
+      }
+    }
+  },
+  "placement": {
+    "moe": {
+      "title": "Experts (MoE)",
+      "keepOn": "Keep experts on",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Some layers on CPU",
+        "all": "All on CPU"
+      },
+      "autoHint": "Auto-fit may move experts to system memory by itself. An explicit choice here overrides it.",
+      "layers": "Layers with experts on the CPU",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} of {{total}}",
+      "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number of layers.",
+      "cache": "Expert cache",
+      "cacheOff": "Off",
+      "cacheMib": "Expert cache in MiB",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "A cache on the GPU for experts held in system memory. It takes GPU memory. A cache that is too small thrashes. Experimental.",
+      "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
+      "estimateNote": "The estimate does not include expert placement."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "originGallery": "Galerie",
+    "originOnline": "Online",
+    "sourcesButton": "Quellen",
+    "sourcesTitle": "Suchquellen",
+    "sourcesClose": "Schließen",
+    "sourcesHelp": "Wähle, welche Quellen die Modellsuche abfragt. Hugging Face ist eingebaut. Weitere Quellen kommen von Add-ons.",
+    "sourcesError": "Die Auswahl konnte nicht gespeichert werden. Versuche es erneut.",
+    "sourceBuiltin": "Eingebaut",
+    "sourceAddon": "Von einem Add-on",
+    "sourceNotInstalled": "Add-on nicht installiert",
+    "missingHint": "{{sources}} ist eingeschaltet, aber das Add-on ist nicht installiert.",
+    "missingInstall": "Add-on installieren",
+    "noSources": "Keine Quelle ist eingeschaltet, daher wird nichts durchsucht.",
+    "dropped_one": "{{count}} Ergebnis übersprungen",
+    "dropped_other": "{{count}} Ergebnisse übersprungen",
+    "heading": "Von {{source}}",
+    "latestHeading": "Neueste auf {{source}}",
+    "placeholder": "{{source}} durchsuchen",
+    "resultCount_one": "{{count}} Ergebnis",
+    "resultCount_other": "{{count}} Ergebnisse",
+    "downloads": "Downloads",
+    "seeds_one": "{{count}} Seed",
+    "seeds_other": "{{count}} Seeds",
+    "gated": "Gesperrt",
+    "ggufOnly": "Nur GGUF",
+    "hint": {
+      "title": "{{source}} durchsuchen",
+      "text": "Gib im Suchfeld einen Modellnamen ein. Die Ergebnisse kommen live von der Quelle, nicht aus deinen Bibliotheken."
+    },
+    "failed": {
+      "title": "{{source}} hat nicht geantwortet",
+      "text": "Die Suche ist fehlgeschlagen. Versuche es gleich noch einmal.",
+      "stale": "Das sind die letzten Ergebnisse. {{message}}"
+    },
+    "none": {
+      "title": "Auf {{source}} nichts gefunden",
+      "text": "Versuche einen anderen Namen.",
+      "gguf": "Im GGUF-Format wurde nichts gefunden. Schalte „Nur GGUF“ aus, um die Suche zu erweitern.",
+      "fits": "Alle Ergebnisse sind zu groß für diesen Rechner. Schalte den Filter „Passt“ aus, um sie zu sehen."
+    },
+    "loadMore": "Mehr laden",
+    "noLatest": "{{source}} listet keine neuesten Modelle auf. Suche nach einem Namen, um die Modelle zu sehen.",
+    "chooseBuild": "Variante {{variant}} wählen",
+    "recommended": "Empfohlen",
+    "fits": "Passt",
+    "spill": "Läuft teils auf der CPU",
+    "over": "Zu groß",
+    "installed": "{{model}} ist installiert.",
+    "ambiguous": "Mehrere Backends könnten dieses Modell ausführen. Wähle über „Modell importieren“ eines aus.",
+    "gatedTitle": "Der Zugriff ist beschränkt.",
+    "gatedBody": "Dieses Repository braucht eine Freigabe auf Hugging Face, daher kann LocalAI es von hier aus nicht installieren.",
+    "gatedP2p": "Dieses Modell ist auf Hugging Face gesperrt. Der Torrent braucht kein Token, aber die Lizenzbedingungen des Modells gelten weiterhin.",
+    "gatedHfInstall": "Auf Hugging Face gesperrt: Es braucht eine Freigabe und kann von hier aus nicht installiert werden.",
+    "sizesUnknown": "Keine Dateigrößen gefunden. Hugging Face führt dieses Repository nicht, daher lässt sich die Passung nicht schätzen.",
+    "importError": "Kein Backend passt zu diesen Dateien.",
+    "importErrorBody": "Die Installation kann trotzdem fehlschlagen. Wähle über „Modell importieren“ ein Backend.",
+    "approximate": "Ungefähre Passung. Der Modell-Header konnte nicht gelesen werden, daher ist der Speicher die Dateigröße plus ein Richtwert für den Kontext.",
+    "noEstimate": "Es ist keine Größe bekannt, daher gibt es für dieses Modell keine Schätzung.",
+    "files": {
+      "failed": {
+        "title": "Dateiliste konnte nicht gelesen werden",
+        "body": "Die Quelle hat nicht geantwortet. Versuche es erneut."
+      },
+      "rateLimited": {
+        "title": "Die Quelle bittet, langsamer zu machen",
+        "body": "Zu viele Anfragen. Warte eine Minute und versuche es erneut."
+      },
+      "notFound": {
+        "title": "Repository nicht gefunden",
+        "body": "Es ist privat, entfernt oder auf dieser Quelle nicht gelistet."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Gegenstellen",
+    "filter": "Remote",
+    "unavailable": "Beim Anbieter nicht verfügbar",
+    "rowMark": "Remote-Modell",
+    "sizeRemote": "Remote",
+    "connectButton": "Gegenstelle verbinden",
+    "sheetTitle": "Gegenstelle verbinden",
+    "sheetDescription": "Fügen Sie Modelle hinzu, die auf einem anderen Server oder Dienst laufen.",
+    "toastDone": "{{name}} verbunden. {{count}} Modell hinzugefügt.",
+    "toastDone_other": "{{name}} verbunden. {{count}} Modelle hinzugefügt.",
+    "toastSkipped": "{{count}} Modell wurde nicht hinzugefügt.",
+    "toastSkipped_other": "{{count}} Modelle wurden nicht hinzugefügt."
+  }
+}
