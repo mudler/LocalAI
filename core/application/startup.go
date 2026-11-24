@@ -894,6 +894,10 @@ func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationCon
 				_ = a.studioFilesIndex.Close()
 				a.studioFilesIndex = nil
 			}
+			// The upgrade runs keep a SQLite file of their own under the data
+			// path, opened before the later steps that can still fail. Left
+			// open, Windows cannot remove it.
+			a.stopUpgradeRuns()
 		}
 	}
 	ctx, cancel := context.WithCancel(ctx)
