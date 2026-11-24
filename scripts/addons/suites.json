@@ -2396,7 +2396,10 @@
           "refuses the cookie without the confirm header",
           "refuses the cookie on a tool call",
           "refuses a cookie that is not a configured key",
-          "refuses the cookie in named-user mode"
+          "refuses the cookie in named-user mode",
+          "answers 202 with the run and no job, and the run later runs the caller's recorded operation",
+          "is the one another frontend runs when it takes the run over",
+          "is dropped on the owner when the item ends without starting it, so the add-on is free again"
         ]
       },
       {

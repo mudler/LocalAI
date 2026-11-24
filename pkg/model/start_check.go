@@ -39,11 +39,14 @@ type StartCheckError struct {
 	Output string
 }
 
+// Error is safe to show and to store: the text reaches the operation status,
+// /api/operations, the run and the inbox, so paths are cut to their file name
+// and what looks like a credential is removed.
 func (e *StartCheckError) Error() string {
 	if e.Output == "" {
-		return e.Reason
+		return sanitize.Text(e.Reason, 0)
 	}
-	return e.Reason + ": " + e.Output
+	return sanitize.Text(e.Reason+": "+e.Output, 0)
 }
 
 // CheckBackendStart starts the backend at runFile the way a model load starts
@@ -74,6 +77,9 @@ func (ml *ModelLoader) CheckBackendStart(ctx context.Context, id, runFile string
 		}
 		return &StartCheckError{Reason: fmt.Sprintf("the backend process could not be started: %v", err)}
 	}
+	// A start check is not a loaded backend: the watchdog must not count it
+	// for the LRU limit or pick it for an eviction.
+	ml.untrackProcess(proc)
 	defer ml.stopStartCheck(proc, id)
 
 	return waitBackendHealthy(ctx, proc, grpc.NewClient(address, false, nil, false), timeout)
@@ -156,8 +162,9 @@ func startCheckOutput(proc *process.Process) string {
 }
 
 // tailOfFile reads at most maxBytes from the end of path, drops control
-// characters (newlines become "; " so the text stays on one line) and trims
-// it. A file that cannot be read gives "".
+// characters (newlines become "; " so the text stays on one line), cuts paths
+// to their file name, removes what looks like a credential and trims it. A
+// file that cannot be read gives "".
 func tailOfFile(path string, maxBytes int64) string {
 	// #nosec G304 -- path is the output file of a process this package started.
 	f, err := os.Open(path)
@@ -177,5 +184,5 @@ func tailOfFile(path string, maxBytes int64) string {
 	if err != nil && !errors.Is(err, io.EOF) {
 		return ""
 	}
-	return sanitize.JoinLines(string(raw))
+	return sanitize.Text(sanitize.JoinLines(string(raw)), 0)
 }

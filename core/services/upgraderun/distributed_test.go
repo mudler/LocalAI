@@ -88,6 +88,61 @@ func twoFrontends(open func() *gorm.DB) {
 	})
 }
 
+// A frontend that loses a run while its operation goes on.
+func liveHandover(open func() *gorm.DB) {
+	It("follows an operation that is still live when it takes the run over, and never fails it as interrupted", func() {
+		db := open()
+		bus := testutil.NewFakeBus()
+		jobs := newFakeJobs()
+		a := newHarness(harnessOpts{db: db, bus: bus, jobs: jobs, instance: "frontend-a"})
+		b := newHarness(harnessOpts{db: db, bus: bus, jobs: jobs, instance: "frontend-b",
+			starter: a.starter, backends: a.backends, models: a.models, addons: a.addons})
+		a.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+		r := a.start(si(KindGallery, "kokoro"))
+		kokoro := a.jobOf("gallery:kokoro")
+		jobs.set(kokoro, galleryop.OpStatus{Phase: "fetching", Progress: 40, Cancellable: true})
+		Eventually(func() int { return a.item(r.ID, "gallery:kokoro").Progress }).Should(Equal(40))
+
+		// A stops running the run; the operation goes on (a lost lock, not
+		// a dead process).
+		a.svc.Close()
+		b.svc.Sweep(context.Background())
+		Eventually(b.svc.Local).Should(ConsistOf(r.ID))
+		Consistently(func() Phase { return b.phase(r.ID, "gallery:kokoro") }, 200*time.Millisecond).Should(Equal(PhaseRunning))
+		Expect(b.item(r.ID, "gallery:kokoro").JobID).To(Equal(kokoro))
+
+		// The download ends later: B follows it to the end.
+		a.backends.remove("gallery:kokoro")
+		jobs.complete(kokoro)
+		Eventually(func() Phase { return b.phase(r.ID, "gallery:kokoro") }).Should(Equal(PhaseUpdated))
+		Expect(b.state(r.ID)).To(Equal(RunFinished))
+	})
+}
+
+var _ = Describe("A run taken over with a live operation", func() {
+	liveHandover(openSQLite)
+
+	It("checks an item whose operation shows no change after the takeover: its frontend is gone", func() {
+		db := openSQLite()
+		jobs := newFakeJobs()
+		a := newHarness(harnessOpts{db: db, jobs: jobs, instance: "frontend-a"})
+		b := newHarness(harnessOpts{db: db, jobs: jobs, instance: "frontend-b", recoveredIdle: 200 * time.Millisecond,
+			starter: a.starter, backends: a.backends, models: a.models, addons: a.addons})
+		a.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+		r := a.start(si(KindGallery, "kokoro"))
+		kokoro := a.jobOf("gallery:kokoro")
+		jobs.set(kokoro, galleryop.OpStatus{Phase: "fetching", Progress: 40})
+		Eventually(func() int { return a.item(r.ID, "gallery:kokoro").Progress }).Should(Equal(40))
+		// A dies; the status it last wrote stays on the others. The update
+		// had applied.
+		a.svc.Close()
+		a.backends.remove("gallery:kokoro")
+		b.svc.Sweep(context.Background())
+		Eventually(b.svc.Local).Should(ConsistOf(r.ID))
+		Eventually(func() Phase { return b.phase(r.ID, "gallery:kokoro") }, 5*time.Second).Should(Equal(PhaseUpdated))
+	})
+})
+
 var _ = Describe("Two frontends on SQLite", func() {
 	twoFrontends(openSQLite)
 })

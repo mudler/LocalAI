@@ -200,6 +200,19 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(end[0].Params).To(HaveKeyWithValue("first_key", "start"))
 	})
 
+	It("puts the name of the first item in the body on one line, without escapes", func() {
+		build("admin")
+		odd := upgraderun.Item{Key: "addon:odd", Kind: upgraderun.KindAddon, Name: "odd", Title: "Odd\x1b[31m\nname\u202e",
+			From: "1", Phase: upgraderun.PhaseFailed, ErrorKey: "unknown"}
+		local(runOf("r10", upgraderun.SourceManual, upgraderun.RunFinished, odd))
+		_, end := rows("admin")
+		Expect(end).To(HaveLen(1))
+		Expect(end[0].Body).To(HavePrefix("Odd name"))
+		Expect(end[0].Body).NotTo(ContainSubstring("\x1b"))
+		Expect(end[0].Body).NotTo(ContainSubstring("\n"))
+		Expect(end[0].Body).NotTo(ContainSubstring("\u202e"))
+	})
+
 	It("names an add-on by its title and its version, never its id and digest", func() {
 		build("admin")
 		notes := upgraderun.Item{Key: "addon:notes", Kind: upgraderun.KindAddon, Name: "notes", Title: "Notes sync",

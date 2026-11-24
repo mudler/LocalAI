@@ -73,6 +73,10 @@ var ErrUpgradeRunNotFound = errors.New("upgrade run not found")
 // state of the run (a cancel of a finished run, a dismiss of a running one).
 var ErrUpgradeRunState = errors.New("the upgrade run is not in a state that allows this")
 
+// ErrUpgradeRunFenced is returned to a runner that saves a run another
+// frontend has taken over (Claim): the runner lost its lock and must stop.
+var ErrUpgradeRunFenced = errors.New("another frontend runs this upgrade run now")
+
 // UpgradeRunStore keeps the upgrade runs, on SQLite (standalone) or
 // PostgreSQL (distributed).
 type UpgradeRunStore struct {
@@ -117,6 +121,11 @@ var runnerItemColumns = []string{
 
 // Save writes what the runner owns: the state of the run and every column of
 // its items except the cancel flag another frontend may set meanwhile.
+//
+// Save is fenced by the runner: a run that another frontend claimed (Claim)
+// is not written, and the save answers ErrUpgradeRunFenced. A frontend that
+// lost its lock and did not notice yet cannot overwrite the run it lost. A
+// run with no runner recorded yet is written by anyone.
 func (s *UpgradeRunStore) Save(run *UpgradeRunRecord, items []UpgradeRunItemRecord) error {
 	now := time.Now()
 	run.UpdatedAt = now
@@ -124,14 +133,21 @@ func (s *UpgradeRunStore) Save(run *UpgradeRunRecord, items []UpgradeRunItemReco
 		items[i].RunID, items[i].Position, items[i].UpdatedAt = run.ID, i, now
 	}
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		res := tx.Model(&UpgradeRunRecord{}).Where("id = ?", run.ID).Updates(map[string]any{
+		res := tx.Model(&UpgradeRunRecord{}).Where("id = ? AND (runner = ? OR runner = '' OR runner IS NULL)", run.ID, run.Runner).Updates(map[string]any{
 			"state": run.State, "finished_at": run.FinishedAt, "runner": run.Runner, "updated_at": now,
 		})
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected == 0 {
-			return ErrUpgradeRunNotFound
+			var n int64
+			if err := tx.Model(&UpgradeRunRecord{}).Where("id = ?", run.ID).Count(&n).Error; err != nil {
+				return err
+			}
+			if n == 0 {
+				return ErrUpgradeRunNotFound
+			}
+			return ErrUpgradeRunFenced
 		}
 		if len(items) == 0 {
 			return nil
@@ -141,6 +157,22 @@ func (s *UpgradeRunStore) Save(run *UpgradeRunRecord, items []UpgradeRunItemReco
 			DoUpdates: clause.AssignmentColumns(runnerItemColumns),
 		}).Create(&items).Error
 	})
+}
+
+// Claim records runner as the frontend that runs a running run, so the saves
+// of the frontend that ran it before are refused (see Save). Call it while
+// holding the lock of the run.
+func (s *UpgradeRunStore) Claim(id, runner string) error {
+	res := s.db.Model(&UpgradeRunRecord{}).Where("id = ? AND state = ?", id, "running").Updates(map[string]any{
+		"runner": runner, "updated_at": time.Now(),
+	})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return s.stateError(id)
+	}
+	return nil
 }
 
 // Get returns a run and its items in run order.

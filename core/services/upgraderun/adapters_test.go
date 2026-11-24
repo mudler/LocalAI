@@ -60,8 +60,8 @@ func (f *fakeModelEnqueuer) EnqueueModelUpgrade(name string, opts galleryop.Mode
 
 type fakeAddonUpgrader struct{ args []string }
 
-func (f *fakeAddonUpgrader) StartAddonUpgrade(_ context.Context, actor, id, expected, candidate string) (string, error) {
-	f.args = []string{actor, id, expected, candidate}
+func (f *fakeAddonUpgrader) StartAddonUpgrade(_ context.Context, actor, id, expected, candidate, operationID string) (string, error) {
+	f.args = []string{actor, id, expected, candidate, operationID}
 	return "addon-job", nil
 }
 
@@ -86,6 +86,7 @@ type fakeStatusWriter struct {
 	mu       sync.Mutex
 	statuses map[string]galleryop.OpStatus
 	cancel   map[string]context.CancelFunc
+	gone     []string
 }
 
 func (f *fakeStatusWriter) UpdateStatus(id string, op *galleryop.OpStatus) {
@@ -98,6 +99,24 @@ func (f *fakeStatusWriter) StoreCancellation(id string, c context.CancelFunc) {
 	defer f.mu.Unlock()
 	f.cancel[id] = c
 }
+func (f *fakeStatusWriter) RemoveCancellation(id string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.cancel, id)
+	f.gone = append(f.gone, id)
+}
+
+func (f *fakeStatusWriter) removed(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, g := range f.gone {
+		if g == id {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *fakeStatusWriter) get(id string) galleryop.OpStatus {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -276,26 +295,47 @@ var _ = Describe("Starters", func() {
 		id, err := AddonStarter{Upgrader: u}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes", From: "sha256:old", ExpectedTo: "sha256:new"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal("addon-job"))
-		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new"}))
+		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new", ""}))
+		// The operation the upgrade route recorded travels with the item.
+		_, err = AddonStarter{Upgrader: u}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes", From: "sha256:old", ExpectedTo: "sha256:new",
+			Extra: map[string]string{ExtraOperationID: "op-1"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new", "op-1"}))
 		_, err = AddonStarter{}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes"})
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("installs a library backend with the status the install route writes", func() {
+	It("installs a library backend with the status the install route writes, under the shared guard", func() {
 		inst := &fakeInstaller{release: make(chan struct{})}
+		jobs := &backendlib.JobRunner{Install: inst.Install}
 		w := &fakeStatusWriter{statuses: map[string]galleryop.OpStatus{}, cancel: map[string]context.CancelFunc{}}
-		id, err := LibraryStarter{Installer: inst, Status: w}.Start(ctx, "admin", Item{Kind: KindLibrary, Name: "lib/whisper", ExpectedTo: "0.2"})
+		start := LibraryStarter{Jobs: jobs, Status: w}
+		id, err := start.Start(ctx, "admin", Item{Kind: KindLibrary, Name: "lib/whisper", ExpectedTo: "0.2"})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(func() float64 { return w.get(id).Progress }).Should(Equal(50.0))
 		Expect(w.get(id).Cancellable).To(BeTrue())
+		Expect(w.get(id).Upgrade).To(BeTrue())
+		Expect(w.get(id).Message).To(Equal(backendlib.StepMessage(backendlib.StepFetching)))
+		// An install of the same backend name from the library route, through
+		// the same runner, is refused while the run's install runs.
+		_, err = jobs.Start(ctx, w, backendlib.Job{SourceID: "other", Backend: "whisper", Version: "1"})
+		Expect(err).To(MatchError(backendlib.ErrInstalling))
 		close(inst.release)
 		Eventually(func() bool { return w.get(id).Processed }).Should(BeTrue())
 		Expect(w.get(id).Message).To(Equal(galleryop.MessageCompleted))
+		Eventually(func() bool { return w.removed(id) }).Should(BeTrue(), "the cancel of an ended job is dropped")
 
 		inst = &fakeInstaller{release: make(chan struct{})}
-		id, err = LibraryStarter{Installer: inst, Status: w}.Start(ctx, "admin", Item{Kind: KindLibrary, Name: "lib/whisper", ExpectedTo: "0.2"})
+		jobs.Install = inst.Install
+		id, err = start.Start(ctx, "admin", Item{Kind: KindLibrary, Name: "lib/whisper", ExpectedTo: "0.2"})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(func() float64 { return w.get(id).Progress }).Should(Equal(50.0))
+		// A second item of the same backend while the first runs is a
+		// retryable refusal.
+		_, err = start.Start(ctx, "admin", Item{Kind: KindLibrary, Name: "lib2/whisper", ExpectedTo: "0.3"})
+		var se *StartError
+		Expect(errors.As(err, &se)).To(BeTrue())
+		Expect(se.Retryable).To(BeTrue())
 		w.mu.Lock()
 		cancel := w.cancel[id]
 		w.mu.Unlock()

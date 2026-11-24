@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -91,7 +92,7 @@ func restoreBackup(backendPath, backupPath string) error {
 		if backErr := renameBackend(failedPath, backendPath); backErr != nil {
 			xlog.Error("Could not put the failed build back after a failed restore", "path", backendPath, "error", backErr)
 		}
-		return fmt.Errorf("restoring the previous build from %s: %w", backupPath, err)
+		return fmt.Errorf("restoring the previous build from %s: %w", filepath.Base(backupPath), err)
 	}
 	if err := os.RemoveAll(failedPath); err != nil {
 		xlog.Warn("Could not remove the failed build after the restore", "path", failedPath, "error", err)
@@ -116,17 +117,18 @@ func rollbackSwap(ctx context.Context, systemState *system.SystemState, modelLoa
 
 // rollbackError is the error of a step that failed after the swap. It carries
 // code, says whether the previous build is back, and keeps the cause. A
-// cancelled context keeps its own error (callers read it as a stop), but the
-// restore still runs before it is returned.
+// restore that failed wins over a cancel: the error carries ErrUpgradeRestore
+// with the cause still in the chain, so a caller that reads a cancel first
+// does not report the operation as cancelled. A cancel whose restore
+// succeeded keeps its own error (callers read it as a stop). The message
+// names the backend directory by its base name only.
 func rollbackError(ctx context.Context, code UpgradeFailureCode, cause, restoreErr error, backendPath string) error {
-	if ctx.Err() != nil && errors.Is(cause, ctx.Err()) {
-		if restoreErr != nil {
-			return errors.Join(cause, restoreErr)
-		}
-		return cause
-	}
 	if restoreErr != nil {
-		return &UpgradeError{Code: code, Err: fmt.Errorf("%w; the previous build of %s could not be restored: %v", cause, backendPath, restoreErr)}
+		restore := fmt.Errorf("%w (%s): %w", ErrUpgradeRestore, filepath.Base(backendPath), restoreErr)
+		return &UpgradeError{Code: code, Err: errors.Join(cause, restore)}
+	}
+	if ctx.Err() != nil && errors.Is(cause, ctx.Err()) {
+		return cause
 	}
 	return &UpgradeError{Code: code, RolledBack: true, Err: fmt.Errorf("%w; the previous build was restored", cause)}
 }

@@ -181,6 +181,16 @@ test.describe('Updates: the review', () => {
     expect(runs.starts).toHaveLength(0)
   })
 
+  test('a review that cannot load says so once', async ({ page }) => {
+    await fleet(page)
+    await mockUpdateRuns(page, { preview: items => plan(items) })
+    await page.route('**/api/updates/runs/preview', route => route.fulfill({ status: 409, json: { code: 'source_unchecked', message: 'the check did not answer' } }))
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await expect(page.getByTestId('update-review-error')).toBeVisible()
+    await expect(page.getByTestId('update-review-refused')).toHaveCount(0)
+  })
+
   test('a start the server refuses keeps the review open with its words', async ({ page }) => {
     await fleet(page)
     await mockUpdateRuns(page, { preview: items => plan(items), startReply: () => ({ status: 409, json: { code: 'stale', error: 'stale' } }) })
@@ -326,9 +336,9 @@ test.describe('Updates: the run', () => {
     await expect(page.getByTestId('updates-headline')).toHaveText(/updates available/)
   })
 
-  test('an unconfirmed item of an active run is its check, still in progress; in an ended run it asks for a new check', async ({ page }) => {
+  test('an unconfirmed item the server still checks is in progress; one no check could answer asks for a new check', async ({ page }) => {
     await fleet(page)
-    const checking = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'unconfirmed', { message: 'checking that the update applied' })], { state: 'running' })
+    const checking = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'unconfirmed', { verifying: true, progress: 100, message: 'checking that the update applied' })], { state: 'running' })
     const settled = runOf([runItem('gallery:kokoro', 'updated'), runItem('gallery:piper', 'unconfirmed', { retryable: true, message: 'no check could confirm the update' })], { finished_at: minutesAgo(0) })
     await mockUpdateRuns(page, { active: [checking], polls: [checking, checking, settled] })
     await page.goto('/app/updates')
@@ -340,6 +350,21 @@ test.describe('Updates: the run', () => {
     await expect(piper).toContainText('Could not confirm. Check again to see which version piper is on.')
     await expect(page.getByTestId('updates-breakdown')).toContainText('1 result is not confirmed yet')
     await expect(page.getByTestId('updates-headline')).toHaveText('1 updated, 1 needs attention')
+  })
+
+  test('an unconfirmed item no check could answer needs a look while the run still goes on', async ({ page }) => {
+    await fleet(page)
+    const run = runOf([
+      runItem('gallery:piper', 'unconfirmed', { retryable: true, message: 'no check could confirm the update' }),
+      runItem('gallery:kokoro', 'running', { progress: 40, message: 'Downloading 40%' }),
+    ], { state: 'running' })
+    await mockUpdateRuns(page, { active: [run], polls: [run] })
+    await page.goto('/app/updates')
+    const piper = runRow(page, 'gallery:piper')
+    await expect(piper.getByTestId('run-item-chip')).toHaveText('Not confirmed')
+    await expect(piper).toContainText('Could not confirm.')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('1 running')
+    await expect(page.getByTestId('updates-breakdown')).toContainText('1 needs attention')
   })
 
   test('a retry is a new run: the page follows it', async ({ page }) => {

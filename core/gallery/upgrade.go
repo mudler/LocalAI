@@ -351,9 +351,13 @@ func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelL
 	tmpPath := backendPath + ".upgrade-tmp"
 	backupPath := backendPath + ".backup"
 
-	// Clean up any stale tmp/backup dirs from prior attempts
-	os.RemoveAll(tmpPath)
-	os.RemoveAll(backupPath)
+	// Clean up a stale tmp dir from prior attempts. A stale backup can be
+	// the last build that worked (a failed restore keeps it), so it is moved
+	// aside, never deleted.
+	_ = os.RemoveAll(tmpPath)
+	if err := keepPreviousBuild(backupPath); err != nil {
+		return WithUpgradeCode(UpgradeFailureSwap, err)
+	}
 
 	// Step 1: Download the new backend into the tmp directory
 	if err := os.MkdirAll(tmpPath, 0750); err != nil {

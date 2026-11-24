@@ -175,6 +175,24 @@ var _ = Describe("Model update routes", func() {
 			Consistently(rec.done, 100*time.Millisecond).ShouldNot(Receive(), "the run's starter queued it, not the route")
 		})
 
+		It("answers 202 with the run, and no job, when the operation is not accepted within the wait", func() {
+			gate := make(chan struct{})
+			DeferCleanup(func() { close(gate) })
+			h.Starter.Block(gate)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			defer cancel()
+			req := httptest.NewRequest(http.MethodPost, "/api/models/upgrade/tiny", nil).WithContext(ctx)
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusAccepted), w.Body.String())
+			var body SingleUpgradePending
+			Expect(json.Unmarshal(w.Body.Bytes(), &body)).To(Succeed())
+			Expect(body.Code).To(Equal("pending"))
+			Expect(body.RunID).NotTo(BeEmpty())
+			Expect(w.Body.String()).NotTo(ContainSubstring("Upgrade started"))
+			Expect(w.Body.String()).NotTo(ContainSubstring(`"jobID"`))
+		})
+
 		It("answers 409 run_active while another run runs", func() {
 			Expect(do(http.MethodPost, "/api/models/upgrade/tiny", "").Code).To(Equal(http.StatusOK))
 			w := do(http.MethodPost, "/api/models/upgrade/tiny", "")

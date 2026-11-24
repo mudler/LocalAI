@@ -83,11 +83,36 @@ func upgradeRunStoreContract(open func() *gorm.DB) {
 		Expect(items[1].QueuedReason).To(Equal("backend_limit"))
 		Expect(items[1].CancelRequested).To(BeTrue())
 
-		Expect(s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "cancelled", FinishedAt: &now}, items)).To(Succeed())
+		Expect(s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "cancelled", FinishedAt: &now, Runner: "frontend-a"}, items)).To(Succeed())
 		run, _, err = s.Get("r1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(run.State).To(Equal("cancelled"))
 		Expect(run.FinishedAt).NotTo(BeNil())
+	})
+
+	It("refuses a save of a runner that another frontend took the run from", func() {
+		newRun("r1", time.Now())
+		items := []distributed.UpgradeRunItemRecord{
+			{Key: "gallery:b", Kind: "gallery", Name: "b", Phase: "running", JobID: "job-b"},
+			{Key: "gallery:a", Kind: "gallery", Name: "a", Phase: "queued"},
+		}
+		Expect(s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "running", Runner: "frontend-a"}, items)).To(Succeed())
+		// Frontend B takes the run over.
+		Expect(s.Claim("r1", "frontend-b")).To(Succeed())
+		// A, which lost its lock and did not notice yet, writes no more.
+		items[0].Phase = "failed"
+		err := s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "running", Runner: "frontend-a"}, items)
+		Expect(errors.Is(err, distributed.ErrUpgradeRunFenced)).To(BeTrue(), "%v", err)
+		run, got, err := s.Get("r1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(run.Runner).To(Equal("frontend-b"))
+		Expect(got[0].Phase).To(Equal("running"))
+		// B writes.
+		Expect(s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "running", Runner: "frontend-b"}, items)).To(Succeed())
+		// A claim of a run that is over changes nothing.
+		now := time.Now()
+		Expect(s.Save(&distributed.UpgradeRunRecord{ID: "r1", State: "finished", FinishedAt: &now, Runner: "frontend-b"}, items)).To(Succeed())
+		Expect(errors.Is(s.Claim("r1", "frontend-c"), distributed.ErrUpgradeRunState)).To(BeTrue())
 	})
 
 	It("refuses a save of an unknown run", func() {

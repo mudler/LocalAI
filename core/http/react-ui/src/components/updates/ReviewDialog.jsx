@@ -40,7 +40,9 @@ export default function ReviewDialog({ review, rowsByKey, busy, onToggle, onSele
   const count = startItems(review).length
   const starting = busy === 'start'
   const loading = review.status === 'loading'
-  const refused = review.error || review.code
+  // A review that did not load says why in its own callout; the refusal is
+  // the answer to a start.
+  const refused = review.status !== 'error' && (review.error || review.code)
     ? upgradeFailureWords(review.code || '', ta, review.error, 'run')
     : ''
   const refusal = refused && (

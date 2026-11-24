@@ -24,6 +24,7 @@ import (
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -549,11 +550,30 @@ func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.Ins
 func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error) {
 	var resp struct {
 		ID string `json:"uuid"`
+		singlePending
 	}
 	if err := c.do(ctx, http.MethodPost, routeBackendUpgrade(name), nil, &resp); err != nil {
 		return "", err
 	}
+	if err := resp.err("gallery:" + name); err != nil {
+		return "", err
+	}
 	return resp.ID, nil
+}
+
+// singlePending reads the 202 answer of a single upgrade that an upgrade run
+// did not start in time (code pending): there is no job to report, only the
+// run that starts it later.
+type singlePending struct {
+	Code  string `json:"code"`
+	RunID string `json:"run_id"`
+}
+
+func (p singlePending) err(key string) error {
+	if p.Code != string(upgraderun.SinglePending) {
+		return nil
+	}
+	return &upgraderun.PendingError{RunID: p.RunID, Key: key}
 }
 
 // ---- Upgrade runs ----
@@ -627,9 +647,15 @@ func (c *Client) UpgradeModel(ctx context.Context, name string, configOnly bool,
 	if name == "" {
 		return "", errors.New("name is required")
 	}
-	var resp schema.ModelUpgradeResponse
+	var resp struct {
+		schema.ModelUpgradeResponse
+		singlePending
+	}
 	body := schema.ModelUpgradeRequest{ConfigOnly: configOnly, Choices: choices}
 	if err := c.do(ctx, http.MethodPost, routeModelUpgrade(name), body, &resp); err != nil {
+		return "", err
+	}
+	if err := resp.err("model:" + name); err != nil {
 		return "", err
 	}
 	return resp.JobID, nil

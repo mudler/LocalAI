@@ -122,7 +122,13 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 			if app.AddonFrontend() {
 				libMws = append(libMws, localai.LibraryActor(app))
 			}
-			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(lib, galleryService), append(libMws, middleware.RequireBackendInstallEnabled(appConfig))...)
+			refuseWhileRun := func() error {
+				if runs := app.UpgradeRuns(); runs != nil {
+					return runs.RefuseIfActive()
+				}
+				return nil
+			}
+			router.POST("/backends/library/install", localai.InstallBackendFromLibraryEndpoint(app.LibraryJobs(), galleryService, refuseWhileRun), append(libMws, middleware.RequireBackendInstallEnabled(appConfig))...)
 			router.GET("/backends/library/updates", localai.BackendLibraryUpdatesEndpoint(lib), libMws...)
 		} else if app.AddonFrontend() {
 			refuse := middleware.LibrarySourcesOnOwner()

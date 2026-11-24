@@ -31,6 +31,19 @@ func (m scriptedUpgradeManager) InstallBackend(context.Context, *galleryop.Manag
 	return m.err
 }
 
+// cancellingUpgradeManager cancels the operation, as a user does while the
+// upgrade rolls back, and returns err.
+type cancellingUpgradeManager struct {
+	blockingBackendManager
+	cancel context.CancelFunc
+	err    error
+}
+
+func (m cancellingUpgradeManager) UpgradeBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
+	m.cancel()
+	return m.err
+}
+
 var _ = Describe("backend upgrade error key", func() {
 	runWith := func(manager scriptedUpgradeManager, upgrade bool) *galleryop.OpStatus {
 		dir, err := os.MkdirTemp("", "error-key-backends-*")
@@ -68,6 +81,32 @@ var _ = Describe("backend upgrade error key", func() {
 		st := runWith(scriptedUpgradeManager{err: errors.New("raw failure")}, true)
 		Expect(st.ErrorKey).To(Equal("unknown"))
 		Expect(st.Error).To(MatchError("raw failure"))
+	})
+
+	It("reports a failed restore after a cancel as a failure, not as cancelled", func() {
+		dir, err := os.MkdirTemp("", "error-key-backends-*")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(os.RemoveAll(dir)).To(Succeed()) })
+		systemState, err := system.GetSystemState(system.WithBackendPath(dir))
+		Expect(err).NotTo(HaveOccurred())
+		opCtx, opCancel := context.WithCancel(context.Background())
+		DeferCleanup(opCancel)
+		svc := galleryop.NewGalleryService(&config.ApplicationConfig{SystemState: systemState}, nil)
+		svc.SetBackendManager(cancellingUpgradeManager{cancel: opCancel,
+			err: &gallery.UpgradeError{Code: gallery.UpgradeFailureStart, Err: errors.Join(context.Canceled, gallery.ErrUpgradeRestore)}})
+		ctx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		Expect(svc.Start(ctx, nil, systemState)).To(Succeed())
+		svc.EnqueueBackendOp(galleryop.ManagementOp[gallery.GalleryBackend, any]{ID: "op", GalleryElementName: "b", Upgrade: true, Context: opCtx})
+		Eventually(func() bool {
+			st := svc.GetStatus("op")
+			return st != nil && st.Processed
+		}, "5s", "20ms").Should(BeTrue())
+		st := svc.GetStatus("op")
+		Expect(st.Cancelled).To(BeFalse())
+		Expect(st.Error).To(HaveOccurred())
+		Expect(errors.Is(st.Error, gallery.ErrUpgradeRestore)).To(BeTrue())
+		Expect(st.ErrorKey).To(Equal(string(gallery.UpgradeFailureStart)))
 	})
 
 	It("leaves the key empty for a failed install", func() {

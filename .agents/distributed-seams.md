@@ -432,10 +432,13 @@ is `ErrNoRoute`, whether a wait that ran out means that the worker may still be
 installing (`waitExpired`), whether a missing acknowledgement of `backend.stop`
 may be read as an older worker (`acknowledgementMissing`: true only for NATS), and
 how the carrier is named in a log line. An HTTP link never reads silence as a
-stop that was done. A 404 is a worker that does not serve the verb. It becomes
-`ErrNoRoute` only for `backend.upgrade`: the worker is older than the verb, and
-the upgrade fails on it. There is no fallback to a forced install; an old worker
-must be upgraded with the frontend. A 404 is a plain error for every other verb.
+stop that was done. A 404 is a worker that does not serve the verb. For
+`backend.upgrade` it becomes `nodes.ErrWorkerTooOld`: the worker is older than
+the verb, and the upgrade fails on it. It is the worker's own answer, never
+`ErrNoRoute`: the node is not marked unhealthy, and its pending upgrade waits
+without counting a failed attempt. There is no fallback to a forced install; an
+old worker must be upgraded with the frontend. A 404 is a plain error for every
+other verb.
 
 ## Agent RPC
 
@@ -605,8 +608,8 @@ grace, and nothing but `PresenceGone` may be read as absence.
 
 On `ErrNoRoute` the only change to the node's own state is the status-only
 `MarkUnhealthy`, which the next heartbeat reverses. A caller may also route
-around the node (the scheduler skips it, and an upgrade falls back to the older
-install subject). Never delete `node_models` rows on it. Timeouts are not
+around the node (the scheduler skips it). An upgrade has no fallback: it fails
+on that node. Never delete `node_models` rows on it. Timeouts are not
 `ErrNoRoute`.
 
 A pending backend op that fails with `ErrNoRoute` is still recorded as a failed

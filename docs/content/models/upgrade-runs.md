@@ -134,6 +134,10 @@ the item is `unconfirmed`.
 | `skipped` | Held, edited keys, or no update any more |
 | `unconfirmed` | No check could confirm the result |
 
+While the check runs, the item has `verifying: true`: it is still in
+progress, also in the `unconfirmed` phase after a restart. An `unconfirmed`
+item without `verifying` is settled: no check could answer.
+
 The `error` and `message` of an item, and the `message` of each node, are
 cleaned where they enter the run, so the REST routes, the Updates page, the
 inbox, the history and the assistant all get the same text: one line of at
@@ -210,7 +214,11 @@ removes a previous build (`<backend>.backup`, `<backend>.install-backup`): when
 the backend directory is missing, the previous build is put back; when both
 are there, the server logs it and leaves both, because the backend in place
 may be a new build whose start check never ran. A build moved aside because it
-did not start (`<backend>.failed`) stays too.
+did not start (`<backend>.failed`) stays too. The next install or upgrade of
+the backend does not delete a previous build it finds either: it moves it to
+`<backend>.backup.kept-<time>` (or `.install-backup.kept-<time>`) and logs it,
+and refuses to start when it cannot move it. Remove a kept build once the
+backend works.
 
 ## Distributed mode
 
@@ -232,7 +240,12 @@ runner.
 - **Takeover.** When the frontend that runs a run dies, PostgreSQL frees its
   lock (in about 30 seconds). Every frontend looks for runs that nobody runs
   at a regular interval, and the first one that takes the lock continues the
-  run as after a restart.
+  run as after a restart. A frontend that loses its lock but keeps running
+  (a lost database session) leaves its operations running: the frontend that
+  takes the run over follows an item whose operation still has a status, and
+  checks only the others. When that status shows no change for two minutes,
+  the frontend that ran it is taken as gone and the item is checked too. From the takeover on, the run rows refuse the writes
+  of the frontend that lost the run.
 - **Admission.** A second advisory lock lets only one frontend at a time start
   a run, so two frontends cannot start two runs at the same time.
 - **Stale operations.** The 30-minute reaper of gallery operations fails an
@@ -558,6 +571,17 @@ runs and the check of the run does not list the item (it was not checked yet,
 or an older listing), or the server keeps no runs, they queue the upgrade
 directly, as before.
 
+Each route waits up to 30 seconds for the run to get the operation accepted.
+When the wait ends first, the route answers `202` with code `pending`,
+`run_id` and `run`, and no job: the run goes on and starts the item later.
+Follow it with `GET /api/updates/runs/{run_id}`. The add-on route answers
+`202` with the operation status, `run` and `runId` in the payload, and no
+`jobId`; the run then runs the operation the route recorded. The run stores
+that operation with the item, so a frontend that takes the run over runs the
+same record. When the item ends without starting it (cancelled, skipped or
+refused), the run drops the record on the owner and the add-on is free for a
+new upgrade.
+
 A model upgrade with `config_only` or `choices`, and a model retry
 (`POST /api/models/{name}/upgrade/retry`), are always direct: a run makes no
 such choice. While a run runs, they are refused with `409` `run_active` too.
@@ -580,7 +604,10 @@ starts, reads and cancels runs of backends and models:
 
 The assistant asks you to confirm before it starts or cancels a run.
 `upgrade_backend` and `upgrade_model` still upgrade one item; they start a run
-of one item too. `upgrade_backend` refuses a backend that is not installed or
+of one item too. When the run did not start the operation within the wait,
+they answer with an error that names the run to follow, never a job.
+`upgrade_backend` refuses a backend that is not installed or
 has no update before it starts anything, as the REST routes do. While a run
 runs, every upgrade from the assistant (also `upgrade_model` with the actions
-`config_only` and `retry`) is refused with `run_active`.
+`config_only` and `retry`, and `install_library_backend`) is refused with
+`run_active`. `POST /backends/library/install` is refused the same way.

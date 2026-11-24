@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  CONFIRM_HEADERS, attentionOf, confirmedPost, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
+  CONFIRM_HEADERS, attentionOf, busyCount, endedNow, confirmedPost, isBusy, isEnded, needsAttention, countsAsAttention, countsOf, defaultSelection, runsUnavailable, initialRunState, isRunning, requestItemOf, retryableKeys,
   nodePhase, reviewGroups, riskText, runKeys, runProgress, startItems, upgradeRunReducer,
 } from '../../src/utils/upgradeRun.js'
 import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
@@ -106,6 +106,31 @@ test('upgrade run: a poll answers only for the run it asked about, and a dismiss
   assert.equal(upgradeRunReducer(s, { type: 'run', run: other, from: 'poll' }).run, null, 'a poll never brings a run of its own')
 })
 
+test('upgrade run: an answer older than the last one shown is dropped, so a cancel never shows running again', () => {
+  // A poll asked (1), then the cancel (2); the cancel answers first.
+  let s = reduce([{ type: 'run', run: runOf([item('gallery:kokoro', 'running')]), seq: 0 }])
+  s = upgradeRunReducer(s, { type: 'run', run: runOf([item('gallery:kokoro', 'cancelled')], { state: 'cancelled' }), seq: 2 })
+  assert.equal(s.run.state, 'cancelled')
+  const late = upgradeRunReducer(s, { type: 'run', run: runOf([item('gallery:kokoro', 'running')]), from: 'poll', seq: 1 })
+  assert.equal(late.run.state, 'cancelled', 'the late poll is dropped')
+  assert.equal(upgradeRunReducer(s, { type: 'run', run: runOf([], { state: 'cancelled' }), from: 'poll', seq: 3 }).run.items.length, 0, 'a newer poll shows')
+})
+
+test('upgrade run: the end of a run is told once, whatever answers come after it', () => {
+  const finished = runOf([], { state: 'finished' })
+  let fired = ''
+  const step = (was, run) => {
+    const out = endedNow(was, run, fired)
+    if (out) fired = run.id
+    return out
+  }
+  assert.equal(step(false, runOf([])), false, 'a run that runs did not end')
+  assert.equal(step(true, finished), true)
+  assert.equal(step(true, finished), false, 'the same end is not told again')
+  assert.equal(step(true, { ...finished, id: 'r2' }), true, 'the end of another run is told')
+  assert.equal(step(false, finished), false, 'a run that was not watched running is not told')
+})
+
 test('upgrade run: an action that fails says why, with the code of the refusal, and frees the buttons', () => {
   const s = reduce([{ type: 'run', run: runOf([]) }, { type: 'busy', busy: 'cancel' }, { type: 'error', error: 'cannot cancel', code: 'not_cancellable' }])
   assert.equal(s.busy, '')
@@ -172,6 +197,25 @@ test('upgrade run: counts, progress and the items to retry', () => {
   assert.equal(countsOf({ ...run, counts: { total: 9, updated: 4 } }).updated, 4)
   assert.equal(runProgress(runOf([], { state: 'finished' })), 100)
   assert.equal(countsOf(null).total, 0)
+})
+
+test('upgrade run: an item the server still checks is busy, not ended, while one no check could answer is settled', () => {
+  const checking = item('gallery:kokoro', 'unconfirmed', { verifying: true, progress: 100 })
+  const settled = item('gallery:piper', 'unconfirmed', { retryable: true })
+  const verifyingRun = item('gallery:whisper', 'running', { verifying: true, progress: 100 })
+  assert.equal(isBusy(checking), true)
+  assert.equal(isEnded(checking), false)
+  assert.equal(needsAttention(checking), false)
+  assert.equal(isBusy(verifyingRun), true)
+  assert.equal(isBusy(settled), false)
+  assert.equal(isEnded(settled), true)
+  assert.equal(needsAttention(settled), true)
+  const run = runOf([checking, settled, verifyingRun, item('model:m', 'queued')])
+  // Two items are busy (the strip says two run), one needs a look.
+  assert.equal(busyCount(run), 2)
+  assert.equal(attentionOf(run), 1)
+  assert.deepEqual(retryableKeys(run), ['gallery:piper'])
+  assert.equal(runProgress(run), Math.round((100 + 100 + 100 + 0) / 4))
 })
 
 // ---- One failure-words map for every kind ---------------------------------------

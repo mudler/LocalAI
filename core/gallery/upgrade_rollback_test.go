@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -240,13 +241,79 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 		Expect(UpgradeCodeOf(err)).To(Equal(UpgradeFailureStart))
 		Expect(UpgradeRolledBack(err)).To(BeFalse())
 		Expect(err.Error()).To(ContainSubstring("could not be restored"))
+		Expect(errors.Is(err, ErrUpgradeRestore)).To(BeTrue())
+		Expect(err.Error()).NotTo(ContainSubstring(backends), "the message names no server path")
 		Expect(filepath.Join(backends, name+".backup", "version")).To(BeAnExistingFile(), "the previous build is kept")
 		Expect(installedVersion()).To(Equal("v2"), "the failed build stays in place for diagnosis")
 		expectNoProcess()
 	})
 
+	It("reports a restore that failed after a cancel as a failure, and keeps the cancel in the chain", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		err := rollbackError(ctx, UpgradeFailureStart, ctx.Err(), errors.New("rename refused"), filepath.Join(backends, name))
+		Expect(errors.Is(err, ErrUpgradeRestore)).To(BeTrue())
+		Expect(errors.Is(err, context.Canceled)).To(BeTrue(), "the cancel stays in the chain")
+		Expect(UpgradeCodeOf(err)).To(Equal(UpgradeFailureStart))
+		Expect(UpgradeRolledBack(err)).To(BeFalse())
+		Expect(err.Error()).To(ContainSubstring("rename refused"))
+		Expect(err.Error()).NotTo(ContainSubstring(backends))
+
+		// A cancel whose restore succeeded is still the plain cancel.
+		Expect(rollbackError(ctx, UpgradeFailureStart, ctx.Err(), nil, filepath.Join(backends, name))).To(MatchError(context.Canceled))
+	})
+
+	// keptCopies are the previous builds moved aside next to the backend.
+	keptCopies := func(swap string) []string {
+		GinkgoHelper()
+		matches, err := filepath.Glob(filepath.Join(backends, name+swap+keptSuffix+"*"))
+		Expect(err).NotTo(HaveOccurred())
+		return matches
+	}
+
+	It("moves a previous build kept by a failed restore aside before the next upgrade, never deletes it", func() {
+		// A previous build that a failed restore kept, as the backup of the
+		// swap.
+		Expect(backendtest.WriteBuild(filepath.Join(backends, name+".backup"), backendtest.Serve, "v0", pidDir)).To(Succeed())
+		publish(backendtest.Serve)
+		Expect(upgrade(context.Background())).To(Succeed())
+		Expect(installedVersion()).To(Equal("v2"))
+		kept := keptCopies(".backup")
+		Expect(kept).To(HaveLen(1))
+		b, err := os.ReadFile(filepath.Join(kept[0], "version"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(Equal("v0"))
+
+		// The listing and the leftover sweep leave the copy alone.
+		listed, err := ListSystemBackends(systemState)
+		Expect(err).NotTo(HaveOccurred())
+		for key := range listed {
+			Expect(key).NotTo(ContainSubstring(keptSuffix))
+		}
+		removed, restored := SweepSwapLeftovers(systemState)
+		Expect(removed).To(BeEmpty())
+		Expect(restored).To(BeEmpty())
+		Expect(keptCopies(".backup")).To(Equal(kept))
+	})
+
+	It("refuses the upgrade, and keeps the previous build, when it cannot move it aside", func() {
+		Expect(backendtest.WriteBuild(filepath.Join(backends, name+".backup"), backendtest.Serve, "v0", pidDir)).To(Succeed())
+		renameBackend = func(from, to string) error {
+			if strings.Contains(to, keptSuffix) {
+				return errors.New("rename refused")
+			}
+			return os.Rename(from, to)
+		}
+		publish(backendtest.Serve)
+		err := upgrade(context.Background())
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("previous build"))
+		Expect(filepath.Join(backends, name+".backup", "version")).To(BeAnExistingFile())
+		Expect(installedVersion()).To(Equal("v1"))
+	})
+
 	It("does not list the directories of a swap as backends", func() {
-		for _, suffix := range []string{".backup", ".upgrade-tmp", ".install-tmp", ".install-backup", ".failed"} {
+		for _, suffix := range []string{".backup", ".upgrade-tmp", ".install-tmp", ".install-backup", ".failed", ".backup" + keptSuffix + "20260101T000000"} {
 			side := filepath.Join(backends, name+suffix)
 			Expect(os.MkdirAll(side, 0o750)).To(Succeed())
 			Expect(os.WriteFile(filepath.Join(side, "metadata.json"), []byte("not json"), 0o600)).To(Succeed())
@@ -285,6 +352,13 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 			Expect(installedVersion()).To(Equal("v2"))
 			Expect(filepath.Join(backends, name+".install-backup")).NotTo(BeAnExistingFile())
 			expectNoProcess()
+		})
+
+		It("moves a previous build kept from an earlier install aside, never deletes it", func() {
+			Expect(backendtest.WriteBuild(filepath.Join(backends, name+".install-backup"), backendtest.Serve, "v0", pidDir)).To(Succeed())
+			Expect(forced(backendtest.Serve)).To(Succeed())
+			Expect(installedVersion()).To(Equal("v2"))
+			Expect(keptCopies(".install-backup")).To(HaveLen(1))
 		})
 
 		It("runs no check on a first install", func() {

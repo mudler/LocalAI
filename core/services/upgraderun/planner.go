@@ -276,6 +276,10 @@ type StartItem struct {
 	// ExpectedTo is the version or digest the caller saw as the target
 	// (PlanItem.ExpectedTo). A start whose target moved since is refused.
 	ExpectedTo string `json:"expected_to"`
+	// Extra is added to the extra data of the item and stored with it, for
+	// its job path (the operation an add-on upgrade route recorded, say).
+	// Never read from a request body.
+	Extra map[string]string `json:"-"`
 }
 
 // StartRequest asks for a run.
@@ -300,6 +304,7 @@ func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]
 	}
 	var chosen []Candidate
 	expected := map[string]string{}
+	extra := map[string]map[string]string{}
 	for _, si := range req.Items {
 		if !si.Kind.Valid() || si.Name == "" {
 			return nil, refuse(CodeInvalid, Key(si.Kind, si.Name), "unknown item kind or empty name")
@@ -322,6 +327,9 @@ func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]
 			return nil, refuse(CodeStale, k, "the update moved to %q since it was shown", c.To)
 		}
 		expected[k] = c.pin()
+		if len(si.Extra) > 0 {
+			extra[k] = si.Extra
+		}
 		chosen = append(chosen, c)
 	}
 	sortCandidates(chosen)
@@ -329,7 +337,7 @@ func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]
 	for _, c := range chosen {
 		it := Item{
 			Key: c.Key(), Kind: c.Kind, Name: c.Name, Title: c.Title, From: c.From, To: c.To, ExpectedTo: expected[c.Key()],
-			Phase: PhaseQueued, Extra: c.Extra,
+			Phase: PhaseQueued, Extra: mergeExtra(c.Extra, extra[c.Key()]),
 		}
 		switch skipReason(c) {
 		case ReasonHeld:
@@ -340,4 +348,20 @@ func planStart(cands []Candidate, unchecked map[Kind]bool, req StartRequest) ([]
 		items = append(items, it)
 	}
 	return items, nil
+}
+
+// mergeExtra copies the extra data of a candidate and adds the request's; the
+// candidate's own map is never changed.
+func mergeExtra(cand, req map[string]string) map[string]string {
+	if len(req) == 0 {
+		return cand
+	}
+	out := make(map[string]string, len(cand)+len(req))
+	for k, v := range cand {
+		out[k] = v
+	}
+	for k, v := range req {
+		out[k] = v
+	}
+	return out
 }

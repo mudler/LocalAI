@@ -5,8 +5,6 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -247,30 +245,22 @@ func (s ModelStarter) Start(_ context.Context, _ string, it Item) (string, error
 	return s.Gallery.EnqueueModelUpgrade(it.Name, galleryop.ModelUpgradeOptions{Retry: retry, InRun: true})
 }
 
-// LibraryInstaller installs a backend of a backend library
-// (backendlib.Installer implements it).
-type LibraryInstaller interface {
-	Install(ctx context.Context, sourceID, backend, version string, progress backendlib.Progress) error
+// LibraryJobs starts the install jobs of library backends under the guard
+// every library install of this node shares (backendlib.JobRunner).
+type LibraryJobs interface {
+	Start(ctx context.Context, status backendlib.JobStatus, job backendlib.Job) (string, error)
 }
 
-// StatusWriter writes the status of a job and registers its cancel (the
-// gallery service implements it).
-type StatusWriter interface {
-	UpdateStatus(id string, op *galleryop.OpStatus)
-	StoreCancellation(id string, cancelFunc context.CancelFunc)
-}
-
-// libraryInstallTimeout bounds one library install, as the install route does.
-const libraryInstallTimeout = 2 * time.Hour
-
-// LibraryStarter installs the newer build of a library backend, with the
-// status the install route POST /backends/library/install writes.
+// LibraryStarter installs the newer build of a library backend through the
+// same job as the install route POST /backends/library/install, with the same
+// status, guard and timeout. Status should implement backendlib.JobCancels
+// (the gallery service does), so the item can be cancelled.
 type LibraryStarter struct {
-	Installer LibraryInstaller
-	Status    StatusWriter
+	Jobs   LibraryJobs
+	Status backendlib.JobStatus
 }
 
-func (s LibraryStarter) Start(_ context.Context, _ string, it Item) (string, error) {
+func (s LibraryStarter) Start(ctx context.Context, _ string, it Item) (string, error) {
 	sourceID, backend, version := it.Extra[ExtraSourceID], it.Extra[ExtraBackend], it.Extra[ExtraVersion]
 	if sourceID == "" || backend == "" {
 		sourceID, backend, _ = strings.Cut(it.Name, "/")
@@ -278,55 +268,16 @@ func (s LibraryStarter) Start(_ context.Context, _ string, it Item) (string, err
 	if version == "" {
 		version = it.ExpectedTo
 	}
-	if s.Installer == nil || s.Status == nil || sourceID == "" || backend == "" || version == "" {
+	if s.Jobs == nil || s.Status == nil || sourceID == "" || backend == "" || version == "" {
 		return "", &StartError{ErrorKey: ErrKeyUnknown, Err: errors.New("the library install is not available")}
 	}
-	id := uuid.NewString()
-	ctx, cancel, _ := galleryop.NewUserCancellableContext(context.Background())
-	ctx, stop := context.WithTimeout(ctx, libraryInstallTimeout)
-	s.Status.StoreCancellation(id, cancel)
-	post := func(op *galleryop.OpStatus) {
-		op.GalleryElementName = backend
-		op.Upgrade = true
-		s.Status.UpdateStatus(id, op)
+	id, err := s.Jobs.Start(ctx, s.Status, backendlib.Job{SourceID: sourceID, Backend: backend, Version: version, Upgrade: true})
+	if errors.Is(err, backendlib.ErrInstalling) {
+		return "", &StartError{ErrorKey: ErrKeyUnknown, Retryable: true, Err: err}
 	}
-	post(&galleryop.OpStatus{Phase: backendlib.StepResolving, Message: backendlib.StepResolving, Cancellable: true})
-	go func() {
-		defer stop()
-		var mu sync.Mutex
-		phase := backendlib.StepResolving
-		current := func() string {
-			mu.Lock()
-			defer mu.Unlock()
-			return phase
-		}
-		err := s.Installer.Install(ctx, sourceID, backend, version, backendlib.Progress{
-			Step: func(step string) {
-				mu.Lock()
-				phase = step
-				mu.Unlock()
-				// The metadata write is the switch: a cancel then would
-				// leave a half-written backend.
-				post(&galleryop.OpStatus{Phase: step, Message: step, Cancellable: step != backendlib.StepWriting})
-			},
-			Bytes: func(file, done, total string, pct float64) {
-				// A late tick must not move the job back from a step it has
-				// left.
-				if p := current(); p != backendlib.StepFetching {
-					return
-				}
-				post(&galleryop.OpStatus{Phase: backendlib.StepFetching, Message: backendlib.StepFetching, FileName: file, Progress: pct, DownloadedFileSize: done, TotalFileSize: total, Cancellable: true})
-			},
-		})
-		switch {
-		case err == nil:
-			post(&galleryop.OpStatus{Phase: "done", Message: galleryop.MessageCompleted, Processed: true, Progress: 100})
-		case ctx.Err() != nil && !errors.Is(ctx.Err(), context.DeadlineExceeded):
-			post(&galleryop.OpStatus{Phase: current(), Message: "cancelled", Processed: true, Cancelled: true})
-		default:
-			post(&galleryop.OpStatus{Phase: current(), Error: err, Processed: true, Message: "error: " + err.Error()})
-		}
-	}()
+	if err != nil {
+		return "", &StartError{ErrorKey: ErrKeyUnknown, Err: err}
+	}
 	return id, nil
 }
 
@@ -334,14 +285,22 @@ func (s LibraryStarter) Start(_ context.Context, _ string, it Item) (string, err
 // installed digest the run saw to the candidate digest, and returns the job
 // of /api/operations that runs it. The add-on routes implement it with the
 // gateway (the upgrade queue of POST /api/addons/{id}/upgrade).
+//
+// operationID is the operation the owner already recorded for the upgrade
+// (the upgrade route records it before it starts a run of one item); empty
+// records a new one.
 type AddonUpgrader interface {
-	StartAddonUpgrade(ctx context.Context, actor, addonID, expectedDigest, candidateDigest string) (jobID string, err error)
+	StartAddonUpgrade(ctx context.Context, actor, addonID, expectedDigest, candidateDigest, operationID string) (jobID string, err error)
 }
 
 // Extra keys of an add-on item. Without them From and ExpectedTo are used.
 const (
 	ExtraExpectedDigest  = "expected_digest"
 	ExtraCandidateDigest = "candidate_digest"
+	// ExtraOperationID is the operation the upgrade route recorded on the
+	// owner. It is stored with the item, so the frontend that takes the run
+	// over runs that record instead of asking for a second one.
+	ExtraOperationID = "operation_id"
 )
 
 // AddonStarter upgrades an add-on through an AddonUpgrader.
@@ -360,5 +319,5 @@ func (s AddonStarter) Start(ctx context.Context, actor string, it Item) (string,
 	if candidate == "" {
 		candidate = it.ExpectedTo
 	}
-	return s.Upgrader.StartAddonUpgrade(ctx, actor, it.Name, expected, candidate)
+	return s.Upgrader.StartAddonUpgrade(ctx, actor, it.Name, expected, candidate, it.Extra[ExtraOperationID])
 }

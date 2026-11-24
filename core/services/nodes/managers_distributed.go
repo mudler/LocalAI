@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -333,6 +334,22 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 		return finish(NodeOpStatus{Status: galleryop.NodeStatusRolledBack, Error: errMsg, ErrorKey: string(gallery.UpgradeCodeOf(applyErr)), err: applyErr})
 	}
 
+	if errors.Is(applyErr, ErrWorkerTooOld) {
+		// The worker answered that it does not serve the verb: it is present,
+		// so the node stays healthy, and a retry cannot help until the worker
+		// is upgraded, so the intent waits without counting an attempt.
+		xlog.Warn("The worker is older than backend.upgrade; upgrade the worker", "node", node.Name, "nodeID", node.ID)
+		if id, err := d.findPendingRow(ctx, node.ID, backend, op); err == nil {
+			_ = d.registry.RecordPendingBackendOpInFlight(ctx, id, errMsg, workerTooOldRetry)
+		}
+		st := NodeOpStatus{Status: galleryop.NodeStatusError, Error: errMsg, err: applyErr}
+		if op == OpBackendUpgrade {
+			st.ErrorKey = string(gallery.UpgradeFailureUnknown)
+			st.err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, applyErr)
+		}
+		return finish(st)
+	}
+
 	if errors.Is(applyErr, ErrNoRoute) {
 		xlog.Warn("No route to node, marking unhealthy", "node", node.Name, "nodeID", node.ID)
 		if err := d.registry.MarkUnhealthy(ctx, node.ID); err != nil {
@@ -353,6 +370,11 @@ func (d *DistributedBackendManager) applyToNode(ctx context.Context, node Backen
 	}
 	return finish(st)
 }
+
+// workerTooOldRetry is how long a pending upgrade on a worker that is older
+// than backend.upgrade waits before the reconciler asks again. It is the cap
+// of the backoff: the worker has to be upgraded first.
+const workerTooOldRetry = 15 * time.Minute
 
 // findPendingRow looks up the ID of a pending_backend_ops row by its
 // composite key. Used to hand off to RecordPendingBackendOpFailure /

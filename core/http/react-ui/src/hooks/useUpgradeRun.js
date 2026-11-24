@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react'
 import { updateRunsApi } from '../utils/api'
-import { initialRunState, isRunning, requestItemOf, runsUnavailable, startItems, upgradeRunReducer } from '../utils/upgradeRun'
+import { endedNow, initialRunState, isRunning, requestItemOf, runsUnavailable, startItems, upgradeRunReducer } from '../utils/upgradeRun'
 
 const POLL_MS = 2000
 
@@ -28,24 +28,29 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   const send = useCallback((action) => { if (alive.current) dispatch(action) }, [])
+  // Every request that answers a run takes a number when it is asked; the
+  // reducer drops an answer older than the one it shows.
+  const seqRef = useRef(0)
+  const nextSeq = useCallback(() => { seqRef.current += 1; return seqRef.current }, [])
 
   // The run to show: the one the address names, else the first the server
   // lists. The list leaves out dismissed runs and puts the running one first,
   // so a run that ended stays on the page, also after a reload, until it is
   // dismissed.
   const load = useCallback(async () => {
+    const seq = nextSeq()
     try {
       if (runId) {
-        send({ type: 'run', run: await updateRunsApi.get(runId) })
+        send({ type: 'run', run: await updateRunsApi.get(runId), seq })
       } else {
         const out = await updateRunsApi.list(1)
         const runs = out && Array.isArray(out.runs) ? out.runs : []
-        send({ type: 'run', run: runs[0] || null })
+        send({ type: 'run', run: runs[0] || null, seq })
       }
     } catch (e) {
       send({ type: 'loadFailed', unavailable: runsUnavailable(e) })
     }
-  }, [runId, send])
+  }, [runId, send, nextSeq])
   useEffect(() => { load() }, [load])
 
   const run = state.run
@@ -57,22 +62,26 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
   // can start a run of one (a model row's Upgrade or Retry, an add-on's
   // approved upgrade), so the run shows at once and not at the next idle look.
   const refresh = useCallback(async () => {
+    const seq = nextSeq()
     try {
       const out = await updateRunsApi.active()
       const next = out && Array.isArray(out.runs) ? out.runs.find(isRunning) : null
       const cur = stateRef.current.run
-      if (next && (!cur || cur.id !== next.id)) send({ type: 'run', run: next })
+      if (next && (!cur || cur.id !== next.id)) send({ type: 'run', run: next, seq })
     } catch { /* nothing to show */ }
-  }, [send])
+  }, [send, nextSeq])
 
   // Poll the run while it runs; otherwise look for a new one now and then.
+  // The interval depends on which run runs, not on each answer: an answer
+  // must not restart the timer.
   useEffect(() => {
     if (!state.loaded) return undefined
     let timer = null
     const tick = async () => {
       if (running) {
+        const seq = nextSeq()
         try {
-          send({ type: 'run', run: await updateRunsApi.get(runKey), from: 'poll' })
+          send({ type: 'run', run: await updateRunsApi.get(runKey), from: 'poll', seq })
         } catch { /* the next tick asks again */ }
       } else {
         await refresh()
@@ -80,12 +89,17 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     }
     timer = setInterval(tick, running ? pollMs : idleMs)
     return () => clearInterval(timer)
-  }, [state.loaded, running, runKey, run, pollMs, idleMs, send, refresh])
+  }, [state.loaded, running, runKey, pollMs, idleMs, send, refresh, nextSeq])
 
-  // The end of a run the page watched: the lists change now.
+  // The end of a run the page watched: the lists change now. It is told once
+  // for each run.
   const wasRunning = useRef(false)
+  const firedFor = useRef('')
   useEffect(() => {
-    if (wasRunning.current && !running && endedRef.current) endedRef.current(run)
+    if (endedNow(wasRunning.current, run, firedFor.current)) {
+      firedFor.current = run.id
+      if (endedRef.current) endedRef.current(run)
+    }
     wasRunning.current = running
   }, [running, run])
 
@@ -102,9 +116,10 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     const items = startItems(stateRef.current.review)
     if (items.length === 0 || stateRef.current.busy) return null
     send({ type: 'busy', busy: 'start' })
+    const seq = nextSeq()
     try {
       const out = await updateRunsApi.start(items)
-      send({ type: 'started', run: out })
+      send({ type: 'started', run: out, seq })
       return out
     } catch (e) {
       send({ type: 'startFailed', code: codeOf(e), error: messageOf(e) })
@@ -112,7 +127,7 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
       if (codeOf(e) === 'run_active') load()
       return null
     }
-  }, [send, load])
+  }, [send, load, nextSeq])
 
   // One call on the shown run that answers the run to show: the same run, or
   // for a retry a new run (the old one stays finished).
@@ -120,16 +135,17 @@ export function useUpgradeRun({ runId = '', onEnded, pollMs = POLL_MS, idleMs = 
     const cur = stateRef.current.run
     if (!cur || stateRef.current.busy) return
     send({ type: 'busy', busy })
+    const seq = nextSeq()
     try {
       const out = await call(cur.id)
-      if (out && typeof out === 'object' && out.id) send({ type: 'run', run: out })
+      if (out && typeof out === 'object' && out.id) send({ type: 'run', run: out, seq })
       send({ type: 'busy', busy: '' })
       return out && out.id ? out : null
     } catch (e) {
       send({ type: 'error', error: messageOf(e), code: codeOf(e) })
       return null
     }
-  }, [send])
+  }, [send, nextSeq])
 
   const cancel = useCallback(() => act('cancel', id => updateRunsApi.cancel(id)), [act])
   const cancelItem = useCallback((key) => act('cancel', id => updateRunsApi.cancelItem(id, key)), [act])

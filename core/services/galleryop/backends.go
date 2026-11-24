@@ -102,8 +102,9 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 	}
 	if err != nil {
 		legacyCoalescer.Close()
-		// Check if error is due to cancellation
-		if op.Context != nil && errors.Is(err, op.Context.Err()) {
+		// Check if error is due to cancellation. A restore that failed
+		// after the cancel is a failure: the previous build is not back.
+		if op.Context != nil && errors.Is(err, op.Context.Err()) && !errors.Is(err, gallery.ErrUpgradeRestore) {
 			g.UpdateStatus(op.ID, &OpStatus{
 				Cancelled:          true,
 				Processed:          true,

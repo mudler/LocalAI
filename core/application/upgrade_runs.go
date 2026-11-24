@@ -21,7 +21,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/modelupdates"
 	"github.com/mudler/LocalAI/core/services/updatenotify"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 )
 
@@ -32,7 +31,7 @@ const upgradeRunsDBFile = "upgrade_runs.db"
 // UpgradeRuns returns the service of the server-owned upgrade runs, or nil
 // when it could not start (no database to keep the runs in). The routes that
 // update one item fall back to their direct path then.
-func (a *Application) UpgradeRuns() *upgraderun.Service { return a.upgradeRuns }
+func (a *Application) UpgradeRuns() *upgraderun.Service { return a.upgradeRuns.Load() }
 
 // AddonRunUpgrader starts the add-on items of upgrade runs; the add-on upgrade
 // route hands its recorded upgrade to it. Never nil.
@@ -112,6 +111,14 @@ func (a *Application) startUpgradeRuns() {
 		store, closeDB = s, closer
 	}
 	opts := a.upgradeRunOptions(store, bus, toucher)
+	// The observers are part of the options, so they hear the first change
+	// of a run that the sweep takes over as soon as the service runs: one
+	// live row and one end row for each run in the inbox of each
+	// administrator, written by the frontend that runs the run, and the
+	// drop of an add-on upgrade that a run recorded and never started.
+	opts.Observers = append(opts.Observers,
+		&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context},
+		a.addonRunUpgrader)
 	if a.upgradeRunTweak != nil {
 		a.upgradeRunTweak(&opts)
 	}
@@ -121,16 +128,13 @@ func (a *Application) startUpgradeRuns() {
 		xlog.Warn("Upgrade runs are not available", "error", err)
 		return
 	}
+	a.upgradeRuns.Store(svc)
 	ctx, stop := context.WithCancel(a.applicationConfig.Context)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		svc.Run(ctx)
 	}()
-	// One live row and one end row for each run in the inbox of each
-	// administrator, written by the frontend that runs the run.
-	svc.AddObserver(&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context})
-	a.upgradeRuns = svc
 	a.upgradeRunsStop = func() {
 		stop()
 		<-done
@@ -172,8 +176,8 @@ func (a *Application) upgradeRunOptions(store *distributed.UpgradeRunStore, bus 
 			opCache: a.operationCache,
 		},
 	}
-	if lib := a.BackendLibrary(); lib != nil {
-		starters[upgraderun.KindLibrary] = libraryRunStarter{installer: lib, status: gs}
+	if a.BackendLibrary() != nil {
+		starters[upgraderun.KindLibrary] = libraryRunStarter{jobs: a.LibraryJobs, status: gs}
 	}
 	checkers := []upgraderun.Checker{
 		upgraderun.BackendChecker{Snapshots: backendSnapshots{a}},
@@ -280,27 +284,22 @@ func (m modelSnapshots) CheckNow(ctx context.Context) modelupdates.Snapshot {
 
 // libraryRunStarter installs a library backend for the actor of the run: on a
 // frontend the add-on owner resolves the entry and checks that actor, as it
-// does for POST /backends/library/install.
+// does for POST /backends/library/install. It uses the job runner of the
+// route, so the run and the route never install one backend name at once.
 type libraryRunStarter struct {
-	installer upgraderun.LibraryInstaller
-	status    upgraderun.StatusWriter
+	jobs   func() *backendlib.JobRunner
+	status backendlib.JobStatus
 }
 
 func (s libraryRunStarter) Start(ctx context.Context, actor string, it upgraderun.Item) (string, error) {
-	in := s.installer
 	if a, _, ok := addonendpoints.DecodeRunActor(actor); ok {
-		in = actorInstaller{in: s.installer, actor: a}
+		ctx = library.WithActor(ctx, a)
 	}
-	return upgraderun.LibraryStarter{Installer: in, Status: s.status}.Start(ctx, actor, it)
-}
-
-type actorInstaller struct {
-	in    upgraderun.LibraryInstaller
-	actor contract.Actor
-}
-
-func (i actorInstaller) Install(ctx context.Context, sourceID, backend, version string, progress backendlib.Progress) error {
-	return i.in.Install(library.WithActor(ctx, i.actor), sourceID, backend, version, progress)
+	var jobs upgraderun.LibraryJobs
+	if r := s.jobs(); r != nil {
+		jobs = r
+	}
+	return upgraderun.LibraryStarter{Jobs: jobs, Status: s.status}.Start(ctx, actor, it)
 }
 
 // autoUpgrader is the add-on owner for the automatic upgrade, or nil.

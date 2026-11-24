@@ -3992,6 +3992,18 @@ definitions:
       split_server:
         type: boolean
     type: object
+  localai.SingleUpgradePending:
+    properties:
+      code:
+        description: Code is always "pending".
+        type: string
+      message:
+        type: string
+      run:
+        $ref: '#/definitions/upgraderun.Run'
+      run_id:
+        type: string
+    type: object
   localai.TTSModelVoices:
     properties:
       model:
@@ -16744,6 +16756,12 @@ definitions:
         type: string
       to:
         type: string
+      verifying:
+        description: |-
+          Verifying is set between the end of the operation and the answer of
+          the fresh check. The page reads it: an unconfirmed item that is
+          verifying is still in progress (Busy), one that is not is settled.
+        type: boolean
     type: object
   upgraderun.ItemRef:
     properties:
@@ -17574,6 +17592,12 @@ paths:
       responses:
         "200":
           description: Operation accepted; the payload is the operation status
+          schema:
+            $ref: '#/definitions/contract.Result'
+        "202":
+          description: Operation accepted and handed to an upgrade run that did not
+            start it within the wait; the payload has run and runId but no jobId,
+            and the run starts the recorded operation later
           schema:
             $ref: '#/definitions/contract.Result'
         "400":
@@ -29477,6 +29501,11 @@ paths:
           description: Operation, and the run when one started it
           schema:
             $ref: '#/definitions/localai.ModelUpgradeRunResponse'
+        "202":
+          description: The run did not get the operation accepted in time; it starts
+            it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "404":
           description: Not installed
           schema:
@@ -32094,6 +32123,11 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "202":
+          description: An upgrade run took the request and did not get the operation
+            accepted in time; it starts it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
           schema:
@@ -32200,7 +32234,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: the same backend is already being installed
+          description: the same backend is already being installed (also by an upgrade
+            run), or an upgrade run runs (type run_active)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "503":
@@ -32282,6 +32317,11 @@ paths:
           description: Response
           schema:
             $ref: '#/definitions/schema.BackendResponse'
+        "202":
+          description: An upgrade run took the request and did not get the operation
+            accepted in time; it starts it later (code pending)
+          schema:
+            $ref: '#/definitions/localai.SingleUpgradePending'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
           schema:

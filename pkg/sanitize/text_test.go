@@ -50,6 +50,30 @@ var _ = Describe("Redact", func() {
 		Entry("bearer alone", "sent Bearer abcdef0123456789 to the server", []string{"abcdef0123456789"}, "Bearer [removed]"),
 		Entry("password", `password="hunter2!" refused`, []string{"hunter2"}, "password=[removed]"),
 		Entry("api key", "api_key: abc123xyz refused", []string{"abc123xyz"}, "api_key=[removed]"),
+		// Environment variables: "_" is a word character, so a key behind a
+		// prefix has no word boundary.
+		Entry("hugging face token variable", "env HF_TOKEN=hf_fakeFAKEfake000 set", []string{"hf_fakeFAKEfake000"}, "HF_TOKEN=[removed]"),
+		Entry("api key variable", "OPENAI_API_KEY=fake-key-value-0000 exported", []string{"fake-key-value-0000"}, "OPENAI_API_KEY=[removed]"),
+		Entry("secret access key variable", "AWS_SECRET_ACCESS_KEY=fakeSecretValue0000 read", []string{"fakeSecretValue0000"}, "AWS_SECRET_ACCESS_KEY=[removed]"),
+		Entry("lower case variable", "db_password: fakepass0 refused", []string{"fakepass0"}, "db_password=[removed]"),
+		Entry("json field", `body {"user":"x","password":"fake-pass-0"} refused`, []string{"fake-pass-0"}, "password"),
+		Entry("json field with spaces", `{"api_key" : "fake-key-0"}`, []string{"fake-key-0"}, "api_key"),
+		Entry("bare github token", "push with ghp_FAKEfakeFAKEfakeFAKEfake0000 failed", []string{"ghp_FAKEfakeFAKEfakeFAKEfake0000"}, "[removed]"),
+		Entry("bare fine-grained github token", "github_pat_FAKE0fake0FAKE0fake0FAKE0 used", []string{"github_pat_FAKE0fake0FAKE0fake0FAKE0"}, "[removed]"),
+		Entry("bare openai style key", "key sk-proj-FAKEfakeFAKEfakeFAKEfake00 refused", []string{"sk-proj-FAKEfakeFAKEfakeFAKEfake00"}, "[removed]"),
+		Entry("bare hugging face token", "with hf_FAKEfakeFAKEfakeFAKEfake00 denied", []string{"hf_FAKEfakeFAKEfakeFAKEfake00"}, "[removed]"),
+		Entry("bare aws access key id", "id AKIAFAKEFAKEFAKEFAKE denied", []string{"AKIAFAKEFAKEFAKEFAKE"}, "[removed]"),
+		Entry("bare jwt", "token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.ZmFrZXNpZ25hdHVyZQ rejected", []string{"eyJzdWIiOiJmYWtlIn0", "ZmFrZXNpZ25hdHVyZQ"}, "rejected"),
+	)
+
+	DescribeTable("leaves ordinary text alone",
+		func(in string) {
+			Expect(sanitize.Redact(in)).To(Equal(in))
+		},
+		Entry("a count of tokens", "max_tokens=512 exceeded"),
+		Entry("a word with a dash", "the task-runner-for-the-backend-xyz failed"),
+		Entry("a word ending like a key", "mytokens are fine"),
+		Entry("a path", "open models/sk-model.gguf"),
 	)
 })
 
@@ -61,6 +85,11 @@ var _ = Describe("Text", func() {
 	It("drops control characters and terminal escapes", func() {
 		out := sanitize.Text("\x1b[31mred\x1b[0m bell\x07 nul\x00 end", 100)
 		Expect(out).To(Equal("red bell nul end"))
+	})
+
+	It("drops format characters that reorder or hide text", func() {
+		out := sanitize.Text("file\u202egpj.exe and zero\u200bwidth \u2067x\u2069", 100)
+		Expect(out).To(Equal("filegpj.exe and zerowidth x"))
 	})
 
 	It("drops markup and keeps <nil>", func() {
@@ -104,6 +133,8 @@ var _ = Describe("JoinLines", func() {
 		Entry("crlf and blank lines", "a\r\n\r\n  b  \r\n", "a; b"),
 		Entry("control characters", "a\x00b\x1b\tc", "ab\tc"),
 		Entry("invalid utf-8", "a\xffb", "ab"),
+		Entry("terminal colours", "\x1b[31merror\x1b[0m: bad", "error: bad"),
+		Entry("bidi override and zero width characters", "a\u202eb\u200bc\u2066d\ufeff", "abcd"),
 		Entry("empty", "", ""),
 	)
 })

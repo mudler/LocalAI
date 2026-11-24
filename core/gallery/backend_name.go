@@ -28,6 +28,10 @@ func ValidateBackendName(name string) error {
 		return fmt.Errorf("%w: %q has \"..\"", ErrInvalidBackendName, name)
 	case strings.HasPrefix(name, "."):
 		return fmt.Errorf("%w: %q starts with a dot", ErrInvalidBackendName, name)
+	case isSwapDir(name):
+		// The listing skips such a directory and a swap would take it for
+		// the backup or the staging of another backend.
+		return fmt.Errorf("%w: %q ends like a directory of an install or an upgrade", ErrInvalidBackendName, name)
 	}
 	return nil
 }

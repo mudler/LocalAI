@@ -76,6 +76,10 @@ type Options struct {
 	Starters map[Kind]Starter
 	// Checkers list the items with an update. Each kind is listed by one.
 	Checkers []Checker
+	// Observers are told of every change of a run from the start, also of
+	// the first change of a run that Run takes over at once. AddObserver
+	// adds one later.
+	Observers []Observer
 	// Toucher keeps the operations of a live run from being reaped. Set it
 	// to the gallery store in distributed mode.
 	Toucher OperationToucher
@@ -90,6 +94,12 @@ type Options struct {
 	// LostAfter is how long a started operation may have no status before
 	// its outcome counts as lost.
 	LostAfter time.Duration
+	// RecoveredIdleAfter is how long the operation of an item that a takeover
+	// follows (its status was still there) may show no change before its
+	// outcome counts as lost. A frontend that lost its lock keeps its
+	// download going, which changes the status; the status of a frontend
+	// that died stays as it was on the others.
+	RecoveredIdleAfter time.Duration
 	// TouchInterval is how often a runner touches its operations.
 	TouchInterval time.Duration
 	// Retention is how long and how many finished runs are kept. Nil uses
@@ -119,6 +129,9 @@ func (o *Options) defaults() {
 	}
 	if o.LostAfter <= 0 {
 		o.LostAfter = 30 * time.Second
+	}
+	if o.RecoveredIdleAfter <= 0 {
+		o.RecoveredIdleAfter = 2 * time.Minute
 	}
 	if o.TouchInterval <= 0 {
 		o.TouchInterval = 5 * time.Minute
@@ -187,7 +200,7 @@ func New(opts Options) (*Service, error) {
 	}
 	opts.defaults()
 	ctx, quit := context.WithCancel(context.Background())
-	s := &Service{opts: opts, ctx: ctx, quit: quit, runners: map[string]*runner{}}
+	s := &Service{opts: opts, ctx: ctx, quit: quit, runners: map[string]*runner{}, observers: append([]Observer(nil), opts.Observers...)}
 	if opts.Bus != nil {
 		sub, err := opts.Bus.Subscribe(SubjectChanged, s.onChanged)
 		if err != nil {
@@ -291,9 +304,31 @@ func (s *Service) adopt(ctx context.Context, id string) {
 		lock.Close()
 		return
 	}
+	// From here on the previous runner, if it still lives without its lock,
+	// cannot overwrite the run.
+	if err := s.opts.Store.Claim(id, s.opts.Instance); err != nil {
+		lock.Close()
+		return
+	}
 	run := s.decode(rec, items)
 	xlog.Info("upgrade run: taking over a run nobody runs", "run", id, "previous_runner", rec.Runner)
-	s.startRunner(run, lock, []Event{RestartRecovered{}}, nil)
+	s.startRunner(run, lock, []Event{RestartRecovered{Live: s.liveItems(run)}}, nil)
+}
+
+// liveItems are the running items whose operation still has a status. A
+// runner that lost its lock leaves its operations running, and the gallery
+// operations keep going on the frontend that started them.
+func (s *Service) liveItems(run Run) map[string]bool {
+	live := map[string]bool{}
+	for _, it := range run.Items {
+		if it.Phase != PhaseRunning || it.Verifying || it.JobID == "" {
+			continue
+		}
+		if s.opts.Jobs.GetStatus(it.JobID) != nil {
+			live[it.Key] = true
+		}
+	}
+	return live
 }
 
 // Close stops the runners of this frontend. Their runs stay running in the
@@ -641,7 +676,9 @@ func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Ru
 }
 
 // create stores and starts a run, under the admission lock so two frontends
-// never start two runs at once.
+// never start two runs at once. The lock of the run is taken before its row
+// is written: the sweep of another frontend, which does not take the
+// admission lock, can then never take over a run while it is created.
 func (s *Service) create(ctx context.Context, actor string, source Source, items []Item) (Run, error) {
 	var out Run
 	err := advisorylock.WithLockCtx(ctx, s.opts.DB, advisorylock.KeyUpgradeRuns, func() error {
@@ -656,21 +693,24 @@ func (s *Service) create(ctx context.Context, actor string, source Source, items
 		if res.Err != nil {
 			return res.Err
 		}
+		lock := advisorylock.NewHeldLock(s.opts.DB, runLockKey(res.Run.ID))
+		if ok, err := lock.TryAcquire(ctx); err != nil || !ok {
+			lock.Close()
+			if err == nil {
+				err = errors.New("the lock of a new run is taken")
+			}
+			return fmt.Errorf("upgrade run: could not take the lock of a new run: %w", err)
+		}
 		rec, recItems, err := toRecords(res.Run, s.opts.Instance)
 		if err != nil {
+			lock.Close()
 			return err
 		}
 		if err := s.opts.Store.Create(rec, recItems); err != nil {
+			lock.Close()
 			return err
 		}
-		lock := advisorylock.NewHeldLock(s.opts.DB, runLockKey(res.Run.ID))
-		if ok, err := lock.TryAcquire(ctx); err != nil || !ok {
-			// The run is stored; the sweep of some frontend takes it over.
-			lock.Close()
-			xlog.Warn("upgrade run: could not take the lock of a new run; the sweep takes it over", "run", res.Run.ID, "error", err)
-		} else {
-			s.startRunner(res.Run, lock, nil, res.Effects)
-		}
+		s.startRunner(res.Run, lock, nil, res.Effects)
 		out = res.Run
 		return nil
 	})

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/mudler/xlog"
+
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -103,38 +105,22 @@ func RunPrincipal(c echo.Context, db *gorm.DB, mode string) string {
 
 // QueuedUpgrader starts the add-on items of upgrade runs
 // (upgraderun.AddonUpgrader).
+//
+// The operation the upgrade route recorded on the owner is stored with the
+// item (upgraderun.ExtraOperationID), not in this process, so whichever
+// frontend runs the item runs that record. As an observer of the runs
+// (upgraderun.Observer) it drops a recorded operation whose item ended
+// without starting it, so the add-on is free again. Distributed mode: the
+// observer acts on Local changes only, on the frontend that runs the run;
+// dropped holds the items it already dropped on this process, and a second
+// drop after a takeover is harmless (the owner answers the dropped record).
 type QueuedUpgrader struct {
 	Gateway func() *gateway.Gateway
 	Queue   func() *galleryop.GalleryService
 	// OpCache lists the operation in /api/operations; nil does not.
 	OpCache func() *galleryop.OpCache
 
-	mu sync.Mutex
-	// recorded are upgrades the upgrade route already recorded with the
-	// operation ID of its caller, waiting for the run of one item that
-	// route starts: the run runs that record instead of making a second one.
-	recorded map[string]string
-}
-
-func recordedKey(a contract.Actor, addonID, expected, candidate string) string {
-	return a.UserID + "\x00" + a.CredentialID + "\x00" + addonID + "\x00" + expected + "\x00" + candidate
-}
-
-func (u *QueuedUpgrader) expect(key, opID string) {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	if u.recorded == nil {
-		u.recorded = map[string]string{}
-	}
-	u.recorded[key] = opID
-}
-
-func (u *QueuedUpgrader) take(key string) string {
-	u.mu.Lock()
-	defer u.mu.Unlock()
-	opID := u.recorded[key]
-	delete(u.recorded, key)
-	return opID
+	dropped sync.Map
 }
 
 func (u *QueuedUpgrader) gateway() *gateway.Gateway {
@@ -164,7 +150,7 @@ func ownerRefusal(f *gateway.UpdateFailure) error {
 
 // StartAddonUpgrade records the upgrade on the owner as the run's actor and
 // queues it. See the comment at the top of this file.
-func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addonID, expectedDigest, candidateDigest string) (string, error) {
+func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addonID, expectedDigest, candidateDigest, opID string) (string, error) {
 	a, human, ok := DecodeRunActor(actorText)
 	if actorText == managerpkg.AutoUpgradeActor.UserID {
 		// The automatic update upgrades its add-on items on the owner's own
@@ -187,7 +173,6 @@ func (u *QueuedUpgrader) StartAddonUpgrade(ctx context.Context, actorText, addon
 	if expectedDigest == "" || candidateDigest == "" {
 		return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyOperationConflict, Err: errors.New("the installed and the candidate digest are required")}
 	}
-	opID := u.take(recordedKey(a, addonID, expectedDigest, candidateDigest))
 	if opID == "" {
 		opID = "run-" + uuid.NewString()
 		args, _ := json.Marshal(struct {
@@ -250,58 +235,97 @@ const ctxUpdateRequest = "addon.update.request"
 // operation ID to a run of one item, and answers as queueUpgrade does, with
 // the run added. A run that cannot start drops the record, so the add-on is
 // free again.
-func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.Service, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, error) {
+func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.Service, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, int, error) {
 	var view map[string]any
 	if json.Unmarshal(status, &view) != nil {
-		return nil, errors.New("unreadable operation status")
+		return nil, 0, errors.New("unreadable operation status")
 	}
 	// A repeated request answers the recorded operation and queues nothing.
 	if phase, _ := view["Phase"].(string); phase != "accepted" {
-		return status, nil
+		return status, 0, nil
 	}
 	ctx := c.Request().Context()
 	req, _ := c.Get(ctxUpdateRequest).(*UpgradeRequest)
 	if req == nil {
-		return queueUpgrade(g, s, a, id, opID, status)
+		data, err := queueUpgrade(g, s, a, id, opID, status)
+		return data, 0, err
 	}
-	key := recordedKey(a, id, req.ExpectedDigest, req.CandidateDigest)
-	s.upgrader.expect(key, opID)
-	drop := func() {
-		s.upgrader.take(key)
-		_, _ = g.Dispatch(context.WithoutCancel(ctx), a, contract.Request{AddonID: id, OperationID: opID, Action: gateway.ActionUpdateDropQueued, Arguments: json.RawMessage(`{}`)})
-	}
-	run, item, err := svc.StartOne(ctx, EncodeRunActor(a, true), upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: id, ExpectedTo: req.CandidateDigest}, upgraderun.SourceManual, runStartWait)
+	drop := func() { dropRecorded(context.WithoutCancel(ctx), g, a, id, opID) }
+	run, item, err := svc.StartOne(ctx, EncodeRunActor(a, true), upgraderun.StartItem{Kind: upgraderun.KindAddon, Name: id, ExpectedTo: req.CandidateDigest,
+		Extra: map[string]string{upgraderun.ExtraOperationID: opID}}, upgraderun.SourceManual, runStartWait)
 	switch upgraderun.CodeOf(err) {
 	case "":
 	case upgraderun.CodeRunActive:
 		drop()
-		return nil, &afterRefusal{status: http.StatusConflict, kind: upgraderun.CodeRunActive, message: "Another upgrade run is running. Wait for it to end, or cancel it, and upgrade again"}
+		return nil, 0, &afterRefusal{status: http.StatusConflict, kind: upgraderun.CodeRunActive, message: "Another upgrade run is running. Wait for it to end, or cancel it, and upgrade again"}
 	case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked, upgraderun.CodeStale:
 		// The run's check does not list the add-on as the owner just did
 		// (the check is older, or this frontend does not list add-ons): the
 		// owner accepted the upgrade, so queue it as before.
-		s.upgrader.take(key)
-		return queueUpgrade(g, s, a, id, opID, status)
+		data, err := queueUpgrade(g, s, a, id, opID, status)
+		return data, 0, err
 	default:
 		drop()
-		return nil, err
+		return nil, 0, err
+	}
+	out := upgraderun.SingleOutcome(run, item)
+	answer := http.StatusOK
+	switch out.State {
+	case upgraderun.SingleRefused:
+		drop()
+		return nil, 0, &afterRefusal{status: http.StatusConflict, kind: out.ErrorKey, message: out.Error}
+	case upgraderun.SingleStarted:
+		view["jobId"] = out.JobID
+	case upgraderun.SinglePending:
+		// The run keeps the recorded operation and starts it later: the
+		// answer has the run to follow and no job yet.
+		answer = http.StatusAccepted
 	}
 	// The actor names the user only; the credential reference it carries
 	// stays on the server.
+	run = out.Run
 	run.Actor = RunActorUser(run.Actor)
 	view["run"] = run
-	switch {
-	case item.JobID != "":
-		view["jobId"] = item.JobID
-	case item.Phase.Terminal():
-		drop()
-		kind := item.ErrorKey
-		if kind == "" {
-			kind = upgraderun.ErrKeyUpgradeFailed
-		}
-		return nil, &afterRefusal{status: http.StatusConflict, kind: kind, message: item.Error}
+	view["runId"] = run.ID
+	data, err := json.Marshal(view)
+	return data, answer, err
+}
+
+// dropRecorded drops an upgrade the owner recorded and nothing started, so
+// the add-on is free again. A record that already ran or was dropped stays
+// as it is.
+func dropRecorded(ctx context.Context, g *gateway.Gateway, a contract.Actor, id, opID string) {
+	if g == nil {
+		return
 	}
-	return json.Marshal(view)
+	if _, err := g.Dispatch(ctx, a, contract.Request{AddonID: id, OperationID: opID, Action: gateway.ActionUpdateDropQueued, Arguments: json.RawMessage(`{}`)}); err != nil {
+		xlog.Warn("could not drop a recorded add-on upgrade; the add-on stays busy until the record ends", "addon", id, "operation", opID, "error", err)
+	}
+}
+
+// RunChanged drops the recorded operation of an add-on item that ended
+// without starting it: cancelled while queued, skipped, refused, or failed
+// after the upgrade route stopped waiting.
+func (u *QueuedUpgrader) RunChanged(c upgraderun.Change) {
+	if !c.Local {
+		return
+	}
+	for _, it := range c.Run.Items {
+		opID := it.Extra[upgraderun.ExtraOperationID]
+		if it.Kind != upgraderun.KindAddon || opID == "" || it.JobID != "" || !it.Phase.Terminal() {
+			continue
+		}
+		if _, done := u.dropped.LoadOrStore(c.Run.ID+"\x00"+it.Key, struct{}{}); done {
+			continue
+		}
+		a, _, ok := DecodeRunActor(c.Run.Actor)
+		if !ok {
+			continue
+		}
+		// The observer runs on the runner's goroutine and must return
+		// quickly: the owner answers on its own time.
+		go dropRecorded(context.Background(), u.gateway(), a, it.Name, opID)
+	}
 }
 
 // GatewayUpdateChecker lists the add-ons with an update for upgrade runs

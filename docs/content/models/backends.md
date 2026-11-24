@@ -331,7 +331,9 @@ shared library. The backend then runs the version it ran before. A metadata
 write or a backend registration that fails after the swap is handled the same
 way, with `error_key` `swap`. When the previous build cannot be put back,
 `rolled_back` is false, the text says so, and the failed build stays in place
-for diagnosis next to the previous one (`<name>.backup`).
+for diagnosis next to the previous one (`<name>.backup`). The next upgrade
+moves that previous build to `<name>.backup.kept-<time>` instead of deleting
+it.
 
 A forced reinstall of an installed backend (`force: true`) keeps the replaced
 build in the same way. A first install starts nothing.

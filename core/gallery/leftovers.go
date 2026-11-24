@@ -2,9 +2,11 @@ package gallery
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/xlog"
@@ -22,6 +24,9 @@ import (
 //     it is left alone, and logged: the backend in place may be a new build
 //     whose start check never ran, and only a person can tell which to keep.
 //   - A build moved aside because it did not start (".failed") is left alone.
+//   - A previous build that a later install or upgrade moved aside
+//     (".backup.kept-<time>", see keepPreviousBuild) is left alone: it may
+//     be the last build that worked.
 //
 // It returns the names it removed and the backends it restored.
 func SweepSwapLeftovers(systemState *system.SystemState) (removed, restored []string) {
@@ -82,4 +87,35 @@ func trimSuffixOf(name string, suffixes ...string) string {
 		}
 	}
 	return ""
+}
+
+// keptSuffix marks a previous build that an install or an upgrade found at
+// its backup path and moved aside instead of deleting it:
+// "<backend>.backup.kept-<time>".
+const keptSuffix = ".kept-"
+
+// keepPreviousBuild moves a previous build left at backupPath by an earlier
+// attempt out of the way of a new swap. A restore that failed, or the sweep
+// at start, keeps that directory on purpose: it can be the last build that
+// worked, so it is never deleted. When it cannot be moved, the install or
+// upgrade is refused and the directory stays where it is.
+func keepPreviousBuild(backupPath string) error {
+	if _, err := os.Lstat(backupPath); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("checking the previous build %s: %w", filepath.Base(backupPath), err)
+	}
+	aside := backupPath + keptSuffix + time.Now().UTC().Format("20060102T150405.000000000")
+	if err := renameBackend(backupPath, aside); err != nil {
+		return fmt.Errorf("a previous build (%s) from an earlier attempt could not be moved aside; move or remove it, then try again: %w", filepath.Base(backupPath), err)
+	}
+	xlog.Warn("Moved the previous build of an earlier attempt aside; remove it once the backend works", "path", filepath.Base(aside))
+	return nil
+}
+
+// isKeptDir reports whether name is a previous build that keepPreviousBuild
+// moved aside.
+func isKeptDir(name string) bool {
+	i := strings.LastIndex(name, keptSuffix)
+	return i > 0 && isSwapDir(name[:i])
 }

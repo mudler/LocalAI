@@ -2,6 +2,7 @@ package upgraderun
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -58,4 +59,79 @@ func (s *Service) itemOf(ctx context.Context, run Run, key string) (Run, Item, e
 		return run, *it, nil
 	}
 	return run, Item{Key: key}, nil
+}
+
+// SingleState is what the caller of StartOne answers for its item.
+type SingleState string
+
+const (
+	// SingleStarted: the operation of the item was accepted; JobID is set.
+	SingleStarted SingleState = "started"
+	// SingleRefused: the item ended without an operation (its start was
+	// refused or skipped).
+	SingleRefused SingleState = "refused"
+	// SinglePending: the wait ended before the operation was accepted. The
+	// run goes on and starts the item later; the caller answers with the run.
+	SinglePending SingleState = "pending"
+)
+
+// SingleResult is the outcome of a run of one item, as the routes and the
+// Assistant answer it.
+type SingleResult struct {
+	State SingleState
+	Run   Run
+	Item  Item
+	RunID string
+	JobID string
+	// ErrorKey and Error describe a refusal.
+	ErrorKey string
+	Error    string
+}
+
+// SingleOutcome maps the run and the item StartOne returned to a job, a
+// refusal or a pending start. Every caller of StartOne uses it, so none of
+// them answers "started" without a job.
+func SingleOutcome(run Run, it Item) SingleResult {
+	out := SingleResult{Run: run, Item: it, RunID: run.ID}
+	switch {
+	case it.JobID != "":
+		out.State, out.JobID = SingleStarted, it.JobID
+	case it.Phase.Terminal():
+		out.State, out.ErrorKey, out.Error = SingleRefused, orUnknown(it.ErrorKey), it.Error
+	default:
+		out.State = SinglePending
+	}
+	return out
+}
+
+// Err is nil for a started item, a *RefusedError for a refused one and a
+// *PendingError for a pending one.
+func (r SingleResult) Err() error {
+	switch r.State {
+	case SingleStarted:
+		return nil
+	case SingleRefused:
+		return &RefusedError{Key: r.Item.Key, ErrorKey: r.ErrorKey, Message: r.Error}
+	}
+	return &PendingError{RunID: r.RunID, Key: r.Item.Key}
+}
+
+// RefusedError is an item of a run of one that ended without an operation.
+type RefusedError struct {
+	Key      string
+	ErrorKey string
+	Message  string
+}
+
+func (e *RefusedError) Error() string { return e.ErrorKey + ": " + e.Message }
+
+// PendingError is an item of a run of one whose operation was not accepted
+// within the wait. The run keeps it and starts it later.
+type PendingError struct {
+	RunID string
+	Key   string
+}
+
+func (e *PendingError) Error() string {
+	return fmt.Sprintf("the update of %s waits in upgrade run %s and has no operation yet; follow the run", e.Key, e.RunID)
 }

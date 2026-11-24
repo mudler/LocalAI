@@ -7,7 +7,7 @@
 // A run of GET /api/updates/runs/:id is
 //   { id, source, actor, state: 'running'|'finished'|'cancelled', created_at, finished_at?,
 //     items: [{ key, kind, name, title?, from, to, expected_to, phase, progress, message?,
-//               queued_reason?, error_key?, error?, retryable, cancellable, job_id?, nodes? }] }
+//               queued_reason?, error_key?, error?, retryable, cancellable, verifying?, job_id?, nodes? }] }
 // with the items in the order they run. Empty fields are left out; the page
 // counts the phases itself.
 
@@ -28,8 +28,15 @@ const NODE_PHASES = {
 }
 export const nodePhase = (node) => NODE_PHASES[node?.phase] || node?.phase || 'queued'
 
-export const isEnded = (item) => Boolean(item && ENDED.has(item.phase))
-export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase))
+// Whether an item still holds its place in the run: it runs, or the server
+// checks whether its update applied (verifying, also in the unconfirmed phase
+// after a restart). An unconfirmed item that no check could answer is
+// settled. The same rule as Item.Busy on the server.
+export const isBusy = (item) => Boolean(item && (item.phase === 'running' || (item.phase === 'unconfirmed' && item.verifying)))
+export const isEnded = (item) => Boolean(item && ENDED.has(item.phase) && !isBusy(item))
+export const needsAttention = (item) => Boolean(item && ATTENTION.has(item.phase) && !isBusy(item))
+// How many items of a run are busy.
+export const busyCount = (run) => (run && Array.isArray(run.items) ? run.items.filter(isBusy).length : 0)
 export const isRunning = (run) => Boolean(run && run.state === 'running')
 
 // What the request of a run names for a row of the page: its kind and the part
@@ -70,7 +77,7 @@ export const countsAsAttention = (item) => Boolean(item && (needsAttention(item)
 // How many items of a run need attention.
 export const attentionOf = (run) => itemsOf(run).filter(countsAsAttention).length
 
-// How far the run is, from 0 to 100: an ended item counts whole, a running one
+// How far the run is, from 0 to 100: an ended item counts whole, a busy one
 // by its own progress.
 export function runProgress(run) {
   const items = itemsOf(run)
@@ -78,7 +85,7 @@ export function runProgress(run) {
   let sum = 0
   for (const item of items) {
     if (isEnded(item)) sum += 100
-    else if (item.phase === 'running') sum += Math.max(0, Math.min(100, Number(item.progress) || 0))
+    else if (isBusy(item)) sum += Math.max(0, Math.min(100, Number(item.progress) || 0))
   }
   return Math.round(sum / items.length)
 }
@@ -183,6 +190,13 @@ export function riskText(risk, t) {
   }
 }
 
+// Whether the end of a run is to be told now: the page watched it run, it
+// does not run any more, and its end was not told yet (firedFor is the id of
+// the last run whose end was told).
+export function endedNow(wasRunning, run, firedFor) {
+  return Boolean(wasRunning && run && !isRunning(run) && run.id !== firedFor)
+}
+
 // ---- The state of the hook -----------------------------------------------------
 
 export const initialRunState = {
@@ -200,6 +214,9 @@ export const initialRunState = {
   // Ids of runs the person dismissed: a poll that was already on its way does
   // not bring one back.
   dismissed: [],
+  // The number of the request whose answer is shown; an older answer is
+  // dropped.
+  seq: -1,
   // The open review: { status: 'loading'|'ready'|'error', single, items, order,
   // selected, error, code }, or null.
   review: null,
@@ -209,11 +226,17 @@ export function upgradeRunReducer(state, action) {
   switch (action.type) {
     case 'run': {
       const run = action.run || null
-      if (run && state.dismissed.includes(run.id)) return { ...state, loaded: true }
+      // Each request numbers its answer (seq) when it is asked. An answer
+      // asked before the one shown is older: a poll that left before a cancel
+      // and came back after it would show the run running again.
+      const seq = Number.isInteger(action.seq) ? action.seq : null
+      if (seq !== null && seq < state.seq) return state
+      const next = seq !== null ? seq : state.seq
+      if (run && state.dismissed.includes(run.id)) return { ...state, loaded: true, seq: next }
       // A poll answers for the run it asked about; one that comes back after
       // the page moved to another run is dropped.
       if (action.from === 'poll' && (!state.run || !run || state.run.id !== run.id)) return state
-      return { ...state, run, loaded: true, unavailable: false }
+      return { ...state, run, loaded: true, unavailable: false, seq: next }
     }
     // A server that cannot list runs has none to show; the page says nothing
     // about it (the next look comes with the idle poll).
@@ -262,7 +285,8 @@ export function upgradeRunReducer(state, action) {
     case 'startFailed':
       return { ...state, busy: '', unavailable: state.unavailable || action.code === 'unavailable', review: state.review ? { ...state.review, error: action.error || '', code: action.code || '' } : null }
     case 'started':
-      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true }
+      return { ...state, busy: '', error: '', errorCode: '', review: null, run: action.run || state.run, loaded: true,
+        seq: Number.isInteger(action.seq) ? Math.max(action.seq, state.seq) : state.seq }
     case 'dismissed': {
       const id = state.run ? state.run.id : action.id
       return { ...state, busy: '', error: '', errorCode: '', run: null, dismissed: id ? [...state.dismissed, id] : state.dismissed }

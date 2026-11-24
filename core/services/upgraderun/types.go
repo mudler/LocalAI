@@ -199,8 +199,9 @@ type Item struct {
 	QueuedReason string `json:"queued_reason,omitempty"`
 
 	// Verifying is set between the end of the operation and the answer of
-	// the fresh check.
-	Verifying bool `json:"-"`
+	// the fresh check. The page reads it: an unconfirmed item that is
+	// verifying is still in progress (Busy), one that is not is settled.
+	Verifying bool `json:"verifying,omitempty"`
 	// CancelWanted is set when a cancel of the item was asked for while its
 	// operation could not stop yet; the cancel is sent once it can.
 	CancelWanted bool `json:"-"`

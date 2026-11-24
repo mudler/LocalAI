@@ -707,6 +707,10 @@ func (c *Client) InstallLibraryBackend(ctx context.Context, req localaitools.Ins
 	if c.AppConfig.DisableBackendInstall {
 		return nil, fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, req.Name)
 	}
+	// No install beside an upgrade run, as POST /backends/library/install.
+	if err := c.refuseIfRunActive(); err != nil {
+		return nil, err
+	}
 	if err := c.BackendLibrary.Install(ctx, req.SourceID, req.Name, req.Version); err != nil {
 		return nil, err
 	}

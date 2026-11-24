@@ -380,10 +380,13 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 	// Mirrors the atomic-swap UpgradeBackend already performs.
 	stagingPath := backendPath + ".install-tmp"
 	backupPath := backendPath + ".install-backup"
-	// Clean any stale staging/backup dirs from a prior interrupted attempt
-	// (best-effort; a missing dir is the common case).
+	// Clean a stale staging dir from a prior interrupted attempt
+	// (best-effort; a missing dir is the common case). A stale backup can be
+	// the last build that worked, so it is moved aside, never deleted.
 	_ = os.RemoveAll(stagingPath)
-	_ = os.RemoveAll(backupPath)
+	if err := keepPreviousBuild(backupPath); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(stagingPath, 0750); err != nil {
 		return fmt.Errorf("failed to create staging path: %v", err)
 	}
@@ -567,10 +570,16 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		if replaced && options.startCheck != nil {
 			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureSwap, fmt.Errorf("failed to register backends after install: %w", err), backendPath, backupPath)
 		}
-		_ = os.RemoveAll(backupPath)
+		// The new build is in place but not registered: the replaced one
+		// stays at backupPath, where the next install moves it aside.
+		if replaced {
+			xlog.Warn("Keeping the replaced build after a failed registration", "path", filepath.Base(backupPath))
+		}
 		return err
 	}
-	_ = os.RemoveAll(backupPath)
+	if err := os.RemoveAll(backupPath); err != nil {
+		xlog.Warn("Could not remove the replaced build after the install", "path", filepath.Base(backupPath), "error", err)
+	}
 	return nil
 }
 
@@ -829,6 +838,9 @@ func collectRoot(basePath string, isSystem, lenient bool) (map[string]collectedB
 var swapDirSuffixes = []string{".upgrade-tmp", ".backup", ".install-tmp", ".install-backup", failedSuffix}
 
 func isSwapDir(name string) bool {
+	if isKeptDir(name) {
+		return true
+	}
 	for _, suffix := range swapDirSuffixes {
 		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
 			return true

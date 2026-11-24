@@ -223,6 +223,180 @@ var _ = Describe("add-on items of upgrade runs", Label("updates"), func() {
 	})
 })
 
+// gatedStarter holds the start of an item until its gate is closed.
+type gatedStarter struct {
+	inner upgraderun.Starter
+	gate  chan struct{}
+}
+
+func (g gatedStarter) Start(ctx context.Context, actor string, it upgraderun.Item) (string, error) {
+	select {
+	case <-g.gate:
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+	return g.inner.Start(ctx, actor, it)
+}
+
+var _ = Describe("the add-on upgrade route when its run is slow to start", Label("updates"), func() {
+	It("answers 202 with the run and no job, and the run later runs the caller's recorded operation", func() {
+		s := newUpdatesStack()
+		gs := galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		qctx, stop := context.WithCancel(context.Background())
+		DeferCleanup(stop)
+		Expect(gs.Start(qctx, nil, nil)).To(Succeed())
+		up := &QueuedUpgrader{Gateway: func() *gateway.Gateway { return s.gateway }, Queue: func() *galleryop.GalleryService { return gs }}
+		gate := make(chan struct{})
+		h, err := upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{
+			Jobs:     gs,
+			Starters: map[upgraderun.Kind]upgraderun.Starter{upgraderun.KindAddon: gatedStarter{inner: upgraderun.AddonStarter{Upgrader: up}, gate: gate}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(h.Service.Close)
+		old := runStartWait
+		runStartWait = 200 * time.Millisecond
+		DeferCleanup(func() { runStartWait = old })
+
+		e := echo.New()
+		e.Use(auth.Middleware(s.db, s.cfg))
+		group := e.Group("/api/addons", auth.RequireFeature(s.db, auth.FeatureAddons), auth.CSRFMiddleware(), BrowserProtection())
+		group.POST("/dispatch", Dispatch(s.gateway, s.db, WithOwnership(s.mode)))
+		group.POST("/:id/upgrade", UpgradeAddon(s.gateway, s.db, WithOwnership(s.mode), WithOperationQueue(gs, nil),
+			WithUpgradeRuns(func() *upgraderun.Service { return h.Service }, up)))
+		alice := func(op string) func(*http.Request) { return humanTab(s.cookies["alice"], op) }
+
+		before := s.installedDigest()
+		next := s.publish("build-2", catalog.Requirements{})
+		Expect(send(s.frontends["owner"], "POST", "/api/addons/notes/update/check", `{"operationId":"c"}`, alice("c")).code).To(Equal(200))
+		h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", From: before, To: next.Digest,
+			Extra: map[string]string{upgraderun.ExtraExpectedDigest: before, upgraderun.ExtraCandidateDigest: next.Digest}})
+
+		res := send(e, "POST", "/api/addons/notes/upgrade",
+			fmt.Sprintf(`{"operationId":"p-1","expectedDigest":%q,"candidateDigest":%q}`, before, next.Digest), alice("p-1"))
+		Expect(res.code).To(Equal(http.StatusAccepted), fmt.Sprint(res.body))
+		payload := res.body["payload"].(map[string]any)
+		Expect(payload).NotTo(HaveKey("jobId"))
+		Expect(payload).To(HaveKeyWithValue("Phase", "accepted"))
+		runView := payload["run"].(map[string]any)
+		Expect(payload).To(HaveKeyWithValue("runId", runView["id"]))
+
+		close(gate)
+		Expect(awaitLifecycle(e, "notes", "p-1", alice("p-1"))).To(HaveKeyWithValue("Phase", "completed"))
+		Expect(s.generation()).To(Equal(uint64(2)))
+	})
+})
+
+// failingStarter refuses every start, after its gate opens.
+type failingStarter struct{ gate chan struct{} }
+
+func (f failingStarter) Start(ctx context.Context, _ string, _ upgraderun.Item) (string, error) {
+	select {
+	case <-f.gate:
+	case <-ctx.Done():
+	}
+	return "", &upgraderun.StartError{ErrorKey: upgraderun.ErrKeyUnavailable, Retryable: true, Err: fmt.Errorf("the owner did not answer")}
+}
+
+var _ = Describe("the operation an add-on upgrade route recorded for its run", Label("updates"), func() {
+	var (
+		s     *updatesStack
+		gs    *galleryop.GalleryService
+		e     *echo.Echo
+		route *QueuedUpgrader
+		alice func(string) func(*http.Request)
+	)
+
+	// stack serves the upgrade route with route as its upgrader, and runs the
+	// add-on items with starter.
+	stack := func(starter upgraderun.Starter) *upgraderuntest.Harness {
+		h, err := upgraderuntest.NewHarness(GinkgoT().TempDir(), upgraderuntest.Options{
+			Jobs: gs, Starters: map[upgraderun.Kind]upgraderun.Starter{upgraderun.KindAddon: starter},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(h.Service.Close)
+		h.Service.AddObserver(route)
+		e = echo.New()
+		e.Use(auth.Middleware(s.db, s.cfg))
+		group := e.Group("/api/addons", auth.RequireFeature(s.db, auth.FeatureAddons), auth.CSRFMiddleware(), BrowserProtection())
+		group.POST("/dispatch", Dispatch(s.gateway, s.db, WithOwnership(s.mode)))
+		group.POST("/:id/upgrade", UpgradeAddon(s.gateway, s.db, WithOwnership(s.mode), WithOperationQueue(gs, nil),
+			WithUpgradeRuns(func() *upgraderun.Service { return h.Service }, route)))
+		return h
+	}
+	offer := func(h *upgraderuntest.Harness) (string, string) {
+		before := s.installedDigest()
+		next := s.publish("build-2", catalog.Requirements{})
+		Expect(send(s.frontends["owner"], "POST", "/api/addons/notes/update/check", `{"operationId":"c"}`, alice("c")).code).To(Equal(200))
+		h.Addons.Add(upgraderun.Candidate{Kind: upgraderun.KindAddon, Name: "notes", From: before, To: next.Digest,
+			Extra: map[string]string{upgraderun.ExtraExpectedDigest: before, upgraderun.ExtraCandidateDigest: next.Digest}})
+		return before, next.Digest
+	}
+	body := func(op, before, candidate string) string {
+		return fmt.Sprintf(`{"operationId":%q,"expectedDigest":%q,"candidateDigest":%q}`, op, before, candidate)
+	}
+
+	BeforeEach(func() {
+		s = newUpdatesStack()
+		gs = galleryop.NewGalleryService(&config.ApplicationConfig{}, nil)
+		qctx, stop := context.WithCancel(context.Background())
+		DeferCleanup(stop)
+		Expect(gs.Start(qctx, nil, nil)).To(Succeed())
+		route = &QueuedUpgrader{Gateway: func() *gateway.Gateway { return s.gateway }, Queue: func() *galleryop.GalleryService { return gs }}
+		alice = func(op string) func(*http.Request) { return humanTab(s.cookies["alice"], op) }
+		old := runStartWait
+		runStartWait = 200 * time.Millisecond
+		DeferCleanup(func() { runStartWait = old })
+	})
+
+	It("is the one another frontend runs when it takes the run over", func() {
+		// The item starts on another process: its upgrader is not the one
+		// the route handed the operation to.
+		other := &QueuedUpgrader{Gateway: func() *gateway.Gateway { return s.gateway }, Queue: func() *galleryop.GalleryService { return gs }}
+		gate := make(chan struct{})
+		h := stack(gatedStarter{inner: upgraderun.AddonStarter{Upgrader: other}, gate: gate})
+		before, candidate := offer(h)
+		res := send(e, "POST", "/api/addons/notes/upgrade", body("a-1", before, candidate), alice("a-1"))
+		Expect(res.code).To(Equal(http.StatusAccepted), fmt.Sprint(res.body))
+		runID := res.body["payload"].(map[string]any)["runId"].(string)
+		close(gate)
+		Eventually(func() string {
+			r, err := h.Service.Get(context.Background(), runID)
+			Expect(err).NotTo(HaveOccurred())
+			it := r.Item("addon:notes")
+			if it.JobID == "" {
+				Expect(it.Phase.Terminal()).To(BeFalse(), it.Error)
+			}
+			return it.JobID
+		}, 10*time.Second, 20*time.Millisecond).ShouldNot(BeEmpty())
+		Expect(awaitLifecycle(e, "notes", "a-1", alice("a-1"))).To(HaveKeyWithValue("Phase", "completed"))
+		Expect(s.generation()).To(Equal(uint64(2)))
+	})
+
+	It("is dropped on the owner when the item ends without starting it, so the add-on is free again", func() {
+		gate := make(chan struct{})
+		h := stack(failingStarter{gate: gate})
+		before, candidate := offer(h)
+		res := send(e, "POST", "/api/addons/notes/upgrade", body("f-1", before, candidate), alice("f-1"))
+		Expect(res.code).To(Equal(http.StatusAccepted), fmt.Sprint(res.body))
+		close(gate)
+		Expect(awaitLifecycle(e, "notes", "f-1", alice("f-1"))).To(HaveKeyWithValue("Phase", "failed"))
+		// A new upgrade of the same transition is accepted, not refused as a
+		// conflict with the dropped one.
+		Eventually(func() int {
+			r, err := h.Service.List(context.Background(), upgraderun.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			for _, run := range r {
+				if run.Active() {
+					return 1
+				}
+			}
+			return 0
+		}, 5*time.Second).Should(BeZero())
+		again := send(e, "POST", "/api/addons/notes/upgrade", body("f-2", before, candidate), alice("f-2"))
+		Expect(again.errType()).NotTo(Equal("upgrade_conflict"), fmt.Sprint(again.body))
+	})
+})
+
 var _ = Describe("add-on items of upgrade runs on a frontend that is not the owner", Label("updates"), func() {
 	var (
 		s     *updatesStack

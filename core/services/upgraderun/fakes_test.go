@@ -92,13 +92,49 @@ type fakeStarter struct {
 	order  []string
 	actors []string
 	err    error
+	// gate, when set, holds every start until it is closed.
+	gate chan struct{}
+	// returned, when set, runs as a start returns.
+	returned func()
+}
+
+// onReturn runs fn as each later start returns.
+func (s *fakeStarter) onReturn(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.returned = fn
+}
+
+// block holds every later start until gate is closed.
+func (s *fakeStarter) block(gate chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gate = gate
 }
 
 func newFakeStarter(jobs *fakeJobs) *fakeStarter {
 	return &fakeStarter{jobs: jobs, byKey: map[string]string{}}
 }
 
-func (s *fakeStarter) Start(_ context.Context, actor string, it Item) (string, error) {
+func (s *fakeStarter) Start(ctx context.Context, actor string, it Item) (string, error) {
+	s.mu.Lock()
+	gate := s.gate
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		fn := s.returned
+		s.mu.Unlock()
+		if fn != nil {
+			fn()
+		}
+	}()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
@@ -241,6 +277,8 @@ type harnessOpts struct {
 	instance string
 	limit    int
 	toucher  OperationToucher
+	// recoveredIdle is RecoveredIdleAfter; zero keeps the default.
+	recoveredIdle time.Duration
 	// shared fakes, for a second frontend of the same cluster
 	starter  *fakeStarter
 	backends *fakeChecker
@@ -290,6 +328,7 @@ func newHarness(o harnessOpts) *harness {
 		PollInterval: 5 * time.Millisecond, SweepInterval: 20 * time.Millisecond, LostAfter: 300 * time.Millisecond,
 		TouchInterval: 5 * time.Millisecond, LockCheckInterval: 10 * time.Millisecond,
 		VerifyTries: 3, VerifyRetry: 5 * time.Millisecond,
+		RecoveredIdleAfter: o.recoveredIdle,
 	}
 	h.svc, err = New(opts)
 	Expect(err).NotTo(HaveOccurred())

@@ -329,7 +329,7 @@ func (e *Emitter) runEnd(ctx context.Context, run upgraderun.Run) error {
 		errText := runItemError(first)
 		n.Kind, n.Status = notify.KindNeedsAttention, notify.StatusFailed
 		n.Title += fmt.Sprintf(", %d need attention", len(attention))
-		n.Body = first.DisplayName()
+		n.Body = sanitize.OneLine(first.DisplayName(), 80)
 		if errText != "" {
 			n.Body += ": " + errText
 		}
