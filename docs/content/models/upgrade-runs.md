@@ -280,7 +280,8 @@ An item needs attention when it `failed`, `rolled_back`, stayed
 asked for it. The result at the top of the Updates page counts the same items.
 
 The operations of the items do not write their own "installed", "upgraded" or
-"failed" items: the item of the run replaces them. An operation started
+"failed" items: the item of the run replaces them. This holds for every kind,
+a model upgrade included. An operation started
 outside a run (an install, a removal) still writes its own item when it ends.
 
 The live item has these params: `run`, `progress` (0 to 100 for the whole run),
