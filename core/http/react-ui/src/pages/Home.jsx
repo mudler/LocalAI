@@ -32,6 +32,7 @@ import SetupStatusLine, { SetupReason } from '../components/chat/SetupStatusLine
 // eslint-disable-next-line no-unused-vars
 import ManageSetups from '../components/chat/ManageSetups'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { withLoadedAliases } from '../utils/loadedAliases'
 import { liveBlockedReason } from '../hooks/useLive'
 // eslint-disable-next-line no-unused-vars
 import LiveButton from '../components/chat/LiveButton'
@@ -654,7 +655,8 @@ export default function Home() {
   const examplesOn = chatsOn && configuredModels !== null && !firstRun
   const examplesGone = useExamplesGone(examplesOn)
   const loadedCount = loadedList.length
-  const loadedIds = useMemo(() => new Set(loadedList.map(m => m.id)), [loadedList])
+  // An alias is warm when its target is loaded: the server lists the target only.
+  const loadedIds = useMemo(() => withLoadedAliases(new Set(loadedList.map(m => m.id)), composer.models), [loadedList, composer.models])
 
   // Staging a model onto a worker is the one load this page can see: the
   // operations list reports it. An OOM on a single host surfaces in the chat.
