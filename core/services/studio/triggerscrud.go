@@ -2,6 +2,8 @@ package studio
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"slices"
@@ -69,6 +71,21 @@ type TriggerInput struct {
 	// what the trigger has; an empty list takes everything away. Only a
 	// person sets them: a model's proposal never carries acts.
 	Acts []string
+	// Source, EventType and Matches are for an event trigger (see
+	// triggers.Trigger). The secret is not an input: the host makes it.
+	Source, EventType string
+	Matches           []string
+}
+
+// newEventSecret makes the secret of an event trigger: 32 random bytes as
+// unpadded base64url. Every path that creates an event trigger, from the API or
+// from a confirmed proposal, takes its secret from here.
+func newEventSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic("studio: no random bytes: " + err.Error()) // rand.Read does not fail on a supported platform
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // keepPlan fills the fields of the plan and the gap that in leaves empty from
@@ -164,7 +181,8 @@ func countLive(ts []triggers.Trigger) int {
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, RunLimit: in.RunLimit, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
-		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
+		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route,
+		Source: strings.TrimSpace(in.Source), EventType: strings.TrimSpace(in.EventType), Matches: in.Matches}
 	acts, err := cleanActs(in.Acts)
 	if err != nil {
 		return t, err
@@ -289,6 +307,9 @@ func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInp
 		return triggers.Trigger{}, h.errTooMany()
 	}
 	t.ID = newID()
+	if t.Kind == triggers.KindEvent {
+		t.Secret = newEventSecret()
+	}
 	t = triggers.Arm(nil, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
@@ -323,6 +344,13 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 		}
 	}
 	t.ID, t.Route = old.ID, old.Route
+	// The client never sends the secret: an event trigger keeps its own, and
+	// one that becomes an event trigger gets a new one (see RotateSecret).
+	if t.Kind == triggers.KindEvent {
+		if t.Secret = old.Secret; old.Kind != triggers.KindEvent || t.Secret == "" {
+			t.Secret = newEventSecret()
+		}
+	}
 	// The answer to the proposal stays, and the edit is the reason the card
 	// can no longer undo it.
 	t.Outcome, t.OutcomeAt, t.Touched = old.Outcome, old.OutcomeAt, old.Touched || old.Outcome != ""
@@ -332,6 +360,26 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	}
 	h.Notify()
 	return t, nil
+}
+
+// RotateSecret makes a new secret for an event trigger of the user and returns
+// it. The old secret stops working at once: the hook reads the stored one.
+func (h *Triggers) RotateSecret(ctx context.Context, user, id string) (string, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	t, err := h.owned(ctx, user, id)
+	if err != nil {
+		return "", err
+	}
+	if t.Kind != triggers.KindEvent {
+		return "", bad("only an event trigger has a secret")
+	}
+	t.Secret = newEventSecret()
+	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		return "", err
+	}
+	h.Notify()
+	return t.Secret, nil
 }
 
 // SetTriggerEnabled switches a trigger on or off.

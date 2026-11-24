@@ -189,6 +189,7 @@ func withDefinition(dst, src triggers.Trigger) triggers.Trigger {
 	dst.RunLimit = src.RunLimit
 	dst.MinGap, dst.Reads, dst.Writes, dst.Widget, dst.EstTokens = src.MinGap, src.Reads, src.Writes, src.Widget, src.EstTokens
 	dst.Acts = src.Acts
+	dst.Source, dst.EventType, dst.Matches = src.Source, src.EventType, src.Matches
 	if src.Route.FromConnector() || src.Route.Connection != "" || dst.Route.Connection != "" {
 		dst.Route = src.Route
 	}
@@ -206,7 +207,7 @@ func changedFields(a, b triggers.Trigger) []string {
 	}
 	add("name", a.Name != b.Name)
 	add("prompt", a.Prompt != b.Prompt)
-	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder)
+	add("when", a.Kind != b.Kind || a.Schedule != b.Schedule || a.Folder != b.Folder || a.Source != b.Source || a.EventType != b.EventType || !slices.Equal(a.Matches, b.Matches))
 	add("time_zone", a.TZ != b.TZ)
 	add("daily_cap", a.DailyCap != b.DailyCap)
 	add("run_limit", a.RunLimit != b.RunLimit)
@@ -227,7 +228,8 @@ func changedFields(a, b triggers.Trigger) []string {
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
 		Quiet: t.Quiet, DailyCap: t.DailyCap, RunLimit: t.RunLimit, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
-		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route}
+		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts, Route: t.Route,
+		Source: t.Source, EventType: t.EventType, Matches: t.Matches}
 }
 
 // TriggerPatch is what a model asks to change in a trigger. A nil field, and
@@ -641,6 +643,9 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		kept := withDefinition(rec, live)
 		kept.SourceChatID = live.SourceChatID
 		kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(live)
+		// The copy that undoes a delete brings the secret back, so a device
+		// client keeps working; no view of a change shows it.
+		kept.Secret = live.Secret
 		kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 		err := h.o.Store.PutTrigger(ctx, kept)
 		if err != nil {
@@ -685,6 +690,11 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		}
 	}
 	t.ID = live.ID
+	// A change never carries a secret: the one the trigger has now stays, also
+	// when it was rotated after the change was asked for.
+	if t.Kind == triggers.KindEvent && live.Kind == triggers.KindEvent {
+		t.Secret = live.Secret
+	}
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
 	t = triggers.Arm(&live, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {

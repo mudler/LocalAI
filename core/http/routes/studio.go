@@ -287,6 +287,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/triggers/:id", h.UpdateTrigger)
 	e.DELETE(base+"/triggers/:id", h.DeleteTrigger)
 	e.POST(base+"/triggers/:id/run", h.RunTrigger)
+	e.POST(base+"/triggers/:id/secret", h.RotateTriggerSecret)
 	e.POST(base+"/triggers/:id/enable", h.EnableTrigger)
 	e.POST(base+"/triggers/:id/disable", h.DisableTrigger)
 	e.GET(base+"/triggers/:id/runs", h.TriggerRuns)

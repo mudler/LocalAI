@@ -6445,7 +6445,11 @@ definitions:
         type: string
       enabled:
         type: boolean
+      event_type:
+        type: string
       folder:
+        type: string
+      hook_path:
         type: string
       id:
         type: string
@@ -6459,6 +6463,10 @@ definitions:
         description: |-
           LastRun is the newest run, if any, and LastDone the end of the newest
           run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: MinGapSeconds is the shortest time between two runs of a file
           trigger.
@@ -6492,6 +6500,11 @@ definitions:
           applies now: the least of RunLimit and the administrator's limit.
         type: string
       schedule:
+        type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
         type: string
       source_chat_id:
         type: string
@@ -12067,7 +12080,11 @@ definitions:
         type: string
       enabled:
         type: boolean
+      event_type:
+        type: string
       folder:
+        type: string
+      hook_path:
         type: string
       id:
         type: string
@@ -12081,6 +12098,10 @@ definitions:
         description: |-
           LastRun is the newest run, if any, and LastDone the end of the newest
           run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: MinGapSeconds is the shortest time between two runs of a file
           trigger.
@@ -12112,6 +12133,11 @@ definitions:
           applies now: the least of RunLimit and the administrator's limit.
         type: string
       schedule:
+        type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
         type: string
       source_chat_id:
         type: string
@@ -12179,6 +12205,117 @@ definitions:
         type: boolean
       runs:
         type: integer
+    type: object
+  schema.ChatsTriggerCreated:
+    properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
+      acts_held:
+        description: |-
+          ActsHeld are the act.* names that apply to a run now: Acts within the
+          grants of the agent, plus act.files when the plan names a file it writes.
+          ReadOnly is true when a run can only read, and ReadOnlyWhy says why:
+          declared (the proposal said so), binding (a connection in read only mode
+          made it), no_acts (it holds none) or agent (its agent holds none of them).
+        items:
+          type: string
+        type: array
+      agent_id:
+        type: string
+      binding:
+        description: |-
+          Binding is the ID of the messaging connection that a trigger belongs to
+          when it was made without asking under that connection's approval. Such a
+          trigger stays within the acts the connection allows. Empty otherwise.
+        type: string
+      cost:
+        $ref: '#/definitions/schema.ChatsTriggerCost'
+      daily_cap:
+        type: integer
+      delivery:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerDelivery'
+        description: Delivery says where the answer of each run goes.
+      effective_run_limit:
+        type: string
+      enabled:
+        type: boolean
+      event_type:
+        type: string
+      folder:
+        type: string
+      hook_path:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      last_done:
+        type: string
+      last_run:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerRun'
+        description: |-
+          LastRun is the newest run, if any, and LastDone the end of the newest
+          run that finished without an error.
+      matches:
+        items:
+          type: string
+        type: array
+      min_gap_seconds:
+        description: MinGapSeconds is the shortest time between two runs of a file
+          trigger.
+        type: integer
+      model:
+        type: string
+      name:
+        type: string
+      next_run:
+        type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerPlan'
+        description: |-
+          Plan says what a run reads and writes and which Home widget shows the
+          file it writes; Cost what a run costs.
+      prompt:
+        type: string
+      quiet_seconds:
+        type: integer
+      read_only:
+        type: boolean
+      read_only_why:
+        type: string
+      run_limit:
+        description: |-
+          RunLimit is the longest one run may take, as a duration such as 30m;
+          empty means the administrator's run limit. EffectiveRunLimit is what
+          applies now: the least of RunLimit and the administrator's limit.
+        type: string
+      schedule:
+        type: string
+      secret:
+        type: string
+      source:
+        description: |-
+          Source, EventType and Matches say which events an event trigger takes.
+          HookPath is the path of its hook; add the address of the server.
+        type: string
+      source_chat_id:
+        type: string
+      summary:
+        description: |-
+          Summary says when it runs in plain words. NextRun is set for a schedule
+          trigger that is on.
+        type: string
+      time_zone:
+        type: string
     type: object
   schema.ChatsTriggerDelivery:
     properties:
@@ -12296,6 +12433,11 @@ definitions:
           $ref: '#/definitions/schema.ChatsTriggerRun'
         type: array
     type: object
+  schema.ChatsTriggerSecret:
+    properties:
+      secret:
+        type: string
+    type: object
   schema.ChatsTriggerWrite:
     properties:
       acts:
@@ -12320,10 +12462,16 @@ definitions:
           EstimatedTokens is about how many tokens one run uses; 0 keeps the
           trigger's value.
         type: integer
+      event_type:
+        type: string
       folder:
         type: string
       kind:
         type: string
+      matches:
+        items:
+          type: string
+        type: array
       min_gap_seconds:
         description: |-
           MinGapSeconds is the shortest time between two runs of a file trigger;
@@ -12348,6 +12496,13 @@ definitions:
           the ceiling: a longer value is accepted and runs cut to it.
         type: string
       schedule:
+        type: string
+      source:
+        description: |-
+          Source, EventType and Matches are for an event trigger: the sender name
+          (required), the event type (empty takes any), and up to 8 "field=value"
+          matches on the JSON payload. The secret is made by the server; a secret
+          in the body is ignored.
         type: string
       source_chat_id:
         type: string
@@ -26948,8 +27103,12 @@ paths:
     post:
       description: 'kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly
         mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields;
-        time_zone: an IANA name) or file (folder: a path inside your files). It runs
-        nothing for the time before it was saved. At most 50 triggers.'
+        time_zone: an IANA name), file (folder: a path inside your files) or event
+        (source: the sender name; event_type and matches narrow the events it takes).
+        It runs nothing for the time before it was saved. At most 50 triggers. The
+        response to an event trigger has secret, the key that signs its events: it
+        is shown here and when you rotate it, and never again. hook_path is where
+        the events go.'
       parameters:
       - description: the trigger
         in: body
@@ -26959,9 +27118,9 @@ paths:
           $ref: '#/definitions/schema.ChatsTriggerWrite'
       responses:
         "201":
-          description: The trigger
+          description: The trigger, with its secret when it is an event trigger
           schema:
-            $ref: '#/definitions/schema.ChatsTrigger'
+            $ref: '#/definitions/schema.ChatsTriggerCreated'
         "400":
           description: The request is not valid
           schema:
@@ -27137,6 +27296,33 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsTriggerRunList'
       summary: List the runs of a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/{id}/secret:
+    post:
+      description: Returns the new secret once. The old secret stops working at once,
+        so update the sender before the next event. 400 when the trigger is not an
+        event trigger.
+      parameters:
+      - description: the trigger's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The new secret
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerSecret'
+        "400":
+          description: The trigger is not an event trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such trigger
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Make a new secret for an event trigger.
       tags:
       - chats
   /api/chats/triggers/changes/{id}:

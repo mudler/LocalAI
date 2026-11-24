@@ -1068,6 +1068,22 @@ A trigger in a response also has `plan` (`reads`, `writes`, `widget`), `cost`
 file trigger, and each run its `tokens`. A create or replace takes `plan`,
 `estimated_tokens` and `min_gap_seconds`; an empty one keeps the stored value.
 
+An event trigger (`"kind": "event"`) starts a run when a service or a device
+client posts an event to its hook. Create it with `source` (the sender name,
+required), `event_type` (empty takes any type) and `matches` (up to 8
+`field=value` checks on the JSON body, where `field` is a dot path such as
+`pull_request.base.ref`). It has no schedule or folder. A trigger of this kind
+in a response has the same three fields and `hook_path`, the path of its hook
+(`/api/chats/triggers/{id}/hook`); add the address of your server.
+
+The response to the create has `secret`, the key that signs the events (32
+random bytes, base64url). It is shown there and in the response of
+`POST /api/chats/triggers/{id}/secret`, which makes a new one, and never again:
+get, list, update and the administrator views leave it out, and a `secret` in the
+body of a create or replace is ignored. The old secret stops working at once. A
+replace keeps the stored secret. Only the owner can rotate; for a trigger that
+is not an event trigger the call is a `400`.
+
 `GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
 and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its
 running run and drops its queued runs; the chats it made stay. Another user's

@@ -1631,8 +1631,12 @@ type ChatsNotificationsDelete struct {
 }
 
 // ChatsTrigger is a trigger: work that starts by itself, as you, in a new chat.
-// Kind is schedule or file. A schedule trigger has schedule and time_zone; a
-// file trigger has folder, a path inside your files, and quiet_seconds.
+// Kind is schedule, file or event. A schedule trigger has schedule and
+// time_zone; a file trigger has folder, a path inside your files, and
+// quiet_seconds; an event trigger has source, event_type and matches, and
+// hook_path, the path that a device client or a service posts events to. The
+// secret that signs the events is never part of a trigger: only the response of
+// a create and of a rotate carries it.
 type ChatsTrigger struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -1642,7 +1646,13 @@ type ChatsTrigger struct {
 	TimeZone     string `json:"time_zone,omitempty"`
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
-	DailyCap     int    `json:"daily_cap"`
+	// Source, EventType and Matches say which events an event trigger takes.
+	// HookPath is the path of its hook; add the address of the server.
+	Source    string   `json:"source,omitempty"`
+	EventType string   `json:"event_type,omitempty"`
+	Matches   []string `json:"matches,omitempty"`
+	HookPath  string   `json:"hook_path,omitempty"`
+	DailyCap  int      `json:"daily_cap"`
 	// RunLimit is the longest one run may take, as a duration such as 30m;
 	// empty means the administrator's run limit. EffectiveRunLimit is what
 	// applies now: the least of RunLimit and the administrator's limit.
@@ -1795,7 +1805,14 @@ type ChatsTriggerWrite struct {
 	TimeZone     string `json:"time_zone,omitempty"`
 	Folder       string `json:"folder,omitempty"`
 	QuietSeconds int    `json:"quiet_seconds,omitempty"`
-	DailyCap     int    `json:"daily_cap,omitempty"`
+	// Source, EventType and Matches are for an event trigger: the sender name
+	// (required), the event type (empty takes any), and up to 8 "field=value"
+	// matches on the JSON payload. The secret is made by the server; a secret
+	// in the body is ignored.
+	Source    string   `json:"source,omitempty"`
+	EventType string   `json:"event_type,omitempty"`
+	Matches   []string `json:"matches,omitempty"`
+	DailyCap  int      `json:"daily_cap,omitempty"`
 	// RunLimit is the longest one run may take, a duration from 1m to 24h such
 	// as 30m. Empty or 0 means the administrator's run limit, which is also
 	// the ceiling: a longer value is accepted and runs cut to it.
@@ -1818,6 +1835,20 @@ type ChatsTriggerWrite struct {
 	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
 	// out to keep the trigger's value; an empty list takes all of them away.
 	Acts []string `json:"acts,omitempty"`
+}
+
+// ChatsTriggerCreated is the response of creating a trigger. Secret is set for
+// an event trigger and shown only here and in the response of a rotate: keep
+// it, because no other call returns it.
+type ChatsTriggerCreated struct {
+	ChatsTrigger
+	Secret string `json:"secret,omitempty"`
+}
+
+// ChatsTriggerSecret is the response of a rotate: the new secret of an event
+// trigger. The old one stops working at once.
+type ChatsTriggerSecret struct {
+	Secret string `json:"secret"`
 }
 
 // ChatsTriggerList is the response of the trigger list endpoint.

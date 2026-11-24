@@ -10814,7 +10814,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "kind is schedule (schedule: \"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields; time_zone: an IANA name) or file (folder: a path inside your files). It runs nothing for the time before it was saved. At most 50 triggers.",
+                "description": "kind is schedule (schedule: \"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go.",
                 "tags": [
                     "chats"
                 ],
@@ -10832,9 +10832,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "The trigger",
+                        "description": "The trigger, with its secret when it is an event trigger",
                         "schema": {
-                            "$ref": "#/definitions/schema.ChatsTrigger"
+                            "$ref": "#/definitions/schema.ChatsTriggerCreated"
                         }
                     },
                     "400": {
@@ -11428,6 +11428,44 @@ const docTemplate = `{
                         "description": "Newest first",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsTriggerRunList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/{id}/secret": {
+            "post": {
+                "description": "Returns the new secret once. The old secret stops working at once, so update the sender before the next event. 400 when the trigger is not an event trigger.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Make a new secret for an event trigger.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the trigger's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new secret",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerSecret"
+                        }
+                    },
+                    "400": {
+                        "description": "The trigger is not an event trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such trigger",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -30418,7 +30456,13 @@ const docTemplate = `{
                 "enabled": {
                     "type": "boolean"
                 },
+                "event_type": {
+                    "type": "string"
+                },
                 "folder": {
+                    "type": "string"
+                },
+                "hook_path": {
                     "type": "string"
                 },
                 "id": {
@@ -30437,6 +30481,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsTriggerRun"
                         }
                     ]
+                },
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "min_gap_seconds": {
                     "description": "MinGapSeconds is the shortest time between two runs of a file trigger.",
@@ -30479,6 +30529,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "schedule": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source, EventType and Matches say which events an event trigger takes.\nHookPath is the path of its hook; add the address of the server.",
                     "type": "string"
                 },
                 "source_chat_id": {
@@ -37360,7 +37414,13 @@ const docTemplate = `{
                 "enabled": {
                     "type": "boolean"
                 },
+                "event_type": {
+                    "type": "string"
+                },
                 "folder": {
+                    "type": "string"
+                },
+                "hook_path": {
                     "type": "string"
                 },
                 "id": {
@@ -37379,6 +37439,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsTriggerRun"
                         }
                     ]
+                },
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "min_gap_seconds": {
                     "description": "MinGapSeconds is the shortest time between two runs of a file trigger.",
@@ -37418,6 +37484,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "schedule": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source, EventType and Matches say which events an event trigger takes.\nHookPath is the path of its hook; add the address of the server.",
                     "type": "string"
                 },
                 "source_chat_id": {
@@ -37505,6 +37575,141 @@ const docTemplate = `{
                 },
                 "runs": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsTriggerCreated": {
+            "type": "object",
+            "properties": {
+                "acts": {
+                    "description": "Acts are the action classes that a run with nobody present may use:\nact.files, act.addons, act.addons:\u003cid\u003e, act.send, act.spend. A run\nwithout any only reads.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "acts_held": {
+                    "description": "ActsHeld are the act.* names that apply to a run now: Acts within the\ngrants of the agent, plus act.files when the plan names a file it writes.\nReadOnly is true when a run can only read, and ReadOnlyWhy says why:\ndeclared (the proposal said so), binding (a connection in read only mode\nmade it), no_acts (it holds none) or agent (its agent holds none of them).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "binding": {
+                    "description": "Binding is the ID of the messaging connection that a trigger belongs to\nwhen it was made without asking under that connection's approval. Such a\ntrigger stays within the acts the connection allows. Empty otherwise.",
+                    "type": "string"
+                },
+                "cost": {
+                    "$ref": "#/definitions/schema.ChatsTriggerCost"
+                },
+                "daily_cap": {
+                    "type": "integer"
+                },
+                "delivery": {
+                    "description": "Delivery says where the answer of each run goes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDelivery"
+                        }
+                    ]
+                },
+                "effective_run_limit": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "hook_path": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "last_done": {
+                    "type": "string"
+                },
+                "last_run": {
+                    "description": "LastRun is the newest run, if any, and LastDone the end of the newest\nrun that finished without an error.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerRun"
+                        }
+                    ]
+                },
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "min_gap_seconds": {
+                    "description": "MinGapSeconds is the shortest time between two runs of a file trigger.",
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "next_run": {
+                    "type": "string"
+                },
+                "plan": {
+                    "description": "Plan says what a run reads and writes and which Home widget shows the\nfile it writes; Cost what a run costs.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerPlan"
+                        }
+                    ]
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "quiet_seconds": {
+                    "type": "integer"
+                },
+                "read_only": {
+                    "type": "boolean"
+                },
+                "read_only_why": {
+                    "type": "string"
+                },
+                "run_limit": {
+                    "description": "RunLimit is the longest one run may take, as a duration such as 30m;\nempty means the administrator's run limit. EffectiveRunLimit is what\napplies now: the least of RunLimit and the administrator's limit.",
+                    "type": "string"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "secret": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source, EventType and Matches say which events an event trigger takes.\nHookPath is the path of its hook; add the address of the server.",
+                    "type": "string"
+                },
+                "source_chat_id": {
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary says when it runs in plain words. NextRun is set for a schedule\ntrigger that is on.",
+                    "type": "string"
+                },
+                "time_zone": {
+                    "type": "string"
                 }
             }
         },
@@ -37659,6 +37864,14 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsTriggerSecret": {
+            "type": "object",
+            "properties": {
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsTriggerWrite": {
             "type": "object",
             "properties": {
@@ -37683,11 +37896,20 @@ const docTemplate = `{
                     "description": "EstimatedTokens is about how many tokens one run uses; 0 keeps the\ntrigger's value.",
                     "type": "integer"
                 },
+                "event_type": {
+                    "type": "string"
+                },
                 "folder": {
                     "type": "string"
                 },
                 "kind": {
                     "type": "string"
+                },
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "min_gap_seconds": {
                     "description": "MinGapSeconds is the shortest time between two runs of a file trigger;\n0 keeps the trigger's value (one minute for a new one).",
@@ -37718,6 +37940,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "schedule": {
+                    "type": "string"
+                },
+                "source": {
+                    "description": "Source, EventType and Matches are for an event trigger: the sender name\n(required), the event type (empty takes any), and up to 8 \"field=value\"\nmatches on the JSON payload. The secret is made by the server; a secret\nin the body is ignored.",
                     "type": "string"
                 },
                 "source_chat_id": {

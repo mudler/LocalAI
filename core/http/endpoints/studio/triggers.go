@@ -53,6 +53,12 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 	out.Delivery = schema.ChatsTriggerDelivery{Target: d.Target, ChannelLabel: d.ChannelLabel, ConnectionName: d.ConnectionName, InThread: d.InThread, Mode: d.Mode,
 		ChannelRef: d.ChannelRef, ChatRef: d.ChatRef, ConnectionID: d.ConnectionID, ConnectionKind: d.ConnectionKind,
 		ConnectionKindTitle: d.ConnectionKindTitle, ConnectionAddon: d.ConnectionAddon, State: d.State}
+	if t.Kind == triggers.KindEvent {
+		out.Source, out.EventType, out.Matches = t.Source, t.EventType, t.Matches
+		if !t.Proposed {
+			out.HookPath = hookPath(t.ID)
+		}
+	}
 	if t.Kind == triggers.KindFile {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
@@ -81,6 +87,10 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 	return out
 }
 
+// hookPath is the path of the public hook of an event trigger, as the router
+// registers it. The page adds the address of the server.
+func hookPath(id string) string { return "/api/chats/triggers/" + id + "/hook" }
+
 func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 	runLimit, err := studiosvc.ParseRunLimit(req.RunLimit)
 	if err != nil {
@@ -88,7 +98,8 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 	}
 	in := studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap, RunLimit: runLimit,
-		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
+		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled,
+		Source: req.Source, EventType: req.EventType, Matches: req.Matches}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
 	if req.Acts != nil {
 		in.Acts = req.Acts
@@ -137,10 +148,10 @@ func (h *Handlers) ListTriggers(c echo.Context) error {
 
 // CreateTrigger creates a trigger.
 // @Summary Create a trigger.
-// @Description kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields; time_zone: an IANA name) or file (folder: a path inside your files). It runs nothing for the time before it was saved. At most 50 triggers.
+// @Description kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go.
 // @Tags chats
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
-// @Success 201 {object} schema.ChatsTrigger "The trigger"
+// @Success 201 {object} schema.ChatsTriggerCreated "The trigger, with its secret when it is an event trigger"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/triggers [post]
 func (h *Handlers) CreateTrigger(c echo.Context) error {
@@ -160,7 +171,33 @@ func (h *Handlers) CreateTrigger(c echo.Context) error {
 	if err != nil {
 		return failTrigger(c, err)
 	}
-	return c.JSON(http.StatusCreated, triggerOut(c.Request().Context(), host, t, false))
+	if t.Secret != "" {
+		c.Response().Header().Set("Cache-Control", "no-store")
+	}
+	out := schema.ChatsTriggerCreated{ChatsTrigger: triggerOut(c.Request().Context(), host, t, false), Secret: t.Secret}
+	return c.JSON(http.StatusCreated, out)
+}
+
+// RotateTriggerSecret makes a new secret for an event trigger.
+// @Summary Make a new secret for an event trigger.
+// @Description Returns the new secret once. The old secret stops working at once, so update the sender before the next event. 400 when the trigger is not an event trigger.
+// @Tags chats
+// @Param id path string true "the trigger's id"
+// @Success 200 {object} schema.ChatsTriggerSecret "The new secret"
+// @Failure 400 {object} schema.ErrorResponse "The trigger is not an event trigger"
+// @Failure 404 {object} schema.ErrorResponse "No such trigger"
+// @Router /api/chats/triggers/{id}/secret [post]
+func (h *Handlers) RotateTriggerSecret(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	secret, err := host.RotateSecret(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, schema.ChatsTriggerSecret{Secret: secret})
 }
 
 // GetTrigger reads a trigger.
