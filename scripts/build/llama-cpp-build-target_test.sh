@@ -20,7 +20,7 @@ assert_target() {
 assert_target amd64 cublas llama-cpp-cpu-all
 assert_target amd64 vulkan llama-cpp-cpu-all
 assert_target amd64 "" llama-cpp-cpu-all
-assert_target arm64 cublas llama-cpp-fallback
+assert_target arm64 cublas llama-cpp-cpu-all
 assert_target arm64 "" llama-cpp-cpu-all
 
 # SYCL builds the whole tree with icpx -fsycl, and icpx never finishes

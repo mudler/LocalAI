@@ -23,11 +23,7 @@ case "$build_type" in
     ;;
 esac
 
-# GPU arm64 base images do not consistently provide the gcc-14 toolchain needed
-# to compile ggml's armv9.2 CPU variants. Keep their portable fallback until the
-# builder images can supply that compiler.
-if [ "$arch" = "arm64" ] && [ -n "$build_type" ]; then
-  echo llama-cpp-fallback
-else
-  echo llama-cpp-cpu-all
-fi
+# arm64 GPU images use cpu-all too. The portable fallback is built with
+# GGML_NATIVE=OFF and has no Arm dotprod, i8mm or SVE kernels, so the CPU side of a
+# partly offloaded model ran about 27% slower than a native build.
+echo llama-cpp-cpu-all
