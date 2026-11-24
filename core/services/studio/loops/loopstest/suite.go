@@ -1,0 +1,367 @@
+// Package loopstest checks a loops.Store against the contract of the package.
+package loopstest
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/services/studio/loops"
+)
+
+// NewStore returns an empty Store for one spec. It registers its own cleanup.
+type NewStore func() loops.Store
+
+var base = time.Date(2026, 10, 31, 9, 0, 0, 0, time.UTC)
+
+func sample(id, owner, chat string, n int) loops.Loop {
+	return loops.Loop{ID: id, Owner: owner, ChatID: chat, Prompt: "Check the build.", Interval: 5 * time.Minute,
+		State: loops.StateActive, Next: base.Add(time.Duration(n) * time.Minute), Created: base.Add(time.Duration(n) * time.Second),
+		Updated: base}
+}
+
+// RunStoreSuite registers the specs of the Store contract.
+func RunStoreSuite(newStore NewStore) {
+	var (
+		s   loops.Store
+		ctx context.Context
+	)
+	BeforeEach(func() {
+		s = newStore()
+		ctx = context.Background()
+	})
+
+	It("adds a loop and reads it back the same", func() {
+		l := sample("l1", "u1", "c1", 0)
+		l.Reason, l.Runs, l.Failures, l.Wait, l.Scheduled, l.Running = "why", 4, 1, "build", true, true
+		l.LastRun = base.Add(-time.Minute)
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "l1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Prompt).To(Equal(l.Prompt))
+		Expect(got.Interval).To(Equal(l.Interval))
+		Expect(got.State).To(Equal(loops.StateActive))
+		Expect(got.Reason).To(Equal("why"))
+		Expect(got.Runs).To(Equal(4))
+		Expect(got.Failures).To(Equal(1))
+		Expect(got.Wait).To(Equal("build"))
+		Expect(got.Scheduled).To(BeTrue())
+		Expect(got.Running).To(BeTrue())
+		Expect(got.Next.Equal(l.Next)).To(BeTrue(), "next = %v", got.Next)
+		Expect(got.LastRun.Equal(l.LastRun)).To(BeTrue(), "last run = %v", got.LastRun)
+		Expect(got.Created.Equal(l.Created)).To(BeTrue(), "created = %v", got.Created)
+	})
+
+	It("keeps the state of a wait through Add, Get and Update", func() {
+		l := sample("w1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Tool: "list_downloads", Args: []byte(`{"a":1}`), Mode: loops.UntilMatch, Pattern: "done",
+			Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "move it", Checks: 2, BaseHash: "h", BaseOut: "out"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch).NotTo(BeNil())
+		Expect(got.Watch.Tool).To(Equal("list_downloads"))
+		Expect(string(got.Watch.Args)).To(Equal(`{"a":1}`))
+		Expect(got.Watch.Pattern).To(Equal("done"))
+		Expect(got.Watch.Checks).To(Equal(2))
+		Expect(got.Watch.Deadline.Equal(base.Add(time.Hour))).To(BeTrue())
+		got, err = s.Update(ctx, "w1", func(c *loops.Loop) error {
+			w := c.Watch.Clone()
+			w.Checks, w.Wake = 3, "wake"
+			c.Watch = w
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch.Checks).To(Equal(3))
+		again, _ := s.Get(ctx, "w1")
+		Expect(again.Watch.Wake).To(Equal("wake"))
+		plain := sample("p1", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "p1")
+		Expect(got.Watch).To(BeNil())
+	})
+
+	It("keeps the report of a loop through Add, Update and Get", func() {
+		l := sample("r1", "u1", "c1", 0)
+		l.Report = &loops.Report{Connection: "conn1", Channel: "G1", Mode: loops.ReportOnProblem}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "r1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Report).To(Equal(&loops.Report{Connection: "conn1", Channel: "G1", Mode: loops.ReportOnProblem}))
+		got, err = s.Update(ctx, "r1", func(c *loops.Loop) error {
+			c.Reason = "x"
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Report).NotTo(BeNil(), "an update that does not touch the report keeps it")
+		plain := sample("r2", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "r2")
+		Expect(got.Report).To(BeNil())
+	})
+
+	It("keeps the grant of a loop through Add, Update and Get and reads a row with none", func() {
+		l := sample("g1", "u1", "c1", 0)
+		l.Grant = []string{"loops.wait"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "g1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Grant).To(Equal([]string{"loops.wait"}))
+		got, err = s.Update(ctx, "g1", func(c *loops.Loop) error {
+			c.Reason = "x"
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Grant).To(Equal([]string{"loops.wait"}), "an update that does not touch the grant keeps it")
+		plain := sample("g2", "u1", "c1", 1)
+		Expect(s.Add(ctx, plain, loops.Limits{})).To(Succeed())
+		got, _ = s.Get(ctx, "g2")
+		Expect(got.Grant).To(BeEmpty())
+	})
+
+	It("keeps the job fields of a wait through Add, Update and Get", func() {
+		l := sample("j1", "u1", "c1", 0)
+		l.Watch = &loops.Watch{Job: "job-ab12cd", JobLabel: "build", Node: "addon:sandbox@3", Mode: loops.UntilStall, Idle: 10 * time.Minute,
+			JobOffset: 4096, Deadline: base.Add(time.Hour), MaxErrors: 3, Then: "look at it"}
+		Expect(s.Add(ctx, l, loops.Limits{})).To(Succeed())
+		got, err := s.Get(ctx, "j1")
+		Expect(err).NotTo(HaveOccurred())
+		w := got.Watch
+		Expect(w.Job).To(Equal("job-ab12cd"))
+		Expect(w.JobLabel).To(Equal("build"))
+		Expect(w.Node).To(Equal("addon:sandbox@3"))
+		Expect(w.Mode).To(Equal(loops.UntilStall))
+		Expect(w.Idle).To(Equal(10 * time.Minute))
+		Expect(w.JobOffset).To(Equal(int64(4096)))
+		_, err = s.Update(ctx, "j1", func(c *loops.Loop) error {
+			n := c.Watch.Clone()
+			n.JobOffset, n.JobExit, n.JobEnd, n.JobRan, n.JobGone, n.JobNoMatch = 9000, 2, "exit", 3*time.Minute, true, true
+			c.Watch = n
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		again, _ := s.Get(ctx, "j1")
+		Expect(again.Watch.JobOffset).To(Equal(int64(9000)))
+		Expect(again.Watch.JobExit).To(Equal(2))
+		Expect(again.Watch.JobEnd).To(Equal("exit"))
+		Expect(again.Watch.JobRan).To(Equal(3 * time.Minute))
+		Expect(again.Watch.JobGone).To(BeTrue())
+		Expect(again.Watch.JobNoMatch).To(BeTrue())
+		Expect(again.Watch.Node).To(Equal("addon:sandbox@3"))
+	})
+
+	It("returns ErrNotFound for an unknown loop", func() {
+		_, err := s.Get(ctx, "nope")
+		Expect(err).To(MatchError(loops.ErrNotFound))
+		_, err = s.Update(ctx, "nope", func(*loops.Loop) error { return nil })
+		Expect(err).To(MatchError(loops.ErrNotFound))
+		Expect(s.Delete(ctx, "nope")).To(Succeed())
+	})
+
+	It("refuses an invalid loop and a taken ID", func() {
+		bad := sample("l1", "u1", "c1", 0)
+		bad.Prompt = " "
+		Expect(s.Add(ctx, bad, loops.Limits{})).To(MatchError(loops.ErrInvalid))
+		Expect(s.Add(ctx, sample("l1", "u1", "c1", 0), loops.Limits{})).To(Succeed())
+		Expect(s.Add(ctx, sample("l1", "u1", "c2", 0), loops.Limits{})).To(MatchError(loops.ErrInvalid))
+	})
+
+	It("counts only loops that are not ended against the limits of the chat and the owner", func() {
+		lim := loops.Limits{PerChat: 2, PerUser: 3}
+		Expect(s.Add(ctx, sample("a", "u1", "c1", 0), lim)).To(Succeed())
+		Expect(s.Add(ctx, sample("b", "u1", "c1", 1), lim)).To(Succeed())
+		Expect(s.Add(ctx, sample("c", "u1", "c1", 2), lim)).To(MatchError(loops.ErrTooManyInChat))
+		Expect(s.Add(ctx, sample("d", "u1", "c2", 3), lim)).To(Succeed())
+		Expect(s.Add(ctx, sample("e", "u1", "c3", 4), lim)).To(MatchError(loops.ErrTooManyForOwner))
+		// Another owner has limits of their own.
+		Expect(s.Add(ctx, sample("f", "u2", "c1", 5), lim)).To(Succeed())
+		// An ended loop frees its place.
+		_, err := s.Update(ctx, "a", func(l *loops.Loop) error { l.State = loops.StateEnded; return nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Add(ctx, sample("c", "u1", "c1", 6), lim)).To(Succeed())
+	})
+
+	It("admits one loop over the limit only once when two add at the same time", func() {
+		lim := loops.Limits{PerChat: 1}
+		var wg sync.WaitGroup
+		var ok atomic.Int32
+		for i := range 8 {
+			wg.Go(func() {
+				if s.Add(ctx, sample(fmt.Sprintf("x%d", i), "u1", "c1", i), lim) == nil {
+					ok.Add(1)
+				}
+			})
+		}
+		wg.Wait()
+		Expect(ok.Load()).To(Equal(int32(1)))
+	})
+
+	It("updates in one step and keeps the identity", func() {
+		Expect(s.Add(ctx, sample("l1", "u1", "c1", 0), loops.Limits{})).To(Succeed())
+		got, err := s.Update(ctx, "l1", func(l *loops.Loop) error {
+			l.Runs, l.Running, l.Owner, l.ChatID = 7, true, "evil", "other"
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Runs).To(Equal(7))
+		Expect(got.Owner).To(Equal("u1"))
+		Expect(got.ChatID).To(Equal("c1"))
+		back, _ := s.Get(ctx, "l1")
+		Expect(back.Runs).To(Equal(7))
+		Expect(back.Running).To(BeTrue())
+	})
+
+	It("leaves the loop as it was when the change fails", func() {
+		Expect(s.Add(ctx, sample("l1", "u1", "c1", 0), loops.Limits{})).To(Succeed())
+		boom := errors.New("boom")
+		_, err := s.Update(ctx, "l1", func(l *loops.Loop) error { l.Runs = 9; return boom })
+		Expect(err).To(MatchError(boom))
+		back, _ := s.Get(ctx, "l1")
+		Expect(back.Runs).To(Equal(0))
+	})
+
+	It("loses no change when updates race", func() {
+		Expect(s.Add(ctx, sample("l1", "u1", "c1", 0), loops.Limits{})).To(Succeed())
+		var wg sync.WaitGroup
+		for range 10 {
+			wg.Go(func() {
+				_, err := s.Update(ctx, "l1", func(l *loops.Loop) error { l.Runs++; return nil })
+				Expect(err).NotTo(HaveOccurred())
+			})
+		}
+		wg.Wait()
+		back, _ := s.Get(ctx, "l1")
+		Expect(back.Runs).To(Equal(10))
+	})
+
+	It("lists by chat and by owner, oldest first, and the working loops of everyone", func() {
+		Expect(s.Add(ctx, sample("b", "u1", "c1", 2), loops.Limits{})).To(Succeed())
+		Expect(s.Add(ctx, sample("a", "u1", "c1", 1), loops.Limits{})).To(Succeed())
+		p := sample("p", "u1", "c2", 3)
+		p.State = loops.StatePaused
+		Expect(s.Add(ctx, p, loops.Limits{})).To(Succeed())
+		r := sample("r", "u2", "c9", 4)
+		r.State, r.Running = loops.StatePaused, true // paused while its run goes on
+		Expect(s.Add(ctx, r, loops.Limits{})).To(Succeed())
+		e := sample("e", "u2", "c9", 5)
+		e.State = loops.StateEnded
+		Expect(s.Add(ctx, e, loops.Limits{})).To(Succeed())
+
+		chat, err := s.ListChat(ctx, "u1", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids(chat)).To(Equal([]string{"a", "b"}))
+		other, _ := s.ListChat(ctx, "u2", "c1")
+		Expect(other).To(BeEmpty())
+		own, _ := s.ListOwner(ctx, "u1")
+		Expect(ids(own)).To(Equal([]string{"a", "b", "p"}))
+		work, _ := s.Working(ctx)
+		Expect(ids(work)).To(Equal([]string{"a", "b", "r"}))
+	})
+
+	It("deletes one loop, and every loop of a chat with its consent", func() {
+		Expect(s.Add(ctx, sample("a", "u1", "c1", 0), loops.Limits{})).To(Succeed())
+		Expect(s.Add(ctx, sample("b", "u1", "c1", 1), loops.Limits{})).To(Succeed())
+		Expect(s.Add(ctx, sample("c", "u1", "c2", 2), loops.Limits{})).To(Succeed())
+		Expect(s.SetConsented(ctx, "u1", "c1")).To(Succeed())
+		Expect(s.Delete(ctx, "a")).To(Succeed())
+		_, err := s.Get(ctx, "a")
+		Expect(err).To(MatchError(loops.ErrNotFound))
+		n, err := s.DeleteChat(ctx, "u1", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		left, _ := s.ListOwner(ctx, "u1")
+		Expect(ids(left)).To(Equal([]string{"c"}))
+		ok, _ := s.Consented(ctx, "u1", "c1")
+		Expect(ok).To(BeFalse())
+	})
+
+	It("remembers the consent of a chat per owner", func() {
+		ok, err := s.Consented(ctx, "u1", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		Expect(s.SetConsented(ctx, "u1", "c1")).To(Succeed())
+		Expect(s.SetConsented(ctx, "u1", "c1")).To(Succeed())
+		ok, _ = s.Consented(ctx, "u1", "c1")
+		Expect(ok).To(BeTrue())
+		ok, _ = s.Consented(ctx, "u2", "c1")
+		Expect(ok).To(BeFalse())
+	})
+
+	It("takes runs from the daily budget of an owner and starts again the next day", func() {
+		for range 3 {
+			ok, err := s.TakeRun(ctx, "u1", "2026-10-31", 3)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		}
+		ok, _ := s.TakeRun(ctx, "u1", "2026-10-31", 3)
+		Expect(ok).To(BeFalse())
+		ok, _ = s.TakeRun(ctx, "u2", "2026-10-31", 3)
+		Expect(ok).To(BeTrue(), "another owner has a budget of their own")
+		ok, _ = s.TakeRun(ctx, "u1", "2026-11-01", 3)
+		Expect(ok).To(BeTrue(), "a new day has a new budget")
+		ok, _ = s.TakeRun(ctx, "u1", "2026-11-01", 0)
+		Expect(ok).To(BeTrue(), "no budget is no limit")
+	})
+
+	It("keeps a budget of checks of waits on a script apart from the budget of runs", func() {
+		for range 2 {
+			ok, err := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		}
+		ok, _ := s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse())
+		ok, _ = s.TakeRun(ctx, "u1", "2026-10-31", 1)
+		Expect(ok).To(BeTrue(), "the checks did not use a run")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-10-31", 2)
+		Expect(ok).To(BeFalse(), "a run did not give a check back")
+		ok, _ = s.TakeCheck(ctx, "u2", "2026-10-31", 2)
+		Expect(ok).To(BeTrue(), "another owner has a budget of their own")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 2)
+		Expect(ok).To(BeTrue(), "a new day has a new budget")
+		ok, _ = s.TakeCheck(ctx, "u1", "2026-11-01", 0)
+		Expect(ok).To(BeTrue(), "no budget is no limit")
+	})
+
+	It("never takes the last check of the day twice", func() {
+		var wg sync.WaitGroup
+		var ok atomic.Int32
+		for range 8 {
+			wg.Go(func() {
+				if took, err := s.TakeCheck(ctx, "u1", "2026-10-31", 3); err == nil && took {
+					ok.Add(1)
+				}
+			})
+		}
+		wg.Wait()
+		Expect(ok.Load()).To(Equal(int32(3)))
+	})
+
+	It("never takes the last run of the day twice", func() {
+		var wg sync.WaitGroup
+		var ok atomic.Int32
+		for range 8 {
+			wg.Go(func() {
+				if took, err := s.TakeRun(ctx, "u1", "2026-10-31", 3); err == nil && took {
+					ok.Add(1)
+				}
+			})
+		}
+		wg.Wait()
+		Expect(ok.Load()).To(Equal(int32(3)))
+	})
+}
+
+func ids(ls []loops.Loop) []string {
+	out := make([]string, len(ls))
+	for i, l := range ls {
+		out[i] = l.ID
+	}
+	return out
+}

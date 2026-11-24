@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Cloud proxy</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Cloud proxy</p>
+<h1>Local API, <span class="hl">cloud</span> model</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="margin-bottom:12px"><div class="rowlab">Request</div><div class="flow big" style="flex:1"><div class="node cen"><b>Client</b><span>app, curl, SDK</span></div><div class="ar"></div><div class="node cen"><b>Auth, routing</b></div><div class="ar"></div><div class="node core cen"><b>Redact PII</b><span>request side</span></div><div class="ar"></div><div class="node cen"><b>Cloud proxy</b><span>backend</span></div><div class="ar"></div><div class="node cen"><b>Upstream</b><span>OpenAI, Anthropic</span></div></div></div>
+<div class="row" style="margin-bottom:26px"><div class="rowlab">Reply</div><div class="flow big" style="flex:1;flex-direction:row-reverse"><div class="node cen"><b>Client</b><span>tokens as they come</span></div><div class="ar back"></div><div class="node core cen"><b>Redact PII</b><span>streaming filter</span></div><div class="ar back"></div><div class="node cen"><b>Upstream</b><span>SSE stream</span></div></div></div>
+<div class="node dash"><b>Bypassed in proxy mode</b><span>templating, MCP and the model loader do not run</span></div>
+
+</div>
+<div class="foot">PII is redacted <b>on the way out and on the way back</b>.</div>
+</body></html>

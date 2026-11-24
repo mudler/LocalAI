@@ -1,0 +1,93 @@
+package config
+
+import "slices"
+
+// GalleryVerification declares the keyless-cosign signature policy that
+// every OCI backend image fetched from this gallery must satisfy.
+//
+// Verification is opt-in: galleries without a Verification block install
+// backends with no signature check (the downloader logs a warning when
+// LOCALAI_REQUIRE_BACKEND_INTEGRITY is unset; that flag turns the warning
+// into a hard error).
+//
+// Identity matching: set Issuer (exact) or IssuerRegex, AND Identity
+// (exact) or IdentityRegex. For GitHub Actions keyless signing the
+// typical shape is:
+//
+//	verification:
+//	  issuer: "https://token.actions.githubusercontent.com"
+//	  identity_regex: "^https://github\\.com/mudler/local-ai-backends/\\.github/workflows/build\\.yaml@refs/heads/master$"
+//	  not_before: "2026-05-01T00:00:00Z"
+//
+// NotBefore is the revocation lever: advance it to invalidate every
+// signature produced before a known compromise window. Keyless cosign
+// certs are ephemeral so there is no CA-side revocation.
+//
+// SourceRepository pins the certificate's source-repository extension. Set
+// it when the signing workflow is a reusable workflow shared by several
+// repositories: the identity then names the shared workflow, and only the
+// source repository says which repository the signature was made for.
+type GalleryVerification struct {
+	Issuer        string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	IssuerRegex   string `json:"issuer_regex,omitempty" yaml:"issuer_regex,omitempty"`
+	Identity      string `json:"identity,omitempty" yaml:"identity,omitempty"`
+	IdentityRegex string `json:"identity_regex,omitempty" yaml:"identity_regex,omitempty"`
+
+	// SourceRepository is an https URL compared exactly against the
+	// certificate's source-repository extension. Empty skips the check.
+	SourceRepository string `json:"source_repository,omitempty" yaml:"source_repository,omitempty"`
+
+	// NotBefore is an RFC3339 timestamp. Empty disables the time check.
+	NotBefore string `json:"not_before,omitempty" yaml:"not_before,omitempty"`
+}
+
+type Gallery struct {
+	URL string `json:"url" yaml:"url"`
+	// Mirrors are tried in order when URL cannot be fetched. They are a
+	// fallback for availability, not a load-balancing pool: the primary is
+	// always preferred, and a mirror is only consulted after the one before
+	// it fails. Any URI the gallery loader understands works here
+	// (https://, github:, file://, oci://).
+	Mirrors []string `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
+	Name    string   `json:"name" yaml:"name"`
+	// Library says the URL is a model library (the shared library entry
+	// shape), not a gallery index.
+	Library      bool                 `json:"library,omitempty" yaml:"library,omitempty"`
+	Verification *GalleryVerification `json:"verification,omitempty" yaml:"verification,omitempty"`
+	// ArtifactVerification overrides Verification only for the gallery OCI artifact.
+	// Backend images keep their separate Verification policy.
+	ArtifactVerification *GalleryVerification `json:"artifact_verification,omitempty" yaml:"artifact_verification,omitempty"`
+}
+
+// Equal reports whether two gallery entries describe the same gallery.
+//
+// Mirrors made Gallery non-comparable with ==, so callers that used to rely
+// on that (the runtime settings registry diffs the live gallery list against
+// the option-less baseline to decide whether env/CLI claimed the setting)
+// need an explicit value comparison. Verification is compared by value:
+// under == it was compared by pointer identity, which would have called two
+// structurally identical policies different.
+func (g Gallery) Equal(other Gallery) bool {
+	if g.URL != other.URL || g.Name != other.Name {
+		return false
+	}
+	if !slices.Equal(g.Mirrors, other.Mirrors) {
+		return false
+	}
+	if g.ArtifactVerification == nil || other.ArtifactVerification == nil {
+		if g.ArtifactVerification != other.ArtifactVerification {
+			return false
+		}
+	} else if *g.ArtifactVerification != *other.ArtifactVerification {
+		return false
+	}
+	if g.Verification == nil || other.Verification == nil {
+		return g.Verification == other.Verification
+	}
+	return *g.Verification == *other.Verification
+}
+
+// GalleriesEqual compares two gallery lists element-wise, in order.
+func GalleriesEqual(a, b []Gallery) bool {
+	return slices.EqualFunc(a, b, Gallery.Equal)
+}

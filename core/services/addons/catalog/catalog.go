@@ -1,0 +1,513 @@
+// SPDX-License-Identifier: MIT
+package catalog
+
+import (
+	"context"
+	"errors"
+	"maps"
+	"reflect"
+	"runtime"
+	"slices"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+)
+
+var (
+	ErrForbidden   = errors.New("source administration denied")
+	ErrInvalid     = errors.New("invalid catalog configuration")
+	ErrCredential  = errors.New("catalog credential unavailable")
+	ErrRefresh     = errors.New("catalog refresh failed")
+	ErrUnavailable = errors.New("catalog unavailable")
+	ErrNotFound    = errors.New("catalog release not found")
+)
+
+type VerificationPolicy struct {
+	RequireSignature bool   `json:"requireSignature" yaml:"requireSignature"`
+	Issuer           string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
+	Identity         string `json:"identity,omitempty" yaml:"identity,omitempty"`
+	// IdentityRegex is an anchored pattern for the signer identity, used
+	// instead of Identity so that master and tagged builds both verify. A
+	// backend install accepts it alone. An add-on install and an oci:// add-on
+	// library accept it only with SourceRepository: a shared signing workflow
+	// signs for every repository that calls it, so the pattern alone would
+	// admit a signature made for any of them.
+	IdentityRegex string `json:"identityRegex,omitempty" yaml:"identityRegex,omitempty"`
+	// SourceRepository pins the repository the signature was made for: an
+	// https URL compared exactly with the source-repository extension of the
+	// signing certificate, such as https://github.com/<owner>/<repo>. It is
+	// valid only when a signature is required.
+	SourceRepository string `json:"sourceRepository,omitempty" yaml:"sourceRepository,omitempty"`
+}
+
+// CosignPolicy is the verifier policy of p. Every signer field goes through,
+// so a pattern and a source repository are checked as the source names them.
+func (p VerificationPolicy) CosignPolicy() cosignverify.Policy {
+	return cosignverify.Policy{Issuer: p.Issuer, Identity: p.Identity, IdentityRegex: p.IdentityRegex, SourceRepository: p.SourceRepository}
+}
+
+// ValidForAddon reports whether p may verify an add-on: an exact identity,
+// with or without a source repository, or a pattern with a source repository.
+// A pattern alone is refused because a shared signing workflow matches it for
+// every repository that calls the workflow.
+func (p VerificationPolicy) ValidForAddon() bool {
+	return p.IdentityRegex == "" || p.SourceRepository != ""
+}
+
+// SignerLabel is the signer a verified package is shown with. It names only
+// what the signature check compared exactly: the identity when it is exact,
+// otherwise the pinned source repository. A pattern with no pin names no one
+// signer, so the label is then empty, as it is without a required signature.
+func (p VerificationPolicy) SignerLabel() string {
+	switch {
+	case !p.RequireSignature:
+		return ""
+	case p.Identity != "":
+		return p.Identity
+	case p.IdentityRegex != "" && p.SourceRepository != "":
+		return p.SourceRepository
+	}
+	return ""
+}
+
+// MaxEntryTools bounds the tool names of one entry, as apps.MaxTools bounds
+// them in the installed view.
+const MaxEntryTools = 32
+
+// validEntryTools applies to the tool hint the rules of the manifest: names
+// are tool names, there are at most MaxEntryTools of them, and the count is the
+// full number, so it is never below the names listed.
+func validEntryTools(r Release) bool {
+	if r.ToolCount < 0 || len(r.Tools) > MaxEntryTools || len(r.Tools) > r.ToolCount || (r.ToolCount > len(r.Tools) && len(r.Tools) != MaxEntryTools) {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, t := range r.Tools {
+		if !contract.ValidName(t) || seen[t] {
+			return false
+		}
+		seen[t] = true
+	}
+	shadowed := map[string]bool{}
+	for _, t := range r.Shadows {
+		if !contract.Replaceable(t) || shadowed[t] {
+			return false
+		}
+		shadowed[t] = true
+	}
+	skills := map[string]bool{}
+	for _, t := range r.SkillShadows {
+		if !contract.ReplaceableSkill(t) || skills[t] {
+			return false
+		}
+		skills[t] = true
+	}
+	return true
+}
+
+// EntryUI is optional display metadata a catalog may offer for an entry. It is
+// a hint for browsing before install, never authority: the manifest inside the
+// verified package decides what an installed addon shows and can open. Every
+// field is plain text or a path inside the package, never a URL, so no entry
+// can make the host fetch an image from the catalog's own servers.
+type EntryUI struct {
+	// Title and Description are the default-language text. Localized text is
+	// part of the package manifest and reaches users from the installed addon.
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	// Titles and Descriptions carry the other languages of the manifest's
+	// ui.title and ui.description, keyed by BCP 47 tag, so the library can
+	// show the text in the user's language before the add-on is installed.
+	// They never hold English: Title and Description are the English fallback.
+	Titles       map[string]string `json:"titles,omitempty"`
+	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// MainPage is the route the addon opens as an app, if it has one.
+	MainPage string `json:"mainPage,omitempty"`
+	// Icon is a path inside the package. The host serves an icon only after
+	// the package is installed and verified.
+	Icon string `json:"icon,omitempty"`
+	// LaunchMode is absent or "always".
+	LaunchMode string `json:"launchMode,omitempty"`
+}
+
+// Requirements is what an entry says its package needs from the host. Like
+// EntryUI it is a hint for the owner's update check, never authority: the
+// manifest inside the verified package is checked again when the package is
+// staged. A zero range means the entry makes no claim; the SDK range is zero
+// for a package without a UI. It is comparable on purpose.
+type Requirements struct {
+	Host       contract.VersionRange `json:"host,omitzero"`
+	API        contract.VersionRange `json:"api,omitzero"`
+	Protocol   contract.VersionRange `json:"protocol,omitzero"`
+	DataFormat contract.VersionRange `json:"dataFormat,omitzero"`
+	SDK        contract.VersionRange `json:"sdk,omitzero"`
+	// FeatureLevel is the feature level the package needs (see
+	// contract.HostFeatureLevel). Zero means no claim, the base level. A host
+	// older than this field refuses an index that carries it, because the
+	// index reader is strict; the generator writes it only for a package that
+	// needs more than the base level.
+	FeatureLevel uint64 `json:"featureLevel,omitempty"`
+}
+
+type Release struct {
+	// Kind says what the entry installs: addon (the default when absent),
+	// backend or model. See ReadIndex for how a reader treats a kind it does
+	// not know.
+	Kind              Kind   `json:"kind,omitempty"`
+	Channel           string `json:"channel,omitempty"`
+	AllowLoopbackHTTP bool   `json:"allowLoopbackHTTP,omitempty"`
+	// Selection is stamped by Resolve, not trusted from remote metadata.
+	Selection string `json:"selection,omitempty"`
+	SourceID  string `json:"sourceId,omitempty"`
+	SourceURL string `json:"sourceUrl,omitempty"`
+	// Official is stamped with the source, never trusted from remote metadata:
+	// true only when the entry comes from the official library at one of the
+	// addresses LocalAI ships. A library an administrator named "official" at
+	// another address does not qualify. It is the library half of the test; the
+	// receipt of an installed package adds the signature.
+	Official bool `json:"official"`
+	// Signer is stamped with the source, never read from remote metadata: the
+	// signer identity an administrator pinned, or the source repository when
+	// the identity is a pattern, set only for an entry of a source that
+	// requires a signature and is not the official library. It
+	// lets the UI say who vouches for a package that LocalAI did not review.
+	Signer string `json:"signer,omitempty"`
+	// ID is the identifier of the entry for every kind, the same field the
+	// shared envelope uses. For a backend it is the backend name, which is also
+	// its directory name.
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Version     string `json:"version"`
+	// Artifact and Digest are absent on a meta backend, and Digest is absent on
+	// a mutable entry (see Mutable).
+	Artifact string `json:"artifact,omitempty"`
+	Digest   string `json:"digest,omitempty"`
+	// Alias is the name a model may use to ask for this backend. Only a
+	// backend entry may set it.
+	Alias  string             `json:"alias,omitempty"`
+	OS     string             `json:"os,omitempty"`
+	Arch   string             `json:"arch,omitempty"`
+	Policy VerificationPolicy `json:"policy,omitzero"`
+	// UI is the optional display metadata of the entry. A release is compared
+	// with its trusted resolution at staging (see Equal).
+	UI EntryUI `json:"ui,omitzero"`
+	// Requires is the optional compatibility hint of the entry.
+	Requires Requirements `json:"requires,omitzero"`
+	// ToolCount and Tools say what the add-on brings to chat before it is
+	// installed. They use the names of the installed view (apps.App). Tools are
+	// the chat tools of the manifest (never its admin tools), at most
+	// MaxEntryTools; ToolCount is the full number. Like UI they are a hint for
+	// browsing, never authority: the manifest in the verified package decides.
+	ToolCount int      `json:"toolCount,omitempty"`
+	Tools     []string `json:"tools,omitempty"`
+	// Shadows lists the built-in chat tools the add-on replaces (bash, say),
+	// from the manifest's tool definitions, so the install dialog can warn
+	// when another installed add-on already replaces one. A hint, like Tools.
+	Shadows []string `json:"shadows,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say),
+	// from the manifest's skill definitions, for the same warning. A hint.
+	SkillShadows []string `json:"skillShadows,omitempty"`
+	// HostOperations repeats the host operations the manifest of the package
+	// requests, so the install dialog can show them without a download. Nil
+	// means the index gives no hint (an older index); an empty value means the
+	// package requests none. It is a hint, never authority: the install
+	// compares the verified manifest with what the administrator accepted and
+	// holds the add-on when the manifest asks for more.
+	HostOperations *contract.HostOperations `json:"hostOperations,omitempty"`
+
+	// The fields below describe a backend and are refused on any other kind.
+	// They carry what the backend gallery carries beyond the image, so the
+	// library can be the source of the gallery (see core/gallery.BackendsFromLibrary).
+
+	// SchemaVersion is the version of the shared envelope the entry is written
+	// in. Absent means 1. A reader refuses a higher one (see SchemaVersion).
+	SchemaVersion int `json:"schemaVersion,omitempty"`
+	// License, URLs and Tags are display metadata, as in the gallery.
+	License string   `json:"license,omitempty"`
+	URLs    []string `json:"urls,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
+	// Icon is the URL of the icon of the backend, shown by the UI. Unlike
+	// ui.icon of an add-on it is not a path in a package. The host never fetches
+	// it: the browser does, under the content security policy of the UI.
+	Icon string `json:"icon,omitempty"`
+	// Mirrors are fallback artifacts, tried in order when the artifact cannot be
+	// fetched. Each is an oci:// image of the same backend.
+	Mirrors []string `json:"mirrors,omitempty"`
+	// Capabilities maps a host capability (default, nvidia, amd, ...) to the id
+	// of the concrete backend that serves it. An entry with capabilities and no
+	// artifact is a meta backend: it installs nothing itself and names the
+	// backend to install for the host.
+	Capabilities map[string]string `json:"capabilities,omitempty"`
+	// Mutable says the artifact is a moving tag, for example a development
+	// image. It has no digest in the library; the install resolves the tag to a
+	// digest, verifies that image and records the digest it installed.
+	Mutable bool `json:"mutable,omitempty"`
+}
+
+// IsZero reports whether no display metadata is set. The translation maps make
+// EntryUI incomparable, so callers use this and not == with the zero value.
+func (u EntryUI) IsZero() bool {
+	return u.Title == "" && u.Description == "" && u.MainPage == "" && u.Icon == "" && u.LaunchMode == "" && len(u.Titles) == 0 && len(u.Descriptions) == 0
+}
+
+// Equal reports whether two releases are the same entry field by field. A
+// release holds lists and a map since backends were added, so == no longer
+// compiles; the add-on staging uses Equal to compare a caller's release with
+// the trusted resolution.
+func (r Release) Equal(o Release) bool { return reflect.DeepEqual(r, o) }
+
+// matchesPlatform reports whether the entry can be installed on the platform.
+// A meta backend has no image, so it belongs to every platform; the concrete
+// backend it names is chosen for the host.
+func (r Release) matchesPlatform(targetOS, targetArch string) bool {
+	return r.IsMeta() || (r.OS == targetOS && r.Arch == targetArch)
+}
+
+// IsMeta reports whether the entry is a meta backend: a backend that names
+// other backends by capability and has no image of its own.
+func (r Release) IsMeta() bool {
+	return r.EntryKind() == KindBackend && r.Artifact == "" && len(r.Capabilities) > 0
+}
+
+type Query struct {
+	// Kind limits the listing. Empty lists add-ons only; "all" lists every
+	// kind this host reads.
+	Kind           Kind
+	Text, SourceID string
+	Offset, Limit  int
+}
+type Page struct {
+	Releases []Release `json:"releases"`
+	Total    int       `json:"total"`
+	// Failed names the libraries that were left out of the listing because
+	// their last fetch failed. The releases of the others are all there. It is
+	// empty when every library loaded, and a listing that names one library
+	// answers with the refresh error instead.
+	Failed []FailedSource `json:"failed,omitempty"`
+}
+
+// FailedSource is a library a listing could not read: why, and when it last
+// loaded (zero when it never did).
+type FailedSource struct {
+	SourceID    string    `json:"sourceId"`
+	Name        string    `json:"name"`
+	Error       string    `json:"error,omitempty"`
+	LastSuccess time.Time `json:"lastSuccess,omitzero"`
+}
+type Catalog struct {
+	Sources *Sources
+	// TargetOS and TargetArch are fixed by the owner, never by the forwarding
+	// frontend. Empty fields default to the platform of this process.
+	TargetOS, TargetArch string
+}
+
+// target is the platform an install must match: the owner's configured one, or
+// the platform of this process. Search and Resolve both use it, so an entry
+// that is listed is an entry that can be resolved.
+func (c Catalog) target() (string, string) {
+	targetOS, targetArch := c.TargetOS, c.TargetArch
+	if targetOS == "" {
+		targetOS = runtime.GOOS
+	}
+	if targetArch == "" {
+		targetArch = runtime.GOARCH
+	}
+	return targetOS, targetArch
+}
+
+// Search lists the releases of the enabled libraries that match the target
+// platform. A release for another platform is never listed, and Total counts
+// the listed set.
+func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
+	if e := ctx.Err(); e != nil {
+		return Page{}, e
+	}
+	if c.Sources == nil {
+		return Page{}, ErrUnavailable
+	}
+	if q.Offset < 0 || q.Limit < 0 || q.Limit > 100 || !validQueryKind(q.Kind) {
+		return Page{}, ErrInvalid
+	}
+	if q.Limit == 0 {
+		q.Limit = 50
+	}
+	targetOS, targetArch := c.target()
+	s := c.Sources
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	all := []Release{}
+	var failed []FailedSource
+	loaded, pending := 0, 0
+	own := s.entryOwners()
+	for id, src := range s.sources {
+		if !src.readByCatalog() || (q.SourceID != "" && q.SourceID != id) {
+			continue
+		}
+		cache, ok := s.cache[id]
+		if !ok {
+			// Its first refresh has not finished. A request that names this
+			// library has nothing to show; any other listing goes on without it.
+			if q.SourceID != "" {
+				return Page{}, ErrUnavailable
+			}
+			pending++
+			continue
+		}
+		if cache.failed {
+			if q.SourceID != "" {
+				return Page{}, ErrRefresh
+			}
+			failed = append(failed, FailedSource{SourceID: id, Name: src.Name, Error: cache.err, LastSuccess: cache.result.LastSuccess})
+			continue
+		}
+		loaded++
+		for _, r := range cache.releases {
+			if !r.matchesPlatform(targetOS, targetArch) || !q.matchesKind(r) {
+				continue
+			}
+			// A user source wins over a shipped default; a tie between two
+			// user sources is refused, never resolved silently.
+			if err := own[entryKey{r.EntryKind(), r.ID}].check(entryKey{r.EntryKind(), r.ID}, src.Default); err != nil {
+				if errors.Is(err, ErrConflict) {
+					return Page{}, err
+				}
+				continue
+			}
+			if strings.Contains(strings.ToLower(r.searchText()), strings.ToLower(q.Text)) {
+				all = append(all, r)
+			}
+		}
+	}
+	// With nothing loaded there is nothing to show: say why, as a listing of a
+	// single library does.
+	if loaded == 0 {
+		if len(failed) > 0 {
+			return Page{}, ErrRefresh
+		}
+		if pending > 0 {
+			return Page{}, ErrUnavailable
+		}
+	}
+	sort.Slice(all, func(i, j int) bool { return releaseKey(all[i]) < releaseKey(all[j]) })
+	sort.Slice(failed, func(i, j int) bool { return failed[i].SourceID < failed[j].SourceID })
+	p := Page{Total: len(all), Releases: []Release{}, Failed: failed}
+	if q.Offset < len(all) {
+		p.Releases = all[q.Offset:min(len(all), q.Offset+q.Limit)]
+	}
+	return p, nil
+}
+
+// searchText is what a text query is matched against: the English name and
+// description, and the translated title and description of every language, so
+// a person finds an add-on by the name they see in their own language.
+func (r Release) searchText() string {
+	var b strings.Builder
+	b.WriteString(r.Name + " " + r.ID + " " + r.Description)
+	for _, tag := range slices.Sorted(maps.Keys(r.UI.Titles)) {
+		b.WriteString(" " + r.UI.Titles[tag])
+	}
+	for _, tag := range slices.Sorted(maps.Keys(r.UI.Descriptions)) {
+		b.WriteString(" " + r.UI.Descriptions[tag])
+	}
+	return b.String()
+}
+func releaseKey(r Release) string {
+	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch
+}
+
+// Resolve finds one add-on release. A backend release is never returned here,
+// so an add-on install cannot be pointed at a backend image.
+func (c Catalog) Resolve(ctx context.Context, sourceID, addonID, version string) (Release, error) {
+	return c.ResolveKind(ctx, KindAddon, sourceID, addonID, version)
+}
+
+// ResolveKind finds one release of the given kind.
+func (c Catalog) ResolveKind(ctx context.Context, kind Kind, sourceID, addonID, version string) (Release, error) {
+	if e := ctx.Err(); e != nil {
+		return Release{}, e
+	}
+	if c.Sources == nil {
+		return Release{}, ErrUnavailable
+	}
+	s := c.Sources
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok || !src.readByCatalog() {
+		return Release{}, ErrUnavailable
+	}
+	cache, ok := s.cache[sourceID]
+	if !ok {
+		return Release{}, ErrUnavailable
+	}
+	if cache.failed {
+		return Release{}, ErrRefresh
+	}
+	if err := s.entryOwners()[entryKey{kind, addonID}].check(entryKey{kind, addonID}, src.Default); err != nil {
+		return Release{}, err
+	}
+	targetOS, targetArch := c.target()
+	var found *Release
+	for _, r := range cache.releases {
+		if r.EntryKind() == kind && r.ID == addonID && (r.Version == version || (r.Channel != "" && r.Channel == version)) && r.matchesPlatform(targetOS, targetArch) {
+			if found != nil {
+				return Release{}, ErrInvalid
+			}
+			copy := r
+			copy.Selection = version
+			found = &copy
+		}
+	}
+	if found == nil {
+		return Release{}, ErrNotFound
+	}
+	return *found, nil
+}
+
+// Releases lists every release of one add-on in one library, for any platform.
+// It is a read of the cache a refresh filled and never touches the network.
+// The update check uses it to tell an entry that exists for another platform
+// from one that does not exist at all. The order is stable.
+func (c Catalog) Releases(ctx context.Context, sourceID, addonID string) ([]Release, error) {
+	return c.KindReleases(ctx, KindAddon, sourceID, addonID)
+}
+
+// KindReleases is Releases for an entry of any one kind. The library check of
+// the installed backends uses it with KindBackend.
+func (c Catalog) KindReleases(ctx context.Context, kind Kind, sourceID, addonID string) ([]Release, error) {
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if c.Sources == nil {
+		return nil, ErrUnavailable
+	}
+	s := c.Sources
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok || !src.readByCatalog() {
+		return nil, ErrUnavailable
+	}
+	cache, ok := s.cache[sourceID]
+	if !ok {
+		return nil, ErrUnavailable
+	}
+	if cache.failed {
+		return nil, ErrRefresh
+	}
+	out := []Release{}
+	for _, r := range cache.releases {
+		if r.EntryKind() == kind && r.ID == addonID {
+			out = append(out, r)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return releaseKey(out[i]) < releaseKey(out[j]) })
+	return out, nil
+}
+
+// Target is the platform an install must match.
+func (c Catalog) Target() (string, string) { return c.target() }

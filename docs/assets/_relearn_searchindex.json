@@ -1,0 +1,23 @@
+{{- /* The search index of the theme, with one change: the front matter keywords join the tags, so a page is found by a word that is in its keywords. Tags weigh more than the body text. */}}
+{{- $pages := slice }}
+{{- range site.Pages }}
+  {{- if partial "_relearn/pageIsSpecial.gotmpl" . }}
+  {{- else if and .Title .RelPermalink (or (ne site.Params.disableSearchHiddenPages true) (not (partialCached "_relearn/pageIsHiddenSelfOrAncestor.gotmpl" (dict "page" . "to" site.Home) .Path site.Home.Path) ) ) }}
+    {{- $tags := slice }}
+    {{- range .GetTerms "tags" }}
+      {{- $tags = $tags | append (partial "title.gotmpl" (dict "page" .Page "linkTitle" true) | plainify) }}
+    {{- end }}
+    {{- range .Params.keywords }}
+      {{- $tags = $tags | append . }}
+    {{- end }}
+    {{- $pages = $pages | append (dict
+      "uri" (partial "permalink.gotmpl" (dict "to" .))
+      "title" (partial "title.gotmpl" (dict "page" .) | plainify)
+      "tags" $tags
+      "breadcrumb" (trim (partial "breadcrumbs.html" (dict "page" . "dirOnly" true) | plainify | htmlUnescape) "\n\r\t ")
+      "description" (trim (or .Description .Summary | plainify | htmlUnescape | replaceRE `\r` " ") "\n\r\t " )
+      "content" (trim (.Plain | htmlUnescape | replaceRE `\r` " ") "\n\r\t ")
+    ) }}
+  {{- end }}
+{{- end -}}
+{{ $pages | jsonify (dict "indent" "  ") }}

@@ -1,0 +1,219 @@
+{
+  "cluster": {
+    "vram": "VRAM Kluster",
+    "ram": "RAM Kluster",
+    "nodesOnline": "{{healthy}}/{{total}} node online"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Selamat pagi",
+    "afternoon": "Selamat siang",
+    "evening": "Selamat malam",
+    "night": "Selamat lembur"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model dimuat",
+    "modelsLoaded_other": "{{count}} model dimuat",
+    "noModelsLoaded": "Tidak ada model yang dimuat",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "loadedLabel": "Loaded",
+    "nodesLabel": "Nodes"
+  },
+  "assistant": {
+    "title": "Kelola LocalAI melalui obrolan",
+    "description": "Instal model, ganti backend, edit konfigurasi dan periksa status dengan berbicara pada LocalAI.",
+    "open": "Buka asisten",
+    "tooltip": "Kelola LocalAI melalui obrolan",
+    "noModel": "Pilih model obrolan terlebih dahulu.",
+    "startFailed": "Tidak dapat memulai obrolan asisten: {{message}}",
+    "chatTitle": "Asisten LocalAI"
+  },
+  "input": {
+    "placeholder": "Pesan...",
+    "attachFile": "Lampirkan file",
+    "dropFiles": "Lepas file untuk dilampirkan",
+    "dropFilesNote": "Lepas file untuk melampirkannya ke pesan.",
+    "enterToSend": "Enter untuk mengirim",
+    "selectModelFirst": "Pilih model terlebih dahulu",
+    "sendMessage": "Kirim pesan",
+    "selectModelToast": "Silahkan pilih model terlebih dahulu",
+    "dictate": "Dikte (suara ke teks)",
+    "dictateStop": "Hentikan rekaman",
+    "dictateBusy": "Mentranskripsi…",
+    "dictateEmpty": "Tidak ada ucapan yang dikenali.",
+    "dictateFailed": "Transkripsi gagal: {{error}}",
+    "dictateNoMic": "Mikrofon tidak tersedia: {{error}}",
+    "pdfScannedAsImages": "{{name}} tidak memiliki lapisan teks (pindaian). {{count}} dari {{total}} halaman dilampirkan sebagai gambar untuk model visi."
+  },
+  "quickLinks": {
+    "manageByChat": "Kelola melalui obrolan",
+    "installedModels": "Model Terinstal",
+    "browseGallery": "Jelajahi Galeri",
+    "importModel": "Impor Model",
+    "documentation": "Dokumentasi"
+  },
+  "loadedModels": {
+    "heading": "Model aktif",
+    "count_one": "{{count}} model dimuat",
+    "count_other": "{{count}} model dimuat",
+    "stop": "Hentikan model",
+    "stopAll": "Hentikan semua",
+    "serving": "Serving"
+  },
+  "stopDialog": {
+    "title": "Hentikan Model",
+    "message": "Hentikan model {{model}}?",
+    "confirm": "Hentikan {{model}}",
+    "stopAllTitle": "Hentikan Semua model",
+    "stopAllMessage": "Hentikan semua {{count}} model yang dimuat?",
+    "stopAllConfirm": "Hentikan semua",
+    "stoppedToast": "{{model}} berhasil dihentikan",
+    "allStoppedToast": "Semua model berhasil dihentikan",
+    "stopFailed": "Gagal menghentikan: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Memulai dengan {{name}}",
+    "intro": "Instal model pertama Anda untuk memulai. Jelajahi galeri atau impor punya Anda sendiri.",
+    "steps": {
+      "step1Title": "Jelajahi Galeri Model",
+      "step1Body": "Temukan model yang tepat untuk kebutuhan Anda dari koleksi pilihan kami.",
+      "step2Title": "Instal Model",
+      "step2Body": "Klik instal untuk mengunduh dan mengonfigurasinya secara otomatis.",
+      "step3Title": "Mulai Mengobrol",
+      "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API.",
+      "step4Title": "Siapkan agen Anda",
+      "step4Body": "Buat kunci API, lalu hubungkan agen pemrograman: {{agents}}. Panduan mengisi alamat dan kunci untuk Anda.",
+      "step5Title": "Perluas LocalAI dengan add-on",
+      "step5Body": "Add-on menambah kemampuan baru. Pasang dari pustaka."
+    },
+    "browseGallery": "Jelajahi Galeri Model",
+    "importModel": "Impor Model",
+    "docs": "Dokumentasi",
+    "noModelsTitle": "Tidak Ada Model yang Tersedia",
+    "noModelsBody": "Belum ada model yang terinstal. Hubungi administrator Anda untuk menyiapkan model agar Anda dapat mulai mengobrol.",
+    "connectAgents": "Hubungkan agen pemrograman",
+    "browseAddons": "Jelajahi add-on"
+  },
+  "connect": {
+    "title": "Satu endpoint, semua API",
+    "subtitle": "LocalAI menyediakan API miliknya sendiri yang lengkap — pembuatan gambar & video, depth, deteksi objek, reranking, audio, pengenalan wajah & suara, serta suara realtime melalui WebRTC dan WebSocket. Selain itu, lapisan kompatibilitas drop-in membuat aplikasi apa pun yang dibuat untuk OpenAI, Anthropic, Ollama, atau OpenAI Responses bekerja tanpa perubahan.",
+    "nativeTitle": "API native",
+    "compatTitle": "Kompatibilitas drop-in",
+    "apiReference": "Referensi API lengkap",
+    "copy": "Salin",
+    "copied": "Disalin",
+    "browse": "Jelajahi API",
+    "hide": "Sembunyikan endpoint",
+    "dismiss": "Abaikan",
+    "agentsLink": "Hubungkan agen pemrograman: buat kunci API dan salin konfigurasinya"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "models": "Models",
+    "modelsSummary": "Explore, install, and manage models",
+    "create": "Create",
+    "createSummary": "Open a chat, image or voice session",
+    "operate": "Administrasi",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Semua obrolan"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnostik perintah aplikasi",
+    "apps": {
+      "label": "Aplikasi",
+      "desc": "Jelajahi aplikasi terpasang"
+    },
+    "group": {
+      "addons": "Aplikasi"
+    },
+    "agents": {
+      "label": "Agen",
+      "desc": "Agen tersimpan, pemicu, dan keahlian Anda"
+    },
+    "mcp": {
+      "label": "Konektor MCP",
+      "desc": "Server MCP yang bisa dipakai obrolan Anda"
+    },
+    "memory": {
+      "label": "Pengetahuan",
+      "desc": "Pengetahuan yang bisa dicari obrolan Anda"
+    },
+    "complete": "lengkapi"
+  },
+  "notice": {
+    "appUnavailable": "Aplikasi tidak lagi tersedia.",
+    "addonsDownTitle": "Add-on tidak merespons saat ini",
+    "addonsDownBody": "{{name}} adalah add-on. Coba lagi sebentar lagi.",
+    "addonsRetry": "Coba lagi"
+  },
+  "picker": {
+    "aliasOf": "alias dari {{target}}",
+    "aliasBroken": "alias rusak",
+    "disabled": "nonaktif",
+    "pinned": "disematkan",
+    "useTyped": "Gunakan \"{{name}}\"",
+    "chooseModel": "Pilih model",
+    "defaultMissing": "Model default Anda {{model}} tidak terpasang. Pilih model.",
+    "empty": "Tidak ada model",
+    "add": "Tambah model",
+    "remove": "Hapus {{name}}",
+    "clear": "Kosongkan"
+  },
+  "starters": {
+    "title": "Disarankan untuk mesin Anda",
+    "tier": {
+      "cpu": "CPU saja",
+      "gpu-small": "GPU kecil",
+      "gpu-mid": "GPU menengah",
+      "gpu-large": "GPU besar"
+    },
+    "undetected": "Kami tidak dapat mendeteksi perangkat keras Anda, jadi ini adalah model untuk komputer tanpa GPU.",
+    "cluster": "Disesuaikan dengan mesin terbaik di klaster Anda.",
+    "nothingFits": "Tidak ada model yang disarankan yang muat di mesin ini. Ini yang terkecil; mungkin berjalan lambat atau gagal dimuat.",
+    "facts": {
+      "size": "unduhan {{size}}",
+      "window": "konteks {{window}}",
+      "memory": "sekitar {{memory}} memori"
+    },
+    "fit": {
+      "tight": "Pas-pasan",
+      "does_not_fit": "Tidak muat"
+    },
+    "reasons": {
+      "little_headroom": "Muat, tetapi menyisakan sedikit memori.",
+      "below_chat_minimum": "Jendela konteks akan terlalu kecil untuk obrolan.",
+      "exceeds_memory": "Membutuhkan memori lebih banyak daripada yang dimiliki mesin ini.",
+      "estimate_unavailable": "Penggunaan memorinya tidak dapat diperkirakan.",
+      "hardware_unknown": "Perangkat keras Anda tidak dapat dibaca, sehingga kecocokan tidak diperiksa."
+    },
+    "more": "Model lainnya",
+    "fewer": "Lebih sedikit model",
+    "askAdmin": "Hanya administrator yang dapat memasang model. Minta administrator Anda memasang salah satunya.",
+    "installModel": "Pasang {{model}}",
+    "cpuNote": "GPU tidak terdeteksi. Model ini tetap responsif di prosesor.",
+    "gpuNote": "Dipilih agar muat di kartu grafis Anda dengan ruang untuk obrolan penuh.",
+    "install": "Pasang",
+    "installing": "Memasang",
+    "installStarted": "Memasang {{model}}…",
+    "installFailed": "Pemasangan gagal: {{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Di mana model Anda berjalan?",
+      "local": "Di mesin ini",
+      "remote": "Di server atau layanan lain",
+      "remoteIntro": "Hubungkan model yang sudah berjalan di tempat lain. Anda bisa memasang model lokal nanti.",
+      "remoteNote": "Untuk model remote, pemeriksaan model yang direkomendasikan dan ukuran konteks dilewati."
+    },
+    "step1Title": "Hubungkan remote",
+    "step1Body": "Pilih jenisnya, lalu periksa apakah LocalAI dapat menjangkaunya.",
+    "step2Title": "Pilih model",
+    "step2Body": "Setiap model yang Anda pilih menjadi model di sini.",
+    "done": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "done_other": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "skipped": "{{count}} model tidak ditambahkan:",
+    "skipped_other": "{{count}} model tidak ditambahkan:"
+  }
+}

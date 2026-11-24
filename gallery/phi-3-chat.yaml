@@ -1,0 +1,20 @@
+---
+name: "phi-3-chat"
+
+config_file: |
+  backend: "llama-cpp"
+  mmap: true
+  template:
+    chat_message: |
+      <|{{ .RoleName }}|>
+      {{.Content}}<|end|>
+    chat: |
+      {{.Input}}
+      <|assistant|>
+    completion: |
+      {{.Input}}
+  context_size: 4096
+  f16: true
+  stopwords:
+  - <|end|>
+  - <|endoftext|>

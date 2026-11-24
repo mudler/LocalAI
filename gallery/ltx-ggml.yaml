@@ -1,0 +1,15 @@
+---
+name: "ltx-ggml"
+
+config_file: |
+    backend: stablediffusion-ggml
+    step: 30
+    cfg_scale: 6.0
+    known_usecases:
+      - video
+    options:
+    - "diffusion_model"
+    - "sampler:euler"
+    - "vae_decode_only:false"
+    - "diffusion_flash_attn:true"
+    - "offload_params_to_cpu:true"

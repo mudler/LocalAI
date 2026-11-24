@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "Laissez vos agents lire le code, les issues et les pull requests des dépôts que vous indiquez. Si vous l’autorisez, ils peuvent aussi y commenter et y ouvrir des issues.",
+  "limits": "Cette connexion ne répond pas encore aux @mentions sur GitHub. Un agent ne travaille sur GitHub que lorsque vous le lui demandez dans un chat.",
+  "new": "Nouvelle connexion GitHub",
+  "edit": "Modifier la connexion GitHub",
+  "name": "Nom",
+  "token": "Jeton d’accès à granularité fine",
+  "tokenHelp": "Commence par github_pat_. Il est conservé scellé et n’est plus jamais affiché.",
+  "tokenLink": "Créer un jeton sur GitHub",
+  "tokenSaved": "Enregistré. Saisissez un jeton pour le remplacer.",
+  "tokenShape": "Utilisez un jeton à granularité fine : il commence par github_pat_.",
+  "tokenSpace": "Le jeton ne contient pas d’espace. Copiez-le de nouveau sans les espaces autour.",
+  "repos": "Dépôts que l’agent peut utiliser",
+  "reposHelp": "Un par ligne : owner/nom, owner/* pour tous les dépôts d’un owner, ou * pour tout dépôt que le jeton atteint. {{count}} listé(s). Tout autre dépôt est refusé.",
+  "reposShape": "« {{entry}} » n’est pas écrit owner/nom (ou owner/*, ou *), par exemple mudler/LocalAI.",
+  "reposMany": "50 dépôts au plus.",
+  "agent": "Agent",
+  "agentNone": "Choisir un agent",
+  "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",
+  "credentialsOnly": "Identifiants uniquement",
+  "agentNoModel": "{{name}} (a besoin d’un modèle)",
+  "test": "Tester",
+  "testOk": "Connecté en tant que {{bot}}.",
+  "checkFailed": "Enregistré. La vérification du jeton a échoué : {{reason}}",
+  "checkSeveral": "La vérification des dépôts s’exécute lorsque vous avez une seule connexion GitHub, car une vérification lancée depuis cette page ne peut pas savoir laquelle vous voulez. Dans un chat, activez les connexions dans le menu Outils.",
+  "check": {
+    "title": "Vérification de {{name}}",
+    "running": "Vérification des dépôts...",
+    "at": "Vérifié à {{time}}",
+    "unreachable": "{{repo}} : ce jeton ne peut pas l’atteindre. Ajoutez-le aux dépôts du jeton sur GitHub.",
+    "readOnly": "{{repo}} : accessible, en lecture seule.",
+    "readWrite": "{{repo}} : accessible, et le jeton peut écrire.",
+    "refused": "{{repo}} : GitHub a refusé ce jeton. Vérifiez qu’il n’a pas expiré et qu’il couvre ce dépôt.",
+    "failed": "{{repo}} : la vérification ne s’est pas terminée. Réessayez dans un instant.",
+    "owner": "{{repo}} : tous les dépôts de cet owner. Le jeton n’atteint que ceux que GitHub liste pour lui.",
+    "any": "Tout dépôt : le jeton atteint {{count}} dépôts.",
+    "anyMore": "Tout dépôt : le jeton atteint au moins {{count}} dépôts."
+  },
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "editButton": "Modifier",
+  "delete": "Supprimer",
+  "empty": "Aucune connexion GitHub pour le moment.",
+  "noRepos": "Aucun dépôt dans la liste : l’agent ne peut en lire aucun.",
+  "reposOf": "{{count}} dépôts : {{list}}",
+  "agentOf": "Agent : {{name}}",
+  "inactive": "À l’arrêt : {{reason}}.",
+  "confirmDelete": {
+    "title": "Supprimer {{name}} ?",
+    "message": "L’agent ne peut plus atteindre ces dépôts, et le jeton enregistré avec la connexion est supprimé. Pour la reconfigurer, vous devrez saisir de nouveau le jeton.",
+    "confirm": "Supprimer"
+  },
+  "setup": {
+    "title": "Comment créer le jeton",
+    "link": "Créer un jeton sur GitHub",
+    "linkLabel": "Créer un jeton sur GitHub (s’ouvre dans un nouvel onglet)",
+    "step1": "Ouvrez GitHub avec le bouton ci-dessus. Donnez un nom au jeton, par exemple LocalAI, et définissez une date d’expiration. Quatre-vingt-dix jours est un bon début.",
+    "step2": "Sous Repository access, choisissez Only select repositories et sélectionnez ceux que vous indiquez ici.",
+    "step3": "Sous Permissions, réglez ce que dit le tableau pour le mode voulu. Laissez tout le reste désactivé.",
+    "step4": "Créez le jeton, copiez-le et collez-le dans le champ du jeton. GitHub ne l’affiche qu’une seule fois.",
+    "table": {
+      "caption": "Autorisations de dépôt à donner au jeton",
+      "permission": "Autorisation",
+      "read": "Lecture seule",
+      "write": "Demande d’abord, ou agit sans demander",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "Lecture",
+        "readwrite": "Lecture et écriture",
+        "auto": "Lecture (défini par GitHub)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "Ce que l’agent peut modifier sur GitHub",
+    "hint": "Commentaires, nouvelles issues, étiquettes et fermeture d’issues. Il ne fusionne, ne supprime et ne pousse jamais de code.",
+    "off": "Lecture seule",
+    "propose": "Demande d’abord",
+    "auto": "S’exécute tout de suite",
+    "line": {
+      "off": "Il ne peut rien modifier sur GitHub.",
+      "propose": "Chaque modification attend votre accord.",
+      "auto": "Vos chats publient tout de suite."
+    },
+    "note": {
+      "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire.",
+      "propose": "Chaque modification attend dans vos approbations jusqu’à votre confirmation. Tout ce qu’écrit un agent est public pour quiconque peut voir le dépôt.",
+      "auto": "Un de vos chats publie la modification tout de suite, sans demander. Tout ce qu’écrit l’agent est public pour quiconque peut voir le dépôt. Les exécutions sans vous attendent toujours votre confirmation."
+    },
+    "row": {
+      "off": "Lecture seule",
+      "propose": "Demande d’abord",
+      "auto": "S’exécute tout de suite"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "Commenter l’issue #{{number}}",
+      "comment-pr": "Commenter la pull request #{{number}}",
+      "create-issue": "Ouvrir une nouvelle issue",
+      "edit-issue": "Modifier #{{number}}",
+      "add-labels": "Ajouter des étiquettes à #{{number}}",
+      "review-comment-pr": "Commenter une ligne de la pull request #{{number}}"
+    },
+    "where": "Où",
+    "repo": "Dans {{repo}}",
+    "open": "Ouvrir #{{number}} sur GitHub",
+    "as": "En tant que",
+    "asOne": "La connexion {{name}}",
+    "asFirst": "La première connexion qui liste {{repo}}",
+    "asUnknown": "Une connexion GitHub qui liste {{repo}}",
+    "text": "Texte qui sera publié",
+    "title": "Titre",
+    "newTitle": "Nouveau titre",
+    "labels": "Étiquettes",
+    "file": "Fichier et ligne",
+    "fileLine": "{{path}}, ligne {{line}} ({{side}})",
+    "sideRight": "nouveau fichier",
+    "sideLeft": "ancien fichier",
+    "state": "Modification",
+    "close": "La fermer",
+    "closeReason": "La fermer, comme {{reason}}",
+    "reopen": "La rouvrir",
+    "completed": "terminée",
+    "not_planned": "non planifiée",
+    "public": "Public : toute personne pouvant voir {{repo}} verra ceci.",
+    "cut": "Le texte affiché ici est tronqué. Le texte complet, {{bytes}} octets, sera publié."
+  },
+  "tokenClassic": "Ceci est un jeton classique (ghp_). Autorisez les jetons classiques ci-dessous pour l’utiliser, ou créez un jeton qui commence par github_pat_.",
+  "classic": {
+    "allow": "Autoriser un jeton classique (ghp_) sur cette connexion",
+    "warning": "Un jeton classique n’est pas limité aux dépôts de votre liste. Ses portées couvrent tous les dépôts que votre compte atteint. LocalAI refuse toujours un dépôt absent de votre liste et suit le mode d’écriture, mais GitHub lui-même laisserait ce jeton faire plus s’il fuitait. Un jeton à granularité fine est plus sûr.",
+    "confirm": "Je comprends qu’un jeton classique est plus large que la liste des dépôts."
+  },
+  "reposAnyAlone": "* couvre déjà tous les dépôts. Supprimez les autres lignes.",
+  "any": {
+    "warning": "* permet à l’agent d’utiliser tout dépôt que le jeton atteint, y compris ceux créés plus tard. Le mode d’écriture ci-dessous décide toujours de ce qu’il peut modifier : en Lecture seule, il ne modifie rien.",
+    "confirm": "Je veux que l’agent puisse utiliser tout dépôt que ce jeton atteint."
+  },
+  "anyRepos": "Tout dépôt que le jeton atteint"
+}

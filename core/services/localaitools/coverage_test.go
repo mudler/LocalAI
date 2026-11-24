@@ -1,0 +1,289 @@
+package localaitools
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+// toolToHTTPRoute is the canonical mapping between MCP tools and the
+// LocalAI admin REST endpoints they wrap. The httpapi.Client MUST hit the
+// listed route for the tool; the inproc.Client may bypass HTTP and call
+// services directly, but the on-the-wire shape is documented here so the
+// two sides stay aligned.
+//
+// Updating the map is REQUIRED when:
+//   - You add a Tool* constant (tools.go).
+//   - You change which REST endpoint the httpapi.Client calls.
+//
+// The TestToolHTTPRouteMappingComplete spec below FAILS until every Tool*
+// is in the map. That is the drift detector — see
+// .agents/localai-assistant-mcp.md for the contributor contract.
+//
+// "(none)" is a deliberate sentinel for tools whose data is not exposed
+// over a single REST endpoint (e.g. system_info aggregates data the
+// inproc client picks up directly from services). The httpapi.Client may
+// compose it from several routes; the test still requires an entry so
+// the contributor explicitly acknowledges the asymmetry.
+var toolToHTTPRoute = map[string]string{
+	// Read-only tools.
+	ToolGallerySearch:             "GET /models/available",
+	ToolSearchModels:              "GET /api/models/search",
+	ToolInspectRemoteModel:        "GET /api/models/remote/files", // and GET /api/models/remote/estimate when estimate is set
+	ToolListInstalledModels:       "GET /api/models/capabilities",
+	ToolListGalleries:             "GET /models/galleries",
+	ToolGetJobStatus:              "GET /models/jobs/:uuid",
+	ToolGetModelConfig:            "(none) — no JSON-only REST yet; httpapi.Client returns a documented stub",
+	ToolListBackends:              "GET /backends",
+	ToolListKnownBackends:         "GET /backends/known",
+	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
+	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
+	ToolModelUpdates:              "GET /api/models/updates (action list), POST /api/models/updates/check (action check)",
+	ToolUpgradeRunStatus:          "GET /api/updates/runs/:id (id), GET /api/updates/runs (no id)",
+	ToolSystemInfo:                "GET /version + GET /system (composed)",
+	ToolListNodes:                 "GET /api/nodes",
+	ToolListScheduling:            "GET /api/nodes/scheduling",
+	ToolGetScheduling:             "GET /api/nodes/scheduling/:model",
+	ToolVRAMEstimate:              "POST /api/models/vram-estimate",
+	ToolGetBranding:               "GET /api/branding",
+	ToolGetUsageStats:             "GET /api/usage (or /api/usage/all when all=true)",
+	ToolGetPIIEvents:              "GET /api/pii/events",
+	ToolGetMiddlewareStatus:       "GET /api/middleware/status",
+	ToolGetRouterDecisions:        "GET /api/router/decisions",
+	ToolGetRouterCorpusStats:      "GET /api/router/:name/corpus/stats",
+	ToolListAliases:               "GET /api/aliases",
+	ToolListSharedFolders:         "GET /api/chats/admin/shared-folders",
+	ToolListSharedFolderEvents:    "GET /api/chats/admin/shared-folders/events",
+	ToolListChatTools:             "GET /api/chats/admin/tools",
+	ToolListHostExecEvents:        "GET /api/chats/admin/host-exec/events",
+	ToolGetChatEgress:             "GET /api/chats/admin/egress",
+	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
+	ToolListFailoverChains:        "GET /api/failover",
+	ToolGetCarrierWeights:         "GET /api/cluster/settings (carrier_weights)",
+	ToolGetP2PStatus:              "GET /api/p2p/status",
+	ToolListP2PDevices:            "GET /api/p2p/devices",
+	ToolListP2PInvites:            "GET /api/p2p/invites",
+	ToolListP2PRelays:             "GET /api/p2p/relays",
+	ToolListFederation:            "GET /api/federation",
+	ToolListP2PSplitWorkers:       "GET /api/p2p/split-workers",
+	ToolGetP2PRelayLimits:         "GET /api/p2p/relays/:id/limits",
+
+	// Mutating tools.
+	ToolInstallModel:             "POST /models/apply",
+	ToolImportModelURI:           "POST /models/import-uri",
+	ToolDeleteModel:              "POST /models/delete/:name",
+	ToolEditModelConfig:          "PATCH /api/models/config-json/:name",
+	ToolReloadModels:             "POST /models/reload",
+	ToolCancelModelLoad:          "POST /api/models/:id/load-cancel",
+	ToolLoadModel:                "POST /backend/load",
+	ToolInstallBackend:           "POST /backends/apply",
+	ToolInstallLibraryBackend:    "POST /backends/library/install",
+	ToolUpgradeBackend:           "POST /backends/upgrade/:name",
+	ToolUpgradeModel:             "POST /api/models/upgrade/:name (upgrade, config_only), POST /api/models/:name/upgrade/retry (retry), POST /api/models/:name/remove-old (remove_old), PUT /api/models/:name/hold (hold, unhold), POST /api/models/:name/adopt (adopt)",
+	ToolUpgradeRunStart:          "POST /api/updates/runs",
+	ToolUpgradeRunCancel:         "POST /api/updates/runs/:id/cancel (no key), POST /api/updates/runs/:id/items/:key/cancel (key)",
+	ToolToggleModelState:         "PUT /models/toggle-state/:name/:action",
+	ToolToggleModelPinned:        "PUT /models/toggle-pinned/:name/:action",
+	ToolSetBranding:              "POST /api/settings (instance_name, instance_tagline)",
+	ToolSetAlias:                 "PATCH /api/models/config-json/:name (swap) or POST /models/import (create)",
+	ToolSeedRouterCorpus:         "POST /api/router/:name/corpus",
+	ToolClearRouterCorpus:        "DELETE /api/router/:name/corpus",
+	ToolCreateSharedFolder:       "POST /api/chats/admin/shared-folders",
+	ToolRenameSharedFolder:       "PATCH /api/chats/admin/shared-folders/:id",
+	ToolDeleteSharedFolder:       "DELETE /api/chats/admin/shared-folders/:id",
+	ToolRestoreSharedFolder:      "POST /api/chats/admin/shared-folders/restore",
+	ToolSetSharedFolderMember:    "PUT /api/chats/admin/shared-folders/:id/members/:principal",
+	ToolRemoveSharedFolderMember: "DELETE /api/chats/admin/shared-folders/:id/members/:principal",
+	ToolSetNodeVRAMBudget:        "PUT /api/nodes/:id/vram-budget",
+	ToolSetScheduling:            "POST /api/nodes/scheduling",
+	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
+	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
+	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
+	ToolRevokeP2PDevice:          "DELETE /api/p2p/devices/:id",
+	ToolCancelP2PInvite:          "DELETE /api/p2p/invites/:id",
+	ToolManageFederationGroup:    "POST /api/federation/groups (action create), PATCH /api/federation/groups/:name (action update), DELETE /api/federation/groups/:name (action delete), POST /api/federation/groups/:name/drain (actions drain, undrain)",
+	ToolSetP2PSplitSlowPath:      "PATCH /api/p2p/split-workers/:id",
+	ToolSetP2PSplitNode:          "PATCH /api/p2p/split-workers/:id (node_id)",
+	ToolSetNodeSplitServer:       "PUT /api/nodes/:id/split-server",
+	ToolSetP2PRelayLimits:        "PUT /api/p2p/relays/:id/limits",
+	ToolSetCarrierWeights:        "PUT /api/cluster/settings (carrier_weights)",
+	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
+	// adminRoutesWithoutTool.
+	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
+	// DELETE /api/chats/files/trash and DELETE /api/chats/files/trash/:rev are
+	// deliberately not tools. They delete a user's own files for good and
+	// touch only that user's Trash, so they are the user's act, not
+	// administration, and an assistant must not be able to make a deletion
+	// permanent. The file tools of a chat stop at the Trash for the same
+	// reason.
+}
+
+// The client tools wrap the inference routes. Their routes come from
+// ClientTools, which clienttools_test.go checks against the API's own route
+// and feature table, so the two cannot drift.
+func init() {
+	for _, s := range ClientTools {
+		route := s.Method + " " + s.Route
+		if prev, ok := toolToHTTPRoute[s.Tool]; ok {
+			// One tool, several routes (an action parameter, or an optional
+			// input that picks another route).
+			route = prev + ", " + route
+		}
+		toolToHTTPRoute[s.Tool] = route
+	}
+}
+
+// adminRoutesWithoutTool lists the administrator routes and settings that
+// deliberately have no MCP tool, each with the reason. A route listed here
+// must not be wrapped by a tool too (the spec below checks it); to add a tool
+// for one, move it to toolToHTTPRoute.
+var adminRoutesWithoutTool = map[string]string{
+	// Upgrade runs: the assistant starts, reads and cancels runs of backends
+	// and models. The preview is the Updates page's list (backend_updates and
+	// model_updates give the same facts), and retry and dismiss are clicks on
+	// a finished run there; add-on items need the browser session anyway.
+	"POST /api/updates/runs/preview":   "backend_updates and model_updates give the assistant the same list",
+	"POST /api/updates/runs/:id/retry": "a retry may include add-on items, which need the administrator's own browser session",
+	"DELETE /api/updates/runs/:id":     "hiding a finished run is a click on the Updates page",
+	// Remotes hold the address and API key of another server. The
+	// key is write-only and credential handling for a remote does
+	// not belong in the always-sent assistant tool budget: a person manages
+	// them on the Remotes page or over REST.
+	"POST /api/remotes/test":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes":             "credential handling for a remote (an API key or a one-time invite link) does not belong in the always-sent assistant tool budget",
+	"GET /api/remotes":              "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"GET /api/remotes/:id":          "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"PATCH /api/remotes/:id":        "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"DELETE /api/remotes/:id":       "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes/:id/refresh": "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	"POST /api/remotes/:id/adopt":   "credential handling for a remote does not belong in the always-sent assistant tool budget",
+	// A join token is a credential shown once: a person mints it on the Nodes
+	// page and passes it on, like a P2P invite. It must not pass through a chat.
+	"POST /api/cluster/join-tokens":       "the token is a credential shown once: a person mints it and passes it on",
+	"GET /api/cluster/join-tokens":        "the list of join tokens is read on the Nodes page; minting stays a person's act",
+	"DELETE /api/cluster/join-tokens/:id": "revoking a join token is done on the Nodes page next to the list",
+	// P2P: an invite link and a relay claim code are credentials that must
+	// not pass through a chat; a new identity unpairs every device; the
+	// relay admin and the mode are set on the Swarm, P2P page.
+	"POST /api/p2p/invites":              "the link is a credential shown once: a person mints it and passes it on",
+	"PATCH /api/p2p/devices/:id":         "a label edited in the device list",
+	"POST /api/p2p/relays":               "adding a relay may carry its claim code, a credential",
+	"DELETE /api/p2p/relays/:id":         "relay admin on the Swarm, P2P page",
+	"POST /api/p2p/relays/:id/check":     "a diagnostic button: it checks one relay and changes nothing",
+	"POST /api/p2p/relays/:id/sync":      "relay admin on the Swarm, P2P page; the server syncs relays by itself",
+	"POST /api/p2p/relays/:id/claim":     "takes the relay's claim code, a credential that must not pass through a chat",
+	"POST /api/p2p/identity/regenerate":  "unpairs every device and remote at once: a person's act, with a typed confirmation",
+	"POST /api/settings (p2p_mode)":      "turns on accepting paired devices: a person's choice on the Swarm, P2P page",
+	"POST /api/settings (p2p_relays...)": "the P2P discovery and relay settings: set on the Swarm, P2P page",
+	"GET /api/federation/groups/:name":   "list_federation returns every group with the same fields",
+	// The administrator's oversight of other users' saved agents, triggers
+	// and connectors. Each acts on another person's private automation
+	// (disable or delete it). It stays a deliberate click on the
+	// administrator's page, where the owner and the item are on screen, and
+	// not something a model proposes from a chat about the instance.
+	"GET /api/chats/admin/agents":                  "oversight of other users' agents: a person's act on the admin page",
+	"DELETE /api/chats/admin/agents/:id":           "deletes another user's agent: a person's act on the admin page",
+	"GET /api/chats/admin/triggers":                "oversight of other users' triggers: a person's act on the admin page",
+	"GET /api/chats/admin/triggers/:id/runs":       "the runs of another user's trigger: read on the admin page only",
+	"POST /api/chats/admin/triggers/:id/disable":   "stops another user's trigger: a person's act on the admin page",
+	"DELETE /api/chats/admin/triggers/:id":         "deletes another user's trigger: a person's act on the admin page",
+	"GET /api/chats/admin/connectors":              "oversight of other users' connectors: a person's act on the admin page",
+	"POST /api/chats/admin/connectors/:id/disable": "stops another user's connector: a person's act on the admin page",
+	"DELETE /api/chats/admin/connectors/:id":       "deletes another user's connector: a person's act on the admin page",
+	// The OAuth client of an add-on: its client ID and secret, and the
+	// approval of the login the add-on declares. A secret must not pass
+	// through a chat, and saving is the approval, a person's act on the
+	// add-on's settings form. See connector_oauth_unmapped_test.go.
+	"GET /api/chats/admin/oauth-clients/:addonId": "shows the client and the approval of an add-on's login: read on the add-on's settings form",
+	"PUT /api/chats/admin/oauth-clients/:addonId": "takes a client secret and approves an add-on's login: a secret must not pass through a chat",
+	// Which model sources a person searches is a personal choice made in the
+	// search panel. The search tool already uses that choice, so a model never
+	// needs to read or change it.
+	"GET /api/models/search/sources": "the sources and the enabled set of the person: read in the search panel; search_models uses the enabled set",
+	"PUT /api/models/search/sources": "the enabled set is a personal choice made in the search panel, not something a model changes",
+	// A diagnostic button of Settings > Tools, not a setting to manage.
+	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
+	// Settings of the chats that change what commands may do on this machine
+	// or which add-on serves a tool. They are read with list_chat_tools; the
+	// change is a person's act in Settings > Tools.
+	"POST /api/settings (chats_host_exec)":            "lets chats run commands on the server with no isolation: a person's act in Settings > Tools",
+	"POST /api/settings (chats_tool_providers)":       "chooses which add-on serves a tool or skill: set in Settings > Tools",
+	"POST /api/settings (chats_egress_allow_private)": "needs the typed phrase in chats_egress_private_confirm, a person's act",
+	// An owner host setting of the Sandbox add-on: the default profile, who may
+	// use each profile, the quota and the previous-image pins. It is written
+	// with the owner dispatch (host-settings-update), which needs the
+	// administrator's own session, and the assistant holds no per-call
+	// credential for it.
+	"POST /api/addons/dispatch (host-settings-update, sandbox_profiles)": "an owner setting changed on the add-on Settings tab through owner dispatch, like chats_tool_providers and the egress lists; the assistant has no per-call owner credential",
+	"POST /api/settings (chats_web_*)":                                   "the web tools settings: set in Settings > Tools, with Test search",
+	// Read by get_chat_egress. Opening a host or a registry to every chat
+	// is a decision made on the Settings > Tools list editor, like the
+	// private switch.
+	"POST /api/settings (chats_egress_extra_registries)": "opens registries to every chat: set on the Settings > Tools list editor",
+	"POST /api/settings (chats_egress_allowed_hosts)":    "opens hosts to every chat: set on the Settings > Tools list editor",
+	// Settings of every user's chats. A chat about the instance has no need
+	// to change them, and the first one is a limit a model must not raise
+	// for itself. A person sets them in Settings.
+	"POST /api/settings (chats_addon_tool_limit)":     "the most add-on tools every chat is offered, which costs model context: a model must not raise its own limit; set in Settings > Tools",
+	"POST /api/settings (chats_max_iterations)":       "the step limit of every chat turn: a model must not raise its own limit; set in Settings > Tools",
+	"POST /api/settings (chats_loop_*)":               "the limits of the loops and waits of every chat (interval, runs, counts, daily runs and daily script checks): a model must not raise the limits of its own loops; set in Settings > Tools",
+	"POST /api/settings (chats_work_folder)":          "where every chat keeps its helper files: set in Settings > Tools",
+	"POST /api/settings (chats_index_files)":          "reads the text of every user's documents into the server's store: a person's choice in Settings > Tools",
+	"POST /api/settings (chats_index_max_text_bytes)": "how much text the index keeps per document, which sizes the database: set in Settings > Tools",
+	"POST /api/settings (chats_extract_max_bytes)":    "a limit of the Files page Extract action that protects the server: a model must not raise it; set in Settings > Tools",
+	"POST /api/settings (chats_extract_max_entries)":  "a limit of the Files page Extract action that protects the server: a model must not raise it; set in Settings > Tools",
+	"POST /api/settings (chats_extract_7z_rar)":       "turns on parsers of untrusted 7z and RAR files inside the server: a person's choice in Settings > Tools",
+	"POST /api/settings (chats_saved_agents)":         "lets every chat start the user's saved agents: set in Settings > Tools",
+	"POST /api/settings (chats_suggestions)":          "the default of each user's own choice of assistant offers: set in Settings > Agents",
+	"POST /api/settings (chats_vision_model)":         "the helper model of describe_image: set in Settings > Agents, with the model picker",
+	"POST /api/settings (chats_transcription_model)":  "the helper model of transcribe_audio: set in Settings > Agents, with the model picker",
+}
+
+// allKnownTools is the union of expectedFullCatalog (defined in
+// server_test.go). Keeping a single source of truth — the slice from
+// server_test — and asserting the route map covers every entry catches
+// the case "you added a Tool* but forgot to register it as MCP" indirectly
+// (it'd be missing from expectedFullCatalog, which has its own assertion
+// in TestServerRegistersExpectedToolCatalog).
+var _ = Describe("Tool ↔ HTTP route coverage map", func() {
+	It("has an entry for every Tool* in the published catalog", func() {
+		for _, name := range expectedFullCatalog {
+			_, ok := toolToHTTPRoute[name]
+			Expect(ok).To(BeTrue(),
+				"Tool %q is in expectedFullCatalog but not in toolToHTTPRoute. "+
+					"When adding an MCP tool, update toolToHTTPRoute in coverage_test.go "+
+					"with the REST endpoint the httpapi.Client calls (or '(none)' with a reason).",
+				name)
+		}
+	})
+
+	It("does not document tools that no longer exist in the catalog", func() {
+		catalog := map[string]struct{}{}
+		for _, name := range expectedFullCatalog {
+			catalog[name] = struct{}{}
+		}
+		for name := range toolToHTTPRoute {
+			_, ok := catalog[name]
+			Expect(ok).To(BeTrue(),
+				"toolToHTTPRoute documents %q but the tool is not registered. "+
+					"Remove the stale entry.",
+				name)
+		}
+	})
+
+	It("gives a reason for every administrator route without a tool, and wraps none of them", func() {
+		wrapped := map[string]bool{}
+		for _, route := range toolToHTTPRoute {
+			wrapped[route] = true
+		}
+		for route, why := range adminRoutesWithoutTool {
+			Expect(why).NotTo(BeEmpty(), route)
+			Expect(wrapped[route]).To(BeFalse(), "%s has a tool and a skip reason; keep one", route)
+		}
+	})
+
+	// Deliberate non-test: we don't enumerate admin REST routes here. That
+	// would require booting Application or parsing core/http/routes/localai.go,
+	// both of which are brittle. The contract for "new admin REST endpoint
+	// → MCP tool" is enforced by the PR checklist in
+	// .agents/api-endpoints-and-auth.md, not by this test.
+})

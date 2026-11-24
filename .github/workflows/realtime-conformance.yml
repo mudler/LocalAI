@@ -1,0 +1,75 @@
+---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
+name: 'realtime-conformance'
+
+# Verifies the realtime state-machine implementations conform to their formal
+# designs (docs/design/realtime-state-machines.md, formal-verification/). BOTH
+# layers are enforced and the gate is fail-closed: the Go conformance layer
+# (respcoord + turncoord transition/rapid tests under -race) AND the FizzBee model check of
+# the authoritative specs. FizzBee is pinned + checksum-verified
+# (formal-verification/fizzbee.sha256), so a failed install fails the job rather
+# than silently skipping verification.
+
+on:
+  pull_request:
+    paths:
+      - 'core/http/endpoints/openai/coordinator/**'
+      - 'core/http/endpoints/openai/respcoord/**'
+      - 'core/http/endpoints/openai/turncoord/**'
+      - 'core/http/endpoints/openai/conncoord/**'
+      - 'core/http/endpoints/openai/compactcoord/**'
+      - 'core/http/endpoints/openai/ttscoord/**'
+      - 'formal-verification/**'
+      - 'scripts/realtime-conformance.sh'
+      - 'scripts/install-fizzbee.sh'
+      - '.github/workflows/realtime-conformance.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'core/http/endpoints/openai/coordinator/**'
+      - 'core/http/endpoints/openai/respcoord/**'
+      - 'core/http/endpoints/openai/turncoord/**'
+      - 'core/http/endpoints/openai/conncoord/**'
+      - 'core/http/endpoints/openai/compactcoord/**'
+      - 'core/http/endpoints/openai/ttscoord/**'
+      - 'formal-verification/**'
+      - 'scripts/realtime-conformance.sh'
+
+concurrency:
+  group: realtime-conformance-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ['1.26.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      - name: Cache FizzBee
+        uses: actions/cache@v6
+        with:
+          path: .tools/fizzbee
+          key: fizzbee-v0.5.2-${{ runner.os }}-${{ hashFiles('formal-verification/fizzbee.sha256') }}
+      - name: Install FizzBee (pinned, checksum-verified)
+        # No `|| true`: a failed/forged download must fail the job, not silently
+        # drop the design verification. install-fizzbee.sh is a no-op if the
+        # cached binary is already present and valid.
+        run: ./scripts/install-fizzbee.sh
+      - name: Run conformance gate (fail-closed)
+        # No skip env: both the Go conformance and the FizzBee model check are
+        # required. The gate auto-detects .tools/fizzbee/fizz.
+        run: make test-realtime-conformance

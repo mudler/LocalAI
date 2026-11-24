@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>MCP: server side and browser side</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.lane { padding: 22px 26px 28px; } .lane .node { padding: 20px 24px; } .lane h3 { margin-bottom: 18px !important; }
+.loop { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+<p class="k">Model Context Protocol</p>
+<h1>Where the tool loop <span class="hl">runs</span></h1>
+<img class="mark" src="tile.svg" alt="">
+
+<div class="stage c"><div class="col" style="gap:28px">
+  <div class="panel lane"><h3>Server side: chats and the API</h3>
+    <div class="row">
+      <div class="node" style="width:290px"><b>Your client</b><span>chat or API call</span></div>
+      <div class="ar" style="width:70px"></div>
+      <div class="node core fl"><b>LocalAI runs the loop</b><span>model, tool call, tool result, model again</span><span style="margin-top:8px">Stops after <span class="code" style="display:inline;color:inherit">agent.max_iterations</span> steps<br>(10 on the API, 40 in chats)</span></div>
+      <div class="ar" style="width:70px"></div>
+      <div class="node" style="width:290px"><b>MCP servers</b><span>HTTP or stdio</span></div>
+    </div></div>
+  <div class="panel lane"><h3>Browser side: pages that add-ons add</h3>
+    <div class="row">
+      <div class="node" style="width:290px"><b>Add-on page</b><span>holds the MCP client</span></div>
+      <div class="ar" style="width:70px"></div>
+      <div class="node soft fl"><b>LocalAI CORS proxy</b><span class="code">/api/cors-proxy</span><span>forwards the request with CORS headers</span></div>
+      <div class="ar" style="width:70px"></div>
+      <div class="node" style="width:290px"><b>MCP server</b><span>HTTP</span></div>
+    </div></div>
+</div></div>
+<div class="foot">The same chat API in both. <b>The server loop is the default.</b></div>
+</body></html>

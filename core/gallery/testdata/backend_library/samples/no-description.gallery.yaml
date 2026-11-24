@@ -1,0 +1,7 @@
+- name: rerankers
+  alias: rerankers
+  capabilities:
+    amd: rocm-rerankers
+    intel: intel-rerankers
+    metal: metal-rerankers
+    nvidia: cuda12-rerankers

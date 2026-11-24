@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en">
+{{ partial "head.html" . }}
+<body{{ with .Params.bodyclass }} class="{{ . }}"{{ end }}>
+  <a class="skip" href="#main">Skip to content</a>
+  {{ partial "nav.html" . }}
+  {{ block "main" . }}{{ end }}
+  {{ partial "footer.html" . }}
+  <script src="{{ "js/main.js" | relURL }}" defer></script>
+</body>
+</html>

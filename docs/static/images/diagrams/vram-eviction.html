@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>VRAM management</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">VRAM</p>
+<h1>Load, evict, <span class="hl">reuse</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="panel" style="padding:20px 24px 24px;margin-bottom:22px"><h3>Least recently used goes first. Example: two models fit</h3>
+ <div class="flow"><div class="node" style="padding:18px 20px"><div class="row" style="gap:12px;margin-bottom:14px"><i class="num">1</i><b style="font-size:28px">Load A</b></div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="node core cen" style="padding:14px 8px"><b style="font-size:30px">A</b></div><div class="node dash cen" style="padding:14px 8px"><b style="font-size:30px">free</b></div></div><div style="height:50px"></div></div><div class="ar"></div><div class="node" style="padding:18px 20px"><div class="row" style="gap:12px;margin-bottom:14px"><i class="num">2</i><b style="font-size:28px">Load B</b></div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="node  cen" style="padding:14px 8px"><b style="font-size:30px">A</b></div><div class="node core cen" style="padding:14px 8px"><b style="font-size:30px">B</b></div></div><div style="height:50px"></div></div><div class="ar"></div><div class="node" style="padding:18px 20px"><div class="row" style="gap:12px;margin-bottom:14px"><i class="num">3</i><b style="font-size:28px">Load C</b></div><div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"><div class="node core cen" style="padding:14px 8px"><b style="font-size:30px">C</b></div><div class="node  cen" style="padding:14px 8px"><b style="font-size:30px">B</b></div></div><div style="margin-top:12px"><span class="pill warn" style="font-size:20px">A is evicted</span></div></div></div></div>
+<div class="panel" style="padding:20px 24px 24px"><h3>Concurrency groups keep models apart</h3>
+ <div class="row" style="gap:24px;align-items:stretch">
+  <div class="node fl"><b>Different groups</b><span>chat model and tools model stay loaded together</span></div>
+  <div class="node fl warn"><b>Same group</b><span>the older model is unloaded for the new one</span></div></div></div>
+
+</div>
+<div class="foot">Set the limit with <b class="code" style="font-size:22px">LOCALAI_MAX_ACTIVE_BACKENDS</b>. Groups are set per model with <b class="code" style="font-size:22px">concurrency_groups</b>.</div>
+</body></html>

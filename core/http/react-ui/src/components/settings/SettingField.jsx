@@ -1,0 +1,213 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import ModelPicker from '../ModelPicker'
+import Icon from '../Icon'
+import { CAP_CHAT, CAP_TRANSCRIPT, CAP_VISION } from '../../utils/capabilities'
+import {
+  FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, groupOf, OLD_SECTIONS,
+} from '../../utils/settingsSchema'
+import { displayValue } from '../../utils/settingsPending'
+import LibrarySourcesField from './LibrarySourcesField'
+import HostListField from './HostListField'
+
+// What applying the field does, in words. Only a field the code speaks about
+// has a hint (see settingsSchema.js); the others say nothing.
+function ApplyHint({ field }) {
+  if (field.apply === 'restart') {
+    return <span className="st-tag" data-tone="warn" title="This setting is read when LocalAI starts.">Needs restart</span>
+  }
+  if (field.apply === 'live') {
+    return <span className="st-tag" title={field.note || 'The server applies this when you apply.'}>Applies now</span>
+  }
+  return null
+}
+
+const RAW_KEY = /^[a-z0-9]+(_[a-z0-9]+)+$/
+
+// The name a row shows. A field without a human label, or one that carries its
+// own snake_case key, gets the key in words ("chats_egress_ports" becomes
+// "Chats egress ports"), so a raw key is never the label of a row.
+export function labelOf(field) {
+  const label = field.label && !RAW_KEY.test(field.label) ? field.label : ''
+  if (label) return label
+  const words = String(field.label || field.key || '').replace(/_/g, ' ').trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : ''
+}
+
+function coerceInt(field, text) {
+  const floor = field.min ?? 0
+  const n = Math.max(floor, parseInt(text, 10) || floor)
+  return field.max !== undefined ? Math.min(field.max, n) : n
+}
+
+function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
+  const value = getValue(field, settings)
+  const set = (v) => onChange(setValue(field, settings, v))
+
+  // The library sources are managed on their own page; this is a view.
+  if (field.readOnlySources) return <LibrarySourcesField kind={field.readOnlySources} id={id} />
+
+  switch (field.kind) {
+    case 'bool':
+      return (
+        <button
+          type="button" role="switch" id={id} className="dk-switch"
+          aria-checked={!!value} aria-labelledby={labelId} disabled={disabled}
+          onClick={() => set(!value)}
+        />
+      )
+    case 'int': {
+      const input = (
+        <input
+          id={id} type="number" className="dk-input st-num" min={field.min} max={field.max} value={value}
+          placeholder={field.placeholder} disabled={disabled}
+          onChange={(e) => set(coerceInt(field, e.target.value))}
+        />
+      )
+      if (!field.unit) return input
+      return <span className="st-unit">{input}<span className="st-unit__label">{field.unit}</span></span>
+    }
+    case 'duration':
+      return (
+        <input
+          id={id} className="dk-input dk-input--mono st-short" value={value} placeholder={field.placeholder}
+          disabled={disabled} spellCheck={false} autoComplete="off"
+          onChange={(e) => set(e.target.value)}
+        />
+      )
+    case 'percent': {
+      const pct = Math.round(Number(value) * 100)
+      return (
+        <div className="dk-range-wrap st-range">
+          <input
+            id={id} type="range" className="dk-range" min={field.min} max={field.max} value={pct} disabled={disabled}
+            style={{ '--dk-fill': `${((pct - field.min) / (field.max - field.min)) * 100}%` }}
+            onChange={(e) => set(parseInt(e.target.value, 10) / 100)}
+          />
+          <output className="dk-range-value" htmlFor={id}>{pct}%</output>
+        </div>
+      )
+    }
+    case 'select':
+      return (
+        <div className="dk-select-wrap st-short">
+          <select id={id} className="dk-select" value={value} disabled={disabled} onChange={(e) => set(e.target.value)}>
+            {field.options.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+      )
+    case 'model':
+      return (
+        <div className="st-model">
+          <ModelPicker
+            variant="field" allowCustom clearable searchable
+            value={value} onChange={set} placeholder={field.placeholder}
+            capability={MODEL_CAPABILITY[field.key]}
+          />
+        </div>
+      )
+    case 'hosts':
+      return (
+        <HostListField
+          id={id} value={value} onChange={set} disabled={disabled} placeholder={field.placeholder}
+          allowPrivate={!!getValue(FIELD_BY_KEY.chats_egress_allow_private, settings)}
+        />
+      )
+    case 'json':
+    case 'lines':
+      return (
+        <textarea
+          id={id} className="dk-textarea dk-input--mono st-area" rows={4} value={value}
+          placeholder={field.placeholder} spellCheck={false} disabled={disabled}
+          autoComplete={field.sensitive ? 'off' : undefined}
+          onChange={(e) => set(e.target.value)}
+        />
+      )
+    case 'asset': {
+      const a = assets.state(field.asset)
+      return (
+        <div className="st-asset">
+          <span className="st-asset__preview">
+            {a.url ? <img src={a.url} alt="" /> : <Icon name="image" />}
+          </span>
+          <label className="dk-btn dk-btn--secondary dk-btn--sm st-upload" aria-busy={a.busy || undefined}>
+            <Icon name="upload" /> {a.busy ? 'Uploading…' : 'Upload'}
+            <input
+              type="file" className="dk-sr-only" disabled={a.busy} aria-label={`Upload ${labelOf(field)}`}
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) assets.upload(field.asset, file)
+              }}
+            />
+          </label>
+          {a.custom && (
+            <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={a.busy} title="Revert to bundled default" onClick={() => assets.reset(field.asset)}>
+              <Icon name="undo" /> Reset
+            </button>
+          )}
+        </div>
+      )
+    }
+    default:
+      return (
+        <input
+          id={id} className={`dk-input${field.key === 'vram_budget' ? ' dk-input--mono' : ''} st-text`} value={value}
+          placeholder={field.placeholder} disabled={disabled} autoComplete={field.sensitive ? 'off' : undefined}
+          onChange={(e) => set(e.target.value)}
+        />
+      )
+  }
+}
+
+// The capability a model setting's picker is limited to.
+const MODEL_CAPABILITY = {
+  collections_default_model: CAP_CHAT,
+  chats_vision_model: CAP_VISION,
+  chats_transcription_model: CAP_TRANSCRIPT,
+}
+
+// One setting: its name and words on the left, its control on the right, and
+// under the words what is worth knowing (where it was, its key, when it
+// applies, whether it differs from the default and how to put that back).
+export default function SettingField({ field, settings, onChange, assets, showWhere, pending, showKey = true }) {
+  const id = `st-${field.key.replace(/[^a-z0-9_]/gi, '-')}`
+  const labelId = `${id}-label`
+  const needsOn = !field.needs || !!getValue(FIELD_BY_KEY[field.needs], settings)
+  const needsValue = !field.needsValue || getValue(FIELD_BY_KEY[field.needsValue[0]], settings) === field.needsValue[1]
+  const disabled = !needsOn || !needsValue
+  const changed = isChanged(field, settings)
+  const wide = field.kind === 'json' || field.kind === 'lines' || field.kind === 'hosts'
+  const where = groupOf(field.group)?.label
+  const was = OLD_SECTIONS[field.was]
+
+  return (
+    <div id={`settings-field-${field.key}`} className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
+      <div className="st-row__main">
+        <div className="st-row__title">
+          <label id={labelId} htmlFor={field.kind === 'bool' ? undefined : id} className="st-row__label">{labelOf(field)}</label>
+          {pending && <span className="st-tag" data-tone="draft">Draft</span>}
+          {changed && <span className="st-tag" data-tone="changed">Changed</span>}
+        </div>
+        <p className="st-row__desc">{field.desc}</p>
+        {field.extra && <p className="st-row__desc st-row__extra" data-testid={`st-extra-${field.key}`}>{field.extra(settings)}</p>}
+        <div className="st-row__meta">
+          {showWhere && <span className="st-where">{where}{was && was !== where ? <> · was {was}</> : null}</span>}
+          {showKey && !field.asset && <code className="st-key">{field.key}</code>}
+          <ApplyHint field={field} />
+          {changed && hasDefault(field) && (
+            <span className="st-default">
+              default <span className="dk-mono">{displayValue(field, field.default)}</span>
+              {' · '}
+              <button type="button" className="st-reset" onClick={() => onChange(setValue(field, settings, field.default))}>Reset</button>
+            </span>
+          )}
+          {disabled && <span className="st-note">Needs the setting above it</span>}
+        </div>
+      </div>
+      <div className="st-row__control" data-kind={field.kind}>
+        <Control field={field} settings={settings} onChange={onChange} id={id} labelId={labelId} disabled={disabled} assets={assets} />
+      </div>
+    </div>
+  )
+}

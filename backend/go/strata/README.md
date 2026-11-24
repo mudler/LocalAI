@@ -1,0 +1,312 @@
+# strata (experimental)
+
+A LocalAI backend for the [Strata](https://github.com/Niko1221/Strata) inference engine (MIT).
+It starts the engine in `--serve` mode as a child process and speaks its stdin/stdout line
+protocol. The backend is pure Go (`CGO_ENABLED=0`). The backend image also carries the engine for
+the target accelerator, the Strata Python files the backend uses, and a Python runtime (see
+[Strata backend](../../../docs/content/models/engines/strata.md) for the build targets and pins).
+
+Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
+including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
+that check is still open. The Hy4-Flash family has the same status: its unit tests use the stub engine, and its tokenizer and
+chat-template path was checked against the real Section 0 of an SQ-64 build file, but no Hy4 engine has loaded a model through this backend.
+
+`make test-extra-backend-strata` runs the shared gRPC suite (`tests/e2e-backends`) against the built backend with a stub engine
+(`e2e/stub_engine.py`) and a synthetic tokenizer pack (`e2e/make_pack.py`). It needs Python 3 with `regex` and `jinja2`.
+It covers the gRPC surface, the tokenizer helper, the chat template, tool-call extraction and the context check. It does not
+run the real engine.
+
+## What you need
+
+- The backend image for your accelerator. It contains the engine, `strata-vision`, the Strata Python
+  files and Python with `regex` and `jinja2`, so `engine_path` and `strata_root` need no setting.
+- For images: the model's mmproj file.
+- A Strata model directory. See "Model files".
+- To run outside the image: a Strata engine executable, a Strata source checkout and Python 3 with
+  `regex` and `jinja2`, set through `engine_path` and `strata_root`.
+
+## Configuration
+
+Set these in the model config under `options:` as `key:value`. Set `use_tokenizer_template: true`
+in the model's `template:` block so that LocalAI passes structured messages and tools; the backend then
+renders the prompt with the model's own chat template.
+
+| Option | Required | Meaning |
+|---|---|---|
+| `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
+| `strata_root` | no. Set by the image (env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
+| `family` | no | `qwen` (default) or `hy4` (Tencent Hy4-Flash, see "Hy4-Flash"). `deepseek41` is refused at load: Strata v0.2.15 removed DeepSeek V4.1. |
+| `python` | no | Python executable. Default `python3`. |
+| `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
+| `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
+| `pack_gguf` | no | The first GGUF shard (relative to the model directory). When the model directory has no finished `pack/`, `Load` builds it from these files with Strata's pack tool. See "Building the pack". |
+| `pack_tool` | no | `iq_pack` (default): `tools/iq_pack.py`, the index, dense weights and tokenizer. `tokenizer`: `tools/strata_tokenizer.py`, only the tokenizer, for models whose engine path reads the GGUF as it is (Qwen3.6-35B-A3B); `--pack` is then not passed to the engine. |
+| `pack_args`, `pack_timeout`, `build_pack` | no | Extra arguments for the tool (split on spaces; `--compat-bf16` for the Unsloth and Gyro files), a Go duration (default `2h`), and `build_pack:false` to turn the build off. |
+| `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). |
+| `engine_args` | no | Extra engine arguments, split on spaces. Placed last, so they can override the options above. |
+| `env` | no | `KEY=VALUE` for the engine process. Repeat the option for more. LocalAI's `environment` map is passed too. |
+| `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to env `STRATA_VISION_PATH`, which the image's `run.sh` sets to the `strata-vision` of the engine package that fits the machine, or to `strata-vision` next to the engine. A package without the program gives no image support; `vision: on` then fails at load. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
+| `vision_gpu`, `vision_threads`, `vision_max_tokens` | no | Encoder settings: run on the GPU (`true`), CPU threads (default: the model's `threads`), and the most image tokens per image. |
+| `media_marker` | no | The placeholder LocalAI puts in message text for each image. Default `<__media__>`. |
+| `ready_timeout` | no | Go duration. How long to wait for `READY`. Default `15m`. |
+| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `2m`. |
+| `eos_ids` | no | Comma-separated end-of-turn token ids. Default: the ids of `<|endoftext|>` and `<|im_end|>` in the tokenizer. |
+
+Model options LocalAI sends and what they do: `context_size` becomes `--max-context`; `main_gpu` becomes
+`--gpu` (the engine sets `CUDA_VISIBLE_DEVICES` from it); `threads` is used for the image encoder only (the
+engine sizes its own CPU pool). `gpu_layers`, `tensor_split`, `f16`, `mmap`, `mlock`, rope and cache-type
+settings are ignored: the engine decides placement from the free memory, and the knobs it has are
+engine arguments.
+
+The engine is started as `<engine_path> --pack <pack> [file flags] [--max-context N] [--gpu N] [--vision] [engine_args] --serve`.
+
+## Hy4-Flash
+
+Tencent Hy4-Flash runs on its own engine program, `strata-hy4`, that speaks the same `--serve` line protocol with a short
+list of flags and a stricter parser (an unknown flag or `GEN` key is an error). Set `family:hy4`. The backend image carries
+the Hy4 engine packages in `engines-hy4/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=hy4`, which
+the backend sets for this family.
+
+A Hy4 model is a build file (`Hy4-Flash-SQ-64.strata`, `-96` or `-128`), the Engram file all builds share and an optional
+vision file. There is no pack. The tokenizer and the chat template are inside the build file; on the first load the backend
+reads that section, runs Strata's `tools/hy4_tokenizer.py` on it and keeps the result next to the build file
+(`<build>.tokenizer/`, made again if the file changes). The engine is started as
+`<engine_path> --native <build> --engram <file> --max-context N [--vision <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dfly2] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <build>` and asks for `--draft dfly2` and `--vision` only when the engine
+reports `drafter=dfly2` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `hy4`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The build file. |
+| `engram` | no | The Engram file. Default `Hy4-Flash-Engram-Q8.strata`, looked up next to the build file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dfly2` or `auto` (default), or `off`. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 131072. Pictures are files: the backend writes each to a scratch file, adds one `image=<path>` key per picture to the
+`GEN` line (spaces and `%` in the path escaped) and removes the files after the request. The prompt carries one image placeholder per
+picture and the engine expands it, so there is no encoder program and no `GENI`. The model's reasoning and tool calls are tagged tokens;
+the helper uses Strata's `serve/hy4_dialect.py` and the parser class the Strata server uses for this template. `logprobs`
+are refused: the engine has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, `ple_gguf`, ...) do not apply to this family.
+
+## Inkling 2 Mini
+
+Thinking Machines Inkling 2 Mini (26.4B parameters, 3.4B active, text and image input, no thinking mode) runs on a third
+engine program, `strata-inkling`, with the same `--serve` line protocol and a strict parser. Set `family:inkling`. The image
+carries its packages in `engines-inkling/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=inkling`, which
+the backend sets for this family.
+
+An Inkling model is one file: a Strata build (`Inkling-2-Mini-SQ-10.strata`, `-SQ-15` or `-SQ-20`) or an Unsloth GGUF
+(`Inkling-2-Mini-UD-Q4_K_XL.gguf` and the other UD quants), plus an optional vision file (`Inkling-2-Mini-Vision.strata`) and,
+for a GGUF, the DSpark drafter file (`dspark-Inkling-2-Mini-Q8_0.gguf`). A Strata build carries its drafter. There is no pack.
+The tokenizer (o200k byte-level BPE) and the chat template come from the manifest at the end of a Strata build and from the
+`tokenizer.json` and `chat_template.jinja` files that Strata publishes beside its builds; a Strata build has the template but not
+the tokenizer, and a GGUF has neither, so both files are needed in the model directory. On the first load the backend runs
+Strata's `tools/inkling_tokenizer.py` and keeps the result next to the model file (`<model>.tokenizer/`, made again if a source
+file changes). The engine is started as
+`<engine_path> --native <file> --max-context N [--vision <file>] [--dspark <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dspark|off] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <file> [--vision <file>] [--dspark <file>]` and asks for `--draft dspark` and
+`--vision` only when the engine reports `drafter=dspark` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `inkling`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The model file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dspark` or `auto` (default), or `off`. |
+| `dspark` | no | The drafter file of a GGUF model. Default `dspark-Inkling-2-Mini-Q8_0.gguf` next to the model; a GGUF model without it starts without a drafter. |
+| `tokenizer_json`, `chat_template` | no | The tokenizer sources. Defaults `tokenizer.json` and `chat_template.jinja` next to the model. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 32768 (the model reads up to 1M tokens; the KV cache grows with the context). Pictures are files, as for
+Hy4-Flash: one `image=<path>` key per picture on the `GEN` line. The model writes its output as channel tokens; the prompt gets
+Strata's explicit answer opener and the helper uses Strata's `InklingOutputParser` (`serve/inkling_dialect.py`) to read content and
+tool calls. The model has no thinking mode, so a reasoning effort in a request changes nothing. `logprobs` are refused: the engine
+has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, ...) do not apply to this family.
+
+## Model files
+
+A Strata model is not one file. The directory LocalAI points at holds, or the options name:
+
+- the pack directory (`tokenizer/`, `index.txt`, `native_experts.txt`, ...), made by Strata's setup or
+  `tools/iq_pack.py` from the GGUF shards;
+- the GGUF shards: `native` is the first shard, `ple_gguf` the shard with the n-gram table when it is
+  not found by itself;
+- optionally the MTP draft layer (`mtp`), an expert profile, and for images the mmproj file.
+
+`Load` fails when no `tokenizer/vocab.json` is found, so the backend does not capture unrelated models
+during backend probing.
+
+### Building the pack
+
+With `pack_gguf` set, `Load` checks `<model dir>/pack`. A pack is finished when it has
+`native_experts.txt`, `index.txt` and `tokenizer/vocab.json` (for `pack_tool:tokenizer`:
+`tokenizer/vocab.json` and `tokenizer/chat_template.jinja`). A finished pack is used as it is and never
+rebuilt. Otherwise the backend runs `python <strata_root>/tools/<tool> --gguf <shard> --out pack.partial`,
+streams the tool's output to the log, and renames `pack.partial` to `pack` when the tool succeeds. A
+failure or the `pack_timeout` removes `pack.partial` and fails the load with the last lines of the
+tool. A `pack/` directory that exists but is not finished is not touched: the load fails and asks you to
+remove it. The tool reads the experts from the GGUF files in place, so the pack is a few GB. Builds of
+one model directory must not run at the same time. The tool needs numpy, and gguf-py (for
+`--compat-bf16`). The image carries both, under `strata-src/third_party/llama.cpp/gguf-py`.
+
+The gallery entries for the GGUF models set `pack_gguf`, so they download only the GGUF files.
+
+Deleting a model that sets `pack_gguf` also removes its `pack/` and `pack.partial/` directories, so the disk space comes back. A directory that another model uses, or that the `pack` option names, is kept.
+
+Example:
+
+```yaml
+name: qwen-flash-next
+backend: strata
+parameters:
+  model: qwen-flash-next          # a directory under the models path
+context_size: 32768
+template:
+  use_tokenizer_template: true
+options:
+  - engine_path:/opt/strata/engine/strata
+  - strata_root:/opt/strata
+  - native:Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00001-of-00002.gguf
+  - ple_gguf:Qwen3.8-Flash-Next-GSQ-RCO-IQ2_XS-00002-of-00002.gguf
+  - mmproj:mmproj-Qwen3.8-Flash-Next-BF16.gguf
+  - vision_exe:/opt/strata/engine/strata-vision
+  - mmap_experts:true
+```
+
+## Features
+
+| LocalAI feature | How it works here |
+|---|---|
+| Chat template, system and tool messages | Strata's own `openai_to_messages` and `ChatTemplate`, so the prompt ids match the Strata server. |
+| Reasoning split | Strata's `OutputParser` runs on the generated text. Reasoning goes to `ChatDelta.reasoning_content`, the answer to `content`. `enable_thinking` and `reasoning_effort` in the request metadata reach the template. |
+| Tool calls | The same parser. Calls stream as `ToolCallDelta` (name first, then argument chunks); a non-streaming reply carries the whole call. Parser recovery for drifted call formats is on. |
+| `tool_choice` | `none` drops the tools. `required` and a named function write the opening of the call into the prompt, so the model can only continue it. The engine has no grammar, so this turns thinking off for that request. An unknown value or a name that is not among the tools acts as `auto`. |
+| Logprobs, top logprobs | `logprobs=K` on the request line (K is `top_logprobs`, at most 20). The values are the model's own distribution before sampling, penalties and temperature. They come back as JSON in `Reply.logprobs` on the last reply of a stream. |
+| Images | Each image is encoded by `strata-vision` and sent with `GENI`. See "Images". |
+| Stop strings | Matched on the raw text; the engine is sent `STOP` and the text is cut. |
+| Sampling | `temperature`, `top_p`, `top_k` (at most 64), `min_p`, `seed`, repeat, frequency and presence penalty. |
+| Usage | `Reply.tokens` and `prompt_tokens` are exact (the prompt count includes image rows). `timing_prompt_processing` and `timing_token_generation` are the engine's milliseconds. |
+| Finish reason | `Reply` has no field for it. LocalAI derives `length` from the token count. The engine's reason is in the debug log. |
+| Cancel | A cancelled request sends `STOP` and the next request runs normally. |
+| `TokenizeString`, `Detokenize` | `TokenizeString` renders the template when the request has messages. Image rows are not counted. |
+| `Status` | `READY`/`BUSY`/`ERROR`, and memory: resident size of the engine and encoder processes. VRAM is not reported by the engine; on unified-memory machines the resident size includes what the GPU uses. |
+| Embeddings | Not supported; returns an error. |
+
+### Images
+
+`Load` starts the engine with `--vision` when `mmproj` and the encoder are configured. The encoder
+(`strata-vision`) starts with the first image, not at load, and stays up. For each image the backend
+decodes it (base64, a `data:` URL or an http(s) URL; JPEG, PNG, BMP and GIF pass through, WebP is
+converted), asks the encoder for its embeddings, widens the template's single `<|image_pad|>` to one per
+image row, and writes the embeddings of all images of the request to one file named in the `GENI` line.
+Encoded images are cached by content (64 kept), because chat clients send earlier images again each turn.
+The EXIF orientation of a JPEG is not applied. Video and audio are refused.
+
+## Not supported
+
+- Embeddings, grammar, mirostat, typical-p, tail-free sampling, video and audio input.
+- `logit_bias` is sent to the engine of a pack model (`--pack`). The Hy4-Flash and Inkling engines, and
+  the Qwen engine of a model that runs without a pack (`pack_tool: tokenizer`), have no such key, so
+  a request with `logit_bias` fails there instead of being answered without it. The same Qwen engine
+  has no `logprobs` either, and a request that asks for them fails.
+- A forced tool call together with thinking (see `tool_choice`).
+- A tool call cut off by the token limit is delivered as far as it was written, with incomplete arguments.
+- One engine and one request at a time. `--batch` and `--slots` are not used.
+
+## Protocol assumptions
+
+Checked against upstream commit `9f7d977d` (v0.2.11), `src/program/generate.cpp`, `--serve` block.
+The protocol has no version field. A later upstream change can break this backend without any
+signal; re-check on each bump.
+
+- Engine to client: `READY <ctx> [stop] [multi=N]` once after load. Then per request:
+  `T <id>` per token, `LP <logprob> [id:logprob ...]` after each token when `logprobs=K` was sent,
+  `DONE <produced> <prompt_tokens> <prompt_ms> <decode_ms> <finish> <accepted> <offered> <resumed> ...`,
+  or `ERR <message>`. Other lines (`INFO`, `PP`, ...) are skipped.
+- Client to engine: `GEN <max_new> [key=value ...] <id,id,...>`, or `GENI <max_new> [key=value ...] <embeddings file> <id,id,...>`
+  for images. Ids are comma-separated. Sampling keys sit between `max_new` and the ids. Absent keys mean
+  greedy decoding. The engine requires prompt + `max_new` + 8 to fit the context; the backend leaves that room.
+  `STOP` cancels the request in flight; the engine then still prints `DONE` (finish `cancel`),
+  and the backend reads to it so the stream stays in step. `QUIT` leaves the serve loop.
+- The engine prints the end-of-turn token as an ordinary `T` line and finishes with `stop`.
+  The backend drops ids in `eos_ids` from the output.
+- One request at a time. The engine's `--batch` mode is not used.
+
+Mapped sampling fields: `temperature`, `top_p`, `top_k` (capped at 64, an engine limit), `min_p`,
+`seed`, `penalty_repeat` (from `Penalty`), `penalty_freq`, `penalty_present`, `penalty_last_n`
+(from `Repeat`, default 64 when any penalty is set). Sampling keys other than the penalties are sent only
+when temperature is above zero. `max_new` is `Tokens`, capped to the room left in the context.
+Stop strings are matched in Go, then the engine is sent `STOP`.
+
+## Lifetime of the engine
+
+- `Load` waits for `READY` up to `ready_timeout`. If the engine exits first, the error includes the
+  last lines of its stderr.
+- On Linux the engine gets `PDEATHSIG=SIGKILL`, tied to a pinned OS thread so it fires when the
+  backend process dies, not when some Go thread exits. Closing stdin also ends the serve loop.
+- `Free` sends `QUIT`, closes stdin, and kills the engine after 10 s.
+- A cancelled gRPC stream sends `STOP`, and sends it again every 1.5 s until the engine ends the
+  request, because the engine can lose a `STOP` that arrives right after the request. If the engine
+  does not finish within `stop_timeout`, it is killed.
+- A request that finds the engine dead (it crashed, or it was killed) starts it again from the
+  load configuration, up to two attempts, and runs on the new engine. The request in which the
+  engine died still fails, and the new engine starts with an empty conversation cache. If the
+  restart fails, the request fails with that error and the next request tries again. `Status`
+  reports `ERROR` while the engine is dead.
+
+## Tokenizer, template and parser
+
+The engine takes token ids only. Strata keeps the tokenizer (byte-level BPE, `qwen35`
+pre-tokenizer), the Jinja chat template and the output parser (reasoning, tool calls) in Python. The
+backend defines a Go interface (`Tokenizer`: `Encode`, `TokenBytes`, `Prompt`, `NewParser`) and
+implements it by running a small helper, `tokenizer_helper.py`, that imports Strata's own
+`tools/strata_tokenizer.py` and `serve/frontend.py` (`openai_to_messages`, `ChatTemplate`, `OutputParser`,
+`forced_call`). The helper talks JSON lines on stdin/stdout: `prompt` renders and encodes a chat request
+(including the "literal think and control tags in user text stay text" marking the Strata server does),
+and `parser_*` runs the output parser, one call per decoded token.
+
+Why this and not a Go port:
+
+- The pre-tokenizer regex uses `\s+(?!\S)`, a lookahead that Go's RE2 does not support. A faithful
+  port needs a custom splitter or a regex library with lookahead, plus a parity test against the
+  Python tokenizer over a large corpus.
+- The chat template is the model's own Jinja. Strata renders it in a sandbox with custom filters
+  and applies message rewrites first (empty assistant turns dropped, think-literal marking, tool
+  result ordering). A Go port needs a Jinja engine and those rewrites.
+- Reusing the Python code gives the same ids as the Strata server for the same prompt.
+
+The helper sends the full vocabulary once at start (base64 token bytes), so decoding runs in Go
+with no per-token round trip, and a character split across tokens is held until complete.
+
+What is left for a native Go tokenizer: the pre-tokenizer, the BPE merge loop, special-token
+matching, and a template engine (for example `gonja`) plus Strata's message rewrites. About 3 to
+5 days with a parity corpus; the template part is the risky half.
+
+Differences from the Strata server: `PromptEncoder` caching is not used, the model-card sampling
+defaults are not applied (LocalAI's own defaults and the request decide), and the reasoning budget and
+answer-room limits of the server are not applied.
+
+## Known gaps
+
+- Protocol is unversioned (see above). `engine_args` is not validated.
+- The Python helper needs a Strata source tree and Python packages. The backend image has them; running outside the image needs them set up by hand.
+- The gallery has entries for the ready-made NVFP4 packs and for the GGUF models (see the feature page). Not in it: NVIDIA's FP4-QAD checkpoint (needs a conversion first) and OrcaRouter (manual).
+- The pack build and the GGUF entries have been tested with a stand-in interpreter and the real tool's imports only; no model has been packed and no real engine has run.
+- CI builds Linux amd64 CUDA 12 and 13 images only. No CPU, ROCm, Darwin or arm64 build.
+- Split or multi-GPU layouts and the drafter options are reachable only through `engine_args`, untested.
+
+## Tests
+
+```
+go test ./backend/go/strata/
+```
+
+The tests run this test binary as a stub engine and as a stub image encoder (see `stub_engine_test.go`
+and `features_test.go`). They cover the `READY` timeout, early exit, streaming, `STOP` on cancel, an
+engine that ignores `STOP`, a crash mid stream, `ERR` lines, stop strings, UTF-8 splits, reasoning and
+tool-call deltas (streaming and not), forced tool calls, logprobs, `GENI` with image rows, option
+mapping and the load checks. `TestHelperTokenizer` runs the real Python helper, with the real
+Strata parser, and is skipped unless `STRATA_ROOT` and `STRATA_TEST_PACK` (a directory with `tokenizer/`)
+are set.
+
+The spec in `deepseek_helper_test.go` runs the real helper (needs `STRATA_ROOT` and `STRATA_TEST_PYTHON`) and checks that it refuses `family:deepseek41`: Strata v0.2.15 removed its DeepSeek code.

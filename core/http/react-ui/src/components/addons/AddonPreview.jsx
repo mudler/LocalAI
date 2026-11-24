@@ -1,0 +1,213 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useTranslation } from 'react-i18next'
+import Icon from '../Icon'
+import { Button, Callout, Notice, SidePane, Tabs } from '../ui'
+import { apiUrl } from '../../utils/basePath'
+import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
+import AddonMenu from './AddonMenu'
+import AddonSkills from './AddonSkills'
+import AddonSettings from './AddonSettings'
+import { addedByAddon, appActions, attentionOf, localizedText, screenshotsOf } from './addonState'
+import { updateView, upgradeAvailability } from './updateState'
+import ConnectionList from './ConnectionList'
+import { describeOutcome } from './errors'
+
+// The details of one add-on, beside the list. From the top: who it is and its
+// state; what needs a decision now (a failure, an update); what to do with it
+// (Open, Turn on or off, Pin); what it can do; then, for an administrator, the
+// operator facts in `children` (trust, health, updates, compatibility, storage
+// and data). Remove sits last, apart from everything else.
+export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, connections = [], agents = [], kinds = [], children }) {
+  const { t } = useTranslation('addons')
+  const app = tile.app
+  const update = isAdmin && source ? updateView(source.update) : null
+  // The shared pane: it docks beside the list from 1280 px, overlays the page
+  // below that and is a bottom sheet on a phone. Escape, the scrim and focus
+  // are its own. The Settings tab needs more room, so the pane is wide there.
+  return (
+    <SidePane
+      open
+      wide={Boolean(app && hasSettings && view === 'settings')}
+      title={<span className="ad-pane__identity" data-app={tile.id}>
+        {tile.source === 'builtin'
+          ? <BuiltinIcon name={tile.iconName} size={36} />
+          : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} size={36} />}
+        <span>{title}</span>
+      </span>}
+      meta={app ? (
+        <span className="ad-pane__meta">
+          <StateChip app={app} />
+          {(app.update === 'update-pending' || update?.state === 'update-available') && <UpdateChip version={update?.state === 'update-available' ? update.version : ''} />}
+          <span className="ad-pane__where">
+            <VersionText version={app.version} />
+            {isAdmin && source && source.sourceId ? <> · {t('meta.library', { library: source.sourceId })}</> : null}
+          </span>
+        </span>
+      ) : null}
+      actions={<AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />}
+      onClose={onClose}
+      className="ad-detail"
+      testId="addon-detail"
+    >
+      <div className="ad-pane__inner" data-app={tile.id}>
+        {app && hasSettings && (
+          <Tabs
+            className="ad-pane__tabs"
+            label={t('settingsTab.tabsLabel', { name: title })}
+            idPrefix="ad-pane"
+            panelId="ad-pane-panel"
+            value={view === 'settings' ? 'settings' : 'overview'}
+            onChange={(id) => onView?.(id)}
+            itemTestId="addon-detail-tab-"
+            items={[
+              { id: 'overview', label: t('settingsTab.overview') },
+              { id: 'settings', label: t('settingsTab.settings'), icon: 'settings' },
+            ]}
+          />
+        )}
+        {app && hasSettings && view === 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-settings" className="ad-pane__body"><AddonSettings app={app} title={title} /></div>
+        )}
+        {app && hasSettings && view !== 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-overview">
+            <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links} connections={connections} agents={agents} kinds={kinds}>{children}</PreviewBody>
+          </div>
+        )}
+        {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links} connections={connections} agents={agents} kinds={kinds}>{children}</PreviewBody>}
+        {!app && <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
+      </div>
+    </SidePane>
+  )
+}
+
+// A refused or failed turn on. The reason is the server's own words. An add-on
+// whose package this server cannot run (installed_incompatible) says so, and
+// offers the upgrade when a version that fits is listed; with none listed it
+// says there is nothing to do but keep it off or remove it.
+const INSTALLED_INCOMPATIBLE = 'installed_incompatible'
+
+function EnableFailed({ title, outcome, reason, fix }) {
+  const { t } = useTranslation('addons')
+  const incompatible = outcome.error && outcome.error.type === INSTALLED_INCOMPATIBLE
+  return (
+    <Notice
+      severity="error"
+      title={t(incompatible ? 'notice.incompatibleTitle' : 'notice.enableFailedTitle', { name: title })}
+      reason={reason}
+      who={incompatible && !fix ? t('notice.noUpgrade') : undefined}
+      fix={fix}
+      testId="pane-enable-failed"
+      data-cause={incompatible ? INSTALLED_INCOMPATIBLE : undefined}
+    />
+  )
+}
+
+function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop, onRemove, isAdmin, source, update, upgrade, links, connections, agents, kinds, children }) {
+  const { t } = useTranslation('addons')
+  const description = localizedText(app, 'description', language)
+  const added = addedByAddon(app)
+  const shots = screenshotsOf(app)
+  const control = appActions(app)
+  const startKey = `start:${app.id}:${app.generation}`
+  const stopKey = `stop:${app.id}:${app.generation}`
+  const pending = Boolean(actions.unknown[app.id])
+  const working = actions.state[startKey]?.phase === 'working' || actions.state[stopKey]?.phase === 'working'
+  const locked = working || pending
+  const result = actions.state[startKey]?.phase !== 'working' ? actions.state[startKey] : null
+  const stopResult = actions.state[stopKey]?.phase !== 'working' ? actions.state[stopKey] : null
+  const outcome = result || stopResult
+  const attention = attentionOf(app, source)
+  const restarts = Number(source?.restarts) || 0
+  const canUpgrade = Boolean(upgrade && source && update?.state === 'update-available' && upgradeAvailability(source, { isAdmin, pending: true }).startable)
+  const upgrading = Boolean(source && upgrade) && upgrade.working(app.id)
+  // The turn-on failure of an incompatible package carries the Upgrade button, so the plain update notice steps aside.
+  const incompatibleShown = !pending && result?.error?.type === INSTALLED_INCOMPATIBLE && Boolean(result.outcome)
+  return (
+    <div className="ad-pane__body">
+      {attention === 'failed' && (
+        <Callout tone="error" title={t('attention.failedTitle', { name: title })} testId="pane-failed">
+          {restarts > 0 ? t('attention.failedRestarts', { count: restarts }) : t('attention.failedOnce')}{' '}
+          {added.tools > 0 ? t('attention.toolsOff', { count: added.tools }) : added.page ? t('attention.pageOff') : ''}
+        </Callout>
+      )}
+      {canUpgrade && !incompatibleShown && (
+        <Notice
+          severity="warn"
+          icon="arrow-up"
+          title={t('preview.updateTitle', { version: update.version })}
+          reason={t('attention.updateBody', { current: source.version })}
+          testId="pane-update"
+          fix={{ label: t('updates.upgrade'), onClick: () => upgrade.ask(source), busy: upgrading, disabled: upgrading || pending, ariaLabel: t('updates.upgradeNamed', { name: title }) }}
+        />
+      )}
+      {description && <p className="ad-pane__text">{description}</p>}
+      <div className="ad-pane__acts">
+        {app.mainPage && (
+          <Button variant="primary" size="sm" icon="external-link" to={app.mainPage}>{t('apps.open')}</Button>
+        )}
+        {control.start && (
+          <Button variant={app.mainPage ? 'secondary' : 'primary'} size="sm" icon="toggle-on" busy={working} disabled={locked} onClick={() => onStartStop(app, 'start')}>{t('apps.start')}</Button>
+        )}
+        {control.stop && (
+          <Button variant="ghost" size="sm" icon="toggle-off" busy={working} disabled={locked} onClick={() => onStartStop(app, 'stop')}>{t('apps.stop')}</Button>
+        )}
+        <Button size="sm" variant="ghost" icon="pin" aria-pressed={pinned} onClick={onPin}>{pinned ? t('drawer.pinned') : t('drawer.pinLabel')}</Button>
+      </div>
+      {working && <p className="ad-card__note" role="status">{t('apps.working')}</p>}
+      {pending
+        ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
+        : outcome && outcome.outcome && describeOutcome(outcome.outcome, t, outcome.error) && (
+          outcome === result
+            ? (
+              <EnableFailed
+                title={title}
+                outcome={outcome}
+                reason={describeOutcome(outcome.outcome, t, outcome.error)}
+                fix={canUpgrade ? { label: t('updates.upgrade'), onClick: () => upgrade.ask(source), busy: upgrading, disabled: upgrading, ariaLabel: t('updates.upgradeNamed', { name: title }) } : null}
+              />
+            )
+            : <Callout tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</Callout>
+        )}
+      {shots.length > 0 && (
+        <ul className="ad-shots" data-testid="addon-shots" aria-label={t('preview.screenshots')}>
+          {shots.map(src => <li key={src}><img src={apiUrl(src)} alt="" loading="lazy" decoding="async" /></li>)}
+        </ul>
+      )}
+      <section className="ad-pane__section" aria-labelledby="ad-pane-adds">
+        <h3 className="ad-section__title" id="ad-pane-adds">{t('preview.adds')}</h3>
+        <ul className="ad-adds">
+          {added.page && <li data-testid="app-page"><Icon name="file" aria-hidden="true" /> <span>{t('preview.page')}</span></li>}
+          {added.tools > 0 && (
+            <li data-testid="app-tools">
+              <Icon name="wrench" aria-hidden="true" />
+              <span>
+                {t('card.chatTools', { count: added.tools })}
+                {added.toolNames.length > 0 && <span className="ad-adds__ids"><span className="dk-mono">{added.toolNames.join(', ')}</span>{added.toolsMore > 0 ? ` ${t('apps.toolsMore', { count: added.toolsMore })}` : ''}</span>}
+              </span>
+            </li>
+          )}
+          {!added.page && added.tools === 0 && <li className="ad-quiet">{t('preview.addsNothing')}</li>}
+        </ul>
+        {!added.page && <p className="ad-quiet ad-pane__text">{t('apps.headless')}</p>}
+        {links.length > 0 && (
+          <div className="ad-pane__acts">
+            {links.map(link => <Button key={link.path} variant="ghost" size="sm" to={link.path}>{link.label}</Button>)}
+          </div>
+        )}
+      </section>
+      <ConnectionList app={app} connections={connections} agents={agents} kinds={kinds} />
+      <AddonSkills app={app} isAdmin={isAdmin} />
+      <dl className="dk-kv ad-kv ad-pane__facts" data-testid="preview-facts">
+        <dt>{t('preview.version')}</dt><dd>{app.version}</dd>
+        {isAdmin && <><dt>{t('trust.library')}</dt><dd data-testid="preview-source">{source ? `${source.sourceId || '—'}${source.channel ? ` · ${source.channel}` : ''}` : t('preview.sourceUnknown')}</dd></>}
+        <dt>{t('preview.id')}</dt><dd className="dk-mono">{app.id}</dd>
+      </dl>
+      {children}
+      {onRemove && (
+        <div className="ad-pane__danger">
+          <Button variant="danger-ghost" size="sm" icon="trash" disabled={locked} onClick={onRemove} data-testid="pane-remove">{t('card.removeNamed', { name: title })}</Button>
+        </div>
+      )}
+    </div>
+  )
+}

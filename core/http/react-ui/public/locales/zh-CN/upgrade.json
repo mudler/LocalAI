@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "有可用更新",
+    "availableVersion": "有可用更新:{{version}}"
+  },
+  "reason": {
+    "checkAgain": "重新检查",
+    "checking": "检查中..."
+  }
+}

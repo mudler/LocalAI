@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: MIT
+package tools
+
+// Decision says what a consumer does with add-on tools.
+type Decision string
+
+const (
+	// Route serves add-on tools through the host broker with an immutable
+	// actor taken from the authenticated request.
+	Route Decision = "route"
+	// Reject never serves add-on tools: the namespace is refused or filtered
+	// there, so a call can only fail with a typed error.
+	Reject Decision = "reject"
+)
+
+// Consumer is one code path that can discover or execute a tool in the
+// product, and what it does with add-on tools. The list is executable: the
+// consumer matrix test scans the sources for the markers of tool discovery and
+// execution and fails for a file no entry names, so a new consumer cannot ship
+// without a decision. The same table is in docs/content/addons/catalogue/work/tables.md.
+type Consumer struct {
+	// ID is the stable name used in the documentation table.
+	ID string
+	// Surface says who uses it and how.
+	Surface string
+	// Files are the source files that hold the discovery or execution
+	// markers of this consumer. Each must exist and must still hold a marker.
+	Files []string
+	// Evidence are other files that carry the decision (a route, a filter, a
+	// rejection). Each must exist.
+	Evidence []string
+	Decision Decision
+	// Actor says where the actor of a routed consumer comes from.
+	Actor string
+	// Reason and Enforcement say why a consumer rejects add-on tools and
+	// what refuses them.
+	Reason      string
+	Enforcement string
+}
+
+// Consumers is the complete inventory of the code paths that discover or
+// execute tools.
+var Consumers = []Consumer{
+	{
+		ID:       "chat-completions",
+		Surface:  "POST /v1/chat/completions, with metadata addon_tools set by the chat UI or an API client",
+		Files:    []string{"core/http/endpoints/openai/chat.go"},
+		Evidence: []string{"core/http/routes/openai.go", "core/http/endpoints/mcp/addon_tools.go"},
+		Decision: Route,
+		Actor:    "the named user or API key that authenticated the request, read once per request by auth.AddonActorForMode; local-owner mode comes from deployment configuration",
+	},
+	{
+		ID:       "direct-api",
+		Surface:  "POST /api/addons/dispatch, /api/addons/proposals and the other /api/addons routes, called by the UI, scripts and agents",
+		Evidence: []string{"core/http/endpoints/addons/gateway.go", "core/http/endpoints/addons/proposals.go", "core/http/endpoints/addons/resources.go", "core/http/routes/addons.go"},
+		Decision: Route,
+		Actor:    "the named user or API key of the request, revalidated against stored accounts on every call",
+	},
+	{
+		ID:          "addon-tool-executor",
+		Surface:     "the executor that serves the add-on namespace inside a chat request",
+		Files:       []string{"core/http/endpoints/mcp/addon_tools.go"},
+		Decision:    Route,
+		Actor:       "one actor value bound when the executor is created; it has no setter and arguments cannot change it",
+		Enforcement: "ToolAdapter.Execute takes the actor as its own parameter and the Backend interface has no confirm, cancel or resolve method",
+	},
+	{
+		ID:          "localai-assistant",
+		Surface:     "the in-process admin MCP server of the LocalAI Assistant chat modality",
+		Files:       []string{"core/http/endpoints/mcp/localai_assistant.go", "core/application/application.go"},
+		Evidence:    []string{"core/services/localaitools/tools.go"},
+		Decision:    Reject,
+		Reason:      "one process-wide server answers every admin chat and holds no per-call principal; the admin catalog is a REST mirror, and add-on lifecycle and data tools are not part of it",
+		Enforcement: "the catalog has no add-on tool and no route of /api/addons; the consumer matrix test scans both",
+	},
+	{
+		ID:          "model-mcp-sessions",
+		Surface:     "MCP sessions built from a model's MCP configuration, cached by model name and shared by every user of the model",
+		Files:       []string{"core/http/endpoints/mcp/tools.go", "core/http/endpoints/mcp/toolcache.go", "core/http/endpoints/mcp/executor.go"},
+		Decision:    Reject,
+		Reason:      "a shared session has no current-user state, so it cannot carry an actor",
+		Enforcement: "DiscoverMCPTools drops a tool in the add-on namespace; ExecuteMCPToolCall and ExecuteMCPToolCallRemote refuse it with ErrAddonToolsUnsupported",
+	},
+	{
+		ID:          "anthropic-messages",
+		Surface:     "POST /v1/messages with model-bound MCP servers",
+		Files:       []string{"core/http/endpoints/anthropic/messages.go"},
+		Decision:    Reject,
+		Reason:      "the surface is not wired to the broker",
+		Enforcement: "a request that sets addon_tools gets the typed addon_tools_unsupported answer (400)",
+	},
+	{
+		ID:          "open-responses",
+		Surface:     "POST /v1/responses with model-bound MCP servers",
+		Files:       []string{"core/http/endpoints/openresponses/responses.go"},
+		Decision:    Reject,
+		Reason:      "the surface is not wired to the broker, and background responses outlive the request principal",
+		Enforcement: "a request that sets addon_tools gets the typed addon_tools_unsupported answer (400)",
+	},
+	{
+		ID:          "realtime",
+		Surface:     "the realtime WebSocket and WebRTC sessions, which can opt into the LocalAI Assistant tools",
+		Files:       []string{"core/http/endpoints/openai/realtime.go"},
+		Decision:    Reject,
+		Reason:      "a long-lived session cannot be revalidated between utterances, and nothing binds its actor to a tool call",
+		Enforcement: "no add-on tool is added to a session; the session executor is the assistant holder's, which rejects the namespace",
+	},
+	{
+		ID:          "legacy-mcp-chat",
+		Surface:     "POST /v1/mcp/chat/completions, which enables every MCP server of the model",
+		Evidence:    []string{"core/http/endpoints/localai/mcp.go"},
+		Decision:    Reject,
+		Reason:      "the endpoint predates per-request actors and passes no broker",
+		Enforcement: "it builds the chat handler without a provider, so addon_tools gets the typed answer (400)",
+	},
+	{
+		ID:          "mcp-discovery-endpoints",
+		Surface:     "GET /v1/mcp/servers, prompts and resources of a model",
+		Files:       []string{"core/http/endpoints/localai/mcp_tools.go", "core/http/endpoints/localai/mcp_prompts.go", "core/http/endpoints/localai/mcp_resources.go"},
+		Decision:    Reject,
+		Reason:      "they list the configured servers of a model and execute no tool",
+		Enforcement: "they read model configuration only and have no add-on provider",
+	},
+	{
+		ID:          "studio-chats-mcp",
+		Surface:     "the MCP tools of a chat on the server-side chat loop: the MCP servers of the chat's model, through the same shared sessions as every other chat of that model",
+		Files:       []string{"core/services/studio/assistant.go", "core/application/studio_service.go"},
+		Evidence:    []string{"core/services/studio/mcpapps.go", "core/http/endpoints/mcp/apps.go"},
+		Decision:    Reject,
+		Reason:      "a model's MCP session is shared by every user of the model, so it carries no actor; add-on tools of a chat come through their own consumer, with the chat user's actor",
+		Enforcement: "the executor's DiscoverTools drops the add-on namespace and its ExecuteTool refuses it; the chat bridge drops it again before it offers a tool; the MCP Apps proxy of a chat (resource read and tool call for an app) refuses the namespace and the names of the built-ins, and reaches only a server the chat may use at that moment",
+	},
+	{
+		ID:          "studio-chats-mcp-connectors",
+		Surface:     "the MCP tools of the MCP servers that a user defined as connectors, in the chats of that user and in the saved agents, triggers and sub-agents that use them",
+		Files:       []string{"core/services/studio/mcpconns/client.go", "core/services/studio/mcpconns/service.go"},
+		Decision:    Reject,
+		Reason:      "a connector is a server the user chose, not an add-on: its tools run on that server with the connector's own credential and never as the user of the add-on broker",
+		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use, also for the MCP Apps proxy, which refuses the namespace and the names of the built-ins too",
+	},
+	{
+		ID:          "studio-chats-mcp-content",
+		Surface:     "the prompts and resources of the MCP servers of a chat's model, which the chat page lists and reads for the user",
+		Files:       []string{"core/application/studio_mcpcontent.go"},
+		Decision:    Reject,
+		Reason:      "they list prompts and read resources of the model's configured servers and execute no tool; the sessions are the ones shared by every user of the model, so they carry no actor",
+		Enforcement: "the user needs the MCP feature and the model must have MCP servers; the add-on namespace is not part of these servers",
+	},
+	{
+		ID:          "studio-chats-connector-addons",
+		Surface:     "the messages of a connector add-on (such as Telegram): the add-on route /connector, which the host calls to poll, send, edit and type, and the host operation connector.inbound, with which a push add-on delivers a message",
+		Evidence:    []string{"core/services/studio/connectors.go", "core/services/addons/hostops/connector.go", "core/services/addons/hostops/broker.go"},
+		Decision:    Reject,
+		Reason:      "the route and the operation carry messages, not tool calls: no tool of the add-on is listed or run through them, and the turn a message starts gets only the tools of the saved agent of the binding, through studio-chats-addons, as the binding's owner",
+		Enforcement: "connector.inbound is authorized by the live credential of the add-on's own incarnation and by the stored binding, which must name that add-on and be on; the owner and the agent come from the binding, and an argument that names a user, an actor or an owner is refused; the route takes the bot token per call and the add-on keeps none",
+	},
+	{
+		ID:          "studio-chats-assistant",
+		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
+		Files:       []string{"core/application/studio_assistant.go", "core/services/studio/localaigroups.go"},
+		Evidence:    []string{"core/services/studio/assistant.go"},
+		Decision:    Reject,
+		Reason:      "they are the instance management tools of the in-process assistant server, not add-on tools; the add-on namespace is not part of that server",
+		Enforcement: "a turn gets the assistant tools only when the chat is flagged, the user is an administrator and the setting is on, checked again on every turn; sub-agents never get them; add-on tools of the chat still come through studio-chats-addons",
+	},
+	{
+		ID:          "studio-chats-client-tools",
+		Surface:     "the LocalAI client tools that the host runs for a chat's user outside a model turn: the confirmation of a voice profile proposal, which creates the profile and checks its recording",
+		Files:       []string{"core/services/studio/voiceprofilechange.go"},
+		Evidence:    []string{"core/services/localaitools/clienttools.go"},
+		Decision:    Reject,
+		Reason:      "they are the inference and instance tools of the LocalAI client, not add-on tools; the add-on namespace is not part of that catalog",
+		Enforcement: "the executor is built from the client tool catalog, which has no add-on tool and no route of /api/addons (the consumer matrix test scans it), and runs as the owner of the proposal; add-on tools of a chat still come through studio-chats-addons",
+	},
+	{
+		ID:          "studio-chats-addons",
+		Surface:     "the add-on tools of a chat on the server-side chat loop, listed and run by the chat's user for the chat's own turns, action tools included",
+		Evidence:    []string{"core/services/studio/addontools.go", "core/application/addon_gateway.go", "core/http/auth/addons.go"},
+		Decision:    Route,
+		Actor:       "the chat's user, built by the host for each call with the credential of a chat turn; the owner checks the account and the add-ons feature again on every call, and local-owner mode comes from deployment configuration",
+		Enforcement: "only the adapter built by NewChatToolAdapter serves action tools and makes a write, schema or create change at once, by confirming the proposal it has just stored for the same actor with the chat credential, which no HTTP request can carry; a chat switches an add-on off with its own list, and a sub-agent gets only the tools its parent names",
+	},
+	{
+		ID:          "distributed-agent-worker",
+		Surface:     "agent workers that execute MCP tools for a frontend over the agent control seam, on either carrier",
+		Files:       []string{"core/cli/agent_worker.go", "core/services/carrier/holders.go", "core/services/nodes/agent_control.go", "core/services/nodes/agent_rpc_nats.go"},
+		Decision:    Reject,
+		Reason:      "a worker holds sessions built from the model configuration the frontend sent; the frontend's actor never travels with a tool call",
+		Enforcement: "the tool and discovery RPCs use DiscoverMCPTools and ExecuteMCPToolCall, which refuse the namespace; the frontend executor refuses it before the request is sent",
+	},
+}

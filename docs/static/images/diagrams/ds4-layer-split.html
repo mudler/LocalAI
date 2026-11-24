@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>ds4 layer split</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.strip { display:grid; grid-template-columns: 1fr 1fr; gap: 0; border-radius: 12px; overflow: hidden; margin-top: 12px; }
+.strip div { padding: 16px 20px; font-size: 24px; font-weight: 700; }
+</style>
+</head>
+<body>
+<p class="k">ds4 distributed</p>
+<h1>Workers <span class="hl">dial in</span></h1>
+<img class="mark" src="tile.svg" alt="">
+
+<div class="stage c"><div class="col" style="gap:26px">
+  <div class="panel" style="padding:22px 24px"><h3>ds4: workers dial in to the coordinator</h3>
+    <div class="row">
+      <div class="node core fl"><b>Coordinator</b><span>LocalAI ds4 backend, listens on a port</span><span>Prompt, tokens, sampling and layers 0:19</span></div>
+      <div class="ar back" data-l="dials in" style="width:150px"></div>
+      <div class="node fl"><b>Worker</b><span>loads only its own slice</span><span>Layers 20:output, with the output head</span></div>
+    </div>
+    <div class="strip"><div style="background:var(--teal);color:var(--on-teal)">Layers 0:19, coordinator</div><div style="background:var(--accent-wash);color:var(--accent-text)">Layers 20:output, worker</div></div>
+  </div>
+  <div class="panel" style="padding:22px 24px"><h3>llama.cpp RPC: the main server dials out</h3>
+    <div class="row">
+      <div class="node fl"><b>Main server</b><span>holds the model list</span></div>
+      <div class="ar" data-l="dials out" style="width:150px"></div>
+      <div class="col fl" style="gap:8px"><div class="node sm" style="padding:8px 18px"><b>rpc-server 1</b></div><div class="node sm" style="padding:8px 18px"><b>rpc-server 2</b></div></div>
+    </div></div>
+</div></div>
+<div class="foot">Opposite dial directions. <b>Keep both on a network you trust.</b></div>
+</body></html>

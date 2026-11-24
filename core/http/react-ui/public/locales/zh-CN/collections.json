@@ -1,0 +1,113 @@
+{
+  "title": "知识库",
+  "subtitle": "智能体可以搜索的文档集合。可在此搜索任意集合，或在需要时将其添加到智能体。",
+  "newPlaceholder": "新集合名称...",
+  "actions": {
+    "create": "创建",
+    "details": "详情",
+    "reset": "重置",
+    "delete": "删除",
+    "viewDetails": "查看详情",
+    "resetCollection": "重置集合",
+    "deleteCollection": "删除集合",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "sections": {
+    "yourCollections": "您的集合",
+    "otherUsersCollections": "其他用户的集合",
+    "sharedWithYou": "与你共享"
+  },
+  "empty": {
+    "title": "暂无集合",
+    "text": "集合让您可以将文档组织成知识库，智能体可以通过 RAG（检索增强生成）进行搜索。在上方创建一个集合以开始。",
+    "noPersonal": "您还没有任何集合。",
+    "learn": "了解知识库的工作方式"
+  },
+  "deleteDialog": {
+    "title": "删除集合",
+    "message": "删除集合 \"{{name}}\"？这将删除所有条目，且无法撤销。",
+    "confirm": "删除"
+  },
+  "resetDialog": {
+    "title": "重置集合",
+    "message": "重置集合 \"{{name}}\"？这将删除所有条目但保留集合。",
+    "confirm": "重置"
+  },
+  "toasts": {
+    "created": "集合 \"{{name}}\" 已创建",
+    "createFailed": "创建集合失败：{{message}}",
+    "deleted": "集合 \"{{name}}\" 已删除",
+    "deleteFailed": "删除集合失败：{{message}}",
+    "reset": "集合 \"{{name}}\" 已重置",
+    "resetFailed": "重置集合失败：{{message}}"
+  },
+  "loadFailed": "无法加载你的集合。",
+  "sources": {
+    "loadFailed": "无法加载网页来源。",
+    "noneShared": "没有网页来源。"
+  },
+  "entries": {
+    "loadFailed": "无法加载文件。",
+    "filter": "筛选文件",
+    "countAll_one": "{{count}} 个文件",
+    "countAll_other": "{{count}} 个文件",
+    "countOf": "共 {{total}} 个文件中的 {{shown}} 个",
+    "noMatch": "没有匹配的文件。"
+  },
+  "starting": {
+    "title": "知识库服务正在启动。",
+    "text": "服务器仍在准备知识库服务。此页面会自动重试。"
+  },
+  "embedding": {
+    "missingTitle": "未安装嵌入模型。",
+    "missingText": "集合使用 {{model}} 为文件建立索引并进行搜索。安装之前，添加文件和搜索都会失败。",
+    "noneSet": "未为集合设置嵌入模型（collections_embedding_model），因此添加文件和搜索都会失败。",
+    "install": "在模型中查找",
+    "askAdmin": "请让管理员安装它。"
+  },
+  "searchMode": {
+    "label": "搜索：{{mode}}",
+    "semantic": "语义",
+    "hybrid": "混合",
+    "semanticHint": "按含义查找段落，不按精确的词或代码匹配。",
+    "hybridHint": "按含义和精确的词查找段落。"
+  },
+  "pane": {
+    "addFile": "添加文件"
+  },
+  "share": {
+    "label": "共享",
+    "button": "共享 {{name}}",
+    "intro": "你添加的人会在自己的列表中看到此集合，他们的智能体可以按名称搜索它。",
+    "failed": "无法共享该集合：{{message}}",
+    "roles": {
+      "viewer": "可以查看",
+      "viewerHelp": "可以搜索并阅读其中的文件。",
+      "editor": "可以编辑",
+      "editorHelp": "还可以添加和删除文件。"
+    },
+    "noteViewer": "你可以搜索并阅读其中的文件。",
+    "noteEditor": "你可以搜索并添加或删除文件。"
+  },
+  "create": {
+    "title": "新建集合",
+    "hint": "起一个便于识别的名称。创建后即可添加文件和网页。"
+  },
+  "sort": {
+    "label": "集合排序",
+    "name": "名称，A 到 Z",
+    "name-desc": "名称，Z 到 A",
+    "used": "使用最多",
+    "unused": "未使用优先"
+  },
+  "list": {
+    "countAll_one": "{{count}} 个集合",
+    "countAll_other": "{{count}} 个集合",
+    "countOf": "共 {{total}} 个集合中的 {{shown}} 个",
+    "menu": "{{name}} 的操作"
+  },
+  "menu": {
+    "try": "试问一个问题"
+  }
+}

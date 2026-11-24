@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "실시간 음성 대화",
+  "stage": "음성 세션",
+  "picker": {
+    "title": "음성 파이프라인: 듣고, 생각하고, 말하기",
+    "heading": "파이프라인 모델",
+    "label": "파이프라인 모델",
+    "none": "파이프라인 없음",
+    "defaultVoice": "기본 음성",
+    "auto": "자동"
+  },
+  "view": {
+    "idle": {
+      "title": "준비됨",
+      "body": "세션을 시작하고 말하세요. 마이크는 세션이 열려 있는 동안에만 사용됩니다.",
+      "note": "세션이 실행되는 동안 마이크 음성이 스트리밍됩니다. 서버가 말을 멈춘 것을 감지해 스스로 답변합니다.",
+      "noteManual": "세션이 실행되는 동안 마이크 음성이 스트리밍됩니다. 이 모델에는 음성 감지 기능이 없으므로 말을 마치면 말하기 완료를 누르세요."
+    },
+    "connecting": {
+      "title": "연결 중",
+      "body": "통화를 준비하는 중입니다. 모델은 아직 듣고 있지 않습니다."
+    },
+    "listening": {
+      "title": "듣는 중",
+      "body": "필요한 것을 말씀하세요. 말을 멈추면 답변합니다.",
+      "hearing": "말씀하시는 것을 듣고 있습니다.",
+      "manual": "필요한 것을 말한 다음 말하기 완료를 누르세요."
+    },
+    "interrupted": {
+      "title": "중단됨",
+      "body": "멈췄습니다. 말씀하세요, 듣고 있습니다."
+    },
+    "thinking": {
+      "title": "생각 중",
+      "body": "답변을 준비하는 중입니다."
+    },
+    "speaking": {
+      "title": "말하는 중",
+      "body": "언제든 말을 겹쳐서 끼어들 수 있습니다."
+    },
+    "blocked": {
+      "title": "마이크 차단됨",
+      "body": "브라우저가 이 페이지에 마이크를 허용하지 않았습니다.",
+      "cardTitle": "마이크 허용",
+      "card": "주소 표시줄의 자물쇠 아이콘을 누르고 마이크를 허용으로 설정한 다음 다시 시도하세요. 아무것도 녹음되지 않았습니다."
+    },
+    "lost": {
+      "title": "연결 끊김",
+      "body": "서버와의 연결이 끊어졌습니다.",
+      "cardTitle": "세션이 종료되었습니다",
+      "card": "WebRTC 연결에 실패했습니다. 지금까지의 대화는 대화 기록에 남아 있습니다."
+    },
+    "error": {
+      "title": "문제가 발생했습니다",
+      "body": "통화를 준비하지 못했거나 서버가 오류를 보고했습니다."
+    },
+    "nopipe": {
+      "title": "Talk에는 파이프라인 모델이 필요합니다",
+      "body": "파이프라인 모델은 음성 인식 모델, 채팅 모델, 음성 합성 모델을 하나의 음성 어시스턴트로 묶습니다. 아직 구성된 것이 없습니다. 하나 만들거나 먼저 갤러리에서 모델을 찾아보세요.",
+      "create": "파이프라인 모델 만들기",
+      "gallery": "갤러리 둘러보기"
+    }
+  },
+  "detail": {
+    "tool": "{{name}} 실행 중.",
+    "processing": "답변을 준비하는 중.",
+    "generating": "답변을 작성하는 중.",
+    "server": "서버가 오류를 보고했습니다: {{message}}",
+    "insecure": "마이크를 사용하려면 HTTPS 또는 localhost가 필요합니다.",
+    "noMic": "마이크를 찾을 수 없습니다.",
+    "failed": "통화를 준비하지 못했습니다: {{message}}",
+    "unknown": "알 수 없는 오류"
+  },
+  "controls": {
+    "start": "세션 시작",
+    "end": "세션 종료",
+    "testTone": "테스트 톤",
+    "endTurn": "말하기 완료",
+    "diagnostics": "진단",
+    "viewTraces": "트레이스 보기",
+    "retry": {
+      "blocked": "다시 시도",
+      "lost": "다시 연결",
+      "error": "다시 시도"
+    }
+  },
+  "transcript": {
+    "title": "대화 기록",
+    "copy": "복사",
+    "empty": "내가 말한 내용과 모델의 답변이 진행되는 대로 여기에 표시됩니다. 저장되지 않습니다.",
+    "emptyNoPipeline": "아직 표시할 내용이 없습니다.",
+    "user": "나",
+    "assistant": "답변",
+    "tool_call": "도구",
+    "tool_result": "결과",
+    "interrupted": "답변이 중단됨",
+    "toneRequested": "테스트 톤 요청됨"
+  },
+  "settings": {
+    "title": "세션 설정",
+    "desc": "세션을 시작할 때 적용됩니다.",
+    "close": "닫기",
+    "voiceLanguage": "음성과 언어",
+    "voice": "음성",
+    "voicePlaceholder": "음성 이름(비워 두면 모델 기본값)",
+    "language": "받아쓰기 언어",
+    "languagePlaceholder": "언어 코드, 예: ko(비워 두면 자동 감지)",
+    "instructions": "지침",
+    "instructionsPlaceholder": "모델에 줄 시스템 지침",
+    "instructionsHelp": "세션 지침으로 전송됩니다. 답변은 음성으로 나오므로 짧게 유지하세요.",
+    "tools": "도구",
+    "manage": "관리 모드",
+    "manageDesc": "모델이 LocalAI에 질의할 수 있게 합니다: 모델, 백엔드, 시스템 정보.",
+    "manageLocked": "세션이 열려 있는 동안은 고정됩니다. 바꾸려면 세션을 종료하세요.",
+    "pipeline": "{{name}} 자세히",
+    "anyToAny": "음성 대 음성 모델: 모델 하나가 듣고, 답변하고, 말합니다. 별도의 음성 인식, 언어, 음성 합성 모델이 필요하지 않습니다.",
+    "noVad": "음성 감지 모델이 설정되어 있지 않습니다. 말할 때마다 끝나면 말하기 완료를 누르세요.",
+    "editConfig": "모델 구성 편집",
+    "editPipeline": "파이프라인 편집",
+    "slot": {
+      "vad": "음성 감지",
+      "transcription": "받아쓰기",
+      "llm": "언어 모델",
+      "tts": "음성 합성"
+    }
+  },
+  "diag": {
+    "title": "오디오 진단",
+    "waveform": "파형",
+    "spectrum": "스펙트럼(FFT)",
+    "waiting": "통계를 기다리는 중...",
+    "peakFreq": "피크 주파수",
+    "thd": "THD",
+    "rms": "RMS 레벨",
+    "sampleRate": "샘플 레이트",
+    "packetsRecv": "수신한 패킷",
+    "packetsLost": "손실된 패킷",
+    "jitter": "지터",
+    "concealed": "보정된 샘플"
+  },
+  "toasts": {
+    "selectModel": "먼저 파이프라인 모델을 선택하세요.",
+    "modelsFailed": "실시간 모델을 불러오지 못했습니다: {{message}}",
+    "viewTraces": "트레이스 보기",
+    "copied": "대화 기록을 복사했습니다",
+    "copyFailed": "클립보드에 복사할 수 없습니다"
+  }
+}

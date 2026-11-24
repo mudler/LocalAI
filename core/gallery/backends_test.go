@@ -1,0 +1,1679 @@
+package gallery
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
+)
+
+const (
+	testImage = "quay.io/mudler/tests:localai-backend-test"
+)
+
+var _ = Describe("Runtime capability-based backend selection", func() {
+	var tempDir string
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "gallery-caps-*")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	It("keeps the Kokoro CPU fallback installable from the backend gallery", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("kokoro"))
+		Expect(byName["kokoro"].CapabilitiesMap).To(HaveKeyWithValue("default", "cpu-kokoro"))
+		Expect(byName).To(HaveKey("cpu-kokoro"))
+		Expect(byName["cpu-kokoro"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-cpu-kokoro"))
+
+		type matrixEntry struct {
+			Backend     string `yaml:"backend"`
+			Platforms   string `yaml:"platforms"`
+			PlatformTag string `yaml:"platform-tag"`
+			TagSuffix   string `yaml:"tag-suffix"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var cpuArchitectures []string
+		for _, entry := range matrix.Include {
+			if entry.Backend == "kokoro" && entry.TagSuffix == "-cpu-kokoro" {
+				cpuArchitectures = append(cpuArchitectures, entry.Platforms+"/"+entry.PlatformTag)
+			}
+		}
+		Expect(cpuArchitectures).To(ConsistOf("linux/amd64/amd64", "linux/arm64/arm64"))
+	})
+
+	It("keeps the audio.cpp ROCm image connected to the AMD capability", func() {
+		backends, err := ReadConfigFile[[]*GalleryBackend](filepath.Join("..", "..", "backend", "index.yaml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		byName := make(map[string]*GalleryBackend, len(*backends))
+		for _, backend := range *backends {
+			byName[backend.Name] = backend
+		}
+
+		Expect(byName).To(HaveKey("audio-cpp"))
+		Expect(byName["audio-cpp"].CapabilitiesMap).To(HaveKeyWithValue("amd", "rocm-audio-cpp"))
+		Expect(byName).To(HaveKey("rocm-audio-cpp"))
+		Expect(byName["rocm-audio-cpp"].URI).To(Equal("quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-audio-cpp"))
+
+		type matrixEntry struct {
+			Backend   string `yaml:"backend"`
+			BuildType string `yaml:"build-type"`
+			Platforms string `yaml:"platforms"`
+			TagSuffix string `yaml:"tag-suffix"`
+			BaseImage string `yaml:"base-image"`
+		}
+		type backendMatrix struct {
+			Include []matrixEntry `yaml:"include"`
+		}
+
+		matrix, err := ReadConfigFile[backendMatrix](filepath.Join("..", "..", ".github", "backend-matrix.yml"))
+		Expect(err).NotTo(HaveOccurred())
+
+		var rocmEntries []matrixEntry
+		for _, entry := range matrix.Include {
+			if entry.Backend == "audio-cpp" && entry.BuildType == "hipblas" {
+				rocmEntries = append(rocmEntries, entry)
+			}
+		}
+		Expect(rocmEntries).To(ConsistOf(matrixEntry{
+			Backend:   "audio-cpp",
+			BuildType: "hipblas",
+			Platforms: "linux/amd64",
+			TagSuffix: "-gpu-rocm-hipblas-audio-cpp",
+			BaseImage: "rocm/dev-ubuntu-24.04:10.1.0-full",
+		}))
+	})
+
+	It("ListSystemBackends resolves aliases for system-path backends", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		for _, name := range []string{"cpu-audio-cpp", "cuda12-audio-cpp"} {
+			dir := filepath.Join(sysRoot, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: "audio-cpp", Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+		}
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(sysRoot, "cuda12-audio-cpp", "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeTrue())
+
+		concrete, ok := backs.Get("cpu-audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(concrete.IsSystem).To(BeTrue())
+		Expect(concrete.Metadata).NotTo(BeNil())
+		Expect(concrete.Metadata.Alias).To(Equal("audio-cpp"))
+	})
+
+	It("ListSystemBackends lets a user-managed backend hide a same-named system backend", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// The SAME concrete name exists in both roots.
+		mkBackend(sysRoot, "cpu-audio-cpp", "audio-cpp")
+		managedDir := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "cpu"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		// Concrete name and alias BOTH run the managed installation and
+		// report its metadata — never the system executable with managed
+		// metadata (or any other cross-root mix).
+		concrete, ok := backs.Get("cpu-audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(concrete.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(concrete.IsSystem).To(BeFalse())
+
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeFalse())
+		Expect(aliasBack.Metadata).NotTo(BeNil())
+		Expect(aliasBack.Metadata.Name).To(Equal("cpu-audio-cpp"))
+	})
+
+	It("ListSystemBackends preserves managed meta backends against system aliases", func() {
+		sysRoot := filepath.Join(tempDir, "system")
+		managedRoot := filepath.Join(tempDir, "managed")
+		for _, dir := range []string{
+			filepath.Join(sysRoot, "cpu-audio-cpp"),
+			filepath.Join(managedRoot, "custom-audio"),
+			filepath.Join(managedRoot, "audio-cpp"),
+		} {
+			Expect(os.MkdirAll(dir, 0o750)).To(Succeed())
+		}
+		Expect(os.WriteFile(filepath.Join(sysRoot, "cpu-audio-cpp", "run.sh"), nil, 0o755)).To(Succeed())
+		managedRun := filepath.Join(managedRoot, "custom-audio", "run.sh")
+		Expect(os.WriteFile(managedRun, nil, 0o755)).To(Succeed())
+		Expect(writeBackendMetadata(filepath.Join(sysRoot, "cpu-audio-cpp"), &BackendMetadata{
+			Name: "cpu-audio-cpp", Alias: "audio-cpp",
+		})).To(Succeed())
+		Expect(writeBackendMetadata(filepath.Join(managedRoot, "audio-cpp"), &BackendMetadata{
+			Name: "audio-cpp", MetaBackendFor: "custom-audio",
+		})).To(Succeed())
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		backends, err := ListSystemBackends(state)
+		Expect(err).NotTo(HaveOccurred())
+		backend, ok := backends.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(backend.RunFile).To(Equal(managedRun))
+		Expect(backend.IsSystem).To(BeFalse())
+		Expect(backend.IsMeta).To(BeTrue())
+		Expect(backend.Metadata.MetaBackendFor).To(Equal("custom-audio"))
+	})
+
+	It("ListSystemBackends lets a user-managed variant take over its whole alias group", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+			must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// System family with the variant an NVIDIA host would prefer;
+		// the user installs only the cpu variant via the gallery.
+		mkBackend(sysRoot, "cuda12-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "vulkan-audio-cpp", "audio-cpp")
+		managedDir := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		// The alias resolves to the managed variant even though the
+		// capability tokens would prefer the system cuda build: a
+		// gallery-installed variant takes over its whole family.
+		aliasBack, ok := backs.Get("audio-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(managedDir, "run.sh")))
+		Expect(aliasBack.IsSystem).To(BeFalse())
+
+		// The system family is invisible entirely, concrete names
+		// included — a stale system variant may not work with newer
+		// models, so it must not stay reachable.
+		_, ok = backs.Get("cuda12-audio-cpp")
+		Expect(ok).To(BeFalse())
+		_, ok = backs.Get("vulkan-audio-cpp")
+		Expect(ok).To(BeFalse())
+	})
+
+	It("ListSystemBackends resolves a mixed population across both roots", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		// alias == "" installs no metadata.json at all (old-style dir).
+		mkBackend := func(root, name, alias string) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			if alias != "" {
+				b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+				must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			}
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// System root: two aliased families and a metadata-less loner.
+		mkBackend(sysRoot, "cpu-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "cuda12-audio-cpp", "audio-cpp")
+		mkBackend(sysRoot, "cpu-llama-cpp", "llama-cpp")
+		sysVulkanLlama := mkBackend(sysRoot, "vulkan-llama-cpp", "llama-cpp")
+		mkBackend(sysRoot, "piper", "")
+
+		// Managed root: a family takeover, a metadata-less name
+		// collision, a metadata-less variant that must NOT take over
+		// its would-be family, a plain loner, and its own family.
+		managedCPUAudio := mkBackend(managedRoot, "cpu-audio-cpp", "audio-cpp")
+		managedWhisper := mkBackend(managedRoot, "whisper", "")
+		mkBackend(sysRoot, "whisper", "")
+		mkBackend(managedRoot, "rocm-llama-cpp", "")
+		mkBackend(managedRoot, "bark", "")
+		managedKokoro := mkBackend(managedRoot, "kokoro", "tts-suite")
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		expectBackend := func(name, runFile string, isSystem bool) {
+			b, ok := backs.Get(name)
+			Expect(ok).To(BeTrue(), name)
+			Expect(b.RunFile).To(Equal(runFile), name)
+			Expect(b.IsSystem).To(Equal(isSystem), name)
+		}
+		expectGone := func(name string) {
+			_, ok := backs.Get(name)
+			Expect(ok).To(BeFalse(), name)
+		}
+
+		// audio-cpp family: the managed cpu variant takes over — the
+		// alias resolves to it despite the nvidia tokens preferring
+		// cuda, and the system family is gone, concretes included.
+		expectBackend("audio-cpp", filepath.Join(managedCPUAudio, "run.sh"), false)
+		expectBackend("cpu-audio-cpp", filepath.Join(managedCPUAudio, "run.sh"), false)
+		expectGone("cuda12-audio-cpp")
+
+		// llama-cpp family: the managed rocm-llama-cpp declares NO
+		// metadata, so it joins no family and triggers no takeover —
+		// the system family stays and resolves by capability (vulkan
+		// on this nvidia host, no cuda variant present).
+		expectBackend("llama-cpp", filepath.Join(sysVulkanLlama, "run.sh"), true)
+		expectBackend("cpu-llama-cpp", filepath.Join(sysRoot, "cpu-llama-cpp", "run.sh"), true)
+		expectBackend("vulkan-llama-cpp", filepath.Join(sysVulkanLlama, "run.sh"), true)
+		expectBackend("rocm-llama-cpp", filepath.Join(managedRoot, "rocm-llama-cpp", "run.sh"), false)
+
+		// whisper: same metadata-less name in both roots — managed
+		// hides system.
+		expectBackend("whisper", filepath.Join(managedWhisper, "run.sh"), false)
+
+		// Loners survive untouched on their own side.
+		expectBackend("piper", filepath.Join(sysRoot, "piper", "run.sh"), true)
+		expectBackend("bark", filepath.Join(managedRoot, "bark", "run.sh"), false)
+
+		// A managed-only alias group resolves within itself.
+		expectBackend("tts-suite", filepath.Join(managedKokoro, "run.sh"), false)
+		expectBackend("kokoro", filepath.Join(managedKokoro, "run.sh"), false)
+	})
+
+	It("ListSystemBackends: name collisions across roots, all metadata permutations", func() {
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		// withMeta installs metadata.json; alias may be empty (name-only
+		// metadata — possible and legal, e.g. a packaged backend that
+		// declares no family).
+		mk := func(root, name, alias string, withMeta bool) string {
+			dir := filepath.Join(root, name)
+			must(os.MkdirAll(dir, 0o750))
+			if withMeta {
+				b, _ := json.Marshal(&BackendMetadata{Alias: alias, Name: name})
+				must(os.WriteFile(filepath.Join(dir, "metadata.json"), b, 0o644))
+			}
+			must(os.WriteFile(filepath.Join(dir, "run.sh"), []byte(""), 0o755))
+			return dir
+		}
+
+		sysRoot, err := os.MkdirTemp("", "system-backends-*")
+		must(err)
+		defer os.RemoveAll(sysRoot)
+		managedRoot, err := os.MkdirTemp("", "managed-backends-*")
+		must(err)
+		defer os.RemoveAll(managedRoot)
+
+		// 1a. Metadata on BOTH sides, aliased side managed:
+		//     system concrete alpha (name-only metadata) vs managed
+		//     cuda-alpha aliased to alpha.
+		mk(sysRoot, "alpha", "", true)
+		cudaAlpha := mk(managedRoot, "cuda-alpha", "alpha", true)
+
+		// 1b. Reverse: managed concrete beta (name-only metadata) vs
+		//     system cuda-beta aliased to beta.
+		beta := mk(managedRoot, "beta", "", true)
+		mk(sysRoot, "cuda-beta", "beta", true)
+
+		// 2a. No metadata on ONE side (system): bare system gamma vs
+		//     managed cuda-gamma aliased to gamma.
+		mk(sysRoot, "gamma", "", false)
+		cudaGamma := mk(managedRoot, "cuda-gamma", "gamma", true)
+
+		// 2b. Reverse: bare managed delta vs system cuda-delta aliased
+		//     to delta.
+		delta := mk(managedRoot, "delta", "", false)
+		mk(sysRoot, "cuda-delta", "delta", true)
+
+		// 3a. Same name in BOTH roots, metadata on both.
+		epsilonManaged := mk(managedRoot, "epsilon", "", true)
+		mk(sysRoot, "epsilon", "", true)
+
+		// 3b. Same name in BOTH roots, metadata on neither.
+		zetaManaged := mk(managedRoot, "zeta", "", false)
+		mk(sysRoot, "zeta", "", false)
+
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		state, err := system.GetSystemState(
+			system.WithBackendPath(managedRoot),
+			system.WithBackendSystemPath(sysRoot),
+		)
+		must(err)
+		state.GPUVendor = "nvidia"
+
+		backs, err := ListSystemBackends(state)
+		must(err)
+
+		expect := func(name, runFile string, isSystem bool) {
+			b, ok := backs.Get(name)
+			Expect(ok).To(BeTrue(), name)
+			Expect(b.RunFile).To(Equal(filepath.Join(runFile, "run.sh")), name)
+			Expect(b.IsSystem).To(Equal(isSystem), name)
+		}
+
+		// 1a: the managed alias owns the name; the system concrete
+		//     (metadata or not) is unreachable.
+		expect("alpha", cudaAlpha, false)
+		expect("cuda-alpha", cudaAlpha, false)
+
+		// 1b: the managed concrete keeps its name — a system alias
+		//     never hijacks it; the system variant stays concrete-only.
+		expect("beta", beta, false)
+		b, ok := backs.Get("cuda-beta")
+		Expect(ok).To(BeTrue())
+		Expect(b.IsSystem).To(BeTrue())
+
+		// 2a: same as 1a — the system concrete's missing metadata
+		//     changes nothing.
+		expect("gamma", cudaGamma, false)
+
+		// 2b: same as 1b — the managed concrete's missing metadata
+		//     changes nothing.
+		expect("delta", delta, false)
+		b, ok = backs.Get("cuda-delta")
+		Expect(ok).To(BeTrue())
+		Expect(b.IsSystem).To(BeTrue())
+
+		// 3a/3b: plain same-name hiding, managed wins, with or
+		//     without metadata on either side.
+		expect("epsilon", epsilonManaged, false)
+		expect("zeta", zetaManaged, false)
+	})
+
+	It("ListSystemBackends prefers optimal alias candidate", func() {
+		// Arrange two installed backends sharing the same alias
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		cpuDir := filepath.Join(tempDir, "cpu-llama-cpp")
+		must(os.MkdirAll(cpuDir, 0o750))
+		cpuMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cpu-llama-cpp"}
+		b, _ := json.Marshal(cpuMeta)
+		must(os.WriteFile(filepath.Join(cpuDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cpuDir, "run.sh"), []byte(""), 0o755))
+
+		cudaDir := filepath.Join(tempDir, "cuda12-llama-cpp")
+		must(os.MkdirAll(cudaDir, 0o750))
+		cudaMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cuda12-llama-cpp"}
+		b, _ = json.Marshal(cudaMeta)
+		must(os.WriteFile(filepath.Join(cudaDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cudaDir, "run.sh"), []byte(""), 0o755))
+
+		// Default system: alias should point to CPU. Force the capability to
+		// "cpu" so this is hermetic on hosts that actually have a GPU: backend
+		// preference keys off getSystemCapabilities() (env → real nvidia-smi
+		// detection), not GPUVendor, so without this a GPU dev box reports
+		// "nvidia" and the cuda alias wins. The NVIDIA case below overrides it.
+		must(os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "cpu"))
+		defer func() { _ = os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") }()
+
+		sysDefault, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysDefault.GPUVendor = "" // force default selection
+		backs, err := ListSystemBackends(sysDefault)
+		must(err)
+		aliasBack, ok := backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cpuDir, "run.sh")))
+		// concrete entries remain
+		_, ok = backs.Get("cpu-llama-cpp")
+		Expect(ok).To(BeTrue())
+		_, ok = backs.Get("cuda12-llama-cpp")
+		Expect(ok).To(BeTrue())
+
+		// NVIDIA system: alias should point to CUDA
+		// Force capability to nvidia to make the test deterministic on platforms like darwin/arm64 (which default to metal)
+		os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia")
+		defer os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
+
+		sysNvidia, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysNvidia.GPUVendor = "nvidia"
+		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024
+		backs, err = ListSystemBackends(sysNvidia)
+		must(err)
+		aliasBack, ok = backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cudaDir, "run.sh")))
+	})
+})
+
+var _ = Describe("Gallery Backends", func() {
+	var (
+		tempDir     string
+		galleries   []config.Gallery
+		ml          *model.ModelLoader
+		systemState *system.SystemState
+	)
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "gallery-test-*")
+		Expect(err).NotTo(HaveOccurred())
+
+		// Setup test galleries
+		galleries = []config.Gallery{
+			{
+				Name: "test-gallery",
+				URL:  "https://gist.githubusercontent.com/mudler/71d5376bc2aa168873fa519fa9f4bd56/raw/0557f9c640c159fa8e4eab29e8d98df6a3d6e80f/backend-gallery.yaml",
+			},
+		}
+		systemState, err = system.GetSystemState(system.WithBackendPath(tempDir))
+		Expect(err).NotTo(HaveOccurred())
+		ml = model.NewModelLoader(systemState)
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	Describe("InstallBackendFromGallery", func() {
+		It("should return error when backend is not found", func() {
+			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "non-existent", nil, true, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no backend found with name \"non-existent\""))
+		})
+
+		It("should install backend from gallery", func() {
+			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "test-backend", nil, true, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
+		})
+
+		It("removes files from a previous install that are absent in the new artifact", func() {
+			// A reinstall must fully replace the installed backend, not overlay
+			// the new artifact onto the old one: a stale library or package
+			// directory left behind from an earlier version can shadow the new
+			// one at import time (e.g. an old vllm .so lingering next to a fresh
+			// build). Mirror the atomic-swap behaviour UpgradeBackend already has.
+			makeSource := func(files map[string]string) string {
+				dir, err := os.MkdirTemp("", "backend-src-*")
+				Expect(err).NotTo(HaveOccurred())
+				for name, content := range files {
+					Expect(os.WriteFile(filepath.Join(dir, name), []byte(content), 0644)).To(Succeed())
+				}
+				return dir
+			}
+
+			srcV1 := makeSource(map[string]string{
+				"run.sh":       "#!/bin/sh\necho v1\n",
+				"stale-lib.so": "old",
+			})
+			defer func() { _ = os.RemoveAll(srcV1) }()
+			cfgV1 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV1}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV1, nil, false)).To(Succeed())
+
+			installed := filepath.Join(tempDir, "orphan-test")
+			Expect(filepath.Join(installed, "stale-lib.so")).To(BeARegularFile())
+
+			// Reinstall from an artifact that no longer ships stale-lib.so.
+			srcV2 := makeSource(map[string]string{
+				"run.sh": "#!/bin/sh\necho v2\n",
+			})
+			defer func() { _ = os.RemoveAll(srcV2) }()
+			cfgV2 := &GalleryBackend{Metadata: Metadata{Name: "orphan-test"}, URI: srcV2}
+			Expect(InstallBackend(context.TODO(), systemState, ml, cfgV2, nil, false)).To(Succeed())
+
+			Expect(filepath.Join(installed, "run.sh")).To(BeARegularFile())
+			Expect(filepath.Join(installed, "stale-lib.so")).NotTo(BeAnExistingFile())
+		})
+	})
+
+	Describe("Meta Backends", func() {
+		It("should identify meta backends correctly", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			Expect(metaBackend.IsMeta()).To(BeTrue())
+
+			regularBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "regular-backend",
+				},
+				URI: testImage,
+			}
+
+			Expect(regularBackend.IsMeta()).To(BeFalse())
+
+			emptyMetaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "empty-meta-backend",
+				},
+				CapabilitiesMap: map[string]string{},
+			}
+
+			Expect(emptyMetaBackend.IsMeta()).To(BeFalse())
+
+			nilMetaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nil-meta-backend",
+				},
+				CapabilitiesMap: nil,
+			}
+
+			Expect(nilMetaBackend.IsMeta()).To(BeFalse())
+		})
+
+		It("should check IsCompatibleWith correctly for meta backends", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia":  "nvidia-backend",
+					"amd":     "amd-backend",
+					"default": "default-backend",
+				},
+			}
+
+			// Test with nil state - should be compatible
+			Expect(metaBackend.IsCompatibleWith(nil)).To(BeTrue())
+
+			// Test with NVIDIA system - should be compatible (has nvidia key)
+			nvidiaState := &system.SystemState{GPUVendor: "nvidia", VRAM: 8 * 1024 * 1024 * 1024}
+			Expect(metaBackend.IsCompatibleWith(nvidiaState)).To(BeTrue())
+
+			// Test with default (no GPU) - should be compatible (has default key)
+			defaultState := &system.SystemState{}
+			Expect(metaBackend.IsCompatibleWith(defaultState)).To(BeTrue())
+		})
+
+		Describe("IsCompatibleWith for concrete backends", func() {
+			Context("CPU backends", func() {
+				It("should be compatible on all systems", func() {
+					cpuBackend := &GalleryBackend{
+						Metadata: Metadata{
+							Name: "cpu-llama-cpp",
+						},
+						URI: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp",
+					}
+					Expect(cpuBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+					Expect(cpuBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Nvidia, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+					Expect(cpuBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.AMD, VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+				})
+			})
+
+			Context("Darwin/Metal backends", func() {
+				When("running on darwin", func() {
+					BeforeEach(func() {
+						if runtime.GOOS != "darwin" {
+							Skip("Skipping darwin-specific tests on non-darwin system")
+						}
+					})
+
+					It("should be compatible for MLX backend", func() {
+						mlxBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "mlx",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx",
+						}
+						Expect(mlxBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+					})
+
+					It("should be compatible for metal-llama-cpp backend", func() {
+						metalBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "metal-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp",
+						}
+						Expect(metalBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+					})
+				})
+
+				When("running on non-darwin", func() {
+					BeforeEach(func() {
+						if runtime.GOOS == "darwin" {
+							Skip("Skipping non-darwin-specific tests on darwin system")
+						}
+					})
+
+					It("should NOT be compatible for MLX backend", func() {
+						mlxBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "mlx",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx",
+						}
+						Expect(mlxBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+					})
+
+					It("should NOT be compatible for metal-llama-cpp backend", func() {
+						metalBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "metal-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp",
+						}
+						Expect(metalBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+					})
+				})
+			})
+
+			Context("NVIDIA/CUDA backends", func() {
+				When("running on non-darwin", func() {
+					BeforeEach(func() {
+						if runtime.GOOS == "darwin" {
+							Skip("Skipping CUDA tests on darwin system")
+						}
+					})
+
+					It("should NOT be compatible without nvidia GPU", func() {
+						cudaBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "cuda12-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp",
+						}
+						Expect(cudaBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+						Expect(cudaBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.AMD, VRAM: 8 * 1024 * 1024 * 1024})).To(BeFalse())
+					})
+
+					It("should be compatible with nvidia GPU", func() {
+						cudaBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "cuda12-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp",
+						}
+						Expect(cudaBackend.IsCompatibleWith(system.NewCapabilityState(system.Nvidia))).To(BeTrue())
+					})
+
+					It("should be compatible with cuda13 backend on nvidia GPU", func() {
+						cuda13Backend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "cuda13-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp",
+						}
+						Expect(cuda13Backend.IsCompatibleWith(system.NewCapabilityState(system.Nvidia))).To(BeTrue())
+					})
+				})
+			})
+
+			Context("AMD/ROCm backends", func() {
+				When("running on non-darwin", func() {
+					BeforeEach(func() {
+						if runtime.GOOS == "darwin" {
+							Skip("Skipping AMD/ROCm tests on darwin system")
+						}
+					})
+
+					It("should NOT be compatible without AMD GPU", func() {
+						rocmBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "rocm-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp",
+						}
+						Expect(rocmBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+						Expect(rocmBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Nvidia, VRAM: 8 * 1024 * 1024 * 1024})).To(BeFalse())
+					})
+
+					It("should be compatible with AMD GPU", func() {
+						rocmBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "rocm-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp",
+						}
+						Expect(rocmBackend.IsCompatibleWith(system.NewCapabilityState(system.AMD))).To(BeTrue())
+					})
+
+					It("should be compatible with hipblas backend on AMD GPU", func() {
+						hipBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "hip-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-hip-llama-cpp",
+						}
+						Expect(hipBackend.IsCompatibleWith(system.NewCapabilityState(system.AMD))).To(BeTrue())
+					})
+				})
+			})
+
+			Context("Intel/SYCL backends", func() {
+				When("running on non-darwin", func() {
+					BeforeEach(func() {
+						if runtime.GOOS == "darwin" {
+							Skip("Skipping Intel/SYCL tests on darwin system")
+						}
+					})
+
+					It("should NOT be compatible without Intel GPU", func() {
+						intelBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "intel-sycl-f16-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp",
+						}
+						Expect(intelBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+						Expect(intelBackend.IsCompatibleWith(&system.SystemState{GPUVendor: system.Nvidia, VRAM: 8 * 1024 * 1024 * 1024})).To(BeFalse())
+					})
+
+					It("should be compatible with Intel GPU", func() {
+						intelBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "intel-sycl-f16-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp",
+						}
+						Expect(intelBackend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
+					})
+
+					It("should be compatible with intel-sycl-f32 backend on Intel GPU", func() {
+						intelF32Backend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "intel-sycl-f32-llama-cpp",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp",
+						}
+						Expect(intelF32Backend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
+					})
+
+					It("should be compatible with intel-transformers backend on Intel GPU", func() {
+						intelTransformersBackend := &GalleryBackend{
+							Metadata: Metadata{
+								Name: "intel-transformers",
+							},
+							URI: "quay.io/go-skynet/local-ai-backends:latest-intel-transformers",
+						}
+						Expect(intelTransformersBackend.IsCompatibleWith(system.NewCapabilityState(system.Intel))).To(BeTrue())
+					})
+				})
+			})
+
+			Context("Vulkan backends", func() {
+				It("should be compatible on CPU-only systems", func() {
+					// Vulkan backends don't have a specific GPU vendor requirement in the current logic
+					// They are compatible if no other GPU-specific pattern matches
+					vulkanBackend := &GalleryBackend{
+						Metadata: Metadata{
+							Name: "vulkan-llama-cpp",
+						},
+						URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-llama-cpp",
+					}
+					// Vulkan doesn't have vendor-specific filtering in current implementation
+					Expect(vulkanBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+				})
+			})
+		})
+
+		It("should find best backend from meta based on system capabilities", func() {
+
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia":  "nvidia-backend",
+					"amd":     "amd-backend",
+					"intel":   "intel-backend",
+					"metal":   "metal-backend",
+					"default": "default-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				URI: testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				URI: testImage,
+			}
+
+			metalBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "metal-backend",
+				},
+				URI: testImage,
+			}
+
+			defaultBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "default-backend",
+				},
+				URI: testImage,
+			}
+
+			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend, defaultBackend}
+
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				metal := &system.SystemState{}
+				bestBackend := metaBackend.FindBestBackendFromMeta(metal, backends)
+				Expect(bestBackend).To(Equal(metalBackend))
+
+			} else {
+				// Test with NVIDIA system state
+				nvidiaSystemState := system.NewCapabilityState("nvidia")
+				bestBackend := metaBackend.FindBestBackendFromMeta(nvidiaSystemState, backends)
+				Expect(bestBackend).To(Equal(nvidiaBackend))
+
+				// Test with AMD system state
+				amdSystemState := system.NewCapabilityState("amd")
+				bestBackend = metaBackend.FindBestBackendFromMeta(amdSystemState, backends)
+				Expect(bestBackend).To(Equal(amdBackend))
+
+				// Test with default system state (not enough VRAM)
+				defaultSystemState := system.NewCapabilityState("default")
+				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
+				Expect(bestBackend).To(Equal(defaultBackend))
+
+				// Test with default system state
+				defaultSystemState = system.NewCapabilityState("default")
+				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
+				Expect(bestBackend).To(Equal(defaultBackend))
+
+				backends = GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend}
+				// Test with unsupported GPU vendor
+				unsupportedSystemState := system.NewCapabilityState("unsupported")
+				bestBackend = metaBackend.FindBestBackendFromMeta(unsupportedSystemState, backends)
+				Expect(bestBackend).To(BeNil())
+			}
+		})
+
+		It("should handle meta backend deletion correctly", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				URI: testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				URI: testImage,
+			}
+
+			gallery := config.Gallery{
+				Name: "test-gallery",
+				URL:  "file://" + filepath.Join(tempDir, "backend-gallery.yaml"),
+			}
+
+			galleryBackend := GalleryBackends{amdBackend, nvidiaBackend, metaBackend}
+
+			dat, err := yaml.Marshal(galleryBackend)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempDir, "backend-gallery.yaml"), dat, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test with NVIDIA system state
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			Expect(metaBackendPath).To(BeADirectory())
+
+			concreteBackendPath := filepath.Join(tempDir, "nvidia-backend")
+			Expect(concreteBackendPath).To(BeADirectory())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			allBackends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allBackends).To(HaveKey("meta-backend"))
+			Expect(allBackends).To(HaveKey("nvidia-backend"))
+
+			// Delete meta backend by name
+			err = DeleteBackendFromSystem(systemState, "meta-backend")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify meta backend directory is deleted
+			Expect(metaBackendPath).NotTo(BeADirectory())
+
+			// Verify concrete backend directory is deleted
+			Expect(concreteBackendPath).NotTo(BeADirectory())
+		})
+
+		It("should handle meta backend deletion correctly with aliases", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				Alias: "backend-alias",
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				Alias: "backend-alias",
+				URI:   testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				Alias: "backend-alias",
+				URI:   testImage,
+			}
+
+			gallery := config.Gallery{
+				Name: "test-gallery",
+				URL:  "file://" + filepath.Join(tempDir, "backend-gallery.yaml"),
+			}
+
+			galleryBackend := GalleryBackends{amdBackend, nvidiaBackend, metaBackend}
+
+			dat, err := yaml.Marshal(galleryBackend)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempDir, "backend-gallery.yaml"), dat, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test with NVIDIA system state
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			Expect(metaBackendPath).To(BeADirectory())
+
+			concreteBackendPath := filepath.Join(tempDir, "nvidia-backend")
+			Expect(concreteBackendPath).To(BeADirectory())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			allBackends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allBackends).To(HaveKey("meta-backend"))
+			Expect(allBackends).To(HaveKey("nvidia-backend"))
+			mback, exists := allBackends.Get("meta-backend")
+			Expect(exists).To(BeTrue())
+			Expect(mback.IsMeta).To(BeTrue())
+			Expect(mback.Metadata.MetaBackendFor).To(Equal("nvidia-backend"))
+
+			// Delete meta backend by name
+			err = DeleteBackendFromSystem(systemState, "meta-backend")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify meta backend directory is deleted
+			Expect(metaBackendPath).NotTo(BeADirectory())
+
+			// Verify concrete backend directory is deleted
+			Expect(concreteBackendPath).NotTo(BeADirectory())
+		})
+
+		It("should handle meta backend deletion correctly with aliases pointing to the same backend", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				Alias: "meta-backend",
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				Alias: "meta-backend",
+				URI:   testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				Alias: "meta-backend",
+				URI:   testImage,
+			}
+
+			gallery := config.Gallery{
+				Name: "test-gallery",
+				URL:  "file://" + filepath.Join(tempDir, "backend-gallery.yaml"),
+			}
+
+			galleryBackend := GalleryBackends{amdBackend, nvidiaBackend, metaBackend}
+
+			dat, err := yaml.Marshal(galleryBackend)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempDir, "backend-gallery.yaml"), dat, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test with NVIDIA system state
+			nvidiaSystemState := system.NewCapabilityState("nvidia", system.WithBackendPath(tempDir))
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true, false)
+			Expect(err).NotTo(HaveOccurred())
+
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			Expect(metaBackendPath).To(BeADirectory())
+
+			concreteBackendPath := filepath.Join(tempDir, "nvidia-backend")
+			Expect(concreteBackendPath).To(BeADirectory())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			allBackends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allBackends).To(HaveKey("meta-backend"))
+			Expect(allBackends).To(HaveKey("nvidia-backend"))
+			mback, exists := allBackends.Get("meta-backend")
+			Expect(exists).To(BeTrue())
+			Expect(mback.RunFile).To(Equal(filepath.Join(tempDir, "nvidia-backend", "run.sh")))
+
+			// Delete meta backend by name
+			err = DeleteBackendFromSystem(systemState, "meta-backend")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify meta backend directory is deleted
+			Expect(metaBackendPath).NotTo(BeADirectory())
+
+			// Verify concrete backend directory is deleted
+			Expect(concreteBackendPath).NotTo(BeADirectory())
+		})
+
+		It("should list meta backends correctly in system backends", func() {
+			// Create a meta backend directory with metadata
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			err := os.MkdirAll(metaBackendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create metadata file pointing to concrete backend
+			metadata := &BackendMetadata{
+				MetaBackendFor: "concrete-backend",
+				Name:           "meta-backend",
+				InstalledAt:    "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(metaBackendPath, "metadata.json"), metadataData, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create the concrete backend directory with run.sh
+			concreteBackendPath := filepath.Join(tempDir, "concrete-backend")
+			err = os.MkdirAll(concreteBackendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(concreteBackendPath, "metadata.json"), []byte("{}"), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(concreteBackendPath, "run.sh"), []byte(""), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			// List system backends
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			backends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+
+			metaBackend, exists := backends.Get("meta-backend")
+			concreteBackendRunFile := filepath.Join(tempDir, "concrete-backend", "run.sh")
+
+			// Should include both the meta backend name and concrete backend name
+			Expect(exists).To(BeTrue())
+			Expect(backends.Exists("concrete-backend")).To(BeTrue())
+
+			// meta-backend should be empty
+			Expect(metaBackend.IsMeta).To(BeTrue())
+			Expect(metaBackend.RunFile).To(Equal(concreteBackendRunFile))
+			// concrete-backend should point to its own run.sh
+			concreteBackend, exists := backends.Get("concrete-backend")
+			Expect(exists).To(BeTrue())
+			Expect(concreteBackend.RunFile).To(Equal(concreteBackendRunFile))
+		})
+	})
+
+	Describe("InstallBackend", func() {
+		It("should create base path if it doesn't exist", func() {
+			newPath := filepath.Join(tempDir, "new-path")
+			backend := GalleryBackend{
+				Metadata: Metadata{
+					Name: "test-backend",
+				},
+				URI: "test-uri",
+			}
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(newPath),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil, false)
+			Expect(newPath).To(BeADirectory())
+			Expect(err).To(HaveOccurred()) // Will fail due to invalid URI, but path should be created
+		})
+
+		It("should overwrite existing backend", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+			newPath := filepath.Join(tempDir, "test-backend")
+
+			// Create a dummy backend directory
+			err := os.MkdirAll(newPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(newPath, "metadata.json"), []byte("foo"), 0644)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(newPath, "run.sh"), []byte(""), 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			backend := GalleryBackend{
+				Metadata: Metadata{
+					Name: "test-backend",
+				},
+				URI:   "quay.io/mudler/tests:localai-backend-test",
+				Alias: "test-alias",
+			}
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
+			dat, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "metadata.json"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(dat)).ToNot(Equal("foo"))
+		})
+
+		It("should overwrite existing backend", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+			newPath := filepath.Join(tempDir, "test-backend")
+
+			// Create a dummy backend directory
+			err := os.MkdirAll(newPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			backend := GalleryBackend{
+				Metadata: Metadata{
+					Name: "test-backend",
+				},
+				URI:   "quay.io/mudler/tests:localai-backend-test",
+				Alias: "test-alias",
+			}
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).ToNot(BeARegularFile())
+
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
+		})
+
+		It("should create alias file when specified", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+			backend := GalleryBackend{
+				Metadata: Metadata{
+					Name: "test-backend",
+				},
+				URI:   "quay.io/mudler/tests:localai-backend-test",
+				Alias: "test-alias",
+			}
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
+
+			// Read and verify metadata
+			metadataData, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "metadata.json"))
+			Expect(err).ToNot(HaveOccurred())
+			var metadata BackendMetadata
+			err = json.Unmarshal(metadataData, &metadata)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metadata.Alias).To(Equal("test-alias"))
+			Expect(metadata.Name).To(Equal("test-backend"))
+
+			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
+
+			// Check that the alias was recognized
+			backends, err := ListSystemBackends(systemState)
+			Expect(err).ToNot(HaveOccurred())
+			aliasBackend, exists := backends.Get("test-alias")
+			Expect(exists).To(BeTrue())
+			Expect(aliasBackend.RunFile).To(Equal(filepath.Join(tempDir, "test-backend", "run.sh")))
+			testB, exists := backends.Get("test-backend")
+			Expect(exists).To(BeTrue())
+			Expect(testB.RunFile).To(Equal(filepath.Join(tempDir, "test-backend", "run.sh")))
+		})
+	})
+
+	Describe("DeleteBackendFromSystem", func() {
+		It("should delete backend directory", func() {
+			backendName := "test-backend"
+			backendPath := filepath.Join(tempDir, backendName)
+
+			// Create a dummy backend directory
+			err := os.MkdirAll(backendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(backendPath, "metadata.json"), []byte("{}"), 0644)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendPath, "run.sh"), []byte(""), 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			err = DeleteBackendFromSystem(systemState, backendName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backendPath).NotTo(BeADirectory())
+		})
+
+		It("should not error when backend doesn't exist", func() {
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			err = DeleteBackendFromSystem(systemState, "non-existent")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("removes an orphaned meta backend whose concrete is missing", func() {
+			// Real scenario from the dev cluster: the concrete got wiped
+			// (partial install, manual cleanup, previous crash) but the meta
+			// directory + metadata.json still points at it. The old code
+			// errored with "meta backend X not found" and left the orphan in
+			// place, making the backend impossible to uninstall.
+			metaName := "meta-backend"
+			concreteName := "concrete-backend-that-vanished"
+			metaPath := filepath.Join(tempDir, metaName)
+			Expect(os.MkdirAll(metaPath, 0750)).To(Succeed())
+
+			meta := BackendMetadata{Name: metaName, MetaBackendFor: concreteName}
+			data, err := json.MarshalIndent(meta, "", "  ")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(metaPath, "metadata.json"), data, 0644)).To(Succeed())
+
+			// Concrete directory intentionally absent.
+			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(DeleteBackendFromSystem(systemState, metaName)).To(Succeed())
+			Expect(metaPath).NotTo(BeADirectory())
+		})
+	})
+
+	Describe("InstallBackendFromGallery — orphaned meta reinstall", func() {
+		It("re-runs install when the meta's concrete is missing", func() {
+			// Seed state: meta dir exists with metadata pointing at a
+			// concrete that was removed from disk. ListSystemBackends still
+			// surfaces the meta via its metadata.Name → the old short-circuit
+			// at `if backends.Exists(name) { return nil }` returned silently,
+			// leaving the worker's findBackend() with a dead alias forever.
+			// The fix: require the backend to be runnable before we skip.
+			metaName := "meta-orphan"
+			concreteName := "concrete-gone"
+			metaPath := filepath.Join(tempDir, metaName)
+			Expect(os.MkdirAll(metaPath, 0750)).To(Succeed())
+			meta := BackendMetadata{Name: metaName, MetaBackendFor: concreteName}
+			data, err := json.MarshalIndent(meta, "", "  ")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(metaPath, "metadata.json"), data, 0644)).To(Succeed())
+
+			systemState, err := system.GetSystemState(system.WithBackendPath(tempDir))
+			Expect(err).NotTo(HaveOccurred())
+
+			listed, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			b, ok := listed.Get(metaName)
+			Expect(ok).To(BeTrue())
+			Expect(isBackendRunnable(b)).To(BeFalse()) // concrete run.sh absent
+		})
+	})
+
+	Describe("ListSystemBackends", func() {
+		It("should list backends without aliases", func() {
+			// Create some dummy backend directories
+			backendNames := []string{"backend1", "backend2", "backend3"}
+			for _, name := range backendNames {
+				err := os.MkdirAll(filepath.Join(tempDir, name), 0750)
+				Expect(err).NotTo(HaveOccurred())
+				err = os.WriteFile(filepath.Join(tempDir, name, "metadata.json"), []byte("{}"), 0755)
+				Expect(err).NotTo(HaveOccurred())
+				err = os.WriteFile(filepath.Join(tempDir, name, "run.sh"), []byte(""), 0755)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			backends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(backends).To(HaveLen(len(backendNames)))
+
+			for _, name := range backendNames {
+				backend, exists := backends.Get(name)
+				Expect(exists).To(BeTrue())
+				Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, name, "run.sh")))
+			}
+		})
+
+		It("should handle backends with aliases", func() {
+			backendName := "backend1"
+			alias := "alias1"
+			backendPath := filepath.Join(tempDir, backendName)
+
+			// Create backend directory
+			err := os.MkdirAll(backendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create metadata file with alias
+			metadata := &BackendMetadata{
+				Alias:       alias,
+				Name:        backendName,
+				InstalledAt: "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendPath, "metadata.json"), metadataData, 0644)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendPath, "run.sh"), []byte(""), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(tempDir),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			backends, err := ListSystemBackends(systemState)
+			Expect(err).NotTo(HaveOccurred())
+			backend, exists := backends.Get(alias)
+			Expect(exists).To(BeTrue())
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, backendName, "run.sh")))
+		})
+
+		It("should return error when base path doesn't exist", func() {
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath("foobardir"),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = ListSystemBackends(systemState)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+})
+
+var _ = Describe("installed development backend preference", func() {
+	BeforeEach(func() { GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default") })
+	DescribeTable("selects eligible installed aliases without redirecting concrete entries",
+		func(enabled bool, capability, suffix string, names []string, missing string, want string) {
+			GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", capability)
+			root := GinkgoT().TempDir()
+			for _, name := range names {
+				dir := filepath.Join(root, name)
+				Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+				data, err := json.Marshal(BackendMetadata{Name: name, Alias: "example-engine"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+				if name != missing {
+					Expect(os.WriteFile(filepath.Join(dir, "run.sh"), nil, 0644)).To(Succeed())
+				}
+			}
+			st, err := system.GetSystemState(system.WithBackendPath(root), system.WithBackendSystemPath(GinkgoT().TempDir()), system.WithPreferDevelopmentBackends(enabled), system.WithBackendDevSuffix(suffix))
+			Expect(err).NotTo(HaveOccurred())
+			for range 3 {
+				found, err := ListSystemBackends(st)
+				Expect(err).NotTo(HaveOccurred())
+				if want == "" {
+					Expect(found).NotTo(HaveKey("example-engine"))
+				} else {
+					Expect(found["example-engine"].RunFile).To(Equal(filepath.Join(root, want, "run.sh")))
+				}
+				for _, name := range names {
+					if name != missing {
+						Expect(found[name].RunFile).To(Equal(filepath.Join(root, name, "run.sh")))
+					}
+				}
+			}
+		},
+		Entry("enabled coexistence", true, "default", "", []string{"cpu-example-engine", "cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("disabled coexistence", false, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "", "cpu-example-engine"),
+		Entry("disabled development only", false, "default", "", []string{"cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("incompatible development", true, "nvidia-cuda-12", "", []string{"rocm-example-engine-development", "cuda12-example-engine"}, "", "cuda12-example-engine"),
+		Entry("development before hardware rank", true, "nvidia-cuda-12", "", []string{"cuda12-example-engine", "cpu-example-engine-development"}, "", "cpu-example-engine-development"),
+		Entry("hardware rank within development", true, "nvidia-cuda-12", "", []string{"cpu-example-engine-development", "cuda12-example-engine-development"}, "", "cuda12-example-engine-development"),
+		Entry("missing run file", true, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "cpu-example-engine-development", "cpu-example-engine"),
+		Entry("no eligible candidate", true, "default", "", []string{"rocm-example-engine-development"}, "", ""),
+		Entry("custom exact suffix", true, "default", "preview", []string{"cpu-example-engine-preview-extra", "cpu-example-engine-preview", "cpu-example-engine-development"}, "", "cpu-example-engine-preview"),
+		Entry("reversed creation", true, "default", "", []string{"cpu-example-engine-development", "cpu-example-engine"}, "", "cpu-example-engine-development"),
+		Entry("disabled compatibility filter", true, "disable", "", []string{"rocm-example-engine-development", "cpu-example-engine"}, "", "rocm-example-engine-development"),
+	)
+})
+
+var _ = Describe("installed development backend preference root guards", func() {
+	It("keeps managed family shadowing even when only the system development build is eligible", func() {
+		GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default")
+		managed, sys := GinkgoT().TempDir(), GinkgoT().TempDir()
+		for _, fixture := range []struct{ root, name string }{{managed, "rocm-example-engine"}, {sys, "cpu-example-engine-development"}} {
+			dir := filepath.Join(fixture.root, fixture.name)
+			Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+			data, err := json.Marshal(BackendMetadata{Name: fixture.name, Alias: "example-engine"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "run.sh"), nil, 0644)).To(Succeed())
+		}
+		st, err := system.GetSystemState(system.WithBackendPath(managed), system.WithBackendSystemPath(sys), system.WithPreferDevelopmentBackends(true))
+		Expect(err).NotTo(HaveOccurred())
+		found, err := ListSystemBackends(st)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).NotTo(HaveKey("example-engine"))
+		Expect(found).NotTo(HaveKey("cpu-example-engine-development"))
+		Expect(found["rocm-example-engine"].IsSystem).To(BeFalse())
+	})
+	It("rejects a directory run file without filtering the explicit concrete listing", func() {
+		GinkgoT().Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "default")
+		root := GinkgoT().TempDir()
+		dir := filepath.Join(root, "cpu-example-engine-development")
+		Expect(os.MkdirAll(filepath.Join(dir, "run.sh"), 0755)).To(Succeed())
+		data, err := json.Marshal(BackendMetadata{Name: "cpu-example-engine-development", Alias: "example-engine"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "metadata.json"), data, 0644)).To(Succeed())
+		st, err := system.GetSystemState(system.WithBackendPath(root), system.WithBackendSystemPath(GinkgoT().TempDir()), system.WithPreferDevelopmentBackends(true))
+		Expect(err).NotTo(HaveOccurred())
+		found, err := ListSystemBackends(st)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(found).NotTo(HaveKey("example-engine"))
+		Expect(found).To(HaveKey("cpu-example-engine-development"))
+	})
+})
+
+var _ = Describe("the shipped backend index", func() {
+	// An add-on job that names no backend gets the first backend of its tag in
+	// gallery order, so the order of these entries is the default.
+	It("lists the default engine of each family first", func() {
+		raw, err := os.ReadFile("../../backend/index.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		var all []GalleryBackend
+		Expect(yaml.Unmarshal(raw, &all)).To(Succeed())
+		first := func(tag string) string {
+			for _, b := range all {
+				for _, t := range b.Tags {
+					if t == tag {
+						if b.Alias != "" {
+							return b.Alias
+						}
+						return b.Name
+					}
+				}
+			}
+			return ""
+		}
+		Expect(first("fine-tuning")).To(Equal("trl"))
+		Expect(first("quantization")).To(Equal("llama-cpp-quantization"))
+	})
+})

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>One small core, plug in the rest</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.col3 { position: absolute; top: 0; width: 410px; display: grid; gap: 14px; }
+.l { left: 0; } .r { right: 0; }
+.core { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); width: 480px; padding: 28px 32px 28px; }
+.core .t small { display: block; font-size: 18px; opacity: .85; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+.core .t b { font-size: 46px; letter-spacing: -.02em; }
+.core ul { list-style: none; padding: 0; margin: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.core li { font-size: 21px; background: rgb(255 244 220 / .13); border-radius: 10px; padding: 9px 12px; line-height: 1.2; }
+.hw { position: absolute; left: 50%; transform: translateX(-50%); top: 470px; width: 760px; text-align: center; }
+.hw .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+.col3 .node b { font-size: 28px; } .col3 .node span { font-size: 21px; }
+.hw .pill { font-size: 20px; padding: 6px 14px; }
+</style></head>
+<body>
+<p class="k">How LocalAI is built</p>
+<h1>One small core. You plug in the <span class="hl">rest</span>.</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage" style="top:226px">
+  <svg class="lines" viewBox="0 0 1456 604" aria-hidden="true">
+    <g class="ln">
+      <path d="M410 76 C 480 76, 470 150, 488 150"/><path d="M410 160 C 480 160, 470 180, 488 180"/><path d="M410 244 C 480 244, 470 210, 488 210"/><path d="M410 328 C 480 328, 470 240, 488 240"/>
+      <path d="M1046 76 C 976 76, 986 150, 968 150"/><path d="M1046 160 C 976 160, 986 180, 968 180"/><path d="M1046 244 C 976 244, 986 210, 968 210"/><path d="M1046 328 C 976 328, 986 240, 968 240"/>
+    </g>
+  </svg>
+  <div class="col3 l"><div class="lab">Backends, pulled per model</div>
+    <div class="node rowline"><b>llama.cpp</b><span>text, vision</span></div>
+    <div class="node rowline"><b>vLLM</b><span>throughput</span></div>
+    <div class="node rowline"><b>MLX</b><span>Apple Silicon</span></div>
+    <div class="node rowline"><b>whisper.cpp</b><span>speech to text</span></div>
+    <div class="node dash rowline"><b>75+ more</b><span>voice, image</span></div>
+  </div>
+  <div class="node core">
+    <div class="t"><small>The core</small><b>LocalAI</b></div>
+    <ul><li>OpenAI and Anthropic API</li><li>Chats and agents</li><li>Files and Collections</li><li>Team and sharing</li><li>Home and pages</li><li>Model gallery</li><li style="grid-column:1/-1">MCP client and server, for agent tools</li></ul>
+  </div>
+  <div class="hw"><div class="lab">Runs on</div><div class="chips"><span class="pill">CPU</span><span class="pill">NVIDIA</span><span class="pill">AMD</span><span class="pill">Intel</span><span class="pill">Apple Silicon</span><span class="pill">Vulkan</span></div></div>
+  <div class="col3 r"><div class="lab">Add-ons, from an admin</div>
+    <div class="node rowline"><b>Office</b><span>docx, xlsx, pptx, pdf</span></div>
+    <div class="node rowline"><b>Sandbox</b><span>Python, shell</span></div>
+    <div class="node rowline"><b>Tables</b><span>structured data</span></div>
+    <div class="node rowline"><b>Chat apps</b><span>Telegram, Slack</span></div>
+    <div class="node dash rowline"><b>More add-ons</b><span>mail, calendar</span></div>
+  </div>
+</div>
+<div class="foot">Install a model and its engine comes with it. <b>Nothing runs that you did not ask for.</b></div>
+</body></html>

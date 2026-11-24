@@ -1,0 +1,131 @@
+---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
+name: 'Distributed E2E Tests'
+
+# The distributed architecture against real PostgreSQL and NATS (including the
+# NATS JWT specs), started by testcontainers, plus the multi-frontend paths
+# against the in-process bus under the race detector. Nothing else runs the
+# dedicated `make test-e2e-distributed` target: `make test-e2e` reaches these
+# specs only because it recurses, and only after it has built the e2e image.
+on:
+  pull_request:
+    paths:
+      - 'tests/e2e/distributed/**'
+      - 'Makefile'
+      - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
+  push:
+    branches: [master]
+    paths:
+      - 'tests/e2e/distributed/**'
+      - 'Makefile'
+      - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
+  schedule:
+    # Pre-existing nightly coverage of the distributed suites.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-tests-e2e-distributed-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
+permissions:
+  contents: read
+
+jobs:
+  fakebus:
+    # No containers: the in-process bus carries the messages between two
+    # frontends, a worker and the cluster state, with the race detector on.
+    name: multi-frontend over the in-process bus
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Stub the React UI for go:embed
+        # core/http embeds react-ui/dist. These tests do not serve the UI.
+        run: |
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+      - name: Test the multi-frontend paths under the race detector
+        run: PATH="$PATH:$HOME/go/bin" make test-distributed-fakebus
+
+  distributed:
+    name: PostgreSQL and NATS in containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: false
+      - name: Proto Dependencies
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+      - name: System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Stub the React UI for go:embed
+        run: |
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+      - name: Run the distributed e2e suite
+        # protogen-go is a prerequisite of the target.
+        run: PATH="$PATH:$HOME/go/bin" make test-e2e-distributed

@@ -1,0 +1,127 @@
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  font-weight: var(--font-weight-regular);
+  /* Unitless, so smaller text inside keeps a proportional line. */
+  line-height: var(--leading-body);
+  font-feature-settings: "ss01", "ss03", "cv11";
+  letter-spacing: 0;
+  min-height: 100%;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Global selection + focus */
+/* The default focus ring. Zero specificity, so a component's own
+   :focus-visible rule wins; nothing is left with the browser's ring. */
+:where(:focus-visible) {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-selection-bg);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar — slightly wider, warmer thumb */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-bg-primary);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
+* { scrollbar-width: thin; scrollbar-color: var(--color-border-default) transparent; }
+
+/* Typography — editorial hierarchy */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  line-height: var(--leading-tight);
+}
+/* A bare h1 is a page title and a bare h2 a section title. Fixed sizes, not
+   viewport clamps: a title must not grow with the window. */
+h1 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-section); line-height: var(--lh-section); font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
+h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-bold); letter-spacing: -0.015em; }
+h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
+h5 { font-size: var(--text-base);font-weight: var(--font-weight-semibold); }
+h6 {
+  font-size: var(--text-xs); font-weight: var(--font-weight-semibold);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--color-text-muted);
+}
+
+code, pre, kbd, .mono {
+  font-family: var(--font-mono);
+}
+
+kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 0.75em;
+  font-weight: var(--font-weight-medium);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+/* Theme switch: a cross-fade of the whole page through the View Transitions
+   API (ThemeContext starts it). A browser without the API, or a person who
+   asks for less motion, gets an instant switch. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-in-out);
+}
+
+/* Reduced motion: nothing moves, scales or fades. Keyframe animations jump
+   to their end state and transitions finish at once. The kit's motion.css
+   and App.css carry the same rule; this one is scoped under "html" so it
+   still holds wherever the bundler puts those. The press scale is turned
+   off in theme.css, next to the kit's motion tokens. */
+@media (prefers-reduced-motion: reduce) {
+  html *, html *::before, html *::after {
+    animation-duration: 0.01ms !important;
+    /* Neutralize per-child stagger delays (e.g. .reveal-stagger) so content
+       does not sit at the hidden "from" keyframe before snapping in. */
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Utility classes */

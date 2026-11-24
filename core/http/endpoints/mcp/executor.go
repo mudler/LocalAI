@@ -1,0 +1,232 @@
+package mcp
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"slices"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/auth"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	mcpRemote "github.com/mudler/LocalAI/core/services/mcp"
+	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/mcpapps"
+	"github.com/mudler/xlog"
+)
+
+// ToolExecutor abstracts MCP tool discovery and execution.
+// Implementations handle local (in-process sessions) vs distributed (NATS) modes.
+type ToolExecutor interface {
+	// DiscoverTools returns the tool function schemas available from MCP servers.
+	DiscoverTools(ctx context.Context) ([]functions.Function, error)
+	// IsTool returns true if the given function name is an MCP tool.
+	IsTool(name string) bool
+	// ExecuteTool executes an MCP tool by name with the given JSON arguments.
+	ExecuteTool(ctx context.Context, toolName, arguments string) (string, error)
+	// HasTools returns true if any MCP tools are available.
+	HasTools() bool
+}
+
+// LocalToolExecutor uses in-process MCP sessions for tool operations.
+type LocalToolExecutor struct {
+	tools []MCPToolInfo
+}
+
+// NewLocalToolExecutor creates a ToolExecutor from local named sessions.
+// It discovers tools immediately and caches the result.
+func NewLocalToolExecutor(ctx context.Context, sessions []NamedSession) *LocalToolExecutor {
+	tools, err := DiscoverMCPTools(ctx, sessions)
+	if err != nil {
+		xlog.Error("Failed to discover MCP tools (local)", "error", err)
+	}
+	return &LocalToolExecutor{tools: tools}
+}
+
+func (e *LocalToolExecutor) DiscoverTools(_ context.Context) ([]functions.Function, error) {
+	var fns []functions.Function
+	for _, t := range e.tools {
+		fns = append(fns, t.Function)
+	}
+	return fns, nil
+}
+
+func (e *LocalToolExecutor) IsTool(name string) bool {
+	return IsMCPTool(e.tools, name)
+}
+
+func (e *LocalToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {
+	return ExecuteMCPToolCall(ctx, e.tools, toolName, arguments)
+}
+
+func (e *LocalToolExecutor) HasTools() bool {
+	return len(e.tools) > 0
+}
+
+// DistributedToolExecutor routes tool operations to agent workers.
+type DistributedToolExecutor struct {
+	agentControl AgentControl
+	modelName    string
+	remote       config.MCPGenericConfig[config.MCPRemoteServers]
+	stdio        config.MCPGenericConfig[config.MCPSTDIOServers]
+	toolDefs     []mcpRemote.MCPToolDef
+}
+
+// NewDistributedToolExecutor creates a ToolExecutor that routes to agent workers.
+// It discovers tools immediately with a discovery request to an agent worker.
+func NewDistributedToolExecutor(ctx context.Context, agentControl AgentControl, modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+) *DistributedToolExecutor {
+	e := &DistributedToolExecutor{
+		agentControl: agentControl,
+		modelName:    modelName,
+		remote:       remote,
+		stdio:        stdio,
+	}
+	resp, err := DiscoverMCPToolsRemote(ctx, agentControl, modelName, remote, stdio)
+	if err != nil {
+		xlog.Error("Failed to discover MCP tools (distributed)", "error", err)
+	} else if resp != nil {
+		e.toolDefs = resp.Tools
+	}
+	return e
+}
+
+func (e *DistributedToolExecutor) DiscoverTools(_ context.Context) ([]functions.Function, error) {
+	var fns []functions.Function
+	for _, td := range e.toolDefs {
+		fns = append(fns, td.Function)
+	}
+	return fns, nil
+}
+
+func (e *DistributedToolExecutor) IsTool(name string) bool {
+	return slices.ContainsFunc(e.toolDefs, func(td mcpRemote.MCPToolDef) bool {
+		return td.ToolName == name
+	})
+}
+
+func (e *DistributedToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments string) (string, error) {
+	return ExecuteMCPToolCallRemote(ctx, e.agentControl, e.modelName, e.remote, e.stdio, toolName, arguments)
+}
+
+func (e *DistributedToolExecutor) HasTools() bool {
+	return len(e.toolDefs) > 0
+}
+
+// NewToolExecutor creates the appropriate ToolExecutor based on the current mode.
+// When agentControl is non-nil, returns a DistributedToolExecutor that routes to agent workers.
+// When agentControl is nil, creates local sessions and returns a LocalToolExecutor.
+func NewToolExecutor(ctx context.Context, agentControl AgentControl, modelName string,
+	remote config.MCPGenericConfig[config.MCPRemoteServers],
+	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
+	enabledServers []string,
+) ToolExecutor {
+	if agentControl != nil {
+		return NewDistributedToolExecutor(ctx, agentControl, modelName, remote, stdio)
+	}
+	sessions, err := NamedSessionsFromMCPConfig(modelName, remote, stdio, enabledServers)
+	if err != nil || len(sessions) == 0 {
+		if err != nil {
+			xlog.Error("Failed to create MCP sessions", "error", err)
+		}
+		return &LocalToolExecutor{} // empty, HasTools() returns false
+	}
+	return NewLocalToolExecutor(ctx, sessions)
+}
+
+// AsUser returns an executor that runs every tool call with the rights of u:
+// the user travels in the context of the call to the LocalAI Assistant
+// server, whose inference tools then reach the API as that user. A nil user or
+// nil executor returns exec unchanged.
+func AsUser(exec ToolExecutor, u *auth.User) ToolExecutor {
+	if exec == nil || u == nil {
+		return exec
+	}
+	if ae, ok := exec.(AppExecutor); ok {
+		return userAppExecutor{AppExecutor: ae, user: u}
+	}
+	return userExecutor{ToolExecutor: exec, user: u}
+}
+
+type userExecutor struct {
+	ToolExecutor
+	user *auth.User
+}
+
+func (e userExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+type userAppExecutor struct {
+	AppExecutor
+	user *auth.User
+}
+
+func (e userAppExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.AppExecutor.ExecuteTool(localaitools.WithUser(ctx, e.user), name, args)
+}
+
+func (e userAppExecutor) ExecuteAppTool(ctx context.Context, server, tool string, args json.RawMessage) (mcpapps.CallResult, error) {
+	return e.AppExecutor.ExecuteAppTool(localaitools.WithUser(ctx, e.user), server, tool, args)
+}
+
+// WithFiles returns an executor that runs every tool call with fs as the file
+// store of the LocalAI client tools: they then read and write files only
+// through fs. It is how a chat fences the client tools to the files the chat
+// itself may reach. A nil fs or exec returns exec unchanged.
+func WithFiles(exec ToolExecutor, fs localaitools.FileStore) ToolExecutor {
+	if exec == nil || fs == nil {
+		return exec
+	}
+	return filesExecutor{ToolExecutor: exec, fs: fs}
+}
+
+type filesExecutor struct {
+	ToolExecutor
+	fs localaitools.FileStore
+}
+
+func (e filesExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	return e.ToolExecutor.ExecuteTool(localaitools.WithFiles(ctx, e.fs), name, args)
+}
+
+// Only returns an executor that offers and runs the tools for which keep is
+// true. A call to another tool is refused, not passed on. It is how one MCP
+// server serves two groups of tools to different callers.
+func Only(exec ToolExecutor, keep func(name string) bool) ToolExecutor {
+	if exec == nil || keep == nil {
+		return exec
+	}
+	return filteredExecutor{ToolExecutor: exec, keep: keep}
+}
+
+type filteredExecutor struct {
+	ToolExecutor
+	keep func(name string) bool
+}
+
+func (e filteredExecutor) DiscoverTools(ctx context.Context) ([]functions.Function, error) {
+	fns, err := e.ToolExecutor.DiscoverTools(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(slices.Clone(fns), func(f functions.Function) bool { return !e.keep(f.Name) }), nil
+}
+
+func (e filteredExecutor) IsTool(name string) bool {
+	return e.keep(name) && e.ToolExecutor.IsTool(name)
+}
+
+func (e filteredExecutor) ExecuteTool(ctx context.Context, name, args string) (string, error) {
+	if !e.keep(name) {
+		return "", fmt.Errorf("the tool %q is not offered here", name)
+	}
+	return e.ToolExecutor.ExecuteTool(ctx, name, args)
+}
+
+func (e filteredExecutor) HasTools() bool {
+	fns, err := e.DiscoverTools(context.Background())
+	return err == nil && len(fns) > 0
+}

@@ -1,0 +1,264 @@
+/* The slots of ui.json: page tiles, tool buttons and commands in the chat
+   header, the sidebar footer and the composer toolbar. A slot is a strip about
+   40 px high; a tile is 34 px. The card of a compact tile is the same frame in
+   a bigger box, so the box and the card share these numbers. */
+
+.ws-slot {
+  --ws-tile-h: 34px;
+  --ws-card-w: 300px;
+  --ws-card-head: 44px;
+  --ws-card-foot: 38px;
+  --ws-card-gap: 6px;
+  --ws-card-pad: 10px;
+  --ws-card-body: 196px;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  min-width: 0;
+  max-height: 40px;
+}
+
+/* ── Chips: a button that opens a page, a tool button, a waiting tile ── */
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  height: var(--ws-tile-h);
+  max-width: 200px;
+  padding: 0 var(--dk-space-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--dk-text-13);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dk-dur-1) var(--dk-ease-out), border-color var(--dk-dur-1) var(--dk-ease-out);
+}
+.ws-chip:hover { background: var(--dk-hover); }
+.ws-chip:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.ws-chip__icon { flex-shrink: 0; width: 15px; height: 15px; color: var(--dk-accent-text); }
+.ws-chip__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws-chip__meta { color: var(--dk-muted); font-weight: 400; }
+.ws-chip__go { width: 12px; height: 12px; color: var(--dk-muted); }
+.ws-chip--dim { color: var(--dk-muted); border-style: dashed; }
+.ws-chip--dim .ws-chip__icon { color: var(--dk-muted); }
+.ws-chip--warn { border-color: var(--dk-warn); background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.ws-chip--warn .ws-chip__icon { color: var(--dk-warn-text); }
+.ws-chip--wait { width: 96px; padding: 0; }
+
+/* ── A live compact tile ── */
+
+.ws-tile { position: relative; display: inline-flex; flex-shrink: 0; }
+.ws-tile--live {
+  width: var(--ws-tile-w, 120px);
+  height: var(--ws-tile-h);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-sizing: border-box;
+}
+.ws-tile--live:hover,
+.ws-tile--live[data-open] { border-color: var(--dk-accent); }
+
+/* The hit area covers the strip: in a slot the page is shown, and a click
+   opens its card. It sits above the frame, below the open card. */
+.ws-tile__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.ws-tile__hit:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+
+/* The box of the frame: the strip, or the body of the open card. The frame
+   never moves in the DOM, only its box does, so the page keeps running. */
+.ws-tile__box {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--dk-radius-1);
+}
+.ws-tile__box .pg-frame.ws-tile__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--dk-card);
+}
+
+.ws-tile--card-small { --ws-card-body: 120px; }
+.ws-tile--card-large { --ws-card-body: 320px; }
+
+/* The card opens under the tile, aligned to its right edge: it hangs from the
+   bar and covers neither the bar nor the title. */
+.ws-card {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + var(--ws-card-gap));
+  right: -1px;
+  display: flex;
+  flex-direction: column;
+  width: var(--ws-card-w);
+  height: calc(var(--ws-card-head) + var(--ws-card-body) + var(--ws-card-foot) + var(--ws-card-pad));
+  box-sizing: border-box;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--dk-radius-3);
+  background: var(--dk-card);
+  box-shadow: var(--dk-shadow-float);
+  overflow: hidden;
+  cursor: default;
+}
+.ws-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  height: var(--ws-card-head);
+  padding: 0 var(--dk-space-2) 0 var(--ws-card-pad);
+  box-sizing: border-box;
+  font-size: var(--dk-text-13);
+  font-weight: 600;
+  color: var(--dk-text);
+}
+.ws-card__icon { flex-shrink: 0; width: 15px; height: 15px; color: var(--dk-accent-text); }
+.ws-card__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-card__badge {
+  flex-shrink: 0;
+  padding: 2px var(--dk-space-2);
+  border-radius: var(--dk-radius-pill);
+  background: var(--dk-fill);
+  color: var(--dk-muted);
+  font-size: var(--dk-text-12);
+  font-weight: 500;
+}
+.ws-card__body { flex: none; height: var(--ws-card-body); margin: 0 var(--ws-card-pad); }
+.ws-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-2);
+  height: var(--ws-card-foot);
+  margin-top: auto;
+  padding: 0 var(--ws-card-pad);
+  border-top: 1px solid var(--dk-edge);
+  font-size: var(--dk-text-12);
+  color: var(--dk-muted);
+}
+.ws-card__note { display: inline-flex; align-items: center; gap: var(--dk-space-1); min-width: 0; }
+.ws-card__note .lai-icon { width: 12px; height: 12px; }
+.ws-card__open { display: inline-flex; align-items: center; gap: var(--dk-space-1); color: var(--dk-accent-text); font-weight: 600; text-decoration: none; }
+.ws-card__open:hover { text-decoration: underline; }
+.ws-card__open .lai-icon { width: 12px; height: 12px; }
+.ws-card--ask { height: auto; padding: var(--dk-space-2); }
+.ws-card--ask .pg-ask { margin: 0; }
+
+/* The open card: the frame's box moves onto the card's body. */
+.ws-tile[data-open] .ws-tile__box {
+  z-index: 5;
+  inset: auto;
+  top: calc(100% + var(--ws-card-gap) + var(--ws-card-head));
+  right: calc(var(--ws-card-pad) - 1px);
+  width: calc(var(--ws-card-w) - 2 * var(--ws-card-pad));
+  height: var(--ws-card-body);
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+
+/* While its card is open the strip shows the page's name: the frame is in
+   the card. */
+.ws-tile__face {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: 0 var(--dk-space-3);
+  overflow: hidden;
+  color: var(--dk-accent-text);
+  font-size: var(--dk-text-13);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ws-tile__face .lai-icon { flex-shrink: 0; width: 15px; height: 15px; }
+.ws-tile__face span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws-tile[data-open] { background: var(--dk-accent-wash); }
+
+/* The thread under the header makes room for an open card (SlotTile). */
+.cx-body[data-ws-room] { padding-right: var(--ws-room); transition: padding-right var(--dk-dur-2) var(--dk-ease-out); }
+
+/* ── Where each slot sits ── */
+
+.ws-slot--chatHeader { margin-right: var(--dk-space-1); }
+
+/* In the composer toolbar and the sidebar footer the card opens above. */
+.ws-slot--composerToolbar .ws-card,
+.ws-slot--sidebarFooter .ws-card { top: auto; right: auto; bottom: calc(100% + var(--ws-card-gap)); left: -1px; }
+.ws-slot--composerToolbar .ws-tile[data-open] .ws-tile__box,
+.ws-slot--sidebarFooter .ws-tile[data-open] .ws-tile__box {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + var(--ws-card-gap) + var(--ws-card-foot) + var(--ws-card-pad));
+  left: calc(var(--ws-card-pad) - 1px);
+}
+.ws-slot--composerToolbar { flex-wrap: nowrap; overflow: visible; }
+
+/* The sidebar is narrower than a card: there each item takes a row of the
+   slot, and the card takes the width of its tile, above it. */
+.ws-slot--sidebarFooter {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--dk-space-1);
+  max-height: none;
+  margin: 0 var(--dk-space-2) var(--dk-space-2);
+}
+.ws-slot--sidebarFooter .ws-chip { max-width: none; width: 100%; }
+.ws-slot--sidebarFooter .ws-tile,
+.ws-slot--sidebarFooter .ws-tile--live { width: 100%; }
+.ws-slot--sidebarFooter .ws-card { left: -1px; right: -1px; width: auto; }
+.ws-slot--sidebarFooter .ws-card__badge,
+.ws-slot--sidebarFooter .ws-card__note { display: none; }
+.ws-slot--sidebarFooter .ws-card__foot { justify-content: flex-end; }
+.ws-slot--sidebarFooter .ws-tile[data-open] .ws-tile__box { left: calc(var(--ws-card-pad) - 1px); right: calc(var(--ws-card-pad) - 1px); width: auto; }
+
+/* ── The tool button's approval ── */
+
+.ws-approve p { margin: 0 0 var(--dk-space-2); }
+.ws-approve__facts { display: grid; grid-template-columns: auto 1fr; gap: var(--dk-space-1) var(--dk-space-3); margin: 0 0 var(--dk-space-2); }
+.ws-approve__facts dt { color: var(--dk-muted); }
+.ws-approve__facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.ws-approve__note { color: var(--dk-muted); font-size: var(--dk-text-12); }
+
+/* ── A phone: the header slot takes a row of its own under the bar, so the
+   title keeps its place, and a card spans the window next to its tile ── */
+
+@media (max-width: 640px) {
+  .cx-hd:has(.ws-slot--chatHeader) { flex-wrap: wrap; height: auto; min-height: 56px; padding-bottom: var(--dk-space-2); }
+  .cx-hd:has(.ws-slot--chatHeader) .cx-hdr { display: contents; }
+  .ws-slot--chatHeader { order: 99; flex: 1 0 100%; margin: 0; overflow-x: auto; scrollbar-width: none; }
+  .ws-slot--composerToolbar .ws-chip__label { display: none; }
+  .ws-slot--composerToolbar .ws-chip { padding: 0 var(--dk-space-2); }
+  .ws-slot--chatHeader .ws-card,
+  .ws-slot--composerToolbar .ws-card { position: fixed; left: 16px; right: 16px; width: auto; }
+  .ws-slot--chatHeader .ws-card { top: var(--ws-fixed-top); }
+  .ws-slot--composerToolbar .ws-card { bottom: var(--ws-fixed-bottom); }
+  .ws-slot--chatHeader .ws-tile[data-open] .ws-tile__box,
+  .ws-slot--composerToolbar .ws-tile[data-open] .ws-tile__box {
+    position: fixed;
+    left: calc(16px + var(--ws-card-pad));
+    right: calc(16px + var(--ws-card-pad));
+    width: auto;
+  }
+  .ws-slot--chatHeader .ws-tile[data-open] .ws-tile__box { top: calc(var(--ws-fixed-top) + var(--ws-card-head)); }
+  .ws-slot--composerToolbar .ws-tile[data-open] .ws-tile__box { bottom: calc(var(--ws-fixed-bottom) + var(--ws-card-foot) + var(--ws-card-pad)); }
+}

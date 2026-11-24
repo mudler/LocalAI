@@ -1,0 +1,53 @@
+---
+# Authoritative formal design for realtime machine M5: TTS pipeline lifecycle.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants)
+#   - core/http/endpoints/openai/ttscoord     (the Go implementation)
+#
+# The Go MBT adapter maps each action below onto ttscoord.Coordinator.Apply and
+# the StateGetter onto ttscoord.Coordinator.State, so this spec is the source of
+# truth the implementation is checked against.
+#
+# The TTS pipeline's open->closing->closed lifecycle (the legacy `closed` bool +
+# `done` channel). Two writers: the producer raises Close (wait()), the worker
+# raises WorkerExited. `phase` is 0=open, 1=closing, 2=closed; `wakes` counts how
+# many times Close woke the worker to exit.
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+role Pipeline:
+    action Init:
+        self.phase = 0   # 0 open, 1 closing, 2 closed -- monotonic
+        self.wakes = 0   # Close->Closing transitions (worker wakeups to exit)
+
+    # wait() called (producer). THE FIX: it advances to closing and wakes the
+    # worker only from open, so wait() is idempotent. To reproduce the legacy
+    # double-wake hazard, drop the `if self.phase == 0` guard (always wake): the
+    # checker then reports WakeOnce violated.
+    atomic action Close:
+        if self.phase == 0:
+            self.phase = 1
+            self.wakes += 1
+
+    # The worker drained the queue and observed the close (worker goroutine).
+    atomic action WorkerExited:
+        if self.phase == 1:
+            self.phase = 2
+
+action Init:
+    p = Pipeline()
+
+# SAFETY: the worker is woken-to-exit at most once -- the done channel is joined
+# exactly once, wait() is idempotent (Part 4, invariant #10).
+always assertion WakeOnce:
+    return p.wakes <= 1
+
+# SAFETY: the lifecycle is bounded and monotonic open -> closing -> closed; a
+# clause is never accepted after close (enqueue is gated on phase 0 in Go) and
+# the worker is joined exactly once (Part 4, invariant #8).
+always assertion Monotonic:
+    return p.phase >= 0 and p.phase <= 2

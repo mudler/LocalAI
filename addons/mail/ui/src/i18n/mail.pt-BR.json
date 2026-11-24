@@ -1,0 +1,132 @@
+{
+  "title": "E-mail",
+  "intro": "Deixe seus agentes lerem uma caixa de correio por IMAP e, se você permitir, escreverem e-mails por SMTP. Funciona com qualquer provedor que ofereça IMAP e SMTP.",
+  "limits": "Esta conexão não responde sozinha aos e-mails recebidos. Um agente só trabalha com seus e-mails quando você pede em um chat. A caixa inteira fica acessível, então conecte apenas uma caixa que o agente possa ler.",
+  "new": "Nova conexão de e-mail",
+  "edit": "Editar a conexão de e-mail",
+  "name": "Nome",
+  "agent": "Agente",
+  "agentNone": "Escolha um agente",
+  "agentCredentialsOnly": "Sem agente (somente credenciais)",
+  "credentialsOnly": "Somente credenciais",
+  "agentNoModel": "{{name}} (precisa de um modelo)",
+  "test": "Testar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Salvo. A verificação do login falhou: {{reason}}",
+  "checkSeveral": "As verificações de login funcionam quando você tem uma única conexão de e-mail, porque, a partir desta página, não dá para saber a qual você se refere. Em um chat, ative as conexões no menu Ferramentas.",
+  "check": {
+    "title": "Verificação de {{name}}",
+    "running": "Verificando os dois logins...",
+    "at": "Verificado às {{time}}",
+    "imapOk": "Leitura de e-mail (IMAP): o login funciona.",
+    "smtpOk": "Envio de e-mail (SMTP): o login funciona.",
+    "imapFailed": "A leitura de e-mail (IMAP) falhou. {{reason}}",
+    "smtpFailed": "O envio de e-mail (SMTP) falhou. {{reason}}"
+  },
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Excluir",
+  "empty": "Ainda não há conexões de e-mail.",
+  "noAddress": "Sem endereço",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Não está em execução: {{reason}}.",
+  "confirmDelete": {
+    "title": "Excluir {{name}}?",
+    "message": "O agente não consegue mais acessar esta caixa, e a senha salva com ela é excluída. Para configurá-la de novo, você precisará digitar tudo outra vez.",
+    "confirm": "Excluir"
+  },
+  "replace": "Alterar os dados do servidor ou do login",
+  "savedAs": "Salvo para {{address}}. Os servidores e a senha são guardados criptografados e não podem ser exibidos. Para alterar qualquer um deles, digite todos de novo.",
+  "address": "Endereço da caixa",
+  "addressHelp": "O endereço da caixa. Também é o endereço do remetente dos e-mails que o agente envia.",
+  "addressShape": "Escreva um único endereço simples, por exemplo nome@example.com.",
+  "display": "Nome do remetente",
+  "displayHelp": "Exibido ao lado do endereço nos e-mails que o agente envia.",
+  "displayShape": "Use até 100 caracteres em uma única linha.",
+  "username": "Nome de usuário",
+  "usernameHelp": "O login dos dois servidores. Muitas vezes é o endereço completo.",
+  "userShape": "Digite o nome de usuário da caixa.",
+  "password": "Senha",
+  "passwordHelp": "Muitos provedores pedem aqui uma senha de aplicativo, não a normal. Ela é guardada criptografada e nunca mais é exibida.",
+  "passMissing": "Digite a senha.",
+  "passShape": "A senha tem até 512 caracteres e nenhuma quebra de linha.",
+  "host": "Servidor",
+  "port": "Porta",
+  "imap": {
+    "title": "Leitura de e-mail (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Envio de e-mail (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Escreva apenas o nome do servidor IMAP, como imap.example.com: sem https://, porta ou caminho.",
+  "smtpHostShape": "Escreva apenas o nome do servidor SMTP, como smtp.example.com: sem https://, porta ou caminho.",
+  "imapPortShape": "A porta IMAP é 993 ou 143.",
+  "smtpPortShape": "A porta SMTP é 465 ou 587.",
+  "imapPortSecurityMismatch": "A porta 993 usa TLS; a porta 143 usa STARTTLS. Faça a porta e a proteção combinarem.",
+  "smtpPortSecurityMismatch": "A porta 465 usa TLS; a porta 587 usa STARTTLS. Faça a porta e a proteção combinarem.",
+  "plainNotConfirmed": "Confirme que você aceita enviar a senha sem proteção, ou escolha TLS ou STARTTLS.",
+  "security": {
+    "label": "Proteção",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Nenhuma (não é seguro)",
+    "plainWarning": "Sem proteção, a senha e todos os e-mails trafegam como texto simples. Qualquer pessoa no caminho da rede pode lê-los. Use apenas em uma rede em que você confia.",
+    "plainConfirm": "Aceito que a senha e os e-mails sejam enviados sem proteção."
+  },
+  "folders": "Pastas que o agente pode usar",
+  "foldersHelp": "Uma por linha. Deixe vazio para permitir todas as pastas. Uma pasta que não está na lista é recusada, e INBOX é comparada sem diferenciar maiúsculas de minúsculas.",
+  "foldersMany": "No máximo 20 pastas.",
+  "foldersShape": "O nome de uma pasta tem até 200 caracteres em uma única linha.",
+  "drafts": "Pasta de rascunhos",
+  "draftsHelp": "Só é necessária quando o servidor não indica a pasta de rascunhos. Os rascunhos vão primeiro para a pasta que o servidor indica como rascunhos.",
+  "tooLong": "A conexão é longa demais para ser salva. Encurte a lista de pastas.",
+  "setup": {
+    "title": "Como conectar uma caixa de e-mail",
+    "step1": "Procure os nomes dos servidores IMAP e SMTP do seu provedor nas páginas de ajuda dele. Os dois usam TLS ou STARTTLS.",
+    "step2": "Se o provedor permitir, crie uma senha de aplicativo para o LocalAI e use-a como senha. Uma senha normal muitas vezes não funciona com IMAP.",
+    "step3": "Digite o endereço, o nome de usuário, a senha e os dois servidores e salve. Ao salvar, é feito login nos dois servidores.",
+    "step4": "Escolha se o agente também pode enviar e-mails e salvar rascunhos, e se ele pergunta antes. Com Permitir tudo ele age sem perguntar, e um e-mail enviado não pode ser desfeito.",
+    "private": "Os servidores de e-mail precisam estar na internet pública: endereços dentro de uma rede privada são recusados."
+  },
+  "writeMode": {
+    "label": "O que o agente pode fazer com os e-mails",
+    "hint": "Enviar e salvar rascunhos. Nunca exclui, move, marca nem encaminha e-mails.",
+    "off": "Somente leitura",
+    "propose": "Pergunta antes",
+    "line": {
+      "off": "Só pode ler.",
+      "propose": "Cada envio e cada rascunho espera seu OK.",
+      "auto": "Seus chats enviam e salvam na hora."
+    },
+    "note": {
+      "off": "O acesso de escrita está desativado: esta conexão só lê.",
+      "propose": "Cada envio e cada rascunho espera em suas aprovações até você confirmar. Um e-mail enviado não pode ser desfeito, e todos em Para e Cc vão lê-lo.",
+      "auto": "Um chat seu envia e salva e-mails na hora, sem perguntar. Um e-mail enviado não pode ser desfeito, e todos em Para e Cc vão lê-lo. Execuções sem você presente ainda esperam a sua confirmação."
+    },
+    "row": {
+      "off": "Somente leitura",
+      "propose": "Pergunta antes",
+      "auto": "Permitir tudo"
+    },
+    "auto": "Permitir tudo"
+  },
+  "approval": {
+    "action": {
+      "send-message": "Enviar um e-mail",
+      "save-draft": "Salvar um rascunho de e-mail"
+    },
+    "from": "De",
+    "to": "Para",
+    "cc": "Cc",
+    "subject": "Assunto",
+    "reply": "Resposta",
+    "replyYes": "Parte de uma conversa existente",
+    "text": "Texto do e-mail",
+    "cut": "O texto mostrado aqui está cortado. O texto completo, {{bytes}} bytes, é usado.",
+    "noteSend": "O envio não pode ser desfeito. Todos em Para e Cc vão ler isto a partir do seu endereço.",
+    "noteDraft": "Isto é salvo na sua pasta de rascunhos. Nada é enviado."
+  }
+}

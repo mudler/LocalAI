@@ -1,0 +1,28 @@
+- name: turboquant
+  alias: turboquant
+  license: mit
+  description: |
+    Fork of llama.cpp adding the TurboQuant KV-cache quantization scheme.
+    Reuses the LocalAI llama.cpp gRPC server sources against the fork's libllama.
+  urls:
+    - https://github.com/TheTom/llama-cpp-turboquant
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - CUDA
+    - HIP
+    - turboquant
+    - kv-cache
+  capabilities:
+    amd: rocm-turboquant
+    default: cpu-turboquant
+    intel: intel-sycl-f16-turboquant
+    nvidia: cuda12-turboquant
+    nvidia-cuda-12: cuda12-turboquant
+    nvidia-cuda-13: cuda13-turboquant
+    nvidia-l4t: nvidia-l4t-arm64-turboquant
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-turboquant
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-turboquant
+    vulkan: vulkan-turboquant

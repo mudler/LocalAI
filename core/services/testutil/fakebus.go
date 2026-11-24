@@ -1,0 +1,280 @@
+package testutil
+
+import (
+	"encoding/json"
+	"errors"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/messaging"
+)
+
+// FakeBus is an in-memory messaging.MessagingClient that delivers each published
+// message synchronously to every registered subscriber whose subject filter
+// matches, including NATS-style wildcard subjects (`*` matches exactly one
+// token).
+//
+// Synchronous delivery keeps specs deterministic: the moment Publish returns,
+// every matching subscriber's handler has already run, so the spec body can read
+// the resulting state without polling. It is the shared test double for every
+// cross-replica-sync adopter (gallery, syncstate, ...) so they exercise the same
+// delivery semantics. It deliberately depends only on the standard library and
+// the messaging package — no test framework — so it is importable anywhere.
+type FakeBus struct {
+	mu   sync.Mutex
+	subs []fakeBusSub
+	// nextID gives every subscription an identity of its own, so Unsubscribe
+	// removes that subscription and not another one on the same subject.
+	nextID uint64
+	// publishCounts records how many messages were published per subject, so a
+	// spec can assert the echo-loop guard (an applied delta must not re-publish).
+	publishCounts map[string]int
+
+	// reconnectCbs back the optional OnReconnect/TriggerReconnect pair, letting a
+	// spec exercise the component's reconnect re-hydrate path without a real
+	// NATS server.
+	reconnectCbs []func()
+
+	// queueGroups records the queue group each queue subscription asked for,
+	// keyed by subject, because a group name decides which processes compete
+	// and a spec has to be able to pin it.
+	queueGroups map[string]string
+	// replyHandlers keeps each reply subscription's handler so a spec can play
+	// the requester through DeliverReply.
+	replyHandlers map[string]func([]byte, func([]byte))
+	// replyIDs names the registration that holds each reply subject, so an
+	// Unsubscribe removes its own handler and not a newer one.
+	replyIDs map[string]uint64
+}
+
+type fakeBusSub struct {
+	id      uint64
+	subject string
+	handler func([]byte)
+}
+
+// NewFakeBus returns a ready-to-use in-memory bus.
+func NewFakeBus() *FakeBus {
+	return &FakeBus{
+		publishCounts: map[string]int{},
+		queueGroups:   map[string]string{},
+		replyHandlers: map[string]func([]byte, func([]byte)){},
+		replyIDs:      map[string]uint64{},
+	}
+}
+
+// Publish marshals data as JSON and delivers it synchronously to every matching
+// subscriber.
+func (b *FakeBus) Publish(subject string, data any) error {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	if err := messaging.CheckBroadcastSize(subject, len(payload)); err != nil {
+		return err
+	}
+	b.mu.Lock()
+	b.publishCounts[subject]++
+	subs := append([]fakeBusSub(nil), b.subs...)
+	b.mu.Unlock()
+	for _, s := range subs {
+		if messaging.SubjectMatches(s.subject, subject) {
+			s.handler(payload)
+		}
+	}
+	return nil
+}
+
+// SubscribedSubjects returns the subject of each live subscription, so a spec
+// can pin that a component listens to nothing on a subject.
+func (b *FakeBus) SubscribedSubjects() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make([]string, 0, len(b.subs))
+	for _, s := range b.subs {
+		out = append(out, s.subject)
+	}
+	return out
+}
+
+// PublishCount returns how many messages were published on the exact subject.
+func (b *FakeBus) PublishCount(subject string) int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.publishCounts[subject]
+}
+
+type fakeBusSubscription struct {
+	bus    *FakeBus
+	subRef fakeBusSub
+}
+
+func (s *fakeBusSubscription) Unsubscribe() error {
+	s.bus.mu.Lock()
+	defer s.bus.mu.Unlock()
+	for i, candidate := range s.bus.subs {
+		if candidate.id == s.subRef.id {
+			s.bus.subs = append(s.bus.subs[:i], s.bus.subs[i+1:]...)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (b *FakeBus) Subscribe(subject string, handler func([]byte)) (messaging.Subscription, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.nextID++
+	sub := fakeBusSub{id: b.nextID, subject: subject, handler: handler}
+	b.subs = append(b.subs, sub)
+	b.mu.Unlock()
+	return &fakeBusSubscription{bus: b, subRef: sub}, nil
+}
+
+func (b *FakeBus) QueueSubscribe(subject, queue string, handler func([]byte)) (messaging.Subscription, error) {
+	sub, err := b.Subscribe(subject, handler)
+	if err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.mu.Unlock()
+	return sub, nil
+}
+
+func (b *FakeBus) QueueSubscribeReply(subject, queue string, handler func([]byte, func([]byte))) (messaging.Subscription, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.queueGroups[subject] = queue
+	b.replyHandlers[subject] = handler
+	b.mu.Unlock()
+	return &fakeBusSubscription{bus: b}, nil
+}
+
+// QueueGroups returns a copy of the queue group recorded for each subject by
+// QueueSubscribe and QueueSubscribeReply.
+func (b *FakeBus) QueueGroups() map[string]string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := make(map[string]string, len(b.queueGroups))
+	for k, v := range b.queueGroups {
+		out[k] = v
+	}
+	return out
+}
+
+// DeliverReply calls the reply handler registered on the exact subject with
+// data and returns what it replied. ok is false when no handler is registered
+// on the subject or the handler returned without replying, the two cases a
+// real requester sees as a timeout.
+func (b *FakeBus) DeliverReply(subject string, data []byte) (reply []byte, ok bool) {
+	b.mu.Lock()
+	h := b.replyHandlers[subject]
+	b.mu.Unlock()
+	if h == nil {
+		return nil, false
+	}
+	h(data, func(r []byte) {
+		reply = r
+		ok = true
+	})
+	return reply, ok
+}
+
+// SubscribeReply registers handler as the replier on the exact subject, so a
+// Request on another instance of the feature reaches it. A later registration
+// on the same subject replaces the earlier one. Unsubscribe removes it.
+func (b *FakeBus) SubscribeReply(subject string, handler func([]byte, func([]byte))) (messaging.Subscription, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	b.mu.Lock()
+	b.nextID++
+	id := b.nextID
+	b.replyHandlers[subject] = handler
+	b.replyIDs[subject] = id
+	b.mu.Unlock()
+	return &fakeReplySubscription{bus: b, subject: subject, id: id}, nil
+}
+
+// ErrNoResponders is what Request returns when no replier listens on the
+// subject or the replier returned without a reply, the two cases a real
+// requester sees as no responders or a timeout.
+var ErrNoResponders = errors.New("testutil: no responders")
+
+// Request delivers data to the replier on the exact subject, synchronously, and
+// returns its reply.
+func (b *FakeBus) Request(subject string, data []byte, _ time.Duration) ([]byte, error) {
+	if err := messaging.ValidateSubject(subject); err != nil {
+		return nil, err
+	}
+	reply, ok := b.DeliverReply(subject, data)
+	if !ok {
+		return nil, ErrNoResponders
+	}
+	return reply, nil
+}
+
+// RequestInstance is Request: the fake routes by subject, so a spec that runs
+// several processes on one bus names each by the subject it serves (as the
+// chat replay does), and the instance is not read.
+func (b *FakeBus) RequestInstance(_ string, subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
+// RequestQueue is Request: a subject has one replier on the fake, so a queue
+// has one member and a refusal that moveOn reads has nowhere else to go.
+func (b *FakeBus) RequestQueue(subject string, data []byte, timeout time.Duration, _ func([]byte) bool) ([]byte, error) {
+	return b.Request(subject, data, timeout)
+}
+
+type fakeReplySubscription struct {
+	bus     *FakeBus
+	subject string
+	id      uint64
+}
+
+func (s *fakeReplySubscription) Unsubscribe() error {
+	s.bus.mu.Lock()
+	defer s.bus.mu.Unlock()
+	// Only this registration: a newer one on the subject stays.
+	if s.bus.replyIDs[s.subject] == s.id {
+		delete(s.bus.replyHandlers, s.subject)
+		delete(s.bus.replyIDs, s.subject)
+	}
+	return nil
+}
+
+func (b *FakeBus) IsConnected() bool { return true }
+func (b *FakeBus) Close()            {}
+
+// OnReconnect mirrors *messaging.Client.OnReconnect so a spec can drive the
+// component's reconnect re-hydrate path. The component detects this method via an
+// optional interface assertion; implementing it here keeps the fake a faithful
+// stand-in for the concrete client.
+func (b *FakeBus) OnReconnect(cb func()) {
+	if cb == nil {
+		return
+	}
+	b.mu.Lock()
+	b.reconnectCbs = append(b.reconnectCbs, cb)
+	b.mu.Unlock()
+}
+
+// TriggerReconnect runs every registered reconnect callback, simulating a NATS
+// reconnect event.
+func (b *FakeBus) TriggerReconnect() {
+	b.mu.Lock()
+	cbs := append([]func(){}, b.reconnectCbs...)
+	b.mu.Unlock()
+	for _, cb := range cbs {
+		cb()
+	}
+}

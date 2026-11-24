@@ -1,0 +1,80 @@
+/* The new-agent wizard and the Finish setup card. Every class starts with aw-.
+   Controls are the kit's; this file only places them. */
+
+.aw-steps { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.aw-step {
+  display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--ctl-h); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--r-md); background: transparent; color: var(--dk-muted); font: inherit; font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--dk-edge); cursor: pointer;
+}
+.aw-step:disabled { cursor: default; opacity: .55; }
+.aw-step:not(:disabled):hover { background: var(--dk-hover); color: var(--dk-text); }
+.aw-step[aria-current="step"] { background: var(--dk-accent-wash); color: var(--dk-text); box-shadow: inset 0 0 0 1px var(--dk-accent); }
+.aw-step:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+.aw-step__n {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--dk-hover); font-size: var(--fs-meta); font-weight: 600;
+}
+.aw-step[aria-current="step"] .aw-step__n, .aw-step[data-done] .aw-step__n { background: var(--dk-accent); color: var(--dk-on-accent); }
+
+.aw-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--sp-8); align-items: start; min-width: 0; }
+.aw-main { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.aw-main > h2:focus { outline: none; }
+.aw-main > .ag-note { margin-top: calc(-1 * var(--sp-3)); }
+.aw-block { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.aw-block:focus { outline: none; }
+.aw-foot { display: flex; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.aw-model__line { max-width: none; }
+
+.aw-rail {
+  position: sticky; top: var(--sp-6); display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0;
+  padding: var(--sp-4); border-radius: var(--r-lg); box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.aw-rail__name { overflow-wrap: anywhere; }
+.aw-rail__list { display: grid; gap: var(--sp-3); margin: 0; }
+.aw-rail__list dt { font-size: var(--fs-meta); color: var(--dk-muted); }
+.aw-rail__list dd { margin: 2px 0 0; display: flex; flex-wrap: wrap; gap: var(--sp-1); overflow-wrap: anywhere; color: var(--dk-text); }
+.aw-chip { padding: 0 8px; border-radius: var(--r-sm); background: var(--dk-hover); font-size: var(--fs-small); }
+
+.aw-fine > summary { cursor: pointer; font-weight: 600; color: var(--dk-text); padding: var(--sp-2) 0; }
+.aw-fine > summary:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--r-sm); }
+.aw-fine[open] > summary { margin-bottom: var(--sp-3); }
+
+.aw-apps { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; min-width: 0; }
+.aw-app {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; min-width: 0;
+  padding: var(--sp-3); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.aw-app__text { display: grid; gap: 2px; min-width: 0; }
+.aw-app__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.aw-app__body { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.aw-app__needs { font-size: var(--fs-meta); color: var(--dk-muted); overflow-wrap: anywhere; }
+
+.aw-checks { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.aw-checks li { display: flex; align-items: center; gap: var(--sp-2); }
+.aw-checks__ok { color: var(--dk-ok-text); font-weight: 700; }
+
+/* Finish setup */
+.aw-setup { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); border-radius: var(--r-lg); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.aw-setup__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.aw-setup__head .ag-h2 { margin-right: auto; }
+.aw-setup__count { font-size: var(--fs-small); color: var(--dk-muted); }
+.aw-progress {
+  appearance: none; -webkit-appearance: none; display: block; width: 100%; height: 6px; border: 0; border-radius: var(--radius-full);
+  background: var(--dk-hover); overflow: hidden;
+}
+.aw-progress::-webkit-progress-bar { background: var(--dk-hover); }
+.aw-progress::-webkit-progress-value { background: var(--dk-accent); border-radius: var(--radius-full); }
+.aw-progress::-moz-progress-bar { background: var(--dk-accent); border-radius: var(--radius-full); }
+.aw-todo { display: grid; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.aw-todo__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: var(--sp-3); align-items: center; min-width: 0; }
+.aw-todo__text { display: grid; gap: 2px; min-width: 0; }
+.aw-todo__title { font-weight: 600; color: var(--dk-text); overflow-wrap: anywhere; }
+.aw-todo__needs { font-size: var(--fs-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+
+@media (max-width: 860px) {
+  .aw-layout { grid-template-columns: minmax(0, 1fr); }
+  .aw-rail { position: static; }
+  .aw-todo__row { grid-template-columns: auto minmax(0, 1fr); }
+  .aw-todo__row > :last-child { grid-column: 1 / -1; justify-self: start; }
+}

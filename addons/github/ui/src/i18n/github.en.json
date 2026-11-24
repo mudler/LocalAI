@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "Let your agents read the code, issues and pull requests of the repositories you list. If you allow it, they can also comment and open issues there.",
+  "limits": "This connection does not answer @mentions on GitHub yet. An agent works on GitHub only when you ask it in a chat.",
+  "new": "New GitHub connection",
+  "edit": "Edit GitHub connection",
+  "name": "Name",
+  "token": "Fine-grained access token",
+  "tokenHelp": "Starts with github_pat_. It is kept sealed and never shown again.",
+  "tokenLink": "Create a token on GitHub",
+  "tokenSaved": "Saved. Type a token to replace it.",
+  "tokenShape": "Use a fine-grained token: it starts with github_pat_.",
+  "tokenSpace": "The token has no spaces. Copy it again without the spaces around it.",
+  "repos": "Repositories the agent may use",
+  "reposHelp": "One per line: owner/name, owner/* for every repository of an owner, or * for any repository the token can reach. {{count}} listed. Any other repository is refused.",
+  "reposShape": "\"{{entry}}\" is not written owner/name (or owner/*, or *), for example mudler/LocalAI.",
+  "reposMany": "At most 50 repositories.",
+  "agent": "Agent",
+  "agentNone": "Choose an agent",
+  "agentCredentialsOnly": "No agent (credentials only)",
+  "credentialsOnly": "Credentials only",
+  "agentNoModel": "{{name}} (needs a model)",
+  "test": "Test",
+  "testOk": "Connected as {{bot}}.",
+  "checkFailed": "Saved. The token check failed: {{reason}}",
+  "checkSeveral": "Repository checks run when you have one GitHub connection, because a check from this page cannot tell which one you mean. In a chat, enable the connections in the Tools menu.",
+  "check": {
+    "title": "Check of {{name}}",
+    "running": "Checking the repositories...",
+    "at": "Checked at {{time}}",
+    "unreachable": "{{repo}}: this token cannot reach it. Add it to the token's repositories on GitHub.",
+    "readOnly": "{{repo}}: reachable, read only.",
+    "readWrite": "{{repo}}: reachable, and the token can write.",
+    "refused": "{{repo}}: GitHub refused this token. Check that it has not expired and that it covers this repository.",
+    "failed": "{{repo}}: the check did not finish. Try again in a moment.",
+    "owner": "{{repo}}: every repository of this owner. The token reaches only the ones GitHub lists for it.",
+    "any": "Any repository: the token reaches {{count}} repositories.",
+    "anyMore": "Any repository: the token reaches at least {{count}} repositories."
+  },
+  "save": "Save",
+  "cancel": "Cancel",
+  "editButton": "Edit",
+  "delete": "Delete",
+  "empty": "No GitHub connections yet.",
+  "noRepos": "No repositories listed: the agent can read none.",
+  "reposOf": "{{count}} repositories: {{list}}",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Not running: {{reason}}.",
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "message": "The agent can no longer reach these repositories, and the token saved with it is deleted. To set it up again you must enter the token again.",
+    "confirm": "Delete"
+  },
+  "setup": {
+    "title": "How to make the token",
+    "link": "Create a token on GitHub",
+    "linkLabel": "Create a token on GitHub (opens in a new tab)",
+    "step1": "Open GitHub with the button above. Name the token, for example LocalAI, and set an expiry. Ninety days is a good start.",
+    "step2": "Under Repository access, choose Only select repositories and pick the ones you list here.",
+    "step3": "Under Permissions, set what the table says for the mode you want. Leave everything else off.",
+    "step4": "Create the token, copy it and paste it in the token field. GitHub shows it only once.",
+    "table": {
+      "caption": "Repository permissions to give the token",
+      "permission": "Permission",
+      "read": "Read only",
+      "write": "Asks first, or acts without asking",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "Read",
+        "readwrite": "Read and write",
+        "auto": "Read (GitHub sets it)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "What the agent may change on GitHub",
+    "hint": "Comments, new issues, labels and closing issues. It never merges, deletes or pushes code.",
+    "off": "Read only",
+    "propose": "Asks first",
+    "auto": "Runs at once",
+    "line": {
+      "off": "It cannot change anything on GitHub.",
+      "propose": "Each change waits for your OK.",
+      "auto": "Your chats post at once."
+    },
+    "note": {
+      "off": "Write access is off: this connection only reads.",
+      "propose": "Each change waits in your approvals until you confirm it. Anything an agent writes is public to everyone who can see the repository.",
+      "auto": "A chat of yours posts the change at once, without asking. Anything the agent writes is public to everyone who can see the repository. Runs without you present still wait for your confirmation."
+    },
+    "row": {
+      "off": "Read only",
+      "propose": "Asks first",
+      "auto": "Runs at once"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "Comment on issue #{{number}}",
+      "comment-pr": "Comment on pull request #{{number}}",
+      "create-issue": "Open a new issue",
+      "edit-issue": "Change #{{number}}",
+      "add-labels": "Add labels to #{{number}}",
+      "review-comment-pr": "Comment on a line of pull request #{{number}}"
+    },
+    "where": "Where",
+    "repo": "In {{repo}}",
+    "open": "Open #{{number}} on GitHub",
+    "as": "As",
+    "asOne": "The connection {{name}}",
+    "asFirst": "The first connection that lists {{repo}}",
+    "asUnknown": "A GitHub connection that lists {{repo}}",
+    "text": "Text that will be posted",
+    "title": "Title",
+    "newTitle": "New title",
+    "labels": "Labels",
+    "file": "File and line",
+    "fileLine": "{{path}}, line {{line}} ({{side}})",
+    "sideRight": "new file",
+    "sideLeft": "old file",
+    "state": "Change",
+    "close": "Close it",
+    "closeReason": "Close it, as {{reason}}",
+    "reopen": "Reopen it",
+    "completed": "completed",
+    "not_planned": "not planned",
+    "public": "Public: everyone who can see {{repo}} will see this.",
+    "cut": "The text shown here is cut. The full text, {{bytes}} bytes, is posted."
+  },
+  "tokenClassic": "This is a classic token (ghp_). Allow classic tokens below to use it, or make a token that starts with github_pat_.",
+  "classic": {
+    "allow": "Allow a classic token (ghp_) on this connection",
+    "warning": "A classic token is not limited to the repositories you list. Its scopes cover every repository your account can reach. LocalAI still refuses any repository that is not on your list and still follows the write mode, but GitHub itself would let this token do more if it leaked. A fine-grained token is safer.",
+    "confirm": "I understand that a classic token is wider than the repository list."
+  },
+  "reposAnyAlone": "* already covers every repository. Remove the other lines.",
+  "any": {
+    "warning": "* lets the agent use every repository the token can reach, including ones created later. The write mode below still decides what it may change: with Read only it changes nothing.",
+    "confirm": "I want the agent to be able to use any repository this token reaches."
+  },
+  "anyRepos": "Any repository the token can reach"
+}
