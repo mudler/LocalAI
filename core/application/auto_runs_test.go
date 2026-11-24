@@ -169,7 +169,11 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			a.autoUpgradeAddonsWith(ctx, owner())
 			a.autoUpgradeAddonsWith(ctx, owner())
 			Eventually(svc.count, "2s").Should(BeNumerically(">=", 5))
-			Eventually(func() int { return len(a.autoRuns.waiting) }, "2s").Should(BeZero())
+			Eventually(func() int {
+				a.autoRuns.mu.Lock()
+				defer a.autoRuns.mu.Unlock()
+				return len(a.autoRuns.waiting)
+			}, "2s").Should(BeZero())
 		})
 
 		It("ends a waiting retry when the upgrade runs stop, and leaves no goroutine", func() {
