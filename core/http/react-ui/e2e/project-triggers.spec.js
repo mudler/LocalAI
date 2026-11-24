@@ -179,7 +179,7 @@ test.describe('New trigger from a project', () => {
   test('keeps the listed triggers and offers New trigger above them', async ({ page }) => {
     await install(page)
     await page.goto('/app/projects/p1?tab=automations')
-    await expect(page.getByTestId('project-trigger')).toHaveCount(3)
+    await expect(page.getByTestId('project-trigger')).toHaveCount(4)
     await expect(page.getByTestId('project-trigger-new')).toBeVisible()
   })
 })
@@ -210,7 +210,7 @@ test.describe('A person without the permission of a list', () => {
     await install(page)
     await asMember(page, { chats: true, agents: true, triggers: true })
     await page.goto('/app/projects/p1?tab=automations')
-    await expect(page.getByTestId('project-trigger-open')).toHaveCount(3)
+    await expect(page.getByTestId('project-trigger-open')).toHaveCount(4)
   })
 
   test('the Agents and Connections tabs say what is missing and do not show a load error', async ({ page }) => {

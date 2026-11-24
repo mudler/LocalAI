@@ -355,6 +355,8 @@
     "loopsNoneBody": "A loop keeps a chat in this project going until its job is done.",
     "kindSchedule": "Schedule",
     "kindFolder": "Watches a folder",
+    "kindEvent": "Event",
+    "whenEvent": "When an event arrives",
     "runs": "Runs {{agent}}",
     "next": "Next run: {{when}}",
     "nextNone": "Next run: none",

@@ -355,6 +355,8 @@
     "loopsNoneBody": "循环让本项目中的聊天持续进行，直到任务完成。",
     "kindSchedule": "计划",
     "kindFolder": "监视文件夹",
+    "kindEvent": "事件",
+    "whenEvent": "有事件到达时",
     "runs": "运行 {{agent}}",
     "next": "下次运行：{{when}}",
     "nextNone": "下次运行：无",

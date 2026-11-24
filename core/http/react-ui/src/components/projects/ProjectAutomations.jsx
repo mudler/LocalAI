@@ -53,6 +53,8 @@ export default function ProjectAutomations({ project, archived, onRestore }) {
 
   const nextOf = (tr, state) => {
     if (state === 'paused') return t('automations.pausedWhy')
+    // An event trigger has no next time: it runs when an event arrives.
+    if (tr.kind === 'event') return null
     if (state === 'off') return t('automations.nextNone')
     if (tr.kind === 'file') return t('automations.nextFile')
     const when = nextRunLabel(tr.next, i18n.language)
@@ -113,19 +115,21 @@ export default function ProjectAutomations({ project, archived, onRestore }) {
             {data.triggers.map((tr) => {
               const state = triggerState(tr, archived)
               const file = tr.kind === 'file'
+              const event = tr.kind === 'event'
+              const next = nextOf(tr, state)
               return (
                 <li key={tr.id} className={`pjl-row${state === 'active' ? '' : ' pjl-row--paused'}`} data-testid="project-trigger" data-state={state}>
-                  <BuiltinIcon name={file ? 'folder' : 'calendar'} size={40} />
+                  <BuiltinIcon name={file ? 'folder' : event ? 'bolt' : 'calendar'} size={40} />
                   <div className="pjl-main">
                     <span className="pjl-head">
                       <span className="pjl-name">{tr.name}</span>
-                      <StatusChip tone="idle" icon={file ? 'folder' : 'clock'} label={t(file ? 'automations.kindFolder' : 'automations.kindSchedule')} testId="project-trigger-kind" />
+                      <StatusChip tone="idle" icon={file ? 'folder' : event ? 'bolt' : 'clock'} label={t(file ? 'automations.kindFolder' : event ? 'automations.kindEvent' : 'automations.kindSchedule')} testId="project-trigger-kind" />
                       {chip(state, 'project-trigger-state')}
                     </span>
                     <span className="pjl-meta">
-                      <span data-testid="project-trigger-when">{file ? <span className="pjl-path">{tr.folder}</span> : tr.schedule}</span>
+                      <span data-testid="project-trigger-when">{file ? <span className="pjl-path">{tr.folder}</span> : event ? t('automations.whenEvent') : tr.schedule}</span>
                       <span data-testid="project-trigger-agent">{t('automations.runs', { agent: tr.agent_name })}</span>
-                      <span data-testid="project-trigger-next">{nextOf(tr, state)}</span>
+                      {next && <span data-testid="project-trigger-next">{next}</span>}
                     </span>
                   </div>
                   <div className="pjl-end">

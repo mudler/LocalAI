@@ -355,6 +355,8 @@
     "loopsNoneBody": "Une boucle fait avancer un chat de ce projet jusqu'à la fin de sa tâche.",
     "kindSchedule": "Horaire",
     "kindFolder": "Surveille un dossier",
+    "kindEvent": "Événement",
+    "whenEvent": "Quand un événement arrive",
     "runs": "Lance {{agent}}",
     "next": "Prochaine exécution : {{when}}",
     "nextNone": "Prochaine exécution : aucune",

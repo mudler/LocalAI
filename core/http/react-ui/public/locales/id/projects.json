@@ -355,6 +355,8 @@
     "loopsNoneBody": "Loop menjaga chat di proyek ini tetap berjalan sampai tugasnya selesai.",
     "kindSchedule": "Jadwal",
     "kindFolder": "Memantau folder",
+    "kindEvent": "Peristiwa",
+    "whenEvent": "Saat ada peristiwa masuk",
     "runs": "Menjalankan {{agent}}",
     "next": "Jalan berikutnya: {{when}}",
     "nextNone": "Jalan berikutnya: tidak ada",

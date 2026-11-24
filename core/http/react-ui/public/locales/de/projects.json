@@ -355,6 +355,8 @@
     "loopsNoneBody": "Eine Schleife hält einen Chat in diesem Projekt am Laufen, bis die Aufgabe erledigt ist.",
     "kindSchedule": "Zeitplan",
     "kindFolder": "Beobachtet einen Ordner",
+    "kindEvent": "Ereignis",
+    "whenEvent": "Wenn ein Ereignis eintrifft",
     "runs": "Startet {{agent}}",
     "next": "Nächster Lauf: {{when}}",
     "nextNone": "Nächster Lauf: keiner",

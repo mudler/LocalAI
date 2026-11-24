@@ -355,6 +355,8 @@
     "loopsNoneBody": "루프는 작업이 끝날 때까지 이 프로젝트의 채팅을 계속 진행합니다.",
     "kindSchedule": "일정",
     "kindFolder": "폴더 감시",
+    "kindEvent": "이벤트",
+    "whenEvent": "이벤트가 도착하면",
     "runs": "{{agent}} 실행",
     "next": "다음 실행: {{when}}",
     "nextNone": "다음 실행: 없음",

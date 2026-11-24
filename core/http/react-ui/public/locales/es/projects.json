@@ -355,6 +355,8 @@
     "loopsNoneBody": "Un bucle mantiene activo un chat de este proyecto hasta terminar su tarea.",
     "kindSchedule": "Horario",
     "kindFolder": "Vigila una carpeta",
+    "kindEvent": "Evento",
+    "whenEvent": "Cuando llega un evento",
     "runs": "Ejecuta {{agent}}",
     "next": "Próxima ejecución: {{when}}",
     "nextNone": "Próxima ejecución: ninguna",

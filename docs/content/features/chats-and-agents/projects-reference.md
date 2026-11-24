@@ -567,7 +567,7 @@ The project page has a **Connections** tab and an **Automations** tab.
   asks which one answers. A project with no agent shows **New agent** instead,
   because a project agent must answer the messages. An archived project cannot
   add connections: **Connect** is off until you restore it.
-- **Automations** lists the triggers (schedule, folder or event, the agent, the next
+- **Automations** lists the triggers (schedule, folder or **Event** for an event trigger, the agent, the next
   run) and the loops of the project. Each trigger opens its own page and each
   loop opens its chat. **New trigger** opens the trigger form with the first
   agent of the project that can work already chosen, and, for a file trigger,

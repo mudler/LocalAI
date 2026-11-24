@@ -355,6 +355,8 @@
     "loopsNoneBody": "Un loop tiene attiva una chat di questo progetto finché il compito non è finito.",
     "kindSchedule": "Pianificazione",
     "kindFolder": "Controlla una cartella",
+    "kindEvent": "Evento",
+    "whenEvent": "Quando arriva un evento",
     "runs": "Avvia {{agent}}",
     "next": "Prossima esecuzione: {{when}}",
     "nextNone": "Prossima esecuzione: nessuna",
