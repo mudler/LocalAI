@@ -304,7 +304,7 @@ concurrency:
 
 ### Test, lint and E2E workflows cancel superseded master runs
 
-`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-ui-e2e.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml` and `ci-tools-tests.yaml` use this instead:
+`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-e2e-distributed.yml`, `tests-e2e-p2p.yml`, `tests-ui-e2e.yml`, `tests-ui-unit.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml`, `ci-tools-tests.yaml`, `backend-library.yml`, `model-library.yml`, `decision-images.yml` and `sandbox-tests.yml` use this instead (some use a group prefix without `ci-` or without the repository suffix):
 
 ```yaml
 concurrency:
