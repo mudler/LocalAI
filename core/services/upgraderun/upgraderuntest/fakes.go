@@ -115,6 +115,15 @@ type Starter struct {
 	byKey  map[string]string
 	actors []string
 	err    error
+	gate   chan struct{}
+}
+
+// Block holds every later start until gate is closed or the start's context
+// ends, as a starter whose operation is slow to be accepted.
+func (s *Starter) Block(gate chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gate = gate
 }
 
 // SetErr makes every start fail with err; nil starts again.
@@ -127,7 +136,17 @@ func (s *Starter) SetErr(err error) {
 // NewStarter starts jobs in jobs.
 func NewStarter(jobs *Jobs) *Starter { return &Starter{jobs: jobs, byKey: map[string]string{}} }
 
-func (s *Starter) Start(_ context.Context, actor string, it upgraderun.Item) (string, error) {
+func (s *Starter) Start(ctx context.Context, actor string, it upgraderun.Item) (string, error) {
+	s.mu.Lock()
+	gate := s.gate
+	s.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.actors = append(s.actors, actor)

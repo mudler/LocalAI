@@ -92,13 +92,32 @@ type fakeStarter struct {
 	order  []string
 	actors []string
 	err    error
+	// gate, when set, holds every start until it is closed.
+	gate chan struct{}
+}
+
+// block holds every later start until gate is closed.
+func (s *fakeStarter) block(gate chan struct{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.gate = gate
 }
 
 func newFakeStarter(jobs *fakeJobs) *fakeStarter {
 	return &fakeStarter{jobs: jobs, byKey: map[string]string{}}
 }
 
-func (s *fakeStarter) Start(_ context.Context, actor string, it Item) (string, error) {
+func (s *fakeStarter) Start(ctx context.Context, actor string, it Item) (string, error) {
+	s.mu.Lock()
+	gate := s.gate
+	s.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {

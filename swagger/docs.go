@@ -3492,6 +3492,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/contract.Result"
                         }
                     },
+                    "202": {
+                        "description": "Operation accepted and handed to an upgrade run that did not start it within the wait; the payload has run and runId but no jobId, and the run starts the recorded operation later",
+                        "schema": {
+                            "$ref": "#/definitions/contract.Result"
+                        }
+                    },
                     "400": {
                         "description": "Malformed request",
                         "schema": {
@@ -15909,6 +15915,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/localai.ModelUpgradeRunResponse"
                         }
                     },
+                    "202": {
+                        "description": "The run did not get the operation accepted in time; it starts it later (code pending)",
+                        "schema": {
+                            "$ref": "#/definitions/localai.SingleUpgradePending"
+                        }
+                    },
                     "404": {
                         "description": "Not installed",
                         "schema": {
@@ -19846,6 +19858,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.BackendResponse"
                         }
                     },
+                    "202": {
+                        "description": "An upgrade run took the request and did not get the operation accepted in time; it starts it later (code pending)",
+                        "schema": {
+                            "$ref": "#/definitions/localai.SingleUpgradePending"
+                        }
+                    },
                     "403": {
                         "description": "Backend installation is disabled on this server (code backend_install_disabled)",
                         "schema": {
@@ -20114,6 +20132,12 @@ const docTemplate = `{
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    },
+                    "202": {
+                        "description": "An upgrade run took the request and did not get the operation accepted in time; it starts it later (code pending)",
+                        "schema": {
+                            "$ref": "#/definitions/localai.SingleUpgradePending"
                         }
                     },
                     "403": {
@@ -27275,6 +27299,24 @@ const docTemplate = `{
                 },
                 "split_server": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.SingleUpgradePending": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "description": "Code is always \"pending\".",
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "run": {
+                    "$ref": "#/definitions/upgraderun.Run"
+                },
+                "run_id": {
+                    "type": "string"
                 }
             }
         },

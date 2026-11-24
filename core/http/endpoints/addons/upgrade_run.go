@@ -250,19 +250,20 @@ const ctxUpdateRequest = "addon.update.request"
 // operation ID to a run of one item, and answers as queueUpgrade does, with
 // the run added. A run that cannot start drops the record, so the add-on is
 // free again.
-func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.Service, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, error) {
+func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.Service, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, int, error) {
 	var view map[string]any
 	if json.Unmarshal(status, &view) != nil {
-		return nil, errors.New("unreadable operation status")
+		return nil, 0, errors.New("unreadable operation status")
 	}
 	// A repeated request answers the recorded operation and queues nothing.
 	if phase, _ := view["Phase"].(string); phase != "accepted" {
-		return status, nil
+		return status, 0, nil
 	}
 	ctx := c.Request().Context()
 	req, _ := c.Get(ctxUpdateRequest).(*UpgradeRequest)
 	if req == nil {
-		return queueUpgrade(g, s, a, id, opID, status)
+		data, err := queueUpgrade(g, s, a, id, opID, status)
+		return data, 0, err
 	}
 	key := recordedKey(a, id, req.ExpectedDigest, req.CandidateDigest)
 	s.upgrader.expect(key, opID)
@@ -275,33 +276,39 @@ func runUpgrade(c echo.Context, g *gateway.Gateway, s settings, svc *upgraderun.
 	case "":
 	case upgraderun.CodeRunActive:
 		drop()
-		return nil, &afterRefusal{status: http.StatusConflict, kind: upgraderun.CodeRunActive, message: "Another upgrade run is running. Wait for it to end, or cancel it, and upgrade again"}
+		return nil, 0, &afterRefusal{status: http.StatusConflict, kind: upgraderun.CodeRunActive, message: "Another upgrade run is running. Wait for it to end, or cancel it, and upgrade again"}
 	case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked, upgraderun.CodeStale:
 		// The run's check does not list the add-on as the owner just did
 		// (the check is older, or this frontend does not list add-ons): the
 		// owner accepted the upgrade, so queue it as before.
 		s.upgrader.take(key)
-		return queueUpgrade(g, s, a, id, opID, status)
+		data, err := queueUpgrade(g, s, a, id, opID, status)
+		return data, 0, err
 	default:
 		drop()
-		return nil, err
+		return nil, 0, err
+	}
+	out := upgraderun.SingleOutcome(run, item)
+	answer := http.StatusOK
+	switch out.State {
+	case upgraderun.SingleRefused:
+		drop()
+		return nil, 0, &afterRefusal{status: http.StatusConflict, kind: out.ErrorKey, message: out.Error}
+	case upgraderun.SingleStarted:
+		view["jobId"] = out.JobID
+	case upgraderun.SinglePending:
+		// The run keeps the recorded operation and starts it later: the
+		// answer has the run to follow and no job yet.
+		answer = http.StatusAccepted
 	}
 	// The actor names the user only; the credential reference it carries
 	// stays on the server.
+	run = out.Run
 	run.Actor = RunActorUser(run.Actor)
 	view["run"] = run
-	switch {
-	case item.JobID != "":
-		view["jobId"] = item.JobID
-	case item.Phase.Terminal():
-		drop()
-		kind := item.ErrorKey
-		if kind == "" {
-			kind = upgraderun.ErrKeyUpgradeFailed
-		}
-		return nil, &afterRefusal{status: http.StatusConflict, kind: kind, message: item.Error}
-	}
-	return json.Marshal(view)
+	view["runId"] = run.ID
+	data, err := json.Marshal(view)
+	return data, answer, err
 }
 
 // GatewayUpdateChecker lists the add-ons with an update for upgrade runs

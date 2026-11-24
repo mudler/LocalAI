@@ -3,7 +3,6 @@ package inproc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/backendupdates"
@@ -150,7 +149,7 @@ func (c *Client) upgradeOneViaRun(ctx context.Context, kind upgraderun.Kind, nam
 	if svc == nil {
 		return "", false, nil
 	}
-	_, item, err := svc.StartOne(ctx, c.runActor(ctx), upgraderun.StartItem{Kind: kind, Name: name}, upgraderun.SourceManual, 0)
+	run, item, err := svc.StartOne(ctx, c.runActor(ctx), upgraderun.StartItem{Kind: kind, Name: name}, upgraderun.SourceManual, 0)
 	switch upgraderun.CodeOf(err) {
 	case "":
 	case upgraderun.CodeNoUpdate, upgraderun.CodeSourceUnchecked, upgraderun.CodeStale:
@@ -158,8 +157,8 @@ func (c *Client) upgradeOneViaRun(ctx context.Context, kind upgraderun.Kind, nam
 	default:
 		return "", true, err
 	}
-	if item.JobID == "" && item.Phase.Terminal() {
-		return "", true, fmt.Errorf("%s: %s", item.ErrorKey, item.Error)
-	}
-	return item.JobID, true, nil
+	out := upgraderun.SingleOutcome(run, item)
+	// A pending start has no job yet: the error names the run to follow, so
+	// the Assistant never says the upgrade started.
+	return out.JobID, true, out.Err()
 }

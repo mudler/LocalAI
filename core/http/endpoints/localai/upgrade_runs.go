@@ -424,6 +424,26 @@ type SingleUpgradeAnswer func(c echo.Context, jobID string, run upgraderun.Run) 
 
 // singleRefusal is the refusal of a single upgrade route that a run answered:
 // the error text the route always had, with a stable code.
+// SingleUpgradePending is the answer of a single upgrade route whose run did
+// not get the operation accepted within the wait (202). The run goes on and
+// starts the item; follow it at GET /api/updates/runs/{run_id}.
+type SingleUpgradePending struct {
+	// Code is always "pending".
+	Code    string          `json:"code"`
+	Message string          `json:"message"`
+	RunID   string          `json:"run_id"`
+	Run     *upgraderun.Run `json:"run,omitempty"`
+}
+
+// singlePending answers a run of one item that has no operation yet.
+func singlePending(c echo.Context, out upgraderun.SingleResult) error {
+	run := publicRun(out.Run)
+	return c.JSON(http.StatusAccepted, SingleUpgradePending{
+		Code: string(upgraderun.SinglePending), RunID: out.RunID, Run: &run,
+		Message: "the upgrade waits in an upgrade run and has no operation yet; follow the run",
+	})
+}
+
 func singleRefusal(c echo.Context, status int, code, msg string) error {
 	return c.JSON(status, map[string]any{"error": msg, "code": code})
 }
@@ -477,14 +497,14 @@ func BackendUpgradeViaRun(d UpgradeRunDeps, guard *BackendUpgradeGuard, legacy e
 		default:
 			return runRefusal(c, err)
 		}
-		if item.JobID == "" && item.Phase.Terminal() {
-			code := item.ErrorKey
-			if code == "" {
-				code = upgraderun.ErrKeyUnknown
-			}
-			return singleRefusal(c, http.StatusConflict, code, item.Error)
+		out := upgraderun.SingleOutcome(run, item)
+		switch out.State {
+		case upgraderun.SingleRefused:
+			return singleRefusal(c, http.StatusConflict, out.ErrorKey, out.Error)
+		case upgraderun.SinglePending:
+			return singlePending(c, out)
 		}
-		return answer(c, item.JobID, publicRun(run))
+		return answer(c, out.JobID, publicRun(out.Run))
 	}
 }
 

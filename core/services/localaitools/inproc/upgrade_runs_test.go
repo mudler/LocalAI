@@ -79,6 +79,20 @@ var _ = Describe("Upgrade runs through the in-process client", func() {
 		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
 	})
 
+	It("never says started without a job: a start that waits out answers with the run", func() {
+		gate := make(chan struct{})
+		DeferCleanup(func() { close(gate) })
+		h.Starter.Block(gate)
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		job, err := c.UpgradeBackend(ctx, "kokoro")
+		Expect(job).To(BeEmpty())
+		var pending *upgraderun.PendingError
+		Expect(errors.As(err, &pending)).To(BeTrue(), "%v", err)
+		Expect(pending.RunID).NotTo(BeEmpty())
+		Expect(err.Error()).To(ContainSubstring(pending.RunID))
+	})
+
 	It("never upgrades directly beside a run: a backend the run does not list, a model with options, a model retry", func() {
 		_, err := c.UpgradeBackend(context.Background(), "kokoro")
 		Expect(err).NotTo(HaveOccurred())

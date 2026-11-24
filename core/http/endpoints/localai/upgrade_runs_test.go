@@ -488,6 +488,31 @@ var _ = Describe("Single upgrade routes as runs of one item", func() {
 		Expect(legacyBody).To(ContainSubstring(`"expected_to":"v5"`), "the guard leaves the body readable for the handler")
 	})
 
+	DescribeTable("answers 202 with the run, and no job, when the operation is not accepted within the wait",
+		func(path string) {
+			gate := make(chan struct{})
+			DeferCleanup(func() { close(gate) })
+			h.Starter.Block(gate)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			defer cancel()
+			req := httptest.NewRequest(http.MethodPost, path, nil).WithContext(ctx)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusAccepted), rec.Body.String())
+			var body SingleUpgradePending
+			Expect(json.Unmarshal(rec.Body.Bytes(), &body)).To(Succeed())
+			Expect(body.Code).To(Equal("pending"))
+			Expect(body.RunID).NotTo(BeEmpty())
+			Expect(body.Run).NotTo(BeNil())
+			Expect(body.Run.ID).To(Equal(body.RunID))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("started"))
+			Expect(rec.Body.String()).NotTo(ContainSubstring(`"jobID"`))
+			Expect(legacy).To(BeZero())
+		},
+		Entry("POST /api/backends/upgrade/{name}", "/api/backends/upgrade/kokoro"),
+		Entry("POST /backends/upgrade/{name}", "/backends/upgrade/kokoro"),
+	)
+
 	It("answers 409 with the error key when the item could not start", func() {
 		h.Starter.SetErr(&upgraderun.StartError{ErrorKey: "download", Err: errors.New("registry down")})
 		rec := doJSON(e, http.MethodPost, "/api/backends/upgrade/kokoro", nil)

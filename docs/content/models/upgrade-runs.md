@@ -558,6 +558,13 @@ runs and the check of the run does not list the item (it was not checked yet,
 or an older listing), or the server keeps no runs, they queue the upgrade
 directly, as before.
 
+Each route waits up to 30 seconds for the run to get the operation accepted.
+When the wait ends first, the route answers `202` with code `pending`,
+`run_id` and `run`, and no job: the run goes on and starts the item later.
+Follow it with `GET /api/updates/runs/{run_id}`. The add-on route answers
+`202` with the operation status, `run` and `runId` in the payload, and no
+`jobId`; the run then runs the operation the route recorded.
+
 A model upgrade with `config_only` or `choices`, and a model retry
 (`POST /api/models/{name}/upgrade/retry`), are always direct: a run makes no
 such choice. While a run runs, they are refused with `409` `run_active` too.
@@ -580,7 +587,9 @@ starts, reads and cancels runs of backends and models:
 
 The assistant asks you to confirm before it starts or cancels a run.
 `upgrade_backend` and `upgrade_model` still upgrade one item; they start a run
-of one item too. `upgrade_backend` refuses a backend that is not installed or
+of one item too. When the run did not start the operation within the wait,
+they answer with an error that names the run to follow, never a job.
+`upgrade_backend` refuses a backend that is not installed or
 has no update before it starts anything, as the REST routes do. While a run
 runs, every upgrade from the assistant (also `upgrade_model` with the actions
 `config_only` and `retry`) is refused with `run_active`.

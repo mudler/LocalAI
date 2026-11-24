@@ -141,6 +141,7 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
 // @Tags backends
 // @Param request body GalleryBackend true "query params"
 // @Success 200 {object} schema.BackendResponse "Response"
+// @Success 202 {object} SingleUpgradePending "An upgrade run took the request and did not get the operation accepted in time; it starts it later (code pending)"
 // @Failure 403 {object} map[string]interface{} "Backend installation is disabled on this server (code backend_install_disabled)"
 // @Failure 409 {object} map[string]interface{} "Hardware-specific build in distributed mode (code concrete_backend_requires_target)"
 // @Router /backends/apply [post]
@@ -343,6 +344,7 @@ func (mgs *BackendEndpointService) UpgradeGuard() *BackendUpgradeGuard {
 // @Param name path string true "Backend name"
 // @Param expected_to query string false "The version or digest the caller wants; refused with code stale when it is no longer the available one"
 // @Success 200 {object} schema.BackendResponse "Response"
+// @Success 202 {object} SingleUpgradePending "An upgrade run took the request and did not get the operation accepted in time; it starts it later (code pending)"
 // @Failure 403 {object} map[string]interface{} "Backend installation is disabled on this server (code backend_install_disabled)"
 // @Failure 404 {object} map[string]interface{} "The backend is not installed (code not_installed)"
 // @Failure 409 {object} map[string]interface{} "The backend has no pending upgrade (code no_update) or the requested build is no longer the available one (code stale)"

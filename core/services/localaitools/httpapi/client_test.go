@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/schema"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 )
 
 // fakeLocalAI is a minimal HTTP server that mimics the relevant LocalAI
@@ -161,6 +162,26 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			Expect(hits).To(HaveLen(1))
 			Expect(hits[0].Name).To(Equal("qwen2.5-7b-instruct"))
 			Expect(containsTagExact(hits[0].Tags, "chat")).To(BeTrue())
+		})
+	})
+
+	Describe("a single upgrade that an upgrade run did not start in time", func() {
+		It("answers with the run, never a job, for a backend and a model", func() {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				_, _ = w.Write([]byte(`{"code":"pending","message":"waits","run_id":"run-7","run":{"id":"run-7"}}`))
+			}))
+			defer srv.Close()
+			cl := New(srv.URL, "")
+			job, err := cl.UpgradeBackend(ctx, "kokoro")
+			Expect(job).To(BeEmpty())
+			var pending *upgraderun.PendingError
+			Expect(errors.As(err, &pending)).To(BeTrue(), "%v", err)
+			Expect(pending.RunID).To(Equal("run-7"))
+			job, err = cl.UpgradeModel(ctx, "tiny", false, nil)
+			Expect(job).To(BeEmpty())
+			Expect(errors.As(err, &pending)).To(BeTrue(), "%v", err)
 		})
 	})
 

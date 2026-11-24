@@ -92,6 +92,7 @@ type ModelUpgradeRunResponse struct {
 // @Param name path string true "Installed model name"
 // @Param request body schema.ModelUpgradeRequest false "Options"
 // @Success 200 {object} ModelUpgradeRunResponse "Operation, and the run when one started it"
+// @Success 202 {object} SingleUpgradePending "The run did not get the operation accepted in time; it starts it later (code pending)"
 // @Failure 404 {object} schema.ModelUpgradeError "Not installed"
 // @Failure 409 {object} schema.ModelUpgradeError "Running, held, edited keys need a choice, or another upgrade run runs (code run_active)"
 // @Failure 422 {object} schema.ModelUpgradeError "Not installed from a gallery with a recorded origin"
@@ -210,12 +211,12 @@ func upgradeModelViaRun(c echo.Context, d ModelUpgradeDeps, svc *upgraderun.Serv
 		}
 		return true, modelUpgradeError(c, err)
 	}
-	if item.JobID == "" && item.Phase.Terminal() {
-		code := item.ErrorKey
-		if code == "" {
-			code = upgraderun.ErrKeyUnknown
-		}
-		return true, c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: item.Error, Code: code})
+	out := upgraderun.SingleOutcome(run, item)
+	switch out.State {
+	case upgraderun.SingleRefused:
+		return true, c.JSON(http.StatusConflict, schema.ModelUpgradeError{Error: out.Error, Code: out.ErrorKey})
+	case upgraderun.SinglePending:
+		return true, singlePending(c, out)
 	}
 	run = publicRun(run)
 	return true, c.JSON(http.StatusOK, ModelUpgradeRunResponse{
