@@ -1,0 +1,4 @@
+grpcio==1.85.0
+protobuf
+certifi
+packaging==26.3

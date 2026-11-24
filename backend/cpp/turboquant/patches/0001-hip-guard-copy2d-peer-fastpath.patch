@@ -1,0 +1,23 @@
+hip: port the turboquant CUDA additions that ggml's HIP shim doesn't cover
+
+The turboquant fork creates backend events with plain cudaEventCreate,
+which ggml's HIP shim does not alias (it only aliases
+cudaEventCreateWithFlags). Use cudaEventCreateWithFlags(...,
+cudaEventDisableTiming), exactly as the rest of this file does.
+
+CUDA builds are unaffected. Drop this patch once the fork HIP-ports the
+event creation; apply-patches.sh fails fast if the anchor goes stale.
+
+diff --git a/ggml/src/ggml-cuda/ggml-cuda.cu b/ggml/src/ggml-cuda/ggml-cuda.cu
+index 7d35c1a..2908acb 100644
+--- a/ggml/src/ggml-cuda/ggml-cuda.cu
++++ b/ggml/src/ggml-cuda/ggml-cuda.cu
+@@ -5795,7 +5795,7 @@ static ggml_backend_event_t ggml_backend_cuda_device_event_new(ggml_backend_dev_
+     ggml_cuda_set_device(dev_ctx->device);
+ 
+     cudaEvent_t event;
+-    CUDA_CHECK(cudaEventCreate(&event));
++    CUDA_CHECK(cudaEventCreateWithFlags(&event, cudaEventDisableTiming));
+ 
+     return new ggml_backend_event {
+         /* .device  = */ dev,

@@ -1,0 +1,405 @@
+// SPDX-License-Identifier: MIT
+
+// Package tools is the runtime of the sandbox add-on executable. It serves
+// bash, run in the sandbox of the user and the conversation the host names. It
+// is an action tool: it runs at once, as the user, and what it changes in the
+// user's files is one change set that can be undone. Reading and changing
+// files are the chat's own file tools: the Sandbox only isolates execution.
+package tools
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"regexp"
+	"time"
+
+	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
+)
+
+// Tools are the action tools a model may call in a chat: bash only.
+var Tools = []string{"bash"}
+
+// MaxTimeout bounds a bash call: below the host's action timeout, with room
+// to commit and answer.
+const MaxTimeout = 28 * time.Minute
+
+// ShadowedTool is the built-in chat tool that the add-on's bash replaces: in
+// a chat with the Sandbox on and running, the model sees one bash, served
+// here.
+const ShadowedTool = "bash"
+
+// NetworkNote ends the description of bash: the guest reaches the network
+// only through the proxy, and only the hosts the chat allows.
+const NetworkNote = " Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages."
+
+// Runs returns the tools a sandbox runs. The manifest caps a description at
+// 400 characters, so the text is short: where the shell starts, how to name
+// paths, what is saved and the network.
+func Runs(acquire runner.Acquire) []runner.Tool {
+	desc := "Run bash. " + workfiles.ShellHintShort + " Only " + runner.GuestHome + " is saved." + NetworkNote
+	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout, Description: desc})}
+}
+
+// The settings tools. status is offered to everyone; set-backend and
+// confirm-host are for the Settings page only (UIOnly), so no model is offered
+// them, and each asks the host whether the caller is an administrator.
+const (
+	ToolExecutionStatus = "execution-status"
+	ToolStatus          = "status"
+	ToolSetBackend      = "set-backend"
+	ToolConfirmHost     = "confirm-host"
+)
+
+// Declared is everything the manifest lists under capabilities.tools.
+func Declared() []string {
+	return append(append([]string{}, Tools...), ToolExecutionStatus, ToolStatus, ToolSetBackend, ToolConfirmHost, ToolJob)
+}
+
+// JobSchema is the arguments schema of the job tool: contract.JobArgs. The
+// host fills it; no model sees it.
+const JobSchema = `{"type":"object","properties":{` +
+	`"verb":{"type":"string","enum":["start","list","read","input","kill"]},` +
+	`"id":{"type":"string","maxLength":16},` +
+	`"command":{"type":"string"},` +
+	`"label":{"type":"string","maxLength":80},` +
+	`"since":{"type":"integer","minimum":0},` +
+	`"maxBytes":{"type":"integer","minimum":256,"maximum":65536},` +
+	`"observe":{"type":"boolean"},` +
+	`"input":{"type":"string","maxLength":2000},` +
+	`"closeInput":{"type":"boolean"},` +
+	`"signal":{"type":"string","enum":["term","int","kill"]},` +
+	`"reason":{"type":"string","enum":["stopped","chat_deleted","agent_ended","shell_off","group_off","fenced"]}},` +
+	`"required":["verb"],"additionalProperties":false}`
+
+// Settings is the choice of backend. *backends.Selector implements all but
+// Reset, which the add-on's main adds: it removes the sandboxes of the old
+// choice.
+type Settings interface {
+	Status() backends.Status
+	Set(backends.Setting) error
+	ConfirmHost(phrase string) error
+	Reset()
+}
+
+// ProfileInfo is what the status tool tells about the profile images. The
+// settings the add-on's main passes to New implement it when the add-on has
+// profiles.
+type ProfileInfo interface {
+	// ProfileStates is the state of the image of each profile.
+	ProfileStates(ctx context.Context) []profiles.State
+	// ChatSandbox is the profile and the image the sandbox of a chat runs.
+	ChatSandbox(user, conversation string) (profile, image string, ok bool)
+	// CurrentImage is the image of this release for a profile.
+	CurrentImage(profile string) string
+}
+
+// Admin tells whether the user of a request is an administrator. The host
+// answers; the add-on never decides it.
+type Admin interface {
+	IsAdmin(ctx context.Context, operationID string) bool
+}
+
+// maxAnswer bounds the text of an answer; the tools cut their own output at
+// 64 KiB, this is the margin for their notes.
+const maxAnswer = runner.MaxOutput + 4<<10
+
+// Runner runs a tool call in its sandbox. *runner.Manager implements it.
+type Runner interface {
+	Run(ctx context.Context, r runner.Request) (string, error)
+}
+
+var _ Runner = (*runner.Manager)(nil)
+
+var operationShape = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+type runtime struct {
+	run      Runner
+	settings Settings
+	admin    Admin
+	jobs     *jobTable
+}
+
+// New returns the runtime of the executable. settings and admin may be nil:
+// the settings tools then refuse. A runner that is also a JobRunner runs the
+// background jobs of the job tool.
+func New(r Runner, s Settings, a Admin, opts ...Option) contract.Runtime {
+	rt := &runtime{run: r, settings: s, admin: a, jobs: newJobTable(r)}
+	for _, o := range opts {
+		o(rt)
+	}
+	return rt
+}
+
+// Close stops every sandbox the runner holds. The add-on process calls it
+// before it exits: a gVisor sandbox is detached from the process that started
+// it and would otherwise stay on the host. (A VM of the vz backend stops with
+// the process either way.)
+func (r *runtime) Close(ctx context.Context) error {
+	if c, ok := r.run.(interface{ Close(context.Context) error }); ok {
+		return c.Close(ctx)
+	}
+	return nil
+}
+
+var errNoTool = errors.New("this tool is not served by the sandbox add-on")
+
+// Execution is what the add-on declares about its bash tool: the host names the
+// provider by this title, tells the model the note when commands are isolated,
+// and offers the document skills of this package only while the status says so.
+func Execution() *contract.ExecutionDescriptor {
+	return &contract.ExecutionDescriptor{
+		Class:  contract.ExecutionClassCommands,
+		Title:  "Sandbox",
+		Skills: &contract.ExecutionSkills{ProvidesRuntimeFor: []string{contract.SkillKindDocuments}},
+		// The note of the programs is built from the profile of the chat.
+		Profiles: profiles.Declared(),
+	}
+}
+
+// Definitions returns what a model sees of each tool. They come from the code
+// tools themselves, with the strictness the contract asks of an arguments
+// schema.
+func Definitions() []contract.ToolDefinition {
+	var out []contract.ToolDefinition
+	for _, t := range Runs(nil) {
+		var schema map[string]any
+		if err := json.Unmarshal(t.Schema, &schema); err != nil {
+			panic(err)
+		}
+		schema["additionalProperties"] = false
+		raw, err := json.Marshal(schema)
+		if err != nil {
+			panic(err)
+		}
+		def := contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw}
+		if t.Name == ShadowedTool {
+			def.Shadows = ShadowedTool
+			def.Execution = Execution()
+		}
+		out = append(out, def)
+	}
+	// The two settings tools have a definition so that the host runs them as
+	// reads without a resource, which the Settings page needs. UIOnly keeps
+	// them from every model; the add-on still asks the host whether the caller
+	// is an administrator.
+	return append(out, contract.ToolDefinition{
+		Name: ToolExecutionStatus, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Report typed execution readiness and isolation.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		Name: ToolStatus, Kind: contract.ToolKindRead,
+		Description: "Say whether this host can run commands in a sandbox now, which backend runs them, and the state of the image of each sandbox profile.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"conversation":{"type":"string","maxLength":128}},"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		Name: ToolSetBackend, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"backend":{"type":"string","enum":["auto","gvisor","kvm","vz","host","off"]}},"required":["backend"],"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		Name: ToolConfirmHost, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{"phrase":{"type":"string"}},"required":["phrase"],"additionalProperties":false}`),
+	}, contract.ToolDefinition{
+		// The background jobs of the host's job tool (ExecutionProvider.Jobs).
+		// An action tool, because a job runs code as the user; page-only, so
+		// no model is offered it.
+		Name: ToolJob, Kind: contract.ToolKindAction, UIOnly: true,
+		Description: "Background jobs of the chat: start, list, read, input, kill. The host's job tool calls it; no model does.",
+		InputSchema: json.RawMessage(JobSchema),
+	})
+}
+
+// ExecutionProvider is what the manifest declares under
+// capabilities.executionProvider: bash runs commands, execution-status tells
+// whether it can, and the job tool runs background jobs (feature level 6).
+func ExecutionProvider() *contract.ExecutionProvider {
+	return &contract.ExecutionProvider{Tools: append([]string{}, Tools...), StatusTool: ToolExecutionStatus, Jobs: &contract.ExecutionJobs{Tool: ToolJob}}
+}
+
+// Read serves the settings tools.
+func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
+	var a struct {
+		Tool         string `json:"tool"`
+		Backend      string `json:"backend"`
+		Phrase       string `json:"phrase"`
+		Conversation string `json:"conversation"`
+	}
+	if json.Unmarshal(env.Request.Arguments, &a) != nil {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	// The model calls the status tool with no arguments; the page names the
+	// tool it wants.
+	if a.Tool == "" {
+		a.Tool = ToolStatus
+	}
+	op := env.Request.OperationID
+	if !operationShape.MatchString(op) {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	refuse := func(msg string) (contract.Result, error) {
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": msg})}, nil
+	}
+	// The typed observation is callback-free, including administrator lookups.
+	if a.Tool == ToolExecutionStatus {
+		status := contract.ExecutionStatus{Readiness: "unknown", Isolation: "unknown"}
+		// The add-on starts without settings only when it could not read them
+		// or start its manager: it can run nothing, and says so.
+		if r.settings == nil {
+			status.Readiness, status.Explanation = "unavailable", "The Sandbox could not start."
+		} else {
+			switch r.settings.Status().Active {
+			case "gvisor", "kvm", "vz":
+				status.Readiness, status.Isolation = "available", "isolated"
+				// The guest has no network device: its connections reach the
+				// network only through the proxy that asks the host.
+				status.NetworkPolicyEnforced = true
+			case "host":
+				status.Readiness, status.Isolation = "available", "host"
+			case "":
+				status.Readiness = "unavailable"
+				status.Explanation = "No execution backend is available."
+			default:
+				status.Explanation = "The active execution backend is not recognized."
+			}
+		}
+		return contract.Result{Payload: protocol.Payload(status)}, nil
+	}
+	admin := r.admin != nil && r.admin.IsAdmin(ctx, op)
+	switch a.Tool {
+	case ToolStatus:
+		if r.settings == nil {
+			return refuse("the sandbox is not set up")
+		}
+		st := r.settings.Status()
+		out := map[string]any{"ok": true, "canRun": st.Active != "", "setting": st.Setting, "active": st.Active, "hostNotice": st.HostNotice, "admin": admin}
+		if admin {
+			out["backends"], out["hostConfirmed"], out["note"] = st.Backends, st.HostConfirmed, st.Note
+		}
+		if pi, ok := r.settings.(ProfileInfo); ok {
+			out["profiles"] = pi.ProfileStates(ctx)
+			// The sandbox of the caller's own chat: the user is the actor of
+			// the request, so a chat of somebody else is not found.
+			if a.Conversation != "" {
+				if prof, img, found := pi.ChatSandbox(env.Authority.Actor.UserID, a.Conversation); found {
+					out["chat"] = map[string]any{"profile": prof, "newerImage": img != "" && pi.CurrentImage(prof) != "" && pi.CurrentImage(prof) != img}
+				}
+			}
+		}
+		return contract.Result{Payload: protocol.Payload(out)}, nil
+	case ToolSetBackend, ToolConfirmHost:
+		if r.settings == nil || !admin {
+			return refuse("only an administrator can change this setting")
+		}
+		var err error
+		if a.Tool == ToolSetBackend {
+			if err = r.settings.Set(backends.Setting(a.Backend)); err == nil {
+				// The sandboxes of the old choice are gone; what they did is
+				// already in the users' files.
+				r.settings.Reset()
+			}
+		} else {
+			err = r.settings.ConfirmHost(a.Phrase)
+		}
+		if err != nil {
+			return refuse(err.Error())
+		}
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true})}, nil
+	}
+	return contract.Result{}, protocol.ErrBadRequest
+}
+
+func (*runtime) Preview(context.Context, contract.Envelope) (contract.Preview, error) {
+	return contract.Preview{}, errNoTool
+}
+
+func (*runtime) Apply(context.Context, contract.Envelope, contract.Revision) (contract.Receipt, error) {
+	return contract.Receipt{}, errNoTool
+}
+
+func (*runtime) Receipt(context.Context, string) (contract.Receipt, error) {
+	return contract.Receipt{}, errNoTool
+}
+
+func (*runtime) OpenOutput(context.Context, contract.Envelope, string) (io.ReadCloser, error) {
+	return nil, errNoTool
+}
+
+var _ contract.ActRuntime = (*runtime)(nil)
+
+// Act serves a tool. The user is the actor of the request; the conversation is
+// the one the host put in ResourceID from the chat's own turn. Neither comes
+// from the model's arguments.
+func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Result, error) {
+	var a map[string]json.RawMessage
+	if json.Unmarshal(env.Request.Arguments, &a) != nil {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	var tool string
+	if json.Unmarshal(a["tool"], &tool) != nil || tool == "" {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	if tool == ToolJob {
+		return r.actJob(ctx, env, a)
+	}
+	known := false
+	for _, t := range Tools {
+		known = known || t == tool
+	}
+	op := env.Request.OperationID
+	user, conv := env.Authority.Actor.UserID, env.Request.ResourceID
+	if !known || user == "" || conv == "" || !operationShape.MatchString(op) {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	delete(a, "tool")
+	// What the host decided for this call (the profile, the pin and the caps)
+	// is not an argument of the tool. A malformed value is refused rather than
+	// ignored: the call would run in an environment nobody chose.
+	var call sandbox.CallOptions
+	if raw, ok := a[sandbox.CallArgKey]; ok {
+		if json.Unmarshal(raw, &call) != nil {
+			return contract.Result{}, protocol.ErrBadRequest
+		}
+		delete(a, sandbox.CallArgKey)
+	}
+	args, _ := json.Marshal(a)
+	out, err := r.run.Run(ctx, runner.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: bytes.TrimSpace(args), Call: call})
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		return contract.Result{}, err // the turn was stopped: the owner reads it as uncertain
+	case err != nil:
+		// Something the model can read and correct, or must wait for. Nothing
+		// is hidden: the sandbox's own message is the answer.
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": err.Error()})}, nil
+	}
+	if len(out) > maxAnswer {
+		out = out[:maxAnswer] + "\n[output cut]"
+	}
+	return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "output": out})}, nil
+}
+
+// actJob serves the job tool. The user and the chat come from the envelope,
+// as for bash; the arguments are contract.JobArgs from the host.
+func (r *runtime) actJob(ctx context.Context, env contract.Envelope, a map[string]json.RawMessage) (contract.Result, error) {
+	op := env.Request.OperationID
+	user, conv := env.Authority.Actor.UserID, env.Request.ResourceID
+	if user == "" || conv == "" || !operationShape.MatchString(op) {
+		return contract.Result{}, protocol.ErrBadRequest
+	}
+	delete(a, "tool")
+	var call sandbox.CallOptions
+	if raw, ok := a[sandbox.CallArgKey]; ok {
+		if json.Unmarshal(raw, &call) != nil {
+			return contract.Result{}, protocol.ErrBadRequest
+		}
+		delete(a, sandbox.CallArgKey)
+	}
+	return r.jobs.act(ctx, user, conv, op, call, a)
+}

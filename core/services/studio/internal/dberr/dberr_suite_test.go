@@ -1,0 +1,13 @@
+package dberr_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestDberr(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Dberr Suite")
+}

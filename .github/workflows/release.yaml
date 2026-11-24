@@ -1,0 +1,85 @@
+name: goreleaser
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    env:
+      WINDOWS_SIGN_PFX: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_SIGN_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The cutover. A tagged build reads the model gallery (localai) by default
+      # until this step runs; from here the tagged build reads the model library
+      # (official-models, gallery/models/index.yaml) and not the gallery.
+      # .goreleaser.yaml passes the value to the binary with -ldflags.
+      - name: Cut the default model source over to the library
+        run: echo "LOCALAI_MODEL_SOURCE=library" >> "$GITHUB_ENV"
+      # The same cutover for the backends: until this step runs, a tagged build
+      # reads the backend gallery (localai-backends, backend/index.yaml, which
+      # is generated from the backend library). From here it reads the backend
+      # library (official-backends, gallery/backends/index.yaml).
+      - name: Cut the default backend source over to the library
+        run: echo "LOCALAI_BACKEND_SOURCE=library" >> "$GITHUB_ENV"
+      # Optional Authenticode signing of the Windows server binary. The step
+      # and the signing hook do nothing unless the WINDOWS_CERTIFICATE secret
+      # (base64 of a PFX file) is set. See scripts/sign-windows.sh.
+      - name: Install osslsigncode
+        if: ${{ env.WINDOWS_SIGN_PFX != '' }}
+        run: sudo apt-get update && sudo apt-get install -y osslsigncode
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.11.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOS_SIGN_P12: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      # The release must carry the Windows server binary and list it in the
+      # checksum file, which install.ps1 needs.
+      - name: Check the Windows asset is in the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          asset="local-ai-${TAG}-windows-amd64.exe"
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset" ||
+            { echo "::error::release $TAG has no asset $asset"; exit 1; }
+          gh release download "$TAG" --pattern '*-checksums.txt' --output - |
+            grep -Eq "[[:space:]]\*?${asset//./\\.}\$" ||
+            { echo "::error::the checksum file of $TAG has no line for $asset"; exit 1; }
+  # The desktop launcher (Electron) and its update feed. Every release carries
+  # them: installed launchers read the feed from the newest release. The macOS
+  # app is always signed and notarized: a missing secret fails this job.
+  launcher-electron:
+    needs: goreleaser
+    permissions:
+      contents: write
+    uses: ./.github/workflows/launcher-electron-release.yaml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}

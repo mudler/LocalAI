@@ -1,0 +1,219 @@
+name: 'publish master server binaries'
+
+# Builds the LocalAI server binaries from master and publishes them to one
+# rolling pre-release tagged `dev-master`. The Development update channel of the
+# Electron launcher downloads them from there.
+#
+# The release is a pre-release and is never marked latest. GitHub's
+# `releases/latest` endpoint ignores pre-releases, so the stable launcher, the
+# install script and every "latest" download link keep resolving to the newest
+# `v*` release. release.yaml is not involved: it only runs on `v*` tags.
+#
+# Moving the `dev-master` tag does not start other workflows (image.yml and others
+# match every tag): the tag is moved with the workflow token, and events that
+# the workflow token creates do not start workflow runs.
+
+on:
+  push:
+    branches:
+      - master
+
+# Two master pushes never publish at once. A run that is waiting is replaced by
+# a newer one, so the newest push wins. A running run is not cancelled: a
+# cancelled publish step could leave the release with a mix of two builds.
+concurrency:
+  group: master-dev-binary-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_TAG: dev-master
+
+jobs:
+  # Same path filter as image.yml: gallery metadata, docs, examples and
+  # markdown never enter a binary, so a push confined to them is skipped.
+  changes:
+    if: github.repository == 'mudler/LocalAI' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.decide.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: decide
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          emit() { echo "$2"; echo "build=$1" >> "$GITHUB_OUTPUT"; exit 0; }
+          if [ -z "${BEFORE:-}" ] || [ "${BEFORE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            emit true "no resolvable base commit: building"
+          fi
+          files="$(git diff --name-only "${BEFORE}" "${AFTER}")"
+          echo "changed files:"; echo "${files:-<none>}"
+          [ -z "${files}" ] && emit true "empty diff: building"
+          # Consume every path so an early match cannot SIGPIPE echo under pipefail.
+          if echo "${files}" | grep -vE '^(gallery/|docs/|examples/)|\.md$' >/dev/null; then
+            emit true "push touches binary-visible content: building"
+          fi
+          emit false "only gallery/docs/markdown changed: skipping"
+
+  build:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # Same source cutover as the stable release (release.yaml): the binary
+      # reads the model library and the backend library.
+      - name: Read the model and backend libraries by default
+        run: |
+          echo "LOCALAI_MODEL_SOURCE=library" >> "$GITHUB_ENV"
+          echo "LOCALAI_BACKEND_SOURCE=library" >> "$GITHUB_ENV"
+      # Name the build like `git describe` does in the Makefile. The moving
+      # `dev-master` tag does not match `v*`, so the version comes from the last release.
+      - name: Set the build version
+        run: echo "GORELEASER_CURRENT_TAG=$(git describe --tags --match 'v*' --always)" >> "$GITHUB_ENV"
+      # Same build definition as the stable release (.goreleaser.yaml): the
+      # `local-ai` build for linux/amd64, linux/arm64 and darwin/arm64. A
+      # snapshot build does not publish, sign or notarize anything.
+      - name: Build the server binaries
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.11.0
+          args: build --snapshot --clean --id local-ai
+      - name: Name the binaries and compute the checksums
+        run: |
+          set -euo pipefail
+          mkdir -p upload
+          jq -r '.[] | select(.type == "Binary" and .extra.ID == "local-ai") | [.goos, .goarch, .path] | @tsv' release/artifacts.json |
+          while IFS="$(printf '\t')" read -r os arch path; do
+            name="local-ai-master-${os}-${arch}"
+            [ "${os}" = "windows" ] && name="${name}.exe"
+            cp "${path}" "upload/${name}"
+            chmod +x "upload/${name}"
+            (cd upload && sha256sum "${name}" > "${name}.sha256")
+          done
+          # Every built binary contributes the binary and its checksum file.
+          # The count follows the build matrix, which grows with every OS.
+          binaries=$(jq '[.[] | select(.type == "Binary" and .extra.ID == "local-ai")] | length' release/artifacts.json)
+          test "$binaries" -gt 0
+          test "$(ls upload | wc -l)" -eq "$((binaries * 2))"
+          ls -l upload
+      - uses: actions/upload-artifact@v7
+        with:
+          name: master-server-binaries
+          path: upload/
+          if-no-files-found: error
+          retention-days: 7
+
+  # The only job with write access. It checks out no code and runs nothing
+  # from the repository: it downloads the artifact of the build job, verifies
+  # the checksums and talks to the GitHub API.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: master-server-binaries
+          path: upload
+      - name: Verify the checksums
+        working-directory: upload
+        run: |
+          set -euo pipefail
+          # Each binary has exactly one checksum file and nothing else.
+          binaries=$(find . -maxdepth 1 -type f ! -name '*.sha256' | wc -l)
+          test "$binaries" -gt 0
+          test "$(ls | wc -l)" -eq "$((binaries * 2))"
+          sha256sum --check --strict ./*.sha256
+      - name: Move the tag and write the release notes
+        run: |
+          set -euo pipefail
+          # Move the tag to the built commit. Create it the first time.
+          # GITHUB_TOKEN cannot move a ref across a diff that touches
+          # .github/workflows (HTTP 403, no workflows permission). Then try to
+          # recreate the tag. If that fails too, keep going so the assets are
+          # still published, and fail the job at the end.
+          ref="repos/${GH_REPO}/git/refs"
+          if gh api "repos/${GH_REPO}/git/ref/tags/${RELEASE_TAG}" >/dev/null 2>&1; then
+            if ! gh api --method PATCH "${ref}/tags/${RELEASE_TAG}" \
+                -f sha="${SHA}" -F force=true >/dev/null; then
+              echo "::warning::Tag update refused, recreating the tag"
+              gh api --method DELETE "${ref}/tags/${RELEASE_TAG}" || true
+              if ! gh api --method POST "${ref}" \
+                  -f ref="refs/tags/${RELEASE_TAG}" -f sha="${SHA}" >/dev/null; then
+                echo "TAG_MOVE_FAILED=1" >> "${GITHUB_ENV}"
+              fi
+            fi
+          else
+            gh api --method POST "${ref}" \
+              -f ref="refs/tags/${RELEASE_TAG}" -f sha="${SHA}" >/dev/null
+          fi
+          # The commit message is data: it goes into a file, never into a shell word.
+          gh api "repos/${GH_REPO}/commits/${SHA}" \
+            --jq '"Commit: \(.sha)\nDate: \(.commit.committer.date)\nSubject: \(.commit.message | split("\n")[0])\n\nThis is an unsupported development build of the master branch. Use a release for anything that matters."' \
+            > notes.md
+          cat notes.md
+      - name: Create or update the pre-release
+        run: |
+          set -euo pipefail
+          title="Development build ($(printf '%.7s' "${SHA}"))"
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" --prerelease --latest=false \
+              --title "${title}" --notes-file notes.md
+          else
+            gh release create "${RELEASE_TAG}" --verify-tag --prerelease --latest=false \
+              --title "${title}" --notes-file notes.md
+          fi
+      # Delete the old server assets first, then upload the new ones, as one
+      # unit that is retried. The files already passed the build, so a retry
+      # only repeats the transfer. Only local-ai-master-* names are deleted:
+      # launcher-electron-dev.yaml attaches its own files to this release.
+      - name: Replace the assets
+        run: |
+          set -euo pipefail
+          replace() {
+            gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' |
+              { grep '^local-ai-master-' || true; } |
+              while read -r asset; do
+                gh release delete-asset "${RELEASE_TAG}" "${asset}" --yes
+              done
+            gh release upload "${RELEASE_TAG}" upload/* --clobber
+          }
+          for attempt in 1 2 3 4 5; do
+            if replace; then
+              exit 0
+            fi
+            echo "attempt ${attempt} failed, retrying"
+            sleep $((attempt * 15))
+          done
+          echo "could not replace the release assets" >&2
+          exit 1
+      - name: Fail when the tag did not move
+        if: env.TAG_MOVE_FAILED == '1'
+        run: |
+          echo "::error::${RELEASE_TAG} still points at an older commit: GITHUB_TOKEN may not move it across workflow file changes. The assets were uploaded."
+          exit 1

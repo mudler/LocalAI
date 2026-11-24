@@ -1,0 +1,12 @@
+- alias: rerankers
+  capabilities:
+    amd: rocm-rerankers
+    intel: intel-rerankers
+    metal: metal-rerankers
+    nvidia: cuda12-rerankers
+  channel: latest
+  id: rerankers
+  kind: backend
+  name: rerankers
+  schemaVersion: 1
+  version: 0.0.0-latest

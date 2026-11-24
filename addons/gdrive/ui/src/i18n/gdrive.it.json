@@ -1,0 +1,90 @@
+{
+  "title": "Google Drive",
+  "intro": "Lascia che i tuoi agenti leggano i file nelle cartelle di Drive che indichi. Se lo permetti, possono anche creare e modificare file di testo al loro interno.",
+  "limits": "Scegli «Connetti con Google» per aggiungere una connessione e accedere al tuo account Google. Questa pagina imposta le cartelle e la modalità di scrittura di ogni connessione. Un agente lavora in Drive solo quando glielo chiedi in una chat.",
+  "edit": "Modifica la connessione a Google Drive",
+  "name": "Nome",
+  "folders": "Cartelle che l'agente può usare",
+  "foldersHelp": "Un ID o un indirizzo di cartella per riga. {{count}} indicate. Una cartella include tutto ciò che contiene. Ogni altro file viene rifiutato.",
+  "foldersShape": "\"{{entry}}\" non è un ID di cartella. Copialo dall'indirizzo della cartella nel browser, dopo /folders/.",
+  "foldersMany": "Al massimo 50 cartelle.",
+  "allFolders": {
+    "label": "Tutte le cartelle (Il mio Drive e Drive condivisi)",
+    "hint": "L'agente può leggere ogni file che il tuo accesso Google riesce a vedere, nel tuo Drive e nei Drive condivisi. Se è disattivato, usa solo le cartelle dell'elenco.",
+    "warning": "Così l'agente può leggere ogni file raggiungibile con il tuo accesso Google, non solo quelli di una cartella. La modalità di scrittura qui sotto resta valida.",
+    "confirm": "Ho capito: consenti tutte le cartelle",
+    "row": "Tutte le cartelle (Il mio Drive e Drive condivisi)"
+  },
+  "agent": "Agente",
+  "agentNone": "Scegli un agente",
+  "agentCredentialsOnly": "Nessun agente (solo credenziali)",
+  "agentOptionalHint": "Facoltativo. Senza un agente questa connessione conserva solo l'accesso, l'elenco delle cartelle e la modalità di scrittura per le tue chat. Non risponde ai messaggi e non resta in ascolto.",
+  "credentialsOnly": "Solo credenziali",
+  "agentNoModel": "{{name}} (serve un modello)",
+  "test": "Prova",
+  "testOk": "Connesso come {{bot}}.",
+  "checkFailed": "Salvato. La verifica non è riuscita: {{reason}}",
+  "save": "Salva",
+  "cancel": "Annulla",
+  "editButton": "Modifica",
+  "delete": "Elimina",
+  "empty": "Ancora nessuna connessione a Google Drive. Scegli «Connetti con Google» per aggiungerne una.",
+  "connect": "Connetti con Google",
+  "defaultName": "Google Drive",
+  "noFolders": "Nessuna cartella indicata: l'agente non può leggere nulla.",
+  "foldersOf": "{{count}} cartelle: {{list}}",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Non in esecuzione: {{reason}}.",
+  "confirmDelete": {
+    "title": "Eliminare {{name}}?",
+    "message": "L'agente non può più raggiungere queste cartelle. LocalAI chiede a Google di revocare l'accesso, poi lo dimentica.",
+    "confirm": "Elimina"
+  },
+  "setup": {
+    "title": "Come scegliere le cartelle",
+    "step1": "Apri la cartella in Google Drive nel browser. L'indirizzo finisce con /folders/ e l'ID della cartella.",
+    "step2": "Copia l'indirizzo intero, o solo l'ID, e incollalo nell'elenco. Usa root per la radice di Il mio Drive.",
+    "step3": "La modalità di scrittura qui sotto richiede anche l'accesso facoltativo che consenti al momento della connessione. Senza, l'agente può solo leggere."
+  },
+  "writeMode": {
+    "label": "Cosa può modificare l'agente in Drive",
+    "hint": "Creare un file di testo, sostituire il testo di un file, rinominare o spostare un file e spostare un file nel cestino. Non condivide mai un file e non ne elimina nessuno in modo definitivo.",
+    "off": "Sola lettura",
+    "propose": "Chiede prima a te",
+    "auto": "Consenti tutto",
+    "line": {
+      "off": "Non può modificare nulla in Drive.",
+      "propose": "Ogni modifica aspetta il tuo OK.",
+      "auto": "Le tue chat fanno la modifica subito."
+    },
+    "note": {
+      "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
+      "propose": "Ogni modifica aspetta nelle tue approvazioni finché non la confermi. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione.",
+      "auto": "Una tua chat fa ogni modifica subito, senza chiedere, e LocalAI non può annullarla. Le esecuzioni senza di te presente aspettano comunque la tua conferma. Serve anche l'accesso in scrittura facoltativo che consenti al momento della connessione."
+    },
+    "row": {
+      "off": "Sola lettura",
+      "propose": "Chiede prima a te",
+      "auto": "Consenti tutto"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-file": "Crea un file",
+      "update-file": "Modifica un file",
+      "move-file": "Sposta un file",
+      "trash-file": "Sposta un file nel cestino"
+    },
+    "file": "File",
+    "name": "Nome",
+    "newName": "Nuovo nome",
+    "in": "Nella cartella",
+    "allowedFolder": "La cartella che hai consentito",
+    "moveTo": "Sposta in",
+    "type": "Tipo",
+    "text": "Testo che verrà salvato ({{bytes}} byte)",
+    "cut": "Il testo mostrato qui è tagliato. Il testo completo, di {{bytes}} byte, viene salvato.",
+    "trashNote": "Il file va nel cestino. Da lì puoi ripristinarlo.",
+    "replaceNote": "Il nuovo testo sostituisce tutto il testo del file."
+  }
+}

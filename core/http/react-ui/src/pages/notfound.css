@@ -1,0 +1,15 @@
+/* The 404 page: the address that failed, a way home, and the sidebar's own
+   destinations. Flat, one primary action. */
+.nf { --dk-font-display: var(--font-sans); --dk-font-body: var(--font-sans); display: flex; flex-direction: column; align-items: flex-start; gap: var(--dk-space-3); padding-top: var(--dk-space-7); }
+.nf-code { margin: 0; font: var(--dk-weight-bold) var(--dk-text-44) / 1 var(--dk-font-mono); letter-spacing: -.02em; color: var(--dk-muted); }
+.nf-title { margin: 0; font: var(--dk-weight-bold) var(--dk-text-32) / 1.15 var(--dk-font-display); letter-spacing: -.02em; text-wrap: balance; }
+.nf-text { margin: 0; max-width: 56ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
+.nf-path { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); overflow-wrap: anywhere; }
+.nf-acts { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin-top: var(--dk-space-2); }
+.nf-places { margin-top: var(--dk-space-5); align-self: stretch; }
+.nf-h2 { margin: 0 0 var(--dk-space-2); font: var(--dk-weight-semibold) var(--dk-text-12) / 1.2 var(--dk-font-body); letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.nf-places ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.nf-place { display: inline-flex; align-items: center; gap: var(--dk-space-2); min-height: 36px; padding: 0 var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); color: var(--dk-text); font-size: var(--dk-text-13); font-weight: var(--dk-weight-semibold); text-decoration: none; transition: background-color var(--dk-dur-1) ease; }
+.nf-place:hover { background: var(--dk-hover); }
+.nf-place:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.nf-place .lai-icon { color: var(--dk-muted); }

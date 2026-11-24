@@ -1,0 +1,2 @@
+# tinygrad drives CUDA through its own JIT (CUDA=1 env var).
+# Requires the CUDA 12 runtime from the base image; no extra Python deps.

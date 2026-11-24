@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Two-stage retrieval</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Reranker</p>
+<h1>Two-stage <span class="hl">retrieval</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch;gap:0">
+ <div class="panel fl" style="padding:20px 22px"><h3>Stage 1: recall, fast</h3><div class="col"><div class="node " style=""><b>Question</b><span>from the user</span></div><div class="ar v" style="height:34px;margin:0 auto"></div><div class="node soft" style=""><b>Vector search</b><span>top-K candidates</span></div></div></div>
+ <div class="ar" style="width:70px"></div>
+ <div class="panel fl" style="padding:20px 22px"><h3>Stage 2: precision, reranker</h3><div class="col"><div class="node " style=""><b>Cross-encoder</b><span>scores each question and document pair</span></div><div class="ar v" style="height:34px;margin:0 auto"></div><div class="node soft" style=""><b>Reordered list</b><span>best documents first</span></div></div></div>
+ <div class="ar" style="width:70px"></div>
+ <div class="col" style="justify-content:center;width:230px"><div class="node core" style=""><b>Answer</b><span>grounded in the top documents</span></div></div></div>
+
+</div>
+<div class="foot">A fast search finds candidates. <b>The reranker puts the best first.</b></div>
+</body></html>

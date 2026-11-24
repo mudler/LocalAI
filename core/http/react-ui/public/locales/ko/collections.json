@@ -1,0 +1,113 @@
+{
+  "title": "지식",
+  "subtitle": "에이전트가 검색할 수 있는 문서 컬렉션입니다. 여기서 검색하거나, 사용하게 하려면 에이전트에 추가하세요.",
+  "newPlaceholder": "새 컬렉션 이름...",
+  "actions": {
+    "create": "만들기",
+    "details": "세부 정보",
+    "reset": "초기화",
+    "delete": "삭제",
+    "viewDetails": "세부 정보 보기",
+    "resetCollection": "컬렉션 초기화",
+    "deleteCollection": "컬렉션 삭제",
+    "cancel": "취소",
+    "save": "저장"
+  },
+  "sections": {
+    "yourCollections": "내 컬렉션",
+    "otherUsersCollections": "다른 사용자의 컬렉션",
+    "sharedWithYou": "나와 공유됨"
+  },
+  "empty": {
+    "title": "아직 컬렉션이 없습니다",
+    "text": "컬렉션을 사용하면 문서를 지식 베이스로 정리하여 에이전트가 RAG(검색 증강 생성)로 검색할 수 있습니다. 위에서 컬렉션을 만들어 시작하세요.",
+    "noPersonal": "아직 컬렉션이 없습니다.",
+    "learn": "지식 작동 방식"
+  },
+  "deleteDialog": {
+    "title": "컬렉션 삭제",
+    "message": "컬렉션 \"{{name}}\"을(를) 삭제하시겠습니까? 모든 항목이 제거되며 되돌릴 수 없습니다.",
+    "confirm": "삭제"
+  },
+  "resetDialog": {
+    "title": "컬렉션 초기화",
+    "message": "컬렉션 \"{{name}}\"을(를) 초기화하시겠습니까? 모든 항목은 제거되지만 컬렉션은 유지됩니다.",
+    "confirm": "초기화"
+  },
+  "toasts": {
+    "created": "컬렉션 \"{{name}}\"이(가) 생성되었습니다",
+    "createFailed": "컬렉션 생성 실패: {{message}}",
+    "deleted": "컬렉션 \"{{name}}\"이(가) 삭제되었습니다",
+    "deleteFailed": "컬렉션 삭제 실패: {{message}}",
+    "reset": "컬렉션 \"{{name}}\"이(가) 초기화되었습니다",
+    "resetFailed": "컬렉션 초기화 실패: {{message}}"
+  },
+  "loadFailed": "컬렉션을 불러올 수 없습니다.",
+  "sources": {
+    "loadFailed": "웹 소스를 불러올 수 없습니다.",
+    "noneShared": "웹 소스가 없습니다."
+  },
+  "entries": {
+    "loadFailed": "파일을 불러올 수 없습니다.",
+    "filter": "파일 필터",
+    "countAll_one": "파일 {{count}}개",
+    "countAll_other": "파일 {{count}}개",
+    "countOf": "파일 {{total}}개 중 {{shown}}개",
+    "noMatch": "일치하는 파일이 없습니다."
+  },
+  "starting": {
+    "title": "지식을 시작하는 중입니다.",
+    "text": "서버가 아직 지식 서비스를 준비하고 있습니다. 이 페이지가 자동으로 다시 확인합니다."
+  },
+  "embedding": {
+    "missingTitle": "임베딩 모델이 설치되어 있지 않습니다.",
+    "missingText": "컬렉션은 {{model}}로 파일을 색인하고 검색합니다. 설치되기 전까지는 파일 추가와 검색이 실패합니다.",
+    "noneSet": "컬렉션에 임베딩 모델이 설정되어 있지 않아(collections_embedding_model) 파일 추가와 검색이 실패합니다.",
+    "install": "모델에서 찾기",
+    "askAdmin": "관리자에게 설치를 요청하세요."
+  },
+  "searchMode": {
+    "label": "검색: {{mode}}",
+    "semantic": "의미 기반",
+    "hybrid": "하이브리드",
+    "semanticHint": "정확한 단어나 코드가 아니라 의미로 구절을 찾습니다.",
+    "hybridHint": "의미와 정확한 단어로 구절을 찾습니다."
+  },
+  "pane": {
+    "addFile": "파일 추가"
+  },
+  "share": {
+    "label": "공유",
+    "button": "{{name}} 공유",
+    "intro": "추가한 사람은 자신의 목록에서 이 컬렉션을 찾을 수 있고, 그 사람의 에이전트는 이름으로 검색할 수 있습니다.",
+    "failed": "컬렉션을 공유할 수 없습니다: {{message}}",
+    "roles": {
+      "viewer": "보기 가능",
+      "viewerHelp": "검색하고 파일을 읽을 수 있습니다.",
+      "editor": "편집 가능",
+      "editorHelp": "파일을 추가하고 삭제할 수도 있습니다."
+    },
+    "noteViewer": "검색하고 파일을 읽을 수 있습니다.",
+    "noteEditor": "검색하고 파일을 추가하거나 삭제할 수 있습니다."
+  },
+  "create": {
+    "title": "새 컬렉션",
+    "hint": "알아보기 쉬운 이름을 지정하세요. 만든 뒤에 파일과 웹 페이지를 추가할 수 있습니다."
+  },
+  "sort": {
+    "label": "컬렉션 정렬",
+    "name": "이름, 가나다순",
+    "name-desc": "이름, 가나다 역순",
+    "used": "많이 사용한 순",
+    "unused": "미사용 먼저"
+  },
+  "list": {
+    "countAll_one": "컬렉션 {{count}}개",
+    "countAll_other": "컬렉션 {{count}}개",
+    "countOf": "컬렉션 {{total}}개 중 {{shown}}개",
+    "menu": "{{name}} 작업"
+  },
+  "menu": {
+    "try": "질문해 보기"
+  }
+}

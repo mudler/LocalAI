@@ -1,0 +1,188 @@
+package routes_test
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/routes"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Pipeline models API", func() {
+	var (
+		app          *echo.Echo
+		tempDir      string
+		configLoader *config.ModelConfigLoader
+	)
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "pipeline-models-test-*")
+		Expect(err).NotTo(HaveOccurred())
+
+		configLoader = config.NewModelConfigLoader(tempDir)
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
+	})
+
+	writeConfig := func(name, body string) {
+		path := filepath.Join(tempDir, name+".yaml")
+		Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
+	}
+
+	queryPipelineModels := func() []map[string]any {
+		Expect(configLoader.LoadModelConfigsFromPath(tempDir)).To(Succeed())
+
+		app = echo.New()
+		routes.RegisterUIRoutes(app, configLoader, nil, nil, func(next echo.HandlerFunc) echo.HandlerFunc { return next })
+
+		req := httptest.NewRequest(http.MethodGet, "/api/pipeline-models", nil)
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		body, err := io.ReadAll(rec.Body)
+		Expect(err).NotTo(HaveOccurred())
+
+		var got []map[string]any
+		Expect(json.Unmarshal(body, &got)).To(Succeed())
+		return got
+	}
+
+	It("returns models with an explicit VAD/STT/LLM/TTS pipeline", func() {
+		writeConfig("legacy-pipeline", `
+name: legacy-pipeline
+backend: llama-cpp
+pipeline:
+  vad: silero
+  transcription: whisper
+  llm: llama
+  tts: piper
+tts:
+  voice: en-amy
+`)
+		// A model with a partial pipeline must not appear.
+		writeConfig("half-pipeline", `
+name: half-pipeline
+backend: llama-cpp
+pipeline:
+  vad: silero
+  transcription: whisper
+`)
+
+		models := queryPipelineModels()
+		Expect(models).To(HaveLen(1))
+		Expect(models[0]["name"]).To(Equal("legacy-pipeline"))
+		Expect(models[0]["vad"]).To(Equal("silero"))
+		Expect(models[0]["llm"]).To(Equal("llama"))
+		Expect(models[0]["voice"]).To(Equal("en-amy"))
+		// any_to_any and self_contained are omitempty — absent for legacy pipelines.
+		_, hasFlag := models[0]["self_contained"]
+		Expect(hasFlag).To(BeFalse())
+		_, hasAnyToAny := models[0]["any_to_any"]
+		Expect(hasAnyToAny).To(BeFalse())
+	})
+
+	It("lists a chained pipeline that has no VAD", func() {
+		writeConfig("no-vad-pipeline", `
+name: no-vad-pipeline
+backend: llama-cpp
+pipeline:
+  transcription: whisper
+  llm: llama
+  tts: piper
+`)
+		// Still partial without a speech slot.
+		writeConfig("no-tts-pipeline", `
+name: no-tts-pipeline
+backend: llama-cpp
+pipeline:
+  transcription: whisper
+  llm: llama
+`)
+
+		models := queryPipelineModels()
+		Expect(models).To(HaveLen(1))
+		Expect(models[0]["name"]).To(Equal("no-vad-pipeline"))
+		Expect(models[0]["vad"]).To(BeEmpty())
+		Expect(models[0]["tts"]).To(Equal("piper"))
+	})
+
+	It("surfaces any-to-any models as one speech-to-speech model with an optional VAD", func() {
+		writeConfig("lfm-realtime", `
+name: lfm-realtime
+backend: llama-cpp
+known_usecases:
+  - realtime_audio
+  - chat
+  - tts
+  - transcript
+pipeline:
+  any_to_any: true
+tts:
+  voice: female
+`)
+
+		models := queryPipelineModels()
+		Expect(models).To(HaveLen(1))
+		Expect(models[0]["name"]).To(Equal("lfm-realtime"))
+		Expect(models[0]["any_to_any"]).To(BeTrue())
+		Expect(models[0]["self_contained"]).To(BeTrue())
+		Expect(models[0]["voice"]).To(Equal("female"))
+		// No VAD configured: server VAD stays off and the client commits turns.
+		Expect(models[0]["vad"]).To(BeEmpty())
+		// The model answers every role, so the UI can address it by name.
+		Expect(models[0]["llm"]).To(Equal("lfm-realtime"))
+		Expect(models[0]["tts"]).To(Equal("lfm-realtime"))
+	})
+
+	It("reports the configured VAD of an any-to-any model", func() {
+		writeConfig("lfm-vad", `
+name: lfm-vad
+backend: llama-cpp
+known_usecases:
+  - realtime_audio
+pipeline:
+  any_to_any: true
+  vad: silero
+`)
+
+		models := queryPipelineModels()
+		Expect(models).To(HaveLen(1))
+		Expect(models[0]["any_to_any"]).To(BeTrue())
+		Expect(models[0]["vad"]).To(Equal("silero"))
+	})
+
+	It("does not list a realtime_audio model that is not any-to-any and has no pipeline", func() {
+		// Without any_to_any the session takes the chained path, which needs
+		// the four slots. A bare realtime_audio model has none, so it is not
+		// a selectable realtime model.
+		writeConfig("chained-bare", `
+name: chained-bare
+backend: llama-cpp
+known_usecases:
+  - realtime_audio
+`)
+
+		Expect(queryPipelineModels()).To(BeEmpty())
+	})
+
+	It("excludes models that have neither a pipeline nor realtime_audio", func() {
+		writeConfig("plain-chat", `
+name: plain-chat
+backend: llama-cpp
+known_usecases:
+  - chat
+`)
+
+		Expect(queryPipelineModels()).To(BeEmpty())
+	})
+})

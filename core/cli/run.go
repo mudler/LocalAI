@@ -1,0 +1,1229 @@
+package cli
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"net"
+	nethttp "net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
+	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http"
+	"github.com/mudler/LocalAI/core/http/tlsconf"
+	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/diagnostics"
+	"github.com/mudler/LocalAI/pkg/modelartifacts"
+	"github.com/mudler/LocalAI/pkg/signals"
+	"github.com/mudler/LocalAI/pkg/splitenv"
+	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/LocalAI/pkg/vrambudget"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/xlog"
+)
+
+// CLI Flag Naming Convention:
+// All CLI flags use kebab-case (e.g., --backends-path, --p2p-mode).
+// When renaming flags, add the old name as an alias for backward compatibility
+// and document the deprecation in the help text.
+
+type RunCMD struct {
+	AddonHostPolicy              string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
+	AddonHostOps                 string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonHostDeny                string `name:"addon-host-deny" env:"LOCALAI_ADDON_HOST_DENY" help:"Host operations no grant may enable, as a comma list of addon-id=operation (a prefix such as egress., an exact name or *). Use *=prefix for every add-on. Deny always wins over grants and is unioned with the deny rules of the policy file" group:"addons"`
+	AddonHostBlanket             string `name:"addon-host-blanket" env:"LOCALAI_ADDON_HOST_BLANKET" help:"Blanket approval of declared host operations at install and upgrade: off, official or any. When set, the UI shows it read-only. Unset leaves the choice to the administrator in the UI" group:"addons"`
+	AddonHostUIGrantsWithoutAuth bool   `name:"addon-host-ui-grants-without-auth" env:"LOCALAI_ADDON_HOST_UI_GRANTS_WITHOUT_AUTH" default:"false" help:"Let the UI change host grants although authentication is off. By default they are locked then, because anyone who can reach this server could change them" group:"addons"`
+	AddonHostUIGrants            bool   `name:"addon-host-ui-grants" env:"LOCALAI_ADDON_HOST_UI_GRANTS" default:"true" help:"Let an administrator grant host operations to add-ons in the UI. Turn it off with --addon-host-ui-grants=false to make the policy file and flags the only source of grants" group:"addons"`
+	AddonsEnabled                bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
+	AddonsOwnershipMode          string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
+	AddonsRole                   string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
+	AddonsMigrateHostSettings    bool   `name:"addons-migrate-host-settings" env:"LOCALAI_ADDONS_MIGRATE_HOST_SETTINGS" default:"false" help:"Owner role only: explicitly select this process's effective legacy host policy for first-start migration. Never imports frontend settings; ignored once the owner store exists" group:"addons"`
+	AddonsOwnerAddress           string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
+	AddonsOwnerListen            string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
+	AddonsCarrierDir             string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
+	TrustedProxies               string `name:"trusted-proxies" env:"LOCALAI_TRUSTED_PROXIES" default:"" help:"Comma-separated IPs and CIDRs of reverse proxies in front of LocalAI. Only when the TCP peer is in this list is the client address taken from X-Forwarded-For (right-most untrusted entry). Used by the access log, login rate limits and traces. Empty trusts nobody" group:"api"`
+	LogClient                    bool   `name:"log-client" env:"LOCALAI_LOG_CLIENT" default:"false" help:"Add the duration, client address, user agent and request id to the HTTP access log. Off by default. The address is the TCP peer unless it is a trusted proxy (see --trusted-proxies). Turn it on with --log-client" group:"logging"`
+	AutoUpgradeAddons            bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
+	AddonsOfficialLibrary        bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
+	AddonsBackendLibrary         bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
+	OfficialLibraries            bool   `name:"official-libraries" env:"LOCALAI_OFFICIAL_LIBRARIES" default:"true" help:"Use the official (shipped default) library sources of add-ons, backends and models. Off: they stay in the list, shown as off, and are not read. Sources you added are not affected. Also a runtime setting (official_libraries)" group:"addons"`
+	AddonsBackendMaxBytes        int64  `name:"addons-backend-max-bytes" env:"LOCALAI_ADDONS_BACKEND_MAX_BYTES" default:"8589934592" help:"Largest compressed size, in bytes, of a backend image installed from a library. Add-ons keep their own limit of 512 MiB" group:"addons"`
+	AddonsWSLDistro              string `name:"addons-wsl-distro" env:"LOCALAI_ADDONS_WSL_DISTRO" help:"Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL" group:"addons"`
+	Pprof                        bool   `name:"pprof" env:"LOCALAI_PPROF" default:"false" help:"Enable the private loopback profiling listener" group:"diagnostics"`
+	PprofAddress                 string `name:"pprof-address" env:"LOCALAI_PPROF_ADDRESS" default:"127.0.0.1:6060" help:"Numeric loopback address and port for profiling" group:"diagnostics"`
+	PprofMutexProfileFraction    int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
+	PprofBlockProfileRate        int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
+	RequestPhaseTiming           bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
+	addonHostOpsFlagPresent    bool
+	addonHostPolicyFlagPresent bool
+
+	TorrentFlags `embed:""`
+
+	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
+	Color     string   `env:"COLOR" hidden:""`
+	NoColor   string   `env:"NO_COLOR" hidden:""`
+	HFToken   string   `env:"HF_TOKEN" hidden:""`
+
+	ExternalBackends            []string `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	WebRTCNAT1To1IPs            []string `env:"LOCALAI_WEBRTC_NAT_1TO1_IPS,WEBRTC_NAT_1TO1_IPS" help:"IPs advertised as the host ICE candidates for /v1/realtime WebRTC instead of every local interface. Set to the reachable host/LAN IP when running under Docker host networking or NAT, where pion otherwise offers unreachable bridge addresses and the connection drops after ICE consent checks fail." group:"api"`
+	WebRTCICEInterfaces         []string `env:"LOCALAI_WEBRTC_ICE_INTERFACES,WEBRTC_ICE_INTERFACES" help:"Restrict /v1/realtime WebRTC ICE candidate gathering to these network interfaces (e.g. eth0), filtering out docker0/veth noise." group:"api"`
+	WebRTCUDPPort               int      `env:"LOCALAI_WEBRTC_UDP_PORT" help:"Shared UDP port for /v1/realtime WebRTC ICE traffic. Publish this port as UDP and allow it through the firewall." group:"api" name:"web-rtc-udp-port"`
+	BackendsPath                string   `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
+	BackendsSystemPath          string   `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"${backendssystempath}" help:"Path containing system backends used for inferencing" group:"backends"`
+	ModelsPath                  string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	DownloadStagingPath         string   `env:"LOCALAI_DOWNLOAD_STAGING_PATH,DOWNLOAD_STAGING_PATH" type:"path" default:"${basepath}/downloading" help:"Path where in-flight downloads are staged before extraction" group:"storage"`
+	ArtifactDownloadConcurrency int      `env:"LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY" help:"How many files of a model artifact to download at once. 1 (the default) downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume" group:"storage" default:"1"`
+
+	MaxConcurrentModelOperations   int `env:"LOCALAI_MAX_CONCURRENT_MODEL_OPERATIONS" help:"How many model install, upgrade and delete operations run at once. The default is 2; 1 runs them one after the other. Operations on the same model never overlap" group:"models" default:"2"`
+	MaxConcurrentBackendOperations int `env:"LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS" help:"How many backend install, upgrade and delete operations run at once. The default is 2; 1 runs them one after the other. Operations on the same backend never overlap. In distributed mode it also bounds how many nodes one operation is sent to at the same time" group:"backends" default:"2"`
+
+	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
+	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
+	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (chats, files, collections, jobs and the JSON stores when there is no database). Separates mutable data from configuration. Use - to keep nothing on disk: chats then live in memory and files are off" group:"storage"`
+	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
+	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
+	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
+	ModelsConfigFile          string   `env:"LOCALAI_MODELS_CONFIG_FILE,CONFIG_FILE" aliases:"config-file" help:"YAML file containing a list of model backend configs" group:"storage"`
+	BackendGalleries          string   `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
+	Galleries                 string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
+	AutoloadGalleries         bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models" default:"true"`
+	VRAMPersistentCache       bool     `env:"LOCALAI_VRAM_PERSISTENT_CACHE,VRAM_PERSISTENT_CACHE" group:"models" default:"true" help:"Persist successful remote VRAM metadata probes across restarts"`
+	AutoloadBackendGalleries  bool     `env:"LOCALAI_AUTOLOAD_BACKEND_GALLERIES,AUTOLOAD_BACKEND_GALLERIES" group:"backends" default:"true"`
+	BackendImagesReleaseTag   string   `env:"LOCALAI_BACKEND_IMAGES_RELEASE_TAG,BACKEND_IMAGES_RELEASE_TAG" help:"Fallback release tag for backend images" group:"backends" default:"latest"`
+	BackendImagesBranchTag    string   `env:"LOCALAI_BACKEND_IMAGES_BRANCH_TAG,BACKEND_IMAGES_BRANCH_TAG" help:"Fallback branch tag for backend images" group:"backends" default:"master"`
+	BackendDevSuffix          string   `env:"LOCALAI_BACKEND_DEV_SUFFIX,BACKEND_DEV_SUFFIX" help:"Development suffix for backend images" group:"backends" default:"development"`
+	AutoUpgradeBackends       bool     `env:"LOCALAI_AUTO_UPGRADE_BACKENDS,AUTO_UPGRADE_BACKENDS" help:"Automatically upgrade backends when new versions are detected" group:"backends" default:"false"`
+	UpgradeRunKeep            int      `env:"LOCALAI_UPGRADE_RUN_KEEP" help:"Most finished upgrade runs kept; the oldest beyond it are removed (-1 keeps any number)" group:"backends" default:"200"`
+	UpgradeRunRetention       int      `name:"upgrade-run-retention-days" env:"LOCALAI_UPGRADE_RUN_RETENTION_DAYS" help:"Days to keep finished upgrade runs (-1 keeps them forever)" group:"backends" default:"30"`
+	PreferDevelopmentBackends bool     `env:"LOCALAI_PREFER_DEV_BACKENDS,PREFER_DEV_BACKENDS" help:"Prefer compatible installed development backends for generic aliases and development downloads (requires restart)" group:"backends" default:"false"`
+	PreloadModels             string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
+	Models                    []string `env:"LOCALAI_MODELS,MODELS" help:"A List of model configuration URLs to load" group:"models"`
+	PreloadModelsConfig       string   `env:"LOCALAI_PRELOAD_MODELS_CONFIG,PRELOAD_MODELS_CONFIG" help:"A List of models to apply at startup. Path to a YAML config file" group:"models"`
+
+	F16         bool `name:"f16" env:"LOCALAI_F16,F16" help:"Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16" group:"performance"`
+	Threads     int  `env:"LOCALAI_THREADS,THREADS" short:"t" help:"Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested" group:"performance"`
+	ContextSize int  `env:"LOCALAI_CONTEXT_SIZE,CONTEXT_SIZE" help:"Default context size for models" group:"performance"`
+
+	Address                            string        `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
+	ShutdownTimeout                    time.Duration `name:"shutdown-timeout" env:"LOCALAI_SHUTDOWN_TIMEOUT" default:"20s" help:"On SIGTERM or SIGINT, stop accepting requests and wait this long for in-flight requests to finish, then close the chats and exit. The whole stop takes up to this plus 21s, so keep the sum below the termination grace period of the platform (the default 20s needs a grace period of at least 41s). 0 exits without waiting" group:"api"`
+	CORS                               bool          `env:"LOCALAI_CORS,CORS" help:"" group:"api"`
+	CORSAllowOrigins                   string        `env:"LOCALAI_CORS_ALLOW_ORIGINS,CORS_ALLOW_ORIGINS" group:"api"`
+	DisableCSRF                        bool          `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
+	TLSCert                            string        `name:"tls-cert" env:"LOCALAI_TLS_CERT" type:"existingfile" help:"PEM file with the certificate (and its chain) the API server presents. Needs --tls-key. TLS is off when no certificate and no --tls-self-signed is set. TLS 1.3 is the minimum" group:"api"`
+	TLSKey                             string        `name:"tls-key" env:"LOCALAI_TLS_KEY" type:"existingfile" help:"PEM file with the private key of --tls-cert" group:"api"`
+	TLSSelfSigned                      bool          `name:"tls-self-signed" env:"LOCALAI_TLS_SELF_SIGNED" help:"Serve TLS with a self-signed certificate that LocalAI makes once and keeps in the data path (tls/). The SHA-256 fingerprint is logged at start and shown with each pairing code, so a paired client can pin it. Without a data path the certificate lives in memory and changes at each start. Not with --tls-cert" group:"api"`
+	DisableHTTPCompression             bool          `env:"LOCALAI_DISABLE_HTTP_COMPRESSION" default:"false" help:"Disable gzip compression of HTTP responses (enabled by default). Streaming endpoints are never compressed" group:"api"`
+	HTTPCompressionMinLength           int           `env:"LOCALAI_HTTP_COMPRESSION_MIN_LENGTH" default:"1024" help:"Minimum response size in bytes before gzip compression is applied" group:"api"`
+	UploadLimit                        int           `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"0" help:"Upload limit in MB for request bodies (15 when not set). When set, it also applies to uploads of the Files page and to chat messages with attachments, which are otherwise limited only by the 256 MiB workspace file size and 1 GiB per message" group:"api"`
+	APIKeys                            []string      `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
+	DisableWebUI                       bool          `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
+	OllamaAPIRootEndpoint              bool          `env:"LOCALAI_OLLAMA_API_ROOT_ENDPOINT" default:"false" help:"Register Ollama-compatible health check on / (replaces web UI on root path). The /api/* Ollama endpoints are always available regardless of this flag" group:"api"`
+	DisableRuntimeSettings             bool          `env:"LOCALAI_DISABLE_RUNTIME_SETTINGS,DISABLE_RUNTIME_SETTINGS" default:"false" help:"Disables the runtime settings. When set to true, the server will not load the runtime settings from the runtime_settings.json file" group:"api"`
+	DisablePredownloadScan             bool          `env:"LOCALAI_DISABLE_PREDOWNLOAD_SCAN" help:"If true, disables the best-effort security scanner before downloading any files." group:"hardening" default:"false"`
+	RequireBackendIntegrity            bool          `env:"LOCALAI_REQUIRE_BACKEND_INTEGRITY,REQUIRE_BACKEND_INTEGRITY" help:"If true, backend installs without a configured signature verification policy (for OCI URIs) or SHA256 (for tarball/HTTP URIs) are rejected. Default is to warn and install. Set this in production once your gallery's verification: block is populated." group:"hardening" default:"false"`
+	DisableBackendInstall              bool          `env:"LOCALAI_DISABLE_BACKEND_INSTALL,DISABLE_BACKEND_INSTALL" help:"If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via --backends-system-path are used." group:"hardening" default:"false"`
+	OpaqueErrors                       bool          `env:"LOCALAI_OPAQUE_ERRORS" default:"false" help:"If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended." group:"hardening"`
+	UseSubtleKeyComparison             bool          `env:"LOCALAI_SUBTLE_KEY_COMPARISON" default:"false" help:"If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resiliancy against timing attacks." group:"hardening"`
+	DisableApiKeyRequirementForHttpGet bool          `env:"LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET" default:"false" help:"If true, a valid API key is not required to issue GET requests to portions of the web ui. This should only be enabled in secure testing environments" group:"hardening"`
+	AllowInsecurePublicBind            bool          `env:"LOCALAI_ALLOW_INSECURE_PUBLIC_BIND" default:"false" help:"Allow binding the API to a public-internet address without any authentication configured. Without this flag the server refuses to start when the bind address is public (or a wildcard on a host with a public interface) and no auth backend or static API key is set. Loopback, RFC 1918 LAN, ULA, link-local, and CGNAT (Tailscale) ranges are accepted regardless." group:"hardening"`
+	DisableMetricsEndpoint             bool          `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
+	HttpGetExemptedEndpoints           []string      `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
+	P2PMode                            string        `name:"p2p-mode" env:"LOCALAI_P2P_MODE" default:"off" enum:"off,connect,share" help:"P2P mode: off, connect (dial out to remotes over P2P, accept nobody; needs no authentication) or share (connect, and accept paired devices; needs authentication)" group:"p2p"`
+	P2PListen                          []string      `name:"p2p-listen" env:"LOCALAI_P2P_LISTEN_MADDRS" help:"Listen multiaddrs of the P2P host in mode share (default: TCP and QUIC on every interface, random ports)" group:"p2p"`
+	P2PBootstrap                       []string      `name:"p2p-bootstrap" env:"LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS" help:"Bootstrap peers of the P2P host, multiaddrs that end in /p2p/<peer ID> (default: the public bootstrap peers while the public DHT is on). Runtime setting p2p_bootstrap_peers" group:"p2p"`
+	P2PIdentity                        string        `name:"p2p-identity" env:"LOCALAI_P2P_IDENTITY" help:"Key file of the P2P peer identity (default: <data path>/p2p/identity.key). It must survive a restart: every paired device and remote knows this server by it" group:"p2p"`
+	SingleActiveBackend                bool          `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time (deprecated: use --max-active-backends=1 instead)" group:"backends"`
+	MaxActiveBackends                  int           `env:"LOCALAI_MAX_ACTIVE_BACKENDS,MAX_ACTIVE_BACKENDS" default:"0" help:"Maximum number of backends to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used backends are evicted when limit is reached" group:"backends"`
+	PreloadBackendOnly                 bool          `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
+	ExternalGRPCBackends               []string      `env:"LOCALAI_EXTERNAL_GRPC_BACKENDS,EXTERNAL_GRPC_BACKENDS" help:"A list of external grpc backends" group:"backends"`
+	EnableWatchdogIdle                 bool          `env:"LOCALAI_WATCHDOG_IDLE,WATCHDOG_IDLE" default:"false" help:"Enable watchdog for stopping backends that are idle longer than the watchdog-idle-timeout" group:"backends"`
+	WatchdogIdleTimeout                string        `env:"LOCALAI_WATCHDOG_IDLE_TIMEOUT,WATCHDOG_IDLE_TIMEOUT" default:"15m" help:"Threshold beyond which an idle backend should be stopped" group:"backends"`
+	EnableWatchdogBusy                 bool          `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
+	WatchdogBusyTimeout                string        `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
+	WatchdogInterval                   string        `env:"LOCALAI_WATCHDOG_INTERVAL,WATCHDOG_INTERVAL" default:"500ms" help:"Interval between watchdog checks (e.g., 500ms, 5s, 1m) (default: 500ms)" group:"backends"`
+	EnableMemoryReclaimer              bool          `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
+	MemoryReclaimerThreshold           float64       `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
+	VRAMBudget                         string        `env:"LOCALAI_VRAM_BUDGET" help:"Cap VRAM used for model allocation on this node, as a percentage (e.g. 80%) or absolute amount (e.g. 12GB). Empty uses all detected VRAM." group:"backends"`
+	ForceEvictionWhenBusy              bool          `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
+	SizeAwareEviction                  bool          `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
+	LRUEvictionMaxRetries              int           `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
+	LRUEvictionRetryInterval           string        `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
+	ModelLoadFailureCooldown           string        `env:"LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN,MODEL_LOAD_FAILURE_COOLDOWN" default:"10s" help:"After a model load fails, refuse new load attempts for that model for this long (returned as HTTP 503 + Retry-After) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. Set to 0 to disable (e.g., 10s, 30s)" group:"backends"`
+	DisableGalleryEndpoint             bool          `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
+	DisableMCP                         bool          `env:"LOCALAI_DISABLE_MCP,DISABLE_MCP" help:"Disable MCP (Model Context Protocol) support" group:"api" default:"false"`
+	MachineTag                         string        `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
+	LoadToMemory                       []string      `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
+	EnableTracing                      bool          `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
+	MaxConcurrentBackendRequests       int           `env:"LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS,MAX_CONCURRENT_BACKEND_REQUESTS" default:"1024" help:"Maximum number of concurrent backend inference operations. Excess inference requests receive HTTP 429 with a Retry-After header; UI and administrative endpoints remain available." group:"backends"`
+	TracingMaxItems                    int           `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
+	TracingMaxBodyBytes                int           `env:"LOCALAI_TRACING_MAX_BODY_BYTES" default:"65536" help:"Maximum bytes captured per request/response body in the trace buffer (0 = uncapped). Caps memory growth from chatty endpoints like /embeddings." group:"api"`
+	OpenResponsesStoreTTL              string        `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
+
+	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
+
+	// LocalAI Assistant chat modality (in-process admin MCP server)
+	DisableSharedPages    bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisableUserPageShares bool   `env:"LOCALAI_DISABLE_USER_PAGE_SHARES" default:"false" help:"Turn off the pages that people share from their own homes (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisablePageArea       bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
+	ChatsHostExec         string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
+	ChatsAutoResume       bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
+
+	// Removed agent, job and skill options: accepted and ignored.
+	RemovedAgentOptions `embed:""`
+	// The removed LocalAI Assistant switch: accepted, ignored, and warned about.
+	RemovedAssistantOptions `embed:""`
+
+	// Chats: the chats API, saved agents, triggers, connectors and agent jobs
+	DisableChats             bool          `env:"LOCALAI_DISABLE_CHATS" default:"false" help:"Turn off the chats: the /api/chats API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts" group:"chats"`
+	DisableTriggers          bool          `env:"LOCALAI_DISABLE_TRIGGERS" default:"false" help:"Turn off the trigger runner and the triggers API (the rest of the chats stays on)" group:"chats"`
+	DisableConnectors        bool          `env:"LOCALAI_DISABLE_CONNECTORS" default:"false" help:"Turn off the connector bots (Telegram, Slack) and the connectors API (the rest of the chats stays on)" group:"chats"`
+	SkipBindingCapsMigration bool          `env:"LOCALAI_SKIP_BINDING_CAPS_MIGRATION" default:"false" help:"Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses); also skip the one-time add of loops.wait to existing bindings" group:"chats"`
+	DisableConnectorTalkback bool          `env:"LOCALAI_DISABLE_CONNECTOR_TALKBACK" default:"false" help:"Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on)" group:"chats"`
+	AgentJobRetentionDays    int           `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Days to keep finished agent jobs" group:"chats"`
+	TriggerRunKeep           int           `env:"LOCALAI_TRIGGER_RUN_KEEP" default:"200" help:"Finished runs kept for each trigger, beyond those of the last two days (-1 keeps all)" group:"chats"`
+	TriggerRunRetention      int           `name:"trigger-run-retention-days" env:"LOCALAI_TRIGGER_RUN_RETENTION_DAYS" default:"30" help:"Days to keep finished trigger runs (-1 keeps them forever)" group:"chats"`
+	MCPCIJobTimeout          time.Duration `name:"mcp-ci-job-timeout" env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Longest an agent job may run" group:"chats"`
+
+	// Collections (the knowledge base)
+	DisableCollections         bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
+	CollectionsAPIURL          string `env:"LOCALAI_COLLECTIONS_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"collections"`
+	CollectionsAPIKey          string `env:"LOCALAI_COLLECTIONS_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"collections"`
+	CollectionsDefaultModel    string `env:"LOCALAI_COLLECTIONS_DEFAULT_MODEL" help:"Default model of the collections service" group:"collections"`
+	CollectionsStateDir        string `env:"LOCALAI_COLLECTIONS_STATE_DIR" help:"State directory of the collections" group:"collections"`
+	CollectionsVectorEngine    string `env:"LOCALAI_COLLECTIONS_VECTOR_ENGINE" help:"Vector engine of the collections: chromem or postgres (default chromem)" group:"collections"`
+	CollectionsEmbeddingModel  string `env:"LOCALAI_COLLECTIONS_EMBEDDING_MODEL" help:"Embedding model of the collections (default granite-embedding-107m-multilingual)" group:"collections"`
+	CollectionsDatabaseURL     string `env:"LOCALAI_COLLECTIONS_DATABASE_URL" help:"Database URL of the collections, for the postgres vector engine" group:"collections"`
+	CollectionsMaxChunkingSize int    `env:"LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE" help:"Maximum chunking size for collection documents (default 400)" group:"collections"`
+	CollectionsChunkOverlap    int    `env:"LOCALAI_COLLECTIONS_CHUNK_OVERLAP" help:"Chunk overlap size for collection documents (default 0)" group:"collections"`
+	CollectionsDBPath          string `env:"LOCALAI_COLLECTIONS_DB_PATH" help:"Where the vector engine of the collections keeps its data" group:"collections"`
+
+	// Old names of the collections options: accepted, used when the new name is not set.
+	LegacyCollectionsOptions `embed:""`
+
+	// Authentication
+	AuthEnabled          bool   `env:"LOCALAI_AUTH" default:"false" help:"Enable user authentication and authorization" group:"auth"`
+	AuthDatabaseURL      string `env:"LOCALAI_AUTH_DATABASE_URL,DATABASE_URL" help:"Database URL for auth (postgres:// or file path for SQLite). Defaults to {DataPath}/database.db" group:"auth"`
+	GitHubClientID       string `env:"GITHUB_CLIENT_ID" help:"GitHub OAuth App Client ID (auto-enables auth when set)" group:"auth"`
+	GitHubClientSecret   string `env:"GITHUB_CLIENT_SECRET" help:"GitHub OAuth App Client Secret" group:"auth"`
+	OIDCIssuer           string `env:"LOCALAI_OIDC_ISSUER" help:"OIDC issuer URL for auto-discovery" group:"auth"`
+	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
+	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
+	ExternalBaseURL      string `env:"LOCALAI_BASE_URL" help:"External base URL of this instance (e.g. https://localhost:8080). Used for OAuth callbacks and self-referential links (generated images/videos, job status). When unset, derived from X-Forwarded-Proto/Host or Forwarded headers." group:"api"`
+	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
+	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
+	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
+	AuthAPIKeyHMACSecret string `env:"LOCALAI_AUTH_HMAC_SECRET" help:"HMAC secret for API key hashing (auto-generated if empty)" group:"auth"`
+	DefaultAPIKeyExpiry  string `env:"LOCALAI_DEFAULT_API_KEY_EXPIRY" help:"Default expiry for API keys (e.g. 90d, 1y; empty = no expiry)" group:"auth"`
+
+	// Distributed / Horizontal Scaling
+	Distributed                  bool   `env:"LOCALAI_DISTRIBUTED" default:"false" help:"Enable distributed mode (requires PostgreSQL; NATS is optional)" group:"distributed"`
+	InstanceID                   string `env:"LOCALAI_INSTANCE_ID" help:"Unique instance ID for distributed mode (auto-generated UUID if empty)" group:"distributed"`
+	PeerAddress                  string `env:"LOCALAI_PEER_ADDRESS" help:"host:port at which the other frontends dial this one to reach a worker tunnel it holds (found from the route to the database if empty)" group:"distributed"`
+	PeerTLS                      bool   `env:"LOCALAI_PEER_TLS" default:"false" help:"dial the other frontends over wss; they must sit behind TLS at the address they publish. On when this frontend serves the API over TLS (--tls-cert, --tls-self-signed). Without either, the peer link, which carries the credential of this replica and relayed requests, is clear text" group:"distributed"`
+	PeerTLSCA                    string `name:"peer-tls-ca" env:"LOCALAI_PEER_TLS_CA" type:"existingfile" help:"PEM file with the CA that signs the certificate of the other frontends (system roots if empty); use with --peer-tls" group:"distributed"`
+	NatsURL                      string `env:"LOCALAI_NATS_URL" help:"NATS server URL (e.g., nats://localhost:4222)" group:"distributed"`
+	StorageURL                   string `env:"LOCALAI_STORAGE_URL" help:"S3-compatible storage endpoint URL (e.g., http://minio:9000)" group:"distributed"`
+	StorageBucket                string `env:"LOCALAI_STORAGE_BUCKET" default:"localai" help:"S3 bucket name for object storage" group:"distributed"`
+	StorageRegion                string `env:"LOCALAI_STORAGE_REGION" default:"us-east-1" help:"S3 region" group:"distributed"`
+	StorageAccessKey             string `env:"LOCALAI_STORAGE_ACCESS_KEY" help:"S3 access key ID" group:"distributed"`
+	StorageSecretKey             string `env:"LOCALAI_STORAGE_SECRET_KEY" help:"S3 secret access key" group:"distributed"`
+	RegistrationToken            string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token that backend nodes must provide to register (empty = no auth required)" group:"distributed"`
+	RegistrationRequireAuth      bool   `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Fail startup when distributed mode is enabled but LOCALAI_REGISTRATION_TOKEN is empty (node endpoints and worker file-transfer server would otherwise be unauthenticated)" group:"distributed"`
+	DistributedRequireAuth       bool   `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch: require BOTH NATS JWT credentials and a registration token when distributed mode is enabled (implies --nats-require-auth and --registration-require-auth)" group:"distributed"`
+	AutoApproveNodes             bool   `env:"LOCALAI_AUTO_APPROVE_NODES" default:"false" help:"Auto-approve new worker nodes (skip admin approval)" group:"distributed"`
+	DistributedSharedModels      bool   `env:"LOCALAI_DISTRIBUTED_SHARED_MODELS" default:"false" help:"Assert that every node mounts the SAME models directory at the SAME path (shared volume). When true, the router skips staging model files to workers and loads them directly from the shared path, avoiding re-downloads." group:"distributed"`
+	DistributedPrefixCache       bool   `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE" default:"true" help:"Enable prefix-cache-aware routing in distributed mode (default true). When false, routing falls back to round-robin." group:"distributed"`
+	DistributedDiskHeadroomCheck bool   `env:"LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK" default:"true" help:"Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging (default true). Free space is measured on the filesystem backing each worker's models directory, and compared against the model's own size plus a small margin. When false, node selection ignores free disk (pre-#11054 behaviour); the check still runs and warns when it would have rejected every node. Can also be toggled at runtime via the distributed_disk_headroom_check setting." group:"distributed"`
+	DistributedPrefixCacheTTL    string `env:"LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL" help:"Idle-timeout for prefix-cache index entries; also drives the background eviction cadence (every TTL/2). Default 5m." group:"distributed"`
+	BackendInstallTimeout        string `env:"LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT" help:"NATS round-trip timeout for backend.install requests sent to worker nodes (default 15m). Increase for slow links pulling multi-GB images." group:"distributed"`
+	BackendUpgradeTimeout        string `env:"LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT" help:"NATS round-trip timeout for backend.upgrade requests (default 15m)." group:"distributed"`
+	ModelLoadTimeout             string `env:"LOCALAI_NATS_MODEL_LOAD_TIMEOUT" help:"Fixed gRPC deadline for the remote LoadModel call sent to a worker node once its backend is installed and model files are staged. Unset (the default), the deadline is derived from the checkpoint size instead: 5m plus 20s per GiB, capped at 6h, so multi-tens-of-GB diffusion/video checkpoints get the minutes they need without a fixed cliff. Set this only to pin a specific budget; the value is used verbatim, including when it is shorter than the derived one." group:"distributed"`
+	ModelLoadWait                string `env:"LOCALAI_MODEL_LOAD_WAIT" help:"How long an inference request waits for a model that is still cold-loading onto a worker before it is answered with 503, a Retry-After header and live staging progress (default 60s). The request is served the moment the model becomes ready, so a model already most of the way staged needs no client retry. Set to 0 to wait as long as the load takes — only safe when no ingress or load balancer with an idle timeout sits in front." group:"distributed"`
+	StaleNodeThreshold           string `env:"LOCALAI_STALE_NODE_THRESHOLD" help:"How long a worker node may go without a durable heartbeat before the health monitor marks it offline (default 5m). Because a beat that only carries a fresher timestamp is held back by --node-heartbeat-checkpoint, this must stay comfortably wider than that interval; raise both together. Dead-node detection through the per-model gRPC health check and through request-time failure is unaffected by this knob." group:"distributed"`
+	NodeHeartbeatCheckpoint      string `env:"LOCALAI_NODE_HEARTBEAT_CHECKPOINT" help:"Minimum gap between durable heartbeat writes for a worker node (default 60s). A beat that only carries a fresher timestamp is dropped until this interval elapses; every field is compared against the value last written, so a node's first beat, a changed total VRAM/total disk/GPU vendor, and a free VRAM/RAM/disk reading that has moved more than 256 MiB from the written value all still write immediately, and a node that is not active is never suppressed. Set below the worker heartbeat interval to write on every beat." group:"distributed"`
+	ModelConfigResyncInterval    string `env:"LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL" help:"How often each frontend compares its model configs with the shared models directory (default 30s). Frontends normally learn about a model install, edit or removal from a message on NATS; this pass catches a change whose message a frontend missed, for example during a NATS reconnect, so an old config is served for at most this long. A pass reads only the config files and skips the parse when none of them changed." group:"distributed"`
+	NatsAccountSeed              string `env:"LOCALAI_NATS_ACCOUNT_SEED" help:"NATS account signing seed (SU...) used to mint per-node worker JWTs at registration" group:"distributed"`
+	NatsServiceJWT               string `env:"LOCALAI_NATS_SERVICE_JWT" help:"NATS user JWT for the frontend (and agent workers) to publish control-plane messages" group:"distributed"`
+	NatsServiceSeed              string `env:"LOCALAI_NATS_SERVICE_SEED" help:"NATS user signing seed (SU...) paired with LOCALAI_NATS_SERVICE_JWT" group:"distributed"`
+	NatsWorkerJWTTTL             string `env:"LOCALAI_NATS_WORKER_JWT_TTL" help:"Lifetime of minted per-node NATS JWTs (e.g. 24h, default 24h)" group:"distributed"`
+	NatsRequireAuth              bool   `env:"LOCALAI_NATS_REQUIRE_AUTH" default:"false" help:"Require NATS JWT credentials (service JWT + account seed) when distributed mode is enabled" group:"distributed"`
+	NatsTLSCA                    string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
+	NatsTLSCert                  string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
+	NatsTLSKey                   string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	DistributedChatWorkers       bool   `env:"LOCALAI_DISTRIBUTED_CHAT_WORKERS" default:"false" help:"Send the turns of triggers, agent jobs and connector messages to chat workers (instances started with --chat-worker). When no chat worker listens, the turn runs on this frontend. Chats that a person starts stay on the frontend. Distributed mode only." group:"distributed"`
+	ChatStartTimeout             string `env:"LOCALAI_CHAT_START_TIMEOUT" help:"How long a frontend waits for a chat worker to start a turn, and how long a chat worker gives the start (default 30s). A start that times out fails its trigger run, job or connector message and is not run on the frontend, because the worker may have started it. Set the same value on frontends and chat workers. Distributed mode only." group:"distributed"`
+	ChatWorkerMaxTurns           int    `env:"LOCALAI_CHAT_WORKER_MAX_TURNS" default:"32" help:"On a chat worker, the most turns it runs at once. A start beyond it is refused, and its trigger run, job or connector message fails with an error that says the worker is full. 0 means no limit. Distributed mode only." group:"distributed"`
+	ChatWorker                   bool   `env:"LOCALAI_CHAT_WORKER" default:"false" help:"Run this instance as a chat worker: it runs the chat turns that frontends send it over NATS and starts no triggers, connectors or agent jobs. Distributed mode only." group:"distributed"`
+	ExposeNodeHeader             bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
+	ModelScheduling              string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
+	ModelSchedulingConfig        string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
+
+	Version bool
+
+	// Cloud-proxy MITM listener (off by default).
+	MITMListen string `env:"LOCALAI_MITM_LISTEN" help:"Address (host:port) for the cloudproxy MITM listener. Empty = disabled. Clients set HTTPS_PROXY=http://<this>:<port>. Intercept hosts are declared per-model via the model YAML mitm.hosts: block; create one from the Add Model UI." group:"middleware"`
+	MITMCADir  string `env:"LOCALAI_MITM_CA_DIR" type:"path" help:"Directory holding the MITM proxy CA cert + key. Defaults to <data-path>/mitm-ca." group:"middleware"`
+
+	PIIDefaultDetectors []string `env:"LOCALAI_PII_DEFAULT_DETECTORS" help:"Instance-wide default PII/secret detector model names applied to any PII-enabled model (chiefly cloud-proxy / MITM models) that names no pii.detectors of its own. Comma-separated, e.g. privacy-filter-nemotron,secret-filter. Takes precedence over the value persisted via the Middleware UI." group:"middleware"`
+}
+
+// userScopedTempDir returns a temp directory namespaced to the current user.
+//
+// The generated-content and upload directories are ephemeral, so they live
+// under the OS temp dir - but a fixed shared name like /tmp/generated is a trap
+// on any multi-user host. macOS routes /tmp to the shared /private/tmp for every
+// account, so whichever user starts LocalAI first creates the parent with 0750
+// perms and every other account then fails startup with
+// "mkdir /tmp/generated/content: permission denied" (the same happens on Linux
+// once a stale root-owned /tmp/generated is left behind). Scoping to the current
+// UID gives each account its own tree so they never collide.
+func userScopedTempDir() string {
+	return filepath.Join(os.TempDir(), system.UserScopedName())
+}
+
+// DefaultGeneratedContentPath returns the default location for backend-generated
+// content (images, audio, videos).
+func DefaultGeneratedContentPath() string {
+	return filepath.Join(userScopedTempDir(), "generated", "content")
+}
+
+// DefaultUploadPath returns the default location for uploads from the files API.
+func DefaultUploadPath() string {
+	return filepath.Join(userScopedTempDir(), "upload")
+}
+
+// parseDistributedDuration parses an operator-supplied duration for a
+// distributed timeout knob. The env var and the rejected value are both named
+// in the error: these knobs are usually set from a compose file or a K8s
+// manifest, where a bare "invalid duration" gives the operator nothing to grep.
+func parseDistributedDuration(envVar, raw string) (time.Duration, error) {
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", envVar, raw, err)
+	}
+	return d, nil
+}
+
+// mlxHostfileDir is where the MLX ring hostfile is written: the data path of
+// the server, so it is not a name in the shared temporary folder that another
+// user can take. With no data path it is the temporary folder of this user.
+func (r *RunCMD) mlxHostfileDir() string {
+	if r.DataPath != "" {
+		return filepath.Join(r.DataPath, "p2p")
+	}
+	return userScopedTempDir()
+}
+
+// NoDataPath is the value of --data-path that keeps nothing on disk: the chats
+// then live in memory and files are off. An empty value cannot say this, because
+// the option has a default and the command line parser reads an empty path as
+// "keep the default".
+const NoDataPath = "-"
+
+// normalizeDataPath turns NoDataPath into the empty path the rest of the server
+// reads as "no data path".
+func (r *RunCMD) normalizeDataPath() {
+	if r.DataPath == NoDataPath {
+		r.DataPath = ""
+	}
+}
+
+func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
+	r.RemovedAgentOptions.warn()
+	r.RemovedAssistantOptions.warn()
+	r.resolveLegacyCollections()
+	r.normalizeDataPath()
+	if err := r.checkRemovedOptions(); err != nil {
+		return err
+	}
+	if err := r.resolveP2PMode(); err != nil {
+		return err
+	}
+	if err := r.TorrentFlags.Apply(); err != nil {
+		return err
+	}
+
+	if r.Version {
+		fmt.Println(internal.Version)
+		return nil
+	}
+
+	tlsMaterial, err := tlsconf.Resolve(r.TLSCert, r.TLSKey, r.TLSSelfSigned, r.DataPath)
+	if err != nil {
+		return err
+	}
+	tlsFingerprint := ""
+	if tlsMaterial != nil {
+		tlsFingerprint = tlsMaterial.Fingerprint
+		logTLS(tlsMaterial)
+	}
+
+	hostOps, err := r.resolveAddonHostOps()
+	if err != nil {
+		return err
+	}
+	logAddonHostOpsResolution(hostOps)
+	blanket, err := config.ParseAddonHostBlanket(r.AddonHostBlanket)
+	if err != nil {
+		return err
+	}
+
+	diagnosticOpts := r.diagnosticsOptions()
+	if err := diagnosticOpts.Validate(); err != nil {
+		return err
+	}
+
+	if ctx.CredentialsFile == "" {
+		if err := LoadCredentials(resolveCredentialsFile("", r.DataPath)); err != nil {
+			return err
+		}
+	}
+
+	activatedListeners, err := systemdActivatedListeners()
+	if err != nil {
+		return fmt.Errorf("loading systemd socket activation listeners: %w", err)
+	}
+	activatedListener, err := selectSystemdListener(activatedListeners)
+	if err != nil {
+		for _, listener := range activatedListeners {
+			_ = listener.Close()
+		}
+		return err
+	}
+	if activatedListener != nil {
+		defer func() {
+			_ = activatedListener.Close()
+		}()
+	}
+
+	warnLongPaths(runtime.GOOS, []namedPath{
+		{"--models-path", r.ModelsPath}, {"--backends-path", r.BackendsPath},
+		{"--data-path", r.DataPath}, {"--download-staging-path", r.DownloadStagingPath},
+	})
+	os.MkdirAll(r.BackendsPath, 0750)
+	os.MkdirAll(r.ModelsPath, 0750)
+
+	systemState, err := system.GetSystemState(
+		system.WithBackendSystemPath(r.BackendsSystemPath),
+		system.WithModelPath(r.ModelsPath),
+		system.WithBackendPath(r.BackendsPath),
+		system.WithStagingPath(r.DownloadStagingPath),
+		system.WithBackendImagesReleaseTag(r.BackendImagesReleaseTag),
+		system.WithBackendImagesBranchTag(r.BackendImagesBranchTag),
+		system.WithBackendDevSuffix(r.BackendDevSuffix),
+		system.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends),
+		system.WithRequireBackendIntegrity(r.RequireBackendIntegrity),
+		system.WithDisableBackendInstall(r.DisableBackendInstall),
+	)
+	if err != nil {
+		return err
+	}
+
+	// CLI context holds configuration, not a cancellation context.
+	runCtx, cancelRun := context.WithCancelCause(context.Background())
+	if !r.PreloadBackendOnly {
+		defer cancelRun(nil)
+	}
+	opts := []config.AppOption{
+		config.WithAddonHostOps(hostOps.Grants),
+		config.WithAddonHostOpsSource(hostOps.Source),
+		config.WithAddonHostDeny(hostOps.Deny),
+		config.WithAddonHostBlanket(blanket),
+		config.WithAddonHostUIGrantsLocked(!r.AddonHostUIGrants),
+		config.WithAddonHostUIGrantsWithoutAuth(r.AddonHostUIGrantsWithoutAuth),
+		config.WithProxyAPIKeyEnvLookup(os.Getenv),
+		config.WithContext(runCtx),
+		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
+		config.WithMaxConcurrentBackendOperations(r.MaxConcurrentBackendOperations),
+		config.WithMaxConcurrentModelOperations(r.MaxConcurrentModelOperations),
+		config.WithModelArtifactMaterializer(modelartifacts.NewDefaultManager(
+			modelartifacts.WithHuggingFaceToken(r.HFToken),
+			modelartifacts.WithDownloadConcurrency(r.ArtifactDownloadConcurrency),
+		)),
+		config.WithModelPreloadDisplay(r.Color, r.NoColor != ""),
+		config.WithConfigFile(r.ModelsConfigFile),
+		config.WithJSONStringPreload(r.PreloadModels),
+		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
+		config.WithSystemState(systemState),
+		config.WithContextSize(r.ContextSize),
+		config.WithLogClient(r.LogClient),
+		config.WithTrustedProxies(r.TrustedProxies),
+		config.WithDebug(ctx.Debug || (ctx.LogLevel != nil && *ctx.LogLevel == "debug")),
+		config.WithGeneratedContentDir(r.GeneratedContentPath),
+		config.WithUploadDir(r.UploadPath),
+		config.WithDataPath(r.DataPath),
+		config.WithDynamicConfigDir(r.LocalaiConfigDir),
+		config.WithDynamicConfigDirPollInterval(r.LocalaiConfigDirPollInterval),
+		config.WithF16(r.F16),
+		config.WithStringGalleries(r.Galleries),
+		config.WithBackendGalleries(r.BackendGalleries),
+		// The galleries the flags named also become library sources, and the
+		// library sources decide which galleries are read. This must stay
+		// after the two options above.
+		libraryOptionFor(r),
+		config.WithVRAMPersistentCache(r.VRAMPersistentCache),
+		config.WithCors(r.CORS),
+		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
+		config.WithDisableCSRF(r.DisableCSRF),
+		config.WithDisableHTTPCompression(r.DisableHTTPCompression),
+		config.WithHTTPCompressionMinLength(r.HTTPCompressionMinLength),
+		config.WithThreads(r.Threads),
+		config.WithUploadLimitMB(r.UploadLimit),
+		config.WithApiKeys(r.APIKeys),
+		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
+		config.WithExternalBackends(r.ExternalBackends...),
+		config.WithWebRTCNAT1To1IPs(r.WebRTCNAT1To1IPs...),
+		config.WithWebRTCICEInterfaces(r.WebRTCICEInterfaces...),
+		config.WithWebRTCUDPPort(r.WebRTCUDPPort),
+		config.WithOpaqueErrors(r.OpaqueErrors),
+		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
+		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),
+		config.WithDisableApiKeyRequirementForHttpGet(r.DisableApiKeyRequirementForHttpGet),
+		config.WithHttpGetExemptedEndpoints(r.HttpGetExemptedEndpoints),
+		config.WithLoadToMemory(r.LoadToMemory),
+		config.WithMachineTag(r.MachineTag),
+		config.WithAPIAddress(r.Address),
+		config.WithTLSFingerprint(tlsFingerprint),
+		config.WithMITMListen(r.MITMListen),
+		config.WithMITMCADir(r.MITMCADir),
+		config.WithPIIDefaultDetectors(r.PIIDefaultDetectors),
+		config.WithP2PMode(r.P2PMode),
+		config.WithP2PListenAddrs(r.P2PListen),
+		config.WithP2PBootstrapPeers(r.P2PBootstrap),
+		config.WithP2PIdentityPath(r.P2PIdentity),
+		config.WithLlamaCPPTunnelCallback(func(tunnels []string) {
+			if err := splitenv.SetLlama(tunnels); err != nil {
+				xlog.Error("failed to set the llama.cpp RPC servers", "error", err)
+				return
+			}
+			xlog.Debug("llama.cpp RPC servers", "value", tunnels)
+		}),
+		config.WithMLXTunnelCallback(func(tunnels []string) {
+			if err := splitenv.SetMLX(r.mlxHostfileDir(), tunnels); err != nil {
+				xlog.Error("failed to write the MLX hostfile", "error", err)
+				return
+			}
+			xlog.Debug("MLX ring hostfile", "tunnels", tunnels)
+		}),
+	}
+
+	// Distributed mode
+	if r.Distributed {
+		opts = append(opts, config.EnableDistributed)
+	}
+	if r.InstanceID != "" {
+		opts = append(opts, config.WithDistributedInstanceID(r.InstanceID))
+	}
+	if r.PeerAddress != "" {
+		opts = append(opts, config.WithDistributedPeerAddress(r.PeerAddress))
+	}
+	if r.PeerTLS || r.PeerTLSCA != "" {
+		opts = append(opts, config.WithDistributedPeerTLS(r.PeerTLSCA))
+	}
+	if r.NatsURL != "" {
+		opts = append(opts, config.WithNatsURL(r.NatsURL))
+	}
+	if r.StorageURL != "" {
+		opts = append(opts, config.WithStorageURL(r.StorageURL))
+	}
+	if r.StorageBucket != "" {
+		opts = append(opts, config.WithStorageBucket(r.StorageBucket))
+	}
+	if r.StorageRegion != "" {
+		opts = append(opts, config.WithStorageRegion(r.StorageRegion))
+	}
+	if r.StorageAccessKey != "" {
+		opts = append(opts, config.WithStorageAccessKey(r.StorageAccessKey))
+	}
+	if r.StorageSecretKey != "" {
+		opts = append(opts, config.WithStorageSecretKey(r.StorageSecretKey))
+	}
+	if r.BackendInstallTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT", r.BackendInstallTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithBackendInstallTimeout(d))
+	}
+	if r.BackendUpgradeTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_NATS_BACKEND_UPGRADE_TIMEOUT", r.BackendUpgradeTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithBackendUpgradeTimeout(d))
+	}
+	if r.ModelLoadTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_NATS_MODEL_LOAD_TIMEOUT", r.ModelLoadTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelLoadTimeout(d))
+	}
+	if r.ModelLoadWait != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_LOAD_WAIT", r.ModelLoadWait)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelLoadWait(d))
+	}
+	if r.StaleNodeThreshold != "" {
+		d, err := parseDistributedDuration("LOCALAI_STALE_NODE_THRESHOLD", r.StaleNodeThreshold)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithStaleNodeThreshold(d))
+	}
+	if r.ChatStartTimeout != "" {
+		d, err := parseDistributedDuration("LOCALAI_CHAT_START_TIMEOUT", r.ChatStartTimeout)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithChatStartTimeout(d))
+	}
+	if r.NodeHeartbeatCheckpoint != "" {
+		d, err := parseDistributedDuration("LOCALAI_NODE_HEARTBEAT_CHECKPOINT", r.NodeHeartbeatCheckpoint)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithNodeHeartbeatCheckpoint(d))
+	}
+	if r.ModelConfigResyncInterval != "" {
+		d, err := parseDistributedDuration("LOCALAI_MODEL_CONFIG_RESYNC_INTERVAL", r.ModelConfigResyncInterval)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, config.WithModelConfigResyncInterval(d))
+	}
+	if r.RegistrationToken != "" {
+		opts = append(opts, config.WithRegistrationToken(r.RegistrationToken))
+	}
+	if r.RegistrationRequireAuth {
+		opts = append(opts, config.EnableRegistrationRequireAuth)
+	}
+	if r.DistributedRequireAuth {
+		opts = append(opts, config.EnableDistributedRequireAuth)
+	}
+	if r.DistributedSharedModels {
+		opts = append(opts, config.EnableDistributedSharedModels)
+	}
+	if r.ChatWorker {
+		if !r.Distributed {
+			return fmt.Errorf("LOCALAI_CHAT_WORKER needs distributed mode (LOCALAI_DISTRIBUTED=true)")
+		}
+		opts = append(opts, config.EnableChatWorker, config.WithChatWorkerMaxTurns(r.ChatWorkerMaxTurns))
+	}
+	if r.DistributedChatWorkers {
+		if r.Distributed {
+			opts = append(opts, config.EnableDistributedChatWorkers)
+		} else {
+			xlog.Warn("LOCALAI_DISTRIBUTED_CHAT_WORKERS is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
+		}
+	}
+	if r.NatsAccountSeed != "" {
+		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
+	}
+	if r.NatsServiceJWT != "" {
+		opts = append(opts, config.WithNatsServiceJWT(r.NatsServiceJWT))
+	}
+	if r.NatsServiceSeed != "" {
+		opts = append(opts, config.WithNatsServiceSeed(r.NatsServiceSeed))
+	}
+	if r.NatsWorkerJWTTTL != "" {
+		d, err := time.ParseDuration(r.NatsWorkerJWTTTL)
+		if err != nil {
+			return fmt.Errorf("invalid LOCALAI_NATS_WORKER_JWT_TTL %q: %w", r.NatsWorkerJWTTTL, err)
+		}
+		opts = append(opts, config.WithNatsWorkerJWTTTL(d))
+	}
+	if r.NatsRequireAuth {
+		opts = append(opts, config.EnableNatsRequireAuth)
+	}
+	if r.NatsTLSCA != "" {
+		opts = append(opts, config.WithNatsTLSCA(r.NatsTLSCA))
+	}
+	if r.NatsTLSCert != "" {
+		opts = append(opts, config.WithNatsTLSCert(r.NatsTLSCert))
+	}
+	if r.NatsTLSKey != "" {
+		opts = append(opts, config.WithNatsTLSKey(r.NatsTLSKey))
+	}
+	if r.AutoApproveNodes {
+		opts = append(opts, config.EnableAutoApproveNodes)
+	}
+	if !r.DistributedPrefixCache {
+		opts = append(opts, config.DisablePrefixCache)
+	}
+	if !r.DistributedDiskHeadroomCheck {
+		opts = append(opts, config.DisableDiskHeadroomCheck)
+	}
+	if r.DistributedPrefixCacheTTL != "" {
+		d, err := time.ParseDuration(r.DistributedPrefixCacheTTL)
+		if err != nil {
+			return fmt.Errorf("invalid LOCALAI_DISTRIBUTED_PREFIX_CACHE_TTL %q: %w", r.DistributedPrefixCacheTTL, err)
+		}
+		opts = append(opts, config.WithPrefixCacheTTL(d))
+	}
+	if r.ExposeNodeHeader {
+		opts = append(opts, config.WithExposeNodeHeader(true))
+	}
+	if r.ModelScheduling != "" {
+		opts = append(opts, config.WithModelSchedulingJSON(r.ModelScheduling))
+	}
+	if r.ModelSchedulingConfig != "" {
+		opts = append(opts, config.WithModelSchedulingConfigPath(r.ModelSchedulingConfig))
+	}
+	if !r.Distributed && (r.ModelScheduling != "" || r.ModelSchedulingConfig != "") {
+		xlog.Warn("LOCALAI_MODEL_SCHEDULING / LOCALAI_MODEL_SCHEDULING_CONFIG is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
+	}
+
+	if r.DisableMetricsEndpoint {
+		opts = append(opts, config.DisableMetricsEndpoint)
+	}
+
+	if r.DisableRuntimeSettings {
+		opts = append(opts, config.DisableRuntimeSettings)
+	}
+
+	if r.EnableTracing {
+		opts = append(opts, config.EnableTracing)
+	}
+	opts = append(opts, config.WithMaxConcurrentBackendRequests(r.MaxConcurrentBackendRequests))
+	opts = append(opts, config.WithTracingMaxItems(r.TracingMaxItems))
+	opts = append(opts, config.WithTracingMaxBodyBytes(r.TracingMaxBodyBytes))
+
+	idleWatchDog := r.EnableWatchdogIdle
+	busyWatchDog := r.EnableWatchdogBusy
+
+	if r.DisableWebUI {
+		opts = append(opts, config.DisableWebUI)
+	}
+
+	if r.OllamaAPIRootEndpoint {
+		opts = append(opts, config.EnableOllamaAPIRootEndpoint)
+	}
+
+	if r.DisableGalleryEndpoint {
+		opts = append(opts, config.DisableGalleryEndpoint)
+	}
+
+	if r.DisableMCP {
+		opts = append(opts, config.DisableMCP)
+	}
+
+	// Chats
+	if r.RemovedAssistantOptions.DisableLocalAIAssistant {
+		opts = append(opts, config.DisableLocalAIAdminByDeprecatedOption)
+	}
+	if r.DisableChats {
+		opts = append(opts, config.DisableChats)
+	}
+	if r.DisableTriggers {
+		opts = append(opts, config.DisableTriggers)
+	}
+	if r.DisableConnectors {
+		opts = append(opts, config.DisableConnectors)
+	}
+	if r.DisableConnectorTalkback {
+		opts = append(opts, config.DisableConnectorTalkback)
+	}
+	if r.SkipBindingCapsMigration {
+		opts = append(opts, config.SkipBindingCapsMigration)
+	}
+	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
+	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
+	opts = append(opts, config.WithUpgradeRunRetention(r.UpgradeRunKeep, r.UpgradeRunRetention))
+
+	// Collections
+	if r.DisableCollections {
+		opts = append(opts, config.DisableCollections)
+	}
+	if r.CollectionsAPIURL != "" {
+		opts = append(opts, config.WithCollectionsAPIURL(r.CollectionsAPIURL))
+	}
+	if r.CollectionsAPIKey != "" {
+		opts = append(opts, config.WithCollectionsAPIKey(r.CollectionsAPIKey))
+	}
+	if r.CollectionsDefaultModel != "" {
+		opts = append(opts, config.WithCollectionsDefaultModel(r.CollectionsDefaultModel))
+	}
+	if r.LegacyNavigation {
+		opts = append(opts, config.WithLegacyNavigation(true))
+	}
+	if r.DisableSharedPages {
+		opts = append(opts, config.WithDisableSharedPages(true))
+	}
+	if r.DisableUserPageShares {
+		opts = append(opts, config.WithDisableUserPageShares(true))
+	}
+	if r.DisablePageArea {
+		opts = append(opts, config.WithDisablePageArea(true))
+	}
+	if r.ChatsHostExec != "" {
+		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
+	}
+	if r.ChatsAutoResume {
+		opts = append(opts, config.WithChatsAutoResume(true))
+	}
+	if r.CollectionsStateDir != "" {
+		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))
+	}
+	if r.CollectionsVectorEngine != "" {
+		opts = append(opts, config.WithCollectionsVectorEngine(r.CollectionsVectorEngine))
+	}
+	if r.CollectionsEmbeddingModel != "" {
+		opts = append(opts, config.WithCollectionsEmbeddingModel(r.CollectionsEmbeddingModel))
+	}
+	if r.CollectionsDatabaseURL != "" {
+		opts = append(opts, config.WithCollectionsDatabaseURL(r.CollectionsDatabaseURL))
+	}
+	if r.CollectionsMaxChunkingSize > 0 {
+		opts = append(opts, config.WithCollectionsMaxChunkingSize(r.CollectionsMaxChunkingSize))
+	}
+	if r.CollectionsChunkOverlap > 0 {
+		opts = append(opts, config.WithCollectionsChunkOverlap(r.CollectionsChunkOverlap))
+	}
+	if r.CollectionsDBPath != "" {
+		opts = append(opts, config.WithCollectionsCollectionDBPath(r.CollectionsDBPath))
+	}
+
+	// Authentication
+	authEnabled := r.authEnabled()
+	addonCfg, err := addonConfigFor(r.AddonsEnabled, r.AddonsOwnershipMode, r.DataPath, authEnabled, addonRoleFlags{Role: r.AddonsRole, OwnerAddress: r.AddonsOwnerAddress, OwnerListen: r.AddonsOwnerListen, CarrierDir: r.AddonsCarrierDir})
+	if err != nil {
+		cancelRun(nil)
+		return err
+	}
+	if r.AddonsMigrateHostSettings && r.AddonsRole != addonRoleOwner {
+		cancelRun(nil)
+		return fmt.Errorf("--addons-migrate-host-settings requires --addons-role=owner")
+	}
+	addonCfg.MigrateHostSettings = r.AddonsMigrateHostSettings
+	addonCfg.Frontend = r.AddonsRole == addonRoleFrontend
+	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
+		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")
+	}
+	if addonCfg.Enabled {
+		addonCfg.OfficialLibrary = r.AddonsOfficialLibrary
+		addonCfg.OfficialBackendLibrary = r.AddonsBackendLibrary
+		addonCfg.BackendMaxBytes = r.AddonsBackendMaxBytes
+		addonCfg.WSLDistro = r.AddonsWSLDistro
+		opts = append(opts, config.WithAddons(addonCfg))
+	} else if addonCfg.Frontend {
+		// Add-ons are off, but the role still forbids owner state.
+		opts = append(opts, config.WithAddons(config.AddonConfig{Frontend: true}))
+	}
+	if authEnabled {
+		opts = append(opts, config.WithAuthEnabled(true))
+
+		dbURL := r.AuthDatabaseURL
+		if dbURL == "" {
+			dbURL = filepath.Join(r.DataPath, "database.db")
+		}
+		opts = append(opts, config.WithAuthDatabaseURL(dbURL))
+
+		if r.GitHubClientID != "" {
+			opts = append(opts, config.WithAuthGitHubClientID(r.GitHubClientID))
+			opts = append(opts, config.WithAuthGitHubClientSecret(r.GitHubClientSecret))
+		}
+		if r.OIDCClientID != "" {
+			opts = append(opts, config.WithAuthOIDCIssuer(r.OIDCIssuer))
+			opts = append(opts, config.WithAuthOIDCClientID(r.OIDCClientID))
+			opts = append(opts, config.WithAuthOIDCClientSecret(r.OIDCClientSecret))
+		}
+		if r.AuthAdminEmail != "" {
+			opts = append(opts, config.WithAuthAdminEmail(r.AuthAdminEmail))
+		}
+		if r.AuthRegistrationMode != "" {
+			opts = append(opts, config.WithAuthRegistrationMode(r.AuthRegistrationMode))
+		}
+		if r.DisableLocalAuth {
+			opts = append(opts, config.WithAuthDisableLocalAuth(true))
+		}
+		if r.AuthAPIKeyHMACSecret != "" {
+			opts = append(opts, config.WithAuthAPIKeyHMACSecret(r.AuthAPIKeyHMACSecret))
+		}
+		if r.DefaultAPIKeyExpiry != "" {
+			opts = append(opts, config.WithAuthDefaultAPIKeyExpiry(r.DefaultAPIKeyExpiry))
+		}
+	}
+
+	// Applied unconditionally: the external base URL governs all self-referential
+	// links (not just OAuth callbacks), so it must take effect even when auth is off.
+	if r.ExternalBaseURL != "" {
+		opts = append(opts, config.WithExternalBaseURL(r.ExternalBaseURL))
+	}
+
+	if idleWatchDog || busyWatchDog {
+		opts = append(opts, config.EnableWatchDog)
+		if idleWatchDog {
+			opts = append(opts, config.EnableWatchDogIdleCheck)
+			dur, err := time.ParseDuration(r.WatchdogIdleTimeout)
+			if err != nil {
+				return err
+			}
+			opts = append(opts, config.SetWatchDogIdleTimeout(dur))
+		}
+		if busyWatchDog {
+			opts = append(opts, config.EnableWatchDogBusyCheck)
+			dur, err := time.ParseDuration(r.WatchdogBusyTimeout)
+			if err != nil {
+				return err
+			}
+			opts = append(opts, config.SetWatchDogBusyTimeout(dur))
+		}
+		if r.WatchdogInterval != "" {
+			dur, err := time.ParseDuration(r.WatchdogInterval)
+			if err != nil {
+				return err
+			}
+			opts = append(opts, config.SetWatchDogInterval(dur))
+		}
+	}
+
+	// Memory reclaimer (GPU VRAM if available, otherwise RAM). Injected
+	// unconditionally so the kong threshold default always reaches the
+	// config: DefaultRuntimeBaseline models an option-less boot with
+	// threshold 0.95, and the settings loader treats a live value equal
+	// to the baseline as "not env-set" (file may apply). Gating this on
+	// EnableMemoryReclaimer left the threshold at 0 and made a UI-saved
+	// threshold look env-set at boot.
+	opts = append(opts, config.WithMemoryReclaimer(r.EnableMemoryReclaimer, r.MemoryReclaimerThreshold))
+
+	// Handle max active backends (LRU eviction)
+	// MaxActiveBackends takes precedence over SingleActiveBackend
+	if r.MaxActiveBackends > 0 {
+		opts = append(opts, config.SetMaxActiveBackends(r.MaxActiveBackends))
+	} else if r.SingleActiveBackend {
+		// Backward compatibility: --single-active-backend is equivalent to --max-active-backends=1
+		opts = append(opts, config.EnableSingleBackend)
+	}
+
+	// Handle LRU eviction settings
+	if r.ForceEvictionWhenBusy {
+		opts = append(opts, config.WithForceEvictionWhenBusy(true))
+	}
+	if r.SizeAwareEviction {
+		opts = append(opts, config.WithSizeAwareEviction(true))
+	}
+	if r.LRUEvictionMaxRetries > 0 {
+		opts = append(opts, config.WithLRUEvictionMaxRetries(r.LRUEvictionMaxRetries))
+	}
+	if r.LRUEvictionRetryInterval != "" {
+		dur, err := time.ParseDuration(r.LRUEvictionRetryInterval)
+		if err != nil {
+			return fmt.Errorf("invalid LRU eviction retry interval: %w", err)
+		}
+		opts = append(opts, config.WithLRUEvictionRetryInterval(dur))
+	}
+	if r.ModelLoadFailureCooldown != "" {
+		dur, err := time.ParseDuration(r.ModelLoadFailureCooldown)
+		if err != nil {
+			return fmt.Errorf("invalid model load failure cooldown: %w", err)
+		}
+		opts = append(opts, config.WithModelLoadFailureCooldown(dur))
+	}
+
+	// Handle Open Responses store TTL
+	if r.OpenResponsesStoreTTL != "" && r.OpenResponsesStoreTTL != "0" {
+		dur, err := time.ParseDuration(r.OpenResponsesStoreTTL)
+		if err != nil {
+			return fmt.Errorf("invalid Open Responses store TTL: %w", err)
+		}
+		opts = append(opts, config.WithOpenResponsesStoreTTL(dur))
+	}
+
+	// split ":" to get backend name and the uri
+	for _, v := range r.ExternalGRPCBackends {
+		backend := v[:strings.IndexByte(v, ':')]
+		uri := v[strings.IndexByte(v, ':')+1:]
+		opts = append(opts, config.WithExternalBackend(backend, uri))
+	}
+
+	if r.AutoloadGalleries {
+		opts = append(opts, config.EnableGalleriesAutoload)
+	}
+
+	if r.AutoloadBackendGalleries {
+		opts = append(opts, config.EnableBackendGalleriesAutoload)
+	}
+
+	opts = append(opts, config.WithOfficialLibraries(r.OfficialLibraries))
+
+	if r.AutoUpgradeBackends {
+		opts = append(opts, config.WithAutoUpgradeBackends(r.AutoUpgradeBackends))
+	}
+
+	if r.AutoUpgradeAddons {
+		opts = append(opts, config.WithAutoUpgradeAddons(r.AutoUpgradeAddons))
+	}
+
+	if r.RequireBackendIntegrity {
+		opts = append(opts, config.WithRequireBackendIntegrity(r.RequireBackendIntegrity))
+	}
+
+	if r.DisableBackendInstall {
+		opts = append(opts, config.WithDisableBackendInstall(r.DisableBackendInstall))
+	}
+
+	if r.PreferDevelopmentBackends {
+		opts = append(opts, config.WithPreferDevelopmentBackends(r.PreferDevelopmentBackends))
+	}
+
+	// Per-node VRAM allocation budget. Record it on the ApplicationConfig and,
+	// fail-open, install it as the process-global xsysinfo default so allocation
+	// heuristics cap at it. A malformed value must never block startup: it is
+	// logged and treated as unset (full detected VRAM).
+	if r.VRAMBudget != "" {
+		opts = append(opts, config.SetVRAMBudget(r.VRAMBudget))
+		if b, err := vrambudget.Parse(r.VRAMBudget); err != nil {
+			xlog.Warn("Ignoring invalid LOCALAI_VRAM_BUDGET", "value", r.VRAMBudget, "error", err)
+		} else {
+			xsysinfo.SetDefaultVRAMBudget(b)
+			xlog.Info("VRAM allocation budget set", "budget", b.String())
+		}
+	}
+
+	if r.PreloadBackendOnly {
+		_, err := application.New(opts...)
+		return err
+	}
+
+	var stopProfiler func() error
+	if diagnosticOpts.Pprof {
+		profiler, err := diagnostics.Start(diagnosticOpts)
+		if err != nil {
+			return err
+		}
+		monitorDone := make(chan struct{})
+		var profilerErr error
+		go func() {
+			defer close(monitorDone)
+			if err := <-profiler.Errors(); err != nil {
+				profilerErr = err
+				cancelRun(err)
+			}
+		}()
+		stopProfiler = func() error {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := profiler.Shutdown(shutdownCtx)
+			<-monitorDone
+			return errors.Join(err, profilerErr)
+		}
+		defer func() {
+			result = errors.Join(result, stopProfiler())
+		}()
+		// Signals exit the process without running defers. Register private
+		// cleanup before application cleanup, which has no bounded shutdown.
+		signals.RegisterGracefulTerminationHandler(func() {
+			cancelRun(nil)
+			if err := stopProfiler(); err != nil {
+				xlog.Error("error while shutting down profiler", "error", err)
+			}
+		})
+	}
+	if diagnosticOpts.RequestPhaseTiming {
+		opts = append(opts, config.WithDiagnosticsRecorder(diagnostics.NewRecorder(diagnostics.LogEvent)))
+	}
+
+	app, err := application.New(opts...)
+	if err != nil {
+		return fmt.Errorf("LocalAI failed to start: %w.\nTroubleshooting steps:\n  1. Check that your models directory exists and is accessible: %s\n  2. Verify model config files are valid YAML: 'local-ai util usecase-heuristic <config>'\n  3. Check available disk space and file permissions\n  4. Run with --log-level=debug for more details\nSee https://localai.io/basics/troubleshooting/ for more help", err, r.ModelsPath)
+	}
+
+	defer func() {
+		cancelRun(nil)
+		if stopProfiler != nil {
+			// Release the bounded private resource even if app.Shutdown blocks.
+			_ = stopProfiler()
+		}
+		result = errors.Join(result, app.Shutdown())
+	}()
+	if err := runCtx.Err(); err != nil {
+		return context.Cause(runCtx)
+	}
+
+	// Refuse to bind a public-internet address without authentication unless
+	// the operator has explicitly opted in. The auth middleware degrades to
+	// pass-through when there is no auth DB and no legacy keys; on a loopback,
+	// LAN, or VPN that's the historical "trusted network" deployment, but on
+	// a public IP it makes every model, gallery install, settings change, and
+	// admin endpoint reachable by anyone who can connect to the port.
+	listenAddress := r.Address
+	if activatedListener != nil {
+		listenAddress = activatedListener.Addr().String()
+	}
+
+	authConfigured := app.AuthDB() != nil || len(r.APIKeys) > 0
+	if err := requireAuthOrTrustedBind(listenAddress, authConfigured, r.AllowInsecurePublicBind); err != nil {
+		return err
+	}
+
+	// /readyz waits for the collections, which start once the server listens.
+	app.AwaitCollections()
+
+	appHTTP, err := http.API(app)
+	if err != nil {
+		xlog.Error("error during HTTP App construction", "error", err)
+		return err
+	}
+	// A chat worker serves starts only now: its turns reach the models through
+	// the router that http.API has just built.
+	if err := app.StartChatWorker(); err != nil {
+		return err
+	}
+
+	serve := httpServe(appHTTP, listenAddress, tlsMaterial, activatedListener)
+	if activatedListener != nil {
+		xlog.Info("Using systemd socket activation listener", "address", listenAddress)
+	}
+	xlog.Info("LocalAI is started and running", "address", listenAddress)
+
+	// Drain first: stop accepting, flip /readyz, let in-flight requests (chat
+	// streams included) finish. The hooks below run once the drain ends.
+	signals.SetDrainTimeout(r.ShutdownTimeout)
+	signals.RegisterDrainHandler(func(ctx context.Context) {
+		drainHTTPServer(ctx, appHTTP, app.BeginDrain)
+	})
+	signals.RegisterGracefulTerminationHandler(func() {
+		cancelRun(nil)
+		if err := app.Shutdown(); err != nil {
+			xlog.Error("error while shutting down application", "error", err)
+		}
+	})
+
+	// Start the collections after the HTTP server is listening, because
+	// backends like PostgreSQL need to call the embeddings API during
+	// collection initialization.
+	go func() {
+		waitForServerReady(listenAddress, app.ApplicationConfig().Context)
+		if runCtx.Err() == nil {
+			app.StartCollections()
+			// The conversion of the old data needs the collections to grant them
+			// to the agents it converts, so it runs here and not at the start.
+			// Without the collections it has run already.
+			if app.ApplicationConfig().Collections.Enabled {
+				app.ConvertStudioData()
+			}
+		}
+	}()
+
+	if !diagnosticOpts.Pprof {
+		return waitForDrain(serve())
+	}
+	served := make(chan error, 1)
+	go func() { served <- serve() }()
+	select {
+	case err := <-served:
+		return errors.Join(waitForDrain(err), context.Cause(runCtx))
+	case <-runCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		shutdownErr := appHTTP.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			shutdownErr = errors.Join(shutdownErr, appHTTP.Close())
+		}
+		serveErr := <-served
+		// Only intentional shutdown makes ErrServerClosed an expected result.
+		if errors.Is(serveErr, nethttp.ErrServerClosed) {
+			serveErr = nil
+		}
+		return errors.Join(serveErr, context.Cause(runCtx), shutdownErr)
+	}
+}
+
+// httpServe returns the function that serves the API. With a certificate the
+// server speaks TLS on its own listener, or on the one systemd handed over; the
+// timeouts and shutdown hooks of the server stay, since TLS only gives it a
+// configuration and a listener that speaks it.
+func httpServe(e *echo.Echo, address string, m *tlsconf.Material, activated net.Listener) func() error {
+	if m == nil {
+		if activated != nil {
+			e.Listener = activated
+		}
+		return func() error { return e.Start(address) }
+	}
+	e.Server.TLSConfig = m.Config()
+	// StartServer reads the address from the server. Without it the listener
+	// binds every interface on a random port, whatever --address says.
+	e.Server.Addr = address
+	if activated != nil {
+		e.TLSListener = tls.NewListener(activated, e.Server.TLSConfig)
+	}
+	return func() error { return e.StartServer(e.Server) }
+}
+
+// logTLS tells the operator which certificate the server presents, with the
+// fingerprint a client pins.
+func logTLS(m *tlsconf.Material) {
+	switch {
+	case m.SelfSigned && !m.Persistent:
+		xlog.Warn("TLS: the self-signed certificate is kept in memory (no data path), so its fingerprint changes at each start")
+	case m.SelfSigned:
+		xlog.Info("TLS: using the self-signed certificate kept in the data path")
+	}
+	xlog.Info("TLS is on (TLS 1.3 minimum)", "sha256", m.Fingerprint, "digest", m.Digest())
+}
+
+// waitForServerReady polls the given address until the HTTP server is
+// accepting connections or the context is cancelled.
+func waitForServerReady(address string, ctx context.Context) {
+	host, port, err := net.SplitHostPort(address)
+	if err == nil && host == "" {
+		address = "127.0.0.1:" + port
+	}
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		conn, err := net.DialTimeout("tcp", address, 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// drainHTTPServer marks the application not ready, stops accepting
+// connections and waits for in-flight requests until ctx ends. When ctx ends
+// first it closes the remaining connections.
+func drainHTTPServer(ctx context.Context, srv *echo.Echo, beginDrain func()) {
+	beginDrain()
+	xlog.Info("Shutdown started: draining in-flight requests")
+	if err := srv.Shutdown(ctx); err != nil {
+		xlog.Warn("Drain did not finish in time, closing connections", "error", err)
+		_ = srv.Close()
+	}
+}
+
+// waitForDrain turns the clean stop of the server into a wait. The signal
+// handler stops the server first and then runs the termination hooks and exits
+// the process, so returning here would end the process before the drain ends.
+// The handler bounds the wait.
+func waitForDrain(err error) error {
+	if errors.Is(err, nethttp.ErrServerClosed) {
+		select {}
+	}
+	return err
+}

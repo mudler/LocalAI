@@ -1,0 +1,428 @@
+{
+  "lifecycle": {
+    "update": {"update": "Pembaruan tersedia", "edited": "Pembaruan tersedia, perlu pilihan Anda", "updating": "Sedang diperbarui", "failed": "Pembaruan gagal", "held": "Ditahan di versi ini"},
+    "supporting": "Temukan model yang muat di mesin ini, pasang, dan kelola model yang sudah ada.",
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "Muat ulang", "reloading": "Memuat ulang…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "memuat ulang" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "reloaded": "Konfigurasi model dimuat ulang"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Models",
+  "subtitle": "Telusuri dan instal model AI dari galeri",
+  "models": "Model",
+  "recommended": {
+    "title": "Direkomendasikan untuk perangkat keras Anda",
+    "cpuNote": "GPU tidak terdeteksi - model kecil yang tetap responsif di CPU.",
+    "gpuNote": "Disesuaikan dengan VRAM yang tersedia, menyisakan ruang untuk konteks.",
+    "install": "Instal",
+    "installing": "Menginstal",
+    "installStarted": "Menginstal {{model}}…",
+    "installFailed": "Instalasi gagal: {{message}}",
+    "window": "konteks {{window}}",
+    "memory": "sekitar {{memory}} memori",
+    "dismiss": "Tutup rekomendasi",
+    "summary": "{{n}} model disarankan",
+    "bestFit": "Best fit",
+    "alternative": "Also fits"
+  },
+  "stats": {
+    "available": "Tersedia",
+    "installed": "Terinstal"
+  },
+  "actions": {
+    "addModel": "Tambah Model",
+    "importModel": "Impor Model",
+    "install": "Instal",
+    "reinstall": "Instal Ulang",
+    "delete": "Hapus"
+  },
+  "filters": {
+    "sheetDone": "Tampilkan model",
+    "sheetTitle": "Filter",
+    "sheetButtonCount": "Filter ({{count}})",
+    "sheetButton": "Filter",
+    "all": "Semua",
+    "llm": "Obrolan",
+    "image": "Gambar",
+    "video": "Video",
+    "multimodal": "Multimodal",
+    "vision": "Vision",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarization",
+    "soundGen": "Suara",
+    "audioTransform": "Efek Audio",
+    "realtimeAudio": "Audio Realtime",
+    "embedding": "Embedding",
+    "rerank": "Rerank",
+    "detection": "Deteksi",
+    "vad": "VAD",
+    "fitsGpu": "Muat di GPU",
+    "collapseVariants": "Satu baris per model",
+    "allBackends": "Semua Backend",
+    "searchBackends": "Cari backends...",
+    "contextSize": "Konteks:",
+    "useCaseLabel": "Filter berdasarkan kasus penggunaan",
+    "unavailableForBackend": "Tidak tersedia untuk backend yang dipilih",
+    "someSelected": "{{count}} dipilih",
+    "refineLabel": "Persempit"
+  },
+  "search": {
+    "placeholder": "Cari model...",
+    "clearFilters": "Hapus filter"
+  },
+  "table": {
+    "modelName": "Nama Model",
+    "description": "Deskripsi",
+    "backend": "Backend",
+    "sizeVram": "Ukuran / VRAM",
+    "status": "Status",
+    "actions": "Aksi",
+    "size": "Ukuran: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Muat",
+    "mayNotFit": "Mungkin tidak muat",
+    "trustRemoteCode": "Trust Remote Code",
+    "installing": "Menginstal",
+    "installingPct": "Menginstal · {{percent}}%",
+    "installed": "Terinstal",
+    "notInstalled": "Belum Terinstal"
+  },
+  "detail": {
+    "description": "Deskripsi",
+    "gallery": "Galeri",
+    "backend": "Backend",
+    "size": "Ukuran",
+    "vram": "VRAM",
+    "license": "Lisensi",
+    "tags": "Tag",
+    "links": "Tautan",
+    "warning": "Peringatan",
+    "files": "File",
+    "fitsGpu": "Muat di GPU",
+    "mayNotFitGpu": "Mungkin tidak muat di GPU",
+    "requiresTrustRemoteCode": "Memerlukan Trust Remote Code",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} file",
+    "filename": "Nama file",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Semua model",
+    "vramAt": "VRAM pada {{context}}",
+    "headroom": "Sisa ruang",
+    "headroomOn": "Sisa ruang di {{node}}"
+  },
+  "empty": {
+    "title": "Model tidak ditemukan",
+    "withFilters": "Tidak ada model yang cocok dengan pencarian atau filter Anda.",
+    "collapsedVariantsHint": "Build alternatif yang sudah ditawarkan entri lain disembunyikan. Matikan \"Satu baris per model\" untuk menyertakannya.",
+    "noFilters": "Galeri model kosong."
+  },
+  "deleteDialog": {
+    "title": "Hapus Model",
+    "message": "Hapus model {{model}}?",
+    "confirm": "Hapus {{model}}",
+    "deletingToast": "Menghapus {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Gagal memuat model: {{message}}",
+    "installFailed": "Gagal menginstal: {{message}}",
+    "deleteFailed": "Gagal menghapus: {{message}}"
+  },
+  "selector": {
+    "loading": "Memuat model...",
+    "selectModel": "Pilih model...",
+    "searchPlaceholder": "Cari model...",
+    "noModels": "Model tidak tersedia"
+  },
+  "variants": {
+    "title": "Variants",
+    "chooseVariant": "Choose a variant",
+    "auto": "Auto",
+    "autoSelected": "Auto-selected",
+    "base": "Base build",
+    "fits": "Fits",
+    "doesNotFit": "Does not fit",
+    "unknownSize": "Unknown size",
+    "unknownBackend": "Unknown backend",
+    "loading": "Loading variants...",
+    "quantizationTitle": "Format bobot",
+    "unknownQuantization": "Format tidak diketahui",
+    "showDetails": "Tampilkan detail lengkap {{variant}}",
+    "hideDetails": "Sembunyikan detail lengkap {{variant}}",
+    "detailsLoading": "Memuat detail...",
+    "detailsUnavailable": "Detail untuk {{variant}} tidak dapat dimuat.",
+    "features": {
+      "dflash": "Lebih cepat: DFlash",
+      "mtp": "Lebih cepat: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Urutkan model",
+    "downloadingPct": "mengunduh {{percent}}%",
+    "tooLarge": "{{size}} · terlalu besar",
+    "fitsSize": "{{size}} · muat",
+    "previousPage": "Halaman sebelumnya",
+    "nextPage": "Halaman berikutnya",
+    "showingCount": "{{shown}} dari {{total}}",
+    "sizing": "menghitung…"
+  },
+  "groups": {
+    "text": "Teks dan penalaran",
+    "vision": "Visi",
+    "audio": "Suara dan audio",
+    "visual": "Gambar dan video",
+    "other": "Lainnya"
+  },
+  "chart": {
+    "title": "VRAM menurut panjang konteks",
+    "available": "{{vram}} tersedia",
+    "barTitle": "Konteks {{context}} membutuhkan {{vram}}",
+    "fitsEverywhere": "Berjalan pada setiap panjang konteks di host ini.",
+    "fitsNowhere": "Tidak muat di host ini pada panjang konteks mana pun.",
+    "fitsUpTo": "Muat hingga konteks {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Host Anda",
+    "heroWithGpu": "Memori GPU {{vram}}, {{count}} model di galeri.",
+    "heroNoGpu": "{{count}} model di galeri.",
+    "heroHint": "Pilih model di sebelah kiri untuk melihat ukuran, varian, dan kecocokannya.",
+    "browsing": "Menjelajah",
+    "pickHint": "Pilih model untuk melihat detailnya.",
+    "heroWithRam": "Memori sistem {{ram}}, {{count}} model di galeri.",
+    "heroWithCluster": "{{vram}} di {{node}}, terbesar dari {{nodes}} node, {{count}} model di galeri.",
+    "heroWithNode": "{{vram}} di {{node}}, {{count}} model di galeri.",
+    "byUseCase": "Atau mulai dari kasus penggunaan",
+    "pickText": "Obrolan, penalaran, embedding",
+    "pickVision": "Membaca gambar dan dokumen",
+    "pickAudio": "Suara masuk dan keluar",
+    "pickVisual": "Membuat gambar dan video"
+  },
+  "failover": {
+    "title": "Rantai failover",
+    "servedBy": "Dilayani oleh",
+    "changed": "berubah {{time}}",
+    "pinnedTo": "Disematkan ke {{target}}",
+    "warm": "Siap",
+    "never": "Belum pernah",
+    "states": {
+      "primary": "Utama",
+      "fallback": "Cadangan",
+      "degraded": "Menurun",
+      "healthy": "Sehat",
+      "down": "Mati",
+      "recovering": "Memulihkan",
+      "missing": "Tidak ada"
+    },
+    "kinds": {
+      "local": "Lokal",
+      "remote": "Jarak jauh"
+    },
+    "columns": {
+      "target": "Target",
+      "kind": "Jenis",
+      "warm": "Siap",
+      "health": "Kesehatan",
+      "lastProbe": "Pemeriksaan terakhir",
+      "lastError": "Kesalahan terakhir",
+      "actions": "Aksi"
+    },
+    "actions": {
+      "pin": "Sematkan",
+      "pinning": "Menyematkan…",
+      "unpin": "Lepas",
+      "unpinning": "Melepas…"
+    },
+    "confirm": {
+      "pinTitle": "Sematkan {{target}}?",
+      "pinMessage": "Hanya {{target}} yang melayani {{chain}} sampai Anda melepasnya. Failover otomatis berhenti untuk rantai ini.",
+      "unpinTitle": "Lepas {{chain}}?",
+      "unpinMessage": "{{chain}} kembali ke failover otomatis."
+    },
+    "errors": {
+      "pin": "Gagal menyematkan: {{error}}",
+      "unpin": "Gagal melepas: {{error}}"
+    },
+    "overview": {
+      "title": "Rantai failover",
+      "subtitle": "Kesehatan langsung dan target aktif untuk setiap rantai failover.",
+      "columns": {
+        "chain": "Rantai",
+        "state": "Status",
+        "active": "Target aktif",
+        "targets": "Target",
+        "changed": "Berubah"
+      },
+      "empty": {
+        "title": "Belum ada rantai failover",
+        "text": "Tambahkan rantai failover untuk melewati target yang tidak sehat secara otomatis.",
+        "cta": "Buat rantai failover"
+      }
+    }
+  },
+  "placement": {
+    "moe": {
+      "title": "Experts (MoE)",
+      "keepOn": "Keep experts on",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Some layers on CPU",
+        "all": "All on CPU"
+      },
+      "autoHint": "Auto-fit may move experts to system memory by itself. An explicit choice here overrides it.",
+      "layers": "Layers with experts on the CPU",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} of {{total}}",
+      "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number of layers.",
+      "cache": "Expert cache",
+      "cacheOff": "Off",
+      "cacheMib": "Expert cache in MiB",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "A cache on the GPU for experts held in system memory. It takes GPU memory. A cache that is too small thrashes. Experimental.",
+      "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
+      "estimateNote": "The estimate does not include expert placement."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "originGallery": "Galeri",
+    "originOnline": "Online",
+    "sourcesButton": "Sumber",
+    "sourcesTitle": "Sumber pencarian",
+    "sourcesClose": "Tutup",
+    "sourcesHelp": "Pilih sumber yang ditanyai oleh pencarian model. Hugging Face sudah bawaan. Sumber lain berasal dari add-on.",
+    "sourcesError": "Pilihan tidak dapat disimpan. Coba lagi.",
+    "sourceBuiltin": "Bawaan",
+    "sourceAddon": "Dari add-on",
+    "sourceNotInstalled": "Add-on belum terpasang",
+    "missingHint": "{{sources}} aktif, tetapi add-on-nya belum terpasang.",
+    "missingInstall": "Pasang add-on",
+    "noSources": "Tidak ada sumber yang aktif, jadi tidak ada yang dicari.",
+    "dropped_one": "{{count}} hasil dilewati",
+    "dropped_other": "{{count}} hasil dilewati",
+    "heading": "Dari {{source}}",
+    "latestHeading": "Terbaru di {{source}}",
+    "placeholder": "Cari di {{source}}",
+    "resultCount_one": "{{count}} hasil",
+    "resultCount_other": "{{count}} hasil",
+    "downloads": "unduhan",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seed",
+    "gated": "Dibatasi",
+    "ggufOnly": "Hanya GGUF",
+    "hint": {
+      "title": "Cari di {{source}}",
+      "text": "Ketik nama model di kotak pencarian. Hasilnya datang langsung dari sumber, bukan dari pustaka Anda."
+    },
+    "failed": {
+      "title": "{{source}} tidak merespons",
+      "text": "Pencarian gagal. Coba lagi sebentar lagi.",
+      "stale": "Ini hasil terakhir. {{message}}"
+    },
+    "none": {
+      "title": "Tidak ada hasil di {{source}}",
+      "text": "Coba nama lain.",
+      "gguf": "Tidak ada hasil dalam format GGUF. Matikan “Hanya GGUF” untuk memperluas pencarian.",
+      "fits": "Semua hasil terlalu besar untuk mesin ini. Matikan filter muat untuk melihatnya."
+    },
+    "loadMore": "Muat lebih banyak",
+    "noLatest": "{{source}} tidak menyediakan daftar model terbarunya. Cari berdasarkan nama untuk melihat modelnya.",
+    "chooseBuild": "Pilih varian {{variant}}",
+    "recommended": "Disarankan",
+    "fits": "Muat",
+    "spill": "Sebagian di CPU",
+    "over": "Terlalu besar",
+    "installed": "{{model}} sudah terpasang.",
+    "ambiguous": "Beberapa backend dapat menjalankan model ini. Gunakan Impor model untuk memilih salah satu.",
+    "gatedTitle": "Akses dibatasi.",
+    "gatedBody": "Repositori ini perlu persetujuan di Hugging Face, sehingga LocalAI tidak dapat memasangnya dari sini.",
+    "gatedP2p": "Model ini dibatasi di Hugging Face. Torrent tidak memerlukan token, tetapi ketentuan lisensi model tetap berlaku.",
+    "gatedHfInstall": "Dibatasi di Hugging Face: perlu persetujuan, sehingga tidak dapat dipasang dari sini.",
+    "sizesUnknown": "Ukuran berkas tidak ditemukan. Hugging Face tidak mencantumkan repositori ini, sehingga kecocokan tidak dapat diperkirakan.",
+    "importError": "Tidak ada backend yang cocok dengan berkas ini.",
+    "importErrorBody": "Pemasangan masih bisa gagal. Gunakan Impor model untuk memilih backend.",
+    "approximate": "Perkiraan kasar. Header model tidak dapat dibaca, jadi memori dihitung dari ukuran berkas ditambah aturan praktis untuk konteks.",
+    "noEstimate": "Ukuran tidak diketahui, jadi tidak ada perkiraan kecocokan untuk model ini.",
+    "files": {
+      "failed": {
+        "title": "Daftar berkas tidak dapat dibaca",
+        "body": "Sumber tidak merespons. Coba lagi."
+      },
+      "rateLimited": {
+        "title": "Sumber meminta untuk memperlambat",
+        "body": "Terlalu banyak permintaan. Tunggu semenit lalu coba lagi."
+      },
+      "notFound": {
+        "title": "Repositori tidak ditemukan",
+        "body": "Repositori ini privat, dihapus, atau tidak tercantum di sumber ini."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Remote",
+    "filter": "Remote",
+    "unavailable": "Tidak tersedia di hulu",
+    "rowMark": "Model remote",
+    "sizeRemote": "Remote",
+    "connectButton": "Hubungkan remote",
+    "sheetTitle": "Hubungkan remote",
+    "sheetDescription": "Tambahkan model yang berjalan di server atau layanan lain.",
+    "toastDone": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastDone_other": "{{name}} terhubung. {{count}} model ditambahkan.",
+    "toastSkipped": "{{count}} model tidak ditambahkan.",
+    "toastSkipped_other": "{{count}} model tidak ditambahkan."
+  }
+}

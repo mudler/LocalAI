@@ -1,0 +1,780 @@
+package importers
+
+import (
+	"context"
+	"encoding/json"
+	"path"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	gguf "github.com/gpustack/gguf-parser-go"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/functions"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/xlog"
+	"go.yaml.in/yaml/v2"
+)
+
+var (
+	_ Importer                   = &LlamaCPPImporter{}
+	_ AdditionalBackendsProvider = &LlamaCPPImporter{}
+)
+
+type LlamaCPPImporter struct{}
+
+func (i *LlamaCPPImporter) Name() string      { return "llama-cpp" }
+func (i *LlamaCPPImporter) Modality() string  { return "text" }
+func (i *LlamaCPPImporter) AutoDetects() bool { return true }
+
+// AdditionalBackends advertises drop-in replacements that share the
+// llama-cpp detection logic. They are preference-only: selecting one
+// from the import form swaps the emitted YAML backend field but reuses
+// the llama-cpp Match/Import pipeline.
+func (i *LlamaCPPImporter) AdditionalBackends() []KnownBackendEntry {
+	return []KnownBackendEntry{
+		{Name: "ik-llama-cpp", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with ik-quants"},
+		{Name: "turboquant", Modality: "text", Description: "GGUF drop-in replacement for llama-cpp with TurboQuant optimizations"},
+		{Name: "vllm-cpp", Modality: "text", Description: "vLLM-style continuous-batching engine (vllm.cpp) consuming GGUF, by the LocalAI team"},
+	}
+}
+
+func (i *LlamaCPPImporter) Match(details Details) bool {
+	preferences, err := details.Preferences.MarshalJSON()
+	if err != nil {
+		xlog.Error("failed to marshal preferences", "error", err)
+		return false
+	}
+
+	preferencesMap := make(map[string]any)
+
+	if len(preferences) > 0 {
+		err = json.Unmarshal(preferences, &preferencesMap)
+		if err != nil {
+			xlog.Error("failed to unmarshal preferences", "error", err)
+			return false
+		}
+	}
+
+	uri := downloader.URI(details.URI)
+
+	if preferencesMap["backend"] == "llama-cpp" {
+		return true
+	}
+
+	if strings.HasSuffix(details.URI, ".gguf") {
+		return true
+	}
+
+	if uri.LooksLikeOCI() {
+		return true
+	}
+
+	if details.HuggingFace != nil {
+		for _, file := range details.HuggingFace.Files {
+			if strings.HasSuffix(file.Path, ".gguf") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) {
+
+	xlog.Debug("llama.cpp importer matched", "uri", details.URI)
+
+	preferences, err := details.Preferences.MarshalJSON()
+	if err != nil {
+		return gallery.ModelConfig{}, err
+	}
+	preferencesMap := make(map[string]any)
+	if len(preferences) > 0 {
+		err = json.Unmarshal(preferences, &preferencesMap)
+		if err != nil {
+			return gallery.ModelConfig{}, err
+		}
+	}
+
+	// nameProvided tracks whether the user supplied an explicit model name.
+	// When they didn't, the URI base is only a fallback: for a HuggingFace
+	// repo-root URI (no file component) it would be the repo name, so the HF
+	// branch below re-derives the name from the selected GGUF file instead
+	// (issue #10587).
+	isOllama := strings.HasPrefix(details.URI, downloader.OllamaPrefix)
+	var ollamaNames ollamaImportNames
+	if isOllama {
+		ollamaNames = newOllamaImportNames(details.URI)
+	}
+
+	name, nameProvided := preferencesMap["name"].(string)
+	if !nameProvided {
+		name = filepath.Base(details.URI)
+		if isOllama {
+			name = ollamaNames.model
+		}
+	}
+
+	description, ok := preferencesMap["description"].(string)
+	if !ok {
+		description = "Imported from " + details.URI
+		if isOllama {
+			description = "Imported from Ollama: " + ollamaNames.display
+		}
+	}
+
+	preferedQuantizations, _ := preferencesMap["quantizations"].(string)
+	quants := []string{"q4_k_m"}
+	if preferedQuantizations != "" {
+		quants = strings.Split(preferedQuantizations, ",")
+	}
+
+	mmprojQuants, _ := preferencesMap["mmproj_quantizations"].(string)
+	var mmprojQuantsList []string
+	if mmprojQuants != "" {
+		mmprojQuantsList = strings.Split(mmprojQuants, ",")
+	}
+
+	drafterQuantsList, drafterEnabled := drafterPreferences(preferencesMap["drafter_quantizations"])
+
+	embeddings, _ := preferencesMap["embeddings"].(string)
+
+	// Honour drop-in replacement preferences. Only the curated names
+	// advertised via AdditionalBackends() are accepted; anything else
+	// (including "llama-cpp" itself, or an unknown value) keeps the
+	// default backend field so arbitrary input can't leak through. See
+	// the AdditionalBackends method for the canonical list.
+	backend := "llama-cpp"
+	if b, ok := preferencesMap["backend"].(string); ok {
+		switch b {
+		case "ik-llama-cpp", "turboquant", "vllm-cpp":
+			backend = b
+		}
+	}
+
+	modelConfig := config.ModelConfig{
+		Name:                name,
+		Description:         description,
+		KnownUsecaseStrings: []string{config.UsecaseChat},
+		Options:             []string{"use_jinja:true"},
+		Backend:             backend,
+		TemplateConfig: config.TemplateConfig{
+			UseTokenizerTemplate: true,
+		},
+		FunctionsConfig: functions.FunctionsConfig{
+			GrammarConfig: functions.GrammarConfig{
+				NoGrammar: true,
+			},
+			AutomaticToolParsingFallback: true,
+		},
+	}
+
+	// vllm-cpp rides the same autoparser-style flow as llama-cpp: the ENGINE
+	// applies the model's chat template (GGUF tokenizer.chat_template) and
+	// decides when a tool call engages (lazy structural-tag constraint +
+	// engine-side parsing), so the tokenizer-template config carries over
+	// verbatim. Only `use_jinja` is dropped - that option is a llama-cpp
+	// backend knob with no meaning for vllm-cpp.
+	if backend == "vllm-cpp" {
+		modelConfig.Options = nil
+	}
+
+	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {
+		trueV := true
+		modelConfig.Embeddings = &trueV
+	}
+
+	cfg := gallery.ModelConfig{
+		Name:        name,
+		Description: description,
+	}
+
+	uri := downloader.URI(details.URI)
+
+	// drafter is set when the HuggingFace branch pairs a speculative-decoding
+	// drafter with the model.
+	var drafter *importedDrafter
+
+	switch {
+	case isOllama:
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: ollamaNames.modelFile,
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: ollamaNames.modelFile,
+			},
+		}
+		if details.Ollama != nil && details.Ollama.HasProjector {
+			// The projector is a second layer of the same manifest; the
+			// "#projector" selector tells the downloader to fetch it.
+			cfg.Files = append(cfg.Files, gallery.File{
+				URI:      details.URI + "#" + oci.OllamaLayerProjector,
+				Filename: ollamaNames.projectorFile,
+			})
+			modelConfig.MMProj = ollamaNames.projectorFile
+		}
+		// The sampling defaults the model's author shipped. Values the user
+		// gave in the preferences are applied after and win.
+		if details.Ollama != nil {
+			applySamplingDefaults(&modelConfig, details.Ollama.Params, ollamaSamplingKeys)
+		}
+		applySamplingDefaults(&modelConfig, preferencesMap, preferenceSamplingKeys)
+	case uri.LooksLikeOCI():
+		ociName := uri.OCIReference()
+		ociName = strings.ReplaceAll(ociName, "/", "__")
+		ociName = strings.ReplaceAll(ociName, ":", "__")
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: ociName,
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: ociName,
+			},
+		}
+	case uri.LooksLikeURL() && strings.HasSuffix(details.URI, ".gguf"):
+		// Extract filename from URL
+		fileName, e := uri.FilenameFromUrl()
+		if e != nil {
+			return gallery.ModelConfig{}, e
+		}
+
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: fileName,
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: fileName,
+			},
+		}
+	case strings.HasSuffix(details.URI, ".gguf"):
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: filepath.Base(details.URI),
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: filepath.Base(details.URI),
+			},
+		}
+	case details.HuggingFace != nil:
+		// Split the repo listing into mmproj vs plain GGUF files, then group
+		// shards so every multi-part GGUF (llama.cpp `-NNNNN-of-MMMMM.gguf`
+		// pattern) is treated as one logical selection candidate. The
+		// previous implementation picked files one at a time, so sharded
+		// models ended up with only the last part referenced in the gallery
+		// entry — useless to llama.cpp, which needs shard 1 and the whole
+		// set to load a split model.
+		//
+		// Files that llama.cpp does not treat as models are kept out of the
+		// model candidates: drafters (sidecars such as `dspark-*.gguf`, see
+		// hfapi.Sidecars) and imatrix files. Drafters are collected by kind so a
+		// repository's drafter can be paired with the model picked below.
+		var mmprojFiles, ggufFiles []hfapi.ModelFile
+		drafterFiles := map[string][]hfapi.ModelFile{}
+		for _, f := range details.HuggingFace.Files {
+			lowerPath := strings.ToLower(f.Path)
+			switch {
+			case strings.Contains(lowerPath, "mmproj"):
+				mmprojFiles = append(mmprojFiles, f)
+			case strings.HasSuffix(lowerPath, ".gguf"):
+				if hfapi.IsImatrix(f.Path) {
+					continue
+				}
+				if sc, ok := hfapi.SidecarOf(f.Path); ok {
+					drafterFiles[sc.Kind] = append(drafterFiles[sc.Kind], f)
+					continue
+				}
+				ggufFiles = append(ggufFiles, f)
+			}
+		}
+
+		mmprojGroups := hfapi.GroupShards(mmprojFiles)
+		ggufGroups := hfapi.GroupShards(ggufFiles)
+
+		modelGroup := pickModelGroup(ggufGroups, quants)
+
+		// A repo-root URI has no file component, so the URI-base fallback
+		// above produced the repo name. When the user left the name blank,
+		// derive it from the GGUF file actually selected from the listing so
+		// the gallery entry and `model:` directory reflect the model, not the
+		// repository (issue #10587). An explicit name preference always wins.
+		if !nameProvided && modelGroup != nil {
+			name = modelNameFromShardGroup(*modelGroup)
+			modelConfig.Name = name
+			cfg.Name = name
+		}
+
+		// Emit the model group first so cfg.Files[0] is the model — callers
+		// and tests rely on the model file preceding any mmproj companion.
+		if modelGroup != nil {
+			appendShardGroup(&cfg, *modelGroup, path.Join("llama-cpp", "models", name))
+		}
+		if group := pickMMProjGroup(mmprojGroups, mmprojQuantsList); group != nil {
+			appendShardGroup(&cfg, *group, path.Join("llama-cpp", "mmproj", name))
+		}
+
+		// Pair the repository's drafter with the model. Only the llama.cpp
+		// engine reads draft_model and spec_type; the forks and vllm-cpp
+		// are left alone.
+		if modelGroup != nil && backend == "llama-cpp" {
+			if sc, group := pickDrafterGroup(drafterFiles, drafterQuantsList); group != nil && drafterEnabled {
+				appendShardGroup(&cfg, *group, path.Join("llama-cpp", "models", name))
+				drafter = &importedDrafter{sidecar: sc, file: path.Join("llama-cpp", "models", name, filepath.Base(group.Files[0].Path))}
+			} else if group != nil {
+				xlog.Debug("[drafter-importer] drafter found but disabled by preference", "kind", sc.Kind)
+			}
+		} else if len(drafterFiles) > 0 {
+			xlog.Debug("[drafter-importer] repository ships a drafter but no llama-cpp model to pair it with; skipping")
+		}
+
+		// Find first mmproj file and configure it in the config file
+		for _, file := range cfg.Files {
+			if !strings.Contains(strings.ToLower(file.Filename), "mmproj") {
+				continue
+			}
+			modelConfig.MMProj = file.Filename
+			break
+		}
+
+		// Find first non-mmproj file and configure it in the config file.
+		// For sharded models this is shard 1 — llama.cpp's split loader
+		// discovers the remaining shards by filename pattern from there.
+		for _, file := range cfg.Files {
+			if strings.Contains(strings.ToLower(file.Filename), "mmproj") {
+				continue
+			}
+			modelConfig.PredictionOptions = schema.PredictionOptions{
+				BasicModelRequest: schema.BasicModelRequest{
+					Model: file.Filename,
+				},
+			}
+			break
+		}
+	}
+
+	if drafter != nil {
+		applyDrafter(&modelConfig, *drafter)
+	}
+
+	// Apply per-model-family inference parameter defaults
+	if isOllama {
+		// The family table keys on names like "qwen3-8b", which an Ollama
+		// "qwen3:8b" URI does not contain.
+		config.ApplyInferenceDefaults(&modelConfig, details.URI, ollamaNames.model)
+	} else {
+		config.ApplyInferenceDefaults(&modelConfig, details.URI)
+	}
+
+	// Auto-detect Multi-Token Prediction heads (ggml-org/llama.cpp#22673) and
+	// enable speculative decoding. Mirrors the load-time hook so freshly
+	// imported configs already carry spec_type:draft-mtp before the model is
+	// ever loaded - users see it in the YAML preview rather than discovering
+	// it after the first start.
+	//
+	// vllm-cpp is excluded on both counts: `spec_type:*` are llama.cpp option
+	// keys it does not read, and vllm.cpp rejects an MTP config over a GGUF
+	// source outright (the `mtp.*` draft tensors exist only in the safetensors
+	// checkpoint). Its MTP auto-config runs in the vllm importer instead, over
+	// the safetensors config.json.
+	if backend != "vllm-cpp" {
+		maybeApplyMTPDefaults(&modelConfig, details, &cfg)
+	}
+
+	// llama.cpp serves Qwen3-TTS through the same GGUF + mmproj shape as a
+	// vision model, so without this the TTS repos import as chat models with a
+	// vision projector: wrong usecase, wrong modality, and no route to the
+	// Voice Library.
+	maybeApplyTTSUsecase(&modelConfig, &cfg)
+
+	data, err := yaml.Marshal(modelConfig)
+	if err != nil {
+		return gallery.ModelConfig{}, err
+	}
+
+	cfg.ConfigFile = string(data)
+
+	return cfg, nil
+}
+
+// modelNameFromShardGroup derives a human-facing model name from the picked
+// GGUF group: the logical base filename with its .gguf extension stripped.
+// ShardGroup.Base is the common prefix for sharded sets (without the
+// -NNNNN-of-MMMMM suffix) and the sole basename for single-file models, so
+// this yields a clean name like "model-Q4_K_M" rather than an individual
+// shard filename or the repo-root URI base.
+func modelNameFromShardGroup(group hfapi.ShardGroup) string {
+	base := group.Base
+	if ext := filepath.Ext(base); strings.EqualFold(ext, ".gguf") {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return base
+}
+
+// pickPreferredGroup walks the preference list in priority order and returns
+// the first group whose base filename contains any preference. When nothing
+// matches, the last group wins — this preserves the historical "if the user
+// asked for a quant we don't have, fall back to whatever's available"
+// behaviour, lifted to whole shard sets.
+func pickPreferredGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardGroup {
+	if len(groups) == 0 {
+		return nil
+	}
+	for _, pref := range prefs {
+		lower := strings.ToLower(pref)
+		for i := range groups {
+			if quantTokenMatches(strings.ToLower(groups[i].Base), lower) {
+				return &groups[i]
+			}
+		}
+	}
+	return &groups[len(groups)-1]
+}
+
+// importedDrafter is the drafter an import paired with the model.
+type importedDrafter struct {
+	sidecar hfapi.Sidecar
+	// file is the path of the first shard, relative to the models directory.
+	file string
+}
+
+// defaultMMProjQuants is the order an import tries for the projector when the
+// user did not ask for one: half precision first, then BF16. F32 comes last so
+// a repository that ships F16 or BF16 never gets the 2x larger F32 file by
+// accident. Tokens are matched whole (`f16` does not select `bf16`).
+var defaultMMProjQuants = []string{"f16", "fp16", "bf16", "q8_0", "f32"}
+
+// defaultDrafterQuants is the order for the drafter: Q8_0 keeps the draft close
+// to the reference at a small size, then the 16-bit builds.
+var defaultDrafterQuants = []string{"q8_0", "bf16", "f16", "fp16"}
+
+// defaultDrafterNMax is the draft window written for a DSpark drafter.
+const defaultDrafterNMax = 3
+
+// drafterPreferences reads the `drafter_quantizations` preference. It returns
+// the quantization order and whether a drafter is imported at all. An empty
+// preference gives the default order; `none`, `off`, `no`, `false` and
+// `disabled` (or a JSON false) turn the pairing off.
+func drafterPreferences(raw any) ([]string, bool) {
+	switch v := raw.(type) {
+	case bool:
+		if !v {
+			return nil, false
+		}
+	case string:
+		list := splitPrefs(v)
+		if len(list) == 1 {
+			switch strings.ToLower(list[0]) {
+			case "none", "off", "no", "false", "disabled":
+				return nil, false
+			}
+		}
+		return append(list, defaultDrafterQuants...), true
+	}
+	return defaultDrafterQuants, true
+}
+
+func splitPrefs(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// pickModelGroup picks the main model from the GGUF groups. Whatever the
+// preference says, a group that is not a model (a drafter, an imatrix file or a
+// projector) is never returned, including by the "nothing matched, take the
+// last one" fallback of pickPreferredGroup.
+func pickModelGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardGroup {
+	models := make([]hfapi.ShardGroup, 0, len(groups))
+	for _, g := range groups {
+		if len(g.Files) == 0 {
+			continue
+		}
+		p := g.Files[0].Path
+		if _, sidecar := hfapi.SidecarOf(p); sidecar || hfapi.IsImatrix(p) || strings.Contains(strings.ToLower(p), "mmproj") {
+			continue
+		}
+		models = append(models, g)
+	}
+	return pickPreferredGroup(models, prefs)
+}
+
+// pickMMProjGroup picks the projector: the user's preferences first, then the
+// default order (F16, BF16, ..., F32 last). Only when none of them matches does
+// it take the last group.
+func pickMMProjGroup(groups []hfapi.ShardGroup, prefs []string) *hfapi.ShardGroup {
+	return pickPreferredGroup(groups, append(append([]string{}, prefs...), defaultMMProjQuants...))
+}
+
+// pickDrafterGroup picks the drafter of a repository: the first kind in
+// hfapi.Sidecars order that has files, and in it the best quantization.
+func pickDrafterGroup(byKind map[string][]hfapi.ModelFile, prefs []string) (hfapi.Sidecar, *hfapi.ShardGroup) {
+	for _, sc := range hfapi.Sidecars {
+		if files := byKind[sc.Kind]; len(files) > 0 {
+			return sc, pickPreferredGroup(hfapi.GroupShards(files), prefs)
+		}
+	}
+	return hfapi.Sidecar{}, nil
+}
+
+// applyDrafter writes the drafter into the config: draft_model plus the spec
+// options its kind needs. An explicit spec_type already in Options wins.
+func applyDrafter(modelConfig *config.ModelConfig, d importedDrafter) {
+	modelConfig.DraftModel = d.file
+	if hasSpecTypeOption(modelConfig.Options) {
+		return
+	}
+	switch d.sidecar.Kind {
+	case "mtp":
+		modelConfig.Options = append(modelConfig.Options, config.MTPSpecOptions()...)
+	case "dspark":
+		modelConfig.Options = append(modelConfig.Options,
+			"spec_type:"+d.sidecar.SpecType, "spec_n_max:"+strconv.Itoa(defaultDrafterNMax))
+	default:
+		modelConfig.Options = append(modelConfig.Options, "spec_type:"+d.sidecar.SpecType)
+	}
+	xlog.Info("[drafter-importer] speculative drafter paired with the model", "kind", d.sidecar.Kind, "draft_model", d.file)
+}
+
+func hasSpecTypeOption(opts []string) bool {
+	for _, o := range opts {
+		if strings.HasPrefix(o, "spec_type:") || strings.HasPrefix(o, "speculative_type:") {
+			return true
+		}
+	}
+	return false
+}
+
+// quantTokenMatches reports whether pref appears in base as a whole token
+// rather than as a substring of a larger alphanumeric run. Both arguments
+// must already be lowercased.
+//
+// A plain strings.Contains is wrong here: `f16` is a substring of `bf16`, so
+// asking for the `F16` quant used to wrongly select a `BF16` file (#10559).
+// Only the OUTER edges of the matched preference must hit a boundary — a
+// non-alphanumeric char (or the start/end of base). Separators inside the
+// preference itself (e.g. `ud-q4_k_xl`) are intentionally left untouched.
+func quantTokenMatches(base, pref string) bool {
+	if pref == "" {
+		return false
+	}
+	for start := strings.Index(base, pref); start != -1; {
+		end := start + len(pref)
+		leftOK := start == 0 || !isAlphaNum(base[start-1])
+		rightOK := end == len(base) || !isAlphaNum(base[end])
+		if leftOK && rightOK {
+			return true
+		}
+		next := strings.Index(base[start+1:], pref)
+		if next == -1 {
+			break
+		}
+		start += next + 1
+	}
+	return false
+}
+
+func isAlphaNum(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
+}
+
+// maybeApplyMTPDefaults parses the picked GGUF header (range-fetched over
+// HTTP for HF/URL imports) and, if the file declares a Multi-Token Prediction
+// head, appends the auto-MTP option keys to modelConfig.Options. Failures
+// during the probe are non-fatal: the importer keeps the config without MTP
+// so an unrelated network blip or weird header doesn't break the import.
+//
+// OCI/Ollama URIs are skipped because the artifact isn't directly fetchable
+// as a GGUF byte stream - the load-time hook (core/config/gguf.go) covers
+// those once the model is materialised on disk.
+func maybeApplyMTPDefaults(modelConfig *config.ModelConfig, details Details, cfg *gallery.ModelConfig) {
+	probeURL := pickMTPProbeURL(details, cfg)
+	if probeURL == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[mtp-importer] panic while probing GGUF header", "uri", probeURL, "recover", r)
+		}
+	}()
+
+	// MTP markers are architecture scalars. Avoid allocating tokenizer and
+	// other large arrays from an untrusted remote header; panic recovery cannot
+	// contain a fatal out-of-memory condition.
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL, gguf.SkipLargeMetadata())
+	if err != nil {
+		xlog.Debug("[mtp-importer] failed to read remote GGUF header for MTP detection", "uri", probeURL, "error", err)
+		return
+	}
+
+	n, ok := config.HasEmbeddedMTPHead(f)
+	if !ok {
+		return
+	}
+	config.ApplyMTPDefaults(modelConfig, n)
+}
+
+// maybeApplyTTSUsecase probes the selected mmproj GGUF header and, when it
+// carries llama.cpp's gen-audio pipeline instead of a vision tower, imports
+// the model as TTS rather than chat.
+//
+// A probe is the only honest signal here. A Qwen3-TTS repo has exactly the
+// shape of a vision repo, one backbone GGUF plus one mmproj-*.gguf, so neither
+// the filename nor the repo name distinguishes them; clip.has_gen_audio_encoder
+// is the key llama.cpp's own mtmd_helper_gen_audio gates the pipeline on.
+//
+// Failures are non-fatal, as in maybeApplyMTPDefaults: a network blip leaves
+// the chat default in place rather than breaking the import.
+func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelConfig) {
+	probeURL := pickMMProjProbeURL(modelConfig.MMProj, cfg)
+	if probeURL == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			xlog.Debug("[tts-importer] panic while probing mmproj GGUF header", "uri", probeURL, "recover", r)
+		}
+	}()
+
+	f, err := gguf.ParseGGUFFileRemote(ctx, probeURL)
+	if err != nil {
+		xlog.Debug("[tts-importer] failed to read remote mmproj header for gen-audio detection", "uri", probeURL, "error", err)
+		return
+	}
+
+	if !config.HasGenAudioProjector(f) {
+		return
+	}
+
+	// An LFM3 audio encoder next to the gen-audio decoder is an any-to-any
+	// model: it listens, answers as speech and transcribes, so it imports as a
+	// speech-to-speech model served by AudioToAudioStream. Qwen3-TTS carries
+	// both encoder flags too, which is why the encoder family decides here.
+	// The parallel slot lets the session and the transcription or TTS calls run
+	// at once.
+	if config.HasSpeechToSpeechProjector(f) {
+		anyToAny := true
+		modelConfig.KnownUsecaseStrings = []string{
+			config.UsecaseRealtimeAudio, config.UsecaseChat, config.UsecaseTranscript, config.UsecaseTTS,
+		}
+		modelConfig.Pipeline.AnyToAny = &anyToAny
+		if !config.HasParallelOption(modelConfig.Options) {
+			modelConfig.Options = append(modelConfig.Options, "parallel:2")
+		}
+		modelConfig.TemplateConfig.UseTokenizerTemplate = true
+		// The model writes its tool calls in the LFM3 template format. The
+		// backend parses them; this is how the server reads the raw text if
+		// the backend found none.
+		if modelConfig.FunctionsConfig.XMLFormatPreset == "" {
+			modelConfig.FunctionsConfig.XMLFormatPreset = "lfm3"
+		}
+		xlog.Info("[tts-importer] audio encoder and gen-audio projector detected; importing as a speech-to-speech model", "name", modelConfig.Name)
+		return
+	}
+
+	modelConfig.KnownUsecaseStrings = []string{config.UsecaseTTS}
+	xlog.Info("[tts-importer] gen-audio projector detected; importing as a TTS model", "name", modelConfig.Name)
+}
+
+// pickMMProjProbeURL returns an HTTP(S) URL for the mmproj the import selected,
+// or "" when none was selected or its URI cannot be range-fetched (local path,
+// OCI/Ollama artifact).
+func pickMMProjProbeURL(mmproj string, cfg *gallery.ModelConfig) string {
+	if mmproj == "" || cfg == nil {
+		return ""
+	}
+	for _, f := range cfg.Files {
+		if f.Filename == mmproj {
+			return resolveHTTPProbe(f.URI)
+		}
+	}
+	return ""
+}
+
+// pickMTPProbeURL returns an HTTP(S) URL pointing at the main (non-mmproj)
+// GGUF shard that should be inspected for an MTP head, or "" when no
+// suitable URL is available. Custom URI schemes (`huggingface://`,
+// `ollama://`, etc.) are run through `downloader.URI.ResolveURL` so the
+// resulting URL is something `gguf.ParseGGUFFileRemote` can actually open.
+// OCI/Ollama URIs are skipped because the artifact is not directly
+// streamable as a GGUF byte range.
+func pickMTPProbeURL(details Details, cfg *gallery.ModelConfig) string {
+	uri := downloader.URI(details.URI)
+
+	if uri.LooksLikeOCI() {
+		return ""
+	}
+
+	if strings.HasSuffix(strings.ToLower(details.URI), ".gguf") {
+		return resolveHTTPProbe(details.URI)
+	}
+
+	for _, f := range cfg.Files {
+		lower := strings.ToLower(f.Filename)
+		if strings.Contains(lower, "mmproj") {
+			continue
+		}
+		if !strings.HasSuffix(lower, ".gguf") {
+			continue
+		}
+		return resolveHTTPProbe(f.URI)
+	}
+	return ""
+}
+
+// resolveHTTPProbe resolves an importer-side URI to the HTTP(S) URL that
+// `gguf.ParseGGUFFileRemote` can range-fetch. Returns "" if the URI can't
+// be reduced to an HTTP(S) endpoint (e.g. local path, unsupported scheme).
+func resolveHTTPProbe(uri string) string {
+	resolved := downloader.URI(uri).ResolveURL()
+	if downloader.URI(resolved).LooksLikeHTTPURL() {
+		return resolved
+	}
+	return ""
+}
+
+// appendShardGroup copies every shard of group into cfg.Files under dest,
+// skipping any entry whose target filename is already present so repeated
+// calls (e.g. the rare case of mmproj + model picking the same group)
+// don't produce duplicates.
+func appendShardGroup(cfg *gallery.ModelConfig, group hfapi.ShardGroup, dest string) {
+	for _, f := range group.Files {
+		target := path.Join(dest, filepath.Base(f.Path))
+		duplicate := false
+		for _, existing := range cfg.Files {
+			if existing.Filename == target {
+				duplicate = true
+				break
+			}
+		}
+		if duplicate {
+			continue
+		}
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      f.URL,
+			Filename: target,
+			SHA256:   f.SHA256,
+		})
+	}
+}

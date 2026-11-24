@@ -1,0 +1,132 @@
+{
+  "title": "Posta",
+  "intro": "Permetti ai tuoi agenti di leggere una casella di posta via IMAP e, se lo consenti, di scrivere email via SMTP. Funziona con qualsiasi provider che offra IMAP e SMTP.",
+  "limits": "Questa connessione non risponde da sola alla posta in arrivo. Un agente lavora sulla tua posta solo quando glielo chiedi in una chat. Tutta la casella è raggiungibile, quindi collega solo una casella che vuoi far leggere all'agente.",
+  "new": "Nuova connessione di posta",
+  "edit": "Modifica la connessione di posta",
+  "name": "Nome",
+  "agent": "Agente",
+  "agentNone": "Scegli un agente",
+  "agentCredentialsOnly": "Nessun agente (solo credenziali)",
+  "credentialsOnly": "Solo credenziali",
+  "agentNoModel": "{{name}} (serve un modello)",
+  "test": "Prova",
+  "testOk": "Connesso come {{bot}}.",
+  "checkFailed": "Salvato. La verifica dell'accesso non è riuscita: {{reason}}",
+  "checkSeveral": "Le verifiche dell'accesso funzionano quando hai una sola connessione di posta, perché da questa pagina non si capisce a quale ti riferisci. In una chat, attiva le connessioni nel menu Strumenti.",
+  "check": {
+    "title": "Verifica di {{name}}",
+    "running": "Verifica dei due accessi...",
+    "at": "Verificato alle {{time}}",
+    "imapOk": "Lettura della posta (IMAP): l'accesso funziona.",
+    "smtpOk": "Invio della posta (SMTP): l'accesso funziona.",
+    "imapFailed": "Lettura della posta (IMAP) non riuscita. {{reason}}",
+    "smtpFailed": "Invio della posta (SMTP) non riuscito. {{reason}}"
+  },
+  "save": "Salva",
+  "cancel": "Annulla",
+  "editButton": "Modifica",
+  "delete": "Elimina",
+  "empty": "Ancora nessuna connessione di posta.",
+  "noAddress": "Nessun indirizzo",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Non in esecuzione: {{reason}}.",
+  "confirmDelete": {
+    "title": "Eliminare {{name}}?",
+    "message": "L'agente non può più raggiungere questa casella e la password salvata con la connessione viene eliminata. Per configurarla di nuovo dovrai inserire di nuovo tutto.",
+    "confirm": "Elimina"
+  },
+  "replace": "Cambia i dati dei server o dell'accesso",
+  "savedAs": "Salvato per {{address}}. I server e la password sono cifrati e non possono essere mostrati. Per cambiarne uno, inseriscili di nuovo tutti.",
+  "address": "Indirizzo della casella",
+  "addressHelp": "L'indirizzo della casella. È anche l'indirizzo del mittente delle email che l'agente invia.",
+  "addressShape": "Scrivi un solo indirizzo semplice, per esempio nome@example.com.",
+  "display": "Nome del mittente",
+  "displayHelp": "Mostrato accanto all'indirizzo nelle email che l'agente invia.",
+  "displayShape": "Usa fino a 100 caratteri su una sola riga.",
+  "username": "Nome utente",
+  "usernameHelp": "L'accesso di entrambi i server. Spesso è l'indirizzo completo.",
+  "userShape": "Inserisci il nome utente della casella.",
+  "password": "Password",
+  "passwordHelp": "Molti provider richiedono qui una password per le app, non quella normale. Viene cifrata e non viene più mostrata.",
+  "passMissing": "Inserisci la password.",
+  "passShape": "La password ha al massimo 512 caratteri, senza a capo.",
+  "host": "Server",
+  "port": "Porta",
+  "imap": {
+    "title": "Lettura della posta (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Invio della posta (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Scrivi solo il nome del server IMAP, come imap.example.com: senza https://, porta o percorso.",
+  "smtpHostShape": "Scrivi solo il nome del server SMTP, come smtp.example.com: senza https://, porta o percorso.",
+  "imapPortShape": "La porta IMAP è 993 o 143.",
+  "smtpPortShape": "La porta SMTP è 465 o 587.",
+  "imapPortSecurityMismatch": "La porta 993 usa TLS; la porta 143 usa STARTTLS. Fai corrispondere porta e protezione.",
+  "smtpPortSecurityMismatch": "La porta 465 usa TLS; la porta 587 usa STARTTLS. Fai corrispondere porta e protezione.",
+  "plainNotConfirmed": "Conferma di accettare l'invio della password senza protezione, oppure scegli TLS o STARTTLS.",
+  "security": {
+    "label": "Protezione",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Nessuna (non sicuro)",
+    "plainWarning": "Senza protezione la password e tutta la posta viaggiano in chiaro. Chiunque sul percorso di rete può leggerle. Usala solo su una rete di cui ti fidi.",
+    "plainConfirm": "Accetto che la password e la posta vengano inviate senza protezione."
+  },
+  "folders": "Cartelle che l'agente può usare",
+  "foldersHelp": "Una per riga. Lascia vuoto per consentire tutte le cartelle. Una cartella non in elenco viene rifiutata, e INBOX viene confrontata senza distinguere maiuscole e minuscole.",
+  "foldersMany": "Al massimo 20 cartelle.",
+  "foldersShape": "Il nome di una cartella ha al massimo 200 caratteri su una sola riga.",
+  "drafts": "Cartella delle bozze",
+  "draftsHelp": "Serve solo se il server non indica la sua cartella delle bozze. Le bozze vanno prima nella cartella che il server indica come bozze.",
+  "tooLong": "La connessione è troppo lunga per essere salvata. Accorcia l'elenco delle cartelle.",
+  "setup": {
+    "title": "Come collegare una casella",
+    "step1": "Trova i nomi dei server IMAP e SMTP del tuo provider nelle sue pagine di aiuto. Entrambi usano TLS o STARTTLS.",
+    "step2": "Se il provider lo permette, crea una password per le app per LocalAI e usala come password. Una password normale spesso non funziona con IMAP.",
+    "step3": "Inserisci l'indirizzo, il nome utente, la password e i due server, poi salva. Il salvataggio accede a entrambi i server.",
+    "step4": "Scegli se l'agente può anche inviare email e salvare bozze, e se ti chiede prima. Con Consenti tutto agisce senza chiedere, e un'email inviata non si può ritirare.",
+    "private": "I server di posta devono essere su internet pubblico: gli indirizzi dentro una rete privata vengono rifiutati."
+  },
+  "writeMode": {
+    "label": "Cosa può fare l'agente con la posta",
+    "hint": "Inviare e salvare bozze. Non elimina, sposta, contrassegna né inoltra mai la posta.",
+    "off": "Sola lettura",
+    "propose": "Ti chiede prima",
+    "line": {
+      "off": "Può solo leggere.",
+      "propose": "Ogni invio e ogni bozza attende il tuo OK.",
+      "auto": "Le tue chat inviano e salvano subito."
+    },
+    "note": {
+      "off": "L'accesso in scrittura è disattivato: questa connessione legge soltanto.",
+      "propose": "Ogni invio e ogni bozza attende nelle tue approvazioni finché non la confermi. Un'email inviata non si può ritirare, e tutti in A e Cc la leggeranno.",
+      "auto": "Una tua chat invia e salva la posta subito, senza chiedere. Un'email inviata non si può ritirare, e tutti in A e Cc la leggeranno. Le esecuzioni senza di te presente aspettano comunque la tua conferma."
+    },
+    "row": {
+      "off": "Sola lettura",
+      "propose": "Ti chiede prima",
+      "auto": "Consenti tutto"
+    },
+    "auto": "Consenti tutto"
+  },
+  "approval": {
+    "action": {
+      "send-message": "Invia un'email",
+      "save-draft": "Salva una bozza di email"
+    },
+    "from": "Da",
+    "to": "A",
+    "cc": "Cc",
+    "subject": "Oggetto",
+    "reply": "Risposta",
+    "replyYes": "Parte di una conversazione esistente",
+    "text": "Testo dell'email",
+    "cut": "Il testo mostrato qui è tagliato. Viene usato il testo completo, {{bytes}} byte.",
+    "noteSend": "L'invio non si può annullare. Tutti in A e Cc leggeranno questo dal tuo indirizzo.",
+    "noteDraft": "Viene salvata nella tua cartella delle bozze. Non viene inviato nulla."
+  }
+}

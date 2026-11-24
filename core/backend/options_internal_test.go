@@ -1,0 +1,628 @@
+package backend
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+
+	"github.com/mudler/LocalAI/core/config"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/reasoning"
+	"github.com/mudler/LocalAI/pkg/system"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
+)
+
+var _ = Describe("grpcModelOpts EngineArgs", func() {
+	It("serialises engine_args as JSON preserving nested values", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			LLMConfig: config.LLMConfig{
+				EngineArgs: map[string]any{
+					"data_parallel_size":     8,
+					"enable_expert_parallel": true,
+					"speculative_config": map[string]any{
+						"method":                 "ngram",
+						"num_speculative_tokens": 4,
+					},
+				},
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.EngineArgs).NotTo(BeEmpty())
+
+		var round map[string]any
+		Expect(json.Unmarshal([]byte(opts.EngineArgs), &round)).To(Succeed())
+		Expect(round["data_parallel_size"]).To(BeEquivalentTo(8))
+		Expect(round["enable_expert_parallel"]).To(BeTrue())
+		Expect(round["speculative_config"]).To(HaveKeyWithValue("method", "ngram"))
+	})
+
+	It("leaves EngineArgs empty when unset", func() {
+		threads := 1
+		opts := grpcModelOpts(config.ModelConfig{Threads: &threads}, "/tmp/models")
+		Expect(opts.EngineArgs).To(BeEmpty())
+	})
+})
+
+var _ = Describe("grpcModelOpts Proxy options", func() {
+	It("builds Proxy options for localai-proxy, the same as cloud-proxy", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy: config.ProxyConfig{
+				UpstreamURL: "http://127.0.0.1:8081",
+				Mode:        config.ProxyModePassthrough,
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.Proxy).NotTo(BeNil())
+		Expect(opts.Proxy.UpstreamUrl).To(Equal("http://127.0.0.1:8081"))
+		Expect(opts.Proxy.Mode).To(Equal(config.ProxyModePassthrough))
+	})
+
+	It("sends the config name as the localai-proxy upstream model when none is set", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "argus-whisper",
+			Threads: &threads,
+			Backend: "localai-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "http://127.0.0.1:8081"},
+		}
+		cfg.Model = "some-file"
+
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("argus-whisper"))
+
+		cfg.Proxy.UpstreamModel = "whisper-large"
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(Equal("whisper-large"))
+	})
+
+	It("leaves the cloud-proxy upstream model unset so translate mode keeps its fallback", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Name:    "claude-strict",
+			Threads: &threads,
+			Backend: "cloud-proxy",
+			Proxy:   config.ProxyConfig{UpstreamURL: "https://api.example.com", Mode: config.ProxyModeTranslate},
+		}
+		Expect(grpcModelOpts(cfg, "/tmp/models").Proxy.UpstreamModel).To(BeEmpty())
+	})
+
+	It("leaves Proxy nil for a backend that is not a proxy", func() {
+		threads := 1
+		opts := grpcModelOpts(config.ModelConfig{Threads: &threads, Backend: "llama-cpp"}, "/tmp/models")
+		Expect(opts.Proxy).To(BeNil())
+	})
+})
+
+var _ = Describe("grpcModelOpts Diffusers options", func() {
+	It("forwards original_config_file without rewriting it", func() {
+		threads := 1
+		cfg := config.ModelConfig{
+			Threads: &threads,
+			Diffusers: config.Diffusers{
+				OriginalConfigFile: "configs/v1-inference.yaml",
+			},
+		}
+
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.OriginalConfigFile).To(Equal("configs/v1-inference.yaml"))
+	})
+})
+
+// Guards the DisableReasoning -> enable_thinking metadata conversion that the
+// per-request reasoning_effort feature (issue #10072) relies on: the request
+// merge sets ReasoningConfig.DisableReasoning, and gRPCPredictOpts is where it
+// becomes the gRPC PredictOptions.Metadata the backend reads.
+var _ = Describe("gRPCPredictOpts enable_thinking metadata", func() {
+	// withReasoning builds a fully-defaulted config (gRPCPredictOpts dereferences
+	// many pointer fields) and overrides only the reasoning toggle.
+	withReasoning := func(disable *bool) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.ReasoningConfig = reasoning.Config{DisableReasoning: disable}
+		return cfg
+	}
+	disabled := true
+	enabled := false
+
+	It("emits enable_thinking=false when reasoning is disabled", func() {
+		opts := gRPCPredictOpts(withReasoning(&disabled), "/tmp/models")
+		Expect(opts.Metadata).To(HaveKeyWithValue("enable_thinking", "false"))
+	})
+
+	It("emits enable_thinking=true when reasoning is enabled", func() {
+		opts := gRPCPredictOpts(withReasoning(&enabled), "/tmp/models")
+		Expect(opts.Metadata).To(HaveKeyWithValue("enable_thinking", "true"))
+	})
+
+	It("omits enable_thinking when reasoning is unset", func() {
+		opts := gRPCPredictOpts(withReasoning(nil), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("enable_thinking"))
+	})
+})
+
+// Guards forwarding the effective reasoning_effort into PredictOptions.Metadata,
+// where the backend passes it to the jinja chat template (chat_template_kwargs)
+// so models like gpt-oss / LFM2.5 honor it.
+var _ = Describe("gRPCPredictOpts reasoning_effort metadata", func() {
+	withEffort := func(effort string) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.ReasoningEffort = effort
+		return cfg
+	}
+
+	It("forwards reasoning_effort when set", func() {
+		opts := gRPCPredictOpts(withEffort("none"), "/tmp/models")
+		Expect(opts.Metadata).To(HaveKeyWithValue("reasoning_effort", "none"))
+	})
+
+	It("omits reasoning_effort when empty", func() {
+		opts := gRPCPredictOpts(withEffort(""), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("reasoning_effort"))
+	})
+})
+
+var _ = Describe("grpcModelOpts NBatch", func() {
+	scoreUsecase := config.FLAG_SCORE
+	threads := 1
+	ctx := 4096
+
+	// The single-pass batch is now VRAM-aware, so inject a deterministic GPU with
+	// ample per-device VRAM: at these small contexts the compute buffer fits
+	// easily, so EffectiveBatchSize returns the full context (the pre-#10485
+	// behaviour these cases assert). Without injection the value would depend on
+	// the CI host's real (often unknown) VRAM.
+	const gib = uint64(1) << 30
+	var origLocalGPU func() config.GPU
+	BeforeEach(func() {
+		origLocalGPU = localGPU
+		localGPU = func() config.GPU { return config.GPU{VRAM: 119 * gib} }
+	})
+	AfterEach(func() { localGPU = origLocalGPU })
+
+	It("defaults to 512 for an ordinary model", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(512))
+		Expect(opts.EnableScore).To(BeFalse())
+	})
+
+	It("sizes the batch to the context window for score models", func() {
+		// Score models decode the whole prompt+candidate in one
+		// llama_decode; n_batch must cover it or the backend aborts.
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.EnableScore).To(BeTrue())
+	})
+
+	It("enables score resources for a model with multiple usecases", func() {
+		usecases := config.FLAG_CHAT | config.FLAG_SCORE
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &usecases}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.EnableScore).To(BeTrue())
+	})
+
+	It("keeps an explicit batch over the score default", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}, KnownUsecases: &scoreUsecase}
+		cfg.Batch = 1024
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(1024))
+	})
+
+	It("carries parameters.batch from YAML to NBatch as an explicit value", func() {
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: m\nbackend: llama-cpp\nparameters:\n  batch: 2048\n"), &cfg)).To(Succeed())
+		cfg.Threads = &threads
+		cfg.ContextSize = &ctx
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(2048))
+		Expect(opts.BatchManaged).To(BeFalse())
+	})
+
+	It("flags the stock batch as managed", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.BatchManaged).To(BeTrue())
+	})
+
+	It("flags a hardware-chosen batch as managed", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		config.ApplyHardwareDefaults(&cfg, config.GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(config.BlackwellPhysicalBatch))
+		Expect(opts.BatchManaged).To(BeTrue())
+	})
+
+	It("sizes the batch to the context window for embedding models", func() {
+		// Embedding/rerank pool over the whole sequence in one physical batch
+		// (n_ubatch); without this the input is capped at the 512 default and
+		// the backend returns "input is too large to process".
+		embeddings := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Embeddings = &embeddings
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("sizes the batch to the context window for rerank models", func() {
+		reranking := true
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		cfg.Reranking = &reranking
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+	})
+
+	It("does not raise the batch when a score model's context is below the default", func() {
+		small := 256
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &small}, KnownUsecases: &scoreUsecase}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(512))
+	})
+
+	It("sizes the batch to the effective 4096 default for a score model with no explicit context_size", func() {
+		// The crash case: the backend defaults n_ctx to 4096, so n_batch must
+		// follow even when context_size is unset — otherwise n_batch stays 512
+		// against a 4096 window and the score decode hits the GGML_ASSERT.
+		cfg := config.ModelConfig{Threads: &threads, KnownUsecases: &scoreUsecase}
+		Expect(cfg.ContextSize).To(BeNil())
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(4096))
+		Expect(opts.ContextSize).To(BeEquivalentTo(4096), "n_batch must match the effective n_ctx the backend receives")
+	})
+})
+
+// Guards the VRAM-aware cap on the single-pass (embedding/score/rerank) batch:
+// a large context must not turn n_ubatch into a multi-GiB compute buffer that
+// aborts the load on a device with free VRAM (issue #10485). The GPU is injected
+// via the localGPU package var so the cap is deterministic without a real device.
+var _ = Describe("EffectiveBatchSize VRAM cap", func() {
+	const gib = uint64(1) << 30
+	embeddings := config.FLAG_EMBEDDINGS
+	threads := 1
+
+	var origLocalGPU func() config.GPU
+	BeforeEach(func() { origLocalGPU = localGPU })
+	AfterEach(func() { localGPU = origLocalGPU })
+
+	singlePassCfg := func(ctx int) config.ModelConfig {
+		return config.ModelConfig{
+			Threads:       &threads,
+			LLMConfig:     config.LLMConfig{ContextSize: &ctx},
+			KnownUsecases: &embeddings,
+		}
+	}
+
+	It("caps a large embedding context to a batch below the context but at least the default", func() {
+		// Reproduces qwen3-embedding-4b: context 40960 on a modest 20 GiB card.
+		// Full-context n_ubatch=40960 aborts; the cap must fit the VRAM headroom.
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		batch := EffectiveBatchSize(singlePassCfg(40960))
+		Expect(batch).To(BeNumerically(">=", DefaultBatchSize))
+		Expect(batch).To(BeNumerically("<", 40960))
+	})
+
+	It("keeps an explicit batch even with a large context and small VRAM", func() {
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		cfg := singlePassCfg(40960)
+		cfg.Batch = 512
+		Expect(EffectiveBatchSize(cfg)).To(Equal(512))
+	})
+
+	It("returns the full context when per-device VRAM is unknown", func() {
+		// Unknown VRAM (CPU / detection gap) preserves the original single-pass
+		// behavior: batch follows context. The VRAM cap is a downward safety that
+		// only engages when the per-device ceiling is known — clamping here would
+		// re-break single-pass pooling and over-trim inputs, with no OOM benefit on
+		// CPU where the compute buffer lives in system RAM.
+		localGPU = func() config.GPU { return config.GPU{VRAM: 0} }
+		Expect(EffectiveBatchSize(singlePassCfg(40960))).To(Equal(40960))
+	})
+
+	It("returns the default batch for a non-single-pass model regardless of VRAM", func() {
+		localGPU = func() config.GPU { return config.GPU{VRAM: 20 * gib} }
+		ctx := 40960
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		Expect(EffectiveBatchSize(cfg)).To(Equal(DefaultBatchSize))
+	})
+})
+
+// Guards the generic chat_template_kwargs forwarding: the model config map plus any
+// per-request metadata overrides are merged, coerced, and serialised into the
+// backend metadata blob that llama.cpp reads. Client metadata also overrides the
+// server-derived standalone enable_thinking key (cross-backend consistency).
+var _ = Describe("gRPCPredictOpts chat_template_kwargs metadata", func() {
+	baseCfg := func() config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		return cfg
+	}
+
+	It("serialises the config map into the chat_template_kwargs blob", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("serialises reasoning_effort into the blob as a JSON string", func() {
+		cfg := baseCfg()
+		cfg.ReasoningEffort = "high"
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.Metadata).To(HaveKey("chat_template_kwargs"))
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		// reasoning_effort must remain a string in the blob (jinja templates that
+		// key on the level read a string), unlike enable_thinking which is a bool.
+		Expect(blob["reasoning_effort"]).To(BeAssignableToTypeOf(""))
+		Expect(blob).To(HaveKeyWithValue("reasoning_effort", "high"))
+	})
+
+	It("lets client request metadata override the server-derived enable_thinking key", func() {
+		cfg := baseCfg()
+		disable := true
+		cfg.ReasoningConfig = reasoning.Config{DisableReasoning: &disable} // server: enable_thinking=false
+		cfg.RequestMetadata = map[string]string{"enable_thinking": "true"} // client overrides
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		// standalone key (Python backends) reflects the client override
+		Expect(opts.Metadata).To(HaveKeyWithValue("enable_thinking", "true"))
+		// blob (llama.cpp) reflects it too, as a real bool
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("enable_thinking", true))
+	})
+
+	It("does not let a client clobber the blob via a chat_template_kwargs metadata key", func() {
+		cfg := baseCfg()
+		cfg.ChatTemplateKwargs = map[string]any{"preserve_thinking": true}
+		cfg.RequestMetadata = map[string]string{"chat_template_kwargs": "{\"preserve_thinking\": false}"}
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		var blob map[string]any
+		Expect(json.Unmarshal([]byte(opts.Metadata["chat_template_kwargs"]), &blob)).To(Succeed())
+		Expect(blob).To(HaveKeyWithValue("preserve_thinking", true))
+	})
+
+	It("omits the blob when there is nothing to forward", func() {
+		opts := gRPCPredictOpts(baseCfg(), "/tmp/models")
+		Expect(opts.Metadata).ToNot(HaveKey("chat_template_kwargs"))
+	})
+})
+
+var _ = Describe("EffectiveContextSize", func() {
+	Context("EffectiveContextSize", func() {
+		It("clamps a negative (auto-max sentinel) context size to the default", func() {
+			neg := -1
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &neg}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+
+		It("returns an explicit positive context size unchanged", func() {
+			ctx := 8192
+			cfg := config.ModelConfig{LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+			Expect(EffectiveContextSize(cfg)).To(Equal(8192))
+		})
+
+		It("falls back to the default when context size is unset", func() {
+			cfg := config.ModelConfig{}
+			Expect(EffectiveContextSize(cfg)).To(Equal(DefaultContextSize))
+		})
+	})
+})
+
+// Guards the model identity carried in PredictOptions, which lets a backend
+// reject a request that reached it through a stale distributed route (#10952).
+//
+// The safety of the whole mechanism rests on the predict-time value being the
+// SAME expression as the load-time one: ModelOptions passes model.WithModel(
+// c.Model), which becomes ModelOptions.Model at LoadModel, and gRPCPredictOpts
+// receives the same config value in the same function a few lines later. If
+// this ever starts sending ModelID()/Name or the resolved file path instead,
+// every request to a correctly-routed backend gets rejected. The configs below
+// deliberately give Model, Name and ModelID() three different values so that
+// substituting any of them for the others fails here.
+var _ = Describe("gRPCPredictOpts model identity", func() {
+	withModel := func(name, modelFile string) config.ModelConfig {
+		cfg := config.ModelConfig{}
+		cfg.SetDefaults()
+		cfg.Name = name
+		cfg.Model = modelFile
+		return cfg
+	}
+
+	It("sends ModelConfig.Model, the value LoadModel receives", func() {
+		cfg := withModel("friendly-name", "qwen/actual-weights.gguf")
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.ModelIdentity).To(Equal("qwen/actual-weights.gguf"))
+	})
+
+	It("does not send ModelID(), which LoadModel never receives", func() {
+		cfg := withModel("friendly-name", "qwen/actual-weights.gguf")
+		Expect(cfg.ModelID()).To(Equal("friendly-name"))
+		opts := gRPCPredictOpts(cfg, "/tmp/models")
+		Expect(opts.ModelIdentity).ToNot(Equal(cfg.ModelID()))
+	})
+
+	// Configs with no model file cannot identify anything. Empty means "skip
+	// the check" on the backend, which is the safe direction.
+	It("leaves the identity empty when the config names no model", func() {
+		opts := gRPCPredictOpts(withModel("some-name", ""), "/tmp/models")
+		Expect(opts.ModelIdentity).To(BeEmpty())
+	})
+})
+
+var _ = Describe("effectiveThreads", func() {
+	It("lets a per-model threads value override the app-level --threads", func() {
+		one := 1
+		cfg := config.ModelConfig{Threads: &one}
+		Expect(effectiveThreads(cfg, 10)).To(Equal(1),
+			"per-model threads is a real knob, not dead config under --threads")
+	})
+
+	It("falls back to the app-level threads when the model sets none", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 10)).To(Equal(10))
+		zero := 0
+		Expect(effectiveThreads(config.ModelConfig{Threads: &zero}, 10)).To(Equal(10),
+			"an explicit threads: 0 means unset, not zero threads")
+	})
+
+	It("never resolves to a non-positive thread count", func() {
+		Expect(effectiveThreads(config.ModelConfig{}, 0)).To(Equal(1))
+	})
+})
+
+var _ = Describe("grpcModelOpts option forwarding", func() {
+	It("preserves explicit upscale backend options exactly", func() {
+		threads := 1
+		options := []string{"upscale_scale:2", "upscale_scale:8", "upscale_tile_size:-1", "backend:CPU"}
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", KnownUsecases: config.GetUsecasesFromYAML([]string{"upscale", "image"}), Options: options}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(options))
+		Expect(cfg.Options).To(Equal(options))
+	})
+
+	It("leaves generic SD options unchanged", func() {
+		threads := 1
+		cfg := config.ModelConfig{Threads: &threads, Backend: "stablediffusion-ggml", Options: []string{"backend:CPU", "diffusion_model:model.gguf"}}
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
+		cfg.KnownUsecases = config.GetUsecasesFromYAML([]string{"image"})
+		Expect(grpcModelOpts(cfg, "/models").Options).To(Equal(cfg.Options))
+	})
+})
+
+var _ = Describe("Proxy credential options", func() {
+	It("forwards the direct credential and preserves wire field 9", func() {
+		threads := 1
+		cfg := config.ModelConfig{Threads: &threads, Backend: "cloud-proxy", Proxy: config.ProxyConfig{APIKey: "direct-canary", UpstreamURL: "http://example.invalid"}}
+		opts := grpcModelOpts(cfg, "")
+		Expect(opts.Proxy.GetApiKey()).To(Equal("direct-canary"))
+		Expect(int(opts.Proxy.ProtoReflect().Descriptor().Fields().ByName("api_key").Number())).To(Equal(9))
+	})
+})
+
+type fakeKeyResolver map[string]config.ProxyRemoteKey
+
+func (f fakeKeyResolver) ResolveKey(_ context.Context, id string) (config.ProxyRemoteKey, error) {
+	k, ok := f[id]
+	if !ok {
+		return config.ProxyRemoteKey{}, errors.New("not found")
+	}
+	return k, nil
+}
+
+func boundKey(key string) config.ProxyRemoteKey {
+	return config.ProxyRemoteKey{Key: key, Kind: "localai", Base: "https://remote.example.com"}
+}
+
+type configMap map[string]config.ModelConfig
+
+func (m configMap) GetModelConfig(name string) (config.ModelConfig, bool) {
+	c, ok := m[name]
+	return c, ok
+}
+
+var _ = Describe("proxy remote key", func() {
+	AfterEach(func() { config.SetProxyKeyResolver(nil) })
+
+	remoteConfig := func(remote string) config.ModelConfig {
+		threads := 1
+		return config.ModelConfig{
+			Name: "remote-model", Backend: model.LocalAIProxyBackend, Threads: &threads,
+			Proxy: config.ProxyConfig{UpstreamURL: "https://remote.example.com", Remote: remote},
+		}
+	}
+	finalize := func(cfg config.ModelConfig) (*pb.ModelOptions, error) {
+		opts := grpcModelOpts(cfg, "/models")
+		return opts, applyProxyRemoteKey(context.Background(), cfg.Proxy.Remote, opts)
+	}
+
+	It("sets the key from the resolver and leaves key file and env empty", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		opts, err := finalize(remoteConfig("c1"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
+		Expect(opts.Proxy.ApiKeyFile).To(BeEmpty())
+		Expect(opts.Proxy.ApiKeyEnv).To(BeEmpty())
+	})
+	It("does not put the key in the options built before the load", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		Expect(grpcModelOpts(remoteConfig("c1"), "/models").Proxy.ApiKey).To(BeEmpty())
+	})
+	It("refuses to send the key of a remote to another server", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		cfg := remoteConfig("c1")
+		cfg.Proxy.UpstreamURL = "https://attacker.example.net"
+		opts, err := finalize(cfg)
+		Expect(err).To(MatchError(ContainSubstring("not an address of this localai remote")))
+		Expect(err.Error()).NotTo(ContainSubstring("fake-key"))
+		Expect(opts.Proxy.ApiKey).To(BeEmpty())
+	})
+	It("accepts a trailing slash and the default port", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+		cfg := remoteConfig("c1")
+		cfg.Proxy.UpstreamURL = "https://remote.example.com:443/"
+		opts, err := finalize(cfg)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
+	})
+	It("fails with a clear error when no resolver is set", func() {
+		_, err := finalize(remoteConfig("c1"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy remote "c1": key unavailable`)))
+	})
+	It("fails when the remote is missing", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{})
+		_, err := finalize(remoteConfig("gone"))
+		Expect(err).To(MatchError(ContainSubstring(`proxy remote "gone": key unavailable`)))
+	})
+	It("keeps a plain key and ignores the resolver for models without a remote", func() {
+		config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("other")})
+		cfg := remoteConfig("")
+		cfg.Proxy.APIKey = "plain"
+		opts := grpcModelOpts(cfg, "/models")
+		Expect(opts.Proxy.ApiKey).To(Equal("plain"))
+		so := &config.ApplicationConfig{SystemState: &system.SystemState{}}
+		Expect(ModelOptions(cfg, so)).NotTo(BeEmpty())
+	})
+
+	Describe("LoadOptionsFinalizer", func() {
+		It("resolves the key of a remote model from its current config", func() {
+			config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+			cfg := remoteConfig("c1")
+			fin := LoadOptionsFinalizer(configMap{"remote-model": cfg})
+			opts := grpcModelOpts(cfg, "/models")
+			Expect(fin(context.Background(), "remote-model", opts)).To(Succeed())
+			Expect(opts.Proxy.ApiKey).To(Equal("fake-key"))
+		})
+		It("refuses stored options that point at another server", func() {
+			config.SetProxyKeyResolver(fakeKeyResolver{"c1": boundKey("fake-key")})
+			cfg := remoteConfig("c1")
+			opts := grpcModelOpts(cfg, "/models")
+			opts.Proxy.UpstreamUrl = "https://attacker.example.net"
+			err := LoadOptionsFinalizer(configMap{"remote-model": cfg})(context.Background(), "remote-model", opts)
+			Expect(err).To(HaveOccurred())
+			Expect(opts.Proxy.ApiKey).To(BeEmpty())
+		})
+		It("puts an inline key back and leaves other models alone", func() {
+			plain := remoteConfig("")
+			plain.Proxy.APIKey = "inline"
+			fin := LoadOptionsFinalizer(configMap{"remote-model": plain})
+			opts := grpcModelOpts(plain, "/models")
+			opts.Proxy.ApiKey = ""
+			Expect(fin(context.Background(), "remote-model", opts)).To(Succeed())
+			Expect(opts.Proxy.ApiKey).To(Equal("inline"))
+			other := &pb.ModelOptions{Model: "x"}
+			Expect(fin(context.Background(), "unknown", other)).To(Succeed())
+			Expect(fin(context.Background(), "unknown", nil)).To(Succeed())
+		})
+	})
+})

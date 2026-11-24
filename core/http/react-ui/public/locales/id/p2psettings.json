@@ -1,0 +1,291 @@
+{
+  "title": "Pengaturan P2P",
+  "lede": {
+    "off": "P2P mati. Pilih mode untuk memakai instans lain atau membagikan instans ini.",
+    "connect": "Hanya terhubung: server ini memakai instans jarak jauh lewat P2P dan tidak menerima siapa pun.",
+    "share": "Terhubung dan berbagi: server ini juga menerima perangkat yang Anda pasangkan."
+  },
+  "loadError": "Pengaturan P2P tidak dapat dimuat",
+  "notRunning": "P2P tidak berjalan.",
+  "saved": "Tersimpan. P2P dimulai ulang dengan pengaturan baru.",
+  "saveFailed": "Server tidak menyimpan pengaturan.",
+  "sections": {
+    "label": "Bagian pengaturan P2P",
+    "network": "Jaringan",
+    "relays": "Relay",
+    "identity": "Identitas"
+  },
+  "actions": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "copy": "Salin",
+    "done": "Selesai"
+  },
+  "units": {
+    "kibps": "KiB/s",
+    "gib": "GiB",
+    "minutes": "menit"
+  },
+  "modes": {
+    "off": {
+      "title": "Mati",
+      "body": "Tanpa P2P. Node di NATS dan WebSocket tidak terpengaruh."
+    },
+    "connect": {
+      "title": "Hanya terhubung",
+      "body": "Pakai model dari instans lain lewat P2P. Server ini tidak menerima siapa pun. Tidak perlu autentikasi."
+    },
+    "share": {
+      "title": "Terhubung dan berbagi",
+      "body": "Juga menerima perangkat yang dipasangkan, remote, dan node P2P. Autentikasi harus aktif."
+    }
+  },
+  "network": {
+    "title": "Jaringan",
+    "mode": {
+      "title": "Mode P2P",
+      "lede": "Apa yang dilakukan instans ini lewat P2P. Perubahan berlaku seketika.",
+      "needsAuth": "Perlu autentikasi",
+      "replaces": "Menggantikan --p2p"
+    },
+    "defaultOn": "Aktif secara bawaan",
+    "shareOnly": "Hanya di Terhubung dan berbagi",
+    "shareOnlyNote": "Hanya tampil di Terhubung dan berbagi: Bagikan instans ini, Perangkat dan undangan, Relay untuk perangkat yang dipasangkan, dan Relay.",
+    "dht": {
+      "title": "DHT publik",
+      "desc": "Temukan dan ditemukan lewat jaringan libp2p publik. Untuk bergabung, ini tidak pernah diperlukan: undangan membawa peer ID dan petunjuk relay, dan klien menghubungi peer ID."
+    },
+    "mdns": {
+      "title": "Penemuan di jaringan lokal",
+      "desc": "Temukan instans lain di jaringan lokal yang sama (mDNS), sehingga mereka terhubung langsung tanpa internet."
+    },
+    "bootstrap": {
+      "title": "Peer bootstrap",
+      "desc": "Titik masuk Anda sendiri ke jaringan libp2p, satu alamat per baris. Setiap alamat diakhiri dengan /p2p/<peer ID>. Kosongkan untuk memakai peer bootstrap publik."
+    },
+    "relayPaired": {
+      "title": "Relay untuk perangkat yang dipasangkan",
+      "desc": "Server ini meneruskan lalu lintas antar perangkat miliknya yang dipasangkan saat mereka tidak bisa terhubung langsung. Ditampilkan sebagai Lewat server Anda."
+    },
+    "relayMode": {
+      "title": "Kapan server ini me-relay",
+      "desc": "Mode otomatis menjalankan relay hanya selama peer lain dapat menjangkau server ini dari internet.",
+      "auto": "Otomatis: saat server ini dapat dijangkau",
+      "on": "Selalu",
+      "off": "Tidak pernah"
+    },
+    "relayRate": {
+      "title": "Bandwidth per sirkuit",
+      "desc": "Batas untuk setiap koneksi yang di-relay server ini. 0 berarti tanpa batas."
+    }
+  },
+  "share": {
+    "title": "Bagikan instans ini dari sini",
+    "body": "Biarkan laptop Anda memakai model di server ini, dan tambahkan node P2P. Setiap perangkat yang dipasangkan mendapat kunci API sendiri, jadi berbagi memerlukan autentikasi aktif.",
+    "authOn": "Autentikasi aktif. Berpindah akan menambahkan Perangkat dan undangan, Bagikan instans ini, dan Relay. Remote Anda tetap terhubung.",
+    "turnOnAuth": "Aktifkan autentikasi",
+    "switch": "Beralih ke Terhubung dan berbagi"
+  },
+  "relays": {
+    "title": "Relay",
+    "run": "Jalankan relay…",
+    "lede": "LocalAI tidak menjalankan relay publik. Relay libp2p publik mengoordinasikan hole punching dan membawa proses pemasangan serta permintaan kecil; mereka mereset koneksi setelah sekitar 128 KiB. Beberapa pasangan jaringan tidak bisa terhubung langsung, jadi jalankan relay Anda sendiri. Relay terbatas hanya menerima peer yang dipasangkan server ini. Relay terbuka dapat dipakai dalam undangan, dengan peringatan.",
+    "loadError": "Relay tidak dapat dimuat",
+    "col": {
+      "relay": "Relay",
+      "health": "Kondisi",
+      "invites": "Undangan",
+      "limits": "Batas",
+      "actions": "Aksi"
+    },
+    "thisServer": "Server ini",
+    "self": {
+      "running": "Me-relay",
+      "reason": {
+        "off": "Mati",
+        "not_share": "Mati: tidak berbagi",
+        "not_public": "Menunggu: tidak dapat dijangkau dari internet"
+      },
+      "pairedOnly": "Hanya perangkat yang dipasangkan",
+      "limits": "Diatur di Jaringan"
+    },
+    "yourRelay": "Relay Anda",
+    "admins_one": "{{count}} admin",
+    "admins_other": "{{count}} admin",
+    "state": {
+      "in_sync": "Terbatas, tersinkron",
+      "out_of_sync": "Terbatas, tidak tersinkron",
+      "open": "Terbuka: siapa pun bisa memakainya",
+      "unclaimed": "Belum diklaim",
+      "not_admin": "Server ini bukan admin",
+      "denied": "Menolak server ini",
+      "unreachable": "Tidak dapat dijangkau",
+      "checking": "Memeriksa"
+    },
+    "latency": "Pulang-pergi {{ms}} ms",
+    "checked": {
+      "now": "Baru saja diperiksa",
+      "minutes_one": "Diperiksa {{count}} mnt lalu",
+      "minutes_other": "Diperiksa {{count}} mnt lalu",
+      "hours_one": "Diperiksa {{count}} j lalu",
+      "hours_other": "Diperiksa {{count}} j lalu",
+      "days_one": "Diperiksa {{count}} hari lalu",
+      "days_other": "Diperiksa {{count}} hari lalu"
+    },
+    "pass": {
+      "pass": "Pass relay",
+      "open": "Dengan peringatan",
+      "none": "Tidak dipakai"
+    },
+    "members_one": "{{count}} peer diizinkan",
+    "members_other": "{{count}} peer diizinkan",
+    "noLimit": "Tanpa batas",
+    "perCircuit": "{{limits}} per sirkuit",
+    "sync": "Sinkronkan sekarang",
+    "synced": "Relay memiliki daftar perangkat terpasang yang terbaru.",
+    "claim": "Klaim",
+    "limitsOf": "Batas {{name}}",
+    "checkOf": "Periksa {{name}} lagi",
+    "removeOf": "Hapus {{name}}",
+    "empty": {
+      "title": "Belum ada relay milik Anda",
+      "body": "Perangkat di balik router yang ketat tidak bisa terhubung langsung. Relay kecil di mesin dengan alamat publik membuat mereka bisa masuk."
+    },
+    "outOfSync": {
+      "title": "{{name}} tidak tersinkron.",
+      "body_one": "Relay ini mungkin masih menerima perangkat yang sudah Anda cabut. Sinkronkan sekarang mengirim daftar terbaru berisi {{count}} perangkat yang dipasangkan.",
+      "body_other": "Relay ini mungkin masih menerima perangkat yang sudah Anda cabut. Sinkronkan sekarang mengirim daftar terbaru berisi {{count}} perangkat yang dipasangkan."
+    },
+    "claimTitle": "Klaim relay ini",
+    "claimLede": "Relay belum punya admin. Saat dimulai, relay mencetak kode klaim sekali pakai.",
+    "claimed": "Server ini sekarang menjadi admin relay.",
+    "removeTitle": "Hapus relay ini?",
+    "removeBody": "{{name}} tidak lagi dipakai dalam undangan baru. Relay tetap berjalan; hentikan di mesinnya.",
+    "remove": "Hapus",
+    "removed": "Relay dihapus."
+  },
+  "run": {
+    "title": "Jalankan relay",
+    "lede": "Untuk peer yang tidak bisa terhubung langsung. Hanya menerima peer yang dipasangkan server ini.",
+    "step1": "1. Jalankan di mesin dengan alamat publik",
+    "dockerLabel": "Jalankan relay dengan Docker",
+    "orBinary": "Atau dengan binary:",
+    "binaryLabel": "Jalankan relay dengan binary local-ai",
+    "explain": "Buka port 4001 UDP dan TCP. Volume menyimpan kunci relay, sehingga peer ID-nya tetap sama setelah dimulai ulang. <b>--admin</b> menyebut server ini: relay hanya menerima peer yang dipasangkan server ini, dan server ini memperbarui daftar tersebut saat Anda memasangkan atau mencabut perangkat. Dua server dapat berbagi satu relay: tambahkan satu <b>--admin</b> untuk masing-masing. Relay adalah image kecil yang terpisah, <b>localai/relay</b>. Batas per sirkuit: <b>--circuit-max-bytes</b>, <b>--circuit-max-duration</b>, <b>--rate-limit</b>, <b>--max-circuits-per-peer</b>. Dengan <b>--open</b> siapa pun boleh memakainya, dan dimulai pada 64 KiB/s per sirkuit.",
+    "step2": "2. Tempel alamat relay",
+    "addrHint": "Relay mencetak alamatnya saat dimulai.",
+    "addrInvalid": "Tempel alamat lengkap. Alamat diawali dengan / dan diakhiri dengan /p2p/ dan peer ID relay.",
+    "check": "Periksa keterjangkauan",
+    "claimLabel": "Kode klaim",
+    "claim": "Klaim",
+    "claimFailed": "Relay menolak kode klaim: {{error}}",
+    "add": "Tambah relay",
+    "added": "Relay ditambahkan. Undangan baru menyebutnya.",
+    "ready": "Siap ditambahkan.",
+    "nothingSaved": "Tidak ada yang disimpan sampai Anda menambahkan relay.",
+    "steps": {
+      "reserve": {
+        "waiting": "Pesan slot di relay",
+        "ok": "Slot di relay telah dipesan",
+        "failed": "Pesan slot: tidak ada jawaban",
+        "skipped": "Pesan slot"
+      },
+      "circuit": {
+        "waiting": "Uji sirkuit",
+        "ok": "Uji sirkuit: data melewati relay",
+        "failed": "Uji sirkuit gagal",
+        "skipped": "Uji sirkuit: dilewati, server ini bukan admin"
+      },
+      "allowlist": {
+        "waiting": "Kirim daftar izin",
+        "ok": "Daftar izin terkirim. Server ini adalah admin.",
+        "failed": "Daftar izin tidak terkirim",
+        "skipped": "Daftar izin: tidak diperlukan untuk relay terbuka"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "Relay berfungsi dan terbatas.",
+        "body": "Relay masuk ke setiap undangan baru sebagai petunjuk relay, dengan pass relay."
+      },
+      "open": {
+        "title": "Relay berfungsi, tetapi terbuka.",
+        "body": "Siapa pun bisa memakainya. Undangan menyebutnya hanya dengan peringatan. Jalankan dengan --admin agar terbatas."
+      },
+      "wrong_peer": {
+        "title": "Peer ID salah.",
+        "body": "Relay menjawab sebagai {{actual}}, tetapi alamat menyebut {{expected}}. Salin lagi alamat dari log relay. Jika relay dimulai ulang tanpa volume kuncinya, relay membuat ID baru."
+      },
+      "unreachable": {
+        "title": "Tidak dapat menjangkau relay.",
+        "body": "Pastikan relay berjalan dan port 4001 UDP dan TCP terbuka di mesin dan router-nya. Lalu periksa lagi."
+      },
+      "circuit": {
+        "title": "Relay menjawab, tetapi tidak ada data yang melewatinya.",
+        "body": "Batasnya mungkin terlalu rendah, atau relay kelebihan beban. Periksa lognya, lalu periksa lagi."
+      },
+      "unclaimed": {
+        "title": "Relay belum punya admin.",
+        "body": "Masukkan kode klaim yang dicetak saat dimulai, atau jalankan lagi dengan --admin dan peer ID server ini."
+      },
+      "not_admin": {
+        "title": "Server ini bukan admin relay.",
+        "body": "Jalankan relay dengan --admin dan peer ID server ini, seperti di langkah 1. Lalu periksa lagi."
+      }
+    }
+  },
+  "limits": {
+    "title": "Batas untuk {{name}}",
+    "ledeOpen": "Relay terbuka: siapa pun bisa memakainya.",
+    "ledeGated": "Relay terbatas: hanya peer yang dipasangkan yang memakainya.",
+    "reset": "Kembalikan ke bawaan",
+    "noLimitTitle": "Tanpa batas.",
+    "noLimitOpen": "Satu orang asing dapat memakai seluruh bandwidth dan data relay ini, dan peer Anda sendiri menjadi lambat.",
+    "noLimitGated": "Satu peer yang dipasangkan dapat memakai seluruh bandwidth relay ini, misalnya untuk menyalin model.",
+    "mode": "Mode",
+    "limited": "Dibatasi",
+    "none": "Tanpa batas",
+    "fields": {
+      "dataGiB": "Data per sirkuit",
+      "minutes": "Waktu per sirkuit",
+      "kibps": "Bandwidth per sirkuit"
+    },
+    "zeroHint": "0 berarti tanpa batas untuk nilai itu.",
+    "invalid": "Setiap nilai harus berupa angka 0 atau lebih.",
+    "applyHint": "Batas bandwidth baru berlaku untuk sirkuit berikutnya. Batas data atau waktu baru memulai ulang layanan sirkuit relay: sirkuit yang sudah terbuka tetap memakai batas lama sampai ditutup, dan perangkat yang dipasangkan tersambung lagi lewat relay dalam sekejap.",
+    "save": "Simpan batas",
+    "saved": "Batas disimpan di {{name}}.",
+    "savedRestarted": "Batas disimpan di {{name}}. Relay memulai ulang layanan sirkuitnya; perangkat tersambung lagi sebentar lagi.",
+    "loadError": "Tidak dapat membaca batas dari relay.",
+    "readOnlyTitle": "Server ini tidak dapat mengubah batas ini.",
+    "readOnlyOpen": "Ini relay terbuka dan server ini bukan adminnya. Atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit.",
+    "readOnlyMember": "Server ini bukan admin relay ini. Minta admin relay, atau atur batas di tempat relay berjalan, dengan --circuit-max-bytes, --circuit-max-duration, dan --rate-limit.",
+    "max": "Maksimum: {{value}}",
+    "noMax": "Tanpa maksimum",
+    "ceilingTitle": "Operator relay menetapkan batas maksimum.",
+    "ceilingBody": "Operator relay ini menetapkan batas atas untuk setiap batas melalui opsi startnya. Anda dapat mengubah batas hingga maksimumnya, tidak lebih, dan Anda tidak dapat menghapus batas yang memiliki maksimum.",
+    "issue": {
+      "above": "Melebihi maksimum {{max}}.",
+      "required": "Masukkan nilai hingga {{max}}: batas yang memiliki maksimum tidak dapat dihapus."
+    },
+    "refusedTitle": "Relay menolak perubahan itu."
+  },
+  "identity": {
+    "title": "Identitas",
+    "lede": "Klien menyematkan peer ID ini saat menukarkan undangan. Relay Anda menyebutnya sebagai admin mereka. ID ini tetap sama setelah dimulai ulang.",
+    "notRunning": "P2P tidak berjalan, jadi server ini tidak punya peer ID untuk ditampilkan.",
+    "copied": "Peer ID disalin.",
+    "copyFailed": "Peer ID tidak dapat disalin.",
+    "regenerateTitle": "Buat ulang peer ID",
+    "regenerateDesc": "Membuat kunci identitas baru. Kunci lama disimpan sebagai cadangan di samping yang baru. Lakukan ini hanya jika kunci identitas bocor.",
+    "regenerateButton": "Buat ulang…",
+    "regenerate": "Buat ulang",
+    "regenerated": "Peer ID baru dibuat. Kirim undangan baru ke setiap perangkat dan remote.",
+    "confirmTitle": "Buat ulang peer ID?",
+    "confirmBody": "Setiap perangkat yang dipasangkan, remote, dan worker P2P menyematkan ID saat ini. Mereka berhenti terhubung dan menolak ID baru sebagai peringatan keamanan. Anda harus mengirim undangan baru ke masing-masing. Undangan yang tertunda berhenti berfungsi.",
+    "confirmOnly": "Lakukan ini hanya jika kunci identitas bocor.",
+    "confirmCheck_one": "Saya mengerti bahwa {{count}} perangkat yang dipasangkan harus dipasangkan ulang",
+    "confirmCheck_other": "Saya mengerti bahwa {{count}} perangkat yang dipasangkan harus dipasangkan ulang"
+  }
+}

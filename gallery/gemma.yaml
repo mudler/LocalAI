@@ -1,0 +1,14 @@
+config_file: |
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+        - chat
+        - completion
+    mmap: true
+    stopwords:
+        - <|im_end|>
+        - <end_of_turn>
+        - <start_of_turn>
+    template:
+        use_tokenizer_template: true
+name: gemma

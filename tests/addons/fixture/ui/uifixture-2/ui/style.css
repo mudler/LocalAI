@@ -1,0 +1,9 @@
+@import url("https://evil.example/theme.css");
+/* Rules that would restyle the host if they were not scoped. */
+body { background: rgb(255, 0, 255); }
+h1 { color: rgb(255, 0, 0); font-size: 11px; }
+.page-title { color: rgb(255, 0, 0); }
+.dk-btn { outline: 5px solid rgb(255, 0, 0); }
+:root { --fx-token: 1; }
+.title { color: rgb(1, 2, 3); }
+.fx-home { display: block; background-image: url(https://evil.example/pixel.gif); }

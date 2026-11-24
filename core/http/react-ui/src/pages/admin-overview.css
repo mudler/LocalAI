@@ -1,0 +1,50 @@
+/* The Administration overview: the "Needs you" card and the three summary
+   cards. Cards are the kit's surface: an edge, no shadow, no coloured rail. */
+
+.ov-page { display: flex; flex-direction: column; gap: var(--sp-5); }
+.ov-first { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.ov-note { margin: 0; max-width: 64ch; color: var(--dk-muted); }
+
+.ov-card { border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-card); min-width: 0; }
+.ov-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); }
+.ov-card__title { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+.ov-card__head .dk-link { font-size: var(--fs-small); }
+.ov-count { padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--color-warning-light); color: var(--dk-warn-text); font-size: var(--fs-meta); line-height: var(--lh-meta); font-variant-numeric: tabular-nums; }
+.ov-empty { margin: 0; padding: 0 var(--sp-5) var(--sp-5); color: var(--dk-muted); font-size: var(--fs-small); }
+
+.ov-rows { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--dk-edge); }
+.ov-row { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5); }
+.ov-row + .ov-row { border-top: 1px solid var(--dk-edge); }
+.ov-row__icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--r-md); background: var(--dk-inset); color: var(--dk-muted); }
+.ov-row__icon[data-tone="error"] { background: var(--color-error-light); color: var(--dk-error-text); }
+.ov-row__icon[data-tone="warn"] { background: var(--color-warning-light); color: var(--dk-warn-text); }
+.ov-row__icon[data-tone="info"] { background: var(--color-primary-light); color: var(--dk-accent-text); }
+.ov-row__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ov-row__text strong { font-size: var(--fs-small); font-weight: 600; }
+.ov-row__text span { color: var(--dk-muted); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.ov-row__acts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
+
+.ov-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--sp-5); }
+
+.ov-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: var(--sp-3); margin: 0; padding: 0 var(--sp-5) var(--sp-4); }
+.ov-stat dt { margin: 0 0 var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.ov-stat dd { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-2); margin: 0; }
+.ov-stat dd strong { font-size: var(--fs-lead); line-height: var(--lh-lead); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ov-stat dd span { color: var(--dk-muted); font-size: var(--fs-small); }
+.ov-stat[data-tone="warn"] dd strong { color: var(--dk-warn-text); }
+
+.ov-meters { margin: 0; padding: 0 var(--sp-5) var(--sp-4); list-style: none; display: flex; flex-direction: column; gap: var(--sp-2); }
+.ov-meter { display: grid; grid-template-columns: minmax(0, 9ch) minmax(0, 1fr) 4ch; align-items: center; gap: var(--sp-3); font-size: var(--fs-meta); }
+.ov-meter__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-meter__fig { text-align: right; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.ov-foot { display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: var(--sp-3) var(--sp-5); border-top: 1px solid var(--dk-edge); color: var(--dk-muted); font-size: var(--fs-small); }
+
+.ov-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; margin: 0 var(--sp-5) var(--sp-4); }
+.ov-bars__bar { flex: 1; min-width: 2px; height: var(--ov-h); background: var(--dk-accent); opacity: 0.6; }
+.ov-bars__bar[data-error="true"] { background: var(--dk-error-text); opacity: 1; }
+
+@media (max-width: 639px) {
+  .ov-row { flex-wrap: wrap; }
+  .ov-row__acts { width: 100%; }
+}
+.ov-page .page-header { margin-bottom: 0; }

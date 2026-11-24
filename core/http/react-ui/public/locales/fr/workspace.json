@@ -1,0 +1,1284 @@
+{
+  "wellKnown": {
+    "revert": "Revenir à la version précédente",
+    "view": "Affichage",
+    "form": "Formulaire",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "notSet": "Non défini",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "remove": "Retirer",
+    "savedAt": "Enregistré à {{time}}",
+    "notSaved": "Pas encore enregistré.",
+    "notSavedPrefilled": "Pas encore enregistré. Certaines valeurs sont déjà remplies ; Enregistrer les conserve.",
+    "loadFailed": "Impossible de charger ces réglages. Rechargez la page pour réessayer.",
+    "invalid": "Ces réglages contiennent des erreurs, et il n’existe pas de version valide antérieure.",
+    "invalidFallback": "Ces réglages contiennent des erreurs. Leur dernière version valide est affichée.",
+    "conflict": "Ces réglages ont changé pendant votre modification, probablement par l’assistant ou dans un autre onglet. Les valeurs les plus récentes sont :",
+    "useTheirs": "Utiliser les valeurs les plus récentes",
+    "keepMine": "Garder mes modifications",
+    "editWithAssistant": "Modifier avec l'assistant",
+    "from": {
+      "account": "Depuis votre compte",
+      "browser": "Depuis votre navigateur"
+    },
+    "check": {
+      "required": "Obligatoire.",
+      "tooLong": "{{max}} caractères au maximum.",
+      "format": "Cette valeur a un format incorrect.",
+      "placeholder": "Un espace réservé de ce texte n'est pas correct."
+    },
+    "source": {
+      "label": "Source",
+      "hint": "Les réglages sous forme de texte. Ils sont vérifiés de la même façon à l’enregistrement.",
+      "notJson": "Le texte contient une erreur de syntaxe. Vérifiez les guillemets, les virgules et les accolades.",
+      "notObject": "Le texte doit commencer par { et se terminer par }."
+    },
+    "persona": {
+      "title": "Assistant",
+      "lede": "Nom, image, salutation et instructions de l'assistant dans chaque chat."
+    },
+    "user": {
+      "title": "Vous",
+      "lede": "L'assistant lit ceci pour savoir à qui il parle. Cela parvient au modèle dans chaque chat."
+    },
+    "ui": {
+      "title": "Apparence",
+      "lede": "L'apparence de LocalAI pour vous. Les changements s'affichent immédiatement ; Enregistrer les conserve."
+    },
+    "shortcuts": {
+      "title": "Raccourcis",
+      "lede": "Les suggestions au-dessus de la zone de saisie de chaque chat.",
+      "edit": "Modifier les raccourcis",
+      "defaults": "Raccourcis par défaut",
+      "none": "Aucun raccourci. Ajoutez-en un, ou enregistrez une liste vide pour les masquer.",
+      "label": "Libellé",
+      "prompt": "Prompt",
+      "send": "Envoyer immédiatement",
+      "add": "Ajouter un raccourci",
+      "invalid": "Certains raccourcis contiennent des erreurs.",
+      "assistantPrompt": "Modifie mes raccourcis : "
+    },
+    "home": {
+      "editLayout": "Modifier la mise en page",
+      "ask": "Demander à l'assistant",
+      "askPrompt": "Modifie ma page Home : ",
+      "add": "Ajouter un widget",
+      "newTitle": "Nouveau widget",
+      "noWidgets": "Aucun widget pour l'instant.",
+      "type": "Type",
+      "title": "Titre",
+      "source": "Fichier de données",
+      "noSourceNeeded": "Aucun fichier de données requis",
+      "types": {
+        "list": "Liste",
+        "metric": "Indicateur",
+        "chats": "Derniers chats",
+        "page": "Page"
+      },
+      "left": "{{count}} restant(s)",
+      "fromChats": "des chats",
+      "noChats": "Aucun chat pour l'instant.",
+      "noData": "Pas encore de données. L'assistant peut écrire",
+      "nothing": "Rien ici.",
+      "noSource": "Ce widget n'a pas de fichier de données. Choisissez-en un dans Modifier la mise en page.",
+      "broken": "Les données de ce widget contiennent des erreurs, et il n’existe pas de version valide antérieure.",
+      "stale": "Les dernières données valides sont affichées. Les données les plus récentes contiennent des erreurs.",
+      "updated": "Mis à jour {{when}}",
+      "footer": {
+        "noData": "Pas encore de données.",
+        "invalid": "Les données contiennent une erreur. La dernière bonne version est affichée.",
+        "revert": "Rétablir",
+        "missing": "Les données de ce widget sont manquantes.",
+        "fix": "Demander à l’assistant de le corriger",
+        "fixPrompt": "Le widget de l’accueil lit {{file}}, qui est manquant ou cassé. Corrige-le : ",
+        "waiting": "En attente que vous créiez son déclencheur dans le chat.",
+        "openChat": "Ouvrir le chat",
+        "running": "Mise à jour en cours…",
+        "openRun": "Ouvrir l’exécution",
+        "paused": "En pause · était {{schedule}}",
+        "resume": "Reprendre",
+        "failedEmpty": "La mise à jour a échoué et il n’y a pas encore de données.",
+        "details": "Détails",
+        "retry": "Réessayer",
+        "stale": "La dernière mise à jour a échoué. Données de {{when}} affichées.",
+        "staleToday": "La dernière mise à jour a échoué. Données antérieures d’aujourd’hui affichées.",
+        "earlier": "avant",
+        "firstRun": "Première exécution {{when}}",
+        "firstRunFile": "S’exécute quand un fichier arrive",
+        "runNow": "Exécuter maintenant",
+        "fresh": "{{schedule}} · mis à jour {{time}}",
+        "pause": "Pause",
+        "fromPage": "De la page {{title}}",
+        "fromFile": "De vos fichiers",
+        "next": "Prochaine exécution {{when}}",
+        "cost": "environ {{tokens}} jetons par exécution",
+        "costRemote": "environ {{tokens}} jetons par exécution sur un modèle distant",
+        "cadence": {
+          "paused": "En pause",
+          "hourly": "Toutes les heures",
+          "daily": "Quotidien",
+          "weekdays": "Jours ouvrés",
+          "weekly": "Hebdomadaire",
+          "monthly": "Mensuel",
+          "file": "À chaque nouveau fichier"
+        },
+        "scheduleNote_one": "{{count}} widget se met à jour selon un horaire. Ses exécutions utilisent vos modèles et comptent dans votre utilisation.",
+        "scheduleNote_other": "{{count}} widgets se mettent à jour selon un horaire. Leurs exécutions utilisent vos modèles et comptent dans votre utilisation."
+      },
+      "opensSite": "{{host}} : s'ouvre dans un nouvel onglet",
+      "linkAsk": "Ce widget veut ouvrir un lien",
+      "invalid": "La disposition de votre Home contient des erreurs, et il n’existe pas de version valide antérieure.",
+      "invalidFallback": "La disposition de votre Home contient des erreurs. Home affiche sa dernière version valide.",
+      "page": {
+        "gone": "Cette page n'est plus disponible",
+        "goneHint": "La page \"{{name}}\" a été déplacée ou supprimée, ou vous ne pouvez plus l'ouvrir.",
+        "noWidget": "Cette page n'a pas de vue widget",
+        "noWidgetHint": "Demandez à l’assistant de donner à la page « {{name}} » une vue compacte pour l’accueil.",
+        "off": "Les pages partagées sont désactivées",
+        "offHint": "Un administrateur a désactivé les pages partagées sur ce serveur.",
+        "fix": "Personnaliser l'accueil",
+        "failed": "La page ne s'est pas chargée",
+        "retry": "Réessayer",
+        "changed": "Cette page a changé depuis que vous l'avez autorisée",
+        "notAllowed": "Vous n'avez pas encore autorisé cette page",
+        "allowHint": "Elle vient d'un dossier partagé. Vérifiez-la avant qu'elle s'exécute en votre nom.",
+        "allow": "Autoriser cette page",
+        "frameTitle": "{{title}} (page sur l'accueil)",
+        "refresh": "Actualiser",
+        "open": "Ouvrir la page",
+        "add": "Ajouter une page",
+        "limit": "L'accueil affiche au plus {{max}} pages ; retirez-en une pour en ajouter une autre.",
+        "noneEligible": "Aucune page n’a encore de vue compacte pour l’accueil. Demandez à l’assistant d’en ajouter une à une page.",
+        "pick": "Page",
+        "unavailable": "{{name}} (indisponible)",
+        "sharedLabel": "partagée"
+      },
+      "size": "Taille",
+      "preview": "Voici comment l'accueil dessine vos widgets. S prend une colonne, M deux, L toute la ligne. Un trou se comble tout seul.",
+      "area": {
+        "label": "Zone de page",
+        "none": "Aucune",
+        "pickHint": "Une page qui remplit la zone sous la zone de saisie sur l'accueil. Elle n'a accès ni au réseau ni à vos autres fichiers.",
+        "pickOff": "Un administrateur a désactivé la zone de page, donc l'accueil n'y affiche aucune page. Votre choix est conservé.",
+        "off": "La zone de page est désactivée",
+        "offHint": "Un administrateur l'a désactivée pour tous les utilisateurs de ce serveur. La page choisie reste dans la disposition de votre accueil et réapparaîtra une fois la zone réactivée.",
+        "by": {
+          "assistant": "Page de l'assistant",
+          "you": "Page de vous"
+        },
+        "byAuthor": "Page partagée par {{author}}",
+        "edit": "Modifier",
+        "reload": "Recharger",
+        "loading": "Chargement de la page",
+        "runsAsYou": "S'exécute en votre nom",
+        "runsAsYouHint": "La page lit et écrit les fichiers de son dossier avec vos droits. Elle n'a accès ni au réseau ni à vos autres fichiers.",
+        "askPrompt": "Modifie la page de pages/{{name}}/ pour que ",
+        "askTitle": "Demander à l'assistant de modifier cette page",
+        "frameTitle": "{{title}} (zone de page de l'accueil)",
+        "failedTitle": "Cette page ne s'est pas chargée.",
+        "why": {
+          "script": "Son script a produit une erreur et la page n'a rien affiché.",
+          "scriptLine": "Son script a produit une erreur à la ligne {{line}} et la page n'a rien affiché.",
+          "noPaint": "Elle n'a rien affiché en 5 secondes.",
+          "navigated": "Elle a essayé de quitter son cadre.",
+          "busy": "Elle a occupé l'ordinateur trop longtemps.",
+          "silent": "Elle a cessé de répondre.",
+          "noStart": "Elle n'a pas démarré.",
+          "missing": "La page « {{name}} » a été déplacée ou supprimée, ou vous ne pouvez plus l'ouvrir.",
+          "read": "La page n'a pas pu être lue.",
+          "invalid": "La page choisie pour la zone de page n'est pas un nom de page valide.",
+          "sharedOff": "Un administrateur a désactivé les pages partagées sur ce serveur."
+        },
+        "revert": "Rétablir",
+        "openFile": "Ouvrir le fichier",
+        "remove": "Retirer de l'accueil",
+        "nothingToRevert": "Il n'y a pas de version antérieure à rétablir.",
+        "revertFailed": "Le rétablissement n'a pas fonctionné.",
+        "removeFailed": "La page n'a pas pu être retirée de l'accueil."
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nom",
+          "help": "Le nom que l'assistant se donne."
+        },
+        "system_prompt": {
+          "label": "Prompt système",
+          "help": "Ajouté à chaque chat, après le prompt du chat et les instructions de l'agent."
+        },
+        "avatar": {
+          "label": "Avatar",
+          "help": "Une image de vos fichiers. PNG, JPG, WebP, GIF ou AVIF."
+        },
+        "greeting": {
+          "label": "Salutation",
+          "help": "La première ligne de l'assistant dans un nouveau chat. Elle est affichée, pas envoyée au modèle."
+        },
+        "emptyChat": {
+          "label": "Chat vide",
+          "help": "Ce qu'affiche un nouveau chat au-dessus de la zone de message."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nom",
+          "help": "Le nom sous lequel l'assistant vous appelle."
+        },
+        "language": {
+          "label": "Langue",
+          "help": "La langue dans laquelle l'assistant répond."
+        },
+        "bio": {
+          "label": "À propos de vous",
+          "help": "Quelques lignes que l'assistant lit dans chaque chat."
+        },
+        "timezone": {
+          "label": "Fuseau horaire",
+          "help": "Pour les dates et heures dans les réponses."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Thème",
+          "help": "Système suit le réglage de votre appareil.",
+          "options": {
+            "dark": "Sombre",
+            "light": "Clair",
+            "system": "Système"
+          }
+        },
+        "accent": {
+          "label": "Couleur d'accent",
+          "help": "Pour les boutons et liens. Vide garde la valeur par défaut."
+        },
+        "density": {
+          "label": "Densité",
+          "help": "Compact affiche plus de contenu sur un écran.",
+          "options": {
+            "comfortable": "Confortable",
+            "compact": "Compact"
+          }
+        },
+        "defaultModel": {
+          "label": "Modèle par défaut",
+          "help": "Le modèle avec lequel un nouveau chat démarre."
+        },
+        "homeBackground": {
+          "label": "Arrière-plan de l'accueil",
+          "help": "Une couleur, un dégradé ou une image de vos fichiers derrière la page d'accueil. Les autres pages ne changent pas."
+        },
+        "chatBackground": {
+          "label": "Arrière-plan des conversations",
+          "help": "Une couleur, un dégradé ou une image de vos fichiers derrière vos conversations. Les autres pages ne changent pas."
+        },
+        "look": {
+          "label": "Style",
+          "help": "Police, coins, messages et code, à partir de listes fixes."
+        },
+        "strings": {
+          "label": "Textes",
+          "help": "Seules les clés de cette liste peuvent changer."
+        }
+      },
+      "home": {
+        "headline": {
+          "label": "Titre",
+          "help": "Vide garde la salutation selon l'heure."
+        }
+      }
+    },
+    "saveInvalid": "Certaines valeurs ne sont pas valides. Vérifiez-les et enregistrez à nouveau.",
+    "saveTooLarge": "Ces réglages sont trop volumineux pour être enregistrés. Supprimez quelques entrées et réessayez.",
+    "saveFailed": "Impossible d’enregistrer. Réessayez.",
+    "details": "Détails",
+    "bg": {
+      "kind": "Type d'arrière-plan",
+      "kinds": {
+        "none": "Aucun",
+        "color": "Couleur",
+        "gradient": "Dégradé",
+        "image": "Image",
+        "video": "Vidéo"
+      },
+      "color": "Couleur d'arrière-plan",
+      "from": "De",
+      "to": "À",
+      "angle": "Angle : {{n}} degrés",
+      "imagePath": "Chemin de l'image dans vos fichiers",
+      "choose": "Choisir une image",
+      "imageBad": "Utilisez le chemin d'un fichier png, jpg, webp, gif ou avif de vos fichiers, sans barre oblique au début et sans ..",
+      "videoPath": "Chemin de la vidéo dans vos fichiers",
+      "chooseVideo": "Choisir une vidéo",
+      "videoBad": "Utilisez le chemin d'un fichier mp4, webm ou mov de vos fichiers, sans barre oblique initiale et sans ..",
+      "posterPath": "Chemin d'une image fixe affichée avant la lecture de la vidéo (facultatif)",
+      "posterHint": "Pictures/poster.jpg (image fixe facultative)",
+      "fit": "Ajustement",
+      "fits": {
+        "cover": "Remplir la page",
+        "contain": "Afficher l'image entière"
+      },
+      "opacity": "Intensité : {{n}} %",
+      "blur": "Flou : {{n}} px",
+      "overlay": "Voile pour le texte : {{n}} %",
+      "clear": "Retirer l'arrière-plan",
+      "pickFailed": "Le dossier n'a pas pu être lu.",
+      "pickEmpty": "Aucune image ni aucun dossier ici.",
+      "pickEmptyVideo": "Aucune vidéo ni aucun dossier ici.",
+      "pickClose": "Fermer"
+    },
+    "nav": {
+      "title": "Navigation",
+      "lede": "Réorganisez, renommez, masquez ou regroupez la barre latérale. Faites glisser une ligne ou utilisez les flèches. Les changements s'affichent aussitôt à droite.",
+      "preview": "Aperçu en direct",
+      "discard": "Annuler les modifications",
+      "saved": "Enregistré.",
+      "reset": "Rétablir les valeurs par défaut",
+      "fixed": "Nouveau chat, Chats, réglages et la recherche restent toujours affichés.",
+      "homeFixed": "Accueil reste toujours affiché.",
+      "hide": "Masquer {{name}}",
+      "show": "Afficher {{name}}",
+      "drag": "Déplacer {{name}} (glisser, ou touches fléchées)",
+      "name": "Nom de {{name}}",
+      "was": "était {{name}}",
+      "moveUp": "Monter {{name}}",
+      "moveDown": "Descendre {{name}}",
+      "remove": "Retirer {{name}}",
+      "addLink": "Ajouter un lien",
+      "addGroup": "Ajouter un groupe",
+      "newGroup": "Nouveau groupe",
+      "missing": "introuvable",
+      "missingHint": "Cette cible ({{kind}}) n'existe plus. La barre latérale l'ignore.",
+      "unavailable": "non affiché pour vous",
+      "unavailableHint": "Votre compte ou ce serveur n'affiche pas encore cette entrée.",
+      "tag": {
+        "builtin": "intégrée",
+        "group": "groupe",
+        "page": "page",
+        "chat": "chat",
+        "url": "lien"
+      },
+      "add": {
+        "page": "Page",
+        "pageHint": "Une de vos pages",
+        "chat": "Chat",
+        "chatHint": "Épingler une conversation",
+        "url": "URL",
+        "urlHint": "S'ouvre dans un nouvel onglet",
+        "address": "Adresse",
+        "name": "Nom (facultatif)",
+        "confirm": "Ajouter",
+        "back": "Retour",
+        "urlInvalid": "Utilisez une adresse http ou https sans nom d'utilisateur.",
+        "pick": {
+          "page": "Choisir une page",
+          "chat": "Choisir un chat"
+        },
+        "none": {
+          "page": "Vous n'avez aucune page à ajouter.",
+          "chat": "Il n'y a aucun chat à ajouter."
+        }
+      }
+    },
+    "blocked": "Corrigez les valeurs signalées pour enregistrer.",
+    "storedIn": "Enregistré dans",
+    "placeholders": {
+      "unknown_one": "{{names}} n'est pas un espace réservé de ce texte.",
+      "unknown_other": "{{names}} ne sont pas des espaces réservés de ce texte.",
+      "unknownUse_one": "{{names}} n'est pas un espace réservé de ce texte. Utilisez {{use}}.",
+      "unknownUse_other": "{{names}} ne sont pas des espaces réservés de ce texte. Utilisez {{use}}.",
+      "none_one": "{{names}} n'est pas un espace réservé. Ce texte n'en prend aucun.",
+      "none_other": "{{names}} ne sont pas des espaces réservés. Ce texte n'en prend aucun.",
+      "brace": "Une accolade n'a pas sa paire. Écrivez un espace réservé sous la forme {name}.",
+      "hint": "Espaces réservés disponibles",
+      "insert": "Insérer cet espace réservé"
+    },
+    "avatar": {
+      "path": "Chemin de l'image",
+      "remove": "Retirer",
+      "bad": "Utilisez une image de vos fichiers : un chemin sans barre oblique au début et sans .., qui se termine par .png, .jpg, .jpeg, .webp, .gif ou .avif."
+    },
+    "emptyChat": {
+      "title": "Titre",
+      "subtitle": "Ligne sous le titre",
+      "titleSample": "Demandez-moi ce que vous voulez",
+      "subtitleSample": "Dites ce dont vous avez besoin.",
+      "showShortcuts": "Afficher mes raccourcis au-dessus de la zone de message"
+    },
+    "look": {
+      "font": {
+        "label": "Police",
+        "default": "Geist, par défaut",
+        "system": "Système",
+        "serif": "Serif",
+        "mono": "Mono"
+      },
+      "radius": {
+        "label": "Coins",
+        "sharp": "Nets",
+        "soft": "Doux",
+        "round": "Arrondis"
+      },
+      "bubble": {
+        "label": "Style des messages",
+        "card": "Carte",
+        "filled": "Plein",
+        "tinted": "Teinté",
+        "outline": "Contour",
+        "plain": "Simple"
+      },
+      "messageWidth": {
+        "label": "Largeur des messages",
+        "narrow": "Étroite 640",
+        "medium": "Moyenne 760",
+        "wide": "Large 920",
+        "full": "Pleine"
+      },
+      "codeTheme": {
+        "label": "Couleurs du code",
+        "auto": "Auto",
+        "mono": "Mono",
+        "vivid": "Vives",
+        "ink": "Encre"
+      },
+      "note": "Chaque valeur vient d'une liste fixe et la couleur d'accent doit rester lisible. Il n'y a pas de zone CSS, donc un style ne peut ni masquer ni casser une page."
+    },
+    "contrast": {
+      "ok": "AA {{ratio}}:1",
+      "fail": "Trop pâle : {{ratio}}:1 en mode {{mode}}",
+      "failLong": "Cette couleur d'accent a un contraste de {{ratio}}:1 avec la page en mode {{mode}} et il faut 4,5:1. LocalAI affiche l'accent par défaut à la place.",
+      "mode": {
+        "light": "clair",
+        "dark": "sombre"
+      }
+    },
+    "headline": {
+      "title": "Titre de l'accueil",
+      "lede": "La grande ligne en haut de l'accueil."
+    },
+    "strings": {
+      "title": "Textes",
+      "lede": "Vos propres mots pour quelques libellés. Les messages de sécurité, de permission et de consentement gardent les leurs.",
+      "changed_one": "{{count}} modifié",
+      "changed_other": "{{count}} modifiés",
+      "find": "Chercher un texte",
+      "key": "Clé",
+      "default": "Par défaut",
+      "yours": "Votre texte",
+      "yoursFor": "Votre texte pour {{key}}",
+      "same": "Comme par défaut",
+      "hint": "Gardez les espaces réservés d'un texte, comme {model}. Une erreur est signalée avant l'enregistrement. Une zone vide garde le texte par défaut."
+    },
+    "frames": {
+      "stopped": "Cette page a été arrêtée",
+      "why": {
+        "busy": "Elle a occupé l'ordinateur trop longtemps (plus de 3 secondes de travail sur 10 secondes).",
+        "silent": "Elle n'a plus répondu pendant plus de 5 secondes.",
+        "noStart": "Elle n'a pas démarré en 10 secondes.",
+        "navigated": "Elle a essayé de quitter son cadre."
+      },
+      "capped": "En pause : l'app exécute au plus {{max}} pages à la fois.",
+      "run": "Lancer"
+    },
+    "slots": {
+      "title": "Emplacements",
+      "lede": "De petites zones de l'app qui affichent vos tuiles de pages, boutons d'outils et commandes, de gauche à droite. Elles ne masquent jamais le titre, le modèle ni les réglages.",
+      "where": "Où sont les emplacements",
+      "map": "Plan des emplacements",
+      "editing": "En cours de modification",
+      "count": "{{count}} sur {{max}}",
+      "names": {
+        "chatHeader": "En-tête du chat",
+        "sidebarFooter": "Pied de la barre latérale",
+        "composerToolbar": "Barre du message"
+      },
+      "badge": {
+        "chatHeader": "Dans l'en-tête du chat",
+        "sidebarFooter": "Dans la barre latérale",
+        "composerToolbar": "Dans le message"
+      },
+      "hint": {
+        "chatHeader": "La barre au-dessus de chaque chat. Une page avec une mise en page compacte s'exécute dans une bande de 40 px de haut ; un clic l'ouvre en carte sous la tuile.",
+        "sidebarFooter": "Le pied de la barre latérale, sur chaque écran. Une barre repliée le masque.",
+        "composerToolbar": "À côté du bouton de pièce jointe de la zone de message. Idéal pour les boutons d'outils."
+      },
+      "empty": "Rien ici pour l'instant. Ajoutez une tuile de page, un bouton d'outil ou une commande.",
+      "addItem": "Ajouter un élément",
+      "full": "Cet emplacement est plein ({{max}} éléments).",
+      "incomplete": "Complétez chaque nouvel élément avant d'enregistrer : une page, un outil et son texte, ou une commande.",
+      "add": {
+        "page": "Tuile de page",
+        "pageHint": "Une page à vous ou partagée avec vous",
+        "tool": "Bouton d'outil",
+        "toolHint": "Exécute un outil, demande d'abord",
+        "command": "Commande",
+        "commandHint": "Une de vos commandes"
+      },
+      "kind": {
+        "tool": "Bouton d'outil, demande d'abord",
+        "command": "Commande",
+        "pageMissing": "Page introuvable",
+        "pageCompact": "Tuile de page, compacte",
+        "pageButton": "Page, s'ouvre au clic"
+      },
+      "form": {
+        "page": "Page",
+        "pickPage": "Choisir une page",
+        "shared": "partagée",
+        "pageHint": "Une page avec une mise en page compacte s'exécute dans l'emplacement. Les autres pages sont un bouton qui les ouvre.",
+        "tool": "Nom de l'outil",
+        "arguments": "Arguments fixes (facultatif)",
+        "argumentsHint": "Des noms avec des valeurs simples, au plus {{max}} : texte, nombres, true ou false, comme dans l'exemple.",
+        "argumentsBad": "Non valide : écrivez des noms avec des valeurs simples, comme dans l'exemple, au plus {{max}}.",
+        "command": "Nom de la commande",
+        "commandHint": "Le nom d'une de vos commandes, sans la barre oblique. Un clic place son texte dans la zone de message.",
+        "label": "Texte (facultatif)",
+        "labelNeeded": "Texte du bouton",
+        "icon": "Icône (facultatif)"
+      },
+      "tool": {
+        "title": "Exécute l'outil {{tool}} après votre accord",
+        "confirmTitle": "Exécuter {{label}} ?",
+        "confirmChat": "Cela envoie à ce chat un message qui demande à l'assistant d'exécuter cet outil :",
+        "confirmDraft": "Cela ouvre un nouveau chat avec un message qui demande à l'assistant d'exécuter cet outil. C'est vous qui l'envoyez.",
+        "tool": "Outil",
+        "arguments": "Arguments",
+        "stillAsks": "Si l'outil demande votre accord, le chat le demande quand même.",
+        "run": "Exécuter"
+      },
+      "tile": {
+        "missing": "La page {{name}} n'existe plus. Modifiez les emplacements dans vos réglages.",
+        "off": "Les pages partagées sont désactivées sur ce serveur.",
+        "error": "Impossible de lire la page {{name}}. Modifiez les emplacements dans vos réglages.",
+        "open": "Ouvrir {{title}}",
+        "allow": "Autoriser {{title}} à s'exécuter ici",
+        "expand": "Afficher {{title}}",
+        "close": "Fermer {{title}}",
+        "sandboxed": "Isolée, sans réseau"
+      }
+    }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Faites de LocalAI le vôtre",
+      "lede": "Dites-le dans un chat. L’assistant l’enregistre, et vous pouvez le modifier ou l’annuler.",
+      "hide": "Masquer",
+      "hiddenToast": "Exemples masqués.",
+      "saveFailed": "Non enregistré : {{message}}",
+      "card1": {
+        "kicker": "Vous et l’assistant",
+        "prompt": "Appelez-moi {{firstName}} et gardez des réponses courtes",
+        "promptNoName": "Retenez mon prénom et gardez des réponses courtes",
+        "what": "Enregistre votre nom et la façon dont l’assistant répond"
+      },
+      "card2": {
+        "kicker": "Une page",
+        "prompt": "Créez-moi un tableau de tâches",
+        "what": "Ajoute une page à ouvrir depuis la barre latérale"
+      },
+      "card3": {
+        "kicker": "Chaque matin",
+        "prompt": "Chaque matin, résumez ici ma boîte de réception",
+        "promptNoMail": "Chaque matin, listez ici les chats d’hier",
+        "what": "Ajoute un widget Home et un déclencheur que vous confirmez"
+      },
+      "quote": "« {{text}} »",
+      "donePrefix": "Terminé.",
+      "doneLink": "Modifier dans Account",
+      "ready": "Ou partez d’une page prête :",
+      "readyTasks": "Tableau de tâches",
+      "readyReading": "Liste de lecture",
+      "readyFailed": "La page n’a pas été copiée : {{message}}",
+      "learn": "Comment ça marche",
+      "inComposer": "Modifiez-le si vous voulez, puis appuyez sur Entrée. Rien n’est enregistré tant que vous n’envoyez pas.",
+      "live": "Texte ajouté à la zone de message."
+    },
+    "home": {
+      "customise": "Personnaliser Home"
+    },
+    "action": {
+      "undo": "Annuler",
+      "openAccount": "Ouvrir dans Account",
+      "openPage": "Ouvrir la page",
+      "openHome": "Ouvrir Home",
+      "turnBackOn": "Les réactiver dans Account"
+    },
+    "change": {
+      "profilePersona": "Votre nom et vos instructions pour l’assistant sont enregistrés. Chaque chat les utilise dès votre prochain message.",
+      "profile": "Enregistré dans votre profil.",
+      "persona": "Les instructions de l’assistant sont enregistrées. Chaque chat les utilise dès votre prochain message.",
+      "shortcuts": "Vos raccourcis sont enregistrés.",
+      "home": "Votre page Home est enregistrée. Home affiche le changement.",
+      "ui": "Vos réglages d’apparence sont enregistrés.",
+      "pageCreated": "La page {{title}} a été créée.",
+      "pageChanged": "La page {{title}} a été modifiée.",
+      "offersOff": "Les suggestions de l’assistant sont désactivées.",
+      "undoing": "Annulation…",
+      "undone": "Annulé.",
+      "undoFailed": "Non annulé : {{message}}",
+      "defaults": "Vos modèles par défaut sont enregistrés. L’assistant les utilise dès votre prochain message."
+    },
+    "toast": {
+      "shortcutAdded": "Ajouté à votre zone de saisie : {{label}}",
+      "pageCreated": "{{title}} est dans Pages, dans la barre latérale",
+      "open": "Ouvrir",
+      "homeChanged": "Home mis à jour.",
+      "themeChanged": "Thème modifié."
+    },
+    "files": {
+      "learn": "Ces fichiers changent le fonctionnement de LocalAI pour vous.",
+      "tag": {
+        "profile": "Votre profil",
+        "persona": "Assistant",
+        "shortcuts": "Raccourcis",
+        "home": "Disposition de Home",
+        "ui": "Apparence",
+        "page": "Page"
+      }
+    },
+    "privacy": "L’assistant reçoit votre nom, ce texte, votre langue et votre fuseau horaire au début de chaque chat. Laissez un champ vide pour le garder privé.",
+    "versions": {
+      "label": "Versions",
+      "title": "Versions précédentes",
+      "loading": "Lecture de l’historique…",
+      "none": "Aucune version antérieure pour l’instant.",
+      "current": "actuelle",
+      "invalid": "contient une erreur",
+      "byAssistant": "Par l’assistant",
+      "byAssistantIn": "Par l’assistant dans « {{chat}} »",
+      "byYou": "Par vous",
+      "undo": "Une annulation",
+      "upload": "Importé",
+      "revert": "Restaurer",
+      "note": "Restaurer conserve la version plus récente dans cette liste.",
+      "invalidBadge": "Invalide",
+      "revertGood": "Restaurer la dernière bonne version"
+    },
+    "help": {
+      "title": "Aide et suggestions",
+      "sub": "Les façons dont LocalAI vous montre ce qu’il sait faire. Désactivez ce dont vous n’avez pas besoin.",
+      "offers": "Propositions de l’assistant",
+      "offersHint": "Une par jour au plus, jamais pendant une tâche : par exemple, pour retenir ce que vous lui avez dit.",
+      "new": "Notes sur les nouveautés",
+      "newHint": "Une courte étiquette « Nouveau » dans la barre latérale la première fois que quelque chose apparaît.",
+      "examples": "Exemples sur Home",
+      "examplesShown": "Les cartes « Faites de LocalAI le vôtre » s’affichent sur Home tant qu’il vous reste quelque chose à essayer.",
+      "examplesHidden": "Vous avez masqué les cartes « Faites de LocalAI le vôtre ».",
+      "showExamples": "Afficher de nouveau les exemples",
+      "examplesBack": "Les exemples sont de retour sur Home.",
+      "dismissed": "Ce que l’assistant a appris",
+      "dismissedHint_one": "Vous avez refusé {{count}} proposition. Elle reste masquée jusqu’à la réinitialisation.",
+      "dismissedHint_other": "Vous avez refusé {{count}} propositions. Elles restent masquées jusqu’à la réinitialisation.",
+      "forget": "Oublier ce que l’assistant a appris de mes suggestions",
+      "forgotten": "Terminé. L’assistant pourra proposer de nouveau.",
+      "learn": "Découvrez ce que vous pouvez modifier :",
+      "dismissedNone": "Rien pour l’instant. Quand vous répondez à une proposition, l’assistant s’en souvient ici."
+    }
+  },
+  "tabs": {
+    "shared": "Partagé",
+    "trashCount_one": "{{count}} élément dans la Corbeille",
+    "trashCount_other": "{{count}} éléments dans la Corbeille"
+  },
+  "trash": {
+    "empty": "La corbeille est vide.",
+    "restore": "Restaurer",
+    "emptyAll": "Vider la corbeille",
+    "purge": "Supprimer définitivement",
+    "purgeNamed": "Supprimer {{name}} définitivement",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "folders_one": "{{count}} dossier",
+    "folders_other": "{{count}} dossiers",
+    "listJoin": ", ",
+    "summary": "Dans la corbeille : {{what}}.",
+    "removed": "Supprimé définitivement : {{what}}.",
+    "confirmAll": {
+      "title": "Vider la corbeille ?",
+      "message": "Cela supprime définitivement {{what}}, avec leurs versions précédentes. Cette action est irréversible."
+    },
+    "confirmOne": {
+      "title": "Supprimer définitivement ?",
+      "message": "{{path}} : cela supprime définitivement {{what}}, avec leurs versions précédentes. Cette action est irréversible."
+    }
+  },
+  "shared": {
+    "adminTitle": "Dossiers partagés",
+    "adminLede": "Des dossiers que plusieurs personnes utilisent. Les membres ouvrent leurs pages, et leurs discussions peuvent lire ou modifier les fichiers.",
+    "userTitle": "Partagé avec vous",
+    "userLede": "Dossiers qu’un administrateur ou une autre personne a partagés avec vous. Vos conversations peuvent utiliser les fichiers.",
+    "new": "Nouveau dossier partagé",
+    "nameLabel": "Nom du dossier",
+    "nameHint": "Jusqu’à 64 lettres, chiffres, espaces, points, tirets ou soulignés. Commencez par une lettre ou un chiffre.",
+    "create": "Créer",
+    "cancel": "Annuler",
+    "rename": "Renommer",
+    "renameSave": "Enregistrer",
+    "remove": "Retirer",
+    "manage": "Membres",
+    "menu": "Autres actions pour {{name}}",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "pagesNone": "Aucune page",
+    "people_one": "{{count}} personne",
+    "people_other": "{{count}} personnes",
+    "membersNone": "Aucun membre",
+    "everyone": "Tout le monde",
+    "everyoneOption": "Tout le monde (tous les utilisateurs)",
+    "everyoneHint": "Tous les utilisateurs, y compris ceux qui arrivent plus tard",
+    "everyoneCan": {
+      "read": "Tout le monde peut lire",
+      "write": "Tout le monde peut modifier"
+    },
+    "mode": {
+      "read": "Peut lire",
+      "write": "Peut modifier"
+    },
+    "addTitle": "Ajouter un membre",
+    "person": "Personne",
+    "access": "Accès",
+    "accessFor": "Accès de {{name}}",
+    "add": "Ajouter",
+    "allAdded": "Tout le monde est déjà membre.",
+    "usersUnavailable": "La liste des utilisateurs n’a pas pu être chargée. Vous pouvez quand même ajouter Tout le monde.",
+    "membersTitle": "Membres",
+    "noMembers": "Personne ne peut encore utiliser ce dossier. Ajoutez une personne ou Tout le monde.",
+    "removeMember": "Retirer {{name}}",
+    "paneNote": "Un changement s’applique tout de suite. Une discussion ouverte le voit à sa prochaine ouverture.",
+    "created": "« {{name}} » créé. Ajoutez les personnes qui peuvent l’utiliser.",
+    "removed": "« {{name}} » retiré. Ses pages redemandent l’accord avant de s’exécuter.",
+    "restored": "« {{name}} » est de retour, avec ses membres.",
+    "memberAdded": "{{name}} : {{mode}}.",
+    "memberRemoved": "{{name}} ne peut plus utiliser « {{folder}} ».",
+    "failed": "Non effectué : {{message}}",
+    "loadFailed": "Impossible de charger les dossiers partagés.",
+    "emptyAdminTitle": "Aucun dossier partagé pour l’instant",
+    "emptyAdminBody": "Un dossier partagé contient des fichiers et des pages que d’autres personnes peuvent lire ou modifier. Créez-en un, puis ajoutez des membres.",
+    "factMembers": "Donnez à une personne ou à tout le monde l’accès en lecture ou en modification",
+    "factChats": "Les discussions des membres voient les fichiers du dossier",
+    "factUndo": "Le retrait d’un dossier peut être annulé",
+    "emptyUserTitle": "Rien n’est encore partagé avec vous",
+    "emptyUserBody": "Quand quelqu’un partage un dossier avec vous, il apparaît ici."
+  },
+  "preview": {
+    "label": "Aperçu",
+    "failed": "Ce fichier n'a pas pu être affiché.",
+    "loading": "Chargement de l’aperçu de {{name}}",
+    "failedTitle": "Impossible d’afficher {{name}}.",
+    "tooLarge": "Ce fichier est trop volumineux pour l’aperçu. Téléchargez-le pour l’ouvrir.",
+    "none": "Aucun aperçu pour ce type de fichier.",
+    "typeFile": "Fichier {{ext}}",
+    "typeUnknown": "Fichier",
+    "sheets": "Feuilles",
+    "sheetLabel": "Feuille {{name}}",
+    "sheetEmpty": "Cette feuille est vide.",
+    "row": "Ligne",
+    "showingRows": "{{rows}} lignes affichées sur {{total}}",
+    "showingCols": "et {{cols}} colonnes sur {{total}}.",
+    "downloadRest": "Téléchargez le fichier pour le reste.",
+    "textOnly": "Aperçu du texte, mise en forme non affichée.",
+    "truncated": "Le texte est tronqué.",
+    "noText": "Ce fichier ne contient pas de texte à afficher.",
+    "slide": "Diapositive {{n}}",
+    "notes": "Notes de l’orateur",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "Si le PDF ne s’affiche pas ici, téléchargez-le.",
+    "htmlTitle": "Aperçu de {{name}}",
+    "imageFailed": "L’image n’a pas pu être affichée.",
+    "zoomIn": "Afficher en taille réelle",
+    "zoomOut": "Ajuster au panneau",
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments",
+    "textCut": "Les premiers {{size}} sont affichés.",
+    "actions": "Actions du fichier",
+    "officeFailed": "La vue mise en forme n'a pas pu être dessinée, le texte est affiché à la place.",
+    "officeTooLarge": "Ce fichier dépasse {{size}} et est trop volumineux pour être dessiné, le texte est affiché à la place.",
+    "slideOf": "Diapositive {{n}} sur {{total}}",
+    "prevSlide": "Diapositive précédente",
+    "nextSlide": "Diapositive suivante"
+  },
+  "managed": {
+    "group": "Géré par LocalAI",
+    "marker": "géré par LocalAI",
+    "about": {
+      "localai": "Réglages que LocalAI lit : persona, profil, raccourcis, Accueil, thème.",
+      "chats": "Un dossier par discussion, avec les fichiers de la discussion.",
+      "projects": "Vos projets. Chaque dossier est un projet.",
+      "memory": "Les notes que l'assistant garde sur vous.",
+      "pages": "Les pages de votre espace de travail.",
+      "skills": "Les skills que les agents utilisent.",
+      "other": "Créé et utilisé par LocalAI."
+    },
+    "open": {
+      "memory": "Ouvrir la Mémoire",
+      "pages": "Ouvrir les Pages",
+      "skills": "Ouvrir les Skills",
+      "projects": "Ouvrir les Projets"
+    },
+    "confirm": {
+      "deleteTitle": "Mettre {{name}} à la corbeille ?",
+      "renameTitle": "Renommer {{name}} ?",
+      "delete": "Mettre à la corbeille",
+      "rename": "Renommer",
+      "restore": "Vous pouvez le restaurer depuis la corbeille.",
+      "renameNote": "LocalAI ne le lit que sous ce nom : après un renommage, c'est comme s'il avait disparu."
+    },
+    "loses": {
+      "settings": "LocalAI oublie votre persona, votre profil, vos raccourcis, la disposition de votre Accueil et votre thème.",
+      "chats": "Chaque discussion perd ses fichiers : ce que vous avez joint et ce que l'assistant y a écrit.",
+      "projects": "Chaque projet perd ses fichiers et sa mémoire, et les conversations d'un projet perdent ce qu'elles en utilisaient.",
+      "persona": "L'assistant perd son nom et ses instructions.",
+      "user": "L'assistant oublie ce que vous lui avez dit sur vous et vos réponses à ses propositions.",
+      "shortcuts": "La zone de message affiche de nouveau les raccourcis par défaut.",
+      "home": "L'Accueil perd ses widgets.",
+      "ui": "Votre thème, couleur d'accent, densité, modèle par défaut et pages épinglées reviennent aux valeurs par défaut.",
+      "defaults": "Vos modèles par défaut sont oubliés. Les outils choisissent de nouveau eux-mêmes un modèle installé."
+    }
+  },
+  "newFile": "Nouveau fichier",
+  "newFolderName": "Nouveau dossier",
+  "newFileName": "Sans titre.md",
+  "fileName": "Nom du fichier",
+  "downloadOne": "Télécharger {{name}}",
+  "moveTo": "Déplacer vers…",
+  "uploadMenu": "Autres options d’import",
+  "uploadFiles": "Importer des fichiers",
+  "uploadFolder": "Importer un dossier",
+  "loading": "Chargement du dossier",
+  "loadFailed": "Impossible d’ouvrir {{folder}}.",
+  "types": {
+    "folder": "Dossier",
+    "image": "Image",
+    "pdf": "PDF",
+    "sheet": "Feuille de calcul",
+    "doc": "Document",
+    "slides": "Présentation",
+    "archive": "Archive",
+    "audio": "Audio",
+    "video": "Vidéo",
+    "code": "Code",
+    "text": "Texte",
+    "file": "Fichier"
+  },
+  "columns": {
+    "name": "Nom",
+    "modified": "Modifié",
+    "type": "Type",
+    "size": "Taille",
+    "actions": "Actions"
+  },
+  "view": {
+    "label": "Affichage",
+    "list": "Liste",
+    "grid": "Miniatures"
+  },
+  "select": {
+    "one": "Sélectionner {{name}}",
+    "all": "Tout sélectionner",
+    "bar": "Éléments sélectionnés",
+    "clear": "Effacer la sélection",
+    "count_one": "{{count}} sélectionné",
+    "count_other": "{{count}} sélectionnés",
+    "start": "Sélectionner"
+  },
+  "menu": {
+    "label": "Actions pour {{name}}",
+    "more": "Plus d’actions pour {{name}}",
+    "openFolder": "Ouvrir",
+    "preview": "Aperçu",
+    "downloadMany_one": "Télécharger {{count}} fichier",
+    "downloadMany_other": "Télécharger {{count}} fichiers",
+    "moveMany_one": "Déplacer {{count}} élément vers…",
+    "moveMany_other": "Déplacer {{count}} éléments vers…",
+    "deleteMany_one": "Déplacer {{count}} élément vers la Corbeille",
+    "deleteMany_other": "Déplacer {{count}} éléments vers la Corbeille",
+    "share": "Partager…",
+    "extract": "Extraire ici"
+  },
+  "keys": {
+    "delete": "Suppr"
+  },
+  "crumbs": {
+    "hidden": "Afficher les dossiers parents"
+  },
+  "naming": {
+    "empty": "Saisissez un nom.",
+    "slash": "Un nom ne peut pas contenir / ni \\.",
+    "taken": "Un élément porte déjà ce nom dans ce dossier."
+  },
+  "toast": {
+    "undo": "Annuler",
+    "deletedOne": "{{name}} a été déplacé vers la Corbeille.",
+    "deleted_one": "{{count}} élément a été déplacé vers la Corbeille.",
+    "deleted_other": "{{count}} éléments ont été déplacés vers la Corbeille.",
+    "restored": "Restauré.",
+    "renamed": "Renommé en {{name}}.",
+    "renameUndone": "Nom d’origine rétabli.",
+    "movedOne": "{{name}} a été déplacé vers {{folder}}.",
+    "moved_one": "{{count}} élément a été déplacé vers {{folder}}.",
+    "moved_other": "{{count}} éléments ont été déplacés vers {{folder}}.",
+    "moveUndone": "Remis à sa place.",
+    "extractSkipped_one": "{{count}} entrée a été ignorée (liens, périphériques ou noms non valides).",
+    "extractSkipped_other": "{{count}} entrées ont été ignorées (liens, périphériques ou noms non valides).",
+    "extractConflicts_one": "{{count}} nom était déjà pris : le nouveau fichier est enregistré comme copie.",
+    "extractConflicts_other": "{{count}} noms étaient déjà pris : les nouveaux fichiers sont enregistrés comme copies.",
+    "extractUndone": "Extraction annulée.",
+    "extracted_one": "{{count}} fichier extrait dans {{folder}}.",
+    "extracted_other": "{{count}} fichiers extraits dans {{folder}}."
+  },
+  "search": {
+    "placeholder": "Filtrer ce dossier",
+    "resultsFor": "Fichiers contenant « {{query}} »",
+    "back": "Retour au dossier",
+    "noneBody": "Aucun nom ni texte de vos fichiers ne correspond. Essayez d’autres mots.",
+    "page": "page {{n}}",
+    "sheet": "feuille « {{name}} »",
+    "slide": "diapositive {{n}}",
+    "indexing_one": "{{count}} document est encore en cours d’indexation : relancez la recherche dans un instant pour l’inclure.",
+    "indexing_other": "{{count}} documents sont encore en cours d’indexation : relancez la recherche dans un instant pour les inclure.",
+    "limited": "Résultats limités : la recherche s’est arrêtée à ses limites avant de parcourir tous les fichiers. Cherchez dans un dossier ou avec d’autres mots pour voir le reste.",
+    "filtering_one": "{{count}} élément de ce dossier correspond à « {{query}} ».",
+    "filtering_other": "{{count}} éléments de ce dossier correspondent à « {{query}} ».",
+    "everywhere": "Rechercher « {{query}} » dans tous les fichiers",
+    "everywhereShort": "Rechercher dans tous les fichiers",
+    "noMatch": "Rien dans ce dossier ne correspond à « {{query}} ».",
+    "clear": "Effacer le filtre"
+  },
+  "emptyHome": {
+    "title": "Vos fichiers sont ici"
+  },
+  "emptyFolder": {
+    "title": "Ce dossier est vide",
+    "body": "Déposez des fichiers ou des dossiers n’importe où sur cette page, collez-les avec Ctrl+V ou importez-les depuis votre ordinateur. L’assistant peut aussi enregistrer des fichiers ici depuis une discussion.",
+    "bodyTouch": "Importez des fichiers depuis votre appareil. L’assistant peut aussi enregistrer des fichiers ici depuis une discussion.",
+    "ask": "Demander à l’assistant"
+  },
+  "drop": {
+    "title": "Déposez pour importer dans {{folder}}",
+    "body": "Fichiers et dossiers entiers acceptés.",
+    "limit": "Fichiers et dossiers entiers, jusqu’à {{size}} chacun."
+  },
+  "conflict": {
+    "title_one": "Un fichier portant ce nom existe déjà",
+    "title_other": "{{count}} fichiers portant ces noms existent déjà",
+    "body_one": "{{folder}} contient déjà un fichier portant ce nom.",
+    "body_other": "{{folder}} contient déjà des fichiers portant ces noms.",
+    "skip_one": "Ignorer",
+    "skip_other": "Tout ignorer",
+    "keep": "Conserver les deux",
+    "replace_one": "Remplacer",
+    "replace_other": "Tout remplacer",
+    "more_one": "et {{count}} autre",
+    "more_other": "et {{count}} autres",
+    "note": "« Conserver les deux » donne un nouveau nom au nouveau fichier. Un fichier remplacé peut être récupéré depuis l’historique.",
+    "cancel": "Annuler l’import"
+  },
+  "move": {
+    "title_one": "Déplacer {{count}} élément",
+    "title_other": "Déplacer {{count}} éléments",
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments",
+    "cancel": "Annuler",
+    "here": "Déplacer vers {{folder}}",
+    "failed": "Impossible de lire ce dossier.",
+    "noFolders": "Aucun dossier ici. Déplacez ici ou remontez d’un niveau."
+  },
+  "uploads": {
+    "waiting": "En attente",
+    "progress": "{{loaded}} sur {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "{{time}} restantes",
+    "renamed": "Enregistré sous {{name}}",
+    "done": "Importé",
+    "canceled": "Annulé",
+    "cancel": "Annuler",
+    "cancelOne": "Annuler l’import de {{name}}",
+    "retry": "Réessayer",
+    "retryOne": "Réessayer {{name}}",
+    "dismiss": "Fermer",
+    "dismissOne": "Fermer {{name}}",
+    "show": "Afficher",
+    "showOne": "Afficher {{name}}",
+    "meterOne": "{{name}} : {{percent}} %",
+    "meterAll": "Tous les imports : {{percent}} %",
+    "cancelAll": "Tout annuler",
+    "retryAll": "Tout réessayer",
+    "fold": "Masquer la liste",
+    "unfold": "Afficher la liste",
+    "close": "Fermer",
+    "head": {
+      "sending_one": "Import de {{count}} fichier",
+      "sending_other": "Import de {{count}} fichiers",
+      "failed_one": "{{count}} import a échoué",
+      "failed_other": "{{count}} imports ont échoué",
+      "done_one": "{{count}} fichier importé",
+      "done_other": "{{count}} fichiers importés"
+    },
+    "say": {
+      "start_one": "Import de {{count}} fichier.",
+      "start_other": "Import de {{count}} fichiers.",
+      "done_one": "Import terminé : {{count}} fichier.",
+      "done_other": "Imports terminés : {{count}} fichiers.",
+      "doneFailed": "Imports terminés : {{count}} réussis, {{failed}} échoués.",
+      "failed": "Impossible d’importer {{name}}."
+    },
+    "errors": {
+      "tooBig": "Dépasse la limite de {{limit}} de ce serveur.",
+      "tooLarge": "Le serveur l’a refusé car il est trop volumineux.",
+      "off": "Les fichiers sont désactivés sur ce serveur.",
+      "invalid": "Le serveur a refusé ce fichier.",
+      "network": "La connexion a été interrompue.",
+      "server": "Le serveur n’a pas pu l’enregistrer."
+    },
+    "said": "Réponse du serveur : {{reason}}."
+  },
+  "picker": {
+    "retry": "Réessayer",
+    "noFolders": "Aucun dossier ici"
+  },
+  "agentMark": {
+    "usedBy": "Utilisé par {{agents}}",
+    "read": "{{name}} (peut lire)",
+    "write": "{{name}} (peut lire et modifier)",
+    "many": "{{count}} agents"
+  },
+  "share": {
+    "intro": "Les personnes que vous ajoutez trouvent ce dossier dans leur onglet Partagé, et leurs conversations peuvent utiliser ses fichiers.",
+    "readHelp": "Elles peuvent ouvrir et copier les fichiers.",
+    "writeHelp": "Elles peuvent aussi ajouter, modifier et supprimer des fichiers ici.",
+    "failed": "Impossible d’ouvrir le partage : {{message}}",
+    "lost": "Vous ne pouvez plus partager ce dossier ici."
+  },
+  "defaults": {
+    "lede": "Un modèle par type de tâche. Vous pouvez en choisir un autre pour une seule demande.",
+    "kinds": {
+      "chat": {
+        "label": "Chat",
+        "use": "Utilisé pour : nouveaux chats, titres de chats, résumés"
+      },
+      "image": {
+        "label": "Génération d’images",
+        "use": "Utilisé pour : « dessine », « crée une image », la page Images"
+      },
+      "tts": {
+        "label": "Synthèse vocale",
+        "use": "Utilisé pour : lecture à voix haute, « dis ceci », réponses vocales"
+      },
+      "stt": {
+        "label": "Reconnaissance vocale",
+        "use": "Utilisé pour : dictée, le micro, fichiers audio"
+      },
+      "embeddings": {
+        "label": "Embeddings",
+        "use": "Utilisé pour : recherche dans les Connaissances, recherche de fichiers"
+      },
+      "video": {
+        "label": "Génération de vidéo",
+        "use": "Utilisé pour : « fais un court clip », la page Vidéo"
+      },
+      "rerank": {
+        "label": "Reclassement",
+        "use": "Utilisé pour : trier les résultats des Connaissances"
+      },
+      "vision": {
+        "label": "Compréhension d’images",
+        "use": "Utilisé pour : les images que vous joignez à un chat"
+      }
+    },
+    "automatic": "Automatique (le premier installé)",
+    "asking": "Demande à chaque fois",
+    "modeLabel": "Choix pour {{kind}}",
+    "mode": {
+      "default": "Par défaut",
+      "ask": "Demander à chaque fois"
+    },
+    "noModel": "Aucun modèle défini",
+    "notInstalled": "Non installé",
+    "installOne": "En installer un",
+    "missing": "Ce modèle n’est plus installé. L’assistant demande quel modèle utiliser jusqu’à ce que vous en choisissiez un autre.",
+    "fromOld": "Défini avant l’existence de cette page. Choisissez un modèle ici pour l’enregistrer comme valeur par défaut.",
+    "modelsFailed": "La liste des modèles installés ne s’est pas chargée. Rechargez la page pour réessayer.",
+    "help": {
+      "title": "L’assistant lit vos valeurs par défaut",
+      "body": "Quand vous dites « dessine un renard » ou « lis ça à voix haute », l’assistant consulte d’abord vos valeurs par défaut et utilise le modèle indiqué pour ce type de tâche.",
+      "example": "Dessine un renard dans la neige",
+      "tool": "valeurs par défaut consultées › image",
+      "used": "Avec <code>{{model}}</code>, votre modèle par défaut pour les images.",
+      "exampleModel": "votre modèle d’images"
+    },
+    "preview": "Ce qui est enregistré"
+  },
+  "identity": {
+    "messageName": "Écrire à {{name}}...",
+    "preview": {
+      "title": "Aperçu",
+      "home": "Accueil",
+      "newChat": "Nouveau chat",
+      "firstMessage": "Premier message",
+      "assistant": "Assistant",
+      "noGreeting": "Aucune salutation. Un nouveau chat commence vide."
+    }
+  },
+  "look": {
+    "preview": {
+      "title": "Aperçu en direct",
+      "question": "Montre-moi comment lire un fichier en Python.",
+      "answer": "Ouvre-le avec un gestionnaire de contexte pour qu'il se ferme tout seul :",
+      "comment": "tout le fichier",
+      "after": "Pour les gros fichiers, parcours f ligne par ligne.",
+      "button": "Exécuter",
+      "box": "Écrire à l'assistant..."
+    }
+  },
+  "strings": {
+    "preview": {
+      "title": "Aperçu",
+      "sidebar": "Barre latérale"
+    }
+  },
+  "commands": {
+    "title": "Commandes",
+    "lede": "Vos propres commandes avec barre oblique. Une commande place un prompt dans la zone du message. Vous le lisez et vous l'envoyez vous-même.",
+    "form": "Commande",
+    "new": "Nouvelle commande",
+    "empty": "Aucune commande pour l'instant. Ajoutez-en une et elle apparaîtra dans le menu à barre oblique.",
+    "type": {
+      "prompt": "Se développe en prompt",
+      "tool": "Appelle un outil"
+    },
+    "field": {
+      "name": "Nom",
+      "description": "Description",
+      "what": "Ce qu'elle fait",
+      "template": "Modèle du prompt",
+      "tool": "Outil",
+      "args": "Arguments"
+    },
+    "nameHint": "Lettres minuscules, chiffres et tirets.",
+    "templateHint": "Écrivez {{example}} à l'endroit d'un argument.",
+    "noArgs": "Ce modèle n'a pas d'argument.",
+    "argKind": {
+      "number": "nombre",
+      "text": "texte"
+    },
+    "argDefault": "par défaut",
+    "argsHint": "Tapez {{example}} pour remplir les arguments dans l'ordre. Ceux qui manquent prennent la valeur par défaut.",
+    "toolHint": "Un outil que vous avez déjà. La commande demande à l'assistant de l'utiliser, et l'outil garde sa propre étape d'approbation.",
+    "toolUnknown": "Cet outil ne fait pas partie des outils d'une conversation pour le moment.",
+    "expands": "Place ceci dans la zone du message",
+    "valid": "Valide",
+    "invalid": "À corriger",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "preview": {
+      "title": "Aperçu du menu à barre oblique",
+      "builtin": "Intégrées",
+      "none": "Aucune commande pour l'instant.",
+      "keys": "Entrée remplit la zone"
+    },
+    "problem": {
+      "nameEmpty": "Donnez un nom à la commande.",
+      "nameFormat": "Un nom commence par une lettre et ne contient que des lettres minuscules, des chiffres et des tirets, 32 au plus.",
+      "nameBuiltin": "Ce nom appartient à une commande intégrée. Choisissez-en un autre.",
+      "nameTaken": "Une autre commande porte déjà ce nom.",
+      "descriptionEmpty": "Écrivez une courte description pour le menu.",
+      "descriptionLong": "La description fait {{max}} caractères au plus.",
+      "toolEmpty": "Indiquez l'outil.",
+      "toolFormat": "Un nom d'outil ne contient que des lettres, des chiffres, des points, des deux-points, des tirets et des tirets bas, 128 au plus.",
+      "templateEmpty": "Écrivez le prompt.",
+      "templateLong": "Le prompt fait {{template}} caractères au plus.",
+      "argFormat": "Un nom d'argument commence par une lettre et ne contient que des lettres minuscules, des chiffres et des tirets bas.",
+      "argTwice": "Un argument est listé deux fois.",
+      "argDefault": "Chaque argument a besoin d'une valeur par défaut.",
+      "argDefaultLong": "Une valeur par défaut fait 200 caractères au plus.",
+      "argMissing": "Un argument du modèle n'a pas de nom valide.",
+      "argUnused": "Un argument n'est pas utilisé dans le modèle.",
+      "braces": "Une double accolade n'est pas fermée.",
+      "argCount": "Une commande a {{args}} arguments au plus."
+    }
+  },
+  "sound": {
+    "title": "Son",
+    "play": "Jouer le son de {{event}}",
+    "volume": "Volume",
+    "volumeReset": "Utiliser le volume par défaut",
+    "names": {
+      "none": "Aucun",
+      "soft-chime": "Carillon doux",
+      "double-tap": "Double tape",
+      "bell": "Cloche",
+      "pop": "Pop",
+      "low-tone": "Ton grave"
+    },
+    "events": {
+      "replyDone": {
+        "label": "Réponse terminée",
+        "hint": "Une longue réponse est prête"
+      },
+      "approval": {
+        "label": "Votre approbation est nécessaire",
+        "hint": "Un outil ou une modification demande avant de s'exécuter"
+      },
+      "taskDone": {
+        "label": "Tâche ou planification terminée",
+        "hint": "Un déclencheur ou une tâche d'agent est terminé"
+      },
+      "error": {
+        "label": "Erreur",
+        "hint": "Une requête ou une tâche a échoué"
+      }
+    },
+    "notify": {
+      "title": "Sons de notification",
+      "lede": "De courts sons quand quelque chose a besoin de vous. Ils restent désactivés tant que vous ne les activez pas.",
+      "rule": "Le son ne démarre qu'après que vous avez utilisé la page. Une réponse, une approbation ou une erreur ne sonne que lorsque cet onglet est en arrière-plan. Rien ne sonne pendant les heures calmes."
+    },
+    "quiet": {
+      "title": "Heures calmes",
+      "between": "Pas de son entre {{from}} et {{to}}",
+      "none": "Pas d'heures calmes. Activez pour choisir une plage horaire.",
+      "from": "De",
+      "to": "À"
+    },
+    "voice": {
+      "title": "Voix pour les réponses",
+      "lede": "Faites lire les réponses à voix haute.",
+      "readAloud": "Lire les réponses à voix haute",
+      "mode": {
+        "off": "Jamais",
+        "button": "Quand j'appuie sur le haut-parleur",
+        "auto": "Chaque réponse"
+      },
+      "modeHint": {
+        "off": "Les réponses ne sont pas lues à voix haute.",
+        "button": "Un bouton haut-parleur apparaît sous chaque réponse.",
+        "auto": "Chaque réponse terminée est lue aussitôt. Le navigateur peut vous demander de cliquer d'abord sur la page."
+      },
+      "voice": "Voix",
+      "voicePlaceholder": "Celle du modèle",
+      "voiceHint": "Le nom de voix que prend votre modèle de synthèse vocale. Laissez vide pour la voix par laquelle le modèle commence.",
+      "speed": "Vitesse",
+      "speedReset": "Utiliser la vitesse normale",
+      "skipCode": "Ignorer le code et les tableaux",
+      "skipCodeHint": "Dit « bloc de code omis » à la place.",
+      "sample": "Jouer un exemple",
+      "stop": "Arrêter",
+      "sampleText": "Bonjour, voici à quoi ressembleront vos réponses.",
+      "sampleFailed": "L'exemple n'a pas pu être joué.",
+      "madeBy": "La voix est produite par {{model}}, votre modèle de synthèse vocale par défaut.",
+      "madeByAuto": "La voix est produite par {{model}}, le premier modèle de synthèse vocale installé. Vous n'avez pas choisi de modèle par défaut.",
+      "change": "Changer dans Valeurs par défaut",
+      "model": {
+        "ask": "Vos valeurs par défaut disent de demander à chaque fois, il n'y a donc pas de modèle pour lire. Choisissez un modèle de synthèse vocale.",
+        "missing": "{{model}} est votre modèle de synthèse vocale par défaut, mais il n'est pas installé.",
+        "none": "Aucun modèle de synthèse vocale n'est installé."
+      },
+      "remote": "{{model}} n'est pas un modèle local. Le texte de chaque réponse que vous faites lire à voix haute est envoyé à un autre serveur."
+    }
+  },
+  "projectMark": {
+    "open": "Ouvrir le projet {{name}}"
+  }
+}

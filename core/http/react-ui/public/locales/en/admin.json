@@ -1,0 +1,415 @@
+{
+  "manage": {
+    "title": "System",
+    "subtitle": "Manage installed models and backends"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure LocalAI runtime settings",
+    "saved": "Settings saved successfully",
+    "saveFailed": "Save failed: {{message}}",
+    "loadFailed": "Failed to load settings: {{message}}",
+    "autoUpgradeAddons": "Update add-ons automatically",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memory",
+      "backends": "Backends",
+      "performance": "Performance",
+      "tracing": "Tracing",
+      "api": "API & CORS",
+      "p2p": "P2P",
+      "galleries": "Galleries",
+      "apikeys": "API Keys",
+      "agents": "Agent Jobs",
+      "agentpool": "Agent Pool",
+      "assistant": "LocalAI Assistant",
+      "distributed": "Distributed",
+      "responses": "Responses"
+    },
+    "loadFailedTitle": "Could not load the settings.",
+    "egress": {
+      "title": "Network of commands",
+      "intro": "Commands that run in isolation reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
+      "serves": "Commands run isolated in the {{name}} add-on",
+      "servesHost": "Commands run on this machine through {{name}}",
+      "servesNone": "No add-on runs commands yet",
+      "hostNote": "The host backend runs commands on this machine with its network: these settings do not apply to them.",
+      "counts": "Last 24 hours: {{allowed}} allowed, {{blocked}} blocked.",
+      "private": "Let an administrator’s rule reach private networks",
+      "privateWarning": "A host that an administrator allows can then reach addresses inside your network. A preset alone never does, and the cloud metadata and server addresses stay refused.",
+      "typePhrase": "To turn it on, type: {{phrase}}",
+      "registries": "Package registries ({{count}})",
+      "showAudit": "Show the audit",
+      "hideAudit": "Hide the audit",
+      "loadFailed": "The network settings for commands could not be read",
+      "audit": {
+        "verdict": "Verdict",
+        "host": "Host",
+        "user": "User",
+        "at": "When",
+        "reason": "Reason",
+        "bytes": "Bytes up / down",
+        "refresh": "Refresh",
+        "empty": "No requests match.",
+        "loadFailed": "The audit could not be read",
+        "verdicts": {
+          "any": "Any verdict",
+          "allow": "Allowed",
+          "block": "Blocked",
+          "done": "Finished"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-ons",
+      "hint": "Settings that add-ons bring",
+      "intro": "Each add-on keeps its settings on its own page, on the Settings tab of its details. Open one to change them.",
+      "off": "Turned off. Turn it on to change its settings.",
+      "open": "Open settings",
+      "openNamed": "Open the settings of {{name}}",
+      "count_one": "{{count}} add-on with settings",
+      "count_other": "{{count}} add-ons with settings"
+    },
+    "hosts": {
+      "add": "Add",
+      "listLabel": "Always allowed hosts",
+      "remove": "Remove {{host}}",
+      "empty": "No host yet. Write a host name, or host:port to pin the port.",
+      "hint": "Exact names only. Add :port to allow one port; otherwise the network ports of commands apply.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Write a host name.",
+        "wildcard": "\"{{value}}\": write an exact host name, not a pattern.",
+        "shape": "\"{{value}}\" is not a host name. Write the host only, with no scheme or path.",
+        "port": "\"{{value}}\": the port must be 1 to 65535, and 22 and 25 are always refused.",
+        "private": "\"{{value}}\" is a private or local address. Turn on the private network switch first.",
+        "numeric": "\"{{value}}\": write an IP address as four decimal numbers.",
+        "duplicate": "\"{{value}}\" is already on the list.",
+        "full": "The list holds at most {{max}} hosts."
+      }
+    },
+    "network": {
+      "title": "Network of commands",
+      "where": "{{name}} keeps the network settings of the commands it runs on its own page."
+    },
+    "addonUpdates": {
+      "label": "Add-on updates",
+      "note": "The add-on owner applies this setting. New generations can run executable code.",
+      "unavailable": "Owner settings unavailable or changed: {{message}}",
+      "reload": "Reload and rebase edits",
+      "retry": "Retry same operation",
+      "policy": "Owner policy · revision {{revision}}",
+      "apply": "Apply update setting"
+    }
+  },
+  "traces": {
+    "title": "Traces",
+    "subtitle": "View logged API requests, responses, and backend operations"
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "People who can sign in, and what each of them can use.",
+    "invite": "Invite someone",
+    "summary": {
+      "label": "Users at a glance",
+      "total": "Users",
+      "totalUnit": "in total",
+      "active": "Active",
+      "activeUnit": "can sign in",
+      "waiting": "Waiting approval",
+      "waitingUnit": "sign-ups",
+      "admins": "Admins",
+      "adminsUnit": "of {{count}}"
+    },
+    "filters": {
+      "label": "Filter users",
+      "all": "All",
+      "pending": "Pending",
+      "admins": "Admins",
+      "disabled": "Disabled",
+      "inactive": "Inactive 30 d+"
+    },
+    "popover": {
+      "signIn": "Sign-in method",
+      "access": "Access",
+      "any": "Any",
+      "custom": "Custom access"
+    },
+    "search": {
+      "label": "Search by name or email",
+      "placeholder": "Search name or email"
+    },
+    "sort": {
+      "label": "Sort",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "provider": "Sign-in",
+      "lastActive": "Last active",
+      "keys": "API keys"
+    },
+    "refresh": "Refresh users",
+    "loading": "Loading users",
+    "region": "Users",
+    "caption": "Users with role, access, status, last activity and API keys",
+    "columns": {
+      "user": "User",
+      "role": "Role",
+      "access": "Access",
+      "status": "Status",
+      "lastActive": "Last active",
+      "keys": "Keys",
+      "actions": "Actions"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "user"
+    },
+    "state": {
+      "active": "Active",
+      "pending": "Pending",
+      "disabled": "Disabled"
+    },
+    "access": {
+      "all": "All access",
+      "default": "Default access",
+      "models_one": "{{count}} model only",
+      "models_other": "{{count}} models only",
+      "more_one": "{{count}} more feature",
+      "more_other": "{{count}} more features",
+      "fewer_one": "{{count}} fewer feature",
+      "fewer_other": "{{count}} fewer features",
+      "limits_one": "{{count}} limit",
+      "limits_other": "{{count}} limits"
+    },
+    "noName": "(no name)",
+    "you": "you",
+    "created": "Created {{date}}",
+    "never": "Never",
+    "approve": "Approve user",
+    "approveShort": "Approve",
+    "enable": "Enable",
+    "disable": "Disable user",
+    "disableFor": "Disable {{name}}",
+    "editAccessFor": "Edit access for {{name}}",
+    "actionsFor": "Actions for {{name}}",
+    "showing": "Showing {{shown}} of {{total}}.",
+    "cancel": "Cancel",
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "menu": {
+      "editAccess": "Edit access",
+      "makeAdmin": "Make admin",
+      "makeUser": "Make user",
+      "resetPassword": "Reset password",
+      "delete": "Delete…"
+    },
+    "sheet": {
+      "account": "Account",
+      "activity": "Activity",
+      "apiKeys": "API keys"
+    },
+    "empty": {
+      "title": "No users yet",
+      "body": "People appear here when they register or accept an invite."
+    },
+    "noMatch": {
+      "title": "No matching users",
+      "body": "Try a different search or filter.",
+      "clear": "Clear filters"
+    },
+    "error": {
+      "title": "Could not load the users.",
+      "stale": "Cannot reach the server.",
+      "staleNote": "The list below is from {{when}}."
+    },
+    "toast": {
+      "approved": "Approved {{name}}",
+      "disabled": "Disabled {{name}}",
+      "approveFailed": "Failed to approve user: {{message}}",
+      "disableFailed": "Failed to disable user: {{message}}",
+      "disabledUndo": "Disabled {{name}}. Undo sets them back to active.",
+      "restored": "{{name}} is active again",
+      "restoreFailed": "Failed to restore user: {{message}}",
+      "roleChanged": "{{name}} is now {{role}}",
+      "roleFailed": "Failed to update role: {{message}}",
+      "deleted": "User deleted",
+      "deleteFailed": "Failed to delete user: {{message}}",
+      "passwordReset": "Password reset for {{name}}",
+      "resetFailed": "Failed to reset password: {{message}}"
+    },
+    "reset": {
+      "title": "Reset password",
+      "description": "Set a new password for {{name}}. All existing sessions will be invalidated.",
+      "label": "New password",
+      "placeholder": "New password (min 12 characters)",
+      "confirm": "Reset password",
+      "busy": "Resetting…",
+      "anyway": "Use this password anyway"
+    },
+    "delete": {
+      "title": "Delete user",
+      "description": "This also removes their sessions and API keys. It cannot be undone.",
+      "type": "Type <n>{{name}}</n> to confirm",
+      "confirm": "Delete",
+      "busy": "Deleting…"
+    }
+  },
+  "usage": {
+    "title": "Usage",
+    "subtitle": "API token usage statistics",
+    "sources": {
+      "tab": "Sources",
+      "mixTitle": "Source mix",
+      "ribbonAria": "{{apikey}}% API keys, {{web}}% Web UI, {{legacy}}% Legacy",
+      "topSources": "Top sources over time",
+      "searchPlaceholder": "Search by name or prefix",
+      "sortBy": "Sort",
+      "sortTokens": "Tokens",
+      "sortRequests": "Requests",
+      "sortLastUsed": "Last used",
+      "sortName": "Name",
+      "sortUser": "User",
+      "webUI": "Web UI",
+      "legacy": "Legacy",
+      "revoked": "revoked",
+      "filteredTo": "Filtered to: {{name}}",
+      "clearFilter": "Clear filter",
+      "other": "Other ({{count}})",
+      "noTrafficShort": "No requests in this period.",
+      "noKeysYet": "Once requests come in, you'll see them broken down here.",
+      "createKey": "Create your first API key",
+      "truncatedWarning": "Showing top 200 keys. Apply a filter to narrow further."
+    }
+  },
+  "tabs": {
+    "users": "Users",
+    "invites": "Invites",
+    "keys": "API keys"
+  },
+  "settingsTools": {
+    "intro": "The chats have a few built-in tools that an add-on can replace. When the add-on is installed, running and on for a chat, the chat uses the add-on's tool instead, under the same name.",
+    "empty": "No built-in tool can be managed on this server.",
+    "loadFailed": "The built-in tools could not be read",
+    "switch": "On",
+    "byBuiltin": "Built-in",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Off",
+    "unavailable": "This server cannot run it: {{reason}}.",
+    "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active. Until you choose, the one installed first serves.",
+    "defaultInstalledFirst": "Default: installed first",
+    "installedOn": "Installed {{when}}",
+    "choose_one": "{{count}} add-on replaces {{tool}}: choose which one to use.",
+    "choose_other": "{{count}} add-ons replace {{tool}}: choose which one to use.",
+    "labels": {
+      "bash": "Commands (bash)",
+      "web_search": "Web search",
+      "web_fetch": "Read web pages",
+      "list_agents": "Saved agents",
+      "localai_client": "LocalAI client tools",
+      "localai_admin": "LocalAI admin tools"
+    },
+    "descriptions": {
+      "bash": "Runs commands and code for the chats directly on this machine when no add-on serves bash. An add-on that runs commands in isolation replaces it.",
+      "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
+      "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
+      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu.",
+      "localai_client": "Lets the chats run the models installed here for images, speech, sound, video, embeddings and detection, within each user's permissions.",
+      "localai_admin": "Lets the chats of administrators manage this server: models, backends, settings and the state. Each chat, or saved agent, switches it on."
+    },
+    "bash": {
+      "switch": "Let chats run commands on this machine",
+      "modeLegend": "Who can run commands",
+      "ask": "Ask each time.",
+      "askHint": "Only administrators' chats get it, and each command waits for their yes in the chat.",
+      "on": "Allow for everyone.",
+      "onHint": "Every user's chats run commands here without asking, also scheduled runs and sub-agents.",
+      "default": "Not set: the default applies ({{mode}}).",
+      "warning": "Commands run as the user LocalAI runs as, with no isolation and with this machine's network: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. Every command is logged. Install an add-on that isolates commands."
+    },
+    "modes": {
+      "off": "off",
+      "ask": "ask each time",
+      "on": "allowed for everyone"
+    },
+    "skillsTitle": "Skills that add-ons replace",
+    "skillsIntro": "An add-on can replace a built-in skill with its own, written for its tools. When several add-ons replace one, choose the one that serves.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "The chosen add-on is not running: the built-in skill serves.",
+    "toolNotRunning": "The add-on that replaces this tool is not running: the built-in tool serves.",
+    "stopped": "stopped",
+    "webTest": {
+      "intro": "Runs a query with each search provider of the saved settings and shows what each one did. Apply your changes first.",
+      "queryLabel": "Query",
+      "run": "Test search",
+      "running": "Testing…",
+      "answered": "Chats get the results of {{host}}.",
+      "noneAnswered": "No provider answered.",
+      "failed": "The test could not run: {{error}}",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "outcomes": {
+        "ok": "Works",
+        "no_results": "No results",
+        "challenged": "Bot check",
+        "blocked": "Blocked",
+        "timeout": "Too slow",
+        "error": "Error",
+        "skipped": "Skipped"
+      }
+    },
+    "addonSettings": "Settings of {{name}}"
+  },
+  "invites": {
+    "title": "Invite someone",
+    "description": "Make a link that lets one person register. The link works until it expires.",
+    "close": "Close",
+    "lifetime": "New invite link valid for",
+    "life": {
+      "24": "1 day",
+      "168": "7 days",
+      "720": "30 days"
+    },
+    "generate": "Generate invite link",
+    "created": "Invite link created",
+    "createFailed": "Failed to create invite: {{message}}",
+    "copiedToast": "Invite URL copied to clipboard",
+    "copyFailed": "Failed to copy URL",
+    "copyUrl": "Copy invite URL",
+    "copy": "Copy",
+    "revoked": "Invite revoked",
+    "revokeFailed": "Failed to revoke invite: {{message}}",
+    "loading": "Loading invites",
+    "loadFailed": "Could not load the invites.",
+    "region": "Invites",
+    "caption": "Invite links with who made and used them",
+    "empty": {
+      "title": "No invite links.",
+      "body": "Generate one to let someone register."
+    },
+    "columns": {
+      "link": "Invite link",
+      "createdBy": "Created by",
+      "usedBy": "Used by",
+      "expires": "Expires",
+      "actions": "Actions"
+    },
+    "state": {
+      "open": "Available",
+      "used": "Used",
+      "expired": "Expired"
+    },
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke invite",
+    "revokeDialog": {
+      "title": "Revoke invite",
+      "description": "The link stops working at once. People who already registered with it keep their accounts.",
+      "body": "Revoke the invite link that starts with {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "subtitle": "Your own keys for programs that call this server."
+  }
+}

@@ -1,0 +1,12 @@
+---
+name: "sd-ggml"
+
+config_file: |
+    backend: stablediffusion-ggml
+    step: 25
+    cfg_scale: 4.5
+    options:
+    - "clip_l_path:clip_l.safetensors"
+    - "clip_g_path:clip_g.safetensors"
+    - "t5xxl_path:t5xxl-Q5_0.gguf"
+    - "sampler:euler"

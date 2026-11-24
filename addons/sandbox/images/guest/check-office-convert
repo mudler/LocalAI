@@ -1,0 +1,26 @@
+#!/bin/sh
+# Build-time check of the office profile: soffice must convert a small .pptx to
+# a PDF that has the text of the slide. The "soffice --version" check alone does
+# not prove that the filter, the profile directory and the fonts work.
+# It uses a private profile directory, as the render helper does, so it does not
+# depend on a writable home.
+set -eu
+dir=$(mktemp -d)
+trap 'rm -rf "$dir"' EXIT
+python3 - "$dir/check.pptx" <<'PY'
+import sys
+from pptx import Presentation
+from pptx.util import Inches
+prs = Presentation()
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+box = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(6), Inches(1))
+box.text_frame.text = "office profile check"
+prs.save(sys.argv[1])
+PY
+timeout 120 soffice --headless --norestore "-env:UserInstallation=file://$dir/profile" \
+  --convert-to pdf --outdir "$dir" "$dir/check.pptx" >/dev/null 2>&1
+[ -s "$dir/check.pdf" ] || { echo "check-office-convert: soffice made no PDF" >&2; exit 1; }
+pdftotext "$dir/check.pdf" - | grep -q "office profile check" || {
+  echo "check-office-convert: the PDF does not have the slide text" >&2
+  exit 1
+}

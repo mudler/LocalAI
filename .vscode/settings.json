@@ -1,0 +1,6 @@
+{
+    "go.buildTags": "nosqlite,purego_utp",
+    "gopls": {
+        "build.buildFlags": ["-tags=nosqlite,purego_utp"]
+    }
+}

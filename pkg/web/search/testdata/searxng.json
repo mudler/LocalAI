@@ -1,0 +1,13 @@
+{
+  "query": "localai",
+  "number_of_results": 3,
+  "results": [
+    {"url": "https://localai.io/", "title": "LocalAI", "content": "The free, open source alternative to OpenAI.", "engine": "duckduckgo"},
+    {"url": "https://github.com/mudler/LocalAI", "title": "  GitHub - mudler/LocalAI ", "content": "Run models\nlocally.", "engine": "google"},
+    {"url": "ftp://example.org/x", "title": "FTP", "content": "dropped"},
+    {"url": "https://localai.io/", "title": "LocalAI again", "content": "duplicate"},
+    {"url": "https://example.org/untitled", "title": "", "content": ""}
+  ],
+  "answers": [],
+  "suggestions": []
+}

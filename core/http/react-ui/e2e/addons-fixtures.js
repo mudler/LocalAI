@@ -1,0 +1,308 @@
+// A stateful stand-in for the add-on routes: the apps list, start and stop,
+// and the typed dispatch actions the management tabs use. It records every
+// request so a spec can assert what the page sent, and it can answer with the
+// refusals the real server gives (403, 503, 503 outcome_unknown).
+
+export const ADMIN = { id: 'u-alice', email: 'alice@lab.example', name: 'alice', role: 'admin', provider: 'local' }
+export const MEMBER = { id: 'u-carol', email: 'carol@lab.example', name: 'carol', role: 'user', provider: 'local' }
+
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+
+export function app(over = {}) {
+  return {
+    id: 'notes', name: 'notes', title: 'Notes', description: 'Keep notes.', icon: '/api/addons/apps/notes/icon?generation=3',
+    version: '1.2.0', generation: 3, enabled: true, state: 'running', mainPage: '/app/addons/notes/home', hasUI: true,
+    launchMode: 'always', tools: ['add', 'list'], toolCount: 2, ...over,
+  }
+}
+
+export const HEADLESS = app({ id: 'indexer', name: 'indexer', title: 'indexer', description: '', icon: undefined, mainPage: undefined, hasUI: false, tools: ['query', 'export', 'reindex'], toolCount: 3, generation: 1, version: '0.4.0' })
+
+export function installedAddon(over = {}) {
+  return {
+    id: 'notes', title: 'Notes', description: 'Keep notes.', icon: '/api/addons/apps/notes/icon?generation=3',
+    version: '1.2.0', generation: 3, enabled: true, state: 'running', sourceId: 'main', selection: '1.2.0',
+    verification: 'sha256+sigstore', digest: 'sha256:0123456789abcdef0123456789abcdef', platform: { os: 'linux', arch: 'amd64' },
+    compatibility: { host: { min: 1, max: 2 }, api: { min: 2, max: 2 }, protocol: { min: 1, max: 1 }, dataFormat: { min: 1, max: 2 } },
+    tools: ['add', 'list'], toolCount: 2, hasUI: true, mainPage: '/app/addons/notes/home', launchMode: 'always',
+    generations: 3, restarts: 0, storage: { bytes: 12288, truncated: false }, ...over,
+  }
+}
+
+export function release(id, over = {}) {
+  return {
+    id, name: id[0].toUpperCase() + id.slice(1), description: `${id} add-on`, version: '1.0.0', sourceId: 'main',
+    artifact: 'https://catalog.example/' + id, digest: 'sha256:' + 'a'.repeat(64), os: 'linux', arch: 'amd64',
+    policy: { requireSignature: false }, ...over,
+  }
+}
+
+export function sessionFor(user, permissions = {}) {
+  return { authEnabled: true, staticApiKeyRequired: false, providers: ['local'], hasUsers: true, user: { ...user, permissions } }
+}
+
+const ok = (payload) => ({ status: 200, contentType: 'application/json', body: JSON.stringify({ payload }) })
+const fail = (status, type, extra = {}) => ({ status, contentType: 'application/json', body: JSON.stringify({ error: { type, message: type, ...extra } }) })
+
+// Specs that draw add-on pages need add-ons on. With no add-on owner running,
+// the server reports add-ons off and answers 5xx on the pin routes, and the
+// browser logs each failed request. These stubs answer the add-on pages with an
+// empty set. They live on the context, which Playwright matches after the
+// page's own routes: a spec that sets its own features, builtin or pin list
+// still gets it.
+export async function stubAddonRoutes(page) {
+  // The real flags, with add-ons on: the other switches keep what the server says.
+  await page.context().route('**/api/features', async route => {
+    let real
+    try {
+      real = await (await route.fetch()).json()
+    } catch {
+      // The page closed while the request was in flight (a spec that ends
+      // during a poll): nothing waits for the answer any more.
+      return route.abort().catch(() => {})
+    }
+    return route.fulfill({ json: { ...real, addons: true } })
+  })
+  await page.context().route('**/api/addons/builtin', route => route.fulfill({ json: { builtin: [] } }))
+  await page.context().route('**/api/addons/pins', route => route.fulfill({ json: [] }))
+  // The shell reads the host-access overview for the Updates badge; with no
+  // owner behind the test server it would answer 503 on every page.
+  await page.context().route('**/api/addons/host-grants', route => route.fulfill({ json: { revision: 1, addons: [] } }))
+}
+
+// The preview and queue routes a library install goes through: the preview
+// answers from the index with no host operation, and a queue request installs
+// the add-ons it names without turning them on, as the owner does. Returns the
+// queue requests the page sent.
+export async function stubInstallQueue(page, state) {
+  const sent = []
+  await page.route('**/api/addons/host-grants/preview', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    return route.fulfill({ json: { digest: `sha256:${'c'.repeat(64)}`, version: body.version, revision: 1, nonce: `nonce-${body.addonId}`, official: true, fromIndex: true, requested: { required: [], optional: [] }, ops: [] } })
+  })
+  await page.route('**/api/addons/host-grants/queue', route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    sent.push({ body, confirm: route.request().headers()['x-localai-confirm'] })
+    for (const item of body.items) {
+      state.installed.push(installedAddon({ id: item.addonId, title: item.addonId, enabled: false, state: 'stopped', generation: 1, version: item.version }))
+    }
+    return route.fulfill({ json: { items: body.items.map(i => ({ addonId: i.addonId, operationId: i.operationId, jobId: `job-${i.operationId}` })) } })
+  })
+  return sent
+}
+
+// The owner's host settings policy (core/services/addons/hostsettings.Policy),
+// in the exact shape host-settings-read answers. Keys of `over` that are not
+// policy fields (other runtime settings) are ignored.
+const HOST_POLICY_DEFAULTS = {
+  chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false,
+  chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '',
+  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0, sandbox_profiles: { default: '', access: {}, memory_mib: 0, disk_mib: 0, pin_previous: [] },
+}
+export function hostPolicy(over = {}) {
+  const policy = structuredClone(HOST_POLICY_DEFAULTS)
+  for (const key of Object.keys(policy)) if (Object.hasOwn(over, key)) policy[key] = structuredClone(over[key])
+  return policy
+}
+
+// Applies a host-settings-update patch: present keys replace, a null provider
+// value deletes that pin. Mirrors hostsettings.Patch.
+function applyHostPatch(policy, patch) {
+  const next = structuredClone(policy)
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (key === 'chats_egress_private_confirm') continue // checked by the owner, never stored
+    if (key !== 'chats_tool_providers') { next[key] = value; continue }
+    for (const [name, provider] of Object.entries(value || {})) {
+      if (provider === null) delete next.chats_tool_providers[name]
+      else next.chats_tool_providers[name] = provider
+    }
+  }
+  return next
+}
+
+// Installs the routes and returns the mutable state the spec reads and edits.
+export async function mockAddons(page, options = {}) {
+  const state = {
+    // The owner's host settings; log.hostSettings collects each update patch.
+    hostSettings: { revision: 1, policy: hostPolicy(options.hostSettings) },
+    apps: options.apps || [app()],
+    installed: options.installed || [installedAddon()],
+    sources: options.sources || [{ id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: new Date().toISOString(), count: 2, failed: false } }],
+    releases: options.releases || [release('notes'), release('tables', { policy: { requireSignature: true, issuer: 'https://issuer.example', identity: 'release@catalog.example' } })],
+    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [], library: [], hostSettings: [] },
+    // Overrides for the update routes: each takes the parsed body.
+    check: options.check || null,
+    upgrade: options.upgrade || null,
+    // Overrides: each takes the parsed body and may return a route fulfilment.
+    appsList: options.appsList || null,
+    start: options.start || null,
+    stop: options.stop || null,
+    dispatch: options.dispatch || null,
+  }
+
+  await stubAddonRoutes(page)
+  await page.route(/\/api\/addons\/apps\/[^/]+\/icon/, route => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }))
+  await page.route(/\/api\/addons\/apps$/, route => {
+    state.log.appsList += 1
+    if (state.appsList) {
+      const custom = state.appsList(state.log.appsList)
+      if (custom) return route.fulfill(custom)
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ apps: state.apps }) })
+  })
+  for (const verb of ['start', 'stop']) {
+    await page.route(new RegExp(`/api/addons/apps/[^/]+/${verb}$`), route => {
+      const id = new URL(route.request().url()).pathname.split('/').at(-2)
+      const body = JSON.parse(route.request().postData() || '{}')
+      state.log[verb].push({ id, ...body })
+      if (state[verb]) {
+        const custom = state[verb]({ id, ...body }, state.log[verb].length)
+        if (custom) return route.fulfill(custom)
+      }
+      const target = state.apps.find(a => a.id === id)
+      if (target) {
+        target.enabled = verb === 'start'
+        target.state = verb === 'start' ? 'running' : 'stopped'
+        target.admin = { canStart: !target.enabled, canStop: target.enabled, managementUrl: `/app/addons?manage=${id}` }
+      }
+      return route.fulfill(ok({ OperationID: body.operationId, AddonID: id, Phase: 'completed', Generation: body.generation }))
+    })
+  }
+  // The update routes. A check answers with the add-on's own `update` object,
+  // as the owner's status; an upgrade moves the add-on to its candidate.
+  await page.route(/\/api\/addons\/[^/]+\/update\/check$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-3)
+    const body = JSON.parse(route.request().postData() || '{}')
+    state.log.check.push({ id, ...body, confirm: route.request().headers()['x-localai-confirm'] })
+    if (state.check) {
+      const custom = state.check({ id, ...body }, state.log.check.length)
+      if (custom) return route.fulfill(custom)
+    }
+    const a = state.installed.find(x => x.id === id)
+    const u = a && a.update ? a.update : { state: 'up-to-date', available: false }
+    if (a) a.update = { ...u, checkedAt: new Date().toISOString() }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ addonId: id, state: u.state, throttled: false }) })
+  })
+  await page.route(/\/api\/addons\/[^/]+\/upgrade$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/').at(-2)
+    const body = JSON.parse(route.request().postData() || '{}')
+    state.log.upgrade.push({ id, ...body, confirm: route.request().headers()['x-localai-confirm'] })
+    if (state.upgrade) {
+      const custom = state.upgrade({ id, ...body }, state.log.upgrade.length)
+      if (custom) return route.fulfill(custom)
+    }
+    const a = state.installed.find(x => x.id === id)
+    if (a && a.update) { a.generation += 1; a.version = a.update.version; a.digest = a.update.digest; delete a.update }
+    return route.fulfill(ok({ OperationID: body.operationId, AddonID: id, Phase: 'completed', Generation: a?.generation }))
+  })
+  // The library source routes (all three kinds). The records in state.sources
+  // are listed as they are, with the flags the host adds filled in; a removed
+  // default stays listed as a tombstone, as the host does.
+  await page.route(/\/api\/library\/sources(\/[^/]+(\/(enable|disable))?)?$/, route => {
+    const req = route.request()
+    const parts = new URL(req.url()).pathname.split('/')
+    const id = parts[4] || ''
+    const verb = parts[5] || ''
+    const body = req.postData() ? JSON.parse(req.postData()) : null
+    state.log.library.push({ method: req.method(), id, verb, body })
+    const json = (status, payload) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
+    const find = () => state.sources.find(x => x.id === id)
+    if (req.method() === 'GET') {
+      return json(200, { sources: state.sources.map(x => ({ kind: 'addon', default: false, removed: false, suspended: false, ...x })), officialLibraries: !state.sources.some(x => x.suspended) })
+    }
+    if (req.method() === 'POST' && !id) {
+      if (state.sources.some(x => x.kind === body.kind && x.url === body.url)) return json(409, { error: { code: 409, message: `${body.url} is already a ${body.kind} source` } })
+      const added = { kind: body.kind, id: body.id || (body.name || body.url).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), name: body.name || body.id, url: body.url, format: body.format === 'gallery' ? 'gallery' : undefined, enabled: true, policy: { requireSignature: false } }
+      state.sources = [...state.sources, added]
+      return json(201, { default: false, removed: false, suspended: false, ...added })
+    }
+    const source = find()
+    if (!source) return json(404, { error: { code: 404, message: `no source with id ${id}` } })
+    if (req.method() === 'POST') {
+      source.enabled = verb === 'enable'
+      if (source.removed) source.removed = false
+      return json(200, { default: false, removed: false, suspended: false, ...source })
+    }
+    if (source.default) { source.removed = true; source.enabled = false } else state.sources = state.sources.filter(x => x.id !== id)
+    return json(200, { id, default: Boolean(source.default), tombstone: Boolean(source.default) })
+  })
+  await page.route(/\/api\/addons\/dispatch$/, route => {
+    const body = JSON.parse(route.request().postData() || '{}')
+    state.log.dispatch.push(body)
+    if (state.dispatch) {
+      const custom = state.dispatch(body, state)
+      if (custom) return route.fulfill(custom)
+    }
+    const args = body.arguments || {}
+    switch (body.action) {
+      case 'catalog-search': {
+        // Like the owner: a source whose last fetch failed is reported on its
+        // own and left out of the list; only a request that names it fails.
+        const broken = state.sources.filter(src => src.enabled && src.refresh?.failed)
+        if (args.sourceId && broken.some(src => src.id === args.sourceId)) return route.fulfill(fail(503, 'library_unavailable'))
+        const skipped = new Set(broken.map(src => src.id))
+        let list = state.releases.filter(r => !skipped.has(r.sourceId) && (!args.sourceId || r.sourceId === args.sourceId) && (!args.text || (r.name + r.addonId + r.description).toLowerCase().includes(args.text.toLowerCase())))
+        const total = list.length
+        list = list.slice(args.offset || 0, (args.offset || 0) + (args.limit || 50))
+        const failed = args.sourceId ? [] : broken.map(src => ({ sourceId: src.id, name: src.name, error: src.refresh.error || '', lastSuccess: src.refresh.lastSuccess }))
+        return route.fulfill(ok({ releases: list, total, ...(failed.length ? { failed } : {}) }))
+      }
+      case 'catalog-details': {
+        const r = state.releases.find(x => x.addonId === body.addonId && x.version === args.version && x.sourceId === args.sourceId)
+        if (!r) return route.fulfill(fail(403, 'addon_error'))
+        const have = state.installed.find(a => a.id === r.addonId)
+        return route.fulfill(ok({ release: r, installed: have ? { version: have.version, generation: have.generation, enabled: have.enabled } : null }))
+      }
+      case 'catalog-sources':
+        return route.fulfill(ok({ sources: state.sources }))
+      case 'catalog-source-save': {
+        if (args.removed) state.sources = state.sources.filter(s => s.id !== args.id)
+        else state.sources = [...state.sources.filter(s => s.id !== args.id), args]
+        return route.fulfill(ok(args))
+      }
+      case 'catalog-source-refresh':
+        return route.fulfill(ok({ sourceId: args.sourceId, count: state.releases.length }))
+      case 'addons-installed':
+        return route.fulfill(ok({ addons: state.installed }))
+      case 'install': {
+        const r = state.releases.find(x => x.addonId === body.addonId)
+        state.installed.push(installedAddon({ id: body.addonId, title: r?.name || body.addonId, enabled: false, state: 'stopped', generation: 1, version: args.version }))
+        return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 1 }))
+      }
+      case 'enable':
+      case 'disable': {
+        const a = state.installed.find(x => x.id === body.addonId)
+        if (a) { a.enabled = body.action === 'enable'; a.state = a.enabled ? 'running' : 'stopped' }
+        return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: body.generation }))
+      }
+      case 'upgrade': {
+        const a = state.installed.find(x => x.id === body.addonId)
+        if (a) { a.generation += 1; a.version = args.version; delete a.update }
+        return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: a?.generation }))
+      }
+      case 'uninstall':
+        state.installed = state.installed.filter(x => x.id !== body.addonId)
+        return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 0 }))
+      case 'operation-status':
+        return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 0 }))
+      case 'host-settings-read':
+        return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
+      case 'host-settings-update': {
+        if (args.expectedRevision !== state.hostSettings.revision) return route.fulfill(ok({ error: 'revision_conflict' }))
+        // Like hostsettings.apply: turning the private switch on needs the phrase.
+        const turnsPrivateOn = args.patch?.chats_egress_allow_private === true && !state.hostSettings.policy.chats_egress_allow_private
+        if (turnsPrivateOn && String(args.patch.chats_egress_private_confirm || '').trim() !== 'I understand that commands can reach my private network') {
+          return route.fulfill(ok({ error: 'invalid' }))
+        }
+        state.log.hostSettings.push(args.patch)
+        state.hostSettings = { revision: state.hostSettings.revision + 1, policy: applyHostPatch(state.hostSettings.policy, args.patch) }
+        return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
+      }
+      default:
+        return route.fulfill(fail(403, 'addon_error'))
+    }
+  })
+  return state
+}
+
+export { ok, fail }

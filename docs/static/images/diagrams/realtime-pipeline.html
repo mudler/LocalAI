@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>The realtime voice loop</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Realtime API</p>
+<h1>The realtime voice <span class="hl">loop</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="flow big"><div class="node cen" style=""><b>Mic</b><span>caller speaks</span></div><div class="ar"></div><div class="node cen" style=""><b>VAD</b><span>finds speech</span></div><div class="ar"></div><div class="node cen" style=""><b>STT</b><span>speech to text</span></div><div class="ar"></div><div class="node core cen" style=""><b>LLM</b><span>writes the reply</span></div><div class="ar"></div><div class="node cen" style=""><b>TTS</b><span>text to speech</span></div><div class="ar"></div><div class="node cen" style=""><b>Speaker</b><span>voice reply</span></div></div>
+<div class="row" style="margin:30px 0 0;gap:24px;align-items:stretch">
+ <div class="node fl soft"><b>WebSocket</b><span>the session runs over one socket</span></div>
+ <div class="node fl soft"><b>WebRTC</b><span>needs the opus backend</span></div></div>
+
+</div>
+<div class="foot">Both transports share <b>the same pipeline</b>.</div>
+</body></html>

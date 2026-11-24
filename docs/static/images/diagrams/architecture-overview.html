@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>How LocalAI works</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.pane { position: absolute; top: 0; bottom: 0; }
+.core { padding: 26px 28px; }
+.core ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.core li { font-size: 25px; background: rgb(255 244 220 / .13); border-radius: 10px; padding: 8px 12px; }
+.core b { font-size: 46px; }
+</style></head>
+<body>
+<p class="k">Architecture</p>
+<h1>A small core, <span class="hl">separate</span> engines</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage">
+  <div class="pane" style="left:0;width:360px"><div class="lab">Clients</div><div class="col">
+    <div class="node"><b>Web UI</b><span>chat, models, files</span></div>
+    <div class="node"><b>Your apps</b><span>OpenAI, Anthropic, ElevenLabs SDKs</span></div>
+    <div class="node"><b>curl and scripts</b><span>plain HTTP on port 8080</span></div></div></div>
+  <div class="abs" style="left:372px;top:230px;width:76px"><div class="ar" data-l="HTTP" style="width:76px"></div></div>
+  <div class="pane" style="left:460px;width:470px"><div class="lab">The core</div>
+    <div class="node core"><b>LocalAI</b><span>one process, written in Go</span>
+      <ul><li>API, auth and quotas</li><li>Model configs and gallery</li><li>Chats, agents and files</li><li>Add-on host</li><li>MCP client and server</li></ul></div></div>
+  <div class="abs" style="left:942px;top:230px;width:80px"><div class="ar" data-l="gRPC" style="width:76px"></div></div>
+  <div class="pane" style="left:1030px;width:426px"><div class="lab">Backends, one per model</div><div class="col">
+    <div class="node rowline"><b>llama.cpp</b><span>text, vision</span></div>
+    <div class="node rowline"><b>whisper.cpp</b><span>speech</span></div>
+    <div class="node rowline"><b>stable-diffusion</b><span>images</span></div>
+    <div class="node dash rowline"><b>75+ more</b><span>on demand</span></div></div></div>
+  <div class="abs cen" style="left:0;width:1456px;top:500px"><div class="lab">Runs on</div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><span class="pill">CPU</span><span class="pill">NVIDIA</span><span class="pill">AMD</span><span class="pill">Intel</span><span class="pill">Apple Silicon</span><span class="pill">Vulkan</span></div></div>
+</div>
+<div class="foot">The core is small. Each engine is its own program, <b>started when a model needs it</b>.</div>
+</body></html>

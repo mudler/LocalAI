@@ -1,0 +1,25 @@
+# A gated LocalAI relay. Start it with:
+#   docker compose up -d
+#   docker compose logs relay | grep -E 'RELAY_ADDR|CLAIM_CODE|local-ai p2p'
+#
+# Host networking keeps the real address of each client, which the per-address
+# limits need, and avoids Docker's UDP proxy for QUIC. On Docker Desktop and
+# with rootless Docker, remove network_mode and publish the port instead:
+#   ports: ["4001:4001/tcp", "4001:4001/udp"]
+# and add `--public-ip <your public IPv4 address>` to the command.
+services:
+  relay:
+    image: localai/relay:latest
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - relay-data:/data
+    environment:
+      # Peer IDs of the LocalAI servers that manage this relay, separated by
+      # commas. Leave it empty to claim the relay with the code it prints.
+      LOCALAI_RELAY_ADMINS: ""
+      # Needed on clouds with 1:1 NAT (the network card has a private address).
+      # LOCALAI_RELAY_PUBLIC_IP: "203.0.113.10"
+    command: ["--port", "4001"]
+volumes:
+  relay-data:

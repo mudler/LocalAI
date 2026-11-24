@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "telegram",
+  "version": "0.1.0",
+  "executable": "telegram",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "featureLevel": 4,
+  "capabilities": {
+    "hostOperations": {
+      "optional": ["connector.file.get", "connector.file.put"]
+    },
+    "connector": {
+      "kinds": [
+        {
+          "id": "telegram",
+          "title": "Telegram",
+          "description": "Talk to one of your saved agents from a Telegram bot.",
+          "setup": "a bot token from @BotFather",
+          "senderHint": "A chat ID, a user ID or an @username",
+          "delivery": "pull",
+          "files": {
+            "receive": { "maxBytes": 20971520 },
+            "send": { "maxBytes": 52428800 }
+          },
+          "page": "bots",
+          "drafts": true,
+          "previewMs": 400
+        }
+      ]
+    },
+    "ui": {
+      "entry": "ui/telegram.js",
+      "css": ["ui/telegram.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["bots"],
+      "mainPage": "bots",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Telegram",
+        "it": "Telegram",
+        "de": "Telegram",
+        "es": "Telegram",
+        "fr": "Telegram",
+        "pt-BR": "Telegram",
+        "zh-CN": "Telegram",
+        "ko": "Telegram",
+        "id": "Telegram"
+      },
+      "description": {
+        "en": "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram.",
+        "it": "Collega un bot Telegram a uno dei tuoi agenti salvati, così le persone possono parlarci da Telegram.",
+        "de": "Verbinden Sie einen Telegram-Bot mit einem Ihrer gespeicherten Agenten, damit andere über Telegram mit ihm sprechen können.",
+        "es": "Vincula un bot de Telegram a uno de tus agentes guardados para que la gente pueda hablar con él desde Telegram.",
+        "fr": "Associez un bot Telegram à l'un de vos agents enregistrés pour que les gens puissent lui parler depuis Telegram.",
+        "pt-BR": "Vincule um bot do Telegram a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Telegram.",
+        "zh-CN": "将 Telegram 机器人绑定到你保存的某个智能体，让大家可以在 Telegram 中与它对话。",
+        "ko": "저장한 에이전트 중 하나에 Telegram 봇을 연결하여 사람들이 Telegram에서 대화할 수 있게 합니다.",
+        "id": "Hubungkan bot Telegram ke salah satu agen tersimpan Anda agar orang dapat mengobrol dengannya dari Telegram."
+      }
+    }
+  },
+  "i18n": {
+    "it": {"kinds": {"telegram": {"title": "Telegram", "description": "Parla con uno dei tuoi agenti salvati da un bot Telegram.", "setup": "un token del bot da @BotFather"}}},
+    "de": {"kinds": {"telegram": {"title": "Telegram", "description": "Sprechen Sie über einen Telegram-Bot mit einem Ihrer gespeicherten Agenten.", "setup": "ein Bot-Token von @BotFather"}}},
+    "es": {"kinds": {"telegram": {"title": "Telegram", "description": "Habla con uno de tus agentes guardados desde un bot de Telegram.", "setup": "un token de bot de @BotFather"}}},
+    "fr": {"kinds": {"telegram": {"title": "Telegram", "description": "Parlez à l'un de vos agents enregistrés depuis un bot Telegram.", "setup": "un jeton de bot de @BotFather"}}},
+    "pt-BR": {"kinds": {"telegram": {"title": "Telegram", "description": "Converse com um dos seus agentes salvos por um bot do Telegram.", "setup": "um token de bot do @BotFather"}}},
+    "zh-CN": {"kinds": {"telegram": {"title": "Telegram", "description": "通过 Telegram 机器人与你保存的某个智能体对话。", "setup": "来自 @BotFather 的机器人令牌"}}},
+    "ko": {"kinds": {"telegram": {"title": "Telegram", "description": "Telegram 봇으로 저장한 에이전트 중 하나와 대화합니다.", "setup": "@BotFather에서 받은 봇 토큰"}}},
+    "id": {"kinds": {"telegram": {"title": "Telegram", "description": "Berbicara dengan salah satu agen tersimpan Anda dari bot Telegram.", "setup": "token bot dari @BotFather"}}}
+  }
+}
