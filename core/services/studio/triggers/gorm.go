@@ -51,7 +51,7 @@ type triggerRow struct {
 	// event trigger.
 	Source    string `gorm:"size:255"`
 	EventType string `gorm:"size:255"`
-	Matches   string `gorm:"size:2048"`
+	Matches   string // unsized text: JSON escaping can grow a match several times
 	Secret    string `gorm:"size:255"`
 }
 

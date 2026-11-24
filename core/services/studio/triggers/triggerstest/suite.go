@@ -97,6 +97,19 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
 	})
+	It("stores matches that JSON escaping makes long", func() {
+		s := newStore()
+		tr := eventTrigger("e2", "1")
+		tr.Matches = nil
+		for range triggers.MaxMatches {
+			tr.Matches = append(tr.Matches, "f="+strings.Repeat("<", triggers.MaxEventField-2))
+		}
+		Expect(tr.Validate()).To(Succeed())
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
+		got, err := s.GetTrigger(ctx, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same(got, tr)).To(BeTrue())
+	})
 	It("stores a run with its payload", func() {
 		s := newStore()
 		Expect(s.PutTrigger(ctx, eventTrigger("e1", "1"))).To(Succeed())
