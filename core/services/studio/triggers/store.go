@@ -83,6 +83,9 @@ type Store interface {
 	RunningRuns(ctx context.Context) ([]Run, error)
 	// QueuedRuns returns every run with the status queued, oldest claim first.
 	QueuedRuns(ctx context.Context) ([]Run, error)
+	// RunByKey returns the run of a trigger that holds the DueKey, or
+	// ErrNotFound.
+	RunByKey(ctx context.Context, triggerID, dueKey string) (Run, error)
 	// RunByChat returns the run that started the chat, or ErrNotFound.
 	RunByChat(ctx context.Context, chatID string) (Run, error)
 	// LastStarted returns the newest Started time of the runs of a trigger, or

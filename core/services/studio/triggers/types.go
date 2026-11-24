@@ -78,6 +78,9 @@ const (
 	// MaxPayloadBytes is the longest payload text kept in a run and shown in
 	// its prompt, in bytes.
 	MaxPayloadBytes = 8000
+	// MaxEventSecret is the longest secret of an event trigger, in bytes. The
+	// size tag of the Secret column in gorm.go is the same number.
+	MaxEventSecret = 255
 	// MaxEventBody is the largest request body the hook reads, in bytes.
 	MaxEventBody = 262144
 	// MaxMatches is the most matches an event trigger has.
@@ -608,8 +611,8 @@ func (t Trigger) validateEvent() error {
 			return fmt.Errorf("a match is one line of at most %d bytes", MaxEventField)
 		}
 	}
-	if len(t.Secret) > 255 || hasControl(t.Secret, false) {
-		return errors.New("secret is one line of at most 255 bytes")
+	if len(t.Secret) > MaxEventSecret || hasControl(t.Secret, false) {
+		return fmt.Errorf("secret is one line of at most %d bytes", MaxEventSecret)
 	}
 	return nil
 }

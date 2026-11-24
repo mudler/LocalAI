@@ -82,6 +82,18 @@ var _ = Describe("Trigger types", func() {
 		Expect(Arm(&old, typ, now).Since).To(Equal(now))
 	})
 
+	It("limits the secret of an event trigger", func() {
+		tr := goodEvent()
+		tr.Secret = ""
+		Expect(tr.Validate()).To(Succeed(), "an empty secret is for the service to fill")
+		tr.Secret = strings.Repeat("s", MaxEventSecret)
+		Expect(tr.Validate()).To(Succeed(), "a secret at the limit")
+		tr.Secret = strings.Repeat("s", MaxEventSecret+1)
+		Expect(tr.Validate()).To(MatchError(ContainSubstring("secret")), "a secret past the limit")
+		tr.Secret = "abc\ndef"
+		Expect(tr.Validate()).To(MatchError(ContainSubstring("secret")), "a control character")
+	})
+
 	It("keeps the secret out of formatted output", func() {
 		tr := goodEvent()
 		tr.Secret = "hunter2-secret"

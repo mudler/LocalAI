@@ -52,7 +52,7 @@ type triggerRow struct {
 	Source    string `gorm:"size:255"`
 	EventType string `gorm:"size:255"`
 	Matches   string // unsized text: JSON escaping can grow a match several times
-	Secret    string `gorm:"size:255"`
+	Secret    string `gorm:"size:255"` // MaxEventSecret
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -396,6 +396,18 @@ func (s *gormStore) RunningRuns(ctx context.Context) ([]Run, error) {
 
 func (s *gormStore) QueuedRuns(ctx context.Context) ([]Run, error) {
 	return s.runs(s.db.WithContext(ctx).Where("status = ?", string(StatusQueued)).Order("seq"))
+}
+
+func (s *gormStore) RunByKey(ctx context.Context, triggerID, dueKey string) (Run, error) {
+	var r runRow
+	err := s.db.WithContext(ctx).Where("trigger_id = ? AND due_key = ?", triggerID, dueKey).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Run{}, ErrNotFound
+	}
+	if err != nil {
+		return Run{}, err
+	}
+	return r.run(), nil
 }
 
 func (s *gormStore) RunByChat(ctx context.Context, chatID string) (Run, error) {

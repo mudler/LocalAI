@@ -21,6 +21,17 @@ var _ = Describe("Event matching", func() {
 		Expect(tr.MatchesEvent(ev("github", "push", prBody))).To(BeFalse())
 	})
 
+	It("compares numbers as written", func() {
+		tr := goodEvent()
+		tr.EventType = ""
+		tr.Matches = []string{"id=9007199254740993"}
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"id":9007199254740993}`)))).To(BeTrue(), "an id above 2^53")
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"id":9007199254740992}`)))).To(BeFalse(), "the neighbour of a large id")
+		tr.Matches = []string{"n=1"}
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"n":1}`)))).To(BeTrue())
+		Expect(tr.MatchesEvent(ev("github", "x", []byte(`{"n":1.0}`)))).To(BeFalse(), "1.0 is not 1")
+	})
+
 	It("matches any type when the trigger has none", func() {
 		tr := goodEvent()
 		tr.EventType = ""
@@ -89,5 +100,12 @@ var _ = Describe("Signatures", func() {
 		Expect(VerifyGitHub("It's a Secret to Everybody", sig, []byte("Hello, World!"))).To(BeTrue())
 		Expect(VerifyGitHub("It's a Secret to Everybody", sig, []byte("Hello, World?"))).To(BeFalse())
 		Expect(VerifyGitHub("It's a Secret to Everybody", "", []byte("Hello, World!"))).To(BeFalse())
+	})
+})
+
+var _ = Describe("TrimPayload limits", func() {
+	It("treats a negative limit as zero", func() {
+		Expect(func() { TrimPayload([]byte("hello"), -1) }).NotTo(Panic())
+		Expect(TrimPayload([]byte("hello"), -1)).To(Equal(TrimPayload([]byte("hello"), 0)))
 	})
 })

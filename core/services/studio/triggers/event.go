@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -39,8 +40,15 @@ func (t Trigger) MatchesEvent(ev Event) bool {
 	if len(t.Matches) == 0 {
 		return true
 	}
+	// UseNumber keeps a number as written: a large id loses no digits and
+	// 1.0 is not 1.
 	var doc any
-	if err := json.Unmarshal(ev.Payload, &doc); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(ev.Payload))
+	dec.UseNumber()
+	if err := dec.Decode(&doc); err != nil {
+		return false
+	}
+	if _, err := dec.Token(); err != io.EOF {
 		return false
 	}
 	for _, m := range t.Matches {
@@ -97,6 +105,9 @@ func lookupPath(doc any, path string) (string, bool) {
 // newline are removed. The result is cut at max bytes on a rune boundary, and
 // the cut marker is added after it.
 func TrimPayload(raw []byte, max int) string {
+	if max < 0 {
+		max = 0
+	}
 	text := string(raw)
 	var buf bytes.Buffer
 	if json.Valid(raw) && json.Compact(&buf, raw) == nil {

@@ -147,11 +147,16 @@ var _ = Describe("Runner.Fire", func() {
 			rg.after(2 * time.Second) // past the gap: the queued run starts
 			r, _ = rg.store.GetRun(ctx, r.ID)
 			Expect(r.Status).To(Equal(triggers.StatusRunning))
+			Expect(r.Payload).NotTo(BeEmpty(), "a run that was admitted keeps its payload")
 			rg.finish(r, triggers.StatusDone, "")
 		}
-		r := fire("c", ev("k3", `{}`))
+		r := fire("c", ev("k3", `{"big":"payload"}`))
 		Expect(r.Status).To(Equal(triggers.StatusSkipped))
 		Expect(r.Reason).To(ContainSubstring("limit"))
+		Expect(r.Payload).To(BeEmpty(), "a run skipped by the cap keeps no payload")
+		stored, err := rg.store.GetRun(ctx, r.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stored.Payload).To(BeEmpty())
 	})
 
 	It("skips a queued run whose trigger was switched off", func() {

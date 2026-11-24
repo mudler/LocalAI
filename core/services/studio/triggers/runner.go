@@ -867,6 +867,11 @@ func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start boo
 	if err := r.admit(ctx, t, &run, now, false, false); err != nil {
 		return Run{}, err
 	}
+	if run.Status != StatusQueued {
+		// A skipped run needs no payload, and finished runs stay for a day
+		// or more, so keeping it would store every flood call in full.
+		run.Payload = ""
+	}
 	claimed, err := r.o.Store.Claim(ctx, run)
 	if err != nil {
 		return Run{}, err
@@ -887,14 +892,5 @@ func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start boo
 
 // eventRun returns the run that holds a DueKey of a trigger.
 func (r *Runner) eventRun(ctx context.Context, triggerID, key string) (Run, error) {
-	runs, err := r.o.Store.ListRuns(ctx, triggerID, 0)
-	if err != nil {
-		return Run{}, err
-	}
-	for _, x := range runs {
-		if x.DueKey == key {
-			return x, nil
-		}
-	}
-	return Run{}, ErrNotFound
+	return r.o.Store.RunByKey(ctx, triggerID, key)
 }

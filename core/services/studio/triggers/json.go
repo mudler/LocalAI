@@ -338,6 +338,17 @@ func (s *jsonStore) RunningRuns(context.Context) ([]Run, error) {
 }
 func (s *jsonStore) QueuedRuns(context.Context) ([]Run, error) { return s.byStatus(StatusQueued), nil }
 
+func (s *jsonStore) RunByKey(_ context.Context, triggerID, dueKey string) (Run, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range s.d.Runs {
+		if r.TriggerID == triggerID && r.DueKey == dueKey {
+			return r, nil
+		}
+	}
+	return Run{}, ErrNotFound
+}
+
 func (s *jsonStore) RunByChat(_ context.Context, chatID string) (Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
