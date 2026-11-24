@@ -65,4 +65,21 @@ var _ = Describe("The outcome of a run of one item", func() {
 		Expect(out.State).To(Equal(SinglePending))
 		Expect(out.RunID).To(Equal(run.ID))
 	})
+
+	It("stores the extra data of a start item with the item, beside the candidate's", func() {
+		h := newHarness(harnessOpts{})
+		h.addons.add(Candidate{Kind: KindAddon, Name: "notes", Extra: map[string]string{ExtraCandidateDigest: "sha256:b"}})
+		gate := make(chan struct{})
+		DeferCleanup(func() { close(gate) })
+		h.starter.block(gate)
+		item := si(KindAddon, "notes")
+		item.Extra = map[string]string{ExtraOperationID: "op-1"}
+		run, err := h.svc.Start(context.Background(), "admin", StartRequest{Items: []StartItem{item}})
+		Expect(err).NotTo(HaveOccurred())
+		_, rows, err := h.store.Get(run.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rows).To(HaveLen(1))
+		Expect(rows[0].Extra).To(ContainSubstring(`"operation_id":"op-1"`))
+		Expect(rows[0].Extra).To(ContainSubstring(`"candidate_digest":"sha256:b"`))
+	})
 })

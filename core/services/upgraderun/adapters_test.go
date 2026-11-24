@@ -60,8 +60,8 @@ func (f *fakeModelEnqueuer) EnqueueModelUpgrade(name string, opts galleryop.Mode
 
 type fakeAddonUpgrader struct{ args []string }
 
-func (f *fakeAddonUpgrader) StartAddonUpgrade(_ context.Context, actor, id, expected, candidate string) (string, error) {
-	f.args = []string{actor, id, expected, candidate}
+func (f *fakeAddonUpgrader) StartAddonUpgrade(_ context.Context, actor, id, expected, candidate, operationID string) (string, error) {
+	f.args = []string{actor, id, expected, candidate, operationID}
 	return "addon-job", nil
 }
 
@@ -276,7 +276,12 @@ var _ = Describe("Starters", func() {
 		id, err := AddonStarter{Upgrader: u}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes", From: "sha256:old", ExpectedTo: "sha256:new"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal("addon-job"))
-		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new"}))
+		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new", ""}))
+		// The operation the upgrade route recorded travels with the item.
+		_, err = AddonStarter{Upgrader: u}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes", From: "sha256:old", ExpectedTo: "sha256:new",
+			Extra: map[string]string{ExtraOperationID: "op-1"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(u.args).To(Equal([]string{"admin", "notes", "sha256:old", "sha256:new", "op-1"}))
 		_, err = AddonStarter{}.Start(ctx, "admin", Item{Kind: KindAddon, Name: "notes"})
 		Expect(err).To(HaveOccurred())
 	})

@@ -130,6 +130,9 @@ func (a *Application) startUpgradeRuns() {
 	// One live row and one end row for each run in the inbox of each
 	// administrator, written by the frontend that runs the run.
 	svc.AddObserver(&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context})
+	// An add-on item that ended without starting the operation its upgrade
+	// route recorded drops that record on the owner.
+	svc.AddObserver(a.addonRunUpgrader)
 	a.upgradeRuns = svc
 	a.upgradeRunsStop = func() {
 		stop()

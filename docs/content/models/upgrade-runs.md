@@ -563,7 +563,11 @@ When the wait ends first, the route answers `202` with code `pending`,
 `run_id` and `run`, and no job: the run goes on and starts the item later.
 Follow it with `GET /api/updates/runs/{run_id}`. The add-on route answers
 `202` with the operation status, `run` and `runId` in the payload, and no
-`jobId`; the run then runs the operation the route recorded.
+`jobId`; the run then runs the operation the route recorded. The run stores
+that operation with the item, so a frontend that takes the run over runs the
+same record. When the item ends without starting it (cancelled, skipped or
+refused), the run drops the record on the owner and the add-on is free for a
+new upgrade.
 
 A model upgrade with `config_only` or `choices`, and a model retry
 (`POST /api/models/{name}/upgrade/retry`), are always direct: a run makes no
