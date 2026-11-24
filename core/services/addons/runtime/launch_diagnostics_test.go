@@ -123,7 +123,12 @@ var _ = Describe("The cause of a failed launch", func() {
 		Expect(cause).To(ContainSubstring(`last output: "warming up"`))
 	})
 	It("names a process whose health answer does not repeat the registration", func() {
-		cause := causeOf(launcher(), fixture("forged", service))
+		s := launcher()
+		// The forged process must start and answer before the readiness
+		// timeout ends. Unlike the scripts, it is a new executable, and macOS
+		// takes seconds to admit one: keep the start budget of the platform.
+		s.config.ReadyTimeout = max(s.config.ReadyTimeout, startBudget)
+		cause := causeOf(s, fixture("forged", service))
 		Expect(cause).To(ContainSubstring(StageRegistrationRejected + ": the health answer does not repeat the registration"))
 	})
 	It("names a start that is refused before a process is made", func() {

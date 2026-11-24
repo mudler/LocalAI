@@ -149,8 +149,13 @@ func (h *Handlers) ListFiles(c echo.Context) error {
 var inlineTypes = map[string]bool{
 	"image/png": true, "image/jpeg": true, "image/gif": true, "image/webp": true,
 	"application/pdf": true, "text/plain": true,
-	"audio/mpeg": true, "audio/wav": true, "audio/ogg": true, "video/mp4": true, "video/webm": true,
+	"audio/mpeg": true, "audio/wav": true, "audio/ogg": true, "video/mp4": true, "video/webm": true, "video/quicktime": true,
 }
+
+// videoTypes fixes the type of the video files a background may use. The
+// system mime table may not know them, and a video without its type does not
+// play.
+var videoTypes = map[string]string{".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime"}
 
 // GetFileContent downloads a file.
 // @Summary Download a file.
@@ -175,7 +180,10 @@ func (h *Handlers) GetFileContent(c echo.Context) error {
 		return failFile(c, err)
 	}
 	defer func() { _ = r.Close() }()
-	ct := mime.TypeByExtension(path.Ext(n.Name))
+	ct := videoTypes[strings.ToLower(path.Ext(n.Name))]
+	if ct == "" {
+		ct = mime.TypeByExtension(path.Ext(n.Name))
+	}
 	if i := strings.IndexByte(ct, ';'); i >= 0 {
 		ct = ct[:i]
 	}

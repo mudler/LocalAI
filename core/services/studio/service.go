@@ -228,8 +228,10 @@ type Deps struct {
 	// tools and the LocalAI admin tools. Read at each turn. Nil: on.
 	LocalAIClientOn, LocalAIAdminOn func() bool
 	// ToolSearchMode is the setting chats_tool_search: auto, on or off. It
-	// decides whether the LocalAI tool groups are sent to the model as typed
-	// tools or hidden behind tool_search, tool_describe and tool_call. Read
+	// decides whether the LocalAI tool groups, and the tools that add-ons mark
+	// deferred, are sent to the model as typed tools or hidden behind
+	// tool_search, tool_describe and tool_call. Each source is decided on its
+	// own tools. Read
 	// at each turn. Nil: auto.
 	ToolSearchMode func() string
 	// ExtractLimits gives the limits of the Extract action of the Files page

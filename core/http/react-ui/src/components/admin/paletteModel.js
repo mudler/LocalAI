@@ -1,5 +1,6 @@
 // The command palette's data: what can be searched, and how a query ranks it.
 // No React and no network here, so tests/unit can load it.
+import { canViewAs } from '../../utils/access.js'
 
 export function isApplePlatform() {
   if (typeof navigator === 'undefined') return false
@@ -8,8 +9,8 @@ export function isApplePlatform() {
 
 // The order of the result groups, and how many of each a query shows. With no
 // query only the pages show: the others need a word to narrow them down.
-export const KINDS = ['page', 'setting', 'worker', 'person']
-const LIMIT = { page: 30, setting: 6, worker: 6, person: 6 }
+export const KINDS = ['page', 'setting', 'worker', 'viewas', 'person']
+const LIMIT = { page: 30, setting: 6, worker: 6, viewas: 6, person: 6 }
 
 const norm = (text) => String(text || '').toLowerCase()
 
@@ -48,6 +49,26 @@ export function personEntries(users, where) {
       icon: 'user',
       to: `/app/users?q=${encodeURIComponent(u.email || u.name)}`,
       hay: norm(`${u.name} ${u.email}`),
+    }
+  })
+}
+
+// "View as <name>" for each person an administrator may view as: active, not
+// the viewer and not an administrator (the same rule as the Users page, see
+// canViewAs in utils/access.js). `words` are the translated texts:
+// title(name), where(email) and kind, the words of the group, which the query
+// can match too ("view as" finds every one of them).
+export function viewAsEntries(users, selfId, words) {
+  return (Array.isArray(users) ? users : []).filter(u => canViewAs(u, selfId)).map(u => {
+    const name = u.name || u.email
+    return {
+      id: `viewas:${u.id}`,
+      kind: 'viewas',
+      title: words.title(name),
+      where: words.where(u.email || ''),
+      icon: 'eye',
+      viewAs: { id: u.id, name },
+      hay: norm(`${words.title(name)} ${u.name} ${u.email} ${words.kind}`),
     }
   })
 }

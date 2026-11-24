@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -73,6 +74,55 @@ var projectRules = []errRule{
 
 func failProject(c echo.Context, err error) error { return mapErr(c, err, projectRules, failFor) }
 
+// userIDPattern is the shape of a user id. The id names the user's folder in
+// the project store, so it must never hold a separator or a dot segment. It
+// matches what the auth store can hold (at most 36 characters).
+var userIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,36}$`)
+
+// projectOwner resolves the owner principal for a project request. Normal
+// callers act on their own projects; an administrator may act on behalf of
+// another user by passing ?user_id=<id>, the same parameter the other
+// per-user routes use (see auth.EffectiveUserID). Unlike those routes, a
+// caller who is not an administrator and names another user gets 403 instead
+// of being scoped to their own account: a client that provisions projects for
+// a user must not create them under the wrong account without noticing. The
+// 403 comes before the value is looked at, so the answer does not tell whether
+// a user exists. An administrator gets 400 for a user_id that is not a
+// well-formed user id and 404 for one that is not a known user.
+func (h *Handlers) projectOwner(c echo.Context) (string, bool) {
+	caller := userID(c)
+	target := c.QueryParam(auth.UserIDQueryParam)
+	if target == "" || target == caller {
+		return caller, true
+	}
+	if !auth.CanImpersonate(c) {
+		_ = fail(c, http.StatusForbidden, typeAuthz, "only an administrator can act on behalf of another user")
+		return "", false
+	}
+	if !userIDPattern.MatchString(target) {
+		_ = fail(c, http.StatusBadRequest, typeInvalid, "user_id must be a user id: letters, digits, '-' and '_'")
+		return "", false
+	}
+	// Without a user lookup nobody can be named, so the user is unknown.
+	known := false
+	if h.userExists != nil {
+		var err error
+		if known, err = h.userExists(c.Request().Context(), target); err != nil {
+			xlog.Error("studio: user lookup failed", "error", err)
+			_ = fail(c, http.StatusInternalServerError, typeServerError, "could not look up the user")
+			return "", false
+		}
+	}
+	if !known {
+		_ = fail(c, http.StatusNotFound, typeNotFound, "user not found")
+		return "", false
+	}
+	// Same audit line as the other routes that honor ?user_id=, written once
+	// the request is allowed. The path is the route pattern, so ids stay out.
+	auth.LogImpersonation(caller, target, c.Path())
+	return target, true
+}
+
 func defaultsOut(d projects.Defaults) schema.ChatsProjectDefaults {
 	return schema.ChatsProjectDefaults{Skills: d.Skills, Addons: d.Addons, Connectors: d.Connectors, MCPServers: d.MCPServers, Collections: d.Collections}
 }
@@ -86,7 +136,7 @@ func defaultsIn(d schema.ChatsProjectDefaults) projects.Defaults {
 // with the status the index holds. ChatCount counts up to projectChatCountCap.
 // agentCounts is the number of agents by project id, read once by the caller.
 func (h *Handlers) projectOut(ctx context.Context, host *projects.Service, user string, p projects.Project, agentCounts map[string]int) schema.ChatsProject {
-	out := schema.ChatsProject{ID: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status), Error: p.Error, Updated: p.Updated, AgentCount: agentCounts[p.ID]}
+	out := schema.ChatsProject{ID: p.ID, Name: p.Name, Slug: p.Slug, Status: string(p.Status), Error: p.Error, Updated: p.Updated, AgentCount: agentCounts[p.ID], Owner: p.Owner}
 	if r, err := host.Get(ctx, h.svc.Principal(user), p.ID); err == nil {
 		out.Description = r.Manifest.Description
 		out.Defaults = defaultsOut(r.Manifest.Defaults)
@@ -107,15 +157,21 @@ func (h *Handlers) projectOut(ctx context.Context, host *projects.Service, user 
 // @Summary List your projects.
 // @Description A project is a folder under Projects/ in your files, with a manifest, a memory and defaults that its chats start with. The list is read from the folders, so a project you added or edited by hand shows up. chat_count counts up to 500 chats; agent_count is the number of your agents that belong to the project. Another user's projects are never listed.
 // @Tags chats
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectList "Your projects, sorted by name"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects [get]
 func (h *Handlers) ListProjects(c echo.Context) error {
 	host, ok := h.projectsHost(c)
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	list, err := host.List(c.Request().Context(), h.svc.Principal(user))
 	if err != nil {
 		return failProject(c, err)
@@ -133,9 +189,11 @@ func (h *Handlers) ListProjects(c echo.Context) error {
 // @Description Makes the folder Projects/<slug> in your files with its manifest and an empty memory, as one change set that one undo removes. The slug comes from the name and is unique among your projects, so two projects can share a name but not a folder name.
 // @Tags chats
 // @Param request body schema.ChatsProjectWrite true "the project"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 201 {object} schema.ChatsProject "The project"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 409 {object} schema.ErrorResponse "The name is taken, or projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects [post]
 func (h *Handlers) CreateProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -159,7 +217,10 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 	if req.Attached != nil {
 		in.Attached = defaultsIn(*req.Attached)
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	p, err := host.Create(c.Request().Context(), h.svc.Principal(user), in)
 	if err != nil {
 		return failProject(c, err)
@@ -172,15 +233,21 @@ func (h *Handlers) CreateProject(c echo.Context) error {
 // @Description skills_blocked is true when the project's own skills (the skills folder of the project) are off because another person may write the project folder. attached_blocked is true for the same reason when the project file holds an attached block: the block is ignored and attached comes back empty.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id} [get]
 func (h *Handlers) GetProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	r, err := host.Get(c.Request().Context(), h.svc.Principal(user), c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -196,10 +263,12 @@ func (h *Handlers) GetProject(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param request body schema.ChatsProjectWrite true "the fields to change"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id} [patch]
 func (h *Handlers) UpdateProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -219,7 +288,10 @@ func (h *Handlers) UpdateProject(c echo.Context) error {
 		a := defaultsIn(*req.Attached)
 		in.Attached = &a
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	p, err := host.Update(c.Request().Context(), h.svc.Principal(user), c.Param("id"), in)
 	if err != nil {
 		return failProject(c, err)
@@ -232,15 +304,22 @@ func (h *Handlers) UpdateProject(c echo.Context) error {
 // @Description Removes the project folder, with its files and memory, as one change set that one undo restores. Chats that belonged to it stay and read as having no project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 204 "Deleted"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id} [delete]
 func (h *Handlers) DeleteProject(c echo.Context) error {
 	host, ok := h.projectsHost(c)
 	if !ok {
 		return nil
 	}
-	if err := host.Delete(c.Request().Context(), h.svc.Principal(userID(c)), c.Param("id")); err != nil {
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	if err := host.Delete(c.Request().Context(), h.svc.Principal(user), c.Param("id")); err != nil {
 		return failProject(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -251,7 +330,10 @@ func (h *Handlers) setProjectArchived(c echo.Context, archive bool) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	do := host.Restore
 	if archive {
 		do = host.Archive
@@ -268,9 +350,12 @@ func (h *Handlers) setProjectArchived(c echo.Context, archive bool) error {
 // @Description An archived project keeps its folder and takes no new chats.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/archive [post]
 func (h *Handlers) ArchiveProject(c echo.Context) error { return h.setProjectArchived(c, true) }
 
@@ -278,9 +363,12 @@ func (h *Handlers) ArchiveProject(c echo.Context) error { return h.setProjectArc
 // @Summary Restore an archived project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProject "The project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The project changed while it was saved"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/restore [post]
 func (h *Handlers) RestoreProject(c echo.Context) error { return h.setProjectArchived(c, false) }
 
@@ -289,8 +377,11 @@ func (h *Handlers) RestoreProject(c echo.Context) error { return h.setProjectArc
 // @Description Returns the text of index.md and the topic files next to it. The memory is the folder memory/ of the project.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectMemory "The index and the topic files"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/memory [get]
 func (h *Handlers) GetProjectMemory(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -298,7 +389,11 @@ func (h *Handlers) GetProjectMemory(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	p := h.svc.Principal(userID(c))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	p := h.svc.Principal(user)
 	r, err := host.Get(ctx, p, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -335,10 +430,12 @@ func (h *Handlers) GetProjectMemory(c echo.Context) error {
 // @Param id path string true "the project's id"
 // @Param file path string true "the file name, for example index.md"
 // @Param request body schema.ChatsProjectMemoryWrite true "the new content"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 204 "Written"
 // @Failure 400 {object} schema.ErrorResponse "The file name or the body is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 413 {object} schema.ErrorResponse "The content is too large"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/memory/{file} [put]
 func (h *Handlers) PutProjectMemory(c echo.Context) error {
 	host, ok := h.projectsHost(c)
@@ -346,7 +443,11 @@ func (h *Handlers) PutProjectMemory(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	p := h.svc.Principal(userID(c))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	p := h.svc.Principal(user)
 	r, err := host.Get(ctx, p, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
@@ -375,14 +476,20 @@ func (h *Handlers) PutProjectMemory(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the project's id"
 // @Param limit query int false "most chats to return"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversationList "The chats"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/chats [get]
 func (h *Handlers) ListProjectChats(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	recs, err := h.svc.ListChatsInProject(c.Request().Context(), user, c.Param("id"), intParam(c, "limit", defaultListLimit, maxListLimit))
 	if err != nil {
 		return failProject(c, err)
@@ -416,10 +523,12 @@ func (h *Handlers) chatOut(c echo.Context, user, id string) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsChatProject true "the project"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversation "The chat"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such chat or project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "The chat is running, or projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/{id}/project [put]
 func (h *Handlers) SetChatProject(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
@@ -429,7 +538,10 @@ func (h *Handlers) SetChatProject(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if err := h.svc.SetChatProject(c.Request().Context(), user, c.Param("id"), req.ProjectID); err != nil {
 		return failProject(c, err)
 	}
@@ -442,10 +554,12 @@ func (h *Handlers) SetChatProject(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsChatPulledProjects true "the projects"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsConversation "The chat"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such chat or project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/{id}/projects [put]
 func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
@@ -455,7 +569,10 @@ func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if err := h.svc.SetChatPulled(c.Request().Context(), user, c.Param("id"), req.ProjectIDs); err != nil {
 		return failProject(c, err)
 	}
@@ -467,9 +584,12 @@ func (h *Handlers) SetChatPulledProjects(c echo.Context) error {
 // @Description Your saved agents that were created from this project, sorted by name, as brief rows: id, name, description, model, files_mode (read or write), memory_write (the agent holds the grant project.memory.write) and unavailable. An agent is unavailable while its project is archived, deleted or broken, or its folders changed; it works again after a restore or a new save. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectAgentList "The agents of the project"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/agents [get]
 func (h *Handlers) ListProjectAgents(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -480,7 +600,10 @@ func (h *Handlers) ListProjectAgents(c echo.Context) error {
 		return nil
 	}
 	ctx := c.Request().Context()
-	user := userID(c)
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
 	if _, err := host.Get(ctx, h.svc.Principal(user), c.Param("id")); err != nil {
 		return failProject(c, err)
 	}
@@ -506,9 +629,12 @@ func (h *Handlers) ListProjectAgents(c echo.Context) error {
 // @Description Your messaging connections that are bound to an agent of this project, as brief rows: id, kind, name, agent_id, agent_name and enabled. A token or a list of senders never appears. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectConnectionList "The connections"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/connections [get]
 func (h *Handlers) ListProjectConnections(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -517,7 +643,11 @@ func (h *Handlers) ListProjectConnections(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectConnections(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectConnections(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}
@@ -533,9 +663,12 @@ func (h *Handlers) ListProjectConnections(c echo.Context) error {
 // @Description Your triggers that run an agent of this project, as brief rows: id, name, kind, agent_id, agent_name, schedule, folder, enabled, proposed and next (the next run of an enabled schedule trigger). While the project is archived its agents do not start, so its triggers skip their runs; enabled does not change. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectTriggerList "The triggers"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/triggers [get]
 func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 	if !chatsAllowed(c) {
@@ -544,7 +677,11 @@ func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectTriggers(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectTriggers(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}
@@ -561,15 +698,22 @@ func (h *Handlers) ListProjectTriggers(c echo.Context) error {
 // @Description Your loops that have not ended, in chats that use an agent of this project (a loop that ended is history and is left out), as brief rows: id, chat_id, chat_title, prompt (cut to 200 characters) and state. While the project is archived its loops skip their runs; state does not change. The list works for an archived project too.
 // @Tags chats
 // @Param id path string true "the project's id"
+// @Param user_id query string false "an administrator only: act on the projects of this user id instead of your own"
 // @Success 200 {object} schema.ChatsProjectLoopList "The loops"
 // @Failure 404 {object} schema.ErrorResponse "No such project, or it is another user's"
 // @Failure 409 {object} schema.ErrorResponse "Projects are not available (projects_off)"
+// @Failure 400 {object} schema.ErrorResponse "user_id is not a well-formed user id"
+// @Failure 403 {object} schema.ErrorResponse "user_id names another user and you are not an administrator"
 // @Router /api/chats/projects/{id}/loops [get]
 func (h *Handlers) ListProjectLoops(c echo.Context) error {
 	if _, ok := h.projectsHost(c); !ok {
 		return nil
 	}
-	rows, err := h.svc.ProjectLoops(c.Request().Context(), userID(c), c.Param("id"))
+	user, ok := h.projectOwner(c)
+	if !ok {
+		return nil
+	}
+	rows, err := h.svc.ProjectLoops(c.Request().Context(), user, c.Param("id"))
 	if err != nil {
 		return failProject(c, err)
 	}

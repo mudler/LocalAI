@@ -17,7 +17,7 @@ import { setAppMenu } from './menu'
 import { menuBarVisible } from './menuModel'
 import { createTray, type LauncherTray } from './tray'
 import { decideClose, shouldStartVisible } from './trayPolicy'
-import { checkForLauncherUpdate, getUpdaterStatus, initSelfUpdate, installLauncherUpdate, setLauncherPrereleases } from './selfUpdate'
+import { checkForLauncherUpdate, getUpdaterStatus, initSelfUpdate, installLauncherUpdate, setLauncherChannel } from './selfUpdate'
 import { GithubReleasesProvider, RedirectFirstProvider } from './updateProvider'
 import { platformTarget } from './platform'
 import { resolveLayout } from './paths'
@@ -447,7 +447,10 @@ if (!gotLock) {
       webuiCurrentUrl: () => webui?.currentUrl(),
       releaseRepo: { owner, repo },
       loginItem: setLoginItem,
-      onIncludePrereleases: setLauncherPrereleases,
+      onUpdateChannel: (ch) => {
+        // A new feed: look at it now, unless the user turned automatic checks off.
+        if (setLauncherChannel(ch) && core?.autoCheckOn()) void checkForLauncherUpdate()
+      },
       safeStorage,
       trace: (m) => signal(`init ${m}`),
       networkInterfaces: () => os.networkInterfaces(),
@@ -505,7 +508,7 @@ if (!gotLock) {
         core?.recordUpdater(s)
         emit('launcher:updater:event', s)
       },
-      { includePrereleases: core.channelIsRc() },
+      { channel: core.channelName(), repo: { owner, repo } },
     )
     createWindow()
     core.openDefaultRemote()

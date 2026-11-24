@@ -447,7 +447,9 @@
       "upstream": "Der Anbieter hinter dem Modell hat einen Fehler zurückgegeben.",
       "timeout": "Das Modell hat zu lange für die Antwort gebraucht.",
       "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat.",
-      "interrupted": "Der Server wurde neu gestartet, während er antwortete."
+      "interrupted": "Der Server wurde neu gestartet, während er antwortete.",
+      "model_backend_outdated": "Das Modell \"{{model}}\" konnte nicht gestartet werden: Das Backend ist möglicherweise zu alt dafür.",
+      "model_backend_outdated_anon": "Das Modell konnte nicht gestartet werden: Das Backend ist möglicherweise zu alt dafür."
     },
     "hint": {
       "model_backend_missing": "Wähle ein anderes Modell oder bitte eine Administratorin bzw. einen Administrator, das Backend zu installieren.",
@@ -460,7 +462,9 @@
       "upstream_unreachable": "Prüfe die Adresse in den Einstellungen des Modells.",
       "upstream": "Versuche es gleich noch einmal. Wenn es weiter fehlschlägt, prüfe Adresse und Schlüssel des Anbieters.",
       "timeout": "Versuche es erneut oder nutze ein kleineres oder schnelleres Modell.",
-      "cancelled": "Versuche es erneut, wenn du bereit bist."
+      "cancelled": "Versuche es erneut, wenn du bereit bist.",
+      "model_backend_outdated": "Bitte einen Administrator, das Backend zu aktualisieren, und versuche es dann erneut.",
+      "model_backend_outdated_admin": "Aktualisiere das Backend auf der Seite Updates und versuche es dann erneut."
     },
     "openBackends": "Backends öffnen",
     "titleInterrupted": "Die Antwort wurde unterbrochen",
@@ -470,7 +474,12 @@
       "server": "Der Server macht dort weiter, wo es aufgehört hat.",
       "exhausted": "Nach {{max}} Versuchen ging es nicht weiter. Versuchen Sie es erneut.",
       "stop": "Nicht mehr versuchen"
-    }
+    },
+    "updateBackend": "{{backend}} aktualisieren",
+    "updateBackendBusy": "Wird aktualisiert...",
+    "updateBackendStarted": "Die Aktualisierung von {{backend}} hat begonnen. Versuche es erneut, wenn sie fertig ist.",
+    "updateBackendFailed": "Die Aktualisierung konnte nicht gestartet werden.",
+    "openUpdates": "Updates öffnen"
   },
   "allChats": {
     "title": "Alle Chats",

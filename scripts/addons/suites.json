@@ -862,7 +862,15 @@
           "an empty block",
           "a null windows block",
           "refuses the former top-level execution field",
-          "refuses the block under the key platform"
+          "refuses the block under the key platform",
+          "is accepted on every kind",
+          "keeps an approval ceiling and a title on a deferred write tool",
+          "is refused on a page-only tool",
+          "is refused on a tool that shadows a built-in tool",
+          "is false when omitted and is not written when false",
+          "survives a JSON round trip",
+          "is not counted against the limits of the definitions",
+          "requires featureLevel 11 for a deferred tool, and a level 10 host refuses it"
         ]
       },
       {
@@ -2368,7 +2376,15 @@
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
           "fails an add-on item with a typed reason when the owner cannot be reached",
-          "never sends the system actor of the automatic update through the gateway"
+          "never sends the system actor of the automatic update through the gateway",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       },
       {
@@ -3394,7 +3410,15 @@
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
           "fails an add-on item with a typed reason when the owner cannot be reached",
-          "never sends the system actor of the automatic update through the gateway"
+          "never sends the system actor of the automatic update through the gateway",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -3949,7 +3973,15 @@
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
           "fails an add-on item with a typed reason when the owner cannot be reached",
-          "never sends the system actor of the automatic update through the gateway"
+          "never sends the system actor of the automatic update through the gateway",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -4534,7 +4566,15 @@
           "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
           "lists the add-on updates, previews and starts an add-on item as the actor of the run",
           "fails an add-on item with a typed reason when the owner cannot be reached",
-          "never sends the system actor of the automatic update through the gateway"
+          "never sends the system actor of the automatic update through the gateway",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -5483,7 +5523,11 @@
       "go: reports nothing when the cap cuts nothing",
       "go: lets a switched-off add-on free room for the ones that were cut",
       "go: logs a cut once when it starts or changes, naming add-on IDs and counts only",
-      "go: takes the cap from the limit that is set, read at each discovery"
+      "go: takes the cap from the limit that is set, read at each discovery",
+      "go: tells the chat consumer which tools are deferred, and no other consumer",
+      "go: lists the same tools with the same wire form whether or not they are deferred (MCP, agents, triggers)",
+      "go: never lists a page-only tool, deferred or not",
+      "go: still runs a deferred tool through the broker like any other"
     ]
   },
   "tables-admin": {

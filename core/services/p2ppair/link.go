@@ -16,15 +16,18 @@ import (
 // Limits of the link format. They keep a link small enough for a QR code and
 // bound the work of the parser on input it did not make.
 const (
-	linkScheme    = "localai"
-	linkHost      = "pair"
-	linkVersion   = 1
-	maxLinkLen    = 2048
-	maxLabelLen   = 64
-	maxLinkAddrs  = 2
-	maxLinkRelays = 3
-	maxPassLen    = 256
-	maxAddrLen    = 256
+	linkScheme   = "localai"
+	linkHost     = "pair"
+	linkVersion  = 1
+	maxLinkLen   = 2048
+	maxLabelLen  = 64
+	maxLinkAddrs = 4
+	// maxPublicAddrs is how many of them a mint takes from the public ones;
+	// it is what a link carried before it had local addresses.
+	maxPublicAddrs = 2
+	maxLinkRelays  = 3
+	maxPassLen     = 256
+	maxAddrLen     = 256
 )
 
 // ErrBadLink is wrapped by every ParseLink failure.
@@ -37,7 +40,7 @@ func badLink(format string, a ...any) error {
 // Link is a decoded invite link:
 //
 //	localai://pair?v=1&k=<kind>&p=<server peer ID>&c=<code>&e=<unix expiry>&n=<label>
-//	  [&a=<direct multiaddr>]x0-2 [&r=<relay multiaddr with /p2p/>]x0-3
+//	  [&a=<direct multiaddr>]x0-4 [&r=<relay multiaddr with /p2p/>]x0-3
 //	  [&o=<indexes of open relays>] [&x=<relay pass>]
 //
 // Values are URL query escaped. A parser ignores keys it does not know and
@@ -49,7 +52,10 @@ type Link struct {
 	Code    string
 	Expires time.Time
 	Label   string
-	// Addrs are direct addresses of the server (at most 2).
+	// Addrs are direct addresses of the server (at most 4): public ones
+	// first, then addresses of the server's local network. A redeeming
+	// device dials them all, so a link with local addresses redeems on the
+	// same network with no relay and no multicast discovery.
 	Addrs []ma.Multiaddr
 	// Relays are relays that can reach the server (at most 3). Each has one
 	// address; String writes only the first address of an AddrInfo.

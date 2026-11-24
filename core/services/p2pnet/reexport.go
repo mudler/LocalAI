@@ -47,6 +47,8 @@ type Subscription = event.Subscription
 const (
 	ProtocolP2P     = ma.P_P2P
 	ProtocolCircuit = ma.P_CIRCUIT
+	// ProtocolTCP is the multiaddr protocol code of TCP.
+	ProtocolTCP = ma.P_TCP
 )
 
 // DecodePeerID parses the text form of a peer ID. It is like ParsePeerID
@@ -83,6 +85,18 @@ func ParsePeerAddrs(addrs []string) ([]AddrInfo, error) {
 
 // IsPublicAddr says whether a is a public IP address.
 func IsPublicAddr(a Multiaddr) bool { return manet.IsPublicAddr(a) }
+
+// IsLANAddr says whether a is an address of a local network: a private IPv4
+// address (RFC 1918) or a unique local IPv6 address (fc00::/7). Loopback,
+// link-local and unspecified addresses are not LAN addresses: a peer on
+// another machine cannot use them.
+func IsLANAddr(a Multiaddr) bool {
+	ip, err := manet.ToIP(a)
+	if err != nil {
+		return false
+	}
+	return ip.IsPrivate() && !ip.IsLoopback() && !ip.IsLinkLocalUnicast() && !ip.IsUnspecified()
+}
 
 // AddrIP returns the IP address of a.
 func AddrIP(a Multiaddr) (net.IP, error) { return manet.ToIP(a) }

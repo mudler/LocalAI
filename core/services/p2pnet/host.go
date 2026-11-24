@@ -16,7 +16,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/routing"
-	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
 	"github.com/libp2p/go-libp2p/p2p/protocol/holepunch"
 	"github.com/mudler/xlog"
@@ -97,10 +96,13 @@ type Host struct {
 	h     host.Host
 	dht   atomic.Pointer[dht.IpfsDHT]
 	gate  Gate
-	mdns  mdns.Service
+	disco *mdnsRunner
+	addrs *addrWatcher
 	punch *punchTracer
 	reach atomic.Int32
 	sub   event.Subscription
+	// redial is nil when the gate cannot name the paired peers.
+	redial *redialer
 
 	static []peer.AddrInfo
 
@@ -229,6 +231,11 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 			return fmt.Errorf("p2pnet: bootstrap DHT: %w", err)
 		}
 	}
+	w := newAddrWatcher(liveAddrSet(n.h))
+	n.addrs = w
+	if err := n.startRedial(w); err != nil {
+		return fmt.Errorf("p2pnet: start redial: %w", err)
+	}
 	// Start-up does not wait for bootstrap peers or relays: a slow or dead
 	// peer must not delay the server.
 	n.connectAll(boot)
@@ -236,14 +243,24 @@ func (n *Host) start(cfg Config, boot []peer.AddrInfo) error {
 	if cfg.MDNS {
 		// mDNS only finds peers on the local network, so a host that cannot
 		// start it still works. A host with no listen address, such as one in
-		// mode connect, has no address to announce and the start fails.
-		svc := mdns.NewMdnsService(n.h, mdnsServiceName, mdnsNotifee{n: n})
-		if err := svc.Start(); err != nil {
-			xlog.Warn("p2p: local network discovery (mDNS) is off", "error", err)
-		} else {
-			n.mdns = svc
-		}
+		// mode connect, has no address to announce, and discovery waits for
+		// one.
+		n.startMDNS(w)
 	}
+	return n.watchAddrs(w)
+}
+
+// watchAddrs runs w until the host closes. It checks the addresses after
+// each EvtLocalAddressesUpdated event and at every poll.
+func (n *Host) watchAddrs(w *addrWatcher) error {
+	sub, err := n.h.EventBus().Subscribe(new(event.EvtLocalAddressesUpdated))
+	if err != nil {
+		return fmt.Errorf("p2pnet: watch addresses: %w", err)
+	}
+	n.wg.Go(func() {
+		defer func() { _ = sub.Close() }()
+		w.run(n.ctx, sub.Out())
+	})
 	return nil
 }
 
@@ -299,6 +316,9 @@ func (n *Host) Revoke(p peer.ID) {
 	if d, ok := n.gate.(interface{ Disallow(peer.ID) }); ok {
 		d.Disallow(p)
 	}
+	if n.redial != nil {
+		n.redial.forget(p)
+	}
 	if err := n.h.Network().ClosePeer(p); err != nil {
 		xlog.Debug("p2p: close revoked peer", "peer", p.String(), "error", err)
 	}
@@ -322,8 +342,8 @@ func (n *Host) Close() error {
 	}
 	n.cancel()
 	var errs []error
-	if n.mdns != nil {
-		errs = append(errs, n.mdns.Close())
+	if n.disco != nil {
+		errs = append(errs, n.disco.close())
 	}
 	if d := n.dht.Load(); d != nil {
 		errs = append(errs, d.Close())

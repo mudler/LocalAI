@@ -34,7 +34,8 @@ const (
 	WarnNoRelay Warning = "no_relay"
 	// WarnRelayUnreachable: a relay is named but no pass could be registered.
 	WarnRelayUnreachable Warning = "relay_unreachable"
-	// WarnNoPublicAddr: the link has no relay and no direct address.
+	// WarnNoPublicAddr: the link has no relay and no public direct address.
+	// It may still carry local network addresses.
 	WarnNoPublicAddr Warning = "no_public_addr"
 )
 
@@ -57,9 +58,13 @@ type Config struct {
 	// ServerPeer is the peer ID of this server; it goes into links and
 	// phrases.
 	ServerPeer peer.ID
-	// Addrs returns the direct addresses to put in a link (at most two are
-	// used). May be nil.
+	// Addrs returns the public direct addresses to put in a link (at most
+	// maxPublicAddrs are used). May be nil.
 	Addrs func() []ma.Multiaddr
+	// LANAddrs returns the addresses of the local networks of the server.
+	// A link carries them after the public ones, unless the request sets
+	// OmitLANAddrs. May be nil.
+	LANAddrs func() []ma.Multiaddr
 	// Relays lists the relays an invite may name. May be nil.
 	Relays RelaySource
 	// Registrar registers relay passes. May be nil: no invite gets a pass.
@@ -112,6 +117,11 @@ type MintRequest struct {
 	RelayIDs []string
 	// AllowOpenRelay lets the invite name open relays.
 	AllowOpenRelay bool
+	// OmitLANAddrs keeps the local network addresses of the server out of
+	// the link. They reveal the layout of that network to whoever holds the
+	// link, but they let a device on the same network redeem it with no
+	// relay and no multicast discovery.
+	OmitLANAddrs bool
 }
 
 // PassInfo says what happened to the relay pass of a mint.
@@ -193,9 +203,13 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	}
 	if s.cfg.Addrs != nil {
 		link.Addrs = slices.Clone(s.cfg.Addrs())
-		if len(link.Addrs) > maxLinkAddrs {
-			link.Addrs = link.Addrs[:maxLinkAddrs]
+		if len(link.Addrs) > maxPublicAddrs {
+			link.Addrs = link.Addrs[:maxPublicAddrs]
 		}
+	}
+	public := len(link.Addrs)
+	if s.cfg.LANAddrs != nil && !req.OmitLANAddrs {
+		link.Addrs = appendAddrs(link.Addrs, s.cfg.LANAddrs(), maxLinkAddrs)
 	}
 	var warns []Warning
 	for i, r := range relays {
@@ -217,13 +231,28 @@ func (s *Service) Mint(ctx context.Context, req MintRequest) (*Minted, error) {
 	}
 	if len(link.Relays) == 0 {
 		warns = append(warns, WarnNoRelay)
-		if len(link.Addrs) == 0 {
+		if public == 0 {
 			warns = append(warns, WarnNoPublicAddr)
 		}
 	} else if pass == "" && reason == string(WarnRelayUnreachable) {
 		warns = append(warns, WarnRelayUnreachable)
 	}
 	return &Minted{Invite: inv, Link: link, Pass: info, Warnings: warns}, nil
+}
+
+// appendAddrs adds the addresses of more to dst, skipping duplicates and
+// addresses longer than maxAddrLen, until dst holds limit addresses.
+func appendAddrs(dst, more []ma.Multiaddr, limit int) []ma.Multiaddr {
+	for _, a := range more {
+		if len(dst) >= limit {
+			break
+		}
+		if len(a.String()) > maxAddrLen || slices.ContainsFunc(dst, a.Equal) {
+			continue
+		}
+		dst = append(dst, a)
+	}
+	return dst
 }
 
 // selectRelays resolves the relays named by the request, at most

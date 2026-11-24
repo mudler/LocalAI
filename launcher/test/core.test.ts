@@ -393,8 +393,8 @@ describe('install', () => {
       },
     })
     const home = tmpDir('core-')
-    const told: boolean[] = []
-    const { core, configFile } = makeCore({ home, provider, runVersion: async (f) => readVersionFromFile(f), onIncludePrereleases: (on) => told.push(on) })
+    const told: string[] = []
+    const { core, configFile } = makeCore({ home, provider, runVersion: async (f) => readVersionFromFile(f), onUpdateChannel: (ch) => told.push(ch) })
     await core.init()
     const config = () => JSON.parse(fs.readFileSync(configFile, 'utf8'))
     // Off (the default): stable only, and the key is not written.
@@ -406,14 +406,14 @@ describe('install', () => {
     expect(await core.setUpdateChannel('rc')).toMatchObject({ ok: true, info: { channel: 'rc' } })
     expect(config().update_channel).toBe('rc')
     expect('include_prereleases' in config()).toBe(false)
-    expect(told).toEqual([true])
+    expect(told).toEqual(['rc'])
     expect(await core.checkServerUpdate({})).toMatchObject({ kind: 'update-available', version: '3.3.0-rc.1' })
     core.installServer({})
     expect(await core.installIdle()).toMatchObject({ kind: 'done', version: '3.3.0-rc.1' })
     // Stable again: a stable lookup follows.
     expect(await core.setUpdateChannel('stable')).toMatchObject({ ok: true, info: { channel: 'stable' } })
     expect(config().update_channel).toBe('stable')
-    expect(told).toEqual([true, false])
+    expect(told).toEqual(['rc', 'stable'])
     const before = provider.prereleaseLookups
     await core.checkServerUpdate({})
     expect(provider.prereleaseLookups).toBe(before)

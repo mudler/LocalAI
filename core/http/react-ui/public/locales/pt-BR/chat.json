@@ -450,7 +450,9 @@
       "upstream": "O provedor por trás do modelo retornou um erro.",
       "timeout": "O modelo demorou demais para responder.",
       "cancelled": "O turno foi cancelado antes de o modelo responder.",
-      "interrupted": "O servidor reiniciou enquanto respondia."
+      "interrupted": "O servidor reiniciou enquanto respondia.",
+      "model_backend_outdated": "Não foi possível iniciar o modelo \"{{model}}\": o backend pode ser antigo demais para ele.",
+      "model_backend_outdated_anon": "Não foi possível iniciar o modelo: o backend pode ser antigo demais para ele."
     },
     "hint": {
       "model_backend_missing": "Escolha outro modelo ou peça a um administrador que instale o backend.",
@@ -463,7 +465,9 @@
       "upstream_unreachable": "Confira o endereço nas configurações do modelo.",
       "upstream": "Tente de novo em instantes. Se continuar falhando, confira o endereço e a chave do provedor.",
       "timeout": "Tente de novo ou use um modelo menor ou mais rápido.",
-      "cancelled": "Tente de novo quando quiser."
+      "cancelled": "Tente de novo quando quiser.",
+      "model_backend_outdated": "Peça a um administrador para atualizar o backend e tente de novo.",
+      "model_backend_outdated_admin": "Atualize o backend na página Atualizações e tente de novo."
     },
     "openBackends": "Abrir Backends",
     "titleInterrupted": "A resposta foi interrompida",
@@ -473,7 +477,12 @@
       "server": "O servidor continua de onde parou.",
       "exhausted": "Não foi possível continuar após {{max}} tentativas. Tente de novo.",
       "stop": "Parar de tentar"
-    }
+    },
+    "updateBackend": "Atualizar {{backend}}",
+    "updateBackendBusy": "Atualizando...",
+    "updateBackendStarted": "A atualização de {{backend}} começou. Tente de novo quando terminar.",
+    "updateBackendFailed": "Não foi possível iniciar a atualização.",
+    "openUpdates": "Abrir Atualizações"
   },
   "allChats": {
     "title": "Todos os chats",

@@ -1590,6 +1590,16 @@ definitions:
           still waits for a confirmation. Only a tool with Approval "always" may
           set it.
         type: boolean
+      deferred:
+        description: |-
+          Deferred says that a chat offers this tool through the tool search
+          (tool_search, tool_describe and tool_call) instead of as a typed tool, so
+          its schema is not sent on every turn. It changes the model's prompt only:
+          the tool keeps its name, its kind, its role check and its approval, and
+          pages, MCP clients, agents and triggers list it as before. It is refused
+          on a UIOnly tool, which no model is offered, and on a tool that Shadows a
+          built-in one, which must keep its name.
+        type: boolean
       description:
         description: Description is plain text for the model.
         type: string
@@ -4859,6 +4869,12 @@ definitions:
         items:
           type: string
         type: array
+      omit_lan_addrs:
+        description: |-
+          OmitLANAddrs keeps the private addresses of this server out of the
+          link. By default the link carries them, so a device on the same network
+          can redeem it with no relay and no multicast discovery.
+        type: boolean
       relays:
         description: Relays is "auto", "none" or a list of relay IDs.
         example: auto
@@ -9445,6 +9461,9 @@ definitions:
     properties:
       after:
         type: integer
+      backend:
+        description: Backend names the backend of a model_backend_outdated failure.
+        type: string
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
@@ -9598,6 +9617,11 @@ definitions:
     type: object
   schema.ChatsFailure:
     properties:
+      backend:
+        description: |-
+          Backend is the backend the cause is about, when it is known (code
+          model_backend_outdated).
+        type: string
       code:
         description: Code names the cause, such as model_not_found, upstream, timeout
           or agent.
@@ -10833,6 +10857,12 @@ definitions:
       id:
         type: string
       name:
+        type: string
+      owner:
+        description: |-
+          Owner is the id of the user that owns the project. Every response
+          carries it: the caller's own id, or the user an administrator acts for
+          with ?user_id=.
         type: string
       skills_blocked:
         description: |-
@@ -21772,6 +21802,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatProject'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21779,6 +21814,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -21811,6 +21850,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatPulledProjects'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21818,6 +21862,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25493,11 +25541,25 @@ paths:
         folders, so a project you added or edited by hand shows up. chat_count counts
         up to 500 chats; agent_count is the number of your agents that belong to the
         project. Another user's projects are never listed.
+      parameters:
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: Your projects, sorted by name
           schema:
             $ref: '#/definitions/schema.ChatsProjectList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: Projects are not available (projects_off)
           schema:
@@ -25517,6 +25579,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "201":
           description: The project
@@ -25524,6 +25591,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
@@ -25544,9 +25615,22 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Deleted
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25565,11 +25649,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25605,6 +25702,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
@@ -25612,6 +25714,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25639,11 +25745,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The agents of the project
           schema:
             $ref: '#/definitions/schema.ChatsProjectAgentList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25664,11 +25783,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25694,11 +25826,24 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chats
           schema:
             $ref: '#/definitions/schema.ChatsConversationList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25718,11 +25863,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The connections
           schema:
             $ref: '#/definitions/schema.ChatsProjectConnectionList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25747,11 +25905,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The loops
           schema:
             $ref: '#/definitions/schema.ChatsProjectLoopList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25773,11 +25944,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The index and the topic files
           schema:
             $ref: '#/definitions/schema.ChatsProjectMemory'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25809,11 +25993,20 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectMemoryWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Written
         "400":
           description: The file name or the body is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25835,11 +26028,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25864,11 +26070,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The triggers
           schema:
             $ref: '#/definitions/schema.ChatsProjectTriggerList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:

@@ -222,11 +222,11 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
 	if err != nil {
 		ml.stopLoadProcess(client, modelID)
-		return nil, fmt.Errorf("could not load model: %w", err)
+		return nil, outdatedBackend(backend, fmt.Errorf("could not load model: %w", err))
 	}
 	if !res.Success {
 		ml.stopLoadProcess(client, modelID)
-		return nil, fmt.Errorf("could not load model (no success): %s", res.Message)
+		return nil, outdatedBackend(backend, fmt.Errorf("could not load model (no success): %s", res.Message))
 	}
 
 	// Register size for size-aware eviction using the caller-supplied estimate

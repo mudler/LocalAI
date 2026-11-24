@@ -262,7 +262,7 @@ func (c *Chat) hostWrappers() []Tool {
 			slot := &cardSlot{}
 			res, err := cur.Run(context.WithValue(ctx, cardSlotKey{}, slot), args)
 			if err == nil {
-				c.addPendingCard(name, res, slot.get())
+				c.addPendingCard(name, res, slot.get(), slot.name())
 			}
 			return res, err
 		}
@@ -401,9 +401,14 @@ type cardSlot struct {
 	card  *ToolCard
 	files []ToolFile
 	more  int
+	as    string
 }
 
 func (s *cardSlot) set(c ToolCard) { s.mu.Lock(); s.card = &c; s.mu.Unlock() }
+
+func (s *cardSlot) setAs(name string) { s.mu.Lock(); s.as = name; s.mu.Unlock() }
+
+func (s *cardSlot) name() string { s.mu.Lock(); defer s.mu.Unlock(); return s.as }
 
 func (s *cardSlot) setFiles(f []ToolFile) {
 	s.mu.Lock()
@@ -434,6 +439,31 @@ func (s *cardSlot) get() *ToolCard {
 	}
 	c.Files, c.FilesMore = s.files, s.more
 	return &c
+}
+
+// SetToolAs is called by a host tool inside Run that runs another tool on its
+// behalf, such as a tool search bridge. The tool entry of the call, and its
+// tool_end event, then carry the name of the tool that ran instead of the name
+// of the bridge, so the interface shows the call as the typed call it stands
+// for. The name is 1 to 128 characters of [A-Za-z0-9_-]; any other is ignored.
+// It is used only when Run returns no error.
+func SetToolAs(ctx context.Context, name string) {
+	if s, ok := ctx.Value(cardSlotKey{}).(*cardSlot); ok && validToolAs(name) {
+		s.setAs(name)
+	}
+}
+
+func validToolAs(name string) bool {
+	if n := len(name); n < 1 || n > 128 {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		b := name[i]
+		if !(b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_' || b == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 // SetToolCard is called by a host tool inside Run. It records the card for the
@@ -472,6 +502,7 @@ const maxPendingCards = 64
 type pendingCard struct {
 	name, output string
 	card         *ToolCard
+	as           string
 }
 
 // validCard tells whether c is within the documented limits.
@@ -617,7 +648,7 @@ func bounded(raw json.RawMessage, max int) json.RawMessage {
 // addPendingCard records a successful host tool call until the harness reports
 // its end, with the card it set (nil when none). It logs a bad card without its
 // contents and keeps the call with no card.
-func (c *Chat) addPendingCard(name, output string, card *ToolCard) {
+func (c *Chat) addPendingCard(name, output string, card *ToolCard, as string) {
 	var keep *ToolCard
 	if card != nil {
 		if cp, ok := cleanCard(*card); ok {
@@ -631,13 +662,13 @@ func (c *Chat) addPendingCard(name, output string, card *ToolCard) {
 	if len(c.cards) >= maxPendingCards {
 		c.cards = append(c.cards[:0], c.cards[1:]...)
 	}
-	c.cards = append(c.cards, pendingCard{name: name, output: CapText(output, maxOutput), card: keep})
+	c.cards = append(c.cards, pendingCard{name: name, output: CapText(output, maxOutput), card: keep, as: as})
 }
 
 // takeCard removes the pending call of a tool_end and returns its card (nil
 // when the call set none): the first call whose name and capped output match,
 // else the oldest call of that name.
-func (c *Chat) takeCard(name, output string) *ToolCard {
+func (c *Chat) takeCard(name, output string) (*ToolCard, string) {
 	c.cardMu.Lock()
 	defer c.cardMu.Unlock()
 	pick := -1
@@ -654,11 +685,11 @@ func (c *Chat) takeCard(name, output string) *ToolCard {
 		}
 	}
 	if pick < 0 {
-		return nil
+		return nil, ""
 	}
-	card := c.cards[pick].card
+	card, as := c.cards[pick].card, c.cards[pick].as
 	c.cards = append(c.cards[:pick], c.cards[pick+1:]...)
-	return card
+	return card, as
 }
 
 // clearCards forgets the pending cards, at the start and the end of a turn.

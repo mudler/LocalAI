@@ -141,6 +141,11 @@ type ToolDefinition struct {
 	// "always" and lets the person relax it with their own setting (see
 	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
 	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
+	// Deferred is true for a tool the add-on marked deferred (see
+	// contract.ToolDefinition). Only the chat consumer acts on it, to put the
+	// tool behind the tool search; every other consumer lists it as before.
+	// It is not part of the wire form.
+	Deferred bool `json:"-"`
 	// ResourceArgument and ResourceLabel come from the credential slot of the
 	// add-on. They only shape the line that says which connection acted.
 	ResourceArgument string `json:"-"`
@@ -845,7 +850,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	}
 	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, OwnerData: a.OwnerData, Permission: contract.ToolPermission(a.Credentialed || a.OwnerData || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
 		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped,
-		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields)}
+		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields), Deferred: d.Deferred}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.

@@ -81,6 +81,28 @@ var _ = Describe("Feature level", func() {
 		h.FeatureLevel = 2
 		Expect(ValidateManifest(m, h)).To(MatchError("needs a newer LocalAI"))
 	})
+	It("requires featureLevel 11 for a deferred tool, and a level 10 host refuses it", func() {
+		deferred := func() Manifest {
+			m := base()
+			m.Capabilities.Tools = []string{"t"}
+			m.Capabilities.ToolDefinitions = []ToolDefinition{{Name: "t", Description: "Read.", Kind: ToolKindRead, Deferred: true,
+				InputSchema: []byte(`{"type":"object","properties":{},"additionalProperties":false}`)}}
+			return m
+		}
+		m := deferred()
+		Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring("must declare featureLevel 11")))
+		m.FeatureLevel = 11
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		h := compatible()
+		h.FeatureLevel = 10
+		Expect(ValidateManifest(m, h)).To(MatchError("needs a newer LocalAI"))
+		Expect(HostFeatureLevel).To(BeNumerically(">=", 11))
+		// Without the flag the same manifest keeps its level.
+		m = deferred()
+		m.Capabilities.ToolDefinitions[0].Deferred = false
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(m.usedFeatureLevel()).To(Equal(BaseFeatureLevel))
+	})
 	It("keeps the field out of an older strict reader: an unknown key is refused", func() {
 		type olderManifest struct {
 			SchemaVersion int `json:"schemaVersion"`

@@ -1,9 +1,11 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useViewAs } from '../../contexts/ViewAsContext'
 import { adminUsersApi } from '../../utils/api'
-import { filterUsers, filterCounts, accessInfo, accessText, initialOf, userState, USER_FILTERS } from '../../utils/access'
+import { canViewAs, filterUsers, filterCounts, accessInfo, accessText, initialOf, userState, USER_FILTERS } from '../../utils/access'
 import { relativeTime } from '../../utils/p2p'
 import ActionMenu from '../ActionMenu'
 import Dialog from '../Dialog'
@@ -67,6 +69,9 @@ const stateTone = (state) => (state === 'active' ? 'active' : state === 'pending
 export default function UsersPanel({ addToast, registrationMode, initialQuery = '', onInvite }) {
   const { t, i18n } = useTranslation('admin')
   const { t: ta } = useTranslation('auth')
+  const { t: tv } = useTranslation('viewas')
+  const viewAs = useViewAs()
+  const navigate = useNavigate()
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loaded, setLoaded] = useState(false)
@@ -215,7 +220,16 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
     </th>
   )
 
+  // View as: an active person who is not the viewer and not an administrator.
+  // Read-only first; the bar then offers Allow changes.
+  const canView = (u) => viewAs.canViewAs && canViewAs(u, currentUser)
+  const startViewAs = (u) => {
+    viewAs.enter({ id: u.id, name: label(u) })
+    navigate('/app/projects')
+  }
+
   const menuItems = (u) => [
+    { key: 'viewas', icon: 'eye', label: tv('users.action'), hidden: !canView(u), onClick: () => startViewAs(u) },
     { key: 'access', icon: 'shield', label: t('users.menu.editAccess'), hidden: u.role === 'admin', onClick: () => setEditingUser(u) },
     { key: 'role', icon: u.role === 'admin' ? 'arrow-down' : 'arrow-up', label: u.role === 'admin' ? t('users.menu.makeUser') : t('users.menu.makeAdmin'), onClick: () => toggleRole(u) },
     { key: 'password', icon: 'key', label: t('users.menu.resetPassword'), hidden: !!u.provider && u.provider !== 'local', onClick: () => openReset(u) },
@@ -383,6 +397,9 @@ export default function UsersPanel({ addToast, registrationMode, initialQuery = 
                     <td className="dk-num">
                       {!self && (
                         <div className="us-acts">
+                          {canView(u) && (
+                            <Button size="sm" icon="eye" className="us-viewas" onClick={() => startViewAs(u)} title={tv('users.hint', { name: label(u) })} aria-label={tv('users.actionFor', { name: label(u) })} data-testid="user-viewas">{tv('users.action')}</Button>
+                          )}
                           {state !== 'active' ? (
                             <Button size="sm" variant="primary" onClick={() => setStatus(u, 'active')} title={t('users.approve')}>
                               {state === 'disabled' ? t('users.enable') : t('users.approveShort')}

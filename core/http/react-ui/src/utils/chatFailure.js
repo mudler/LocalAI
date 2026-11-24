@@ -12,6 +12,7 @@ const REASON = {
   model_cooldown: 'error.reason.model_cooldown',
   model_load_failed: 'error.reason.model_load_failed',
   model_not_found: 'error.reason.model_not_found',
+  model_backend_outdated: 'error.reason.model_backend_outdated',
   upstream_key: 'error.reason.upstream_key',
   upstream_path: 'error.reason.upstream_path',
   upstream_unreachable: 'error.reason.upstream_unreachable',
@@ -23,13 +24,14 @@ const REASON = {
   interrupted: 'error.reason.interrupted',
 }
 
-const ABOUT_MODEL = new Set(['model_backend_missing', 'model_cooldown', 'model_load_failed', 'model_not_found'])
+const ABOUT_MODEL = new Set(['model_backend_missing', 'model_cooldown', 'model_load_failed', 'model_not_found', 'model_backend_outdated'])
 
 const HINT = {
   model_backend_missing: 'error.hint.model_backend_missing',
   model_cooldown: 'error.hint.model_cooldown',
   model_load_failed: 'error.hint.model_load_failed',
   model_not_found: 'error.hint.model_not_found',
+  model_backend_outdated: 'error.hint.model_backend_outdated',
   upstream_key: 'error.hint.upstream_key',
   upstream_path: 'error.hint.upstream_path',
   upstream_unreachable: 'error.hint.upstream_unreachable',
@@ -39,16 +41,16 @@ const HINT = {
 }
 
 // failureView turns the failure of a turn into what the banner shows:
-// { reason, hint, detail, backendsLink }. t is the translation function of the
+// { reason, hint, detail, backendsLink, outdatedBackend }. t is the translation function of the
 // chat namespace. failure is null when the server did not say why (the page was
 // reloaded, or the stream missed the event).
 export function failureView(t, failure, { isAdmin = false } = {}) {
   if (!failure || !failure.code) {
-    return { reason: t('error.reason.unknown'), hint: '', detail: '', backendsLink: false }
+    return { reason: t('error.reason.unknown'), hint: '', detail: '', backendsLink: false, outdatedBackend: '' }
   }
   const { code, model, retry, detail, text } = failure
   const key = REASON[code]
-  if (!key) return { reason: text || t('error.reason.unknown'), hint: '', detail: detail || '', backendsLink: false }
+  if (!key) return { reason: text || t('error.reason.unknown'), hint: '', detail: detail || '', backendsLink: false, outdatedBackend: '' }
 
   const vars = { model, seconds: retry }
   // A reason about a model has one wording that names it, and one for a model
@@ -56,9 +58,10 @@ export function failureView(t, failure, { isAdmin = false } = {}) {
   const reason = ABOUT_MODEL.has(code) && !model ? t(`${key}_anon`, vars) : t(key, vars)
   let hintKey = HINT[code]
   // An administrator can install the backend; the others must ask.
-  if (code === 'model_backend_missing' && isAdmin) hintKey += '_admin'
+  if ((code === 'model_backend_missing' || code === 'model_backend_outdated') && isAdmin) hintKey += '_admin'
   const hint = hintKey ? t(hintKey, vars) : ''
-  return { reason, hint, detail: detail || '', backendsLink: code === 'model_backend_missing' && isAdmin }
+  const outdatedBackend = code === 'model_backend_outdated' ? failure.backend || '' : ''
+  return { reason, hint, detail: detail || '', backendsLink: code === 'model_backend_missing' && isAdmin, outdatedBackend }
 }
 
 // A failure older than this, seen after a reload, no longer shows as a banner.
@@ -81,7 +84,7 @@ export function savedFailure(messages) {
     if (m.role === 'checkpoint') continue
     if (m.role !== 'failure') return null
     const f = m.failure || {}
-    return { code: f.code || 'agent', model: f.model || '', retry: f.retry_after || 0, detail: f.detail || '', text: m.text || '' }
+    return { code: f.code || 'agent', model: f.model || '', retry: f.retry_after || 0, detail: f.detail || '', backend: f.backend || '', text: m.text || '' }
   }
   return null
 }

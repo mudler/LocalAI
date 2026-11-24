@@ -24,3 +24,22 @@ test('an update is a row state and a line above the list, not a banner or a rail
     .map(el => parseFloat(getComputedStyle(el).borderLeftWidth)))
   expect(Math.max(0, ...edges)).toBeLessThanOrEqual(1)
 })
+
+test('a failed read of the updates is said on the page, not shown as no updates', async ({ page }) => {
+  await mockOperate(page, { upgrades: UPGRADE_LLAMA })
+  // Registered after the fixture: the last route wins.
+  let refused = true
+  await page.route('**/api/backends/updates', route => (refused
+    ? route.fulfill({ status: 401, json: { error: { message: 'Authentication required' } } })
+    : route.fallback()))
+  await page.goto('/app/backends?view=installed')
+
+  const notice = page.getByTestId('backends-updates-unreadable')
+  await expect(notice).toContainText('Could not load the list of updates')
+  await expect(page.getByTestId('backends-updates')).toHaveCount(0)
+
+  refused = false
+  await notice.getByRole('button', { name: 'Retry' }).click()
+  await expect(page.getByTestId('backends-updates')).toContainText('1 update available')
+  await expect(notice).toHaveCount(0)
+})

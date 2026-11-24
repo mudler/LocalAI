@@ -323,6 +323,8 @@
    theme. */
 .bg-layer { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .bg-layer__art { position: absolute; }
+.bg-layer__video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bg-layer__video--contain { object-fit: contain; }
 .bg-layer__scrim { position: absolute; inset: 0; background: var(--dk-canvas); }
 
 /* The picture of the assistant (persona.json avatar), or its first letter. */

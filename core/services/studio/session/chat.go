@@ -537,7 +537,11 @@ func (c *Chat) onHarnessEvent(e Event) {
 		e.Tool = capTool(e.Tool)
 		if e.Tool != nil {
 			if e.Tool.OK {
-				e.Tool.Card = c.takeCard(e.Tool.Name, e.Tool.Output)
+				var as string
+				e.Tool.Card, as = c.takeCard(e.Tool.Name, e.Tool.Output)
+				if as != "" {
+					e.Tool.Name = as
+				}
 			}
 			e.Tool.Seq = c.appendEntry(ctx, Entry{Turn: turn, Role: RoleTool, Card: e.Tool.Card, Text: e.Tool.Name + ": " + e.Tool.Summary + "\n" + e.Tool.Output})
 		}
@@ -546,7 +550,7 @@ func (c *Chat) onHarnessEvent(e Event) {
 		// of an internal error.
 		e.Text = fixedReason(e.Text)
 		// The structured cause is the chat's to set: a harness cannot.
-		e.Code, e.Model, e.Retry, e.Detail = "", "", 0, ""
+		e.Code, e.Model, e.Retry, e.Detail, e.Backend = "", "", 0, "", ""
 		e.Tool = nil
 		// Only the chat knows whether an error ended the turn; a harness
 		// cannot claim it.
@@ -1066,7 +1070,7 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
 			f := Classify(err)
 			failure = &f
-			c.emit(Event{Kind: KindError, Turn: n, Text: f.Reason, Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Fatal: true})
+			c.emit(Event{Kind: KindError, Turn: n, Text: f.Reason, Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Backend: f.Backend, Fatal: true})
 		}
 	}
 	c.flushReasoning(context.Background(), n)

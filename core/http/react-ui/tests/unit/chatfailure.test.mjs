@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
+import { updateForBackend, withMetaUpdates } from '../../src/utils/updates.js'
 import { failureView, isStaleFailure, savedFailure, keptAbove, STALE_FAILURE_MS } from '../../src/utils/chatFailure.js'
 
 const locales = new URL('../../public/locales/', import.meta.url)
@@ -64,7 +65,7 @@ test('chat failure: without a cause the banner still says the turn failed', () =
 test('chat failure: every locale has every reason and hint the codes use', () => {
   const want = Object.keys(load('en').error.reason).map(k => `reason.${k}`)
     .concat(Object.keys(load('en').error.hint).map(k => `hint.${k}`))
-    .concat(['title', 'kept', 'retry', 'detail', 'openBackends'])
+    .concat(['title', 'kept', 'retry', 'detail', 'openBackends', 'updateBackend', 'updateBackendBusy', 'updateBackendStarted', 'updateBackendFailed', 'openUpdates'])
   const langs = readdirSync(locales).filter(l => l !== 'en')
   assert.equal(langs.length, 9)
   for (const lng of langs) {
@@ -90,7 +91,7 @@ test('chat failure: the reason the server keeps in the transcript is read back f
     { role: 'failure', text: 'The provider failed.', failure: { code: 'upstream', model: 'm', retry_after: 3, detail: 'HTTP 502' } },
     { role: 'checkpoint', text: '' },
   ]
-  assert.deepEqual(savedFailure(messages), { code: 'upstream', model: 'm', retry: 3, detail: 'HTTP 502', text: 'The provider failed.' })
+  assert.deepEqual(savedFailure(messages), { code: 'upstream', model: 'm', retry: 3, detail: 'HTTP 502', backend: '', text: 'The provider failed.' })
   // A transcript that went on after the failure has no failure to show.
   assert.equal(savedFailure([...messages, { role: 'user', text: 'again' }]), null)
   assert.equal(savedFailure([]), null)
@@ -114,4 +115,49 @@ test('chat failure: an interrupted turn says the server restarted, in every lang
     }
     if (lng !== 'en') assert.notEqual(t('error.resume.stop'), en('error.resume.stop'), `${lng} is translated`)
   }
+})
+
+test('chat failure: a backend that is too old says so and names the backend for the update button', () => {
+  const failure = { code: 'model_backend_outdated', model: 'qwen', backend: 'llama-cpp' }
+  const admin = failureView(en, failure, { isAdmin: true })
+  assert.equal(admin.reason, 'The model "qwen" could not be started: the backend may be too old for it.')
+  assert.match(admin.hint, /Updates page/)
+  assert.equal(admin.outdatedBackend, 'llama-cpp')
+  assert.match(failureView(en, failure, { isAdmin: false }).hint, /administrator/)
+  assert.equal(failureView(en, { code: 'model_load_failed', model: 'x', backend: 'llama-cpp' }).outdatedBackend, '')
+})
+
+test('chat failure: the update row of a backend is found by the name the loader gives', () => {
+  const rows = [
+    { kind: 'gallery', name: 'metal-llama-cpp', state: 'ready' },
+    { kind: 'gallery', name: 'vllm', state: 'current' },
+    { kind: 'library', name: 'llama-cpp', state: 'ready' },
+  ]
+  assert.equal(updateForBackend(rows, 'llama-cpp').name, 'metal-llama-cpp')
+  assert.equal(updateForBackend(rows, 'metal-llama-cpp').name, 'metal-llama-cpp')
+  assert.equal(updateForBackend(rows, 'vllm'), null, 'a current backend has nothing to update')
+  assert.equal(updateForBackend(rows, ''), null)
+  assert.equal(updateForBackend(undefined, 'llama-cpp'), null)
+})
+
+test('chat failure: a backend too old is worded in every language', () => {
+  for (const lng of readdirSync(locales)) {
+    const t = translator(lng)
+    assert.ok(failureView(t, { code: 'model_backend_outdated', model: 'm', backend: 'b' }, { isAdmin: true }).hint, lng)
+    assert.ok(failureView(t, { code: 'model_backend_outdated' }).reason, lng)
+  }
+})
+
+test('backends list: the meta backend that points at an outdated build shows that build\'s update', () => {
+  const upgrades = { 'metal-llama-cpp': { backend_name: 'metal-llama-cpp', available_version: 'v2' } }
+  const installed = [
+    { Name: 'llama-cpp', Metadata: { meta_backend_for: 'metal-llama-cpp' } },
+    { Name: 'metal-llama-cpp', Metadata: {} },
+    { Name: 'whisper', Metadata: { meta_backend_for: 'cpu-whisper' } },
+  ]
+  const out = withMetaUpdates(upgrades, installed)
+  assert.equal(out['llama-cpp'].available_version, 'v2')
+  assert.equal(out['metal-llama-cpp'].available_version, 'v2')
+  assert.equal(out.whisper, undefined, 'no update for the build, none for the meta backend')
+  assert.deepEqual(withMetaUpdates({}, undefined), {})
 })

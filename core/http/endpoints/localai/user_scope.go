@@ -5,7 +5,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/xlog"
 )
 
 // getUserID extracts the scoped user ID from the request context.
@@ -48,24 +47,9 @@ func wantsAllUsers(c echo.Context) bool {
 // effectiveUserID returns the user ID to scope operations to.
 // SECURITY: Only admins may supply ?user_id=<id> to operate on another user's
 // resources. Regular callers always get their own ID regardless of query params.
-func effectiveUserID(c echo.Context) string {
-	if targetUID := c.QueryParam("user_id"); targetUID != "" && canImpersonateUser(c) {
-		if callerID := getUserID(c); callerID != targetUID {
-			xlog.Info("User impersonation", "caller", callerID, "target", targetUID, "path", c.Path())
-		}
-		return targetUID
-	}
-	return getUserID(c)
-}
+// The rule lives in the auth package so the project routes share it.
+func effectiveUserID(c echo.Context) string { return auth.EffectiveUserID(c) }
 
 // canImpersonateUser returns true if the caller is allowed to use ?user_id= to
-// scope operations to another user. Admins only: the agent worker no longer
-// calls the HTTP API, so the agent-worker provider carries no extra power (rows
-// an earlier release created are treated as ordinary users).
-func canImpersonateUser(c echo.Context) bool {
-	user := auth.GetUser(c)
-	if user == nil {
-		return false
-	}
-	return user.Role == auth.RoleAdmin
-}
+// scope operations to another user. Admins only.
+func canImpersonateUser(c echo.Context) bool { return auth.CanImpersonate(c) }

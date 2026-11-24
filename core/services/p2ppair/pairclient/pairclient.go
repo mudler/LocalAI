@@ -43,6 +43,10 @@ var (
 	ErrTooManyTries = errors.New("too many wrong codes from this device or relay: wait a while and try again")
 	// ErrUnreachable means the server named in the link could not be reached.
 	ErrUnreachable = errors.New("cannot reach the server named in the invite")
+	// ErrNoRoute is wrapped with ErrUnreachable when the link names no
+	// address and no relay: the device can find the server only by local
+	// network discovery, which a device in connect mode does not run.
+	ErrNoRoute = errors.New("the invite names no address and no relay")
 	// ErrWrongServer means another peer than the one of the link answered.
 	ErrWrongServer = errors.New("the answering server is not the one of the invite: do not trust this pairing")
 )
@@ -114,6 +118,9 @@ func Redeem(ctx context.Context, h *p2pnet.Host, l *p2ppair.Link, req Request) (
 	defer client.CloseIdleConnections()
 	resp, err := client.Do(hr)
 	if err != nil {
+		if len(l.Addrs) == 0 && len(l.Relays) == 0 {
+			return nil, fmt.Errorf("%w: %w: %w", ErrUnreachable, ErrNoRoute, err)
+		}
 		return nil, fmt.Errorf("%w: %w", ErrUnreachable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()

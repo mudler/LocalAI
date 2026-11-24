@@ -13,6 +13,11 @@
 // example `local-ai-master-windows-amd64.exe.sha256`, in `sha256sum`
 // format (hash, two spaces, file name). The release body holds the commit
 // sha, the commit date and the commit subject.
+//
+// The same release also carries the development build of the launcher
+// (`LocalAI-Launcher-dev-*` packages) and the update feed files that
+// electron-updater reads (`latest-linux.yml`, `latest-linux-arm64.yml`,
+// `latest-mac.yml`, `latest.yml`). See `devLauncherFeedUrl`.
 import { exeSuffix, type PlatformTarget } from './platform'
 
 export const DEV_RELEASE_TAG = 'dev-master'
@@ -23,6 +28,17 @@ export function devAssetName(t: PlatformTarget): string {
 
 export function devChecksumName(t: PlatformTarget): string {
   return `${devAssetName(t)}.sha256`
+}
+
+/**
+ * The base URL of the launcher's own development feed: the folder of the
+ * `dev-master` release downloads. electron-updater's generic provider reads
+ * the `latest-*.yml` file there and resolves the package names against it.
+ * The feed files carry the SHA-512 of each package, which electron-updater
+ * checks before it reports a download as done.
+ */
+export function devLauncherFeedUrl(repo: { owner: string; repo: string }): string {
+  return `https://github.com/${repo.owner}/${repo.repo}/releases/download/${DEV_RELEASE_TAG}/`
 }
 
 /** A combined checksum list, used when the per-file one is missing. */

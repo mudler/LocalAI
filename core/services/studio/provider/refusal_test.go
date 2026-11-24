@@ -79,6 +79,23 @@ var _ = Describe("refused and failing model requests", func() {
 		Expect(f.RetryAfter).To(Equal(30))
 	})
 
+	It("marks a model whose backend is too old and names the backend", func() {
+		tr := provider.NewTransport()
+		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(model.LoadFailedHeader, "true")
+			w.Header().Set(model.LoadCauseHeader, model.LoadCauseBackendOutdated)
+			w.Header().Set(model.LoadBackendHeader, "metal-llama-cpp")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"message":"model \"m\" load is in cooldown after a recent failure; retry after 30s"}}`))
+		}))
+		_, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/chat/completions")
+		Expect(err).To(HaveOccurred())
+		f := session.Classify(err)
+		Expect(f.Code).To(Equal(session.CodeBackendOutdated))
+		Expect(f.Backend).To(Equal("metal-llama-cpp"))
+		Expect(f.Model).To(Equal("m"))
+	})
+
 	It("still retries an overloaded model", func() {
 		tr := provider.NewTransport()
 		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

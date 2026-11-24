@@ -116,6 +116,10 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	if coolErr.BackendMissing {
 		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
 	}
+	if coolErr.OutdatedBackend != "" {
+		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendOutdated)
+		c.Response().Header().Set(model.LoadBackendHeader, coolErr.OutdatedBackend)
+	}
 	return http.StatusServiceUnavailable
 }
 
@@ -866,7 +870,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application))
 	// The notification center works with the chats on or off.
 	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 

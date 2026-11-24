@@ -445,7 +445,9 @@
       "upstream": "Le fournisseur derrière le modèle a renvoyé une erreur.",
       "timeout": "Le modèle a mis trop de temps à répondre.",
       "cancelled": "Le tour a été annulé avant la réponse du modèle.",
-      "interrupted": "Le serveur a redémarré pendant qu'il répondait."
+      "interrupted": "Le serveur a redémarré pendant qu'il répondait.",
+      "model_backend_outdated": "Le modèle « {{model}} » n'a pas pu démarrer : le backend est peut-être trop ancien pour lui.",
+      "model_backend_outdated_anon": "Le modèle n'a pas pu démarrer : le backend est peut-être trop ancien pour lui."
     },
     "hint": {
       "model_backend_missing": "Choisissez un autre modèle ou demandez à un administrateur d'installer le backend.",
@@ -458,7 +460,9 @@
       "upstream_unreachable": "Vérifiez l'adresse dans les réglages du modèle.",
       "upstream": "Réessayez dans un instant. Si l'échec persiste, vérifiez l'adresse et la clé du fournisseur.",
       "timeout": "Réessayez, ou utilisez un modèle plus petit ou plus rapide.",
-      "cancelled": "Réessayez quand vous voulez."
+      "cancelled": "Réessayez quand vous voulez.",
+      "model_backend_outdated": "Demandez à un administrateur de mettre à jour le backend, puis réessayez.",
+      "model_backend_outdated_admin": "Mettez à jour le backend depuis la page Mises à jour, puis réessayez."
     },
     "openBackends": "Ouvrir Backends",
     "titleInterrupted": "La réponse a été interrompue",
@@ -468,7 +472,12 @@
       "server": "Le serveur reprend là où elle s'était arrêtée.",
       "exhausted": "La reprise a échoué après {{max}} essais. Réessayez.",
       "stop": "Arrêter les essais"
-    }
+    },
+    "updateBackend": "Mettre à jour {{backend}}",
+    "updateBackendBusy": "Mise à jour en cours...",
+    "updateBackendStarted": "La mise à jour de {{backend}} a commencé. Réessayez quand elle est terminée.",
+    "updateBackendFailed": "La mise à jour n'a pas pu démarrer.",
+    "openUpdates": "Ouvrir Mises à jour"
   },
   "allChats": {
     "title": "Toutes les conversations",
