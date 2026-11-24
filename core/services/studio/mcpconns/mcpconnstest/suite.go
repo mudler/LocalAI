@@ -69,6 +69,22 @@ func Run(newStore NewStore) {
 		Expect(got.Command).To(BeEmpty())
 		Expect(got.Args).To(BeEmpty())
 	})
+	It("round-trips the agents-only mark", func() {
+		s := newStore()
+		a := conn("c1", "u1", "Finance")
+		a.AgentsOnly = true
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, err := s.Get(ctx, "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AgentsOnly).To(BeTrue(), "Get lost the agents-only mark")
+		l, _ := s.List(ctx, "u1")
+		Expect(l).To(HaveLen(1))
+		Expect(l[0].AgentsOnly).To(BeTrue(), "List lost the agents-only mark")
+		a.AgentsOnly = false
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "c1")
+		Expect(got.AgentsOnly).To(BeFalse(), "the mark could not be cleared")
+	})
 	It("keeps a name unique per owner", func() {
 		s := newStore()
 		_ = s.Put(ctx, conn("a", "u1", "Same"))

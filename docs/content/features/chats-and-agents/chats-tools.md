@@ -18,7 +18,8 @@ A tool cannot take the name of a built-in tool such as `spawn_agent`.
 
 You can also add MCP servers of your own, stored on the server: see
 [MCP servers]({{% relref "/features/chat-apps/mcp-servers#mcp-servers" %}}). Your enabled connectors
-are offered to your chats next to the model's servers; the model's own
+are offered to your chats next to the model's servers, except those marked
+**Only for agents**, which only the saved agents that name them use; the model's own
 configuration is not changed.
 
 ### Prompts and resources as context
