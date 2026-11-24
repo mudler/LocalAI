@@ -1,0 +1,6 @@
+{
+  "title": "Task board",
+  "icon": "checklist",
+  "description": "Three columns of tasks, saved in tasks.json next to the page.",
+  "widget": { "size": "medium", "title": "Tasks" }
+}

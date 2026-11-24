@@ -1,0 +1,41 @@
+baseURL = 'https://localai.io/'
+locale = 'en-GB'
+defaultContentLanguage = 'en'
+title = 'LocalAI'
+enableEmoji = true
+# Hugo's own sitemap.xml is switched off. static/sitemap.xml is a sitemap index
+# that lists this site's sitemap (sitemap-site.xml, made from
+# layouts/index.sitemapsite.xml) and the sitemap of the docs site.
+disableKinds = ['sitemap']
+
+# The main site. Documentation is a second Hugo site under ../docs,
+# built with baseURL <root>/docs/ and merged into this site's public/ by CI.
+# See .github/workflows/gh-pages.yml.
+
+[params]
+  description = 'Your own AI, on your own hardware. Run open models for chat, images, speech and video on your own machines. Your team gets chats, files and documents on top, and the assistant can write and run code.'
+  author = 'Ettore Di Giacinto'
+  docsURL = '/docs/'
+  github = 'https://github.com/mudler/LocalAI'
+  discord = 'https://discord.gg/uJAeKSAGDy'
+  x = 'https://twitter.com/LocalAI_API'
+  huggingface = 'https://huggingface.co/mudler'
+  # Counters live in data/stats.yaml, which .github/ci/refresh-site-counters.sh
+  # rewrites weekly. They used to sit here as hand-typed strings and drifted.
+
+[markup.goldmark.renderer]
+  unsafe = true
+
+[outputFormats.SitemapSite]
+  mediaType = 'application/xml'
+  baseName = 'sitemap-site'
+  isPlainText = true
+  notAlternative = true
+
+[outputs]
+  home = ['html', 'SitemapSite']
+  section = ['html', 'rss']
+  page = ['html']
+
+[taxonomies]
+  tag = 'tags'

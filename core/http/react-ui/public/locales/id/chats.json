@@ -1,0 +1,1632 @@
+{
+  "proposal": {
+    "loading": "Membaca pemicu yang diusulkan...",
+    "unread": "Pemicu yang diusulkan tidak dapat dibaca: {{message}}",
+    "removed": "Pemicu ini sudah dihapus.",
+    "retry": "Coba lagi",
+    "inactive": "Pemicu yang diusulkan. Tidak menjalankan apa pun sampai Anda membuatnya.",
+    "name": "Nama",
+    "schedule": "Kapan (misalnya daily 08:00)",
+    "folder": "Folder yang dipantau",
+    "saveEdit": "Simpan",
+    "cancelEdit": "Batal",
+    "create": "Buat pemicu",
+    "edit": "Ubah",
+    "dismiss": "Tolak",
+    "receipt": {
+      "scheduled": "Dijadwalkan:",
+      "watching": "Memantau:",
+      "next": "Eksekusi berikutnya {{when}}",
+      "view": "Lihat pemicu",
+      "undo": "Urungkan",
+      "undone": "Diurungkan:",
+      "again": "Jadwalkan lagi",
+      "declined": "Ditolak:",
+      "expired": "Kedaluwarsa:",
+      "restore": "Pulihkan",
+      "blocked": {
+        "ran": "Pemicu ini sudah pernah berjalan; hapus dari halaman Pemicu.",
+        "edited": "Anda sudah mengubahnya; ubah atau hapus dari halaman Pemicu."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} dijadwalkan.",
+      "undone": "{{name}} diurungkan. Tidak dijadwalkan.",
+      "declined": "{{name}} ditolak.",
+      "reopened": "{{name}} kembali menunggu jawaban Anda."
+    },
+    "plan": {
+      "whenLabel": "Kapan",
+      "runsAsLabel": "Berjalan sebagai",
+      "readsLabel": "Membaca",
+      "writesLabel": "Menulis",
+      "costLabel": "Biaya",
+      "deliveryLabel": "Hasil dikirim ke",
+      "deliveryInbox": "Kotak masuk Anda",
+      "deliveryChat": "Obrolan ini",
+      "deliveryThread": "Utas ini",
+      "deliveryChannel": "{{channel}}, di tingkat atas kanal",
+      "deliveryChannelIn": "{{channel}} di {{connection}}, di tingkat atas kanal",
+      "deliveryModeOnChange": "Hanya jika jawabannya berbeda dari proses sebelumnya.",
+      "deliveryModeOnProblem": "Hanya jika sebuah proses gagal. Proses yang berhasil tidak melaporkan apa pun.",
+      "stopLabel": "Untuk menghentikannya",
+      "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Saat sebuah file masuk ke {{folder}}.",
+      "runsAs": "Anda",
+      "runsAsModel": "Anda, dengan {{model}}",
+      "writesWidget": ", ditampilkan di widget \"{{widget}}\" di Beranda",
+      "costLocal_other": "Sekitar {{tokens}} token per jalan pada model lokal. Paling banyak {{count}} jalan per hari.",
+      "costRemote_other": "Sekitar {{tokens}} token per jalan pada {{model}}, layanan jarak jauh. Paling banyak {{count}} jalan per hari.",
+      "costUnknown_other": "Token per jalan diketahui setelah jalan pertama. Paling banyak {{count}} jalan per hari.",
+      "costLocal_one": "Sekitar {{tokens}} token per jalan pada model lokal. Paling banyak {{count}} jalan per hari.",
+      "costRemote_one": "Sekitar {{tokens}} token per jalan pada {{model}}, layanan jarak jauh. Paling banyak {{count}} jalan per hari.",
+      "costUnknown_one": "Token per jalan diketahui setelah jalan pertama. Paling banyak {{count}} jalan per hari.",
+      "remoteNote": "{{model}} adalah layanan jarak jauh: apa yang dibaca sebuah jalan meninggalkan server ini.",
+      "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
+      "stop": "Matikan atau hapus di Pemicu",
+      "actsLabel": "Izin",
+      "limitLabel": "Batas waktu",
+      "limitClamped": "{{limit}}, dibatasi menjadi {{ceiling}} oleh administrator"
+    }
+  },
+  "mcpPage": {
+    "title": "Konektor MCP",
+    "supporting": "Hubungkan server MCP untuk memberi chat dan agen Anda lebih banyak alat, seperti pencarian atau API Anda sendiri.",
+    "related": "Terkait",
+    "chats": "Chat",
+    "add": "Konektor baru",
+    "learn": "Cara kerja MCP",
+    "loading": "Memuat konektor Anda",
+    "loadFailed": "Tidak dapat memuat konektor Anda.",
+    "forbidden": "MCP tidak tersedia untuk akun Anda.",
+    "empty": {
+      "title": "Belum ada konektor",
+      "body": "Konektor menghubungkan server MCP ke LocalAI. Chat dan agen Anda lalu dapat memakai alatnya, misalnya untuk mencari di dokumentasi Anda atau membaca kalender.",
+      "fact1": "Server MCP apa pun lewat http atau https",
+      "fact2": "Token dan header disimpan terenkripsi",
+      "fact3": "Uji dulu sebelum chat memakainya"
+    },
+    "toolbar": {
+      "search": "Cari konektor",
+      "testAll": "Uji semua",
+      "testingAll": "Menguji",
+      "testedAll": "Konektor yang aktif sudah diuji."
+    },
+    "filter": {
+      "label": "Tampilkan",
+      "all": "Semua",
+      "on": "Aktif",
+      "attention": "Perlu perhatian",
+      "off": "Nonaktif",
+      "showAll": "Tampilkan semua",
+      "none": {
+        "all": "Tidak ada konektor.",
+        "on": "Tidak ada konektor yang aktif.",
+        "attention": "Tidak ada yang perlu perhatian Anda.",
+        "off": "Semua konektor aktif."
+      }
+    },
+    "noMatch": {
+      "title": "Tidak ada konektor yang cocok dengan “{{query}}”",
+      "body": "Cari berdasarkan nama atau alamat.",
+      "clear": "Hapus pencarian"
+    },
+    "state": {
+      "label": "Status: {{state}}",
+      "ok": "Terhubung",
+      "auth": "Perlu masuk",
+      "error": "Tidak terhubung",
+      "unchecked": "Belum diuji",
+      "off": "Nonaktif"
+    },
+    "row": {
+      "open": "{{name}}, {{state}}. Lihat detail",
+      "toggle": "Pakai {{name}} di chat",
+      "menu": "Tindakan untuk {{name}}",
+      "offLine": "Nonaktif. Chat dan agen tidak memakainya.",
+      "notChecked": "Belum diuji. Uji untuk melihat alatnya.",
+      "noTools": "Terhubung, tetapi server tidak menawarkan alat.",
+      "tools_one": "{{count}} alat",
+      "tools_other": "{{count}} alat",
+      "checked": "Diuji {{when}}",
+      "tokenSaved": "Token tersimpan",
+      "headersSaved": "Header tersimpan",
+      "envSaved": "Variabel tersimpan"
+    },
+    "actions": {
+      "details": "Detail",
+      "test": "Uji koneksi",
+      "testNamed": "Uji koneksi ke {{name}}",
+      "testing": "Menguji",
+      "edit": "Ubah",
+      "reauth": "Ganti token",
+      "remove": "Hapus"
+    },
+    "details": {
+      "use": "Pakai di chat",
+      "useHelp": "Chat tanpa agen memakai semua konektor yang aktif. Agen tersimpan hanya memakai yang Anda pilih untuknya.",
+      "lastCheck": "Uji terakhir",
+      "never": "Belum diuji di browser ini.",
+      "okAt": "Terhubung {{when}}.",
+      "testedAt": "Diuji {{when}}.",
+      "errorTitle": "Uji terakhir tidak dapat terhubung.",
+      "authTitle": "Server menolak proses masuk.",
+      "output": "Keluaran terakhir dari perintah",
+      "outputCopy": "Salin",
+      "outputCopied": "Tersalin",
+      "outputMore": "Tampilkan semua {{count}} baris",
+      "outputLess": "Tampilkan lebih sedikit",
+      "tools": "Alat",
+      "toolsUnknown": "Uji koneksi untuk melihat alatnya.",
+      "toolsNone": "Server tidak menawarkan alat.",
+      "toolsSearch": "Cari alat",
+      "noToolMatch": "Tidak ada alat yang cocok dengan “{{query}}”.",
+      "noDescription": "Tidak ada deskripsi.",
+      "connection": "Koneksi",
+      "kind": "Jenis",
+      "address": "Alamat",
+      "command": "Perintah",
+      "added": "Ditambahkan",
+      "queryHidden": "Bagian alamat setelah ? disembunyikan karena dapat berisi kunci.",
+      "signIn": "Masuk",
+      "token": "Token bearer",
+      "headers": "Header",
+      "env": "Variabel",
+      "saved": "Tersimpan",
+      "none": "Tidak ada",
+      "encrypted": "Disimpan terenkripsi di server. Tidak pernah ditampilkan lagi."
+    },
+    "sheet": {
+      "addTitle": "Konektor baru",
+      "editTitle": "Ubah {{name}}",
+      "addDesc": "Hubungkan server MCP. Anda mengujinya sebelum chat memakainya.",
+      "editDesc": "Rahasia yang tersimpan tetap ada kecuali Anda mengganti atau menghapusnya.",
+      "testDesc": "LocalAI terhubung dengan yang Anda simpan dan menampilkan daftar alatnya.",
+      "close": "Tutup",
+      "kind": "Jenis",
+      "remote": "Server jarak jauh",
+      "remoteHelp": "Server MCP yang dijangkau mesin ini lewat http atau https.",
+      "local": "Perintah lokal",
+      "localHelp": "Program yang dijalankan LocalAI di mesin ini. Hanya administrator.",
+      "basics": "Koneksi",
+      "name": "Nama",
+      "nameHelp": "Muncul di menu Alat pada chat.",
+      "url": "Alamat",
+      "urlHelp": "Server di jaringan privat ditolak kecuali administrator mengizinkannya.",
+      "command": "Perintah",
+      "commandHelp": "Program yang dijalankan, tanpa shell.",
+      "args": "Argumen",
+      "argsHelp": "Satu argumen per baris.",
+      "signIn": "Masuk",
+      "signInHelp": "Hanya jika server meminta kunci.",
+      "envIntro": "Variabel yang diterima perintah, misalnya kunci API.",
+      "token": "Token bearer",
+      "tokenHelp": "Dikirim sebagai header Authorization.",
+      "tokenSaved": "Token sudah tersimpan. Ketik token baru untuk menggantinya.",
+      "tokenSavedShort": "Tersimpan",
+      "clearToken": "Hapus token yang tersimpan",
+      "headers": "Header",
+      "headersHelp": "Header lain yang dibutuhkan server, seperti header kunci API.",
+      "headersSaved": "Header sudah tersimpan. Baris baru menggantikan semuanya.",
+      "clearHeaders": "Hapus header yang tersimpan",
+      "headerName": "Nama header",
+      "headerValue": "Nilai",
+      "addHeader": "Tambah header",
+      "env": "Variabel lingkungan",
+      "envSaved": "Variabel sudah tersimpan. Baris baru menggantikan semuanya.",
+      "clearEnv": "Hapus variabel yang tersimpan",
+      "envName": "Variabel",
+      "addEnv": "Tambah variabel",
+      "removeRow": "Hapus baris {{n}}",
+      "showValue": "Tampilkan nilai",
+      "hideValue": "Sembunyikan nilai",
+      "encrypted": "Token, header, dan variabel disimpan terenkripsi di server dan tidak pernah ditampilkan lagi.",
+      "cancel": "Batal",
+      "saving": "Menyimpan",
+      "saveAndTest": "Simpan dan uji",
+      "savedOn": "Tersimpan. Konektor aktif.",
+      "savedOff": "Tersimpan. Tetap nonaktif sampai Anda mengaktifkannya.",
+      "testing": "Menghubungkan ke {{name}}…",
+      "okTitle": "Terhubung.",
+      "okBody_one": "{{name}} menawarkan {{count}} alat.",
+      "okBody_other": "{{name}} menawarkan {{count}} alat.",
+      "okNoTools": "Server tidak menawarkan alat.",
+      "failTitle": "Tidak dapat terhubung.",
+      "failHint": "Periksa alamatnya, lalu uji lagi.",
+      "failAuth": "Periksa token atau header.",
+      "back": "Ubah detail",
+      "retry": "Uji lagi",
+      "done": "Selesai",
+      "keepOff": "Biarkan nonaktif",
+      "turnOn": "Aktifkan",
+      "discardTitle": "Buang perubahan Anda?",
+      "discardBody": "Yang Anda ketik di formulir ini akan hilang.",
+      "discard": "Buang",
+      "keepEditing": "Lanjut mengubah"
+    },
+    "errors": {
+      "nameRequired": "Beri nama.",
+      "nameTaken": "Konektor lain sudah memakai nama ini.",
+      "urlRequired": "Masukkan alamat server.",
+      "urlInvalid": "Ini bukan alamat yang valid.",
+      "urlScheme": "Alamat harus diawali http:// atau https://.",
+      "urlCredentials": "Letakkan kredensial di token atau header, bukan di alamat.",
+      "commandRequired": "Masukkan perintah yang dijalankan."
+    },
+    "remove": {
+      "title": "Hapus {{name}}?",
+      "body": "Konektor dihapus bersama token, header, dan variabel yang tersimpan. Agen tersimpan yang memakainya tidak dapat lagi memanggil alatnya.",
+      "confirm": "Hapus",
+      "pending": "Menghapus"
+    },
+    "toasts": {
+      "removed": "“{{name}}” dihapus.",
+      "on": "“{{name}}” aktif.",
+      "off": "“{{name}}” nonaktif."
+    },
+    "import": {
+      "title": "Server yang tersimpan di browser ini",
+      "text": "Halaman chat lama menyimpan server MCP ini di browser ini. Impor agar tersimpan di server, sehingga setiap browser dan sesi dapat memakainya. Server dibuat dalam keadaan nonaktif. Token dan header-nya dikirim ke server lalu dihapus dari browser ini.",
+      "button": "Impor {{count}} server dari browser ini",
+      "buttonOne": "Impor 1 server dari browser ini",
+      "busy": "Mengimpor",
+      "headersCount": "{{count}} header",
+      "done": "{{count}} diimpor. Semuanya nonaktif: uji dan aktifkan di bawah.",
+      "failed": "{{name}} tidak diimpor: {{error}}",
+      "left": "Server yang tidak diimpor tetap ada di browser ini."
+    }
+  },
+  "connectorsPage": {
+    "loadFailed": "Konektor Anda tidak dapat dimuat.",
+    "waitingTitle": "Menunggu add-on-nya",
+    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan.",
+    "oauth": {
+      "connected": "Terhubung",
+      "connectedAs": "Terhubung sebagai {{account}}",
+      "access": "Akses: {{scopes}}",
+      "expires": "Kedaluwarsa {{time}}",
+      "disconnect": "Putuskan",
+      "disconnecting": "Memutuskan…",
+      "disconnectTitle": "Putuskan {{name}}?",
+      "disconnectText": "LocalAI meminta layanan mencabut login ini, lalu melupakannya. Alat yang memakai koneksi ini berhenti bekerja sampai Anda terhubung lagi.",
+      "disconnected": "{{name}} sudah diputus. Layanan mencabut login.",
+      "disconnectedNotTold": "{{name}} sudah diputus di sini, tetapi layanan tidak mengonfirmasi bahwa login dicabut. Hapus juga akses di akun Anda pada layanan.",
+      "notConnected": "Belum terhubung.",
+      "connect": "Hubungkan",
+      "alsoAllow": "Izinkan juga:",
+      "reconnectTitle": "Hubungkan lagi.",
+      "reconnect": "Hubungkan ulang",
+      "reason": {
+        "revoked": "Layanan mengakhiri login, atau akses dicabut.",
+        "client_rejected": "Layanan tidak lagi menerima klien server ini. Administrator mungkin perlu memperbaruinya.",
+        "refused": "Layanan menolak memperbarui login.",
+        "needs_approval": "Login add-on ini berubah dan harus disetujui lagi.",
+        "credential_rejected": "Layanan menolak akses, bahkan setelah pembaruan.",
+        "expired": "Login kedaluwarsa dan tidak dapat diperbarui.",
+        "write_failed": "Login yang diperbarui tidak dapat disimpan.",
+        "unreadable": "Login yang tersimpan tidak dapat dibaca.",
+        "unknown": "Login tidak berfungsi lagi.",
+        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi.",
+        "token_too_large": "Layanan memperbarui login dengan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte)."
+      },
+      "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+      "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",
+      "approvalAdmin": "Tidak ada yang dapat terhubung sampai Anda menyetujui login add-on ini.",
+      "approvalAdminChanged": "Login add-on ini berubah sejak disetujui. Tinjau dan setujui lagi.",
+      "review": "Tinjau dan setujui",
+      "returned": {
+        "ok": "Terhubung. Koneksi sekarang berfungsi.",
+        "denied": "Anda menolak di layanan. Tidak ada yang berubah.",
+        "error": {
+          "invalid_state": "Login tidak dapat diselesaikan: login kedaluwarsa, atau login lain dimulai di peramban ini. Hubungkan lagi.",
+          "provider_error": "Layanan melaporkan kesalahan. Coba lagi nanti.",
+          "exchange_failed": "Layanan tidak menyelesaikan login. Hubungkan lagi.",
+          "scopes_missing": "Layanan tidak memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+          "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+          "unknown": "Login tidak dapat diselesaikan. Hubungkan lagi.",
+          "token_too_large": "Layanan menerbitkan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte), jadi login tidak disimpan. Administrator mungkin perlu mengubah cara layanan menerbitkan token untuk klien ini."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Server ini tidak tahu alamat publiknya, jadi tidak dapat mengarahkan Anda ke layanan. Minta administrator mengatur URL dasar eksternal server.",
+        "needsApproval": "Administrator harus menyetujui add-on ini terlebih dahulu.",
+        "approvalStale": "Login add-on ini berubah. Muat ulang halaman.",
+        "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+        "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
+      },
+      "add": {
+        "open": "Koneksi baru",
+        "title": "Koneksi {{name}} baru",
+        "name": "Nama",
+        "hint": "Nama yang mudah Anda kenali, misalnya Kerja atau Pribadi. Setelah koneksi ditambahkan, pilih Hubungkan untuk masuk ke akun Anda.",
+        "cancel": "Batal",
+        "submit": "Tambah",
+        "failed": "Koneksi tidak dapat ditambahkan. Coba lagi.",
+        "added": "{{name}} ditambahkan. Pilih Hubungkan untuk masuk ke akun Anda.",
+        "empty": "Belum ada koneksi. Tambahkan satu, lalu hubungkan akun Anda.",
+        "manage": "Ubah koneksi"
+      },
+      "login": {
+        "hint": "Nama yang Anda kenali, seperti Kerja atau Pribadi. Setelah itu Anda menuju layanan untuk masuk."
+      }
+    },
+    "duplicate": {
+      "text": "Bot ini juga terhubung sebagai {{name}}. Kedua koneksi akan menjawab pesan yang sama.",
+      "turnOff": "Matikan yang ini",
+      "open": "Buka {{name}}"
+    },
+    "new": "Koneksi baru",
+    "newMenu": "Pilih platform untuk koneksi baru",
+    "state": {
+      "running": "Berjalan",
+      "off": "Mati",
+      "attention": "Perlu perhatian"
+    },
+    "share": {
+      "label": "Bagikan",
+      "button": "Bagikan {{name}}",
+      "intro": "Orang yang Anda tambahkan dapat memakai koneksi ini di obrolan dan agen mereka sendiri. Mereka melihat nama dan statusnya, tidak pernah tokennya atau pengaturannya. Pesan ke bot tetap sampai ke agen Anda.",
+      "roleUse": "Dapat memakai",
+      "roleUseHelp": "Dapat memakainya di obrolan dan agen mereka. Tidak dapat melihat token, mengubah, atau membagikannya."
+    },
+    "shared": {
+      "title": "Dibagikan kepada Anda",
+      "text": "Orang lain mengizinkan Anda memakai koneksi ini di obrolan dan agen Anda. Hanya pemiliknya yang dapat mengubahnya.",
+      "on": "Mendengarkan",
+      "off": "Mati"
+    },
+    "title": "Koneksi",
+    "introAccounts": "Akun yang Anda hubungkan sekali agar obrolan dan agen Anda dapat memakainya sebagai alat. Setiap akun berasal dari add-on.",
+    "noAddonAccounts": "Belum ada add-on akun yang terpasang.",
+    "noAddonAccountsHint": "Add-on akun menghubungkan sebuah layanan ke obrolan dan agen Anda. Pasang satu dari galeri add-on untuk menambahkan koneksi.",
+    "noAddonMessaging": "Belum ada add-on pesan yang terpasang.",
+    "noAddonMessagingHint": "Add-on pesan membawa pesan dari platform obrolan. Pasang satu dari galeri add-on untuk menambahkan tautan."
+  },
+  "tools": {
+    "commands": {
+      "title": "Perintah tidak bisa dijalankan di sini",
+      "none": "Tidak ada add-on yang menjalankan kode, jadi asisten bisa menulis file tetapi tidak bisa menjalankan skrip atau perintah.",
+      "askFix": "Minta administrator memperbaikinya.",
+      "hide": "Sembunyikan",
+      "hideLabel": "Sembunyikan pemberitahuan ini",
+      "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail.",
+      "hostTitle": "Perintah berjalan di mesin ini",
+      "hostChipTitle": "Perintah di chat ini berjalan di mesin ini, tanpa isolasi. Pilih untuk detail.",
+      "providerHost": "Perintah dijalankan di server tanpa isolasi.",
+      "unknown": "Kesiapan atau isolasi eksekusi tidak diketahui.",
+      "unknownBy": {
+        "owner_unreachable": "Kesiapan atau isolasi eksekusi tidak diketahui: pemilik add-on tidak dapat dihubungi.",
+        "not_reported": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on belum melaporkan status eksekusinya.",
+        "stale": "Kesiapan atau isolasi eksekusi tidak diketahui: status tidak cocok dengan versi add-on saat ini.",
+        "invalid_status": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on mengirim status yang tidak dapat diterima host.",
+        "not_selected": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on bukan yang menjalankan perintah chat ini.",
+        "no_answer": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on tidak menjawab tepat waktu.",
+        "reported_unknown": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on melaporkan bahwa ia tidak dapat mengetahuinya."
+      },
+      "providerUnavailable": "Penyedia eksekusi yang dipilih tidak tersedia.",
+      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini.",
+      "hostOff": {
+        "reason": "Bash bawaan server mati, jadi asisten bisa menulis berkas tetapi tidak bisa menjalankan skrip atau perintah.",
+        "whoAdmin": "Anda administrator. Di Pengaturan, Alat, aktifkan baris Perintah (bash). Tanya setiap kali adalah pilihan yang lebih aman. Perintah lalu berjalan di server tanpa isolasi dan dapat membaca apa yang dapat dibaca server.",
+        "whoMember": "Minta administrator server ini untuk mengaktifkannya.",
+        "fix": "Buka pengaturan",
+        "sandboxText": "Untuk perintah yang terisolasi, pasang add-on yang menjalankan perintah secara terisolasi sebagai gantinya.",
+        "sandbox": "Buka Add-on"
+      }
+    },
+    "consent": {
+      "title": "Jalankan perintah ini di mesin ini?",
+      "body": "Perintah berjalan di mesin ini tanpa isolasi. Perintah dapat membaca berkas yang bisa dibaca LocalAI dan menjangkau internet serta jaringan Anda.",
+      "once": "Jalankan sekali",
+      "always": "Selalu di instans ini",
+      "deny": "Jangan jalankan",
+      "alwaysHint": "\"Selalu di instans ini\" membuat chat semua pengguna menjalankan perintah di sini tanpa bertanya (Pengaturan > Alat).",
+      "askAdmin": "Hanya administrator yang dapat mengizinkan perintah di mesin ini. Minta kepada administrator, atau jalankan perintahnya sendiri.",
+      "job": "Ini memulai job di latar belakang. Job tetap berjalan setelah panggilan ini, dan mengizinkannya juga mengizinkan input yang ditulis model ke job itu nanti, tanpa bertanya lagi.",
+      "expired": "Tidak dijawab: giliran yang meminta sudah selesai, jadi perintah tidak dijalankan."
+    },
+    "provider": {
+      "addon": "Add-on {{name}}",
+      "host": "Mesin ini, tanpa isolasi",
+      "hostOnce": "Mesin ini, diizinkan sekali",
+      "hostDenied": "Tidak dijalankan: ditolak",
+      "hostTimeout": "Tidak dijalankan: tidak ada jawaban",
+      "hostAdmin": "Tidak dijalankan: perlu administrator"
+    },
+    "builtins": "Alat bawaan",
+    "builtin": {
+      "web": "Web",
+      "saved_agents": "Agen tersimpan",
+      "triggers": "Buat dan kelola pemicu",
+      "shell": "Jalankan perintah",
+      "files": "File Anda",
+      "media": "Gambar dan audio",
+      "collections": "Pengetahuan",
+      "subagents": "Sub-agen",
+      "changes": "Perubahan yang disarankan",
+      "memory": "Memori",
+      "history": "Chat sebelumnya",
+      "localai_client": "Klien LocalAI",
+      "localai_admin": "Admin LocalAI"
+    },
+    "builtinBy": "{{tools}} · bawaan",
+    "onDemand": "Dimuat sesuai kebutuhan",
+    "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
+    "servedBy": "Dilayani oleh add-on {{provider}}",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "bawaan",
+    "fallbackBuiltin": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini (berhenti, dimatikan di sini, atau tidak diizinkan): {{tool}} bawaan yang dipakai.",
+    "fallbackNone": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini, dan {{tool}} bawaan mati: chat ini tidak punya {{tool}}.",
+    "toolCap": {
+      "title": "Beberapa alat add-on tidak tersedia di obrolan ini",
+      "reason": "{{offered}} dari {{total}} alat add-on tersedia. Satu obrolan hanya dapat memakai sejumlah terbatas.",
+      "who": "Matikan add-on yang tidak Anda pakai di obrolan ini untuk memberi ruang, atau minta administrator menaikkan batasnya.",
+      "whoAdmin": "Matikan add-on yang tidak Anda pakai di obrolan ini untuk memberi ruang, atau naikkan batasnya di Pengaturan.",
+      "fix": "Buka pengaturan",
+      "addon": "{{name}}: {{count}} tidak tersedia",
+      "lost": "Add-on yang kehilangan alat"
+    },
+    "shell": {
+      "machine": "Mesin ini",
+      "isolated": "Perintah berjalan terisolasi"
+    },
+    "describe": {
+      "shell": "Model dapat menjalankan perintah shell dan skrip.",
+      "files": "Model dapat mencantumkan, membaca, menulis, dan mencari file Anda.",
+      "web": "Model dapat mencari di web dan membaca halaman publik.",
+      "media": "Model dapat mendeskripsikan gambar dan mentranskripsi rekaman dari file Anda.",
+      "collections": "Model dapat mencari di koleksi Anda.",
+      "subagents": "Model dapat memulai sub-agen untuk satu tugas dan menerima laporannya.",
+      "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
+      "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
+      "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan.",
+      "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh.",
+      "history": "Memungkinkan model mencari dan membaca chat Anda sebelumnya.",
+      "localai_client": "Memungkinkan model membuat gambar, suara, bunyi, dan video, serta mentranskripsi, membuat embedding, mengurutkan ulang, dan mendeteksi, dengan model yang terpasang di sini.",
+      "localai_admin": "Memungkinkan model mengelola server ini: model, backend, pengaturan, dan statusnya. Hanya untuk administrator; model bertanya kepadamu sebelum mengubah apa pun."
+    },
+    "whenOff": {
+      "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
+      "files": "Model tidak dapat melihat atau mengubah berkas Anda.",
+      "web": "Model tidak dapat mencari apa pun secara daring.",
+      "media": "Model tidak dapat membaca gambar atau rekaman sendiri.",
+      "collections": "Model tidak dapat membaca koleksi Anda.",
+      "subagents": "Model bekerja sendiri.",
+      "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
+      "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
+      "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor.",
+      "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda.",
+      "history": "Model tidak dapat melihat chat Anda sebelumnya.",
+      "localai_client": "Model tidak dapat menjalankan model-model ini sendiri.",
+      "localai_admin": "Model tidak dapat mengelola server ini."
+    },
+    "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
+    "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
+    "serverDescribe": "Server MCP milik model: alatnya ditawarkan kepada model.",
+    "connectorDescribe": "Salah satu konektor MCP Anda: alatnya ditawarkan kepada model.",
+    "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya.",
+    "grants": "Izin lainnya",
+    "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti.",
+    "connection": {
+      "label": "Koneksi",
+      "help": "Pilih koneksi yang boleh dipakai chat ini. Asisten hanya bisa memakai yang Anda centang.",
+      "helpMany": "Asisten menyebut koneksi di setiap tindakan dan hanya bisa menyebut yang dicentang.",
+      "sole": "Ini satu-satunya koneksi Anda, jadi dipakai.",
+      "choose": "Pilih setidaknya satu koneksi untuk memakai alat ini",
+      "none": "Belum ada koneksi",
+      "create": "Koneksi baru",
+      "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
+      "agentLabel": "Koneksi untuk chat agen ini",
+      "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
+      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri.",
+      "reconnectNeeded": "Hubungkan lagi: {{names}}",
+      "ownerReconnectNeeded": "Pemilik harus menghubungkan lagi: {{names}}",
+      "reconnect": "Hubungkan ulang"
+    },
+    "optionNeeds": "Aktifkan “{{name}}” untuk menggunakannya.",
+    "connectionMissing": "{{name}} belum mengizinkan ini.",
+    "connectionOpen": "Buka izinnya",
+    "section": {
+      "messaging": {
+        "title": "Aplikasi pesan",
+        "intro": "Berlaku untuk obrolan yang dimulai di aplikasi pesan. Koneksi harus mengizinkan hal yang sama di halaman izinnya sendiri."
+      },
+      "unattended": {
+        "title": "Saat tidak ada yang mengawasi",
+        "intro": "Berlaku untuk proses yang dimulai oleh pemicu atau aplikasi pesan, tempat tidak ada yang bisa mengonfirmasi satu langkah."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Mengingat hal",
+        "description": "Model dapat mengusulkan catatan untuk memori Anda atau memori agen. Anda mengonfirmasi setiap catatan."
+      },
+      "profile_write": {
+        "title": "Mengubah aturannya sendiri",
+        "description": "Model dapat mengusulkan perubahan pada aturan tetap agen. Anda mengonfirmasi setiap perubahan."
+      },
+      "skills_write": {
+        "title": "Menulis skill",
+        "description": "Model dapat mengusulkan skill baru atau yang diubah. Anda mengonfirmasi masing-masing."
+      },
+      "pages_write": {
+        "title": "Membuat halaman",
+        "description": "Model dapat mengusulkan aplikasi kecil yang terbuka dalam bingkai terisolasi. Anda mengonfirmasinya."
+      },
+      "dashboard_write": {
+        "title": "Mengubah dasbor",
+        "description": "Model dapat mengusulkan tata letak baru untuk dasbor Beranda Anda. Anda mengonfirmasi setiap perubahan."
+      },
+      "knowledge_write": {
+        "title": "Tambahkan ke pengetahuan",
+        "description": "Memungkinkan model mengusulkan teks untuk koleksi Pengetahuan Anda. Anda mengonfirmasi setiap teks; teks tidak pernah ditambahkan langsung."
+      },
+      "triggers_propose": {
+        "title": "Usulkan juga dari aplikasi pesan",
+        "description": "Model dapat mengusulkan pemicu saat seseorang memintanya di aplikasi pesan. Anda mengonfirmasinya."
+      },
+      "triggers_run": {
+        "title": "Biarkan pemicu dimulai dari aplikasi pesan",
+        "description": "Pemicu yang terikat pada koneksi pesan dapat memulai proses dan mengirim hasilnya ke sana."
+      },
+      "talkback_channels": {
+        "title": "Membalas di kanal yang dikenal",
+        "description": "Model dapat mengirim pesan ke kanal yang sudah dipakainya."
+      },
+      "talkback_new_channel": {
+        "title": "Memulai kanal baru",
+        "description": "Model dapat memulai percakapan di kanal yang belum pernah dipakainya."
+      },
+      "files_upload": {
+        "title": "Menerima file dari aplikasi pesan",
+        "description": "Pengirim dapat melampirkan file untuk dibaca model. Model tidak dapat mengirim file keluar."
+      },
+      "act_files": {
+        "title": "Menulis file sendiri",
+        "description": "Proses yang tidak diawasi dapat menulis file di folder agen."
+      },
+      "act_addons": {
+        "title": "Memakai aksi add-on sendiri",
+        "description": "Proses yang tidak diawasi dapat memanggil aksi add-on milik agen."
+      },
+      "act_send": {
+        "title": "Mengirim pesan sendiri",
+        "description": "Proses yang tidak diawasi dapat mengirim pesan di luar tujuan pengirimannya."
+      },
+      "act_spend": {
+        "title": "Memakai alat berbayar atau eksternal sendiri",
+        "description": "Proses yang tidak diawasi dapat memakai alat berbayar atau eksternal dan jaringan."
+      },
+      "history_read": {
+        "title": "Baca chat Anda sebelumnya",
+        "description": "Memungkinkan model mencari dan membaca chat Anda sebelumnya. Agen yang bekerja di satu folder hanya membaca chat agennya sendiri."
+      }
+    },
+    "fromProject": "Dari proyek",
+    "fromProjectTitle": "Proyek melampirkan alat ini, jadi selalu aktif di sini. Untuk mematikannya, lepaskan di proyek."
+  },
+  "vision": {
+    "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",
+    "none": "Model ini tidak dapat melihat gambar, dan tidak ada model di sini yang dapat menjelaskannya. Pilih model yang dapat melihat gambar."
+  },
+  "egress": {
+    "label": "Jaringan",
+    "preset": {
+      "off": "Mati",
+      "registries": "Kustom",
+      "all": "Semua situs publik"
+    },
+    "presetHint": {
+      "off": "Perintah tidak menjangkau jaringan apa pun.",
+      "registries": "Perintah menjangkau registri paket (PyPI, npm, Go, crates.io, RubyGems, Maven Central, rilis GitHub) dan domain yang ditambahkan administrator Anda.",
+      "all": "Perintah menjangkau semua situs publik."
+    },
+    "limited": "Dibatasi oleh administrator Anda",
+    "limitedBy": "Administrator Anda mengizinkan paling banyak: {{limit}}.",
+    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya. Batas jaringan memerlukan add-on yang mengisolasi perintah.",
+    "panel": "Aturan dan permintaan ({{count}})",
+    "panelCustom": "Domain kustom",
+    "rules": "Aturan chat ini",
+    "cards": "Permintaan chat ini",
+    "ruleAllow": "Diizinkan untuk chat ini",
+    "ruleDeny": "Ditolak untuk chat ini",
+    "aboveLimit": "di atas batas, tidak berlaku",
+    "remove": "Hapus",
+    "removeLabel": "Hapus aturan {{host}}",
+    "card": {
+      "pending": "Menunggu jawaban",
+      "allowedOnce": "Diizinkan sekali",
+      "allowedChat": "Diizinkan untuk chat ini",
+      "denied": "Ditolak",
+      "expired": "Tidak dijawab",
+      "refused": "Ditolak: batas jaringan server tidak mengizinkannya"
+    },
+    "consent": {
+      "title": "Akses jaringan",
+      "body": "Sebuah perintah di chat ini ingin menjangkau",
+      "once": "Izinkan sekali",
+      "chat": "Izinkan untuk chat ini",
+      "deny": "Tolak",
+      "preset": "Chat ini: {{preset}}. Batas dari administrator Anda: {{limit}}.",
+      "adminOnly": "Host ini ada di dalam jaringan Anda: hanya administrator yang dapat mengizinkannya.",
+      "answered": "{{state}} oleh {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "Anda"
+    },
+    "blocked": {
+      "titleOff": "Akses jaringan dimatikan",
+      "titleCapped": "Akses jaringan dibatasi",
+      "bodyOff": "Akses jaringan untuk perintah dimatikan di server ini. Sebuah perintah meminta menjangkau",
+      "bodyCapped": "Server ini hanya mengizinkan {{limit}} untuk jaringan perintah. Sebuah perintah meminta menjangkau",
+      "adminOff": "Administrator dapat menyalakannya di pengaturan {{name}}.",
+      "adminCapped": "Administrator dapat menaikkan batasnya di pengaturan {{name}}.",
+      "adminLink": "Buka pengaturan {{name}}",
+      "askAdmin": "Minta administrator server ini untuk mengubahnya.",
+      "rowOff": "Mati: administrator belum mengizinkan akses jaringan.",
+      "runner": "add-on yang menjalankan perintah"
+    },
+    "allowedHostsOff": "Berlaku saat jaringan aktif.",
+    "allowedHostsNote": "Domain yang ditambahkan administrator Anda: {{count}}.",
+    "customDomains": "Kustom menjangkau registri paket dan domain berikut, yang ditentukan administrator Anda:",
+    "customEmpty": "Kustom hanya menjangkau registri paket. Administrator Anda belum menambahkan domain lain.",
+    "customLabel": "Domain kustom",
+    "customEdit": "Edit domain",
+    "customAdmin": "Administrator mengelola daftar ini.",
+    "limitNote": "Jaringan chat ini. Administrator menetapkan batas maksimum yang dapat dijangkau sebuah chat.",
+    "draftNote": "Obrolan dimulai dengan pengaturan ini. Administrator menetapkan batas jangkauan obrolan, dan batas itu berlaku.",
+    "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}.",
+    "unverified": "Penerapan kebijakan jaringan untuk penyedia sebenarnya belum diverifikasi. Pengaturan ini tidak berlaku untuk perintahnya.",
+    "configuredPolicy": "Kebijakan jaringan terkonfigurasi: {{preset}} (tidak diterapkan)."
+  },
+  "inbox": {
+    "unread": "{{count}} belum dibaca",
+    "markAll": "Tandai semua dibaca",
+    "delete": "Hapus",
+    "pushOn": "Aktifkan notifikasi browser",
+    "pushOff": "Matikan notifikasi browser",
+    "pushDenied": "Notifikasi browser diblokir untuk situs ini.",
+    "pushUnavailable": "Server ini tidak dapat menyimpan langganan push.",
+    "clearAll": "Hapus semua",
+    "clearRead": "Hapus yang dibaca",
+    "cancel": "Batal",
+    "markRead": "Tandai dibaca",
+    "cleared_other": "{{count}} notifikasi dihapus.",
+    "confirmAll_other": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
+    "confirmRead_other": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada.",
+    "onlyRead": "Hanya {{count}} yang dibaca",
+    "showing": "Menampilkan {{shown}} dari {{total}}",
+    "showMore": "Tampilkan lebih banyak",
+    "cleared_one": "{{count}} notifikasi dihapus.",
+    "confirmAll_one": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
+    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada.",
+    "title": "Notifikasi",
+    "buttonUnread_one": "Notifikasi, {{count}} belum dibaca",
+    "buttonUnread_other": "Notifikasi, {{count}} belum dibaca",
+    "filterLabel": "Tampilkan notifikasi",
+    "filterAll": "Semua",
+    "filterUnread": "Belum dibaca",
+    "filterFailed": "Gagal",
+    "more": "Tindakan lain",
+    "close": "Tutup",
+    "day": {
+      "today": "Hari ini",
+      "yesterday": "Kemarin",
+      "earlier": "Sebelumnya"
+    },
+    "emptyTitle": "Belum ada notifikasi",
+    "emptyBody": "Hasil pemicu dan konektor Anda muncul di sini, termasuk pekerjaan yang selesai saat Anda pergi.",
+    "caughtUp": "Semua sudah Anda baca.",
+    "caughtUpTitle": "Semua sudah Anda baca",
+    "caughtUpBody": "Tidak ada notifikasi yang belum dibaca.",
+    "noFailedTitle": "Tidak ada yang gagal",
+    "noFailedBody": "Proses dan konektor yang gagal muncul di sini.",
+    "loadError": "Notifikasi Anda tidak dapat dimuat.",
+    "source": {
+      "trigger": "Pemicu",
+      "connector": "Konektor",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, belum dibaca",
+    "arrived": "Notifikasi baru: {{title}}",
+    "arrivedMany_one": "{{count}} notifikasi baru",
+    "arrivedMany_other": "{{count}} notifikasi baru",
+    "proposalsWaiting_one": "{{count}} perubahan menunggu Anda",
+    "proposalsWaiting_other": "{{count}} perubahan menunggu Anda",
+    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} pembaruan backend tersedia",
+        "title_other": "{{count}} pembaruan backend tersedia",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "result": {
+        "family": {
+          "backends": "Backend",
+          "addons": "Add-on"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} diperbarui otomatis",
+        "updated_other": "{{count}} diperbarui otomatis",
+        "failed_one": "{{count}} gagal",
+        "failed_other": "{{count}} gagal",
+        "held_one": "{{count}} menunggu persetujuan",
+        "held_other": "{{count}} menunggu persetujuan",
+        "bodyUpdated": "Diperbarui: {{items}}.",
+        "bodyFailed": "Gagal: {{items}}.",
+        "bodyHeld": "Menunggu persetujuan Anda: {{items}}.",
+        "more": "{{items}} dan {{count}} lainnya"
+      },
+      "checkFailed": {
+        "title": "Pemeriksaan pembaruan gagal",
+        "body": "Tidak dapat memeriksa: {{sources}}. Dua pemeriksaan otomatis terakhir gagal, jadi daftar mungkin tidak memuat semua pembaruan.",
+        "source": {
+          "gallery": "galeri backend",
+          "library": "pustaka backend",
+          "addons": "add-on"
+        }
+      },
+      "op": {
+        "kind": {
+          "model": "Model",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} terinstal",
+          "delete": "{{kind}} {{name}} dihapus",
+          "upgrade": "{{kind}} {{name}} diperbarui"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: instalasi gagal",
+          "delete": "{{kind}} {{name}}: penghapusan gagal",
+          "upgrade": "{{kind}} {{name}}: pembaruan gagal"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: instalasi dibatalkan",
+          "delete": "{{kind}} {{name}}: penghapusan dibatalkan",
+          "upgrade": "{{kind}} {{name}}: pembaruan dibatalkan"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} perlu ditinjau agar bisa dipasang"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} pembaruan model tersedia",
+          "title_other": "{{count}} pembaruan model tersedia"
+        },
+        "done": {
+          "title": "Model {{name}} diperbarui",
+          "body": "Dari {{from}} ke {{to}}."
+        },
+        "failed": {
+          "title": "Model {{name}}: pembaruan gagal",
+          "rolledBack": "Versi lama dikembalikan dan tetap melayani. Alasan: {{error}}",
+          "rolledBackPlain": "Versi lama dikembalikan dan tetap melayani.",
+          "kept": "Versi lama tetap melayani. Alasan: {{error}}",
+          "keptPlain": "Versi lama tetap melayani."
+        },
+        "removed": {
+          "title": "Model {{name}}: versi lama dihapus",
+          "body_one": "{{count}} berkas lama dihapus.",
+          "body_other": "{{count}} berkas lama dihapus."
+        }
+      },
+      "run": {
+        "title_one": "Memperbarui {{count}} item",
+        "title_other": "Memperbarui {{count}} item",
+        "titleAuto_one": "Pembaruan otomatis: {{count}} item",
+        "titleAuto_other": "Pembaruan otomatis: {{count}} item",
+        "updated_one": "{{count}} diperbarui",
+        "updated_other": "{{count}} diperbarui",
+        "running_one": "{{count}} berjalan",
+        "running_other": "{{count}} berjalan",
+        "waiting_one": "{{count}} menunggu",
+        "waiting_other": "{{count}} menunggu",
+        "done": "{{done}} dari {{total}} selesai",
+        "end": {
+          "attention_one": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "attention_other": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "done_one": "{{count}} diperbarui",
+          "done_other": "{{count}} diperbarui",
+          "auto": "Otomatis: {{text}}",
+          "first": "{{name}} masih di {{version}}.",
+          "firstWhy": "{{name}} masih di {{version}}: {{reason}}.",
+          "cancelled_one": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelled_other": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelledAttention_one": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "cancelledAttention_other": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "firstStart": "{{name}} masih di {{version}}: versi baru tidak berjalan: {{reason}}."
+        }
+      }
+    },
+    "tabs": {
+      "label": "Notifikasi dan aktivitas",
+      "notifications": "Notifikasi",
+      "activity": "Aktivitas"
+    },
+    "ops": {
+      "needsAttention": "Perlu perhatian",
+      "inProgress": "Sedang berjalan",
+      "seeAll": "Lihat semua aktivitas",
+      "waiting": "Menunggu",
+      "node": "Node {{current}} dari {{total}}",
+      "emptyTitle": "Tidak ada yang berjalan",
+      "emptyBody": "Instalasi, pembaruan, dan penghapusan muncul di sini saat berjalan dan selama sehari sesudahnya.",
+      "title": {
+        "installing": "Memasang {{name}}",
+        "upgrading": "Memperbarui {{name}}",
+        "removing": "Menghapus {{name}}",
+        "staging": "Mentransfer {{name}}"
+      },
+      "failedTitle": {
+        "installing": "Gagal memasang {{name}}",
+        "upgrading": "Gagal memperbarui {{name}}",
+        "removing": "Gagal menghapus {{name}}",
+        "staging": "Gagal mentransfer {{name}}"
+      },
+      "recent": {
+        "title": "Terbaru",
+        "installed": "{{name}} terpasang",
+        "upgraded": "{{name}} diperbarui",
+        "removed": "{{name}} dihapus",
+        "staged": "{{name}} ditransfer"
+      }
+    },
+    "chatsOff": "Chats nonaktif",
+    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini.",
+    "runProgress": "Kemajuan: {{title}}",
+    "runStarted": "Dimulai {{when}}",
+    "viewProgress": "Lihat kemajuan",
+    "seeRun": "Lihat rangkaian",
+    "openUpdates": "Buka Pembaruan",
+    "updatesPending_one": "{{count}} pembaruan tersedia",
+    "updatesPending_other": "{{count}} pembaruan tersedia",
+    "updatesNone": "Semuanya sudah terbaru"
+  },
+  "change": {
+    "loading": "Membaca perubahan pemicu...",
+    "unread": "Perubahan pemicu tidak dapat dibaca: {{message}}",
+    "removed": "Perubahan ini tidak lagi disimpan.",
+    "none": "tidak ada",
+    "on": "Aktif",
+    "off": "Nonaktif (dijeda)",
+    "becomes": "menjadi",
+    "neverRan": "Belum pernah berjalan",
+    "lastRun": "Jalan terakhir",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Mengantre",
+      "running": "Berjalan",
+      "done": "Selesai",
+      "failed": "Gagal",
+      "skipped": "Dilewati"
+    },
+    "updateTitle": "Ubah {{name}}",
+    "deleteTitle": "Hapus {{name}}?",
+    "updateHelp": "Perubahan yang diusulkan. Tidak ada yang berubah sampai Anda menerapkannya.",
+    "deleteHelp": "Tidak ada yang dihapus sampai Anda menekan Hapus. Anda dapat membatalkannya selama satu hari.",
+    "stale": "Pemicu diubah atau dihapus setelah usulan ini, jadi perubahan tidak dapat diterapkan. Minta perubahannya lagi.",
+    "apply": "Terapkan",
+    "delete": "Hapus",
+    "keep": "Simpan",
+    "field": {
+      "name": "Nama",
+      "prompt": "Prompt",
+      "when": "Kapan",
+      "time_zone": "Zona waktu",
+      "daily_cap": "Batas harian",
+      "enabled": "Status",
+      "reads": "Membaca",
+      "writes": "Menulis",
+      "widget": "Widget Beranda",
+      "estimated_tokens": "Token per jalan",
+      "acts": "Yang boleh dilakukan satu jalan",
+      "delivery": "Ke mana jawaban dikirim",
+      "agent": "Agen",
+      "model": "Model",
+      "run_limit": "Batas waktu"
+    },
+    "receipt": {
+      "update": "Diubah:",
+      "pause": "Dijeda:",
+      "resume": "Dilanjutkan:",
+      "delete": "Dihapus:",
+      "fields": "Yang berubah: {{fields}}",
+      "dismissed": "Perubahan diabaikan:",
+      "kept": "Disimpan:",
+      "undone": "Dibatalkan:",
+      "restored": "Dipulihkan:"
+    },
+    "blocked": {
+      "expired": "Waktu untuk membatalkan sudah habis; ubah pemicu di halaman Pemicu.",
+      "edited": "Pemicu sudah diubah sejak itu; ubah di halaman Pemicu.",
+      "removed": "Pemicu sudah dihapus sejak itu.",
+      "full": "Anda sudah memiliki jumlah pemicu maksimum; hapus satu di halaman Pemicu terlebih dahulu."
+    },
+    "announce": {
+      "applied": "{{name}} diubah.",
+      "deleted": "{{name}} dihapus.",
+      "dismissed": "Perubahan pada {{name}} diabaikan.",
+      "kept": "{{name}} disimpan.",
+      "undone": "Perubahan pada {{name}} dibatalkan.",
+      "restored": "{{name}} dipulihkan."
+    }
+  },
+  "loops": {
+    "region": "Perulangan obrolan ini",
+    "unit": {
+      "seconds_one": "{{count}} detik",
+      "seconds_other": "{{count}} detik",
+      "minutes_one": "{{count}} menit",
+      "minutes_other": "{{count}} menit",
+      "hours_one": "{{count}} jam",
+      "hours_other": "{{count}} jam"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} dtk",
+      "seconds_other": "{{count}} dtk",
+      "minutes_one": "{{count}} mnt",
+      "minutes_other": "{{count}} mnt",
+      "hours_one": "{{count}} j",
+      "hours_other": "{{count}} j"
+    },
+    "confirm": {
+      "every": "Jalankan ini setiap {{every}} sampai Anda menghentikannya?",
+      "selfPaced": "Jalankan ini lagi setiap kali model memintanya, sampai Anda menghentikannya?",
+      "start": "Mulai",
+      "cancel": "Batal"
+    },
+    "chip": {
+      "name": "Perulangan",
+      "every": "setiap {{every}}",
+      "selfPaced": "sesuai model",
+      "run_one": "jalan ke-{{count}}",
+      "run_other": "jalan ke-{{count}}",
+      "paused": "dijeda",
+      "running": "sedang berjalan",
+      "next": "berikutnya pukul {{time}}",
+      "ended": "selesai",
+      "wait": "Menunggu: {{wait}}"
+    },
+    "report": {
+      "on_done": "Melapor saat selesai: {{channel}} · {{connection}}",
+      "on_problem": "Melapor jika ada masalah: {{channel}} · {{connection}}"
+    },
+    "actions": {
+      "pause": "Jeda",
+      "resume": "Lanjutkan",
+      "stop": "Hentikan",
+      "dismiss": "Tutup"
+    },
+    "state": {
+      "pending": "menunggu persetujuan Anda",
+      "active": "aktif",
+      "paused": "dijeda",
+      "ended": "selesai"
+    },
+    "list": {
+      "title": "Perulangan obrolan ini",
+      "close": "Tutup",
+      "empty": "Obrolan ini tidak punya perulangan.",
+      "hint": "Untuk menghentikan satu, ketik /loop stop dan kode di awal barisnya."
+    },
+    "slash": {
+      "usage": "Ketik /loop, interval jika Anda mau, dan apa yang diulang. Contoh: /loop 5m periksa build.",
+      "notFound": "Tidak ada perulangan di obrolan ini yang cocok dengan {{id}}.",
+      "noChat": "Kirim pesan pertama, lalu mulai perulangan di obrolan ini.",
+      "stopped_one": "{{count}} perulangan dihentikan.",
+      "stopped_other": "{{count}} perulangan dihentikan."
+    },
+    "wait": {
+      "name": "Menunggu",
+      "kind": "Tunggu",
+      "pending": "Menunggu persetujuan Anda",
+      "paused": "Tunggu dijeda",
+      "stop": "Hentikan tunggu",
+      "details": "Rincian tunggu",
+      "watching": "Memantau {{source}}",
+      "until": "Sampai {{condition}}",
+      "notChecked": "Belum diperiksa",
+      "checked_one": "Diperiksa {{count}} kali",
+      "checked_other": "Diperiksa {{count}} kali",
+      "checkedAgo_one": "Diperiksa {{count}} kali, terakhir {{ago}}",
+      "checkedAgo_other": "Diperiksa {{count}} kali, terakhir {{ago}}",
+      "outcome": {
+        "unchanged": "tidak ada perubahan",
+        "changed": "berubah",
+        "error": "gagal"
+      },
+      "ago": "{{span}} lalu",
+      "justNow": "baru saja",
+      "in": "dalam {{span}}",
+      "now": "sekarang",
+      "next": "Pemeriksaan berikutnya {{when}}",
+      "deadline": "Menyerah pukul {{time}} ({{when}})",
+      "errorStreak": "Pemeriksaan terakhir gagal ({{count}} dari {{max}} berturut-turut)",
+      "errorStreakMsg": "Pemeriksaan terakhir gagal ({{count}} dari {{max}} berturut-turut): {{message}}",
+      "lastError": "Kesalahan terakhir: {{message}}",
+      "sources": {
+        "tool": "alat {{name}}",
+        "url": "{{name}}",
+        "script": "sebuah skrip",
+        "job": "{{name}}",
+        "agent": "sub-agen {{name}}"
+      },
+      "end": {
+        "met": "Selesai: kondisi terpenuhi",
+        "failing_one": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
+        "failing_other": "Dihentikan: sumber gagal {{count}} kali berturut-turut",
+        "timedOut": "Waktu habis, kondisi tidak terpenuhi",
+        "stopped": "Tunggu dihentikan",
+        "jobGone": "Dihentikan: job hilang bersama node-nya"
+      },
+      "waking": {
+        "met": "Kondisi terpenuhi. Menanyakan ke model apa yang harus dilakukan.",
+        "failing": "Sumber gagal. Menanyakan ke model apa yang harus dilakukan.",
+        "timedOut": "Waktu habis, kondisi tidak terpenuhi. Menanyakan ke model apa yang harus dilakukan."
+      },
+      "phase": {
+        "waiting": "menunggu",
+        "waking": "membangunkan model",
+        "paused": "dijeda",
+        "ended": "berakhir",
+        "pending": "menunggu persetujuan Anda"
+      },
+      "endShort": {
+        "condition_met": "kondisi terpenuhi",
+        "source_failing": "sumber gagal",
+        "timed_out": "waktu habis",
+        "stopped": "dihentikan"
+      },
+      "group": {
+        "collapse": "Sembunyikan penantian",
+        "deadline": "Batas waktu terdekat {{time}} ({{when}})",
+        "expand": "Tampilkan penantian",
+        "lastCheck": "Pemeriksaan terakhir {{ago}}",
+        "paused_one": "{{count}} dijeda",
+        "paused_other": "{{count}} dijeda",
+        "stopAll": "Hentikan semua",
+        "title_one": "{{count}} penantian",
+        "title_other": "{{count}} penantian"
+      }
+    },
+    "job": {
+      "stop": "Hentikan",
+      "details": "Detail job",
+      "done_one": "{{count}} job selesai",
+      "done_other": "{{count}} job selesai",
+      "runTime": "berjalan selama {{span}}",
+      "ranFor": "berjalan selama {{span}}",
+      "lastOutput": "keluaran terakhir {{ago}} lalu",
+      "endedAgo": "berakhir {{ago}} lalu",
+      "byAgent": "dimulai oleh sub-agen",
+      "where": {
+        "machine": "di mesin ini",
+        "sandbox": "terisolasi"
+      },
+      "status": {
+        "starting": "Memulai",
+        "running": "Berjalan",
+        "ending": "Menghentikan",
+        "stalled": "Berjalan, tanpa keluaran selama {{span}}",
+        "lost": "Hilang: node-nya sudah tidak ada",
+        "notStarted": "Tidak dapat dimulai",
+        "killed": "Dimatikan (kill)",
+        "stopped": "Dihentikan oleh Anda",
+        "ended": "Berakhir",
+        "exitedOk": "Selesai, status 0",
+        "exitedCode": "Selesai dengan status {{code}}",
+        "exitedUnknown": "Selesai, status tidak diketahui"
+      },
+      "end": {
+        "lifetime": "Berakhir: mencapai batas waktu",
+        "chat_deleted": "Berakhir: chat dihapus",
+        "shell_off": "Berakhir: perintah dimatikan",
+        "group_off": "Berakhir: alat perintah dimatikan untuk chat ini",
+        "fenced": "Berakhir: chat ini tidak boleh lagi menjalankan perintah",
+        "sandbox_remade": "Berakhir: lingkungannya dibuat ulang",
+        "agent_ended": "Berakhir: sub-agennya selesai",
+        "shutdown": "Berakhir: server berhenti",
+        "start_failed": "Tidak dapat dimulai"
+      }
+    }
+  },
+  "changes": {
+    "loading": "Membaca perubahan yang diusulkan...",
+    "unread": "Perubahan yang diusulkan tidak dapat dibaca: {{message}}",
+    "removed": "Usulan ini sudah tidak ada.",
+    "kind": {
+      "memory": "Memori",
+      "profile": "Profil",
+      "skill": "Skill",
+      "page": "Halaman",
+      "dashboard": "Dasbor",
+      "knowledge": "Pengetahuan",
+      "voice_profile": "Profil suara"
+    },
+    "scope": {
+      "user": "Semua obrolan Anda",
+      "agent": "Agen {{agent}}",
+      "agentAny": "Satu agen",
+      "channel": "Percakapan ini",
+      "project": "Proyek ini"
+    },
+    "help": "Tidak ada yang disimpan sampai Anda mengonfirmasi.",
+    "row": {
+      "kind": "Jenis",
+      "target": "Berkas",
+      "source": "Dari",
+      "expires": "Kedaluwarsa dalam",
+      "collection": "Koleksi",
+      "proposedBy": "Diusulkan oleh",
+      "note": "Catatan"
+    },
+    "source": {
+      "chat": "Obrolan",
+      "connector": "Konektor {{name}}",
+      "connectorFrom": "Konektor {{name}}, dari {{sender}}"
+    },
+    "expiresHours": "{{hours}} j {{minutes}} mnt",
+    "expiresMinutes": "{{minutes}} mnt",
+    "diff": {
+      "label": "Perubahan pada {{target}}",
+      "newFile": "Berkas baru",
+      "added_one": "{{count}} baris ditambahkan",
+      "added_other": "{{count}} baris ditambahkan",
+      "removed_one": "{{count}} baris dihapus",
+      "removed_other": "{{count}} baris dihapus",
+      "same": "Tidak ada perbedaan dari teks saat ini.",
+      "gap_one": "{{count}} baris tidak berubah",
+      "gap_other": "{{count}} baris tidak berubah",
+      "more_one": "{{count}} baris lagi tidak ditampilkan",
+      "more_other": "{{count}} baris lagi tidak ditampilkan",
+      "srAdded": "Ditambahkan:",
+      "srRemoved": "Dihapus:"
+    },
+    "unreadFile": "Berkas saat ini tidak dapat dibaca, jadi seluruh teks dianggap baru.",
+    "confirm": "Konfirmasi",
+    "edit": "Edit lalu konfirmasi",
+    "confirmEdited": "Konfirmasi dengan teks saya",
+    "editLabel": "Teks yang disimpan di {{target}}",
+    "failed": "Perubahan tidak dapat disimpan: {{message}}. Masih menunggu Anda.",
+    "receipt": {
+      "applied": "Diterapkan:",
+      "savedAuto": "Disimpan ke memori:",
+      "reverted": "Dibatalkan:",
+      "dismissed": "Ditolak:",
+      "expired": "Kedaluwarsa:",
+      "stale": "Tidak diterapkan:"
+    },
+    "why": {
+      "expired": "Menunggu lebih dari sehari. Tidak ada yang disimpan.",
+      "stale": "Berkas berubah setelah usulan dibuat, jadi tidak ada yang disimpan."
+    },
+    "askAgain": "Minta lagi",
+    "askAgainText": "Tolong usulkan perubahan ini lagi, berkas sudah berubah sejak itu: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Perubahan diterapkan.",
+      "dismissed": "Perubahan ditolak.",
+      "undone": "Perubahan dibatalkan.",
+      "asked": "Asisten diminta mengusulkannya lagi."
+    },
+    "knowledge": {
+      "label": "Teks untuk ditambahkan ke {{collection}}",
+      "size": "{{size}} dari maksimal {{max}}",
+      "note": "Tidak ada yang ditambahkan sebelum Anda mengonfirmasi. Teks lalu dipecah menjadi bagian dan diindeks, dan setiap chat yang mencari di koleksi ini dapat memakainya.",
+      "editLabel": "Teks untuk ditambahkan ke {{target}}",
+      "embed_one": "1 bagian teks akan di-embed dengan {{model}}.",
+      "embed_other": "Sekitar {{count}} bagian teks akan di-embed dengan {{model}}.",
+      "serverModel": "model embedding milik server"
+    },
+    "warning": {
+      "title": "Periksa teks ini sebelum Anda mengonfirmasi.",
+      "secret": "Teks ini tampak berisi rahasia, seperti kunci, token, atau kata sandi. Setelah ditambahkan, setiap obrolan yang mencari di koleksi ini dapat membacanya. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini.",
+      "other": "Server menandai teks ini berisiko. Obrolan pesan tidak dapat mengonfirmasinya; hanya Anda, di sini."
+    },
+    "voice": {
+      "label": "Suara yang akan dikloning",
+      "name": "Nama",
+      "file": "Rekaman",
+      "clip": "Klip terkunci",
+      "language": "Bahasa",
+      "transcript": "Transkrip",
+      "consentTitle": "Konfirmasi hanya jika pembicara setuju.",
+      "consent": "Rekaman disimpan sebagai profil suara yang dapat dipakai chat Anda untuk berbicara. Anda dapat menghapusnya di pustaka Suara.",
+      "consentAdmin": "Anda administrator, jadi suara ini tersedia untuk semua pengguna server ini.",
+      "confirm": "Pembicara setuju: simpan suara"
+    },
+    "fromOther": {
+      "title": "{{name}} mengusulkan catatan untuk {{project}}",
+      "titleNoProject": "{{name}} mengusulkan catatan",
+      "help": "Tidak ada yang ditulis sampai Anda mengonfirmasi. {{name}} mengusulkannya dari obrolan yang menarik proyek ini.",
+      "by": "{{name}}, dari obrolannya sendiri",
+      "voided": "{{name}} tidak lagi dapat mengubah proyek ini.",
+      "noteFor": "Catatan untuk {{project}}",
+      "thisProject": "proyek ini",
+      "why": "Bagikan proyek lagi dengan akses ubah, lalu minta catatan itu lagi jika Anda masih menginginkannya.",
+      "nameHint": "Nama proyek diambil dari foldernya"
+    }
+  },
+  "proposalsPage": {
+    "title": "Usulan",
+    "supporting": "Perubahan yang diminta model dan menunggu jawaban Anda.",
+    "emptyTitle": "Tidak ada yang menunggu",
+    "emptyBody": "Saat model mengusulkan perubahan pada catatan Anda, profil agen, skill, halaman, atau dasbor, usulan itu tampil di sini sampai Anda menjawab.",
+    "loadError": "Usulan tidak dapat dimuat."
+  },
+  "memoryPage": {
+    "lede": "Catatan yang dimasukkan LocalAI ke prompt obrolan Anda. Model hanya mengubahnya setelah Anda mengonfirmasi usulan. Di sini Anda dapat membaca, mengedit, dan menghapusnya.",
+    "limits": "Batas: indeks maksimal {{lines}} baris dan {{index}}, profil {{profile}}, dan satu giliran membawa maksimal {{turn}} catatan.",
+    "proposalsLink": "Lihat perubahan yang menunggu",
+    "emptyTitle": "Belum ada catatan",
+    "emptyBody": "Saat Anda meminta asisten mengingat sesuatu dan mengonfirmasinya, catatan muncul di sini.",
+    "loadError": "Catatan Anda tidak dapat dimuat.",
+    "use": "{{size}} dari {{max}} · {{lines}} dari {{maxLines}} baris",
+    "useBytes": "{{size}} dari {{max}}",
+    "useLabel": "Ukuran indeks terhadap batasnya",
+    "over": "Melebihi batas: bagian akhir tidak dikirim ke model.",
+    "index": "Indeks",
+    "group": {
+      "user": "Catatan Anda",
+      "agent": "Catatan agen {{key}}",
+      "channel": "Catatan percakapan {{key}}",
+      "profile": "Profil agen {{key}}",
+      "agentNamed": "Catatan agen {{name}}",
+      "profileNamed": "Profil agen {{name}}"
+    },
+    "edit": "Edit",
+    "save": "Simpan",
+    "editLabel": "Teks {{name}}",
+    "editSizeIndex": "{{size}} dari {{max}} · {{lines}} dari {{maxLines}} baris",
+    "editSize": "{{size}} dari {{max}}",
+    "tooBig": "Terlalu panjang: persingkat untuk menyimpan.",
+    "saveFailed": "Tidak dapat menyimpan: {{message}}",
+    "saved": "{{name}} disimpan.",
+    "emptyFile": "(kosong)",
+    "delete": "Hapus {{name}}",
+    "deleteYes": "Hapus",
+    "confirmDelete": "Hapus {{name}}?",
+    "deleted": "{{name}} dipindahkan ke Tempat Sampah.",
+    "clear": "Lupakan semuanya",
+    "clearAsk_one": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
+    "clearAsk_other": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
+    "clearYes_one": "Hapus {{count}} berkas",
+    "clearYes_other": "Hapus {{count}} berkas",
+    "cleared_one": "{{count}} berkas dipindahkan ke Tempat Sampah.",
+    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah.",
+    "tabs": {
+      "label": "Catatan milik",
+      "mine": "Milik saya",
+      "deleted": "Agen yang dihapus",
+      "channels": "Percakapan",
+      "channelsNote": "Catatan yang disimpan dari chat di aplikasi pesan. Buka catatan untuk membacanya, atau hapus. Catatan dari pengirim yang belum terverifikasi bersama Anda selalu menunggu OK Anda.",
+      "export": "Ekspor catatan ini",
+      "clearAgent": "Hapus catatan agen ini",
+      "clearDeleted": "Hapus catatan ini"
+    },
+    "deletedNote": "Agen ini sudah dihapus. Catatannya tetap ada sampai Anda menghapusnya di sini.",
+    "tabEmpty": "Tidak ada catatan di sini."
+  },
+  "triggerActs": {
+    "help": "Satu jalan dimulai sendiri, jadi tidak ada yang menyetujui langkahnya. Ia bisa membaca dan melapor. Centang apa yang boleh dilakukannya juga. Ia tidak pernah mendapat lebih dari yang dimiliki agennya.",
+    "noAgent": "Belum ada agen yang dipilih, jadi hanya centangan Anda yang membatasinya.",
+    "readOnly": "Hanya baca",
+    "canAct": "Boleh bertindak sendiri",
+    "canActText_one": "Satu jalan boleh memakai {{count}} jenis tindakan tanpa bertanya.",
+    "canActText_other": "Satu jalan boleh memakai {{count}} jenis tindakan tanpa bertanya.",
+    "sensitive": "perlu hati-hati",
+    "addonRow": "Satu jalan boleh memakai tindakan add-on {{id}}.",
+    "blocked": "Agen Anda tidak memiliki izin ini, jadi tidak bisa dicentang. Tambahkan dulu ke agen.",
+    "unused": "Agen Anda tidak memiliki izin ini, jadi satu jalan tidak memakainya.",
+    "unusedList": "Terdaftar, tetapi tidak dipakai karena agen tidak memilikinya: {{names}}.",
+    "writesNote": "Rencananya menyebut berkas {{file}}, jadi satu jalan juga boleh menulis berkas.",
+    "listCan_one": "Bisa bertindak ({{count}})",
+    "listCan_other": "Bisa bertindak ({{count}})",
+    "why": {
+      "no_acts": "Tidak ada izin bertindak, jadi jalannya hanya membaca dan melapor.",
+      "agent": "Agennya tidak memiliki izin yang diminta, jadi jalannya hanya membaca dan melapor.",
+      "declared": "Ini dibuat untuk hanya membaca dan melapor. Centangan di sini tidak mengubahnya.",
+      "binding": "Dibuat oleh koneksi dalam mode hanya baca. Centangan di sini tidak mengubahnya."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Memori aktif",
+    "titleOff": "Memori nonaktif",
+    "ledeOn": "Obrolan Anda menyimpan catatan singkat tentang Anda dan membacanya sebelum menjawab. Matikan untuk berhenti membaca dan menyimpan di mana pun. Catatan Anda tetap di tempatnya.",
+    "ledeOff": "Tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya, di obrolan atau agen mana pun. Asisten akan mengatakan bahwa memori nonaktif jika Anda memintanya mengingat sesuatu. Catatan Anda tetap ada, dan Anda masih bisa membaca, mengekspor, dan menghapusnya.",
+    "on": "Aktif",
+    "off": "Mati",
+    "unavailable": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini, jadi memori tidak dapat bekerja di sini.",
+    "saveTitle": "Menyimpan catatan",
+    "saveLede": "Apa yang terjadi saat asisten ingin menyimpan sesuatu. Aturan yang paling ketat selalu menang.",
+    "save": {
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Sebuah kartu menunggu di obrolan. Anda mengonfirmasi, mengedit, atau menolaknya."
+      },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Di obrolan Anda sendiri, catatan langsung disimpan. Obrolan menampilkan \"Disimpan ke memori\" dengan Urungkan. Hingga 5 catatan per balasan. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu Anda."
+      },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Seperti Tanya saya dulu, dan tidak ada yang bisa melonggarkannya. Urungkan dan lupakan juga menunggu Anda. Tidak ada pengaturan agen atau aplikasi pesan yang bisa menggantinya."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Asisten tidak dapat menyimpan catatan. Ia akan memberi tahu bahwa penyimpanan nonaktif."
+      }
+    },
+    "default": "Bawaan",
+    "saveNote": "Proses latar belakang dan pemicu tidak pernah menyimpan catatan. Agen tersimpan boleh bertanya lebih banyak, tidak pernah lebih sedikit, daripada pilihan Anda di sini.",
+    "messaging": {
+      "title": "Di aplikasi pesan",
+      "lede": "Yang terjadi saat sebuah catatan diusulkan di obrolan aplikasi pesan, di mana pengirimnya belum tentu Anda.",
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Bot bertanya di obrolan: \"Balas ya untuk menyimpan.\" Pengirim yang terdaftar bisa menjawab di sana. Yang lain menunggu Anda di aplikasi."
+      },
+      "paired_private": {
+        "title": "Simpan untuk orang terverifikasi di obrolan pribadi",
+        "body": "Langsung disimpan hanya jika pengirim adalah orang terverifikasi dan obrolannya satu lawan satu. Catatan masuk ke percakapan itu, dengan Urungkan. Catatan yang mirip rahasia tetap menunggu."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Tidak ada catatan yang disimpan dari aplikasi pesan."
+      },
+      "limit": "Tidak pernah lebih longgar dari pengaturan di atas.",
+      "lockedAlways": "Pengaturan Anda di atas adalah Selalu konfirmasi, jadi baris ini tidak bisa langsung menyimpan catatan.",
+      "lockedNever": "Pengaturan Anda di atas adalah Jangan pernah, jadi tidak ada catatan yang disimpan dari aplikasi pesan."
+    },
+    "saveFailed": "Pilihan Anda tidak dapat disimpan.",
+    "loadError": "Pengaturan memori Anda tidak dapat dimuat.",
+    "notesTitle": "Kelola catatan Anda",
+    "notesLede": "Baca, edit, ekspor, atau hapus. Ini berfungsi saat memori nonaktif.",
+    "export": "Ekspor"
+  },
+  "memoryOff": {
+    "title": "Memori nonaktif di sini.",
+    "line": {
+      "chat": "Ini obrolan pribadi: tidak ada yang dibaca atau disimpan. Catatan Anda tidak disentuh. Aktifkan di menu Alat.",
+      "user": "Tidak ada obrolan atau agen yang membaca atau menyimpan catatan, dan catatan Anda tidak disentuh.",
+      "agent": "Agen obrolan ini menonaktifkan memori.",
+      "files": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini.",
+      "provider": "Add-on yang melayani memori tidak tersedia, jadi tidak ada yang dibaca atau disimpan. Pilih penyedia di Pengaturan, Memori."
+    },
+    "chip": "Memori mati",
+    "chipPrivate": "Obrolan pribadi",
+    "fixUser": "Pengaturan, Memori",
+    "userRow": "Nonaktif di pengaturan Anda. Aktifkan di Pengaturan, Memori."
+  },
+  "agentMemory": {
+    "title": "Memori",
+    "lede": "Pilih catatan yang dibaca agen ini dan tempat ia menyimpan catatan baru.",
+    "offUser": "Memori mati di pengaturan Anda, jadi pilihan ini tidak berpengaruh sampai Anda menyalakannya.",
+    "offUserFix": "Pengaturan, Memori",
+    "recommended": "Disarankan",
+    "mine_and_own": {
+      "title": "Milik saya dan miliknya",
+      "body": "Membaca catatan Anda dan catatannya sendiri. Menyimpan hanya ke catatannya sendiri."
+    },
+    "own": {
+      "title": "Hanya miliknya",
+      "body": "Membaca dan menyimpan hanya catatannya sendiri. Catatan Anda tidak tersentuh."
+    },
+    "mine": {
+      "title": "Milik saya",
+      "body": "Membaca dan menyimpan catatan Anda."
+    },
+    "none": {
+      "title": "Tidak ada",
+      "body": "Tidak membaca dan tidak menyimpan apa pun."
+    },
+    "mineWarn": "Agen ini dapat menambah catatan ke memori Anda, untuk setiap obrolan. Anda mengonfirmasi tiap catatan.",
+    "asBefore": {
+      "title": "Seperti sebelumnya",
+      "body": "Agen ini disimpan sebelum pilihan ini ada. Ia membaca catatan Anda jika daftar add-on-nya menyebut Memory, dan model memilih tempat menyimpan catatan. Pilih salah satu opsi di bawah untuk mengubahnya."
+    },
+    "copyNote": "Mengekspor agen, atau mengimpornya sebagai agen baru, mempertahankan pilihan ini dan tidak pernah menyalin catatannya.",
+    "summary": {
+      "mine_and_own": "Milik saya dan miliknya",
+      "own": "Hanya miliknya",
+      "mine": "Milik saya",
+      "none": "Tidak ada",
+      "asBefore": "Seperti sebelumnya",
+      "withAuto": "{{choice}}, menyimpan langsung",
+      "level": {
+        "off": "Mati",
+        "reads": "Membaca catatan",
+        "saves": "Membaca dan menyimpan catatan"
+      },
+      "combined": "{{level}}, {{choice}}"
+    },
+    "delete": {
+      "title": "Hapus {{name}}?",
+      "ask": "Agen ini punya catatan sendiri ({{count}}). Apa yang harus dilakukan?",
+      "legend": "Apa yang dilakukan pada catatan",
+      "default": "bawaan",
+      "confirm": "Hapus agen",
+      "keep": {
+        "title": "Simpan catatan",
+        "body": "Tetap ada di halaman Memori di bawah Agen yang dihapus sampai Anda menghapusnya."
+      },
+      "export": {
+        "title": "Ekspor, lalu hapus",
+        "body": "Unduh catatan sebagai berkas zip, lalu pindahkan ke Sampah."
+      },
+      "delete": {
+        "title": "Hapus juga catatannya",
+        "body": "Dipindahkan ke Sampah dan dapat dipulihkan dari Berkas."
+      }
+    },
+    "rule": {
+      "title": "Saat ingin menyimpan catatan",
+      "use_mine": {
+        "title": "Pakai pengaturan saya",
+        "body": "Pengaturan Anda adalah <b>{{level}}</b>. <settings>Ubah di Pengaturan > Memori.</settings>"
+      },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Menyimpan setiap catatan langsung dan memberi tahu Anda di obrolan, dengan Urungkan, meski pengaturan Anda Tanya saya dulu. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu."
+      },
+      "always": {
+        "title": "Selalu konfirmasi",
+        "body": "Lebih ketat dari pengaturan saya."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Membaca, tidak pernah menyimpan."
+      },
+      "hint": "Di obrolan aplikasi pesan, catatan masuk ke percakapan itu dulu, dan sampai ke catatan milik agen ini hanya dari orang terverifikasi. Menyimpan langsung di obrolan aplikasi pesan hanya berlaku untuk orang terverifikasi di obrolan satu lawan satu.",
+      "offReason": "Tingkat penyimpanan tidak berlaku selama memori mati.",
+      "readsReason": "Tingkat penyimpanan tidak berlaku: agen ini membaca catatan tetapi tidak bisa menyimpan."
+    },
+    "level": {
+      "title": "Apa yang dilakukannya dengan catatan",
+      "off": {
+        "title": "Mati",
+        "body": "Tidak membaca dan tidak menyimpan catatan."
+      },
+      "reads": {
+        "title": "Membaca catatan",
+        "body": "Memakai catatan Anda untuk menjawab. Tidak pernah menyimpan."
+      },
+      "saves": {
+        "title": "Membaca dan menyimpan catatan",
+        "body": "Memakai catatan dan menyimpan yang baru, sesuai tingkat penyimpanan Anda."
+      }
+    },
+    "whose": "Catatan milik siapa",
+    "whoseOff": "Memori mati untuk agen ini, jadi tidak ada catatan untuk dipilih."
+  },
+  "providerPicker": {
+    "title": "Penyedia",
+    "lede": "Hanya satu penyedia yang melayani pada satu waktu. Data Anda yang ada tetap di tempatnya saat Anda beralih.",
+    "off": "Mati",
+    "unavailable": "Tidak tersedia",
+    "loadError": "Penyedia tidak dapat dimuat",
+    "saveFailed": "Penyedia tidak dapat diubah",
+    "failedTitle": "{{name}} tidak tersedia",
+    "failedReason": "Ini tetap mati sampai Anda memilih penyedia. Tidak ada yang dipindahkan ke penyedia bawaan, jadi tidak ada yang disimpan di tempat yang tidak Anda pilih.",
+    "useBuiltin": "Gunakan penyedia bawaan",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Jarak jauh",
+      "undoHost": "Urungkan di sini",
+      "undoProvider": "Diurungkan oleh layanan",
+      "undoNone": "Tidak dapat diurungkan"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Bawaan",
+        "builtinBody": "File biasa di folder Memory Anda. Tidak ada yang keluar dari mesin ini.",
+        "offBody": "Tidak ada yang dibaca, ditawarkan, disimpan, atau dikirim. Catatan yang ada tetap disimpan."
+      }
+    },
+    "healthTitle": "Penyedia sedang dijeda",
+    "forget": {
+      "lede": "Minta {{name}} melupakan catatan yang disimpannya untuk Anda. File Anda di folder Memory tidak disentuh.",
+      "action": "Lupakan semuanya dari penyedia ini",
+      "confirmTitle": "Lupakan semuanya dari {{name}}?",
+      "confirmBody": "{{name}} akan diminta melupakan setiap catatan yang disimpannya untuk Anda. Perubahan bisa ditahan sampai Anda mengonfirmasinya di halaman Add-ons.",
+      "confirmBodyFinal": "{{name}} akan diminta melupakan setiap catatan yang disimpannya untuk Anda. Ini tidak dapat diurungkan.",
+      "confirm": "Lupakan semuanya",
+      "pending": "Melupakan...",
+      "done": "{{name}} melupakan catatannya",
+      "waiting": "Perubahan menunggu konfirmasi Anda di halaman Add-ons",
+      "failed": "Penyedia tidak dapat melupakan: {{message}}"
+    }
+  },
+  "subAgents": {
+    "waiting": "Menunggu: {{what}}",
+    "looping": "Berulang"
+  },
+  "connectionsTabs": {
+    "label": "Bagian koneksi",
+    "accounts": "Akun",
+    "messaging": "Pesan",
+    "mcp": "Server MCP"
+  },
+  "triggersPage": {
+    "runLimit": "Batas waktu satu proses"
+  },
+  "sandboxProfile": {
+    "label": "Profil sandbox",
+    "tools": "Program: {{tools}}",
+    "notAllowed": "Administrator belum memberi Anda profil ini",
+    "absent": "Rilis ini tidak punya image untuk profil ini",
+    "unavailable": "{{title}} tidak tersedia: {{reason}}.",
+    "draft": "Obrolan baru dimulai di {{title}}. Pilih profil di sini, atau ubah nanti di dalam obrolan.",
+    "source": {
+      "chat": "Obrolan ini berjalan di {{title}}, pilihan Anda.",
+      "agent": "Obrolan ini berjalan di {{title}}, ditetapkan oleh agennya.",
+      "default": "Obrolan ini berjalan di {{title}}, bawaan."
+    },
+    "switchWarning": "Berpindah akan memulai ulang sandbox. File Anda tetap ada. Proses yang berjalan dan paket yang terpasang hilang.",
+    "switchTo": "Pindah ke {{title}}",
+    "cancel": "Batal",
+    "preparing": "Menyiapkan image {{title}}, {{percent}}%",
+    "failed": "Image {{title}} tidak dapat disiapkan: {{error}}",
+    "fallback": "{{title}} tidak dapat digunakan, jadi perintah berjalan di {{base}}.",
+    "newerImage": "Tersedia image yang lebih baru. Berlaku saat sandbox dimulai ulang.",
+    "notAllowedError": "Anda tidak boleh memakai profil ini.",
+    "unknownError": "Profil ini tidak ada.",
+    "saveError": "Profil tidak dapat diubah.",
+    "admin": {
+      "title": "Profil sandbox",
+      "intro": "Profil adalah lingkungan dengan program sendiri. Semua orang boleh memakai setiap profil sampai Anda membatasi salah satunya.",
+      "default": "Profil bawaan",
+      "defaultBase": "Dasar",
+      "profiles": "Profil",
+      "limits": "{{cpus}} CPU, memori {{memory}} MiB, disk {{disk}} MiB",
+      "baseAlways": "Semua pengguna boleh memakai Dasar. Profil ini dipakai saat profil lain tidak bisa.",
+      "who": "Siapa yang boleh memakai",
+      "everyone": "Semua orang",
+      "restricted": "Hanya peran dan pengguna di bawah",
+      "role": {
+        "admin": "Administrator",
+        "user": "Pengguna biasa"
+      },
+      "users": "Pengguna bernama",
+      "usersPlaceholder": "Nama dipisahkan koma",
+      "pin": "Kunci ke image sebelumnya",
+      "noPrevious": "Belum ada image sebelumnya",
+      "memory": "Batas memori satu sandbox, dalam MiB",
+      "disk": "Batas disk satu sandbox, dalam MiB",
+      "noLimit": "Tanpa batas",
+      "quotaHelp": "Batas hanya menurunkan batas profil dan tidak pernah menaikkannya. Kosongkan kolom untuk tanpa batas.",
+      "badQuota": "Gunakan bilangan bulat MiB, atau kosongkan kolom.",
+      "reload": "Muat ulang",
+      "ownerError": "Pengaturan pemilik tidak tersedia atau berubah: {{message}}",
+      "save": "Simpan",
+      "loadError": "Profil sandbox tidak dapat dibaca."
+    }
+  },
+  "harness": {
+    "title": "Jendela konteks model ini terlalu kecil untuk chat",
+    "admin": {
+      "reason": "Ukurannya {{window}} token dan chat membutuhkan minimal {{minimum}}; {{recommended}} lebih baik.",
+      "checking": "Memeriksa apakah {{target}} token muat di memori mesin ini…",
+      "fits": "{{target}} token muat di memori mesin ini (sekitar {{need}}).",
+      "fitsLess": "{{recommended}} token tidak muat di memori mesin ini. {{target}} muat (sekitar {{need}}).",
+      "unknown": "Memori yang dibutuhkan tidak dapat diperkirakan.",
+      "none": "Bahkan {{minimum}} token tidak muat di memori mesin ini. Pilih model yang lebih kecil.",
+      "fix": "Atur jendela ke {{target}}"
+    },
+    "user": {
+      "reason": "Ukurannya {{window}} token dan chat membutuhkan minimal {{minimum}}.",
+      "switch": "Pindahkan chat ini ke model terpasang dengan jendela yang lebih besar.",
+      "askAdmin": "Tidak ada model terpasang yang dapat Anda pakai dengan jendela yang cukup besar. Minta administrator untuk menaikkannya atau memasang model lain.",
+      "use": "Pakai {{model}} ({{window}} token)"
+    },
+    "chat": {
+      "title": "Ukuran konteks chat ini terlalu kecil",
+      "reason": "Pengaturan chat ini adalah {{window}} token dan chat membutuhkan minimal {{minimum}}.",
+      "fix": "Pakai jendela model"
+    }
+  }
+}

@@ -1,0 +1,79 @@
+---
+# Authoritative formal design for realtime machine M2: turn detection.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants)
+#   - core/http/endpoints/openai/turncoord    (the Go implementation)
+#
+# The Go MBT adapter maps each action below onto turncoord.Coordinator.Apply
+# and the StateGetter onto turncoord.Coordinator.State, so this spec is the
+# source of truth the implementation is checked against.
+#
+# The property this machine must guarantee is the COUPLING of two facts the
+# legacy code tracked in two separate variables that could disagree:
+#   - speech  -- handleVAD's speechStarted bool
+#   - turn    -- the semantic_vad live-stream-open flag (lts.open())
+# A discardTurn (no-speech clear / mode switch / teardown) closed the live
+# stream (turn -> 0) but left speechStarted set (speech stays 1). They then
+# disagreed, and the next onset was suppressed by `if !speechStarted` -- no
+# speech_started, no barge-in, no commit. See Part 2, failure mode 4.
+#
+# Here speech and turn are driven only ever TOGETHER, modelling the single
+# turncoord State (Idle <-> Speaking) where both facts are one value.
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+# Bound the number of turns so the state space is finite.
+MAX_TURNS = 4
+
+role Detector:
+    action Init:
+        self.speech = 0   # speechStarted (0/1)
+        self.turn = 0     # live-stream / turn open (0/1)
+        self.turns = 0    # how many turns have been opened (bound)
+
+    # Onset: VAD reports speech while idle -> open a turn. ONE indivisible
+    # transition sets BOTH facts, so they cannot be left disagreeing. Re-onset
+    # while already speaking is a no-op (legacy `if !speechStarted`).
+    atomic action Onset:
+        require self.turns < MAX_TURNS
+        if self.speech == 0:
+            self.turns += 1
+            self.speech = 1
+            self.turn = 1
+
+    # Silence: VAD-confirmed end-of-speech past the dynamic threshold -> commit.
+    # Both facts clear together (EmitSpeechStopped + CommitTurn return to Idle).
+    atomic action Silence:
+        if self.speech == 1:
+            self.speech = 0
+            self.turn = 0
+
+    # Abort: no-speech clear / teardown -> discard. BOTH facts clear together.
+    # (A semantic->server mode switch only drops the orphaned live stream and
+    # lets the turn continue, so it is NOT an Abort -- see turncoord.go.)
+    # THE FIX: clearing only `self.turn` here (deleting `self.speech = 0`)
+    # reproduces the legacy discardTurn bug --
+    # the checker then reports Coupled violated, exactly the desync that
+    # suppressed the next onset.
+    atomic action Abort:
+        if self.turn == 1:
+            self.turn = 0
+            self.speech = 0
+
+action Init:
+    d = Detector()
+
+# SAFETY: speechStarted and turn-open never disagree -- they are one state, so
+# the legacy desync that suppressed the next onset is unrepresentable
+# (Part 4, invariant #4; failure mode 4).
+always assertion Coupled:
+    return d.speech == d.turn
+
+# SAFETY: at most one turn open at any instant -- `turn` is a 0/1 fact, never
+# incremented twice without a clear between (onset is a no-op while speaking).
+always assertion AtMostOneTurnOpen:
+    return d.turn >= 0 and d.turn <= 1

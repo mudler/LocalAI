@@ -1,0 +1,12 @@
+/* Harness only: the page grows with its content so a full-page screenshot shows
+   a whole screen, and the WebUI view is a labelled placeholder. */
+[data-harness] .lnr-shell { height: auto; min-height: 100vh; }
+[data-harness] .lnr-area { overflow: visible; min-height: 600px; }
+[data-harness] .lnr-back { position: static; }
+[data-harness] .lnr-webslot {
+  min-height: 600px;
+  display: grid; place-items: center;
+  background: repeating-linear-gradient(135deg, var(--dk-canvas) 0 12px, var(--dk-inset) 12px 13px);
+}
+[data-harness] .lnr-webslot::after { content: "WebUI view (drawn by the main process)"; color: var(--dk-muted); font-size: var(--fs-small); }
+[data-harness] .lnr-webslot[data-dim]::after { content: "WebUI view, dimmed (drawn by the main process)"; }

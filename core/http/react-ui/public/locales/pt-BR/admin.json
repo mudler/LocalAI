@@ -1,0 +1,539 @@
+{
+  "manage": {
+    "title": "Sistema",
+    "subtitle": "Gerenciar modelos e backends instalados"
+  },
+  "settings": {
+    "title": "Configurações",
+    "subtitle": "Configurar as configurações de runtime do LocalAI",
+    "saved": "Configurações salvas com sucesso",
+    "saveFailed": "Falha ao salvar: {{message}}",
+    "loadFailed": "Falha ao carregar as configurações: {{message}}",
+    "sections": {
+      "branding": "Identidade visual",
+      "watchdog": "Watchdog",
+      "memory": "Memória",
+      "backends": "Backends",
+      "performance": "Desempenho",
+      "tracing": "Rastreamento",
+      "api": "API e CORS",
+      "p2p": "P2P",
+      "galleries": "Galerias",
+      "apikeys": "Chaves de API",
+      "agents": "Trabalhos de Agentes",
+      "agentpool": "Pool de Agentes",
+      "assistant": "Assistente LocalAI",
+      "distributed": "Distribuído",
+      "responses": "Respostas"
+    },
+    "loadFailedTitle": "Não foi possível carregar as configurações.",
+    "egress": {
+      "title": "Rede dos comandos",
+      "intro": "Os comandos executados em isolamento alcançam a rede só por um proxy que pergunta ao LocalAI sobre cada conexão. Abaixo você define o limite, a predefinição de um chat novo, as portas, os registros extras e a retenção da auditoria; cada pessoa escolhe a predefinição de cada chat no menu Ferramentas dele, até o limite, e permite um host bloqueado num cartão.",
+      "serves": "Os comandos rodam isolados no complemento {{name}}",
+      "servesHost": "Os comandos rodam nesta máquina pelo {{name}}",
+      "servesNone": "Nenhum complemento roda comandos ainda",
+      "hostNote": "O backend do host roda comandos nesta máquina com a rede dela: estas configurações não se aplicam.",
+      "counts": "Últimas 24 horas: {{allowed}} permitidas, {{blocked}} bloqueadas.",
+      "private": "Deixar a regra de um administrador alcançar redes privadas",
+      "privateWarning": "Um host permitido por um administrador passa a alcançar endereços dentro da sua rede. Uma predefinição sozinha nunca faz isso; os endereços de metadados da nuvem e do servidor continuam recusados.",
+      "typePhrase": "Para ligar, digite: {{phrase}}",
+      "registries": "Registros de pacotes ({{count}})",
+      "showAudit": "Mostrar a auditoria",
+      "hideAudit": "Ocultar a auditoria",
+      "loadFailed": "Não foi possível ler as configurações de rede dos comandos",
+      "audit": {
+        "verdict": "Resultado",
+        "host": "Host",
+        "user": "Usuário",
+        "at": "Quando",
+        "reason": "Motivo",
+        "bytes": "Bytes enviados / recebidos",
+        "refresh": "Atualizar",
+        "empty": "Nenhum pedido corresponde.",
+        "loadFailed": "Não foi possível ler a auditoria",
+        "verdicts": {
+          "any": "Qualquer resultado",
+          "allow": "Permitido",
+          "block": "Bloqueado",
+          "done": "Concluído"
+        }
+      }
+    },
+    "addons": {
+      "title": "Complementos",
+      "hint": "Configurações que os complementos trazem",
+      "intro": "Cada complemento mantém as configurações na própria página, na aba Configurações dos detalhes. Abra um para mudá-las.",
+      "off": "Desativado. Ative-o para mudar as configurações.",
+      "open": "Abrir configurações",
+      "openNamed": "Abrir as configurações de {{name}}",
+      "count_one": "{{count}} complemento com configurações",
+      "count_other": "{{count}} complementos com configurações"
+    },
+    "hosts": {
+      "add": "Adicionar",
+      "listLabel": "Hosts sempre permitidos",
+      "remove": "Remover {{host}}",
+      "empty": "Nenhum host ainda. Escreva um nome de host, ou host:porta para fixar a porta.",
+      "hint": "Somente nomes exatos. Adicione :porta para permitir uma única porta; caso contrário, valem as portas de rede dos comandos.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Escreva um nome de host.",
+        "wildcard": "\"{{value}}\": escreva um nome de host exato, não um padrão.",
+        "shape": "\"{{value}}\" não é um nome de host. Escreva só o host, sem esquema nem caminho.",
+        "port": "\"{{value}}\": a porta deve ir de 1 a 65535, e 22 e 25 são sempre recusadas.",
+        "private": "\"{{value}}\" é um endereço privado ou local. Ative antes a chave da rede privada.",
+        "numeric": "\"{{value}}\": escreva um endereço IP como quatro números decimais.",
+        "duplicate": "\"{{value}}\" já está na lista.",
+        "full": "A lista comporta no máximo {{max}} hosts."
+      }
+    },
+    "network": {
+      "title": "Rede dos comandos",
+      "where": "{{name}} mantém na própria página as configurações de rede dos comandos que executa."
+    },
+    "autoUpgradeAddons": "Atualizar add-ons automaticamente",
+    "addonUpdates": {
+      "label": "Atualizações de add-ons",
+      "note": "O proprietário dos add-ons aplica esta configuração. Novas gerações podem executar código.",
+      "unavailable": "Configurações do proprietário indisponíveis ou alteradas: {{message}}",
+      "reload": "Recarregar e refazer as edições",
+      "retry": "Tentar a mesma operação de novo",
+      "policy": "Política do proprietário · revisão {{revision}}",
+      "apply": "Aplicar a configuração de atualização"
+    }
+  },
+  "backends": {
+    "lifecycle": {
+      "navigation": "Backend lifecycle",
+      "catalog": "Catalog",
+      "installed": "Installed",
+      "installedAria": "Installed backends",
+      "searchPlaceholder": "Search installed backends by name or alias...",
+      "filterAll": "All",
+      "filterUser": "User",
+      "filterSystem": "System",
+      "filterUpdates": "Updates",
+      "filterOffline": "Offline nodes",
+      "variants": "Variants",
+      "variantsCount": "Variants ({{count}})",
+      "development": "Development",
+      "developmentCount": "Development ({{count}})",
+      "countLabel": "{{visible}} of {{total}}",
+      "emptyTitle": "No backends installed yet",
+      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
+      "noMatches": "No installed backends match the current search and filters.",
+      "clearFilters": "Clear filters",
+      "updatesAvailable_one": "{{count}} backend has an update available",
+      "updatesAvailable_other": "{{count}} backends have updates available",
+      "upgradeAll": "Upgrade all",
+      "upgrading": "Upgrading...",
+      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
+      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
+      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
+      "loadFailed": "Failed to load installed backends: {{message}}",
+      "reinstall": "Reinstall backend",
+      "reinstallStarted": "Reinstalling {{name}}...",
+      "reinstallFailed": "Failed to reinstall: {{message}}",
+      "upgrade": "Upgrade",
+      "upgradeTo": "Upgrade to v{{version}}",
+      "upgradeStarted": "Upgrading {{name}}...",
+      "upgradeFailed": "Failed to upgrade: {{message}}",
+      "delete": "Delete",
+      "deleteBackend": "Delete backend",
+      "deleteTitle": "Delete Backend",
+      "deleteMessage": "Delete backend {{name}}?",
+      "deleteSucceeded": "Deleted backend {{name}}",
+      "deleteFailed": "Failed to delete backend: {{message}}",
+      "actionsFor": "Actions for {{name}}",
+      "protected": "Protected",
+      "protectedTitle": "System backends are managed outside the gallery",
+      "allBackends": "All backends",
+      "version": "Version",
+      "available": "Available",
+      "managed": "Managed",
+      "system": "System",
+      "gallery": "Gallery",
+      "installedOn": "Installed on",
+      "description": "Description",
+      "source": "Source",
+      "digest": "Digest",
+      "installedAt": "Installed",
+      "working": "Working...",
+      "updateAvailable": "Update available",
+      "updateGroup": "Update available",
+      "installedGroup": "Installed",
+      "inventoryEyebrow": "Installed runtimes",
+      "inventoryTitle_one": "{{count}} backend is installed.",
+      "inventoryTitle_other": "{{count}} backends are installed.",
+      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    },
+    "title": "Gerenciamento de Backends",
+    "subtitle": "Descubra e instale backends de IA para potencializar seus modelos"
+  },
+  "backendLogs": {
+    "title": "Logs de Backends",
+    "subtitle": "Ver logs dos backends em execução",
+    "empty": "Nenhum log disponível"
+  },
+  "traces": {
+    "title": "Rastreamentos",
+    "subtitle": "Ver requisições, respostas e operações de backend registradas"
+  },
+  "users": {
+    "title": "Usuários",
+    "subtitle": "Pessoas que podem entrar e o que cada uma pode usar.",
+    "invite": "Convidar alguém",
+    "summary": {
+      "label": "Usuários em resumo",
+      "total": "Usuários",
+      "totalUnit": "no total",
+      "active": "Ativos",
+      "activeUnit": "podem entrar",
+      "waiting": "Aguardando aprovação",
+      "waitingUnit": "cadastros",
+      "admins": "Admins",
+      "adminsUnit": "de {{count}}"
+    },
+    "filters": {
+      "label": "Filtrar usuários",
+      "all": "Todos",
+      "pending": "Pendentes",
+      "admins": "Admins",
+      "disabled": "Desativados",
+      "inactive": "Inativos há 30+ dias"
+    },
+    "popover": {
+      "signIn": "Método de login",
+      "access": "Acesso",
+      "any": "Qualquer",
+      "custom": "Acesso personalizado"
+    },
+    "search": {
+      "label": "Buscar por nome ou e-mail",
+      "placeholder": "Buscar nome ou e-mail"
+    },
+    "sort": {
+      "label": "Ordenar",
+      "name": "Nome",
+      "role": "Função",
+      "status": "Status",
+      "provider": "Login",
+      "lastActive": "Último acesso",
+      "keys": "Chaves de API"
+    },
+    "refresh": "Atualizar usuários",
+    "loading": "Carregando usuários",
+    "region": "Usuários",
+    "caption": "Usuários com função, acesso, status, última atividade e chaves de API",
+    "columns": {
+      "user": "Usuário",
+      "role": "Função",
+      "access": "Acesso",
+      "status": "Status",
+      "lastActive": "Último acesso",
+      "keys": "Chaves",
+      "actions": "Ações"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "usuário"
+    },
+    "state": {
+      "active": "Ativo",
+      "pending": "Pendente",
+      "disabled": "Desativado"
+    },
+    "access": {
+      "all": "Acesso total",
+      "default": "Acesso padrão",
+      "models_one": "somente {{count}} modelo",
+      "models_other": "somente {{count}} modelos",
+      "more_one": "{{count}} recurso a mais",
+      "more_other": "{{count}} recursos a mais",
+      "fewer_one": "{{count}} recurso a menos",
+      "fewer_other": "{{count}} recursos a menos",
+      "limits_one": "{{count}} limite",
+      "limits_other": "{{count}} limites"
+    },
+    "noName": "(sem nome)",
+    "you": "você",
+    "created": "Criado em {{date}}",
+    "never": "Nunca",
+    "approve": "Aprovar usuário",
+    "approveShort": "Aprovar",
+    "enable": "Ativar",
+    "disable": "Desativar usuário",
+    "disableFor": "Desativar {{name}}",
+    "editAccessFor": "Editar acesso de {{name}}",
+    "actionsFor": "Ações de {{name}}",
+    "showing": "Mostrando {{shown}} de {{total}}.",
+    "cancel": "Cancelar",
+    "undo": "Desfazer",
+    "dismiss": "Dispensar",
+    "menu": {
+      "editAccess": "Editar acesso",
+      "makeAdmin": "Tornar admin",
+      "makeUser": "Tornar usuário",
+      "resetPassword": "Redefinir senha",
+      "delete": "Excluir…"
+    },
+    "sheet": {
+      "account": "Conta",
+      "activity": "Atividade",
+      "apiKeys": "Chaves de API"
+    },
+    "empty": {
+      "title": "Nenhum usuário ainda",
+      "body": "As pessoas aparecem aqui quando se cadastram ou aceitam um convite."
+    },
+    "noMatch": {
+      "title": "Nenhum usuário encontrado",
+      "body": "Tente outra busca ou filtro.",
+      "clear": "Limpar filtros"
+    },
+    "error": {
+      "title": "Não foi possível carregar os usuários.",
+      "stale": "Não foi possível acessar o servidor.",
+      "staleNote": "A lista abaixo é de {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} aprovado",
+      "disabled": "{{name}} desativado",
+      "approveFailed": "Falha ao aprovar o usuário: {{message}}",
+      "disableFailed": "Falha ao desativar o usuário: {{message}}",
+      "disabledUndo": "{{name}} desativado. Desfazer o reativa.",
+      "restored": "{{name}} está ativo novamente",
+      "restoreFailed": "Falha ao restaurar o usuário: {{message}}",
+      "roleChanged": "{{name}} agora é {{role}}",
+      "roleFailed": "Falha ao atualizar a função: {{message}}",
+      "deleted": "Usuário excluído",
+      "deleteFailed": "Falha ao excluir o usuário: {{message}}",
+      "passwordReset": "Senha redefinida para {{name}}",
+      "resetFailed": "Falha ao redefinir a senha: {{message}}"
+    },
+    "reset": {
+      "title": "Redefinir senha",
+      "description": "Defina uma nova senha para {{name}}. Todas as sessões existentes serão invalidadas.",
+      "label": "Nova senha",
+      "placeholder": "Nova senha (mín. 12 caracteres)",
+      "confirm": "Redefinir senha",
+      "busy": "Redefinindo…",
+      "anyway": "Usar esta senha mesmo assim"
+    },
+    "delete": {
+      "title": "Excluir usuário",
+      "description": "As sessões e as chaves de API dele também serão removidas. Não é possível desfazer.",
+      "type": "Digite <n>{{name}}</n> para confirmar",
+      "confirm": "Excluir",
+      "busy": "Excluindo…"
+    }
+  },
+  "usage": {
+    "title": "Uso",
+    "subtitle": "Estatísticas de uso de tokens da API",
+    "sources": {
+      "tab": "Origens",
+      "mixTitle": "Mix de origens",
+      "ribbonAria": "{{apikey}}% chaves de API, {{web}}% Web UI, {{legacy}}% Legado",
+      "topSources": "Principais origens ao longo do tempo",
+      "searchPlaceholder": "Buscar por nome ou prefixo",
+      "sortBy": "Ordenar",
+      "sortTokens": "Tokens",
+      "sortRequests": "Requisições",
+      "sortLastUsed": "Último uso",
+      "sortName": "Nome",
+      "sortUser": "Usuário",
+      "webUI": "Web UI",
+      "legacy": "Legado",
+      "revoked": "revogada",
+      "filteredTo": "Filtrado por: {{name}}",
+      "clearFilter": "Limpar filtro",
+      "other": "Outros ({{count}})",
+      "noTrafficShort": "Nenhuma requisição neste período.",
+      "noKeysYet": "Assim que houver requisições, você as verá detalhadas aqui.",
+      "createKey": "Criar sua primeira chave de API",
+      "truncatedWarning": "Mostrando as 200 principais chaves. Aplique um filtro para reduzir ainda mais."
+    }
+  },
+  "operate": {
+    "overview": {
+      "title": "Visão geral",
+      "subtitle": "Tudo o que está em execução nesta instalação e tudo o que precisa de uma decisão.",
+      "attention": {
+        "heading": "Requer atenção",
+        "clear": "Nada requer atenção. Os backends estão atualizados, nenhuma operação falhou e todos os nós estão saudáveis.",
+        "backendUpdate": "Atualização disponível: {{from}} → {{to}}"
+      },
+      "capacity": {
+        "title": "Capacidade do host",
+        "loading": "Carregando a capacidade do host...",
+        "unavailable": "Capacidade do host indisponível",
+        "empty": "Nenhum dado de capacidade informado",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Recuperador ativo",
+        "used": "Usado",
+        "total": "Total",
+        "systemRam": "RAM do sistema",
+        "memory": "Memória",
+        "totalVram": "VRAM total",
+        "storage": "Armazenamento de modelos"
+      },
+      "sections": {
+        "heading": "Seções",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backends · {{models}} modelos · {{updates}} atualizações · {{running}} em execução",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nós",
+        "observability": "Observabilidade",
+        "observabilitySummary": "Uso e rastreamentos",
+        "administration": "Administração",
+        "administrationSummary": "Usuários, middleware e configurações · {{memory}} de memória em uso",
+        "clusterSingle": "Nó único",
+        "observabilityCounted": "{{requests}} requisições · {{errors}} falhas · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Requisições · {{hours}}h",
+        "errors": "Requisições com falha",
+        "p95": "latência p95",
+        "quiet": "Nenhuma requisição atendida nesta janela ainda.",
+        "host": "Memória do host"
+      },
+      "running": {
+        "heading": "Em execução",
+        "cluster": "Modelos em execução",
+        "clusterSummary": "Réplicas carregadas no cluster, na página Nós"
+      }
+    }
+  },
+  "localMachine": {
+    "title": "Esta máquina",
+    "subtitle": "Modelos carregados nesta instância do LocalAI e a capacidade do host que utilizam.",
+    "scaleOut": "Adicionar máquinas",
+    "hideScaleOut": "Ocultar configuração"
+  },
+  "settingsTools": {
+    "intro": "Os chats têm algumas ferramentas integradas que um complemento pode substituir. Quando o complemento está instalado, rodando e ligado em um chat, o chat usa a ferramenta do complemento, com o mesmo nome.",
+    "empty": "Não há ferramentas integradas para gerenciar neste servidor.",
+    "loadFailed": "Não foi possível ler as ferramentas integradas",
+    "switch": "Ligado",
+    "byBuiltin": "Integrada",
+    "byAddon": "Complemento: {{name}}",
+    "byNone": "Desligada",
+    "unavailable": "Este servidor não consegue executá-la: {{reason}}.",
+    "replaceExplain": "Estes complementos substituem {{tool}}: o escolhido o fornece em cada chat em que está ligado e rodando, e o integrado fica oculto. Só um pode estar ativo. Até você escolher, o que foi instalado primeiro o fornece.",
+    "defaultInstalledFirst": "Padrão: instalado primeiro",
+    "installedOn": "Instalado em {{when}}",
+    "choose_one": "{{count}} complemento substitui {{tool}}: escolha qual usar.",
+    "choose_other": "{{count}} complementos substituem {{tool}}: escolha qual usar.",
+    "labels": {
+      "bash": "Comandos (bash)",
+      "web_search": "Pesquisa na web",
+      "web_fetch": "Ler páginas da web",
+      "list_agents": "Agentes salvos",
+      "localai_client": "Ferramentas de cliente do LocalAI",
+      "localai_admin": "Ferramentas de administração do LocalAI"
+    },
+    "descriptions": {
+      "bash": "Roda comandos e código para os chats diretamente nesta máquina quando nenhum complemento fornece o bash. Um complemento que roda comandos isolados o substitui.",
+      "web_search": "Pesquisa na web para os chats sem chave (DuckDuckGo, depois Brave Search, depois Bing), ou com sua instância SearXNG quando houver uma definida.",
+      "web_fetch": "Lê para os chats uma página ou arquivo público da web pelo endereço. Endereços dentro da sua rede são recusados, a menos que você os permita.",
+      "list_agents": "Permite que um chat liste os agentes salvos do usuário e inicie um como subagente. Cada chat o ativa no menu Ferramentas.",
+      "localai_client": "Permite que os chats executem os modelos instalados aqui para imagens, voz, som, vídeo, embeddings e detecção, dentro das permissões de cada usuário.",
+      "localai_admin": "Permite que os chats dos administradores gerenciem este servidor: modelos, backends, configurações e o estado. Cada chat, ou agente salvo, a ativa."
+    },
+    "bash": {
+      "switch": "Deixar os chats rodarem comandos nesta máquina",
+      "modeLegend": "Quem pode rodar comandos",
+      "ask": "Perguntar toda vez.",
+      "askHint": "Só os chats de administradores o recebem, e cada comando espera o sim deles no chat.",
+      "on": "Permitir para todos.",
+      "onHint": "Os chats de todos os usuários rodam comandos aqui sem perguntar, inclusive execuções agendadas e subagentes.",
+      "default": "Não definido: vale o padrão ({{mode}}).",
+      "warning": "Os comandos rodam como o usuário do LocalAI, sem isolamento e com a rede desta máquina: podem ler o que o LocalAI lê e acessar a internet, a sua rede e a API do LocalAI. Cada comando é registrado. Instale um complemento que isole os comandos."
+    },
+    "modes": {
+      "off": "desligado",
+      "ask": "perguntar toda vez",
+      "on": "permitido para todos"
+    },
+    "skillsTitle": "Habilidades que complementos substituem",
+    "skillsIntro": "Um complemento pode substituir uma habilidade integrada pela sua, escrita para as suas ferramentas. Se vários substituírem a mesma, escolha qual é usada.",
+    "skillLabel": "Habilidade {{skill}}",
+    "skillNotRunning": "O complemento escolhido não está em execução: a habilidade integrada é usada.",
+    "toolNotRunning": "O complemento que substitui esta ferramenta não está em execução: a ferramenta integrada é usada.",
+    "stopped": "parado",
+    "webTest": {
+      "intro": "Executa uma pesquisa com cada provedor das configurações salvas e mostra o que cada um fez. Aplique suas alterações antes.",
+      "queryLabel": "Consulta",
+      "run": "Testar pesquisa",
+      "running": "Testando…",
+      "answered": "Os chats recebem os resultados de {{host}}.",
+      "noneAnswered": "Nenhum provedor respondeu.",
+      "failed": "Não foi possível executar o teste: {{error}}",
+      "results_one": "{{count}} resultado",
+      "results_other": "{{count}} resultados",
+      "outcomes": {
+        "ok": "Funciona",
+        "no_results": "Sem resultados",
+        "challenged": "Verificação antirrobô",
+        "blocked": "Bloqueado",
+        "timeout": "Lento demais",
+        "error": "Erro",
+        "skipped": "Ignorado"
+      }
+    },
+    "addonSettings": "Configurações de {{name}}"
+  },
+  "invites": {
+    "title": "Convidar alguém",
+    "description": "Crie um link que permite a uma pessoa se cadastrar. O link funciona até expirar.",
+    "close": "Fechar",
+    "lifetime": "Novo link de convite válido por",
+    "life": {
+      "24": "1 dia",
+      "168": "7 dias",
+      "720": "30 dias"
+    },
+    "generate": "Gerar link de convite",
+    "created": "Link de convite criado",
+    "createFailed": "Falha ao criar o convite: {{message}}",
+    "copiedToast": "URL do convite copiada para a área de transferência",
+    "copyFailed": "Falha ao copiar a URL",
+    "copyUrl": "Copiar URL do convite",
+    "copy": "Copiar",
+    "revoked": "Convite revogado",
+    "revokeFailed": "Falha ao revogar o convite: {{message}}",
+    "loading": "Carregando convites",
+    "loadFailed": "Não foi possível carregar os convites.",
+    "region": "Convites",
+    "caption": "Links de convite com quem criou e quem usou",
+    "empty": {
+      "title": "Nenhum link de convite.",
+      "body": "Gere um para que alguém se cadastre."
+    },
+    "columns": {
+      "link": "Link de convite",
+      "createdBy": "Criado por",
+      "usedBy": "Usado por",
+      "expires": "Expira em",
+      "actions": "Ações"
+    },
+    "state": {
+      "open": "Disponível",
+      "used": "Usado",
+      "expired": "Expirado"
+    },
+    "revoke": "Revogar",
+    "revokeTitle": "Revogar convite",
+    "revokeDialog": {
+      "title": "Revogar convite",
+      "description": "O link deixa de funcionar imediatamente. Quem já se cadastrou com ele mantém a conta.",
+      "body": "Revogar o link de convite que começa com {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "Chaves de API",
+    "subtitle": "Suas próprias chaves para programas que chamam este servidor."
+  }
+}

@@ -1,0 +1,88 @@
+name: Propose gallery variant groupings
+on:
+  schedule:
+    - cron: 0 4 * * 1
+  workflow_dispatch:
+# nosqlite and purego_utp: pkg/downloader needs them when cgo is on (see CONTRIBUTING.md, "Build tags").
+env:
+  GOFLAGS: -tags=nosqlite,purego_utp
+
+jobs:
+  variant_proposals:
+    if: github.repository == 'mudler/LocalAI'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      # The heuristics are the risky part of this job. A regression in them
+      # produces confident, wrong proposals, which is worse than no job at all.
+      - name: Test the proposer
+        run: go test ./.github/ci/variantproposals/
+
+      # The proposer calls no gallery code, but modelcatalog imports packages
+      # that need the generated gRPC stubs. Same pinned tools as the model
+      # library workflow.
+      - name: Generate the gRPC stubs the Go packages import
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+
+      - name: Propose groupings 🔧
+        id: propose
+        run: |
+          rm -f /tmp/variant-proposals-body.md
+          go run ./.github/ci/variantproposals \
+            -index gallery/models/index.yaml \
+            -ledger gallery/variant-exclusions.yaml \
+            -body-out /tmp/variant-proposals-body.md \
+            -apply
+          if [ -s /tmp/variant-proposals-body.md ]; then
+            echo "have_proposals=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'body<<VARIANT_PROPOSAL_BODY_EOF'
+              cat /tmp/variant-proposals-body.md
+              echo VARIANT_PROPOSAL_BODY_EOF
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "have_proposals=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The proposer edits the model library, the source. The gallery copy is
+      # generated from it, and the model library check fails a PR where they
+      # disagree. Only regenerate when the library changed.
+      - name: Regenerate the gallery copy from the library
+        if: steps.propose.outputs.have_proposals == 'true'
+        run: go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
+
+      # No body file means the proposer found nothing. Opening an empty pull
+      # request every run is how a proposal job gets muted by its reviewers.
+      - name: Create GitHub App token
+        id: app-token
+        if: steps.propose.outputs.have_proposals == 'true'
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UPDATE_BOT_APP_ID }}
+          private-key: ${{ secrets.UPDATE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Create Pull Request
+        if: steps.propose.outputs.have_proposals == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: 'chore(model-gallery): propose variant groupings'
+          title: 'chore(model-gallery): propose variant groupings for review'
+          branch: "propose/variant-groupings"
+          body: ${{ steps.propose.outputs.body }}
+          signoff: true

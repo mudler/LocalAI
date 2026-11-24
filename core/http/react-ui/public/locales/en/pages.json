@@ -1,0 +1,299 @@
+{
+  "title": "Pages",
+  "subtitle": "Small tools the assistant made for you. They open here, in a sandbox, and keep their data in your files.",
+  "loading": "Loading your pages",
+  "error": "The pages could not be read: {{message}}",
+  "retry": "Try again",
+  "off": "Pages are not available: {{reason}}",
+  "justNow": "just now",
+  "card": {
+    "changed": "Changed {{when}}",
+    "author": {
+      "you": "by you",
+      "assistant": "by the assistant"
+    },
+    "open": "Open",
+    "pin": "Pin to sidebar",
+    "unpin": "Unpin from sidebar",
+    "pinFailed": "The pin was not saved: {{message}}",
+    "ask": "Ask the assistant to change this",
+    "list": "Your pages",
+    "changedBy": {
+      "you": "Changed {{when}} by you",
+      "assistant": "Changed {{when}} by the assistant"
+    },
+    "menu": "More for {{title}}",
+    "files": "Show its files",
+    "rename": "Rename",
+    "renameLabel": "New folder name",
+    "renameHint": "Lowercase letters, digits and dashes.",
+    "renameSave": "Save",
+    "renameCancel": "Cancel",
+    "renameFailed": "The page was not renamed: {{message}}",
+    "delete": "Delete page",
+    "deleteTitle": "Delete \"{{title}}\"?",
+    "deleteMessage": "The folder {{folder}} goes to the Trash. You can restore it from Files.",
+    "deleted": "{{title}} is in the Trash.",
+    "deleteFailed": "The page was not deleted: {{message}}",
+    "share": "Share",
+    "shared": "Shared",
+    "sharedWith_one": "Shared with {{count}} person",
+    "sharedWith_other": "Shared with {{count}} people",
+    "sharedEveryone": "Shared with everyone",
+    "someone": "someone",
+    "othersEdit": "Others can edit"
+  },
+  "empty": {
+    "title": "No pages yet",
+    "text": "A page is a small tool, like a task board or a reading list. Ask the assistant for one in a chat, or start from a ready page.",
+    "starter": "Start from a task board",
+    "starting": "Copying the page",
+    "starterFailed": "The page was not copied: {{message}}",
+    "ask": "Ask for a page",
+    "askPrompt": "Make me a page that ",
+    "starterReading": "Start from a reading list",
+    "note": "This entry leaves the sidebar when you have no pages. It comes back with your next one.",
+    "learn": "How pages work"
+  },
+  "view": {
+    "runsAsYou": "Runs as you",
+    "runsAsYouHint": "The page reads and writes the files of its folder with your rights. It cannot reach the network or your other files.",
+    "updated": {
+      "you": "updated {{when}} by you",
+      "assistant": "updated {{when}} by the assistant"
+    },
+    "reload": "Reload",
+    "ask": "Ask the assistant to change this",
+    "askPrompt": "Change the page in pages/{{name}}/ so that ",
+    "sandbox": "Sandboxed frame, own folder only",
+    "frameTitle": "Page: {{title}}",
+    "loading": "Loading the page",
+    "notFound": "There is no page called {{name}}.",
+    "failed": "The page could not be loaded: {{message}}",
+    "back": "All pages",
+    "navigated": "The page tried to open another address and was stopped. Reload to start it again.",
+    "untrusted": "This page comes from a shared folder. It does not run until you allow it.",
+    "startPage": "Start page",
+    "makeStart": "Make this my first pinned page",
+    "startAlone": "It is your only pinned page.",
+    "startFailed": "The start page could not be saved: {{message}}"
+  },
+  "send": {
+    "label": "This page wants to send a message to the assistant",
+    "to": "Send to",
+    "pageChat": "This page's chat",
+    "send": "Send",
+    "dismiss": "Dismiss",
+    "sending": "Sending",
+    "sent": "Sent to {{title}}",
+    "openChat": "Open chat",
+    "failed": "Not sent: {{message}}"
+  },
+  "askNew": "Ask for a new page",
+  "yours": "Yours",
+  "filter": "Filter pages",
+  "shared": {
+    "yours": "Yours",
+    "group": "Shared with you",
+    "note": "A shared page runs only after you allow it. If its author changes it, you are asked again.",
+    "offNotice": "Shared pages are off on this server. An administrator turned them off.",
+    "off": "Shared pages are off on this server. An administrator turned them off.",
+    "gone": "This page is no longer in the shared folder, or you no longer have access to it.",
+    "review": "Review",
+    "from": "From {{author}}",
+    "menu": "Page menu",
+    "badge": {
+      "notAllowed": "Not allowed yet",
+      "changed": "Changed since you allowed it",
+      "allowed": "Allowed"
+    },
+    "userOff": "Turned off by an administrator.",
+    "stopFailed": "The page was not stopped: {{message}}"
+  },
+  "viewer": {
+    "stopAllowing": "Stop allowing this page",
+    "authorChanged": "{{author}} changed this page. The version you allowed keeps running until you review the change.",
+    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network.",
+    "sandboxUser": "Sandboxed. Runs as you, in its own folder only, and cannot reach the network."
+  },
+  "trust": {
+    "title": "Open \"{{title}}\"?",
+    "desc": "This page comes from a shared folder. Pages run as you, so check it before it runs.",
+    "who": "Written by {{author}}",
+    "whereLabel": "Shared folder",
+    "whereWhen": ", changed {{when}}",
+    "someone": "someone",
+    "close": "Close",
+    "canTitle": "It can",
+    "canStillTitle": "It can still",
+    "cannotTitle": "It cannot",
+    "items": {
+      "files": "Read and write files in its own folder",
+      "readOnly": "You can only read this shared folder, so the page cannot save its changes.",
+      "chat": "Write a message into a chat",
+      "chatNote": "You see the message in the chat before the assistant answers it.",
+      "noFiles": "Read your other files or chats",
+      "noNet": "Reach the network or other sites",
+      "noNetNote": "One limit: it can load another address in its own frame. That sends one request out, and then the page stops.",
+      "noTools": "Use tools or change your settings"
+    },
+    "warn": "It acts as you inside its folder. If {{author}} changes it, you are asked again.",
+    "viewSource": "View source",
+    "cancel": "Cancel",
+    "allowOnce": "Allow once",
+    "allow": "Allow",
+    "changed": {
+      "title": "\"{{title}}\" has changed",
+      "desc": "You allowed an earlier version. Check what changed before it runs again.",
+      "who": "Changed by {{author}} {{when}}",
+      "allowed": "You allowed the version of {{date}}",
+      "what": "What changed",
+      "same": "What it can do is the same as before.",
+      "warn": "If you allow it, this version runs each time you open it, until {{author}} changes it again.",
+      "view": "View changes",
+      "lines": "{{before}} → {{after}} lines",
+      "code": "A script, style sheet or module of the page changed: {{files}}"
+    },
+    "pill": {
+      "notYet": "Not allowed yet",
+      "not": "Not allowed",
+      "once": "Allowed for this visit",
+      "allowed": "Allowed",
+      "changed": "Changed since you allowed it"
+    },
+    "from": "From {{author}}",
+    "frame": {
+      "chrome": "Shared page from {{folder}}. It has not run."
+    },
+    "blocked": {
+      "title": "This page has not run",
+      "body": "You chose not to run it. It comes from {{author}}'s shared folder {{folder}}. Nothing in it has run, and nothing was saved.",
+      "review": "Review and allow"
+    },
+    "waiting": {
+      "title": "Waiting for you",
+      "body": "Nothing in this page runs until you allow it."
+    },
+    "stopped": {
+      "revoked": "You stopped allowing this page. It stopped running and nothing else in it runs until you allow it again.",
+      "refused": "This page is no longer allowed, so it was stopped. Review it to allow it again.",
+      "off": "Shared pages were turned off on this server, so this page was stopped."
+    },
+    "changedMeanwhile": "The page changed while you were reviewing it. This is the new version.",
+    "sourceTitle": "Source of \"{{title}}\"",
+    "sourceLines_one": "{{count}} line",
+    "sourceLines_other": "{{count}} lines",
+    "sourceNote": "The source is shown as text. Nothing in it runs here.",
+    "embed": {
+      "desc": "You allowed this page to open. On Home, in a slot and in the dock it runs as soon as the screen shows, without a click, so it needs its own yes.",
+      "item": "Run on Home, in the slots of the app and in the dock",
+      "note": "It starts when the screen shows, without a click. A change by its author asks again.",
+      "allow": "Allow on Home, in slots and in the dock"
+    },
+    "user": {
+      "desc": "A person shared this page with you. Pages run as you, so check it before it runs.",
+      "who": "Written by {{author}}. Not checked by an administrator.",
+      "unchecked": "Not checked by an administrator.",
+      "where": "Shared page",
+      "readOnly": "You can only look at this page, so it cannot save its changes.",
+      "chrome": "Shared page. It has not run.",
+      "blocked": "You chose not to run it. It comes from {{author}}. Nothing in it has run, and nothing was saved.",
+      "files": "Read and write files in its own folder"
+    },
+    "owner": {
+      "desc": "Others can edit this page. Pages run as you, so check it before it runs.",
+      "who": "Others can edit this page. Check it before it runs.",
+      "changedWho": "This page changed since you allowed it.",
+      "where": "Your page",
+      "warn": "It acts as you inside its folder. If someone changes it, you are asked again.",
+      "changedWarn": "If you allow it, this version runs each time you open it, until someone changes it again.",
+      "blocked": "You chose not to run it. Others can edit it. Nothing in it has run, and nothing was saved.",
+      "stale": "This page changed. Review it again."
+    }
+  },
+  "frame": {
+    "filesFailed": "Files next to this page did not load: {{files}}. The browser console says why.",
+    "tooLarge": "This page puts more than {{limit}} of files from its folder into itself, so some were left out. Load data with fetch() instead.",
+    "dismiss": "Dismiss"
+  },
+  "link": {
+    "label": "The page wants to open a link",
+    "open": "Open {{site}}",
+    "cancel": "Cancel",
+    "lookalike": "This address uses letters from other alphabets and reads as {{display}}. It may imitate another site: check it before you open it."
+  },
+  "dock": {
+    "button": "Dock",
+    "buttonTitle": "Show or hide the dock (Ctrl+\\)",
+    "region": "Pages beside the chat",
+    "tabs": "Docked pages",
+    "closeTab": "Close {{title}}",
+    "add": "Open another page in the dock",
+    "hide": "Hide the dock",
+    "hideKeys": "Hide the dock (Ctrl+\\)",
+    "openFull": "Open {{title}} as a full page",
+    "by": {
+      "assistant": "Page by the assistant",
+      "you": "Page by you"
+    },
+    "shared": "Shared: {{folder}}",
+    "askPrompt": "Change the page {{title}} in pages/{{name}}/ so that ",
+    "live": "Live: updates as files change",
+    "liveShort": "Live",
+    "sandboxed": "Sandboxed, no network",
+    "resize": "Width of the dock",
+    "resizeHint": "Drag the edge or use the arrow keys. Double-click or press Enter to reset the width.",
+    "fullScreen": "Make the dock full screen",
+    "halfScreen": "Make the dock half the screen",
+    "sheetHint": "Drag the handle up for full screen, down to close",
+    "pickTitle": "Open a page in the dock",
+    "pickEmpty": "You have no pages yet. Ask the assistant to make one.",
+    "missing": "The page {{name}} is gone, or you cannot read it now.",
+    "off": "An administrator turned shared pages off.",
+    "error": "The page could not be loaded.",
+    "allowText": "This page is from a shared folder. It runs here only after you allow it.",
+    "allow": "Review and allow",
+    "run": "Run it here",
+    "sendLabel": "The page asks to send this message to this chat:",
+    "saveFailed": "The dock was not saved: {{message}}",
+    "openInDock": "Open in dock"
+  },
+  "share": {
+    "intro": "Choose who can open this page. The page stays where it is.",
+    "warning": "People you share with run this page's code in their browser, with their own rights, after they allow it. They are asked again when you change the code.",
+    "role": {
+      "view": "View",
+      "use": "Use",
+      "edit": "Edit"
+    },
+    "roleHelp": {
+      "view": "Can run the page and read its data. Cannot save.",
+      "use": "Can run the page and save data in it. Cannot change its code.",
+      "edit": "Can change everything, including the code."
+    },
+    "count": {
+      "people_one": "Shared with {{count}} person.",
+      "people_other": "Shared with {{count}} people.",
+      "everyone": "Shared with everyone.",
+      "everyoneAnd_one": "Shared with everyone and {{count}} named person.",
+      "everyoneAnd_other": "Shared with everyone and {{count}} named people.",
+      "allowed_one": "{{count}} allowed this version.",
+      "allowed_other": "{{count}} allowed this version."
+    },
+    "offAdmin": "An administrator turned off sharing of pages. You can still stop sharing with the people below.",
+    "lost": "You can no longer share this page.",
+    "askAgain_one": "You changed the code. {{count}} person will be asked to allow it again.",
+    "askAgain_other": "You changed the code. {{count}} people will be asked to allow it again.",
+    "viewOnly": "You can look at this page, not change it",
+    "editNote": "With Edit, this page opens through the allow step for you too.",
+    "tile": {
+      "title": "Open this page to run it",
+      "text": "A person shared it with you. It does not run on Home or in a slot. Open it to run it.",
+      "open": "Open the page",
+      "dock": "A person shared this page with you. Open it from Pages to run it.",
+      "slot": "Open {{title}} to run it",
+      "textOwn": "Others can edit it. It does not run on Home or in a slot. Open it to run it.",
+      "dockOwn": "Others can edit this page. Open it from Pages to run it."
+    }
+  }
+}

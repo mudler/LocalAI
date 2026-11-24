@@ -1,0 +1,81 @@
+{
+  "title": "Discord",
+  "intro": "Verbinde einen Discord-Bot mit einem deiner gespeicherten Agenten. Personen sprechen mit dem Agenten in einer Direktnachricht an den Bot oder indem sie ihn in einem Kanal oder Thread erwähnen. Jede Person und jeder Thread bekommt einen eigenen Chat.",
+  "new": "Neuer Discord-Bot",
+  "edit": "Discord-Bot bearbeiten",
+  "name": "Name",
+  "token": "Bot-Token",
+  "tokenHelp": "Von der Seite Bot deiner Anwendung im Discord Developer Portal (Reset Token). Es wird versiegelt gespeichert und nie wieder angezeigt.",
+  "tokenSaved": "Gespeichert. Gib ein neues Token ein, um es zu ersetzen.",
+  "tokenSpace": "Das Token enthält keine Leerzeichen. Füge nur das Token ein, ohne das Wort Bot.",
+  "tokenShape": "Das ist zu kurz für ein Bot-Token.",
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "anyoneWarning": "Das ist für öffentliche Kanäle und für Agenten gedacht, die nur lesen. Wer den Bot erreichen kann, kann mit diesem Agenten sprechen: per Direktnachricht, wenn er mit dem Bot einen Server teilt, und in jedem Kanal, den der Bot lesen kann und in dem er ihn erwähnt. Personen, die nicht auf einer Liste stehen, haben keine eigene Berechtigung: Der Agent kann für sie kein Gedächtnis speichern, keine Trigger vorschlagen und ihre Dateien nicht entgegennehmen, und die sensiblen Aktionen bleiben gesperrt. Die übrigen Werkzeuge des Agenten funktionieren weiterhin für alle. Was Personen in einem öffentlichen Kanal schreiben, ist nicht vertrauenswürdiger Text und kann versuchen, den Agenten zu lenken (Prompt Injection). Gib dem Agenten für diese Verbindung nur lesende Werkzeuge, keine, die Nachrichten senden, Geld ausgeben oder Dateien ändern. Jede Person bekommt einen eigenen Chat, und die Zahl der Nachrichten, die eine Person pro Minute senden kann, ist begrenzt.",
+  "anyoneConfirm": "Ich verstehe, dass jeder diesen Agenten nutzen kann und seine Werkzeuge nur lesend sein sollten",
+  "allowIdsHint": "Eine Nutzer-ID oder eine Kanal-ID (Zahlen)",
+  "rules": "Aufgeführte Personen können in einer Direktnachricht schreiben und den Bot in jedem Kanal erwähnen. Ein aufgeführter Kanal lässt alle darin den Bot dort erwähnen, aber sie bekommen keine eigene Berechtigung. Auf einem Server antwortet der Bot nur, wenn er erwähnt wird, wenn man ihm antwortet oder in einem Thread, in dem er erwähnt wurde. Er antwortet nie auf Bots oder Webhooks, und seine Nachrichten benachrichtigen niemanden. Nutze Kanal-IDs: Eine Server-ID (Guild) passt auf nichts. Nur IDs, keine Namen: Schalte in Discord den Entwicklermodus ein (Einstellungen, Erweitert), klicke dann mit der rechten Maustaste auf eine Person oder einen Kanal und wähle Copy ID.",
+  "badIds": "Das sind keine Discord-IDs: {{list}}. Nutze die Zahl aus Copy ID (17 bis 20 Ziffern). Namen werden nicht akzeptiert.",
+  "notifyHelp": "Optional. Eine Kanal-ID, oder user: gefolgt von deiner Nutzer-ID, um sie als Direktnachrichten zu erhalten.",
+  "test": "Test",
+  "testOk": "Mit {{bot}} verbunden.",
+  "checkFailed": "Gespeichert. Die Prüfung des Tokens ist fehlgeschlagen: {{reason}}",
+  "senders": "Absender",
+  "noSenders": "Noch hat niemand diesem Bot geschrieben.",
+  "allowButton": "Diese Person auflisten",
+  "ignored": "Ignoriert",
+  "accepted": "Akzeptiert",
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "empty": "Noch keine Discord-Bots.",
+  "agentOf": "Agent: {{name}}",
+  "accepts": "Akzeptiert: {{who}}",
+  "modes": {
+    "anyone": "alle",
+    "nobody": "noch niemand",
+    "listed_one": "1 aufgeführter Eintrag",
+    "listed_other": "{{count}} aufgeführte Einträge"
+  },
+  "on": "An",
+  "onFor": "{{name}} an",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Der Bot antwortet nicht mehr, und das mit ihm gespeicherte Token wird gelöscht. Um ihn erneut einzurichten, musst du das Token noch einmal eingeben.",
+    "confirm": "Löschen"
+  },
+  "setup": {
+    "title": "So erstellst du den Discord-Bot",
+    "step1": "Wähle unter discord.com/developers/applications New Application und gib ihr einen Namen.",
+    "step2": "Wähle auf der Seite Bot Reset Token, kopiere das Token einmal und füge es hier in das Feld Bot-Token ein. Halte es geheim.",
+    "step3": "Schalte auf derselben Seite unter Privileged Gateway Intents den Message Content Intent ein. Ohne ihn kann der Bot nicht lesen, was Personen auf einem Server schreiben. Lass die anderen beiden Intents aus.",
+    "step4": "Optional: Schalte Public Bot aus, damit nur du den Bot zu einem Server hinzufügen kannst.",
+    "step5": "Gib unten die Application ID (General Information) ein und öffne den Link, der daraus entsteht. Wähle den Server und lass die Berechtigungen, wie sie sind.",
+    "step6": "Prüfe auf dem Server, dass die Rolle des Bots die Kanäle sehen kann, in denen er antworten soll. Führe dann die Kanal-IDs hier auf und erwähne den Bot, um es auszuprobieren.",
+    "appId": "Application ID",
+    "appIdHelp": "Die Zahl aus General Information deiner Anwendung. Sie ist nicht geheim. Sie erzeugt nur den Link; nichts wird gespeichert.",
+    "appIdBad": "Die Application ID ist eine Zahl mit 17 bis 20 Ziffern.",
+    "invite": "Link, der den Bot zu einem Server hinzufügt",
+    "copy": "Link kopieren",
+    "copied": "Kopiert",
+    "permissions": "Der Link fordert diese Berechtigungen an (die Zahl {{number}}):",
+    "perm": {
+      "viewChannels": "View Channels: um zu sehen, wo er erwähnt wird",
+      "sendMessages": "Send Messages: um zu antworten",
+      "sendInThreads": "Send Messages in Threads: um in Threads zu antworten",
+      "attachFiles": "Attach Files: um Dateien zu senden, die der Agent erstellt",
+      "readHistory": "Read Message History: um einen Thread und die Dateien einer Nachricht zu lesen"
+    },
+    "never": "Gib dem Bot nie Administrator, Manage Messages oder Mention Everyone. Er braucht keine davon."
+  },
+  "answer": {
+    "reply": {
+      "off": "Nur die Antwort (Discord hat hier keine Schreibanzeige)"
+    },
+    "replyHelp": "Fortschritt und Live zeigen eine Arbeitsnachricht, die die Antwort am Ende ersetzt. Discord begrenzt Bearbeitungen, daher aktualisiert Live etwa einmal pro Sekunde. Eine lange Antwort geht in neuen Nachrichten mit höchstens 2000 Zeichen weiter.",
+    "conversationHelp": "Sende !new in Discord, um einen neuen Chat zu starten. Eine Nachricht, die mit einem Schrägstrich beginnt, kann Discord für einen eigenen Befehl halten."
+  }
+}

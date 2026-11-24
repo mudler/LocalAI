@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Diarization pipeline</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Diarization</p>
+<h1>Who spoke <span class="hl">when</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch">
+ <div class="col" style="justify-content:center;width:270px"><div class="node "><b>Audio</b><span>wav, mp3, m4a</span></div><div class="ar v" style="height:34px;margin:0 auto"></div><div class="node soft"><b>ffmpeg</b><span>16 kHz, mono</span></div></div>
+ <div class="ar" style="width:46px"></div>
+ <div class="col fl" style="gap:22px">
+  <div class="panel" style="padding:16px 20px"><h3>Path A: sherpa-onnx</h3><div class="flow tight"><div class="node cen"><b>Segment</b><span>VAD windows</span></div><div class="ar"></div><div class="node cen"><b>Embed</b><span>speaker vector</span></div><div class="ar"></div><div class="node cen"><b>Cluster</b><span>group by speaker</span></div></div></div>
+  <div class="panel" style="padding:16px 20px"><h3>Path B: vibevoice, one pass</h3><div class="flow tight"><div class="node cen"><b>Transcribe</b><span>and tag speakers in one pass</span></div></div></div></div>
+ <div class="ar" style="width:46px"></div>
+ <div class="col" style="justify-content:center;width:250px"><div class="node core"><b>Output</b><span>json, verbose_json, rttm</span></div></div></div>
+
+</div>
+<div class="foot">Speaker labels on every segment, <b>with or without</b> a separate embedding step.</div>
+</body></html>

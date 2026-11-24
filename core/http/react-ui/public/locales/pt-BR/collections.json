@@ -1,0 +1,113 @@
+{
+  "title": "Conhecimento",
+  "subtitle": "Coleções de documentos em que os agentes podem pesquisar. Pesquise em qualquer uma aqui ou adicione uma a um agente quando quiser que ela seja usada.",
+  "newPlaceholder": "Nome da nova coleção...",
+  "actions": {
+    "create": "Criar",
+    "details": "Detalhes",
+    "reset": "Redefinir",
+    "delete": "Excluir",
+    "viewDetails": "Ver detalhes",
+    "resetCollection": "Redefinir coleção",
+    "deleteCollection": "Excluir coleção",
+    "cancel": "Cancelar",
+    "save": "Salvar"
+  },
+  "sections": {
+    "yourCollections": "Suas Coleções",
+    "otherUsersCollections": "Coleções de Outros Usuários",
+    "sharedWithYou": "Compartilhadas com você"
+  },
+  "empty": {
+    "title": "Nenhuma coleção ainda",
+    "text": "As coleções permitem organizar documentos em bases de conhecimento que os agentes podem pesquisar usando RAG (Retrieval-Augmented Generation). Crie uma coleção acima para começar.",
+    "noPersonal": "Você ainda não tem coleções.",
+    "learn": "Como o conhecimento funciona"
+  },
+  "deleteDialog": {
+    "title": "Excluir Coleção",
+    "message": "Excluir a coleção \"{{name}}\"? Isso removerá todas as entradas e não pode ser desfeito.",
+    "confirm": "Excluir"
+  },
+  "resetDialog": {
+    "title": "Redefinir Coleção",
+    "message": "Redefinir a coleção \"{{name}}\"? Isso removerá todas as entradas, mas manterá a coleção.",
+    "confirm": "Redefinir"
+  },
+  "toasts": {
+    "created": "Coleção \"{{name}}\" criada",
+    "createFailed": "Falha ao criar a coleção: {{message}}",
+    "deleted": "Coleção \"{{name}}\" excluída",
+    "deleteFailed": "Falha ao excluir a coleção: {{message}}",
+    "reset": "Coleção \"{{name}}\" redefinida",
+    "resetFailed": "Falha ao redefinir a coleção: {{message}}"
+  },
+  "loadFailed": "Não foi possível carregar suas coleções.",
+  "sources": {
+    "loadFailed": "Não foi possível carregar as fontes web.",
+    "noneShared": "Nenhuma fonte web."
+  },
+  "entries": {
+    "loadFailed": "Não foi possível carregar os arquivos.",
+    "filter": "Filtrar arquivos",
+    "countAll_one": "{{count}} arquivo",
+    "countAll_other": "{{count}} arquivos",
+    "countOf": "{{shown}} de {{total}} arquivos",
+    "noMatch": "Nenhum arquivo corresponde."
+  },
+  "starting": {
+    "title": "O conhecimento está iniciando.",
+    "text": "O servidor ainda está preparando o serviço de conhecimento. Esta página tenta de novo sozinha."
+  },
+  "embedding": {
+    "missingTitle": "Nenhum modelo de embeddings instalado.",
+    "missingText": "As coleções usam {{model}} para indexar os arquivos e pesquisar neles. Até que ele seja instalado, adicionar arquivos e pesquisar falham.",
+    "noneSet": "Nenhum modelo de embeddings está definido para as coleções (collections_embedding_model), então adicionar arquivos e pesquisar falham.",
+    "install": "Encontrar em Modelos",
+    "askAdmin": "Peça a um administrador para instalá-lo."
+  },
+  "searchMode": {
+    "label": "Busca: {{mode}}",
+    "semantic": "semântica",
+    "hybrid": "híbrida",
+    "semanticHint": "Encontra trechos pelo significado, não por palavras ou códigos exatos.",
+    "hybridHint": "Encontra trechos pelo significado e por palavras exatas."
+  },
+  "pane": {
+    "addFile": "Adicionar arquivo"
+  },
+  "share": {
+    "label": "Compartilhar",
+    "button": "Compartilhar {{name}}",
+    "intro": "As pessoas que você adicionar encontram esta coleção na própria lista, e os agentes delas podem pesquisá-la pelo nome.",
+    "failed": "Não foi possível compartilhar a coleção: {{message}}",
+    "roles": {
+      "viewer": "Pode ver",
+      "viewerHelp": "Pode pesquisá-la e ler os arquivos.",
+      "editor": "Pode editar",
+      "editorHelp": "Também pode adicionar e remover arquivos."
+    },
+    "noteViewer": "Você pode pesquisá-la e ler os arquivos.",
+    "noteEditor": "Você pode pesquisá-la e adicionar ou remover arquivos."
+  },
+  "create": {
+    "title": "Nova coleção",
+    "hint": "Dê um nome que você reconheça. Você adiciona arquivos e páginas web depois que ela existir."
+  },
+  "sort": {
+    "label": "Ordenar coleções",
+    "name": "Nome, de A a Z",
+    "name-desc": "Nome, de Z a A",
+    "used": "Mais usadas",
+    "unused": "Não usadas primeiro"
+  },
+  "list": {
+    "countAll_one": "{{count}} coleção",
+    "countAll_other": "{{count}} coleções",
+    "countOf": "{{shown}} de {{total}} coleções",
+    "menu": "Ações de {{name}}"
+  },
+  "menu": {
+    "try": "Testar uma pergunta"
+  }
+}

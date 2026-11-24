@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Quickstart journey</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.step { width: 318px; padding: 0; overflow: hidden; }
+.step .h { background: var(--accent-wash); padding: 14px 20px 12px; }
+.step .h small { display: block; font-size: 18px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-text); }
+.step .h b { font-size: 34px; }
+.step .bd { padding: 16px 20px 18px; display: grid; gap: 10px; }
+.step .bd div { font-size: 26px; line-height: 1.25; }
+.step .bd .or { font-size: 19px; font-weight: 700; letter-spacing: .1em; color: var(--muted); }
+.step.last .h { background: var(--teal); }
+.step.last .h small, .step.last .h b { color: var(--on-teal); }
+.next .node { width: 430px; }
+</style></head>
+<body>
+<p class="k">Quickstart</p>
+<h1>Install, run, <span class="hl">talk</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+  <div class="row" style="justify-content:space-between;align-items:stretch;gap:0">
+    <div class="node step"><div class="h"><small>Step 1</small><b>Install</b></div><div class="bd"><div>Install script</div><div class="or">OR</div><div>Docker image</div><div class="or">OR</div><div>desktop app</div></div></div>
+    <div class="ar" style="width:56px"></div>
+    <div class="node step"><div class="h"><small>Step 2</small><b>Start LocalAI</b></div><div class="bd"><div>Run the container or the binary</div><div class="or">THEN</div><div>Open <span class="code">localhost:8080</span></div></div></div>
+    <div class="ar" style="width:56px"></div>
+    <div class="node step"><div class="h"><small>Step 3</small><b>Pick a model</b></div><div class="bd"><div>First-run guide in the web UI</div><div class="or">OR</div><div class="code" style="font-size:19px">local-ai run &lt;model&gt;</div></div></div>
+    <div class="ar" style="width:56px"></div>
+    <div class="node step last"><div class="h"><small>Step 4</small><b>Talk to it</b></div><div class="bd"><div>Chat page in the web UI</div><div class="or">OR</div><div>Call the API under <span class="code">/v1</span></div></div></div>
+  </div>
+  <div class="lab acc" style="margin-top:56px">Then go further</div>
+  <div class="row next" style="gap:20px">
+    <div class="node dash"><b>Build your first agent</b><span>a saved agent with tools</span></div>
+    <div class="node dash"><b>Install add-ons</b><span>Office, Sandbox, chat apps</span></div>
+    <div class="node dash"><b>Add more machines</b><span>distributed mode</span></div>
+  </div>
+</div>
+<div class="foot">From an empty machine to your first answer in four steps. <b>No GPU needed.</b></div>
+</body></html>

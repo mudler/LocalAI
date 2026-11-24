@@ -1,0 +1,432 @@
++++
+disableToc = false
+title = "CLI Reference"
+weight = 20
+description = "All command line flags and environment variables of the local-ai command."
+keywords = ["cli","flags","environment variables"]
+devbuild = "install"
++++
+
+Every flag of `local-ai` and the environment variable that sets it.
+
+For client-side text inference measurements, see [Benchmark text models]({{% relref "/models/capabilities/text/benchmark" %}}).
+
+These options configure the LocalAI server process. To configure an individual
+model, see [Model Configuration]({{% relref "/models/model-configuration" %}}).
+
+> **Note:** You can set every flag with an environment variable. A flag on the command line wins over its environment variable, and the environment variable wins over the built-in default. See [.env files]({{%relref "/models/advanced-usage#env-files" %}}) for configuration file support.
+
+## Global Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `-h, --help` | | Show context-sensitive help | |
+| `--log-level` | `info` | Set the level of logs to output [error,warn,info,debug,trace] | `$LOCALAI_LOG_LEVEL` |
+| `--log-client` | `false` | `local-ai run` only. Add `duration`, `remote` (the TCP peer address, or the real client when the peer is a trusted proxy), `user_agent` (control characters replaced, cut to 80 characters), and `request_id` (when the request has one) to the `HTTP request` log line, so you can tell who sent a request that was refused. Forwarding headers are read only from a peer listed in `--trusted-proxies`, so behind a reverse proxy the address is the proxy address until you set it. Authorization headers, cookies, query strings and bodies are never logged. | `$LOCALAI_LOG_CLIENT` |
+| `--trusted-proxies` | | Comma-separated IP addresses and CIDR ranges of the reverse proxies in front of LocalAI. When the TCP peer is in the list, the client address is the right-most `X-Forwarded-For` entry that is not itself in the list (`X-Real-Ip` is used when there is no `X-Forwarded-For`). Otherwise it is the peer. Empty (the default) trusts nobody. The address is used by the access log, the login and registration rate limits and the API traces. The `X-Forwarded-Proto`, `X-Forwarded-Host`, `X-Forwarded-Prefix` and `Forwarded` headers, which set the base URL of the page, are also believed only from a trusted peer. See [Running behind a proxy]({{% relref "/administration/reverse-proxy-tls" %}}#finding-the-client-address). An invalid value stops startup. | `$LOCALAI_TRUSTED_PROXIES` |
+| `--credentials-file` | | YAML file with credentials for private registries, galleries and download hosts. See [Private Registries and Galleries]({{% relref "/models/private-sources" %}}) | `$LOCALAI_CREDENTIALS_FILE` |
+| `--debug` | `false` | **DEPRECATED** - Use `--log-level=debug` instead. Enable debug logging | `$LOCALAI_DEBUG`, `$DEBUG` |
+
+## Diagnostics flags
+
+See [Profiling and request diagnostics]({{% relref "/administration/diagnostics" %}}) for sampling semantics, phase boundaries, and protected pod captures.
+
+These options apply only to `local-ai run`, including distributed frontends.
+Diagnostics state is per-instance, not shared between replicas. Debug logging enables neither feature.
+The profiling listener is separate from the public API and accepts only numeric loopback addresses with explicit ports.
+`--preload-backend-only` validates these options but does not start profiling or sampling.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--pprof` | `false` | Enable the private loopback profiling listener | `$LOCALAI_PPROF` |
+| `--pprof-address` | `127.0.0.1:6060` | Numeric loopback IP and port (1–65535), including bracketed IPv6; validated even when disabled | `$LOCALAI_PPROF_ADDRESS` |
+| `--pprof-mutex-profile-fraction` | `0` | Nonnegative mutex sampling fraction; nonzero requires pprof | `$LOCALAI_PPROF_MUTEX_PROFILE_FRACTION` |
+| `--pprof-block-profile-rate` | `0` | Nonnegative block sampling rate in nanoseconds; nonzero requires pprof | `$LOCALAI_PPROF_BLOCK_PROFILE_RATE` |
+| `--request-phase-timing` | `false` | Emit sanitized phase timing at Info, independently of pprof; warn/error filtering suppresses events | `$LOCALAI_REQUEST_PHASE_TIMING` |
+
+Sampling adds overhead. The process applies configured rates once and resets them to zero on shutdown.
+There is no runtime toggle, continuous capture, or public API route for diagnostics.
+The private listener has no authentication: other processes in the same network namespace can access profiles.
+Profiles can contain secrets; protect captured files. The `/debug/pprof/cmdline` endpoint is unavailable.
+Shutdown allows five seconds for cleanup, then force-closes profiling connections.
+Existing application initialization operations may not promptly observe cancellation.
+The signal callback still returns after its cleanup budget expires.
+If initialization fails without returning an application handle, this lifecycle cannot shut down resources created inside that failed initialization.
+Application shutdown has no context parameter; work that ignores cancellation can outlive the cleanup budget.
+
+## Storage Flags
+
+`BASEPATH` in the defaults below is the current folder on Linux and macOS, and `%LOCALAPPDATA%\LocalAI` on Windows. Set `LOCALAI_BASE_PATH` to use another folder on any system: it moves every default that starts with `BASEPATH` at once. A flag or a variable of one folder still wins over it. `LOCALAI_BASE_PATH` is a variable and not a flag, because the defaults of all flags are set before the command line is read. You can put it in an [env file]({{%relref "/models/advanced-usage" %}}#env-files). See [Install on Windows]({{%relref "/start/install/windows" %}}#where-localai-keeps-its-files) for the Windows folders.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--models-path` | `BASEPATH/models` | Path containing models used for inferencing | `$LOCALAI_MODELS_PATH`, `$MODELS_PATH` |
+| `--download-staging-path` | `BASEPATH/downloading` | Path where in-flight downloads are staged before extraction | `$LOCALAI_DOWNLOAD_STAGING_PATH`, `$DOWNLOAD_STAGING_PATH` |
+| `--data-path` | `BASEPATH/data` | Path for persistent data (the files of the chats, their conversion marks, the old files that the start-up converts, the JSON stores of the chats, saved agents, triggers and connectors when there is no database, collections and agent jobs). Separates mutable data from configuration. `--data-path=-` keeps nothing on disk: the chats then live in memory and files are off (an empty value means the default) | `$LOCALAI_DATA_PATH` |
+| `--generated-content-path` | `TMPDIR/localai-UID/generated/content` | Location for assets generated by backends (e.g. stablediffusion, images, audio, videos). Defaults under the OS temp dir (`$TMPDIR`, falling back to `/tmp`), scoped to the current user's UID so accounts sharing a host never collide. | `$LOCALAI_GENERATED_CONTENT_PATH`, `$GENERATED_CONTENT_PATH` |
+| `--upload-path` | `TMPDIR/localai-UID/upload` | Path to store uploads from files API. Defaults under the OS temp dir (`$TMPDIR`, falling back to `/tmp`), scoped to the current user's UID. | `$LOCALAI_UPLOAD_PATH`, `$UPLOAD_PATH` |
+| `--localai-config-dir` | `BASEPATH/configuration` | Directory for dynamic loading of certain configuration files (currently runtime_settings.json, api_keys.json, and external_backends.json). See [Runtime Settings]({{%relref "/administration/runtime-settings" %}}) for web-based configuration. | `$LOCALAI_CONFIG_DIR` |
+| `--localai-config-dir-poll-interval` | | Time duration to poll the LocalAI Config Dir if your system has broken fsnotify events (example: `1m`) | `$LOCALAI_CONFIG_DIR_POLL_INTERVAL` |
+
+| `--models-config-file` | | YAML file containing a list of model backend configs (alias: `--config-file`) | `$LOCALAI_MODELS_CONFIG_FILE`, `$CONFIG_FILE` |
+| `--addon-host-ops` | `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.` | Add-ons that may call host operations, as a comma list of `addon-id=operation-prefix`. An add-on that is not listed gets no host operation channel; an empty value lists none. See [Host operations]({{% relref "/addons/contract-reference" %}}) | `$LOCALAI_ADDON_HOST_OPS` |
+| `--addons-role` | `combined` | How this process takes part in the add-on owner: `combined` (the node is its own owner), `owner` or `frontend`. See [Turning the owner on or off]({{% relref "/addons/contract-reference/owner#turning-the-owner-on-or-off" %}}) | `$LOCALAI_ADDONS_ROLE` |
+| `--addons-owner-address` | | `https://host:port` of the add-on owner carrier, with no path. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_OWNER_ADDRESS` |
+| `--addons-owner-listen` | | `owner` role only: the address the carrier listens on. Empty listens on all interfaces, on the port of `--addons-owner-address` | `$LOCALAI_ADDONS_OWNER_LISTEN` |
+| `--addons-carrier-dir` | | Directory with the carrier key set from `local-ai util addons-carrier-keys`. Required for the `owner` and `frontend` roles | `$LOCALAI_ADDONS_CARRIER_DIR` |
+| `--addons-enabled` | `true` | Run the add-on owner. `--addons-enabled=false` turns add-ons off completely. See [The addons feature gate]({{% relref "/addons/contract-reference/owner#the-addons-feature-gate" %}}) | `$LOCALAI_ADDONS_ENABLED` |
+| `--addons-ownership-mode` | `local-owner` without authentication, `named-user` with it | `named-user` gives each account its own access to add-ons; `local-owner` makes every caller share one owner | `$LOCALAI_ADDONS_OWNERSHIP_MODE` |
+| `--auto-upgrade-addons` | `false` | Upgrade installed add-ons on their own when a newer version appears in their library | `$LOCALAI_AUTO_UPGRADE_ADDONS` |
+| `--addons-official-library` | `true` | Register the official add-on library on the first start | `$LOCALAI_ADDONS_OFFICIAL_LIBRARY` |
+| `--addons-backend-library` | `true` | Register the backend library on the first start | `$LOCALAI_ADDONS_BACKEND_LIBRARY` |
+| `--addons-backend-max-bytes` | `8589934592` | Largest compressed size, in bytes, of a backend image installed from a library | `$LOCALAI_ADDONS_BACKEND_MAX_BYTES` |
+| `--addons-wsl-distro` | | Windows only: the WSL 2 distribution that runs the add-ons whose package runs in WSL 2 (osSettings.windows.execution wsl2). Empty uses the default distribution of WSL | `$LOCALAI_ADDONS_WSL_DISTRO` |
+| `--max-concurrent-model-operations` | `2` | How many model install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same model never overlap. See [Runtime Settings]({{% relref "/administration/runtime-settings" %}}) | `$LOCALAI_MAX_CONCURRENT_MODEL_OPERATIONS` |
+| `--max-concurrent-backend-operations` | `2` | How many backend install, upgrade and delete operations run at once. `1` runs them one after the other. Operations on the same backend never overlap. In distributed mode it also bounds how many nodes one operation is sent to at the same time. See [Runtime Settings]({{% relref "/administration/runtime-settings" %}}) | `$LOCALAI_MAX_CONCURRENT_BACKEND_OPERATIONS` |
+| `--artifact-download-concurrency` | `1` | How many files of a model artifact to download at once. `1` downloads sequentially. Raising it helps artifacts split into many files on a fast link, at the cost of more concurrent load on the models volume. Whole files only: a single file is never split, so resume and per-file checksum verification are unaffected | `$LOCALAI_ARTIFACT_DOWNLOAD_CONCURRENCY` |
+
+Backend processes receive a private scratch directory through `TMPDIR`, `TMP`,
+and `TEMP`. LocalAI removes that directory when the backend exits and removes
+abandoned directories left by a LocalAI crash before starting another backend.
+Set `$LOCALAI_BACKEND_TEMP_DIR` to choose their base volume. LocalAI always
+appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
+
+## Backend Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--backends-path` | `BASEPATH/backends` | Path containing backends used for inferencing | `$LOCALAI_BACKENDS_PATH`, `$BACKENDS_PATH` |
+| `--backends-system-path` | `/var/lib/local-ai/backends` (Windows: `%ProgramData%\LocalAI\backends`) | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
+| `--external-backends` | | A list of external backends to load from gallery on boot | `$LOCALAI_EXTERNAL_BACKENDS`, `$EXTERNAL_BACKENDS` |
+| `--external-grpc-backends` | | A list of external gRPC backends (format: `BACKEND_NAME:URI`) | `$LOCALAI_EXTERNAL_GRPC_BACKENDS`, `$EXTERNAL_GRPC_BACKENDS` |
+| `--backend-galleries` | | JSON list of backend galleries | `$LOCALAI_BACKEND_GALLERIES`, `$BACKEND_GALLERIES` |
+| `--autoload-backend-galleries` | `true` | Automatically load backend galleries on startup | `$LOCALAI_AUTOLOAD_BACKEND_GALLERIES`, `$AUTOLOAD_BACKEND_GALLERIES` |
+| `--max-active-backends` | `0` | Maximum number of active backends (loaded models). When exceeded, the least recently used model is evicted. Set to `0` for unlimited, `1` for single-backend mode | `$LOCALAI_MAX_ACTIVE_BACKENDS`, `$MAX_ACTIVE_BACKENDS` |
+| `--single-active-backend` | `false` | **DEPRECATED** - Use `--max-active-backends=1` instead. Allow only one backend to be run at a time | `$LOCALAI_SINGLE_ACTIVE_BACKEND`, `$SINGLE_ACTIVE_BACKEND` |
+| `--preload-backend-only` | `false` | Do not launch the API services, only the preloaded models/backends are started (useful for multi-node setups) | `$LOCALAI_PRELOAD_BACKEND_ONLY`, `$PRELOAD_BACKEND_ONLY` |
+| `--enable-watchdog-idle` | `false` | Enable watchdog for stopping backends that are idle longer than the watchdog-idle-timeout | `$LOCALAI_WATCHDOG_IDLE`, `$WATCHDOG_IDLE` |
+| `--watchdog-idle-timeout` | `15m` | Threshold beyond which an idle backend should be stopped | `$LOCALAI_WATCHDOG_IDLE_TIMEOUT`, `$WATCHDOG_IDLE_TIMEOUT` |
+| `--enable-watchdog-busy` | `false` | Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout | `$LOCALAI_WATCHDOG_BUSY`, `$WATCHDOG_BUSY` |
+| `--watchdog-busy-timeout` | `5m` | Threshold beyond which a busy backend should be stopped | `$LOCALAI_WATCHDOG_BUSY_TIMEOUT`, `$WATCHDOG_BUSY_TIMEOUT` |
+| `--watchdog-interval` | `500ms` | Interval between watchdog checks (e.g., `500ms`, `5s`, `1m`) | `$LOCALAI_WATCHDOG_INTERVAL`, `$WATCHDOG_INTERVAL` |
+| `--force-eviction-when-busy` | `false` | Force eviction even when models have active API calls (default: false for safety). **Warning:** Enabling this can interrupt active requests | `$LOCALAI_FORCE_EVICTION_WHEN_BUSY`, `$FORCE_EVICTION_WHEN_BUSY` |
+| `--lru-eviction-max-retries` | `30` | Maximum number of retries when waiting for busy models to become idle before eviction | `$LOCALAI_LRU_EVICTION_MAX_RETRIES`, `$LRU_EVICTION_MAX_RETRIES` |
+| `--lru-eviction-retry-interval` | `1s` | Interval between retries when waiting for busy models to become idle (e.g., `1s`, `2s`) | `$LOCALAI_LRU_EVICTION_RETRY_INTERVAL`, `$LRU_EVICTION_RETRY_INTERVAL` |
+| `--upgrade-run-keep` | `200` | Most finished [upgrade runs]({{% relref "/models/upgrade-runs#retention" %}}) kept; the oldest beyond it are removed. `-1` keeps any number | `$LOCALAI_UPGRADE_RUN_KEEP` |
+| `--upgrade-run-retention-days` | `30` | Days to keep finished upgrade runs. `-1` keeps them forever | `$LOCALAI_UPGRADE_RUN_RETENTION_DAYS` |
+| `--model-load-failure-cooldown` | `10s` | After a model load fails, refuse new load attempts for that model for this long (HTTP 503 + `Retry-After`) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. `0` disables | `$LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN`, `$MODEL_LOAD_FAILURE_COOLDOWN` |
+
+For more information on VRAM management, see [VRAM and Memory Management]({{%relref "/models/vram-management" %}}).
+
+## Models Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--galleries` | | JSON list of galleries | `$LOCALAI_GALLERIES`, `$GALLERIES` |
+| `--autoload-galleries` | `true` | Automatically load galleries on startup | `$LOCALAI_AUTOLOAD_GALLERIES`, `$AUTOLOAD_GALLERIES` |
+| `--vram-persistent-cache` | `true` | Persist successful remote VRAM metadata probes across restarts | `$LOCALAI_VRAM_PERSISTENT_CACHE`, `$VRAM_PERSISTENT_CACHE` |
+| `--preload-models` | | A list of models to apply in JSON at start | `$LOCALAI_PRELOAD_MODELS`, `$PRELOAD_MODELS` |
+| `--models` | | A list of model configuration URLs to load | `$LOCALAI_MODELS`, `$MODELS` |
+| `--preload-models-config` | | A list of models to apply at startup. Path to a YAML config file | `$LOCALAI_PRELOAD_MODELS_CONFIG`, `$PRELOAD_MODELS_CONFIG` |
+| `--load-to-memory` | | A list of models to load into memory at startup | `$LOCALAI_LOAD_TO_MEMORY`, `$LOAD_TO_MEMORY` |
+
+> **Note:** You can also pass model configuration URLs as positional arguments: `local-ai run MODEL_URL1 MODEL_URL2 ...`
+
+## Performance Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--f16` | `false` | Default to 16-bit float (f16) memory and KV cache for models whose config does not set f16 | `$LOCALAI_F16`, `$F16` |
+| `-t, --threads` | Automatic | Number of threads used for parallel computation. See the default thread count below | `$LOCALAI_THREADS`, `$THREADS` |
+| `--context-size` | | Context size for models that set no `context_size` (`-1` = each model's full trained context from GGUF metadata). Unset: automatic, 32768 for a model that can serve chats (capped by its trained window and by memory), at most 8192 for other models | `$LOCALAI_CONTEXT_SIZE`, `$CONTEXT_SIZE` |
+
+### Default thread count
+
+When the server thread setting is unset or zero, LocalAI selects the smaller
+of the physical core count and Go's current `GOMAXPROCS` value at startup.
+The result is at least one thread.
+
+By default, Go accounts for CPU affinity and Linux container CPU quotas.
+For example, `docker run --cpus=2` limits the automatic default to two threads.
+Go normally applies a minimum of two for CPU quotas, so `--cpus=1` can still
+produce two threads. Set `--threads=1` if you need one inference thread.
+
+An explicit `GOMAXPROCS` value overrides Go's automatic CPU detection.
+A nonzero server thread setting from the CLI, environment, or saved runtime
+settings bypasses this automatic default.
+
+## API Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--address` | `:8080` | Bind address for the API server | `$LOCALAI_ADDRESS`, `$ADDRESS` |
+| `--shutdown-timeout` | `20s` | On `SIGTERM` or `SIGINT`, stop accepting requests, make `/readyz` answer `503` and wait this long for in-flight requests (chat streams included) to finish. Then the process closes the remaining connections, closes the chats and exits. The whole stop takes up to this value plus 21 seconds; keep that below the termination grace period of your platform. See [Restarts and long chats]({{%relref "/administration/troubleshooting#restarts-and-long-chats" %}}) for the steps and their limits. `0` exits without waiting. A second signal exits at once | `$LOCALAI_SHUTDOWN_TIMEOUT` |
+| `--max-concurrent-backend-requests` | `1024` | Process-wide ceiling for concurrent backend inference operations. Excess inference receives HTTP 429 with `Retry-After`; UI and administrative endpoints remain available | `$LOCALAI_MAX_CONCURRENT_BACKEND_REQUESTS`, `$MAX_CONCURRENT_BACKEND_REQUESTS` |
+| `--cors` | `false` | Enable CORS (Cross-Origin Resource Sharing) | `$LOCALAI_CORS`, `$CORS` |
+| `--cors-allow-origins` | | Comma-separated list of allowed CORS origins | `$LOCALAI_CORS_ALLOW_ORIGINS`, `$CORS_ALLOW_ORIGINS` |
+| `--disable-csrf` | `false` | Disable CSRF middleware (enabled by default) | `$LOCALAI_DISABLE_CSRF` |
+| `--tls-cert` | | PEM file with the certificate (and its chain) that the API server presents. Needs `--tls-key`. TLS is off when no certificate and no `--tls-self-signed` is set. TLS 1.3 is the minimum, and HTTP/2 is offered. See [Paired clients]({{% relref "/addons/addon-clients" %}}#tls-and-the-pinned-certificate) | `$LOCALAI_TLS_CERT` |
+| `--tls-key` | | PEM file with the private key of `--tls-cert` | `$LOCALAI_TLS_KEY` |
+| `--tls-self-signed` | `false` | Serve TLS with a self-signed certificate that LocalAI makes once and keeps in the `tls` folder of the data path (the key has mode 0600). It is reused at each start, so its fingerprint holds, and it is replaced only when fewer than 30 days remain or the files are damaged. The SHA-256 fingerprint is logged at start and shown with each pairing code, so that a paired client can pin it. Without a data path (`--data-path -`) the certificate lives in memory and changes at each start. Not with `--tls-cert` | `$LOCALAI_TLS_SELF_SIGNED` |
+| `--disable-http-compression` | `false` | Disable gzip compression of HTTP responses. Compression is enabled by default; streaming endpoints (streaming chat completions, SSE bridges, WebSocket upgrades) and already-compressed formats are never compressed | `$LOCALAI_DISABLE_HTTP_COMPRESSION` |
+| `--http-compression-min-length` | `1024` | Minimum response size in bytes before gzip compression is applied. Smaller responses are sent as-is because the gzip envelope would outweigh the saving | `$LOCALAI_HTTP_COMPRESSION_MIN_LENGTH` |
+| `--upload-limit` | `0` | Upload limit in MB for request bodies; `0` means not set, and then 15 MB applies, except to uploads of the Files page, which are limited only by the 256 MiB workspace file size, and to chat messages with attachments, which are limited to 1 GiB. When set, it applies to both too, lower or higher (a file is never above 256 MiB and a message never above 1 GiB) | `$LOCALAI_UPLOAD_LIMIT`, `$UPLOAD_LIMIT` |
+| `--api-keys` | | List of API Keys to enable API authentication. When this is set, all requests must be authenticated with one of these API keys | `$LOCALAI_API_KEY`, `$API_KEY` |
+| `--disable-web-ui` | `false` | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | `$LOCALAI_DISABLE_WEBUI`, `$DISABLE_WEBUI` |
+| `--disable-runtime-settings` | `false` | Disables the runtime settings feature. When set to true, the server will not load runtime settings from the `runtime_settings.json` file and the settings web interface will be disabled | `$LOCALAI_DISABLE_RUNTIME_SETTINGS`, `$DISABLE_RUNTIME_SETTINGS` |
+| `--disable-gallery-endpoint` | `false` | Disable the gallery endpoints | `$LOCALAI_DISABLE_GALLERY_ENDPOINT`, `$DISABLE_GALLERY_ENDPOINT` |
+| `--disable-metrics-endpoint` | `false` | Disable the `/metrics` endpoint | `$LOCALAI_DISABLE_METRICS_ENDPOINT`, `$DISABLE_METRICS_ENDPOINT` |
+| `--machine-tag` | | If not empty, add that string to Machine-Tag header in each response. Useful to track responses from different machines, for example the members of a federation group | `$LOCALAI_MACHINE_TAG`, `$MACHINE_TAG` |
+
+## Collections Flags
+
+The collections service is the knowledge base that the chats search. The old
+`LOCALAI_AGENT_POOL_*` names still work and warn once; see
+[Moving from the old chat and agents]({{% relref "/features/chats-migration" %}}).
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--disable-collections` | `false` | Turn the collections service off (the API under `/api/collections`) | `$LOCALAI_DISABLE_COLLECTIONS` |
+| `--collections-apiurl` | the local server | API URL the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_URL` |
+| `--collections-api-key` | the first API key | API key the collections use for embeddings | `$LOCALAI_COLLECTIONS_API_KEY` |
+| `--collections-default-model` | | Default model of the collections | `$LOCALAI_COLLECTIONS_DEFAULT_MODEL` |
+| `--collections-state-dir` | | State directory of the collections | `$LOCALAI_COLLECTIONS_STATE_DIR` |
+| `--collections-vector-engine` | `chromem` | `chromem` or `postgres` | `$LOCALAI_COLLECTIONS_VECTOR_ENGINE` |
+| `--collections-embedding-model` | `granite-embedding-107m-multilingual` | Embedding model of the collections | `$LOCALAI_COLLECTIONS_EMBEDDING_MODEL` |
+| `--collections-database-url` | | Database URL for the `postgres` vector engine | `$LOCALAI_COLLECTIONS_DATABASE_URL` |
+| `--collections-max-chunking-size` | `400` | Maximum chunking size for documents | `$LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE` |
+| `--collections-chunk-overlap` | `0` | Chunk overlap for documents | `$LOCALAI_COLLECTIONS_CHUNK_OVERLAP` |
+| `--collections-db-path` | | Where the vector engine keeps its data | `$LOCALAI_COLLECTIONS_DB_PATH` |
+
+`LOCALAI_DISABLE_AGENTS` is the old name of the switch that turned off the agent pool, which also held the collections. It still works: see `--disable-agents` in [Chats Flags](#chats-flags). The old `--agent-pool-*` names of the collections options also still work and log a deprecation warning. See [Collections]({{% relref "/features/files-and-documents/collections" %}}).
+
+## Hardening Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--disable-predownload-scan` | `false` | If true, disables the best-effort security scanner before downloading any files | `$LOCALAI_DISABLE_PREDOWNLOAD_SCAN` |
+| `--disable-backend-install` | `false` | If true, refuse to install or upgrade backends from galleries, OCI images, URLs or paths, including automatic installs, so the running backend set stays exactly what was deployed and tested; only backends already present or provided via `--backends-system-path` are used | `$LOCALAI_DISABLE_BACKEND_INSTALL`, `$DISABLE_BACKEND_INSTALL` |
+| `--opaque-errors` | `false` | If true, all error responses are replaced with blank 500 errors. This is intended only for hardening against information leaks and is normally not recommended | `$LOCALAI_OPAQUE_ERRORS` |
+| `--use-subtle-key-comparison` | `false` | If true, API Key validation comparisons will be performed using constant-time comparisons rather than simple equality. This trades off performance on each request for resilience against timing attacks | `$LOCALAI_SUBTLE_KEY_COMPARISON` |
+| `--disable-api-key-requirement-for-http-get` | `false` | If true, a valid API key is not required to issue GET requests to portions of the web UI. This should only be enabled in secure testing environments | `$LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET` |
+| `--http-get-exempted-endpoints` | `^/$,^/app(/.*)?$,^/browse(/.*)?$,^/login/?$,^/assets/.*$,^/static/.*$,^/swagger.*$` | If `--disable-api-key-requirement-for-http-get` is overridden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review | `$LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS` |
+
+## Authentication Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--auth-enabled` | `false` | Enable user authentication and authorization | `$LOCALAI_AUTH` |
+| `--auth-database-url` | `{DataPath}/database.db` | Database URL for auth - `postgres://...` for PostgreSQL, or a file path for SQLite | `$LOCALAI_AUTH_DATABASE_URL`, `$DATABASE_URL` |
+| `--git-hub-client-id` | | GitHub OAuth App Client ID (auto-enables auth when set) | `$GITHUB_CLIENT_ID` |
+| `--git-hub-client-secret` | | GitHub OAuth App Client Secret | `$GITHUB_CLIENT_SECRET` |
+| `--oidc-issuer` | | OIDC issuer URL for auto-discovery | `$LOCALAI_OIDC_ISSUER` |
+| `--oidc-client-id` | | OIDC Client ID (auto-enables auth when set) | `$LOCALAI_OIDC_CLIENT_ID` |
+| `--oidc-client-secret` | | OIDC Client Secret | `$LOCALAI_OIDC_CLIENT_SECRET` |
+| `--external-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
+| `--auth-admin-email` | | Email address to auto-promote to admin role on login | `$LOCALAI_ADMIN_EMAIL` |
+| `--auth-registration-mode` | `open` | Registration mode: `open`, `approval`, or `invite` | `$LOCALAI_REGISTRATION_MODE` |
+| `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
+
+See [Authentication & Authorization]({{%relref "/administration/authentication" %}}) for full documentation.
+
+## Chats Flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
+| `--chats-auto-resume` | `false` | Resume a chat turn that a restart interrupted, with no click. It retries up to 3 times (after 15 seconds, 1 minute and 5 minutes), within 30 minutes of the interruption. Off by default: a person or the page resumes it. See [If a frontend dies]({{% relref "/administration/chats-deployment#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
+| `--disable-triggers` | `false` | Turn off triggers. Chats stay on | `$LOCALAI_DISABLE_TRIGGERS` |
+| `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
+| `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |
+| `--skip-binding-caps-migration` | `false` | Do not give the usual permissions, once, to connector bindings saved before permissions were enforced (they stay with none until the owner chooses); also skip the one-time add of loops.wait to existing bindings | `$LOCALAI_SKIP_BINDING_CAPS_MIGRATION` |
+| `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
+| `--trigger-run-keep` | `200` | Finished runs kept for each trigger, beyond the runs of the last two days. `-1` keeps all | `$LOCALAI_TRIGGER_RUN_KEEP` |
+| `--trigger-run-retention-days` | `30` | Days to keep finished trigger runs. `-1` keeps them forever | `$LOCALAI_TRIGGER_RUN_RETENTION_DAYS` |
+| `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run. The variable still works on the server command. It is removed only on `local-ai agent-worker` | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
+| `--disable-agents` | `false` | Deprecated. Same as setting `--disable-chats` and `--disable-collections`. A value you set explicitly for either of them wins | `$LOCALAI_DISABLE_AGENTS` |
+| `--disable-local-ai-assistant` | `false` | Deprecated. A true value is mapped to `chats_localai_admin=false` (the admin tools off), with one warning at start. The flag wins over a stored `chats_localai_admin=true`, also after a settings change. Use `chats_localai_admin` in Settings > Tools | `$LOCALAI_DISABLE_ASSISTANT` |
+| `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
+| `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
+| `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
+| `--chat-start-timeout` | `30s` | Distributed mode: how long a frontend waits for a chat worker to start a turn, and how long the worker gives the start. Set the same value on the frontends and the chat workers | `$LOCALAI_CHAT_START_TIMEOUT` |
+
+See [Chats]({{% relref "/administration/chats-deployment#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "/features/chats-and-agents/agent-jobs" %}}) and [Chat workers]({{% relref "/administration/distributed-mode#chat-workers" %}}).
+
+## Chat Flags
+
+Use `local-ai chat` to run the built-in terminal agent against a LocalAI server.
+The agent can run shell commands, delegate to sub-agents, and use MCP tools. Read-only
+calls run on their own; everything else goes through an approval prompt you answer.
+See [Terminal agent]({{% relref "/features/chats-and-agents/terminal-agent" %}}) for the full feature page.
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--endpoint` | `http://127.0.0.1:8080` | LocalAI server endpoint. The `/v1` path is added automatically when omitted. | `$LOCALAI_CHAT_ENDPOINT` |
+| `--model` | | Model to use. Defaults to the only model the server offers, or asks when there are several. | |
+| `--api-key` | | API key to use when the LocalAI server requires authentication. | `$LOCALAI_API_KEY`, `$API_KEY` |
+| `--config-dir` | `~/.config/localai/chat` (Windows: `%LOCALAPPDATA%\LocalAI\chat`) | Directory holding the agent's config, plugins, and skills. | `$LOCALAI_CHAT_CONFIG_DIR` |
+| `--trace-dir` | | Write a session LLM trace (NDJSON) to this directory. | `$LOCALAI_CHAT_TRACE_DIR` |
+| `--cli` | `false` | Plain CLI mode instead of the full-screen interface. Pipe stdin for one-shot use. | |
+| `--tui` | `false` | Force the full-screen interface. | |
+| `--height` | | Run as an inline drop-down of this height, e.g. `40%`. | |
+| `--tmux` / `--no-tmux` | | Control the tmux split. | |
+| `--init` | | Print the shell integration script for `Ctrl+Space` (zsh, bash, or fish). | |
+| `--yolo` | `false` | Auto-approve every tool call. Use with care. | `$LOCALAI_CHAT_YOLO` |
+
+The agent's own subcommands are reached by passing them through. LocalAI's flags
+must come first, because everything after the first positional argument is
+forwarded verbatim:
+
+```bash
+local-ai chat plugin install https://github.com/user/plugin
+local-ai chat skill list
+local-ai chat mcp add my-server -- npx -y @modelcontextprotocol/server-filesystem /tmp
+local-ai chat --config-dir /srv/agent plugin list   # flags first
+```
+
+{{% callout style="warning" %}}
+In a script, pass `--yes` to those subcommands. Without it, a non-interactive
+`plugin install` installs the plugin, leaves it disabled, and still exits `0`.
+{{% /callout %}}
+
+Summon the agent from any shell prompt with `Ctrl+Space`:
+
+```bash
+echo 'eval "$(local-ai chat --init zsh)"' >> ~/.zshrc
+```
+
+Inside a session:
+- `/models` lists the models the server offers, marking the current one.
+- `/model <name>` switches model, keeping the conversation.
+- `/compact` summarizes the conversation so far to free up context.
+- `/skill <name>`, `/agent <name> <task>`, `/attach <file>`, `/goal <text>`.
+
+If no server is reachable, the agent offers to start one for the session
+(interactive terminals only) and otherwise points you at `local-ai run`.
+
+Piped use needs `--cli`, and exits `0` when it answers:
+
+```bash
+echo "what is 2+2" | local-ai chat --cli
+```
+
+Read-only tools still run in a piped session. A tool call that is not read-only has
+nobody to approve it, so it is denied and the session exits `3`, a code chosen to be
+distinct from the `1` a failure reports.
+
+## P2P flags
+
+| Parameter | Default | Description | Environment Variable |
+|-----------|---------|-------------|----------------------|
+| `--p2p-mode` | `off` | `off`: no P2P layer. `connect`: this server dials out to remotes over P2P and accepts nobody (no invites, no sharing); it needs no authentication. `share`: connect, and accept paired devices; it requires authentication to be on, and the server refuses to start with `share` while authentication is off | `$LOCALAI_P2P_MODE` |
+| `--p2p-listen` | TCP and QUIC on every interface, random ports | Addresses the P2P host listens on in mode `share` (multiaddrs, repeatable) | `$LOCALAI_P2P_LISTEN_MADDRS` |
+| `--p2p-bootstrap` | the public bootstrap peers | Bootstrap peers, multiaddrs that end in `/p2p/<peer ID>`; also the runtime setting `p2p_bootstrap_peers` | `$LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS` |
+| `--p2p-identity` | `<data path>/p2p/identity.key` | The key file of the peer identity. Without a data path (`--data-path -`) and without this flag, P2P does not start: the identity must survive a restart | `$LOCALAI_P2P_IDENTITY` |
+
+The mode is also the runtime setting `p2p_mode`. The setting rejects `share` with the same message while authentication is off.
+The other P2P runtime settings (`p2p_public_dht`, `p2p_relays`, `p2p_relay_paired`, `p2p_relay_mode`, `p2p_relay_rate_limit`, `p2p_mdns`) are described in [P2P]({{%relref "/administration/p2p#settings" %}}).
+
+### Removed P2P options
+
+The token-based P2P mode, federation and the Explorer were removed. A server that still sets one of the old options does not start: it exits with status 1 and prints one line per option, with its replacement. The check reads the command line, the environment (including `.env` files) and the stored runtime settings. The full list of removed options and their replacements is in [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).
+
+### `local-ai p2p`
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai p2p relay` | Run a gated relay. Flags: `--admin` (repeatable, `$LOCALAI_RELAY_ADMINS`), `--data`, `--port`, `--listen`, `--public-ip`, `--announce`, `--open`, `--circuit-max-bytes`, `--circuit-max-duration`, `--rate-limit`, `--max-circuit-bytes`, `--max-circuit-duration`, `--max-rate-limit` (ceilings for the limits an admin may set at runtime), `--total-rate-limit`, `--max-circuits`, `--max-circuits-per-peer`, `--max-reservations`, `--max-reservations-per-ip`, `--max-conns-per-ip`, `--conn-rate-per-ip`, `--conn-burst-per-ip`, `--conn-rate-total`, `--conn-burst-total`, `--max-peers-per-admin`, `--allow-private-addrs`, `--reset-admins` |
+| `local-ai p2p relays add\|remove\|list\|check` | Manage the relays of a running server (`--target`, `--api-key`, `--json`) |
+| `local-ai p2p id` and `local-ai p2p status` | Show the peer ID, addresses, reachability and paths of a running server |
+| `local-ai p2p pair --invite <link>` | Redeem an invite on this machine |
+| `local-ai p2p forward --peer <id> --listen <addr>` | Forward a local port to a paired peer |
+
+## Library sources
+
+`local-ai library` manages the sources LocalAI reads add-ons, backends and models from. The sources are stored under the data path (`addons/sources.json`), the file the server reads, so the commands work with the server stopped.
+
+| Command | What it does |
+|---------|--------------|
+| `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery] [--issuer ISSUER --identity IDENTITY \| --identity-regex PATTERN --source-repository URL]` | Add a source of your own. `--issuer` and `--identity` go together and apply to an `oci://` add-on library: its artifact must be signed by that issuer and exact identity. `--identity-regex`, an anchored pattern, takes the place of `--identity` only together with `--source-repository`, the `https` URL of the repository the signature must be made for. `--source-repository` can also go with `--identity` |
+| `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
+| `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
+| `local-ai library disable <id>` | Turn a source off without removing it |
+
+All `local-ai library` commands accept `--official-libraries` (`LOCALAI_OFFICIAL_LIBRARIES`, default `true`). With `--official-libraries=false` the list shows the shipped default sources as off. The same switch is the runtime setting `official_libraries` and the toggle "Use official libraries" in Settings. See [Library sources]({{% relref "/addons/install-and-update#library-sources" %}}).
+
+When two enabled sources list the same entry (same kind and id), your own source wins over a shipped default. If two of your own sources list it, the entry is refused and the message names both sources: disable or remove one of them. The `--galleries` and `--backend-galleries` flags keep working: each gallery they name is added as a source of your own (kind `model` or `backend`, format `gallery`) at startup, unless it is already a source.
+
+## Other Commands
+
+LocalAI supports several subcommands beyond `run`:
+
+- `local-ai models` - Manage LocalAI models and definitions
+- `local-ai backends` - Manage LocalAI backends and definitions
+- `local-ai chat` - Run the built-in terminal agent against a LocalAI server
+- `local-ai addons` - Check an add-on zip file and upload it to a running server to install it
+- `local-ai library` - Manage the library sources (see [Library sources](#library-sources))
+- `local-ai benchmark` - Benchmark configured text models against a running LocalAI server
+- `local-ai tts` - Convert text to speech
+- `local-ai sound-generation` - Generate audio files from text or audio
+- `local-ai transcript` - Convert audio to text
+- `local-ai mcp-server` - Run the LocalAI admin and client tool surface as a stdio MCP server (controls a remote LocalAI instance over HTTP). `--files-dir` (`LOCALAI_MCP_FILES_DIR`) is the folder where the client tools read and write files; it has no default, and without it the client tools that read or write files are not registered. `--read-only` also leaves out the client tools that write files or make content (`generate_*`, `speak`, `embed`, `voice_profile` create and delete)
+- `local-ai worker` - Start a worker. With no subcommand it is the worker for distributed mode (generic, backend-agnostic). The subcommands `llama-cpp-rpc`, `mlx-distributed`, `vllm` and `ds4-distributed` run the standalone workers; `llama-cpp-rpc` and `mlx-distributed` also join a server over P2P with `--join <invite link>` (see [Model-split workers over P2P]({{% relref "/administration/p2p-model-split" %}})). `p2p-worker` is the old name of this command and still works
+- `local-ai cluster` - Read or change the broadcast bus between the frontends (`nats` for NATS, `tunnel` for PostgreSQL with WebSocket workers) and the settings of a distributed cluster through a running frontend. Workers never connect to PostgreSQL. Changing the bus is an advanced operation. See [Distributed Mode]({{% relref "/administration/distributed-mode" %}})
+- `local-ai p2p` - Run a relay, manage relays and pair devices over P2P
+- `local-ai agent-worker` - Start a worker for distributed mode (serves MCP tool calls via NATS)
+- `local-ai util` - Utility commands
+- `local-ai completion` - Generate shell completion scripts for bash, zsh, or fish
+
+Use `local-ai <command> --help` for more information on each command.
+
+### Add-on carrier keys
+
+`local-ai util addons-carrier-keys` makes the key set that a separate add-on owner and its frontends share. See [Running the owner as its own workload]({{% relref "/addons/contract-reference/owner#running-the-owner-as-its-own-workload" %}}) for how the set is used.
+
+| Flag | Description |
+|------|-------------|
+| `--out` | Directory to write the key set to. Required. The command fails if the directory already holds any of the files, and it never overwrites a file. |
+| `--owner-host` | DNS name or IP address of the add-on owner, as the frontends dial it. Required. Repeat the flag for more than one. |
+
+```bash
+local-ai util addons-carrier-keys --out ./carrier-keys --owner-host addons.owner.example
+```
+
+The command prints which files go to the owner and which go to the frontends. It writes the files with mode `0600` in a directory with mode `0700`, and it does not keep the CA key.
+
+## Examples
+
+### Basic Usage
+
+```bash
+./local-ai run
+
+./local-ai run --models-path /path/to/models --address :9090
+
+./local-ai run --f16
+```
+
+### Environment Variables
+
+```bash
+export LOCALAI_MODELS_PATH=/path/to/models
+export LOCALAI_ADDRESS=:9090
+export LOCALAI_F16=true
+./local-ai run
+```
+
+### Advanced Configuration
+
+```bash
+./local-ai run \
+  --models-path /path/to/models \
+  --address :9090 \
+  --enable-watchdog-idle \
+  --watchdog-idle-timeout=10m \
+  --p2p-mode connect
+```
+
+## Related Documentation
+
+- See [Advanced Usage]({{%relref "/models/advanced-usage" %}}) for configuration examples
+- See [VRAM and Memory Management]({{%relref "/models/vram-management" %}}) for memory management options

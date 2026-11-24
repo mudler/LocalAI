@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "id": "quantization",
+  "version": "0.1.0",
+  "executable": "quantization",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {"min": 2, "max": 2},
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "capabilities": {
+    "hostOperations": {
+      "required": [
+        "quantize.get",
+        "quantize.import",
+        "quantize.list",
+        "quantize.start",
+        "quantize.stop"
+      ]
+    },
+    "tools": [
+      "resource-exists",
+      "quantize-list",
+      "quantize-start",
+      "quantize-status",
+      "quantize-stop",
+      "quantize-import"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "quantize-list",
+        "kind": "read",
+        "description": "List the quantization jobs of the person you are talking to, newest first, including jobs started in the web page. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-start",
+        "kind": "create",
+        "description": "Start a new quantization job. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A label for the job, 1 to 80 characters.",
+              "maxLength": 80
+            },
+            "model": {
+              "type": "string",
+              "description": "Model to quantize as a gallery or Hugging Face ID. A local path is refused.",
+              "maxLength": 256
+            },
+            "backend": {
+              "type": "string",
+              "description": "Quantization backend. The default is llama-cpp-quantization.",
+              "maxLength": 64
+            },
+            "quantizationType": {
+              "type": "string",
+              "description": "Quantization type, such as q4_k_m (lowercase letters, digits and underscores). The default is q4_k_m.",
+              "maxLength": 32
+            }
+          },
+          "required": [
+            "name",
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-status",
+        "kind": "read",
+        "description": "Show the status of a quantization job that a tool started. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-stop",
+        "kind": "write",
+        "description": "Stop a quantization job that a tool started. Stopping cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "quantize-import",
+        "kind": "write",
+        "description": "Register the result of a quantization job that a tool started as a model. Administrators only. Importing cannot be undone. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms. A model can only control jobs it started.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "resourceId": {
+              "type": "string",
+              "description": "ID of the quantization job, as returned by a job start. Only a job that a tool started has one."
+            },
+            "name": {
+              "type": "string",
+              "description": "Name of the model, 1 to 64 letters, digits, dots, dashes or underscores. Leave out to let the engine choose.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "resourceId"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ],
+    "undo": true,
+    "resources": {
+      "noun": "quantization job",
+      "create": "quantize-start",
+      "inspect": "quantize-status"
+    },
+    "ui": {
+      "entry": "ui/quantization.js",
+      "css": [
+        "ui/quantization.css"
+      ],
+      "sdk": {
+        "min": 2,
+        "max": 2
+      },
+      "pages": [
+        "jobs"
+      ],
+      "navigation": [],
+      "mainPage": "jobs",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Quantization",
+        "it": "Quantizzazione",
+        "de": "Quantisierung",
+        "es": "Cuantización",
+        "fr": "Quantification",
+        "pt-BR": "Quantização",
+        "zh-CN": "量化",
+        "ko": "양자화",
+        "id": "Kuantisasi"
+      },
+      "description": {
+        "en": "Shrink a model to a smaller quantized file, then import it so you can chat with it.",
+        "it": "Riduci un modello in un file quantizzato più piccolo, poi importalo per poterci chattare.",
+        "de": "Verkleinern Sie ein Modell zu einer kleineren quantisierten Datei und importieren Sie sie dann, um mit ihr zu chatten.",
+        "es": "Reduce un modelo a un archivo cuantizado más pequeño y luego impórtalo para poder chatear con él.",
+        "fr": "Réduisez un modèle à un fichier quantifié plus petit, puis importez-le pour pouvoir discuter avec lui.",
+        "pt-BR": "Reduza um modelo a um arquivo quantizado menor e depois importe-o para poder conversar com ele.",
+        "zh-CN": "把模型压缩为更小的量化文件，再导入它，即可与之聊天。",
+        "ko": "모델을 더 작은 양자화 파일로 줄인 다음 가져와서 채팅할 수 있습니다.",
+        "id": "Perkecil model menjadi berkas terkuantisasi yang lebih kecil, lalu impor agar Anda dapat mengobrol dengannya."
+      }
+    }
+  }
+}

@@ -1,0 +1,407 @@
+package mcp
+
+import (
+	"context"
+	"sync"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
+	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
+	"github.com/mudler/LocalAI/core/services/modeladmin"
+	"github.com/mudler/LocalAI/pkg/vram"
+)
+
+// stubClient is the minimum LocalAIClient impl needed to exercise the holder.
+// It returns deterministic, non-zero values so we can assert tool dispatch.
+// The embedded interface covers the methods these specs never call (a call
+// to one panics), so a new client method does not break the build here.
+type stubClient struct{ localaitools.LocalAIClient }
+
+func (stubClient) GallerySearch(_ context.Context, _ localaitools.GallerySearchQuery) ([]gallery.Metadata, error) {
+	return []gallery.Metadata{{Name: "stub", Gallery: config.Gallery{Name: "stub-gallery"}}}, nil
+}
+
+func (stubClient) ListModels(_ context.Context, _ localaitools.ListModelsRequest) (*localaitools.ModelList, error) {
+	return &localaitools.ModelList{}, nil
+}
+
+func (stubClient) ListInstalledModels(_ context.Context, _ localaitools.Capability) ([]localaitools.InstalledModel, error) {
+	return []localaitools.InstalledModel{{Name: "stub"}}, nil
+}
+
+func (stubClient) SearchModels(_ context.Context, _ localaitools.ModelSearchRequest) (*localaitools.ModelSearchResponse, error) {
+	return &localaitools.ModelSearchResponse{}, nil
+}
+
+func (stubClient) InspectRemoteModel(_ context.Context, _ localaitools.RemoteModelRequest) (*localaitools.RemoteModelInfo, error) {
+	return &localaitools.RemoteModelInfo{}, nil
+}
+
+func (stubClient) ListGalleries(_ context.Context) ([]config.Gallery, error) {
+	return []config.Gallery{{Name: "stub-gallery", URL: "http://example"}}, nil
+}
+
+func (stubClient) GetJobStatus(_ context.Context, _ string) (*localaitools.JobStatus, error) {
+	return &localaitools.JobStatus{ID: "stub", Processed: true}, nil
+}
+
+func (stubClient) GetModelConfig(_ context.Context, _ string) (*localaitools.ModelConfigView, error) {
+	return &localaitools.ModelConfigView{Name: "stub"}, nil
+}
+
+func (stubClient) InstallModel(_ context.Context, _ localaitools.InstallModelRequest) (string, error) {
+	return "stub-job", nil
+}
+
+func (stubClient) ImportModelURI(_ context.Context, _ localaitools.ImportModelURIRequest) (*localaitools.ImportModelURIResponse, error) {
+	return &localaitools.ImportModelURIResponse{JobID: "stub-import"}, nil
+}
+func (stubClient) DeleteModel(_ context.Context, _ string) error { return nil }
+func (stubClient) EditModelConfig(_ context.Context, _ string, _ map[string]any) error {
+	return nil
+}
+func (stubClient) ReloadModels(_ context.Context) error { return nil }
+func (stubClient) LoadModel(_ context.Context, model string) ([]string, error) {
+	return []string{model}, nil
+}
+func (stubClient) CancelModelLoad(_ context.Context, model, jobID string) (localaitools.LoadCancelResult, error) {
+	return localaitools.LoadCancelResult{Model: model, JobID: jobID, State: "stopping"}, nil
+}
+func (stubClient) SetAlias(_ context.Context, _, _ string) error {
+	return nil
+}
+func (stubClient) ListAliases(_ context.Context) ([]localaitools.AliasInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListBackends(_ context.Context) ([]localaitools.Backend, error) {
+	return []localaitools.Backend{{Name: "stub-backend", Installed: true}}, nil
+}
+
+func (stubClient) ListBackendLibraryUpdates(_ context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	return nil, nil
+}
+
+func (stubClient) BackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
+}
+
+func (stubClient) CheckBackendUpdates(_ context.Context) (*backendupdates.Snapshot, error) {
+	return &backendupdates.Snapshot{}, nil
+}
+
+func (stubClient) ListKnownBackends(_ context.Context) ([]schema.KnownBackend, error) {
+	return []schema.KnownBackend{}, nil
+}
+
+func (stubClient) InstallLibraryBackend(_ context.Context, _ localaitools.InstallLibraryBackendRequest) (*localaitools.InstallLibraryBackendResult, error) {
+	return &localaitools.InstallLibraryBackendResult{Status: "installed", Name: "stub-backend"}, nil
+}
+
+func (stubClient) InstallBackend(_ context.Context, _ localaitools.InstallBackendRequest) (string, error) {
+	return "stub-backend-job", nil
+}
+
+func (stubClient) UpgradeBackend(_ context.Context, _ string) (string, error) {
+	return "stub-upgrade-job", nil
+}
+
+func (stubClient) StartUpgradeRun(_ context.Context, _ localaitools.UpgradeRunStartRequest) (*localaitools.UpgradeRun, error) {
+	return &localaitools.UpgradeRun{ID: "stub-run"}, nil
+}
+
+func (stubClient) UpgradeRuns(_ context.Context, _ string) ([]localaitools.UpgradeRun, error) {
+	return nil, nil
+}
+
+func (stubClient) CancelUpgradeRun(_ context.Context, id, _ string) (*localaitools.UpgradeRun, error) {
+	return &localaitools.UpgradeRun{ID: id}, nil
+}
+
+func (stubClient) SystemInfo(_ context.Context) (*localaitools.SystemInfo, error) {
+	return &localaitools.SystemInfo{Version: "stub"}, nil
+}
+
+func (stubClient) ListNodes(_ context.Context) ([]localaitools.Node, error) {
+	return []localaitools.Node{}, nil
+}
+
+func (stubClient) ListScheduling(_ context.Context) ([]localaitools.ModelSchedulingConfig, error) {
+	return []localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) GetScheduling(_ context.Context, _ string) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) SetScheduling(_ context.Context, _ localaitools.SetSchedulingRequest) (*localaitools.ModelSchedulingConfig, error) {
+	return &localaitools.ModelSchedulingConfig{}, nil
+}
+
+func (stubClient) DeleteScheduling(_ context.Context, _ string) error {
+	return nil
+}
+
+func (stubClient) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (stubClient) VRAMEstimate(_ context.Context, _ localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {
+	return &vram.EstimateResult{SizeDisplay: "stub"}, nil
+}
+func (stubClient) ToggleModelState(_ context.Context, _ string, _ modeladmin.Action) error {
+	return nil
+}
+func (stubClient) ToggleModelPinned(_ context.Context, _ string, _ modeladmin.Action) error {
+	return nil
+}
+func (stubClient) GetBranding(_ context.Context) (*localaitools.Branding, error) {
+	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (stubClient) SetBranding(_ context.Context, _ localaitools.SetBrandingRequest) (*localaitools.Branding, error) {
+	return &localaitools.Branding{InstanceName: "LocalAI"}, nil
+}
+
+func (stubClient) Projects(_ context.Context, _ localaitools.ProjectsRequest) (*localaitools.ProjectsResult, error) {
+	return &localaitools.ProjectsResult{}, nil
+}
+
+func (stubClient) ListVoiceProfiles(_ context.Context) ([]localaitools.VoiceProfile, error) {
+	return []localaitools.VoiceProfile{}, nil
+}
+
+func (stubClient) CreateVoiceProfile(_ context.Context, _ localaitools.CreateVoiceProfileRequest) (*localaitools.VoiceProfile, error) {
+	return &localaitools.VoiceProfile{Name: "stub-voice"}, nil
+}
+
+func (stubClient) DeleteVoiceProfile(_ context.Context, _ string) error {
+	return nil
+}
+
+func (stubClient) GetUsageStats(_ context.Context, _ localaitools.UsageStatsQuery) (*localaitools.UsageStats, error) {
+	return &localaitools.UsageStats{Viewer: localaitools.UsageViewer{ID: "stub", Name: "stub"}, Period: "month"}, nil
+}
+
+func (stubClient) GetPIIEvents(_ context.Context, _ localaitools.PIIEventsQuery) ([]localaitools.PIIEvent, error) {
+	return nil, nil
+}
+
+func (stubClient) GetMiddlewareStatus(_ context.Context) (*localaitools.MiddlewareStatus, error) {
+	return &localaitools.MiddlewareStatus{
+		PII: localaitools.MiddlewarePIIStatus{
+			EnabledGlobally: true,
+			Models:          []localaitools.MiddlewarePIIModel{},
+		},
+	}, nil
+}
+
+func (stubClient) GetRouterDecisions(_ context.Context, _ localaitools.RouterDecisionsQuery) ([]localaitools.RouterDecision, error) {
+	return []localaitools.RouterDecision{}, nil
+}
+
+var _ = Describe("LocalAIAssistantHolder", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	It("Initialize wires the in-memory server, exposes tools, and dispatches", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		Expect(h.HasTools()).To(BeTrue())
+		Expect(h.SystemPrompt()).ToNot(BeEmpty())
+
+		exec := h.Executor()
+		Expect(exec.HasTools()).To(BeTrue())
+
+		out, err := exec.ExecuteTool(ctx, "list_installed_models", `{"capability":"chat"}`)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).ToNot(BeEmpty())
+	})
+
+	It("Initialize is exactly-once even under concurrent callers", func() {
+		h := NewLocalAIAssistantHolder()
+
+		// Concurrent Initialize calls — only one should actually wire the server.
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = h.Initialize(ctx, stubClient{}, localaitools.Options{})
+			}()
+		}
+		wg.Wait()
+
+		Expect(h.HasTools()).To(BeTrue())
+	})
+
+	It("serves the two groups apart: the admin tools never carry an inference tool and the other way round", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		names := func(e ToolExecutor) []string {
+			fns, err := e.DiscoverTools(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			var out []string
+			for _, f := range fns {
+				out = append(out, f.Name)
+			}
+			return out
+		}
+		manage, client := names(h.Executor()), names(h.ClientExecutor())
+		Expect(manage).To(ContainElement("list_installed_models"))
+		Expect(manage).ToNot(ContainElement("generate_image"), "the OpenAI-compatible path gets the admin tools only")
+		Expect(client).To(ContainElements("generate_image", "speak"))
+		Expect(client).ToNot(ContainElement("list_installed_models"))
+		Expect(client).To(ContainElement("list_models"), "any user can discover the models the client tools take")
+		Expect(manage).ToNot(ContainElement("list_models"))
+		Expect(h.Executor().IsTool("generate_image")).To(BeFalse())
+		Expect(h.ClientExecutor().IsTool("generate_image")).To(BeTrue())
+		for _, n := range client {
+			Expect(manage).ToNot(ContainElement(n), "a tool name in both groups")
+		}
+	})
+
+	It("Only offers and runs the named tools", func() {
+		h := NewLocalAIAssistantHolder()
+		Expect(h.Initialize(ctx, stubClient{}, localaitools.Options{})).To(Succeed())
+		only := Only(h.ClientExecutor(), func(n string) bool { return n == "speak" })
+		fns, err := only.DiscoverTools(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(fns).To(HaveLen(1))
+		Expect(fns[0].Name).To(Equal("speak"))
+		Expect(only.IsTool("generate_image")).To(BeFalse())
+		_, err = only.ExecuteTool(ctx, "generate_image", `{}`)
+		Expect(err).To(HaveOccurred())
+		Expect(Only(h.ClientExecutor(), func(string) bool { return false }).HasTools()).To(BeFalse())
+	})
+
+	It("methods are nil-safe on a nil holder", func() {
+		var h *LocalAIAssistantHolder
+		Expect(h.HasTools()).To(BeFalse())
+		Expect(h.SystemPrompt()).To(BeEmpty())
+		exec := h.Executor()
+		// Nil-receiver Executor returns an empty LocalToolExecutor.
+		Expect(exec).ToNot(BeNil())
+		Expect(exec.HasTools()).To(BeFalse())
+		Expect(h.ClientExecutor().HasTools()).To(BeFalse())
+	})
+})
+
+func (stubClient) GetRouterCorpusStats(_ context.Context, routerModel string) (*localaitools.RouterCorpusStats, error) {
+	return &localaitools.RouterCorpusStats{Router: routerModel, LabelCounts: map[string]int{}}, nil
+}
+
+func (stubClient) SeedRouterCorpus(_ context.Context, req localaitools.RouterCorpusSeedRequest) (*localaitools.RouterCorpusSeedResult, error) {
+	return &localaitools.RouterCorpusSeedResult{Router: req.Router, LabelCounts: map[string]int{}}, nil
+}
+
+func (stubClient) ClearRouterCorpus(_ context.Context, routerModel string) (*localaitools.RouterCorpusClearResult, error) {
+	return &localaitools.RouterCorpusClearResult{Router: routerModel}, nil
+}
+
+func (stubClient) ListFailoverChains(_ context.Context) ([]localaitools.FailoverChainInfo, error) {
+	return []localaitools.FailoverChainInfo{}, nil
+}
+
+func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { return nil }
+
+func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }
+
+func (stubClient) GetFederation(_ context.Context) (*localaitools.FederationInfo, error) {
+	return &localaitools.FederationInfo{}, nil
+}
+func (stubClient) ManageFederationGroup(_ context.Context, _ localaitools.FederationGroupAction) (*localaitools.FederationGroupInfo, error) {
+	return nil, nil
+}
+
+func (stubClient) GetP2PStatus(_ context.Context) (*localaitools.P2PStatusInfo, error) {
+	return &localaitools.P2PStatusInfo{}, nil
+}
+func (stubClient) ListP2PDevices(_ context.Context) ([]localaitools.P2PDeviceInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PInvites(_ context.Context) ([]localaitools.P2PInviteInfo, error) {
+	return nil, nil
+}
+func (stubClient) ListP2PRelays(_ context.Context) ([]localaitools.P2PRelayInfo, error) {
+	return nil, nil
+}
+func (stubClient) GetP2PRelayLimits(_ context.Context, _ string) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PRelayLimits(_ context.Context, _ string, _ localaitools.SetP2PRelayLimitsRequest) (*localaitools.P2PRelayLimitsInfo, error) {
+	return nil, nil
+}
+func (stubClient) RevokeP2PDevice(_ context.Context, _ string) error { return nil }
+func (stubClient) CancelP2PInvite(_ context.Context, _ string) error { return nil }
+func (stubClient) ListP2PSplitWorkers(_ context.Context) ([]localaitools.P2PSplitWorkerInfo, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PSplitSlowPath(_ context.Context, _ string, _ bool) (*localaitools.P2PSplitWorkerInfo, error) {
+	return &localaitools.P2PSplitWorkerInfo{}, nil
+}
+func (stubClient) SetNodeSplitServer(_ context.Context, _ string, _ bool) (*localaitools.NodeSplitServer, error) {
+	return nil, nil
+}
+func (stubClient) SetP2PSplitNode(_ context.Context, _, _ string) (*localaitools.P2PSplitWorkerInfo, error) {
+	return &localaitools.P2PSplitWorkerInfo{}, nil
+}
+
+func (stubClient) ListSharedFolders(_ context.Context) ([]localaitools.SharedFolder, error) {
+	return nil, nil
+}
+
+func (stubClient) CreateSharedFolder(_ context.Context, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) RenameSharedFolder(_ context.Context, _ int64, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) DeleteSharedFolder(_ context.Context, _ int64) (*localaitools.SharedFolderRemoved, error) {
+	return &localaitools.SharedFolderRemoved{}, nil
+}
+
+func (stubClient) RestoreSharedFolder(_ context.Context, _ int64) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) SetSharedFolderMember(_ context.Context, _ int64, _, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) RemoveSharedFolderMember(_ context.Context, _ int64, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) ListSharedFolderEvents(_ context.Context, _ int) ([]localaitools.SharedFolderEvent, error) {
+	return nil, nil
+}
+
+func (stubClient) ListChatTools(_ context.Context) (localaitools.ChatBuiltinToolList, error) {
+	return localaitools.ChatBuiltinToolList{}, nil
+}
+
+func (stubClient) GetChatEgress(_ context.Context) (*localaitools.ChatEgress, error) {
+	return &localaitools.ChatEgress{}, nil
+}
+
+func (stubClient) ListEgressEvents(_ context.Context, _ localaitools.EgressEventsQuery) ([]localaitools.EgressEvent, error) {
+	return nil, nil
+}
+
+func (stubClient) SetChatEgressCeiling(_ context.Context, _ string) (*localaitools.ChatEgress, error) {
+	return &localaitools.ChatEgress{}, nil
+}
+
+func (stubClient) ListHostExecEvents(_ context.Context, _ int) ([]localaitools.HostExecEvent, error) {
+	return nil, nil
+}

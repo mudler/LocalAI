@@ -1,0 +1,56 @@
+config_file: |
+    backend: llama-cpp
+    context_size: 4096
+    f16: true
+    known_usecases:
+        - chat
+    mmap: true
+    stopwords:
+        - <|im_end|>
+        - <dummy32000>
+        - </s>
+        - <|endoftext|>
+    function:
+        # LFM2 Pythonic tool-call syntax: <|tool_call_start|>[name(k="v", ...)]<|tool_call_end|>
+        # Mirrors common_chat_params_init_lfm2 in llama.cpp/common/chat.cpp.
+        response_regex:
+            - '<\|tool_call_start\|>\[(?P<name>\w+)\((?P<arguments>.*?)\)\]<\|tool_call_end\|>'
+        argument_regex:
+            - '(?P<key>\w+)\s*=\s*"(?P<value>[^"]*)"'
+            - '(?P<key>\w+)\s*=\s*(?P<value>-?\d+(?:\.\d+)?|true|false|null)'
+        argument_regex_key_name: key
+        argument_regex_value_name: value
+    template:
+        chat: |
+            {{.Input -}}
+            <|im_start|>assistant
+        chat_message: |
+            <|im_start|>{{ .RoleName }}
+            {{ if .FunctionCall -}}
+            <|tool_call_start|>
+            {{ else if eq .RoleName "tool" -}}
+            <|tool_response_start|>
+            {{ end -}}
+            {{ if .Content -}}
+            {{.Content }}
+            {{ end -}}
+            {{ if eq .RoleName "tool" -}}
+            <|tool_response_end|>
+            {{ end -}}
+            {{ if .FunctionCall -}}
+            {{toJson .FunctionCall}}
+            {{ end -}}<|im_end|>
+        completion: |
+            {{.Input}}
+        function: |
+            <|im_start|>system
+            You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions.
+            List of tools: <|tool_list_start|>[
+            {{range .Functions}}
+            {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+            {{end}}
+            ]<|tool_list_end|>
+            <|im_end|>
+            {{.Input -}}
+            <|im_start|>assistant
+name: lfm

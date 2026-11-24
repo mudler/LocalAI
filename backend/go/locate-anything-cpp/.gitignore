@@ -1,0 +1,7 @@
+sources/
+build*/
+package/
+liblocateanythingcpp*.so
+locate-anything-cpp
+test-models/
+test-data/

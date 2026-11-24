@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: MIT
+package gateway
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/mudler/LocalAI/core/services/addons/apps"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+// appsCall marks a frontend's request for the apps list. Like an artifact
+// lookup it is a read, never a typed dispatch.
+type appsCall struct{}
+
+const appsListAction = "apps-list"
+
+// Apps returns the apps the actor may see, from the owner. The owner derives
+// the actor's visibility and administrator view from its own state; the
+// frontend only carries the authenticated identity.
+func (g *Gateway) Apps(ctx context.Context, a contract.Actor) (apps.List, error) {
+	if e := g.revalidate(ctx, a); e != nil {
+		return apps.List{}, e
+	}
+	if g.Forward != nil {
+		// The owner's answer is the answer. When the owner cannot answer in
+		// time, every frontend gives the same typed error (OwnerTimeout is
+		// owner_busy, anything else owner_unavailable) and never an older list
+		// of its own: a per-frontend copy would make two frontends disagree
+		// about whether the owner answered. A page keeps the last list in the
+		// browser.
+		return g.Forward.apps(ctx, a)
+	}
+	return g.appsLocal(ctx, a)
+}
+
+func (g *Gateway) appsLocal(ctx context.Context, a contract.Actor) (apps.List, error) {
+	if g.Manager == nil {
+		return apps.List{}, ErrUnavailable
+	}
+	list, e := g.Manager.Apps(ctx, a)
+	if e != nil {
+		return apps.List{}, e
+	}
+	return apps.List{Apps: list}, nil
+}
+
+// apps forwards the list request to the owner.
+func (c *Carrier) apps(ctx context.Context, a contract.Actor) (apps.List, error) {
+	var raw [16]byte
+	if _, e := rand.Read(raw[:]); e != nil {
+		return apps.List{}, ErrUnavailable
+	}
+	request := contract.Request{OperationID: "l" + hex.EncodeToString(raw[:]), Action: appsListAction}
+	resp, e := c.send(ctx, a, wireRequest{Request: request, Apps: &appsCall{}})
+	if e != nil {
+		return apps.List{}, e
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var wire appsWire
+	if e = decode(io.LimitReader(resp.Body, 2<<20), &wire); e != nil {
+		return apps.List{}, ErrUnavailable
+	}
+	return wire.list(), nil
+}
+
+// appsWire is the apps list between two replicas. The fields of an app that the
+// public apps API leaves out (the resource mapping, the jobs tool, the provider
+// slots and the model-search source) travel beside the list. A field missing
+// here is lost on a frontend, which then acts as if the add-on did not declare it.
+type appsWire struct {
+	apps.List
+	Resources map[string]*contract.ResourceTools `json:"resources,omitempty"`
+	// Jobs is the jobs tool of each app that declares one (apps.App.JobsTool).
+	Jobs map[string]string `json:"jobs,omitempty"`
+	// Provides are the provider slots of each app that declares any.
+	Provides map[string][]contract.ProviderDeclaration `json:"provides,omitempty"`
+	// ModelSearch is the model-search source of each app that declares one.
+	ModelSearch map[string]*contract.ModelSearch `json:"modelSearch,omitempty"`
+	// ResourceSlots are the credential-slot words of each app that has them.
+	ResourceSlots map[string]resourceSlot `json:"resourceSlots,omitempty"`
+	// ResourceTexts are the translated resource nouns of each app that has them.
+	ResourceTexts map[string]map[string]contract.ResourceText `json:"resourceTexts,omitempty"`
+}
+
+// resourceSlot is apps.App.ResourceArgument and apps.App.ResourceLabel.
+type resourceSlot struct {
+	Argument string `json:"argument,omitempty"`
+	Label    string `json:"label,omitempty"`
+}
+
+func newAppsWire(list apps.List) appsWire {
+	w := appsWire{List: list}
+	for _, a := range list.Apps {
+		if a.Resources != nil {
+			if w.Resources == nil {
+				w.Resources = map[string]*contract.ResourceTools{}
+			}
+			w.Resources[a.ID] = a.Resources
+		}
+		if a.JobsTool != "" {
+			if w.Jobs == nil {
+				w.Jobs = map[string]string{}
+			}
+			w.Jobs[a.ID] = a.JobsTool
+		}
+		if len(a.Provides) > 0 {
+			if w.Provides == nil {
+				w.Provides = map[string][]contract.ProviderDeclaration{}
+			}
+			w.Provides[a.ID] = a.Provides
+		}
+		if a.ResourceArgument != "" || a.ResourceLabel != "" {
+			if w.ResourceSlots == nil {
+				w.ResourceSlots = map[string]resourceSlot{}
+			}
+			w.ResourceSlots[a.ID] = resourceSlot{Argument: a.ResourceArgument, Label: a.ResourceLabel}
+		}
+		if len(a.ResourceTexts) > 0 {
+			if w.ResourceTexts == nil {
+				w.ResourceTexts = map[string]map[string]contract.ResourceText{}
+			}
+			w.ResourceTexts[a.ID] = a.ResourceTexts
+		}
+		if a.ModelSearch != nil {
+			if w.ModelSearch == nil {
+				w.ModelSearch = map[string]*contract.ModelSearch{}
+			}
+			w.ModelSearch[a.ID] = a.ModelSearch
+		}
+	}
+	return w
+}
+
+func (w appsWire) list() apps.List {
+	for i := range w.Apps {
+		w.Apps[i].Resources = w.Resources[w.Apps[i].ID]
+		w.Apps[i].JobsTool = w.Jobs[w.Apps[i].ID]
+		w.Apps[i].Provides = w.Provides[w.Apps[i].ID]
+		w.Apps[i].ModelSearch = w.ModelSearch[w.Apps[i].ID]
+		w.Apps[i].ResourceArgument = w.ResourceSlots[w.Apps[i].ID].Argument
+		w.Apps[i].ResourceLabel = w.ResourceSlots[w.Apps[i].ID].Label
+		w.Apps[i].ResourceTexts = w.ResourceTexts[w.Apps[i].ID]
+	}
+	return w.List
+}
+
+// icon serves the verified icon of an app the actor may see. The bytes come
+// from the owner's immutable package, are checked against the digest the
+// receipt recorded at install and are never served from an addon process.
+func (g *Gateway) icon(ctx context.Context, a contract.Actor, r RelayRequest, w http.ResponseWriter) error {
+	if g.Manager == nil {
+		return ErrUnavailable
+	}
+	receipt, e := g.Manager.AppIcon(ctx, a, r.Request.AddonID, r.Request.Generation)
+	if e != nil {
+		return e
+	}
+	icon := receipt.Icon
+	root, e := os.OpenRoot(receipt.Directory)
+	if e != nil {
+		return ErrUnavailable
+	}
+	defer func() { _ = root.Close() }()
+	f, e := root.Open(icon.Path)
+	if e != nil {
+		return ErrUnavailable
+	}
+	defer func() { _ = f.Close() }()
+	b, e := io.ReadAll(io.LimitReader(f, contract.MaxIconBytes+1))
+	if e != nil || int64(len(b)) != icon.Size || icon.Size > contract.MaxIconBytes || fmt.Sprintf("sha256:%x", sha256.Sum256(b)) != icon.Digest {
+		// The package changed after it was verified. Never serve it.
+		return ErrUnavailable
+	}
+	if e = g.revalidate(ctx, a); e != nil {
+		return e
+	}
+	h := w.Header()
+	h.Set("Content-Type", icon.MediaType)
+	h.Set("Content-Length", strconv.Itoa(len(b)))
+	h.Set("Cache-Control", "private, no-store")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	_, e = w.Write(b)
+	return e
+}

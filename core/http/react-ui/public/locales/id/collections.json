@@ -1,0 +1,113 @@
+{
+  "title": "Pengetahuan",
+  "subtitle": "Koleksi dokumen yang bisa dicari agen. Cari di koleksi mana pun di sini, atau tambahkan ke agen saat Anda ingin koleksi itu dipakai.",
+  "newPlaceholder": "Nama koleksi baru...",
+  "actions": {
+    "create": "Buat",
+    "details": "Detail",
+    "reset": "Reset",
+    "delete": "Hapus",
+    "viewDetails": "Lihat detail",
+    "resetCollection": "Reset koleksi",
+    "deleteCollection": "Hapus koleksi",
+    "cancel": "Batal",
+    "save": "Simpan"
+  },
+  "sections": {
+    "yourCollections": "Koleksi Anda",
+    "otherUsersCollections": "Koleksi Pengguna Lain",
+    "sharedWithYou": "Dibagikan kepada Anda"
+  },
+  "empty": {
+    "title": "Belum ada koleksi",
+    "text": "Koleksi memungkinkan Anda mengatur dokumen ke dalam basis pengetahuan yang dapat dicari oleh agen menggunakan RAG (Retrieval-Augmented Generation). Buat koleksi di atas untuk memulai.",
+    "noPersonal": "Anda belum memiliki koleksi.",
+    "learn": "Cara kerja pengetahuan"
+  },
+  "deleteDialog": {
+    "title": "Hapus koleksi",
+    "message": "Hapus koleksi \"{{name}}\"? Tindakan ini akan menghapus semua entri dan tidak dapat dibatalkan.",
+    "confirm": "Hapus"
+  },
+  "resetDialog": {
+    "title": "Reset koleksi",
+    "message": "Reset koleksi \"{{name}}\"? Tindakan ini akan menghapus semua entri tetapi mempertahankan koleksinya.",
+    "confirm": "Reset"
+  },
+  "toasts": {
+    "created": "Koleksi \"{{name}}\" berhasil dibuat",
+    "createFailed": "Gagal membuat koleksi: {{message}}",
+    "deleted": "Koleksi \"{{name}}\" berhasil dihapus",
+    "deleteFailed": "Gagal menghapus koleksi: {{message}}",
+    "reset": "Koleksi \"{{name}}\" berhasil direset",
+    "resetFailed": "Gagal mereset koleksi: {{message}}"
+  },
+  "loadFailed": "Koleksi Anda tidak dapat dimuat.",
+  "sources": {
+    "loadFailed": "Sumber web tidak dapat dimuat.",
+    "noneShared": "Tidak ada sumber web."
+  },
+  "entries": {
+    "loadFailed": "File tidak dapat dimuat.",
+    "filter": "Filter berkas",
+    "countAll_one": "{{count}} berkas",
+    "countAll_other": "{{count}} berkas",
+    "countOf": "{{shown}} dari {{total}} berkas",
+    "noMatch": "Tidak ada berkas yang cocok."
+  },
+  "starting": {
+    "title": "Pengetahuan sedang dimulai.",
+    "text": "Server masih menyiapkan layanan pengetahuan. Halaman ini akan mencoba lagi dengan sendirinya."
+  },
+  "embedding": {
+    "missingTitle": "Tidak ada model embedding yang terpasang.",
+    "missingText": "Koleksi memakai {{model}} untuk mengindeks file dan mencarinya. Sampai model itu terpasang, menambah file dan pencarian gagal.",
+    "noneSet": "Tidak ada model embedding yang diatur untuk koleksi (collections_embedding_model), jadi menambah file dan pencarian gagal.",
+    "install": "Cari di Model",
+    "askAdmin": "Minta administrator untuk memasangnya."
+  },
+  "searchMode": {
+    "label": "Pencarian: {{mode}}",
+    "semantic": "semantik",
+    "hybrid": "hibrida",
+    "semanticHint": "Pencarian menemukan bagian teks berdasarkan makna, bukan kata atau kode yang persis.",
+    "hybridHint": "Pencarian menemukan bagian teks berdasarkan makna dan kata yang persis."
+  },
+  "pane": {
+    "addFile": "Tambah file"
+  },
+  "share": {
+    "label": "Bagikan",
+    "button": "Bagikan {{name}}",
+    "intro": "Orang yang Anda tambahkan menemukan koleksi ini di daftar mereka, dan agen mereka dapat mencarinya berdasarkan nama.",
+    "failed": "Koleksi tidak dapat dibagikan: {{message}}",
+    "roles": {
+      "viewer": "Dapat melihat",
+      "viewerHelp": "Dapat mencarinya dan membaca filenya.",
+      "editor": "Dapat mengedit",
+      "editorHelp": "Juga dapat menambah dan menghapus file."
+    },
+    "noteViewer": "Anda dapat mencarinya dan membaca filenya.",
+    "noteEditor": "Anda dapat mencarinya dan menambah atau menghapus file."
+  },
+  "create": {
+    "title": "Koleksi baru",
+    "hint": "Beri nama yang mudah Anda kenali. Anda menambahkan berkas dan halaman web setelah koleksi dibuat."
+  },
+  "sort": {
+    "label": "Urutkan koleksi",
+    "name": "Nama, A ke Z",
+    "name-desc": "Nama, Z ke A",
+    "used": "Paling banyak dipakai",
+    "unused": "Belum dipakai dulu"
+  },
+  "list": {
+    "countAll_one": "{{count}} koleksi",
+    "countAll_other": "{{count}} koleksi",
+    "countOf": "{{shown}} dari {{total}} koleksi",
+    "menu": "Tindakan untuk {{name}}"
+  },
+  "menu": {
+    "try": "Coba pertanyaan"
+  }
+}

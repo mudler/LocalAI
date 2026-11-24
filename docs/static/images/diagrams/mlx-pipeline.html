@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>MLX distributed pipeline</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">MLX distributed</p>
+<h1>Pipeline across <span class="hl">ranks</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="panel" style="padding:20px 24px 24px;margin-bottom:22px"><h3>Ring over TCP: each rank holds a slice of the layers</h3>
+ <div class="flow"><div class="node core" style=""><b>Rank 0</b><span>LocalAI, coordinator. Example: layers 0 to 9</span></div><div class="ar"></div><div class="node " style=""><b>Rank 1</b><span>Example: layers 10 to 19</span></div><div class="ar"></div><div class="node " style=""><b>Rank 2</b><span>Example: layers 20 to the output</span></div></div>
+ <div class="row" style="margin-top:14px"><span class="pill">The last rank sends the output back to rank 0</span></div></div>
+<div class="panel" style="padding:20px 24px 24px"><h3>JACCL, over RDMA or Thunderbolt</h3>
+ <div class="row" style="gap:24px;align-items:stretch"><div class="node fl"><b>Every rank holds all layers</b><span>the weights are sharded across ranks</span></div><div class="node fl"><b>Rank 0 is the coordinator</b><span>workers get its address with <span class="code" style="display:inline">--coordinator</span></span></div></div></div>
+
+</div>
+<div class="foot">Pipeline parallelism: <b>all ranks work on every forward pass</b>.</div>
+</body></html>

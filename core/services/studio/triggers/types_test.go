@@ -1,0 +1,307 @@
+package triggers
+
+import (
+	"strings"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func goodSchedule() Trigger {
+	return Trigger{ID: "t", Owner: "1", Name: "Morning", Prompt: "Summarise.", Kind: KindSchedule, Schedule: "daily 08:00", TZ: "Europe/Rome"}
+}
+
+func goodFile() Trigger {
+	return Trigger{ID: "t", Owner: "1", Name: "Contracts", Prompt: "Read it.", Kind: KindFile, Folder: "/users/1/Contracts", Quiet: time.Minute}
+}
+
+var _ = Describe("Trigger types", func() {
+	It("accepts good triggers on validation", func() {
+		for _, tr := range []Trigger{goodSchedule(), goodFile()} {
+			Expect(tr.Validate()).To(Succeed(), "%s trigger", tr.Kind)
+		}
+		tr := goodSchedule()
+		tr.TZ = ""
+		Expect(tr.Validate()).To(Succeed(), "an empty time zone is UTC")
+		file := goodFile()
+		file.TZ = "Europe/Rome"
+		Expect(file.Validate()).To(Succeed(), "a file trigger with a time zone")
+		file.TZ = "Mars/Base"
+		err := file.Validate()
+		Expect(err).To(HaveOccurred(), "a file trigger with a bad time zone")
+		Expect(err.Error()).To(ContainSubstring(`time zone "Mars/Base" is not known`))
+	})
+
+	It("keeps a plan and a gap", func() {
+		tr := goodFile()
+		tr.Reads, tr.Writes, tr.Widget, tr.EstTokens, tr.MinGap = "Mail from the last day", "inbox/summary.json", "inbox", 1500, time.Hour
+		Expect(tr.Validate()).To(Succeed())
+		Expect(tr.GapOrDefault()).To(Equal(time.Hour))
+		Expect(goodFile().GapOrDefault()).To(Equal(DefaultFileGap))
+	})
+
+	It("names the field on a validation error", func() {
+		for _, c := range []struct {
+			name string
+			edit func(*Trigger)
+			want string
+		}{
+			{"no owner", func(t *Trigger) { t.Owner = "" }, "owner is required"},
+			{"no name", func(t *Trigger) { t.Name = "  " }, "name is required"},
+			{"long name", func(t *Trigger) { t.Name = strings.Repeat("é", 81) }, "name can have at most 80 characters"},
+			{"no prompt", func(t *Trigger) { t.Prompt = "" }, "prompt is required"},
+			{"long prompt", func(t *Trigger) { t.Prompt = strings.Repeat("p", 8001) }, "prompt can have at most 8000 bytes"},
+			{"negative cap", func(t *Trigger) { t.DailyCap = -1 }, "daily limit must be 0 to 1000"},
+			{"big cap", func(t *Trigger) { t.DailyCap = 1001 }, "daily limit must be 0 to 1000"},
+			{"short time limit", func(t *Trigger) { t.RunLimit = 30 * time.Second }, "time limit must be empty or 1m to 24h"},
+			{"negative time limit", func(t *Trigger) { t.RunLimit = -time.Minute }, "time limit must be empty or"},
+			{"long time limit", func(t *Trigger) { t.RunLimit = 25 * time.Hour }, "time limit must be empty or"},
+			{"bad kind", func(t *Trigger) { t.Kind = "webhook" }, "kind must be"},
+			{"bad schedule", func(t *Trigger) { t.Schedule = "daily 25:00" }, "hour must be 0 to 23"},
+			{"bad zone", func(t *Trigger) { t.TZ = "Mars/Base" }, `time zone "Mars/Base" is not known`},
+			{"long agent", func(t *Trigger) { t.AgentID = strings.Repeat("a", 201) }, "agent can have at most 200 characters"},
+			{"long model", func(t *Trigger) { t.Model = strings.Repeat("m", 201) }, "model can have at most 200 characters"},
+			{"long source chat", func(t *Trigger) { t.SourceChatID = strings.Repeat("c", 201) }, "source chat can have at most 200 characters"},
+			{"negative gap", func(t *Trigger) { t.MinGap = -time.Second }, "the time between runs must be 0 to"},
+			{"huge gap", func(t *Trigger) { t.MinGap = 25 * time.Hour }, "the time between runs must be 0 to"},
+			{"long reads", func(t *Trigger) { t.Reads = strings.Repeat("r", 201) }, "reads is one line"},
+			{"reads with a line break", func(t *Trigger) { t.Reads = "mail\nand more" }, "reads is one line"},
+			{"long writes", func(t *Trigger) { t.Writes = "/" + strings.Repeat("w", 256) }, "writes is a path"},
+			{"bad widget", func(t *Trigger) { t.Widget = "Inbox" }, "widget is the id of a Home widget"},
+			{"negative tokens", func(t *Trigger) { t.EstTokens = -1 }, "estimated tokens must be"},
+		} {
+			tr := goodSchedule()
+			c.edit(&tr)
+			err := tr.Validate()
+			Expect(err).To(HaveOccurred(), c.name)
+			Expect(err.Error()).To(ContainSubstring(c.want), c.name)
+		}
+		for _, c := range []struct {
+			name string
+			edit func(*Trigger)
+		}{
+			{"no folder", func(t *Trigger) { t.Folder = "" }},
+			{"relative folder", func(t *Trigger) { t.Folder = "Contracts" }},
+			{"unclean folder", func(t *Trigger) { t.Folder = "/a/../b" }},
+			{"trailing slash", func(t *Trigger) { t.Folder = "/a/b/" }},
+			{"the whole workspace", func(t *Trigger) { t.Folder = "/" }},
+			{"negative quiet", func(t *Trigger) { t.Quiet = -time.Second }},
+			{"huge quiet", func(t *Trigger) { t.Quiet = 25 * time.Hour }},
+		} {
+			tr := goodFile()
+			c.edit(&tr)
+			Expect(tr.Validate()).NotTo(Succeed(), "%s was accepted", c.name)
+		}
+	})
+
+	It("refuses control characters on validation", func() {
+		for _, c := range []struct {
+			name string
+			edit func(*Trigger)
+			ok   bool
+		}{
+			{"NUL in name", func(t *Trigger) { t.Name = "a\x00b" }, false},
+			{"escape in name", func(t *Trigger) { t.Name = "a\x1bb" }, false},
+			{"newline in name", func(t *Trigger) { t.Name = "a\nb" }, false},
+			{"tab in name", func(t *Trigger) { t.Name = "a\tb" }, true},
+			{"NUL in prompt", func(t *Trigger) { t.Prompt = "do\x00it" }, false},
+			{"bell in prompt", func(t *Trigger) { t.Prompt = "do\x07it" }, false},
+			{"DEL in prompt", func(t *Trigger) { t.Prompt = "do\x7fit" }, false},
+			{"newline and tab in prompt", func(t *Trigger) { t.Prompt = "line\n\tmore\n" }, true},
+			{"CRLF in prompt", func(t *Trigger) { t.Prompt = "line\r\nmore\r\n" }, true},
+			{"CR in name", func(t *Trigger) { t.Name = "a\rb" }, false},
+		} {
+			tr := goodSchedule()
+			c.edit(&tr)
+			if c.ok {
+				Expect(tr.Validate()).To(Succeed(), c.name)
+			} else {
+				Expect(tr.Validate()).NotTo(Succeed(), c.name)
+			}
+		}
+		for _, c := range []struct {
+			name   string
+			folder string
+			ok     bool
+		}{
+			{"NUL in folder", "/users/1/a\x00b", false},
+			{"newline in folder", "/users/1/a\nb", false},
+			{"escape in folder", "/users/1/a\x1bb", false},
+			{"tab in folder", "/users/1/a\tb", true},
+			{"plain folder", "/users/1/a b", true},
+		} {
+			tr := goodFile()
+			tr.Folder = c.folder
+			if c.ok {
+				Expect(tr.Validate()).To(Succeed(), c.name)
+			} else {
+				Expect(tr.Validate()).NotTo(Succeed(), c.name)
+			}
+		}
+	})
+
+	It("has defaults", func() {
+		var tr Trigger
+		Expect(tr.QuietOrDefault()).To(Equal(30 * time.Second))
+		Expect(tr.CapOrDefault()).To(Equal(24))
+		tr.Quiet, tr.DailyCap = time.Minute, 3
+		Expect(tr.QuietOrDefault()).To(Equal(time.Minute), "explicit values were replaced")
+		Expect(tr.CapOrDefault()).To(Equal(3), "explicit values were replaced")
+	})
+
+	It("gives the effective run limit as the least of the trigger and the ceiling", func() {
+		ceiling := 15 * time.Minute
+		var tr Trigger
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "zero takes the ceiling")
+		tr.RunLimit = 5 * time.Minute
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(5 * time.Minute))
+		tr.RunLimit = time.Hour
+		Expect(tr.EffectiveRunLimit(ceiling)).To(Equal(ceiling), "a lowered ceiling applies at once")
+		Expect(tr.EffectiveRunLimit(0)).To(Equal(time.Hour), "no ceiling leaves the value")
+		Expect(tr.EffectiveRunLimit(2 * time.Hour)).To(Equal(time.Hour))
+	})
+
+	It("arms a trigger", func() {
+		now := time.Date(2026, 10, 22, 9, 0, 0, 0, time.FixedZone("x", 3600))
+		earlier := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+		old := goodSchedule()
+		old.Enabled, old.Since = true, earlier
+		same := old
+		Expect(Arm(&old, same, now).Since.Equal(earlier)).To(BeTrue(), "an unchanged trigger moved Since")
+		renamed := old
+		renamed.Name, renamed.Prompt = "Other", "Other prompt"
+		Expect(Arm(&old, renamed, now).Since.Equal(earlier)).To(BeTrue(), "a rename moved Since")
+		for _, edit := range []func(*Trigger){
+			func(t *Trigger) { t.Schedule = "daily 09:00" },
+			func(t *Trigger) { t.TZ = "UTC" },
+			func(t *Trigger) { t.Kind, t.Folder = KindFile, "/a/b" },
+		} {
+			changed := old
+			edit(&changed)
+			got := Arm(&old, changed, now)
+			Expect(got.Since.Equal(now)).To(BeTrue(), "a changed trigger got Since %v", got.Since)
+			Expect(got.Since.Location()).To(Equal(time.UTC), "a changed trigger got Since %v", got.Since)
+		}
+		file := goodFile()
+		file.Enabled, file.Since = true, earlier
+		moved := file
+		moved.Folder = "/a/other"
+		Expect(Arm(&file, moved, now).Since.Equal(now)).To(BeTrue(), "a new folder kept Since")
+		off := old
+		off.Enabled = false
+		on := off
+		on.Enabled = true
+		Expect(Arm(&off, on, now).Since.Equal(now)).To(BeTrue(), "switching on kept Since")
+		Expect(Arm(&old, off, now).Since.Equal(earlier)).To(BeTrue(), "switching off moved Since")
+		Expect(Arm(nil, same, now).Since.Equal(now)).To(BeTrue(), "a new trigger got a wrong Since")
+	})
+
+	It("cuts a reason", func() {
+		Expect(CutReason("  short\n")).To(Equal("short"))
+		long := strings.Repeat("ü", 250)
+		got := CutReason(long)
+		Expect([]rune(got)).To(HaveLen(200), "long reason")
+		Expect(long).To(HavePrefix(got), "long reason")
+	})
+
+	It("tells which statuses are final", func() {
+		for st, want := range map[Status]bool{StatusQueued: false, StatusRunning: false, StatusDone: true, StatusFailed: true, StatusSkipped: true} {
+			Expect(st.Final()).To(Equal(want), "%s.Final()", st)
+		}
+	})
+})
+
+var _ = Describe("Route", func() {
+	It("reads the empty value as the Inbox, always", func() {
+		var r Route
+		Expect(r.TargetOrDefault()).To(Equal(TargetInbox))
+		Expect(r.ModeOrDefault()).To(Equal(ModeAlways))
+		Expect(r.FromConnector()).To(BeFalse())
+		Expect(r.Validate()).To(Succeed())
+	})
+	It("lets a run report to the origin only when a connector chat proposed it", func() {
+		Expect(Route{Target: TargetOrigin}.Validate()).NotTo(Succeed())
+		Expect(Route{Binding: "b", Chat: "C", Target: TargetOrigin, Mode: ModeOnProblem}.Validate()).To(Succeed())
+		Expect(Route{Target: "elsewhere"}.Validate()).NotTo(Succeed())
+		Expect(Route{Mode: "sometimes"}.Validate()).NotTo(Succeed())
+	})
+	It("lets a run report to a channel of a connection chosen in Studio, without a connector chat", func() {
+		r := Route{Connection: "b1", Channel: "G1", Target: TargetChannel, Mode: ModeOnChange}
+		Expect(r.Validate()).To(Succeed())
+		Expect(r.FromConnector()).To(BeFalse(), "the connection is a destination, not a place the trigger came from")
+		Expect(r.ChannelBinding()).To(Equal("b1"))
+		Expect(Route{Binding: "b2", Connection: "", Channel: "G1", Target: TargetChannel}.ChannelBinding()).To(Equal("b2"))
+	})
+	It("still refuses the origin without a connector chat, even with a connection", func() {
+		Expect(Route{Connection: "b1", Target: TargetOrigin}.Validate()).NotTo(Succeed())
+	})
+	It("refuses a channel that names no connection or no channel", func() {
+		Expect(Route{Target: TargetChannel, Channel: "G1"}.Validate()).NotTo(Succeed())
+		Expect(Route{Target: TargetChannel, Connection: "b1"}.Validate()).NotTo(Succeed())
+	})
+	It("refuses a connection that is not the target channel, or that comes with a connector place", func() {
+		Expect(Route{Connection: "b1", Target: TargetInbox}.Validate()).NotTo(Succeed())
+		Expect(Route{Connection: "b1"}.Validate()).NotTo(Succeed())
+		Expect(Route{Binding: "b2", Connection: "b1", Channel: "G1", Target: TargetChannel}.Validate()).NotTo(Succeed())
+	})
+	It("expires a waiting proposal that has a time, and no other", func() {
+		now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+		p := Trigger{Proposed: true, Route: Route{Expires: now.Add(time.Hour)}}
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(time.Hour))).To(BeTrue())
+		p.Outcome = OutcomeDeclined
+		Expect(p.Expired(now.Add(2*time.Hour))).To(BeFalse(), "an answered proposal does not expire")
+		Expect(Trigger{Proposed: true}.Expired(now.Add(1000*time.Hour))).To(BeFalse(), "a proposal without a time never does")
+	})
+})
+
+var _ = Describe("a one-off trigger", func() {
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	once := func(text, tz string) Trigger {
+		t := goodSchedule()
+		t.Schedule, t.TZ = text, tz
+		return t
+	}
+	It("tells its time in its own zone", func() {
+		at, ok := once("once 2026-11-03 18:00", "Europe/Rome").OnceAt()
+		Expect(ok).To(BeTrue())
+		Expect(at.UTC()).To(Equal(time.Date(2026, 11, 3, 17, 0, 0, 0, time.UTC)))
+		Expect(once("once 2026-11-03 18:00", "").OneOff()).To(BeTrue())
+	})
+	It("is not a recurring schedule or a file trigger", func() {
+		Expect(goodSchedule().OneOff()).To(BeFalse())
+		Expect(goodFile().OneOff()).To(BeFalse())
+		Expect(once("not a schedule", "").OneOff()).To(BeFalse())
+	})
+	It("expires as a proposal once its time has passed, though its 24 hours have not", func() {
+		p := once("once 2026-11-03 12:30", "")
+		p.Proposed, p.Route.Expires = true, now.Add(24*time.Hour)
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(30 * time.Minute))).To(BeTrue())
+		Expect(p.Expired(now.Add(31 * time.Minute))).To(BeTrue())
+	})
+})
+
+var _ = Describe("the daily limit that grows with the cadence", func() {
+	It("gives one run per firing in a day, from 24 up to the maximum", func() {
+		Expect(DefaultCapFor(0)).To(Equal(24), "a schedule that runs once")
+		Expect(DefaultCapFor(24 * time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(time.Hour)).To(Equal(24))
+		Expect(DefaultCapFor(30 * time.Minute)).To(Equal(48))
+		Expect(DefaultCapFor(15 * time.Minute)).To(Equal(96))
+		Expect(DefaultCapFor(5 * time.Minute)).To(Equal(288))
+		Expect(DefaultCapFor(time.Minute)).To(Equal(MaxDailyCap), "never above the maximum")
+	})
+
+	It("follows the schedule of a trigger and keeps a limit that is set", func() {
+		now := time.Date(2026, 10, 22, 7, 0, 0, 0, time.UTC)
+		tr := Trigger{Kind: KindSchedule, Schedule: "*/5 * * * *", TZ: "UTC"}
+		Expect(tr.EffectiveCap(now)).To(Equal(288))
+		tr.Schedule = "daily 08:00"
+		Expect(tr.EffectiveCap(now)).To(Equal(24))
+		tr.Schedule, tr.DailyCap = "*/5 * * * *", 10
+		Expect(tr.EffectiveCap(now)).To(Equal(10), "a limit that is set stays")
+		Expect(Trigger{Kind: KindFile}.EffectiveCap(now)).To(Equal(24), "a file trigger has no cadence")
+	})
+})

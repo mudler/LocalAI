@@ -1,0 +1,195 @@
+---
+# Formal design of the model-loader shutdown paths exercised by pkg/model and
+# distributed workers. This is deliberately not a realtime model: realtime
+# merely made a loader-wide stall visible while loading the shared opus backend.
+#
+# The model distinguishes four cases:
+#   1. Local forced shutdown makes progress.
+#   2. Graceful busy waiting is bounded without holding the global loader lock.
+#   3. Distributed force reaches the worker, skips Free(), and reserves its port
+#      until process termination completes.
+#   4. Parallel request tracking remains busy until every request completes.
+deadlock_detection: false
+options:
+    max_actions: 30
+    max_concurrent_actions: 2
+---
+
+role LocalForce:
+    action Init:
+        self.backend = 1       # 1 = stuck busy, 2 = stopped
+        self.timed_out = 0
+        self.loader = 0        # 0 = free, 1 = held by shutdown
+        self.other = 0         # 0 = absent, 1 = pending, 2 = loaded
+
+    atomic action RequestOtherLoad:
+        if self.other == 0:
+            self.other = 1
+
+    atomic fair action BusyTimeout:
+        if self.timed_out == 0:
+            self.timed_out = 1
+
+    # ShutdownModelForce skips both the IsBusy loop and Free RPC. Stopping the
+    # local process and releasing the loader are one abstract transition; the
+    # process manager's eventual termination is the fairness assumption.
+    atomic fair action ForceShutdown:
+        if self.timed_out == 1 and self.backend == 1:
+            self.loader = 1
+            self.backend = 2
+            self.loader = 0
+
+    atomic fair action CompleteOtherLoad:
+        if self.other == 1 and self.loader == 0:
+            self.other = 2
+
+role GracefulShutdown:
+    action Init:
+        self.backend = 1       # permanently stuck busy
+        self.waiting = 0
+        self.done = 0          # bounded wait returned ErrModelBusy
+        self.global_loader = 0
+        self.other = 0
+
+    atomic action RequestOtherLoad:
+        if self.other == 0:
+            self.other = 1
+
+    atomic action BeginGracefulShutdown:
+        if self.waiting == 0 and self.done == 0:
+            self.waiting = 1
+
+    # The backend is allowed to remain busy forever. The shutdown context is
+    # the fairness boundary: expiry returns ErrModelBusy and releases only the
+    # per-model operation lock; the global loader lock was never acquired.
+    atomic fair action BusyDeadline:
+        if self.waiting == 1:
+            self.waiting = 0
+            self.done = 1
+
+    atomic fair action CompleteOtherLoad:
+        if self.other == 1 and self.global_loader == 0:
+            self.other = 2
+
+role DistributedForce:
+    action Init:
+        self.timed_out = 0
+        self.stop_sent = 0
+        self.process = 1             # 1 = running
+        self.supervisor_tracked = 1
+        self.port_recycled = 0
+        self.stopping = 0
+        self.free_called = 0
+        self.reinstall = 0
+
+    atomic fair action BusyTimeout:
+        if self.timed_out == 0:
+            self.timed_out = 1
+
+    # The controller publishes force=true in BackendStopRequest.
+    atomic fair action SendRemoteStop:
+        if self.timed_out == 1 and self.stop_sent == 0:
+            self.stop_sent = 1
+
+    # Force marks the process as stopping but keeps both supervisor ownership
+    # and the port reservation. The Free RPC is skipped.
+    atomic fair action WorkerReceivesStop:
+        if self.stop_sent == 1 and self.supervisor_tracked == 1:
+            self.stopping = 1
+
+    # Only completed process termination releases supervisor ownership and the
+    # port. Eventual termination is the process-manager fairness assumption.
+    atomic fair action ProcessStops:
+        if self.stopping == 1 and self.process == 1:
+            self.process = 0
+            self.supervisor_tracked = 0
+            self.port_recycled = 1
+
+    atomic action RequestReinstall:
+        if self.port_recycled == 1 and self.reinstall == 0:
+            self.reinstall = 1
+
+role ParallelBusyTracker:
+    action Init:
+        self.inflight = 0
+        self.busy = 0
+
+    atomic action StartFirst:
+        if self.inflight == 0:
+            self.inflight = 1
+            self.busy = 1
+
+    atomic action StartSecond:
+        if self.inflight == 1 and self.busy == 1:
+            self.inflight = 2
+            self.busy = 1
+
+    atomic action FinishOne:
+        if self.inflight == 2:
+            self.inflight = 1
+            self.busy = 1
+
+    atomic action FinishLast:
+        if self.inflight == 1:
+            self.inflight = 0
+            self.busy = 0
+
+action Init:
+    local = LocalForce()
+    graceful = GracefulShutdown()
+    remote = DistributedForce()
+    tracker = ParallelBusyTracker()
+
+# Proven behavior of the implementation's local force path. Once selected by the watchdog,
+# the stuck backend is eventually stopped and an unrelated pending load can
+# eventually acquire the loader.
+always eventually assertion LocalTimedOutBackendStops:
+    return local.timed_out == 0 or local.backend == 2
+
+always eventually assertion LocalUnrelatedLoadProgresses:
+    return local.other != 1
+
+always assertion LocalNeverWaitsBusyWithLoaderHeld:
+    return not (local.loader == 1 and local.backend == 1)
+
+exists assertion LocalForcePathExercised:
+    return local.timed_out == 1 and local.backend == 2
+
+exists assertion LocalOtherLoadCompletes:
+    return local.other == 2
+
+# The permanently busy backend cannot wedge the global loader, and its bounded
+# busy-wait attempt eventually returns.
+always assertion GracefulNeverHoldsGlobalLoader:
+    return graceful.global_loader == 0
+
+always eventually assertion GracefulShutdownIsBounded:
+    return graceful.waiting == 0
+
+always eventually assertion GracefulUnrelatedLoadProgresses:
+    return graceful.other != 1
+
+exists assertion GracefulDeadlineExercised:
+    return graceful.done == 1 and graceful.other == 2
+
+# Distributed force skips Free, terminates the process, and never recycles its
+# port while the old process can still own it.
+always assertion DistributedForceSkipsFree:
+    return remote.free_called == 0
+
+always assertion DistributedPortReservedUntilStop:
+    return not (remote.port_recycled == 1 and remote.process == 1)
+
+always eventually assertion DistributedForcedStopProgresses:
+    return remote.stop_sent == 0 or remote.process == 0
+
+exists assertion DistributedForcedStopExercised:
+    return remote.process == 0 and remote.port_recycled == 1 and remote.free_called == 0
+
+# Busy is derived from the in-flight count, so a partial completion cannot
+# expose a false-idle state.
+always assertion ParallelBusyMatchesInflight:
+    return (tracker.inflight > 0 and tracker.busy == 1) or (tracker.inflight == 0 and tracker.busy == 0)
+
+exists assertion ParallelOverlapPreserved:
+    return tracker.inflight == 1 and tracker.busy == 1

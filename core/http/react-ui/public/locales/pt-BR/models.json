@@ -1,0 +1,431 @@
+{
+  "lifecycle": {
+    "update": {"update": "Atualização disponível", "edited": "Atualização disponível, precisa das suas escolhas", "updating": "Atualizando", "failed": "A atualização falhou", "held": "Retido nesta versão"},
+    "supporting": "Encontre um modelo que caiba nesta máquina, instale-o e cuide dos que você já tem.",
+    "title": "Models",
+    "navLabel": "Model lifecycle",
+    "views": { "explore": "Explore", "installed": "Installed" },
+    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "installed": {
+      "searchPlaceholder": "Search installed models",
+      "count": "{{shown}} of {{total}}",
+      "backToAll": "All installed models",
+      "eyebrow": "Installed on this host",
+      "summary": "{{count}} models ready to serve.",
+      "summaryHint": "Select a model to inspect its runtime state and controls."
+    },
+    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "actions": {
+      "load": "Load", "loading": "Loading…", "stop": "Stop", "reload": "Recarregar", "reloading": "Recarregando…",
+      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
+      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
+      "delete": "Delete model", "forModel": "Actions for {{model}}",
+      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+    },
+    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "reload": "recarregar" },
+    "toasts": {
+      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
+      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
+      "deleted": "Deleted {{model}}", "reloaded": "Configurações dos modelos recarregadas"
+    },
+    "confirm": {
+      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
+      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+    },
+    "errors": {
+      "action": "Could not {{action}} {{model}}: {{message}}",
+      "loadList": "Could not load installed models: {{message}}"
+    },
+    "detail": {
+      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
+      "description": "Description", "noDescription": "No gallery description is available for this model.",
+      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
+      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
+      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
+      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
+      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
+    },
+    "open": {
+      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
+      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
+      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
+    },
+    "empty": {
+      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
+      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
+      "clear": "Clear filters"
+    }
+  },
+  "title": "Modelos",
+  "subtitle": "Explore e instale modelos de IA da galeria",
+  "models": "Modelos",
+  "recommended": {
+    "title": "Recomendados para o seu hardware",
+    "cpuNote": "Nenhuma GPU detectada - modelos pequenos que permanecem responsivos na CPU.",
+    "gpuNote": "Dimensionados para caber na sua VRAM disponível com espaço para o contexto.",
+    "install": "Instalar",
+    "installing": "Instalando",
+    "installStarted": "Instalando {{model}}…",
+    "installFailed": "Falha na instalação: {{message}}",
+    "window": "{{window}} de contexto",
+    "memory": "cerca de {{memory}} de memória",
+    "dismiss": "Dispensar recomendações",
+    "summary": "{{n}} modelos sugeridos",
+    "bestFit": "Melhor ajuste",
+    "alternative": "Também serve"
+  },
+  "stats": {
+    "available": "Disponíveis",
+    "installed": "Instalados"
+  },
+  "actions": {
+    "addModel": "Adicionar Modelo",
+    "importModel": "Importar Modelo",
+    "install": "Instalar",
+    "reinstall": "Reinstalar",
+    "delete": "Excluir"
+  },
+  "filters": {
+    "sheetDone": "Mostrar modelos",
+    "sheetTitle": "Filtros",
+    "sheetButtonCount": "Filtros ({{count}})",
+    "sheetButton": "Filtros",
+    "all": "Todos",
+    "llm": "Chat",
+    "image": "Imagem",
+    "video": "Vídeo",
+    "threed": "3D",
+    "multimodal": "Multimodal",
+    "vision": "Visão",
+    "tts": "TTS",
+    "stt": "STT",
+    "diarization": "Diarização",
+    "soundClassification": "Classificação de Som",
+    "soundGen": "Som",
+    "audioTransform": "FX de Áudio",
+    "realtimeAudio": "Áudio em Tempo Real",
+    "embedding": "Embeddings",
+    "rerank": "Rerank",
+    "detection": "Detecção",
+    "vad": "VAD",
+    "ner": "NER",
+    "fitsGpu": "Cabe na GPU",
+    "collapseVariants": "Uma linha por modelo",
+    "allBackends": "Todos os Backends",
+    "searchBackends": "Buscar backends...",
+    "contextSize": "Contexto:",
+    "useCaseLabel": "Filtrar por caso de uso",
+    "unavailableForBackend": "Não disponível para o backend selecionado",
+    "someSelected": "{{count}} selecionados",
+    "refineLabel": "Refinar"
+  },
+  "search": {
+    "placeholder": "Buscar modelos...",
+    "clearFilters": "Limpar filtros"
+  },
+  "table": {
+    "modelName": "Nome do Modelo",
+    "description": "Descrição",
+    "backend": "Backend",
+    "sizeVram": "Tamanho / VRAM",
+    "status": "Status",
+    "actions": "Ações",
+    "size": "Tamanho: {{size}}",
+    "vram": "VRAM: {{vram}}",
+    "fits": "Cabe",
+    "mayNotFit": "Pode não caber",
+    "trustRemoteCode": "Confiar em Código Remoto",
+    "installing": "Instalando",
+    "installingPct": "Instalando · {{percent}}%",
+    "installed": "Instalado",
+    "notInstalled": "Não Instalado"
+  },
+  "detail": {
+    "description": "Descrição",
+    "gallery": "Galeria",
+    "backend": "Backend",
+    "size": "Tamanho",
+    "vram": "VRAM",
+    "license": "Licença",
+    "tags": "Tags",
+    "links": "Links",
+    "warning": "Aviso",
+    "files": "Arquivos",
+    "fitsGpu": "Cabe na GPU",
+    "mayNotFitGpu": "Pode não caber na GPU",
+    "requiresTrustRemoteCode": "Requer Confiança em Código Remoto",
+    "fileCount_one": "{{count}} arquivo",
+    "fileCount_other": "{{count}} arquivos",
+    "filename": "Nome do arquivo",
+    "uri": "URI",
+    "sha256": "SHA256",
+    "backToAll": "Todos os modelos",
+    "vramAt": "VRAM em {{context}}",
+    "headroom": "Margem de sobra",
+    "headroomOn": "Folga em {{node}}"
+  },
+  "empty": {
+    "title": "Nenhum modelo encontrado",
+    "withFilters": "Nenhum modelo corresponde à sua busca ou filtros atuais.",
+    "collapsedVariantsHint": "Construções alternativas que outra entrada já oferece estão ocultas. Desative \"Uma linha por modelo\" para incluí-las.",
+    "noFilters": "A galeria de modelos está vazia."
+  },
+  "deleteDialog": {
+    "title": "Excluir Modelo",
+    "message": "Excluir o modelo {{model}}?",
+    "confirm": "Excluir {{model}}",
+    "deletingToast": "Excluindo {{model}}..."
+  },
+  "errors": {
+    "loadFailed": "Falha ao carregar modelos: {{message}}",
+    "installFailed": "Falha na instalação: {{message}}",
+    "deleteFailed": "Falha ao excluir: {{message}}"
+  },
+  "selector": {
+    "loading": "Carregando modelos...",
+    "selectModel": "Selecionar modelo...",
+    "searchPlaceholder": "Buscar modelos...",
+    "noModels": "Nenhum modelo disponível"
+  },
+  "variants": {
+    "title": "Variantes",
+    "chooseVariant": "Escolha uma variante",
+    "auto": "Automática",
+    "autoSelected": "Selecionada automaticamente",
+    "base": "Construção base",
+    "doesNotFit": "Não cabe",
+    "unknownSize": "Tamanho desconhecido",
+    "unknownBackend": "Backend desconhecido",
+    "loading": "Carregando variantes...",
+    "installVariant": "Instalar {{variant}}",
+    "quantizationTitle": "Formato dos pesos",
+    "unknownQuantization": "Formato desconhecido",
+    "showDetails": "Mostrar detalhes completos de {{variant}}",
+    "hideDetails": "Ocultar detalhes completos de {{variant}}",
+    "detailsLoading": "Carregando detalhes...",
+    "detailsUnavailable": "Os detalhes de {{variant}} não puderam ser carregados.",
+    "features": {
+      "dflash": "Mais rápido: DFlash",
+      "mtp": "Mais rápido: MTP"
+    }
+  },
+  "rail": {
+    "sortLabel": "Ordenar modelos",
+    "downloadingPct": "baixando {{percent}}%",
+    "tooLarge": "{{size}} · muito grande",
+    "fitsSize": "{{size}} · cabe",
+    "previousPage": "Página anterior",
+    "nextPage": "Próxima página",
+    "showingCount": "{{shown}} de {{total}}",
+    "sizing": "medindo…"
+  },
+  "groups": {
+    "text": "Texto e raciocínio",
+    "vision": "Visão",
+    "audio": "Fala e áudio",
+    "visual": "Imagem e vídeo",
+    "other": "Todo o resto"
+  },
+  "chart": {
+    "title": "VRAM por tamanho de contexto",
+    "available": "{{vram}} disponíveis",
+    "barTitle": "o contexto {{context}} precisa de {{vram}}",
+    "fitsEverywhere": "Executa em qualquer tamanho de contexto neste host.",
+    "fitsNowhere": "Não caberá neste host em nenhum tamanho de contexto.",
+    "fitsUpTo": "Cabe em contextos de até {{context}}."
+  },
+  "shelves": {
+    "hostLabel": "Seu host",
+    "heroWithGpu": "{{vram}} de memória GPU, {{count}} modelos na galeria.",
+    "heroNoGpu": "{{count}} modelos na galeria.",
+    "heroHint": "Escolha qualquer item à esquerda para ver seu tamanho, variantes e se ele executará aqui.",
+    "browsing": "Explorando",
+    "pickHint": "Selecione um modelo para ver seus detalhes.",
+    "heroWithRam": "{{ram}} de memória do sistema, {{count}} modelos na galeria.",
+    "heroWithCluster": "{{vram}} em {{node}}, o maior de {{nodes}} nós, {{count}} modelos na galeria.",
+    "heroWithNode": "{{vram}} em {{node}}, {{count}} modelos na galeria.",
+    "byUseCase": "Ou comece por um caso de uso",
+    "pickText": "Chat, raciocínio, embeddings",
+    "pickVision": "Leia imagens e documentos",
+    "pickAudio": "Fala de entrada e saída",
+    "pickVisual": "Gere imagens e vídeos"
+  },
+  "failover": {
+    "title": "Cadeia de failover",
+    "servedBy": "Atendido por",
+    "changed": "alterado {{time}}",
+    "pinnedTo": "Fixado em {{target}}",
+    "warm": "Pré-carregado",
+    "never": "Nunca",
+    "states": {
+      "primary": "Primário",
+      "fallback": "Reserva",
+      "degraded": "Degradado",
+      "healthy": "Saudável",
+      "down": "Fora do ar",
+      "recovering": "Recuperando",
+      "missing": "Ausente"
+    },
+    "kinds": {
+      "local": "Local",
+      "remote": "Remoto"
+    },
+    "columns": {
+      "target": "Destino",
+      "kind": "Tipo",
+      "warm": "Pré-carregado",
+      "health": "Saúde",
+      "lastProbe": "Última verificação",
+      "lastError": "Último erro",
+      "actions": "Ações"
+    },
+    "actions": {
+      "pin": "Fixar",
+      "pinning": "Fixando…",
+      "unpin": "Desafixar",
+      "unpinning": "Desafixando…"
+    },
+    "confirm": {
+      "pinTitle": "Fixar {{target}}?",
+      "pinMessage": "Somente {{target}} atende {{chain}} até você desafixar. O failover automático para nesta cadeia.",
+      "unpinTitle": "Desafixar {{chain}}?",
+      "unpinMessage": "{{chain}} volta ao failover automático."
+    },
+    "errors": {
+      "pin": "Falha ao fixar: {{error}}",
+      "unpin": "Falha ao desafixar: {{error}}"
+    },
+    "overview": {
+      "title": "Cadeias de failover",
+      "subtitle": "Saúde em tempo real e destino ativo de cada cadeia de failover.",
+      "columns": {
+        "chain": "Cadeia",
+        "state": "Estado",
+        "active": "Destino ativo",
+        "targets": "Destinos",
+        "changed": "Alterado"
+      },
+      "empty": {
+        "title": "Ainda não há cadeias de failover",
+        "text": "Adicione uma cadeia de failover para contornar automaticamente destinos com problemas.",
+        "cta": "Criar uma cadeia de failover"
+      }
+    }
+  },
+  "placement": {
+    "moe": {
+      "title": "Experts (MoE)",
+      "keepOn": "Keep experts on",
+      "modes": {
+        "gpu": "GPU",
+        "some": "Some layers on CPU",
+        "all": "All on CPU"
+      },
+      "autoHint": "Auto-fit may move experts to system memory by itself. An explicit choice here overrides it.",
+      "layers": "Layers with experts on the CPU",
+      "sliderValue": "Experts of the first {{count}} of {{total}} layers on the CPU",
+      "sliderShort": "{{count}} of {{total}}",
+      "noSlider": "The layer count of this model is not reported, so there is no slider. Enter a number of layers.",
+      "cache": "Expert cache",
+      "cacheOff": "Off",
+      "cacheMib": "Expert cache in MiB",
+      "cachePlaceholder": "MiB",
+      "cacheHint": "A cache on the GPU for experts held in system memory. It takes GPU memory. A cache that is too small thrashes. Experimental.",
+      "elsewhere": "Expert placement is set by other entries in the options list ({{entries}}). Change them in the full editor. This section leaves them as they are.",
+      "estimateNote": "The estimate does not include expert placement."
+    }
+  },
+  "remote": {
+    "sources": {
+      "huggingface": "Hugging Face",
+      "pirateface": "Pirate Face"
+    },
+    "p2p": "p2p",
+    "originGallery": "Galeria",
+    "originOnline": "Online",
+    "sourcesButton": "Fontes",
+    "sourcesTitle": "Fontes de busca",
+    "sourcesClose": "Fechar",
+    "sourcesHelp": "Escolha quais fontes a busca de modelos consulta. O Hugging Face é integrado. As outras fontes vêm de complementos.",
+    "sourcesError": "Não foi possível salvar a escolha. Tente de novo.",
+    "sourceBuiltin": "Integrada",
+    "sourceAddon": "De um complemento",
+    "sourceNotInstalled": "Complemento não instalado",
+    "missingHint": "{{sources}} está ativada, mas o complemento dela não está instalado.",
+    "missingInstall": "Instalar o complemento",
+    "noSources": "Nenhuma fonte está ativada, então nada é pesquisado.",
+    "dropped_one": "{{count}} resultado ignorado",
+    "dropped_other": "{{count}} resultados ignorados",
+    "heading": "De {{source}}",
+    "latestHeading": "Mais recentes em {{source}}",
+    "placeholder": "Pesquisar em {{source}}",
+    "resultCount_one": "{{count}} resultado",
+    "resultCount_other": "{{count}} resultados",
+    "downloads": "downloads",
+    "seeds_one": "{{count}} seed",
+    "seeds_other": "{{count}} seeds",
+    "gated": "Acesso restrito",
+    "ggufOnly": "Somente GGUF",
+    "hint": {
+      "title": "Pesquisar em {{source}}",
+      "text": "Digite o nome de um modelo na caixa de busca. Os resultados vêm ao vivo da fonte, não das suas bibliotecas."
+    },
+    "failed": {
+      "title": "{{source}} não respondeu",
+      "text": "A busca falhou. Tente novamente em instantes.",
+      "stale": "Estes são os últimos resultados. {{message}}"
+    },
+    "none": {
+      "title": "Nada encontrado em {{source}}",
+      "text": "Tente outro nome.",
+      "gguf": "Nada encontrado no formato GGUF. Desative “Somente GGUF” para ampliar a busca.",
+      "fits": "Todos os resultados são grandes demais para esta máquina. Desative o filtro de compatibilidade para vê-los."
+    },
+    "loadMore": "Carregar mais",
+    "noLatest": "{{source}} não lista os modelos mais recentes. Pesquise por nome para ver os modelos.",
+    "chooseBuild": "Escolher a variante {{variant}}",
+    "recommended": "Recomendada",
+    "fits": "Cabe",
+    "spill": "Passa parte para a CPU",
+    "over": "Grande demais",
+    "installed": "{{model}} está instalado.",
+    "ambiguous": "Vários backends poderiam executar este modelo. Use “Importar modelo” para escolher um.",
+    "gatedTitle": "O acesso é restrito.",
+    "gatedBody": "Este repositório precisa de aprovação no Hugging Face, então o LocalAI não pode instalá-lo daqui.",
+    "gatedP2p": "Este modelo tem acesso restrito no Hugging Face. O torrent não precisa de token, mas os termos de licença do modelo continuam valendo.",
+    "gatedHfInstall": "Acesso restrito no Hugging Face: precisa de aprovação e não pode ser instalado daqui.",
+    "sizesUnknown": "Nenhum tamanho de arquivo encontrado. O Hugging Face não lista este repositório, então não é possível estimar se cabe.",
+    "importError": "Nenhum backend corresponde a estes arquivos.",
+    "importErrorBody": "A instalação ainda pode falhar. Use “Importar modelo” para escolher um backend.",
+    "approximate": "Estimativa aproximada. Não foi possível ler o cabeçalho do modelo, então a memória é o tamanho do arquivo mais uma regra prática para o contexto.",
+    "noEstimate": "Nenhum tamanho conhecido, então não há estimativa para este modelo.",
+    "files": {
+      "failed": {
+        "title": "Não foi possível ler a lista de arquivos",
+        "body": "A fonte não respondeu. Tente novamente."
+      },
+      "rateLimited": {
+        "title": "A fonte pediu para ir mais devagar",
+        "body": "Muitas solicitações. Aguarde um minuto e tente novamente."
+      },
+      "notFound": {
+        "title": "Repositório não encontrado",
+        "body": "Ele é privado, foi removido ou não está listado nesta fonte."
+      }
+    }
+  },
+  "remotes": {
+    "tab": "Remotos",
+    "filter": "Remotos",
+    "unavailable": "Indisponível na origem",
+    "rowMark": "Modelo remoto",
+    "sizeRemote": "Remoto",
+    "connectButton": "Conectar um remoto",
+    "sheetTitle": "Conectar um remoto",
+    "sheetDescription": "Adicione modelos que rodam em outro servidor ou serviço.",
+    "toastDone": "{{name}} conectado. {{count}} modelo adicionado.",
+    "toastDone_other": "{{name}} conectado. {{count}} modelos adicionados.",
+    "toastSkipped": "{{count}} modelo não foi adicionado.",
+    "toastSkipped_other": "{{count}} modelos não foram adicionados."
+  }
+}

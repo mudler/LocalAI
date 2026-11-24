@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "Lass deine Agenten den Code, die Issues und die Pull Requests der Repositories lesen, die du aufführst. Wenn du es erlaubst, können sie dort auch kommentieren und Issues eröffnen.",
+  "limits": "Diese Verbindung beantwortet @Erwähnungen auf GitHub noch nicht. Ein Agent arbeitet auf GitHub nur, wenn du ihn in einem Chat darum bittest.",
+  "new": "Neue GitHub-Verbindung",
+  "edit": "GitHub-Verbindung bearbeiten",
+  "name": "Name",
+  "token": "Fine-grained Access Token",
+  "tokenHelp": "Beginnt mit github_pat_. Es wird versiegelt gespeichert und nie wieder angezeigt.",
+  "tokenLink": "Token auf GitHub erstellen",
+  "tokenSaved": "Gespeichert. Gib ein Token ein, um es zu ersetzen.",
+  "tokenShape": "Nutze ein Fine-grained Token: Es beginnt mit github_pat_.",
+  "tokenSpace": "Das Token enthält keine Leerzeichen. Kopiere es erneut ohne die Leerzeichen davor und danach.",
+  "repos": "Repositories, die der Agent nutzen darf",
+  "reposHelp": "Eines pro Zeile: owner/name, owner/* für alle Repositories eines Owners oder * für jedes Repository, das das Token erreicht. {{count}} aufgelistet. Jedes andere Repository wird abgelehnt.",
+  "reposShape": "„{{entry}}“ ist nicht als owner/name (oder owner/*, oder *) geschrieben, zum Beispiel mudler/LocalAI.",
+  "reposMany": "Höchstens 50 Repositories.",
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
+  "credentialsOnly": "Nur Zugangsdaten",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "test": "Test",
+  "testOk": "Verbunden als {{bot}}.",
+  "checkFailed": "Gespeichert. Die Prüfung des Tokens ist fehlgeschlagen: {{reason}}",
+  "checkSeveral": "Die Repository-Prüfung läuft, wenn du genau eine GitHub-Verbindung hast, denn eine Prüfung von dieser Seite aus kann nicht erkennen, welche du meinst. Aktiviere die Verbindungen in einem Chat im Menü Werkzeuge.",
+  "check": {
+    "title": "Prüfung von {{name}}",
+    "running": "Die Repositories werden geprüft...",
+    "at": "Geprüft um {{time}}",
+    "unreachable": "{{repo}}: Dieses Token erreicht es nicht. Füge es auf GitHub zu den Repositories des Tokens hinzu.",
+    "readOnly": "{{repo}}: erreichbar, nur lesend.",
+    "readWrite": "{{repo}}: erreichbar, und das Token kann schreiben.",
+    "refused": "{{repo}}: GitHub hat dieses Token abgelehnt. Prüfe, dass es nicht abgelaufen ist und dieses Repository abdeckt.",
+    "failed": "{{repo}}: Die Prüfung wurde nicht abgeschlossen. Versuche es gleich noch einmal.",
+    "owner": "{{repo}}: alle Repositories dieses Owners. Das Token erreicht nur die, die GitHub dafür auflistet.",
+    "any": "Jedes Repository: Das Token erreicht {{count}} Repositories.",
+    "anyMore": "Jedes Repository: Das Token erreicht mindestens {{count}} Repositories."
+  },
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "empty": "Noch keine GitHub-Verbindungen.",
+  "noRepos": "Keine Repositories aufgeführt: Der Agent kann keines lesen.",
+  "reposOf": "{{count}} Repositories: {{list}}",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Der Agent erreicht diese Repositories nicht mehr, und das mit der Verbindung gespeicherte Token wird gelöscht. Um sie erneut einzurichten, musst du das Token noch einmal eingeben.",
+    "confirm": "Löschen"
+  },
+  "setup": {
+    "title": "So erstellst du das Token",
+    "link": "Token auf GitHub erstellen",
+    "linkLabel": "Token auf GitHub erstellen (öffnet in einem neuen Tab)",
+    "step1": "Öffne GitHub mit der Schaltfläche oben. Gib dem Token einen Namen, zum Beispiel LocalAI, und setze ein Ablaufdatum. Neunzig Tage sind ein guter Anfang.",
+    "step2": "Wähle unter Repository access die Option Only select repositories und die Repositories, die du hier aufführst.",
+    "step3": "Setze unter Permissions, was die Tabelle für den gewünschten Modus nennt. Lass alles andere aus.",
+    "step4": "Erstelle das Token, kopiere es und füge es in das Token-Feld ein. GitHub zeigt es nur einmal an.",
+    "table": {
+      "caption": "Repository-Berechtigungen für das Token",
+      "permission": "Berechtigung",
+      "read": "Nur lesen",
+      "write": "Fragt zuerst oder handelt ohne Rückfrage",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "Lesen",
+        "readwrite": "Lesen und schreiben",
+        "auto": "Lesen (GitHub setzt es)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "Was der Agent auf GitHub ändern darf",
+    "hint": "Kommentare, neue Issues, Labels und das Schließen von Issues. Er führt nie einen Merge aus, löscht nichts und pusht keinen Code.",
+    "off": "Nur lesen",
+    "propose": "Fragt zuerst",
+    "auto": "Läuft sofort",
+    "line": {
+      "off": "Er kann auf GitHub nichts ändern.",
+      "propose": "Jede Änderung wartet auf dein OK.",
+      "auto": "Deine Chats posten sofort."
+    },
+    "note": {
+      "off": "Schreibzugriff ist aus: Diese Verbindung liest nur.",
+      "propose": "Jede Änderung wartet in deinen Freigaben, bis du sie bestätigst. Alles, was ein Agent schreibt, ist für alle öffentlich, die das Repository sehen können.",
+      "auto": "Ein Chat von dir postet die Änderung sofort, ohne Rückfrage. Alles, was der Agent schreibt, ist für alle öffentlich, die das Repository sehen können. Läufe ohne dich warten weiterhin auf deine Bestätigung."
+    },
+    "row": {
+      "off": "Nur lesen",
+      "propose": "Fragt zuerst",
+      "auto": "Läuft sofort"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "Issue #{{number}} kommentieren",
+      "comment-pr": "Pull Request #{{number}} kommentieren",
+      "create-issue": "Neues Issue eröffnen",
+      "edit-issue": "#{{number}} ändern",
+      "add-labels": "Labels zu #{{number}} hinzufügen",
+      "review-comment-pr": "Eine Zeile von Pull Request #{{number}} kommentieren"
+    },
+    "where": "Wo",
+    "repo": "In {{repo}}",
+    "open": "#{{number}} auf GitHub öffnen",
+    "as": "Als",
+    "asOne": "Die Verbindung {{name}}",
+    "asFirst": "Die erste Verbindung, die {{repo}} aufführt",
+    "asUnknown": "Eine GitHub-Verbindung, die {{repo}} aufführt",
+    "text": "Text, der gepostet wird",
+    "title": "Titel",
+    "newTitle": "Neuer Titel",
+    "labels": "Labels",
+    "file": "Datei und Zeile",
+    "fileLine": "{{path}}, Zeile {{line}} ({{side}})",
+    "sideRight": "neue Datei",
+    "sideLeft": "alte Datei",
+    "state": "Änderung",
+    "close": "Schließen",
+    "closeReason": "Schließen als {{reason}}",
+    "reopen": "Wieder öffnen",
+    "completed": "erledigt",
+    "not_planned": "nicht geplant",
+    "public": "Öffentlich: Alle, die {{repo}} sehen können, sehen das.",
+    "cut": "Der hier gezeigte Text ist gekürzt. Der vollständige Text mit {{bytes}} Bytes wird gepostet."
+  },
+  "tokenClassic": "Das ist ein klassisches Token (ghp_). Erlaube unten klassische Tokens, um es zu nutzen, oder erstelle ein Token, das mit github_pat_ beginnt.",
+  "classic": {
+    "allow": "Ein klassisches Token (ghp_) für diese Verbindung erlauben",
+    "warning": "Ein klassisches Token ist nicht auf die Repositories in deiner Liste beschränkt. Seine Berechtigungen gelten für jedes Repository, das dein Konto erreicht. LocalAI lehnt weiterhin jedes Repository ab, das nicht in deiner Liste steht, und befolgt den Schreibmodus, aber GitHub selbst würde diesem Token mehr erlauben, falls es in falsche Hände gerät. Ein Fine-grained Token ist sicherer.",
+    "confirm": "Ich verstehe, dass ein klassisches Token weiter reicht als die Repository-Liste."
+  },
+  "reposAnyAlone": "* deckt bereits jedes Repository ab. Entferne die anderen Zeilen.",
+  "any": {
+    "warning": "* erlaubt dem Agenten jedes Repository, das das Token erreicht, auch später erstellte. Der Schreibmodus unten entscheidet weiterhin, was er ändern darf: mit Nur lesen ändert er nichts.",
+    "confirm": "Der Agent soll jedes Repository nutzen können, das dieses Token erreicht."
+  },
+  "anyRepos": "Jedes Repository, das das Token erreicht"
+}

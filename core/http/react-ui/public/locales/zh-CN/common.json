@@ -1,0 +1,217 @@
+{
+  "unsaved": {
+    "title": "Discard unsaved changes?",
+    "message": "You have unsaved changes that will be lost if you leave this page.",
+    "leave": "Leave"
+  },
+  "actions": {
+    "save": "保存",
+    "saving": "保存中...",
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "add": "添加",
+    "remove": "移除",
+    "create": "创建",
+    "update": "更新",
+    "refresh": "刷新",
+    "reload": "重新加载",
+    "retry": "重试",
+    "search": "搜索",
+    "filter": "筛选",
+    "clear": "清除",
+    "reset": "重置",
+    "apply": "应用",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "open": "打开",
+    "submit": "提交",
+    "select": "选择",
+    "selectAll": "全选",
+    "copy": "复制",
+    "copied": "已复制",
+    "download": "下载",
+    "upload": "上传",
+    "import": "导入",
+    "export": "导出",
+    "view": "查看",
+    "details": "详情",
+    "settings": "设置",
+    "help": "帮助",
+    "yes": "是",
+    "no": "否",
+    "loading": "加载中..."
+  },
+  "status": {
+    "loading": "加载中...",
+    "saving": "保存中...",
+    "saved": "已保存",
+    "ready": "就绪",
+    "running": "运行中",
+    "stopped": "已停止",
+    "starting": "启动中...",
+    "stopping": "停止中...",
+    "pending": "等待中",
+    "active": "活跃",
+    "inactive": "未活跃",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "online": "在线",
+    "offline": "离线",
+    "error": "错误",
+    "success": "成功",
+    "warning": "警告",
+    "info": "信息",
+    "empty": "无内容",
+    "none": "无",
+    "unknown": "未知"
+  },
+  "dialogs": {
+    "confirmDelete": {
+      "title": "确认删除",
+      "message": "您确定要删除吗？此操作无法撤销。",
+      "confirm": "删除",
+      "cancel": "取消"
+    },
+    "unsavedChanges": {
+      "title": "未保存的更改",
+      "message": "您有未保存的更改。是否要放弃？",
+      "discard": "放弃",
+      "keepEditing": "继续编辑"
+    }
+  },
+  "forms": {
+    "required": "必填",
+    "optional": "可选",
+    "name": "名称",
+    "description": "描述",
+    "type": "类型",
+    "value": "值",
+    "search": "搜索...",
+    "selectPlaceholder": "选择一个选项..."
+  },
+  "time": {
+    "now": "刚才",
+    "secondsAgo_one": "{{count}} 秒前",
+    "secondsAgo_other": "{{count}} 秒前",
+    "minutesAgo_one": "{{count}} 分钟前",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_one": "{{count}} 小时前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_one": "{{count}} 天前",
+    "daysAgo_other": "{{count}} 天前"
+  },
+  "units": {
+    "bytes": "B",
+    "kilobytes": "KB",
+    "megabytes": "MB",
+    "gigabytes": "GB",
+    "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "重试",
+    "undo": "撤销",
+    "loadError": {
+      "title": "无法加载。",
+      "serverSaid": "服务器返回“{{message}}”。",
+      "nothingChanged": "没有任何更改。"
+    }
+  },
+  "chip": {
+    "running": "运行中",
+    "starting": "正在启动",
+    "stopped": "已停止",
+    "failed": "失败",
+    "updateAvailable": "有可用更新",
+    "ready": "就绪",
+    "noRunsYet": "尚无运行",
+    "updating": "更新中",
+    "heldForApproval": "等待批准",
+    "cannotUpdate": "无法更新",
+    "differsFromCluster": "与集群不同"
+  },
+  "share": {
+    "title": "共享“{{name}}”",
+    "untitled": "未命名",
+    "intro": "你添加的人会在自己的列表中看到它。",
+    "disabled": {
+      "title": "无法共享",
+      "text": "此 LocalAI 只供一位本地所有者使用，因此没有其他账户可以共享。"
+    },
+    "add": "添加人员",
+    "search": "按名称查找人员",
+    "searchHint": "请输入名称的至少三个字母。",
+    "newRole": "所添加人员的角色",
+    "searching": "正在搜索",
+    "noResults": "没有匹配的人。",
+    "alreadyShared": "所有匹配的人都已有访问权限。",
+    "results": "找到的人员",
+    "addPerson": "将 {{name}} 添加为 {{role}}",
+    "granted": "{{name}} 现在可以访问。",
+    "changed": "{{name}} 现在是 {{role}}。",
+    "everyone": "所有人",
+    "everyoneHelp": "此 LocalAI 上的每个账户，包括新账户。",
+    "everyoneAdd": "与所有人共享",
+    "people": "有访问权限的人员",
+    "loading": "正在加载访问权限",
+    "none": "只有你可以访问。",
+    "unnamed": "未命名账户",
+    "roleOf": "{{name}} 的角色",
+    "revoke": "停止共享",
+    "revokeAria": "停止与 {{name}} 共享",
+    "revokeConfirm": "停止与 {{name}} 共享？其正在进行的工作会停止。",
+    "revoked": "已停止与 {{name}} 共享。",
+    "refs": {
+      "title": "共享之前",
+      "intro": "这会用到其他资源。请为每个资源选择所添加人员获得的权限。",
+      "label": "对 {{name}} 的访问",
+      "choose": "请选择",
+      "pending": "请为上面的每一项选择一个选项后再共享。",
+      "option": {
+        "view": "可以查看",
+        "use": "可以使用",
+        "none": "不共享"
+      },
+      "own": "他们需要自己的访问权限"
+    },
+    "roles": {
+      "owner": "所有者",
+      "use": "可以使用",
+      "manage": "可以管理",
+      "viewer": "查看者",
+      "editor": "编辑者"
+    },
+    "roleHelp": {
+      "use": "可以打开并运行。",
+      "manage": "还可以修改。",
+      "viewer": "可以读取。",
+      "editor": "可以读取和修改。"
+    },
+    "line": {
+      "sharedBy": "由 {{name}} 共享",
+      "sharedEveryone": "由 {{name}} 与所有人共享",
+      "sharedWith": "已与 {{count}} 人共享",
+      "private": "私有"
+    },
+    "error": {
+      "withdrawn": "此页面已关闭。",
+      "auth": "请重新登录后再共享。",
+      "denied": "你已无法共享此项。它可能已被删除。",
+      "unknown": "更改可能未保存。请重试以确认。",
+      "invalid": "服务器拒绝了此更改。",
+      "network": "无法连接到服务器。",
+      "unavailable": "共享没有响应。请稍后重试。",
+      "generic": "出现问题。"
+    }
+  },
+  "picker": {
+    "filter": "筛选",
+    "loading": "正在加载",
+    "empty": "暂无可选项",
+    "noMatch": "没有匹配项",
+    "clear": "清除"
+  }
+}

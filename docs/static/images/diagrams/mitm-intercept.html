@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>MITM proxy</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">MITM proxy</p>
+<h1>Inspect what you allow, <span class="hl">tunnel</span> the rest</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch;gap:0">
+ <div class="col" style="justify-content:center;width:260px"><div class="node "><b>Client</b><span>CONNECT host:443</span></div></div>
+ <div class="ar" style="width:50px"></div>
+ <div class="col" style="justify-content:center;width:300px"><div class="node core cen"><b>On the allowlist?</b></div></div>
+ <div class="ar" style="width:50px"></div>
+ <div class="col fl" style="gap:26px">
+  <div class="panel" style="padding:18px 20px"><h3>Yes: decrypt and scan</h3><div class="flow tight"><div class="node cen"><b>Leaf cert</b><span>from the local CA</span></div><div class="ar"></div><div class="node cen"><b>PII scan</b><span>chat API calls only</span></div><div class="ar"></div><div class="node cen"><b>Upstream</b><span>OpenAI, API host</span></div></div></div>
+  <div class="panel" style="padding:18px 20px"><h3>No: blind tunnel</h3><div class="flow tight"><div class="node cen"><b>Plain TCP tunnel</b><span>no inspection</span></div></div></div>
+ </div></div>
+<div class="row" style="margin-top:22px;gap:14px"><span class="pill teal">Trust</span><span style="font-size:24px">A local CA signs the leaf certificate. The client keeps its own upstream credential.</span></div>
+
+</div>
+<div class="foot">Only allowlisted hosts are opened. <b>Everything else passes untouched.</b></div>
+</body></html>

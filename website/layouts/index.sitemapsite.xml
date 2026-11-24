@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{{- range hugo.Sites.Default.Pages }}{{ if and (not .Params.noindex) (ne .Kind "term") (ne .Kind "taxonomy") (ne .Kind "404") }}
+  <url><loc>{{ .Permalink }}</loc>{{ with .Lastmod }}{{ if not .IsZero }}<lastmod>{{ .Format "2006-01-02" }}</lastmod>{{ end }}{{ end }}</url>
+{{- end }}{{ end }}
+</urlset>

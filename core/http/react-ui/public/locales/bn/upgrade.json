@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "আপডেট উপলব্ধ",
+    "availableVersion": "আপডেট উপলব্ধ: {{version}}"
+  },
+  "reason": {
+    "checkAgain": "আবার পরীক্ষা করুন",
+    "checking": "যাচাই করা হচ্ছে..."
+  }
+}
