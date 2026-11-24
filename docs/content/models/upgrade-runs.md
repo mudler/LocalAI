@@ -210,7 +210,11 @@ removes a previous build (`<backend>.backup`, `<backend>.install-backup`): when
 the backend directory is missing, the previous build is put back; when both
 are there, the server logs it and leaves both, because the backend in place
 may be a new build whose start check never ran. A build moved aside because it
-did not start (`<backend>.failed`) stays too.
+did not start (`<backend>.failed`) stays too. The next install or upgrade of
+the backend does not delete a previous build it finds either: it moves it to
+`<backend>.backup.kept-<time>` (or `.install-backup.kept-<time>`) and logs it,
+and refuses to start when it cannot move it. Remove a kept build once the
+backend works.
 
 ## Distributed mode
 
