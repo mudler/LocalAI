@@ -151,6 +151,8 @@ one model directory must not run at the same time. The tool needs numpy, and ggu
 
 The gallery entries for the GGUF models set `pack_gguf`, so they download only the GGUF files.
 
+Deleting a model that sets `pack_gguf` also removes its `pack/` and `pack.partial/` directories, so the disk space comes back. A directory that another model uses, or that the `pack` option names, is kept.
+
 Example:
 
 ```yaml

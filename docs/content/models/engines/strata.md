@@ -67,7 +67,7 @@ projector for images. Every file is pinned to a Hugging Face commit and checked 
 For the GGUF models the gallery downloads only the GGUF files. The backend builds the pack
 with Strata's own tools the first time the model loads (the `pack_gguf` option; see
 the [backend README](https://github.com/mudler/LocalAI/blob/master/backend/go/strata/README.md)). This takes a few minutes and a few GB of disk. A finished pack
-is never built again. If the build fails, the load fails with the last lines of the tool.
+is never built again. If the build fails, the load fails with the last lines of the tool. Deleting the model removes the pack too.
 
 ```bash
 local-ai models install qwen3.8-flash-next-ista-iq2_xs

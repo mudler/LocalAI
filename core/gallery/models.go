@@ -1081,7 +1081,10 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		filesToRemove = []string{filepath.Join(systemState.Model.ModelsPath, galleryFileName(galleryName))}
 	}
 
+	packDirs := strataPackDirs(systemState, name)
+
 	allOtherFiles := []string{}
+	otherPackDirs := []string{}
 	// Get all files of all other models
 	fi, err := os.ReadDir(systemState.Model.ModelsPath)
 	if err != nil {
@@ -1111,6 +1114,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 			continue
 		}
 		allOtherFiles = append(allOtherFiles, files...)
+		otherPackDirs = append(otherPackDirs, strataPackDirs(systemState, name)...)
 	}
 
 	xlog.Debug("Files to remove", "files", filesToRemove)
@@ -1123,6 +1127,21 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	var failures []error
 	if unreadable != nil {
 		failures = append(failures, fmt.Errorf("configuration could not be read, so its model files were left in place: %w", unreadable))
+	}
+	// The pack directories go before the declared files: the model directory
+	// is one of them, and it can only be removed once the pack is gone. An
+	// unreadable configuration yields no pack directories.
+	if unreadable == nil {
+		for _, d := range packDirs {
+			if slices.Contains(otherPackDirs, d) {
+				xlog.Debug("Skipping pack directory because another model uses it", "dir", d)
+				continue
+			}
+			if e := os.RemoveAll(d); e != nil {
+				xlog.Error("failed to remove pack directory", "error", e, "dir", d)
+				failures = append(failures, e)
+			}
+		}
 	}
 	for _, f := range filesToRemove {
 		if slices.Contains(allOtherFiles, f) {
@@ -1138,6 +1157,69 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		return &IncompleteDeleteError{Model: name, Errs: failures}
 	}
 	return nil
+}
+
+// strataPackDirs returns the directories that the Strata backend builds from
+// the downloaded GGUF files of the named model: "pack" and its staging
+// directory "pack.partial", inside the model's own directory. The backend
+// builds them at load time when the model sets the pack_gguf option, so they
+// are not in the files the gallery declared and a delete would leave them.
+//
+// It returns nothing when the model does not build a pack, and nothing when the
+// model directory is not a directory of its own below the models path: a
+// model that points at the models path itself, or leaves it, must never lead
+// to a delete of a shared or outside directory.
+func strataPackDirs(systemState *system.SystemState, name string) []string {
+	modelsPath := systemState.Model.ModelsPath
+	if utils.VerifyPath(fmt.Sprintf("%s.yaml", name), modelsPath) != nil {
+		return nil
+	}
+	configFile := filepath.Join(modelsPath, fmt.Sprintf("%s.yaml", name))
+	dat, err := os.ReadFile(configFile)
+	if errors.Is(err, os.ErrNotExist) {
+		dat, err = os.ReadFile(strings.TrimSuffix(configFile, ".yaml") + ".yml")
+	}
+	if err != nil {
+		return nil
+	}
+	modelConfig := &lconfig.ModelConfig{}
+	if yaml.Unmarshal(dat, modelConfig) != nil {
+		return nil
+	}
+
+	buildsPack := false
+	for _, o := range modelConfig.Options {
+		k, v, _ := strings.Cut(o, ":")
+		switch strings.TrimSpace(k) {
+		case "pack":
+			return nil // a pack the user points at is not ours to remove
+		case "pack_gguf":
+			buildsPack = strings.TrimSpace(v) != ""
+		}
+	}
+	if !buildsPack || modelConfig.Model == "" {
+		return nil
+	}
+
+	rel := filepath.Clean(modelConfig.ModelFileName())
+	if rel == "." || filepath.IsAbs(rel) || utils.VerifyPath(rel, modelsPath) != nil {
+		return nil
+	}
+	// The backend uses the model directory, so a file name has no pack.
+	modelDir := filepath.Join(modelsPath, rel)
+	if fi, err := os.Stat(modelDir); err != nil || !fi.IsDir() {
+		return nil
+	}
+	// A link inside the model path must not lead the delete out of it.
+	realBase, err := filepath.EvalSymlinks(modelsPath)
+	if err != nil {
+		return nil
+	}
+	realDir, err := filepath.EvalSymlinks(modelDir)
+	if err != nil || realDir == realBase || utils.VerifyResolvedPath(realDir, realBase) != nil {
+		return nil
+	}
+	return []string{filepath.Join(modelDir, "pack"), filepath.Join(modelDir, "pack.partial")}
 }
 
 // This is ***NEVER*** going to be perfect or finished.
