@@ -34057,6 +34057,10 @@ const docTemplate = `{
                 "after": {
                     "type": "integer"
                 },
+                "backend": {
+                    "description": "Backend names the backend of a model_backend_outdated failure.",
+                    "type": "string"
+                },
                 "before": {
                     "description": "Before and After are context sizes in tokens, for compacted.",
                     "type": "integer"
@@ -34264,6 +34268,10 @@ const docTemplate = `{
         "schema.ChatsFailure": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the backend the cause is about, when it is known (code\nmodel_backend_outdated).",
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code names the cause, such as model_not_found, upstream, timeout or agent.",
                     "type": "string"
