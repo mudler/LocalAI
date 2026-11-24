@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, Tag } from '../../ui'
-import { useCommandPreview } from '../../../hooks/useLlamaCppRuntime'
-import { llamaCppApi } from '../../../utils/api'
+import { useCommandPreview } from '../../../hooks/useEngineSettings'
+import { engineSettingsApi } from '../../../utils/api'
 
 // Copies text, with the old execCommand path for a page served over plain HTTP
 // on another host, where navigator.clipboard is missing.
@@ -23,11 +23,14 @@ async function copyText(text) {
   return ok
 }
 
-// The llama-server command the model runs as, asked from the server a moment
-// after the last edit, with a copy button.
-export function CommandPreview({ config }) {
+// The command line the model runs as, asked from the server a moment after
+// the last edit, with a copy button.
+//
+//   engine   the engine summary of GET /api/engines ({ id, name, binary })
+//   config   the model config (nested YAML keys)
+export function CommandPreview({ engine, config }) {
   const { t } = useTranslation('modelEditor')
-  const preview = useCommandPreview(config)
+  const preview = useCommandPreview(engine.id, config)
   const [copied, setCopied] = useState(null)
   const timer = useRef(null)
   useEffect(() => () => clearTimeout(timer.current), [])
@@ -42,8 +45,8 @@ export function CommandPreview({ config }) {
   return (
     <div className="rt-cmd" data-testid="rt-preview">
       <div className="rt-cmd__head">
-        <span className="dk-eyebrow" id="rt-preview-label">{t('runtime.preview.title')}</span>
-        {preview.status === 'loading' && preview.command && <span className="text-meta" data-testid="rt-preview-updating">{t('runtime.preview.updating')}</span>}
+        <span className="dk-eyebrow" id="rt-preview-label">{t('engineSettings.preview.title')}</span>
+        {preview.status === 'loading' && preview.command && <span className="text-meta" data-testid="rt-preview-updating">{t('engineSettings.preview.updating')}</span>}
         <Button
           size="sm"
           variant="ghost"
@@ -53,21 +56,21 @@ export function CommandPreview({ config }) {
           onClick={copy}
           data-testid="rt-preview-copy"
         >
-          {copied === 'ok' ? t('runtime.preview.copied') : copied === 'failed' ? t('runtime.preview.copyFailed') : t('runtime.preview.copy')}
+          {copied === 'ok' ? t('engineSettings.preview.copied') : copied === 'failed' ? t('engineSettings.preview.copyFailed') : t('engineSettings.preview.copy')}
         </Button>
       </div>
       {preview.command
         ? <pre className="rt-code rt-code--block" tabIndex={0} aria-labelledby="rt-preview-label" data-testid="rt-preview-command">{preview.command}</pre>
-        : preview.status !== 'error' && <span className="dk-skeleton dk-skeleton--line" role="status" aria-label={t('runtime.preview.loading')} />}
+        : preview.status !== 'error' && <span className="dk-skeleton dk-skeleton--line" role="status" aria-label={t('engineSettings.preview.loading')} />}
       {preview.status === 'error' && (
-        <Callout tone="warn" title={t('runtime.preview.failed')} testId="rt-preview-error">{preview.error}</Callout>
+        <Callout tone="warn" title={t('engineSettings.preview.failed')} testId="rt-preview-error">{preview.error}</Callout>
       )}
-      <p className="dk-hint">{t('runtime.preview.note')}</p>
+      <p className="dk-hint">{t('engineSettings.preview.note', { binary: engine.binary })}</p>
     </div>
   )
 }
 
-// A llama-server command pasted in, sent to the server to be read, and written
+// A command line of the engine pasted in, sent to the server to be read, and written
 // into the form. Whatever the server could not map is listed with its reason
 // and one click to keep it as a raw option, so nothing is dropped silently.
 //
@@ -79,7 +82,9 @@ export function CommandPreview({ config }) {
 // The server keeps a flag with no field as a raw entry already, and lists it
 // as unmapped so the person sees it; a flag LocalAI sets itself (--port, ...)
 // is listed as ignored; a flag whose value does not fit is offered to keep.
-export function PasteCommand({ onApply, onKeep, onDrop, onUseModelFile, currentModelFile }) {
+//   engine                the engine summary ({ id, name, binary }); example is a
+//                         sample command for the placeholder
+export function PasteCommand({ engine, example, onApply, onKeep, onDrop, onUseModelFile, currentModelFile }) {
   const { t } = useTranslation('modelEditor')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -93,7 +98,7 @@ export function PasteCommand({ onApply, onKeep, onDrop, onUseModelFile, currentM
     setBusy(true)
     setError(null)
     try {
-      const parsed = await llamaCppApi.parseCommand(command)
+      const parsed = await engineSettingsApi.parseCommand(engine.id, command)
       const applied = onApply(parsed)
       const options = Array.isArray(parsed?.options) ? parsed.options.map(String) : []
       const unmapped = (Array.isArray(parsed?.unmapped) ? parsed.unmapped : []).map(u => ({
@@ -137,56 +142,56 @@ export function PasteCommand({ onApply, onKeep, onDrop, onUseModelFile, currentM
   return (
     <div className="rt-paste" data-testid="rt-paste">
       <div className="dk-field">
-        <label className="dk-label" htmlFor="rt-paste-text">{t('runtime.paste.title')}</label>
+        <label className="dk-label" htmlFor="rt-paste-text">{t('engineSettings.paste.title', { binary: engine.binary })}</label>
         <textarea
           id="rt-paste-text"
           className="dk-textarea dk-input--mono rt-paste__text"
           value={text}
           rows={4}
           spellCheck={false}
-          placeholder="llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on"
+          placeholder={example || engine.binary}
           aria-describedby="rt-paste-hint"
           onChange={e => setText(e.target.value)}
           data-testid="rt-paste-text"
         />
-        <p className="dk-hint" id="rt-paste-hint">{t('runtime.paste.hint')}</p>
+        <p className="dk-hint" id="rt-paste-hint">{t('engineSettings.paste.hint')}</p>
       </div>
       <div>
         <Button icon="terminal" busy={busy} disabled={busy || !text.trim()} onClick={fill} data-testid="rt-paste-fill">
-          {t('runtime.paste.fill')}
+          {t('engineSettings.paste.fill')}
         </Button>
       </div>
 
-      {error && <Callout tone="error" role="alert" title={t('runtime.paste.failed')} testId="rt-paste-error">{error}</Callout>}
+      {error && <Callout tone="error" role="alert" title={t('engineSettings.paste.failed')} testId="rt-paste-error">{error}</Callout>}
 
       {result && (
         <div className="rt-paste__result" data-testid="rt-paste-result">
-          <Callout tone="ok" title={t('runtime.paste.filled', { count: result.count })} testId="rt-paste-filled">
-            {result.unmapped.length === 0 ? t('runtime.paste.allMapped') : null}
+          <Callout tone="ok" title={t('engineSettings.paste.filled', { count: result.count })} testId="rt-paste-filled">
+            {result.unmapped.length === 0 ? t('engineSettings.paste.allMapped') : null}
           </Callout>
           {showModelFile && (
             <Callout
               tone="info"
-              title={t('runtime.paste.modelFile', { file: result.modelFile })}
+              title={t('engineSettings.paste.modelFile', { file: result.modelFile })}
               testId="rt-paste-model-file"
-              actions={<Button size="sm" onClick={() => { onUseModelFile(result.modelFile); setResult(r => ({ ...r, modelFile: undefined })) }} data-testid="rt-paste-use-model">{t('runtime.paste.useModelFile')}</Button>}
+              actions={<Button size="sm" onClick={() => { onUseModelFile(result.modelFile); setResult(r => ({ ...r, modelFile: undefined })) }} data-testid="rt-paste-use-model">{t('engineSettings.paste.useModelFile')}</Button>}
             >
-              {t('runtime.paste.modelFileKept', { file: currentModelFile || '-' })}
+              {t('engineSettings.paste.modelFileKept', { file: currentModelFile || '-' })}
             </Callout>
           )}
           {result.warnings.length > 0 && (
-            <Callout tone="warn" title={t('runtime.paste.warnings', { count: result.warnings.length })} testId="rt-paste-warnings">
+            <Callout tone="warn" title={t('engineSettings.paste.warnings', { count: result.warnings.length })} testId="rt-paste-warnings">
               <ul className="rt-list">{result.warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
             </Callout>
           )}
           {result.unmapped.length > 0 && (
             <Callout
               tone="warn"
-              title={t('runtime.paste.unmapped', { count: result.unmapped.length })}
+              title={t('engineSettings.paste.unmapped', { count: result.unmapped.length })}
               testId="rt-paste-unmapped"
-              actions={unmappedLeft > 1 ? <Button size="sm" onClick={keepAll} data-testid="rt-paste-keep-all">{t('runtime.paste.keepAll')}</Button> : null}
+              actions={unmappedLeft > 1 ? <Button size="sm" onClick={keepAll} data-testid="rt-paste-keep-all">{t('engineSettings.paste.keepAll')}</Button> : null}
             >
-              {t('runtime.paste.unmappedNote')}
+              {t('engineSettings.paste.unmappedNote', { engine: engine.name })}
               <ul className="rt-unmapped">
                 {result.unmapped.map((u, i) => (
                   <li key={i} className="rt-unmapped__row" data-testid={`rt-unmapped-${i}`}>
@@ -195,15 +200,15 @@ export function PasteCommand({ onApply, onKeep, onDrop, onUseModelFile, currentM
                       {u.reason && <span className="text-meta">{u.reason}</span>}
                     </div>
                     {u.ignored
-                      ? <Tag icon="ban" testId={`rt-unmapped-ignored-${i}`}>{t('runtime.paste.ignored')}</Tag>
+                      ? <Tag icon="ban" testId={`rt-unmapped-ignored-${i}`}>{t('engineSettings.paste.ignored')}</Tag>
                       : kept.has(i)
                         ? (
                           <span className="rt-unmapped__actions">
-                            <Tag tone="ok" icon="check">{t('runtime.paste.kept')}</Tag>
-                            <Button size="sm" variant="ghost" onClick={() => drop(i)} data-testid={`rt-unmapped-drop-${i}`}>{t('runtime.paste.drop')}</Button>
+                            <Tag tone="ok" icon="check">{t('engineSettings.paste.kept')}</Tag>
+                            <Button size="sm" variant="ghost" onClick={() => drop(i)} data-testid={`rt-unmapped-drop-${i}`}>{t('engineSettings.paste.drop')}</Button>
                           </span>
                         )
-                        : <Button size="sm" onClick={() => keep(i)} data-testid={`rt-unmapped-keep-${i}`}>{t('runtime.paste.keep')}</Button>}
+                        : <Button size="sm" onClick={() => keep(i)} data-testid={`rt-unmapped-keep-${i}`}>{t('engineSettings.paste.keep')}</Button>}
                   </li>
                 ))}
               </ul>

@@ -1,19 +1,19 @@
 {
   "fields": {
-    "parameters": {
-      "model": "Inkling-2-Mini-UD-Q3_K_XL.gguf",
-      "temperature": 1,
-      "top_p": 1,
-      "top_k": 0,
-      "min_p": 0
-    },
-    "context_size": 18000,
-    "threads": 6,
-    "gpu_layers": 99,
-    "flash_attention": "on",
     "cache_type_k": "q8_0",
     "cache_type_v": "q8_0",
-    "mmap": false
+    "context_size": 18000,
+    "flash_attention": "on",
+    "gpu_layers": 99,
+    "mmap": false,
+    "parameters": {
+      "min_p": 0,
+      "model": "Inkling-2-Mini-UD-Q3_K_XL.gguf",
+      "temperature": 1,
+      "top_k": 0,
+      "top_p": 1
+    },
+    "threads": 6
   },
   "options": [
     "use_jinja:true",

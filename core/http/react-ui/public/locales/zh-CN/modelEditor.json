@@ -3,10 +3,11 @@
         "label": "此模型可以查看图片",
         "hint": "当上游模型接受图片时打开。LocalAI 无法检查这一点。附加的图片随后会随消息一起发送给模型。"
     },
-    "runtime": {
+    "engineSettings": {
         "title": "运行时调优",
-        "lead": "llama.cpp 加载和运行此模型的方式。每个字段对应一个 llama-server 参数。留空的字段保持默认值。",
-        "loading": "正在加载 llama.cpp 设置",
+        "lead": "{{engine}} 加载和运行此模型的方式。每个字段对应一个 {{binary}} 参数。留空的字段保持默认值。",
+        "leadNoCommand": "{{engine}} 加载和运行此模型的方式。留空的字段保持默认值。",
+        "loading": "正在加载 {{engine}} 设置",
         "default": "默认",
         "defaultIs": "默认（{{value}}）",
         "on": "开",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja 聊天模板",
-            "loadMode": "加载方式",
+            "load_mode": "加载方式",
             "options_ubatch": "微批大小"
         },
-        "loadModes": {
-            "default": "默认（内存映射）",
-            "none": "无（读入内存）",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "直接 I/O"
+        "choices": {
+            "load_mode": {
+                "default": "默认（内存映射）",
+                "none": "无（读入内存）",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "直接 I/O"
+            }
         },
-        "loadModeHint": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。",
+        "hints": {
+            "load_mode": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。"
+        },
         "errors": {
             "notInteger": "请输入整数。",
             "notNumber": "请输入数字。",
@@ -63,10 +68,10 @@
             "overrideTarget": "缓冲区名称只能包含字母、数字和下划线：{{target}}",
             "overrideRegex": "此模式不是有效的正则表达式：{{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "张量放置",
             "modes": {
-                "off": "关（由 llama.cpp 决定）",
+                "off": "关（由 {{engine}} 决定）",
                 "experts": "MoE 专家放在 CPU",
                 "rest": "前 N 层在 GPU，其余层的专家在 CPU",
                 "ranges": "选定层的专家放在 CPU",
@@ -87,9 +92,9 @@
             "addRange": "添加范围",
             "removeRange": "删除范围 {{n}}",
             "raw": "覆盖值",
-            "rawHint": "以逗号分隔的 pattern=buffer 条目，与 llama-server -ot 相同。",
+            "rawHint": "以逗号分隔的 pattern=buffer 条目，与 {{binary}} {{flag}} 相同。",
             "generated": "生成的值",
-            "nothing": "无。由 llama.cpp 放置张量。",
+            "nothing": "无。由 {{engine}} 放置张量。",
             "mode": "放置方式",
             "totalLayers": "总层数",
             "totalUnknown": "未知",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "高级选项",
-            "hint": "options 列表中的其他条目，每行一个：name:value，或 llama-server 参数，例如 --rope-scale:2。",
+            "hint": "options 列表中的其他条目，每行一个：name:value，或 {{binary}} 参数，例如 --flag:value。",
             "empty": "没有其他选项。",
             "entry": "选项 {{n}}",
             "remove": "删除 {{entry}}",
@@ -135,10 +140,10 @@
             "copied": "已复制",
             "copyFailed": "复制失败",
             "failed": "预览不可用。",
-            "note": "与这些设置对应的 llama-server 命令。LocalAI 会自行启动后端；此命令行用于对比，或在 LocalAI 之外使用。"
+            "note": "与这些设置对应的 {{binary}} 命令。LocalAI 会自行启动后端；此命令行用于对比，或在 LocalAI 之外使用。"
         },
         "paste": {
-            "title": "粘贴 llama-server 命令",
+            "title": "粘贴 {{binary}} 命令",
             "hint": "有对应字段的参数会填入该字段。没有字段的参数保留为原始选项，并列在下方。",
             "fill": "填写表单",
             "failed": "无法读取该命令。",
@@ -150,7 +155,7 @@
             "useModelFile": "使用此文件",
             "warnings": "警告：{{count}} 条",
             "unmapped": "未映射的参数：{{count}} 个",
-            "unmappedNote": "没有字段的参数会保留为原始选项，并按原样传给 llama.cpp。删除你不需要的参数。",
+            "unmappedNote": "没有字段的参数会保留为原始选项，并按原样传给 {{engine}}。删除你不需要的参数。",
             "keep": "保留为原始选项",
             "keepAll": "全部保留",
             "kept": "已保留",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "运行时调优不可用。",
-            "body": "服务器未发送 llama.cpp 设置（{{message}}）。你仍可以在此编辑器的另一个标签页中以文本形式编辑每项设置。",
+            "body": "服务器未发送 {{engine}} 设置（{{message}}）。你仍可以在此编辑器的另一个标签页中以文本形式编辑每项设置。",
             "retry": "重试",
             "openYaml": "以文本编辑"
         },

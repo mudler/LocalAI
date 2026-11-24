@@ -3,10 +3,11 @@
         "label": "Ce modèle peut regarder les images",
         "hint": "Activez-le si le modèle en amont accepte les images. LocalAI ne peut pas le vérifier. Les images jointes sont alors envoyées au modèle avec le message."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Réglages d'exécution",
-        "lead": "Comment llama.cpp charge et exécute ce modèle. Chaque champ est un flag de llama-server. Un champ vide garde la valeur par défaut.",
-        "loading": "Chargement des réglages de llama.cpp",
+        "lead": "Comment {{engine}} charge et exécute ce modèle. Chaque champ est un flag de {{binary}}. Un champ vide garde la valeur par défaut.",
+        "leadNoCommand": "Comment {{engine}} charge et exécute ce modèle. Un champ vide garde la valeur par défaut.",
+        "loading": "Chargement des réglages de {{engine}}",
         "default": "Par défaut",
         "defaultIs": "Par défaut ({{value}})",
         "on": "Activé",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Modèle de chat Jinja",
-            "loadMode": "Mode de chargement",
+            "load_mode": "Mode de chargement",
             "options_ubatch": "Taille du micro-lot"
         },
-        "loadModes": {
-            "default": "Par défaut (projeté en mémoire)",
-            "none": "Aucun (lu en mémoire)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "E/S directes"
+        "choices": {
+            "load_mode": {
+                "default": "Par défaut (projeté en mémoire)",
+                "none": "Aucun (lu en mémoire)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "E/S directes"
+            }
         },
-        "loadModeHint": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io.",
+        "hints": {
+            "load_mode": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io."
+        },
         "errors": {
             "notInteger": "Saisissez un nombre entier.",
             "notNumber": "Saisissez un nombre.",
@@ -63,10 +68,10 @@
             "overrideTarget": "Le nom du tampon ne peut contenir que des lettres, des chiffres et des tirets bas : {{target}}",
             "overrideRegex": "Ce motif n'est pas une expression régulière valide : {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Placement des tenseurs",
             "modes": {
-                "off": "Désactivé (llama.cpp décide)",
+                "off": "Désactivé ({{engine}} décide)",
                 "experts": "Experts MoE sur le CPU",
                 "rest": "N premières couches sur le GPU, experts des autres sur le CPU",
                 "ranges": "Experts des couches choisies sur le CPU",
@@ -87,9 +92,9 @@
             "addRange": "Ajouter une plage",
             "removeRange": "Supprimer la plage {{n}}",
             "raw": "Valeur de remplacement",
-            "rawHint": "Entrées motif=tampon séparées par des virgules, comme dans llama-server -ot.",
+            "rawHint": "Entrées motif=tampon séparées par des virgules, comme dans {{binary}} {{flag}}.",
             "generated": "Valeur générée",
-            "nothing": "Aucune. llama.cpp place les tenseurs.",
+            "nothing": "Aucune. {{engine}} place les tenseurs.",
             "mode": "Placement",
             "totalLayers": "Nombre total de couches",
             "totalUnknown": "Inconnu",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "Options avancées",
-            "hint": "Autres entrées de la liste options, une par ligne : nom:valeur, ou un flag de llama-server comme --rope-scale:2.",
+            "hint": "Autres entrées de la liste options, une par ligne : nom:valeur, ou un flag de {{binary}} comme --flag:value.",
             "empty": "Aucune autre option.",
             "entry": "Option {{n}}",
             "remove": "Supprimer {{entry}}",
@@ -135,10 +140,10 @@
             "copied": "Copié",
             "copyFailed": "Échec de la copie",
             "failed": "L'aperçu n'est pas disponible.",
-            "note": "La commande llama-server qui correspond à ces réglages. LocalAI démarre lui-même le backend ; cette ligne sert à comparer et à l'utiliser en dehors de LocalAI."
+            "note": "La commande {{binary}} qui correspond à ces réglages. LocalAI démarre lui-même le backend ; cette ligne sert à comparer et à l'utiliser en dehors de LocalAI."
         },
         "paste": {
-            "title": "Coller une commande llama-server",
+            "title": "Coller une commande {{binary}}",
             "hint": "Les flags qui ont un champ remplissent ce champ. Les flags sans champ sont gardés comme options brutes et listés ci-dessous.",
             "fill": "Remplir le formulaire",
             "failed": "Impossible de lire la commande.",
@@ -150,7 +155,7 @@
             "useModelFile": "Utiliser ce fichier",
             "warnings": "Avertissements : {{count}}",
             "unmapped": "Flags non associés : {{count}}",
-            "unmappedNote": "Un flag sans champ est gardé comme option brute et passé tel quel à llama.cpp. Supprimez ceux que vous ne voulez pas.",
+            "unmappedNote": "Un flag sans champ est gardé comme option brute et passé tel quel à {{engine}}. Supprimez ceux que vous ne voulez pas.",
             "keep": "Garder comme option brute",
             "keepAll": "Tout garder",
             "kept": "Gardé",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "Les réglages d'exécution ne sont pas disponibles.",
-            "body": "Le serveur n'a pas envoyé les réglages de llama.cpp ({{message}}). Vous pouvez toujours modifier chaque réglage sous forme de texte dans l'autre onglet de cet éditeur.",
+            "body": "Le serveur n'a pas envoyé les réglages de {{engine}} ({{message}}). Vous pouvez toujours modifier chaque réglage sous forme de texte dans l'autre onglet de cet éditeur.",
             "retry": "Réessayer",
             "openYaml": "Modifier en texte"
         },

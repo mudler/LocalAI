@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
-import { INKLING_COMMAND, MODEL, mockRuntime } from './llamacpp-runtime-fixtures.js'
+import { INKLING_COMMAND, MODEL, mockRuntime } from './engine-runtime-fixtures.js'
 
-// The Runtime tuning section against the real /api/llama-cpp handlers of the
+// The Runtime tuning section against the real /api/engines handlers of the
 // test server: only the model file and its save are stubbed. It checks that
 // the section reads the server's own schema, parse, preview and placement
 // answers, not only the saved copies the other spec uses.
@@ -9,7 +9,7 @@ import { INKLING_COMMAND, MODEL, mockRuntime } from './llamacpp-runtime-fixtures
 const field = (page, id) => page.getByTestId(`rt-${id}`)
 
 async function open(page) {
-  const state = await mockRuntime(page, { llama: false })
+  const state = await mockRuntime(page, { engines: false })
   await page.goto(`/app/model-editor/${MODEL}`)
   await expect(field(page, 'context_size')).toBeVisible({ timeout: 15_000 })
   return state

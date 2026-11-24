@@ -39,10 +39,11 @@
         "label": "Model ini dapat melihat gambar",
         "hint": "Aktifkan jika model upstream menerima gambar. LocalAI tidak dapat memeriksanya. Gambar terlampir lalu dikirim ke model bersama pesan."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Penyetelan runtime",
-        "lead": "Cara llama.cpp memuat dan menjalankan model ini. Setiap kolom adalah flag llama-server. Kolom kosong memakai nilai bawaan.",
-        "loading": "Memuat pengaturan llama.cpp",
+        "lead": "Cara {{engine}} memuat dan menjalankan model ini. Setiap kolom adalah flag {{binary}}. Kolom kosong memakai nilai bawaan.",
+        "leadNoCommand": "Cara {{engine}} memuat dan menjalankan model ini. Kolom kosong memakai nilai bawaan.",
+        "loading": "Memuat pengaturan {{engine}}",
         "default": "Bawaan",
         "defaultIs": "Bawaan ({{value}})",
         "on": "Aktif",
@@ -72,18 +73,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Templat chat Jinja",
-            "loadMode": "Mode muat",
+            "load_mode": "Mode muat",
             "options_ubatch": "Ukuran micro-batch"
         },
-        "loadModes": {
-            "default": "Bawaan (dipetakan ke memori)",
-            "none": "Tidak ada (dibaca ke memori)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "I/O langsung"
+        "choices": {
+            "load_mode": {
+                "default": "Bawaan (dipetakan ke memori)",
+                "none": "Tidak ada (dibaca ke memori)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "I/O langsung"
+            }
         },
-        "loadModeHint": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io.",
+        "hints": {
+            "load_mode": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io."
+        },
         "errors": {
             "notInteger": "Ketik bilangan bulat.",
             "notNumber": "Ketik angka.",
@@ -99,10 +104,10 @@
             "overrideTarget": "Nama buffer hanya boleh berisi huruf, angka, dan garis bawah: {{target}}",
             "overrideRegex": "Pola ini bukan ekspresi reguler yang valid: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Penempatan tensor",
             "modes": {
-                "off": "Nonaktif (llama.cpp yang memutuskan)",
+                "off": "Nonaktif ({{engine}} yang memutuskan)",
                 "experts": "Expert MoE di CPU",
                 "rest": "N lapisan pertama di GPU, expert sisanya di CPU",
                 "ranges": "Expert lapisan pilihan di CPU",
@@ -123,9 +128,9 @@
             "addRange": "Tambah rentang",
             "removeRange": "Hapus rentang {{n}}",
             "raw": "Nilai override",
-            "rawHint": "Entri pola=buffer yang dipisahkan koma, seperti pada llama-server -ot.",
+            "rawHint": "Entri pola=buffer yang dipisahkan koma, seperti pada {{binary}} {{flag}}.",
             "generated": "Nilai yang dihasilkan",
-            "nothing": "Tidak ada. llama.cpp yang menempatkan tensor.",
+            "nothing": "Tidak ada. {{engine}} yang menempatkan tensor.",
             "mode": "Penempatan",
             "totalLayers": "Jumlah lapisan",
             "totalUnknown": "Tidak diketahui",
@@ -156,7 +161,7 @@
         },
         "raw": {
             "title": "Opsi lanjutan",
-            "hint": "Entri lain dari daftar options, satu per baris: nama:nilai, atau flag llama-server seperti --rope-scale:2.",
+            "hint": "Entri lain dari daftar options, satu per baris: nama:nilai, atau flag {{binary}} seperti --flag:value.",
             "empty": "Tidak ada opsi lain.",
             "entry": "Opsi {{n}}",
             "remove": "Hapus {{entry}}",
@@ -171,10 +176,10 @@
             "copied": "Disalin",
             "copyFailed": "Gagal menyalin",
             "failed": "Pratinjau tidak tersedia.",
-            "note": "Perintah llama-server yang sesuai dengan pengaturan ini. LocalAI menjalankan backend sendiri; baris ini untuk perbandingan dan untuk dipakai di luar LocalAI."
+            "note": "Perintah {{binary}} yang sesuai dengan pengaturan ini. LocalAI menjalankan backend sendiri; baris ini untuk perbandingan dan untuk dipakai di luar LocalAI."
         },
         "paste": {
-            "title": "Tempel perintah llama-server",
+            "title": "Tempel perintah {{binary}}",
             "hint": "Flag yang punya kolom mengisi kolom itu. Flag tanpa kolom disimpan sebagai opsi mentah dan dicantumkan di bawah.",
             "fill": "Isi formulir",
             "failed": "Perintah tidak dapat dibaca.",
@@ -186,7 +191,7 @@
             "useModelFile": "Gunakan file ini",
             "warnings": "Peringatan: {{count}}",
             "unmapped": "Flag yang tidak dipetakan: {{count}}",
-            "unmappedNote": "Flag tanpa kolom disimpan sebagai opsi mentah dan diteruskan ke llama.cpp apa adanya. Hapus yang tidak Anda inginkan.",
+            "unmappedNote": "Flag tanpa kolom disimpan sebagai opsi mentah dan diteruskan ke {{engine}} apa adanya. Hapus yang tidak Anda inginkan.",
             "keep": "Simpan sebagai opsi mentah",
             "keepAll": "Simpan semua",
             "kept": "Disimpan",
@@ -195,7 +200,7 @@
         },
         "schemaError": {
             "title": "Penyetelan runtime tidak tersedia.",
-            "body": "Server tidak mengirim pengaturan llama.cpp ({{message}}). Anda tetap bisa mengedit setiap pengaturan sebagai teks di tab lain editor ini.",
+            "body": "Server tidak mengirim pengaturan {{engine}} ({{message}}). Anda tetap bisa mengedit setiap pengaturan sebagai teks di tab lain editor ini.",
             "retry": "Coba lagi",
             "openYaml": "Edit sebagai teks"
         },

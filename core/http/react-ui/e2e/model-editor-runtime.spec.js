@@ -1,12 +1,13 @@
 import { test, expect } from './coverage-fixtures.js'
 import {
   ALL_EXPERTS, INKLING_COMMAND, INKLING_OT, MIXED_COMMAND, MODEL, mockRuntime,
-} from './llamacpp-runtime-fixtures.js'
+} from './engine-runtime-fixtures.js'
 
-// The Runtime tuning section of the model editor: the llama.cpp settings of a
+// The Runtime tuning section of the model editor for the first engine,
+// llama.cpp: the settings of a
 // llama-cpp model as fields built from the server's schema, the tensor
 // placement picker, whole-setup presets, the command preview, pasting a
-// llama-server command and the raw options. The /api/llama-cpp routes answer
+// llama-server command and the raw options. The /api/engines routes answer
 // with saved outputs of the real handlers; model-editor-runtime-real.spec.js
 // runs the same flows against the handlers themselves.
 
@@ -31,6 +32,7 @@ test.describe('Runtime tuning: when it shows', () => {
     await open(page)
     await ready(page)
     await expect(page.getByTestId('rail-runtime')).toBeVisible()
+    await expect(page.getByTestId('runtime-engine')).toHaveText('llama.cpp')
     for (const g of ['memory', 'speed', 'placement', 'sampling', 'template', 'advanced']) {
       await expect(page.getByTestId(`rt-group-${g}`)).toBeVisible()
     }

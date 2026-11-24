@@ -1,7 +1,8 @@
-/* Runtime tuning: the llama.cpp settings of the model editor. Groups of fields
+/* Runtime tuning: the engine settings of the model editor. Groups of fields
    in a two-column grid, the tensor placement block, the raw options, and a
    side column with the command preview and the paste box. The side column
-   sits beside the form when the card is wide enough, above it otherwise. */
+   sits beside the form when the card is wide enough, above it otherwise. An
+   engine with no command line has no side column (rt__layout--single). */
 
 .rt { display: grid; gap: var(--dk-space-5); min-width: 0; container-type: inline-size; }
 
@@ -29,6 +30,7 @@
 
 @container (min-width: 760px) {
   .rt__layout { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); align-items: start; }
+  .rt__layout--single { grid-template-columns: minmax(0, 1fr); }
   .rt__aside { position: sticky; top: var(--dk-space-4); }
 }
 

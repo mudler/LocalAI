@@ -3,10 +3,11 @@
         "label": "이 모델은 이미지를 볼 수 있음",
         "hint": "업스트림 모델이 이미지를 받으면 켜세요. LocalAI는 이를 확인할 수 없습니다. 첨부한 이미지는 메시지와 함께 모델로 전송됩니다."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "런타임 튜닝",
-        "lead": "llama.cpp가 이 모델을 불러와 실행하는 방식입니다. 각 필드는 llama-server 플래그입니다. 비워 둔 필드는 기본값을 유지합니다.",
-        "loading": "llama.cpp 설정을 불러오는 중",
+        "lead": "{{engine}}가 이 모델을 불러와 실행하는 방식입니다. 각 필드는 {{binary}} 플래그입니다. 비워 둔 필드는 기본값을 유지합니다.",
+        "leadNoCommand": "{{engine}}가 이 모델을 불러와 실행하는 방식입니다. 비워 둔 필드는 기본값을 유지합니다.",
+        "loading": "{{engine}} 설정을 불러오는 중",
         "default": "기본값",
         "defaultIs": "기본값 ({{value}})",
         "on": "켜기",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja 채팅 템플릿",
-            "loadMode": "로드 방식",
+            "load_mode": "로드 방식",
             "options_ubatch": "마이크로배치 크기"
         },
-        "loadModes": {
-            "default": "기본값 (메모리 매핑)",
-            "none": "없음 (메모리로 읽기)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "직접 I/O"
+        "choices": {
+            "load_mode": {
+                "default": "기본값 (메모리 매핑)",
+                "none": "없음 (메모리로 읽기)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "직접 I/O"
+            }
         },
-        "loadModeHint": "모델 파일을 읽는 방식입니다. mmap, mmlock, direct_io 옵션을 기록합니다.",
+        "hints": {
+            "load_mode": "모델 파일을 읽는 방식입니다. mmap, mmlock, direct_io 옵션을 기록합니다."
+        },
         "errors": {
             "notInteger": "정수를 입력하세요.",
             "notNumber": "숫자를 입력하세요.",
@@ -63,10 +68,10 @@
             "overrideTarget": "버퍼 이름에는 문자, 숫자, 밑줄만 쓸 수 있습니다: {{target}}",
             "overrideRegex": "이 패턴은 올바른 정규식이 아닙니다: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "텐서 배치",
             "modes": {
-                "off": "끄기 (llama.cpp가 결정)",
+                "off": "끄기 ({{engine}}가 결정)",
                 "experts": "MoE 전문가를 CPU에",
                 "rest": "처음 N개 레이어는 GPU, 나머지 전문가는 CPU",
                 "ranges": "선택한 레이어의 전문가를 CPU에",
@@ -87,9 +92,9 @@
             "addRange": "범위 추가",
             "removeRange": "범위 {{n}} 삭제",
             "raw": "오버라이드 값",
-            "rawHint": "llama-server -ot처럼 쉼표로 구분한 pattern=buffer 항목입니다.",
+            "rawHint": "{{binary}} {{flag}}처럼 쉼표로 구분한 pattern=buffer 항목입니다.",
             "generated": "생성된 값",
-            "nothing": "없음. llama.cpp가 텐서를 배치합니다.",
+            "nothing": "없음. {{engine}}가 텐서를 배치합니다.",
             "mode": "배치 방식",
             "totalLayers": "전체 레이어 수",
             "totalUnknown": "알 수 없음",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "고급 옵션",
-            "hint": "options 목록의 다른 항목을 한 줄에 하나씩 씁니다: name:value 또는 --rope-scale:2 같은 llama-server 플래그.",
+            "hint": "options 목록의 다른 항목을 한 줄에 하나씩 씁니다: name:value 또는 --flag:value 같은 {{binary}} 플래그.",
             "empty": "다른 옵션이 없습니다.",
             "entry": "옵션 {{n}}",
             "remove": "{{entry}} 삭제",
@@ -135,10 +140,10 @@
             "copied": "복사됨",
             "copyFailed": "복사 실패",
             "failed": "미리보기를 사용할 수 없습니다.",
-            "note": "이 설정에 해당하는 llama-server 명령입니다. LocalAI는 백엔드를 직접 시작합니다. 이 줄은 비교용이며 LocalAI 밖에서 쓸 수 있습니다."
+            "note": "이 설정에 해당하는 {{binary}} 명령입니다. LocalAI는 백엔드를 직접 시작합니다. 이 줄은 비교용이며 LocalAI 밖에서 쓸 수 있습니다."
         },
         "paste": {
-            "title": "llama-server 명령 붙여넣기",
+            "title": "{{binary}} 명령 붙여넣기",
             "hint": "필드가 있는 플래그는 그 필드를 채웁니다. 필드가 없는 플래그는 원시 옵션으로 유지되고 아래에 표시됩니다.",
             "fill": "폼 채우기",
             "failed": "명령을 읽을 수 없습니다.",
@@ -150,7 +155,7 @@
             "useModelFile": "이 파일 사용",
             "warnings": "경고: {{count}}개",
             "unmapped": "매핑되지 않은 플래그: {{count}}개",
-            "unmappedNote": "필드가 없는 플래그는 원시 옵션으로 유지되어 llama.cpp에 그대로 전달됩니다. 원하지 않는 것은 삭제하세요.",
+            "unmappedNote": "필드가 없는 플래그는 원시 옵션으로 유지되어 {{engine}}에 그대로 전달됩니다. 원하지 않는 것은 삭제하세요.",
             "keep": "원시 옵션으로 유지",
             "keepAll": "모두 유지",
             "kept": "유지됨",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "런타임 튜닝을 사용할 수 없습니다.",
-            "body": "서버가 llama.cpp 설정을 보내지 않았습니다 ({{message}}). 이 편집기의 다른 탭에서 모든 설정을 텍스트로 계속 편집할 수 있습니다.",
+            "body": "서버가 {{engine}} 설정을 보내지 않았습니다 ({{message}}). 이 편집기의 다른 탭에서 모든 설정을 텍스트로 계속 편집할 수 있습니다.",
             "retry": "다시 시도",
             "openYaml": "텍스트로 편집"
         },

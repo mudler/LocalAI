@@ -1,59 +1,93 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { llamaCppApi } from '../utils/api'
-import { normalizeSchema } from '../utils/llamaCppRuntime'
+import { engineSettingsApi } from '../utils/api'
+import { normalizeSchema } from '../utils/engineSettings'
 
-// The settings schema does not change while the app runs, so one answer serves
-// every editor opened in the tab. A failed request is not kept: Retry asks again.
-let schemaPromise = null
+// The engines and their schemas do not change while the app runs, so one
+// answer serves every editor opened in the tab. A failed request is not kept:
+// Retry asks again.
+const engineByBackend = new Map()
+const schemaByEngine = new Map()
 
-function loadSchema() {
-  if (!schemaPromise) {
-    schemaPromise = llamaCppApi.settingsSchema().then(normalizeSchema)
-    schemaPromise.catch(() => { schemaPromise = null })
+function cached(map, key, load) {
+  if (!map.has(key)) {
+    const p = load()
+    map.set(key, p)
+    p.catch(() => { if (map.get(key) === p) map.delete(key) })
   }
-  return schemaPromise
+  return map.get(key)
+}
+
+function loadEngine(backend) {
+  return cached(engineByBackend, backend, () => engineSettingsApi.list({ backend })
+    .then(data => (Array.isArray(data?.engines) && data.engines.length ? data.engines[0] : null)))
+}
+
+function loadSchema(engine) {
+  return cached(schemaByEngine, engine, () => engineSettingsApi.settingsSchema(engine).then(normalizeSchema))
 }
 
 /**
- * The llama.cpp settings schema. `enabled` false does not ask (a model on
- * another backend). Returns { status: 'idle'|'loading'|'ready'|'error', items, error, retry }.
+ * The engine whose runtime settings apply to a model backend, asked from the
+ * server (GET /api/engines?backend=). Returns { status: 'idle'|'loading'|'ready'|'error',
+ * engine } with engine null when no engine serves the backend.
  */
-export function useLlamaCppSchema(enabled = true) {
-  const [state, setState] = useState({ status: enabled ? 'loading' : 'idle', items: [], error: null })
-  const [attempt, setAttempt] = useState(0)
+export function useEngineForBackend(backend, enabled = true) {
+  const key = backend === undefined || backend === null ? '' : String(backend).trim()
+  const [state, setState] = useState({ status: enabled ? 'loading' : 'idle', engine: null, key })
 
   useEffect(() => {
     if (!enabled) return undefined
     let live = true
-    setState(s => (s.status === 'ready' ? s : { status: 'loading', items: [], error: null }))
-    loadSchema()
-      .then(items => { if (live) setState({ status: 'ready', items, error: null }) })
-      .catch(err => { if (live) setState({ status: 'error', items: [], error: err?.message || String(err) }) })
+    setState(s => (s.key === key && s.status === 'ready' ? s : { status: 'loading', engine: null, key }))
+    loadEngine(key)
+      .then(engine => { if (live) setState({ status: 'ready', engine, key }) })
+      .catch(() => { if (live) setState({ status: 'error', engine: null, key }) })
     return () => { live = false }
-  }, [enabled, attempt])
+  }, [key, enabled])
+
+  return enabled ? state : { status: 'idle', engine: null, key }
+}
+
+/**
+ * The settings schema of an engine, normalised (utils/engineSettings
+ * normalizeSchema). Returns { status: 'idle'|'loading'|'ready'|'error', schema, error, retry }.
+ */
+export function useEngineSchema(engine) {
+  const [state, setState] = useState({ status: engine ? 'loading' : 'idle', schema: null, error: null })
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!engine) return undefined
+    let live = true
+    setState(s => (s.status === 'ready' && s.schema?.id === engine ? s : { status: 'loading', schema: null, error: null }))
+    loadSchema(engine)
+      .then(schema => { if (live) setState({ status: 'ready', schema, error: null }) })
+      .catch(err => { if (live) setState({ status: 'error', schema: null, error: err?.message || String(err) }) })
+    return () => { live = false }
+  }, [engine, attempt])
 
   const retry = useCallback(() => setAttempt(a => a + 1), [])
   return { ...state, retry }
 }
 
 /**
- * The llama-server command a model config runs as, asked again 400 ms after
- * the last change. Returns { status: 'idle'|'loading'|'ready'|'error', command, error }.
+ * The command line a model config runs as, asked again 400 ms after the last
+ * change. Returns { status: 'idle'|'loading'|'ready'|'error', command, error }.
  * The last command stays on screen while a new one loads.
  */
-export function useCommandPreview(config, enabled = true, delay = 400) {
+export function useCommandPreview(engine, config, enabled = true, delay = 400) {
   const key = useMemo(() => JSON.stringify(config ?? null), [config])
   const [state, setState] = useState({ status: 'idle', command: '', error: null })
   const abortRef = useRef(null)
 
   useEffect(() => {
-    if (!enabled) return undefined
+    if (!enabled || !engine) return undefined
     setState(s => ({ ...s, status: 'loading' }))
     const timer = setTimeout(() => {
       abortRef.current?.abort()
       const ctl = new AbortController()
       abortRef.current = ctl
-      llamaCppApi.commandPreview(JSON.parse(key), { signal: ctl.signal })
+      engineSettingsApi.commandPreview(engine, JSON.parse(key), { signal: ctl.signal })
         .then(data => {
           if (ctl.signal.aborted) return
           setState({ status: 'ready', command: String(data?.command ?? ''), error: null })
@@ -64,7 +98,7 @@ export function useCommandPreview(config, enabled = true, delay = 400) {
         })
     }, delay)
     return () => clearTimeout(timer)
-  }, [key, enabled, delay])
+  }, [engine, key, enabled, delay])
 
   useEffect(() => () => abortRef.current?.abort(), [])
   return state

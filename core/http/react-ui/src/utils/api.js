@@ -68,20 +68,28 @@ async function postJSON(endpoint, body, options = {}) {
   })
 }
 
-// llama.cpp runtime settings: the settings the model editor's Runtime tuning
-// section draws, and the two-way translation between a model config and a
-// llama-server command line.
+// Engine runtime settings: the engines whose settings LocalAI maps, the
+// settings the model editor's Runtime tuning section draws, and the two-way
+// translation between a model config and an engine command line.
 //
-//   settingsSchema()          -> { flags: [{ key, target, path, option, cli, type, enum, min, max, default, doc, group }], groups, load_modes }
-//   commandPreview(config)    -> { command, warnings }          config: a model config (YAML keys)
-//   parseCommand(command)     -> { fields, options, unmapped: [{ flag, value, reason }], warnings, placements }
-//   tensorPlacement(body)     -> { option, placement, raw }     body: { placement } builds an -ot entry,
-//                                                              { option } reads one back
-export const llamaCppApi = {
-  settingsSchema: (options) => fetchJSON(API_CONFIG.endpoints.llamaCppSettingsSchema, options),
-  commandPreview: (config, options) => postJSON(API_CONFIG.endpoints.llamaCppCommandPreview, { config }, options),
-  parseCommand: (command, options) => postJSON(API_CONFIG.endpoints.llamaCppParseCommand, { command }, options),
-  tensorPlacement: (body, options) => postJSON(API_CONFIG.endpoints.llamaCppTensorPlacement, body, options),
+//   list({ backend })                -> { engines: [{ id, name, binary, backends, capabilities }] }
+//                                       backend: only the engine that serves it
+//   settingsSchema(engine)           -> { id, name, binary, capabilities, flags, groups, combined, presets,
+//                                         reserved_options, placement, example }
+//   commandPreview(engine, config)   -> { command, warnings }          config: a model config (YAML keys)
+//   parseCommand(engine, command)    -> { fields, options, unmapped: [{ flag, value, reason }], warnings, placements }
+//   placement(engine, body)          -> { option, placement, raw }     body: { placement } builds an entry,
+//                                                                     { option } reads one back
+export const engineSettingsApi = {
+  // An empty backend is a real question (a model with no backend), so the
+  // parameter is kept even when empty.
+  list: (params, options) => fetchJSON(params?.backend === undefined
+    ? API_CONFIG.endpoints.engines
+    : `${API_CONFIG.endpoints.engines}?backend=${encodeURIComponent(params.backend)}`, options),
+  settingsSchema: (engine, options) => fetchJSON(API_CONFIG.endpoints.engineSettingsSchema(engine), options),
+  commandPreview: (engine, config, options) => postJSON(API_CONFIG.endpoints.engineCommandPreview(engine), { config }, options),
+  parseCommand: (engine, command, options) => postJSON(API_CONFIG.endpoints.engineParseCommand(engine), { command }, options),
+  placement: (engine, body, options) => postJSON(API_CONFIG.endpoints.enginePlacement(engine), body, options),
 }
 
 // Models API

@@ -3,7 +3,7 @@ import { test, expect } from './coverage-fixtures.js'
 // The Runtime tuning section brings its own stylesheet in the model editor's
 // chunk. On the production bundle (CSS per chunk) the section must load with
 // its rules applied and no error, against the real test server: only the model
-// file is stubbed, so the editor opens a llama-cpp model; the /api/llama-cpp
+// file is stubbed, so the editor opens a llama-cpp model; the /api/engines
 // routes are the real handlers.
 //
 // Tagged @production-chunks so `make test-ui-stale-chunk` (production build)
@@ -21,7 +21,7 @@ test.describe('@production-chunks Runtime tuning on the shipped bundle', () => {
     page.on('response', res => {
       const { pathname } = new URL(res.url())
       if (pathname.startsWith('/assets/') && res.status() >= 400) problems.push(`asset ${pathname}: ${res.status()}`)
-      if (pathname.startsWith('/api/llama-cpp/') && res.status() >= 400) problems.push(`${pathname}: ${res.status()}`)
+      if (pathname.startsWith('/api/engines') && res.status() >= 400) problems.push(`${pathname}: ${res.status()}`)
     })
     await page.route('**/api/models/edit/chunk-check', route => route.fulfill({ json: { config: CONFIG, name: 'chunk-check' } }))
 

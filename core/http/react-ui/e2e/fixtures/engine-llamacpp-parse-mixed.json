@@ -1,9 +1,9 @@
 {
   "fields": {
+    "context_size": 4096,
     "parameters": {
       "model": "/models/x.gguf"
-    },
-    "context_size": 4096
+    }
   },
   "options": [
     "--rope-freq-base:10000",
@@ -39,6 +39,5 @@
   "warnings": [
     "the model \"/models/x.gguf\" is a path; LocalAI expects a file name inside the models directory",
     "--rope-freq-base is not a known flag; \"10000\" was read as its value"
-  ],
-  "placements": []
+  ]
 }

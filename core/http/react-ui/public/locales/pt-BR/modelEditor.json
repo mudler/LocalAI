@@ -39,10 +39,11 @@
     "label": "Este modelo consegue ver imagens",
     "hint": "Ative se o modelo upstream aceita imagens. O LocalAI não consegue verificar isso. As imagens anexadas vão para o modelo junto com a mensagem."
   },
-  "runtime": {
+  "engineSettings": {
     "title": "Ajuste de execução",
-    "lead": "Como o llama.cpp carrega e executa este modelo. Cada campo é uma flag do llama-server. Um campo vazio mantém o padrão.",
-    "loading": "Carregando as configurações do llama.cpp",
+    "lead": "Como o {{engine}} carrega e executa este modelo. Cada campo é uma flag do {{binary}}. Um campo vazio mantém o padrão.",
+    "leadNoCommand": "Como o {{engine}} carrega e executa este modelo. Um campo vazio mantém o padrão.",
+    "loading": "Carregando as configurações do {{engine}}",
     "default": "Padrão",
     "defaultIs": "Padrão ({{value}})",
     "on": "Ligado",
@@ -72,18 +73,22 @@
       "parameters_top_k": "Top-k",
       "parameters_min_p": "Min-p",
       "options_use_jinja": "Modelo de chat Jinja",
-      "loadMode": "Modo de carregamento",
+      "load_mode": "Modo de carregamento",
       "options_ubatch": "Tamanho do microlote"
     },
-    "loadModes": {
-      "default": "Padrão (mapeado em memória)",
-      "none": "Nenhum (lido para a memória)",
-      "mmap": "mmap",
-      "mlock": "mlock",
-      "mmap_mlock": "mmap + mlock",
-      "direct_io": "E/S direta"
+    "choices": {
+      "load_mode": {
+        "default": "Padrão (mapeado em memória)",
+        "none": "Nenhum (lido para a memória)",
+        "mmap": "mmap",
+        "mlock": "mlock",
+        "mmap_mlock": "mmap + mlock",
+        "direct_io": "E/S direta"
+      }
     },
-    "loadModeHint": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io.",
+    "hints": {
+      "load_mode": "Como o arquivo do modelo é lido. Grava mmap, mmlock e a opção direct_io."
+    },
     "errors": {
       "notInteger": "Digite um número inteiro.",
       "notNumber": "Digite um número.",
@@ -99,10 +104,10 @@
       "overrideTarget": "O nome do buffer só pode ter letras, dígitos e sublinhados: {{target}}",
       "overrideRegex": "Este padrão não é uma expressão regular válida: {{entry}}"
     },
-    "ot": {
+    "placement": {
       "title": "Posicionamento dos tensores",
       "modes": {
-        "off": "Desligado (o llama.cpp decide)",
+        "off": "Desligado (o {{engine}} decide)",
         "experts": "Especialistas MoE na CPU",
         "rest": "Primeiras N camadas na GPU, especialistas do resto na CPU",
         "ranges": "Especialistas das camadas escolhidas na CPU",
@@ -123,9 +128,9 @@
       "addRange": "Adicionar intervalo",
       "removeRange": "Remover o intervalo {{n}}",
       "raw": "Valor de override",
-      "rawHint": "Entradas padrão=buffer separadas por vírgulas, como no llama-server -ot.",
+      "rawHint": "Entradas padrão=buffer separadas por vírgulas, como no {{binary}} {{flag}}.",
       "generated": "Valor gerado",
-      "nothing": "Nenhum. O llama.cpp posiciona os tensores.",
+      "nothing": "Nenhum. O {{engine}} posiciona os tensores.",
       "mode": "Posicionamento",
       "totalLayers": "Total de camadas",
       "totalUnknown": "Desconhecido",
@@ -156,7 +161,7 @@
     },
     "raw": {
       "title": "Opções avançadas",
-      "hint": "Outras entradas da lista options, uma por linha: nome:valor, ou uma flag do llama-server como --rope-scale:2.",
+      "hint": "Outras entradas da lista options, uma por linha: nome:valor, ou uma flag do {{binary}} como --flag:value.",
       "empty": "Nenhuma outra opção.",
       "entry": "Opção {{n}}",
       "remove": "Remover {{entry}}",
@@ -171,10 +176,10 @@
       "copied": "Copiado",
       "copyFailed": "Falha ao copiar",
       "failed": "A prévia não está disponível.",
-      "note": "O comando do llama-server que corresponde a estas configurações. O LocalAI inicia o backend sozinho; esta linha serve para comparar e para uso fora do LocalAI."
+      "note": "O comando do {{binary}} que corresponde a estas configurações. O LocalAI inicia o backend sozinho; esta linha serve para comparar e para uso fora do LocalAI."
     },
     "paste": {
-      "title": "Colar um comando do llama-server",
+      "title": "Colar um comando do {{binary}}",
       "hint": "Flags com um campo preenchem esse campo. Flags sem campo ficam como opções brutas e aparecem abaixo.",
       "fill": "Preencher o formulário",
       "failed": "Não foi possível ler o comando.",
@@ -186,7 +191,7 @@
       "useModelFile": "Usar este arquivo",
       "warnings": "Avisos: {{count}}",
       "unmapped": "Flags não mapeadas: {{count}}",
-      "unmappedNote": "Uma flag sem campo fica como opção bruta e vai para o llama.cpp como está. Remova as que você não quer.",
+      "unmappedNote": "Uma flag sem campo fica como opção bruta e vai para o {{engine}} como está. Remova as que você não quer.",
       "keep": "Manter como opção bruta",
       "keepAll": "Manter todas",
       "kept": "Mantida",
@@ -195,7 +200,7 @@
     },
     "schemaError": {
       "title": "O ajuste de execução não está disponível.",
-      "body": "O servidor não enviou as configurações do llama.cpp ({{message}}). Você ainda pode editar cada configuração como texto na outra aba deste editor.",
+      "body": "O servidor não enviou as configurações do {{engine}} ({{message}}). Você ainda pode editar cada configuração como texto na outra aba deste editor.",
       "retry": "Tentar de novo",
       "openYaml": "Editar como texto"
     },

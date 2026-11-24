@@ -3,10 +3,11 @@
         "label": "Questo modello può guardare le immagini",
         "hint": "Attivalo se il modello remoto accetta immagini. LocalAI non può verificarlo. Le immagini allegate vanno al modello insieme al messaggio."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Ottimizzazione runtime",
-        "lead": "Come llama.cpp carica ed esegue questo modello. Ogni campo è un flag di llama-server. Un campo vuoto mantiene il valore predefinito.",
-        "loading": "Caricamento delle impostazioni di llama.cpp",
+        "lead": "Come {{engine}} carica ed esegue questo modello. Ogni campo è un flag di {{binary}}. Un campo vuoto mantiene il valore predefinito.",
+        "leadNoCommand": "Come {{engine}} carica ed esegue questo modello. Un campo vuoto mantiene il valore predefinito.",
+        "loading": "Caricamento delle impostazioni di {{engine}}",
         "default": "Predefinito",
         "defaultIs": "Predefinito ({{value}})",
         "on": "Attivo",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Template di chat Jinja",
-            "loadMode": "Modalità di caricamento",
+            "load_mode": "Modalità di caricamento",
             "options_ubatch": "Dimensione del micro-batch"
         },
-        "loadModes": {
-            "default": "Predefinita (mappata in memoria)",
-            "none": "Nessuna (letta in memoria)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "I/O diretto"
+        "choices": {
+            "load_mode": {
+                "default": "Predefinita (mappata in memoria)",
+                "none": "Nessuna (letta in memoria)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "I/O diretto"
+            }
         },
-        "loadModeHint": "Come viene letto il file del modello. Scrive mmap, mmlock e l'opzione direct_io.",
+        "hints": {
+            "load_mode": "Come viene letto il file del modello. Scrive mmap, mmlock e l'opzione direct_io."
+        },
         "errors": {
             "notInteger": "Inserisci un numero intero.",
             "notNumber": "Inserisci un numero.",
@@ -63,10 +68,10 @@
             "overrideTarget": "Il nome del buffer può contenere solo lettere, cifre e trattini bassi: {{target}}",
             "overrideRegex": "Questo pattern non è un'espressione regolare valida: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Posizionamento dei tensori",
             "modes": {
-                "off": "Disattivo (decide llama.cpp)",
+                "off": "Disattivo (decide {{engine}})",
                 "experts": "Esperti MoE sulla CPU",
                 "rest": "Primi N layer sulla GPU, esperti degli altri sulla CPU",
                 "ranges": "Esperti dei layer scelti sulla CPU",
@@ -87,9 +92,9 @@
             "addRange": "Aggiungi intervallo",
             "removeRange": "Rimuovi l'intervallo {{n}}",
             "raw": "Valore di override",
-            "rawHint": "Voci pattern=buffer separate da virgole, come in llama-server -ot.",
+            "rawHint": "Voci pattern=buffer separate da virgole, come in {{binary}} {{flag}}.",
             "generated": "Valore generato",
-            "nothing": "Nessuno. llama.cpp posiziona i tensori.",
+            "nothing": "Nessuno. {{engine}} posiziona i tensori.",
             "mode": "Posizionamento",
             "totalLayers": "Layer totali",
             "totalUnknown": "Non noto",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "Opzioni avanzate",
-            "hint": "Altre voci della lista options, una per riga: nome:valore, oppure un flag di llama-server come --rope-scale:2.",
+            "hint": "Altre voci della lista options, una per riga: nome:valore, oppure un flag di {{binary}} come --flag:value.",
             "empty": "Nessun'altra opzione.",
             "entry": "Opzione {{n}}",
             "remove": "Rimuovi {{entry}}",
@@ -135,10 +140,10 @@
             "copied": "Copiato",
             "copyFailed": "Copia non riuscita",
             "failed": "L'anteprima non è disponibile.",
-            "note": "Il comando llama-server che corrisponde a queste impostazioni. LocalAI avvia il backend da solo; questa riga serve per il confronto e per l'uso fuori da LocalAI."
+            "note": "Il comando {{binary}} che corrisponde a queste impostazioni. LocalAI avvia il backend da solo; questa riga serve per il confronto e per l'uso fuori da LocalAI."
         },
         "paste": {
-            "title": "Incolla un comando llama-server",
+            "title": "Incolla un comando {{binary}}",
             "hint": "I flag con un campo compilano quel campo. I flag senza campo restano come opzioni grezze e sono elencati sotto.",
             "fill": "Compila il modulo",
             "failed": "Impossibile leggere il comando.",
@@ -150,7 +155,7 @@
             "useModelFile": "Usa questo file",
             "warnings": "Avvisi: {{count}}",
             "unmapped": "Flag non mappati: {{count}}",
-            "unmappedNote": "Un flag senza campo resta come opzione grezza e passa a llama.cpp così com'è. Rimuovi quelli che non vuoi.",
+            "unmappedNote": "Un flag senza campo resta come opzione grezza e passa a {{engine}} così com'è. Rimuovi quelli che non vuoi.",
             "keep": "Mantieni come opzione grezza",
             "keepAll": "Mantieni tutti",
             "kept": "Mantenuto",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "L'ottimizzazione runtime non è disponibile.",
-            "body": "Il server non ha inviato le impostazioni di llama.cpp ({{message}}). Puoi comunque modificare ogni impostazione come testo nell'altra scheda di questo editor.",
+            "body": "Il server non ha inviato le impostazioni di {{engine}} ({{message}}). Puoi comunque modificare ogni impostazione come testo nell'altra scheda di questo editor.",
             "retry": "Riprova",
             "openYaml": "Modifica come testo"
         },

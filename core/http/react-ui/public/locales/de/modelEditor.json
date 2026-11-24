@@ -3,10 +3,11 @@
         "label": "Dieses Modell kann Bilder ansehen",
         "hint": "Einschalten, wenn das Upstream-Modell Bilder annimmt. LocalAI kann das nicht prüfen. Angehängte Bilder gehen dann mit der Nachricht an das Modell."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Laufzeit-Tuning",
-        "lead": "Wie llama.cpp dieses Modell lädt und ausführt. Jedes Feld ist ein Flag von llama-server. Ein leeres Feld behält den Standardwert.",
-        "loading": "Die llama.cpp-Einstellungen werden geladen",
+        "lead": "Wie {{engine}} dieses Modell lädt und ausführt. Jedes Feld ist ein Flag von {{binary}}. Ein leeres Feld behält den Standardwert.",
+        "leadNoCommand": "Wie {{engine}} dieses Modell lädt und ausführt. Ein leeres Feld behält den Standardwert.",
+        "loading": "Die {{engine}}-Einstellungen werden geladen",
         "default": "Standard",
         "defaultIs": "Standard ({{value}})",
         "on": "An",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja-Chat-Vorlage",
-            "loadMode": "Lademodus",
+            "load_mode": "Lademodus",
             "options_ubatch": "Micro-Batch-Größe"
         },
-        "loadModes": {
-            "default": "Standard (speichergemappt)",
-            "none": "Keiner (in den Speicher gelesen)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "Direkte E/A"
+        "choices": {
+            "load_mode": {
+                "default": "Standard (speichergemappt)",
+                "none": "Keiner (in den Speicher gelesen)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "Direkte E/A"
+            }
         },
-        "loadModeHint": "Wie die Modelldatei gelesen wird. Schreibt mmap, mmlock und die Option direct_io.",
+        "hints": {
+            "load_mode": "Wie die Modelldatei gelesen wird. Schreibt mmap, mmlock und die Option direct_io."
+        },
         "errors": {
             "notInteger": "Geben Sie eine ganze Zahl ein.",
             "notNumber": "Geben Sie eine Zahl ein.",
@@ -63,10 +68,10 @@
             "overrideTarget": "Der Puffername darf nur Buchstaben, Ziffern und Unterstriche enthalten: {{target}}",
             "overrideRegex": "Dieses Muster ist kein gültiger regulärer Ausdruck: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Platzierung der Tensoren",
             "modes": {
-                "off": "Aus (llama.cpp entscheidet)",
+                "off": "Aus ({{engine}} entscheidet)",
                 "experts": "MoE-Experten auf der CPU",
                 "rest": "Erste N Schichten auf der GPU, Experten der übrigen auf der CPU",
                 "ranges": "Experten gewählter Schichten auf der CPU",
@@ -87,9 +92,9 @@
             "addRange": "Bereich hinzufügen",
             "removeRange": "Bereich {{n}} entfernen",
             "raw": "Override-Wert",
-            "rawHint": "Durch Kommas getrennte Einträge Muster=Puffer, wie bei llama-server -ot.",
+            "rawHint": "Durch Kommas getrennte Einträge Muster=Puffer, wie bei {{binary}} {{flag}}.",
             "generated": "Erzeugter Wert",
-            "nothing": "Keiner. llama.cpp platziert die Tensoren.",
+            "nothing": "Keiner. {{engine}} platziert die Tensoren.",
             "mode": "Platzierung",
             "totalLayers": "Schichten insgesamt",
             "totalUnknown": "Unbekannt",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "Erweiterte Optionen",
-            "hint": "Weitere Einträge der options-Liste, einer pro Zeile: name:wert oder ein llama-server-Flag wie --rope-scale:2.",
+            "hint": "Weitere Einträge der options-Liste, einer pro Zeile: name:wert oder ein {{binary}}-Flag wie --flag:value.",
             "empty": "Keine weiteren Optionen.",
             "entry": "Option {{n}}",
             "remove": "{{entry}} entfernen",
@@ -135,10 +140,10 @@
             "copied": "Kopiert",
             "copyFailed": "Kopieren fehlgeschlagen",
             "failed": "Die Vorschau ist nicht verfügbar.",
-            "note": "Der llama-server-Befehl, der diesen Einstellungen entspricht. LocalAI startet das Backend selbst; diese Zeile dient zum Vergleich und zur Verwendung außerhalb von LocalAI."
+            "note": "Der {{binary}}-Befehl, der diesen Einstellungen entspricht. LocalAI startet das Backend selbst; diese Zeile dient zum Vergleich und zur Verwendung außerhalb von LocalAI."
         },
         "paste": {
-            "title": "llama-server-Befehl einfügen",
+            "title": "{{binary}}-Befehl einfügen",
             "hint": "Flags mit einem Feld füllen dieses Feld. Flags ohne Feld bleiben als Rohoptionen erhalten und werden unten aufgelistet.",
             "fill": "Formular ausfüllen",
             "failed": "Der Befehl konnte nicht gelesen werden.",
@@ -150,7 +155,7 @@
             "useModelFile": "Diese Datei verwenden",
             "warnings": "Warnungen: {{count}}",
             "unmapped": "Nicht zugeordnete Flags: {{count}}",
-            "unmappedNote": "Ein Flag ohne Feld bleibt als Rohoption erhalten und geht unverändert an llama.cpp. Entfernen Sie die, die Sie nicht möchten.",
+            "unmappedNote": "Ein Flag ohne Feld bleibt als Rohoption erhalten und geht unverändert an {{engine}}. Entfernen Sie die, die Sie nicht möchten.",
             "keep": "Als Rohoption behalten",
             "keepAll": "Alle behalten",
             "kept": "Behalten",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "Laufzeit-Tuning ist nicht verfügbar.",
-            "body": "Der Server hat die llama.cpp-Einstellungen nicht gesendet ({{message}}). Sie können jede Einstellung weiterhin als Text im anderen Tab dieses Editors bearbeiten.",
+            "body": "Der Server hat die {{engine}}-Einstellungen nicht gesendet ({{message}}). Sie können jede Einstellung weiterhin als Text im anderen Tab dieses Editors bearbeiten.",
             "retry": "Erneut versuchen",
             "openYaml": "Als Text bearbeiten"
         },

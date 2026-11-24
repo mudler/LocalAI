@@ -3,10 +3,11 @@
         "label": "Este modelo puede ver imágenes",
         "hint": "Actívalo si el modelo remoto acepta imágenes. LocalAI no puede comprobarlo. Las imágenes adjuntas se envían al modelo con el mensaje."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Ajuste del tiempo de ejecución",
-        "lead": "Cómo llama.cpp carga y ejecuta este modelo. Cada campo es un flag de llama-server. Un campo vacío mantiene el valor predeterminado.",
-        "loading": "Cargando los ajustes de llama.cpp",
+        "lead": "Cómo {{engine}} carga y ejecuta este modelo. Cada campo es un flag de {{binary}}. Un campo vacío mantiene el valor predeterminado.",
+        "leadNoCommand": "Cómo {{engine}} carga y ejecuta este modelo. Un campo vacío mantiene el valor predeterminado.",
+        "loading": "Cargando los ajustes de {{engine}}",
         "default": "Predeterminado",
         "defaultIs": "Predeterminado ({{value}})",
         "on": "Activado",
@@ -36,18 +37,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Plantilla de chat Jinja",
-            "loadMode": "Modo de carga",
+            "load_mode": "Modo de carga",
             "options_ubatch": "Tamaño del microlote"
         },
-        "loadModes": {
-            "default": "Predeterminado (mapeado en memoria)",
-            "none": "Ninguno (leído en memoria)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "E/S directa"
+        "choices": {
+            "load_mode": {
+                "default": "Predeterminado (mapeado en memoria)",
+                "none": "Ninguno (leído en memoria)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "E/S directa"
+            }
         },
-        "loadModeHint": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io.",
+        "hints": {
+            "load_mode": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io."
+        },
         "errors": {
             "notInteger": "Escribe un número entero.",
             "notNumber": "Escribe un número.",
@@ -63,10 +68,10 @@
             "overrideTarget": "El nombre del búfer solo puede tener letras, dígitos y guiones bajos: {{target}}",
             "overrideRegex": "Este patrón no es una expresión regular válida: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Ubicación de los tensores",
             "modes": {
-                "off": "Desactivado (decide llama.cpp)",
+                "off": "Desactivado (decide {{engine}})",
                 "experts": "Expertos MoE en la CPU",
                 "rest": "Primeras N capas en la GPU, expertos del resto en la CPU",
                 "ranges": "Expertos de las capas elegidas en la CPU",
@@ -87,9 +92,9 @@
             "addRange": "Añadir rango",
             "removeRange": "Quitar el rango {{n}}",
             "raw": "Valor de override",
-            "rawHint": "Entradas patrón=búfer separadas por comas, como en llama-server -ot.",
+            "rawHint": "Entradas patrón=búfer separadas por comas, como en {{binary}} {{flag}}.",
             "generated": "Valor generado",
-            "nothing": "Ninguno. llama.cpp coloca los tensores.",
+            "nothing": "Ninguno. {{engine}} coloca los tensores.",
             "mode": "Ubicación",
             "totalLayers": "Capas totales",
             "totalUnknown": "Desconocido",
@@ -120,7 +125,7 @@
         },
         "raw": {
             "title": "Opciones avanzadas",
-            "hint": "Otras entradas de la lista options, una por fila: nombre:valor, o un flag de llama-server como --rope-scale:2.",
+            "hint": "Otras entradas de la lista options, una por fila: nombre:valor, o un flag de {{binary}} como --flag:value.",
             "empty": "No hay otras opciones.",
             "entry": "Opción {{n}}",
             "remove": "Quitar {{entry}}",
@@ -135,10 +140,10 @@
             "copied": "Copiado",
             "copyFailed": "No se pudo copiar",
             "failed": "La vista previa no está disponible.",
-            "note": "El comando de llama-server que corresponde a estos ajustes. LocalAI inicia el backend por su cuenta; esta línea sirve para comparar y para usarla fuera de LocalAI."
+            "note": "El comando de {{binary}} que corresponde a estos ajustes. LocalAI inicia el backend por su cuenta; esta línea sirve para comparar y para usarla fuera de LocalAI."
         },
         "paste": {
-            "title": "Pegar un comando de llama-server",
+            "title": "Pegar un comando de {{binary}}",
             "hint": "Los flags con un campo rellenan ese campo. Los flags sin campo se conservan como opciones sin procesar y se listan abajo.",
             "fill": "Rellenar el formulario",
             "failed": "No se pudo leer el comando.",
@@ -150,7 +155,7 @@
             "useModelFile": "Usar este archivo",
             "warnings": "Avisos: {{count}}",
             "unmapped": "Flags sin asignar: {{count}}",
-            "unmappedNote": "Un flag sin campo se conserva como opción sin procesar y llega a llama.cpp tal cual. Quita los que no quieras.",
+            "unmappedNote": "Un flag sin campo se conserva como opción sin procesar y llega a {{engine}} tal cual. Quita los que no quieras.",
             "keep": "Conservar como opción sin procesar",
             "keepAll": "Conservar todos",
             "kept": "Conservado",
@@ -159,7 +164,7 @@
         },
         "schemaError": {
             "title": "El ajuste del tiempo de ejecución no está disponible.",
-            "body": "El servidor no envió los ajustes de llama.cpp ({{message}}). Aún puedes editar cada ajuste como texto en la otra pestaña de este editor.",
+            "body": "El servidor no envió los ajustes de {{engine}} ({{message}}). Aún puedes editar cada ajuste como texto en la otra pestaña de este editor.",
             "retry": "Reintentar",
             "openYaml": "Editar como texto"
         },

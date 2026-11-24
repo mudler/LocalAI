@@ -1,8 +1,29 @@
 {
+  "id": "llama-cpp",
+  "name": "llama.cpp",
+  "binary": "llama-server",
+  "backends": {
+    "names": [
+      "llama",
+      "go-llama"
+    ],
+    "families": [
+      "llama-cpp"
+    ],
+    "excluded": [
+      "ik-llama-cpp"
+    ],
+    "empty": true
+  },
+  "capabilities": [
+    "command-line",
+    "tensor-placement"
+  ],
+  "example": "llama-server -m model.gguf --ctx-size 8192 -ngl 99 -fa on",
   "flags": [
     {
       "key": "context_size",
-      "target": "field",
+      "target": "config",
       "path": "context_size",
       "cli": [
         "--ctx-size",
@@ -16,7 +37,7 @@
     },
     {
       "key": "gpu_layers",
-      "target": "field",
+      "target": "config",
       "path": "gpu_layers",
       "cli": [
         "-ngl",
@@ -31,7 +52,7 @@
     },
     {
       "key": "threads",
-      "target": "field",
+      "target": "config",
       "path": "threads",
       "cli": [
         "-t",
@@ -45,7 +66,7 @@
     },
     {
       "key": "batch",
-      "target": "parameter",
+      "target": "config",
       "path": "parameters.batch",
       "cli": [
         "-b",
@@ -59,7 +80,7 @@
     },
     {
       "key": "flash_attention",
-      "target": "field",
+      "target": "config",
       "path": "flash_attention",
       "cli": [
         "-fa",
@@ -77,7 +98,7 @@
     },
     {
       "key": "cache_type_k",
-      "target": "field",
+      "target": "config",
       "path": "cache_type_k",
       "cli": [
         "-ctk",
@@ -101,7 +122,7 @@
     },
     {
       "key": "cache_type_v",
-      "target": "field",
+      "target": "config",
       "path": "cache_type_v",
       "cli": [
         "-ctv",
@@ -125,7 +146,7 @@
     },
     {
       "key": "mmap",
-      "target": "field",
+      "target": "config",
       "path": "mmap",
       "cli": [
         "--mmap"
@@ -140,7 +161,7 @@
     },
     {
       "key": "mmlock",
-      "target": "field",
+      "target": "config",
       "path": "mmlock",
       "cli": [
         "--mlock"
@@ -158,6 +179,9 @@
       "target": "option",
       "path": "options",
       "option": "use_jinja",
+      "option_aliases": [
+        "jinja"
+      ],
       "cli": [
         "--jinja"
       ],
@@ -174,6 +198,9 @@
       "target": "option",
       "path": "options",
       "option": "parallel",
+      "option_aliases": [
+        "n_parallel"
+      ],
       "cli": [
         "-np",
         "--parallel"
@@ -189,6 +216,9 @@
       "target": "option",
       "path": "options",
       "option": "ubatch",
+      "option_aliases": [
+        "n_ubatch"
+      ],
       "cli": [
         "-ub",
         "--ubatch-size"
@@ -204,6 +234,9 @@
       "target": "option",
       "path": "options",
       "option": "threads_batch",
+      "option_aliases": [
+        "n_threads_batch"
+      ],
       "cli": [
         "-tb",
         "--threads-batch"
@@ -219,6 +252,9 @@
       "target": "option",
       "path": "options",
       "option": "fit",
+      "option_aliases": [
+        "fit_params"
+      ],
       "cli": [
         "-fit",
         "--fit"
@@ -253,6 +289,9 @@
       "target": "option",
       "path": "options",
       "option": "direct_io",
+      "option_aliases": [
+        "use_direct_io"
+      ],
       "cli": [
         "-dio",
         "--direct-io"
@@ -267,7 +306,7 @@
     },
     {
       "key": "temperature",
-      "target": "parameter",
+      "target": "config",
       "path": "parameters.temperature",
       "cli": [
         "--temp",
@@ -281,7 +320,7 @@
     },
     {
       "key": "top_p",
-      "target": "parameter",
+      "target": "config",
       "path": "parameters.top_p",
       "cli": [
         "--top-p"
@@ -295,7 +334,7 @@
     },
     {
       "key": "top_k",
-      "target": "parameter",
+      "target": "config",
       "path": "parameters.top_k",
       "cli": [
         "--top-k"
@@ -308,7 +347,7 @@
     },
     {
       "key": "min_p",
-      "target": "parameter",
+      "target": "config",
       "path": "parameters.min_p",
       "cli": [
         "--min-p"
@@ -325,6 +364,11 @@
       "target": "option",
       "path": "options",
       "option": "-ot",
+      "option_aliases": [
+        "--override-tensor",
+        "override_tensor",
+        "tensor_buft_overrides"
+      ],
       "cli": [
         "-ot",
         "--override-tensor"
@@ -339,16 +383,144 @@
   "groups": [
     "memory",
     "speed",
+    "placement",
     "sampling",
-    "template",
-    "placement"
+    "template"
   ],
-  "load_modes": [
-    "none",
-    "mmap",
-    "mlock",
-    "mmap_mlock",
-    "direct_io",
-    "auto"
-  ]
+  "combined": [
+    {
+      "id": "load_mode",
+      "flag": "--load-mode",
+      "group": "memory",
+      "doc": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+      "keys": [
+        "mmap",
+        "mmlock",
+        "direct_io"
+      ],
+      "unset": {
+        "direct_io": false,
+        "mmap": true,
+        "mmlock": false
+      },
+      "choices": [
+        {
+          "value": "default",
+          "label": "Default (memory-mapped)",
+          "set": {
+            "direct_io": null,
+            "mmap": null,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "none",
+          "label": "None (read into memory)",
+          "set": {
+            "direct_io": null,
+            "mmap": false,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "mmap",
+          "label": "mmap",
+          "set": {
+            "direct_io": null,
+            "mmap": true,
+            "mmlock": null
+          }
+        },
+        {
+          "value": "mlock",
+          "label": "mlock",
+          "set": {
+            "direct_io": null,
+            "mmap": false,
+            "mmlock": true
+          }
+        },
+        {
+          "value": "mmap_mlock",
+          "label": "mmap + mlock",
+          "set": {
+            "direct_io": null,
+            "mmap": true,
+            "mmlock": true
+          }
+        },
+        {
+          "value": "direct_io",
+          "label": "Direct I/O",
+          "set": {
+            "direct_io": true,
+            "mmap": null,
+            "mmlock": null
+          }
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "id": "bigMoe",
+      "name": "Big MoE on a small GPU",
+      "description": "All layers on the GPU, experts on the CPU, 8-bit KV cache.",
+      "settings": {
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "flash_attention": "on",
+        "gpu_layers": 999,
+        "no_op_offload": true,
+        "parallel": 1
+      },
+      "placement": {
+        "mode": "experts_cpu_all"
+      }
+    },
+    {
+      "id": "maxContext",
+      "name": "Max context",
+      "description": "128K context, flash attention and an 8-bit KV cache.",
+      "settings": {
+        "cache_type_k": "q8_0",
+        "cache_type_v": "q8_0",
+        "context_size": 131072,
+        "flash_attention": "on",
+        "parallel": 1
+      }
+    },
+    {
+      "id": "lowVram",
+      "name": "Low VRAM",
+      "description": "4K context, a 4-bit KV cache and a small micro-batch.",
+      "settings": {
+        "cache_type_k": "q4_0",
+        "cache_type_v": "q4_0",
+        "context_size": 4096,
+        "flash_attention": "on",
+        "parallel": 1,
+        "ubatch": 128
+      }
+    }
+  ],
+  "reserved_options": [
+    "cpu_moe",
+    "n_cpu_moe",
+    "moe_cache_mib"
+  ],
+  "placement": {
+    "option": "-ot",
+    "aliases": [
+      "--override-tensor",
+      "override_tensor",
+      "tensor_buft_overrides"
+    ],
+    "group": "placement",
+    "modes": [
+      "experts_cpu_all",
+      "experts_cpu_layers",
+      "first_layers_gpu"
+    ]
+  }
 }

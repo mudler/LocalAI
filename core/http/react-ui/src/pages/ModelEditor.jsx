@@ -18,8 +18,8 @@ import { ModelFailoverStatus } from '../components/FailoverChainStatus'
 // eslint-disable-next-line no-unused-vars
 import PlacementSection from '../components/models/placement/PlacementSection'
 // eslint-disable-next-line no-unused-vars
-import RuntimeTuningSection from '../components/models/runtime/RuntimeTuningSection'
-import { isLlamaCppBackend } from '../utils/moePlacement'
+import EngineRuntimeSection from '../components/models/engine/EngineRuntimeSection'
+import { useEngineForBackend } from '../hooks/useEngineSettings'
 import { useAuth } from '../context/AuthContext'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
@@ -285,8 +285,10 @@ export default function ModelEditor() {
   }, [isCreateMode, yamlText, savedYamlText])
 
   const isDirty = tab === 'interactive' ? interactiveDirty : yamlDirty
-  // Runtime tuning is drawn for a saved model whose backend is llama.cpp.
-  const showRuntime = !isCreateMode && isLlamaCppBackend(values['backend'])
+  // Runtime tuning is drawn for a saved model whose backend an engine of the
+  // server serves (GET /api/engines?backend=).
+  const runtimeEngine = useEngineForBackend(values['backend'], !isCreateMode).engine
+  const showRuntime = !isCreateMode && Boolean(runtimeEngine)
   const blockedByRuntime = tab === 'interactive' && showRuntime && !runtimeValid
 
   const vramAnnotation = useMemo(() => {
@@ -695,7 +697,7 @@ export default function ModelEditor() {
                   data-testid="rail-runtime"
                 >
                   <Icon name="gauge" className="set-rail__icon" />
-                  {t('runtime.title')}
+                  {t('engineSettings.title')}
                 </button>
               )}
               {activeSections.map(s => (
@@ -744,7 +746,8 @@ export default function ModelEditor() {
               {showRuntime && (
                 <div ref={el => { sectionRefs.current.runtime = el }} className="mb-xl">
                   <div className="card pad-md" data-testid="editor-runtime">
-                    <RuntimeTuningSection
+                    <EngineRuntimeSection
+                      engine={runtimeEngine}
                       values={values}
                       onChange={handlePlacementChange}
                       readOnly={!isAdmin}

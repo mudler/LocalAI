@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Segmented, Slider } from '../../ui'
 import Icon from '../../Icon'
-import { readItem, validate } from '../../../utils/llamaCppRuntime'
+import { readItem, validate } from '../../../utils/engineSettings'
 import { choiceWords, fieldLabel } from './labels'
 
 const shown = (v) => (v === undefined || v === null ? '' : String(v))
@@ -13,18 +13,18 @@ const shown = (v) => (v === undefined || v === null ? '' : String(v))
 // ("backend default") is English prose and is left to the hint.
 function defaultLabel(t, item) {
   const d = item.default
-  if (d === undefined || d === null || d === '') return t('runtime.default')
-  if (d === true || d === 'true') return t('runtime.defaultIs', { value: t('runtime.on') })
-  if (d === false || d === 'false') return t('runtime.defaultIs', { value: t('runtime.off') })
-  if (/\s/.test(String(d))) return t('runtime.default')
-  return t('runtime.defaultIs', { value: choiceWords(t, String(d)) })
+  if (d === undefined || d === null || d === '') return t('engineSettings.default')
+  if (d === true || d === 'true') return t('engineSettings.defaultIs', { value: t('engineSettings.on') })
+  if (d === false || d === 'false') return t('engineSettings.defaultIs', { value: t('engineSettings.off') })
+  if (/\s/.test(String(d))) return t('engineSettings.default')
+  return t('engineSettings.defaultIs', { value: choiceWords(t, String(d)) })
 }
 
-// One llama.cpp setting: a label, the control its type asks for, the
-// llama-server flag and the server's description. Typed text that does not
+// One engine setting: a label, the control its type asks for, the
+// command-line flag and the server's description. Typed text that does not
 // validate stays in the box, is marked, and is not written.
 //
-//   item        a setting of the schema (utils/llamaCppRuntime normalizeSchema)
+//   item        a setting of the schema (utils/engineSettings normalizeSchema)
 //   values      the editor's flat values
 //   onWrite     (item, value) => void; undefined unsets the setting
 //   onValidity  (id, ok) => void
@@ -51,7 +51,7 @@ export default function RuntimeField({ item, values, onWrite, onValidity, readOn
       setError(null)
       onWrite(item, got.value)
     } else {
-      setError(t(`runtime.errors.${got.error}`, got.params || {}))
+      setError(t(`engineSettings.errors.${got.error}`, got.params || {}))
     }
   }
   const settle = () => {
@@ -72,7 +72,7 @@ export default function RuntimeField({ item, values, onWrite, onValidity, readOn
   let control
   if (item.type === 'bool' || (item.type === 'enum' && item.enum.length <= 3)) {
     const options = item.type === 'bool'
-      ? [{ id: '', label: defaultLabel(t, item) }, { id: 'true', label: t('runtime.on') }, { id: 'false', label: t('runtime.off') }]
+      ? [{ id: '', label: defaultLabel(t, item) }, { id: 'true', label: t('engineSettings.on') }, { id: 'false', label: t('engineSettings.off') }]
       : [{ id: '', label: defaultLabel(t, item) }, ...item.enum.map(v => ({ id: v, label: choiceWords(t, v) }))]
     const current = value === undefined ? '' : String(value)
     control = (
@@ -115,7 +115,7 @@ export default function RuntimeField({ item, values, onWrite, onValidity, readOn
         onChange={next => { type(next); editing.current = false }}
         label={label}
         placeholder={defaultLabel(t, item)}
-        resetLabel={t('runtime.reset', { name: label })}
+        resetLabel={t('engineSettings.reset', { name: label })}
         invalid={Boolean(error)}
         describedBy={describedBy}
         disabled={readOnly}

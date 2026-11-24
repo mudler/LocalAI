@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Button } from '../../ui'
 import Icon from '../../Icon'
-import { rawOptions, replaceRawOptions, validateRawOption } from '../../../utils/llamaCppRuntime'
+import { rawOptions, replaceRawOptions, validateRawOption } from '../../../utils/engineSettings'
 
 const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
 
 // The `options:` entries no field above sets, one per row, written as typed:
-// "name:value", "name", or a llama-server flag such as "--rope-scale:2". An
+// "name:value", "name", or a command-line flag such as "--rope-scale:2". An
 // entry a field already sets is refused here, so no setting is written twice.
 export default function RawOptions({ values, owned, onOptions, onValidity, readOnly }) {
   const { t } = useTranslation('modelEditor')
@@ -40,7 +40,7 @@ export default function RawOptions({ values, owned, onOptions, onValidity, readO
 
   return (
     <div className="rt-raw" data-testid="rt-raw">
-      {rows.length === 0 && <p className="text-note" data-testid="rt-raw-empty">{t('runtime.raw.empty')}</p>}
+      {rows.length === 0 && <p className="text-note" data-testid="rt-raw-empty">{t('engineSettings.raw.empty')}</p>}
       {rows.map((row, i) => {
         const err = errors[i]
         return (
@@ -49,7 +49,7 @@ export default function RawOptions({ values, owned, onOptions, onValidity, readO
               <input
                 className="dk-input dk-input--mono"
                 value={row}
-                aria-label={t('runtime.raw.entry', { n: i + 1 })}
+                aria-label={t('engineSettings.raw.entry', { n: i + 1 })}
                 placeholder="name:value"
                 spellCheck={false}
                 readOnly={readOnly}
@@ -59,7 +59,7 @@ export default function RawOptions({ values, owned, onOptions, onValidity, readO
               />
               {err && (
                 <p className="dk-field-error" role="alert" data-testid={`rt-raw-error-${i}`}>
-                  <Icon name="alert-circle" />{t(`runtime.errors.${err.error === 'owned' ? 'rawOwned' : 'empty'}`, err.params || {})}
+                  <Icon name="alert-circle" />{t(`engineSettings.errors.${err.error === 'owned' ? 'rawOwned' : 'empty'}`, err.params || {})}
                 </p>
               )}
             </div>
@@ -67,7 +67,7 @@ export default function RawOptions({ values, owned, onOptions, onValidity, readO
               <Button
                 variant="ghost"
                 icon="trash"
-                aria-label={t('runtime.raw.remove', { entry: row || i + 1 })}
+                aria-label={t('engineSettings.raw.remove', { entry: row || i + 1 })}
                 onClick={() => commit(rows.filter((_, j) => j !== i))}
                 data-testid={`rt-raw-remove-${i}`}
               />
@@ -78,7 +78,7 @@ export default function RawOptions({ values, owned, onOptions, onValidity, readO
       {!readOnly && (
         <div>
           <Button size="sm" icon="plus" onClick={() => setRows([...rows, ''])} data-testid="rt-raw-add">
-            {t('runtime.raw.add')}
+            {t('engineSettings.raw.add')}
           </Button>
         </div>
       )}

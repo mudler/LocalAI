@@ -39,10 +39,11 @@
         "label": "This model can look at images",
         "hint": "Turn this on when the upstream model accepts images. LocalAI cannot check it. Attached images then go to the model with the message."
     },
-    "runtime": {
+    "engineSettings": {
         "title": "Runtime tuning",
-        "lead": "How llama.cpp loads and runs this model. Each field is a llama-server flag. An empty field keeps the default.",
-        "loading": "Loading the llama.cpp settings",
+        "lead": "How {{engine}} loads and runs this model. Each field is a {{binary}} flag. An empty field keeps the default.",
+        "leadNoCommand": "How {{engine}} loads and runs this model. An empty field keeps the default.",
+        "loading": "Loading the {{engine}} settings",
         "default": "Default",
         "defaultIs": "Default ({{value}})",
         "on": "On",
@@ -72,18 +73,22 @@
             "parameters_top_k": "Top-k",
             "parameters_min_p": "Min-p",
             "options_use_jinja": "Jinja chat template",
-            "loadMode": "Load mode",
+            "load_mode": "Load mode",
             "options_ubatch": "Micro-batch size"
         },
-        "loadModes": {
-            "default": "Default (memory-mapped)",
-            "none": "None (read into memory)",
-            "mmap": "mmap",
-            "mlock": "mlock",
-            "mmap_mlock": "mmap + mlock",
-            "direct_io": "Direct I/O"
+        "choices": {
+            "load_mode": {
+                "default": "Default (memory-mapped)",
+                "none": "None (read into memory)",
+                "mmap": "mmap",
+                "mlock": "mlock",
+                "mmap_mlock": "mmap + mlock",
+                "direct_io": "Direct I/O"
+            }
         },
-        "loadModeHint": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+        "hints": {
+            "load_mode": "How the model file is read. Writes mmap, mmlock and the direct_io option."
+        },
         "errors": {
             "notInteger": "Type a whole number.",
             "notNumber": "Type a number.",
@@ -99,10 +104,10 @@
             "overrideTarget": "The buffer name can only have letters, digits and underscores: {{target}}",
             "overrideRegex": "This pattern is not a valid regular expression: {{entry}}"
         },
-        "ot": {
+        "placement": {
             "title": "Tensor placement",
             "modes": {
-                "off": "Off (llama.cpp decides)",
+                "off": "Off ({{engine}} decides)",
                 "experts": "MoE experts on CPU",
                 "rest": "First N layers on GPU, experts of the rest on CPU",
                 "ranges": "Experts of chosen layers on CPU",
@@ -123,9 +128,9 @@
             "addRange": "Add range",
             "removeRange": "Remove range {{n}}",
             "raw": "Override value",
-            "rawHint": "Comma-separated pattern=buffer entries, as in llama-server -ot.",
+            "rawHint": "Comma-separated pattern=buffer entries, as in {{binary}} {{flag}}.",
             "generated": "Generated value",
-            "nothing": "Nothing. llama.cpp places the tensors.",
+            "nothing": "Nothing. {{engine}} places the tensors.",
             "mode": "Placement",
             "totalLayers": "Total layers",
             "totalUnknown": "Not known",
@@ -156,7 +161,7 @@
         },
         "raw": {
             "title": "Advanced options",
-            "hint": "Other entries of the options list, one per row: name:value, or a llama-server flag such as --rope-scale:2.",
+            "hint": "Other entries of the options list, one per row: name:value, or a {{binary}} flag such as --flag:value.",
             "empty": "No other options.",
             "entry": "Option {{n}}",
             "remove": "Remove {{entry}}",
@@ -171,10 +176,10 @@
             "copied": "Copied",
             "copyFailed": "Copy failed",
             "failed": "The preview is not available.",
-            "note": "The llama-server command these settings match. LocalAI starts the backend itself; this line is for comparison and for use outside LocalAI."
+            "note": "The {{binary}} command these settings match. LocalAI starts the backend itself; this line is for comparison and for use outside LocalAI."
         },
         "paste": {
-            "title": "Paste a llama-server command",
+            "title": "Paste a {{binary}} command",
             "hint": "Flags with a field fill that field. Flags with no field are kept as raw options and listed below.",
             "fill": "Fill the form",
             "failed": "The command could not be read.",
@@ -186,7 +191,7 @@
             "useModelFile": "Use this file",
             "warnings": "Warnings: {{count}}",
             "unmapped": "Flags not mapped: {{count}}",
-            "unmappedNote": "A flag with no field is kept as a raw option and passed to llama.cpp as written. Remove the ones you do not want.",
+            "unmappedNote": "A flag with no field is kept as a raw option and passed to {{engine}} as written. Remove the ones you do not want.",
             "keep": "Keep as raw option",
             "keepAll": "Keep all",
             "kept": "Kept",
@@ -195,7 +200,7 @@
         },
         "schemaError": {
             "title": "Runtime tuning is not available.",
-            "body": "The server did not send the llama.cpp settings ({{message}}). You can still edit every setting as text in the other tab of this editor.",
+            "body": "The server did not send the {{engine}} settings ({{message}}). You can still edit every setting as text in the other tab of this editor.",
             "retry": "Try again",
             "openYaml": "Edit as text"
         },
