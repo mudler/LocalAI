@@ -239,9 +239,14 @@ Stop strings are matched in Go, then the engine is sent `STOP`.
 - On Linux the engine gets `PDEATHSIG=SIGKILL`, tied to a pinned OS thread so it fires when the
   backend process dies, not when some Go thread exits. Closing stdin also ends the serve loop.
 - `Free` sends `QUIT`, closes stdin, and kills the engine after 10 s.
-- A cancelled gRPC stream sends `STOP`. If the engine does not finish within `stop_timeout`, it is
-  killed and the next request fails with an "engine exited" error until the model is reloaded.
-  `Status` reports `ERROR` when the engine is dead.
+- A cancelled gRPC stream sends `STOP`, and sends it again every 1.5 s until the engine ends the
+  request, because the engine can lose a `STOP` that arrives right after the request. If the engine
+  does not finish within `stop_timeout`, it is killed.
+- A request that finds the engine dead (it crashed, or it was killed) starts it again from the
+  load configuration, up to two attempts, and runs on the new engine. The request in which the
+  engine died still fails, and the new engine starts with an empty conversation cache. If the
+  restart fails, the request fails with that error and the next request tries again. `Status`
+  reports `ERROR` while the engine is dead.
 
 ## Tokenizer, template and parser
 

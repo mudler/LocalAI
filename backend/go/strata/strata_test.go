@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -238,6 +240,64 @@ var _ = Describe("backend", func() {
 		if err == nil || !strings.Contains(err.Error(), "pack") {
 			Fail(fmt.Sprintf("want a pack error, got %v", err))
 		}
+	})
+
+	It("starts the engine again when it has died", func() {
+		s, _ := loaded("crash")
+		_, err := s.PredictRichContext(context.Background(), &pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(errors.Is(err, errEngineDied)).To(BeTrue(), "%v", err)
+		// A dead engine is reported as an error, not as ready.
+		st, _ := s.Status()
+		Expect(st.State).To(Equal(pb.StatusResponse_ERROR))
+
+		var starts atomic.Int32
+		s.startEngine = func(c engineConfig) (*engine, error) {
+			starts.Add(1)
+			c.Env = append(c.Env, "STRATA_STUB_MODE=ok", "STRATA_STUB_TOKENS=72,105")
+			return startEngine(c)
+		}
+		// Several callers find the same dead engine at once: one restart. (The
+		// server runs one request at a time; restartEngine does not rely on it.)
+		dead, _, _, _ := s.state()
+		var wg sync.WaitGroup
+		for range 4 {
+			wg.Go(func() {
+				defer GinkgoRecover()
+				eng, err := s.restartEngine(context.Background(), dead)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(eng.alive()).To(BeTrue())
+			})
+		}
+		wg.Wait()
+		out, err := s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(Equal("Hi"))
+		Expect(starts.Load()).To(Equal(int32(1)))
+		st, _ = s.Status()
+		Expect(st.State).To(Equal(pb.StatusResponse_READY))
+		// Later requests use the new engine.
+		_, err = s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(starts.Load()).To(Equal(int32(1)))
+	})
+
+	It("reports a restart that fails and tries again on the next request", func() {
+		s, _ := loaded("crash")
+		_, err := s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(err).To(HaveOccurred())
+		var starts int
+		s.startEngine = func(engineConfig) (*engine, error) {
+			starts++
+			return nil, errors.New("no GPU")
+		}
+		_, err = s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(err).To(MatchError(ContainSubstring("could not be started again")))
+		Expect(err).To(MatchError(ContainSubstring("no GPU")))
+		Expect(starts).To(Equal(restartAttempts))
+		st, _ := s.Status()
+		Expect(st.State).To(Equal(pb.StatusResponse_ERROR))
+		_, _ = s.Predict(&pb.PredictOptions{Prompt: "x", Tokens: 20})
+		Expect(starts).To(Equal(2 * restartAttempts))
 	})
 
 	It("load passes engine args", func() {

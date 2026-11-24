@@ -68,6 +68,11 @@ type engine struct {
 	errs   []string // ERR lines seen on stdout before READY
 }
 
+// defaultStopTimeout is how long a stopped request may take to end. Upstream
+// documents stops of about 24 s on a two-GPU split, and the engine is killed
+// when the time is up, so the default leaves a wide margin.
+const defaultStopTimeout = 2 * time.Minute
+
 var (
 	errEngineDied = errors.New("strata engine exited")
 	errNotReady   = errors.New("strata engine did not report READY")
@@ -79,7 +84,7 @@ func startEngine(cfg engineConfig) (*engine, error) {
 		cfg.ReadyTimeout = 15 * time.Minute
 	}
 	if cfg.StopTimeout <= 0 {
-		cfg.StopTimeout = 30 * time.Second
+		cfg.StopTimeout = defaultStopTimeout
 	}
 	if cfg.StopResend <= 0 {
 		cfg.StopResend = 1500 * time.Millisecond

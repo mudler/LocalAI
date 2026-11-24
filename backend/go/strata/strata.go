@@ -123,13 +123,7 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
 	}
-	eng, err := s.startEngine(engineConfig{
-		Path:         c.enginePath,
-		Args:         c.engineArgs(),
-		Env:          c.env,
-		ReadyTimeout: c.readyTimeout,
-		StopTimeout:  c.stopTimeout,
-	})
+	eng, err := s.startEngine(c.engineConfig())
 	if err != nil {
 		_ = tok.Close()
 		return fmt.Errorf("strata: %w", err)
@@ -167,6 +161,72 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	}
 	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision) || (c.inkling != nil && c.inkling.useVision))
 	return nil
+}
+
+func (c loadConfig) engineConfig() engineConfig {
+	return engineConfig{
+		Path:         c.enginePath,
+		Args:         c.engineArgs(),
+		Env:          c.env,
+		ReadyTimeout: c.readyTimeout,
+		StopTimeout:  c.stopTimeout,
+	}
+}
+
+// restartAttempts bounds how often one request tries to start the engine again.
+const restartAttempts = 2
+
+// restartEngine replaces an engine that has died with a new one started from
+// the saved load configuration. The model stays loaded in every other way (the
+// tokenizer, the image encoder, the end tokens), so only the process is new;
+// its conversation cache starts empty.
+//
+// It is single-flight: restarts and Load share lifeMu, so a second request
+// that finds the same dead engine waits for the first and then uses its result.
+// A failed restart leaves the dead engine in place; the next request tries
+// again.
+func (s *Strata) restartEngine(ctx context.Context, dead *engine) (*engine, error) {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	s.mu.RLock()
+	cur, cfg := s.eng, s.cfg
+	s.mu.RUnlock()
+	if cur == nil {
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	if cur != dead && cur.alive() {
+		return cur, nil // another request, or a Load, already replaced it
+	}
+	xlog.Warn("strata: the engine is not running, starting it again", "pid", cur.pid())
+	cur.close() // reaps it if it is still being waited for
+
+	var (
+		eng *engine
+		err error
+	)
+	for attempt := 1; attempt <= restartAttempts; attempt++ {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
+		if eng, err = s.startEngine(cfg.engineConfig()); err == nil {
+			break
+		}
+		xlog.Warn("strata: the engine did not restart", "attempt", attempt, "error", err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("strata: the engine exited and could not be started again: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.eng != cur { // Free ran meanwhile
+		eng.close()
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	s.eng = eng
+	xlog.Info("strata: engine restarted", "context", eng.ctxLen)
+	return eng, nil
 }
 
 // defaultEOS finds the end-of-turn tokens of the model family by name, and
@@ -530,6 +590,11 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	eng, tok, vis, err := s.state()
 	if err != nil {
 		return res, err
+	}
+	if !eng.alive() {
+		if eng, err = s.restartEngine(ctx, eng); err != nil {
+			return res, err
+		}
 	}
 	s.mu.RLock()
 	eos, ctxLen := s.eos, s.ctxLen
