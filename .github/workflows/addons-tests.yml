@@ -85,6 +85,33 @@ permissions:
   contents: read
 
 jobs:
+  inventory:
+    # An early check that fails before the shared fixtures are built: a Ginkgo spec
+    # added or removed without the matching entry in scripts/addons/suites.json.
+    name: Ginkgo case inventories match the specs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.x'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev
+      - name: Compare the inventories with the specs
+        # The tests of some suites import the HTTP server, which embeds the built
+        # UI. A dry run does not serve it, so an empty placeholder is enough.
+        run: |
+          mkdir -p core/http/react-ui/dist
+          touch core/http/react-ui/dist/index.html
+          make addons-inventory
+
   prepare:
     name: prepare shared production fixtures
     runs-on: ubuntu-24.04

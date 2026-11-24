@@ -172,7 +172,7 @@ COVERAGE_E2E_LABELS?=!real-models
 COVERAGE_EXCLUDE_RE?=grpc/proto/.*[.]pb[.]go
 
 
-.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
+.PHONY: all test test-coverage test-coverage-baseline test-coverage-check test-backend-cpp test-build-scripts test-ui test-ui-stale-chunk test-ui-unit test-i18n test-postgres test-distributed-fakebus test-p2p test-e2e-p2p test-e2e-distributed-p2p-worker test-e2e-distributed-join-token test-addons-suites addons-inventory addons-inventory-write test-ui-coverage-baseline test-ui-coverage-check build vendor lint lint-all
 
 all: help
 
@@ -1970,6 +1970,17 @@ test-e2e-p2p:
 ## `packaging` is left out because addons-package.yml runs it.
 ## Prepare first with: sh scripts/addons/prepare.sh --prepare, then --integration
 ADDON_SUITES?=prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots library-sources foundation-acceptance recovery updates tables-databases tables-schema tables-rows tables-tools tables-admin tables-ui tables-csv tables-acceptance
+## Compare the Ginkgo case inventories of scripts/addons/suites.json with the
+## specs in the code, without running them (a dry run that builds the tests).
+## Fails and names every missing or stale case. addons-inventory-write fixes the
+## file; review the diff. Both need the generated gRPC code (protogen-go).
+## ADDON_INVENTORY_SUITES limits it to some suites.
+addons-inventory: protogen-go
+	python3 scripts/addons/inventory.py $(ADDON_INVENTORY_SUITES)
+
+addons-inventory-write: protogen-go
+	python3 scripts/addons/inventory.py --write $(ADDON_INVENTORY_SUITES)
+
 test-addons-suites:
 	@set -e; for suite in $(ADDON_SUITES); do \
 		echo "== $$suite"; \
