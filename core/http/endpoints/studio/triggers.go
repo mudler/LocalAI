@@ -59,7 +59,7 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 			out.HookPath = hookPath(t.ID)
 		}
 	}
-	if t.Kind == triggers.KindFile {
+	if t.Kind == triggers.KindFile || t.Kind == triggers.KindEvent {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
 	if next, ok := host.NextRun(t); ok {

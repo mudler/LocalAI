@@ -145,6 +145,26 @@ var _ = Describe("ProposeTrigger of kind event", func() {
 		Expect(got.Secret).NotTo(BeEmpty())
 	})
 
+	It("refuses an event trigger that a chat of a messaging app would make", func() {
+		r := newTrigRig(proposeScript(eventProposal))
+		route := triggers.Route{Binding: "b1", Chat: "c1", Code: "AB12"}
+		_, err := r.host.ProposeTrigger(ctx, alice, studio.TriggerInput{Name: "Hook", Prompt: "p", Kind: triggers.KindEvent, Source: "ci", Model: "m", Route: route})
+		Expect(err).To(MatchError(ContainSubstring("create it in Studio")), "propose")
+		props, _ := r.host.Proposals(ctx, alice)
+		Expect(props).To(BeEmpty())
+
+		// A stored proposal with a chat route, as an older version could keep.
+		t := r.schedule(studio.TriggerInput{Name: "Hook", Prompt: "p", Kind: triggers.KindEvent, Source: "ci"})
+		t.Proposed, t.Enabled, t.Route, t.Secret = true, false, route, ""
+		Expect(r.sh.trg.PutTrigger(ctx, t)).To(Succeed())
+		_, err = r.host.ConfirmProposal(ctx, alice, t.ID, "")
+		Expect(err).To(MatchError(ContainSubstring("create it in Studio")), "confirm, the path of an answer in a chat and of automatic setup")
+		got, err := r.sh.trg.GetTrigger(ctx, t.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Secret).To(BeEmpty())
+		Expect(got.Enabled).To(BeFalse())
+	})
+
 	It("keeps two proposals that differ only in the match apart", func() {
 		r := newTrigRig(proposeScript(`{"name":"Hook","prompt":"p","kind":"event","source":"ci","matches":["a=1"]}`))
 		id := chatOf(r)

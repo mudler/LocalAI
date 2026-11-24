@@ -68,6 +68,18 @@ var _ = Describe("the secret of an event trigger in the studio API", func() {
 		Expect(hook(id, secret).Code).To(Equal(http.StatusAccepted))
 	})
 
+	It("echoes the gap between runs of an event trigger, 60 seconds by default", func() {
+		rec := s.do("alice", http.MethodPost, "/api/chats/triggers", eventBody(nil))
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(decodeJSON(rec)["min_gap_seconds"]).To(BeEquivalentTo(60))
+		rec = s.do("alice", http.MethodPost, "/api/chats/triggers", eventBody(func(b map[string]any) { b["name"] = "Slow"; b["min_gap_seconds"] = 300 }))
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		out := decodeJSON(rec)
+		Expect(out["min_gap_seconds"]).To(BeEquivalentTo(300))
+		got := s.do("alice", http.MethodGet, "/api/chats/triggers/"+out["id"].(string), nil)
+		Expect(decodeJSON(got)["min_gap_seconds"]).To(BeEquivalentTo(300))
+	})
+
 	It("has no secret on a trigger of another kind, and refuses event fields on it", func() {
 		rec := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{"name": "Daily", "prompt": "p", "kind": "schedule",
 			"schedule": "daily 09:00", "time_zone": "UTC", "model": "test-model", "enabled": true})

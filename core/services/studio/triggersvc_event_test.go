@@ -57,6 +57,25 @@ var _ = Describe("an event run", func() {
 		Expect(closing).To(BeNumerically(">", open))
 	})
 
+	It("makes no run for a caller that is gone, and writes to the end for one that is there", func() {
+		r := newTrigRig(saySummary)
+		t := eventTrigger(r, nil)
+		gone, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err := r.host.PublishRun(gone, t.ID, triggers.Event{Source: "example-hook", Type: "push", DedupeKey: "k0", Payload: []byte("{}")})
+		Expect(err).To(MatchError(context.Canceled))
+		runs, err := r.host.TriggerRuns(ctx, alice, t.ID, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(runs).To(BeEmpty())
+		// The writes after the call starts do not depend on the request: the
+		// store writes of a merge cannot be cut half way by a disconnect. A
+		// disconnect inside the call cannot be staged with the stores of the
+		// rig (they ignore the context), so only the entry is pinned here.
+		got, err := r.host.PublishRun(ctx, t.ID, triggers.Event{Source: "example-hook", Type: "push", DedupeKey: "k1", Payload: []byte("{}")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).NotTo(BeEmpty())
+	})
+
 	It("breaks the closing marker inside a payload", func() {
 		r := newTrigRig(saySummary)
 		t := eventTrigger(r, nil)

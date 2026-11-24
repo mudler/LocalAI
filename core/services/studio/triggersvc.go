@@ -719,6 +719,14 @@ func (h *Triggers) Publish(ctx context.Context, triggerID string, ev triggers.Ev
 func (h *Triggers) PublishRun(ctx context.Context, triggerID string, ev triggers.Event) (triggers.Run, error) {
 	var err error
 	var run triggers.Run
+	// A caller that is gone gets no run. Once the call starts, the store
+	// writes run to the end: a client that disconnects between the append of a
+	// merged payload and its marker would leave the payload without a marker,
+	// and a retry would merge it again.
+	if err := ctx.Err(); err != nil {
+		return triggers.Run{}, err
+	}
+	ctx = context.WithoutCancel(ctx)
 	if h.o.Lead != nil && !h.o.Lead(ctx) {
 		// Not the leader: claim the run queued, and the leader starts it. A
 		// Runner made here is not kept: a kept one would make RunTrigger start

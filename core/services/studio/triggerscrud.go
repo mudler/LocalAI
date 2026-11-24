@@ -120,6 +120,10 @@ func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
 // gap keeps running; only a new save is checked (see checkCadence).
 const MinCadence = 5 * time.Minute
 
+// errEventFromChat refuses an event trigger that a chat of a messaging app
+// would make: its secret is shown once, and nobody would see it.
+var errEventFromChat = fmt.Errorf("%w: an event trigger has a secret that is shown only once, so a chat of a messaging app cannot make it; create it in Studio", ErrBadTrigger)
+
 func bad(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrBadTrigger, fmt.Sprintf(format, args...))
 }
@@ -493,6 +497,9 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 	owner := principal(user)
 	in.Enabled = false
 	now := h.o.Clock()
+	if in.Kind == triggers.KindEvent && in.Route.FromConnector() {
+		return triggers.Trigger{}, false, errEventFromChat
+	}
 	if in.Route.FromConnector() {
 		in.Route.ProposedAt, in.Route.Expires = now.UTC(), now.UTC().Add(ProposalTTL)
 		in.Route.Code = ""
@@ -630,6 +637,10 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 	old, err := h.pendingProposal(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
+	}
+	if old.Kind == triggers.KindEvent && old.Route.FromConnector() {
+		// Also the way an answer in a chat and an automatic setup confirm.
+		return triggers.Trigger{}, errEventFromChat
 	}
 	t := old
 	if t.Kind == triggers.KindSchedule && t.TZ == "" {
