@@ -2579,7 +2579,11 @@
           "describes the project mounts in the prompt",
           "tells the model not to change the memory of a shared project, also through the shared folder",
           "describes a mount by the role it was asked for, never by its name",
-          "adds the notes of the view to the prompt"
+          "adds the notes of the view to the prompt",
+          "backend too old, from the cooldown",
+          "backend too old, from the load error",
+          "names the backend that is too old",
+          "keeps the backend through the transcript line"
         ]
       }
     ]
