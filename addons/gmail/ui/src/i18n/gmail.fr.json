@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Laissez vos agents lire le courrier de votre compte Google. Si vous l'autorisez, ils peuvent aussi enregistrer des brouillons et les envoyer, une fois que vous avez approuvé chacun, sauf si vous choisissez Tout autoriser.",
+  "limits": "Choisissez « Se connecter avec Google » pour ajouter une connexion et vous connecter à votre compte Google. Cette page règle les libellés et le mode d’écriture de chaque connexion. Un agent ne travaille dans votre boîte que lorsque vous le lui demandez dans un chat.",
+  "edit": "Modifier la connexion Gmail",
+  "name": "Nom",
+  "labels": "Libellés que l’agent peut utiliser",
+  "labelsHelp": "Un nom ou un identifiant de libellé par ligne. Écrivez avec des tirets un nom qui contient des espaces. {{count}} indiqué(s). L’agent n’atteint que les e-mails qui portent l’un de ces libellés. Écrivez ALL pour donner toute la boîte.",
+  "labelsShape": "« {{entry}} » n’est pas un libellé. Utilisez le nom ou l’identifiant d’un libellé, ou ALL.",
+  "labelsMany": "50 libellés au plus.",
+  "allNote": "ALL donne à l’agent tous les e-mails que ce compte peut lire, dans tous les libellés, y compris ceux qu’un modèle n’aurait jamais dû voir. Si vous le pouvez, utilisez plutôt un libellé.",
+  "agent": "Agent",
+  "agentNone": "Choisir un agent",
+  "agentCredentialsOnly": "Aucun agent (identifiants uniquement)",
+  "agentOptionalHint": "Facultatif. Sans agent, cette connexion ne garde que la connexion au compte, la liste des libellés et le mode d’écriture pour vos chats. Elle ne répond à aucun message et n’écoute rien.",
+  "credentialsOnly": "Identifiants uniquement",
+  "agentNoModel": "{{name}} (a besoin d’un modèle)",
+  "test": "Tester",
+  "testOk": "Connecté en tant que {{bot}}.",
+  "checkFailed": "Enregistré. La vérification a échoué : {{reason}}",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "editButton": "Modifier",
+  "delete": "Supprimer",
+  "empty": "Aucune connexion Gmail pour l’instant. Choisissez « Se connecter avec Google » pour en ajouter une.",
+  "connect": "Se connecter avec Google",
+  "defaultName": "Gmail",
+  "noLabels": "Aucun libellé indiqué : l’agent ne peut rien lire.",
+  "labelsOf": "{{count}} libellé(s) : {{list}}",
+  "allMailbox": "Toute la boîte",
+  "agentOf": "Agent : {{name}}",
+  "inactive": "À l’arrêt : {{reason}}.",
+  "confirmDelete": {
+    "title": "Supprimer {{name}} ?",
+    "message": "L’agent ne peut plus atteindre cette boîte. LocalAI demande à Google de révoquer la connexion au compte, puis l’oublie.",
+    "confirm": "Supprimer"
+  },
+  "setup": {
+    "title": "Comment choisir des libellés",
+    "step1": "Écrivez le nom d’un libellé Gmail, par exemple Travail, ou d’un libellé système comme INBOX ou STARRED. Un nom qui contient des espaces s’écrit avec des tirets.",
+    "step2": "L’agent n’atteint que les e-mails qui portent le libellé. Les spams et la corbeille ne sont jamais explorés. N’écrivez ALL que si l’agent peut lire toute la boîte.",
+    "step3": "Le mode d’écriture ci-dessous demande aussi l’accès facultatif que vous autorisez à la connexion. Sans lui, l’agent ne peut que lire."
+  },
+  "writeMode": {
+    "label": "Ce que l’agent peut faire de vos e-mails",
+    "hint": "Enregistrer un brouillon et envoyer un brouillon existant. Il ne supprime, ne met à la corbeille, n’étiquette et ne transfère jamais d’e-mail, et il ne change jamais vos réglages.",
+    "off": "Lecture seule",
+    "propose": "Vous demande d’abord",
+    "auto": "Tout autoriser",
+    "line": {
+      "off": "Il ne peut rien enregistrer ni envoyer.",
+      "propose": "Chaque brouillon et chaque envoi attendent votre accord.",
+      "auto": "Vos chats enregistrent des brouillons et envoient tout de suite."
+    },
+    "note": {
+      "off": "L’accès en écriture est désactivé : cette connexion ne fait que lire.",
+      "propose": "Chaque brouillon et chaque envoi attendent dans vos approbations jusqu’à ce que vous les confirmiez. Vous voyez d’abord les destinataires et le texte. Il demande aussi l’accès en écriture facultatif que vous autorisez à la connexion.",
+      "auto": "Un de vos chats enregistre des brouillons et envoie le courrier tout de suite, sans demander. Un courriel envoyé ne peut pas être rappelé. Les exécutions sans vous attendent toujours votre confirmation."
+    },
+    "row": {
+      "off": "Lecture seule",
+      "propose": "Vous demande d’abord",
+      "auto": "Tout autoriser"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Enregistrer un brouillon",
+      "send-draft": "Envoyer un e-mail"
+    },
+    "to": "À",
+    "cc": "Cc",
+    "bcc": "Cci",
+    "subject": "Objet",
+    "none": "(aucun)",
+    "replyTo": "Réponse à",
+    "attachments": "Pièces jointes",
+    "text": "Texte ({{bytes}} octets)",
+    "cut": "Le texte affiché ici est coupé. Le texte complet, de {{bytes}} octets, est enregistré.",
+    "draftNote": "Cela enregistre un brouillon dans votre Gmail. Cela ne l’envoie pas.",
+    "sendNote": "Cela envoie un e-mail depuis votre Gmail aux personnes ci-dessus. Un e-mail envoyé ne peut pas être rappelé."
+  }
+}

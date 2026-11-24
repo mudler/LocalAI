@@ -1,0 +1,1632 @@
+{
+  "proposal": {
+    "loading": "正在读取建议的触发器...",
+    "unread": "无法读取建议的触发器：{{message}}",
+    "removed": "此触发器已被删除。",
+    "retry": "重试",
+    "inactive": "建议的触发器。在你创建它之前不会运行任何内容。",
+    "name": "名称",
+    "schedule": "何时（例如 daily 08:00）",
+    "folder": "要监视的文件夹",
+    "saveEdit": "保存",
+    "cancelEdit": "取消",
+    "create": "创建触发器",
+    "edit": "编辑",
+    "dismiss": "拒绝",
+    "receipt": {
+      "scheduled": "已安排：",
+      "watching": "监视中：",
+      "next": "下次运行 {{when}}",
+      "view": "查看触发器",
+      "undo": "撤销",
+      "undone": "已撤销：",
+      "again": "重新安排",
+      "declined": "已拒绝：",
+      "expired": "已过期：",
+      "restore": "恢复",
+      "blocked": {
+        "ran": "它已经运行过一次；请在触发器页面中删除。",
+        "edited": "之后你编辑过它；请在触发器页面中修改或删除。"
+      }
+    },
+    "announce": {
+      "accepted": "已安排 {{name}}。",
+      "undone": "已撤销 {{name}}。它未被安排。",
+      "declined": "已拒绝 {{name}}。",
+      "reopened": "{{name}} 再次等待你的答复。"
+    },
+    "plan": {
+      "whenLabel": "时间",
+      "runsAsLabel": "运行身份",
+      "readsLabel": "读取",
+      "writesLabel": "写入",
+      "costLabel": "成本",
+      "deliveryLabel": "结果发送到",
+      "deliveryInbox": "你的收件箱",
+      "deliveryChat": "此聊天",
+      "deliveryThread": "此线程",
+      "deliveryChannel": "{{channel}}，频道顶层",
+      "deliveryChannelIn": "{{connection}} 中的 {{channel}}，频道顶层",
+      "deliveryModeOnChange": "仅当答案与上一次运行不同时。",
+      "deliveryModeOnProblem": "仅当运行失败时。成功的运行不会报告任何内容。",
+      "stopLabel": "如何停止",
+      "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
+      "whenNoFirst": "{{schedule}}，{{zone}}。",
+      "whenFile": "当有文件进入 {{folder}} 时。",
+      "runsAs": "你",
+      "runsAsModel": "你，使用 {{model}}",
+      "writesWidget": "，显示在主页的“{{widget}}”小组件中",
+      "costLocal_other": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_other": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costUnknown_other": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "costLocal_one": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_one": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
+      "stopWidget": "在小组件中暂停，或在触发器中删除",
+      "stop": "在触发器中关闭或删除",
+      "actsLabel": "权限",
+      "limitLabel": "时间限制",
+      "limitClamped": "{{limit}}，管理员限制为 {{ceiling}}"
+    }
+  },
+  "mcpPage": {
+    "title": "MCP 连接器",
+    "supporting": "连接 MCP 服务器，为你的对话和智能体提供更多工具，例如搜索或你自己的 API。",
+    "related": "相关",
+    "chats": "对话",
+    "add": "新建连接器",
+    "learn": "MCP 如何工作",
+    "loading": "正在加载你的连接器",
+    "loadFailed": "无法加载你的连接器。",
+    "forbidden": "你的账户无法使用 MCP。",
+    "empty": {
+      "title": "还没有连接器",
+      "body": "连接器把一个 MCP 服务器接入 LocalAI。之后你的对话和智能体就能使用它的工具，例如搜索你的文档或读取日历。",
+      "fact1": "支持任何 http 或 https 的 MCP 服务器",
+      "fact2": "令牌和请求头加密保存",
+      "fact3": "在对话使用前先测试"
+    },
+    "toolbar": {
+      "search": "搜索连接器",
+      "testAll": "全部测试",
+      "testingAll": "正在测试",
+      "testedAll": "已测试所有已开启的连接器。"
+    },
+    "filter": {
+      "label": "显示",
+      "all": "全部",
+      "on": "已开启",
+      "attention": "需要处理",
+      "off": "已关闭",
+      "showAll": "显示全部",
+      "none": {
+        "all": "没有连接器。",
+        "on": "没有开启的连接器。",
+        "attention": "没有需要处理的连接器。",
+        "off": "所有连接器都已开启。"
+      }
+    },
+    "noMatch": {
+      "title": "没有与“{{query}}”匹配的连接器",
+      "body": "按名称或地址搜索。",
+      "clear": "清除搜索"
+    },
+    "state": {
+      "label": "状态：{{state}}",
+      "ok": "已连接",
+      "auth": "需要登录",
+      "error": "无法连接",
+      "unchecked": "未测试",
+      "off": "已关闭"
+    },
+    "row": {
+      "open": "{{name}}，{{state}}。查看详情",
+      "toggle": "在对话中使用 {{name}}",
+      "menu": "{{name}} 的操作",
+      "offLine": "已关闭。对话和智能体不会使用它。",
+      "notChecked": "尚未测试。测试后可查看它的工具。",
+      "noTools": "已连接，但服务器没有提供工具。",
+      "tools_one": "{{count}} 个工具",
+      "tools_other": "{{count}} 个工具",
+      "checked": "测试于{{when}}",
+      "tokenSaved": "已保存令牌",
+      "headersSaved": "已保存请求头",
+      "envSaved": "已保存变量"
+    },
+    "actions": {
+      "details": "详情",
+      "test": "测试连接",
+      "testNamed": "测试与 {{name}} 的连接",
+      "testing": "正在测试",
+      "edit": "编辑",
+      "reauth": "更换令牌",
+      "remove": "移除"
+    },
+    "details": {
+      "use": "在对话中使用",
+      "useHelp": "没有智能体的对话会使用所有已开启的连接器。已保存的智能体只使用你为它选择的连接器。",
+      "lastCheck": "上次测试",
+      "never": "尚未在此浏览器中测试。",
+      "okAt": "{{when}}连接成功。",
+      "testedAt": "测试于{{when}}。",
+      "errorTitle": "上次测试无法连接。",
+      "authTitle": "服务器拒绝了登录。",
+      "output": "命令的最后输出",
+      "outputCopy": "复制",
+      "outputCopied": "已复制",
+      "outputMore": "显示全部 {{count}} 行",
+      "outputLess": "收起",
+      "tools": "工具",
+      "toolsUnknown": "测试连接后可查看工具。",
+      "toolsNone": "服务器没有提供工具。",
+      "toolsSearch": "搜索工具",
+      "noToolMatch": "没有与“{{query}}”匹配的工具。",
+      "noDescription": "没有描述。",
+      "connection": "连接",
+      "kind": "类型",
+      "address": "地址",
+      "command": "命令",
+      "added": "添加时间",
+      "queryHidden": "地址中 ? 之后的部分已隐藏，因为其中可能含有密钥。",
+      "signIn": "登录",
+      "token": "Bearer 令牌",
+      "headers": "请求头",
+      "env": "变量",
+      "saved": "已保存",
+      "none": "无",
+      "encrypted": "在服务器上加密保存，不会再次显示。"
+    },
+    "sheet": {
+      "addTitle": "新建连接器",
+      "editTitle": "编辑 {{name}}",
+      "addDesc": "连接一个 MCP 服务器。在对话使用前先测试它。",
+      "editDesc": "已保存的密钥会保留，除非你更换或移除它们。",
+      "testDesc": "LocalAI 使用你保存的设置进行连接，并列出工具。",
+      "close": "关闭",
+      "kind": "类型",
+      "remote": "远程服务器",
+      "remoteHelp": "这台机器通过 http 或 https 访问的 MCP 服务器。",
+      "local": "本地命令",
+      "localHelp": "LocalAI 在这台机器上启动的程序。仅限管理员。",
+      "basics": "连接",
+      "name": "名称",
+      "nameHelp": "显示在对话的“工具”菜单中。",
+      "url": "地址",
+      "urlHelp": "私有网络中的服务器会被拒绝，除非管理员允许。",
+      "command": "命令",
+      "commandHelp": "要启动的程序，不经过 shell。",
+      "args": "参数",
+      "argsHelp": "每行一个参数。",
+      "signIn": "登录",
+      "signInHelp": "仅在服务器要求密钥时填写。",
+      "envIntro": "命令获得的变量，例如 API 密钥。",
+      "token": "Bearer 令牌",
+      "tokenHelp": "作为 Authorization 请求头发送。",
+      "tokenSaved": "已保存一个令牌。输入新令牌即可替换。",
+      "tokenSavedShort": "已保存",
+      "clearToken": "移除已保存的令牌",
+      "headers": "请求头",
+      "headersHelp": "服务器需要的其他请求头，例如包含 API 密钥的请求头。",
+      "headersSaved": "已保存请求头。新的行会替换全部请求头。",
+      "clearHeaders": "移除已保存的请求头",
+      "headerName": "请求头名称",
+      "headerValue": "值",
+      "addHeader": "添加请求头",
+      "env": "环境变量",
+      "envSaved": "已保存变量。新的行会替换全部变量。",
+      "clearEnv": "移除已保存的变量",
+      "envName": "变量",
+      "addEnv": "添加变量",
+      "removeRow": "移除第 {{n}} 行",
+      "showValue": "显示值",
+      "hideValue": "隐藏值",
+      "encrypted": "令牌、请求头和变量在服务器上加密保存，不会再次显示。",
+      "cancel": "取消",
+      "saving": "正在保存",
+      "saveAndTest": "保存并测试",
+      "savedOn": "已保存，已开启。",
+      "savedOff": "已保存。在你开启之前保持关闭。",
+      "testing": "正在连接 {{name}}…",
+      "okTitle": "已连接。",
+      "okBody_one": "{{name}} 提供 {{count}} 个工具。",
+      "okBody_other": "{{name}} 提供 {{count}} 个工具。",
+      "okNoTools": "服务器没有提供工具。",
+      "failTitle": "无法连接。",
+      "failHint": "请检查地址，然后再次测试。",
+      "failAuth": "请检查令牌或请求头。",
+      "back": "编辑信息",
+      "retry": "再次测试",
+      "done": "完成",
+      "keepOff": "保持关闭",
+      "turnOn": "开启",
+      "discardTitle": "放弃更改？",
+      "discardBody": "你在此表单中输入的内容将会丢失。",
+      "discard": "放弃",
+      "keepEditing": "继续编辑"
+    },
+    "errors": {
+      "nameRequired": "请输入名称。",
+      "nameTaken": "已有其他连接器使用此名称。",
+      "urlRequired": "请输入服务器地址。",
+      "urlInvalid": "这不是有效的地址。",
+      "urlScheme": "地址必须以 http:// 或 https:// 开头。",
+      "urlCredentials": "请把凭据放在令牌或请求头中，不要放在地址里。",
+      "commandRequired": "请输入要启动的命令。"
+    },
+    "remove": {
+      "title": "移除 {{name}}？",
+      "body": "连接器及其已保存的令牌、请求头和变量都会被删除。使用它的已保存智能体将无法再调用它的工具。",
+      "confirm": "移除",
+      "pending": "正在移除"
+    },
+    "toasts": {
+      "removed": "已移除“{{name}}”。",
+      "on": "“{{name}}”已开启。",
+      "off": "“{{name}}”已关闭。"
+    },
+    "import": {
+      "title": "保存在此浏览器中的服务器",
+      "text": "旧的对话页面把这些 MCP 服务器保存在此浏览器中。导入后它们会保存在服务器上，任何浏览器和会话都能使用。导入的服务器处于关闭状态。它们的令牌和请求头会发送到服务器，然后从此浏览器中移除。",
+      "button": "从此浏览器导入 {{count}} 个服务器",
+      "buttonOne": "从此浏览器导入 1 个服务器",
+      "busy": "正在导入",
+      "headersCount": "{{count}} 个请求头",
+      "done": "已导入 {{count}} 个。它们处于关闭状态：请在下方测试并开启。",
+      "failed": "{{name}} 未导入：{{error}}",
+      "left": "未导入的服务器仍保留在此浏览器中。"
+    }
+  },
+  "connectorsPage": {
+    "loadFailed": "无法加载你的连接器。",
+    "waitingTitle": "等待对应的插件",
+    "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。",
+    "oauth": {
+      "connected": "已连接",
+      "connectedAs": "已以 {{account}} 连接",
+      "access": "权限：{{scopes}}",
+      "expires": "到期：{{time}}",
+      "disconnect": "断开连接",
+      "disconnecting": "正在断开…",
+      "disconnectTitle": "断开 {{name}}？",
+      "disconnectText": "LocalAI 会请求服务撤销此登录，然后忘记它。在你重新连接之前，使用此连接的工具将停止工作。",
+      "disconnected": "{{name}} 已断开。服务已撤销登录。",
+      "disconnectedNotTold": "{{name}} 已在此处断开，但服务没有确认已撤销登录。请也在你的服务账户中移除此访问权限。",
+      "notConnected": "尚未连接。",
+      "connect": "连接",
+      "alsoAllow": "同时允许：",
+      "reconnectTitle": "请重新连接。",
+      "reconnect": "重新连接",
+      "reason": {
+        "revoked": "服务结束了登录，或访问权限已被撤销。",
+        "client_rejected": "服务不再接受此服务器的客户端。可能需要管理员更新它。",
+        "refused": "服务拒绝续期登录。",
+        "needs_approval": "此插件的登录已更改，需要重新批准。",
+        "credential_rejected": "即使续期之后，服务仍拒绝了访问。",
+        "expired": "登录已过期，无法续期。",
+        "write_failed": "无法保存续期后的登录。",
+        "unreadable": "无法读取已保存的登录。",
+        "unknown": "登录已不再有效。",
+        "scopes_missing": "服务不再授予此插件所需的全部权限。请重新连接并允许。",
+        "endpoint_changed": "该插件现在将登录发送到服务的另一个地址，因此此登录无法随之迁移。请重新连接。",
+        "token_too_large": "服务续期登录时签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节）。"
+      },
+      "approvalUser": "必须先由管理员批准此插件。",
+      "approvalUserChanged": "此插件的登录已更改。必须由管理员重新批准。",
+      "approvalAdmin": "在你批准此插件的登录之前，任何人都无法连接。",
+      "approvalAdminChanged": "此插件的登录在批准后已更改。请检查并重新批准。",
+      "review": "检查并批准",
+      "returned": {
+        "ok": "已连接。此连接现在可以使用。",
+        "denied": "你在服务上拒绝了。没有任何更改。",
+        "error": {
+          "invalid_state": "无法完成登录：登录已过期，或此浏览器中开始了另一次登录。请重新连接。",
+          "provider_error": "服务报告了错误。请稍后再试。",
+          "exchange_failed": "服务没有完成登录。请重新连接。",
+          "scopes_missing": "服务没有授予此插件所需的全部权限。请重新连接并允许。",
+          "unavailable": "无法访问该插件。请稍后再试。",
+          "unknown": "无法完成登录。请重新连接。",
+          "token_too_large": "服务签发的访问令牌超过了 LocalAI 可使用的大小（4096 字节），因此未保存此登录。管理员可能需要更改服务为此客户端签发令牌的方式。"
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "此服务器不知道自己的公开地址，因此无法将你转到服务。请让管理员设置服务器的外部基础 URL。",
+        "needsApproval": "必须先由管理员批准此插件。",
+        "approvalStale": "此插件的登录已更改。请重新加载页面。",
+        "unavailable": "无法访问该插件。请稍后再试。",
+        "tooManyLogins": "启动的登录过多。请完成另一个标签页中的登录，或等待几分钟后重试。"
+      },
+      "add": {
+        "open": "新建连接",
+        "title": "新的 {{name}} 连接",
+        "name": "名称",
+        "hint": "一个便于识别的名称，例如“工作”或“个人”。添加连接后，选择“连接”登录你的账户。",
+        "cancel": "取消",
+        "submit": "添加",
+        "failed": "无法添加连接。请重试。",
+        "added": "已添加 {{name}}。选择“连接”登录你的账户。",
+        "empty": "还没有连接。请添加一个，然后连接你的账户。",
+        "manage": "编辑连接"
+      },
+      "login": {
+        "hint": "取一个你认得出的名字，例如“工作”或“个人”。接下来你会前往该服务登录。"
+      }
+    },
+    "duplicate": {
+      "text": "这个机器人也以 {{name}} 的名称连接。两个连接都会回复同一条消息。",
+      "turnOff": "关闭这个连接",
+      "open": "打开 {{name}}"
+    },
+    "new": "新建连接",
+    "newMenu": "选择新连接的平台",
+    "state": {
+      "running": "运行中",
+      "off": "已关闭",
+      "attention": "需要处理"
+    },
+    "share": {
+      "label": "共享",
+      "button": "共享 {{name}}",
+      "intro": "你添加的人可以在自己的聊天和智能体中使用此连接。他们能看到它的名称和状态，但永远看不到令牌或设置。发给机器人的消息仍由你的智能体接收。",
+      "roleUse": "可以使用",
+      "roleUseHelp": "可以在自己的聊天和智能体中使用。无法查看令牌、修改或再次共享。"
+    },
+    "shared": {
+      "title": "与你共享",
+      "text": "其他人允许你在自己的聊天和智能体中使用这些连接。只有所有者可以修改它们。",
+      "on": "监听中",
+      "off": "已关闭"
+    },
+    "title": "连接",
+    "introAccounts": "只需连接一次，聊天和智能体就能把这些账号当作工具使用。每个账号都来自一个插件。",
+    "noAddonAccounts": "尚未安装账号插件。",
+    "noAddonAccountsHint": "账号插件把一个服务连接到你的聊天和智能体。从插件库安装一个，即可添加连接。",
+    "noAddonMessaging": "尚未安装消息插件。",
+    "noAddonMessagingHint": "消息插件负责传递聊天平台的消息。从插件库安装一个，即可添加绑定。"
+  },
+  "tools": {
+    "commands": {
+      "title": "此处无法运行命令",
+      "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
+      "askFix": "请联系管理员修复。",
+      "hide": "隐藏",
+      "hideLabel": "隐藏此提示",
+      "chipTitle": "此对话无法运行代码或命令。选择以查看详情。",
+      "hostTitle": "命令在这台机器上运行",
+      "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
+      "providerHost": "命令在服务器上运行，未隔离。",
+      "unknown": "执行就绪状态或隔离状态未知。",
+      "unknownBy": {
+        "owner_unreachable": "执行就绪状态或隔离状态未知：无法联系插件的所有者。",
+        "not_reported": "执行就绪状态或隔离状态未知：插件尚未报告其执行状态。",
+        "stale": "执行就绪状态或隔离状态未知：状态与插件的当前版本不一致。",
+        "invalid_status": "执行就绪状态或隔离状态未知：插件发送了主机无法接受的状态。",
+        "not_selected": "执行就绪状态或隔离状态未知：该插件不是运行此聊天命令的插件。",
+        "no_answer": "执行就绪状态或隔离状态未知：插件未在规定时间内响应。",
+        "reported_unknown": "执行就绪状态或隔离状态未知：插件报告无法确定。"
+      },
+      "providerUnavailable": "所选执行提供程序不可用。",
+      "disabled": "此聊天已关闭命令执行。",
+      "hostOff": {
+        "reason": "服务器内置的 bash 已关闭，所以助手可以写文件，但不能运行脚本或命令。",
+        "whoAdmin": "你是管理员。在设置的工具中，打开“命令 (bash)”一行。“每次询问”是更安全的选择。之后命令会在服务器上无隔离地运行，并且可以读取服务器能读取的内容。",
+        "whoMember": "请让此服务器的管理员打开它。",
+        "fix": "打开设置",
+        "sandboxText": "如需隔离的命令，请改为安装能隔离运行命令的附加组件。",
+        "sandbox": "打开附加组件"
+      }
+    },
+    "consent": {
+      "title": "在这台机器上运行此命令？",
+      "body": "命令在这台机器上运行，没有隔离。它们可以读取 LocalAI 能读取的文件，并访问互联网和你的网络。",
+      "once": "运行一次",
+      "always": "在此实例上始终允许",
+      "deny": "不运行",
+      "alwaysHint": "“在此实例上始终允许”会让所有用户的聊天无需询问即可在此运行命令（设置 > 工具）。",
+      "askAdmin": "只有管理员可以允许在这台机器上运行命令。请询问管理员，或自己运行该命令。",
+      "job": "这会启动一个后台作业。它在本次调用后继续运行；允许它也就允许模型之后写入该作业的输入，不会再次询问。",
+      "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
+    },
+    "provider": {
+      "addon": "插件 {{name}}",
+      "host": "这台机器，未隔离",
+      "hostOnce": "这台机器，已允许一次",
+      "hostDenied": "未运行：已拒绝",
+      "hostTimeout": "未运行：无应答",
+      "hostAdmin": "未运行：需要管理员"
+    },
+    "builtins": "内置工具",
+    "builtin": {
+      "web": "网页",
+      "saved_agents": "已保存的智能体",
+      "triggers": "创建和管理触发器",
+      "shell": "运行命令",
+      "files": "你的文件",
+      "media": "图片和音频",
+      "collections": "知识库",
+      "subagents": "子代理",
+      "changes": "建议的更改",
+      "memory": "记忆",
+      "history": "以前的对话",
+      "localai_client": "LocalAI 客户端",
+      "localai_admin": "LocalAI 管理"
+    },
+    "builtinBy": "{{tools}} · 内置",
+    "onDemand": "按需加载",
+    "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
+    "servedBy": "由附加组件 {{provider}} 提供",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "内置",
+    "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
+    "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
+    "toolCap": {
+      "title": "此聊天中有些插件工具不可用",
+      "reason": "共 {{total}} 个插件工具，其中 {{offered}} 个可用。一个聊天只能使用有限数量的插件工具。",
+      "who": "在此聊天中关闭不需要的插件以腾出空间，或请管理员调高上限。",
+      "whoAdmin": "在此聊天中关闭不需要的插件以腾出空间，或在设置中调高上限。",
+      "fix": "打开设置",
+      "addon": "{{name}}：{{count}} 个不可用",
+      "lost": "丢失了工具的插件"
+    },
+    "shell": {
+      "machine": "本机",
+      "isolated": "命令在隔离环境中运行"
+    },
+    "describe": {
+      "shell": "模型可以运行 shell 命令和脚本。",
+      "files": "模型可以列出、读取、写入和搜索你的文件。",
+      "web": "模型可以搜索网页并读取公开页面。",
+      "media": "模型可以描述图片，并转写你文件中的录音。",
+      "collections": "模型可以搜索你的集合。",
+      "subagents": "模型可以为一项任务启动子智能体并获取其报告。",
+      "saved_agents": "模型可以把你已保存的智能体之一作为子智能体启动。",
+      "triggers": "模型可以提议、列出、修改和删除触发器。每个新触发器或修改都由你确认。",
+      "changes": "模型可以提议修改你的笔记、它自己的规则、技能、页面和仪表板。每一项都由你确认。",
+      "memory": "模型可以在回答前读取你的笔记并保存新的笔记。关闭后此聊天为私密聊天：不读取也不保存你的笔记。你的其他聊天不受影响。",
+      "history": "允许模型搜索并读取你以前的对话。",
+      "localai_client": "允许模型使用此处安装的模型生成图像、语音、声音和视频，并进行转写、嵌入、重排序和检测。",
+      "localai_admin": "允许模型管理此服务器：模型、后端、设置和状态。仅限管理员；模型在更改任何内容之前会先询问你。"
+    },
+    "whenOff": {
+      "shell": "模型可以写文件,但不能运行任何东西。",
+      "files": "模型看不到也无法更改你的文件。",
+      "web": "模型无法在线查询任何内容。",
+      "media": "模型无法自行读取图片或录音。",
+      "collections": "模型无法读取你的集合。",
+      "subagents": "模型独自工作。",
+      "saved_agents": "模型看不到也无法启动你保存的智能体。",
+      "triggers": "模型无法提议或管理触发器。",
+      "changes": "模型无法提议修改你的笔记、它自己的规则、技能、页面或仪表板。",
+      "memory": "这是私密聊天。模型不会读取或保存你的笔记。",
+      "history": "模型看不到你以前的对话。",
+      "localai_client": "模型无法自行运行这些模型。",
+      "localai_admin": "模型无法管理此服务器。"
+    },
+    "addonDescribe_one": "向模型提供此附加组件的 {{count}} 个工具。",
+    "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
+    "serverDescribe": "模型的一个 MCP 服务器:其工具会提供给模型。",
+    "connectorDescribe": "你的 MCP 连接器之一:其工具会提供给模型。",
+    "gone": "此处已不可用。关闭它即可移除。",
+    "grants": "其他权限",
+    "grantSensitive": "敏感：这会改变智能体之后可以做或可以访问的内容。",
+    "connection": {
+      "label": "连接",
+      "help": "选择此聊天可以使用的连接。助手只能使用你勾选的连接。",
+      "helpMany": "助手会在每次操作中指明连接，并且只能指明已勾选的连接。",
+      "sole": "这是你唯一的连接，因此会使用它。",
+      "choose": "至少选择一个连接以使用这些工具",
+      "none": "还没有连接",
+      "create": "新建连接",
+      "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
+      "agentLabel": "此智能体的聊天可用的连接",
+      "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
+      "perChatHelp": "未选择：每个聊天自行选择。",
+      "reconnectNeeded": "需要重新连接：{{names}}",
+      "ownerReconnectNeeded": "需要所有者重新连接：{{names}}",
+      "reconnect": "重新连接"
+    },
+    "optionNeeds": "打开“{{name}}”才能使用此项。",
+    "connectionMissing": "{{name}} 尚未允许此项。",
+    "connectionOpen": "打开其权限",
+    "section": {
+      "messaging": {
+        "title": "消息应用",
+        "intro": "适用于从消息应用开始的聊天。该连接必须在自己的权限页面允许同样的事。"
+      },
+      "unattended": {
+        "title": "无人看管时",
+        "intro": "适用于由触发器或消息应用启动的运行，这类运行中无人能确认某一步。"
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "记住事情",
+        "description": "模型可以提议一条笔记，存入你的记忆或智能体自己的记忆。每条笔记由你确认。"
+      },
+      "profile_write": {
+        "title": "修改自身规则",
+        "description": "模型可以提议修改智能体的长期规则。每次修改由你确认。"
+      },
+      "skills_write": {
+        "title": "编写技能",
+        "description": "模型可以提议新的或修改后的技能。每一项由你确认。"
+      },
+      "pages_write": {
+        "title": "创建页面",
+        "description": "模型可以提议一个在沙箱框架中打开的小应用。由你确认。"
+      },
+      "dashboard_write": {
+        "title": "修改仪表板",
+        "description": "模型可以提议你首页仪表板的新布局。每次修改由你确认。"
+      },
+      "knowledge_write": {
+        "title": "添加到知识库",
+        "description": "允许模型为你的知识库中的某个集合提出一段文本。每一条都由你确认，绝不会立即添加。"
+      },
+      "triggers_propose": {
+        "title": "也可从消息应用提议",
+        "description": "有人在消息应用中提出请求时，模型可以提议触发器。由你确认。"
+      },
+      "triggers_run": {
+        "title": "允许触发器从消息应用启动",
+        "description": "绑定到消息连接的触发器可以启动运行，并把结果送到那里。"
+      },
+      "talkback_channels": {
+        "title": "在已知频道回复",
+        "description": "模型可以向它已在其中交流的频道发送消息。"
+      },
+      "talkback_new_channel": {
+        "title": "开启新频道",
+        "description": "模型可以在它从未用过的频道上开始对话。"
+      },
+      "files_upload": {
+        "title": "从消息应用接收文件",
+        "description": "发送者可以附上文件供模型读取。模型不能向外发送文件。"
+      },
+      "act_files": {
+        "title": "自行写入文件",
+        "description": "无人看管的运行可以在智能体的文件夹中写入文件。"
+      },
+      "act_addons": {
+        "title": "自行使用插件动作",
+        "description": "无人看管的运行可以调用智能体插件的动作。"
+      },
+      "act_send": {
+        "title": "自行发送消息",
+        "description": "无人看管的运行可以在其投递目标之外发送消息。"
+      },
+      "act_spend": {
+        "title": "自行使用付费或外部工具",
+        "description": "无人看管的运行可以使用付费或外部工具以及网络。"
+      },
+      "history_read": {
+        "title": "读取你以前的对话",
+        "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
+      }
+    },
+    "fromProject": "来自项目",
+    "fromProjectTitle": "此工具由项目附加，因此在这里始终开启。要关闭，请在项目中取消附加。"
+  },
+  "vision": {
+    "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",
+    "none": "此模型无法查看图片，这里也没有模型可以描述图片。请选择一个可以查看图片的模型。"
+  },
+  "egress": {
+    "label": "网络",
+    "preset": {
+      "off": "关闭",
+      "registries": "自定义",
+      "all": "所有公共网站"
+    },
+    "presetHint": {
+      "off": "命令无法访问任何网络。",
+      "registries": "命令可以访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）以及管理员添加的域名。",
+      "all": "命令可以访问所有公共网站。"
+    },
+    "limited": "受管理员限制",
+    "limitedBy": "管理员最多允许：{{limit}}。",
+    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要可隔离命令的插件。",
+    "panel": "规则和请求（{{count}}）",
+    "panelCustom": "自定义域名",
+    "rules": "此聊天的规则",
+    "cards": "此聊天的请求",
+    "ruleAllow": "在此聊天中允许",
+    "ruleDeny": "在此聊天中拒绝",
+    "aboveLimit": "超出限制，不生效",
+    "remove": "移除",
+    "removeLabel": "移除 {{host}} 的规则",
+    "card": {
+      "pending": "等待回答",
+      "allowedOnce": "已允许一次",
+      "allowedChat": "在此聊天中允许",
+      "denied": "已拒绝",
+      "expired": "未回答",
+      "refused": "已拒绝：服务器的网络限制不允许"
+    },
+    "consent": {
+      "title": "网络访问",
+      "body": "此聊天中的一条命令想要访问",
+      "once": "允许一次",
+      "chat": "在此聊天中允许",
+      "deny": "拒绝",
+      "preset": "此聊天：{{preset}}。管理员设置的限制：{{limit}}。",
+      "adminOnly": "此主机位于你的内部网络中：只有管理员可以允许。",
+      "answered": "{{who}}{{state}}，{{time}}",
+      "answeredNoWho": "{{state}}，{{time}}",
+      "you": "你"
+    },
+    "blocked": {
+      "titleOff": "网络访问已关闭",
+      "titleCapped": "网络访问受到限制",
+      "bodyOff": "此服务器已关闭命令的网络访问。有一条命令想访问",
+      "bodyCapped": "此服务器只允许命令的网络使用：{{limit}}。有一条命令想访问",
+      "adminOff": "管理员可以在 {{name}} 的设置中开启。",
+      "adminCapped": "管理员可以在 {{name}} 的设置中提高限制。",
+      "adminLink": "打开 {{name}} 的设置",
+      "askAdmin": "请让此服务器的管理员更改。",
+      "rowOff": "关闭：管理员尚未允许网络访问。",
+      "runner": "运行命令的附加组件"
+    },
+    "allowedHostsOff": "网络开启时生效。",
+    "allowedHostsNote": "管理员添加的域名：{{count}} 个。",
+    "customDomains": "自定义可以访问软件包仓库和管理员设置的以下域名：",
+    "customEmpty": "自定义只能访问软件包仓库。管理员尚未添加其他域名。",
+    "customLabel": "自定义域名",
+    "customEdit": "编辑域名",
+    "customAdmin": "此列表由管理员管理。",
+    "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
+    "draftNote": "聊天将以此设置开始。管理员决定聊天最多能访问的范围，该限制同样适用。",
+    "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
+    "unverified": "尚未验证实际提供程序是否实施网络策略。这些设置目前不适用于其命令。",
+    "configuredPolicy": "已配置的网络策略：{{preset}}（未实施）。"
+  },
+  "inbox": {
+    "unread": "{{count}} 条未读",
+    "markAll": "全部标为已读",
+    "delete": "删除",
+    "pushOn": "开启浏览器通知",
+    "pushOff": "关闭浏览器通知",
+    "pushDenied": "此网站的浏览器通知已被阻止。",
+    "pushUnavailable": "此服务器无法保存推送订阅。",
+    "clearAll": "全部清除",
+    "clearRead": "清除已读",
+    "cancel": "取消",
+    "markRead": "标为已读",
+    "cleared_other": "已删除 {{count}} 条通知。",
+    "confirmAll_other": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmRead_other": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "onlyRead": "仅 {{count}} 条已读",
+    "showing": "显示 {{shown}} / {{total}}",
+    "showMore": "显示更多",
+    "cleared_one": "已删除 {{count}} 条通知。",
+    "confirmAll_one": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "title": "通知",
+    "buttonUnread_one": "通知，{{count}} 条未读",
+    "buttonUnread_other": "通知，{{count}} 条未读",
+    "filterLabel": "显示通知",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "filterFailed": "失败",
+    "more": "更多操作",
+    "close": "关闭",
+    "day": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
+    "emptyTitle": "还没有通知",
+    "emptyBody": "触发器和连接器的结果会显示在这里，包括你不在时完成的工作。",
+    "caughtUp": "你已全部看完。",
+    "caughtUpTitle": "你已全部看完",
+    "caughtUpBody": "没有未读通知。",
+    "noFailedTitle": "没有失败的项目",
+    "noFailedBody": "失败的运行和连接器会显示在这里。",
+    "loadError": "无法加载你的通知。",
+    "source": {
+      "trigger": "触发器",
+      "connector": "连接器",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}，未读",
+    "arrived": "新通知：{{title}}",
+    "arrivedMany_one": "{{count}} 条新通知",
+    "arrivedMany_other": "{{count}} 条新通知",
+    "proposalsWaiting_one": "{{count}} 项更改等待你处理",
+    "proposalsWaiting_other": "{{count}} 项更改等待你处理",
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。",
+    "codes": {
+      "digest": {
+        "title_one": "有 {{count}} 个后端更新可用",
+        "title_other": "有 {{count}} 个后端更新可用",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "result": {
+        "family": {
+          "backends": "后端",
+          "addons": "附加组件"
+        },
+        "title": "{{family}}：{{parts}}",
+        "join": "，",
+        "updated_one": "{{count}} 个已自动更新",
+        "updated_other": "{{count}} 个已自动更新",
+        "failed_one": "{{count}} 个失败",
+        "failed_other": "{{count}} 个失败",
+        "held_one": "{{count}} 个等待批准",
+        "held_other": "{{count}} 个等待批准",
+        "bodyUpdated": "已更新：{{items}}。",
+        "bodyFailed": "失败：{{items}}。",
+        "bodyHeld": "等待你批准：{{items}}。",
+        "more": "{{items}} 等另外 {{count}} 个"
+      },
+      "checkFailed": {
+        "title": "更新检查失败",
+        "body": "无法检查：{{sources}}。最近两次自动检查都失败了，列表中可能缺少一些更新。",
+        "source": {
+          "gallery": "后端库",
+          "library": "后端资源库",
+          "addons": "附加组件"
+        }
+      },
+      "op": {
+        "kind": {
+          "model": "模型",
+          "backend": "后端",
+          "addon": "附加组件"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} 已安装",
+          "delete": "{{kind}} {{name}} 已移除",
+          "upgrade": "{{kind}} {{name}} 已升级"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: 安装失败",
+          "delete": "{{kind}} {{name}}: 移除失败",
+          "upgrade": "{{kind}} {{name}}: 升级失败"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: 安装已取消",
+          "delete": "{{kind}} {{name}}: 移除已取消",
+          "upgrade": "{{kind}} {{name}}: 升级已取消"
+        },
+        "needsReview": {
+          "install": "附加组件 {{name}} 需要你检查后才能安装"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} 个模型更新可用",
+          "title_other": "{{count}} 个模型更新可用"
+        },
+        "done": {
+          "title": "模型 {{name}} 已升级",
+          "body": "从 {{from}} 到 {{to}}。"
+        },
+        "failed": {
+          "title": "模型 {{name}}：升级失败",
+          "rolledBack": "已恢复旧版本，并继续提供服务。原因：{{error}}",
+          "rolledBackPlain": "已恢复旧版本，并继续提供服务。",
+          "kept": "旧版本继续提供服务。原因：{{error}}",
+          "keptPlain": "旧版本继续提供服务。"
+        },
+        "removed": {
+          "title": "模型 {{name}}：已删除旧版本",
+          "body_one": "已删除 {{count}} 个旧文件。",
+          "body_other": "已删除 {{count}} 个旧文件。"
+        }
+      },
+      "run": {
+        "title_one": "正在更新 {{count}} 项",
+        "title_other": "正在更新 {{count}} 项",
+        "titleAuto_one": "自动更新:{{count}} 项",
+        "titleAuto_other": "自动更新:{{count}} 项",
+        "updated_one": "{{count}} 项已更新",
+        "updated_other": "{{count}} 项已更新",
+        "running_one": "{{count}} 项进行中",
+        "running_other": "{{count}} 项进行中",
+        "waiting_one": "{{count}} 项等待中",
+        "waiting_other": "{{count}} 项等待中",
+        "done": "已完成 {{done}}/{{total}}",
+        "end": {
+          "attention_one": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "attention_other": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "done_one": "{{count}} 项已更新",
+          "done_other": "{{count}} 项已更新",
+          "auto": "自动:{{text}}",
+          "first": "{{name}} 仍是 {{version}}。",
+          "firstWhy": "{{name}} 仍是 {{version}}:{{reason}}。",
+          "cancelled_one": "本次更新已取消:{{count}} 项已更新",
+          "cancelled_other": "本次更新已取消:{{count}} 项已更新",
+          "cancelledAttention_one": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "cancelledAttention_other": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "firstStart": "{{name}} 仍是 {{version}}:新版本未能启动:{{reason}}。"
+        }
+      }
+    },
+    "tabs": {
+      "label": "通知和活动",
+      "notifications": "通知",
+      "activity": "活动"
+    },
+    "ops": {
+      "needsAttention": "需要处理",
+      "inProgress": "进行中",
+      "seeAll": "查看全部活动",
+      "waiting": "等待中",
+      "node": "第 {{current}} 个节点，共 {{total}} 个",
+      "emptyTitle": "没有进行中的操作",
+      "emptyBody": "安装、更新和移除在进行时显示在这里，完成后保留一天。",
+      "title": {
+        "installing": "正在安装 {{name}}",
+        "upgrading": "正在更新 {{name}}",
+        "removing": "正在移除 {{name}}",
+        "staging": "正在传输 {{name}}"
+      },
+      "failedTitle": {
+        "installing": "无法安装 {{name}}",
+        "upgrading": "无法更新 {{name}}",
+        "removing": "无法移除 {{name}}",
+        "staging": "无法传输 {{name}}"
+      },
+      "recent": {
+        "title": "最近",
+        "installed": "已安装 {{name}}",
+        "upgraded": "已更新 {{name}}",
+        "removed": "已移除 {{name}}",
+        "staged": "已传输 {{name}}"
+      }
+    },
+    "chatsOff": "聊天会话已关闭",
+    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。",
+    "runProgress": "进度:{{title}}",
+    "runStarted": "开始于{{when}}",
+    "viewProgress": "查看进度",
+    "seeRun": "查看本次更新",
+    "openUpdates": "打开更新",
+    "updatesPending_one": "有 {{count}} 项可用更新",
+    "updatesPending_other": "有 {{count}} 项可用更新",
+    "updatesNone": "全部已是最新"
+  },
+  "change": {
+    "loading": "正在读取触发器更改...",
+    "unread": "无法读取触发器更改：{{message}}",
+    "removed": "此更改已不再保留。",
+    "none": "无",
+    "on": "开启",
+    "off": "关闭（已暂停）",
+    "becomes": "变为",
+    "neverRan": "尚未运行",
+    "lastRun": "上次运行",
+    "lastRunValue": "{{status}}，{{when}}",
+    "runStatus": {
+      "queued": "排队中",
+      "running": "运行中",
+      "done": "已完成",
+      "failed": "失败",
+      "skipped": "已跳过"
+    },
+    "updateTitle": "更改 {{name}}",
+    "deleteTitle": "删除 {{name}}？",
+    "updateHelp": "建议的更改。在你应用之前不会有任何变化。",
+    "deleteHelp": "在你点击删除之前不会删除任何内容。你可以在一天内撤销。",
+    "stale": "此建议提出后触发器已被更改或删除，因此无法应用。请重新请求更改。",
+    "apply": "应用",
+    "delete": "删除",
+    "keep": "保留",
+    "field": {
+      "name": "名称",
+      "prompt": "提示词",
+      "when": "运行时间",
+      "time_zone": "时区",
+      "daily_cap": "每日上限",
+      "enabled": "状态",
+      "reads": "读取",
+      "writes": "写入",
+      "widget": "主页小组件",
+      "estimated_tokens": "每次运行的令牌数",
+      "acts": "运行可以做的事",
+      "delivery": "回复发送到哪里",
+      "agent": "智能体",
+      "model": "模型",
+      "run_limit": "时间限制"
+    },
+    "receipt": {
+      "update": "已更改：",
+      "pause": "已暂停：",
+      "resume": "已恢复：",
+      "delete": "已删除：",
+      "fields": "更改内容：{{fields}}",
+      "dismissed": "已忽略更改：",
+      "kept": "已保留：",
+      "undone": "已撤销：",
+      "restored": "已恢复："
+    },
+    "blocked": {
+      "expired": "撤销时限已过；请在触发器页面更改。",
+      "edited": "此后触发器已被更改；请在触发器页面更改。",
+      "removed": "此后触发器已被删除。",
+      "full": "你的触发器已达上限；请先在触发器页面删除一个。"
+    },
+    "announce": {
+      "applied": "已更改 {{name}}。",
+      "deleted": "已删除 {{name}}。",
+      "dismissed": "已忽略对 {{name}} 的更改。",
+      "kept": "已保留 {{name}}。",
+      "undone": "已撤销对 {{name}} 的更改。",
+      "restored": "已恢复 {{name}}。"
+    }
+  },
+  "loops": {
+    "region": "此聊天的循环",
+    "unit": {
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
+    },
+    "confirm": {
+      "every": "每 {{every}} 运行一次，直到你停止？",
+      "selfPaced": "每当模型要求时再次运行，直到你停止？",
+      "start": "开始",
+      "cancel": "取消"
+    },
+    "chip": {
+      "name": "循环",
+      "every": "每 {{every}}",
+      "selfPaced": "由模型决定节奏",
+      "run_one": "第 {{count}} 次",
+      "run_other": "第 {{count}} 次",
+      "paused": "已暂停",
+      "running": "正在运行",
+      "next": "下次 {{time}}",
+      "ended": "已结束",
+      "wait": "正在等待：{{wait}}"
+    },
+    "report": {
+      "on_done": "完成时通知：{{channel}} · {{connection}}",
+      "on_problem": "出现问题时通知：{{channel}} · {{connection}}"
+    },
+    "actions": {
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "停止",
+      "dismiss": "关闭"
+    },
+    "state": {
+      "pending": "等待你的确认",
+      "active": "运行中",
+      "paused": "已暂停",
+      "ended": "已结束"
+    },
+    "list": {
+      "title": "此聊天的循环",
+      "close": "关闭",
+      "empty": "此聊天没有循环。",
+      "hint": "要停止一个循环，输入 /loop stop 加上该行开头的代码。"
+    },
+    "slash": {
+      "usage": "输入 /loop、可选的间隔和要重复的内容。例如：/loop 5m 检查构建。",
+      "notFound": "此聊天中没有与 {{id}} 匹配的循环。",
+      "noChat": "先发送第一条消息，然后在此聊天中启动循环。",
+      "stopped_one": "已停止 {{count}} 个循环。",
+      "stopped_other": "已停止 {{count}} 个循环。"
+    },
+    "wait": {
+      "name": "正在等待",
+      "kind": "等待",
+      "pending": "等待你确认",
+      "paused": "等待已暂停",
+      "stop": "停止等待",
+      "details": "等待详情",
+      "watching": "正在监视 {{source}}",
+      "until": "直到 {{condition}}",
+      "notChecked": "尚未检查",
+      "checked_one": "已检查 {{count}} 次",
+      "checked_other": "已检查 {{count}} 次",
+      "checkedAgo_one": "已检查 {{count}} 次，最近一次在 {{ago}}",
+      "checkedAgo_other": "已检查 {{count}} 次，最近一次在 {{ago}}",
+      "outcome": {
+        "unchanged": "无变化",
+        "changed": "已变化",
+        "error": "失败"
+      },
+      "ago": "{{span}}前",
+      "justNow": "刚刚",
+      "in": "{{span}}后",
+      "now": "现在",
+      "next": "下次检查 {{when}}",
+      "deadline": "将在 {{time}} 放弃（{{when}}）",
+      "errorStreak": "最近一次检查失败（连续 {{count}}/{{max}} 次）",
+      "errorStreakMsg": "最近一次检查失败（连续 {{count}}/{{max}} 次）：{{message}}",
+      "lastError": "最近的错误：{{message}}",
+      "sources": {
+        "tool": "工具 {{name}}",
+        "url": "{{name}}",
+        "script": "一个脚本",
+        "job": "{{name}}",
+        "agent": "子代理 {{name}}"
+      },
+      "end": {
+        "met": "完成：条件已满足",
+        "failing_one": "已停止：数据源连续失败 {{count}} 次",
+        "failing_other": "已停止：数据源连续失败 {{count}} 次",
+        "timedOut": "已超时，条件未满足",
+        "stopped": "等待已停止",
+        "jobGone": "已中止：作业随其节点一起消失"
+      },
+      "waking": {
+        "met": "条件已满足。正在询问模型下一步做什么。",
+        "failing": "数据源失败。正在询问模型下一步做什么。",
+        "timedOut": "已超时，条件未满足。正在询问模型下一步做什么。"
+      },
+      "phase": {
+        "waiting": "等待中",
+        "waking": "正在唤醒模型",
+        "paused": "已暂停",
+        "ended": "已结束",
+        "pending": "等待你确认"
+      },
+      "endShort": {
+        "condition_met": "条件已满足",
+        "source_failing": "数据源失败",
+        "timed_out": "已超时",
+        "stopped": "已停止"
+      },
+      "group": {
+        "collapse": "隐藏等待",
+        "deadline": "最近的截止时间 {{time}}（{{when}}）",
+        "expand": "显示等待",
+        "lastCheck": "上次检查 {{ago}}",
+        "paused_one": "{{count}} 个已暂停",
+        "paused_other": "{{count}} 个已暂停",
+        "stopAll": "全部停止",
+        "title_one": "{{count}} 个等待",
+        "title_other": "{{count}} 个等待"
+      }
+    },
+    "job": {
+      "stop": "停止",
+      "details": "作业详情",
+      "done_one": "{{count}} 个已结束的作业",
+      "done_other": "{{count}} 个已结束的作业",
+      "runTime": "已运行 {{span}}",
+      "ranFor": "运行了 {{span}}",
+      "lastOutput": "{{ago}}前最后输出",
+      "endedAgo": "{{ago}}前结束",
+      "byAgent": "由子代理启动",
+      "where": {
+        "machine": "在本机",
+        "sandbox": "在隔离环境中"
+      },
+      "status": {
+        "starting": "正在启动",
+        "running": "运行中",
+        "ending": "正在停止",
+        "stalled": "运行中，已 {{span}} 没有输出",
+        "lost": "已丢失：其所在节点已消失",
+        "notStarted": "无法启动",
+        "killed": "已被强制终止",
+        "stopped": "已被你停止",
+        "ended": "已结束",
+        "exitedOk": "已退出，状态 0",
+        "exitedCode": "已退出，状态 {{code}}",
+        "exitedUnknown": "已退出，状态未知"
+      },
+      "end": {
+        "lifetime": "已结束：达到时间上限",
+        "chat_deleted": "已结束：对话已被删除",
+        "shell_off": "已结束：命令已被关闭",
+        "group_off": "已结束：此对话的命令工具已被关闭",
+        "fenced": "已结束：此对话不能再运行命令",
+        "sandbox_remade": "已结束：其环境已重新创建",
+        "agent_ended": "已结束：其子代理已完成",
+        "shutdown": "已结束：服务器已停止",
+        "start_failed": "无法启动"
+      }
+    }
+  },
+  "changes": {
+    "loading": "正在读取提议的更改...",
+    "unread": "无法读取提议的更改：{{message}}",
+    "removed": "此提议已不存在。",
+    "kind": {
+      "memory": "记忆",
+      "profile": "配置文件",
+      "skill": "技能",
+      "page": "页面",
+      "dashboard": "仪表板",
+      "knowledge": "知识库",
+      "voice_profile": "语音档案"
+    },
+    "scope": {
+      "user": "你的所有聊天",
+      "agent": "智能体 {{agent}}",
+      "agentAny": "一个智能体",
+      "channel": "此对话",
+      "project": "此项目"
+    },
+    "help": "确认之前不会保存任何内容。",
+    "row": {
+      "kind": "类型",
+      "target": "文件",
+      "source": "来源",
+      "expires": "剩余时间",
+      "collection": "集合",
+      "proposedBy": "提议者",
+      "note": "笔记"
+    },
+    "source": {
+      "chat": "聊天",
+      "connector": "连接器 {{name}}",
+      "connectorFrom": "连接器 {{name}}，来自 {{sender}}"
+    },
+    "expiresHours": "{{hours}} 小时 {{minutes}} 分钟",
+    "expiresMinutes": "{{minutes}} 分钟",
+    "diff": {
+      "label": "对 {{target}} 的更改",
+      "newFile": "新文件",
+      "added_one": "新增 {{count}} 行",
+      "added_other": "新增 {{count}} 行",
+      "removed_one": "删除 {{count}} 行",
+      "removed_other": "删除 {{count}} 行",
+      "same": "与当前文本没有差异。",
+      "gap_one": "{{count}} 行未变",
+      "gap_other": "{{count}} 行未变",
+      "more_one": "另有 {{count}} 行未显示",
+      "more_other": "另有 {{count}} 行未显示",
+      "srAdded": "新增：",
+      "srRemoved": "删除："
+    },
+    "unreadFile": "无法读取当前文件，因此全部文本都视为新内容。",
+    "confirm": "确认",
+    "edit": "编辑后确认",
+    "confirmEdited": "用我的文本确认",
+    "editLabel": "保存到 {{target}} 的文本",
+    "failed": "无法保存更改：{{message}}。它仍在等待你处理。",
+    "receipt": {
+      "applied": "已应用：",
+      "savedAuto": "已保存到记忆：",
+      "reverted": "已撤销：",
+      "dismissed": "已拒绝：",
+      "expired": "已过期：",
+      "stale": "未应用："
+    },
+    "why": {
+      "expired": "已等待超过一天，未保存任何内容。",
+      "stale": "文件在提议之后发生了变化，因此未保存任何内容。"
+    },
+    "askAgain": "重新请求",
+    "askAgainText": "请重新提议这项更改，文件此后已变化：{{summary}}（{{target}}）",
+    "announce": {
+      "applied": "更改已应用。",
+      "dismissed": "更改已拒绝。",
+      "undone": "更改已撤销。",
+      "asked": "已请助手重新提议。"
+    },
+    "knowledge": {
+      "label": "要添加到 {{collection}} 的文本",
+      "size": "{{size}}，上限 {{max}}",
+      "note": "确认之前不会添加任何内容。确认后文本会被切分为段落并建立索引，所有搜索此集合的聊天都能使用它。",
+      "editLabel": "要添加到 {{target}} 的文本",
+      "embed_one": "1 个段落将使用 {{model}} 做嵌入。",
+      "embed_other": "约 {{count}} 个段落将使用 {{model}} 做嵌入。",
+      "serverModel": "服务器的嵌入模型"
+    },
+    "warning": {
+      "title": "确认之前请检查这段文字。",
+      "secret": "它看起来包含密钥、令牌或密码之类的机密。添加之后，搜索这个集合的每个聊天都能读到它。消息聊天无法确认它，只有你能在这里确认。",
+      "other": "服务器将这段文字标记为有风险。消息聊天无法确认它，只有你能在这里确认。"
+    },
+    "voice": {
+      "label": "要克隆的声音",
+      "name": "名称",
+      "file": "录音",
+      "clip": "锁定的录音",
+      "language": "语言",
+      "transcript": "文字稿",
+      "consentTitle": "仅在说话人同意时才确认。",
+      "consent": "录音将保存为语音档案，供你的聊天用来说话。你可以在语音库中删除它。",
+      "consentAdmin": "你是管理员，因此该语音将对此服务器的所有用户可用。",
+      "confirm": "说话人已同意：保存声音"
+    },
+    "fromOther": {
+      "title": "{{name}} 为 {{project}} 提议了一条笔记",
+      "titleNoProject": "{{name}} 提议了一条笔记",
+      "help": "在你确认之前不会写入任何内容。{{name}} 是在引入了此项目的聊天中提出的。",
+      "by": "{{name}}，来自其自己的聊天",
+      "voided": "{{name}} 已无法再编辑此项目。",
+      "noteFor": "{{project}} 的笔记",
+      "thisProject": "此项目",
+      "why": "请重新以编辑权限共享项目，如果仍然需要，再请对方重新提议这条笔记。",
+      "nameHint": "项目名称取自其文件夹"
+    }
+  },
+  "proposalsPage": {
+    "title": "提议",
+    "supporting": "模型提出、等待你回应的更改。",
+    "emptyTitle": "没有待处理的内容",
+    "emptyBody": "当模型提议更改你的笔记、智能体配置文件、技能、页面或仪表板时，会显示在这里，直到你作出回应。",
+    "loadError": "无法加载提议。"
+  },
+  "memoryPage": {
+    "lede": "LocalAI 放入你聊天提示词中的笔记。只有在你确认提议后，模型才会修改它们。你可以在这里查看、编辑和删除。",
+    "limits": "上限：索引最多 {{lines}} 行和 {{index}}，配置文件 {{profile}}，每轮对话最多携带 {{turn}} 的笔记。",
+    "proposalsLink": "查看等待处理的更改",
+    "emptyTitle": "还没有笔记",
+    "emptyBody": "当你让助手记住某事并确认后，笔记会显示在这里。",
+    "loadError": "无法加载你的笔记。",
+    "use": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "useBytes": "{{size}} / {{max}}",
+    "useLabel": "索引大小与上限",
+    "over": "超出上限：末尾部分不会发送给模型。",
+    "index": "索引",
+    "group": {
+      "user": "你的笔记",
+      "agent": "智能体 {{key}} 的笔记",
+      "channel": "对话 {{key}} 的笔记",
+      "profile": "智能体 {{key}} 的配置文件",
+      "agentNamed": "智能体 {{name}} 的笔记",
+      "profileNamed": "智能体 {{name}} 的资料"
+    },
+    "edit": "编辑",
+    "save": "保存",
+    "editLabel": "{{name}} 的文本",
+    "editSizeIndex": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "editSize": "{{size}} / {{max}}",
+    "tooBig": "太长：请缩短后再保存。",
+    "saveFailed": "无法保存：{{message}}",
+    "saved": "已保存 {{name}}。",
+    "emptyFile": "（空）",
+    "delete": "删除 {{name}}",
+    "deleteYes": "删除",
+    "confirmDelete": "删除 {{name}}？",
+    "deleted": "已将 {{name}} 移到回收站。",
+    "clear": "全部忘记",
+    "clearAsk_one": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearAsk_other": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearYes_one": "删除 {{count}} 个文件",
+    "clearYes_other": "删除 {{count}} 个文件",
+    "cleared_one": "已将 {{count}} 个文件移到回收站。",
+    "cleared_other": "已将 {{count}} 个文件移到回收站。",
+    "tabs": {
+      "label": "笔记归属",
+      "mine": "我的",
+      "deleted": "已删除的智能体",
+      "channels": "对话",
+      "channelsNote": "从消息应用聊天中保存的笔记。打开笔记可阅读，也可删除。来自未与你验证的发送者的笔记，始终等待你的确认。",
+      "export": "导出这些笔记",
+      "clearAgent": "删除此智能体的笔记",
+      "clearDeleted": "删除这些笔记"
+    },
+    "deletedNote": "这些智能体已被删除。它们的笔记会保留，直到你在这里删除。",
+    "tabEmpty": "这里没有笔记。"
+  },
+  "triggerActs": {
+    "help": "运行会自行开始，没有人批准每一步。它可以读取并汇报。勾选它还可以做什么。它得到的权限不会超过其代理。",
+    "noAgent": "未选择代理，因此只有你勾选的项目起限制作用。",
+    "readOnly": "只读",
+    "canAct": "可自行操作",
+    "canActText_one": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "canActText_other": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "sensitive": "需谨慎",
+    "addonRow": "一次运行可使用附加组件 {{id}} 的操作。",
+    "blocked": "你的代理没有此权限，因此无法勾选。请先将它添加到代理。",
+    "unused": "你的代理没有此权限，因此运行不会使用它。",
+    "unusedList": "已列出，但代理没有，所以不使用：{{names}}。",
+    "writesNote": "其计划指明了文件 {{file}}，因此一次运行也可以写入文件。",
+    "listCan_one": "可操作（{{count}}）",
+    "listCan_other": "可操作（{{count}}）",
+    "why": {
+      "no_acts": "未设置操作权限，因此其运行只读取并汇报。",
+      "agent": "其代理没有它要求的权限，因此其运行只读取并汇报。",
+      "declared": "它被设置为只读取并汇报。在此勾选不会改变这一点。",
+      "binding": "它由只读模式的连接创建。在此勾选不会改变这一点。"
+    }
+  },
+  "memorySettings": {
+    "titleOn": "记忆已开启",
+    "titleOff": "记忆已关闭",
+    "ledeOn": "你的聊天会保留关于你的简短笔记，并在回答前读取。关闭后，任何地方都不再读取或保存。笔记保持原样。",
+    "ledeOff": "在任何聊天或智能体中，都不会读取或保存你的笔记。如果你让助手记住某事，它会说明记忆已关闭。笔记仍然保留，你仍可查看、导出和删除。",
+    "on": "开",
+    "off": "关",
+    "unavailable": "笔记是文件，而此服务器已关闭文件，因此记忆无法在这里工作。",
+    "saveTitle": "保存笔记",
+    "saveLede": "助手想要保留某些内容时会发生什么。始终以最严格的规则为准。",
+    "save": {
+      "ask": {
+        "title": "先问我",
+        "body": "聊天中会出现一张卡片。你可以确认、编辑或忽略。"
+      },
+      "auto": {
+        "title": "保存并告知我",
+        "body": "在你自己的聊天中，笔记会立即保存。聊天会显示“已保存到记忆”和撤销。每次回复最多 5 条。过长或看起来像机密的笔记仍需你确认。"
+      },
+      "always": {
+        "title": "始终确认",
+        "body": "与“先问我”相同，且任何设置都不能放宽它。撤销和忘记也要等你确认。智能体或消息应用的设置都不能覆盖它。"
+      },
+      "never": {
+        "title": "从不",
+        "body": "助手不能保存笔记，并会告诉你保存已关闭。"
+      }
+    },
+    "default": "默认",
+    "saveNote": "后台运行和触发器从不保存笔记。已保存的智能体可以比这里的选择问得更多，但不会更少。",
+    "messaging": {
+      "title": "在消息应用中",
+      "lede": "当消息应用的聊天中有人建议保存笔记、而发送者不一定是你时会发生什么。",
+      "ask": {
+        "title": "先问我",
+        "body": "机器人会在聊天中询问：“回复“是”即可保存。”名单中的发送者可以在那里回答，其他人要等你在应用中确认。"
+      },
+      "paired_private": {
+        "title": "在私聊中为已验证的人直接保存",
+        "body": "只有发送者是已验证的人且聊天为一对一时才会立即保存。笔记会存入该对话，并可撤销。看起来像机密的笔记仍然要等待。"
+      },
+      "never": {
+        "title": "从不",
+        "body": "不会从消息应用保存任何笔记。"
+      },
+      "limit": "永远不会比上面的设置更宽松。",
+      "lockedAlways": "你上面的设置是“始终确认”，所以这一项不能立即保存笔记。",
+      "lockedNever": "你上面的设置是“从不”，所以不会从消息应用保存任何笔记。"
+    },
+    "saveFailed": "无法保存你的选择。",
+    "loadError": "无法加载你的记忆设置。",
+    "notesTitle": "管理你的笔记",
+    "notesLede": "可以查看、编辑、导出或删除。记忆关闭时同样可用。",
+    "export": "导出"
+  },
+  "memoryOff": {
+    "title": "此处记忆已关闭。",
+    "line": {
+      "chat": "这是私密聊天：不读取也不保存任何内容，你的笔记不受影响。可在工具菜单中开启。",
+      "user": "没有任何聊天或智能体会读取或保存笔记，你的笔记不受影响。",
+      "agent": "此聊天的智能体已关闭记忆。",
+      "files": "笔记是文件，而此服务器已关闭文件。",
+      "provider": "提供记忆的附加组件不可用，因此不会读取或保存任何内容。请在设置的“记忆”中选择提供方。"
+    },
+    "chip": "记忆已关",
+    "chipPrivate": "私密聊天",
+    "fixUser": "设置，记忆",
+    "userRow": "已在你的设置中关闭。请在“设置，记忆”中开启。"
+  },
+  "agentMemory": {
+    "title": "记忆",
+    "lede": "选择这个智能体读取哪些笔记，以及把新笔记存到哪里。",
+    "offUser": "你的设置中记忆已关闭，所以这个选择在你重新开启前不会生效。",
+    "offUserFix": "设置，记忆",
+    "recommended": "推荐",
+    "mine_and_own": {
+      "title": "我的和它自己的",
+      "body": "读取你的笔记和它自己的笔记，只保存到它自己的笔记。"
+    },
+    "own": {
+      "title": "仅它自己的",
+      "body": "只读取和保存它自己的笔记，你的笔记不会被触及。"
+    },
+    "mine": {
+      "title": "我的",
+      "body": "读取并保存你的笔记。"
+    },
+    "none": {
+      "title": "无",
+      "body": "不读取也不保存任何内容。"
+    },
+    "mineWarn": "这个智能体可以向你的记忆添加笔记，对所有聊天生效。每条都需要你确认。",
+    "asBefore": {
+      "title": "保持原样",
+      "body": "这个智能体保存于这个选项出现之前。如果它的插件列表包含 Memory，它会读取你的笔记，并由模型决定笔记存到哪里。选择下面的某个选项即可更改。"
+    },
+    "copyNote": "导出智能体，或将其作为新智能体导入，会保留这个选择，但不会复制它的笔记。",
+    "summary": {
+      "mine_and_own": "我的和它自己的",
+      "own": "仅它自己的",
+      "mine": "我的",
+      "none": "无",
+      "asBefore": "保持原样",
+      "withAuto": "{{choice}}，立即保存",
+      "level": {
+        "off": "关闭",
+        "reads": "读取笔记",
+        "saves": "读取并保存笔记"
+      },
+      "combined": "{{level}}，{{choice}}"
+    },
+    "delete": {
+      "title": "删除 {{name}}？",
+      "ask": "这个智能体有自己的笔记（{{count}} 条）。要如何处理？",
+      "legend": "如何处理这些笔记",
+      "default": "默认",
+      "confirm": "删除智能体",
+      "keep": {
+        "title": "保留笔记",
+        "body": "笔记会留在“记忆”页面的“已删除的智能体”下，直到你删除它们。"
+      },
+      "export": {
+        "title": "导出后删除",
+        "body": "将笔记下载为 zip 文件，然后移到回收站。"
+      },
+      "delete": {
+        "title": "同时删除笔记",
+        "body": "笔记会移到回收站，可从“文件”中恢复。"
+      }
+    },
+    "rule": {
+      "title": "当它想保存笔记时",
+      "use_mine": {
+        "title": "使用我的设置",
+        "body": "你的设置是 <b>{{level}}</b>。<settings>可在 设置 > 记忆 中更改。</settings>"
+      },
+      "auto": {
+        "title": "保存并告知我",
+        "body": "即使你的设置是“先问我”，也会立即保存每条笔记，并在聊天中告知你，可撤销。过长或看起来像密钥的笔记仍会等待。"
+      },
+      "always": {
+        "title": "始终确认",
+        "body": "比我的设置更严格。"
+      },
+      "never": {
+        "title": "从不",
+        "body": "只读取，从不保存。"
+      },
+      "hint": "在消息聊天中，笔记先存入该对话，只有已验证的人才能写入这个智能体自己的笔记。即时保存在消息聊天中仅适用于一对一聊天中已验证的人。",
+      "offReason": "记忆关闭时，保存级别不适用。",
+      "readsReason": "保存级别不适用：此智能体只读取笔记，无法保存。"
+    },
+    "level": {
+      "title": "它如何使用笔记",
+      "off": {
+        "title": "关闭",
+        "body": "不读取也不保存笔记。"
+      },
+      "reads": {
+        "title": "读取笔记",
+        "body": "用你的笔记来回答，从不保存。"
+      },
+      "saves": {
+        "title": "读取并保存笔记",
+        "body": "使用笔记，并按你的保存级别保存新笔记。"
+      }
+    },
+    "whose": "谁的笔记",
+    "whoseOff": "此智能体的记忆已关闭，没有可选的笔记。"
+  },
+  "providerPicker": {
+    "title": "提供方",
+    "lede": "同一时间只有一个提供方在服务。切换时，你现有的数据保持原样。",
+    "off": "关闭",
+    "unavailable": "不可用",
+    "loadError": "无法加载提供方",
+    "saveFailed": "无法更改提供方",
+    "failedTitle": "{{name}}不可用",
+    "failedReason": "在你选择提供方之前，这项功能保持关闭。没有任何内容转移到内置提供方，因此不会在你未选择的地方保存任何内容。",
+    "useBuiltin": "使用内置提供方",
+    "facts": {
+      "local": "本地",
+      "remote": "远程",
+      "undoHost": "在此撤销",
+      "undoProvider": "由服务撤销",
+      "undoNone": "无法撤销"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "内置",
+        "builtinBody": "你的 Memory 文件夹中的普通文件。数据不会离开这台机器。",
+        "offBody": "不读取、不提供、不保存也不发送任何内容。现有笔记保留不变。"
+      }
+    },
+    "healthTitle": "该提供方已暂停",
+    "forget": {
+      "lede": "请 {{name}} 忘记它为你保存的笔记。你在 Memory 文件夹中的文件不会被改动。",
+      "action": "忘记此提供方的全部内容",
+      "confirmTitle": "忘记 {{name}} 的全部内容？",
+      "confirmBody": "将请 {{name}} 忘记它为你保存的每条笔记。它可能会保留该更改，直到你在 Add-ons 页面确认。",
+      "confirmBodyFinal": "将请 {{name}} 忘记它为你保存的每条笔记。此操作无法撤销。",
+      "confirm": "全部忘记",
+      "pending": "正在忘记...",
+      "done": "{{name}} 已忘记其笔记",
+      "waiting": "该更改正等待你在 Add-ons 页面确认",
+      "failed": "提供方无法忘记：{{message}}"
+    }
+  },
+  "subAgents": {
+    "waiting": "正在等待：{{what}}",
+    "looping": "循环中"
+  },
+  "connectionsTabs": {
+    "label": "连接的分区",
+    "accounts": "账号",
+    "messaging": "消息",
+    "mcp": "MCP 服务器"
+  },
+  "triggersPage": {
+    "runLimit": "单次运行的时间限制"
+  },
+  "sandboxProfile": {
+    "label": "沙箱配置",
+    "tools": "程序：{{tools}}",
+    "notAllowed": "管理员没有授权你使用此配置",
+    "absent": "此版本没有该配置的镜像",
+    "unavailable": "{{title}} 不可用：{{reason}}。",
+    "draft": "新聊天从 {{title}} 开始。你可以在此选择配置，也可以稍后在聊天中更改。",
+    "source": {
+      "chat": "此聊天使用 {{title}}，由你选择。",
+      "agent": "此聊天使用 {{title}}，由其智能体设定。",
+      "default": "此聊天使用 {{title}}，即默认配置。"
+    },
+    "switchWarning": "切换会重启沙箱。你的文件会保留，正在运行的进程和已安装的软件包会丢失。",
+    "switchTo": "切换到 {{title}}",
+    "cancel": "取消",
+    "preparing": "正在准备 {{title}} 镜像，{{percent}}%",
+    "failed": "无法准备 {{title}} 镜像：{{error}}",
+    "fallback": "无法使用 {{title}}，因此命令在 {{base}} 中运行。",
+    "newerImage": "有更新的镜像。沙箱重启后生效。",
+    "notAllowedError": "你不能使用此配置。",
+    "unknownError": "此配置不存在。",
+    "saveError": "无法更改配置。",
+    "admin": {
+      "title": "沙箱配置",
+      "intro": "配置是带有自己程序的环境。在你限制之前，所有人都可以使用每个配置。",
+      "default": "默认配置",
+      "defaultBase": "基础",
+      "profiles": "配置",
+      "limits": "{{cpus}} 个 CPU，{{memory}} MiB 内存，{{disk}} MiB 磁盘",
+      "baseAlways": "所有用户都可以使用基础配置。其他配置无法使用时，会改用它。",
+      "who": "谁可以使用",
+      "everyone": "所有人",
+      "restricted": "仅限下方的角色和用户",
+      "role": {
+        "admin": "管理员",
+        "user": "普通用户"
+      },
+      "users": "指定用户",
+      "usersPlaceholder": "用逗号分隔的名称",
+      "pin": "固定到上一个镜像",
+      "noPrevious": "还没有上一个镜像",
+      "memory": "单个沙箱的内存上限，单位 MiB",
+      "disk": "单个沙箱的磁盘上限，单位 MiB",
+      "noLimit": "不限制",
+      "quotaHelp": "上限只会降低配置的限制，不会提高。留空表示不设上限。",
+      "badQuota": "请输入整数 MiB，或留空。",
+      "reload": "重新加载",
+      "ownerError": "所有者设置不可用或已更改：{{message}}",
+      "save": "保存",
+      "loadError": "无法读取沙箱配置。"
+    }
+  },
+  "harness": {
+    "title": "此模型的上下文窗口对聊天来说太小",
+    "admin": {
+      "reason": "当前为 {{window}} 个 token,聊天至少需要 {{minimum}} 个,建议 {{recommended}} 个。",
+      "checking": "正在检查 {{target}} 个 token 能否放进这台机器的内存…",
+      "fits": "{{target}} 个 token 能放进这台机器的内存(约 {{need}})。",
+      "fitsLess": "{{recommended}} 个 token 放不进这台机器的内存,{{target}} 个可以(约 {{need}})。",
+      "unknown": "无法估算所需的内存。",
+      "none": "这台机器的内存连 {{minimum}} 个 token 也放不下。请选择更小的模型。",
+      "fix": "将窗口设为 {{target}}"
+    },
+    "user": {
+      "reason": "当前为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
+      "switch": "将此聊天切换到窗口更大的已安装模型。",
+      "askAdmin": "你可用的已安装模型中没有窗口足够大的。请让管理员调大窗口或安装其他模型。",
+      "use": "使用 {{model}}({{window}} 个 token)"
+    },
+    "chat": {
+      "title": "此聊天的上下文大小太小",
+      "reason": "此聊天的设置为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
+      "fix": "使用模型的窗口"
+    }
+  }
+}

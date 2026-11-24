@@ -1,0 +1,17 @@
+{
+  "generic": "Algo deu errado",
+  "network": "Erro de rede. Verifique sua conexão e tente novamente.",
+  "unauthorized": "Você não está autorizado a executar esta ação.",
+  "forbidden": "Acesso negado.",
+  "notFound": "O recurso solicitado não foi encontrado.",
+  "serverError": "Erro no servidor. Tente novamente mais tarde.",
+  "loadFailed": "Falha ao carregar: {{message}}",
+  "saveFailed": "Falha ao salvar: {{message}}",
+  "deleteFailed": "Falha ao excluir: {{message}}",
+  "updateFailed": "Falha ao atualizar: {{message}}",
+  "createFailed": "Falha ao criar: {{message}}",
+  "operationFailed": "Falha na operação: {{message}}",
+  "invalidInput": "Entrada inválida. Verifique o formulário e tente novamente.",
+  "tryAgain": "Tente novamente.",
+  "contactAdmin": "Se o problema persistir, entre em contato com o administrador."
+}

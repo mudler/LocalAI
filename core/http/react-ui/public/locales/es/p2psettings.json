@@ -1,0 +1,291 @@
+{
+  "title": "Ajustes de P2P",
+  "lede": {
+    "off": "P2P está desactivado. Elige un modo para usar otras instancias o para compartir esta.",
+    "connect": "Solo conectar: este servidor usa instancias remotas por P2P y no acepta a nadie.",
+    "share": "Conectar y compartir: este servidor también acepta los dispositivos que vincules."
+  },
+  "loadError": "No se pudieron cargar los ajustes de P2P",
+  "notRunning": "P2P no se está ejecutando.",
+  "saved": "Guardado. P2P se reinicia con el nuevo ajuste.",
+  "saveFailed": "El servidor no guardó el ajuste.",
+  "sections": {
+    "label": "Secciones de ajustes de P2P",
+    "network": "Red",
+    "relays": "Relays",
+    "identity": "Identidad"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "copy": "Copiar",
+    "done": "Listo"
+  },
+  "units": {
+    "kibps": "KiB/s",
+    "gib": "GiB",
+    "minutes": "minutos"
+  },
+  "modes": {
+    "off": {
+      "title": "Desactivado",
+      "body": "Sin P2P. Los nodos en NATS y WebSocket no se ven afectados."
+    },
+    "connect": {
+      "title": "Solo conectar",
+      "body": "Usa los modelos de otras instancias por P2P. Este servidor no acepta a nadie. No requiere autenticación."
+    },
+    "share": {
+      "title": "Conectar y compartir",
+      "body": "También acepta dispositivos vinculados, instancias remotas y nodos P2P. Requiere la autenticación activada."
+    }
+  },
+  "network": {
+    "title": "Red",
+    "mode": {
+      "title": "Modo P2P",
+      "lede": "Lo que hace esta instancia por P2P. Un cambio se aplica al instante.",
+      "needsAuth": "Requiere autenticación",
+      "replaces": "Sustituye a --p2p"
+    },
+    "defaultOn": "Activado por defecto",
+    "shareOnly": "Solo en Conectar y compartir",
+    "shareOnlyNote": "Se muestran solo en Conectar y compartir: Compartir esta instancia, Dispositivos e invitaciones, Relay para dispositivos vinculados y Relays.",
+    "dht": {
+      "title": "DHT pública",
+      "desc": "Encuentra y sé encontrado a través de la red pública de libp2p. Para unirse nunca hace falta: una invitación lleva el peer ID y la pista del relay, y el cliente se conecta al peer ID."
+    },
+    "mdns": {
+      "title": "Detección en la red local",
+      "desc": "Encuentra otras instancias en la misma red local (mDNS), para que se conecten directamente sin internet."
+    },
+    "bootstrap": {
+      "title": "Peers de arranque",
+      "desc": "Tus propios puntos de entrada a la red libp2p, una dirección por línea. Cada dirección termina en /p2p/<peer ID>. Déjalo vacío para usar los peers de arranque públicos."
+    },
+    "relayPaired": {
+      "title": "Relay para dispositivos vinculados",
+      "desc": "Este servidor transporta el tráfico entre sus propios dispositivos vinculados cuando no pueden conectarse directamente. Se muestra como A través de tu servidor."
+    },
+    "relayMode": {
+      "title": "Cuándo hace de relay este servidor",
+      "desc": "En automático, el relay funciona solo mientras otros peers pueden alcanzar este servidor desde internet.",
+      "auto": "Automático: cuando el servidor es accesible",
+      "on": "Siempre",
+      "off": "Nunca"
+    },
+    "relayRate": {
+      "title": "Ancho de banda por circuito",
+      "desc": "El límite de cada conexión que retransmite este servidor. 0 significa sin límite."
+    }
+  },
+  "share": {
+    "title": "Comparte esta instancia desde aquí",
+    "body": "Deja que tu portátil use los modelos de este servidor y añade nodos P2P. Cada dispositivo que se vincula recibe su propia clave de API, así que compartir requiere la autenticación activada.",
+    "authOn": "La autenticación está activada. Al cambiar se añaden Dispositivos e invitaciones, Compartir esta instancia y Relays. Tus instancias remotas siguen conectadas.",
+    "turnOnAuth": "Activar la autenticación",
+    "switch": "Cambiar a Conectar y compartir"
+  },
+  "relays": {
+    "title": "Relays",
+    "run": "Ejecutar un relay…",
+    "lede": "LocalAI no ejecuta relays públicos. Los relays públicos de libp2p coordinan el hole punching y transportan la vinculación y solicitudes pequeñas; reinician una conexión tras unos 128 KiB. Algunos pares de redes no pueden conectarse directamente, así que ejecuta tu propio relay. Un relay restringido solo admite a los peers que este servidor ha vinculado. Un relay abierto puede usarse en invitaciones, con una advertencia.",
+    "loadError": "No se pudieron cargar los relays",
+    "col": {
+      "relay": "Relay",
+      "health": "Estado",
+      "invites": "Invitaciones",
+      "limits": "Límites",
+      "actions": "Acciones"
+    },
+    "thisServer": "Este servidor",
+    "self": {
+      "running": "Retransmitiendo",
+      "reason": {
+        "off": "Desactivado",
+        "not_share": "Desactivado: no comparte",
+        "not_public": "En espera: no accesible desde internet"
+      },
+      "pairedOnly": "Solo dispositivos vinculados",
+      "limits": "Se definen en Red"
+    },
+    "yourRelay": "Tu relay",
+    "admins_one": "{{count}} administrador",
+    "admins_other": "{{count}} administradores",
+    "state": {
+      "in_sync": "Restringido, sincronizado",
+      "out_of_sync": "Restringido, sin sincronizar",
+      "open": "Abierto: cualquiera puede usarlo",
+      "unclaimed": "Aún sin reclamar",
+      "not_admin": "Este servidor no es administrador",
+      "denied": "Rechaza a este servidor",
+      "unreachable": "Inaccesible",
+      "checking": "Comprobando"
+    },
+    "latency": "Ida y vuelta {{ms}} ms",
+    "checked": {
+      "now": "Comprobado ahora mismo",
+      "minutes_one": "Comprobado hace {{count}} min",
+      "minutes_other": "Comprobado hace {{count}} min",
+      "hours_one": "Comprobado hace {{count}} h",
+      "hours_other": "Comprobado hace {{count}} h",
+      "days_one": "Comprobado hace {{count}} día",
+      "days_other": "Comprobado hace {{count}} días"
+    },
+    "pass": {
+      "pass": "Pase del relay",
+      "open": "Con una advertencia",
+      "none": "No se usa"
+    },
+    "members_one": "{{count}} peer permitido",
+    "members_other": "{{count}} peers permitidos",
+    "noLimit": "Sin límite",
+    "perCircuit": "{{limits}} por circuito",
+    "sync": "Sincronizar ahora",
+    "synced": "El relay tiene la lista actual de dispositivos vinculados.",
+    "claim": "Reclamar",
+    "limitsOf": "Límites de {{name}}",
+    "checkOf": "Comprobar {{name}} de nuevo",
+    "removeOf": "Quitar {{name}}",
+    "empty": {
+      "title": "Aún no tienes un relay propio",
+      "body": "Los dispositivos tras routers estrictos no pueden conectarse directamente. Un relay pequeño en una máquina con dirección pública los hace entrar."
+    },
+    "outOfSync": {
+      "title": "{{name}} está sin sincronizar.",
+      "body_one": "Aún podría admitir un dispositivo que revocaste. Sincronizar ahora envía la lista actual de {{count}} dispositivo vinculado.",
+      "body_other": "Aún podría admitir un dispositivo que revocaste. Sincronizar ahora envía la lista actual de {{count}} dispositivos vinculados."
+    },
+    "claimTitle": "Reclamar este relay",
+    "claimLede": "El relay aún no tiene administrador. Al arrancar imprimió un código de reclamación de un solo uso.",
+    "claimed": "Este servidor es ahora el administrador del relay.",
+    "removeTitle": "¿Quitar este relay?",
+    "removeBody": "{{name}} ya no se usa en las nuevas invitaciones. El relay sigue en marcha; detenlo en su máquina.",
+    "remove": "Quitar",
+    "removed": "Relay quitado."
+  },
+  "run": {
+    "title": "Ejecutar un relay",
+    "lede": "Para peers que no pueden conectarse directamente. Solo admite a los peers que este servidor ha vinculado.",
+    "step1": "1. Inícialo en una máquina con dirección pública",
+    "dockerLabel": "Iniciar el relay con Docker",
+    "orBinary": "O con el binario:",
+    "binaryLabel": "Iniciar el relay con el binario local-ai",
+    "explain": "Abre el puerto 4001 UDP y TCP. El volumen conserva la clave del relay, así su peer ID sobrevive a los reinicios. <b>--admin</b> nombra a este servidor: el relay solo admite a los peers que este servidor ha vinculado, y este servidor actualiza esa lista cuando vinculas o revocas un dispositivo. Dos servidores pueden compartir un relay: añade un <b>--admin</b> por cada uno. El relay es una imagen pequeña aparte, <b>localai/relay</b>. Límites por circuito: <b>--circuit-max-bytes</b>, <b>--circuit-max-duration</b>, <b>--rate-limit</b>, <b>--max-circuits-per-peer</b>. Con <b>--open</b> cualquiera puede usarlo y arranca con 64 KiB/s por circuito.",
+    "step2": "2. Pega la dirección del relay",
+    "addrHint": "El relay imprime su dirección al arrancar.",
+    "addrInvalid": "Pega la dirección completa. Empieza por / y termina en /p2p/ y el peer ID del relay.",
+    "check": "Comprobar accesibilidad",
+    "claimLabel": "Código de reclamación",
+    "claim": "Reclamar",
+    "claimFailed": "El relay rechazó el código de reclamación: {{error}}",
+    "add": "Añadir relay",
+    "added": "Relay añadido. Las nuevas invitaciones lo incluyen.",
+    "ready": "Listo para añadir.",
+    "nothingSaved": "No se guarda nada hasta que añadas el relay.",
+    "steps": {
+      "reserve": {
+        "waiting": "Reservar un hueco en el relay",
+        "ok": "Hueco reservado en el relay",
+        "failed": "Reservar un hueco: sin respuesta",
+        "skipped": "Reservar un hueco"
+      },
+      "circuit": {
+        "waiting": "Prueba de circuito",
+        "ok": "Prueba de circuito: los datos pasaron por el relay",
+        "failed": "Falló la prueba de circuito",
+        "skipped": "Prueba de circuito: omitida, este servidor no es administrador"
+      },
+      "allowlist": {
+        "waiting": "Enviar la lista de permitidos",
+        "ok": "Lista de permitidos enviada. Este servidor es administrador.",
+        "failed": "Lista de permitidos no enviada",
+        "skipped": "Lista de permitidos: no hace falta en un relay abierto"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "El relay funciona y es restringido.",
+        "body": "Entra en cada invitación nueva como pista del relay, con un pase del relay."
+      },
+      "open": {
+        "title": "El relay funciona, pero es abierto.",
+        "body": "Cualquiera puede usarlo. Las invitaciones lo incluyen solo con una advertencia. Inícialo con --admin para hacerlo restringido."
+      },
+      "wrong_peer": {
+        "title": "Peer ID incorrecto.",
+        "body": "El relay respondió como {{actual}}, pero la dirección dice {{expected}}. Copia la dirección de nuevo del registro del relay. Si el relay se reinició sin el volumen de la clave, creó un ID nuevo."
+      },
+      "unreachable": {
+        "title": "No se puede llegar al relay.",
+        "body": "Comprueba que está en marcha y que el puerto 4001 UDP y TCP está abierto en su máquina y su router. Luego comprueba de nuevo."
+      },
+      "circuit": {
+        "title": "El relay responde, pero no pasaron datos por él.",
+        "body": "Sus límites pueden ser demasiado bajos, o está sobrecargado. Revisa su registro y comprueba de nuevo."
+      },
+      "unclaimed": {
+        "title": "El relay aún no tiene administrador.",
+        "body": "Introduce el código de reclamación que imprimió al arrancar, o reinícialo con --admin y el peer ID de este servidor."
+      },
+      "not_admin": {
+        "title": "Este servidor no es administrador del relay.",
+        "body": "Inicia el relay con --admin y el peer ID de este servidor, como en el paso 1. Luego comprueba de nuevo."
+      }
+    }
+  },
+  "limits": {
+    "title": "Límites de {{name}}",
+    "ledeOpen": "Relay abierto: cualquiera puede usarlo.",
+    "ledeGated": "Relay restringido: solo lo usan los peers vinculados.",
+    "reset": "Restablecer valores predeterminados",
+    "noLimitTitle": "Sin límite.",
+    "noLimitOpen": "Un desconocido puede usar todo el ancho de banda y los datos de este relay, y tus propios peers se ralentizan.",
+    "noLimitGated": "Un peer vinculado puede usar todo el ancho de banda de este relay, por ejemplo para copiar un modelo.",
+    "mode": "Modo",
+    "limited": "Limitado",
+    "none": "Sin límite",
+    "fields": {
+      "dataGiB": "Datos por circuito",
+      "minutes": "Tiempo por circuito",
+      "kibps": "Ancho de banda por circuito"
+    },
+    "zeroHint": "0 significa sin límite para ese valor.",
+    "invalid": "Cada valor debe ser un número igual o mayor que 0.",
+    "applyHint": "Un nuevo límite de ancho de banda se aplica al siguiente circuito. Un nuevo límite de datos o de tiempo reinicia el servicio de circuitos del relay: los circuitos abiertos mantienen los límites antiguos hasta que se cierren, y los dispositivos vinculados se reconectan por el relay en unos instantes.",
+    "save": "Guardar límites",
+    "saved": "Límites guardados en {{name}}.",
+    "savedRestarted": "Límites guardados en {{name}}. El relay reinició su servicio de circuitos; los dispositivos se reconectan en un momento.",
+    "loadError": "No se pudieron leer los límites del relay.",
+    "readOnlyTitle": "Este servidor no puede cambiar estos límites.",
+    "readOnlyOpen": "Es un relay abierto y este servidor no es su administrador. Define los límites donde se ejecuta el relay, con --circuit-max-bytes, --circuit-max-duration y --rate-limit.",
+    "readOnlyMember": "Este servidor no es administrador de este relay. Pídeselo a su administrador o define los límites donde se ejecuta el relay, con --circuit-max-bytes, --circuit-max-duration y --rate-limit.",
+    "max": "Máximo: {{value}}",
+    "noMax": "Sin máximo",
+    "ceilingTitle": "El operador del relay fijó máximos.",
+    "ceilingBody": "El operador de este relay fijó un tope para cada límite con sus opciones de arranque. Puedes cambiar un límite hasta su máximo, no por encima, y no puedes quitar un límite que tiene máximo.",
+    "issue": {
+      "above": "Por encima del máximo de {{max}}.",
+      "required": "Introduce un valor de hasta {{max}}: un límite con máximo no se puede quitar."
+    },
+    "refusedTitle": "El relay rechazó el cambio."
+  },
+  "identity": {
+    "title": "Identidad",
+    "lede": "Los clientes fijan este peer ID cuando canjean una invitación. Tus relays lo nombran como su administrador. Se mantiene igual tras los reinicios.",
+    "notRunning": "P2P no se está ejecutando, así que este servidor no tiene un peer ID que mostrar.",
+    "copied": "Peer ID copiado.",
+    "copyFailed": "No se pudo copiar el peer ID.",
+    "regenerateTitle": "Regenerar el peer ID",
+    "regenerateDesc": "Crea una nueva clave de identidad. La clave antigua se conserva como copia de seguridad junto a la nueva. Hazlo solo si la clave de identidad se filtró.",
+    "regenerateButton": "Regenerar…",
+    "regenerate": "Regenerar",
+    "regenerated": "Nuevo peer ID creado. Envía una nueva invitación a cada dispositivo e instancia remota.",
+    "confirmTitle": "¿Regenerar el peer ID?",
+    "confirmBody": "Cada dispositivo vinculado, instancia remota y worker P2P fijó el ID actual. Dejan de conectarse y rechazan el ID nuevo como advertencia de seguridad. Debes enviar a cada uno una nueva invitación. Las invitaciones pendientes dejan de funcionar.",
+    "confirmOnly": "Hazlo solo si la clave de identidad se filtró.",
+    "confirmCheck_one": "Entiendo que {{count}} dispositivo vinculado debe vincularse de nuevo",
+    "confirmCheck_other": "Entiendo que {{count}} dispositivos vinculados deben vincularse de nuevo"
+  }
+}

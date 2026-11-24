@@ -1,0 +1,323 @@
+{
+  "group": {
+    "title": "集群",
+    "hint": "前端和工作节点如何连接"
+  },
+  "unavailable": {
+    "title": "此服务器不属于集群",
+    "body": "开启分布式模式后会显示集群设置。"
+  },
+  "loadFailed": "无法加载集群设置。",
+  "sheet": {
+    "title": "集群设置",
+    "description": "前端和工作节点如何连接。更改会在几秒内同步到每个前端。",
+    "close": "关闭集群设置",
+    "openSettings": "在设置中打开",
+    "done": "完成"
+  },
+  "bus": {
+    "title": "广播",
+    "note": "前端会监听其可以访问的每个总线。当 NATS 可以访问时通过 NATS 发布，否则通过 PostgreSQL 发布。",
+    "state": {
+      "nats": "NATS 已连接",
+      "postgres": "PostgreSQL",
+      "unknown": "未知"
+    },
+    "publishing": {
+      "nats": "正在通过 NATS 发布",
+      "postgres": "正在通过 PostgreSQL 发布",
+      "unknown": "未知"
+    },
+    "unreachable": "已配置 NATS，但此前端无法访问它。它通过 PostgreSQL 广播，在 NATS 恢复访问之前不会就绪。",
+    "noReplica": "没有报告在线的前端。",
+    "replicas": "前端",
+    "unknownVersion": "版本未知",
+    "workers": "工作节点从不连接 PostgreSQL。它们通过下方的连接与前端通信。"
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "保存时会检查此前端能否访问 NATS 服务器。前端重启后会使用新地址。",
+    "state": {
+      "connected": "可访问",
+      "unreachable": "无法访问",
+      "off": "未设置"
+    },
+    "url": "NATS 地址",
+    "urlHint": "前端连接到此处。",
+    "workerUrl": "提供给工作节点的地址",
+    "workerUrlHint": "仅当工作节点使用不同地址访问 NATS 时填写。留空则使用上方的地址。",
+    "save": "保存",
+    "saved": "已保存。请重启前端以使用新地址。",
+    "savedReachable": "已保存。此前端可以访问 NATS 服务器。请重启前端以使用新地址。",
+    "failed": "设置未保存。"
+  },
+  "weights": {
+    "title": "连接偏好",
+    "note": "工作节点可以通过 NATS、WebSocket 或 P2P 加入，也可以同时使用多种方式。如果两个工作节点同样适合某个请求，则选择通过权重较高的连接可达的那个。权重永远不会超过适配性。0 表示：仅在没有其他可用选项时使用。",
+    "about": {
+      "nats": "最快。工作节点连接消息总线。",
+      "websocket": "随处可用。工作节点连接此服务器。",
+      "p2p": "邀请链接。可能经过中继。"
+    },
+    "sliderLabel": "{{connection}} 权重",
+    "resetOne": "恢复默认值 {{value}}",
+    "default": "默认 {{value}}",
+    "error": {
+      "empty": "请输入 0 到 1000 之间的整数。",
+      "whole": "请使用 0 到 1000 之间的整数。",
+      "range": "权重范围为 0 到 1000。"
+    },
+    "live": "如果两个工作节点同样适合，{{sentence}}。",
+    "wins": "{{winner}} 优先于 {{loser}}",
+    "ties": "{{a}} 与 {{b}} 并列",
+    "apply": "应用权重",
+    "useDefaults": "使用默认值",
+    "saved": "已保存。每个前端会在几秒内使用新权重。",
+    "defaultsBack": "已恢复默认权重。每个前端会在几秒内使用它们。",
+    "failed": "权重未保存。"
+  },
+  "joining": {
+    "title": "加入",
+    "note": "新工作节点使用加入令牌加入时如何被接纳。",
+    "autoApprove": "自动批准工作节点",
+    "autoApproveHint": "默认关闭。使用令牌加入的工作节点需要等待你批准。你生成的令牌可以选择其他设置。",
+    "autoApproveOn": "任何持有有效加入令牌的人都无需你批准即可加入。请使用短期有效且只能使用一次的令牌。",
+    "failed": "设置未保存。"
+  },
+  "page": {
+    "supporting": "运行你的模型的机器。{{total}} 台中有 {{online}} 台在线。",
+    "supportingEmpty": "运行你的模型的机器。",
+    "add": "添加工作节点",
+    "search": "搜索工作节点",
+    "searchPlaceholder": "搜索工作节点、模型、标签",
+    "chip": {
+      "all": "全部",
+      "healthy": "正常",
+      "attention": "需要关注",
+      "offline": "离线",
+      "pending": "待处理"
+    },
+    "type": {
+      "backend": "后端",
+      "agent": "代理",
+      "model-split": "模型拆分"
+    },
+    "reason": "需要关注的原因",
+    "anyReason": "任何原因"
+  },
+  "pill": {
+    "frontends_one": "{{count}} 个前端",
+    "frontends_other": "{{count}} 个前端"
+  },
+  "strip": {
+    "label": "集群摘要",
+    "online": "在线工作节点",
+    "ofTotal": "共 {{total}} 个",
+    "models": "已加载模型",
+    "onWorkers_one": "位于 {{count}} 个工作节点",
+    "onWorkers_other": "位于 {{count}} 个工作节点",
+    "inFlight": "进行中",
+    "requests_one": "个请求",
+    "requests_other": "个请求",
+    "attention": "需要关注",
+    "allClear": "一切正常",
+    "offline": "{{count}} 个离线",
+    "degraded": "{{count}} 个性能下降"
+  },
+  "roster": {
+    "worker": "工作节点",
+    "state": "状态",
+    "connections": "连接",
+    "load": "负载",
+    "seen": "最近在线",
+    "splitMark": "模型拆分",
+    "splitGroup": "模型拆分工作节点",
+    "attachedTo": "挂接到 {{node}}",
+    "lends": "提供 {{memory}}"
+  },
+  "conn": {
+    "label": "连接",
+    "of": "{{name}} 的连接",
+    "name": {
+      "nats": "NATS",
+      "websocket": "WebSocket",
+      "p2p": "P2P",
+      "heartbeat": "心跳"
+    },
+    "live": "在线",
+    "reconnecting": "重新连接中",
+    "down": "断开",
+    "notReported": "未报告",
+    "state": {
+      "live": "在线",
+      "reconnecting": "重新连接中",
+      "down": "断开"
+    },
+    "path": {
+      "direct": "直连",
+      "holePunched": "打洞连接",
+      "relayed": "经由中继 {{relay}}",
+      "relayedUnknown": "经由中继",
+      "none": "无路径"
+    },
+    "rtt": "{{ms}} ms",
+    "limited": "受限",
+    "limitedHint": "中继会限制此连接的数据量或时长。模型文件不会经过中继。"
+  },
+  "inspector": {
+    "kicker": "工作节点",
+    "splitKicker": "模型拆分工作节点",
+    "connections": "连接",
+    "noConnections": "此工作节点尚未报告任何连接。",
+    "weight": "权重 {{weight}}",
+    "heartbeat": "心跳 {{ago}}",
+    "update": "更新后端",
+    "splitNote": "它将内存提供给一个跨多台机器运行的大模型。它没有后端，也没有放置规则。"
+  },
+  "add": {
+    "title": "添加工作节点",
+    "supporting": "分三步连接一台新机器。",
+    "cancel": "取消",
+    "back": "返回",
+    "continue": "继续",
+    "backToWorker": "返回使用加入令牌的工作节点",
+    "stepsLabel": "步骤",
+    "step": {
+      "choose": "选择连接方式",
+      "run": "运行命令",
+      "wait": "等待工作节点"
+    },
+    "choose": {
+      "title": "工作节点应如何连接？",
+      "note": "选择一种或多种。工作节点可以同时使用所有方式。之后也可以添加更多。",
+      "none": "请至少选择一种连接方式。"
+    },
+    "availability": "可用性",
+    "needs": "要求",
+    "weight": "偏好权重 {{weight}}",
+    "way": {
+      "nats": {
+        "name": "NATS",
+        "tag": "最快",
+        "about": "最快。工作节点连接消息总线。",
+        "needs": "工作节点必须能够访问 NATS 地址。",
+        "ready": "可用，NATS 已连接",
+        "unreachable": "已配置，但此前端无法访问它",
+        "off": "不可用",
+        "offNote": "尚未设置 NATS。",
+        "offLink": "在集群设置中进行设置"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "tag": "随处可用",
+        "about": "工作节点使用令牌连接此服务器的地址。可穿透 NAT 和防火墙。",
+        "needs": "仅需此服务器的地址。",
+        "ready": "可用"
+      },
+      "p2p": {
+        "name": "P2P",
+        "tag": "邀请链接",
+        "about": "使用邀请链接加入。无需开放端口。可能经过中继。",
+        "needs": "已开启 P2P 共享。",
+        "ready": "可用",
+        "off": "不可用",
+        "checking": "检查中",
+        "offNote": "P2P 共享已关闭。",
+        "offLink": "在共享中开启"
+      }
+    },
+    "split": {
+      "question": "要在多台机器上运行一个大模型吗？",
+      "answer": "请改为添加模型拆分工作节点。",
+      "action": "模型拆分工作节点"
+    },
+    "single": {
+      "splitNote": "模型拆分工作节点不需要集群。"
+    },
+    "run": {
+      "title": "在新机器上运行命令",
+      "attach": "此工作节点将通过 {{ways}} 连接",
+      "weights": "权重 {{weights}}",
+      "change": "更改连接方式",
+      "ran": "我已运行，等待工作节点"
+    },
+    "token": {
+      "title": "加入令牌",
+      "show": "显示令牌",
+      "hide": "隐藏令牌",
+      "copy": "复制令牌",
+      "expires": "过期时间",
+      "in": "剩余",
+      "expired": "已过期",
+      "connections": "连接",
+      "any": "任意",
+      "uses": "可用次数",
+      "one": "1 个工作节点",
+      "many": "多个",
+      "count": "工作节点数量",
+      "max": "最多 {{max}} 个。",
+      "usesHint": "可以使用此令牌加入的工作节点数量。用于 Kubernetes 或 Compose 时请选择多个。",
+      "valid": "有效期",
+      "ttl": {
+        "600": "10 分钟",
+        "3600": "1 小时",
+        "86400": "24 小时"
+      },
+      "again": "生成新令牌",
+      "retry": "重试",
+      "making": "正在生成加入令牌…",
+      "failed": "未能生成加入令牌：{{message}}",
+      "expiredNote": "此令牌已过期。请生成新令牌以获取可用的命令。",
+      "hiddenNote": "令牌在此处隐藏，复制时会一并加入。",
+      "shownNote": "令牌在此处显示。共享屏幕前请先隐藏。"
+    },
+    "tabs": {
+      "label": "运行工作节点的方式",
+      "install": "安装脚本",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "kubernetes": "Kubernetes",
+      "manual": "手动"
+    },
+    "tabNote": {
+      "compose": "可能会同时启动多个副本：请选择可以使用此令牌的工作节点数量。",
+      "kubernetes": "将应用一个 Secret 和一个 StatefulSet。请为你运行的副本选择可以使用此令牌的工作节点数量。"
+    },
+    "os": {
+      "label": "操作系统",
+      "unix": "Linux 和 macOS",
+      "windows": "Windows"
+    },
+    "copyCommand": "复制命令",
+    "copiedShort": "已复制",
+    "copied": "已复制到剪贴板",
+    "copyFailed": "无法复制。请选中文本后手动复制。",
+    "invite": {
+      "title": "P2P 邀请",
+      "note": "一次性邀请链接。工作节点凭此通过 P2P 加入：无需令牌，也无需开放端口。",
+      "ready": "邀请已就绪",
+      "single": "单次使用",
+      "making": "正在生成邀请…",
+      "hardware": "硬件",
+      "how": "运行方法",
+      "cli": "命令行"
+    },
+    "wait": {
+      "title": "等待工作节点",
+      "listening": "正在等待工作节点",
+      "listeningNote": "在新机器上启动该命令。工作节点连接后此页面会更新。在此之前不会保存任何内容。",
+      "valid": "令牌有效期剩余 {{time}}",
+      "found_one": "已发现工作节点",
+      "found_other": "已发现 {{count}} 个工作节点",
+      "open": "打开",
+      "usesLeft_one": "令牌还剩 {{count}} 次使用机会。",
+      "usesLeft_other": "令牌还剩 {{count}} 次使用机会。",
+      "usedUp": "令牌已没有可用次数。",
+      "checkPeer": "批准前请在该机器上核对对等节点 ID。",
+      "stuck": "仍无反应？请检查该机器能否访问此服务器，以及命令是否无错误运行。",
+      "stuckInvite": "仍无反应？请检查该机器是否使用邀请链接运行了命令，以及链接是否已过期。",
+      "another": "添加另一个工作节点",
+      "done": "完成"
+    }
+  }
+}

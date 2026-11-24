@@ -1,0 +1,115 @@
+---
+# Concurrency policy: same as tests-e2e-distributed.yml. A newer push to master
+# cancels the in-flight run on master, PR runs group by PR number, schedule and
+# dispatch runs group by commit SHA. See .agents/ci-caching.md, section
+# "Concurrency".
+name: 'P2P E2E Tests'
+
+# The P2P layer (core/services/p2pnet, p2prelay, p2ppair):
+#   - unit tests under the race detector (`make test-p2p`);
+#   - the NAT lab (`make test-e2e-p2p`): two peers behind NAT routers (cone and
+#     symmetric masquerade) and a public segment with the real localai-relay
+#     binary, in Docker containers. The cases cover the relay gate, relay
+#     restart, limits, relay passes, invites, revoke and hole punching; they
+#     are listed in tests/e2e/p2p/README.md.
+#
+# The lab needs no secrets and no token beyond read access, so it also runs on
+# pull requests from forks. Only the nightly run is limited to the main
+# repository, so forks do not spend minutes on it.
+#
+# Runner support: ubuntu-latest is a full virtual machine with Docker, and
+# `docker run --cap-add NET_ADMIN` works on it, with the iptables NAT table and
+# conntrack inside the container. The job checks this first (lab.sh preflight)
+# and fails with a hint if a runner image ever stops allowing it. The lab
+# networks are `--internal` Docker networks, so no traffic leaves the runner.
+on:
+  pull_request:
+    paths:
+      - 'core/services/p2p*/**'
+      - 'cmd/localai-relay/**'
+      - 'tests/e2e/p2p/**'
+      - '.github/workflows/tests-e2e-p2p.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'core/services/p2p*/**'
+      - 'cmd/localai-relay/**'
+      - 'tests/e2e/p2p/**'
+      - '.github/workflows/tests-e2e-p2p.yml'
+  schedule:
+    # The lab depends on kernel and Docker behaviour of the runner image, so it
+    # also runs nightly, whatever changed.
+    - cron: '41 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-tests-e2e-p2p-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: unit tests under the race detector
+    if: github.event_name != 'schedule' || github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Run the P2P unit tests
+        run: make test-p2p
+
+  lab:
+    name: NAT lab in Docker
+    if: github.event_name != 'schedule' || github.repository == 'mudler/LocalAI'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Check that this runner can run the lab
+        # Builds the small lab image and tries a NAT rule with NET_ADMIN.
+        run: tests/e2e/p2p/lab/lab.sh preflight
+      - name: Run the NAT lab
+        # Builds the real relay and the lab binary, then runs every case.
+        run: make test-e2e-p2p
+        env:
+          P2P_LAB_LOGS: ${{ runner.temp }}/p2p-lab-logs
+      - name: Collect container state on failure
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/p2p-lab-logs"
+          docker ps -a --filter name=^/p2plab- > "$RUNNER_TEMP/p2p-lab-logs/containers.txt" || true
+          docker network ls --filter name=p2plab- >> "$RUNNER_TEMP/p2p-lab-logs/containers.txt" || true
+          for c in $(docker ps -aq --filter name=^/p2plab-); do
+            docker logs "$c" > "$RUNNER_TEMP/p2p-lab-logs/docker-$c.log" 2>&1 || true
+          done
+      - name: Upload the lab logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: p2p-lab-logs
+          path: ${{ runner.temp }}/p2p-lab-logs
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Tear the lab down
+        if: always()
+        run: tests/e2e/p2p/lab/lab.sh down

@@ -1,0 +1,147 @@
+package grpc
+
+import (
+	"context"
+
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+)
+
+// AnimationMetadataModel optionally reports JSON metadata without changing the legacy
+// animation interface implemented by other backends.
+type AnimationMetadataModel interface {
+	Animate3DWithMetadata(*pb.Animate3DRequest) ([]byte, error)
+}
+
+type AIModel interface {
+	MotionStream(context.Context, func() (*pb.MotionRequest, error), func(*pb.MotionResponse) error) error
+	Busy() bool
+	Lock()
+	Unlock()
+	Locking() bool
+	Predict(*pb.PredictOptions) (string, error)
+	PredictStream(*pb.PredictOptions, chan string) error
+	Load(*pb.ModelOptions) error
+	Free() error
+	Embeddings(*pb.PredictOptions) ([]float32, error)
+	GenerateImage(*pb.GenerateImageRequest) error
+	UpscaleImage(*pb.UpscaleImageRequest) error
+	GenerateVideo(*pb.GenerateVideoRequest) error
+	Generate3D(*pb.Generate3DRequest) error
+	Animate3D(*pb.Animate3DRequest) error
+	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
+	Depth(*pb.DepthRequest) (pb.DepthResponse, error)
+	Forecast(*pb.ForecastRequest) (pb.ForecastResponse, error)
+	FaceVerify(*pb.FaceVerifyRequest) (pb.FaceVerifyResponse, error)
+	FaceAnalyze(*pb.FaceAnalyzeRequest) (pb.FaceAnalyzeResponse, error)
+	VoiceVerify(*pb.VoiceVerifyRequest) (pb.VoiceVerifyResponse, error)
+	VoiceAnalyze(*pb.VoiceAnalyzeRequest) (pb.VoiceAnalyzeResponse, error)
+	VoiceEmbed(*pb.VoiceEmbedRequest) (pb.VoiceEmbedResponse, error)
+	AudioTranscription(context.Context, *pb.TranscriptRequest) (pb.TranscriptResult, error)
+	AudioTranscriptionStream(context.Context, *pb.TranscriptRequest, chan *pb.TranscriptStreamResponse) error
+	AudioTranscriptionLive(in <-chan *pb.TranscriptLiveRequest, out chan<- *pb.TranscriptLiveResponse) error
+	TTS(*pb.TTSRequest) error
+	TTSStream(*pb.TTSRequest, chan []byte) error
+	SoundGeneration(*pb.SoundGenerationRequest) error
+	TokenizeString(*pb.PredictOptions) (pb.TokenizationResponse, error)
+	Detokenize(*pb.DetokenizeRequest) (pb.DetokenizeResponse, error)
+	Status() (pb.StatusResponse, error)
+
+	StoresSet(*pb.StoresSetOptions) error
+	StoresDelete(*pb.StoresDeleteOptions) error
+	StoresGet(*pb.StoresGetOptions) (pb.StoresGetResult, error)
+	StoresFind(*pb.StoresFindOptions) (pb.StoresFindResult, error)
+
+	VAD(*pb.VADRequest) (pb.VADResponse, error)
+	Diarize(*pb.DiarizeRequest) (pb.DiarizeResponse, error)
+	SoundDetection(context.Context, *pb.SoundDetectionRequest) (*pb.SoundDetectionResponse, error)
+
+	AudioEncode(*pb.AudioEncodeRequest) (*pb.AudioEncodeResult, error)
+	AudioDecode(*pb.AudioDecodeRequest) (*pb.AudioDecodeResult, error)
+
+	AudioTransform(*pb.AudioTransformRequest) (*pb.AudioTransformResult, error)
+	AudioTransformStream(in <-chan *pb.AudioTransformFrameRequest, out chan<- *pb.AudioTransformFrameResponse) error
+	AudioToAudioStream(in <-chan *pb.AudioToAudioRequest, out chan<- *pb.AudioToAudioResponse) error
+
+	// Forward proxies a raw HTTP request to an upstream provider for
+	// passthrough-mode cloud-proxy backends. ctx is the gRPC stream
+	// context — cancellation propagates to the upstream HTTP request
+	// so client disconnect closes the upstream connection.
+	Forward(ctx context.Context, in <-chan *pb.ForwardRequest, out chan<- *pb.ForwardReply) error
+
+	ModelMetadata(*pb.ModelOptions) (*pb.ModelMetadataResponse, error)
+
+	// Fine-tuning
+	StartFineTune(*pb.FineTuneRequest) (*pb.FineTuneJobResult, error)
+	FineTuneProgress(*pb.FineTuneProgressRequest, chan *pb.FineTuneProgressUpdate) error
+	StopFineTune(*pb.FineTuneStopRequest) error
+	ListCheckpoints(*pb.ListCheckpointsRequest) (*pb.ListCheckpointsResponse, error)
+	ExportModel(*pb.ExportModelRequest) error
+
+	// Quantization
+	StartQuantization(*pb.QuantizationRequest) (*pb.QuantizationJobResult, error)
+	QuantizationProgress(*pb.QuantizationProgressRequest, chan *pb.QuantizationProgressUpdate) error
+	StopQuantization(*pb.QuantizationStopRequest) error
+}
+
+func newReply(s string) *pb.Reply {
+	return &pb.Reply{Message: []byte(s)}
+}
+
+// AIModelRich is an optional extension to AIModel for backends that
+// can produce a full *pb.Reply — including tool-call deltas and
+// usage tokens — rather than just a content string. The gRPC server
+// type-asserts and prefers the rich path when implemented; otherwise
+// it wraps Predict's string return in a Reply.
+//
+// Cloud-proxy translate mode is the motivating use case: the upstream
+// emits structured tool_calls that would be lost through the legacy
+// (string, error) signature.
+//
+// PredictStreamRich contract: send replies into the channel and
+// return when finished. Do NOT close the channel — the server closes
+// it after the call returns. This is opposite to legacy PredictStream
+// which expects the impl to defer close().
+type AIModelRich interface {
+	PredictRich(*pb.PredictOptions) (*pb.Reply, error)
+	PredictStreamRich(*pb.PredictOptions, chan<- *pb.Reply) error
+}
+
+// AIModelRichContext is an optional extension to AIModelRich for backends
+// whose work outlives a plain function call, such as a proxy waiting on a
+// remote server. The gRPC server prefers it and passes the call's context, so
+// a caller that disconnects or gives up stops the work instead of letting it
+// run to the end. The channel contract is the same as PredictStreamRich.
+type AIModelRichContext interface {
+	PredictRichContext(context.Context, *pb.PredictOptions) (*pb.Reply, error)
+	PredictStreamRichContext(context.Context, *pb.PredictOptions, chan<- *pb.Reply) error
+}
+
+// ClassifyModel is an optional extension to AIModel for backends that
+// implement the TokenClassify RPC (zero-shot NER). The gRPC server
+// type-asserts to this interface; backends that do not implement it
+// fall through to the UnimplementedBackendServer default. This mirrors
+// the AIModelRich pattern: adding a method to AIModel itself would
+// break every backend, so the capability is opt-in.
+type ClassifyModel interface {
+	TokenClassify(context.Context, *pb.TokenClassifyRequest) (*pb.TokenClassifyResponse, error)
+}
+
+// ScoreModel is an optional extension to AIModel for backends that
+// implement the Score RPC (candidate scoring and decision pipelines).
+// The gRPC server type-asserts to this interface; backends that do not
+// implement it fall through to the UnimplementedBackendServer default.
+// This mirrors the ClassifyModel pattern: adding a method to AIModel
+// itself would break every backend, so the capability is opt-in.
+type ScoreModel interface {
+	Score(context.Context, *pb.ScoreRequest) (*pb.ScoreResponse, error)
+}
+
+// RerankModel is an optional extension to AIModel for backends that
+// implement the Rerank RPC (candidate document reranking against a query).
+// The gRPC server type-asserts to this interface; backends that do not
+// implement it fall through to the UnimplementedBackendServer default. This
+// mirrors the ScoreModel pattern: adding a method to AIModel itself would
+// break every backend, so the capability is opt-in.
+type RerankModel interface {
+	Rerank(context.Context, *pb.RerankRequest) (*pb.RerankResult, error)
+}

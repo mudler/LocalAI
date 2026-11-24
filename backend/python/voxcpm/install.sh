@@ -1,0 +1,44 @@
+#!/bin/bash
+set -e
+
+backend_dir=$(dirname $0)
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
+
+# The PyTorch CPU/CUDA indexes mirror common packages (e.g. requests) with
+# limited, often outdated version sets. uv's default "first-index" strategy
+# locks to the first index that carries a package, so it can pick e.g.
+# requests==2.28.1 from the PyTorch index instead of a newer version from
+# PyPI. voxcpm's transitive deps (datasets>=3 → requests>=2.32.2) need the
+# PyPI versions. "unsafe-best-match" is safe here because we control both
+# indexes and there is no dependency confusion risk.
+export UV_INDEX_STRATEGY=unsafe-best-match
+
+installRequirements
+ 
+if [ "x${USE_PIP}" == "xtrue" ]; then
+    pip install "setuptools<70.0.0"
+else
+    uv pip install "setuptools<70.0.0"
+fi
+# Apply patch to fix PyTorch compatibility issue in voxcpm
+# This fixes the "Dimension out of range" error in scaled_dot_product_attention
+# by changing .contiguous() to .unsqueeze(0) in the attention module
+# The patch is needed because voxcpm's initialization test generation fails with
+# certain PyTorch versions due to a bug in scaled_dot_product_attention
+# https://github.com/OpenBMB/VoxCPM/issues/71#issuecomment-3441789452
+VOXCPM_PATH=$(python -c "import voxcpm; import os; print(os.path.dirname(voxcpm.__file__))" 2>/dev/null || echo "")
+if [ -n "$VOXCPM_PATH" ] && [ -f "$VOXCPM_PATH/modules/minicpm4/model.py" ]; then
+    echo "Applying patch to voxcpm at $VOXCPM_PATH/modules/minicpm4/model.py"
+    # Replace .contiguous() with .unsqueeze(0) for the three lines in the attention forward_step method
+    # This fixes the dimension error in scaled_dot_product_attention
+    # Use temp file for in-place edit so it works on both BSD sed (macOS) and GNU sed (Linux)
+    PATCH_FILE="$VOXCPM_PATH/modules/minicpm4/model.py"
+    sed 's/query_states = query_states\.contiguous()/query_states = query_states.unsqueeze(0)/g; s/key_cache = key_cache\.contiguous()/key_cache = key_cache.unsqueeze(0)/g; s/value_cache = value_cache\.contiguous()/value_cache = value_cache.unsqueeze(0)/g' "$PATCH_FILE" > "${PATCH_FILE}.tmp" && mv "${PATCH_FILE}.tmp" "$PATCH_FILE"
+    echo "Patch applied successfully"
+else
+    echo "Warning: Could not find voxcpm installation to apply patch (path: ${VOXCPM_PATH:-not found})"
+fi

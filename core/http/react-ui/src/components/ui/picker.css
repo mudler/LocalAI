@@ -1,0 +1,164 @@
+/* ListPicker and every menu that looks like it (ModelPicker, the composer
+   chips, ProjectPicker, AgentFolderChip). The class names keep the home-
+   prefix of the page they started on; they are not tied to it any more.
+   main.jsx loads this file before App.css, so a page rule on the same element
+   wins over these. README.md, "ListPicker", has the parts. */
+
+.list-picker { position: relative; min-width: 0; }
+.list-picker--field { width: 100%; }
+.list-picker--field .list-picker__row { display: flex; gap: var(--sp-1); }
+
+/* The trigger: the compact chip, or a form field with --ctl-h. */
+.home-pick { position: relative; min-width: 0; }
+.home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl-h-sm);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-control-edge);
+  color: var(--dk-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.home-chip:hover:not(:disabled) { background: var(--dk-hover); }
+.home-chip:active:not(:disabled) { transform: scale(0.98); }
+.home-chip:disabled { cursor: default; color: var(--dk-muted); }
+.home-chip[aria-invalid="true"] { box-shadow: inset 0 0 0 1px var(--dk-error); }
+.home-chip .lai-icon { width: 14px; height: 14px; flex: none; color: var(--color-text-secondary); }
+.home-chip__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.home-chip__text--placeholder { color: var(--dk-muted); }
+/* A model id is the one chip text in mono. */
+.home-pick .home-chip__text,
+.home-chip__text--mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
+/* The note of a new chat with no model yet (ask, or a default that is gone):
+   words, not a model id, and a warning when the default is gone. */
+.home-pick .home-chip__note { font-family: inherit; }
+.home-chip[data-note="missing"] { border-color: var(--dk-warn); color: var(--dk-warn-text); }
+.home-chip--field { flex: 1; width: 100%; justify-content: flex-start; height: var(--ctl-h); }
+.home-chip--field .home-chip__caret { margin-left: auto; }
+.home-chip__alias { color: var(--dk-muted); font-size: var(--fs-meta); white-space: nowrap; }
+/* How many rows a multiple choice holds. */
+.home-chip__count {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Picks of a multiple choice shown as chips, and the clear button. */
+.home-pick--field { width: 100%; }
+.home-pick__chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: 0 0 var(--sp-1); padding: 0; list-style: none; }
+.home-pick__tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: var(--r-md); background: var(--dk-hover); }
+.home-pick__tag code { font-family: var(--font-mono); font-size: var(--fs-small); background: none; padding: 0; }
+.home-pick__remove { display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--dk-muted); cursor: pointer; padding: 4px; border-radius: var(--r-sm); }
+.home-pick__remove:hover:not(:disabled) { background: var(--dk-hover); color: var(--dk-text); }
+
+/* The warm (loaded) or cold dot of a model or a running thing. */
+.home-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dk-ok);
+}
+.home-dot--cold { background: transparent; box-shadow: inset 0 0 0 1.75px var(--dk-control-edge); }
+
+/* The menu */
+.home-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 6px);
+  left: var(--menu-left, 0);
+  min-width: var(--menu-min, min(400px, calc(100vw - 48px)));
+  max-width: var(--menu-max, min(560px, calc(100vw - 48px)));
+  padding: 6px;
+  background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text));
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  box-shadow: var(--dk-shadow-float);
+  animation: homeRise var(--dur-base) var(--ease-out) both;
+}
+/* A form field's menu is at least as wide as the field. The model picker
+   keeps its own width (it lists long ids with tags). */
+.list-picker--field:not(.home-pick) > .home-menu { min-width: var(--menu-min, max(100%, min(400px, calc(100vw - 48px)))); }
+/* ListPicker measures the room its trigger has when the menu opens and sets
+   --menu-left, --menu-min and --menu-max, so the menu stays inside the window
+   and inside a panel that clips (a side sheet). SwitchList keeps the plain
+   flip: its menu hangs from the right edge with data-align="end". */
+.home-menu[data-align="end"] { left: auto; right: 0; }
+.home-menu__filter {
+  width: 100%;
+  height: var(--ctl-h);
+  margin-bottom: var(--sp-1);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+.home-menu__filter:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 0; }
+.home-menu__list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; outline: none; }
+.home-menu__head {
+  padding: var(--sp-2) 10px var(--sp-1);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.home-menu__empty { padding: var(--sp-3) 10px; color: var(--dk-muted); font-size: var(--fs-small); }
+.home-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+/* The menu's surface is a tint of the card, and in the dark theme the hover
+   token is the same colour as that tint, so the active row adds some text
+   colour to it to stay visible in both themes. */
+.home-menu__item[data-active="true"] { background: color-mix(in srgb, var(--dk-text) 10%, var(--dk-hover)); color: var(--dk-text); }
+.home-menu__item[data-blocked="true"] { opacity: .55; cursor: not-allowed; }
+.home-menu__item code { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); background: none; padding: 0; white-space: nowrap; }
+.home-menu__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); }
+.home-menu__item[aria-selected="true"] .home-menu__label { color: var(--dk-text); font-weight: 600; }
+.home-menu__icon { flex: none; width: 16px; height: 16px; color: var(--dk-muted); }
+.home-menu__item small { margin-left: auto; font-size: var(--fs-meta); color: var(--dk-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.home-menu__check { flex: none; margin-left: auto; color: var(--dk-accent-text); }
+.home-menu__item small + .home-menu__check { margin-left: var(--sp-2); }
+/* A row with a second line: the label on top, a description under it. */
+.home-menu__item--rich { align-items: flex-start; padding-top: 8px; padding-bottom: 8px; }
+.home-menu__item--rich .home-dot { margin-top: 6px; }
+.home-menu__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.home-menu__line { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.home-menu__desc { color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-small); }
+
+@media (max-width: 640px) {
+  .home-menu { min-width: 0; width: calc(100vw - 48px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-menu { animation: none; }
+  .home-chip:active:not(:disabled) { transform: none; }
+}

@@ -1,0 +1,132 @@
+{
+  "title": "Mail",
+  "intro": "Let your agents read a mailbox over IMAP, and write mail over SMTP if you allow it. It works with any provider that offers IMAP and SMTP.",
+  "limits": "This connection does not answer incoming mail by itself. An agent works on your mail only when you ask it in a chat. Everything in the mailbox is reachable, so connect only a mailbox you want the agent to read.",
+  "new": "New mail connection",
+  "edit": "Edit mail connection",
+  "name": "Name",
+  "agent": "Agent",
+  "agentNone": "Choose an agent",
+  "agentCredentialsOnly": "No agent (credentials only)",
+  "credentialsOnly": "Credentials only",
+  "agentNoModel": "{{name}} (needs a model)",
+  "test": "Test",
+  "testOk": "Connected as {{bot}}.",
+  "checkFailed": "Saved. The login check failed: {{reason}}",
+  "checkSeveral": "The login checks run when you have one mail connection, because a check from this page cannot tell which one you mean. In a chat, enable the connections in the Tools menu.",
+  "check": {
+    "title": "Check of {{name}}",
+    "running": "Checking the two logins...",
+    "at": "Checked at {{time}}",
+    "imapOk": "Reading mail (IMAP): the login works.",
+    "smtpOk": "Sending mail (SMTP): the login works.",
+    "imapFailed": "Reading mail (IMAP) failed. {{reason}}",
+    "smtpFailed": "Sending mail (SMTP) failed. {{reason}}"
+  },
+  "save": "Save",
+  "cancel": "Cancel",
+  "editButton": "Edit",
+  "delete": "Delete",
+  "empty": "No mail connections yet.",
+  "noAddress": "No address",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Not running: {{reason}}.",
+  "confirmDelete": {
+    "title": "Delete {{name}}?",
+    "message": "The agent can no longer reach this mailbox, and the password saved with it is deleted. To set it up again you must enter everything again.",
+    "confirm": "Delete"
+  },
+  "replace": "Change the server or login details",
+  "savedAs": "Saved for {{address}}. The servers and the password are kept sealed and cannot be shown. To change any of them, enter all of them again.",
+  "address": "Mailbox address",
+  "addressHelp": "The address of the mailbox. It is also the From address of mail the agent sends.",
+  "addressShape": "Write one plain address, for example name@example.com.",
+  "display": "Sender name",
+  "displayHelp": "Shown next to the address on mail the agent sends.",
+  "displayShape": "Use up to 100 characters on one line.",
+  "username": "Username",
+  "usernameHelp": "The login of both servers. Often the full address.",
+  "userShape": "Enter the username of the mailbox.",
+  "password": "Password",
+  "passwordHelp": "Many providers need an app password here, not the normal one. It is kept sealed and never shown again.",
+  "passMissing": "Enter the password.",
+  "passShape": "The password is up to 512 characters, with no line break.",
+  "host": "Server",
+  "port": "Port",
+  "imap": {
+    "title": "Reading mail (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Sending mail (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Write the IMAP server name only, like imap.example.com: no https://, port or path.",
+  "smtpHostShape": "Write the SMTP server name only, like smtp.example.com: no https://, port or path.",
+  "imapPortShape": "The IMAP port is 993 or 143.",
+  "smtpPortShape": "The SMTP port is 465 or 587.",
+  "imapPortSecurityMismatch": "Port 993 uses TLS; port 143 uses STARTTLS. Make the port and the protection match.",
+  "smtpPortSecurityMismatch": "Port 465 uses TLS; port 587 uses STARTTLS. Make the port and the protection match.",
+  "plainNotConfirmed": "Confirm that you accept sending the password without protection, or choose TLS or STARTTLS.",
+  "security": {
+    "label": "Protection",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "None (not safe)",
+    "plainWarning": "Without protection the password and all mail travel as plain text. Anyone on the network path can read them. Use it only on a network you trust.",
+    "plainConfirm": "I accept that the password and mail are sent without protection."
+  },
+  "folders": "Folders the agent may use",
+  "foldersHelp": "One per line. Leave empty to allow every folder. A folder that is not listed is refused, and the INBOX is matched without regard to case.",
+  "foldersMany": "At most 20 folders.",
+  "foldersShape": "A folder name is up to 200 characters on one line.",
+  "drafts": "Drafts folder",
+  "draftsHelp": "Only needed when the server does not mark its drafts folder. Drafts go to the folder the server marks as Drafts first.",
+  "tooLong": "The connection is too long to save. Shorten the folder list.",
+  "setup": {
+    "title": "How to connect a mailbox",
+    "step1": "Find the IMAP and SMTP server names of your provider in its help pages. Both use TLS or STARTTLS.",
+    "step2": "If the provider supports it, create an app password for LocalAI and use it as the password. A normal password often does not work with IMAP.",
+    "step3": "Enter the address, the username, the password and the two servers, then save. Saving logs in to both servers.",
+    "step4": "Choose whether the agent may also send and draft mail, and whether it asks you first. With Allow all it acts without asking, and a sent mail cannot be taken back.",
+    "private": "The mail servers must be on the public internet: addresses inside a private network are refused."
+  },
+  "writeMode": {
+    "label": "What the agent may do with mail",
+    "hint": "Sending and saving drafts. It never deletes, moves, flags or forwards mail.",
+    "off": "Read only",
+    "propose": "Asks you first",
+    "line": {
+      "off": "It can only read.",
+      "propose": "Each send and each draft waits for your OK.",
+      "auto": "Your chats send and save without asking."
+    },
+    "note": {
+      "off": "Write access is off: this connection only reads.",
+      "propose": "Each send and each draft waits in your approvals until you confirm it. A sent mail cannot be taken back, and everyone in To and Cc will read it.",
+      "auto": "A chat of yours sends and saves mail at once, without asking. A sent mail cannot be taken back, and everyone in To and Cc will read it. Runs without you present still wait for your confirmation."
+    },
+    "row": {
+      "off": "Read only",
+      "propose": "Asks you first",
+      "auto": "Allow all"
+    },
+    "auto": "Allow all"
+  },
+  "approval": {
+    "action": {
+      "send-message": "Send an email",
+      "save-draft": "Save an email draft"
+    },
+    "from": "From",
+    "to": "To",
+    "cc": "Cc",
+    "subject": "Subject",
+    "reply": "Reply",
+    "replyYes": "Part of an existing conversation",
+    "text": "Text of the mail",
+    "cut": "The text shown here is cut. The full text, {{bytes}} bytes, is used.",
+    "noteSend": "Sending cannot be taken back. Everyone in To and Cc will read this from your address.",
+    "noteDraft": "This is saved in your Drafts folder. Nothing is sent."
+  }
+}

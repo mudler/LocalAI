@@ -1,0 +1,1084 @@
+{
+  "activity": {
+    "thought": "Thought",
+    "tool": "Tool",
+    "result": "Result",
+    "toolResult": "{{name}} result",
+    "thinking": "Thinking...",
+    "toolCall": "Tool call",
+    "toolCalls_one": "{{count}} tool call",
+    "toolCalls_other": "{{count}} tool calls"
+  },
+  "header": {
+    "manageModeTooltip": "This chat can install models, edit configs and manage backends by talking to LocalAI.",
+    "modelInfo": "Model info",
+    "chatSettings": "Chat settings",
+    "modelInfoTitle": "Model Info: {{model}}",
+    "editConfig": "Edit config",
+    "close": "Close",
+    "chatName": "Chat name",
+    "find": "Find in chat",
+    "more": "More"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "Model file",
+    "contextSize": "Context size",
+    "threads": "Threads",
+    "mcp": "MCP",
+    "configured": "Configured",
+    "chatTemplate": "Chat template",
+    "yes": "Yes",
+    "gpuLayers": "GPU layers"
+  },
+  "settings": {
+    "title": "Chat Settings",
+    "manageMode": "Manage mode",
+    "focusMode": "Focus mode",
+    "focusModeDesc": "Collapse the sidebar and slim the header while a conversation is active. Esc restores them temporarily; turn this off to keep the full layout.",
+    "behaviour": "Behaviour",
+    "conversation": "This conversation",
+    "serverKept": "The server keeps this chat and its settings. A new model or title needs the chat to be idle.",
+    "manageModeOn": "This chat has the LocalAI management tools. Use /assistant to start another one.",
+    "agent": "Agent",
+    "agentHelp": "This chat runs with the agent {{name}}: its instructions and only the tools it grants.",
+    "editAgent": "Edit agent",
+    "deleteHelp": "Delete this chat and its messages for good.",
+    "collections": "Collections",
+    "collectionsHelp": "This chat can use only these collections.",
+    "answers": "Answers",
+    "answersHelp": "These apply from the next turn. Empty fields use the model's own values.",
+    "systemPrompt": "System prompt",
+    "systemPromptPlaceholder": "Added to the instructions of this chat",
+    "temperature": "Temperature",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Context size (tokens)",
+    "reasoningEffort": "Reasoning effort",
+    "modelDefault": "Model default",
+    "effort": {
+      "default": "Default",
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "invalid": {
+      "temperature": "Use a number from 0 to 2.",
+      "topP": "Use a number above 0 and at most 1.",
+      "topK": "Use a whole number, 0 or more.",
+      "contextSize": "Use a whole number from 512 to 4194304.",
+      "effort": "Choose one of the listed values."
+    },
+    "save": "Save settings",
+    "saving": "Saving...",
+    "saved": "Saved. The next turn uses these settings.",
+    "saveFailed": "The settings could not be saved.",
+    "sliderOf": "{{name}} slider",
+    "reset": "Use the model default for {{name}}",
+    "hint": {
+      "temperature": "Higher values give more varied answers. From 0 to 2.",
+      "topP": "Picks from the most likely words that add up to this share. Above 0, up to 1.",
+      "topK": "Picks from this many of the most likely words. A whole number, 0 or more.",
+      "contextSize": "From 512 to 4194304 tokens.",
+      "effort": "Applies at once, from the next turn."
+    }
+  },
+  "empty": {
+    "manageTitle": "Manage LocalAI by chatting",
+    "manageText": "Ask to install models, switch backends, edit configs, or check status. The assistant will summarise actions and wait for your confirmation before changing anything.",
+    "suggestionsManage": [
+      "What is installed?",
+      "Install a chat model",
+      "Show system status",
+      "Update a backend"
+    ],
+    "suggestionsChat": [
+      "Explain how this works",
+      "Help me write code",
+      "Summarize a document",
+      "Brainstorm ideas"
+    ],
+    "title": "What are we working on?",
+    "try": "Try",
+    "warmReady": "{{model}} is loaded and ready.",
+    "coldReady": "{{model}} is not loaded yet. The first reply loads it.",
+    "hintKeys": "Enter sends, Shift+Enter adds a line. Press Ctrl K for all chats."
+  },
+  "errors": {
+    "viewTraces": "View traces for details"
+  },
+  "actions": {
+    "copy": "Copy",
+    "regenerate": "Regenerate",
+    "jumpToLatest": "Jump to latest",
+    "reuse": "Edit and send again",
+    "editMessage": "Edit message",
+    "editHelp": "Sending the edit removes everything after this message and runs the chat again.",
+    "editSend": "Send edit",
+    "editCancel": "Cancel",
+    "branch": "Branch from here"
+  },
+  "streaming": {
+    "transferring": "Transferring model...",
+    "transferringTo": "Transferring model to {{node}}...",
+    "waiting": "Waiting for the reply"
+  },
+  "input": {
+    "send": "Send message",
+    "stopGenerating": "Stop generating",
+    "placeholderModel": "Message {{model}}...",
+    "placeholderNoModel": "Install a model to start chatting",
+    "selectModelFirst": "Select a model first",
+    "placeholderPick": "Pick a model to start",
+    "placeholderQueue": "The model is working. A message sent now waits for its next step."
+  },
+  "deleteAllDialog": {
+    "title": "Delete All Chats",
+    "message": "Delete all chats? This cannot be undone.",
+    "confirm": "Delete all"
+  },
+  "toasts": {
+    "selectModel": "Please select a model",
+    "copied": "Copied to clipboard",
+    "copyFailed": "Could not copy to clipboard",
+    "chatCopied": "Chat copied to clipboard",
+    "newChatForModel": "A chat keeps its model. Started a new chat with {{model}}.",
+    "branched": "Branched into a new chat.",
+    "notAChat": "This file is not a chat export.",
+    "imported": "Imported \"{{title}}\".",
+    "importFailed": "The chat could not be imported: {{message}}",
+    "modelChanged": "The next turn uses {{model}}.",
+    "windowSet": "The context window of {{model}} is now {{window}} tokens."
+  },
+  "menu": {
+    "trigger": "Chats",
+    "triggerTitle": "Conversations (Ctrl/Cmd+K)",
+    "search": "Search conversations...",
+    "clearSearch": "Clear search",
+    "noMatch": "No conversations match your search",
+    "noConversations": "No conversations yet",
+    "rename": "Rename",
+    "copyChat": "Copy chat",
+    "exportMarkdown": "Export as Markdown",
+    "deleteChat": "Delete chat",
+    "newChat": "New chat",
+    "clearAll": "Clear all",
+    "deleteAllTitle": "Delete all conversations",
+    "title": "Conversations",
+    "noModel": "No model",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
+    },
+    "keys": {
+      "move": "move",
+      "open": "open",
+      "rename": "rename",
+      "delete": "delete",
+      "clear": "clear"
+    },
+    "deleted": "Deleted \"{{title}}\"",
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "untitled": "New chat",
+    "origin": {
+      "trigger": "Started by a trigger",
+      "connector": "From a connector",
+      "job": "Started by a job",
+      "page": "Started by a page",
+      "other": "Started by something else"
+    },
+    "exportJson": "Export as JSON",
+    "importChat": "Import a chat",
+    "originBadge": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "job": "Job",
+      "page": "Page",
+      "other": "Automated"
+    },
+    "find": {
+      "searching": "Searching…",
+      "count_one": "{{count}} result",
+      "count_other": "{{count}} results",
+      "more_one": "{{count}} more match in this chat",
+      "more_other": "{{count}} more matches in this chat",
+      "indexing": "Older chats are still being indexed. Results may be incomplete.",
+      "partial": "Searched the newest {{searched}} of {{total}} chats.",
+      "failed": "The search failed.",
+      "retry": "Try again",
+      "noMatchFor": "No chats match “{{query}}”.",
+      "noMatchFiltered": "No chats match “{{query}}” with these filters.",
+      "inTitle": "Matches the title",
+      "you": "You",
+      "assistant": "Assistant",
+      "filters": "Search filters",
+      "agent": "Agent",
+      "anyAgent": "Any agent",
+      "origin": "Source",
+      "anyOrigin": "Anywhere",
+      "originName": {
+        "person": "My chats",
+        "automated": "Add-ons and automations",
+        "trigger": "Triggers",
+        "connector": "Messaging apps",
+        "job": "Jobs",
+        "page": "Pages"
+      },
+      "when": "When",
+      "anyTime": "Any time",
+      "range": {
+        "day": "Last 24 hours",
+        "week": "Last 7 days",
+        "month": "Last 30 days",
+        "year": "Last year",
+        "custom": "Choose dates…"
+      },
+      "from": "From",
+      "to": "To",
+      "reset": "Reset filters"
+    },
+    "clearShown": "Clear shown"
+  },
+  "message": {
+    "you": "You",
+    "assistant": "Assistant",
+    "loopRun": "Loop run {{run}}"
+  },
+  "error": {
+    "title": "The reply failed",
+    "kept": "What was written so far is kept above.",
+    "retry": "Retry",
+    "detail": "Technical detail",
+    "reason": {
+      "unknown": "The agent stopped because of an error. Retry to run the turn again.",
+      "model_backend_missing": "The model \"{{model}}\" could not be started: its backend is not installed.",
+      "model_backend_missing_anon": "The model could not be started: its backend is not installed.",
+      "model_cooldown": "The model \"{{model}}\" failed to start a moment ago and is resting.",
+      "model_cooldown_anon": "The model failed to start a moment ago and is resting.",
+      "model_load_failed": "The model \"{{model}}\" could not be started.",
+      "model_load_failed_anon": "The model could not be started.",
+      "model_not_found": "The model \"{{model}}\" was not found.",
+      "model_not_found_anon": "The model was not found.",
+      "upstream_key": "The upstream refused the key.",
+      "upstream_path": "The upstream does not accept this request at that address.",
+      "upstream_unreachable": "The upstream address could not be reached.",
+      "upstream": "The provider behind the model returned an error.",
+      "timeout": "The model took too long to answer.",
+      "cancelled": "The turn was cancelled before the model answered.",
+      "interrupted": "The server restarted while it was answering.",
+      "model_backend_outdated": "The model \"{{model}}\" could not be started: the backend may be too old for it.",
+      "model_backend_outdated_anon": "The model could not be started: the backend may be too old for it."
+    },
+    "hint": {
+      "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
+      "model_backend_missing_admin": "Pick another model, or install the backend from the Backends page.",
+      "model_cooldown": "Try again in {{seconds}} seconds.",
+      "model_load_failed": "Check the model's configuration and its backend, then retry.",
+      "model_not_found": "Pick another model, or install this one from the Models page.",
+      "upstream_key": "Check the API key in the model's settings.",
+      "upstream_path": "The upstream address must be the full endpoint, for example .../v1/chat/completions.",
+      "upstream_unreachable": "Check the address in the model's settings.",
+      "upstream": "Retry in a moment. If it keeps failing, check the provider's address and key.",
+      "timeout": "Retry, or use a smaller or faster model.",
+      "cancelled": "Retry when you are ready.",
+      "model_backend_outdated": "Ask an administrator to update the backend, then retry.",
+      "model_backend_outdated_admin": "Update the backend from the Updates page, then retry."
+    },
+    "openBackends": "Open Backends",
+    "titleInterrupted": "The reply was interrupted",
+    "resume": {
+      "waiting": "Going on in {{seconds}} seconds (try {{attempt}} of {{max}}).",
+      "resuming": "Going on from where it stopped.",
+      "server": "The server is going on from where it stopped.",
+      "exhausted": "It could not go on after {{max}} tries. Retry to try again.",
+      "stop": "Stop trying"
+    },
+    "updateBackend": "Update {{backend}}",
+    "updateBackendBusy": "Updating...",
+    "updateBackendStarted": "The update of {{backend}} has started. Retry when it is done.",
+    "updateBackendFailed": "The update could not be started.",
+    "openUpdates": "Open Updates"
+  },
+  "slash": {
+    "group": {
+      "chat": "Chat",
+      "view": "View",
+      "context": "Context",
+      "skills": "Skills and agents",
+      "help": "Help",
+      "yours": "Yours"
+    },
+    "model": {
+      "label": "Switch model",
+      "desc": "Pick a different chat model"
+    },
+    "new": {
+      "label": "New chat",
+      "desc": "Start an empty conversation"
+    },
+    "chats": {
+      "label": "Conversations",
+      "desc": "Open the list of your chats"
+    },
+    "assistant": {
+      "label": "Manage mode",
+      "desc": "Start a chat that can manage LocalAI"
+    },
+    "find": {
+      "label": "Find in chat",
+      "desc": "Search this conversation"
+    },
+    "settings": {
+      "label": "Chat settings",
+      "desc": "Focus mode, agent and model info"
+    },
+    "export": {
+      "label": "Export as Markdown",
+      "desc": "Download this conversation"
+    },
+    "delete": {
+      "label": "Delete chat",
+      "desc": "Delete this conversation"
+    },
+    "models": {
+      "label": "Models",
+      "desc": "Open the model list"
+    },
+    "skill": {
+      "label": "Run a skill",
+      "desc": "Pick one of the skills of this chat"
+    },
+    "skills": {
+      "label": "Manage skills",
+      "desc": "Open the Skills page to write and change skills"
+    },
+    "agent": {
+      "label": "Ask a saved agent",
+      "desc": "Hand a task to one of your agents",
+      "enable": "Turn on saved agents for this chat",
+      "enableDesc": "Then pick the agent"
+    },
+    "compact": {
+      "label": "Compact the context",
+      "desc": "Summarize older messages to free room for the model"
+    },
+    "clear": {
+      "label": "Clear the context",
+      "desc": "Start fresh in this chat; the messages stay"
+    },
+    "attach": {
+      "label": "Attach files",
+      "desc": "Choose files to send",
+      "clearDesc": "Remove the files waiting to be sent"
+    },
+    "help": {
+      "label": "All commands",
+      "desc": "List every command with what it does"
+    },
+    "about": {
+      "label": "About this chat",
+      "desc": "Model, tools, skills and context size"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Saved agents",
+      "model": "Models",
+      "attach": "Files",
+      "loop": "Loops",
+      "goal": "Goal"
+    },
+    "badge": {
+      "builtin": "built-in",
+      "addon": "add-on",
+      "shared": "shared",
+      "yours": "yours",
+      "prompt": "prompt",
+      "tool": "tool"
+    },
+    "collides": "only with /skill",
+    "errors": {
+      "skill": "This chat has no skill named \"{{name}}\".",
+      "agent": "You have no saved agent named \"{{name}}\".",
+      "agentTask": "Write the task for {{name}} after the name.",
+      "agentsOff": "Saved agents are off for this chat. Turn them on in the Tools menu."
+    },
+    "loop": {
+      "label": "Repeat a prompt",
+      "desc": "Run a prompt again and again in this chat: /loop 5m check the build",
+      "listDesc": "Show the loops of this chat",
+      "stopDesc": "Stop one loop, or all of them",
+      "stopAll": "All loops",
+      "stopAllDesc": "Stop every loop of this chat"
+    },
+    "goal": {
+      "label": "Goal",
+      "desc": "Set a goal the chat keeps working on by itself",
+      "clearDesc": "Remove the goal",
+      "resumeDesc": "Go on with the goal"
+    },
+    "effort": {
+      "label": "Reasoning effort",
+      "desc": "Choose how hard the model thinks"
+    },
+    "userTool": "Use the {{tool}} tool.",
+    "unavailable": "tool not available"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "conversations": "Open your conversations",
+    "find": "Search this chat",
+    "actions": "Actions",
+    "send": "Send",
+    "newline": "New line",
+    "editLast": "Edit your last message",
+    "inEmptyBox": "in an empty box",
+    "stop": "Stop the reply",
+    "moveMessages": "Move between messages",
+    "onMessage": "On a message: copy, edit, branch, regenerate",
+    "close": "Close"
+  },
+  "picker": {
+    "readyNow": "ready now",
+    "fits": "{{amount}} GB free",
+    "spill": "{{amount}} GB runs on the CPU",
+    "over": "{{amount}} GB more than this machine has",
+    "memory": "Memory",
+    "gpuMemory": "GPU memory",
+    "memoryUsed": "{{used}} of {{total}} {{unit}} used"
+  },
+  "find": {
+    "placeholder": "Search this chat",
+    "count": "{{current}} of {{total}}",
+    "none": "No matches",
+    "previous": "Previous match",
+    "next": "Next match",
+    "close": "Close search"
+  },
+  "load": {
+    "title": "Loading",
+    "bytes": "{{sent}} of {{total}}",
+    "queued": "Your message is queued and sends when the model is ready. Stop cancels it.",
+    "cold": "This model is not loaded yet, so the first reply takes longer. Your message sends as soon as it is ready."
+  },
+  "noModel": {
+    "title": "Chat needs a language model",
+    "body": "Install one to start chatting. What you type here stays while it installs.",
+    "bodyMember": "No chat model is installed on this server yet. Ask an administrator to install one.",
+    "gallery": "Browse the gallery",
+    "import": "Import a model"
+  },
+  "tools": {
+    "label": "Tools",
+    "title": "Tools this chat can use",
+    "heading": "Tools for this chat",
+    "draftNote": "A new chat starts with these switches. A tool that is off is not offered to the model.",
+    "note": "A tool that is off here is not offered to the model in this chat.",
+    "count": "{{on}} of {{total}} on",
+    "selectAll": "Select all",
+    "disableAll": "Disable all",
+    "groupOn": "All on",
+    "groupOff": "All off",
+    "groupOnLabel": "Switch on all of {{group}}",
+    "groupOffLabel": "Switch off all of {{group}}",
+    "groupCount": "{{on}} of {{total}}",
+    "optIn": "Off until you switch it on. Select all leaves it off.",
+    "empty": "Nothing to switch in this chat.",
+    "failed": "Could not save. The switch is back as it was.",
+    "unavailable": "Not available in this chat",
+    "toolCount_one": "{{count}} tool",
+    "toolCount_other": "{{count}} tools",
+    "optionsOf": "Options of {{name}}",
+    "projectCollections": "Collections from the project: {{names}}."
+  },
+  "skills": {
+    "label": "Skills",
+    "manage": "Manage skills",
+    "title": "Skills this chat can use",
+    "heading": "Skills for this chat",
+    "count": "{{on}} of {{total}} on",
+    "selectAll": "Select all",
+    "disableAll": "Disable all",
+    "selectShown": "Select shown",
+    "disableShown": "Disable shown",
+    "search": "Search skills",
+    "noMatch": "No skill matches “{{query}}”.",
+    "later": "Skills you add later start on.",
+    "failed": "Could not save. Nothing changed.",
+    "source": {
+      "builtin": "Built-in",
+      "personal": "Personal",
+      "shared": "Shared",
+      "folder": "Workspace",
+      "addon": "{{name}}",
+      "addonFrom": "from {{name}}"
+    },
+    "replacedBy": "Replaced by {{name}}",
+    "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
+    "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here.",
+    "fromProject": "From project"
+  },
+  "agent": {
+    "label": "Agent",
+    "title": "Saved agent for this chat",
+    "heading": "Start with an agent",
+    "note": "The agent gives the chat its instructions and exactly the tools it grants.",
+    "none": "No agent",
+    "fixed": "The agent of this chat"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI assistant"
+  },
+  "browserImport": {
+    "found_one": "This browser still has {{count}} chat from the old chat page.",
+    "found_other": "This browser still has {{count}} chats from the old chat page.",
+    "import": "Import them",
+    "dismiss": "Not now",
+    "done": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}.",
+    "failed": "The old chats could not be imported: {{message}}"
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
+    "used": "{{used}} tokens",
+    "speed": "{{speed}} tok/s",
+    "title": "Context the last model request used",
+    "ofLimit": "{{used}} / {{limit}} tokens",
+    "left": "{{left}} left"
+  },
+  "files": {
+    "title": "Files in this chat",
+    "button": "Files",
+    "buttonTitle": "Files in this chat: what you attached and what the assistant created or changed",
+    "close": "Close files",
+    "emptyTitle": "No files in this chat yet",
+    "emptyBody": "Drop files here to attach them to your next message. Files the assistant creates or changes show up here too.",
+    "dropHint": "Drop files here to attach them to your next message.",
+    "groups": {
+      "uploaded": "You gave it",
+      "created": "Created and changed",
+      "working": "Working files"
+    },
+    "turn": "turn {{n}}",
+    "media": "In context",
+    "mediaTitle": "The model received this file as an image or video with your message",
+    "changedTag": "Edited",
+    "changedTitle": "The assistant changed this file",
+    "download": "Download {{name}}",
+    "downloadAll": "Download all files as ZIP",
+    "zipName": "chat-files.zip",
+    "zipError": "The files could not be downloaded as a ZIP.",
+    "error": "The files of this chat could not be read.",
+    "workingNote": "Scripts, data and logs the assistant made on the way. They are kept in this chat's work folder."
+  },
+  "steps": {
+    "verb": {
+      "read": "Read",
+      "list": "Listed",
+      "write": "Saved",
+      "create": "Created",
+      "change": "Changed",
+      "move": "Moved",
+      "delete": "Deleted",
+      "search": "Searched",
+      "run": "Ran",
+      "fetch": "Fetched",
+      "websearch": "Searched the web for",
+      "webfetch": "Read",
+      "delegate": "Asked an agent",
+      "used": "Used"
+    },
+    "worked": "Worked for {{duration}}",
+    "thoughtFor": "Thought for {{duration}}",
+    "working": "Working",
+    "thinking": "Thinking",
+    "noMatches": "no matches",
+    "noResults": "no results",
+    "emptyFolder": "empty folder",
+    "size": "{{size}}",
+    "seconds": "{{value}} s",
+    "minutes": "{{min}} min {{sec}} s",
+    "tool": "Tool",
+    "input": "Input",
+    "showLess": "Show less",
+    "running": "Running",
+    "failed": "Failed",
+    "count_one": "{{count}} step",
+    "count_other": "{{count}} steps",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "showAll_one": "Show all {{count}} lines",
+    "showAll_other": "Show all {{count}} lines",
+    "details": "Show details",
+    "openFile": "Open {{path}} in Files",
+    "savedFiles": "Saved to your files:",
+    "fileOp": {
+      "changed": "changed",
+      "deleted": "deleted"
+    },
+    "moreFiles": "and {{count}} more",
+    "alsoSavedWorking_one": "Also saved {{count}} working file",
+    "alsoSavedWorking_other": "Also saved {{count}} working files",
+    "savedWorking_one": "Saved {{count}} working file",
+    "savedWorking_other": "Saved {{count}} working files",
+    "workingTitle": "Working file (a script, a log or a draft): open {{path}}"
+  },
+  "allChats": {
+    "title": "All chats",
+    "supporting": "Every chat you kept. Search, rename, export or delete them.",
+    "loadFailed": "Could not load your chats.",
+    "emptyTitle": "No chats yet",
+    "emptyBody": "A chat starts on Home: type a message and send it. Your chats are listed here after that.",
+    "start": "Start a chat",
+    "tabsLabel": "Chat lists",
+    "tab": {
+      "mine": "My chats",
+      "automated": "From add-ons and automations"
+    },
+    "automated": {
+      "intro": "Conversations that something other than you started, such as a connector, a trigger or a job. They stay out of your chat lists.",
+      "empty": "Nothing has started a chat by itself yet.",
+      "kind": {
+        "trigger": "Triggers",
+        "connector": "Connectors",
+        "job": "Jobs",
+        "page": "Pages",
+        "other": "Other"
+      },
+      "badge": {
+        "trigger": "Trigger",
+        "connector": "Connector",
+        "job": "Job",
+        "page": "Page",
+        "other": "Automated"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Last active {{when}}",
+      "running": "Running",
+      "waiting": "Waiting for you",
+      "waitingCount": "Chats waiting for you: {{count}}",
+      "open": "Open {{title}}",
+      "showAll": "Show all {{count}}",
+      "showLess": "Show fewer"
+    }
+  },
+  "foot": {
+    "state": {
+      "ready": "Ready",
+      "nomodel": "No model",
+      "sending": "Sending",
+      "loading": "Loading model",
+      "thinking": "Thinking",
+      "tool": "Running {{tool}}",
+      "answering": "Answering",
+      "waiting": "Waiting for you",
+      "stopped": "Stopped",
+      "failed": "Failed",
+      "interrupted": "Interrupted",
+      "paused": "Paused",
+      "compacting": "Compacting the context",
+      "clearing": "Clearing the context"
+    },
+    "tool": {
+      "search": "Searching",
+      "list": "Listing",
+      "read": "Reading",
+      "create": "Creating",
+      "write": "Writing",
+      "change": "Changing",
+      "move": "Moving",
+      "delete": "Deleting",
+      "run": "Running a command",
+      "fetch": "Fetching",
+      "delegate": "Asking a sub-agent"
+    },
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "meter": {
+      "label": "Context {{pct}}% full. Show context and speed",
+      "labelNoLimit": "Context {{used}} tokens. Show context and speed"
+    },
+    "details": {
+      "title": "Context and speed",
+      "context": "Context",
+      "contextOf": "{{used}} of {{limit}} tokens ({{pct}}%)",
+      "contextUsed": "{{used}} tokens",
+      "contextLeft": "{{left}} tokens left",
+      "contextHelp": "The context is what the model reads for each request: the instructions, this chat so far and the tool results.",
+      "nearFull": "This chat is close to the limit. The server compacts the older part so the model can go on. The transcript keeps every message.",
+      "limitUnknown": "The server did not say how large the context window is.",
+      "lastRequest": "Last request",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Node",
+      "tokensIn": "Tokens in",
+      "tokensOut": "Tokens out",
+      "firstToken": "Time to first token",
+      "promptTime": "Prompt processing",
+      "speed": "Speed",
+      "speedLive": "Speed, estimated while streaming",
+      "average": "Average of the last {{count}} requests",
+      "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
+    },
+    "paused": {
+      "after": "after {{count}} steps",
+      "atLimit": "at the step limit",
+      "continue": "Continue",
+      "continueTitle": "The model used all the steps of one turn. Let it go on from where it stopped.",
+      "message": "Continue from where you stopped."
+    }
+  },
+  "attachments": {
+    "label": "Attached files",
+    "open": "Open {{name}}",
+    "showMore": "Show {{count}} more",
+    "missing": "File no longer available"
+  },
+  "preview": {
+    "open": "Open preview",
+    "created": "Created by the assistant",
+    "changed": "Changed by the assistant",
+    "yours": "You gave it",
+    "fromReply": "From the answer",
+    "download": "Download",
+    "downloadCode": "Download code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "openInFiles": "Open in Files",
+    "actions": "File actions",
+    "opened": "Preview opened: {{name}}",
+    "chip": {
+      "created": "Created",
+      "changed": "Changed",
+      "label": "{{verb}} {{name}}, open preview",
+      "row": "Files from this answer"
+    }
+  },
+  "goal": {
+    "label": "Goal",
+    "states": {
+      "active": "Working on it",
+      "paused": "Paused",
+      "done": "Reached",
+      "blocked": "Needs you"
+    },
+    "pausedBy": {
+      "user": "You paused it.",
+      "turn_limit": "It used all its automatic turns. Resume to give it more.",
+      "step_limit": "It used all its steps. Resume to give it more.",
+      "error": "A turn failed. Resume to try again.",
+      "interrupted": "The server stopped during a turn. Resume to go on."
+    },
+    "blockedNote": "Needs from you: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Replaced: {{text}}",
+    "pause": "Pause",
+    "pauseTitle": "Stop the running turn and pause the goal",
+    "resume": "Resume",
+    "resumeTitle": "Go on with the goal",
+    "clear": "Clear",
+    "clearTitle": "Remove the goal",
+    "progress": "Goal · turn {{turn}} of {{max}}",
+    "progressStart": "Goal · starting",
+    "markers": {
+      "set": "Goal set",
+      "replaced": "Goal replaced",
+      "continue": "Continuing toward the goal · turn {{turn}}",
+      "continueStart": "Continuing toward the goal",
+      "paused": "Goal paused",
+      "resumed": "Goal resumed",
+      "done": "Goal reached",
+      "blocked": "Goal blocked",
+      "cleared": "Goal cleared"
+    },
+    "announce": {
+      "set": "Goal set: {{text}}",
+      "paused": "Goal paused. {{why}}",
+      "resumed": "Goal resumed",
+      "done": "Goal reached: {{note}}",
+      "blocked": "The goal needs you: {{note}}",
+      "cleared": "Goal cleared"
+    },
+    "card": {
+      "title": "Goal",
+      "none": "This chat has no goal. Type /goal and what you want done, and the chat keeps working on it by itself.",
+      "turns": "Turn {{turn}} of {{max}}",
+      "steps": "{{steps}} of {{max}} steps",
+      "clear": "/goal clear removes it.",
+      "resume": "/goal resume goes on with it.",
+      "turnsLabel": "Automatic turns",
+      "stepsLabel": "Steps",
+      "setLabel": "Set",
+      "stateLabel": "State",
+      "noteLabel": "Note"
+    },
+    "errors": {
+      "empty": "Write what the goal is after /goal.",
+      "notAllowed": "Only a chat that you started can have a goal."
+    }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agent: {{name}}"
+  },
+  "marker": {
+    "compacted": "Context compacted: {{before}} to {{after}} tokens",
+    "cleared": "Context cleared",
+    "clearedHint": "The model does not see the messages above this line."
+  },
+  "cmdcard": {
+    "close": "Close",
+    "helpTitle": "Commands",
+    "helpSkills_one": "Skill: {{names}}. Type / and its name.",
+    "helpSkills_other": "{{count}} skills: {{names}}. Type / and the name.",
+    "helpKeys": "Type / in the box to open the list. Tab completes, Enter runs, Esc closes.",
+    "aboutTitle": "This chat",
+    "model": "Model",
+    "state": "State",
+    "loaded": "Loaded",
+    "notLoaded": "Not loaded",
+    "backend": "Backend",
+    "tools": "Tools",
+    "toolsOn_one": "{{count}} on",
+    "toolsOn_other": "{{count}} on",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Commands",
+    "isolated": "Run in isolation",
+    "host": "Run on this machine",
+    "noCommands": "Cannot run",
+    "context": "Context",
+    "contextOf": "{{used}} of {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Not known yet",
+    "commandsUnknown": "Command isolation is unknown"
+  },
+  "agentFolder": {
+    "home": "Home",
+    "chip": "{{name}}, {{mode}}",
+    "read": "read only",
+    "write": "read and change",
+    "titleRead": "This chat sees only {{path}} and can read it",
+    "titleWrite": "This chat sees only {{path}} and can read and change it",
+    "toolsRead": "Files: only {{path}}, read only. Shared folders and skills stay readable.",
+    "toolsWrite": "Files: only {{path}}, read and change. Shared folders and skills stay readable.",
+    "chipMissing": "Folder missing",
+    "missing": "The folder of this agent is gone. Choose another folder in the agent.",
+    "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
+    "editAgent": "Edit agent",
+    "toolsMany": "Files: only {{n}} folders: {{list}}. Shared folders and skills stay readable.",
+    "projectPaused": "This agent is paused because its project is archived or deleted. Open the project and restore it.",
+    "projectChanged": "This agent is paused because its project folders changed. Open the agent and reconnect it."
+  },
+  "origin": {
+    "banner": "This conversation was started by {{title}}.",
+    "open": "Open {{title}}",
+    "kindFallback": {
+      "trigger": "a trigger",
+      "connector": "a connector",
+      "job": "a job",
+      "page": "a page",
+      "other": "something else"
+    }
+  },
+  "connector": {
+    "header": "Messaging conversation",
+    "unknownSender": "Unknown sender",
+    "people": "People in this conversation",
+    "inThread": "Thread",
+    "openThread": "Open in the messaging app",
+    "where": {
+      "direct": "Direct message",
+      "channel": "Channel {{name}}",
+      "group": "Channel or group"
+    },
+    "standing": {
+      "owner": "Owner",
+      "verified": "Has a role",
+      "listed": "Listed person",
+      "channel": "Channel member",
+      "anyone": "Anyone"
+    },
+    "standingHelp": {
+      "owner": "Verified person: the owner controls this account.",
+      "verified": "Holds a role the owner gave rights to.",
+      "listed": "On the list of this connection.",
+      "channel": "Let in because the channel or group is on the list.",
+      "anyone": "Let in because the connection accepts anyone."
+    },
+    "threadEarlier": "Earlier in the thread ({{count}} messages)",
+    "threadCut": "Older messages of the thread are not shown.",
+    "note": {
+      "paired": "Verified with this bot",
+      "unsupported": "Message not read",
+      "too_long": "Message too long",
+      "no_upload": "Files not accepted",
+      "rate": "Too many messages",
+      "held_back": "Some tools were not offered to this sender",
+      "new_chat": "New chat started",
+      "refused": "Message refused",
+      "hold_waiting": "Waiting for a verified person to confirm",
+      "hold_confirmed": "Confirmed in the chat",
+      "hold_cancelled": "Cancelled in the chat",
+      "hold_expired": "Not confirmed in time",
+      "hold_failed": "Could not be done",
+      "other": "Note",
+      "why": "Why"
+    }
+  },
+  "connection": {
+    "lost": "Connection lost. Reconnecting."
+  },
+  "reasoning": {
+    "chip": "Effort",
+    "title": "Reasoning effort for this chat",
+    "note": "Applies from the next turn. None asks the model not to think."
+  },
+  "setup": {
+    "chip": "Setup",
+    "title": "Start new chats from a saved setup",
+    "edited": "edited",
+    "menuTitle": "Setups",
+    "empty": "No setups yet. Save the model, tools and effort you use as a setup.",
+    "active": "In use",
+    "noneOff": "Default tools",
+    "toolsOff_one": "{{count}} switch off",
+    "toolsOff_other": "{{count}} switches off",
+    "effort": "Effort {{level}}",
+    "saveAs": "Save current setup as…",
+    "manage": "Manage setups",
+    "agentReason": "A saved agent decides the model and tools of this chat.",
+    "modelMissing": "The model “{{model}}” of this setup is not installed. The current model stays.",
+    "line": {
+      "noTools": "No tools",
+      "toolCount_one": "{{count}} tool",
+      "toolCount_other": "{{count}} tools"
+    },
+    "update": "Update “{{name}}”",
+    "saveNew": "Save as new…",
+    "reset": "Reset",
+    "nameLabel": "Setup name",
+    "namePlaceholder": "Name this setup",
+    "save": "Save",
+    "cancel": "Cancel",
+    "limit": "You can have up to 50 setups.",
+    "defaultName": "My default",
+    "savedToast": "Saved this chat setup as “{{name}}”. New chats start from it.",
+    "rename": "Rename",
+    "manageTitle": "Manage setups",
+    "manageNote": "The default setup is the one new chats start from. It follows the setup you sent your last message with.",
+    "manageEmpty": "No setups yet.",
+    "done": "Done",
+    "default": "Default",
+    "makeDefault": "Make default",
+    "moveUp": "Move {{name}} up",
+    "moveDown": "Move {{name}} down",
+    "renameLabel": "Name of the setup",
+    "remove": "Delete",
+    "removeConfirm": "Delete “{{name}}”?",
+    "removeYes": "Delete",
+    "noModel": "No model"
+  },
+  "live": {
+    "button": "Live",
+    "title": "Talk to this chat hands-free",
+    "mode": "Standard",
+    "waiting": "Waiting for the reply",
+    "reason": {
+      "insecure": {
+        "short": "Needs HTTPS or localhost",
+        "detail": "Your browser only gives microphone access over HTTPS, localhost or 127.0.0.1. Open this page from one of those addresses to use Live."
+      },
+      "no-mic": {
+        "short": "No microphone available",
+        "detail": "This browser does not offer a microphone to this page. Try another browser to use Live."
+      }
+    },
+    "state": {
+      "off": "Off",
+      "starting": "Waiting for browser permission",
+      "listening": "Listening",
+      "hearing": "Hearing you",
+      "transcribing": "Transcribing",
+      "thinking": "Thinking",
+      "speaking": "Speaking",
+      "blocked": "Voice is waiting for you",
+      "paused": "Paused",
+      "error": "Live needs attention"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "stop": "Stop",
+    "typeInstead": "Type instead",
+    "end": "End Live",
+    "retry": "Retry",
+    "play": "Play",
+    "blocked": "Your browser blocked the voice. Press Play to hear the reply.",
+    "hidden": "Live is paused while this tab is in the background. It continues when you come back.",
+    "error": {
+      "denied": "Microphone access was blocked. Allow the microphone for this site in your browser, then press Retry. You can also type instead.",
+      "unavailable": "The microphone could not be opened. Check that it is connected and not in use by another app, then press Retry.",
+      "transcribe": "Your speech could not be turned into text. Check the transcription model, then press Retry.",
+      "send": "Your message could not be sent to the chat. Press Retry to listen again.",
+      "turn": "The chat's reply could not be read, so it was not spoken. Press Retry to listen again.",
+      "speech": "The reply voice could not be played. Check the speech model, then press Retry.",
+      "generic": "Live could not continue."
+    },
+    "setup": {
+      "title": "Set up Live",
+      "description": "Live needs one model to turn your speech into text and one model to speak. Both run on this LocalAI instance.",
+      "part": {
+        "stt": "Speech to text",
+        "tts": "Voice"
+      },
+      "hint": {
+        "stt": "Turns what you say into text.",
+        "tts": "Reads the reply aloud."
+      },
+      "install": "Install",
+      "installing": "Installing",
+      "installLabel": "Install {{model}}",
+      "retryLabel": "Retry the install of {{model}}",
+      "installed": "Installed",
+      "progress": "Install progress of {{model}}",
+      "failed": "The install of {{model}} failed.",
+      "failedGeneric": "The install could not start.",
+      "adminTitle": "An administrator must install these models.",
+      "adminNote": "Ask an administrator of this instance to install the models above. Live works when both are installed.",
+      "working": "Installing {{models}}",
+      "ready": "Both models are installed. Live is ready.",
+      "start": "Start Live",
+      "close": "Close",
+      "notShown": "Installed, but the model did not show up. Retry or reload."
+    }
+  },
+  "readAloud": {
+    "read": "Read aloud",
+    "stop": "Stop reading",
+    "ask": "Your default text-to-speech model is set to ask each time. Pick a model in Defaults to read aloud.",
+    "none": "No text-to-speech model is installed.",
+    "missing": "Your default text-to-speech model is not installed. Pick another in Defaults.",
+    "failed": "This could not be read aloud.",
+    "omitted": {
+      "code": "Code block omitted.",
+      "table": "Table omitted."
+    }
+  },
+  "deleteShownDialog": {
+    "title": "Delete shown chats",
+    "message_one": "Delete the {{count}} chat shown in {{project}}? This cannot be undone.",
+    "message_other": "Delete the {{count}} chats shown in {{project}}? This cannot be undone.",
+    "confirm": "Delete shown"
+  }
+}

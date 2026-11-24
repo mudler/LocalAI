@@ -1,0 +1,20 @@
+---
+config_file: |
+  backend: llama-cpp
+  context_size: 8192
+  f16: false
+  name: cerbero
+
+  template:
+    completion: "{{.Input}}"
+    chat: "Questa è una conversazione tra un umano ed un assistente AI.\n{{.Input}}\n[|Assistente|]  "
+  roles:
+    user: "[|Umano|] "
+    system: "[|Umano|] "
+    assistant: "[|Assistente|] "
+
+  stopwords:
+  - "[|Umano|]"
+
+  trimsuffix:
+  - "\n"

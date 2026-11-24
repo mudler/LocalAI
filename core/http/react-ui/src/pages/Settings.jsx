@@ -1,0 +1,519 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { Link, Navigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
+import { useBranding } from '../contexts/BrandingContext'
+import { Button, EmptyState, LoadError, SearchField, SkeletonRows } from '../components/ui'
+import { HubHeader } from '../components/hub/HubHeader'
+import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
+import HomeUndoToast from '../components/home/HomeUndoToast'
+import SettingField from '../components/settings/SettingField'
+import BuiltinToolsSection from '../components/settings/BuiltinToolsSection'
+import AddonUpgradeSettings from '../components/settings/AddonUpgradeSettings'
+import ConnectorFilesSettings from '../components/settings/ConnectorFilesSettings'
+import OwnerBuiltinToolsSection from '../components/settings/OwnerBuiltinToolsSection'
+import PendingBar from '../components/settings/PendingBar'
+import ClusterSettings from '../components/cluster/ClusterSettings'
+import { useHubAuth } from '../components/hub/useHubAuth'
+import { matchSections } from '../utils/clusterSettings'
+import HistorySheet from '../components/settings/HistorySheet'
+import Icon from '../components/Icon'
+import { useAddonsWithSettings } from '../addons/useAddonRegistry'
+import { AppIcon } from '../components/addons/AddonBits'
+import { localizedText } from '../components/addons/addonState'
+import { apiUrl } from '../utils/basePath'
+import { LEGACY_NETWORK_HASH, addonSettingsAddress, legacySectionTarget } from '../utils/addonSettings'
+import { NETWORK_POLICY, TOOL_PROVIDERS, hasControl, ownedByControl } from '../addons/hostControls'
+import { formatBytes } from '../utils/format'
+import {
+  FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, BLOCKS, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded, layoutFields,
+} from '../utils/settingsSchema'
+import {
+  pendingChanges, visibleChanges, runChecks, payloadFor, historyEntries,
+  loadHistory, appendHistory, clearHistory,
+} from '../utils/settingsPending'
+import './settings.css'
+
+const UNDO_MS = 10000
+// The Add-ons group is not a group of runtime settings: it lists the add-ons
+// that have settings, each a link to the Settings tab of its details.
+const ADDONS_GROUP = 'addons'
+// The Cluster group draws the cluster settings form, which keeps its own
+// settings and saves itself (see components/cluster). It exists only when the
+// cluster is enabled, and it sits after "Swarm and sharing" in the rail.
+const CLUSTER_GROUP = 'cluster'
+
+function AddonsGroup({ items }) {
+  const { t, i18n } = useTranslation('admin')
+  return (
+    <section aria-labelledby="st-group-title" data-testid="settings-addons">
+      <h2 className="st-h2" id="st-group-title">{t('settings.addons.title')}<span className="st-sub">{t('settings.addons.hint')}</span></h2>
+      <p className="st-note">{t('settings.addons.intro')}</p>
+      <ul className="st-addons">
+        {items.map(({ app, usable }) => {
+          const title = localizedText(app, 'title', i18n.language) || app.id
+          const description = localizedText(app, 'description', i18n.language)
+          return (
+            <li key={app.id} className="st-addons__item" data-testid="settings-addon" data-app={app.id}>
+              <AppIcon src={app.icon ? apiUrl(app.icon) : ''} id={app.id} name={title} size={32} />
+              <div className="st-addons__words">
+                <span className="st-row__label">{title}</span>
+                {description && <span className="st-row__desc">{description}</span>}
+                {!usable && <span className="st-note st-addons__off">{t('settings.addons.off')}</span>}
+              </div>
+              <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={addonSettingsAddress(app.id)} data-testid="settings-addon-link" aria-label={t('settings.addons.openNamed', { name: title })}>
+                {t('settings.addons.open')} <Icon name="arrow-right" />
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+// Where the network of the commands lives: on the page of each add-on that
+// draws the network-policy control. The Settings page keeps only a pointer.
+function ControlledElsewhere({ apps }) {
+  const { t, i18n } = useTranslation('admin')
+  return (
+    <div className="st-list st-tools" id="settings-egress" data-testid="settings-network-elsewhere">
+      {apps.map(app => {
+        const name = localizedText(app, 'title', i18n.language) || app.id
+        return (
+          <div key={app.id} className="st-row" data-app={app.id} data-testid="settings-network-addon">
+            <div className="st-row__main">
+              <div className="st-row__title"><span className="st-row__label">{t('settings.network.title')}</span></div>
+              <p className="st-row__desc">{t('settings.network.where', { name })}</p>
+            </div>
+            <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={addonSettingsAddress(app.id)} data-testid="settings-network-addon-link" aria-label={t('settings.addons.openNamed', { name })}>
+              {t('settings.addons.open')} <Icon name="arrow-right" />
+            </Link>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// How much memory is in use now, from /api/resources, with the threshold the
+// reclaimer would act on. GPU memory when there is a GPU, RAM otherwise.
+function MemoryNow({ resources, settings, onRefresh }) {
+  let used = 0
+  let total = 0
+  let label = 'Memory'
+  if (resources?.gpus?.length > 0) {
+    used = resources.gpus.reduce((n, g) => n + (g.used_vram || 0), 0)
+    total = resources.gpus.reduce((n, g) => n + (g.total_vram || 0), 0)
+    label = resources.gpus.length > 1 ? `GPU memory (${resources.gpus.length} GPUs)` : 'GPU memory'
+  } else if (resources?.ram) {
+    used = resources.ram.used || 0
+    total = resources.ram.total || 0
+    label = 'RAM'
+  }
+  const pct = total > 0 ? Math.round((used / total) * 100) : 0
+  const enabled = !!settings.memory_reclaimer_enabled
+  const threshold = Math.round(getValue(FIELD_BY_KEY.memory_reclaimer_threshold, settings) * 100)
+  return (
+    <div className="st-now" data-testid="settings-memory-now">
+      <Icon name="memory" aria-hidden="true" />
+      <div className="st-now__text">
+        {total > 0 ? (
+          <p><strong>{label} now: {formatBytes(used)} of {formatBytes(total)}.</strong>{' '}
+            {enabled ? `Eviction starts at ${threshold}%.` : 'Free memory automatically is off.'}</p>
+        ) : (
+          <p><strong>Memory use is not available.</strong> The server did not report how much memory is in use.</p>
+        )}
+        {total > 0 && (
+          <div className="dk-progress" role="progressbar" aria-label={`${label} in use`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct} style={{ '--dk-value': `${pct}%` }}>
+            <span className="dk-progress-bar" />
+          </div>
+        )}
+      </div>
+      <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label="Refresh memory reading" onClick={onRefresh}>
+        <Icon name="refresh" />
+      </button>
+    </div>
+  )
+}
+
+export default function Settings() {
+  const { addToast } = useOutletContext()
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('cluster')
+  const { features, featuresLoaded } = useHubAuth()
+  const clusterOn = features.distributed === true
+  const branding = useBranding()
+  const [settings, setSettings] = useState(null)
+  const [initial, setInitial] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [resources, setResources] = useState(null)
+  const [params] = useSearchParams()
+  const location = useLocation()
+  const { items: addonSettings, settled: addonsSettled } = useAddonsWithSettings()
+  // ?group=<id> opens a group: the links of an add-on's Settings tab to the
+  // server settings of its feature use it, with the block's id as the hash.
+  const [group, setGroup] = useState(() => {
+    const asked = params.get('group')
+    return asked === ADDONS_GROUP || asked === CLUSTER_GROUP || GROUPS.some(g => g.id === asked) ? asked : GROUPS[0].id
+  })
+  const [query, setQuery] = useState('')
+  // A link to the Cluster group on a server that has no cluster opens the first group.
+  useEffect(() => {
+    if (featuresLoaded && !clusterOn && group === CLUSTER_GROUP) setGroup(GROUPS[0].id)
+  }, [featuresLoaded, clusterOn, group])
+  const [showDiff, setShowDiff] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState(loadHistory)
+  const [undo, setUndo] = useState(null)
+  const [busyAsset, setBusyAsset] = useState(null)
+  const searchRef = useRef(null)
+
+  const fetchResources = useCallback(async () => {
+    try { setResources(await resourcesApi.get()) } catch { /* the memory line says it is unavailable */ }
+  }, [])
+
+  // A failed read shows in the page with Try again; it is not a toast.
+  const liveRef = useRef(true)
+  const loadSettings = useCallback(() => {
+    setLoadError(null)
+    return settingsApi.get()
+      .then(data => { if (liveRef.current) { const loaded = normalizeLoaded(data); setSettings(loaded); setInitial(structuredClone(loaded)) } })
+      .catch(err => { if (liveRef.current) setLoadError(err) })
+      .finally(() => { if (liveRef.current) setLoading(false) })
+  }, [])
+
+  useEffect(() => {
+    liveRef.current = true
+    loadSettings()
+    fetchResources()
+    return () => { liveRef.current = false }
+  }, [loadSettings, fetchResources])
+
+  // A hash names a block of the open group (#settings-egress): bring it into
+  // view once the settings are drawn.
+  const ready = Boolean(settings)
+  useEffect(() => {
+    if (!ready || !location.hash || location.hash.startsWith('#ad-section-')) return
+    const id = decodeURIComponent(location.hash.slice(1))
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }))
+  }, [ready, location.hash])
+
+  const changes = useMemo(() => pendingChanges(initial, settings), [initial, settings])
+  const visible = useMemo(() => visibleChanges(changes), [changes])
+  const checks = useMemo(() => (settings ? runChecks(changes, initial, settings) : []), [changes, initial, settings])
+  const pendingKeys = useMemo(() => new Set(visible.map(c => c.field.key)), [visible])
+  const isDirty = visible.length > 0
+
+  // Closing the diff when nothing is pending, so it does not reopen on the
+  // next edit.
+  useEffect(() => { if (!isDirty) setShowDiff(false) }, [isDirty])
+
+  const assets = useMemo(() => ({
+    state: (kind) => {
+      const url = { logo: branding.logoUrl, logo_horizontal: branding.logoHorizontalUrl, favicon: branding.faviconUrl }[kind] || ''
+      return { url, custom: !!url && url.startsWith('/branding/asset/'), busy: busyAsset === kind }
+    },
+    upload: async (kind, file) => {
+      setBusyAsset(kind)
+      try {
+        await brandingApi.uploadAsset(kind, file)
+        await branding.refresh()
+        addToast('Asset uploaded', 'success')
+      } catch (err) {
+        addToast(`Upload failed: ${err.message}`, 'error')
+      } finally { setBusyAsset(null) }
+    },
+    reset: async (kind) => {
+      setBusyAsset(kind)
+      try {
+        await brandingApi.deleteAsset(kind)
+        await branding.refresh()
+        addToast('Reset to default', 'success')
+      } catch (err) {
+        addToast(`Reset failed: ${err.message}`, 'error')
+      } finally { setBusyAsset(null) }
+    },
+  }), [branding, busyAsset, addToast])
+
+  const apply = async () => {
+    if (!isDirty || saving) return
+    setSaving(true)
+    try {
+      const body = payloadFor(changes, settings)
+      await settingsApi.save(body)
+      const before = initial
+      setInitial(structuredClone(settings))
+      setHistory(appendHistory(historyEntries(changes)))
+      // Name and tagline reach the sidebar, footer and tab title without a reload.
+      branding.refresh()
+      // The undo toast is the confirmation: a second toast would sit on it.
+      setUndo({ changes, before, id: Date.now() })
+    } catch (err) {
+      addToast(t('settings.saveFailed', { message: err.message }), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Undo is a second save of the values the server held before. It is not a
+  // rollback: anything the settings changed meanwhile stays changed.
+  const undoApply = async () => {
+    const entry = undo
+    setUndo(null)
+    if (!entry) return
+    const restore = (obj) => {
+      let next = obj
+      for (const c of entry.changes) if (!c.silent) next = setValue(c.field, next, c.from)
+      if (entry.changes.some(c => c.silent)) {
+        next = { ...next, watchdog_enabled: !!(next.watchdog_idle_enabled || next.watchdog_busy_enabled) }
+      }
+      return next
+    }
+    const restoredInitial = restore(initial)
+    try {
+      await settingsApi.save(payloadFor(entry.changes, restoredInitial))
+      setInitial(restoredInitial)
+      setSettings(restore)
+      const reverted = entry.changes.map(c => ({ ...c, from: c.to, to: c.from }))
+      setHistory(appendHistory(historyEntries(reverted)))
+      branding.refresh()
+      addToast('Previous values saved again', 'success')
+    } catch (err) {
+      addToast(t('settings.saveFailed', { message: err.message }), 'error')
+    }
+  }
+
+  const discard = () => { setSettings(structuredClone(initial)); setShowDiff(false) }
+
+  const revertEntry = (entry) => {
+    const field = FIELD_BY_KEY[entry.key]
+    if (!field) return
+    setSettings(prev => setValue(field, prev, entry.from))
+    setHistoryOpen(false)
+    setQuery('')
+    setGroup(field.group)
+  }
+
+  const onChange = (next) => setSettings(next)
+
+  // The sections of add-ons were at the end of this page, under the anchor
+  // #ad-section-<addon>-<contribution>. That address opens the add-on's
+  // Settings tab now.
+  const legacy = legacySectionTarget(location.hash, addonSettings.map(x => x.app.id))
+  const networkApps = addonSettings.filter(x => x.usable && hasControl(x.app, NETWORK_POLICY)).map(x => x.app)
+  const toolLinks = new Set(addonSettings.filter(x => x.usable && hasControl(x.app, TOOL_PROVIDERS)).map(x => x.app.id))
+  if (location.hash === LEGACY_NETWORK_HASH) {
+    // The network block moved to the page of the add-on that runs commands.
+    if (!addonsSettled) return <div className="page page--wide st-page"><SkeletonRows /></div>
+    if (networkApps.length > 0) return <Navigate to={addonSettingsAddress(networkApps[0].id)} replace />
+  }
+  if (legacy) {
+    // Wait for the list, so an add-on id with a dash is found whole.
+    if (!addonsSettled) return <div className="page page--wide st-page"><SkeletonRows /></div>
+    return <Navigate to={addonSettingsAddress(legacy)} replace />
+  }
+
+  if (loading) return <div className="page page--wide st-page"><SkeletonRows /></div>
+  if (!settings) {
+    return (
+      <div className="page page--wide st-page">
+        <h1 className="dk-sr-only">{t('settings.title')}</h1>
+        <LoadError title={t('settings.loadFailedTitle')} error={loadError} onRetry={loadSettings} />
+      </div>
+    )
+  }
+
+  const searching = query.trim().length > 0
+  // A setting that a host control draws is on the add-on's page, not here.
+  const results = searching ? searchFields(query, settings).filter(f => !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons')) : []
+  const withDefaults = FIELDS.filter(f => hasDefault(f) && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
+  const changedFromDefault = withDefaults.filter(f => isChanged(f, settings)).length
+  const showAddons = addonSettings.length > 0
+  const onAddons = group === ADDONS_GROUP && showAddons
+  const onCluster = group === CLUSTER_GROUP && clusterOn
+  // The sections of the cluster form that a search finds.
+  const clusterFound = searching && clusterOn ? matchSections(query, id => `${tc(`${id}.title`)} ${tc('group.title')}`) : []
+  const shown = results.length + clusterFound.length
+  const pageFields = FIELDS.filter(f => !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons')).length
+  const groupFields = onAddons || onCluster ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
+  const active = GROUPS.find(g => g.id === group) || GROUPS[0]
+  const clusterButton = clusterOn && (
+    <button
+      key={CLUSTER_GROUP} type="button" className="st-group"
+      aria-current={!searching && onCluster ? 'true' : undefined}
+      data-group={CLUSTER_GROUP}
+      onClick={() => { setQuery(''); setGroup(CLUSTER_GROUP) }}
+    >
+      <span className="st-group__label">{tc('group.title')}</span>
+    </button>
+  )
+
+  const countFor = (g) => FIELDS.filter(f => f.group === g.id && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons') && isChanged(f, settings)).length
+  const draftIn = (g) => FIELDS.some(f => f.group === g.id && pendingKeys.has(f.key))
+
+  const renderField = (field, showWhere) => (
+    <SettingField
+      key={field.key} field={field} settings={settings} onChange={onChange} assets={assets}
+      showWhere={showWhere} pending={pendingKeys.has(field.key)}
+    />
+  )
+
+  let lastWas = null
+  let lastBlock = null
+  return (
+    <div className="page page--wide st-page" data-testid="settings-page">
+      <UnsavedChangesGuard when={isDirty} />
+
+      {/* The header above says what the page does; the title is a section
+          title under it, like every page under the Administration tabs. */}
+      <h1 className="st-title">{t('settings.title')}</h1>
+      <HubHeader supporting={<p className="st-lede">{t('settings.subtitle')}. Edits wait here until you apply them.</p>} />
+
+      <div className="st-bar">
+        <SearchField
+          ref={searchRef} className="st-search" value={query} onChange={setQuery}
+          label={`Search all ${pageFields} settings`}
+          onKeyDown={e => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }}
+        />
+        <p className="st-bar__count" data-testid="settings-changed-count">
+          <strong className="st-bar__n">{changedFromDefault}</strong> changed from default
+        </p>
+        <Button size="sm" icon="history" className="st-bar__history" onClick={() => setHistoryOpen(true)}>History</Button>
+      </div>
+
+      <div className="st-layout">
+        <nav className="st-groups" aria-label="Setting groups">
+          {GROUPS.flatMap(g => {
+            const n = countFor(g)
+            const button = (
+              <button
+                key={g.id} type="button" className="st-group"
+                aria-current={!searching && group === g.id ? 'true' : undefined}
+                data-group={g.id}
+                onClick={() => { setQuery(''); setGroup(g.id) }}
+              >
+                <span className="st-group__label">{g.label}</span>
+                {draftIn(g) && <span className="dk-dot dk-dot--warn" title="Has a draft" role="img" aria-label="Has a draft" />}
+                {n > 0 && <span className="st-group__count" title={`${n} changed from default`}>{n}<span className="dk-sr-only"> changed from default</span></span>}
+              </button>
+            )
+            return g.id === 'swarm' && clusterButton ? [button, clusterButton] : [button]
+          })}
+          {showAddons && (
+            <button
+              type="button" className="st-group"
+              aria-current={!searching && onAddons ? 'true' : undefined}
+              data-group={ADDONS_GROUP}
+              onClick={() => { setQuery(''); setGroup(ADDONS_GROUP) }}
+            >
+              <span className="st-group__label">{t('settings.addons.title')}</span>
+              <span className="st-group__count" title={t('settings.addons.count', { count: addonSettings.length })}>{addonSettings.length}<span className="dk-sr-only"> {t('settings.addons.count', { count: addonSettings.length })}</span></span>
+            </button>
+          )}
+        </nav>
+
+        <div className="st-content">
+          {searching ? (
+            <section aria-label="Search results">
+              <h2 className="st-h2" data-testid="settings-results-title">
+                {shown === 0 ? 'No settings found' : `${shown} ${shown === 1 ? 'setting' : 'settings'} for “${query.trim()}”`}
+                {shown > 0 && <span className="st-sub">across all groups</span>}
+              </h2>
+              {shown === 0 ? (
+                <EmptyState
+                  variant="no-results"
+                  body={<>Nothing matches. Try a word from the setting&apos;s name, its description, its key, or the section it used to be in, such as {OLD_SECTIONS.watchdog}.</>}
+                  actions={<Button variant="ghost" size="sm" onClick={() => setQuery('')}>Clear search</Button>}
+                />
+              ) : (
+                <>
+                  {results.length > 0 && <div className="st-list" data-testid="settings-results">{results.map(f => renderField(f, true))}</div>}
+                  {clusterFound.length > 0 && (
+                    <div className="st-cluster-results" data-testid="settings-cluster-results">
+                      <h3 className="st-h3">{tc('group.title')}</h3>
+                      <ClusterSettings sections={clusterFound} />
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          ) : onAddons ? (
+            <AddonsGroup items={addonSettings} />
+          ) : onCluster ? (
+            <section aria-labelledby="st-group-title" data-testid="settings-cluster">
+              <h2 className="st-h2" id="st-group-title">{tc('group.title')}<span className="st-sub">{tc('group.hint')}</span></h2>
+              <ClusterSettings />
+            </section>
+          ) : (
+            <section aria-labelledby="st-group-title">
+              <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
+              {group === 'backends' && settings.addon_host_settings_authority && <AddonUpgradeSettings />}
+              {group === 'backends' && settings.addon_host_settings_authority && <ConnectorFilesSettings />}
+              {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
+              {group === 'access' && (
+                <p className="st-note">Sign-in, users, invites and per-user API keys are under Access when authentication is on.</p>
+              )}
+              {group === 'tools' && (settings.addon_host_settings_authority
+                ? <OwnerBuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />
+                : <BuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />)}
+              {group === 'tools' && networkApps.length > 0 && <ControlledElsewhere apps={networkApps} />}
+              <div className="st-list">
+                {layoutFields(groupFields.filter(f => f.custom !== group)).map(item => {
+                  if (item.advanced) {
+                    // The advanced limits of a block: closed unless one of
+                    // them differs from its default or waits to be applied.
+                    const open = item.advanced.some(f => isChanged(f, settings) || pendingKeys.has(f.key))
+                    return (
+                      <details key={`${item.block}-advanced`} className="st-advanced" open={open || undefined} data-testid={`settings-advanced-${item.block}`}>
+                        <summary className="st-advanced__summary">{BLOCKS[item.block]?.advanced || 'Advanced'}</summary>
+                        <div className="st-list">{item.advanced.map(f => <div key={f.key} className="st-item">{renderField(f, false)}</div>)}</div>
+                      </details>
+                    )
+                  }
+                  const f = item.field
+                  let head = group === 'agents' && f.was !== lastWas ? OLD_SECTIONS[f.was] : null
+                  lastWas = f.was
+                  if (f.block && f.block !== lastBlock) head = BLOCKS[f.block]?.label || head
+                  lastBlock = f.block
+                  return (
+                    <div key={f.key} className="st-item" data-block={f.block || undefined}>
+                      {head && <h3 className="st-h3">{head}</h3>}
+                      {renderField(f, false)}
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {isDirty && (
+        <PendingBar
+          changes={visible} checks={checks} saving={saving} showDiff={showDiff}
+          onToggleDiff={() => setShowDiff(v => !v)} onApply={apply} onDiscard={discard}
+        />
+      )}
+
+      {historyOpen && (
+        <HistorySheet
+          entries={history} onRevert={revertEntry} onClose={() => setHistoryOpen(false)}
+          onClear={() => setHistory(clearHistory())}
+        />
+      )}
+
+      {undo && (
+        <HomeUndoToast
+          key={undo.id} duration={UNDO_MS} testId="settings-undo-toast"
+          message={`${t('settings.saved')} (${visibleChanges(undo.changes).length} ${visibleChanges(undo.changes).length === 1 ? 'change' : 'changes'}). Undo saves the old values again.`}
+          undoLabel="Undo" dismissLabel="Dismiss"
+          onUndo={undoApply} onExpire={() => setUndo(null)}
+        />
+      )}
+    </div>
+  )
+}

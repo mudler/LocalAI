@@ -1,0 +1,17 @@
+{
+  "generic": "Une erreur est survenue",
+  "network": "Erreur réseau. Vérifiez votre connexion et réessayez.",
+  "unauthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+  "forbidden": "Accès refusé.",
+  "notFound": "La ressource demandée est introuvable.",
+  "serverError": "Erreur du serveur. Veuillez réessayer plus tard.",
+  "loadFailed": "Échec du chargement : {{message}}",
+  "saveFailed": "Échec de l'enregistrement : {{message}}",
+  "deleteFailed": "Échec de la suppression : {{message}}",
+  "updateFailed": "Échec de la mise à jour : {{message}}",
+  "createFailed": "Échec de la création : {{message}}",
+  "operationFailed": "Échec de l'opération : {{message}}",
+  "invalidInput": "Saisie invalide. Vérifiez le formulaire et réessayez.",
+  "tryAgain": "Veuillez réessayer.",
+  "contactAdmin": "Si le problème persiste, contactez votre administrateur."
+}

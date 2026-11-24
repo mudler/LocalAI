@@ -1,0 +1,17 @@
+{
+  "generic": "Terjadi kesalahan",
+  "network": "Eror jaringan. Periksa koneksi Anda dan coba lagi.",
+  "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+  "forbidden": "Akses ditolak.",
+  "notFound": "Sumber daya yang diminta tidak ditemukan.",
+  "serverError": "Eror server. Silahkan coba lagi nanti.",
+  "loadFailed": "Gagal memuat: {{message}}",
+  "saveFailed": "Gagal menyimpan: {{message}}",
+  "deleteFailed": "Gagal menghapus: {{message}}",
+  "updateFailed": "Gagal memperbarui: {{message}}",
+  "createFailed": "Gagal membuat: {{message}}",
+  "operationFailed": "Operasi gagal: {{message}}",
+  "invalidInput": "Input tidak valid. Silahkan periksa formulir dan coba lagi.",
+  "tryAgain": "Silahkan coba lagi.",
+  "contactAdmin": "Jika masalah terus berlanjut, hubungi administrator Anda."
+}

@@ -1,0 +1,27 @@
+{
+  "note": "Host programs of the KVM backend, shipped in the package next to runsc. sha256 is the checksum of the program itself, which the add-on checks before it uses it (kvmPins in addons/sandbox/cmd/sandbox/kvmtools.go keeps the same values; a test compares them). virtiofsd publishes a static build for x86_64 only, as a zip; on arm64 the KVM backend uses a virtiofsd that the administrator installs (1.13 or later).",
+  "cloud-hypervisor": {
+    "version": "v54.0",
+    "platforms": {
+      "linux/amd64": {
+        "url": "https://github.com/cloud-hypervisor/cloud-hypervisor/releases/download/v54.0/cloud-hypervisor-static",
+        "sha256": "4f4f98a3d661a40f3e5272627cc895a1b2e525f2f6bedf5f895f9cd21ba5c65b"
+      },
+      "linux/arm64": {
+        "url": "https://github.com/cloud-hypervisor/cloud-hypervisor/releases/download/v54.0/cloud-hypervisor-static-aarch64",
+        "sha256": "e8a6d9786ea678e739f1a386682846e93742dcb9c7b6e3e0c62e3bda6cff0ef3"
+      }
+    }
+  },
+  "virtiofsd": {
+    "version": "v1.14.0",
+    "platforms": {
+      "linux/amd64": {
+        "url": "https://gitlab.com/-/project/21523468/uploads/f505704014ae7a816e515f2a05a93d8b/virtiofsd-v1.14.0.zip",
+        "archiveSha256": "2e4fe9571f492b00baa34bc4e708e950039c5da05b830b31a8d179cb6ac8978e",
+        "member": "target/x86_64-unknown-linux-musl/release/virtiofsd",
+        "sha256": "15b2e72a78cc08a9bd8a6943e89fb69c88cb3cbeb63069efceade835342ac7d4"
+      }
+    }
+  }
+}

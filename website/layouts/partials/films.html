@@ -1,0 +1,16 @@
+{{- /* Feature films of a feature page. Front matter `films` is a list of
+       {name, title, caption, seconds}. Files: static/media/feature-<name>.mp4
+       and the poster feature-<name>.jpg. The video never plays on its own: it has
+       controls and preload="none", and sound starts when the visitor presses play. */ -}}
+{{- with .Params.films }}
+<div class="films">
+{{- range . }}
+  <figure class="film">
+    <video controls playsinline preload="none" poster="{{ printf "media/feature-%s.jpg" .name | relURL }}" aria-label="{{ .title }} {{ .caption }}">
+      <source src="{{ printf "media/feature-%s.mp4" .name | relURL }}" type="video/mp4">
+    </video>
+    <figcaption><b>{{ .title }}</b> {{ .caption }} <span class="film__t">{{ .seconds }} seconds, with sound.</span></figcaption>
+  </figure>
+{{- end }}
+</div>
+{{- end }}

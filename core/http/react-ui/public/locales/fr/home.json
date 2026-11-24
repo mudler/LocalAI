@@ -1,0 +1,207 @@
+{
+  "cluster": {
+    "vram": "VRAM du cluster",
+    "ram": "RAM du cluster",
+    "nodesOnline": "{{healthy}}/{{total}} nœuds en ligne"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Bonjour",
+    "afternoon": "Bon après-midi",
+    "evening": "Bonsoir",
+    "night": "Vous travaillez tard"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} modèle chargé",
+    "modelsLoaded_other": "{{count}} modèles chargés",
+    "noModelsLoaded": "Aucun modèle chargé",
+    "nodes_one": "{{count}} nœud",
+    "nodes_other": "{{count}} nœuds",
+    "loadedLabel": "Chargés",
+    "nodesLabel": "Nœuds"
+  },
+  "assistant": {
+    "title": "Gérez LocalAI par la conversation",
+    "description": "Installez des modèles, changez de backend, modifiez la configuration et vérifiez l'état en discutant avec LocalAI.",
+    "open": "Ouvrir l'assistant",
+    "tooltip": "Gérer LocalAI par la conversation",
+    "noModel": "Choisissez d'abord un modèle de chat.",
+    "startFailed": "Impossible de démarrer la conversation de l'assistant : {{message}}",
+    "chatTitle": "Assistant LocalAI"
+  },
+  "input": {
+    "placeholder": "Message...",
+    "attachFile": "Joindre un fichier",
+    "dropFiles": "Déposez les fichiers pour les joindre",
+    "dropFilesNote": "Relâchez les fichiers pour les joindre au message.",
+    "enterToSend": "Entrée pour envoyer",
+    "selectModelFirst": "Sélectionnez d'abord un modèle",
+    "sendMessage": "Envoyer le message",
+    "selectModelToast": "Veuillez d'abord sélectionner un modèle",
+    "pdfReadFailed": "Impossible de lire le texte de {{name}}. Le fichier est peut-être scanné, chiffré ou endommagé."
+  },
+  "quickLinks": {
+    "manageByChat": "Gérer par chat",
+    "installedModels": "Modèles installés",
+    "browseGallery": "Parcourir la galerie",
+    "importModel": "Importer un modèle",
+    "documentation": "Documentation"
+  },
+  "loadedModels": {
+    "heading": "Modèles actifs",
+    "count_one": "{{count}} modèle chargé",
+    "count_other": "{{count}} modèles chargés",
+    "stop": "Arrêter le modèle",
+    "stopAll": "Tout arrêter",
+    "serving": "En service"
+  },
+  "stopDialog": {
+    "title": "Arrêter le modèle",
+    "message": "Arrêter le modèle {{model}} ?",
+    "confirm": "Arrêter {{model}}",
+    "stopAllTitle": "Arrêter tous les modèles",
+    "stopAllMessage": "Arrêter les {{count}} modèles chargés ?",
+    "stopAllConfirm": "Tout arrêter",
+    "stoppedToast": "{{model}} arrêté",
+    "allStoppedToast": "Tous les modèles sont arrêtés",
+    "stopFailed": "Échec de l'arrêt : {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Bien démarrer avec {{name}}",
+    "intro": "Installez votre premier modèle pour commencer. Parcourez la galerie ou importez le vôtre.",
+    "steps": {
+      "step1Title": "Parcourir la galerie de modèles",
+      "step1Body": "Trouvez le modèle adapté à vos besoins dans notre sélection.",
+      "step2Title": "Installer un modèle",
+      "step2Body": "Cliquez sur installer pour le télécharger et le configurer automatiquement.",
+      "step3Title": "Commencer à discuter",
+      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API.",
+      "step4Title": "Intégrez vos agents",
+      "step4Body": "Créez une clé d'API, puis connectez un agent de code : {{agents}}. Le guide remplit l'adresse et la clé pour vous.",
+      "step5Title": "Étendre LocalAI avec un add-on",
+      "step5Body": "Les add-ons apportent de nouvelles capacités. Installez-les depuis la bibliothèque."
+    },
+    "browseGallery": "Parcourir la galerie",
+    "importModel": "Importer un modèle",
+    "docs": "Docs",
+    "noModelsTitle": "Aucun modèle disponible",
+    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter.",
+    "connectAgents": "Connecter un agent de code",
+    "browseAddons": "Parcourir les add-ons"
+  },
+  "starters": {
+    "title": "Recommandé pour votre machine",
+    "tier": {
+      "cpu": "CPU seul",
+      "gpu-small": "Petit GPU",
+      "gpu-mid": "GPU milieu de gamme",
+      "gpu-large": "Grand GPU"
+    },
+    "cpuNote": "Aucun GPU détecté. Ces modèles restent réactifs sur un processeur.",
+    "gpuNote": "Choisis pour tenir sur votre carte graphique avec de la place pour un chat complet.",
+    "install": "Installer",
+    "installing": "Installation",
+    "installStarted": "Installation de {{model}}…",
+    "installFailed": "Échec de l'installation : {{message}}",
+    "undetected": "Nous n'avons pas pu détecter votre matériel : voici donc les modèles pour un ordinateur sans GPU.",
+    "cluster": "Dimensionné pour la meilleure machine de votre cluster.",
+    "nothingFits": "Aucun des modèles recommandés ne tient sur cette machine. Voici le plus petit ; il peut être lent ou ne pas se charger.",
+    "facts": {
+      "size": "{{size}} à télécharger",
+      "window": "{{window}} de contexte",
+      "memory": "environ {{memory}} de mémoire"
+    },
+    "fit": {
+      "tight": "Juste",
+      "does_not_fit": "Ne tient pas"
+    },
+    "reasons": {
+      "little_headroom": "Il tient, mais laisse peu de mémoire libre.",
+      "below_chat_minimum": "La fenêtre de contexte serait trop petite pour le chat.",
+      "exceeds_memory": "Il demande plus de mémoire que cette machine n'en a.",
+      "estimate_unavailable": "Sa consommation de mémoire n'a pas pu être estimée.",
+      "hardware_unknown": "Votre matériel n'a pas pu être lu : l'adéquation n'est pas vérifiée."
+    },
+    "more": "Plus de modèles",
+    "fewer": "Moins de modèles",
+    "askAdmin": "Seul un administrateur peut installer des modèles. Demandez-lui d'en installer un.",
+    "installModel": "Installer {{model}}"
+  },
+  "connect": {
+    "title": "Un seul point d'accès, toutes les API",
+    "subtitle": "LocalAI expose sa propre API complète — génération d'images et de vidéos, profondeur, détection d'objets, reranking, audio, reconnaissance faciale et vocale, et voix temps réel via WebRTC et WebSocket. En plus, une couche de compatibilité permet à toute application conçue pour OpenAI, Anthropic, Ollama ou OpenAI Responses de lui parler sans modification.",
+    "nativeTitle": "API native",
+    "compatTitle": "Compatibilité directe",
+    "apiReference": "Référence complète de l'API",
+    "copy": "Copier",
+    "copied": "Copié",
+    "browse": "Parcourir l'API",
+    "hide": "Masquer les points d'accès",
+    "dismiss": "Ignorer",
+    "agentsLink": "Connecter un agent de code : créer une clé d'API et copier sa configuration"
+  },
+  "jump": {
+    "heading": "Reprendre où vous en étiez",
+    "allChats": "Toutes les conversations"
+  },
+  "slash": {
+    "commandDiagnostics": "Diagnostic des commandes d’applications",
+    "apps": {
+      "label": "Applications",
+      "desc": "Parcourir les applications installées"
+    },
+    "group": {
+      "addons": "Applications"
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Vos agents enregistrés, déclencheurs et compétences"
+    },
+    "mcp": {
+      "label": "Connecteurs MCP",
+      "desc": "Serveurs MCP que vos chats peuvent utiliser"
+    },
+    "memory": {
+      "label": "Connaissances",
+      "desc": "Connaissances que vos chats peuvent consulter"
+    },
+    "complete": "compléter"
+  },
+  "notice": {
+    "appUnavailable": "L’application n’est plus disponible.",
+    "addonsDownTitle": "Les modules complémentaires ne répondent pas pour le moment",
+    "addonsDownBody": "{{name}} est un module complémentaire. Réessayez dans un instant.",
+    "addonsRetry": "Réessayer"
+  },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias cassé",
+    "disabled": "désactivé",
+    "pinned": "épinglé",
+    "useTyped": "Utiliser \"{{name}}\"",
+    "chooseModel": "Choisissez un modèle",
+    "defaultMissing": "Votre modèle par défaut {{model}} n'est pas installé. Choisissez un modèle.",
+    "empty": "Aucun modèle disponible",
+    "add": "Ajouter un modèle",
+    "remove": "Retirer {{name}}",
+    "clear": "Effacer"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Où tournent vos modèles ?",
+      "local": "Sur cette machine",
+      "remote": "Sur un autre serveur ou service",
+      "remoteIntro": "Connectez un modèle qui tourne déjà ailleurs. Vous pourrez installer des modèles locaux plus tard.",
+      "remoteNote": "Pour les modèles distants, les vérifications du modèle recommandé et de la taille de contexte sont ignorées."
+    },
+    "step1Title": "Connecter un serveur distant",
+    "step1Body": "Choisissez le type, puis vérifiez que LocalAI peut y accéder.",
+    "step2Title": "Choisir les modèles",
+    "step2Body": "Chaque modèle choisi devient un modèle ici.",
+    "done": "{{name}} connecté. {{count}} modèle ajouté.",
+    "done_other": "{{name}} connecté. {{count}} modèles ajoutés.",
+    "skipped": "{{count}} modèle n'a pas été ajouté :",
+    "skipped_other": "{{count}} modèles n'ont pas été ajoutés :"
+  }
+}

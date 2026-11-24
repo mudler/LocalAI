@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "studio",
+  "version": "0.1.0",
+  "executable": "studio",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/studio.js",
+      "css": ["ui/studio.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["studio"],
+      "navigation": ["studio"],
+      "modelActions": [{"capability": "FLAG_IMAGE", "page": "studio", "path": "images"}, {"capability": "FLAG_VIDEO", "page": "studio", "path": "video"}, {"capability": "FLAG_TTS", "page": "studio", "path": "tts"}, {"capability": "FLAG_SOUND_GENERATION", "page": "studio", "path": "sound"}],
+      "mainPage": "studio",
+      "homeCommands": [{ "id": "open", "alias": "studio", "icon": "palette" }],
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Studio",
+        "it": "Studio",
+        "de": "Studio",
+        "es": "Studio",
+        "fr": "Studio",
+        "pt-BR": "Studio",
+        "zh-CN": "Studio",
+        "ko": "스튜디오",
+        "id": "Studio"
+      },
+      "description": {
+        "en": "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make.",
+        "it": "Crea immagini, video, modelli 3D, voce, suoni e audio trasformato con i modelli che hai installato, e conserva ciò che crei.",
+        "de": "Erstellen Sie Bilder, Videos, 3D-Modelle, Sprache, Klänge und umgewandeltes Audio mit den installierten Modellen und behalten Sie, was Sie erstellen.",
+        "es": "Crea imágenes, video, modelos 3D, voz, sonido y audio transformado con los modelos que tienes instalados, y conserva lo que crees.",
+        "fr": "Créez des images, des vidéos, des modèles 3D, de la voix, des sons et de l'audio transformé avec les modèles que vous avez installés, et conservez ce que vous créez.",
+        "pt-BR": "Crie imagens, vídeo, modelos 3D, fala, som e áudio transformado com os modelos que você instalou, e guarde o que criar.",
+        "zh-CN": "用你已安装的模型生成图像、视频、3D 模型、语音、声音和转换后的音频，并保存你的作品。",
+        "ko": "설치한 모델로 이미지, 비디오, 3D 모델, 음성, 소리, 변환된 오디오를 만들고 결과물을 보관합니다.",
+        "id": "Buat gambar, video, model 3D, ucapan, bunyi, dan audio hasil transformasi dengan model yang telah Anda pasang, dan simpan hasil karya Anda."
+      }
+    }
+  }
+}

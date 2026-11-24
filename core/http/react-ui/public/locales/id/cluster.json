@@ -1,0 +1,323 @@
+{
+  "group": {
+    "title": "Klaster",
+    "hint": "Cara frontend dan worker terhubung"
+  },
+  "unavailable": {
+    "title": "Server ini bukan bagian dari klaster",
+    "body": "Pengaturan klaster muncul saat mode terdistribusi diaktifkan."
+  },
+  "loadFailed": "Pengaturan klaster tidak dapat dimuat.",
+  "sheet": {
+    "title": "Pengaturan klaster",
+    "description": "Cara frontend dan worker terhubung. Perubahan sampai ke setiap frontend dalam hitungan detik.",
+    "close": "Tutup pengaturan klaster",
+    "openSettings": "Buka di Pengaturan",
+    "done": "Selesai"
+  },
+  "bus": {
+    "title": "Siaran",
+    "note": "Frontend mendengarkan di setiap bus yang dapat mereka jangkau. Mereka menerbitkan pesan lewat NATS selama NATS dapat dijangkau, dan lewat PostgreSQL jika tidak.",
+    "state": {
+      "nats": "NATS terhubung",
+      "postgres": "PostgreSQL",
+      "unknown": "Tidak diketahui"
+    },
+    "publishing": {
+      "nats": "Menerbitkan lewat NATS",
+      "postgres": "Menerbitkan lewat PostgreSQL",
+      "unknown": "Tidak diketahui"
+    },
+    "unreachable": "NATS sudah dikonfigurasi, tetapi frontend ini tidak dapat menjangkaunya. Siaran dikirim lewat PostgreSQL dan frontend belum siap sampai NATS kembali dapat dijangkau.",
+    "noReplica": "Tidak ada frontend aktif yang melapor.",
+    "replicas": "Frontend",
+    "unknownVersion": "versi tidak diketahui",
+    "workers": "Worker tidak pernah terhubung ke PostgreSQL. Mereka berkomunikasi dengan frontend melalui koneksi di bawah ini."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Saat menyimpan, sistem memeriksa apakah frontend ini dapat menjangkau server NATS. Frontend memakai alamat baru setelah dimulai ulang.",
+    "state": {
+      "connected": "Dapat dijangkau",
+      "unreachable": "Tidak dapat dijangkau",
+      "off": "Belum diatur"
+    },
+    "url": "Alamat NATS",
+    "urlHint": "Frontend terhubung ke sini.",
+    "workerUrl": "Alamat yang diberikan ke worker",
+    "workerUrlHint": "Hanya jika worker menjangkau NATS di alamat yang berbeda. Kosong berarti memakai alamat di atas.",
+    "save": "Simpan",
+    "saved": "Tersimpan. Mulai ulang frontend untuk memakai alamat baru.",
+    "savedReachable": "Tersimpan. Frontend ini dapat menjangkau server NATS. Mulai ulang frontend untuk memakai alamat baru.",
+    "failed": "Pengaturan tidak tersimpan."
+  },
+  "weights": {
+    "title": "Preferensi koneksi",
+    "note": "Worker dapat bergabung melalui NATS, WebSocket, atau P2P, bahkan sekaligus. Jika dua worker sama-sama cocok untuk sebuah permintaan, worker yang dijangkau melalui koneksi dengan bobot lebih tinggi yang akan menerimanya. Bobot tidak pernah mengalahkan kecocokan. 0 berarti: gunakan hanya jika tidak ada pilihan lain yang cocok.",
+    "about": {
+      "nats": "Paling cepat. Worker terhubung ke bus pesan.",
+      "websocket": "Berfungsi di mana saja. Worker terhubung ke server ini.",
+      "p2p": "Tautan undangan. Dapat melewati relay."
+    },
+    "sliderLabel": "Bobot {{connection}}",
+    "resetOne": "Kembali ke default, {{value}}",
+    "default": "Default {{value}}",
+    "error": {
+      "empty": "Masukkan bilangan bulat dari 0 sampai 1000.",
+      "whole": "Gunakan bilangan bulat dari 0 sampai 1000.",
+      "range": "Bobot berkisar dari 0 sampai 1000."
+    },
+    "live": "Jika dua worker sama-sama cocok, {{sentence}}.",
+    "wins": "{{winner}} mengalahkan {{loser}}",
+    "ties": "{{a}} dan {{b}} seri",
+    "apply": "Terapkan bobot",
+    "useDefaults": "Gunakan default",
+    "saved": "Tersimpan. Setiap frontend memakai bobot baru dalam hitungan detik.",
+    "defaultsBack": "Bobot default telah dikembalikan. Setiap frontend memakainya dalam hitungan detik.",
+    "failed": "Bobot tidak tersimpan."
+  },
+  "joining": {
+    "title": "Bergabung",
+    "note": "Cara worker baru diterima saat bergabung dengan token bergabung.",
+    "autoApprove": "Setujui worker secara otomatis",
+    "autoApproveHint": "Nonaktif secara default. Worker yang bergabung dengan token menunggu persetujuan Anda. Token yang Anda buat dapat memilih cara lain.",
+    "autoApproveOn": "Siapa pun yang memegang token bergabung yang valid dapat bergabung tanpa persetujuan Anda. Gunakan token yang berumur pendek dan sekali pakai.",
+    "failed": "Pengaturan tidak tersimpan."
+  },
+  "page": {
+    "supporting": "Mesin yang menjalankan model Anda. {{online}} dari {{total}} daring.",
+    "supportingEmpty": "Mesin yang menjalankan model Anda.",
+    "add": "Tambah worker",
+    "search": "Cari worker",
+    "searchPlaceholder": "Cari worker, model, label",
+    "chip": {
+      "all": "Semua",
+      "healthy": "Sehat",
+      "attention": "Perlu perhatian",
+      "offline": "Luring",
+      "pending": "Menunggu"
+    },
+    "type": {
+      "backend": "backend",
+      "agent": "agen",
+      "model-split": "pemisahan model"
+    },
+    "reason": "Perlu perhatian karena",
+    "anyReason": "Alasan apa pun"
+  },
+  "pill": {
+    "frontends_one": "{{count}} frontend",
+    "frontends_other": "{{count}} frontend"
+  },
+  "strip": {
+    "label": "Ringkasan armada",
+    "online": "Worker daring",
+    "ofTotal": "dari {{total}}",
+    "models": "Model dimuat",
+    "onWorkers_one": "di {{count}} worker",
+    "onWorkers_other": "di {{count}} worker",
+    "inFlight": "Sedang berjalan",
+    "requests_one": "permintaan",
+    "requests_other": "permintaan",
+    "attention": "Perlu perhatian",
+    "allClear": "Semua aman",
+    "offline": "{{count}} luring",
+    "degraded": "{{count}} menurun"
+  },
+  "roster": {
+    "worker": "Worker",
+    "state": "Status",
+    "connections": "Koneksi",
+    "load": "Beban",
+    "seen": "Terakhir terlihat",
+    "splitMark": "Pemisahan model",
+    "splitGroup": "Worker pemisahan model",
+    "attachedTo": "terhubung ke {{node}}",
+    "lends": "meminjamkan {{memory}}"
+  },
+  "conn": {
+    "label": "Koneksi",
+    "of": "Koneksi dari {{name}}",
+    "name": {
+      "nats": "NATS",
+      "websocket": "WebSocket",
+      "p2p": "P2P",
+      "heartbeat": "Heartbeat"
+    },
+    "live": "aktif",
+    "reconnecting": "menyambung ulang",
+    "down": "putus",
+    "notReported": "Tidak dilaporkan",
+    "state": {
+      "live": "Aktif",
+      "reconnecting": "Menyambung ulang",
+      "down": "Putus"
+    },
+    "path": {
+      "direct": "langsung",
+      "holePunched": "tembus NAT",
+      "relayed": "lewat relay {{relay}}",
+      "relayedUnknown": "lewat relay",
+      "none": "tanpa jalur"
+    },
+    "rtt": "{{ms}} ms",
+    "limited": "Terbatas",
+    "limitedHint": "Relay membatasi data atau waktu koneksi ini. File model tidak melewati relay."
+  },
+  "inspector": {
+    "kicker": "Worker",
+    "splitKicker": "Worker pemisahan model",
+    "connections": "Koneksi",
+    "noConnections": "Worker ini belum melaporkan koneksi.",
+    "weight": "Bobot {{weight}}",
+    "heartbeat": "heartbeat {{ago}}",
+    "update": "Perbarui backend",
+    "splitNote": "Worker ini meminjamkan memorinya untuk satu model besar yang berjalan di beberapa mesin. Worker ini tidak memiliki backend dan tidak memiliki aturan penempatan."
+  },
+  "add": {
+    "title": "Tambah worker",
+    "supporting": "Hubungkan mesin baru dalam tiga langkah.",
+    "cancel": "Batal",
+    "back": "Kembali",
+    "continue": "Lanjutkan",
+    "backToWorker": "Kembali ke worker dengan token bergabung",
+    "stepsLabel": "Langkah",
+    "step": {
+      "choose": "Pilih koneksi",
+      "run": "Jalankan perintah",
+      "wait": "Tunggu worker"
+    },
+    "choose": {
+      "title": "Bagaimana worker sebaiknya terhubung?",
+      "note": "Pilih satu atau lebih. Worker dapat memakai semuanya sekaligus. Anda dapat menambahkan lagi nanti.",
+      "none": "Pilih setidaknya satu koneksi."
+    },
+    "availability": "Ketersediaan",
+    "needs": "Membutuhkan",
+    "weight": "Bobot preferensi {{weight}}",
+    "way": {
+      "nats": {
+        "name": "NATS",
+        "tag": "Paling cepat",
+        "about": "Paling cepat. Worker terhubung ke bus pesan.",
+        "needs": "Alamat NATS harus dapat dijangkau dari worker.",
+        "ready": "Tersedia, NATS terhubung",
+        "unreachable": "Sudah dikonfigurasi, tetapi frontend ini tidak dapat menjangkaunya",
+        "off": "Tidak tersedia",
+        "offNote": "NATS belum diatur.",
+        "offLink": "Atur di pengaturan klaster"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "tag": "Berfungsi di mana saja",
+        "about": "Worker terhubung ke alamat server ini dengan token. Berfungsi melewati NAT dan firewall.",
+        "needs": "Hanya alamat server ini.",
+        "ready": "Tersedia"
+      },
+      "p2p": {
+        "name": "P2P",
+        "tag": "Tautan undangan",
+        "about": "Bergabung dengan tautan undangan. Tidak perlu port terbuka. Dapat melewati relay.",
+        "needs": "Berbagi P2P diaktifkan.",
+        "ready": "Tersedia",
+        "off": "Tidak tersedia",
+        "checking": "Memeriksa",
+        "offNote": "Berbagi P2P nonaktif.",
+        "offLink": "Aktifkan di Berbagi"
+      }
+    },
+    "split": {
+      "question": "Ingin menjalankan satu model besar di beberapa mesin?",
+      "answer": "Tambahkan worker pemisahan model sebagai gantinya.",
+      "action": "Worker pemisahan model"
+    },
+    "single": {
+      "splitNote": "Worker pemisahan model tidak memerlukan klaster."
+    },
+    "run": {
+      "title": "Jalankan perintah di mesin baru",
+      "attach": "Worker ini akan terhubung melalui {{ways}}",
+      "weights": "bobot {{weights}}",
+      "change": "Ubah koneksi",
+      "ran": "Sudah saya jalankan, tunggu worker"
+    },
+    "token": {
+      "title": "Token bergabung",
+      "show": "Tampilkan token",
+      "hide": "Sembunyikan token",
+      "copy": "Salin token",
+      "expires": "Kedaluwarsa",
+      "in": "dalam",
+      "expired": "Kedaluwarsa",
+      "connections": "Koneksi",
+      "any": "Apa pun",
+      "uses": "Penggunaan",
+      "one": "1 worker",
+      "many": "Beberapa",
+      "count": "Jumlah worker",
+      "max": "Hingga {{max}}.",
+      "usesHint": "Berapa banyak worker yang boleh bergabung dengan token ini. Pilih beberapa untuk Kubernetes atau Compose.",
+      "valid": "Berlaku selama",
+      "ttl": {
+        "600": "10 menit",
+        "3600": "1 jam",
+        "86400": "24 jam"
+      },
+      "again": "Buat token baru",
+      "retry": "Coba lagi",
+      "making": "Membuat token bergabung…",
+      "failed": "Token bergabung tidak dapat dibuat: {{message}}",
+      "expiredNote": "Token ini sudah kedaluwarsa. Buat token baru untuk mendapatkan perintah yang berfungsi.",
+      "hiddenNote": "Token disembunyikan di sini dan akan ditambahkan saat Anda menyalin.",
+      "shownNote": "Token ditampilkan di sini. Sembunyikan sebelum Anda membagikan layar."
+    },
+    "tabs": {
+      "label": "Cara menjalankan worker",
+      "install": "Skrip instalasi",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "kubernetes": "Kubernetes",
+      "manual": "Manual"
+    },
+    "tabNote": {
+      "compose": "Beberapa replika mungkin dimulai bersamaan: pilih berapa banyak worker yang boleh memakai token.",
+      "kubernetes": "Menerapkan Secret dan StatefulSet. Pilih berapa banyak worker yang boleh memakai token untuk replika yang Anda jalankan."
+    },
+    "os": {
+      "label": "Sistem operasi",
+      "unix": "Linux dan macOS",
+      "windows": "Windows"
+    },
+    "copyCommand": "Salin perintah",
+    "copiedShort": "Tersalin",
+    "copied": "Tersalin ke papan klip",
+    "copyFailed": "Tidak dapat menyalin. Pilih teksnya lalu salin.",
+    "invite": {
+      "title": "Undangan P2P",
+      "note": "Tautan undangan sekali pakai. Worker bergabung melalui P2P dengannya: tanpa token dan tanpa port terbuka.",
+      "ready": "Undangan siap",
+      "single": "Sekali pakai",
+      "making": "Membuat undangan…",
+      "hardware": "Perangkat keras",
+      "how": "Cara menjalankannya",
+      "cli": "Baris perintah"
+    },
+    "wait": {
+      "title": "Tunggu worker",
+      "listening": "Menunggu worker",
+      "listeningNote": "Jalankan perintah di mesin baru. Halaman ini akan diperbarui saat worker terhubung. Belum ada yang disimpan sampai saat itu.",
+      "valid": "Token berlaku selama {{time}}",
+      "found_one": "Worker ditemukan",
+      "found_other": "{{count}} worker ditemukan",
+      "open": "Buka",
+      "usesLeft_one": "Sisa {{count}} penggunaan token.",
+      "usesLeft_other": "Sisa {{count}} penggunaan token.",
+      "usedUp": "Token sudah tidak memiliki sisa penggunaan.",
+      "checkPeer": "Periksa ID peer di mesin sebelum Anda menyetujuinya.",
+      "stuck": "Belum ada apa-apa? Periksa apakah mesin dapat menjangkau server ini dan perintahnya berjalan tanpa error.",
+      "stuckInvite": "Belum ada apa-apa? Periksa apakah mesin menjalankan perintah dengan tautan undangan dan tautannya belum kedaluwarsa.",
+      "another": "Tambah worker lain",
+      "done": "Selesai"
+    }
+  }
+}

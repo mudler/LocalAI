@@ -1,0 +1,87 @@
+package profiles_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/mudler/LocalAI/addons/sandbox/internal/profiles"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+func TestDeclaredProfilesAreValidAndNested(t *testing.T) {
+	d := &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Profiles: profiles.Declared()}
+	if d.Profiles[0].ID != profiles.Base {
+		t.Fatalf("the first profile is %q, want the fallback", d.Profiles[0].ID)
+	}
+	have := map[string]map[string]bool{}
+	for _, p := range d.Profiles {
+		have[p.ID] = map[string]bool{}
+		for _, tl := range p.Tools {
+			have[p.ID][tl.Name] = true
+			if len(tl.Check) == 0 {
+				t.Errorf("profile %s: tool %s has no build check", p.ID, tl.Name)
+			}
+		}
+	}
+	// media and office are base plus more: a profile never has fewer tools
+	// than the one it extends.
+	for _, pair := range [][2]string{{profiles.Base, profiles.Media}, {profiles.Base, profiles.Office}} {
+		for name := range have[pair[0]] {
+			if !have[pair[1]][name] {
+				t.Errorf("%s lacks %s, which %s has", pair[1], name, pair[0])
+			}
+		}
+	}
+	for _, want := range []string{"ffmpeg", "sox", "ImageMagick", "rsvg-convert"} {
+		if !have[profiles.Media][want] || have[profiles.Base][want] {
+			t.Errorf("%s must be in media and not in base", want)
+		}
+	}
+}
+
+func TestOfficeProfileAddsTheRenderToolsOnly(t *testing.T) {
+	have := map[string]map[string]bool{}
+	var office contract.ExecutionProfile
+	for _, p := range profiles.Declared() {
+		have[p.ID] = map[string]bool{}
+		for _, tl := range p.Tools {
+			have[p.ID][tl.Name] = true
+		}
+		if p.ID == profiles.Office {
+			office = p
+		}
+	}
+	if office.ID == "" {
+		t.Fatal("no office profile")
+	}
+	for _, want := range []string{"LibreOffice Impress", "LibreOffice Writer", "LibreOffice Calc", "fonts"} {
+		if !have[profiles.Office][want] || have[profiles.Base][want] || have[profiles.Media][want] {
+			t.Errorf("%s must be in office only", want)
+		}
+	}
+	for _, media := range []string{"ffmpeg", "sox", "ImageMagick", "rsvg-convert"} {
+		if have[profiles.Office][media] {
+			t.Errorf("office must not carry %s: it is built on base, not on media", media)
+		}
+	}
+	if office.CPUs <= 0 || office.MemoryMiB <= 0 || office.DiskMiB <= 0 {
+		t.Errorf("office has no limits: %+v", office)
+	}
+}
+
+func TestParseImages(t *testing.T) {
+	d := strings.Repeat("a", 64)
+	got, err := profiles.ParseImages("media=quay.io/x/guest-media@sha256:" + d + ", big=quay.io/x/guest-big@sha256:" + d)
+	if err != nil || len(got) != 2 || got["media"] == "" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	if got, err := profiles.ParseImages(""); err != nil || len(got) != 0 {
+		t.Fatalf("empty list: %v, %v", got, err)
+	}
+	for _, bad := range []string{"media", "media=quay.io/x@sha256:abc", "Media=quay.io/x@sha256:" + d, "media=quay.io/x:latest",
+		"media=a/b@sha256:" + d + ",media=a/b@sha256:" + d} {
+		if _, err := profiles.ParseImages(bad); err == nil {
+			t.Errorf("%q was accepted", bad)
+		}
+	}
+}
