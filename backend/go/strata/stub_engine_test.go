@@ -13,6 +13,8 @@ package main
 //	crash       prints two tokens of a request, then exits
 //	err         answers every GEN with an ERR line
 //	hangstop    like ok, but ignores STOP and never ends a request
+//	dropstop    like ok, but drops the first STOP it receives, as the real
+//	            engine does when STOP arrives before it has taken the request
 //	native      like ok, but refuses to start the way the engine does for a
 //	            native (IQ) pack unless --native, --spec T (T >= 2) and --prefill
 //	            are on the command line
@@ -82,12 +84,17 @@ func runStub(mode string) {
 	toks := strings.Split(os.Getenv("STRATA_STUB_TOKENS"), ",")
 
 	var stop atomic.Bool
+	dropped := mode != "dropstop"
 	lines := make(chan string, 16)
 	go func() {
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
 			l := sc.Text()
 			if l == "STOP" {
+				if !dropped {
+					dropped = true
+					continue
+				}
 				if mode != "hangstop" {
 					stop.Store(true)
 				}

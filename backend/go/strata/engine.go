@@ -41,6 +41,7 @@ type engineConfig struct {
 	Env          []string      // extra KEY=VALUE entries
 	ReadyTimeout time.Duration // how long to wait for READY
 	StopTimeout  time.Duration // how long to wait for DONE after STOP before killing the engine
+	StopResend   time.Duration // how often to send STOP again while waiting for DONE (default 1.5s)
 }
 
 type engine struct {
@@ -79,6 +80,9 @@ func startEngine(cfg engineConfig) (*engine, error) {
 	}
 	if cfg.StopTimeout <= 0 {
 		cfg.StopTimeout = 30 * time.Second
+	}
+	if cfg.StopResend <= 0 {
+		cfg.StopResend = 1500 * time.Millisecond
 	}
 	path, err := cleanExecutable(cfg.Path)
 	if err != nil {
@@ -428,6 +432,10 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genT
 	e.busy.Set(true)
 	defer e.busy.Set(false)
 
+	// A request that is already cancelled never reaches the engine.
+	if err := ctx.Err(); err != nil {
+		return genResult{}, err
+	}
 	if !e.alive() {
 		e.drained()
 		return genResult{}, fmt.Errorf("%w%s", errEngineDied, e.tailSuffix())
@@ -449,23 +457,47 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genT
 		stopped bool
 		cbErr   error
 		stopBy  <-chan time.Time
+		resend  <-chan time.Time
 		pending *genToken // with logprobs, a token waits for its LP line
+
+		stopTimer  *time.Timer
+		resendTick *time.Ticker
 	)
 	done := ctx.Done()
+	sendStop := func() {
+		if !e.canStop {
+			return
+		}
+		if err := e.send("STOP"); err != nil {
+			xlog.Warn("strata: STOP write failed", "error", err)
+		}
+	}
 	stop := func() {
 		if stopped {
 			return
 		}
 		stopped = true
-		if e.canStop {
-			if err := e.send("STOP"); err != nil {
-				xlog.Warn("strata: STOP write failed", "error", err)
-			}
-		}
+		sendStop()
 		t := time.NewTimer(e.cfg.StopTimeout)
+		stopTimer = t
 		stopBy = t.C
-		// timer is collected with the process if it fires
+		// The engine clears its stop flag when it takes the next request off
+		// its queue, so a STOP that arrives right after GEN can be lost. Send
+		// it again until the request ends.
+		if e.canStop {
+			tk := time.NewTicker(e.cfg.StopResend)
+			resendTick = tk
+			resend = tk.C
+		}
 	}
+	defer func() {
+		if stopTimer != nil {
+			stopTimer.Stop()
+		}
+		if resendTick != nil {
+			resendTick.Stop()
+		}
+	}()
 	deliver := func(t genToken) {
 		if stopped || cbErr != nil {
 			return // late tokens of a cancelled request are discarded
@@ -487,6 +519,8 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genT
 		case <-done:
 			done = nil
 			stop()
+		case <-resend:
+			sendStop()
 		case <-stopBy:
 			xlog.Warn("strata: engine did not finish after STOP, killing it")
 			e.kill()

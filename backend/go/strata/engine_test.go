@@ -130,6 +130,40 @@ var _ = Describe("engine", func() {
 		}
 	})
 
+	It("sends stop again when the engine lost it", func() {
+		cfg := stubConfig("dropstop", "STRATA_STUB_DELAY_MS=10")
+		cfg.StopResend = 50 * time.Millisecond
+		e, err := startEngine(cfg)
+		Expect(err).ToNot(HaveOccurred())
+		defer e.close()
+		ctx, cancel := context.WithCancel(context.Background())
+		n := 0
+		start := time.Now()
+		dr, err := e.generate(ctx, genRequest{MaxNew: 100000, IDs: []int{1}}, func(genToken) error {
+			if n++; n == 3 {
+				cancel()
+			}
+			return nil
+		})
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(dr.Finish).To(Equal("cancel"))
+		Expect(time.Since(start)).To(BeNumerically("<", 3*time.Second))
+		Expect(e.alive()).To(BeTrue())
+	})
+
+	It("does not send a request that is already cancelled", func() {
+		log := filepath.Join(GinkgoT().TempDir(), "gen.log")
+		e, err := startEngine(stubConfig("ok", "STRATA_STUB_LOG="+log))
+		Expect(err).ToNot(HaveOccurred())
+		defer e.close()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err = e.generate(ctx, genRequest{MaxNew: 5, IDs: []int{1}}, func(genToken) error { return nil })
+		Expect(err).To(MatchError(context.Canceled))
+		b, _ := os.ReadFile(log)
+		Expect(string(b)).To(BeEmpty())
+	})
+
 	It("callback error stops engine", func() {
 		e, err := startEngine(stubConfig("ok", "STRATA_STUB_DELAY_MS=10"))
 		Expect(err).ToNot(HaveOccurred())
