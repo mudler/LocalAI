@@ -312,6 +312,52 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(runs("t1")).To(BeZero())
 	})
 
+	It("follows the documented scenario: create, send, refuse, repeat, rotate and cap", func() {
+		rec := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{
+			"name": "Docs scenario", "prompt": "Say what happened.", "kind": "event", "source": "webhook", "enabled": true, "model": "test-model"})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		created := decodeJSON(rec)
+		id, first := created["id"].(string), created["secret"].(string)
+		Expect(first).NotTo(BeEmpty())
+		hook := created["hook_path"].(string)
+		Expect(hook).To(Equal("/api/chats/triggers/" + id + "/hook"))
+		send := func(secret, body string, set func(*http.Request)) *httptest.ResponseRecorder {
+			req := httptest.NewRequest(http.MethodPost, hook, strings.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+secret)
+			if set != nil {
+				set(req)
+			}
+			out := httptest.NewRecorder()
+			s.e.ServeHTTP(out, req)
+			return out
+		}
+
+		ok := send(first, `{"action":"opened"}`, nil)
+		Expect(ok.Code).To(Equal(http.StatusAccepted), ok.Body.String())
+		Expect(runs(id)).To(Equal(1))
+		wrong := send("wrong", `{"action":"opened"}`, nil)
+		Expect(wrong.Code).To(Equal(http.StatusNotFound))
+		Expect(strings.TrimSpace(wrong.Body.String())).To(Equal(notFound))
+
+		withID := func(r *http.Request) { r.Header.Set("X-Webhook-Id", "a") }
+		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
+		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
+		// The first call made the run, the second event waits for the gap and
+		// is merged or queued once: the same id twice adds one row, not two.
+		afterRepeat := runs(id)
+		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
+		Expect(runs(id)).To(Equal(afterRepeat))
+
+		rot := s.do("alice", http.MethodPost, "/api/chats/triggers/"+id+"/secret", nil)
+		Expect(rot.Code).To(Equal(http.StatusOK), rot.Body.String())
+		second := decodeJSON(rot)["secret"].(string)
+		Expect(second).NotTo(Equal(first))
+		Expect(send(first, `{"action":"x"}`, nil).Code).To(Equal(http.StatusNotFound))
+		Expect(send(second, `{"action":"x"}`, func(r *http.Request) { r.Header.Set("X-Webhook-Id", "b") }).Code).To(Equal(http.StatusAccepted))
+
+		Expect(send(second, strings.Repeat("a", 300*1024), nil).Code).To(Equal(http.StatusRequestEntityTooLarge))
+	})
+
 	It("leaves the other trigger routes behind the login", func() {
 		put("t1", nil)
 		Expect(s.do("", http.MethodPost, "/api/chats/triggers/t1/run", nil).Code).To(Equal(http.StatusUnauthorized))

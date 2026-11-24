@@ -1092,7 +1092,8 @@ holds; without acts the run only reads. The proposal is off and has no secret.
 When you confirm it, the response (`POST /api/chats/triggers/proposals/{id}/confirm`)
 has `secret` and `hook_path` once, as the create does; paste them into the
 sender. Reloading the proposal or the chat never shows the secret again. A
-messaging-app chat cannot propose an event trigger: create it in Studio.
+messaging-app chat cannot propose an event trigger: create it in Studio. How a sender signs a call, the
+GitHub setup and the limits are on [Event triggers]({{% relref "/features/chats-and-agents/chats-event-triggers" %}}).
 
 `GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
 and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its
