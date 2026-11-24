@@ -39,6 +39,13 @@ var _ = Describe("The backend name used to build a path", func() {
 		Entry("leading dot", ".hidden", false),
 		Entry("absolute", "/etc", false),
 		Entry("nul", "a\x00b", false),
+		// A name that ends like a directory of a swap would be read as one.
+		Entry("backup suffix", "llama-cpp.backup", false),
+		Entry("install backup suffix", "llama-cpp.install-backup", false),
+		Entry("upgrade staging suffix", "llama-cpp.upgrade-tmp", false),
+		Entry("install staging suffix", "llama-cpp.install-tmp", false),
+		Entry("failed suffix", "llama-cpp.failed", false),
+		Entry("kept previous build", "llama-cpp.backup.kept-20260101T000000", false),
 	)
 
 	Describe("in an upgrade", func() {
