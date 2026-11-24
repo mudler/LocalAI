@@ -1,0 +1,539 @@
+{
+  "manage": {
+    "title": "Sistem",
+    "subtitle": "Kelola model dan backend yang terinstal"
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "subtitle": "Konfigurasi pengaturan runtime LocalAI",
+    "saved": "Pengaturan berhasil disimpan",
+    "saveFailed": "Gagal menyimpan: {{message}}",
+    "loadFailed": "Gagal memuat pengaturan: {{message}}",
+    "sections": {
+      "branding": "Branding",
+      "watchdog": "Watchdog",
+      "memory": "Memori",
+      "backends": "Backend",
+      "performance": "Performa",
+      "tracing": "Tracing",
+      "api": "API & CORS",
+      "p2p": "P2P",
+      "galleries": "Galeri",
+      "apikeys": "API Key",
+      "agents": "Agent Job",
+      "agentpool": "Agent Pool",
+      "assistant": "Asisten LocalAI",
+      "distributed": "Terdistribusi",
+      "responses": "Respons"
+    },
+    "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
+    "egress": {
+      "title": "Jaringan perintah",
+      "intro": "Perintah yang berjalan terisolasi menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
+      "serves": "Perintah berjalan terisolasi di add-on {{name}}",
+      "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
+      "servesNone": "Belum ada add-on yang menjalankan perintah",
+      "hostNote": "Backend host menjalankan perintah di mesin ini dengan jaringannya: pengaturan ini tidak berlaku untuknya.",
+      "counts": "24 jam terakhir: {{allowed}} diizinkan, {{blocked}} diblokir.",
+      "private": "Izinkan aturan administrator menjangkau jaringan privat",
+      "privateWarning": "Host yang diizinkan administrator lalu dapat menjangkau alamat di dalam jaringan Anda. Preset saja tidak pernah; alamat metadata cloud dan server tetap ditolak.",
+      "typePhrase": "Untuk menyalakannya, ketik: {{phrase}}",
+      "registries": "Registri paket ({{count}})",
+      "showAudit": "Tampilkan audit",
+      "hideAudit": "Sembunyikan audit",
+      "loadFailed": "Pengaturan jaringan untuk perintah tidak dapat dibaca",
+      "audit": {
+        "verdict": "Keputusan",
+        "host": "Host",
+        "user": "Pengguna",
+        "at": "Waktu",
+        "reason": "Alasan",
+        "bytes": "Byte naik / turun",
+        "refresh": "Muat ulang",
+        "empty": "Tidak ada permintaan yang cocok.",
+        "loadFailed": "Audit tidak dapat dibaca",
+        "verdicts": {
+          "any": "Semua keputusan",
+          "allow": "Diizinkan",
+          "block": "Diblokir",
+          "done": "Selesai"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-on",
+      "hint": "Pengaturan yang dibawa add-on",
+      "intro": "Setiap add-on menyimpan pengaturannya di halamannya sendiri, di tab Pengaturan pada detailnya. Buka salah satu untuk mengubahnya.",
+      "off": "Nonaktif. Aktifkan untuk mengubah pengaturannya.",
+      "open": "Buka pengaturan",
+      "openNamed": "Buka pengaturan {{name}}",
+      "count_one": "{{count}} add-on dengan pengaturan",
+      "count_other": "{{count}} add-on dengan pengaturan"
+    },
+    "hosts": {
+      "add": "Tambah",
+      "listLabel": "Host yang selalu diizinkan",
+      "remove": "Hapus {{host}}",
+      "empty": "Belum ada host. Tulis nama host, atau host:port untuk mengunci port.",
+      "hint": "Hanya nama yang tepat. Tambahkan :port untuk mengizinkan satu port; jika tidak, port jaringan perintah yang berlaku.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Tulis nama host.",
+        "wildcard": "\"{{value}}\": tulis nama host yang tepat, bukan pola.",
+        "shape": "\"{{value}}\" bukan nama host. Tulis hanya hostnya, tanpa skema dan path.",
+        "port": "\"{{value}}\": port harus 1 sampai 65535, dan 22 serta 25 selalu ditolak.",
+        "private": "\"{{value}}\" adalah alamat privat atau lokal. Aktifkan dulu sakelar jaringan privat.",
+        "numeric": "\"{{value}}\": tulis alamat IP sebagai empat angka desimal.",
+        "duplicate": "\"{{value}}\" sudah ada di daftar.",
+        "full": "Daftar memuat paling banyak {{max}} host."
+      }
+    },
+    "network": {
+      "title": "Jaringan perintah",
+      "where": "{{name}} menyimpan pengaturan jaringan untuk perintah yang dijalankannya di halamannya sendiri."
+    },
+    "autoUpgradeAddons": "Perbarui add-on otomatis",
+    "addonUpdates": {
+      "label": "Pembaruan add-on",
+      "note": "Pemilik add-on menerapkan pengaturan ini. Generasi baru dapat menjalankan kode.",
+      "unavailable": "Pengaturan pemilik tidak tersedia atau berubah: {{message}}",
+      "reload": "Muat ulang dan terapkan ulang suntingan",
+      "retry": "Coba operasi yang sama lagi",
+      "policy": "Kebijakan pemilik · revisi {{revision}}",
+      "apply": "Terapkan pengaturan pembaruan"
+    }
+  },
+  "backends": {
+    "lifecycle": {
+      "navigation": "Backend lifecycle",
+      "catalog": "Catalog",
+      "installed": "Installed",
+      "installedAria": "Installed backends",
+      "searchPlaceholder": "Search installed backends by name or alias...",
+      "filterAll": "All",
+      "filterUser": "User",
+      "filterSystem": "System",
+      "filterUpdates": "Updates",
+      "filterOffline": "Offline nodes",
+      "variants": "Variants",
+      "variantsCount": "Variants ({{count}})",
+      "development": "Development",
+      "developmentCount": "Development ({{count}})",
+      "countLabel": "{{visible}} of {{total}}",
+      "emptyTitle": "No backends installed yet",
+      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
+      "noMatches": "No installed backends match the current search and filters.",
+      "clearFilters": "Clear filters",
+      "updatesAvailable_one": "{{count}} backend has an update available",
+      "updatesAvailable_other": "{{count}} backends have updates available",
+      "upgradeAll": "Upgrade all",
+      "upgrading": "Upgrading...",
+      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
+      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
+      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
+      "loadFailed": "Failed to load installed backends: {{message}}",
+      "reinstall": "Reinstall backend",
+      "reinstallStarted": "Reinstalling {{name}}...",
+      "reinstallFailed": "Failed to reinstall: {{message}}",
+      "upgrade": "Upgrade",
+      "upgradeTo": "Upgrade to v{{version}}",
+      "upgradeStarted": "Upgrading {{name}}...",
+      "upgradeFailed": "Failed to upgrade: {{message}}",
+      "delete": "Delete",
+      "deleteBackend": "Delete backend",
+      "deleteTitle": "Delete Backend",
+      "deleteMessage": "Delete backend {{name}}?",
+      "deleteSucceeded": "Deleted backend {{name}}",
+      "deleteFailed": "Failed to delete backend: {{message}}",
+      "actionsFor": "Actions for {{name}}",
+      "protected": "Protected",
+      "protectedTitle": "System backends are managed outside the gallery",
+      "allBackends": "All backends",
+      "version": "Version",
+      "available": "Available",
+      "managed": "Managed",
+      "system": "System",
+      "gallery": "Gallery",
+      "installedOn": "Installed on",
+      "description": "Description",
+      "source": "Source",
+      "digest": "Digest",
+      "installedAt": "Installed",
+      "working": "Working...",
+      "updateAvailable": "Update available",
+      "updateGroup": "Update available",
+      "installedGroup": "Installed",
+      "inventoryEyebrow": "Installed runtimes",
+      "inventoryTitle_one": "{{count}} backend is installed.",
+      "inventoryTitle_other": "{{count}} backends are installed.",
+      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    },
+    "title": "Manajemen Backend",
+    "subtitle": "Temukan dan instal backend AI untuk mendukung model Anda"
+  },
+  "backendLogs": {
+    "title": "Log Backend",
+    "subtitle": "Lihat log dari backend yang sedang berjalan",
+    "empty": "Tidak ada log yang tersedia"
+  },
+  "traces": {
+    "title": "Trace",
+    "subtitle": "Lihat log permintaan API, respons, dan operasi backend"
+  },
+  "users": {
+    "title": "Pengguna",
+    "subtitle": "Orang yang bisa masuk dan apa saja yang boleh mereka gunakan.",
+    "invite": "Undang seseorang",
+    "summary": {
+      "label": "Ringkasan pengguna",
+      "total": "Pengguna",
+      "totalUnit": "seluruhnya",
+      "active": "Aktif",
+      "activeUnit": "bisa masuk",
+      "waiting": "Menunggu persetujuan",
+      "waitingUnit": "pendaftaran",
+      "admins": "Admin",
+      "adminsUnit": "dari {{count}}"
+    },
+    "filters": {
+      "label": "Saring pengguna",
+      "all": "Semua",
+      "pending": "Menunggu",
+      "admins": "Admin",
+      "disabled": "Dinonaktifkan",
+      "inactive": "Tidak aktif 30+ hari"
+    },
+    "popover": {
+      "signIn": "Metode masuk",
+      "access": "Akses",
+      "any": "Apa saja",
+      "custom": "Akses kustom"
+    },
+    "search": {
+      "label": "Cari berdasarkan nama atau email",
+      "placeholder": "Cari nama atau email"
+    },
+    "sort": {
+      "label": "Urutkan",
+      "name": "Nama",
+      "role": "Peran",
+      "status": "Status",
+      "provider": "Masuk",
+      "lastActive": "Terakhir aktif",
+      "keys": "Kunci API"
+    },
+    "refresh": "Segarkan pengguna",
+    "loading": "Memuat pengguna",
+    "region": "Pengguna",
+    "caption": "Pengguna dengan peran, akses, status, aktivitas terakhir, dan kunci API",
+    "columns": {
+      "user": "Pengguna",
+      "role": "Peran",
+      "access": "Akses",
+      "status": "Status",
+      "lastActive": "Terakhir aktif",
+      "keys": "Kunci",
+      "actions": "Tindakan"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "pengguna"
+    },
+    "state": {
+      "active": "Aktif",
+      "pending": "Menunggu",
+      "disabled": "Dinonaktifkan"
+    },
+    "access": {
+      "all": "Akses penuh",
+      "default": "Akses default",
+      "models_one": "hanya {{count}} model",
+      "models_other": "hanya {{count}} model",
+      "more_one": "{{count}} fitur tambahan",
+      "more_other": "{{count}} fitur tambahan",
+      "fewer_one": "{{count}} fitur lebih sedikit",
+      "fewer_other": "{{count}} fitur lebih sedikit",
+      "limits_one": "{{count}} batas",
+      "limits_other": "{{count}} batas"
+    },
+    "noName": "(tanpa nama)",
+    "you": "Anda",
+    "created": "Dibuat {{date}}",
+    "never": "Belum pernah",
+    "approve": "Setujui pengguna",
+    "approveShort": "Setujui",
+    "enable": "Aktifkan",
+    "disable": "Nonaktifkan pengguna",
+    "disableFor": "Nonaktifkan {{name}}",
+    "editAccessFor": "Ubah akses {{name}}",
+    "actionsFor": "Tindakan untuk {{name}}",
+    "showing": "Menampilkan {{shown}} dari {{total}}.",
+    "cancel": "Batal",
+    "undo": "Urungkan",
+    "dismiss": "Tutup",
+    "menu": {
+      "editAccess": "Ubah akses",
+      "makeAdmin": "Jadikan admin",
+      "makeUser": "Jadikan pengguna",
+      "resetPassword": "Atur ulang kata sandi",
+      "delete": "Hapus…"
+    },
+    "sheet": {
+      "account": "Akun",
+      "activity": "Aktivitas",
+      "apiKeys": "Kunci API"
+    },
+    "empty": {
+      "title": "Belum ada pengguna",
+      "body": "Pengguna akan muncul di sini saat mereka mendaftar atau menerima undangan."
+    },
+    "noMatch": {
+      "title": "Tidak ada pengguna yang cocok",
+      "body": "Coba pencarian atau filter lain.",
+      "clear": "Hapus filter"
+    },
+    "error": {
+      "title": "Pengguna tidak dapat dimuat.",
+      "stale": "Tidak dapat terhubung ke server.",
+      "staleNote": "Daftar di bawah berasal dari {{when}}."
+    },
+    "toast": {
+      "approved": "{{name}} disetujui",
+      "disabled": "{{name}} dinonaktifkan",
+      "approveFailed": "Gagal menyetujui pengguna: {{message}}",
+      "disableFailed": "Gagal menonaktifkan pengguna: {{message}}",
+      "disabledUndo": "{{name}} dinonaktifkan. Urungkan untuk mengaktifkannya kembali.",
+      "restored": "{{name}} aktif kembali",
+      "restoreFailed": "Gagal memulihkan pengguna: {{message}}",
+      "roleChanged": "{{name}} sekarang {{role}}",
+      "roleFailed": "Gagal memperbarui peran: {{message}}",
+      "deleted": "Pengguna dihapus",
+      "deleteFailed": "Gagal menghapus pengguna: {{message}}",
+      "passwordReset": "Kata sandi {{name}} telah diatur ulang",
+      "resetFailed": "Gagal mengatur ulang kata sandi: {{message}}"
+    },
+    "reset": {
+      "title": "Atur ulang kata sandi",
+      "description": "Atur kata sandi baru untuk {{name}}. Semua sesi yang ada akan dibatalkan.",
+      "label": "Kata sandi baru",
+      "placeholder": "Kata sandi baru (minimal 12 karakter)",
+      "confirm": "Atur ulang kata sandi",
+      "busy": "Mengatur ulang…",
+      "anyway": "Tetap gunakan kata sandi ini"
+    },
+    "delete": {
+      "title": "Hapus pengguna",
+      "description": "Sesi dan kunci API mereka juga akan dihapus. Tindakan ini tidak dapat dibatalkan.",
+      "type": "Ketik <n>{{name}}</n> untuk mengonfirmasi",
+      "confirm": "Hapus",
+      "busy": "Menghapus…"
+    }
+  },
+  "usage": {
+    "title": "Penggunaan",
+    "subtitle": "Statistik penggunaan token API",
+    "sources": {
+      "tab": "Sumber",
+      "mixTitle": "Campuran sumber",
+      "ribbonAria": "{{apikey}}% API Key, {{web}}% Web UI, {{legacy}}% Legasi",
+      "topSources": "Sumber teratas dari waktu ke waktu",
+      "searchPlaceholder": "Cari berdasarkan nama atau awalan",
+      "sortBy": "Urutkan",
+      "sortTokens": "Token",
+      "sortRequests": "Permintaan",
+      "sortLastUsed": "Terakhir digunakan",
+      "sortName": "Nama",
+      "sortUser": "Pengguna",
+      "webUI": "Web UI",
+      "legacy": "Legasi",
+      "revoked": " dicabut",
+      "filteredTo": "Difilter ke: {{name}}",
+      "clearFilter": "Hapus filter",
+      "other": "Lainnya ({{count}})",
+      "noTrafficShort": "Tidak ada permintaan dalam periode ini.",
+      "noKeysYet": "Setelah permintaan masuk, Anda akan melihat rinciannya di sini.",
+      "createKey": "Buat API Key pertama Anda",
+      "truncatedWarning": "Menampilkan 200 key teratas. Terapkan filter untuk mempersempit pencarian."
+    }
+  },
+  "operate": {
+    "overview": {
+      "title": "Ikhtisar",
+      "subtitle": "Semua yang berjalan di instalasi ini, dan apa pun yang membutuhkan keputusan.",
+      "attention": {
+        "heading": "Membutuhkan perhatian",
+        "clear": "Tidak ada yang membutuhkan perhatian. Backend sudah terbaru, tidak ada operasi yang gagal, dan setiap node sehat.",
+        "backendUpdate": "Pembaruan tersedia: {{from}} → {{to}}"
+      },
+      "capacity": {
+        "title": "Kapasitas host",
+        "loading": "Memuat kapasitas host...",
+        "unavailable": "Kapasitas host tidak tersedia",
+        "empty": "Tidak ada data kapasitas yang dilaporkan",
+        "gpus": "{{count}} GPU",
+        "reclaimer": "Reclaimer aktif",
+        "used": "Terpakai",
+        "total": "Total",
+        "systemRam": "RAM sistem",
+        "memory": "Memori",
+        "totalVram": "Total VRAM",
+        "storage": "Penyimpanan model"
+      },
+      "sections": {
+        "heading": "Bagian-bagian",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backend · {{models}} model · {{updates}} updates · {{running}} running",
+        "cluster": "Kluster",
+        "clusterSummary": "{{nodes}} node",
+        "observability": "Observabilitas",
+        "observabilitySummary": "Penggunaan dan trace",
+        "administration": "Administrasi",
+        "administrationSummary": "Pengguna, middleware dan pengaturan · {{memory}} memory terpakai",
+        "clusterSingle": "Node tunggal",
+        "observabilityCounted": "{{requests}} permintaan · {{errors}} gagal · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Permintaan · {{hours}}h",
+        "errors": "Permintaan gagal",
+        "p95": "p95 latensi",
+        "quiet": "Belum ada permintaan yang dilayani dalam jendela ini.",
+        "host": "Memori host"
+      },
+      "running": {
+        "heading": "Berjalan sekarang",
+        "cluster": "Model berjalan",
+        "clusterSummary": "Replika yang dimuat di seluruh klaster, di halaman Node"
+      }
+    }
+  },
+  "localMachine": {
+    "title": "Mesin ini",
+    "subtitle": "Model yang dimuat di instans LocalAI ini dan kapasitas host yang digunakannya.",
+    "scaleOut": "Tambah mesin",
+    "hideScaleOut": "Sembunyikan pengaturan"
+  },
+  "settingsTools": {
+    "intro": "Chat memiliki beberapa alat bawaan yang dapat digantikan add-on. Saat add-on terpasang, berjalan, dan aktif untuk sebuah chat, chat memakai alat add-on itu dengan nama yang sama.",
+    "empty": "Tidak ada alat bawaan yang dapat dikelola di server ini.",
+    "loadFailed": "Alat bawaan tidak dapat dibaca",
+    "switch": "Aktif",
+    "byBuiltin": "Bawaan",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Mati",
+    "unavailable": "Server ini tidak dapat menjalankannya: {{reason}}.",
+    "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "defaultInstalledFirst": "Bawaan: dipasang lebih dulu",
+    "installedOn": "Dipasang {{when}}",
+    "choose_one": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "choose_other": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "labels": {
+      "bash": "Perintah (bash)",
+      "web_search": "Pencarian web",
+      "web_fetch": "Baca halaman web",
+      "list_agents": "Agen tersimpan",
+      "localai_client": "Alat klien LocalAI",
+      "localai_admin": "Alat admin LocalAI"
+    },
+    "descriptions": {
+      "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada add-on yang melayani bash. Add-on yang menjalankan perintah terisolasi menggantinya.",
+      "web_search": "Mencari di web untuk chat tanpa kunci (DuckDuckGo, lalu Brave Search, lalu Bing), atau dengan instans SearXNG Anda jika sudah diatur.",
+      "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
+      "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat.",
+      "localai_client": "Memungkinkan chat menjalankan model yang terpasang di sini untuk gambar, suara, bunyi, video, embedding, dan deteksi, sesuai izin setiap pengguna.",
+      "localai_admin": "Memungkinkan chat administrator mengelola server ini: model, backend, pengaturan, dan statusnya. Setiap chat atau agen tersimpan mengaktifkannya."
+    },
+    "bash": {
+      "switch": "Izinkan chat menjalankan perintah di mesin ini",
+      "modeLegend": "Siapa yang dapat menjalankan perintah",
+      "ask": "Tanya setiap kali.",
+      "askHint": "Hanya chat administrator yang mendapatkannya, dan setiap perintah menunggu persetujuan mereka di chat.",
+      "on": "Izinkan untuk semua.",
+      "onHint": "Chat semua pengguna menjalankan perintah di sini tanpa bertanya, termasuk jalankan terjadwal dan sub-agen.",
+      "default": "Belum diatur: bawaan berlaku ({{mode}}).",
+      "warning": "Perintah berjalan sebagai pengguna LocalAI, tanpa isolasi dan dengan jaringan mesin ini: dapat membaca apa yang bisa dibaca LocalAI dan menjangkau internet, jaringan Anda, dan API LocalAI. Setiap perintah dicatat. Pasang add-on yang mengisolasi perintah."
+    },
+    "modes": {
+      "off": "mati",
+      "ask": "tanya setiap kali",
+      "on": "diizinkan untuk semua"
+    },
+    "skillsTitle": "Skill yang digantikan add-on",
+    "skillsIntro": "Add-on dapat menggantikan skill bawaan dengan miliknya sendiri, yang ditulis untuk alatnya. Jika beberapa add-on menggantikan skill yang sama, pilih yang dipakai.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai.",
+    "toolNotRunning": "Add-on yang menggantikan alat ini tidak berjalan: alat bawaan yang dipakai.",
+    "stopped": "berhenti",
+    "webTest": {
+      "intro": "Menjalankan pencarian dengan setiap penyedia dari pengaturan yang tersimpan dan menampilkan hasil masing-masing. Terapkan perubahan Anda terlebih dahulu.",
+      "queryLabel": "Kueri",
+      "run": "Uji pencarian",
+      "running": "Menguji…",
+      "answered": "Chat mendapat hasil dari {{host}}.",
+      "noneAnswered": "Tidak ada penyedia yang menjawab.",
+      "failed": "Uji tidak dapat dijalankan: {{error}}",
+      "results_one": "{{count}} hasil",
+      "results_other": "{{count}} hasil",
+      "outcomes": {
+        "ok": "Berfungsi",
+        "no_results": "Tidak ada hasil",
+        "challenged": "Pemeriksaan bot",
+        "blocked": "Diblokir",
+        "timeout": "Terlalu lambat",
+        "error": "Galat",
+        "skipped": "Dilewati"
+      }
+    },
+    "addonSettings": "Pengaturan {{name}}"
+  },
+  "invites": {
+    "title": "Undang seseorang",
+    "description": "Buat tautan yang memungkinkan satu orang mendaftar. Tautan berlaku sampai kedaluwarsa.",
+    "close": "Tutup",
+    "lifetime": "Tautan undangan baru berlaku selama",
+    "life": {
+      "24": "1 hari",
+      "168": "7 hari",
+      "720": "30 hari"
+    },
+    "generate": "Buat tautan undangan",
+    "created": "Tautan undangan dibuat",
+    "createFailed": "Gagal membuat undangan: {{message}}",
+    "copiedToast": "URL undangan disalin ke papan klip",
+    "copyFailed": "Gagal menyalin URL",
+    "copyUrl": "Salin URL undangan",
+    "copy": "Salin",
+    "revoked": "Undangan dicabut",
+    "revokeFailed": "Gagal mencabut undangan: {{message}}",
+    "loading": "Memuat undangan",
+    "loadFailed": "Undangan tidak dapat dimuat.",
+    "region": "Undangan",
+    "caption": "Tautan undangan beserta pembuat dan pengguna tautan",
+    "empty": {
+      "title": "Belum ada tautan undangan.",
+      "body": "Buat satu tautan agar seseorang bisa mendaftar."
+    },
+    "columns": {
+      "link": "Tautan undangan",
+      "createdBy": "Dibuat oleh",
+      "usedBy": "Digunakan oleh",
+      "expires": "Kedaluwarsa",
+      "actions": "Tindakan"
+    },
+    "state": {
+      "open": "Tersedia",
+      "used": "Digunakan",
+      "expired": "Kedaluwarsa"
+    },
+    "revoke": "Cabut",
+    "revokeTitle": "Cabut undangan",
+    "revokeDialog": {
+      "title": "Cabut undangan",
+      "description": "Tautan langsung berhenti berfungsi. Orang yang sudah mendaftar dengan tautan ini tetap memiliki akun mereka.",
+      "body": "Cabut tautan undangan yang diawali {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "Kunci API",
+    "subtitle": "Kunci pribadi Anda untuk program yang memanggil server ini."
+  }
+}

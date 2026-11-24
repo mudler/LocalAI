@@ -1,0 +1,516 @@
+{
+  "manage": {
+    "title": "系统",
+    "subtitle": "管理已安装的模型和后端"
+  },
+  "settings": {
+    "title": "设置",
+    "subtitle": "配置 LocalAI 运行时设置",
+    "saved": "设置保存成功",
+    "saveFailed": "保存失败：{{message}}",
+    "loadFailed": "加载设置失败：{{message}}",
+    "sections": {
+      "branding": "品牌",
+      "watchdog": "看门狗",
+      "memory": "内存",
+      "backends": "后端",
+      "performance": "性能",
+      "tracing": "追踪",
+      "api": "API 和 CORS",
+      "p2p": "P2P",
+      "galleries": "模型库",
+      "apikeys": "API 密钥",
+      "agents": "智能体任务",
+      "agentpool": "智能体池",
+      "assistant": "LocalAI Assistant",
+      "distributed": "分布式",
+      "responses": "响应"
+    },
+    "loadFailedTitle": "无法加载设置。",
+    "egress": {
+      "title": "命令的网络",
+      "intro": "隔离运行的命令只能通过一个代理访问网络，代理对每个连接都会询问 LocalAI。在下方设置限制、新聊天的预设、端口、额外仓库和审计保留时间；每个人在聊天的工具菜单中于限制内选择预设，并在卡片上允许被阻止的主机。",
+      "serves": "命令在 {{name}} 插件中隔离运行",
+      "servesHost": "命令通过 {{name}} 在这台机器上运行",
+      "servesNone": "尚无插件运行命令",
+      "hostNote": "主机后端使用这台机器的网络运行命令：这些设置对其不适用。",
+      "counts": "最近 24 小时：允许 {{allowed}}，阻止 {{blocked}}。",
+      "private": "允许管理员的规则访问私有网络",
+      "privateWarning": "管理员允许的主机将可以访问你内部网络中的地址。仅靠预设永远不会；云元数据和服务器地址仍被拒绝。",
+      "typePhrase": "要开启，请输入：{{phrase}}",
+      "registries": "软件包仓库（{{count}}）",
+      "showAudit": "显示审计",
+      "hideAudit": "隐藏审计",
+      "loadFailed": "无法读取命令的网络设置",
+      "audit": {
+        "verdict": "结果",
+        "host": "主机",
+        "user": "用户",
+        "at": "时间",
+        "reason": "原因",
+        "bytes": "上传 / 下载字节",
+        "refresh": "刷新",
+        "empty": "没有匹配的请求。",
+        "loadFailed": "无法读取审计",
+        "verdicts": {
+          "any": "所有结果",
+          "allow": "已允许",
+          "block": "已阻止",
+          "done": "已结束"
+        }
+      }
+    },
+    "addons": {
+      "title": "附加组件",
+      "hint": "附加组件带来的设置",
+      "intro": "每个附加组件都把设置放在自己的页面上，即详情中的“设置”选项卡。打开一个即可更改。",
+      "off": "已关闭。启用后才能更改它的设置。",
+      "open": "打开设置",
+      "openNamed": "打开 {{name}} 的设置",
+      "count_one": "{{count}} 个有设置的附加组件",
+      "count_other": "{{count}} 个有设置的附加组件"
+    },
+    "hosts": {
+      "add": "添加",
+      "listLabel": "始终允许的主机",
+      "remove": "移除 {{host}}",
+      "empty": "还没有主机。输入主机名，或输入 主机:端口 来固定端口。",
+      "hint": "只接受确切的名称。加上 :端口 只允许一个端口；否则适用命令的网络端口设置。",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "请输入主机名。",
+        "wildcard": "“{{value}}”：请输入确切的主机名，不要使用通配模式。",
+        "shape": "“{{value}}”不是主机名。只写主机，不要带协议或路径。",
+        "port": "“{{value}}”：端口必须在 1 到 65535 之间，22 和 25 始终被拒绝。",
+        "private": "“{{value}}”是私有或本地地址。请先打开私有网络开关。",
+        "numeric": "“{{value}}”：IP 地址请写成四个十进制数。",
+        "duplicate": "“{{value}}”已在列表中。",
+        "full": "列表最多包含 {{max}} 个主机。"
+      }
+    },
+    "network": {
+      "title": "命令的网络",
+      "where": "{{name}} 在自己的页面上保存其所运行命令的网络设置。"
+    },
+    "autoUpgradeAddons": "自动更新插件",
+    "addonUpdates": {
+      "label": "插件更新",
+      "note": "插件所有者应用此设置。新一代插件可以运行可执行代码。",
+      "unavailable": "所有者设置不可用或已更改:{{message}}",
+      "reload": "重新加载并重新应用编辑",
+      "retry": "重试同一操作",
+      "policy": "所有者策略 · 修订 {{revision}}",
+      "apply": "应用更新设置"
+    }
+  },
+  "backends": {
+    "lifecycle": {
+      "navigation": "Backend lifecycle",
+      "catalog": "Catalog",
+      "installed": "Installed",
+      "installedAria": "Installed backends",
+      "searchPlaceholder": "Search installed backends by name or alias...",
+      "filterAll": "All",
+      "filterUser": "User",
+      "filterSystem": "System",
+      "filterUpdates": "Updates",
+      "filterOffline": "Offline nodes",
+      "variants": "Variants",
+      "variantsCount": "Variants ({{count}})",
+      "development": "Development",
+      "developmentCount": "Development ({{count}})",
+      "countLabel": "{{visible}} of {{total}}",
+      "emptyTitle": "No backends installed yet",
+      "emptyBody": "Install a backend from the Catalog to give this host a runtime for models.",
+      "noMatches": "No installed backends match the current search and filters.",
+      "clearFilters": "Clear filters",
+      "updatesAvailable_one": "{{count}} backend has an update available",
+      "updatesAvailable_other": "{{count}} backends have updates available",
+      "upgradeAll": "Upgrade all",
+      "upgrading": "Upgrading...",
+      "upgradeAllFailed": "Upgrade failed for {{name}}: {{message}}",
+      "upgradeAllStarted_one": "Upgrade started for {{count}} backend",
+      "upgradeAllStarted_other": "Upgrade started for {{count}} backends",
+      "loadFailed": "Failed to load installed backends: {{message}}",
+      "reinstall": "Reinstall backend",
+      "reinstallStarted": "Reinstalling {{name}}...",
+      "reinstallFailed": "Failed to reinstall: {{message}}",
+      "upgrade": "Upgrade",
+      "upgradeTo": "Upgrade to v{{version}}",
+      "upgradeStarted": "Upgrading {{name}}...",
+      "upgradeFailed": "Failed to upgrade: {{message}}",
+      "delete": "Delete",
+      "deleteBackend": "Delete backend",
+      "deleteTitle": "Delete Backend",
+      "deleteMessage": "Delete backend {{name}}?",
+      "deleteSucceeded": "Deleted backend {{name}}",
+      "deleteFailed": "Failed to delete backend: {{message}}",
+      "actionsFor": "Actions for {{name}}",
+      "protected": "Protected",
+      "protectedTitle": "System backends are managed outside the gallery",
+      "allBackends": "All backends",
+      "version": "Version",
+      "available": "Available",
+      "managed": "Managed",
+      "system": "System",
+      "gallery": "Gallery",
+      "installedOn": "Installed on",
+      "description": "Description",
+      "source": "Source",
+      "digest": "Digest",
+      "installedAt": "Installed",
+      "working": "Working...",
+      "updateAvailable": "Update available",
+      "updateGroup": "Update available",
+      "installedGroup": "Installed",
+      "inventoryEyebrow": "Installed runtimes",
+      "inventoryTitle_one": "{{count}} backend is installed.",
+      "inventoryTitle_other": "{{count}} backends are installed.",
+      "inventoryBody": "Select a backend to inspect its source, version, placement, and lifecycle actions."
+    },
+    "title": "后端管理",
+    "subtitle": "发现并安装为模型提供支持的 AI 后端"
+  },
+  "backendLogs": {
+    "title": "后端日志",
+    "subtitle": "查看运行中后端的日志",
+    "empty": "暂无日志"
+  },
+  "traces": {
+    "title": "追踪",
+    "subtitle": "查看记录的 API 请求、响应和后端操作"
+  },
+  "users": {
+    "title": "用户",
+    "subtitle": "可以登录的人员，以及每个人可以使用的功能。",
+    "invite": "邀请用户",
+    "summary": {
+      "label": "用户概览",
+      "total": "用户",
+      "totalUnit": "总计",
+      "active": "活跃",
+      "activeUnit": "可以登录",
+      "waiting": "待审批",
+      "waitingUnit": "注册",
+      "admins": "管理员",
+      "adminsUnit": "共 {{count}} 位"
+    },
+    "filters": {
+      "label": "筛选用户",
+      "all": "全部",
+      "pending": "待审批",
+      "admins": "管理员",
+      "disabled": "已禁用",
+      "inactive": "30 天以上未活跃"
+    },
+    "popover": {
+      "signIn": "登录方式",
+      "access": "访问权限",
+      "any": "任意",
+      "custom": "自定义访问权限"
+    },
+    "search": {
+      "label": "按名称或邮箱搜索",
+      "placeholder": "搜索名称或邮箱"
+    },
+    "sort": {
+      "label": "排序",
+      "name": "名称",
+      "role": "角色",
+      "status": "状态",
+      "provider": "登录方式",
+      "lastActive": "最近活跃",
+      "keys": "API 密钥"
+    },
+    "refresh": "刷新用户",
+    "loading": "正在加载用户",
+    "region": "用户",
+    "caption": "包含角色、访问权限、状态、最近活跃时间和 API 密钥的用户列表",
+    "columns": {
+      "user": "用户",
+      "role": "角色",
+      "access": "访问权限",
+      "status": "状态",
+      "lastActive": "最近活跃",
+      "keys": "密钥",
+      "actions": "操作"
+    },
+    "role": {
+      "admin": "管理员",
+      "user": "用户"
+    },
+    "state": {
+      "active": "活跃",
+      "pending": "待审批",
+      "disabled": "已禁用"
+    },
+    "access": {
+      "all": "全部访问权限",
+      "default": "默认访问权限",
+      "models_one": "仅 {{count}} 个模型",
+      "models_other": "仅 {{count}} 个模型",
+      "more_one": "多 {{count}} 项功能",
+      "more_other": "多 {{count}} 项功能",
+      "fewer_one": "少 {{count}} 项功能",
+      "fewer_other": "少 {{count}} 项功能",
+      "limits_one": "{{count}} 项限制",
+      "limits_other": "{{count}} 项限制"
+    },
+    "noName": "（无名称）",
+    "you": "你",
+    "created": "创建于 {{date}}",
+    "never": "从未",
+    "approve": "批准用户",
+    "approveShort": "批准",
+    "enable": "启用",
+    "disable": "禁用用户",
+    "disableFor": "禁用 {{name}}",
+    "editAccessFor": "编辑 {{name}} 的访问权限",
+    "actionsFor": "{{name}} 的操作",
+    "showing": "显示 {{total}} 个中的 {{shown}} 个。",
+    "cancel": "取消",
+    "undo": "撤销",
+    "dismiss": "关闭",
+    "menu": {
+      "editAccess": "编辑访问权限",
+      "makeAdmin": "设为管理员",
+      "makeUser": "设为普通用户",
+      "resetPassword": "重置密码",
+      "delete": "删除…"
+    },
+    "sheet": {
+      "account": "账户",
+      "activity": "活动",
+      "apiKeys": "API 密钥"
+    },
+    "empty": {
+      "title": "还没有用户",
+      "body": "用户注册或接受邀请后会显示在这里。"
+    },
+    "noMatch": {
+      "title": "没有匹配的用户",
+      "body": "请尝试其他搜索或筛选条件。",
+      "clear": "清除筛选"
+    },
+    "error": {
+      "title": "无法加载用户。",
+      "stale": "无法连接服务器。",
+      "staleNote": "下方列表的数据来自 {{when}}。"
+    },
+    "toast": {
+      "approved": "已批准 {{name}}",
+      "disabled": "已禁用 {{name}}",
+      "approveFailed": "批准用户失败：{{message}}",
+      "disableFailed": "禁用用户失败：{{message}}",
+      "disabledUndo": "已禁用 {{name}}。撤销后将恢复为活跃状态。",
+      "restored": "{{name}} 已重新激活",
+      "restoreFailed": "恢复用户失败：{{message}}",
+      "roleChanged": "{{name}} 现在的角色是 {{role}}",
+      "roleFailed": "更新角色失败：{{message}}",
+      "deleted": "用户已删除",
+      "deleteFailed": "删除用户失败：{{message}}",
+      "passwordReset": "已重置 {{name}} 的密码",
+      "resetFailed": "重置密码失败：{{message}}"
+    },
+    "reset": {
+      "title": "重置密码",
+      "description": "为 {{name}} 设置新密码。所有现有会话都将失效。",
+      "label": "新密码",
+      "placeholder": "新密码（至少 12 个字符）",
+      "confirm": "重置密码",
+      "busy": "正在重置…",
+      "anyway": "仍然使用此密码"
+    },
+    "delete": {
+      "title": "删除用户",
+      "description": "这也会删除其会话和 API 密钥。此操作无法撤销。",
+      "type": "输入 <n>{{name}}</n> 以确认",
+      "confirm": "删除",
+      "busy": "正在删除…"
+    }
+  },
+  "usage": {
+    "title": "使用情况",
+    "subtitle": "API 令牌使用统计"
+  },
+  "operate": {
+    "overview": {
+      "title": "Overview",
+      "subtitle": "Everything running on this installation, and anything that wants a decision.",
+      "attention": {
+        "heading": "Needs attention",
+        "clear": "Nothing needs attention. Backends are current, no operation has failed, and every node is healthy.",
+        "backendUpdate": "Update available: {{from}} → {{to}}"
+      },
+      "capacity": {
+        "title": "主机容量",
+        "loading": "正在加载主机容量...",
+        "unavailable": "主机容量不可用",
+        "empty": "未报告容量数据",
+        "gpus": "{{count}} GPUs",
+        "reclaimer": "Reclaimer active",
+        "used": "Used",
+        "total": "Total",
+        "systemRam": "System RAM",
+        "memory": "Memory",
+        "totalVram": "Total VRAM",
+        "storage": "Models storage"
+      },
+      "sections": {
+        "heading": "Sections",
+        "runtime": "Runtime",
+        "runtimeSummary": "{{backends}} backends · {{models}} models · {{updates}} updates · {{running}} running",
+        "cluster": "Cluster",
+        "clusterSummary": "{{nodes}} nodes",
+        "observability": "Observability",
+        "observabilitySummary": "Usage and traces",
+        "administration": "Administration",
+        "administrationSummary": "Users, middleware and settings · {{memory}} memory in use",
+        "clusterSingle": "Single node",
+        "observabilityCounted": "{{requests}} requests · {{errors}} failed · p95 {{p95}} ms"
+      },
+      "headline": {
+        "requests": "Requests · {{hours}}h",
+        "errors": "Failed requests",
+        "p95": "p95 latency",
+        "quiet": "No requests served in this window yet.",
+        "host": "Host memory"
+      },
+      "running": {
+        "heading": "正在运行",
+        "cluster": "运行中的模型",
+        "clusterSummary": "集群中已加载的副本，见节点页面"
+      }
+    }
+  },
+  "localMachine": {
+    "title": "本机",
+    "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
+    "scaleOut": "添加机器",
+    "hideScaleOut": "隐藏设置"
+  },
+  "settingsTools": {
+    "intro": "聊天有一些内置工具，可以由插件替换。插件已安装、正在运行并在某个聊天中开启时，该聊天会以相同的名称使用插件的工具。",
+    "empty": "此服务器上没有可管理的内置工具。",
+    "loadFailed": "无法读取内置工具",
+    "switch": "开启",
+    "byBuiltin": "内置",
+    "byAddon": "插件：{{name}}",
+    "byNone": "关闭",
+    "unavailable": "此服务器无法运行它：{{reason}}。",
+    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。 在你选择之前，由最先安装的插件提供。",
+    "defaultInstalledFirst": "默认：最先安装",
+    "installedOn": "安装于 {{when}}",
+    "choose_one": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "choose_other": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "labels": {
+      "bash": "命令（bash）",
+      "web_search": "网页搜索",
+      "web_fetch": "读取网页",
+      "list_agents": "已保存的智能体",
+      "localai_client": "LocalAI 客户端工具",
+      "localai_admin": "LocalAI 管理工具"
+    },
+    "descriptions": {
+      "bash": "当没有插件提供 bash 时，直接在这台机器上为聊天运行命令和代码。可隔离运行命令的插件会将其替换。",
+      "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
+      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。",
+      "localai_client": "允许聊天使用此处安装的模型生成图像、语音、声音、视频、嵌入并进行检测，且受每位用户的权限限制。",
+      "localai_admin": "允许管理员的聊天管理此服务器：模型、后端、设置和状态。每个聊天或已保存的智能体需自行开启。"
+    },
+    "bash": {
+      "switch": "允许聊天在这台机器上运行命令",
+      "modeLegend": "谁可以运行命令",
+      "ask": "每次询问。",
+      "askHint": "只有管理员的聊天可以使用，并且每条命令都要等待其在聊天中确认。",
+      "on": "允许所有人。",
+      "onHint": "所有用户的聊天都可以无需询问在此运行命令，包括计划运行和子代理。",
+      "default": "未设置：使用默认值（{{mode}}）。",
+      "warning": "命令以运行 LocalAI 的用户身份执行，没有隔离，并使用这台机器的网络：它们可以读取 LocalAI 能读取的内容，并访问互联网、你的网络和 LocalAI API。每条命令都会被记录。请安装可隔离命令的插件。"
+    },
+    "modes": {
+      "off": "关闭",
+      "ask": "每次询问",
+      "on": "允许所有人"
+    },
+    "skillsTitle": "被插件替换的技能",
+    "skillsIntro": "插件可以用为其工具编写的技能替换内置技能。如果多个插件替换同一个技能，请选择使用哪一个。",
+    "skillLabel": "技能 {{skill}}",
+    "skillNotRunning": "所选插件未运行：使用内置技能。",
+    "toolNotRunning": "替代此工具的插件未运行：使用内置工具。",
+    "stopped": "已停止",
+    "webTest": {
+      "intro": "用已保存设置中的每个搜索提供方运行一次搜索，并显示每个提供方的结果。请先应用你的更改。",
+      "queryLabel": "查询",
+      "run": "测试搜索",
+      "running": "正在测试…",
+      "answered": "聊天将获得 {{host}} 的结果。",
+      "noneAnswered": "没有提供方作出回应。",
+      "failed": "无法运行测试：{{error}}",
+      "results_one": "{{count}} 条结果",
+      "results_other": "{{count}} 条结果",
+      "outcomes": {
+        "ok": "正常",
+        "no_results": "无结果",
+        "challenged": "机器人验证",
+        "blocked": "已拦截",
+        "timeout": "太慢",
+        "error": "错误",
+        "skipped": "已跳过"
+      }
+    },
+    "addonSettings": "{{name}} 的设置"
+  },
+  "invites": {
+    "title": "邀请用户",
+    "description": "生成一个允许他人注册的链接。链接在过期前有效。",
+    "close": "关闭",
+    "lifetime": "新邀请链接有效期",
+    "life": {
+      "24": "1 天",
+      "168": "7 天",
+      "720": "30 天"
+    },
+    "generate": "生成邀请链接",
+    "created": "邀请链接已创建",
+    "createFailed": "创建邀请失败：{{message}}",
+    "copiedToast": "邀请链接已复制到剪贴板",
+    "copyFailed": "复制链接失败",
+    "copyUrl": "复制邀请链接",
+    "copy": "复制",
+    "revoked": "邀请已撤销",
+    "revokeFailed": "撤销邀请失败：{{message}}",
+    "loading": "正在加载邀请",
+    "loadFailed": "无法加载邀请。",
+    "region": "邀请",
+    "caption": "邀请链接，以及创建者和使用者",
+    "empty": {
+      "title": "没有邀请链接。",
+      "body": "生成一个链接，让他人注册。"
+    },
+    "columns": {
+      "link": "邀请链接",
+      "createdBy": "创建者",
+      "usedBy": "使用者",
+      "expires": "过期时间",
+      "actions": "操作"
+    },
+    "state": {
+      "open": "可用",
+      "used": "已使用",
+      "expired": "已过期"
+    },
+    "revoke": "撤销",
+    "revokeTitle": "撤销邀请",
+    "revokeDialog": {
+      "title": "撤销邀请",
+      "description": "链接将立即失效。已通过此链接注册的用户账户保持不变。",
+      "body": "撤销以 {{prefix}} 开头的邀请链接？"
+    }
+  },
+  "apiKeys": {
+    "title": "API 密钥",
+    "subtitle": "供调用本服务器的程序使用的个人密钥。"
+  }
+}

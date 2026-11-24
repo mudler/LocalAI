@@ -1,0 +1,12 @@
+/* The Sandbox page and its settings. The controls, rows, chips and callouts
+   are the host's (sdk.ui); this sheet only lays the page out, with the host
+   tokens. */
+.sandbox-page { max-width: 44rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); display: flex; flex-direction: column; gap: var(--dk-space-4, 1rem); }
+.sandbox-page > p { margin: 0; color: var(--dk-muted); line-height: 1.55; }
+.sandbox-page__title { margin: 0; }
+.sandbox-page__rules { margin: 0; padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-2, 0.5rem); color: var(--dk-muted); }
+.sandbox-page__cannot, .sandbox-page__reasons { display: flex; flex-direction: column; gap: var(--dk-space-3, 0.75rem); }
+.sandbox-page__subtitle { margin: 0; font-size: var(--dk-text-15, 15px); font-weight: var(--dk-weight-semibold, 600); }
+.sandbox-settings { display: flex; flex-direction: column; gap: var(--dk-space-5, 1.25rem); min-width: 0; }
+.sandbox-settings__loading { margin: 0; color: var(--dk-muted); }
+.sandbox-settings__hint { margin: 0; font-size: var(--dk-text-12, 12px); line-height: 1.5; color: var(--dk-warn-text); }

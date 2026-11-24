@@ -1,0 +1,8 @@
+---
+name: "codellama"
+
+config_file: |
+  backend: llama-cpp
+  context_size: 4096
+  f16: true
+  mmap: true

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Build-time check of the office profile: soffice (Calc) must recalculate a
+# workbook that was written with a formula and no cached value, as openpyxl
+# writes it, and the saved copy must hold the calculated value.
+set -eu
+dir=$(mktemp -d)
+trap 'rm -rf "$dir"' EXIT
+mkdir "$dir/out"
+python3 - "$dir/check.xlsx" <<'PY'
+import sys
+from openpyxl import Workbook
+wb = Workbook()
+ws = wb.active
+ws["A1"] = 6
+ws["A2"] = 7
+ws["A3"] = "=A1*A2+1"
+wb.save(sys.argv[1])
+PY
+timeout 120 soffice --headless --norestore "-env:UserInstallation=file://$dir/profile" \
+  --convert-to xlsx --outdir "$dir/out" "$dir/check.xlsx" >/dev/null 2>&1
+[ -s "$dir/out/check.xlsx" ] || { echo "check-office-xlsx: soffice made no workbook" >&2; exit 1; }
+python3 - "$dir/out/check.xlsx" <<'PY'
+import sys
+from openpyxl import load_workbook
+value = load_workbook(sys.argv[1], data_only=True).active["A3"].value
+if value != 43:
+    sys.exit("check-office-xlsx: A3 is %r after recalculation, expected 43" % (value,))
+PY

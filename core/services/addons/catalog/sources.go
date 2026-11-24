@@ -1,0 +1,799 @@
+// SPDX-License-Identifier: MIT
+package catalog
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"regexp/syntax"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/httpclient"
+	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
+	"github.com/mudler/xlog"
+	"github.com/sigstore/sigstore-go/pkg/root"
+)
+
+// AdminCheck must revalidate current identity, credential and administrator role
+// against host authority. Actor fields alone never convey administration rights.
+type AdminCheck func(context.Context, contract.Actor) error
+type Source struct {
+	// AllowLoopbackHTTP is an owner-only development opt-in for package downloads.
+	AllowLoopbackHTTP bool               `json:"allowLoopbackHTTP,omitempty"`
+	ID                string             `json:"id"`
+	Name              string             `json:"name"`
+	URL               string             `json:"url"`
+	Enabled           bool               `json:"enabled"`
+	AuthReference     string             `json:"authReference,omitempty"`
+	Policy            VerificationPolicy `json:"policy"`
+	// Kind says what the source provides: addon, backend or model. An empty
+	// kind is an add-on source, and the store writes it out.
+	Kind Kind `json:"kind,omitempty"`
+	// Format is empty for a library index (the shared entry shape), or
+	// FormatGallery for a gallery index that the model and backend gallery
+	// readers fetch. A gallery-format source is configuration only: this
+	// catalog never fetches it.
+	Format string `json:"format,omitempty"`
+	// Mirrors are fallback addresses of a model or backend source, tried in
+	// order when URL cannot be fetched. They mean what config.Gallery.Mirrors
+	// means. A file written before this field existed has none.
+	Mirrors []string `json:"mirrors,omitempty"`
+	// Default marks a source the host ships. A default loses an entry to a
+	// source the user added, and removing it leaves a tombstone.
+	Default bool `json:"default,omitempty"`
+	// Removed is a delete command. For a default source it is also persisted
+	// as a tombstone, so the default is not added again at the next start; a
+	// tombstone is never enabled and never listed by the management view.
+	Removed bool `json:"removed,omitempty"`
+	// Suspended is runtime state, never stored: the host-wide "official
+	// libraries" switch is off and this is a shipped default. The record keeps
+	// its own Enabled value, so turning the switch back on restores it.
+	Suspended bool `json:"-"`
+}
+
+// FormatGallery marks a source whose index is a gallery index, as the
+// --galleries and --backend-galleries flags name. See Source.Format.
+const FormatGallery = "gallery"
+
+// readByCatalog reports whether the add-on catalog fetches and lists this
+// source. Model sources and gallery-format sources are read by the gallery
+// readers instead.
+func (s Source) readByCatalog() bool {
+	return s.Enabled && !s.Removed && !s.Suspended && s.Kind != KindModel && s.Format != FormatGallery
+}
+
+// IsTombstone says the record only remembers that a default was removed.
+func (s Source) IsTombstone() bool { return s.Default && s.Removed }
+
+type RefreshResult struct {
+	SourceID string `json:"sourceId"`
+	Count    int    `json:"count"`
+	// Skipped counts the entries left out because their kind is not one this
+	// host reads, and SkippedKinds names those kinds. A library that serves a
+	// newer kind still refreshes; this is how the owner learns of the gap.
+	Skipped      int       `json:"skipped,omitempty"`
+	SkippedKinds []string  `json:"skippedKinds,omitempty"`
+	CheckedAt    time.Time `json:"checkedAt"`
+	LastSuccess  time.Time `json:"lastSuccess"`
+}
+
+// RefreshState is what the owner last learned from fetching one library. It is
+// an observation of the fetch, never of the library's trust.
+type RefreshState struct {
+	CheckedAt   time.Time `json:"checkedAt"`
+	LastSuccess time.Time `json:"lastSuccess"`
+	Count       int       `json:"count"`
+	// Skipped and SkippedKinds are as in RefreshResult.
+	Skipped      int      `json:"skipped,omitempty"`
+	SkippedKinds []string `json:"skippedKinds,omitempty"`
+	// Failed is true when the latest fetch failed; the previous releases are
+	// not served in that case. Other libraries are not affected: a listing
+	// still answers with what they loaded and names this one in Page.Failed.
+	Failed bool `json:"failed"`
+	// Error is why the latest fetch failed, as the owner log says it. It is
+	// empty when the fetch worked. LastSuccess says when the library last
+	// loaded, if it ever did.
+	Error string `json:"error,omitempty"`
+}
+
+// SourceView is a library as the management view shows it: the configuration
+// and, when the owner has fetched it, the state of the last fetch.
+type SourceView struct {
+	Source
+	Refresh *RefreshState `json:"refresh,omitempty"`
+}
+
+type cached struct {
+	releases []Release
+	result   RefreshResult
+	failed   bool
+	// err is the text of the failed fetch, kept for the status of the source.
+	err string
+}
+
+// maxRefreshErrorChars bounds the error text kept for one source, so a server
+// that answers with a long message cannot grow the status.
+const maxRefreshErrorChars = 300
+
+// state is the observation of the fetch that the management view shows.
+func (c cached) state() RefreshState {
+	return RefreshState{CheckedAt: c.result.CheckedAt, LastSuccess: c.result.LastSuccess, Count: c.result.Count, Skipped: c.result.Skipped, SkippedKinds: c.result.SkippedKinds, Failed: c.failed, Error: c.err}
+}
+
+// Sources is designated-owner state, not a replica-local fallback. Configuration
+// must live in a protected owner directory; caches are deliberately not durable.
+type Sources struct {
+	mu          sync.Mutex
+	path        string
+	admin       AdminCheck
+	credentials CredentialResolver
+	sources     map[string]Source
+	cache       map[string]cached
+	// fresh is true when no configuration file existed at construction. Only
+	// then may SeedDefault add a library; a file the admin already has, even an
+	// empty one, is never touched.
+	fresh bool
+	// officialOff is the official-libraries switch: when set, every shipped
+	// default is suspended (see Source.Suspended).
+	officialOff bool
+	// signatureTrust replaces the public Sigstore trust root for the
+	// signature check of an oci:// library, as Installer.SignatureTrust does
+	// for packages. Nil, the only value outside tests, keeps the public root.
+	signatureTrust root.TrustedMaterial
+}
+
+var idPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
+var digestPattern = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
+var versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z][a-z0-9.-]*)?$`)
+
+func validSource(s Source) bool {
+	if !idPattern.MatchString(s.ID) || len(s.Name) == 0 || len(s.Name) > 256 || !validPolicy(s.Policy) || ValidateMirrors(s.Mirrors) != nil {
+		return false
+	}
+	if s.Kind != "" && s.Kind != KindAddon && s.Kind != KindBackend && s.Kind != KindModel {
+		return false
+	}
+	switch s.Format {
+	case "":
+		if isOCISource(s) {
+			return validOCISource(s)
+		}
+		_, e := safeURL(s.URL)
+		return e == nil
+	case FormatGallery:
+		// A gallery URL is anything the gallery loader understands: https://,
+		// github:, file://, oci:// or a path. Only the shape is checked here.
+		return validGalleryURL(s.URL) && s.Kind != KindAddon && s.Kind != ""
+	}
+	return false
+}
+
+// MaxMirrors is the most mirrors one source carries.
+const MaxMirrors = 8
+
+// ValidateMirrors checks the mirrors of a source the way a gallery address is
+// checked: http(s), github:, oci:// or file://, with no spaces or control
+// characters. The error names the first bad mirror.
+func ValidateMirrors(mirrors []string) error {
+	if len(mirrors) > MaxMirrors {
+		return fmt.Errorf("a source takes at most %d mirrors", MaxMirrors)
+	}
+	for _, m := range mirrors {
+		lower := strings.ToLower(m)
+		ok := false
+		for _, p := range []string{"http://", "https://", "github:", "oci://", "file://"} {
+			if strings.HasPrefix(lower, p) {
+				ok = true
+			}
+		}
+		if !ok || !validGalleryURL(m) {
+			return fmt.Errorf("mirror %q must be an http(s), github:, oci:// or file:// address", m)
+		}
+	}
+	return nil
+}
+
+func validGalleryURL(u string) bool {
+	if u == "" || len(u) > 2048 {
+		return false
+	}
+	for _, r := range u {
+		if r < 0x20 || r == 0x7f || r == ' ' {
+			return false
+		}
+	}
+	return true
+}
+
+// validPolicy accepts a policy that asks for no signature, or one with an
+// issuer and exactly one identity: an exact string or an anchored pattern,
+// and optionally a source repository. Without a signature requirement the
+// pattern and the source repository must be empty, so a policy never looks
+// stricter than it is. The add-on rule for a pattern is in ValidForAddon.
+func validPolicy(p VerificationPolicy) bool { return p.Check() == nil }
+
+// Check reports why p is not a valid policy, in words an administrator can
+// act on. Every error wraps ErrInvalid.
+func (p VerificationPolicy) Check() error {
+	if !p.RequireSignature {
+		if p.IdentityRegex != "" || p.SourceRepository != "" {
+			return fmt.Errorf("%w: an identity pattern or a source repository needs a required signature", ErrInvalid)
+		}
+		return nil
+	}
+	if p.Issuer == "" {
+		return fmt.Errorf("%w: a required signature needs an issuer", ErrInvalid)
+	}
+	if (p.Identity == "") == (p.IdentityRegex == "") {
+		return fmt.Errorf("%w: set an exact identity or an identity pattern, one of the two", ErrInvalid)
+	}
+	if p.IdentityRegex != "" && !anchoredPattern(p.IdentityRegex) {
+		return fmt.Errorf("%w: the identity pattern must be one expression that starts with ^ and ends with $", ErrInvalid)
+	}
+	if p.SourceRepository != "" && cosignverify.CheckSourceRepository(p.SourceRepository) != nil {
+		return fmt.Errorf("%w: the source repository must be an https URL, such as https://github.com/<owner>/<repo>", ErrInvalid)
+	}
+	return nil
+}
+
+// anchoredPattern reports whether the pattern is one expression that must match
+// the whole identity: a concatenation that starts at the beginning of the text
+// and ends at its end. A top-level alternation such as "^a|b$" is refused,
+// because one of its branches would match a part of the identity only.
+func anchoredPattern(p string) bool {
+	if len(p) > 512 {
+		return false
+	}
+	re, e := syntax.Parse(p, syntax.Perl)
+	if e != nil || re.Op != syntax.OpConcat || len(re.Sub) < 2 {
+		return false
+	}
+	return re.Sub[0].Op == syntax.OpBeginText && re.Sub[len(re.Sub)-1].Op == syntax.OpEndText
+}
+func NewSources(path string, admin AdminCheck, credentials CredentialResolver) (*Sources, error) {
+	s := &Sources{path: path, admin: admin, credentials: credentials, sources: map[string]Source{}, cache: map[string]cached{}}
+	// On Windows, use native paths (backslashes) for os.Lstat
+	if runtime.GOOS == "windows" {
+		path = filepath.FromSlash(path)
+	}
+	info, e := os.Lstat(path)
+	if os.IsNotExist(e) {
+		s.fresh = true
+		return s, nil
+	}
+	if e != nil || !info.Mode().IsRegular() {
+		return nil, ErrInvalid
+	}
+	// On Windows, skip the Unix-style permission check since Windows
+	// doesn't use Unix-style file permissions (0600). The file is
+	// already protected by being inside the user's data directory.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0077 != 0 {
+		return nil, ErrInvalid
+	}
+	data, e := os.ReadFile(path) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	if e != nil || len(data) > 1<<20 {
+		return nil, ErrInvalid
+	}
+	if e = decode(data, &s.sources); e != nil {
+		return nil, ErrInvalid
+	}
+	if s.sources == nil {
+		return nil, ErrInvalid
+	}
+	for id, src := range s.sources {
+		if id != src.ID || (src.Removed && (!src.Default || src.Enabled)) || !validSource(src) {
+			return nil, ErrInvalid
+		}
+	}
+	return s, nil
+}
+
+// List returns configuration independently of refresh state, including disabled
+// and empty libraries. Source and Policy contain only values, not secret stores.
+func (s *Sources) List(ctx context.Context, actor contract.Actor) ([]Source, error) {
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if s.admin == nil || s.admin(ctx, actor) != nil {
+		return nil, ErrForbidden
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sources := make([]Source, 0, len(s.sources))
+	for _, src := range s.sources {
+		if !src.Removed {
+			sources = append(sources, src)
+		}
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].ID < sources[j].ID })
+	return sources, nil
+}
+
+// Views returns the sources with their refresh state after authoritative
+// administrator validation.
+func (s *Sources) Views(ctx context.Context, actor contract.Actor) ([]SourceView, error) {
+	list, e := s.List(ctx, actor)
+	if e != nil {
+		return nil, e
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]SourceView, 0, len(list))
+	for _, src := range list {
+		v := SourceView{Source: src}
+		if c, ok := s.cache[src.ID]; ok {
+			st := c.state()
+			v.Refresh = &st
+		}
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+// HasReference reports whether the owner configured a credential reference of
+// this name. A source may name only such a reference, so a secret pasted where
+// a reference belongs is never stored or shown back.
+func (s *Sources) HasReference(reference string) bool {
+	_, ok := s.credentials.References[reference]
+	return ok
+}
+
+// State is what the owner last learned from fetching one library, without an
+// administrator check: it is for the owner's own update check, never for a
+// request. The bool is false when the library was never fetched.
+func (s *Sources) State(sourceID string) (RefreshState, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.cache[sourceID]
+	if !ok {
+		return RefreshState{}, false
+	}
+	return c.state(), true
+}
+
+// Get returns a value copy only after authoritative administrator validation.
+func (s *Sources) Get(ctx context.Context, actor contract.Actor, sourceID string) (Source, error) {
+	if e := ctx.Err(); e != nil {
+		return Source{}, e
+	}
+	if s.admin == nil || s.admin(ctx, actor) != nil {
+		return Source{}, ErrForbidden
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok || src.Removed {
+		return Source{}, ErrNotFound
+	}
+	return src, nil
+}
+
+func (s *Sources) Save(ctx context.Context, actor contract.Actor, src Source) error {
+	if e := ctx.Err(); e != nil {
+		return e
+	}
+	if s.admin == nil || s.admin(ctx, actor) != nil {
+		return ErrForbidden
+	}
+	if !idPattern.MatchString(src.ID) || (!src.Removed && !validSource(src)) {
+		return ErrInvalid
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	next, e := s.apply(src)
+	if e != nil {
+		return e
+	}
+	if e := s.persist(next); e != nil {
+		return e
+	}
+	s.sources = next
+	delete(s.cache, src.ID)
+	return nil
+}
+
+// apply returns the configuration after a save or a delete of src. The caller
+// holds s.mu. What marks a source as shipped or as gallery-format is never taken
+// from the caller: a new source is a user source, and an existing one keeps
+// its flags. Deleting a default leaves a tombstone.
+func (s *Sources) apply(src Source) (map[string]Source, error) {
+	next := map[string]Source{}
+	for id, v := range s.sources {
+		next[id] = v
+	}
+	old, had := s.sources[src.ID]
+	if src.Removed {
+		if !had || old.Removed {
+			return next, nil
+		}
+		if old.Default {
+			old.Enabled, old.Removed = false, true
+			next[src.ID] = old
+		} else {
+			delete(next, src.ID)
+		}
+		return next, nil
+	}
+	src.Default, src.Format = false, ""
+	if had {
+		src.Suspended = old.Suspended
+		src.Default, src.Format = old.Default, old.Format
+		if src.Mirrors == nil {
+			src.Mirrors = old.Mirrors
+		}
+		if src.Kind == "" {
+			src.Kind = old.Kind
+		}
+	}
+	if src.Kind == "" {
+		src.Kind = KindAddon
+	}
+	if !validSource(src) {
+		return nil, ErrInvalid
+	}
+	next[src.ID] = src
+	return next, nil
+}
+
+// persist writes the whole configuration atomically. The caller holds s.mu.
+func (s *Sources) persist(next map[string]Source) error {
+	data, e := json.Marshal(next)
+	if e != nil || len(data) > 1<<20 {
+		return ErrInvalid
+	}
+	f, e := os.CreateTemp(filepath.Dir(s.path), ".sources-*")
+	if e != nil {
+		return ErrUnavailable
+	}
+	defer func() { _ = os.Remove(f.Name()) }()
+	if _, e = f.Write(data); e == nil {
+		e = f.Sync()
+	}
+	closeErr := f.Close()
+	if e != nil || closeErr != nil {
+		return ErrUnavailable
+	}
+	if e = os.Rename(f.Name(), s.path); e != nil {
+		return ErrUnavailable
+	}
+	return nil
+}
+
+// SeedDefault adds a default library; see SeedDefaults.
+func (s *Sources) SeedDefault(src Source) (bool, error) { return s.SeedDefaults(src) }
+
+// SeedDefaults adds the libraries the host ships. It runs at every start and
+// is additive: on the first start, when there is no configuration file, it
+// writes them; on later starts it adds only a default that has no record yet.
+// A default the admin removed has a tombstone, so it stays removed, and a
+// library the admin edited is not reset. A configuration file that holds no shipped
+// default (an admin wrote it before defaults were tracked) is left alone, as
+// it always was.
+// It reports whether it added a record. It is trusted startup code and takes
+// no actor; it never runs for a request.
+func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	managed := s.fresh
+	for _, v := range s.sources {
+		if v.Default {
+			managed = true
+		}
+	}
+	if !managed {
+		return false, nil
+	}
+	next := map[string]Source{}
+	for id, v := range s.sources {
+		next[id] = v
+	}
+	added, moved := false, false
+	for _, src := range srcs {
+		src.Default, src.Removed, src.Suspended = true, false, s.officialOff
+		if src.Kind == "" {
+			src.Kind = KindAddon
+		}
+		if !idPattern.MatchString(src.ID) || !validSource(src) {
+			return false, ErrInvalid
+		}
+		if have, ok := next[src.ID]; ok {
+			// The official add-on library follows the build: after an upgrade
+			// to a release, or to the next one, its record names the index and
+			// the signer of the new build. A library the admin pointed at
+			// another URL is left alone.
+			if src.ID == OfficialLibraryID && have.Default && !have.Removed && isOfficialAddonURL(have.URL) &&
+				(have.URL != src.URL || have.Policy != src.Policy) {
+				have.URL, have.Policy = src.URL, src.Policy
+				next[src.ID] = have
+				moved = true
+			}
+			continue
+		}
+		next[src.ID] = src
+		added = true
+	}
+	if !added && !moved && !s.fresh {
+		return false, nil
+	}
+	if e := s.persist(next); e != nil {
+		return false, e
+	}
+	s.sources = next
+	s.fresh = false
+	return added, nil
+}
+func decode(data []byte, out any) error {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	if e := d.Decode(out); e != nil {
+		return e
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return ErrInvalid
+	}
+	return nil
+}
+func (s *Sources) Refresh(ctx context.Context, sourceID string) (RefreshResult, error) {
+	// Serializing edits with refresh prevents publication under a replaced source
+	// identity. The finite HTTP timeout bounds this owner-local critical section.
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	src, ok := s.sources[sourceID]
+	if !ok || !src.readByCatalog() {
+		return RefreshResult{}, ErrUnavailable
+	}
+	old := s.cache[sourceID]
+	result := RefreshResult{SourceID: sourceID, CheckedAt: time.Now().UTC(), LastSuccess: old.result.LastSuccess}
+	releases, skipped, e := s.fetch(ctx, src)
+	if e != nil {
+		xlog.Warn("library refresh failed", "source", sourceID, "error", e)
+		text := e.Error()
+		if r := []rune(text); len(r) > maxRefreshErrorChars {
+			text = string(r[:maxRefreshErrorChars]) + "..."
+		}
+		s.cache[sourceID] = cached{result: result, failed: true, err: text}
+		if errors.Is(e, ErrCredential) {
+			return result, e
+		}
+		return result, ErrRefresh
+	}
+	result.Count = len(releases)
+	result.Skipped = len(skipped.Skipped)
+	if result.Skipped > 0 {
+		result.SkippedKinds = skipped.SkippedKinds()
+		xlog.Warn("library index has entries of a kind this host does not read; they were skipped",
+			"source", sourceID, "skipped", result.Skipped, "kinds", result.SkippedKinds)
+	}
+	result.LastSuccess = result.CheckedAt
+	s.cache[sourceID] = cached{releases: releases, result: result}
+	return result, nil
+}
+
+// indexTransport replaces the transport of the index fetch in tests, so a
+// redirect to an allowed host can be served in process. Nil in production.
+var indexTransport http.RoundTripper
+
+// fetchHTTP reads the index of an http(s) library.
+func (s *Sources) fetchHTTP(ctx context.Context, src Source) ([]byte, error) {
+	req, e := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
+	if e != nil {
+		return nil, fmt.Errorf("%w: the library address is not valid", ErrRefresh)
+	}
+	if src.AuthReference != "" {
+		c, e := s.credentials.Resolve(ctx, src.AuthReference, src.URL)
+		if e == nil {
+			e = c.ApplyHeaders(req.Header)
+		}
+		if e != nil {
+			// A refresh that failed for want of a credential is still a
+			// failed refresh; the class lets a caller say which one.
+			return nil, fmt.Errorf("%w: %w", ErrRefresh, ErrCredential)
+		}
+	}
+	opts := []httpclient.Option{httpclient.WithRedirectHosts(ReleaseAssetHosts...)}
+	if indexTransport != nil {
+		opts = append(opts, httpclient.WithTransport(indexTransport))
+	}
+	response, e := httpclient.NewWithTimeout(30*time.Second, opts...).Do(req)
+	if e != nil {
+		// The URL of a *url.Error is the last hop, which for a release
+		// asset is a signed URL; the cause alone says what went wrong.
+		var ue *url.Error
+		if errors.As(e, &ue) {
+			e = ue.Err
+		}
+		return nil, fmt.Errorf("%w: %w", ErrRefresh, e)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: the library answered HTTP %d", ErrRefresh, response.StatusCode)
+	}
+	data, e := io.ReadAll(io.LimitReader(response.Body, MaxIndexBytes+1))
+	if e != nil || len(data) > MaxIndexBytes {
+		return nil, fmt.Errorf("%w: the index could not be read in full or is too large", ErrRefresh)
+	}
+	return data, nil
+}
+
+func (s *Sources) fetch(ctx context.Context, src Source) ([]Release, IndexResult, error) {
+	// Only the way the bytes arrive differs by transport. Parsing, validation
+	// and stamping below are shared, so every source is held to the same rules.
+	var data []byte
+	var e error
+	if isOCISource(src) {
+		data, e = s.fetchOCI(ctx, src)
+	} else {
+		data, e = s.fetchHTTP(ctx, src)
+	}
+	if e != nil {
+		return nil, IndexResult{}, e
+	}
+	indexed, e := ReadIndex(data, ReadableKinds...)
+	releases := indexed.Releases
+	if e != nil || releases == nil {
+		return nil, IndexResult{}, fmt.Errorf("%w: the answer is not a valid library index", ErrRefresh)
+	}
+	seen := map[string]bool{}
+	for i := range releases {
+		r := &releases[i]
+		if !validFetchedRelease(*r, src.AllowLoopbackHTTP) || !validKindFields(*r) || !validEntryUI(r.UI) || !validRequirements(r.Requires) || !validEntryTools(*r) {
+			return nil, IndexResult{}, fmt.Errorf("%w: the index has an entry that is not valid", ErrRefresh)
+		}
+		r.Selection = ""
+		r.SourceID = src.ID
+		r.SourceURL = src.URL
+		r.Official = IsOfficialSource(src.ID, src.URL)
+		// An index may carry any value here, so the stamp always overwrites it.
+		r.Signer = pinnedSigner(src)
+		r.AllowLoopbackHTTP = src.AllowLoopbackHTTP
+		r.Policy = src.Policy
+		key := releaseKey(*r)
+		if seen[key] {
+			return nil, IndexResult{}, fmt.Errorf("%w: the index lists an entry twice", ErrRefresh)
+		}
+		seen[key] = true
+	}
+	return releases, indexed, nil
+}
+
+// pinnedSigner is the signer to show for the entries of a source: the label
+// of its policy (see VerificationPolicy.SignerLabel), when the source requires
+// a signature and is not the official library. The official library has its
+// own label.
+func pinnedSigner(src Source) string {
+	if IsOfficialSource(src.ID, src.URL) {
+		return ""
+	}
+	return src.Policy.SignerLabel()
+}
+
+// backendNamePattern is a backend name: it is also a directory name, so it
+// holds no separator and cannot start with a dot.
+var backendNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,127}$`)
+
+// validEntryID applies the identifier rule of the entry's kind.
+func validEntryID(r Release) bool {
+	if r.EntryKind() == KindBackend {
+		return backendNamePattern.MatchString(r.ID) && !strings.Contains(r.ID, "..")
+	}
+	return contract.ValidAddonID(r.ID)
+}
+
+// validKindFields refuses fields that belong to another kind. A backend is an
+// image for the backends directory: it has no main page or icon, and it is
+// always an OCI image, pinned by digest. Only a backend may set an alias.
+func validKindFields(r Release) bool {
+	if r.EntryKind() != KindBackend {
+		return r.Alias == "" && !r.hasBackendOnlyFields()
+	}
+	if !validBackendFields(r) {
+		return false
+	}
+	if r.IsMeta() {
+		// A meta backend has no image, so it has no UI path or requirements
+		// either; its alias follows the same rule as any backend.
+		return r.UI.IsZero() && r.Requires == (Requirements{}) && r.ToolCount == 0 && len(r.Tools) == 0 && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
+	}
+	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) || r.ToolCount != 0 || len(r.Tools) > 0 {
+		return false
+	}
+	return r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, ".."))
+}
+
+// validEntryUI applies to catalog display hints the same rules the manifest
+// applies to the real values, so a hint can never promise what install would
+// refuse.
+func validEntryUI(u EntryUI) bool {
+	return (u.Title == "" || contract.ValidPlainText(u.Title, contract.MaxTitleChars)) &&
+		(u.Description == "" || contract.ValidPlainText(u.Description, contract.MaxDescriptionChars)) &&
+		(u.MainPage == "" || contract.ValidName(u.MainPage)) &&
+		(u.Icon == "" || contract.ValidIconPath(u.Icon)) &&
+		(u.LaunchMode == "" || u.LaunchMode == contract.LaunchModeAlways) &&
+		validTranslations(u.Titles, contract.MaxTitleChars) && validTranslations(u.Descriptions, contract.MaxDescriptionChars)
+}
+
+// validTranslations applies the rules of a manifest language map to the
+// translated text of an entry. English is the entry's own text, never a
+// translation, and a tag may appear once whatever its case.
+func validTranslations(m map[string]string, max int) bool {
+	if len(m) > contract.MaxLanguages {
+		return false
+	}
+	seen := map[string]bool{}
+	for tag, text := range m {
+		key := strings.ToLower(tag)
+		if !contract.ValidLanguageTag(tag) || key == "en" || strings.HasPrefix(key, "en-") || seen[key] || !contract.ValidPlainText(text, max) {
+			return false
+		}
+		seen[key] = true
+	}
+	return true
+}
+
+// validRequirements accepts a zero range (no claim) or a well formed one.
+func validRequirements(q Requirements) bool {
+	if q.FeatureLevel > contract.MaxFeatureLevel {
+		return false
+	}
+	for _, r := range []contract.VersionRange{q.Host, q.API, q.Protocol, q.DataFormat, q.SDK} {
+		if r != (contract.VersionRange{}) && (r.Min == 0 || r.Max < r.Min) {
+			return false
+		}
+	}
+	return true
+}
+
+var channelPattern = regexp.MustCompile(`^[a-z][a-z0-9/_-]{0,127}$`)
+
+func validArtifactScheme(u *url.URL, allow bool) bool {
+	if u.Scheme == "oci" || u.Scheme == "https" {
+		return true
+	}
+	ip := net.ParseIP(u.Hostname())
+	return u.Scheme == "http" && allow && ip != nil && ip.IsLoopback()
+}
+
+// RefreshEnabled repopulates the non-durable owner cache on startup. One
+// deadline bounds the whole batch; disabled sources never cause network I/O.
+func (s *Sources) RefreshEnabled(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	s.mu.Lock()
+	ids := make([]string, 0, len(s.sources))
+	for id, src := range s.sources {
+		if src.readByCatalog() {
+			ids = append(ids, id)
+		}
+	}
+	s.mu.Unlock()
+	sort.Strings(ids)
+	// A library that fails must not stop the ones after it: each keeps its own
+	// state, and the listing serves every library that loaded.
+	var failed []error
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if _, err := s.Refresh(ctx, id); err != nil {
+			failed = append(failed, fmt.Errorf("refresh addon source %s: %w", id, err))
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return errors.Join(failed...)
+}

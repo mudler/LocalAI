@@ -1,0 +1,161 @@
+# LocalAI on Kubernetes, CPU only.
+#
+#   kubectl apply -f https://localai.io/install/kubernetes.yaml
+#   kubectl -n local-ai rollout status deploy/local-ai
+#   kubectl -n local-ai port-forward svc/local-ai 8080:8080
+#   open http://localhost:8080
+#
+# Everything lands in its own `local-ai` namespace, so removing it again is
+# `kubectl delete namespace local-ai` (which also deletes the volumes).
+#
+# Two volumes, because LocalAI downloads both parts on demand and you do not
+# want either of them fetched again on every restart:
+#   /models    the model weights you install from the gallery
+#   /backends  the engine images pulled the first time a model asks for one
+#
+# For GPUs, add the vendor device plugin's resource to the container's
+# `resources.limits` (for example nvidia.com/gpu: 1) and switch the image to a
+# GPU tag. See https://localai.io/docs/getting-started/kubernetes/ for the
+# Helm chart and the GPU variants.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-ai
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-ai-models
+  namespace: local-ai
+  labels:
+    app.kubernetes.io/name: local-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-ai-backends
+  namespace: local-ai
+  labels:
+    app.kubernetes.io/name: local-ai
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-ai
+  namespace: local-ai
+  labels:
+    app.kubernetes.io/name: local-ai
+spec:
+  replicas: 1
+  # The volumes are ReadWriteOnce, so the old pod has to let go before the new
+  # one can start.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: local-ai
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: local-ai
+    spec:
+      securityContext:
+        # So the mounted volumes are writable whatever the storage class does
+        # with ownership.
+        fsGroup: 1000
+      containers:
+        - name: local-ai
+          image: localai/localai:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: LOCALAI_MODELS_PATH
+              value: /models
+            - name: LOCALAI_BACKENDS_PATH
+              value: /backends
+            - name: LOCALAI_ADDRESS
+              value: ":8080"
+            # Uncomment to require an API key on every request.
+            # - name: LOCALAI_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: local-ai
+            #       key: api-key
+          volumeMounts:
+            - name: models
+              mountPath: /models
+            - name: backends
+              mountPath: /backends
+          resources:
+            requests:
+              cpu: "1"
+              memory: 4Gi
+            limits:
+              # No CPU limit on purpose: inference is CPU bound and a limit
+              # only buys you throttling.
+              memory: 12Gi
+          # First boot writes out its configuration before the API answers, so
+          # the startup probe carries the slow case and the others stay tight.
+          startupProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: local-ai-models
+        - name: backends
+          persistentVolumeClaim:
+            claimName: local-ai-backends
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-ai
+  namespace: local-ai
+  labels:
+    app.kubernetes.io/name: local-ai
+spec:
+  # ClusterIP by default, so this applies cleanly on any cluster. Reach it with
+  # `kubectl -n local-ai port-forward svc/local-ai 8080:8080`, or change the
+  # type to LoadBalancer where your cluster can provision one.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: local-ai
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http

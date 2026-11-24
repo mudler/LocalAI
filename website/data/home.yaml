@@ -1,0 +1,91 @@
+# The feature sections of the home page, in order, and the cards of the "Everything new"
+# grid. Text here must match what the code does and what the docs page says.
+#
+# `illus` names a coded illustration in layouts/partials/illus/.
+# `shot`, when set, shows a real screenshot instead: static/media/<shot>-light.webp and
+# <shot>-dark.webp. It wins over `illus`.
+# `demo`, when set, replaces both with a muted looping video. It names a file set
+# in static/media/: <demo>.mp4, <demo>.webm and the poster <demo>.jpg.
+sections:
+  - id: modalities
+    kicker: Every kind of model
+    h: 'Text, images, video, music and <span class="hl">voice</span>.'
+    lede: Install a model from the gallery and call it from your code.
+    points:
+      - "Text and vision: chat, tool calls, image understanding, object detection."
+      - "Generate images, video and music."
+      - "Speech to text, text to speech, embeddings and a reranker."
+    links:
+      - {t: "See every modality", href: "features/modalities/"}
+      - {t: "What models can do", href: "/docs/models/capabilities/"}
+    illus: modalities
+    demo: ""
+  - id: workspace
+    kicker: Workspace
+    h: 'Give it your files. Get <span class="hl">documents</span> back.'
+    lede: Chat with a model, give it your files and get documents back.
+    points:
+      - Your files stay on your server. Share folders, and undo any change.
+      - Ask in one sentence, get a Word, Excel, PowerPoint or PDF file.
+      - A Sandbox runs Python on your files. It has no network by default.
+      - Knowledge searches your documents by meaning.
+    need: Office and Sandbox are add-ons. An admin installs them once.
+    links:
+      - {t: "See Files", href: "features/files/"}
+      - {t: "See Office", href: "features/office/"}
+      - {t: "See Sandbox", href: "features/sandbox/"}
+    illus: files
+    demo: ""
+  - id: team
+    kicker: Team
+    h: 'One server. Your whole <span class="hl">team</span>.'
+    lede: Each person has a login, chats and files. An admin chooses what each person can use.
+    points:
+      - Share folders, saved agents and Knowledge collections with one person or with everyone.
+      - Turn features on or off for each person.
+    links:
+      - {t: "See Team", href: "features/team/"}
+      - {t: "Users and sharing", href: "/docs/concepts/users-and-sharing/"}
+    illus: team
+    demo: ""
+  - id: projects
+    kicker: Projects
+    h: 'Keep the work, its files and its <span class="hl">notes</span> together.'
+    lede: A project groups chats around one folder, with files and notes that its chats read.
+    points:
+      - The model proposes a note. You confirm it before it is saved.
+      - Make an agent from a project, or share the folder with a teammate.
+    links:
+      - {t: "See Projects", href: "features/projects/"}
+      - {t: "Projects docs", href: "/docs/features/projects/"}
+    shot: projects-overview
+    alt: The Projects page of LocalAI, showing a project with its chats, files and notes.
+    demo: ""
+  - id: models
+    kicker: Models and hardware
+    h: 'Open models, your <span class="hl">hardware</span>.'
+    lede: LocalAI installs the model and downloads the backend for your CPU or GPU.
+    points:
+      - Runs on a plain CPU. NVIDIA, AMD, Intel and Apple GPUs make it faster.
+      - Run it on a laptop, a server, in a container or on Kubernetes. Distributed mode spreads models over several machines.
+      - More than 80 backends, from llama.cpp to vLLM. We wrote {{engines}} of them.
+    links:
+      - {t: "See Models", href: "features/models/"}
+      - {t: "See the engines", href: "engines/"}
+    illus: models
+    demo: ""
+
+cards:
+  - {t: Projects, p: "Files, notes and agents for one piece of work.", icon: projects, href: "/docs/features/projects/"}
+  - {t: "Desktop app", p: "Install and run LocalAI from a window.", icon: desktop, href: "/docs/start/install/desktop/"}
+  - {t: Office, p: "Ask in one sentence, get a Word, Excel, PowerPoint or PDF file.", icon: office, href: "/docs/features/office/"}
+  - {t: Sandbox, p: "Python and shell in an isolated box.", icon: sandbox, href: "/docs/addons/catalogue/work/sandbox/"}
+  - {t: Team, p: "A login per person. Admins choose features.", icon: team, href: "/docs/concepts/users-and-sharing/"}
+  - {t: Add-ons, p: "Programs an admin installs to give chats new tools, such as Office files or a Python sandbox.", icon: addons, href: "/docs/addons/user-guide/"}
+
+# The desktop app block of the download section. `released` is true once the release
+# that carries the new launcher is published and its files are the latest release files.
+# While it is false, the block shows buttons that open the dev-master pre-release and says
+# that the release build is coming. It has been true since 5.0.0.
+download:
+  released: true

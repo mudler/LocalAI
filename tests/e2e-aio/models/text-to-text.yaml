@@ -1,0 +1,58 @@
+context_size: 8192
+f16: true
+backend: llama-cpp
+function:
+  grammar:
+    no_mixed_free_string: true
+    schema_type: llama3.1 # or JSON is supported too (json)
+  response_regex:
+  - <function=(?P<name>\w+)>(?P<arguments>.*)</function>
+mmap: true
+name: gpt-4
+parameters:
+  model: Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
+stopwords:
+- <|im_end|>
+- <dummy32000>
+- <|eot_id|>
+- <|end_of_text|>
+template:
+  chat: |
+    <|begin_of_text|><|start_header_id|>system<|end_header_id|>
+    You are a helpful assistant<|eot_id|><|start_header_id|>user<|end_header_id|>
+    {{.Input }}
+    <|start_header_id|>assistant<|end_header_id|>
+  chat_message: |
+    <|start_header_id|>{{if eq .RoleName "assistant"}}assistant{{else if eq .RoleName "system"}}system{{else if eq .RoleName "tool"}}tool{{else if eq .RoleName "user"}}user{{end}}<|end_header_id|>
+    {{ if .FunctionCall -}}
+    {{ else if eq .RoleName "tool" -}}
+    The Function was executed and the response was:
+    {{ end -}}
+    {{ if .Content -}}
+    {{.Content -}}
+    {{ else if .FunctionCall -}}
+    {{ range .FunctionCall }}
+    [{{.FunctionCall.Name}}({{.FunctionCall.Arguments}})]
+    {{ end }}
+    {{ end -}}
+    <|eot_id|>
+  completion: |
+    {{.Input}}
+  function: |
+    <|start_header_id|>system<|end_header_id|>
+    You are an expert in composing functions. You are given a question and a set of possible functions.
+    Based on the question, you will need to make one or more function/tool calls to achieve the purpose.
+    If none of the functions can be used, point it out. If the given question lacks the parameters required by the function, also point it out. You should only return the function call in tools call sections.
+    If you decide to invoke any of the function(s), you MUST put it in the format as follows:
+    [func_name1(params_name1=params_value1,params_name2=params_value2,...),func_name2(params_name1=params_value1,params_name2=params_value2,...)]
+    You SHOULD NOT include any other text in the response.
+    Here is a list of functions in JSON format that you can invoke.
+    {{toJson .Functions}}
+    <|eot_id|><|start_header_id|>user<|end_header_id|>
+    {{.Input}}
+    <|eot_id|><|start_header_id|>assistant<|end_header_id|>
+
+download_files:
+- filename: Hermes-3-Llama-3.2-3B-Q4_K_M.gguf
+  sha256: 2e220a14ba4328fee38cf36c2c068261560f999fadb5725ce5c6d977cb5126b5
+  uri: huggingface://bartowski/Hermes-3-Llama-3.2-3B-GGUF/Hermes-3-Llama-3.2-3B-Q4_K_M.gguf

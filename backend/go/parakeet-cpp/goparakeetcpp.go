@@ -1,0 +1,1208 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+	"unsafe"
+
+	"github.com/go-audio/wav"
+	"github.com/mudler/LocalAI/pkg/grpc/base"
+	"github.com/mudler/LocalAI/pkg/grpc/grpcerrors"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/xlog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+// purego-bound entry points from libparakeet.so. Names match
+// parakeet_capi.h exactly so a `nm libparakeet.so | grep parakeet_capi`
+// is enough to spot drift.
+//
+// Functions that return char* are declared as uintptr so we can call
+// parakeet_capi_free_string on the same pointer after copying, the
+// C-API contract is "caller owns and must free the returned buffer".
+var (
+	CppAbiVersion         func() int32
+	CppLoad               func(ggufPath string) uintptr
+	CppFree               func(ctx uintptr)
+	CppTranscribePath     func(ctx uintptr, wavPath string, decoder int32) uintptr
+	CppTranscribePathJSON func(ctx uintptr, wavPath string, decoder int32) uintptr
+	// CppTranscribePathJSONWith is CppTranscribePathJSON with the optional word
+	// filter (min_local_conf, local_radius, drop_punct_only as a JSON object).
+	// nil on a libparakeet.so from before the filter.
+	CppTranscribePathJSONWith func(ctx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+	CppFreeString             func(s uintptr)
+	CppLastError              func(ctx uintptr) string
+
+	// Bundle GGUF (additive in the C-API, no ABI bump; see bundle.go). All three
+	// are registered together and nil on an older libparakeet.so, where a
+	// bundle file is loaded like any other file (the library then refuses it)
+	// and the *_component options are rejected.
+	// CppLoadComponent opens one named component of a bundle.
+	// CppBundleComponentsJSON returns the component list as a malloc'd JSON
+	// array (uintptr, freed via CppFreeString), or 0 when the file is not a bundle.
+	// CppLoadError is the reason of the last failed load on the calling thread.
+	CppLoadComponent        func(ggufPath, component string) uintptr
+	CppBundleComponentsJSON func(ggufPath string) uintptr
+	CppLoadError            func() string
+
+	// CppTranscribePathJSONVad is CppTranscribePathJSON with long audio cut at
+	// pauses by the model's own VAD head (segments of at most 30 s; the document
+	// has the same shape, times are relative to the whole file). Returns 0 and
+	// sets last_error to "model has no VAD head" for models without one. Present
+	// only in newer libparakeet.so (additive, no ABI bump); nil when absent.
+	CppTranscribePathJSONVad func(ctx uintptr, wavPath string, decoder int32) uintptr
+
+	// CppTranscribePathJSONVadWith is CppTranscribePathJSONVad with the speech
+	// probabilities taken from an external Silero VAD context (vadCtx), so an ASR
+	// model without a VAD head can cut long audio. vadCtx == 0 uses the model's
+	// own head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, max_segment). Additive; nil when absent.
+	CppTranscribePathJSONVadWith func(ctx, vadCtx uintptr, wavPath string, decoder int32, optionsJSON string) uintptr
+
+	// CppVadPcmJSON is the standalone VAD: it returns the speech regions of mono
+	// float PCM as a JSON document, for a Silero context or an ASR context with a
+	// VAD head. optionsJSON is "" for the defaults or a flat JSON object
+	// (threshold, min_pause, min_speech, speech_pad, max_segment, mode,
+	// probabilities). Returns 0 on error with the message in last_error.
+	// Additive; nil when absent.
+	CppVadPcmJSON func(ctx uintptr, samples []float32, nSamples int32, sampleRate int32, optionsJSON string) uintptr
+
+	// Batched JSON transcription: takes a concatenated float buffer of clips
+	// plus their per-clip sample counts (sum(nSamples)==len(samplesConcat))
+	// and returns a malloc'd char* JSON ARRAY of per-clip {"text","words",
+	// "tokens"} objects (uintptr, freed via CppFreeString). purego passes the
+	// Go slices as the base pointer of their backing array (kept alive for the
+	// call), matching the CppStreamFeed pcm []float32 binding pattern; the C
+	// side reads them as const float*/const int*.
+	CppTranscribePcmBatchJSON func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32) uintptr
+
+	// CppTranscribePcmBatchJSONLang is the multilingual variant of the batched
+	// JSON entry point: identical, plus a trailing target_lang. "" (the model
+	// default, "auto") is passed for non-prompt models, which ignore it; an
+	// unknown locale on a prompt model returns 0 and sets last_error. Present
+	// only in newer libparakeet.so; nil falls back to CppTranscribePcmBatchJSON.
+	CppTranscribePcmBatchJSONLang func(ctx uintptr, samplesConcat []float32, nSamples []int32, nClips int32, sampleRate int32, decoder int32, targetLang string) uintptr
+
+	// Cache-aware streaming (RNN-T) entry points. stream_begin returns 0 for
+	// non-streaming models. feed/finalize return a malloc'd char* (uintptr,
+	// freed via CppFreeString); feed writes 1 to *eouOut on an <EOU>/<EOB>.
+	CppStreamBegin    func(ctx uintptr) uintptr
+	CppStreamFeed     func(s uintptr, pcm []float32, nSamples int32, eouOut unsafe.Pointer) uintptr
+	CppStreamFinalize func(s uintptr) uintptr
+	CppStreamFree     func(s uintptr)
+
+	// CppStreamBeginLang is the multilingual variant of stream_begin: identical,
+	// plus a trailing target_lang ("" means the model default). Present only in
+	// newer libparakeet.so; nil falls back to CppStreamBegin.
+	CppStreamBeginLang func(ctx uintptr, targetLang string) uintptr
+
+	// Streaming JSON variants (ABI v4): feed/finalize returning a malloc'd char*
+	// JSON document {text,eou,frame_sec,words} (uintptr, freed via CppFreeString)
+	// so streaming segments can carry per-word timestamps. Present only in newer
+	// libparakeet.so; nil falls back to the text-only CppStreamFeed/Finalize path.
+	CppStreamFeedJSON     func(s uintptr, pcm []float32, nSamples int32) uintptr
+	CppStreamFinalizeJSON func(s uintptr) uintptr
+
+	// CppModelKind reports which kind of model a loaded context holds
+	// (parakeet_capi_model_kind, ABI v8): see the modelKind* constants in
+	// roles.go. nil on an older libparakeet.so; Load then treats the primary
+	// as ASR (pre-v8 behavior) and rejects companion model options.
+	CppModelKind func(ctx uintptr) int32
+
+	// Speaker diarization (ABI v7). CppDiarizePCM runs offline diarization
+	// over in-memory mono float PCM; CppTranscribeAndDiarizeJSON pairs it with
+	// an ASR context for speaker-attributed text. Both return a malloc'd char*
+	// JSON document (uintptr, freed via CppFreeString).
+	CppDiarizePCM               func(ctx uintptr, samples *float32, n int32, sampleRate int32) uintptr
+	CppTranscribeAndDiarizeJSON func(asr, diar uintptr, samples *float32, n int32, sampleRate int32) uintptr
+
+	// Sound-event detection (CED) and the combined scene stream (ABI v8).
+	// CppNumClasses/CppSoundOptsDefault/CppSoundStreamBegin.../
+	// CppSceneOptsDefault/CppSceneStreamBegin... are only registered when
+	// CppModelKind is present (see main.go); nil otherwise.
+	CppNumClasses                 func(ctx uintptr) int32
+	CppSoundOptsDefault           func(o *cSoundOpts)
+	CppSoundStreamBegin           func(tagger uintptr, o *cSoundOpts) uintptr
+	CppSoundStreamFeed            func(s uintptr, pcm *float32, n int32, isLast int32, out *uintptr, nOut *int32) int32
+	CppSoundStreamDrainScoresJSON func(s uintptr) uintptr
+	CppFreeSoundSegments          func(segs uintptr)
+	CppSoundStreamFree            func(s uintptr)
+	CppSceneOptsDefault           func(o *cSceneOpts)
+	CppSceneStreamBegin           func(asr, diar, tagger uintptr, o *cSceneOpts) uintptr
+	CppSceneStreamFeedJSON        func(s uintptr, pcm *float32, n int32, isLast int32) uintptr
+	CppSceneStreamLastError       func(s uintptr) string
+	CppSceneStreamFree            func(s uintptr)
+
+	// Speaker identification. CppSpeakerDim, the registry, CppSceneStreamBeginSpeaker and
+	// CppTranscribeAndDiarizeNamedJSON are ABI v9; CppSpeakerRegistryAddEmbedding and
+	// CppDiarizeNamedPCMJSON are ABI v10. All are nil on an older libparakeet.so, and
+	// Load refuses speaker_model: unless the v10 ones are present.
+	// CppSpeakerEmbedPCM embeds 16 kHz mono PCM with the speaker context. It returns 0 on
+	// success; *out is a malloc'd float vector of *dim values that the caller releases with
+	// CppFreeFloats. Additive, nil on a library from before it (VoiceEmbed then refuses).
+	CppSpeakerEmbedPCM             func(speaker uintptr, pcm *float32, n, sampleRate int32, out, dim unsafe.Pointer) int32
+	CppFreeFloats                  func(p uintptr)
+	CppSpeakerIdentity             func(ctx uintptr) uintptr
+	CppDiarizeProfilesPCMJSON      func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
+	CppSpeakerDim                  func(ctx uintptr) int32
+	CppSpeakerRegistryNew          func() uintptr
+	CppSpeakerRegistryFree         func(reg uintptr)
+	CppSpeakerRegistryAddEmbedding func(reg uintptr, name string, emb *float32, dim int32) int32
+	CppSpeakerRegistryLastError    func(reg uintptr) string
+	CppSceneStreamBeginSpeaker     func(asr, diar, tagger, speaker, reg uintptr, o *cSceneOpts) uintptr
+	// Encoder fingerprint (additive, ABI 10). Probed as a group; nil on a library
+	// from before it. CppSpeakerEncoderFamily returns a borrowed char*, read it with
+	// goStringFromCPtr and do not free it. A family or weights string "" means none.
+	CppSpeakerRegistryAddEmbeddingFP func(reg uintptr, name string, emb *float32, dim int32, family, weights string) int32
+	CppSpeakerRegistrySetStrict      func(reg uintptr, strict int32)
+	CppSpeakerEncoderFamily          func(ctx uintptr) uintptr
+	// CppDiarizeNamedPCMJSON takes two float32 arguments (acceptThreshold, margin), which
+	// purego passes in floating-point registers. Not exercised without the real library.
+	CppDiarizeNamedPCMJSON           func(diar, speaker, reg uintptr, samples *float32, n, sampleRate int32, acceptThreshold, margin float32) uintptr
+	CppTranscribeAndDiarizeNamedJSON func(asr, diar, speaker, reg uintptr, samples *float32, n, sampleRate int32) uintptr
+)
+
+// cSoundOpts and cSceneOpts mirror parakeet_sound_opts / parakeet_scene_opts
+// in parakeet_capi.h field-for-field (int -> int32, float -> float32); the
+// C side sizes/versions them via the leading `size` field, set by the
+// matching *_opts_default call.
+type cSoundOpts struct {
+	Size                                                         int32
+	WindowSec, HopSec, OnThreshold, OffThreshold, MinDurationSec float32
+	TopK                                                         int32
+}
+
+type cSceneOpts struct {
+	Size        int32
+	DiarLatency int32
+	Sound       cSoundOpts
+	Flags       int32
+	// Speaker identification (parakeet_scene_opts, ABI v9). The C side reads
+	// these only when Size covers them, so a Go struct built against a v9
+	// library and run against a v8 one is still valid.
+	SpeakerAcceptThreshold float32
+	SpeakerMargin          float32
+	SpeakerMinVoiceSec     float32
+	SpeakerRefreshSec      float32
+	SpeakerMaxVoiceSec     float32
+}
+
+// streamChunkSamples is how much 16 kHz mono PCM we hand to stream_feed per
+// call (1 s). The session buffers internally and decodes once a full
+// cache-aware encoder chunk is available, so this only bounds how often we
+// poll for newly-finalized text, not the model's actual chunk size.
+const streamChunkSamples = 16000
+
+// transcriptJSON mirrors the document returned by
+// parakeet_capi_transcribe_path_json (see parakeet_capi.h):
+//
+//	{"text":"...",
+//	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...],
+//	 "tokens":[{"id":123,"t":0.480,"conf":0.9100}, ...]}
+//
+// "start"/"end"/"t" are seconds; "conf" is confidence in (0,1].
+type transcriptJSON struct {
+	Text     string            `json:"text"`
+	FrameSec float64           `json:"frame_sec"`
+	Words    []transcriptWord  `json:"words"`
+	Tokens   []transcriptToken `json:"tokens"`
+	// Guard is present only when the word filter ran (guard_* options).
+	Guard *struct {
+		DroppedWords int `json:"dropped_words"`
+	} `json:"guard"`
+}
+
+// streamFeedJSON mirrors the document returned by
+// parakeet_capi_stream_feed_json / parakeet_capi_stream_finalize_json (ABI v5):
+//
+//	{"text":"...","eou":0,"eob":0,"frame_sec":0.080000,
+//	 "words":[{"w":"...","start":0.480,"end":0.640,"conf":0.9100}, ...]}
+//
+// "text" is the newly-finalized text since the last call. Under ABI v5 "eou"
+// is 1 iff an <EOU> fired this feed (the user yielded the turn) and "eob" 1
+// iff an <EOB> fired (a backchannel like "uh-huh" ended — NOT a turn
+// boundary). A v4 library has no "eob" field and its "eou" conflates both
+// tokens: Eob stays 0 and Eou keeps the old any-event meaning. "words" are
+// the words finalized this call with absolute (stream-relative) start/end
+// seconds.
+type streamFeedJSON struct {
+	Text     string           `json:"text"`
+	Eou      int              `json:"eou"`
+	Eob      int              `json:"eob"`
+	FrameSec float64          `json:"frame_sec"`
+	Words    []transcriptWord `json:"words"`
+}
+
+type transcriptWord struct {
+	W     string  `json:"w"`
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Conf  float64 `json:"conf"`
+}
+
+type transcriptToken struct {
+	ID   int32   `json:"id"`
+	T    float64 `json:"t"`
+	Conf float64 `json:"conf"`
+}
+
+// ParakeetCpp owns a single loaded parakeet_ctx. The C engine is a
+// thread-unsafe singleton (mirrors whisper.cpp / vibevoice.cpp). Rather than
+// serialize every call through base.SingleThread, we route unary
+// transcription through an in-process batcher (its sole dispatcher goroutine
+// is the only caller of the engine on that path) and guard the shared engine
+// with engineMu so a streaming session and a batched-unary dispatch never
+// touch it concurrently.
+type ParakeetCpp struct {
+	base.Base
+	ctxPtr uintptr // ASR context: the primary when it is an ASR model, or the asr_model companion
+	// diarCtx / tagCtx are the diarization and sound (CED) model contexts:
+	// the primary when it is that kind, or the diarization_model/sound_model
+	// companion. See roles.go.
+	diarCtx uintptr
+	tagCtx  uintptr
+	// spkCtx is the speaker encoder context (speaker_model: companion); 0 when speaker
+	// naming is off. speakerAccept is the cosine acceptance threshold and speakerMargin
+	// the runner-up margin, both from the model options.
+	spkCtx        uintptr
+	speakerAccept float32
+	speakerMargin float32
+	// speakerStrict (speaker_strict:true) refuses registered voices that carry no
+	// encoder fingerprint instead of using them unverified.
+	speakerStrict bool
+	// verifyDistance is the VoiceVerify distance threshold when the request has none
+	// (voice_verify_threshold:, default 0.5).
+	verifyDistance float32
+	// diarLatency is the PARAKEET_DIAR_LATENCY_* mode for diarization
+	// streaming (diarization_latency: option, default "low"). Unused until
+	// the diarization/scene streaming paths land.
+	diarLatency int32
+	// companions holds every context this backend loaded itself beyond the
+	// primary (asr_model:/diarization_model:/sound_model: options), so Free
+	// can release them after the primary.
+	companions []uintptr
+	// bundle lists the components of the primary model file when it is a bundle
+	// GGUF (bundle.go); nil for a plain file.
+	bundle   []bundleComponent
+	engineMu sync.Mutex // sole guard of the one C engine (dispatcher + streaming)
+	bat      *batcher
+	batStop  chan struct{}
+	// segmentGapFrames is NeMo's segment_gap_threshold in ENCODER FRAMES (model
+	// YAML option, default 0=off). When >0 it adds NeMo's silence-gap split on
+	// top of the punctuation split; converted to seconds via the JSON frame_sec.
+	segmentGapFrames int
+	// vad routes offline transcription through the VAD-segmented C-API entry
+	// point (vad:true model option). It bypasses the dynamic batcher, which has
+	// no VAD variant, and is not used for streaming.
+	vad bool
+	// vadCtx is the Silero VAD context: the primary when the model file is a
+	// Silero GGUF, or the vad_model: companion. 0 when none is loaded; the VAD
+	// RPC then falls back to the ASR context's own VAD head.
+	vadCtx uintptr
+	// vadOptions is the JSON object built from the vad_threshold, vad_min_pause,
+	// vad_min_speech, vad_speech_pad, vad_max_segment and vad_trim model options ("" when
+	// none is set, so the library picks the defaults of the detector in use).
+	vadOptions string
+	// guardOptions is the JSON options object of the word filter (guard_*
+	// model options), "" when it is off. Offline transcription then takes the
+	// file-path route like vad:true, because the batched entry point has no filter.
+	guardOptions string
+}
+
+// Load is the LocalAI gRPC entry point for LoadModel: it calls
+// parakeet_capi_load with the GGUF path, classifies it and any companion
+// models named in Options[] by role (see roles.go), and starts the dynamic
+// batcher when an ASR context (primary or companion) ends up loaded.
+func (p *ParakeetCpp) Load(opts *pb.ModelOptions) error {
+	if opts.ModelFile == "" {
+		return errors.New("parakeet-cpp: ModelFile is required")
+	}
+
+	vad, err := parseVADOption(opts)
+	if err != nil {
+		return err
+	}
+	p.vad = vad
+
+	vadOpts, err := parseVADTuning(opts)
+	if err != nil {
+		return err
+	}
+	p.vadOptions = vadOpts
+	guardOpts, err := parseGuardOptions(opts)
+	if err != nil {
+		return err
+	}
+	p.guardOptions = guardOpts
+	if guardOpts != "" && p.vad && CppTranscribePathJSONVadWith == nil {
+		return errors.New("parakeet-cpp: the guard_* options with vad:true need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+	}
+	if optString(opts, "vad_model") != "" || optString(opts, "vad_component") != "" {
+		if CppTranscribePathJSONVadWith == nil {
+			return errors.New("parakeet-cpp: vad_model and vad_component need a libparakeet.so with parakeet_capi_transcribe_path_json_vad_with; rebuild the backend against a newer parakeet.cpp")
+		}
+		// vad_model and vad_component imply vad: a Silero model is only useful to cut audio.
+		p.vad = true
+	}
+
+	if err := p.loadRoles(opts); err != nil {
+		return err
+	}
+
+	// Dynamic batching knobs (model YAML options:, key:value form). Batching is
+	// OFF by default (batch_max_size:1): each request runs on its own. On GPU,
+	// raising batch_max_size coalesces concurrent requests into one batched
+	// engine call and improves throughput under load; leave it at 1 on CPU and
+	// for low-concurrency setups, where batching only adds latency.
+	maxSize := optInt(opts, "batch_max_size", 1)
+	maxWaitMs := optInt(opts, "batch_max_wait_ms", 15)
+	if maxWaitMs < 0 {
+		maxWaitMs = 0
+	}
+
+	// NeMo's segment_gap_threshold (encoder frames, default 0=off). Off by
+	// default matches NeMo's default (punctuation-only segments); when set it
+	// additionally splits segments on inter-word silence (see transcriptResultFromDoc).
+	p.segmentGapFrames = optInt(opts, "segment_gap_threshold", 0)
+
+	// The batcher only ever drives the ASR context; a diarization/sound
+	// primary with no asr_model companion has no ctxPtr and needs none.
+	if p.ctxPtr == 0 {
+		return nil
+	}
+	if CppTranscribePcmBatchJSON != nil {
+		p.batStop = make(chan struct{})
+		p.bat = newBatcher(maxSize, time.Duration(maxWaitMs)*time.Millisecond, p.runBatch)
+		go p.bat.run(p.batStop) // dispatcher runs until Free closes batStop
+		if maxSize > 1 {
+			xlog.Info("parakeet-cpp: dynamic batching enabled",
+				"batch_max_size", maxSize, "batch_max_wait_ms", maxWaitMs)
+		} else {
+			xlog.Info("parakeet-cpp: dynamic batching off (batch_max_size=1); " +
+				"set batch_max_size>1 to coalesce concurrent requests on GPU")
+		}
+	} else {
+		xlog.Info("parakeet-cpp: batched C-API not present in libparakeet.so; " +
+			"batching disabled, using per-request transcription")
+	}
+	return nil
+}
+
+// optInt reads an integer model option (key:value form) from ModelOptions,
+// returning def when absent or unparseable. The options array carries the
+// model YAML's options: entries (see core/config; siblings such as
+// acestep-cpp parse the same key:value form via strings.Cut on ":").
+func optInt(opts *pb.ModelOptions, key string, def int) int {
+	for _, o := range opts.GetOptions() {
+		k, v, ok := strings.Cut(o, ":")
+		if ok && strings.TrimSpace(k) == key {
+			if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+				return n
+			}
+		}
+	}
+	return def
+}
+
+// optBool reads a boolean model option (key:value form, strconv.ParseBool
+// values). It returns def when the key is absent and an error when the value
+// does not parse, so a typo like "vad:ture" fails the load instead of being
+// silently ignored.
+func optBool(opts *pb.ModelOptions, key string, def bool) (bool, error) {
+	v := optString(opts, key)
+	if v == "" {
+		return def, nil
+	}
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false, fmt.Errorf("parakeet-cpp: option %s: %q is not a boolean", key, v)
+	}
+	return b, nil
+}
+
+// parseVADOption reads the vad: model option (default false). Enabling it
+// needs a libparakeet.so that exports parakeet_capi_transcribe_path_json_vad.
+// Whether the model itself has a VAD head is only known to the library; a
+// model without one fails each request with the library's message.
+func parseVADOption(opts *pb.ModelOptions) (bool, error) {
+	vad, err := optBool(opts, "vad", false)
+	if err != nil || !vad {
+		return false, err
+	}
+	if CppTranscribePathJSONVad == nil {
+		return false, errors.New("parakeet-cpp: vad:true needs a libparakeet.so with parakeet_capi_transcribe_path_json_vad; rebuild the backend against a newer parakeet.cpp")
+	}
+	return true, nil
+}
+
+// runBatch is the dispatcher's batch handler and the ONLY caller of the C
+// engine on the unary path. It concatenates the batch PCM, calls the batched
+// JSON C-API under engineMu, splits the JSON array, and replies to each request.
+func (p *ParakeetCpp) runBatch(reqs []*batchRequest) {
+	// Observability: the actual coalesced batch size per engine call. Debug-level
+	// so it stays silent in normal operation but lets operators confirm/tune batching.
+	xlog.Debug("parakeet-cpp: dispatching batch", "size", len(reqs))
+	nSamples := make([]int32, len(reqs))
+	total := 0
+	for i, r := range reqs {
+		nSamples[i] = int32(len(r.pcm))
+		total += len(r.pcm)
+	}
+	concat := make([]float32, 0, total)
+	for _, r := range reqs {
+		concat = append(concat, r.pcm...)
+	}
+	var dec int32
+	if len(reqs) > 0 {
+		dec = reqs[0].decoder
+	}
+	// All requests in a batch share one language (the batcher coalesces only
+	// same-language requests), so any element's language describes the batch.
+	lang := ""
+	if len(reqs) > 0 {
+		lang = reqs[0].language
+	}
+	p.engineMu.Lock()
+	var cstr uintptr
+	if CppTranscribePcmBatchJSONLang != nil {
+		cstr = CppTranscribePcmBatchJSONLang(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec, lang)
+	} else {
+		cstr = CppTranscribePcmBatchJSON(p.ctxPtr, concat, nSamples, int32(len(reqs)), 16000, dec)
+	}
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		err := fmt.Errorf("parakeet-cpp: batch transcribe failed: %s", CppLastError(p.ctxPtr))
+		for _, r := range reqs {
+			r.reply <- batchReply{err: err}
+		}
+		return
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var docs []json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &docs); err != nil || len(docs) != len(reqs) {
+		e := fmt.Errorf("parakeet-cpp: batch json: got %d results for %d reqs (%v)", len(docs), len(reqs), err)
+		for _, r := range reqs {
+			r.reply <- batchReply{err: e}
+		}
+		return
+	}
+	for i, r := range reqs {
+		r.reply <- batchReply{json: string(docs[i])}
+	}
+}
+
+// AudioTranscription decodes the wav at opts.Dst to 16 kHz mono PCM and
+// submits it to the in-process batcher, which coalesces concurrent requests
+// into a single batched engine call (parakeet_capi_transcribe_pcm_batch_json)
+// with the default decoder (decoder=0, which selects the right head per
+// architecture: transducer for tdt/rnnt/hybrid, CTC for ctc) and shapes the
+// per-word timestamps into a LocalAI TranscriptResult.
+//
+// Parakeet emits word- and token-level timestamps but no native segment
+// boundaries, so we synthesise a single whole-clip segment spanning the first
+// word start to the last word end. Word-level timings are attached only when
+// the caller opts in via timestamp_granularities=["word"] (matching the
+// OpenAI API, whose default is segment-level); token ids always populate
+// Segment.Tokens.
+//
+// With a diarization_model companion, diarize=true labels segments with their
+// speaker (speakers.go). translate/prompt/temperature/threads are not
+// applicable to parakeet and are ignored; language is honored on the batched +
+// streaming paths (see opts.GetLanguage() below); streaming is handled by
+// AudioTranscriptionStream (L2).
+func (p *ParakeetCpp) AudioTranscription(ctx context.Context, opts *pb.TranscriptRequest) (pb.TranscriptResult, error) {
+	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		return pb.TranscriptResult{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	if opts.Dst == "" {
+		return pb.TranscriptResult{}, errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
+	}
+
+	// Fallback when the batched C-API is unavailable: transcribe from a file
+	// path (original behavior, no batching). The C library's audio loader only
+	// understands 16 kHz mono WAV/PCM, so convert the input first - otherwise
+	// any non-WAV upload (MP3, etc.) fails with "failed to load audio". This
+	// mirrors what every other audio backend (whisper, crispasr) does via
+	// utils.AudioToWav before handing the file to the engine.
+	//
+	// With vad:true the same file-path route is taken through the
+	// VAD-segmented entry point, which cuts long audio at pauses. The batcher
+	// has no VAD variant, so this path replaces it for offline requests.
+	if p.bat == nil || p.vad || p.guardOptions != "" {
+		converted, cleanup, err := convertToWavMono16k(opts.Dst)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		defer cleanup()
+		doc, err := p.transcribePathDoc(converted)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		if (p.vad || p.guardOptions != "") && p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+			pcm, _, err := decodeWavMono16k(converted)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			segs, err := p.diarizeSegmentsPCM(pcm)
+			if err != nil {
+				return pb.TranscriptResult{}, err
+			}
+			return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, assignSpeakers(doc.Words, segs)), nil
+		}
+		return transcriptResultFromDoc(doc, opts, p.segmentGapFrames), nil
+	}
+
+	// Batched path: decode to PCM, submit to the batcher, wait for this request's
+	// JSON element. The dispatcher is the sole engine caller on this path; both
+	// sends honour ctx cancellation.
+	pcm, _, err := decodeWavMono16k(opts.Dst)
+	if err != nil {
+		return pb.TranscriptResult{}, err
+	}
+	rep := make(chan batchReply, 1)
+	select {
+	case p.bat.submit <- &batchRequest{pcm: pcm, decoder: 0, language: opts.GetLanguage(), reply: rep}:
+	case <-ctx.Done():
+		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+	}
+	var res batchReply
+	select {
+	case res = <-rep:
+	case <-ctx.Done():
+		return pb.TranscriptResult{}, status.Error(codes.Canceled, "transcription cancelled")
+	}
+	if res.err != nil {
+		return pb.TranscriptResult{}, res.err
+	}
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(res.json), &doc); err != nil {
+		return pb.TranscriptResult{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+
+	// With a diarization_model companion, label each segment with its speaker.
+	var speakers []int
+	if p.wantSpeakers(opts.GetDiarize()) && len(doc.Words) > 0 {
+		segs, err := p.diarizeSegmentsPCM(pcm)
+		if err != nil {
+			return pb.TranscriptResult{}, err
+		}
+		speakers = assignSpeakers(doc.Words, segs)
+	}
+	return transcriptResultWithSpeakers(doc, opts, p.segmentGapFrames, speakers), nil
+}
+
+// transcribePathDoc transcribes a 16 kHz mono WAV at path through the file-path
+// C-API (the VAD-segmented variant when vad:true) and decodes the JSON document.
+// It holds engineMu for the call: the engine is single-threaded and the batcher
+// is not involved on this path.
+func (p *ParakeetCpp) transcribePathDoc(path string) (transcriptJSON, error) {
+	call, name := func() uintptr { return CppTranscribePathJSON(p.ctxPtr, path, 0) }, "transcribe_path_json"
+	switch {
+	case p.vad && (p.vadCtx != 0 || p.vadOptions != "" || p.guardOptions != "") && CppTranscribePathJSONVadWith != nil:
+		// An external Silero, tuned segmenter options on the model's own head, or the
+		// word filter: the segmenter takes the VAD keys and the filter keys in one object.
+		opts, err := mergeJSONObjects(p.vadOptions, p.guardOptions)
+		if err != nil {
+			return transcriptJSON{}, fmt.Errorf("parakeet-cpp: build vad options: %w", err)
+		}
+		call, name = func() uintptr {
+			return CppTranscribePathJSONVadWith(p.ctxPtr, p.vadCtx, path, 0, opts)
+		}, "transcribe_path_json_vad_with"
+	case p.vad:
+		call, name = func() uintptr { return CppTranscribePathJSONVad(p.ctxPtr, path, 0) }, "transcribe_path_json_vad"
+	case p.guardOptions != "" && CppTranscribePathJSONWith != nil:
+		call, name = func() uintptr { return CppTranscribePathJSONWith(p.ctxPtr, path, 0, p.guardOptions) }, "transcribe_path_json_with"
+	}
+	p.engineMu.Lock()
+	cstr := call()
+	var lastErr string
+	if cstr == 0 {
+		lastErr = CppLastError(p.ctxPtr)
+	}
+	p.engineMu.Unlock()
+	if cstr == 0 {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: %s failed: %s", name, lastErr)
+	}
+	raw := goStringFromCPtr(cstr)
+	CppFreeString(cstr)
+	var doc transcriptJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return transcriptJSON{}, fmt.Errorf("parakeet-cpp: decode transcript json: %w", err)
+	}
+	if doc.Guard != nil {
+		// TranscriptResult has no field for it, so the count is only logged.
+		xlog.Debug("parakeet-cpp: word filter", "dropped_words", doc.Guard.DroppedWords)
+	}
+	return doc, nil
+}
+
+// segmentSeparators is NeMo's default segment_seperators (sentence-ending
+// punctuation). Splitting on these matches NeMo's default segment timestamps.
+var segmentSeparators = []rune{'.', '?', '!'}
+
+// transcriptResultFromDoc maps a decoded transcriptJSON to a TranscriptResult,
+// grouping words into NeMo-faithful segments (see splitWordsIntoSegments). The
+// optional gapFrames (NeMo's segment_gap_threshold, in encoder FRAMES; 0=off)
+// additionally splits on inter-word silence; it is converted to a seconds gap
+// with the document's frame_sec. Per-segment word timings are attached only when
+// the caller requested word granularity; token ids populate each segment's
+// Tokens by time-window membership. Shared by the batched and direct paths.
+func transcriptResultFromDoc(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int) pb.TranscriptResult {
+	return transcriptResultWithSpeakers(doc, opts, gapFrames, nil)
+}
+
+// transcriptResultWithSpeakers is transcriptResultFromDoc plus optional
+// per-word speakers (indexed like doc.Words, -1 = none; see speakers.go):
+// segments additionally split wherever the speaker changes, and segments and
+// words carry the speaker's label.
+func transcriptResultWithSpeakers(doc transcriptJSON, opts *pb.TranscriptRequest, gapFrames int, speakers []int) pb.TranscriptResult {
+	text, eou := stripEouMarker(strings.TrimSpace(doc.Text))
+
+	// Frame-unit gap threshold -> seconds (NeMo segment_gap_threshold). 0 = off.
+	gapSeconds := 0.0
+	if gapFrames > 0 {
+		if doc.FrameSec > 0 {
+			gapSeconds = float64(gapFrames) * doc.FrameSec
+		} else {
+			xlog.Warn("parakeet-cpp: segment_gap_threshold set but libparakeet.so " +
+				"did not report frame_sec; falling back to punctuation-only segments")
+		}
+	}
+
+	groups := splitWordsIntoSegments(doc.Words, segmentSeparators, gapSeconds)
+	if len(groups) == 0 {
+		// No words (edge case): single whole-clip text segment.
+		return pb.TranscriptResult{
+			Text:     text,
+			Segments: []*pb.TranscriptSegment{{Id: 0, Text: text}},
+			Eou:      eou,
+		}
+	}
+
+	var groupSpeakers []int
+	if speakers != nil && len(speakers) == len(doc.Words) {
+		groups, groupSpeakers = splitAtSpeakerChanges(groups, speakers)
+	}
+
+	wantWords := wordsRequested(opts.TimestampGranularities)
+	segments := make([]*pb.TranscriptSegment, 0, len(groups))
+	for id, group := range groups {
+		parts := make([]string, len(group))
+		for i, gw := range group {
+			parts[i] = gw.W
+		}
+		seg := &pb.TranscriptSegment{
+			Id:     int32(id),
+			Start:  secondsToNanos(group[0].Start),
+			End:    secondsToNanos(group[len(group)-1].End),
+			Text:   strings.TrimSpace(strings.Join(parts, " ")),
+			Tokens: tokensInWindow(doc.Tokens, group[0].Start, group[len(group)-1].End),
+		}
+		if groupSpeakers != nil {
+			seg.Speaker = transcriptSpeaker(groupSpeakers[id])
+		}
+		if wantWords {
+			ws := make([]*pb.TranscriptWord, len(group))
+			for i, gw := range group {
+				ws[i] = &pb.TranscriptWord{Start: secondsToNanos(gw.Start), End: secondsToNanos(gw.End), Text: gw.W,
+					Speaker: seg.Speaker}
+			}
+			seg.Words = ws
+		}
+		segments = append(segments, seg)
+	}
+	return pb.TranscriptResult{Text: text, Segments: segments, Eou: eou}
+}
+
+// stripEouMarker removes a trailing literal <EOU>/<EOB> from offline-decode
+// text and reports whether the decode ended on an end-of-UTTERANCE token. The
+// realtime EOU model's offline decode keeps the special token in the
+// detokenized text (the streaming path strips it and surfaces it as flags
+// instead); user-visible transcripts must never carry either marker, but only
+// <EOU> may confirm the semantic_vad retranscribe cross-check — a decode
+// ending on <EOB> means the last thing heard was a backchannel, not the user
+// yielding the turn.
+func stripEouMarker(text string) (string, bool) {
+	if strings.HasSuffix(text, "<EOU>") {
+		return strings.TrimSpace(strings.TrimSuffix(text, "<EOU>")), true
+	}
+	if strings.HasSuffix(text, "<EOB>") {
+		return strings.TrimSpace(strings.TrimSuffix(text, "<EOB>")), false
+	}
+	return text, false
+}
+
+// splitWordsIntoSegments groups words into segments exactly as NeMo's
+// get_segment_offsets does (nemo/collections/asr/parts/utils/timestamp_utils.py).
+// Walking the words, it closes a segment when (1) the gap rule is enabled
+// (gapSeconds > 0) and the segment already has words and the gap from the
+// previous word's end to this word's start is >= gapSeconds - the current word
+// then STARTS a new segment - or, checked only when the gap rule did not apply
+// (NeMo's elif), (2) the word ends with (or is) a separator, which closes the
+// segment INCLUDING that word. Trailing words flush into a final segment.
+// gapSeconds <= 0 disables the gap rule, matching NeMo's default
+// segment_gap_threshold=None (punctuation-only segments).
+func splitWordsIntoSegments(words []transcriptWord, separators []rune, gapSeconds float64) [][]transcriptWord {
+	var segments [][]transcriptWord
+	var cur []transcriptWord
+	for i, word := range words {
+		gapActive := gapSeconds > 0 && len(cur) > 0
+		if gapActive && (word.Start-words[i-1].End) >= gapSeconds {
+			segments = append(segments, cur)
+			cur = []transcriptWord{word}
+			continue
+		}
+		if !gapActive && endsWithSeparator(word.W, separators) {
+			cur = append(cur, word)
+			segments = append(segments, cur)
+			cur = nil
+			continue
+		}
+		cur = append(cur, word)
+	}
+	if len(cur) > 0 {
+		segments = append(segments, cur)
+	}
+	return segments
+}
+
+// endsWithSeparator reports whether w's last rune is in separators (matching
+// NeMo's `word[-1] in delims or word in delims`).
+func endsWithSeparator(w string, separators []rune) bool {
+	r := []rune(strings.TrimSpace(w))
+	if len(r) == 0 {
+		return false
+	}
+	last := r[len(r)-1]
+	for _, s := range separators {
+		if last == s {
+			return true
+		}
+	}
+	return false
+}
+
+// tokensInWindow returns the ids of tokens whose timestamp t falls in
+// [start, end] (inclusive), assigning each token to the segment that spans its
+// time. The last segment's end is the last word end, so the final token is
+// included.
+func tokensInWindow(tokens []transcriptToken, start, end float64) []int32 {
+	var ids []int32
+	for _, t := range tokens {
+		if t.T >= start && t.T <= end {
+			ids = append(ids, t.ID)
+		}
+	}
+	return ids
+}
+
+// streamSegmenter accumulates streaming decode increments into per-utterance
+// segments. <EOU>/<EOB> are the model's own utterance boundaries; each closes a
+// segment. When the feed carries per-word timings (ABI v4 JSON), a closed
+// segment takes its start/end from its first/last word; against an older
+// text-only library (no words) it falls back to segmenting the delta text, so
+// the same assembler serves both paths.
+type streamSegmenter struct {
+	segs     []*pb.TranscriptSegment
+	segWords [][]transcriptWord // words of each segment (nil for text-only ones)
+	cur      []transcriptWord   // words for the open segment (ABI v4 JSON path)
+	curText  []string           // delta text for the open segment (text-only path)
+	nextID   int32
+}
+
+func (s *streamSegmenter) add(r streamFeedResult) {
+	s.cur = append(s.cur, r.Words...)
+	if len(r.Words) == 0 && r.Delta != "" {
+		// Older libparakeet.so with no per-word timing: segment from the text.
+		s.curText = append(s.curText, r.Delta)
+	}
+	// Both <EOU> and <EOB> reset the decoder, so both close a segment.
+	if r.Eou || r.Eob {
+		s.flush()
+	}
+}
+
+func (s *streamSegmenter) flush() {
+	switch {
+	case len(s.cur) > 0:
+		parts := make([]string, len(s.cur))
+		for i, w := range s.cur {
+			parts[i] = w.W
+		}
+		s.segs = append(s.segs, &pb.TranscriptSegment{
+			Id:    s.nextID,
+			Start: secondsToNanos(s.cur[0].Start),
+			End:   secondsToNanos(s.cur[len(s.cur)-1].End),
+			Text:  strings.TrimSpace(strings.Join(parts, " ")),
+		})
+		s.segWords = append(s.segWords, s.cur)
+		s.nextID++
+	case len(s.curText) > 0:
+		// No words this segment: emit a text-only segment (no timestamps),
+		// skipping a purely-whitespace one as the legacy text path did.
+		if t := strings.TrimSpace(strings.Join(s.curText, "")); t != "" {
+			s.segs = append(s.segs, &pb.TranscriptSegment{Id: s.nextID, Text: t})
+			s.segWords = append(s.segWords, nil)
+			s.nextID++
+		}
+	}
+	s.cur = nil
+	s.curText = nil
+}
+
+func (s *streamSegmenter) segments() []*pb.TranscriptSegment { return s.segs }
+
+// wordsRequested reports whether the caller asked for word-level timestamps.
+// The OpenAI transcription API gates word timings behind
+// timestamp_granularities[] containing "word" and defaults to segment-level
+// otherwise; we follow that contract.
+func wordsRequested(granularities []string) bool {
+	for _, g := range granularities {
+		if strings.EqualFold(strings.TrimSpace(g), "word") {
+			return true
+		}
+	}
+	return false
+}
+
+// secondsToNanos converts the C-API's fractional-second timestamps into the
+// int64 nanoseconds LocalAI carries on TranscriptSegment/TranscriptWord, the
+// same nanosecond convention the whisper backend uses.
+func secondsToNanos(sec float64) int64 {
+	return int64(sec * 1e9)
+}
+
+// Per-C-call engine serialization for the streaming paths.
+//
+// Every individual C call (begin / feed / finalize / free) takes engineMu and
+// re-checks ctxPtr under the lock; the lock is NEVER held across a stream's
+// lifetime. This is safe because each parakeet.cpp call builds its own ggml
+// graph and all streaming caches live in the session object, not the ctx —
+// the only ctx-shared mutable state is last_error, which is why it is read
+// under the same lock as the failing call. Holding the lock per call (rather
+// than per stream, as this file previously did) keeps a long-lived live
+// session from starving batched unary transcription and vice versa.
+//
+// A stream must not outlive its ctx (C-API contract). Free() takes engineMu
+// and zeroes ctxPtr, so a racing per-call helper returns ModelNotLoaded
+// instead of feeding a freed engine; streamFree of an orphaned session only
+// runs the session destructor, which does not touch the ctx.
+
+// streamBegin opens a cache-aware streaming session. A 0 stream with nil
+// error means the loaded model is not a streaming model.
+func (p *ParakeetCpp) streamBegin(lang string) (uintptr, error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return 0, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	if CppStreamBeginLang != nil {
+		return CppStreamBeginLang(p.ctxPtr, lang), nil
+	}
+	return CppStreamBegin(p.ctxPtr), nil
+}
+
+func (p *ParakeetCpp) streamFree(stream uintptr) {
+	if stream == 0 {
+		return
+	}
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	CppStreamFree(stream)
+}
+
+// streamFeedText runs one text-mode feed (or the finalize flush when
+// finalize is true) under engineMu, returning the newly-finalized delta and
+// whether an <EOU>/<EOB> fired during the call.
+func (p *ParakeetCpp) streamFeedText(stream uintptr, pcm []float32, finalize bool) (delta string, eou, eob bool, err error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return "", false, false, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	var ret uintptr
+	var events int32
+	if finalize {
+		ret = CppStreamFinalize(stream)
+	} else {
+		ret = CppStreamFeed(stream, pcm, int32(len(pcm)), unsafe.Pointer(&events))
+	}
+	if ret == 0 {
+		// last_error is ctx-shared: read it under the same lock as the call.
+		msg := CppLastError(p.ctxPtr)
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return "", false, false, fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+	}
+	delta = goStringFromCPtr(ret)
+	CppFreeString(ret)
+	// ABI v5: eou_out is a bitmask (bit 0 = <EOU>, bit 1 = <EOB>). A v4
+	// library sets 0/1 for either token, which the bit-0 test reads as the
+	// old conflated eou — the EOB distinction simply isn't available there.
+	return delta, events&1 != 0, events&2 != 0, nil
+}
+
+// streamFeedDoc runs one ABI v4 JSON feed (or finalize) under engineMu and
+// returns the parsed {text,eou,frame_sec,words} document.
+func (p *ParakeetCpp) streamFeedDoc(stream uintptr, pcm []float32, finalize bool) (streamFeedJSON, error) {
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	if p.ctxPtr == 0 {
+		return streamFeedJSON{}, grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	var ret uintptr
+	if finalize {
+		ret = CppStreamFinalizeJSON(stream)
+	} else {
+		ret = CppStreamFeedJSON(stream, pcm, int32(len(pcm)))
+	}
+	if ret == 0 {
+		msg := CppLastError(p.ctxPtr)
+		if msg == "" {
+			msg = "unknown error"
+		}
+		return streamFeedJSON{}, fmt.Errorf("parakeet-cpp: stream feed/finalize failed: %s", msg)
+	}
+	raw := goStringFromCPtr(ret)
+	CppFreeString(ret)
+	var doc streamFeedJSON
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return streamFeedJSON{}, fmt.Errorf("parakeet-cpp: decode stream json: %w", err)
+	}
+	return doc, nil
+}
+
+// AudioTranscriptionStream drives the cache-aware streaming RNN-T over the
+// audio at opts.Dst: it decodes the file to 16 kHz mono PCM, feeds it through
+// the shared decode driver (feedSlices/flushTail), and emits each
+// newly-finalized text run as a TranscriptStreamResponse delta. <EOU>/<EOB>
+// events close the current segment; a closing FinalResult carries the full
+// transcript, the per-utterance segments, and whether the file ended on an
+// utterance boundary.
+//
+// stream_begin returns 0 for models that are not cache-aware streaming models
+// (only e.g. nvidia/parakeet_realtime_eou_120m-v1 qualifies). For those this
+// returns codes.Unimplemented rather than faking a stream from an offline
+// decode — see the stream==0 branch and grpcerrors.StreamTranscriptionUnsupported.
+func (p *ParakeetCpp) AudioTranscriptionStream(ctx context.Context, opts *pb.TranscriptRequest, results chan *pb.TranscriptStreamResponse) error {
+	defer close(results)
+
+	if p.ctxPtr == 0 {
+		if err := p.notASRError(); err != nil {
+			return err
+		}
+		return grpcerrors.ModelNotLoaded("parakeet-cpp")
+	}
+	if opts.Dst == "" {
+		return errors.New("parakeet-cpp: TranscriptRequest.dst (audio path) is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return status.Error(codes.Canceled, "transcription cancelled")
+	}
+
+	stream, err := p.streamBegin(opts.GetLanguage())
+	if err != nil {
+		return err
+	}
+	if stream == 0 {
+		// Not a cache-aware streaming model. Report the missing capability
+		// honestly instead of decoding offline and emitting it as one "delta"
+		// + final: a client that asked for streaming must learn the model
+		// cannot stream, not receive a batch result dressed as a stream (which
+		// is indistinguishable except qualitatively, and silently breaks any
+		// feature that genuinely needs incremental output). Callers wanting a
+		// plain transcript use the unary AudioTranscription path. This mirrors
+		// AudioTranscriptionLive, which already returns Unimplemented here.
+		return grpcerrors.StreamTranscriptionUnsupported("parakeet-cpp",
+			"loaded model is not a cache-aware streaming model")
+	}
+	defer p.streamFree(stream)
+
+	data, duration, err := decodeWavMono16k(opts.Dst)
+	if err != nil {
+		return err
+	}
+
+	// Fold the shared decode driver's per-feed increments into the streamed
+	// deltas and the closing batch result: words/text accumulate into
+	// per-utterance segments (streamSegmenter), and the utterance-boundary
+	// latch (boundary.go) records whether the file ended on an <EOU>. These
+	// are the offline path's concern — the live RPC carries none of them.
+	var (
+		full     strings.Builder
+		seg      streamSegmenter
+		boundary utteranceBoundary
+	)
+	emit := func(r streamFeedResult) error {
+		if r.Delta != "" {
+			full.WriteString(r.Delta)
+			results <- &pb.TranscriptStreamResponse{Delta: r.Delta}
+		}
+		seg.add(r)
+		boundary = boundary.observe(r)
+		return nil
+	}
+
+	if err := p.feedSlices(ctx, stream, data, emit); err != nil {
+		return err
+	}
+	if err := p.flushTail(stream, emit); err != nil {
+		return err
+	}
+	seg.flush() // close a trailing utterance that never saw an <EOU>
+
+	// final.Text is the exact concatenation of the streamed deltas (full is
+	// their accumulation), so concat(deltas) == FinalResult.Text holds even
+	// when the model prepends a leading space to the first word (SentencePiece
+	// detokenization). This matches the whisper backend's streaming contract.
+	// The single-segment fallback stays trimmed.
+	fullText := full.String()
+	segments := seg.segments()
+
+	// With a diarization_model companion, label each utterance with the
+	// speaker who said most of it. The whole file is available, so this runs
+	// the same diarization as the unary path.
+	if p.wantSpeakers(opts.GetDiarize()) && len(seg.segWords) == len(segments) {
+		var all []transcriptWord
+		for _, ws := range seg.segWords {
+			all = append(all, ws...)
+		}
+		if len(all) > 0 {
+			segs, err := p.diarizeSegmentsPCM(data)
+			if err != nil {
+				return err
+			}
+			speakers := assignSpeakers(all, segs)
+			k := 0
+			for i, ws := range seg.segWords {
+				segments[i].Speaker = transcriptSpeaker(majoritySpeaker(ws, speakers[k:k+len(ws)]))
+				k += len(ws)
+			}
+		}
+	}
+	if trimmed := strings.TrimSpace(fullText); len(segments) == 0 && trimmed != "" {
+		segments = append(segments, &pb.TranscriptSegment{Id: 0, Text: trimmed})
+	}
+	results <- &pb.TranscriptStreamResponse{
+		FinalResult: &pb.TranscriptResult{
+			Text:     fullText,
+			Segments: segments,
+			Duration: duration,
+			Eou:      boundary.ended(),
+		},
+	}
+	return nil
+}
+
+// convertToWavMono16k converts an arbitrary audio file to a 16 kHz mono WAV in
+// a fresh temp dir and returns the path together with a cleanup func the caller
+// must defer. WAV inputs already at 16 kHz/mono/16-bit are passed through by
+// utils.AudioToWav (hardlink/copy), everything else is transcoded via ffmpeg.
+// Used by the direct (non-batched) transcription path, which hands a file path
+// to the C library's WAV-only audio loader.
+func convertToWavMono16k(path string) (string, func(), error) {
+	dir, err := os.MkdirTemp("", "parakeet")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup := func() { _ = os.RemoveAll(dir) }
+
+	converted := filepath.Join(dir, "converted.wav")
+	if err := utils.AudioToWav(path, converted); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	return converted, cleanup, nil
+}
+
+// decodeWavMono16k converts any input audio to 16 kHz mono PCM and returns the
+// float samples plus the clip duration in seconds. Mirrors the whisper
+// backend: utils.AudioToWav (ffmpeg) normalises rate/channels, go-audio
+// decodes the PCM.
+func decodeWavMono16k(path string) ([]float32, float32, error) {
+	converted, cleanup, err := convertToWavMono16k(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer cleanup()
+
+	fh, err := os.Open(converted)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = fh.Close() }()
+
+	buf, err := wav.NewDecoder(fh).FullPCMBuffer()
+	if err != nil {
+		return nil, 0, err
+	}
+	data := buf.AsFloat32Buffer().Data
+	var duration float32
+	if buf.Format != nil && buf.Format.SampleRate > 0 {
+		duration = float32(len(data)) / float32(buf.Format.SampleRate)
+	}
+	return data, duration, nil
+}
+
+// Free releases every parakeet_ctx this backend holds (the primary and any
+// asr_model:/diarization_model:/sound_model: companions loaded in Load) and
+// is idempotent: fields are zeroed as they are freed, so a second call frees
+// nothing. Called by LocalAI when the model is unloaded.
+func (p *ParakeetCpp) Free() error {
+	// Stop the dispatcher before releasing the engine so no in-flight runBatch
+	// can touch a freed ctx (close leak / use-after-free on reload).
+	if p.batStop != nil {
+		close(p.batStop)
+		p.batStop = nil
+	}
+	// engineMu so an in-flight streaming call (which locks per C call and
+	// re-checks ctxPtr under the lock) can never feed into a freed ctx.
+	p.engineMu.Lock()
+	defer p.engineMu.Unlock()
+	for _, ctxField := range [...]*uintptr{&p.ctxPtr, &p.diarCtx, &p.tagCtx, &p.spkCtx, &p.vadCtx} {
+		if *ctxField != 0 {
+			CppFree(*ctxField)
+			*ctxField = 0
+		}
+	}
+	p.companions = nil
+	return nil
+}
+
+// goStringFromCPtr copies a NUL-terminated C string into Go memory.
+// cptr is the raw pointer returned by purego from the C-API (a malloc'd
+// buffer the caller owns); callers must free it via CppFreeString after
+// the copy lands.
+//
+// The uintptr->unsafe.Pointer conversion below trips go vet's unsafeptr
+// check, which can't distinguish a C-owned heap pointer from Go-managed
+// memory. It is safe here: the pointer addresses a malloc'd C buffer the
+// Go GC neither tracks nor moves, and we dereference it immediately to
+// copy the bytes out, the same pattern (and the same tolerated warning)
+// as the whisper backend's unsafe.Slice over segsPtr.
+func goStringFromCPtr(cptr uintptr) string {
+	if cptr == 0 {
+		return ""
+	}
+	p := unsafe.Pointer(cptr) //nolint:govet // C-owned malloc'd buffer, not Go-GC memory (see doc above)
+	n := 0
+	for *(*byte)(unsafe.Add(p, n)) != 0 {
+		n++
+	}
+	return string(unsafe.Slice((*byte)(p), n))
+}

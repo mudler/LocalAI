@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/rocm7.0
+torch==2.10.0+rocm7.0
+torchaudio==2.10.0+rocm7.0
+transformers==4.48.3
+accelerate
+coqui-tts

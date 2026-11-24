@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT
+package connectors
+
+import "github.com/mudler/LocalAI/pkg/addons/contract"
+
+// ConnectorCallScope is host authority, never part of the add-on protocol.
+// A pinned frontend asserts the canonical studio principal on behalf of its user.
+type ConnectorCallScope struct {
+	Purpose   string `json:"purpose"`
+	Principal string `json:"principal"`
+	BindingID string `json:"bindingId,omitempty"`
+	AgentID   string `json:"agentId,omitempty"`
+	AddonID   string `json:"addonId"`
+	Kind      string `json:"kind"`
+	// Content names the file an outbound transfer reads: a blob of the
+	// workspace store. The frontend that checked the chat's access sets it;
+	// it never reaches the add-on, which gets only the handle.
+	Content *TransferContent `json:"content,omitempty"`
+}
+
+// TransferContent is the stored content behind an outbound handle.
+type TransferContent struct {
+	SHA  string `json:"sha"`
+	Size int64  `json:"size"`
+}
+
+const (
+	ConnectorPurposeBinding     = "binding"
+	ConnectorPurposeVerifyToken = "verify-token"
+)
+
+// Kind describes a connector registered by an add-on runtime.
+type Kind struct {
+	AddonID string
+	// AuthKind is contract.CredentialKindOAuth2 when the add-on's credential
+	// slot is an OAuth login, so its bindings must use AuthOAuth2, and empty
+	// when its bindings hold a token.
+	AuthKind string `json:"authKind,omitempty"`
+	contract.ConnectorKind
+	// Translations is the display text of the kind in other languages, from
+	// the manifest's i18n field, by language tag.
+	Translations map[string]contract.KindText `json:"translations,omitempty"`
+}

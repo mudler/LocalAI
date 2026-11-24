@@ -1,0 +1,11 @@
+---
+config_file: |
+  backend: rerankers
+  # `type: colbert` is forwarded to the rerankers backend as the
+  # `model_type` kwarg, selecting bge-m3's ColBERT (late-interaction
+  # multi-vector MaxSim) scoring head. Use this with the `colbert`
+  # router classifier — the classifier feeds policy descriptions as
+  # documents and reads off per-label MaxSim scores.
+  type: colbert
+  parameters:
+    model: BAAI/bge-m3

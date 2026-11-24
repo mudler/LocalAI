@@ -1,0 +1,195 @@
+{
+  "split": {
+    "title": "Workers de modèles répartis",
+    "online": "{{online}} sur {{total}} en ligne",
+    "note": "Ce ne sont pas des nœuds du cluster : ni backends ni règles de placement. Ils prêtent leur mémoire aux modèles qui tournent sur cette instance.",
+    "slowTitle": "Répartir un modèle marche mieux sur un chemin direct ou ouvert par hole punching.",
+    "slowBody": "Seul un relais atteint {{names}}. Cela marche, mais chaque token attend le relais. Choisissez Utiliser quand même, ou laissez le worker de côté. Ouvrir le port 4001 UDP et TCP sur son réseau donne un chemin direct.",
+    "limitedTitle": "Un relais public ne peut pas transporter les couches du modèle.",
+    "limitedBody": "Le seul chemin vers ce worker est un relais public, dont vous ne pouvez pas changer les limites. Donnez au worker un chemin direct, ou un relais à vous des deux côtés.",
+    "cutTitle": "Un relais à vous coupe chaque connexion à ses limites.",
+    "cutBody": "{{names}} passe par un relais à vous qui ferme chaque connexion après sa limite de données ou de temps. Utiliser quand même marche, lentement, jusqu'à ce que le relais coupe la connexion ; rechargez ensuite le modèle. Augmentez ou retirez les limites du relais pour des sessions plus longues.",
+    "cutHint": "Coupé après {{limits}}",
+    "relayLimits": "Limites du relais",
+    "memoryInUse": "Mémoire apportée par les workers utilisés : {{memory}}.",
+    "add": {
+      "p2pTitle": "Partagez d'abord cette instance en P2P",
+      "p2pBody": "Un worker de modèles répartis s'appaire avec une invitation, et les invitations demandent le mode P2P Se connecter et partager.",
+      "p2pOpen": "Ouvrir les réglages P2P",
+      "engineTitle": "Moteur",
+      "engineSub": {
+        "llama": "Le modèle tourne sur cette instance. Le worker garde certaines de ses couches dans sa propre mémoire.",
+        "mlx": "Le modèle tourne sur cette instance et sur le worker, comme rangs d'un même anneau MLX. Apple Silicon uniquement."
+      },
+      "inviteTitle": "Créer une invitation",
+      "name": "Nom du worker (facultatif)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Créer l'invitation",
+      "inviteReady": "Invitation prête",
+      "inviteExpired": "Invitation expirée",
+      "inviteUsed": "Invitation utilisée",
+      "inviteMeta": "Usage unique · expire dans {{time}}",
+      "noPass": "Le relais était injoignable, le lien ne contient donc pas de pass de relais.",
+      "pathTitle": "Répartir un modèle marche mieux sur un chemin direct ou ouvert par hole punching.",
+      "pathBody": "Les couches communiquent à chaque token. Par un relais cela marche, mais chaque token attend le relais. S'il n'existe qu'un chemin par relais, vous choisissez d'ajouter le worker ou non.",
+      "runTitle": "Lancez ceci sur le worker",
+      "runFirst": "Créez d'abord l'invitation : la commande contient son lien.",
+      "runNote": "Le volume garde l'identité et l'appairage du worker, la même commande marche donc après un redémarrage. L'ancien nom p2p-worker marche toujours.",
+      "runNoteMlx": "Le worker garde son identité et son appairage dans ./p2p/mlx-distributed, la même commande marche donc après un redémarrage.",
+      "waitTitle": "En attente du worker",
+      "waiting": "En attente de la connexion du worker…",
+      "pairedTitle": "Le worker s'est appairé",
+      "pairedWaiting": "Le worker a utilisé l'invitation. En attente de sa connexion.",
+      "foundTitle": "Le worker est utilisé",
+      "foundBody": "Il apparaît sur la page Nœuds, sous Workers de modèles répartis, avec la mémoire qu'il apporte. Rechargez le modèle pour l'utiliser.",
+      "openNodes": "Ouvrir Nœuds",
+      "relayTitle": "Le worker s'est connecté uniquement par un relais",
+      "slowTitle": "Lent : par un relais.",
+      "slowBody": "{{name}} n'a pas de chemin direct ou ouvert par hole punching vers cette instance. La répartition marche par votre relais, mais chaque token l'attend. Ouvrir le port 4001 UDP et TCP d'un des deux côtés peut donner plus tard un chemin direct.",
+      "slowCut": "Le relais ferme chaque connexion après {{limits}} : le modèle s'arrête alors jusqu'à ce qu'il soit rechargé. Augmentez ou retirez les limites pour aller plus loin.",
+      "addAnyway": "Ajouter quand même",
+      "notNow": "Pas maintenant",
+      "engineSubNode": {
+        "llama": "Le modèle tourne sur le nœud que vous choisissez ensuite. Le worker garde certaines de ses couches dans sa propre mémoire.",
+        "mlx": "Le modèle tourne sur le nœud que vous choisissez ensuite et sur le worker, comme rangs d’un même anneau MLX. Apple Silicon uniquement."
+      },
+      "nodeTitle": "Nœud",
+      "nodeLabel": "Rattacher le worker à",
+      "nodeSub": "Les modèles que ce nœud charge utilisent le worker. Fixez le modèle sur ce nœud avec une règle de placement pour qu’il y soit chargé. Vous pourrez changer de nœud plus tard sur la page Nœuds.",
+      "nodeServer": "Cette instance (elle n’exécute aucun modèle dans un cluster)",
+      "nodePick": "Choisir un serveur de découpage",
+      "nodeOffline": "{{name}} (hors ligne)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Moteur",
+      "path": "Chemin",
+      "memory": "Mémoire apportée",
+      "status": "État",
+      "actions": "Actions",
+      "node": "Rattaché à"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Direct",
+      "holePunched": "Hole punching",
+      "relayed": "Par {{relay}}",
+      "relayedUnknown": "Par un relais",
+      "none": "Aucun chemin",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "En ligne",
+      "offline": "Hors ligne",
+      "slow": "Lent : par un relais",
+      "limited": "Relais public : non utilisé",
+      "refused": "Refusé"
+    },
+    "useAnyway": "Utiliser quand même",
+    "stopUsing": "Ne plus utiliser",
+    "revoke": "Révoquer…",
+    "revokeTitle": "Révoquer {{name}} ?",
+    "revokeBody": "Le worker est coupé tout de suite et doit s'appairer à nouveau avec une nouvelle invitation. Un modèle chargé avec lui échoue jusqu'à ce qu'il soit rechargé.",
+    "revokeConfirm": "Révoquer",
+    "revoking": "Révocation…",
+    "addWorker": "Ajouter un worker de modèles répartis",
+    "toast": {
+      "used": "{{name}} est utilisé par le relais.",
+      "stopped": "{{name}} n'est plus utilisé par le relais.",
+      "revoked": "{{name}} a été révoqué.",
+      "attached": "{{name}} est rattaché à {{node}}. Les modèles que {{node}} charge désormais l’utilisent.",
+      "detached": "{{name}} est rattaché à cette instance."
+    },
+    "noteCluster": "Ce ne sont pas des nœuds du cluster : ni backends ni règles de placement. Chacun prête sa mémoire aux modèles du nœud auquel il est rattaché.",
+    "thisServer": "Cette instance",
+    "nodeLabel": "Nœud de {{name}}",
+    "unattachedTitle": "Ces workers ne sont pas utilisés : rattachez-les à un nœud.",
+    "unattachedBody": "Rattachés à cette instance : {{names}}. Dans un cluster, les modèles tournent sur les nœuds backend, pas sur cette instance. Choisissez un nœud pour chacun.",
+    "noServerTitle": "Aucun worker n’est encore un serveur de découpage.",
+    "noServerBody": "Un worker de découpage de modèle ne peut être rattaché qu’à un worker qui est un serveur de découpage. Créez-en un ici, ou démarrez le worker avec --split-server.",
+    "offlineTitle": "Le nœud d’un worker de découpage de modèle est hors ligne.",
+    "offlineBody": "{{names}} reste rattaché et attend le retour de son nœud. Rien ne le déplace vers un autre nœud.",
+    "relayRefusedTitle": "Vos relais n’admettent pas un nœud.",
+    "relayRefusedBody": "Les workers n’atteignent {{names}} qu’en direct ou par hole punching : {{reason}}.",
+    "nextLoad": "Les changements des workers d’un nœud s’appliquent au prochain modèle qu’il charge.",
+    "nodeOffline": "Nœud hors ligne",
+    "relay": {
+      "admitted": "Relais : admis",
+      "refused": "Relais : refusé",
+      "pending": "Relais : en attente",
+      "notNeeded": "Relais : inutile"
+    }
+  },
+  "nodes": {
+    "retry": "Réessayer",
+    "title": "Workers"
+  },
+  "add": {
+    "run": {}
+  },
+  "inspector": {
+    "peer": "ID de pair"
+  },
+  "splitServer": {
+    "label": "Serveur de découpage",
+    "make": "En faire un serveur de découpage…",
+    "clear": "Ne plus être serveur de découpage…",
+    "open": "Configurer un serveur de découpage",
+    "title": "Configurer un serveur de découpage",
+    "desc": "Un serveur de découpage est un worker qui exécute des modèles avec la mémoire des workers de découpage rattachés à lui.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (serveur de découpage)",
+    "changesTitle": "Quand vous confirmez, {{node}} devient un serveur de découpage :",
+    "changes": {
+      "ports": "Il ouvre des ports P2P et démarre un hôte P2P pour ses workers de découpage.",
+      "relay": "Cette instance l’admet sur les relais protégés que vous gérez, pour que les workers l’atteignent par eux.",
+      "load": "Les workers rattachés servent au prochain modèle llama.cpp ou MLX qu’il charge. Un modèle déjà chargé garde ses workers jusqu’à son prochain chargement.",
+      "undo": "Vous pouvez le désactiver sur la page Nœuds. Ses workers sont alors détachés."
+    },
+    "offline": "{{node}} est hors ligne. Ses workers attendent son retour.",
+    "helpers": "Rattacher ces workers de découpage",
+    "noHelpers": "Aucun autre worker de découpage n’est encore appairé. Vous pourrez rattacher des workers plus tard.",
+    "moveFrom": "actuellement sur {{node}}",
+    "noNodes": "Le cluster n’a encore aucun worker de backend. Ajoutez-en un d’abord.",
+    "cancel": "Annuler",
+    "confirm": "En faire un serveur de découpage et rattacher",
+    "confirmAttach": "Rattacher",
+    "clearTitle": "{{node}} ne doit plus être serveur de découpage ?",
+    "clearBody": "Son hôte P2P s’arrête, vos relais cessent de l’admettre et ses workers de découpage ({{count}}) sont détachés. Ils attendent, sans nœud, jusqu’à ce que vous les rattachiez.",
+    "clearConfirm": "Ne plus être serveur de découpage",
+    "clearing": "Arrêt…",
+    "toast": {
+      "set": "{{node}} est un serveur de découpage. Workers rattachés : {{count}}. Ils servent au prochain modèle qu’il charge.",
+      "cleared": "{{node}} n’est plus un serveur de découpage. Workers détachés : {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Placement",
+    "supporting": "Où les modèles tournent dans le cluster, et ce qui se passe quand une cible ne répond plus.",
+    "views": {
+      "label": "Vues du placement",
+      "rules": "Règles",
+      "failover": "Basculement"
+    }
+  },
+  "rules": {
+    "byPrefix": "Sa politique est prefix cache.",
+    "byRound": "Sa politique est round robin.",
+    "kind": {
+      "inactive": "Politique seule"
+    },
+    "route": {
+      "default": "Politique par défaut",
+      "prefix_cache": "Politique prefix cache",
+      "round_robin": "Politique round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Connexion :"
+  }
+}

@@ -1,0 +1,96 @@
+{{ define "main" }}
+{{ $data := hugo.Data.engines }}
+{{ $cats := $data.categories }}
+{{ $engines := $data.engines }}
+<main id="main">
+
+<header class="pagehead"><div class="shell">
+  <p class="crumb"><a href="{{ "features/" | relURL }}">Features</a> / Engines</p>
+  <h1>{{ len $engines }} engines, written from <span class="hl">scratch</span>.</h1>
+  <p class="lede">Most LocalAI backends wrap somebody else's engine. These were written from scratch, each one because the thing we needed was a multi-gigabyte Python install, or closed, or nobody had built it yet. What ships instead is a binary and a GGUF file, checked against the reference implementation in CI, running on the machine you already own.</p>
+  <div class="acts">
+    <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
+    <a class="btn btn--o" href="{{ .Site.Params.docsURL }}models/backends/">How backends work</a>
+  </div>
+  <dl class="figures">
+    <div><dt>Engines</dt><dd>{{ len $engines }}</dd></div>
+    <div><dt>Modalities</dt><dd>{{ len $cats }}</dd></div>
+    <div><dt>Python at inference</dt><dd>0</dd></div>
+    <div><dt>Licence</dt><dd>MIT</dd></div>
+  </dl>
+</div></header>
+
+<!-- CATALOGUE -->
+<section id="catalogue" aria-label="Engines">
+  <div class="shell">
+
+    <div class="engf rv" role="group" aria-label="Filter engines by modality">
+      <button type="button" class="engf__c" data-cat="all" aria-pressed="true">All <b>{{ len $engines }}</b></button>
+      {{ range $cats }}
+      {{ $n := len (where $engines "category" .id) }}
+      {{ if gt $n 0 }}<button type="button" class="engf__c" data-cat="{{ .id }}" aria-pressed="false">{{ .label }} <b>{{ $n }}</b></button>{{ end }}
+      {{ end }}
+    </div>
+
+    {{ range $cats }}
+    {{ $inCat := where $engines "category" .id }}
+    {{ if gt (len $inCat) 0 }}
+    <div class="engg" data-group="{{ .id }}" id="{{ .id }}">
+      <div class="engg__h rv">
+        <p class="kicker">{{ .label }}</p>
+        <p class="engg__b">{{ .blurb }}</p>
+      </div>
+      <div class="engs">
+        {{ range $inCat }}
+        {{ $e := . }}
+        <a class="eng rv{{ if $e.featured }} eng--f{{ end }}" data-cat="{{ $e.category }}" href="{{ $e.repo }}">
+          {{ with $e.media }}
+          <div class="eng__m">
+            <video src="{{ . }}" poster="{{ strings.TrimSuffix ".mp4" . }}.jpg" muted loop playsinline preload="none" data-lazy aria-label="{{ $e.name }}: {{ $e.tagline }}"></video>
+          </div>
+          {{ end }}
+          <div class="eng__b">
+            <p class="eng__k"><span>{{ $e.language }}</span>{{ with $e.status }}<b class="eng__s">{{ . }}</b>{{ end }}</p>
+            <h3 class="eng__n">{{ $e.name }}</h3>
+            <p class="eng__t">{{ $e.tagline }}</p>
+            {{ with $e.highlights }}
+            <ul class="eng__l">{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
+            {{ end }}
+            {{ with $e.clips }}
+            <div class="eng__x">
+              {{ range . }}
+              <figure>
+                <video src="{{ .src }}" poster="{{ strings.TrimSuffix ".mp4" .src }}.jpg" muted loop playsinline preload="none" data-lazy aria-label="{{ .caption }}"></video>
+                <figcaption>{{ .caption }}</figcaption>
+              </figure>
+              {{ end }}
+            </div>
+            {{ end }}
+            <span class="eng__go">{{ $e.name }} on GitHub &#8599;</span>
+          </div>
+        </a>
+        {{ end }}
+      </div>
+    </div>
+    {{ end }}
+    {{ end }}
+
+    <p class="engn rv" role="status" hidden>Nothing in that modality yet.</p>
+  </div>
+</section>
+
+<!-- CLOSE -->
+<section class="band-inset" id="why">
+  <div class="shell">
+    <p class="kicker rv">The rule we hold them to</p>
+    <h2 class="rv eng-rule">We do not ship a port until it matches the original.</h2>
+    <p class="lede rv">Every engine here is gated against the framework it replaces, on the same input, on the same machine. That means a transcript identical to the reference, boxes that land on the same pixels, or a waveform inside a stated tolerance. Speed work comes after that, and the numbers on this page come out of each engine's own benchmark suite.</p>
+    <div class="acts rv">
+      <a class="btn" href="{{ "get-started/" | relURL }}">Install LocalAI</a>
+      <a class="btn btn--o" href="{{ .Site.Params.github }}">LocalAI on GitHub</a>
+    </div>
+  </div>
+</section>
+
+</main>
+{{ end }}

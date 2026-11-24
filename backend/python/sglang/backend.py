@@ -1,0 +1,886 @@
+#!/usr/bin/env python3
+"""LocalAI gRPC backend for sglang.
+
+Wraps sglang's async Engine API behind the Backend gRPC contract defined
+in backend.proto. Mirrors the structure of backend/python/vllm/backend.py
+so that the two backends stay behavior-equivalent at the protocol level.
+
+The streaming path applies sglang's per-request FunctionCallParser and
+ReasoningParser so tool_calls and reasoning_content are emitted
+incrementally inside ChatDelta, which is a capability sglang exposes
+natively and vLLM does not.
+
+Like the vLLM backend, this one accepts an arbitrary ``engine_args:``
+map in the model YAML; keys are validated against ``ServerArgs`` fields
+and forwarded to ``Engine(**kwargs)``. That covers speculative decoding
+(EAGLE/EAGLE3/DFLASH/NGRAM/STANDALONE plus MTP via NEXTN), attention
+backend selection, MoE knobs, hierarchical cache, and so on.
+"""
+import asyncio
+from concurrent import futures
+import argparse
+import dataclasses
+import difflib
+import signal
+import sys
+import os
+import json
+import gc
+import uuid
+import base64
+import io
+from typing import Dict, List, Optional, Tuple
+
+from PIL import Image
+
+import backend_pb2
+import backend_pb2_grpc
+
+import grpc
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'common'))
+from python_utils import attach_media_parts
+from grpc_auth import get_auth_interceptors
+from model_utils import resolve_model_reference
+
+# sglang imports. Engine is the stable public entry point; parser modules
+# are wrapped in try/except so older / leaner installs that omit them
+# still load the backend for plain text generation.
+from sglang.srt.entrypoints.engine import Engine
+from sglang.srt.server_args import ServerArgs
+
+try:
+    from sglang.srt.function_call.function_call_parser import FunctionCallParser
+    # sglang's FunctionCallParser expects a list of pydantic Tool objects
+    # (protocol.Tool with .function.name), not plain dicts. Wrap at the
+    # request boundary to match.
+    from sglang.srt.entrypoints.openai.protocol import Tool as SglTool
+    HAS_TOOL_PARSERS = True
+except Exception:
+    FunctionCallParser = None  # type: ignore
+    SglTool = None  # type: ignore
+    HAS_TOOL_PARSERS = False
+
+try:
+    from sglang.srt.parser.reasoning_parser import ReasoningParser
+    HAS_REASONING_PARSERS = True
+except Exception:
+    ReasoningParser = None  # type: ignore
+    HAS_REASONING_PARSERS = False
+
+try:
+    from transformers import AutoTokenizer
+    HAS_TRANSFORMERS = True
+except Exception:
+    AutoTokenizer = None  # type: ignore
+    HAS_TRANSFORMERS = False
+
+
+# sglang 0.5.11 renamed SamplingParams.seed -> sampling_seed (PR #21952).
+# Earlier 0.5.x releases (e.g. 0.5.1.post2 — the wheel still pinned by the
+# pypi.jetson-ai-lab.io sbsa/cu130 mirror used by the l4t13 build profile)
+# accept only `seed`. Detect the supported keyword once at import time so
+# both versions work without a hard pin floor.
+try:
+    import inspect as _inspect
+    from sglang.srt.sampling.sampling_params import SamplingParams as _SamplingParams
+    _SEED_KEY = "sampling_seed" if "sampling_seed" in _inspect.signature(_SamplingParams).parameters else "seed"
+except Exception:
+    _SEED_KEY = "sampling_seed"
+
+
+# Engine.async_generate() only grew a require_reasoning keyword in sglang
+# 0.5.13. The CPU build compiles v0.5.11 from source and the other profiles
+# only set a >=0.5.11 floor, and async_generate() takes no **kwargs, so
+# passing the keyword unconditionally fails every request with TypeError.
+try:
+    import inspect as _inspect
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = (
+        "require_reasoning" in _inspect.signature(Engine.async_generate).parameters
+    )
+except Exception:
+    _ASYNC_GENERATE_HAS_REQUIRE_REASONING = False
+
+
+_ONE_DAY_IN_SECONDS = 60 * 60 * 24
+
+# proto3 has no field presence, so an explicit 0 is indistinguishable from
+# "unset" and the zero-filter below would drop it. These two fields have a
+# meaningful zero a caller can actually intend: temperature 0 is greedy
+# decoding, and 0 is a valid seed. Silently substituting a default for either
+# turns a reproducible request into a random one.
+_EXPLICIT_ZERO_FIELDS = ("Temperature", "Seed")
+
+MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
+
+
+class BackendServicer(backend_pb2_grpc.BackendServicer):
+    """gRPC servicer implementing the Backend service for sglang."""
+
+    # Class-level default so a servicer used before LoadModel (e.g. in unit
+    # tests that construct it directly) doesn't AttributeError in
+    # _build_sampling_params.
+    thinking_budget: Optional[int] = None
+    effort_budgets: Optional[dict] = None         # {effort level: tokens}, from `effort_budgets`
+    reasoning_default: Optional[str] = None
+
+    def _parse_options(self, options_list) -> Dict[str, str]:
+        opts: Dict[str, str] = {}
+        for opt in options_list:
+            if ":" not in opt:
+                continue
+            key, value = opt.split(":", 1)
+            opts[key.strip()] = value.strip()
+        return opts
+
+    @staticmethod
+    def _parse_thinking_budget(value) -> Optional[int]:
+        """Turn the `thinking_budget` model option into a positive int, or None.
+
+        Options arrive as strings from the YAML `options:` list, but a value
+        like "5000.0" is a plausible thing to write, and a crash here would
+        take down LoadModel for the whole model. So: integral numbers are
+        accepted in any spelling ("512", "512.0"), anything else is ignored
+        with a warning instead of raising. Zero and negative budgets are
+        ignored too: sglang gives them no defined meaning, and turning
+        reasoning off is what `reasoning_default: off` is for.
+        """
+        if value is None or str(value).strip() == "":
+            return None
+        raw = str(value).strip()
+        try:
+            number = float(raw)
+        except ValueError:
+            print(f"thinking_budget {raw!r} is not a number, ignoring it", file=sys.stderr)
+            return None
+        if not number.is_integer():
+            print(f"thinking_budget {raw!r} is not a whole number of tokens, ignoring it", file=sys.stderr)
+            return None
+        if number <= 0:
+            print(
+                f"thinking_budget {raw!r} must be positive, ignoring it "
+                "(use reasoning_default:off to disable reasoning)",
+                file=sys.stderr,
+            )
+            return None
+        return int(number)
+
+    @classmethod
+    def _parse_effort_budgets(cls, value) -> dict:
+        """Parse `effort_budgets` ("low=512;medium=2048;high=8192") into {level: tokens}.
+
+        `;` separates entries because the YAML `options:` list already uses `:`
+        between option name and value. Invalid entries are skipped with a warning
+        (same policy as `thinking_budget`: never fail LoadModel over an option).
+        """
+        budgets: dict = {}
+        if value is None or str(value).strip() == "":
+            return budgets
+        for entry in str(value).split(";"):
+            entry = entry.strip()
+            if not entry:
+                continue
+            level, sep, raw = entry.partition("=")
+            level = level.strip().lower()
+            if not sep or not level:
+                print(f"effort_budgets entry {entry!r} is not level=tokens, ignoring it", file=sys.stderr)
+                continue
+            if not raw.strip():
+                print(f"effort_budgets entry {entry!r} has no token count, ignoring it", file=sys.stderr)
+                continue
+            tokens = cls._parse_thinking_budget(raw)
+            if tokens is not None:
+                budgets[level] = tokens
+        return budgets
+
+    @staticmethod
+    def _effort(request) -> str:
+        """The request's reasoning_effort as forwarded by the Go side, lower-cased."""
+        metadata = getattr(request, "Metadata", None) or {}
+        return (metadata.get("reasoning_effort") or "").strip().lower()
+
+    def _thinking_budget_for(self, request) -> Optional[int]:
+        """Budget for this request: its effort level's entry, else the model default."""
+        effort = self._effort(request)
+        if effort and self.effort_budgets and effort in self.effort_budgets:
+            return self.effort_budgets[effort]
+        return self.thinking_budget
+
+    def _configured_budget(self) -> Optional[int]:
+        """Any budget configured for this model (fixed or per effort), for the load-time warning."""
+        return self.thinking_budget or max((self.effort_budgets or {}).values(), default=None)
+
+    @staticmethod
+    def _strict_thinking_warning(thinking_budget: Optional[int], engine_kwargs: dict) -> Optional[str]:
+        """sglang only enforces the budget with enable_strict_thinking on; without
+        it the budget is silently ignored, so say so at load time."""
+        if thinking_budget is not None and not engine_kwargs.get("enable_strict_thinking"):
+            return (
+                f"thinking_budget={thinking_budget} is set but enable_strict_thinking is not "
+                "in engine_args; sglang will ignore the budget"
+            )
+        return None
+
+    def _apply_engine_args(self, engine_kwargs: dict, engine_args_json: str) -> dict:
+        """Merge user-supplied engine_args (JSON object) into the kwargs dict
+        that will be forwarded to ``sglang.Engine`` (which constructs a
+        ``ServerArgs`` from them).
+
+        Mirrors ``backend/python/vllm/backend.py::_apply_engine_args`` but
+        operates on the kwargs dict because sglang's ``Engine.__init__``
+        accepts ``**kwargs`` directly rather than a pre-built dataclass.
+        Validation happens against ``ServerArgs`` fields so a typo fails
+        early with a close-match suggestion instead of producing a confusing
+        ``TypeError`` deep inside engine startup.
+        """
+        if not engine_args_json:
+            return engine_kwargs
+        try:
+            extra = json.loads(engine_args_json)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"engine_args is not valid JSON: {e}") from e
+        if not isinstance(extra, dict):
+            raise ValueError(
+                f"engine_args must be a JSON object, got {type(extra).__name__}"
+            )
+        if dataclasses.is_dataclass(ServerArgs):
+            valid = {f.name for f in dataclasses.fields(ServerArgs)}
+        else:
+            # sglang >= 0.5.20 moved the config tier from dataclasses to
+            # msgspec.Struct (sgl-project/sglang#38753); msgspec keeps the
+            # field names in __struct_fields__.
+            valid = set(getattr(ServerArgs, "__struct_fields__", ()))
+            if not valid:
+                raise ValueError(
+                    "cannot introspect ServerArgs fields: it is neither a "
+                    "dataclass nor a msgspec.Struct, so engine_args cannot "
+                    "be validated"
+                )
+        for key in extra:
+            if key not in valid:
+                suggestion = difflib.get_close_matches(key, valid, n=1)
+                hint = f" did you mean {suggestion[0]!r}?" if suggestion else ""
+                raise ValueError(f"unknown engine_args key {key!r}.{hint}")
+        engine_kwargs.update(extra)
+        return engine_kwargs
+
+    def _messages_to_dicts(self, messages) -> List[dict]:
+        result: List[dict] = []
+        for msg in messages:
+            d = {"role": msg.role, "content": msg.content or ""}
+            if msg.name:
+                d["name"] = msg.name
+            if msg.tool_call_id:
+                d["tool_call_id"] = msg.tool_call_id
+            if msg.reasoning_content:
+                d["reasoning_content"] = msg.reasoning_content
+            if msg.tool_calls:
+                try:
+                    tool_calls = json.loads(msg.tool_calls)
+                except json.JSONDecodeError:
+                    pass
+                else:
+                    # OpenAI wire format carries function.arguments as a
+                    # JSON-encoded string, but chat templates (e.g. Qwen3)
+                    # iterate over it as a mapping. The vllm backend
+                    # already parses arguments before applying the chat
+                    # template (PR #10256); mirror that here so the
+                    # sglang backend works with the same wire format.
+                    if isinstance(tool_calls, list):
+                        for tc in tool_calls:
+                            func = tc.get("function") if isinstance(tc, dict) else None
+                            if isinstance(func, dict) and isinstance(func.get("arguments"), str):
+                                try:
+                                    func["arguments"] = json.loads(func["arguments"])
+                                except json.JSONDecodeError:
+                                    pass
+                    d["tool_calls"] = tool_calls
+            result.append(d)
+        return result
+
+    def Health(self, request, context):
+        return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
+
+
+    def Status(self, request, context):
+        # Minimal shim: LocalAI polls /backend.Backend/Status on registered
+        # backends; without this method the default NotImplementedError from
+        # backend_pb2_grpc bubbles up as HTTP 500 on /backend/monitor and blocks
+        # inference requests to a healthy loaded model. Returning READY
+        # unconditionally mirrors the existing Health method's behavior.
+        return backend_pb2.StatusResponse(state=backend_pb2.StatusResponse.State.READY)
+    async def LoadModel(self, request, context):
+        model_ref, local_only = resolve_model_reference(request)
+        engine_kwargs = {"model_path": model_ref}
+
+        if request.Quantization:
+            engine_kwargs["quantization"] = request.Quantization
+        if request.LoadFormat:
+            engine_kwargs["load_format"] = request.LoadFormat
+        if request.GPUMemoryUtilization:
+            engine_kwargs["mem_fraction_static"] = float(request.GPUMemoryUtilization)
+        if request.TrustRemoteCode:
+            engine_kwargs["trust_remote_code"] = True
+        if request.EnforceEager:
+            engine_kwargs["disable_cuda_graph"] = True
+        if request.TensorParallelSize:
+            engine_kwargs["tp_size"] = int(request.TensorParallelSize)
+        if request.MaxModelLen:
+            engine_kwargs["context_length"] = int(request.MaxModelLen)
+        if request.DType:
+            engine_kwargs["dtype"] = request.DType
+
+        opts = self._parse_options(request.Options)
+
+        # Cache parser names — actual parser instances are created per
+        # request because sglang's parsers are stateful.
+        self.tool_parser_name: Optional[str] = opts.get("tool_parser") or None
+        self.reasoning_parser_name: Optional[str] = opts.get("reasoning_parser") or None
+
+        # Fixed reasoning-length budget for every request on this model, in
+        # tokens. There is no protobuf field to carry a per-request
+        # custom_params blob, so this rides the same model-level `options:`
+        # mechanism as tool_parser/reasoning_parser above — mirroring how
+        # sglang's own `--preferred-sampling-params` is a server-wide
+        # default, not a per-request choice. Requires `enable_strict_thinking`
+        # in `engine_args:` (sglang >=0.5.12); without it sglang has no
+        # tokenizer-derived budget mechanism to enforce this against.
+        self.thinking_budget: Optional[int] = self._parse_thinking_budget(
+            opts.get("thinking_budget")
+        )
+
+        # Per-effort budgets, e.g. `effort_budgets:low=512;medium=2048;high=8192`.
+        # The Go side already forwards the request's `reasoning_effort` as
+        # Metadata["reasoning_effort"], but until now nothing in this backend
+        # read it: every effort level got the same fixed `thinking_budget`, so
+        # low/medium/high produced identical reasoning. With this map a request
+        # gets the budget of its effort level; levels absent from the map, and
+        # requests without an effort, keep `thinking_budget`.
+        self.effort_budgets: dict = self._parse_effort_budgets(opts.get("effort_budgets"))
+
+        # Model-level default for whether the chat template opens a reasoning
+        # block, as "off" or "on". Rides the same `options:` mechanism as
+        # thinking_budget above.
+        #
+        # Why this is needed even though `reasoning_effort` exists: that one
+        # only reaches this backend when a *caller* sets it per request (the
+        # Go side turns it into Metadata["enable_thinking"]). As a model-level
+        # `parameters:` default it is silently dropped, so a config reading
+        # `reasoning_effort: none` still produces full reasoning on every
+        # request - the config says one thing and the model does another.
+        #
+        # A per-request value always wins; this only fills in the gap when the
+        # request says nothing.
+        self.reasoning_default: Optional[str] = (
+            opts.get("reasoning_default") or ""
+        ).lower() or None
+
+        # Also hand the parser names to sglang's engine so its HTTP/OAI
+        # paths work identically if someone hits the engine directly.
+        if self.tool_parser_name:
+            engine_kwargs["tool_call_parser"] = self.tool_parser_name
+        if self.reasoning_parser_name:
+            engine_kwargs["reasoning_parser"] = self.reasoning_parser_name
+
+        # engine_args from YAML overrides typed fields above so operators can
+        # tune anything ServerArgs exposes (speculative decoding, attention
+        # backend, MoE, hierarchical cache, …) without waiting on protobuf
+        # changes.
+        try:
+            engine_kwargs = self._apply_engine_args(engine_kwargs, request.EngineArgs)
+        except ValueError as err:
+            print(f"engine_args error: {err}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=str(err))
+
+        warning = self._strict_thinking_warning(self._configured_budget(), engine_kwargs)
+        if warning:
+            print(warning, file=sys.stderr)
+
+        try:
+            self.llm = Engine(**engine_kwargs)
+        except Exception as err:
+            print(f"sglang Engine init failed: {err!r}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=f"{err!r}")
+
+        # sglang does not expose a uniform get_tokenizer() off Engine.
+        # Use transformers directly — same path sglang uses internally.
+        self.tokenizer = None
+        if HAS_TRANSFORMERS:
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_ref,
+                    trust_remote_code=bool(request.TrustRemoteCode),
+                    local_files_only=local_only,
+                )
+            except Exception as err:
+                print(f"AutoTokenizer load failed (non-fatal): {err!r}", file=sys.stderr)
+
+        print("Model loaded successfully", file=sys.stderr)
+        return backend_pb2.Result(message="Model loaded successfully", success=True)
+
+    async def Predict(self, request, context):
+        gen = self._predict(request, context, streaming=False)
+        res = await gen.__anext__()
+        return res
+
+    async def PredictStream(self, request, context):
+        iterations = self._predict(request, context, streaming=True)
+        try:
+            async for iteration in iterations:
+                yield iteration
+        finally:
+            try:
+                await iterations.aclose()
+            except Exception:
+                pass
+
+    async def TokenizeString(self, request, context):
+        if not getattr(self, "tokenizer", None):
+            context.set_code(grpc.StatusCode.FAILED_PRECONDITION)
+            context.set_details("tokenizer not loaded")
+            return backend_pb2.TokenizationResponse()
+        try:
+            tokens = self.tokenizer.encode(request.Prompt)
+            return backend_pb2.TokenizationResponse(length=len(tokens), tokens=tokens)
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return backend_pb2.TokenizationResponse()
+
+    async def Free(self, request, context):
+        try:
+            if hasattr(self, "llm"):
+                try:
+                    self.llm.shutdown()
+                except Exception:
+                    pass
+                del self.llm
+            if hasattr(self, "tokenizer"):
+                del self.tokenizer
+            self.tool_parser_name = None
+            self.reasoning_parser_name = None
+            gc.collect()
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass
+            return backend_pb2.Result(success=True, message="Model freed")
+        except Exception as e:
+            return backend_pb2.Result(success=False, message=str(e))
+
+    def _build_sampling_params(self, request) -> dict:
+        # max_new_tokens=None allows generation up to the remaining context,
+        # which is what sglang's own OpenAI server does when max_tokens is
+        # omitted (the scheduler turns None into the remaining request
+        # capacity). Leaving the key out would select SamplingParams' own
+        # default of 128 instead. A fixed number here silently truncated every
+        # request without max_tokens, and the response still reported
+        # finish_reason "stop", because the Go side only reports "length"
+        # against a budget the client requested.
+        sampling_params: dict = {"temperature": 0.7, "max_new_tokens": None}
+        mapping = {
+            "N": "n",
+            "PresencePenalty": "presence_penalty",
+            "FrequencyPenalty": "frequency_penalty",
+            "RepetitionPenalty": "repetition_penalty",
+            "Temperature": "temperature",
+            "TopP": "top_p",
+            "TopK": "top_k",
+            "MinP": "min_p",
+            "Seed": _SEED_KEY,
+            "StopPrompts": "stop",
+            "StopTokenIds": "stop_token_ids",
+            "IgnoreEOS": "ignore_eos",
+            "Tokens": "max_new_tokens",
+            "MinTokens": "min_new_tokens",
+            "SkipSpecialTokens": "skip_special_tokens",
+        }
+        for proto_field, sgl_key in mapping.items():
+            if not hasattr(request, proto_field):
+                continue
+            value = getattr(request, proto_field)
+            if proto_field not in _EXPLICIT_ZERO_FIELDS and value in (None, 0, 0.0, [], False, ""):
+                continue
+            # repeated fields come back as RepeatedScalarContainer — convert
+            if hasattr(value, "__iter__") and not isinstance(value, (str, bytes)):
+                value = list(value)
+                if not value:
+                    continue
+            sampling_params[sgl_key] = value
+
+        # Grammar → JSON schema or EBNF structured decoding.
+        if getattr(request, "Grammar", ""):
+            grammar = request.Grammar
+            try:
+                json.loads(grammar)
+                sampling_params["json_schema"] = grammar
+            except json.JSONDecodeError:
+                sampling_params["ebnf"] = grammar
+
+        budget = self._thinking_budget_for(request)
+        if budget is not None:
+            sampling_params["custom_params"] = {"thinking_budget": budget}
+
+        return sampling_params
+
+    def _thinking_default(self, request) -> Optional[bool]:
+        """Whether this request should render with reasoning on, off, or unset.
+
+        Per-request ``Metadata["enable_thinking"]`` wins; next, an effort level
+        listed in ``effort_budgets`` turns reasoning on; the model-level
+        ``reasoning_default`` option fills in when the request is silent.
+        Returns None when neither says anything, leaving template behaviour
+        untouched.
+        """
+        wanted = request.Metadata.get("enable_thinking", "").lower()
+        if wanted in ("true", "false"):
+            return wanted == "true"
+        # An effort level listed in `effort_budgets` is an explicit request to
+        # think. Normally the Go side already sends enable_thinking for known
+        # levels; this covers levels it does not set it for (custom names in
+        # the map, or callers that only send reasoning_effort), where
+        # `reasoning_default: off` would otherwise win. An explicit
+        # enable_thinking=false above still takes precedence.
+        if self.effort_budgets and self._effort(request) in self.effort_budgets:
+            return True
+        if self.reasoning_default == "off":
+            return False
+        if self.reasoning_default == "on":
+            return True
+        return None
+
+    def _build_prompt(self, request) -> str:
+        prompt = request.Prompt
+        if prompt or not request.UseTokenizerTemplate or not request.Messages:
+            return prompt
+
+        if self.tokenizer is None:
+            print(
+                "UseTokenizerTemplate requested but tokenizer not loaded; "
+                "falling back to naive concatenation",
+                file=sys.stderr,
+            )
+            return "\n".join(m.content or "" for m in request.Messages)
+
+        messages_dicts = self._messages_to_dicts(request.Messages)
+        template_kwargs: dict = {"tokenize": False, "add_generation_prompt": True}
+        if request.Tools:
+            try:
+                template_kwargs["tools"] = json.loads(request.Tools)
+            except json.JSONDecodeError:
+                pass
+        _thinking = self._thinking_default(request)
+        if _thinking is not None:
+            template_kwargs["enable_thinking"] = _thinking
+
+        # sglang locates the attached images/videos by scanning the rendered
+        # prompt for the model's own media token, so the template has to be
+        # given content *parts* - string content renders a prompt with no
+        # placeholder and the media are dropped without a word (#11621).
+        media_dicts = attach_media_parts(
+            messages_dicts, len(request.Images), len(request.Videos)
+        )
+        if media_dicts is not None:
+            try:
+                return self.tokenizer.apply_chat_template(media_dicts, **template_kwargs)
+            except Exception as e:
+                # A text-only template cannot iterate content parts; fall
+                # through to the text-only prompt instead of failing.
+                print(
+                    f"chat template rejected multimodal content parts: {e!r}",
+                    file=sys.stderr,
+                )
+
+        try:
+            return self.tokenizer.apply_chat_template(messages_dicts, **template_kwargs)
+        except TypeError:
+            return self.tokenizer.apply_chat_template(
+                messages_dicts, tokenize=False, add_generation_prompt=True,
+            )
+
+    def _new_reasoning_parser(self, stream_reasoning: bool, prompt: str = "",
+                              grammar_constrained: bool = False):
+        """Build a ReasoningParser for one request, or None.
+
+        Reasoning templates come in two flavours. Some let the model emit the
+        opening tag, others put it into the *prompt* — Qwen3's template appends
+        ``<think>`` when thinking is on, so the completion starts straight in
+        the reasoning block and only the closing ``</think>`` ever shows up.
+        sglang's detector keys off the opening tag, so in that second case it
+        classifies the whole completion as normal content and
+        ``reasoning_content`` stays empty.
+
+        sglang's own OpenAI server covers this with
+        ``template_manager.force_reasoning``; this backend has no template
+        manager, so it derives the same signal from the rendered prompt.
+        ``force_reasoning`` is only passed when we mean True, leaving detector
+        defaults (e.g. DeepSeek-R1's built-in True) untouched.
+
+        ``grammar_constrained`` suppresses the prefill heuristic. A structured
+        decoding constraint applies from the first token, so the model cannot
+        emit the closing tag even though the template opened the block: the
+        whole completion is schema output and belongs in ``content``. Forcing
+        there files the answer as reasoning and leaves content empty. sglang's
+        own server keeps the two apart for the same reason — its grammar
+        backend owns the reasoning prefix when a reasoning parser is set.
+
+        Returns a ``(parser, forced)`` pair. ``forced`` is also the signal
+        ``_predict`` passes as ``Engine.async_generate(require_reasoning=...)``:
+        sglang's own OpenAI server derives that flag from per-template
+        config (``ChatServing._get_reasoning_from_request``); this backend
+        has no template manager, so the same prompt-suffix heuristic that
+        already decides parser forcing doubles as that signal.
+        """
+        if grammar_constrained:
+            prompt = ""
+
+        if not (HAS_REASONING_PARSERS and self.reasoning_parser_name):
+            return None, False
+
+        kwargs = {
+            "model_type": self.reasoning_parser_name,
+            "stream_reasoning": stream_reasoning,
+        }
+        try:
+            parser = ReasoningParser(**kwargs)
+        except Exception as e:
+            print(f"ReasoningParser init failed: {e!r}", file=sys.stderr)
+            return None, False
+
+        forced = False
+        start = getattr(getattr(parser, "detector", None), "think_start_token", None)
+        if start and prompt and prompt.rstrip().endswith(start):
+            forced = True
+            try:
+                parser = ReasoningParser(force_reasoning=True, **kwargs)
+            except TypeError:
+                # sglang without the force_reasoning kwarg: keep the default
+                # parser rather than failing the request.
+                pass
+            except Exception as e:
+                print(
+                    f"ReasoningParser(force_reasoning=True) failed: {e!r}",
+                    file=sys.stderr,
+                )
+
+        return parser, forced
+
+    def _make_parsers(self, request, prompt: str = ""):
+        """Construct fresh per-request parser instances (stateful).
+
+        Also returns ``require_reasoning`` (see ``_new_reasoning_parser``),
+        which ``_predict`` forwards to ``Engine.async_generate()`` so
+        sglang's ``--enable-strict-thinking`` grammar backend knows this
+        request is in a reasoning block.
+        """
+        tool_parser = None
+
+        if HAS_TOOL_PARSERS and self.tool_parser_name and request.Tools:
+            try:
+                tools_raw = json.loads(request.Tools)
+                tools = [SglTool.model_validate(t) for t in tools_raw] if SglTool else tools_raw
+                tool_parser = FunctionCallParser(
+                    tools=tools, tool_call_parser=self.tool_parser_name,
+                )
+            except Exception as e:
+                print(f"FunctionCallParser init failed: {e!r}", file=sys.stderr)
+
+        reasoning_parser, require_reasoning = self._new_reasoning_parser(
+            True, prompt, bool(getattr(request, "Grammar", "")),
+        )
+
+        return tool_parser, reasoning_parser, require_reasoning
+
+    async def _predict(self, request, context, streaming: bool = False):
+        sampling_params = self._build_sampling_params(request)
+        prompt = self._build_prompt(request)
+
+        tool_parser, reasoning_parser, require_reasoning = self._make_parsers(request, prompt)
+
+        image_data = list(request.Images) if request.Images else None
+        video_data = list(request.Videos) if request.Videos else None
+
+        # Kick off streaming generation. We always use stream=True so the
+        # non-stream path still gets parser coverage on the final text.
+        generate_kwargs = {}
+        if _ASYNC_GENERATE_HAS_REQUIRE_REASONING:
+            generate_kwargs["require_reasoning"] = require_reasoning
+
+        try:
+            iterator = await self.llm.async_generate(
+                prompt=prompt,
+                sampling_params=sampling_params,
+                image_data=image_data,
+                video_data=video_data,
+                stream=True,
+                **generate_kwargs,
+            )
+        except Exception as e:
+            print(f"sglang async_generate failed: {e!r}", file=sys.stderr)
+            yield backend_pb2.Reply(message=bytes(f"error: {e!r}", "utf-8"))
+            return
+
+        generated_text = ""
+        last_chunk: Optional[dict] = None
+        # Track tool call ids once per (request, tool_index) to match the
+        # OpenAI streaming contract (id sent on first chunk for that tool).
+        tool_ids_seen: Dict[int, str] = {}
+
+        try:
+            async for chunk in iterator:
+                last_chunk = chunk
+                cumulative = chunk.get("text", "") if isinstance(chunk, dict) else ""
+                delta_text = cumulative[len(generated_text):] if cumulative.startswith(generated_text) else cumulative
+                generated_text = cumulative
+                if not delta_text:
+                    continue
+
+                reasoning_delta = ""
+                content_delta = delta_text
+
+                if reasoning_parser is not None:
+                    try:
+                        r, n = reasoning_parser.parse_stream_chunk(delta_text)
+                        reasoning_delta = r or ""
+                        content_delta = n or ""
+                    except Exception as e:
+                        print(f"reasoning_parser.parse_stream_chunk: {e!r}", file=sys.stderr)
+
+                tool_call_deltas: List[backend_pb2.ToolCallDelta] = []
+                if tool_parser is not None and content_delta:
+                    try:
+                        normal_text, calls = tool_parser.parse_stream_chunk(content_delta)
+                        content_delta = normal_text or ""
+                        for tc in calls:
+                            idx = int(getattr(tc, "tool_index", 0) or 0)
+                            tc_id = tool_ids_seen.get(idx)
+                            if tc_id is None:
+                                tc_id = f"call_{uuid.uuid4().hex[:24]}"
+                                tool_ids_seen[idx] = tc_id
+                            tool_call_deltas.append(backend_pb2.ToolCallDelta(
+                                index=idx,
+                                id=tc_id,
+                                name=getattr(tc, "name", "") or "",
+                                arguments=getattr(tc, "parameters", "") or "",
+                            ))
+                    except Exception as e:
+                        print(f"tool_parser.parse_stream_chunk: {e!r}", file=sys.stderr)
+
+                if streaming and (content_delta or reasoning_delta or tool_call_deltas):
+                    yield backend_pb2.Reply(
+                        message=bytes(content_delta, "utf-8"),
+                        chat_deltas=[backend_pb2.ChatDelta(
+                            content=content_delta,
+                            reasoning_content=reasoning_delta,
+                            tool_calls=tool_call_deltas,
+                        )],
+                    )
+        finally:
+            try:
+                await iterator.aclose()
+            except Exception:
+                pass
+
+        # Extract token counts from the final chunk's meta_info.
+        meta = {}
+        if isinstance(last_chunk, dict):
+            meta = last_chunk.get("meta_info") or {}
+        prompt_tokens = int(meta.get("prompt_tokens", 0) or 0)
+        completion_tokens = int(meta.get("completion_tokens", 0) or 0)
+
+        # Non-streaming path: re-parse the full text with fresh parsers
+        # so we return a clean, complete ChatDelta. Streaming parsers
+        # used above have accumulated state we don't want to reuse.
+        final_content = generated_text
+        final_reasoning = ""
+        final_tool_calls: List[backend_pb2.ToolCallDelta] = []
+
+        if not streaming:
+            final_reasoning_parser, _ = self._new_reasoning_parser(
+                False, prompt, bool(getattr(request, "Grammar", "")),
+            )
+
+            if final_reasoning_parser is not None:
+                try:
+                    r, n = final_reasoning_parser.parse_non_stream(generated_text)
+                    final_reasoning = r or ""
+                    final_content = n if n is not None else generated_text
+                except Exception as e:
+                    print(f"reasoning_parser.parse_non_stream: {e!r}", file=sys.stderr)
+
+            if HAS_TOOL_PARSERS and self.tool_parser_name and request.Tools:
+                try:
+                    tools_raw = json.loads(request.Tools)
+                    tools = [SglTool.model_validate(t) for t in tools_raw] if SglTool else tools_raw
+                    fresh_tool_parser = FunctionCallParser(
+                        tools=tools, tool_call_parser=self.tool_parser_name,
+                    )
+                    normal, calls = fresh_tool_parser.parse_non_stream(final_content)
+                    if calls:
+                        final_content = normal
+                    for tc in calls:
+                        idx = int(getattr(tc, "tool_index", 0) or 0)
+                        final_tool_calls.append(backend_pb2.ToolCallDelta(
+                            index=idx,
+                            id=f"call_{uuid.uuid4().hex[:24]}",
+                            name=getattr(tc, "name", "") or "",
+                            arguments=getattr(tc, "parameters", "") or "",
+                        ))
+                except Exception as e:
+                    print(f"tool_parser.parse_non_stream: {e!r}", file=sys.stderr)
+
+        chat_delta = backend_pb2.ChatDelta(
+            content=final_content if not streaming else "",
+            reasoning_content=final_reasoning,
+            tool_calls=final_tool_calls,
+        )
+
+        if streaming:
+            yield backend_pb2.Reply(
+                message=b"",
+                prompt_tokens=prompt_tokens,
+                tokens=completion_tokens,
+                chat_deltas=[chat_delta],
+            )
+            return
+
+        yield backend_pb2.Reply(
+            message=bytes(final_content or "", "utf-8"),
+            prompt_tokens=prompt_tokens,
+            tokens=completion_tokens,
+            chat_deltas=[chat_delta],
+        )
+
+
+async def serve(address):
+    server = grpc.aio.server(
+        migration_thread_pool=futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
+        options=[
+            ('grpc.max_message_length', 50 * 1024 * 1024),
+            ('grpc.max_send_message_length', 50 * 1024 * 1024),
+            ('grpc.max_receive_message_length', 50 * 1024 * 1024),
+        ],
+        interceptors=get_auth_interceptors(aio=True),
+    )
+    backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
+    server.add_insecure_port(address)
+
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.ensure_future(server.stop(5)))
+
+    await server.start()
+    print("Server started. Listening on: " + address, file=sys.stderr)
+    await server.wait_for_termination()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run the sglang gRPC server.")
+    parser.add_argument(
+        "--addr", default="localhost:50051", help="The address to bind the server to.",
+    )
+    args = parser.parse_args()
+    asyncio.run(serve(args.addr))

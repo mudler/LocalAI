@@ -1,0 +1,246 @@
+// Package workfiles is the one place that knows a chat's working files: the
+// scripts, helper code, intermediate data, logs and drafts that a chat makes
+// on the way to what the user asked for. It names the work folder of a chat,
+// tells a working file from a deliverable by its path, and holds the text
+// that steers the model to put working files in that folder. The chat's file
+// list, the cards of its steps and the tool descriptions all read it, so the
+// interface and the model never disagree on what a working file is.
+package workfiles
+
+import (
+	"path"
+	"strings"
+)
+
+// Folder names. ChatsDir, PagesDir and SettingsDir are the folders of the
+// home that the session and the pages define; tests keep them equal.
+const (
+	// ChatsDir holds one folder per chat.
+	ChatsDir = "Chats"
+	// Dir is the work folder inside a chat folder: Chats/<chat>/work.
+	Dir = "work"
+	// PagesDir holds the user's pages, which are deliverables, code included.
+	PagesDir = "pages"
+	// SettingsDir holds the settings files LocalAI reads.
+	SettingsDir = "LocalAI"
+)
+
+// The kinds of a file.
+const (
+	// Deliverable is what the user asked for, or a file of theirs.
+	Deliverable = "deliverable"
+	// Working is a file the chat made on the way: a script, a log, a draft.
+	Working = "working"
+)
+
+// guestHome is the home folder as the model's tools see it, and
+// guestSharedPrefix the start of a shared folder there.
+// guestChat is the chat folder of a scoped chat, a mount of its own.
+const (
+	guestHome         = "/workspace/home"
+	guestSharedPrefix = "/workspace/shared-"
+	guestChat         = "/workspace/chat"
+)
+
+// ChatGuestFolder is the work folder of a scoped chat as the model's tools
+// see it: the work folder of the chat folder, mounted at /workspace/chat.
+const ChatGuestFolder = guestChat + "/" + Dir + "/"
+
+// helperExts are the extensions of scripts, logs and temporary files.
+var helperExts = map[string]bool{
+	".py": true, ".sh": true, ".js": true, ".ts": true, ".mjs": true, ".rb": true,
+	".pl": true, ".ps1": true, ".bat": true, ".log": true, ".tmp": true,
+}
+
+// resultExts are the extensions of files that a person opens: images, office
+// documents, PDF, audio and video. A script saves such a file with a bare
+// name, and a command starts in the work folder, so the file lands there.
+// It is the result, whatever folder it is in. Text, data and code stay what
+// the folder says: a script's helper output is not a result.
+var resultExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".avif": true, ".bmp": true,
+	".pdf": true, ".docx": true, ".xlsx": true, ".xlsm": true, ".pptx": true,
+	".mp3": true, ".wav": true, ".ogg": true, ".oga": true, ".m4a": true, ".flac": true, ".opus": true,
+	".mp4": true, ".webm": true, ".mov": true, ".m4v": true,
+}
+
+// helperDirs are folder names that hold helper files, in any case.
+var helperDirs = map[string]bool{"scripts": true, "tmp": true, "scratch": true}
+
+// Folder returns the work folder of a chat as a path of the home ("/" is the
+// home), or "" when the chat has no folder name yet.
+func Folder(chatFolder string) string {
+	if chatFolder == "" {
+		return ""
+	}
+	return "/" + ChatsDir + "/" + chatFolder + "/" + Dir
+}
+
+// GuestFolder is Folder as the model's tools see it, with a final "/".
+func GuestFolder(chatFolder string) string {
+	if chatFolder == "" {
+		return ""
+	}
+	return guestHome + Folder(chatFolder) + "/"
+}
+
+// segments splits a path of the home into its names. A guest path of the
+// home is read as the same path; shared is true for a shared folder, whose
+// files belong to someone's project and are never classified.
+func segments(p string) (segs []string, shared bool) {
+	switch {
+	case strings.HasPrefix(p, guestSharedPrefix):
+		return nil, true
+	case p == guestChat || strings.HasPrefix(p, guestChat+"/"):
+		// The chat folder of a scoped chat: read it as the chat folder in
+		// the home, whatever its name, so its work folder is the work folder.
+		rest := path.Clean("/" + strings.TrimPrefix(p, guestChat))
+		segs = []string{ChatsDir, "chat"}
+		if rest != "/" {
+			segs = append(segs, strings.Split(strings.TrimPrefix(rest, "/"), "/")...)
+		}
+		return segs, false
+	case p == guestHome || strings.HasPrefix(p, guestHome+"/"):
+		p = strings.TrimPrefix(p, guestHome)
+	}
+	p = path.Clean("/" + p)
+	if p == "/" {
+		return nil, false
+	}
+	return strings.Split(strings.TrimPrefix(p, "/"), "/"), false
+}
+
+// inWorkFolder reports whether the names are below the work folder of a chat.
+func inWorkFolder(segs []string) bool {
+	return len(segs) >= 4 && strings.EqualFold(segs[0], ChatsDir) && segs[2] == Dir
+}
+
+// Kind classifies a file by its path: a path of the home ("/report.docx"),
+// a guest path (/workspace/home/..., /workspace/shared-<name>/...). A file
+// below the work folder of any chat is Working, unless it is a result a person
+// opens (an image, an office document, a PDF, audio or video: see resultExts);
+// so is a script, a log or a temporary file by its extension, or a file in a
+// folder named scripts, tmp or scratch. Pages, the settings folder and the shared folders hold
+// deliverables, whatever the files are. Everything else is a Deliverable.
+func Kind(p string) string {
+	segs, shared := segments(p)
+	switch {
+	case shared || len(segs) == 0:
+		return Deliverable
+	case resultExts[strings.ToLower(path.Ext(segs[len(segs)-1]))]:
+		return Deliverable
+	case inWorkFolder(segs):
+		return Working
+	case segs[0] == PagesDir || segs[0] == SettingsDir:
+		return Deliverable
+	}
+	for _, d := range segs[:len(segs)-1] {
+		if helperDirs[strings.ToLower(d)] {
+			return Working
+		}
+	}
+	if helperExts[strings.ToLower(path.Ext(segs[len(segs)-1]))] {
+		return Working
+	}
+	return Deliverable
+}
+
+// Stray reports whether a file looks like a helper (Kind is Working) but is
+// not in a work folder: the chat left a script next to the user's files.
+//
+// A file in a hidden folder (a name that starts with a dot) is never stray:
+// such a folder is where a tool keeps its state, and a script or state file
+// that a trigger reads must stay where it was put.
+func Stray(p string) bool {
+	segs, _ := segments(p)
+	if len(segs) > 1 {
+		for _, d := range segs[:len(segs)-1] {
+			if strings.HasPrefix(d, ".") {
+				return false
+			}
+		}
+	}
+	return Kind(p) == Working && !inWorkFolder(segs)
+}
+
+// ToolHint ends the description of write_file. Tool descriptions are the same
+// for every chat, so it points at the prompt and the note of the turn, which
+// name the folder; with the steering off neither names one and the hint is
+// moot.
+const ToolHint = "Put helper scripts and temp files in the chat's work folder if the prompt or the note names one."
+
+// ShellHint is the part of a shell tool's description (and of the note of a
+// turn) that says where the shell starts and how to name paths in it. The
+// folder is named after the chat's title, which can hold spaces and
+// non-ASCII characters; a model that types such a name out by hand gets it
+// mangled or split by the shell and makes stray folders. The Sandbox add-on
+// has 400 characters for its bash: keep this short.
+const ShellHint = "The shell starts in $WORK, this chat's work folder. Use $WORK or relative paths instead of typing absolute paths. " +
+	"Quote every path with double quotes. Never type out a name with spaces or non-ASCII characters; take it from ls or a glob."
+
+// ShellHintShort is ShellHint in fewer characters, for a description with a
+// hard cap (the Sandbox add-on's bash has 400 characters in all). It says the
+// same four things.
+const ShellHintShort = "Starts in $WORK, the chat's work folder. Use $WORK or relative paths, not typed absolute ones. Double-quote every path. " +
+	"Never type a name with spaces or non-ASCII characters; take it from ls or a glob."
+
+// Prompt is the block of the system prompt that says what goes in the work
+// folder of a chat. It names no folder: the folder is named after the chat's
+// title, and a path in the system prompt would make it differ between chats,
+// so a backend could not reuse its cached prompt (the tools come after the
+// system prompt) and would read the tool definitions again for each new chat.
+// Note names the folder in the note of every turn instead.
+const Prompt = "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
+	"which the note at the start of the user's message names. The shell starts there and $WORK holds it: use $WORK or relative paths, in double quotes, in shell commands. " +
+	"Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. " +
+	"Never create new top-level folders in the home for scripts. A command you run once needs no file: use python3 -c or a heredoc. " +
+	"Pages (" + guestHome + "/" + PagesDir + "/<name>/) and " + guestHome + "/" + SettingsDir + "/ are deliverables: keep them where they are."
+
+// Note is the line of a turn's note that names the work folder of a chat
+// (guest path, ending in "/"), for the chats whose prompt is Prompt. The path
+// stays literal because the file tools take guest paths; the shell gets it as
+// $WORK, and the line tells the model to use that there.
+func Note(guestFolder string) string {
+	return NoteFolder(guestFolder) + " " + ShellHint
+}
+
+// NoteFolder is Note without ShellHint, for a turn whose note has little room:
+// the session cuts a sub-agent's note at 400 characters, and the prompt block
+// and the tool descriptions of a sub-agent already say how to name paths.
+func NoteFolder(guestFolder string) string {
+	return "This chat's work folder is \"" + guestFolder + "\"; file tools take that path."
+}
+
+// ScopedPrompt is Prompt for a chat whose agent has a folder: the work
+// folder is ChatGuestFolder, the deliverables go in the agent's folder when
+// it may be written, else in the chat folder, and nothing is said of pages or
+// of the settings folder, which are outside the agent's folder.
+func ScopedPrompt(homeWritable bool) string {
+	deliver := "Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. "
+	if !homeWritable {
+		deliver = guestHome + "/ is read only: save the deliverable the user asked for (the document, the spreadsheet, the image) in " + guestChat + "/. "
+	}
+	return "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
+		ChatGuestFolder + ". The shell starts there and $WORK holds it: use $WORK or relative paths, in double quotes, in shell commands. " + deliver +
+		"Never create new top-level folders for scripts. A command you run once needs no file: use python3 -c or a heredoc."
+}
+
+// Nudge is the line a tool result gets when the call left a helper file
+// outside the work folder (guest path, ending in "/").
+//
+// The work folder of a scoped chat is /workspace/chat/work, and every
+// trigger run starts a new chat with an empty /workspace/chat. The line says
+// so, so that a script or a state file that a trigger will use is not moved
+// out of reach.
+func Nudge(guestFolder, file string) string {
+	line := "Note: " + file + " looks like a helper file; helper files belong in " + guestFolder + ". Consider moving it there unless the user asked for it here."
+	if strings.HasPrefix(guestFolder, guestChat+"/") {
+		line += " Exception: " + TriggerFileRule
+	}
+	return line
+}
+
+// TriggerFileRule tells the model where a file that a trigger uses must live.
+// The trigger tool descriptions and the helper-file note share it.
+const TriggerFileRule = "a script or a state file that a trigger will run or keep state in must live under " + guestHome +
+	", never under " + guestChat + ": every trigger run starts a new chat with its own empty " + guestChat + "."

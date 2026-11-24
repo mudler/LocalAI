@@ -1,0 +1,36 @@
+# Run the relay as a systemd service, without Docker.
+#
+# 1. Copy this file to /etc/systemd/system/localai-relay.service.
+# 2. Install the binary: `local-ai` (this unit runs `local-ai p2p relay`), or
+#    the small `localai-relay` binary (then change ExecStart).
+# 3. Optional: put the admins and the public address in /etc/default/localai-relay:
+#      LOCALAI_RELAY_ADMINS=12D3KooW...,12D3KooW...
+#      LOCALAI_RELAY_PUBLIC_IP=203.0.113.10
+# 4. systemctl daemon-reload && systemctl enable --now localai-relay
+# 5. journalctl -u localai-relay | grep -E 'RELAY_ADDR|CLAIM_CODE'
+[Unit]
+Description=LocalAI P2P relay (gated)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=-/etc/default/localai-relay
+ExecStart=/usr/local/bin/local-ai p2p relay --data-dir /var/lib/localai-relay --port 4001
+DynamicUser=yes
+StateDirectory=localai-relay
+StateDirectoryMode=0700
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+CapabilityBoundingSet=
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

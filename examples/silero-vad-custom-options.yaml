@@ -1,0 +1,6 @@
+name: silero-vad
+backend: silero-vad
+options:
+  - threshold:0.55
+  - min_silence_duration_ms:50
+  - speech_pad_ms:450

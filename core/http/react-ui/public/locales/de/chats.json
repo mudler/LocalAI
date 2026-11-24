@@ -1,0 +1,1632 @@
+{
+  "proposal": {
+    "loading": "Der vorgeschlagene Trigger wird gelesen ...",
+    "unread": "Der vorgeschlagene Trigger konnte nicht gelesen werden: {{message}}",
+    "removed": "Dieser Trigger wurde entfernt.",
+    "retry": "Erneut versuchen",
+    "inactive": "Vorgeschlagener Trigger. Er führt nichts aus, bis du ihn erstellst.",
+    "name": "Name",
+    "schedule": "Wann (zum Beispiel daily 08:00)",
+    "folder": "Zu überwachender Ordner",
+    "saveEdit": "Speichern",
+    "cancelEdit": "Abbrechen",
+    "create": "Trigger erstellen",
+    "edit": "Bearbeiten",
+    "dismiss": "Ablehnen",
+    "receipt": {
+      "scheduled": "Geplant:",
+      "watching": "Überwacht:",
+      "next": "Nächster Lauf {{when}}",
+      "view": "Trigger ansehen",
+      "undo": "Rückgängig",
+      "undone": "Rückgängig gemacht:",
+      "again": "Erneut planen",
+      "declined": "Abgelehnt:",
+      "expired": "Abgelaufen:",
+      "restore": "Wiederherstellen",
+      "blocked": {
+        "ran": "Er ist schon einmal gelaufen; entferne ihn auf der Seite Trigger.",
+        "edited": "Du hast ihn seitdem bearbeitet; ändere oder entferne ihn auf der Seite Trigger."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} geplant.",
+      "undone": "{{name}} rückgängig gemacht. Er ist nicht geplant.",
+      "declined": "{{name}} abgelehnt.",
+      "reopened": "{{name}} wartet wieder auf deine Antwort."
+    },
+    "plan": {
+      "whenLabel": "Wann",
+      "runsAsLabel": "Läuft als",
+      "readsLabel": "Liest",
+      "writesLabel": "Schreibt",
+      "costLabel": "Kosten",
+      "deliveryLabel": "Ergebnisse gehen an",
+      "deliveryInbox": "Dein Posteingang",
+      "deliveryChat": "Dieser Chat",
+      "deliveryThread": "Dieser Thread",
+      "deliveryChannel": "{{channel}}, oben im Kanal",
+      "deliveryChannelIn": "{{channel}} in {{connection}}, oben im Kanal",
+      "deliveryModeOnChange": "Nur wenn sich die Antwort vom vorigen Lauf unterscheidet.",
+      "deliveryModeOnProblem": "Nur wenn ein Lauf fehlschlägt. Ein Lauf, der gelingt, meldet nichts.",
+      "stopLabel": "Zum Beenden",
+      "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Wenn eine Datei in {{folder}} ankommt.",
+      "runsAs": "Du",
+      "runsAsModel": "Du, mit {{model}}",
+      "writesWidget": ", angezeigt im Widget „{{widget}}“ auf der Startseite",
+      "costLocal_one": "Etwa {{tokens}} Tokens pro Lauf auf einem lokalen Modell. Höchstens {{count}} Lauf pro Tag.",
+      "costLocal_other": "Etwa {{tokens}} Tokens pro Lauf auf einem lokalen Modell. Höchstens {{count}} Läufe pro Tag.",
+      "costRemote_one": "Etwa {{tokens}} Tokens pro Lauf auf {{model}}, einem entfernten Dienst. Höchstens {{count}} Lauf pro Tag.",
+      "costRemote_other": "Etwa {{tokens}} Tokens pro Lauf auf {{model}}, einem entfernten Dienst. Höchstens {{count}} Läufe pro Tag.",
+      "costUnknown_one": "Die Tokens eines Laufs sind nach dem ersten Lauf bekannt. Höchstens {{count}} Lauf pro Tag.",
+      "costUnknown_other": "Die Tokens eines Laufs sind nach dem ersten Lauf bekannt. Höchstens {{count}} Läufe pro Tag.",
+      "remoteNote": "{{model}} ist ein entfernter Dienst: Was ein Lauf liest, verlässt diesen Server.",
+      "stopWidget": "Pausiere ihn im Widget oder lösche ihn unter Trigger",
+      "stop": "Schalte ihn aus oder lösche ihn unter Trigger",
+      "actsLabel": "Berechtigungen",
+      "limitLabel": "Zeitlimit",
+      "limitClamped": "{{limit}}, vom Administrator auf {{ceiling}} gekürzt"
+    }
+  },
+  "mcpPage": {
+    "title": "MCP-Konnektoren",
+    "supporting": "Verbinden Sie MCP-Server, um Ihren Chats und Agenten mehr Werkzeuge zu geben, etwa Suche oder Ihre eigenen APIs.",
+    "related": "Verwandt",
+    "chats": "Chats",
+    "add": "Neuer Konnektor",
+    "learn": "So funktioniert MCP",
+    "loading": "Ihre Konnektoren werden geladen",
+    "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
+    "forbidden": "MCP ist für Ihr Konto nicht verfügbar.",
+    "empty": {
+      "title": "Noch keine Konnektoren",
+      "body": "Ein Konnektor verbindet einen MCP-Server mit LocalAI. Ihre Chats und Agenten können dann seine Werkzeuge nutzen, zum Beispiel um Ihre Dokumentation zu durchsuchen oder einen Kalender zu lesen.",
+      "fact1": "Jeder MCP-Server über http oder https",
+      "fact2": "Tokens und Header verschlüsselt gespeichert",
+      "fact3": "Testen, bevor Chats ihn nutzen"
+    },
+    "toolbar": {
+      "search": "Konnektoren suchen",
+      "testAll": "Alle testen",
+      "testingAll": "Wird getestet",
+      "testedAll": "Die eingeschalteten Konnektoren wurden getestet."
+    },
+    "filter": {
+      "label": "Anzeigen",
+      "all": "Alle",
+      "on": "Ein",
+      "attention": "Prüfen",
+      "off": "Aus",
+      "showAll": "Alle anzeigen",
+      "none": {
+        "all": "Keine Konnektoren.",
+        "on": "Kein Konnektor ist eingeschaltet.",
+        "attention": "Nichts braucht Ihre Aufmerksamkeit.",
+        "off": "Alle Konnektoren sind eingeschaltet."
+      }
+    },
+    "noMatch": {
+      "title": "Kein Konnektor passt zu „{{query}}“",
+      "body": "Suchen Sie nach Name oder Adresse.",
+      "clear": "Suche löschen"
+    },
+    "state": {
+      "label": "Status: {{state}}",
+      "ok": "Verbunden",
+      "auth": "Anmeldung nötig",
+      "error": "Keine Verbindung",
+      "unchecked": "Nicht getestet",
+      "off": "Aus"
+    },
+    "row": {
+      "open": "{{name}}, {{state}}. Details anzeigen",
+      "toggle": "{{name}} in Chats verwenden",
+      "menu": "Aktionen für {{name}}",
+      "offLine": "Aus. Chats und Agenten verwenden ihn nicht.",
+      "notChecked": "Noch nicht getestet. Testen Sie ihn, um seine Werkzeuge zu sehen.",
+      "noTools": "Verbunden, aber der Server bietet keine Werkzeuge.",
+      "tools_one": "{{count}} Werkzeug",
+      "tools_other": "{{count}} Werkzeuge",
+      "checked": "Getestet {{when}}",
+      "tokenSaved": "Token gespeichert",
+      "headersSaved": "Header gespeichert",
+      "envSaved": "Variablen gespeichert"
+    },
+    "actions": {
+      "details": "Details",
+      "test": "Verbindung testen",
+      "testNamed": "Verbindung zu {{name}} testen",
+      "testing": "Wird getestet",
+      "edit": "Bearbeiten",
+      "reauth": "Token ersetzen",
+      "remove": "Entfernen"
+    },
+    "details": {
+      "use": "In Chats verwenden",
+      "useHelp": "Chats ohne Agent verwenden jeden eingeschalteten Konnektor. Ein gespeicherter Agent verwendet nur die, die Sie für ihn auswählen.",
+      "lastCheck": "Letzter Test",
+      "never": "In diesem Browser noch nicht getestet.",
+      "okAt": "Verbunden {{when}}.",
+      "testedAt": "Getestet {{when}}.",
+      "errorTitle": "Der letzte Test konnte keine Verbindung herstellen.",
+      "authTitle": "Der Server hat die Anmeldung abgelehnt.",
+      "output": "Letzte Ausgabe des Befehls",
+      "outputCopy": "Kopieren",
+      "outputCopied": "Kopiert",
+      "outputMore": "Alle {{count}} Zeilen anzeigen",
+      "outputLess": "Weniger anzeigen",
+      "tools": "Werkzeuge",
+      "toolsUnknown": "Testen Sie die Verbindung, um die Werkzeuge zu sehen.",
+      "toolsNone": "Der Server bietet keine Werkzeuge.",
+      "toolsSearch": "Werkzeuge suchen",
+      "noToolMatch": "Kein Werkzeug passt zu „{{query}}“.",
+      "noDescription": "Keine Beschreibung.",
+      "connection": "Verbindung",
+      "kind": "Art",
+      "address": "Adresse",
+      "command": "Befehl",
+      "added": "Hinzugefügt",
+      "queryHidden": "Der Teil der Adresse nach ? ist ausgeblendet, weil er einen Schlüssel enthalten kann.",
+      "signIn": "Anmeldung",
+      "token": "Bearer-Token",
+      "headers": "Header",
+      "env": "Variablen",
+      "saved": "Gespeichert",
+      "none": "Keine",
+      "encrypted": "Verschlüsselt auf dem Server gespeichert. Wird nie wieder angezeigt."
+    },
+    "sheet": {
+      "addTitle": "Neuer Konnektor",
+      "editTitle": "{{name}} bearbeiten",
+      "addDesc": "Verbinden Sie einen MCP-Server. Sie testen ihn, bevor Chats ihn verwenden.",
+      "editDesc": "Gespeicherte Geheimnisse bleiben, außer Sie ersetzen oder entfernen sie.",
+      "testDesc": "LocalAI verbindet sich mit dem Gespeicherten und listet die Werkzeuge auf.",
+      "close": "Schließen",
+      "kind": "Art",
+      "remote": "Entfernter Server",
+      "remoteHelp": "Ein MCP-Server, den dieser Rechner über http oder https erreicht.",
+      "local": "Lokaler Befehl",
+      "localHelp": "Ein Programm, das LocalAI auf diesem Rechner startet. Nur für Administratoren.",
+      "basics": "Verbindung",
+      "name": "Name",
+      "nameHelp": "Erscheint im Werkzeuge-Menü eines Chats.",
+      "url": "Adresse",
+      "urlHelp": "Server in einem privaten Netz werden abgelehnt, außer ein Administrator erlaubt sie.",
+      "command": "Befehl",
+      "commandHelp": "Das zu startende Programm, ohne Shell.",
+      "args": "Argumente",
+      "argsHelp": "Ein Argument pro Zeile.",
+      "signIn": "Anmeldung",
+      "signInHelp": "Nur wenn der Server einen Schlüssel verlangt.",
+      "envIntro": "Variablen, die der Befehl erhält, zum Beispiel ein API-Schlüssel.",
+      "token": "Bearer-Token",
+      "tokenHelp": "Wird als Authorization-Header gesendet.",
+      "tokenSaved": "Ein Token ist gespeichert. Geben Sie ein neues ein, um es zu ersetzen.",
+      "tokenSavedShort": "Gespeichert",
+      "clearToken": "Gespeichertes Token entfernen",
+      "headers": "Header",
+      "headersHelp": "Weitere Header, die der Server braucht, etwa ein Header mit API-Schlüssel.",
+      "headersSaved": "Header sind gespeichert. Neue Zeilen ersetzen alle.",
+      "clearHeaders": "Gespeicherte Header entfernen",
+      "headerName": "Header-Name",
+      "headerValue": "Wert",
+      "addHeader": "Header hinzufügen",
+      "env": "Umgebungsvariablen",
+      "envSaved": "Variablen sind gespeichert. Neue Zeilen ersetzen alle.",
+      "clearEnv": "Gespeicherte Variablen entfernen",
+      "envName": "Variable",
+      "addEnv": "Variable hinzufügen",
+      "removeRow": "Zeile {{n}} entfernen",
+      "showValue": "Wert anzeigen",
+      "hideValue": "Wert ausblenden",
+      "encrypted": "Tokens, Header und Variablen werden verschlüsselt auf dem Server gespeichert und nie wieder angezeigt.",
+      "cancel": "Abbrechen",
+      "saving": "Wird gespeichert",
+      "saveAndTest": "Speichern und testen",
+      "savedOn": "Gespeichert. Er ist eingeschaltet.",
+      "savedOff": "Gespeichert. Er bleibt aus, bis Sie ihn einschalten.",
+      "testing": "Verbindung zu {{name}} wird hergestellt…",
+      "okTitle": "Verbunden.",
+      "okBody_one": "{{name}} bietet {{count}} Werkzeug.",
+      "okBody_other": "{{name}} bietet {{count}} Werkzeuge.",
+      "okNoTools": "Der Server bietet keine Werkzeuge.",
+      "failTitle": "Keine Verbindung möglich.",
+      "failHint": "Prüfen Sie die Adresse und testen Sie erneut.",
+      "failAuth": "Prüfen Sie das Token oder die Header.",
+      "back": "Angaben bearbeiten",
+      "retry": "Erneut testen",
+      "done": "Fertig",
+      "keepOff": "Ausgeschaltet lassen",
+      "turnOn": "Einschalten",
+      "discardTitle": "Änderungen verwerfen?",
+      "discardBody": "Was Sie in dieses Formular eingegeben haben, geht verloren.",
+      "discard": "Verwerfen",
+      "keepEditing": "Weiter bearbeiten"
+    },
+    "errors": {
+      "nameRequired": "Geben Sie einen Namen ein.",
+      "nameTaken": "Ein anderer Konnektor hat diesen Namen.",
+      "urlRequired": "Geben Sie die Adresse des Servers ein.",
+      "urlInvalid": "Das ist keine gültige Adresse.",
+      "urlScheme": "Die Adresse muss mit http:// oder https:// beginnen.",
+      "urlCredentials": "Zugangsdaten gehören in das Token oder einen Header, nicht in die Adresse.",
+      "commandRequired": "Geben Sie den zu startenden Befehl ein."
+    },
+    "remove": {
+      "title": "{{name}} entfernen?",
+      "body": "Der Konnektor wird mit seinem gespeicherten Token, seinen Headern und Variablen gelöscht. Ein gespeicherter Agent, der ihn verwendet, kann seine Werkzeuge nicht mehr aufrufen.",
+      "confirm": "Entfernen",
+      "pending": "Wird entfernt"
+    },
+    "toasts": {
+      "removed": "„{{name}}“ entfernt.",
+      "on": "„{{name}}“ ist eingeschaltet.",
+      "off": "„{{name}}“ ist ausgeschaltet."
+    },
+    "import": {
+      "title": "In diesem Browser gespeicherte Server",
+      "text": "Die alte Chat-Seite hat diese MCP-Server in diesem Browser gespeichert. Importieren Sie sie, um sie auf dem Server zu behalten, wo jeder Browser und jede Sitzung sie nutzen kann. Sie werden ausgeschaltet angelegt. Ihre Tokens und Header gehen an den Server und werden dann aus diesem Browser entfernt.",
+      "button": "{{count}} Server aus diesem Browser importieren",
+      "buttonOne": "1 Server aus diesem Browser importieren",
+      "busy": "Wird importiert",
+      "headersCount": "{{count}} Header",
+      "done": "{{count}} importiert. Sie sind ausgeschaltet: Testen und schalten Sie sie unten ein.",
+      "failed": "{{name}} wurde nicht importiert: {{error}}",
+      "left": "Die nicht importierten Server bleiben in diesem Browser."
+    }
+  },
+  "connectorsPage": {
+    "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
+    "waitingTitle": "Warten auf ihr Add-on",
+    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist.",
+    "oauth": {
+      "connected": "Verbunden",
+      "connectedAs": "Verbunden als {{account}}",
+      "access": "Zugriff: {{scopes}}",
+      "expires": "Läuft ab {{time}}",
+      "disconnect": "Trennen",
+      "disconnecting": "Wird getrennt…",
+      "disconnectTitle": "{{name}} trennen?",
+      "disconnectText": "LocalAI bittet den Dienst, diese Anmeldung zu widerrufen, und vergisst sie dann. Werkzeuge, die diese Verbindung nutzen, funktionieren erst wieder, wenn du dich erneut verbindest.",
+      "disconnected": "{{name}} ist getrennt. Der Dienst hat die Anmeldung widerrufen.",
+      "disconnectedNotTold": "{{name}} ist hier getrennt, aber der Dienst hat den Widerruf der Anmeldung nicht bestätigt. Entferne den Zugriff auch in deinem Konto beim Dienst.",
+      "notConnected": "Noch nicht verbunden.",
+      "connect": "Verbinden",
+      "alsoAllow": "Außerdem erlauben:",
+      "reconnectTitle": "Erneut verbinden.",
+      "reconnect": "Neu verbinden",
+      "reason": {
+        "revoked": "Der Dienst hat die Anmeldung beendet, oder der Zugriff wurde widerrufen.",
+        "client_rejected": "Der Dienst akzeptiert den Client dieses Servers nicht mehr. Ein Administrator muss ihn eventuell aktualisieren.",
+        "refused": "Der Dienst hat die Erneuerung der Anmeldung abgelehnt.",
+        "needs_approval": "Die Anmeldung dieses Add-ons hat sich geändert und muss erneut genehmigt werden.",
+        "credential_rejected": "Der Dienst hat den Zugriff abgelehnt, auch nach einer Erneuerung.",
+        "expired": "Die Anmeldung ist abgelaufen und kann nicht erneuert werden.",
+        "write_failed": "Die erneuerte Anmeldung konnte nicht gespeichert werden.",
+        "unreadable": "Die gespeicherte Anmeldung konnte nicht gelesen werden.",
+        "unknown": "Die Anmeldung funktioniert nicht mehr.",
+        "scopes_missing": "Der Dienst gewährt nicht mehr den ganzen Zugriff, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn.",
+        "endpoint_changed": "Das Add-on sendet Anmeldungen jetzt an eine andere Adresse des Dienstes, daher kann diese Anmeldung nicht mitgenommen werden. Verbinde dich erneut.",
+        "token_too_large": "Der Dienst hat die Anmeldung mit einem Zugriffstoken erneuert, das größer ist, als LocalAI verwenden kann (4096 Bytes)."
+      },
+      "approvalUser": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+      "approvalUserChanged": "Die Anmeldung dieses Add-ons hat sich geändert. Ein Administrator muss sie erneut genehmigen.",
+      "approvalAdmin": "Niemand kann sich verbinden, bis du die Anmeldung dieses Add-ons genehmigst.",
+      "approvalAdminChanged": "Die Anmeldung dieses Add-ons hat sich seit der Genehmigung geändert. Prüfe sie und genehmige sie erneut.",
+      "review": "Prüfen und genehmigen",
+      "returned": {
+        "ok": "Verbunden. Die Verbindung funktioniert jetzt.",
+        "denied": "Du hast beim Dienst abgelehnt. Nichts hat sich geändert.",
+        "error": {
+          "invalid_state": "Die Anmeldung konnte nicht abgeschlossen werden: Sie ist abgelaufen, oder in diesem Browser wurde eine andere Anmeldung gestartet. Verbinde dich erneut.",
+          "provider_error": "Der Dienst hat einen Fehler gemeldet. Versuche es später erneut.",
+          "exchange_failed": "Der Dienst hat die Anmeldung nicht abgeschlossen. Verbinde dich erneut.",
+          "scopes_missing": "Der Dienst hat nicht den ganzen Zugriff gewährt, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn.",
+          "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+          "unknown": "Die Anmeldung konnte nicht abgeschlossen werden. Verbinde dich erneut.",
+          "token_too_large": "Der Dienst hat ein Zugriffstoken ausgestellt, das größer ist, als LocalAI verwenden kann (4096 Bytes), daher wurde die Anmeldung nicht gespeichert. Eine Administratorin oder ein Administrator muss eventuell ändern, wie der Dienst Tokens für diesen Client ausstellt."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht und kann dich daher nicht zum Dienst schicken. Bitte einen Administrator, die externe Basis-URL des Servers festzulegen.",
+        "needsApproval": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+        "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Lade die Seite neu.",
+        "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+        "tooManyLogins": "Es wurden zu viele Anmeldungen gestartet. Schließe die im anderen Tab ab oder warte ein paar Minuten und versuche es erneut."
+      },
+      "add": {
+        "open": "Neue Verbindung",
+        "title": "Neue Verbindung zu {{name}}",
+        "name": "Name",
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Wähle nach dem Hinzufügen Verbinden, um dich bei deinem Konto anzumelden.",
+        "cancel": "Abbrechen",
+        "submit": "Hinzufügen",
+        "failed": "Die Verbindung konnte nicht hinzugefügt werden. Versuche es erneut.",
+        "added": "{{name}} wurde hinzugefügt. Wähle Verbinden, um dich bei deinem Konto anzumelden.",
+        "empty": "Noch keine Verbindungen. Füge eine hinzu und verbinde dann dein Konto.",
+        "manage": "Verbindungen bearbeiten"
+      },
+      "login": {
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Danach gehst du zum Dienst, um dich anzumelden."
+      }
+    },
+    "duplicate": {
+      "text": "Dieser Bot ist auch als {{name}} verbunden. Beide Verbindungen beantworten dieselbe Nachricht.",
+      "turnOff": "Diese ausschalten",
+      "open": "{{name}} öffnen"
+    },
+    "new": "Neue Verbindung",
+    "newMenu": "Plattform der neuen Verbindung wählen",
+    "state": {
+      "running": "Läuft",
+      "off": "Aus",
+      "attention": "Braucht Aufmerksamkeit"
+    },
+    "share": {
+      "label": "Teilen",
+      "button": "{{name}} teilen",
+      "intro": "Personen, die du hinzufügst, können diese Verbindung in ihren eigenen Chats und Agenten nutzen. Sie sehen ihren Namen und Zustand, nie das Token oder die Einstellungen. Nachrichten an den Bot erreichen weiterhin deinen Agenten.",
+      "roleUse": "Darf nutzen",
+      "roleUseHelp": "Darf sie in eigenen Chats und Agenten nutzen. Kann das Token nicht sehen, sie nicht ändern und nicht teilen."
+    },
+    "shared": {
+      "title": "Mit dir geteilt",
+      "text": "Andere Personen lassen dich diese Verbindungen in deinen Chats und Agenten nutzen. Nur die Eigentümer können sie ändern.",
+      "on": "Hört zu",
+      "off": "Aus"
+    },
+    "title": "Verbindungen",
+    "introAccounts": "Konten, die du einmal verbindest, damit deine Chats und Agenten sie als Werkzeuge nutzen können. Jedes Konto kommt von einem Add-on.",
+    "noAddonAccounts": "Es ist kein Konto-Add-on installiert.",
+    "noAddonAccountsHint": "Ein Konto-Add-on verbindet einen Dienst mit deinen Chats und Agenten. Installiere eines aus der Add-on-Galerie, um eine Verbindung hinzuzufügen.",
+    "noAddonMessaging": "Es ist kein Messaging-Add-on installiert.",
+    "noAddonMessagingHint": "Ein Messaging-Add-on transportiert die Nachrichten einer Chat-Plattform. Installiere eines aus der Add-on-Galerie, um eine Bindung hinzuzufügen."
+  },
+  "tools": {
+    "commands": {
+      "title": "Befehle können hier nicht laufen",
+      "none": "Es ist kein Add-on installiert, das Code ausführt. Der Assistent kann Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
+      "askFix": "Bitte eine Administratorin oder einen Administrator, das zu beheben.",
+      "hide": "Ausblenden",
+      "hideLabel": "Diesen Hinweis ausblenden",
+      "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen.",
+      "hostTitle": "Befehle laufen auf diesem Rechner",
+      "hostChipTitle": "Befehle in diesem Chat laufen auf diesem Rechner, ohne Isolierung. Für Details auswählen.",
+      "providerHost": "Befehle werden ohne Isolation auf dem Server ausgeführt.",
+      "unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt.",
+      "unknownBy": {
+        "owner_unreachable": "Ausführungsbereitschaft oder Isolation ist unbekannt: der Besitzer des Add-ons war nicht erreichbar.",
+        "not_reported": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat seinen Ausführungsstatus nicht gemeldet.",
+        "stale": "Ausführungsbereitschaft oder Isolation ist unbekannt: der Status passte nicht zur aktuellen Version des Add-ons.",
+        "invalid_status": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat einen Status gesendet, den der Host nicht annehmen konnte.",
+        "not_selected": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on führt die Befehle dieses Chats nicht aus.",
+        "no_answer": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat nicht rechtzeitig geantwortet.",
+        "reported_unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat gemeldet, dass es das nicht sagen kann."
+      },
+      "providerUnavailable": "Der ausgewählte Ausführungsanbieter ist nicht verfügbar.",
+      "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet.",
+      "hostOff": {
+        "reason": "Das eingebaute Bash des Servers ist aus, deshalb kann der Assistent Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
+        "whoAdmin": "Du bist Administrator. Schalte in den Einstellungen unter Werkzeuge die Zeile Befehle (bash) ein. Jedes Mal fragen ist die sicherere Wahl. Befehle laufen dann ohne Isolierung auf dem Server und können lesen, was der Server lesen kann.",
+        "whoMember": "Bitte einen Administrator dieses Servers, es einzuschalten.",
+        "fix": "Einstellung öffnen",
+        "sandboxText": "Für isolierte Befehle installiere stattdessen ein Add-on, das Befehle isoliert ausführt.",
+        "sandbox": "Add-ons öffnen"
+      }
+    },
+    "consent": {
+      "title": "Diesen Befehl auf diesem Rechner ausführen?",
+      "body": "Befehle laufen auf diesem Rechner ohne Isolierung. Sie können Dateien lesen, die LocalAI lesen kann, und das Internet und Ihr Netzwerk erreichen.",
+      "once": "Einmal ausführen",
+      "always": "Immer auf dieser Instanz",
+      "deny": "Nicht ausführen",
+      "alwaysHint": "„Immer auf dieser Instanz“ lässt die Chats aller Benutzer hier ohne Nachfrage Befehle ausführen (Einstellungen > Werkzeuge).",
+      "askAdmin": "Nur ein Administrator kann Befehle auf diesem Rechner erlauben. Fragen Sie einen, oder führen Sie den Befehl selbst aus.",
+      "job": "Dies startet einen Hintergrundjob. Er läuft nach diesem Aufruf weiter, und wenn du ihn erlaubst, erlaubst du auch die Eingaben, die das Modell später an ihn schreibt, ohne erneute Nachfrage.",
+      "expired": "Nicht beantwortet: Die Runde, die gefragt hat, ist beendet, daher wurde der Befehl nicht ausgeführt."
+    },
+    "provider": {
+      "addon": "Add-on {{name}}",
+      "host": "Dieser Rechner, nicht isoliert",
+      "hostOnce": "Dieser Rechner, einmal erlaubt",
+      "hostDenied": "Nicht ausgeführt: abgelehnt",
+      "hostTimeout": "Nicht ausgeführt: keine Antwort",
+      "hostAdmin": "Nicht ausgeführt: braucht einen Administrator"
+    },
+    "builtins": "Eingebaute Werkzeuge",
+    "builtin": {
+      "web": "Web",
+      "saved_agents": "Gespeicherte Agenten",
+      "triggers": "Trigger erstellen und verwalten",
+      "shell": "Befehle ausführen",
+      "files": "Deine Dateien",
+      "media": "Bilder und Audio",
+      "collections": "Wissen",
+      "subagents": "Sub-Agenten",
+      "changes": "Vorgeschlagene Änderungen",
+      "memory": "Gedächtnis",
+      "history": "Frühere Chats",
+      "localai_client": "LocalAI-Client",
+      "localai_admin": "LocalAI-Admin"
+    },
+    "builtinBy": "{{tools}} · eingebaut",
+    "onDemand": "Bei Bedarf geladen",
+    "builtinByAddon": "{{tools}} · bedient von {{provider}}",
+    "servedBy": "Bedient vom Add-on {{provider}}",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "eingebaut",
+    "fallbackBuiltin": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen (gestoppt, hier ausgeschaltet oder nicht freigegeben): das eingebaute {{tool}} wird verwendet.",
+    "fallbackNone": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen, und das eingebaute {{tool}} ist aus: dieser Chat hat kein {{tool}}.",
+    "toolCap": {
+      "title": "Einige Add-on-Werkzeuge sind in diesem Chat nicht verfügbar",
+      "reason": "{{offered}} von {{total}} Add-on-Werkzeugen sind verfügbar. Ein Chat kann nur eine begrenzte Zahl davon nutzen.",
+      "who": "Schalte Add-ons, die du nicht brauchst, in diesem Chat aus, um Platz zu schaffen, oder bitte einen Administrator, das Limit zu erhöhen.",
+      "whoAdmin": "Schalte Add-ons, die du nicht brauchst, in diesem Chat aus, um Platz zu schaffen, oder erhöhe das Limit in den Einstellungen.",
+      "fix": "Einstellung öffnen",
+      "addon": "{{name}}: {{count}} nicht verfügbar",
+      "lost": "Add-ons, die Werkzeuge verloren haben"
+    },
+    "shell": {
+      "machine": "Dieser Rechner",
+      "isolated": "Befehle laufen isoliert"
+    },
+    "describe": {
+      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen.",
+      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben und durchsuchen.",
+      "web": "Das Modell kann im Internet suchen und öffentliche Seiten lesen.",
+      "media": "Das Modell kann Bilder beschreiben und Aufnahmen aus deinen Dateien transkribieren.",
+      "collections": "Das Modell kann deine Sammlungen durchsuchen.",
+      "subagents": "Das Modell kann für eine Aufgabe einen Sub-Agenten starten und dessen Bericht erhalten.",
+      "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
+      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
+      "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
+      "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt.",
+      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen.",
+      "localai_client": "Erlaubt dem Modell, mit den hier installierten Modellen Bilder, Sprache, Klänge und Videos zu erzeugen sowie zu transkribieren, einzubetten, neu zu ordnen und zu erkennen.",
+      "localai_admin": "Erlaubt dem Modell, diesen Server zu verwalten: Modelle, Backends, Einstellungen und den Zustand. Nur für Administratoren; das Modell fragt dich, bevor es etwas ändert."
+    },
+    "whenOff": {
+      "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
+      "files": "Das Modell kann deine Dateien weder sehen noch ändern.",
+      "web": "Das Modell kann nichts online nachschlagen.",
+      "media": "Das Modell kann Bilder oder Aufnahmen nicht selbst lesen.",
+      "collections": "Das Modell kann deine Sammlungen nicht lesen.",
+      "subagents": "Das Modell arbeitet allein.",
+      "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
+      "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
+      "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
+      "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht.",
+      "history": "Das Modell kann deine früheren Chats nicht sehen.",
+      "localai_client": "Das Modell kann diese Modelle nicht selbst ausführen.",
+      "localai_admin": "Das Modell kann diesen Server nicht verwalten."
+    },
+    "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
+    "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
+    "serverDescribe": "Ein MCP-Server des Modells: Seine Werkzeuge werden dem Modell angeboten.",
+    "connectorDescribe": "Einer deiner MCP-Connectors: Seine Werkzeuge werden dem Modell angeboten.",
+    "gone": "Hier nicht mehr verfügbar. Schalte es aus, um es zu entfernen.",
+    "grants": "Weitere Berechtigungen",
+    "grantSensitive": "Sensibel: Das ändert, was der Agent später tun oder erreichen darf.",
+    "connection": {
+      "label": "Verbindungen",
+      "help": "Wähle die Verbindungen, die dieser Chat nutzen darf. Der Assistent kann nur die angehakten verwenden.",
+      "helpMany": "Der Assistent nennt bei jeder Aktion die Verbindung und kann nur eine angehakte nennen.",
+      "sole": "Das ist deine einzige Verbindung, daher wird sie verwendet.",
+      "choose": "Wähle mindestens eine Verbindung, um diese Werkzeuge zu nutzen",
+      "none": "Noch keine Verbindung",
+      "create": "Neue Verbindung",
+      "byAgent": "Der Agent dieses Chats legt die Verbindungen fest. Ändere sie beim Agenten.",
+      "agentLabel": "Verbindungen für Chats dieses Agenten",
+      "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
+      "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst.",
+      "reconnectNeeded": "Erneut verbinden: {{names}}",
+      "ownerReconnectNeeded": "Der Eigentümer muss erneut verbinden: {{names}}",
+      "reconnect": "Neu verbinden"
+    },
+    "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
+    "connectionMissing": "{{name}} erlaubt das noch nicht.",
+    "connectionOpen": "Berechtigungen öffnen",
+    "section": {
+      "messaging": {
+        "title": "Messaging-Apps",
+        "intro": "Das gilt für Chats, die in einer Messaging-App beginnen. Die Verbindung muss dasselbe auf ihrer eigenen Berechtigungsseite erlauben."
+      },
+      "unattended": {
+        "title": "Wenn niemand zusieht",
+        "intro": "Das gilt für Läufe, die ein Trigger oder eine Messaging-App startet und bei denen niemand einen Schritt bestätigen kann."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Dinge merken",
+        "description": "Das Modell kann eine Notiz für dein Gedächtnis oder das des Agenten vorschlagen. Du bestätigst jede Notiz."
+      },
+      "profile_write": {
+        "title": "Eigene Regeln ändern",
+        "description": "Das Modell kann eine Änderung der festen Regeln des Agenten vorschlagen. Du bestätigst jede Änderung."
+      },
+      "skills_write": {
+        "title": "Skills schreiben",
+        "description": "Das Modell kann einen neuen oder geänderten Skill vorschlagen. Du bestätigst jeden einzelnen."
+      },
+      "pages_write": {
+        "title": "Seiten erstellen",
+        "description": "Das Modell kann eine kleine App vorschlagen, die in einem isolierten Frame läuft. Du bestätigst sie."
+      },
+      "dashboard_write": {
+        "title": "Dashboard ändern",
+        "description": "Das Modell kann ein neues Layout für dein Home-Dashboard vorschlagen. Du bestätigst jede Änderung."
+      },
+      "knowledge_write": {
+        "title": "Zum Wissen hinzufügen",
+        "description": "Erlaubt dem Modell, einen Text für eine Sammlung deines Wissens vorzuschlagen. Du bestätigst jeden einzelnen; er wird nie sofort hinzugefügt."
+      },
+      "triggers_propose": {
+        "title": "Auch aus Messaging-Apps vorschlagen",
+        "description": "Das Modell kann einen Trigger vorschlagen, wenn jemand in einer Messaging-App danach fragt. Du bestätigst ihn."
+      },
+      "triggers_run": {
+        "title": "Trigger aus Messaging-Apps starten lassen",
+        "description": "Ein Trigger, der an eine Messaging-Verbindung gebunden ist, kann einen Lauf starten und das Ergebnis dort zustellen."
+      },
+      "talkback_channels": {
+        "title": "Auf bekannten Kanälen antworten",
+        "description": "Das Modell kann eine Nachricht an einen Kanal senden, in dem es schon schreibt."
+      },
+      "talkback_new_channel": {
+        "title": "Neue Kanäle starten",
+        "description": "Das Modell kann ein Gespräch in einem Kanal beginnen, den es noch nicht genutzt hat."
+      },
+      "files_upload": {
+        "title": "Dateien aus Messaging-Apps empfangen",
+        "description": "Absender können Dateien anhängen, die das Modell liest. Es kann keine Dateien versenden."
+      },
+      "act_files": {
+        "title": "Selbstständig Dateien schreiben",
+        "description": "Ein Lauf, den niemand beobachtet, kann Dateien in den Ordnern des Agenten schreiben."
+      },
+      "act_addons": {
+        "title": "Add-on-Aktionen selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann die Aktionen der Add-ons des Agenten aufrufen."
+      },
+      "act_send": {
+        "title": "Selbstständig Nachrichten senden",
+        "description": "Ein Lauf, den niemand beobachtet, kann Nachrichten über sein Zustellziel hinaus senden."
+      },
+      "act_spend": {
+        "title": "Kostenpflichtige oder externe Werkzeuge selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann kostenpflichtige oder externe Werkzeuge und das Netzwerk nutzen."
+      },
+      "history_read": {
+        "title": "Frühere Chats lesen",
+        "description": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen. Ein Agent, der in einem Ordner arbeitet, liest nur die Chats seines eigenen Agenten."
+      }
+    },
+    "fromProject": "Vom Projekt",
+    "fromProjectTitle": "Das Projekt hängt dieses Werkzeug an, daher ist es hier immer aktiv. Zum Abschalten löse es im Projekt."
+  },
+  "vision": {
+    "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",
+    "none": "Dieses Modell kann keine Bilder ansehen, und kein Modell hier kann sie beschreiben. Wähle ein Modell, das Bilder ansehen kann."
+  },
+  "egress": {
+    "label": "Netzwerk",
+    "preset": {
+      "off": "Aus",
+      "registries": "Benutzerdefiniert",
+      "all": "Alle öffentlichen Seiten"
+    },
+    "presetHint": {
+      "off": "Befehle erreichen kein Netzwerk.",
+      "registries": "Befehle erreichen die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases) und die Domains, die Ihr Administrator hinzugefügt hat.",
+      "all": "Befehle erreichen jede öffentliche Seite."
+    },
+    "limited": "Von Ihrem Administrator begrenzt",
+    "limitedBy": "Ihr Administrator erlaubt höchstens: {{limit}}.",
+    "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen dessen Netzwerk. Netzwerkgrenzen erfordern ein Add-on, das Befehle isoliert.",
+    "panel": "Regeln und Anfragen ({{count}})",
+    "panelCustom": "Eigene Domains",
+    "rules": "Regeln dieses Chats",
+    "cards": "Anfragen dieses Chats",
+    "ruleAllow": "Für diesen Chat erlaubt",
+    "ruleDeny": "Für diesen Chat abgelehnt",
+    "aboveLimit": "über dem Limit, gilt nicht",
+    "remove": "Entfernen",
+    "removeLabel": "Regel für {{host}} entfernen",
+    "card": {
+      "pending": "Wartet auf eine Antwort",
+      "allowedOnce": "Einmal erlaubt",
+      "allowedChat": "Für diesen Chat erlaubt",
+      "denied": "Abgelehnt",
+      "expired": "Nicht beantwortet",
+      "refused": "Abgelehnt: Das Netzwerklimit des Servers erlaubt es nicht"
+    },
+    "consent": {
+      "title": "Netzwerkzugriff",
+      "body": "Ein Befehl in diesem Chat möchte erreichen:",
+      "once": "Einmal erlauben",
+      "chat": "Für diesen Chat erlauben",
+      "deny": "Ablehnen",
+      "preset": "Dieser Chat: {{preset}}. Limit Ihres Administrators: {{limit}}.",
+      "adminOnly": "Dieser Host liegt in Ihrem Netzwerk: Nur ein Administrator kann ihn erlauben.",
+      "answered": "{{state}} von {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "Ihnen"
+    },
+    "blocked": {
+      "titleOff": "Netzwerkzugriff ist aus",
+      "titleCapped": "Netzwerkzugriff ist begrenzt",
+      "bodyOff": "Der Netzwerkzugriff für Befehle ist auf diesem Server ausgeschaltet. Ein Befehl wollte erreichen:",
+      "bodyCapped": "Dieser Server erlaubt für das Netzwerk der Befehle nur: {{limit}}. Ein Befehl wollte erreichen:",
+      "adminOff": "Ein Administrator kann ihn in den Einstellungen von {{name}} einschalten.",
+      "adminCapped": "Ein Administrator kann das Limit in den Einstellungen von {{name}} anheben.",
+      "adminLink": "Einstellungen von {{name}} öffnen",
+      "askAdmin": "Bitten Sie einen Administrator dieses Servers, das zu ändern.",
+      "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt.",
+      "runner": "dem Add-on, das die Befehle ausführt"
+    },
+    "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",
+    "allowedHostsNote": "Von Ihrem Administrator hinzugefügte Domains: {{count}}.",
+    "customDomains": "Benutzerdefiniert erreicht die Paket-Registries und diese Domains, die Ihr Administrator festlegt:",
+    "customEmpty": "Benutzerdefiniert erreicht nur die Paket-Registries. Ihr Administrator hat keine weiteren Domains hinzugefügt.",
+    "customLabel": "Eigene Domains",
+    "customEdit": "Domains bearbeiten",
+    "customAdmin": "Ein Administrator verwaltet diese Liste.",
+    "limitNote": "Netzwerk dieses Chats. Der Administrator legt fest, was ein Chat höchstens erreichen darf.",
+    "draftNote": "Der Chat startet mit dieser Einstellung. Der Administrator legt fest, was ein Chat höchstens erreichen darf; diese Grenze gilt.",
+    "asksAbove": "Dieser Chat verlangt {{choice}}; das Limit des Administrators ist {{limit}}.",
+    "unverified": "Die Durchsetzung der Netzwerkrichtlinie ist für den tatsächlichen Anbieter nicht bestätigt. Diese Einstellungen gelten nicht für seine Befehle.",
+    "configuredPolicy": "Konfigurierte Netzwerkrichtlinie: {{preset}} (nicht durchgesetzt)."
+  },
+  "inbox": {
+    "unread": "{{count}} ungelesen",
+    "markAll": "Alle als gelesen markieren",
+    "delete": "Löschen",
+    "pushOn": "Browser-Benachrichtigungen aktivieren",
+    "pushOff": "Browser-Benachrichtigungen deaktivieren",
+    "pushDenied": "Browser-Benachrichtigungen sind für diese Website blockiert.",
+    "pushUnavailable": "Dieser Server kann keine Push-Abonnements speichern.",
+    "clearAll": "Alle löschen",
+    "clearRead": "Gelesene löschen",
+    "cancel": "Abbrechen",
+    "markRead": "Als gelesen markieren",
+    "cleared_one": "{{count}} Benachrichtigung entfernt.",
+    "cleared_other": "{{count}} Benachrichtigungen entfernt.",
+    "confirmAll_one": "{{count}} Benachrichtigung entfernen? Das lässt sich nicht rückgängig machen.",
+    "confirmAll_other": "Alle {{count}} Benachrichtigungen entfernen? Das lässt sich nicht rückgängig machen.",
+    "confirmRead_one": "{{count}} gelesene Benachrichtigung entfernen? Ungelesene bleiben erhalten.",
+    "confirmRead_other": "{{count}} gelesene Benachrichtigungen entfernen? Ungelesene bleiben erhalten.",
+    "onlyRead": "Nur die {{count}} gelesenen",
+    "showing": "{{shown}} von {{total}} angezeigt",
+    "showMore": "Mehr anzeigen",
+    "title": "Benachrichtigungen",
+    "buttonUnread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "buttonUnread_other": "Benachrichtigungen, {{count}} ungelesen",
+    "filterLabel": "Benachrichtigungen anzeigen",
+    "filterAll": "Alle",
+    "filterUnread": "Ungelesen",
+    "filterFailed": "Fehlgeschlagen",
+    "more": "Weitere Aktionen",
+    "close": "Schließen",
+    "day": {
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "earlier": "Früher"
+    },
+    "emptyTitle": "Noch keine Benachrichtigungen",
+    "emptyBody": "Hier erscheinen die Ergebnisse deiner Trigger und Connectors, auch für Arbeit, die fertig wurde, während du weg warst.",
+    "caughtUp": "Du bist auf dem neuesten Stand.",
+    "caughtUpTitle": "Du bist auf dem neuesten Stand",
+    "caughtUpBody": "Es gibt keine ungelesenen Benachrichtigungen.",
+    "noFailedTitle": "Nichts ist fehlgeschlagen",
+    "noFailedBody": "Läufe und Connectors, die fehlschlagen, erscheinen hier.",
+    "loadError": "Deine Benachrichtigungen konnten nicht geladen werden.",
+    "source": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, ungelesen",
+    "arrived": "Neue Benachrichtigung: {{title}}",
+    "arrivedMany_one": "{{count}} neue Benachrichtigung",
+    "arrivedMany_other": "{{count}} neue Benachrichtigungen",
+    "proposalsWaiting_one": "{{count}} Änderung wartet auf dich",
+    "proposalsWaiting_other": "{{count}} Änderungen warten auf dich",
+    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest.",
+    "codes": {
+      "digest": {
+        "title_one": "{{count}} Backend-Update verfügbar",
+        "title_other": "{{count}} Backend-Updates verfügbar",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "result": {
+        "family": {
+          "backends": "Backends",
+          "addons": "Add-ons"
+        },
+        "title": "{{family}}: {{parts}}",
+        "join": ", ",
+        "updated_one": "{{count}} automatisch aktualisiert",
+        "updated_other": "{{count}} automatisch aktualisiert",
+        "failed_one": "{{count}} fehlgeschlagen",
+        "failed_other": "{{count}} fehlgeschlagen",
+        "held_one": "{{count}} wartet auf Freigabe",
+        "held_other": "{{count}} warten auf Freigabe",
+        "bodyUpdated": "Aktualisiert: {{items}}.",
+        "bodyFailed": "Fehlgeschlagen: {{items}}.",
+        "bodyHeld": "Wartet auf Ihre Freigabe: {{items}}.",
+        "more": "{{items}} und {{count}} weitere"
+      },
+      "checkFailed": {
+        "title": "Die Update-Prüfung ist fehlgeschlagen",
+        "body": "Nicht prüfbar: {{sources}}. Die letzten beiden automatischen Prüfungen sind fehlgeschlagen, daher fehlen in der Liste möglicherweise Updates.",
+        "source": {
+          "gallery": "Backend-Galerie",
+          "library": "Backend-Bibliothek",
+          "addons": "Add-ons"
+        }
+      },
+      "op": {
+        "kind": {
+          "model": "Modell",
+          "backend": "Backend",
+          "addon": "Add-on"
+        },
+        "done": {
+          "install": "{{kind}} {{name}} installiert",
+          "delete": "{{kind}} {{name}} entfernt",
+          "upgrade": "{{kind}} {{name}} aktualisiert"
+        },
+        "failed": {
+          "install": "{{kind}} {{name}}: Installation fehlgeschlagen",
+          "delete": "{{kind}} {{name}}: Entfernen fehlgeschlagen",
+          "upgrade": "{{kind}} {{name}}: Update fehlgeschlagen"
+        },
+        "cancelled": {
+          "install": "{{kind}} {{name}}: Installation abgebrochen",
+          "delete": "{{kind}} {{name}}: Entfernen abgebrochen",
+          "upgrade": "{{kind}} {{name}}: Update abgebrochen"
+        },
+        "needsReview": {
+          "install": "Add-on {{name}} braucht deine Prüfung für die Installation"
+        }
+      },
+      "models": {
+        "available": {
+          "title_one": "{{count}} Modell-Update verfügbar",
+          "title_other": "{{count}} Modell-Updates verfügbar"
+        },
+        "done": {
+          "title": "Modell {{name}} aktualisiert",
+          "body": "Von {{from}} auf {{to}}."
+        },
+        "failed": {
+          "title": "Modell {{name}}: das Upgrade ist fehlgeschlagen",
+          "rolledBack": "Die alte Version wurde wiederhergestellt und läuft weiter. Grund: {{error}}",
+          "rolledBackPlain": "Die alte Version wurde wiederhergestellt und läuft weiter.",
+          "kept": "Die alte Version läuft weiter. Grund: {{error}}",
+          "keptPlain": "Die alte Version läuft weiter."
+        },
+        "removed": {
+          "title": "Modell {{name}}: alte Version entfernt",
+          "body_one": "{{count}} alte Datei gelöscht.",
+          "body_other": "{{count}} alte Dateien gelöscht."
+        }
+      },
+      "run": {
+        "title_one": "{{count}} Element wird aktualisiert",
+        "title_other": "{{count}} Elemente werden aktualisiert",
+        "titleAuto_one": "Automatische Aktualisierung: {{count}} Element",
+        "titleAuto_other": "Automatische Aktualisierung: {{count}} Elemente",
+        "updated_one": "{{count}} aktualisiert",
+        "updated_other": "{{count}} aktualisiert",
+        "running_one": "{{count}} läuft",
+        "running_other": "{{count}} laufen",
+        "waiting_one": "{{count}} wartet",
+        "waiting_other": "{{count}} warten",
+        "done": "{{done}} von {{total}} erledigt",
+        "end": {
+          "attention_one": "{{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "attention_other": "{{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "done_one": "{{count}} aktualisiert",
+          "done_other": "{{count}} aktualisiert",
+          "auto": "Automatisch: {{text}}",
+          "first": "{{name}} ist weiter auf {{version}}.",
+          "firstWhy": "{{name}} ist weiter auf {{version}}: {{reason}}.",
+          "cancelled_one": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelled_other": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelledAttention_one": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "cancelledAttention_other": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "firstStart": "{{name}} ist weiter auf {{version}}: Die neue Version ist nicht gestartet: {{reason}}."
+        }
+      }
+    },
+    "tabs": {
+      "label": "Benachrichtigungen und Aktivität",
+      "notifications": "Benachrichtigungen",
+      "activity": "Aktivität"
+    },
+    "ops": {
+      "needsAttention": "Braucht Aufmerksamkeit",
+      "inProgress": "In Arbeit",
+      "seeAll": "Alle Aktivitäten anzeigen",
+      "waiting": "Wartet",
+      "node": "Knoten {{current}} von {{total}}",
+      "emptyTitle": "Nichts in Arbeit",
+      "emptyBody": "Installationen, Updates und Entfernungen erscheinen hier, solange sie laufen, und einen Tag danach.",
+      "title": {
+        "installing": "{{name}} wird installiert",
+        "upgrading": "{{name}} wird aktualisiert",
+        "removing": "{{name}} wird entfernt",
+        "staging": "{{name}} wird übertragen"
+      },
+      "failedTitle": {
+        "installing": "{{name}} konnte nicht installiert werden",
+        "upgrading": "{{name}} konnte nicht aktualisiert werden",
+        "removing": "{{name}} konnte nicht entfernt werden",
+        "staging": "{{name}} konnte nicht übertragen werden"
+      },
+      "recent": {
+        "title": "Zuletzt",
+        "installed": "{{name}} installiert",
+        "upgraded": "{{name}} aktualisiert",
+        "removed": "{{name}} entfernt",
+        "staged": "{{name}} übertragen"
+      }
+    },
+    "chatsOff": "Chats sind ausgeschaltet",
+    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge.",
+    "runProgress": "Fortschritt: {{title}}",
+    "runStarted": "Gestartet {{when}}",
+    "viewProgress": "Fortschritt ansehen",
+    "seeRun": "Lauf ansehen",
+    "openUpdates": "Aktualisierungen öffnen",
+    "updatesPending_one": "{{count}} Aktualisierung verfügbar",
+    "updatesPending_other": "{{count}} Aktualisierungen verfügbar",
+    "updatesNone": "Alles ist aktuell"
+  },
+  "change": {
+    "loading": "Die Trigger-Änderung wird gelesen...",
+    "unread": "Die Trigger-Änderung konnte nicht gelesen werden: {{message}}",
+    "removed": "Diese Änderung wird nicht mehr aufbewahrt.",
+    "none": "keine",
+    "on": "An",
+    "off": "Aus (pausiert)",
+    "becomes": "wird zu",
+    "neverRan": "Noch nicht ausgeführt",
+    "lastRun": "Letzte Ausführung",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Wartet",
+      "running": "Läuft",
+      "done": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen"
+    },
+    "updateTitle": "{{name}} ändern",
+    "deleteTitle": "{{name}} löschen?",
+    "updateHelp": "Vorgeschlagene Änderung. Nichts ändert sich, bis du sie übernimmst.",
+    "deleteHelp": "Nichts wird gelöscht, bis du auf Löschen drückst. Du kannst es einen Tag lang rückgängig machen.",
+    "stale": "Der Trigger wurde nach dem Vorschlag geändert oder entfernt, daher kann die Änderung nicht übernommen werden. Bitte erneut um die Änderung.",
+    "apply": "Übernehmen",
+    "delete": "Löschen",
+    "keep": "Behalten",
+    "field": {
+      "name": "Name",
+      "prompt": "Prompt",
+      "when": "Wann",
+      "time_zone": "Zeitzone",
+      "daily_cap": "Tageslimit",
+      "enabled": "Status",
+      "reads": "Liest",
+      "writes": "Schreibt",
+      "widget": "Home-Widget",
+      "estimated_tokens": "Tokens pro Lauf",
+      "acts": "Was ein Lauf tun darf",
+      "delivery": "Wohin Antworten gehen",
+      "agent": "Agent",
+      "model": "Modell",
+      "run_limit": "Zeitlimit"
+    },
+    "receipt": {
+      "update": "Geändert:",
+      "pause": "Pausiert:",
+      "resume": "Fortgesetzt:",
+      "delete": "Gelöscht:",
+      "fields": "Was sich geändert hat: {{fields}}",
+      "dismissed": "Änderung verworfen:",
+      "kept": "Behalten:",
+      "undone": "Rückgängig gemacht:",
+      "restored": "Wiederhergestellt:"
+    },
+    "blocked": {
+      "expired": "Die Zeit zum Rückgängigmachen ist vorbei; ändere den Trigger auf der Seite Trigger.",
+      "edited": "Der Trigger wurde seitdem geändert; ändere ihn auf der Seite Trigger.",
+      "removed": "Der Trigger wurde seitdem entfernt.",
+      "full": "Du hast so viele Trigger wie erlaubt; entferne zuerst einen auf der Seite Trigger."
+    },
+    "announce": {
+      "applied": "{{name}} geändert.",
+      "deleted": "{{name}} gelöscht.",
+      "dismissed": "Änderung an {{name}} verworfen.",
+      "kept": "{{name}} behalten.",
+      "undone": "Änderung an {{name}} rückgängig gemacht.",
+      "restored": "{{name}} wiederhergestellt."
+    }
+  },
+  "loops": {
+    "region": "Schleifen dieses Chats",
+    "unit": {
+      "seconds_one": "{{count}} Sekunde",
+      "seconds_other": "{{count}} Sekunden",
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} Min.",
+      "minutes_other": "{{count}} Min.",
+      "hours_one": "{{count}} Std.",
+      "hours_other": "{{count}} Std."
+    },
+    "confirm": {
+      "every": "Dies alle {{every}} ausführen, bis du es stoppst?",
+      "selfPaced": "Dies jedes Mal erneut ausführen, wenn das Modell darum bittet, bis du es stoppst?",
+      "start": "Starten",
+      "cancel": "Abbrechen"
+    },
+    "chip": {
+      "name": "Schleife",
+      "every": "alle {{every}}",
+      "selfPaced": "vom Modell getaktet",
+      "run_one": "Lauf {{count}}",
+      "run_other": "Lauf {{count}}",
+      "paused": "pausiert",
+      "running": "läuft gerade",
+      "next": "nächster um {{time}}",
+      "ended": "beendet",
+      "wait": "Wartet auf: {{wait}}"
+    },
+    "report": {
+      "on_done": "Meldet bei Abschluss: {{channel}} · {{connection}}",
+      "on_problem": "Meldet bei einem Problem: {{channel}} · {{connection}}"
+    },
+    "actions": {
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "stop": "Stoppen",
+      "dismiss": "Ausblenden"
+    },
+    "state": {
+      "pending": "wartet auf deine Zustimmung",
+      "active": "aktiv",
+      "paused": "pausiert",
+      "ended": "beendet"
+    },
+    "list": {
+      "title": "Schleifen dieses Chats",
+      "close": "Schließen",
+      "empty": "Dieser Chat hat keine Schleifen.",
+      "hint": "Zum Stoppen gib /loop stop und den Code am Anfang ihrer Zeile ein."
+    },
+    "slash": {
+      "usage": "Gib /loop ein, bei Bedarf ein Intervall, und was wiederholt werden soll. Zum Beispiel: /loop 5m prüfe den Build.",
+      "notFound": "Keine Schleife dieses Chats passt zu {{id}}.",
+      "noChat": "Sende zuerst eine Nachricht und starte dann eine Schleife in diesem Chat.",
+      "stopped_one": "{{count}} Schleife gestoppt.",
+      "stopped_other": "{{count}} Schleifen gestoppt."
+    },
+    "wait": {
+      "name": "Wartet auf",
+      "kind": "Warten",
+      "pending": "Wartet auf dein Ja",
+      "paused": "Warten pausiert",
+      "stop": "Warten beenden",
+      "details": "Details des Wartens",
+      "watching": "Überwacht {{source}}",
+      "until": "Bis {{condition}}",
+      "notChecked": "Noch nicht geprüft",
+      "checked_one": "{{count}} Mal geprüft",
+      "checked_other": "{{count}} Mal geprüft",
+      "checkedAgo_one": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "checkedAgo_other": "{{count}} Mal geprüft, zuletzt {{ago}}",
+      "outcome": {
+        "unchanged": "keine Änderung",
+        "changed": "geändert",
+        "error": "fehlgeschlagen"
+      },
+      "ago": "vor {{span}}",
+      "justNow": "gerade eben",
+      "in": "in {{span}}",
+      "now": "jetzt",
+      "next": "Nächste Prüfung {{when}}",
+      "deadline": "Gibt um {{time}} auf ({{when}})",
+      "errorStreak": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge)",
+      "errorStreakMsg": "Letzte Prüfung fehlgeschlagen ({{count}} von {{max}} in Folge): {{message}}",
+      "lastError": "Letzter Fehler: {{message}}",
+      "sources": {
+        "tool": "Tool {{name}}",
+        "url": "{{name}}",
+        "script": "ein Skript",
+        "job": "{{name}}",
+        "agent": "Sub-Agent {{name}}"
+      },
+      "end": {
+        "met": "Fertig: Die Bedingung ist erfüllt",
+        "failing_one": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "failing_other": "Beendet: Die Quelle ist {{count}} Mal in Folge ausgefallen",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt",
+        "stopped": "Warten beendet",
+        "jobGone": "Beendet: der Job ist mit seinem Knoten verschwunden"
+      },
+      "waking": {
+        "met": "Die Bedingung ist erfüllt. Das Modell wird gefragt, was zu tun ist.",
+        "failing": "Die Quelle ist ausgefallen. Das Modell wird gefragt, was zu tun ist.",
+        "timedOut": "Zeit abgelaufen, die Bedingung wurde nicht erfüllt. Das Modell wird gefragt, was zu tun ist."
+      },
+      "phase": {
+        "waiting": "wartet",
+        "waking": "weckt das Modell",
+        "paused": "pausiert",
+        "ended": "beendet",
+        "pending": "wartet auf dein Ja"
+      },
+      "endShort": {
+        "condition_met": "Bedingung erfüllt",
+        "source_failing": "Quelle ausgefallen",
+        "timed_out": "Zeit abgelaufen",
+        "stopped": "beendet"
+      },
+      "group": {
+        "collapse": "Wartevorgänge ausblenden",
+        "deadline": "Nächste Frist {{time}} ({{when}})",
+        "expand": "Wartevorgänge anzeigen",
+        "lastCheck": "Zuletzt geprüft {{ago}}",
+        "paused_one": "{{count}} pausiert",
+        "paused_other": "{{count}} pausiert",
+        "stopAll": "Alle beenden",
+        "title_one": "{{count}} Wartevorgang",
+        "title_other": "{{count}} Wartevorgänge"
+      }
+    },
+    "job": {
+      "stop": "Stoppen",
+      "details": "Details zum Job",
+      "done_one": "{{count}} beendeter Job",
+      "done_other": "{{count}} beendete Jobs",
+      "runTime": "läuft seit {{span}}",
+      "ranFor": "lief {{span}}",
+      "lastOutput": "letzte Ausgabe vor {{ago}}",
+      "endedAgo": "beendet vor {{ago}}",
+      "byAgent": "von einem Sub-Agenten gestartet",
+      "where": {
+        "machine": "auf diesem Rechner",
+        "sandbox": "isoliert"
+      },
+      "status": {
+        "starting": "Startet",
+        "running": "Läuft",
+        "ending": "Wird gestoppt",
+        "stalled": "Läuft, seit {{span}} keine Ausgabe",
+        "lost": "Verloren: sein Knoten ist weg",
+        "notStarted": "Konnte nicht starten",
+        "killed": "Abgebrochen (kill)",
+        "stopped": "Von dir gestoppt",
+        "ended": "Beendet",
+        "exitedOk": "Beendet, Status 0",
+        "exitedCode": "Beendet mit Status {{code}}",
+        "exitedUnknown": "Beendet, Status unbekannt"
+      },
+      "end": {
+        "lifetime": "Beendet: Zeitlimit erreicht",
+        "chat_deleted": "Beendet: der Chat wurde gelöscht",
+        "shell_off": "Beendet: Befehle wurden abgeschaltet",
+        "group_off": "Beendet: die Befehlstools wurden für diesen Chat abgeschaltet",
+        "fenced": "Beendet: dieser Chat darf keine Befehle mehr ausführen",
+        "sandbox_remade": "Beendet: seine Umgebung wurde neu erstellt",
+        "agent_ended": "Beendet: sein Sub-Agent ist fertig",
+        "shutdown": "Beendet: der Server wurde gestoppt",
+        "start_failed": "Konnte nicht starten"
+      }
+    }
+  },
+  "changes": {
+    "loading": "Der vorgeschlagene Änderung wird gelesen...",
+    "unread": "Die vorgeschlagene Änderung konnte nicht gelesen werden: {{message}}",
+    "removed": "Dieser Vorschlag existiert nicht mehr.",
+    "kind": {
+      "memory": "Gedächtnis",
+      "profile": "Profil",
+      "skill": "Skill",
+      "page": "Seite",
+      "dashboard": "Dashboard",
+      "knowledge": "Wissen",
+      "voice_profile": "Stimmprofil"
+    },
+    "scope": {
+      "user": "Alle deine Chats",
+      "agent": "Agent {{agent}}",
+      "agentAny": "Ein Agent",
+      "channel": "Diese Unterhaltung",
+      "project": "Dieses Projekt"
+    },
+    "help": "Nichts wird gespeichert, bevor du bestätigst.",
+    "row": {
+      "kind": "Art",
+      "target": "Datei",
+      "source": "Von",
+      "expires": "Läuft ab in",
+      "collection": "Sammlung",
+      "proposedBy": "Vorgeschlagen von",
+      "note": "Notiz"
+    },
+    "source": {
+      "chat": "Ein Chat",
+      "connector": "Connector {{name}}",
+      "connectorFrom": "Connector {{name}}, von {{sender}}"
+    },
+    "expiresHours": "{{hours}} Std. {{minutes}} Min.",
+    "expiresMinutes": "{{minutes}} Min.",
+    "diff": {
+      "label": "Änderungen an {{target}}",
+      "newFile": "Neue Datei",
+      "added_one": "{{count}} Zeile hinzugefügt",
+      "added_other": "{{count}} Zeilen hinzugefügt",
+      "removed_one": "{{count}} Zeile entfernt",
+      "removed_other": "{{count}} Zeilen entfernt",
+      "same": "Kein Unterschied zum aktuellen Text.",
+      "gap_one": "{{count}} unveränderte Zeile",
+      "gap_other": "{{count}} unveränderte Zeilen",
+      "more_one": "{{count}} weitere Zeile nicht angezeigt",
+      "more_other": "{{count}} weitere Zeilen nicht angezeigt",
+      "srAdded": "Hinzugefügt:",
+      "srRemoved": "Entfernt:"
+    },
+    "unreadFile": "Die aktuelle Datei konnte nicht gelesen werden, daher gilt der ganze Text als neu.",
+    "confirm": "Bestätigen",
+    "edit": "Bearbeiten und bestätigen",
+    "confirmEdited": "Mit meinem Text bestätigen",
+    "editLabel": "Text zum Speichern in {{target}}",
+    "failed": "Die Änderung konnte nicht gespeichert werden: {{message}}. Sie wartet weiter auf dich.",
+    "receipt": {
+      "applied": "Angewendet:",
+      "savedAuto": "Im Gedächtnis gespeichert:",
+      "reverted": "Rückgängig gemacht:",
+      "dismissed": "Abgelehnt:",
+      "expired": "Abgelaufen:",
+      "stale": "Nicht angewendet:"
+    },
+    "why": {
+      "expired": "Sie hat mehr als einen Tag gewartet. Nichts wurde gespeichert.",
+      "stale": "Die Datei hat sich seit dem Vorschlag geändert, daher wurde nichts gespeichert."
+    },
+    "askAgain": "Erneut anfragen",
+    "askAgainText": "Bitte schlage diese Änderung noch einmal vor, die Datei hat sich inzwischen geändert: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Änderung angewendet.",
+      "dismissed": "Änderung abgelehnt.",
+      "undone": "Änderung rückgängig gemacht.",
+      "asked": "Der Assistent wurde gebeten, es erneut vorzuschlagen."
+    },
+    "knowledge": {
+      "label": "Text zum Hinzufügen zu {{collection}}",
+      "size": "{{size}} von höchstens {{max}}",
+      "note": "Nichts wird hinzugefügt, bevor du bestätigst. Der Text wird dann in Abschnitte geteilt und indexiert, und jeder Chat, der diese Sammlung durchsucht, kann ihn nutzen.",
+      "editLabel": "Text zum Hinzufügen zu {{target}}",
+      "embed_one": "1 Textstelle wird mit {{model}} eingebettet.",
+      "embed_other": "Etwa {{count}} Textstellen werden mit {{model}} eingebettet.",
+      "serverModel": "dem Einbettungsmodell des Servers"
+    },
+    "warning": {
+      "title": "Prüfe diesen Text, bevor du bestätigst.",
+      "secret": "Er enthält möglicherweise ein Geheimnis, etwa einen Schlüssel, ein Token oder ein Passwort. Nach dem Hinzufügen kann jeder Chat, der diese Sammlung durchsucht, es lesen. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier.",
+      "other": "Der Server hat diesen Text als riskant markiert. Ein Messaging-Chat kann ihn nicht bestätigen; nur du, hier."
+    },
+    "voice": {
+      "label": "Zu klonende Stimme",
+      "name": "Name",
+      "file": "Aufnahme",
+      "clip": "Festgelegter Clip",
+      "language": "Sprache",
+      "transcript": "Transkript",
+      "consentTitle": "Bestätige nur, wenn die sprechende Person zugestimmt hat.",
+      "consent": "Die Aufnahme wird als Stimmprofil gespeichert, mit dem deine Chats sprechen können. Du kannst sie in der Stimmbibliothek löschen.",
+      "consentAdmin": "Du bist Administrator, daher steht diese Stimme allen Nutzern dieses Servers zur Verfügung.",
+      "confirm": "Die Person hat zugestimmt: Stimme speichern"
+    },
+    "fromOther": {
+      "title": "{{name}} hat eine Notiz für {{project}} vorgeschlagen",
+      "titleNoProject": "{{name}} hat eine Notiz vorgeschlagen",
+      "help": "Es wird nichts geschrieben, bevor Sie bestätigen. {{name}} hat dies in einem Chat vorgeschlagen, der dieses Projekt eingebunden hat.",
+      "by": "{{name}}, aus dem eigenen Chat",
+      "voided": "{{name}} kann dieses Projekt nicht mehr bearbeiten.",
+      "noteFor": "Eine Notiz für {{project}}",
+      "thisProject": "dieses Projekt",
+      "why": "Geben Sie das Projekt erneut mit Bearbeitungsrechten frei und bitten Sie dann erneut um die Notiz, falls Sie sie noch möchten.",
+      "nameHint": "Projektname aus dem Ordner übernommen"
+    }
+  },
+  "proposalsPage": {
+    "title": "Vorschläge",
+    "supporting": "Änderungen, die Modelle vorgeschlagen haben und die auf deine Antwort warten.",
+    "emptyTitle": "Nichts wartet",
+    "emptyBody": "Wenn ein Modell eine Änderung an deinen Notizen, einem Agentenprofil, einem Skill, einer Seite oder am Dashboard vorschlägt, erscheint sie hier, bis du antwortest.",
+    "loadError": "Die Vorschläge konnten nicht geladen werden."
+  },
+  "memoryPage": {
+    "lede": "Die Notizen, die LocalAI in den Prompt deiner Chats legt. Ein Modell ändert sie erst, nachdem du einen Vorschlag bestätigt hast. Hier kannst du sie lesen, bearbeiten und löschen.",
+    "limits": "Grenzen: Ein Index hat höchstens {{lines}} Zeilen und {{index}}, ein Profil {{profile}}, und ein Zug enthält höchstens {{turn}} Notizen.",
+    "proposalsLink": "Wartende Änderungen ansehen",
+    "emptyTitle": "Noch keine Notizen",
+    "emptyBody": "Wenn du einen Assistenten bittest, sich etwas zu merken, und das bestätigst, erscheinen die Notizen hier.",
+    "loadError": "Deine Notizen konnten nicht geladen werden.",
+    "use": "{{size}} von {{max}} · {{lines}} von {{maxLines}} Zeilen",
+    "useBytes": "{{size}} von {{max}}",
+    "useLabel": "Größe des Index im Verhältnis zur Grenze",
+    "over": "Über der Grenze: das Ende wird nicht an das Modell gesendet.",
+    "index": "Index",
+    "group": {
+      "user": "Deine Notizen",
+      "agent": "Notizen von Agent {{key}}",
+      "channel": "Notizen der Unterhaltung {{key}}",
+      "profile": "Profil von Agent {{key}}",
+      "agentNamed": "Notizen des Agenten {{name}}",
+      "profileNamed": "Profil des Agenten {{name}}"
+    },
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "editLabel": "Text von {{name}}",
+    "editSizeIndex": "{{size}} von {{max}} · {{lines}} von {{maxLines}} Zeilen",
+    "editSize": "{{size}} von {{max}}",
+    "tooBig": "Zu lang: kürze den Text, um zu speichern.",
+    "saveFailed": "Speichern fehlgeschlagen: {{message}}",
+    "saved": "{{name}} gespeichert.",
+    "emptyFile": "(leer)",
+    "delete": "{{name}} löschen",
+    "deleteYes": "Löschen",
+    "confirmDelete": "{{name}} löschen?",
+    "deleted": "{{name}} in den Papierkorb verschoben.",
+    "clear": "Alles vergessen",
+    "clearAsk_one": "{{count}} Datei löschen? Sie kommt in den Papierkorb und lässt sich unter Dateien wiederherstellen.",
+    "clearAsk_other": "{{count}} Dateien löschen? Sie kommen in den Papierkorb und lassen sich unter Dateien wiederherstellen.",
+    "clearYes_one": "{{count}} Datei löschen",
+    "clearYes_other": "{{count}} Dateien löschen",
+    "cleared_one": "{{count}} Datei in den Papierkorb verschoben.",
+    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben.",
+    "tabs": {
+      "label": "Notizen von",
+      "mine": "Meine",
+      "deleted": "Gelöschte Agenten",
+      "channels": "Unterhaltungen",
+      "channelsNote": "Notizen aus Chats in Messaging-Apps. Öffne eine Notiz, um sie zu lesen, oder lösche sie. Eine Notiz von einem Absender, der nicht mit dir verifiziert ist, wartet immer auf dein OK.",
+      "export": "Diese Notizen exportieren",
+      "clearAgent": "Die Notizen dieses Agenten löschen",
+      "clearDeleted": "Diese Notizen löschen"
+    },
+    "deletedNote": "Diese Agenten wurden gelöscht. Ihre Notizen bleiben, bis du sie hier löschst.",
+    "tabEmpty": "Keine Notizen hier."
+  },
+  "triggerActs": {
+    "help": "Ein Lauf startet von selbst, also bestätigt niemand einen Schritt. Er kann lesen und berichten. Hake an, was er zusätzlich tun darf. Er bekommt nie mehr, als sein Agent hat.",
+    "noAgent": "Es ist kein Agent gewählt, daher begrenzt nur das Angehakte den Lauf.",
+    "readOnly": "Nur lesen",
+    "canAct": "Darf selbstständig handeln",
+    "canActText_one": "Ein Lauf darf {{count}} Art von Aktion ohne Rückfrage nutzen.",
+    "canActText_other": "Ein Lauf darf {{count}} Arten von Aktionen ohne Rückfrage nutzen.",
+    "sensitive": "mit Vorsicht",
+    "addonRow": "Ein Lauf darf die Aktionen des Add-ons {{id}} nutzen.",
+    "blocked": "Dein Agent hat dies nicht, daher lässt es sich nicht anhaken. Füge es zuerst dem Agenten hinzu.",
+    "unused": "Dein Agent hat dies nicht, daher nutzt ein Lauf es nicht.",
+    "unusedList": "Aufgeführt, aber nicht genutzt, weil der Agent es nicht hat: {{names}}.",
+    "writesNote": "Sein Plan nennt die Datei {{file}}, daher darf ein Lauf auch Dateien schreiben.",
+    "listCan_one": "Kann handeln ({{count}})",
+    "listCan_other": "Kann handeln ({{count}})",
+    "why": {
+      "no_acts": "Keine Berechtigung zum Handeln gesetzt, daher lesen und berichten seine Läufe nur.",
+      "agent": "Sein Agent hat die verlangten Berechtigungen nicht, daher lesen und berichten seine Läufe nur.",
+      "declared": "Er wurde so eingerichtet, dass er nur liest und berichtet. Nichts, was hier angehakt wird, ändert das.",
+      "binding": "Eine Verbindung im Nur-Lesen-Modus hat ihn erstellt. Nichts, was hier angehakt wird, ändert das."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Gedächtnis ist an",
+    "titleOff": "Gedächtnis ist aus",
+    "ledeOn": "Deine Chats führen kurze Notizen über dich und lesen sie, bevor sie antworten. Schalte es aus, damit nirgends mehr gelesen oder gespeichert wird. Deine Notizen bleiben, wo sie sind.",
+    "ledeOff": "Aus deinen Notizen wird nichts gelesen und nichts darin gespeichert, in keinem Chat und bei keinem Agenten. Der Assistent sagt, dass das Gedächtnis aus ist, wenn du ihn bittest, sich etwas zu merken. Deine Notizen bleiben, und du kannst sie weiter lesen, exportieren und löschen.",
+    "on": "An",
+    "off": "Aus",
+    "unavailable": "Notizen sind Dateien, und Dateien sind auf diesem Server aus. Das Gedächtnis kann hier nicht arbeiten.",
+    "saveTitle": "Eine Notiz speichern",
+    "saveLede": "Was passiert, wenn der Assistent etwas behalten will. Die strengste Regel gilt immer.",
+    "save": {
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Eine Karte wartet im Chat. Du bestätigst, bearbeitest oder verwirfst sie."
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "In deinen eigenen Chats wird die Notiz sofort gespeichert. Der Chat zeigt „Im Gedächtnis gespeichert“ mit Rückgängig. Bis zu 5 Notizen pro Antwort. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem auf dich."
+      },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Wie Erst fragen, und nichts kann es lockern. Auch Rückgängig und Vergessen warten auf dich. Keine Einstellung eines Agenten oder einer Messaging-App hebt es auf."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Der Assistent kann keine Notizen speichern. Er sagt dir, dass das Speichern aus ist."
+      }
+    },
+    "default": "Standard",
+    "saveNote": "Hintergrundläufe und Trigger speichern nie eine Notiz. Ein gespeicherter Agent darf mehr fragen, aber nie weniger als du hier gewählt hast.",
+    "messaging": {
+      "title": "In Messaging-Apps",
+      "lede": "Was passiert, wenn in einem Chat einer Messaging-App eine Notiz vorgeschlagen wird, wo der Absender nicht du sein muss.",
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
+      },
+      "paired_private": {
+        "title": "Für eine verifizierte Person im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender eine verifizierte Person ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Aus Messaging-Apps werden keine Notizen gespeichert."
+      },
+      "limit": "Nie lockerer als die Einstellung oben.",
+      "lockedAlways": "Deine Einstellung oben ist Immer bestätigen, daher kann diese Zeile keine Notiz sofort speichern.",
+      "lockedNever": "Deine Einstellung oben ist Nie, daher wird aus Messaging-Apps keine Notiz gespeichert."
+    },
+    "saveFailed": "Deine Auswahl konnte nicht gespeichert werden.",
+    "loadError": "Die Gedächtnis-Einstellungen konnten nicht geladen werden.",
+    "notesTitle": "Notizen verwalten",
+    "notesLede": "Lesen, bearbeiten, exportieren oder löschen. Das geht auch, wenn das Gedächtnis aus ist.",
+    "export": "Exportieren"
+  },
+  "memoryOff": {
+    "title": "Das Gedächtnis ist hier aus.",
+    "line": {
+      "chat": "Das ist ein privater Chat: nichts wird gelesen oder gespeichert. Deine Notizen bleiben unberührt. Schalte es im Werkzeugmenü an.",
+      "user": "Kein Chat und kein Agent liest oder speichert Notizen, und deine Notizen bleiben unberührt.",
+      "agent": "Beim Agenten dieses Chats ist das Gedächtnis ausgeschaltet.",
+      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus.",
+      "provider": "Das Add-on, das den Speicher bereitstellt, ist nicht verfügbar. Es wird nichts gelesen oder gespeichert. Wähle einen Anbieter unter Einstellungen, Speicher."
+    },
+    "chip": "Gedächtnis aus",
+    "chipPrivate": "Privater Chat",
+    "fixUser": "Einstellungen, Gedächtnis",
+    "userRow": "In deinen Einstellungen aus. Schalte es unter Einstellungen, Gedächtnis an."
+  },
+  "agentMemory": {
+    "title": "Gedächtnis",
+    "lede": "Lege fest, welche Notizen dieser Agent liest und wohin er neue speichert.",
+    "offUser": "Das Gedächtnis ist in deinen Einstellungen aus, daher wirkt diese Auswahl erst, wenn du es einschaltest.",
+    "offUserFix": "Einstellungen, Gedächtnis",
+    "recommended": "Empfohlen",
+    "mine_and_own": {
+      "title": "Meine und eigene",
+      "body": "Liest deine Notizen und seine eigenen. Speichert nur in seinen eigenen."
+    },
+    "own": {
+      "title": "Nur eigene",
+      "body": "Liest und speichert nur seine eigenen Notizen. Deine Notizen bleiben unberührt."
+    },
+    "mine": {
+      "title": "Meine",
+      "body": "Liest und speichert deine Notizen."
+    },
+    "none": {
+      "title": "Keine",
+      "body": "Liest und speichert nichts."
+    },
+    "mineWarn": "Dieser Agent kann Notizen zu deinem Gedächtnis hinzufügen, für jeden Chat. Du bestätigst jede einzelne.",
+    "asBefore": {
+      "title": "Wie bisher",
+      "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
+    },
+    "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
+    "summary": {
+      "mine_and_own": "Meine und eigene",
+      "own": "Nur eigene",
+      "mine": "Meine",
+      "none": "Keine",
+      "asBefore": "Wie bisher",
+      "withAuto": "{{choice}}, speichert sofort",
+      "level": {
+        "off": "Aus",
+        "reads": "Liest Notizen",
+        "saves": "Liest und speichert Notizen"
+      },
+      "combined": "{{level}}, {{choice}}"
+    },
+    "delete": {
+      "title": "{{name}} löschen?",
+      "ask": "Dieser Agent hat eigene Notizen ({{count}}). Was soll damit geschehen?",
+      "legend": "Was mit den Notizen geschehen soll",
+      "default": "Standard",
+      "confirm": "Agent löschen",
+      "keep": {
+        "title": "Notizen behalten",
+        "body": "Sie bleiben auf der Seite Gedächtnis unter Gelöschte Agenten, bis du sie löschst."
+      },
+      "export": {
+        "title": "Exportieren, dann löschen",
+        "body": "Die Notizen als Zip-Datei herunterladen und dann in den Papierkorb legen."
+      },
+      "delete": {
+        "title": "Notizen ebenfalls löschen",
+        "body": "Sie wandern in den Papierkorb und lassen sich über Dateien wiederherstellen."
+      }
+    },
+    "rule": {
+      "title": "Wenn er eine Notiz speichern will",
+      "use_mine": {
+        "title": "Meine Einstellung",
+        "body": "Deine Einstellung ist <b>{{level}}</b>. <settings>Ändere sie unter Einstellungen > Gedächtnis.</settings>"
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "Speichert jede Notiz sofort und sagt dir im Chat Bescheid, mit Rückgängig, auch wenn deine Einstellung „Erst fragen“ ist. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem."
+      },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Strenger als meine Einstellung."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Liest, speichert nie."
+      },
+      "hint": "In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einer verifizierten Person. Sofortiges Speichern in einem Messaging-Chat gilt nur für eine verifizierte Person in einem Einzelchat.",
+      "offReason": "Die Speicherstufe gilt nicht, solange das Gedächtnis aus ist.",
+      "readsReason": "Die Speicherstufe gilt nicht: Dieser Agent liest Notizen, kann aber keine speichern."
+    },
+    "level": {
+      "title": "Wie viel er mit Notizen macht",
+      "off": {
+        "title": "Aus",
+        "body": "Liest und speichert keine Notizen."
+      },
+      "reads": {
+        "title": "Liest Notizen",
+        "body": "Nutzt deine Notizen für Antworten. Speichert nie welche."
+      },
+      "saves": {
+        "title": "Liest und speichert Notizen",
+        "body": "Nutzt Notizen und speichert neue, soweit deine Speicherstufe es erlaubt."
+      }
+    },
+    "whose": "Wessen Notizen",
+    "whoseOff": "Das Gedächtnis ist für diesen Agenten aus, es gibt also keine Notizen zur Auswahl."
+  },
+  "providerPicker": {
+    "title": "Anbieter",
+    "lede": "Es arbeitet immer nur ein Anbieter. Deine vorhandenen Daten bleiben beim Wechsel, wo sie sind.",
+    "off": "Aus",
+    "unavailable": "Nicht verfügbar",
+    "loadError": "Die Anbieter konnten nicht geladen werden",
+    "saveFailed": "Der Anbieter konnte nicht geändert werden",
+    "failedTitle": "{{name}} ist nicht verfügbar",
+    "failedReason": "Das bleibt aus, bis du einen Anbieter wählst. Nichts wurde zum integrierten Anbieter verschoben, es wird also nichts dort gespeichert, wo du es nicht gewählt hast.",
+    "useBuiltin": "Integrierten Anbieter verwenden",
+    "facts": {
+      "local": "Lokal",
+      "remote": "Extern",
+      "undoHost": "Hier rückgängig machen",
+      "undoProvider": "Rückgängig durch den Dienst",
+      "undoNone": "Nicht rückgängig zu machen"
+    },
+    "slots": {
+      "memory": {
+        "builtin": "Integriert",
+        "builtinBody": "Einfache Dateien in deinem Ordner „Memory“. Nichts verlässt diesen Rechner.",
+        "offBody": "Nichts wird gelesen, angeboten, gespeichert oder gesendet. Vorhandene Notizen bleiben erhalten."
+      }
+    },
+    "healthTitle": "Der Anbieter pausiert",
+    "forget": {
+      "lede": "Bitte {{name}}, die Notizen zu vergessen, die er für dich speichert. Deine Dateien im Ordner Memory bleiben unberührt.",
+      "action": "Alles dieses Anbieters vergessen",
+      "confirmTitle": "Alles von {{name}} vergessen?",
+      "confirmBody": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Er kann die Änderung zurückhalten, bis du sie auf der Seite Add-ons bestätigst.",
+      "confirmBodyFinal": "{{name}} wird gebeten, jede Notiz zu vergessen, die er für dich speichert. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Alles vergessen",
+      "pending": "Wird vergessen...",
+      "done": "{{name}} hat seine Notizen vergessen",
+      "waiting": "Die Änderung wartet auf deine Bestätigung auf der Seite Add-ons",
+      "failed": "Der Anbieter konnte nicht vergessen: {{message}}"
+    }
+  },
+  "subAgents": {
+    "waiting": "Wartet auf: {{what}}",
+    "looping": "In Schleife"
+  },
+  "connectionsTabs": {
+    "label": "Bereiche von Verbindungen",
+    "accounts": "Konten",
+    "messaging": "Messaging",
+    "mcp": "MCP-Server"
+  },
+  "triggersPage": {
+    "runLimit": "Zeitlimit eines Laufs"
+  },
+  "sandboxProfile": {
+    "label": "Sandbox-Profil",
+    "tools": "Programme: {{tools}}",
+    "notAllowed": "Dein Administrator hat dir dieses Profil nicht freigegeben",
+    "absent": "Diese Version hat kein Image dafür",
+    "unavailable": "{{title}} ist nicht verfügbar: {{reason}}.",
+    "draft": "Der neue Chat startet in {{title}}. Wähle hier ein Profil oder ändere es später im Chat.",
+    "source": {
+      "chat": "Dieser Chat läuft in {{title}}, nach deiner Wahl.",
+      "agent": "Dieser Chat läuft in {{title}}, vom Agenten festgelegt.",
+      "default": "Dieser Chat läuft in {{title}}, dem Standard."
+    },
+    "switchWarning": "Beim Wechsel startet die Sandbox neu. Deine Dateien bleiben. Laufende Prozesse und installierte Pakete gehen verloren.",
+    "switchTo": "Zu {{title}} wechseln",
+    "cancel": "Abbrechen",
+    "preparing": "Das Image {{title}} wird vorbereitet, {{percent}} %",
+    "failed": "Das Image {{title}} konnte nicht vorbereitet werden: {{error}}",
+    "fallback": "{{title}} konnte nicht verwendet werden, daher laufen Befehle in {{base}}.",
+    "newerImage": "Ein neueres Image ist verfügbar. Es gilt, wenn die Sandbox neu startet.",
+    "notAllowedError": "Du darfst dieses Profil nicht verwenden.",
+    "unknownError": "Dieses Profil gibt es nicht.",
+    "saveError": "Das Profil konnte nicht geändert werden.",
+    "admin": {
+      "title": "Sandbox-Profile",
+      "intro": "Ein Profil ist eine Umgebung mit eigenen Programmen. Alle dürfen jedes Profil nutzen, bis du eines einschränkst.",
+      "default": "Standardprofil",
+      "defaultBase": "Base",
+      "profiles": "Profile",
+      "limits": "{{cpus}} CPUs, {{memory}} MiB Speicher, {{disk}} MiB Festplatte",
+      "baseAlways": "Alle Nutzer dürfen Base verwenden. Es läuft, wenn ein anderes Profil nicht möglich ist.",
+      "who": "Wer es nutzen darf",
+      "everyone": "Alle",
+      "restricted": "Nur die Rollen und Nutzer unten",
+      "role": {
+        "admin": "Administratoren",
+        "user": "Normale Nutzer"
+      },
+      "users": "Nutzer mit Namen",
+      "usersPlaceholder": "Namen, durch Kommas getrennt",
+      "pin": "Auf das vorherige Image festlegen",
+      "noPrevious": "Es gibt noch kein vorheriges Image",
+      "memory": "Speicherlimit einer Sandbox in MiB",
+      "disk": "Festplattenlimit einer Sandbox in MiB",
+      "noLimit": "Kein Limit",
+      "quotaHelp": "Ein Limit senkt die Grenze eines Profils, hebt sie aber nie an. Lass ein Feld leer für kein Limit.",
+      "badQuota": "Gib eine ganze Zahl in MiB an oder lass das Feld leer.",
+      "reload": "Neu laden",
+      "ownerError": "Die Einstellungen des Besitzers sind nicht verfügbar oder haben sich geändert: {{message}}",
+      "save": "Speichern",
+      "loadError": "Die Sandbox-Profile konnten nicht gelesen werden."
+    }
+  },
+  "harness": {
+    "title": "Das Kontextfenster dieses Modells ist für den Chat zu klein",
+    "admin": {
+      "reason": "Es hat {{window}} Token, der Chat braucht mindestens {{minimum}}; besser sind {{recommended}}.",
+      "checking": "Es wird geprüft, ob {{target}} Token in den Speicher dieses Rechners passen …",
+      "fits": "{{target}} Token passen in den Speicher dieses Rechners (etwa {{need}}).",
+      "fitsLess": "{{recommended}} Token passen nicht in den Speicher dieses Rechners. {{target}} passen (etwa {{need}}).",
+      "unknown": "Der dafür nötige Speicher konnte nicht geschätzt werden.",
+      "none": "Nicht einmal {{minimum}} Token passen in den Speicher dieses Rechners. Wählen Sie ein kleineres Modell.",
+      "fix": "Fenster auf {{target}} setzen"
+    },
+    "user": {
+      "reason": "Es hat {{window}} Token, der Chat braucht mindestens {{minimum}}.",
+      "switch": "Wechseln Sie in diesem Chat zu einem installierten Modell mit größerem Fenster.",
+      "askAdmin": "Kein installiertes Modell, das Sie nutzen dürfen, hat ein ausreichend großes Fenster. Bitten Sie einen Administrator, es zu vergrößern oder ein anderes Modell zu installieren.",
+      "use": "{{model}} verwenden ({{window}} Token)"
+    },
+    "chat": {
+      "title": "Die Kontextgröße dieses Chats ist zu klein",
+      "reason": "Die Einstellung dieses Chats ist {{window}} Token, der Chat braucht mindestens {{minimum}}.",
+      "fix": "Fenster des Modells verwenden"
+    }
+  }
+}

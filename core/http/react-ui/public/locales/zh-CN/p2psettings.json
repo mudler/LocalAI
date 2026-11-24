@@ -1,0 +1,291 @@
+{
+  "title": "P2P 设置",
+  "lede": {
+    "off": "P2P 已关闭。选择一种模式，以使用其他实例或共享本实例。",
+    "connect": "仅连接：此服务器通过 P2P 使用远程实例，不接受任何人连入。",
+    "share": "连接并共享：此服务器还接受你配对的设备。"
+  },
+  "loadError": "无法加载 P2P 设置",
+  "notRunning": "P2P 未运行。",
+  "saved": "已保存。P2P 将以新设置重新启动。",
+  "saveFailed": "服务器未保存该设置。",
+  "sections": {
+    "label": "P2P 设置分区",
+    "network": "网络",
+    "relays": "中继",
+    "identity": "身份"
+  },
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "copy": "复制",
+    "done": "完成"
+  },
+  "units": {
+    "kibps": "KiB/s",
+    "gib": "GiB",
+    "minutes": "分钟"
+  },
+  "modes": {
+    "off": {
+      "title": "关闭",
+      "body": "不使用 P2P。NATS 和 WebSocket 上的节点不受影响。"
+    },
+    "connect": {
+      "title": "仅连接",
+      "body": "通过 P2P 使用其他实例的模型。此服务器不接受任何人连入。无需身份验证。"
+    },
+    "share": {
+      "title": "连接并共享",
+      "body": "同时接受已配对设备、远程实例和 P2P 节点。需要开启身份验证。"
+    }
+  },
+  "network": {
+    "title": "网络",
+    "mode": {
+      "title": "P2P 模式",
+      "lede": "此实例通过 P2P 做什么。更改立即生效。",
+      "needsAuth": "需要身份验证",
+      "replaces": "取代 --p2p"
+    },
+    "defaultOn": "默认开启",
+    "shareOnly": "仅在“连接并共享”中",
+    "shareOnlyNote": "仅在“连接并共享”中显示：共享此实例、设备和邀请、已配对设备的中继，以及中继。",
+    "dht": {
+      "title": "公共 DHT",
+      "desc": "通过公共 libp2p 网络发现他人，也被他人发现。加入时从不需要它：邀请中带有 peer ID 和中继提示，客户端直接连接该 peer ID。"
+    },
+    "mdns": {
+      "title": "本地网络发现",
+      "desc": "发现同一本地网络中的其他实例（mDNS），无需互联网即可直接连接。"
+    },
+    "bootstrap": {
+      "title": "引导节点",
+      "desc": "你自己的 libp2p 网络入口，每行一个地址。每个地址以 /p2p/<peer ID> 结尾。留空则使用公共引导节点。"
+    },
+    "relayPaired": {
+      "title": "已配对设备的中继",
+      "desc": "当已配对设备无法直接连接时，此服务器在它们之间转发流量。显示为“经由你的服务器”。"
+    },
+    "relayMode": {
+      "title": "此服务器何时中继",
+      "desc": "自动模式下，仅当其他节点能从互联网访问此服务器时才运行中继。",
+      "auto": "自动：当此服务器可访问时",
+      "on": "始终",
+      "off": "从不"
+    },
+    "relayRate": {
+      "title": "每条电路的带宽",
+      "desc": "此服务器所中继的每个连接的限制。0 表示无限制。"
+    }
+  },
+  "share": {
+    "title": "从这里共享此实例",
+    "body": "让你的笔记本电脑使用此服务器的模型，并添加 P2P 节点。每台配对的设备都有自己的 API 密钥，因此共享需要开启身份验证。",
+    "authOn": "身份验证已开启。切换后会增加设备和邀请、共享此实例以及中继。你的远程实例保持连接。",
+    "turnOnAuth": "开启身份验证",
+    "switch": "切换到“连接并共享”"
+  },
+  "relays": {
+    "title": "中继",
+    "run": "运行中继…",
+    "lede": "LocalAI 不运营公共中继。公共 libp2p 中继负责协调打洞，并承载配对和小型请求；它们会在约 128 KiB 后重置连接。部分网络之间无法直接连接，因此请运行你自己的中继。受限中继只允许此服务器已配对的节点。开放中继可用于邀请，但会有警告。",
+    "loadError": "无法加载中继",
+    "col": {
+      "relay": "中继",
+      "health": "状态",
+      "invites": "邀请",
+      "limits": "限制",
+      "actions": "操作"
+    },
+    "thisServer": "此服务器",
+    "self": {
+      "running": "中继中",
+      "reason": {
+        "off": "已关闭",
+        "not_share": "已关闭：未共享",
+        "not_public": "等待中：无法从互联网访问"
+      },
+      "pairedOnly": "仅已配对设备",
+      "limits": "在“网络”中设置"
+    },
+    "yourRelay": "你的中继",
+    "admins_one": "{{count}} 位管理员",
+    "admins_other": "{{count}} 位管理员",
+    "state": {
+      "in_sync": "受限，已同步",
+      "out_of_sync": "受限，未同步",
+      "open": "开放：任何人都可使用",
+      "unclaimed": "尚未认领",
+      "not_admin": "此服务器不是管理员",
+      "denied": "拒绝此服务器",
+      "unreachable": "无法访问",
+      "checking": "检查中"
+    },
+    "latency": "往返 {{ms}} ms",
+    "checked": {
+      "now": "刚刚检查",
+      "minutes_one": "{{count}} 分钟前检查",
+      "minutes_other": "{{count}} 分钟前检查",
+      "hours_one": "{{count}} 小时前检查",
+      "hours_other": "{{count}} 小时前检查",
+      "days_one": "{{count}} 天前检查",
+      "days_other": "{{count}} 天前检查"
+    },
+    "pass": {
+      "pass": "中继通行证",
+      "open": "带警告",
+      "none": "未使用"
+    },
+    "members_one": "允许 {{count}} 个节点",
+    "members_other": "允许 {{count}} 个节点",
+    "noLimit": "无限制",
+    "perCircuit": "每条电路 {{limits}}",
+    "sync": "立即同步",
+    "synced": "中继已有最新的已配对设备列表。",
+    "claim": "认领",
+    "limitsOf": "{{name}} 的限制",
+    "checkOf": "重新检查 {{name}}",
+    "removeOf": "移除 {{name}}",
+    "empty": {
+      "title": "还没有你自己的中继",
+      "body": "位于严格路由器之后的设备无法直接连接。在有公网地址的机器上运行一个小型中继，就能让它们接入。"
+    },
+    "outOfSync": {
+      "title": "{{name}} 未同步。",
+      "body_one": "它可能仍会接纳你已撤销的设备。“立即同步”会推送当前包含 {{count}} 台已配对设备的列表。",
+      "body_other": "它可能仍会接纳你已撤销的设备。“立即同步”会推送当前包含 {{count}} 台已配对设备的列表。"
+    },
+    "claimTitle": "认领此中继",
+    "claimLede": "该中继还没有管理员。它在启动时打印了一个一次性认领码。",
+    "claimed": "此服务器现在是该中继的管理员。",
+    "removeTitle": "移除此中继？",
+    "removeBody": "{{name}} 将不再用于新的邀请。该中继仍在运行；请在它所在的机器上停止它。",
+    "remove": "移除",
+    "removed": "中继已移除。"
+  },
+  "run": {
+    "title": "运行中继",
+    "lede": "用于无法直接连接的节点。它只允许此服务器已配对的节点。",
+    "step1": "1. 在有公网地址的机器上启动",
+    "dockerLabel": "用 Docker 启动中继",
+    "orBinary": "或使用二进制文件：",
+    "binaryLabel": "用 local-ai 二进制文件启动中继",
+    "explain": "开放 UDP 和 TCP 端口 4001。该卷保存中继密钥，因此重启后其 peer ID 不变。<b>--admin</b> 指定此服务器：中继只允许此服务器已配对的节点，并且在你配对或撤销设备时，此服务器会更新该列表。两台服务器可以共用一个中继：为每台各添加一个 <b>--admin</b>。中继是一个单独的小镜像，<b>localai/relay</b>。每条电路的限制：<b>--circuit-max-bytes</b>、<b>--circuit-max-duration</b>、<b>--rate-limit</b>、<b>--max-circuits-per-peer</b>。使用 <b>--open</b> 时任何人都可使用，并且默认每条电路 64 KiB/s。",
+    "step2": "2. 粘贴中继地址",
+    "addrHint": "中继在启动时会打印它的地址。",
+    "addrInvalid": "请粘贴完整地址。它以 / 开头，以 /p2p/ 和该中继的 peer ID 结尾。",
+    "check": "检查可达性",
+    "claimLabel": "认领码",
+    "claim": "认领",
+    "claimFailed": "中继拒绝了认领码：{{error}}",
+    "add": "添加中继",
+    "added": "中继已添加。新的邀请会包含它。",
+    "ready": "可以添加。",
+    "nothingSaved": "在你添加中继之前不会保存任何内容。",
+    "steps": {
+      "reserve": {
+        "waiting": "在中继上预留名额",
+        "ok": "已在中继上预留名额",
+        "failed": "预留名额：无响应",
+        "skipped": "预留名额"
+      },
+      "circuit": {
+        "waiting": "电路测试",
+        "ok": "电路测试：数据已通过中继",
+        "failed": "电路测试失败",
+        "skipped": "电路测试：已跳过，此服务器不是管理员"
+      },
+      "allowlist": {
+        "waiting": "推送允许列表",
+        "ok": "允许列表已推送。此服务器是管理员。",
+        "failed": "允许列表未推送",
+        "skipped": "允许列表：开放中继不需要"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "中继工作正常，且为受限中继。",
+        "body": "它会作为中继提示连同中继通行证写入每个新的邀请。"
+      },
+      "open": {
+        "title": "中继工作正常，但它是开放的。",
+        "body": "任何人都可使用。邀请只会带着警告提及它。使用 --admin 启动即可将其设为受限。"
+      },
+      "wrong_peer": {
+        "title": "peer ID 错误。",
+        "body": "中继以 {{actual}} 应答，但地址中写的是 {{expected}}。请从中继日志中重新复制地址。如果中继在没有密钥卷的情况下重启，它会生成新的 ID。"
+      },
+      "unreachable": {
+        "title": "无法访问中继。",
+        "body": "请检查它是否在运行，以及其所在机器和路由器上的 UDP 与 TCP 端口 4001 是否已开放。然后重新检查。"
+      },
+      "circuit": {
+        "title": "中继有应答，但没有数据通过。",
+        "body": "它的限制可能过低，或者负载过高。请查看它的日志，然后重新检查。"
+      },
+      "unclaimed": {
+        "title": "该中继还没有管理员。",
+        "body": "输入它在启动时打印的认领码，或使用 --admin 和此服务器的 peer ID 重新启动它。"
+      },
+      "not_admin": {
+        "title": "此服务器不是该中继的管理员。",
+        "body": "按第 1 步，使用 --admin 和此服务器的 peer ID 启动中继。然后重新检查。"
+      }
+    }
+  },
+  "limits": {
+    "title": "{{name}} 的限制",
+    "ledeOpen": "开放中继：任何人都可使用。",
+    "ledeGated": "受限中继：仅已配对的节点可使用。",
+    "reset": "恢复默认值",
+    "noLimitTitle": "无限制。",
+    "noLimitOpen": "一个陌生人就能占用此中继的全部带宽和流量，你自己的节点也会变慢。",
+    "noLimitGated": "一个已配对的节点可以占用此中继的全部带宽，例如用于复制模型。",
+    "mode": "模式",
+    "limited": "有限制",
+    "none": "无限制",
+    "fields": {
+      "dataGiB": "每条电路的数据量",
+      "minutes": "每条电路的时长",
+      "kibps": "每条电路的带宽"
+    },
+    "zeroHint": "0 表示该项无限制。",
+    "invalid": "每个值必须是不小于 0 的数字。",
+    "applyHint": "新的带宽限制对下一个电路生效。新的数据或时间限制会重启中继的电路服务：已打开的电路沿用旧限制直到关闭，已配对的设备会在片刻后通过中继重新连接。",
+    "save": "保存限制",
+    "saved": "已在 {{name}} 上保存限制。",
+    "savedRestarted": "已在 {{name}} 上保存限制。中继已重启其电路服务，设备稍后会重新连接。",
+    "loadError": "无法从中继读取限制。",
+    "readOnlyTitle": "此服务器无法更改这些限制。",
+    "readOnlyOpen": "这是开放中继，且此服务器不是它的管理员。请在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。",
+    "readOnlyMember": "此服务器不是该中继的管理员。请联系其管理员，或在中继运行的位置用 --circuit-max-bytes、--circuit-max-duration 和 --rate-limit 设置限制。",
+    "max": "最大值：{{value}}",
+    "noMax": "无最大值",
+    "ceilingTitle": "中继运营者设置了最大值。",
+    "ceilingBody": "此中继的运营者通过启动参数为每项限制设置了上限。你可以把限制调到最大值，但不能超过，也不能移除设有最大值的限制。",
+    "issue": {
+      "above": "超过了 {{max}} 的最大值。",
+      "required": "请输入不超过 {{max}} 的值：设有最大值的限制不能移除。"
+    },
+    "refusedTitle": "中继拒绝了此更改。"
+  },
+  "identity": {
+    "title": "身份",
+    "lede": "客户端在兑换邀请时会固定此 peer ID。你的中继将它列为其管理员。重启后它保持不变。",
+    "notRunning": "P2P 未运行，因此此服务器没有可显示的 peer ID。",
+    "copied": "peer ID 已复制。",
+    "copyFailed": "无法复制 peer ID。",
+    "regenerateTitle": "重新生成 peer ID",
+    "regenerateDesc": "生成新的身份密钥。旧密钥会作为备份与新密钥一起保留。仅在身份密钥泄露时才这样做。",
+    "regenerateButton": "重新生成…",
+    "regenerate": "重新生成",
+    "regenerated": "已生成新的 peer ID。请向每台设备和每个远程实例发送新的邀请。",
+    "confirmTitle": "重新生成 peer ID？",
+    "confirmBody": "每台已配对设备、远程实例和 P2P 工作节点都固定了当前的 ID。它们将无法连接，并把新 ID 当作安全警告而拒绝。你必须向每一个发送新的邀请。待处理的邀请将失效。",
+    "confirmOnly": "仅在身份密钥泄露时才这样做。",
+    "confirmCheck_one": "我了解 {{count}} 台已配对设备必须重新配对",
+    "confirmCheck_other": "我了解 {{count}} 台已配对设备必须重新配对"
+  }
+}

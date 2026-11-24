@@ -1,0 +1,458 @@
+// SPDX-License-Identifier: MIT
+
+// Package protocol speaks the LocalAI addon runtime protocol: the
+// startup handshake, authenticated loopback requests, previews, applies,
+// receipts and outputs. It mirrors the host's wire types instead of importing
+// the owner's packages, so an add-on executable links none of the host.
+package protocol
+
+import (
+	"context"
+	"crypto/subtle"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+// Registration, Startup, ApplyRequest, ReceiptRequest and OutputRequest are the
+// wire shapes the owner sends. Field names are the protocol and must not drift;
+// the integration suite starts the real executable under the real supervisor.
+type Registration struct {
+	AddonID      string                `json:"addonId"`
+	Generation   uint64                `json:"generation"`
+	Incarnation  string                `json:"incarnation"`
+	Protocol     int                   `json:"protocol"`
+	Endpoint     string                `json:"endpoint"`
+	Capabilities contract.Capabilities `json:"capabilities"`
+}
+type Startup struct {
+	Registration Registration    `json:"registration"`
+	Credential   string          `json:"credential"`
+	Limits       contract.Limits `json:"limits"`
+	DataDir      string          `json:"dataDir,omitempty"`
+	// HostEndpoint and HostCredential are set only for an add-on that the host
+	// setting names. They reach the host operation channel.
+	HostEndpoint   string `json:"hostEndpoint,omitempty"`
+	HostCredential string `json:"hostCredential,omitempty"`
+}
+
+// redacted returns a copy of the startup object with both credentials masked.
+// The copy has no methods, so formatting it does not call String again.
+func (s Startup) redacted() any {
+	type plain Startup
+	mask := func(v string) string {
+		if v == "" {
+			return ""
+		}
+		return "[redacted]"
+	}
+	s.Credential = mask(s.Credential)
+	s.HostCredential = mask(s.HostCredential)
+	return plain(s)
+}
+
+// String masks Credential and HostCredential, so a log line or a %v of a
+// Startup does not leak them. It does not change the JSON encoding.
+func (s Startup) String() string { return fmt.Sprintf("%+v", s.redacted()) }
+
+// GoString does the same for %#v.
+func (s Startup) GoString() string { return fmt.Sprintf("%#v", s.redacted()) }
+
+// LogValue masks the credentials for log/slog and xlog.
+func (s Startup) LogValue() slog.Value { return slog.StringValue(s.String()) }
+
+type ApplyRequest struct {
+	Envelope contract.Envelope `json:"envelope"`
+	Revision contract.Revision `json:"revision"`
+}
+type ReceiptRequest struct {
+	OperationID string `json:"operationId"`
+}
+type OutputRequest struct {
+	Envelope contract.Envelope `json:"envelope"`
+	Handle   string            `json:"handle"`
+}
+
+// Errors a Runtime returns map to protocol status codes. Any other error is a
+// 503: the owner treats it as uncertain and never as a rejection.
+var (
+	ErrBadRequest = errors.New("invalid request")
+	ErrNotFound   = errors.New("not found")
+	ErrConflict   = errors.New("conflict")
+	ErrForbidden  = errors.New("forbidden")
+)
+
+// Upstream marks a refusal as coming from the service behind the add-on: status
+// is what the service answered and hint one fixed sentence for the person that
+// names the fix. The host shows both in the chat. cause is the usual refusal
+// (an ErrBadRequest with its reason), so a host that does not read the status
+// sees the same 400 as before. Neither value may hold a token or text the
+// service sent.
+func Upstream(status int, hint string, cause error) error {
+	return &contract.UpstreamError{Status: status, Hint: hint, Cause: cause}
+}
+
+// badRequestText is the body of a 400 answer: the reason a runtime put after
+// ErrBadRequest ("invalid request: <reason>"), or the plain class. The owner
+// keeps a short printable part of it, so a runtime writes a fixed sentence
+// here and never an echo of the request.
+func badRequestText(err error) string {
+	// A host refusal carries the prefix too, so a runtime that wraps it adds a second.
+	reason, stripped := err.Error(), false
+	for {
+		rest, ok := strings.CutPrefix(reason, ErrBadRequest.Error()+": ")
+		if !ok {
+			break
+		}
+		reason, stripped = rest, true
+	}
+	if !stripped || reason == "" {
+		return ErrBadRequest.Error()
+	}
+	return reason
+}
+
+// ReadStartup decodes the startup object from the inherited descriptor and
+// returns whatever the decoder buffered beyond it, for the parent-death watch.
+func ReadStartup(parent io.Reader) (Startup, io.Reader, error) {
+	d := json.NewDecoder(parent)
+	var s Startup
+	if err := d.Decode(&s); err != nil {
+		return s, nil, err
+	}
+	return s, io.MultiReader(d.Buffered(), parent), nil
+}
+
+// StopWithParent returns a context that ends when the owner closes the startup
+// channel (which also happens when the owner dies) or the process gets SIGTERM
+// or SIGINT. An executable that holds resources serves with it and returns from
+// Run when it ends, so its deferred cleanup runs; os.Exit would skip it. The
+// caller calls the cancel function when it is done.
+func StopWithParent(parent context.Context, rest io.Reader) (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(parent, syscall.SIGTERM, syscall.SIGINT)
+	exitOnParentLoss(rest, stop)
+	return ctx, stop
+}
+
+// exitOnParentLoss calls stop when the owner closes the startup channel, which
+// also happens when the owner dies.
+func exitOnParentLoss(rest io.Reader, stop func()) {
+	go func() { _, _ = io.Copy(io.Discard, rest); stop() }()
+}
+
+// Closer is implemented by a runtime that owns resources outside its process,
+// such as sandboxes that a helper started, and must release them before the
+// add-on exits. Run calls it when the owner closes the startup channel or the
+// process gets SIGTERM or SIGINT. The context carries the shutdown budget.
+// The owner kills a process that outlives it, and SIGKILL cannot be caught, so
+// a Closer must not be the only protection against a leak.
+type Closer interface {
+	Close(ctx context.Context) error
+}
+
+// shutdownBudget bounds Closer.Close. The owner waits longer for the exit.
+var shutdownBudget = 8 * time.Second
+
+// newShutdown returns a function that closes rt (when it is a Closer) within
+// shutdownBudget and then calls exit(0). It runs the close once; a second call
+// waits for nothing and does not exit twice. Close runs in its own goroutine,
+// so a runtime that ignores its context cannot keep the process alive.
+func newShutdown(rt contract.Runtime, exit func(int)) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			if c, ok := rt.(Closer); ok {
+				ctx, cancel := context.WithTimeout(context.Background(), shutdownBudget)
+				defer cancel()
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					if err := c.Close(ctx); err != nil {
+						xlog.Warn("add-on shutdown", "error", err)
+					}
+				}()
+				select {
+				case <-done:
+				case <-ctx.Done():
+				}
+			}
+			exit(0)
+		})
+	}
+}
+
+// Handler authenticates every request with the incarnation credential and
+// header, then validates the envelope's binding to this addon and generation.
+func Handler(startup Startup, rt contract.Runtime) http.Handler {
+	reg := startup.Registration
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth := subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+startup.Credential))
+		inc := subtle.ConstantTimeCompare([]byte(r.Header.Get("X-LocalAI-Incarnation")), []byte(reg.Incarnation))
+		if auth&inc != 1 || startup.Credential == "" {
+			http.Error(w, "denied", http.StatusUnauthorized)
+			return
+		}
+		if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "invalid request", http.StatusBadRequest)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, startup.Limits.EnvelopeBytes)
+		defer func() { _ = r.Body.Close() }()
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		read := func(v any) bool {
+			if decoder.Decode(v) != nil || decoder.Decode(new(any)) != io.EOF {
+				http.Error(w, "invalid request", http.StatusBadRequest)
+				return false
+			}
+			return true
+		}
+		valid := func(v contract.Envelope, scope string) bool {
+			if v.Validate(time.Now(), startup.Limits) != nil || v.Authority.Scope != scope || v.Request.AddonID != reg.AddonID || v.Request.Generation != reg.Generation {
+				http.Error(w, "invalid authority", http.StatusForbidden)
+				return false
+			}
+			return true
+		}
+		reply := func(v any, err error) {
+			var rateLimited *contract.ErrRateLimited
+			switch {
+			case err == nil:
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(v)
+			case errors.Is(err, ErrBadRequest):
+				if up, ok := contract.UpstreamOf(err); ok && contract.ValidUpstreamStatus(up.Status) {
+					w.Header().Set(contract.HeaderUpstreamStatus, strconv.Itoa(up.Status))
+					if hint := contract.CleanHint(up.Hint); hint != "" {
+						w.Header().Set(contract.HeaderUpstreamHint, hint)
+					}
+				}
+				http.Error(w, badRequestText(err), http.StatusBadRequest)
+			case errors.Is(err, contract.ErrRefused):
+				http.Error(w, ErrBadRequest.Error(), http.StatusBadRequest)
+			case errors.As(err, &rateLimited):
+				// The service behind the add-on asks the caller to wait. The
+				// host reads the wait from Retry-After.
+				w.Header().Set("Retry-After", strconv.Itoa(rateLimited.Seconds()))
+				http.Error(w, "rate_limited", http.StatusTooManyRequests)
+			case errors.Is(err, contract.ErrCredentialRejected):
+				// The service refused the access token the host gave and
+				// nothing changed. The host renews the token once and calls
+				// again; any other answer would be an outage to it.
+				http.Error(w, "credential_rejected", http.StatusUnauthorized)
+			case errors.Is(err, ErrNotFound):
+				http.Error(w, "not found", http.StatusNotFound)
+			case errors.Is(err, ErrForbidden):
+				http.Error(w, "forbidden", http.StatusForbidden)
+			case errors.Is(err, ErrConflict):
+				http.Error(w, "conflict", http.StatusConflict)
+			default:
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			}
+		}
+		ctx := r.Context()
+		switch r.URL.Path {
+		case "/health":
+			reply(reg, nil)
+		case "/read":
+			var v contract.Envelope
+			if read(&v) && valid(v, "read") {
+				out, err := rt.Read(ctx, v)
+				reply(out, err)
+			}
+		case "/act":
+			// Only a runtime that serves action tools has the route.
+			ar, ok := rt.(contract.ActRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.Envelope
+			if read(&v) && valid(v, "act") {
+				out, err := ar.Act(ctx, v)
+				reply(out, err)
+			}
+		case "/connector":
+			// Only a runtime that declared a connector has the route. The
+			// host calls it with no user behind the call, so it takes no
+			// envelope: the bearer credential and the incarnation header
+			// above are its authority.
+			cr, ok := rt.(contract.ConnectorRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ConnectorRequest
+			if read(&v) {
+				out, err := cr.Connector(ctx, v)
+				reply(out, err)
+			}
+		case "/preview":
+			var v contract.Envelope
+			if read(&v) && valid(v, "preview") {
+				out, err := rt.Preview(ctx, v)
+				reply(out, err)
+			}
+		case "/apply":
+			var v ApplyRequest
+			if read(&v) && valid(v.Envelope, "apply") {
+				out, err := rt.Apply(ctx, v.Envelope, v.Revision)
+				reply(out, err)
+			}
+		case "/receipt":
+			var v ReceiptRequest
+			if read(&v) {
+				out, err := rt.Receipt(ctx, v.OperationID)
+				reply(out, err)
+			}
+		case "/output":
+			var v OutputRequest
+			if !read(&v) || !valid(v.Envelope, "output") {
+				return
+			}
+			body, err := rt.OpenOutput(ctx, v.Envelope, v.Handle)
+			if err != nil {
+				reply(nil, err)
+				return
+			}
+			defer func() { _ = body.Close() }()
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = io.Copy(w, io.LimitReader(body, startup.Limits.ArtifactBytes+1))
+		case "/client":
+			// Only a runtime that declared client routes has the route. The
+			// call carries the identity of a paired client and never its
+			// credential; the host has already checked both.
+			cr, ok := rt.(contract.ClientRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ClientRequest
+			if read(&v) {
+				out, err := cr.ClientCall(ctx, v)
+				reply(out, err)
+			}
+		case "/client/stream":
+			cr, ok := rt.(contract.ClientRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ClientRequest
+			if !read(&v) {
+				return
+			}
+			body, err := cr.ClientStream(ctx, v)
+			if err != nil {
+				reply(nil, err)
+				return
+			}
+			serveStream(ctx, w, body)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// serveStream copies a server-sent event stream to the host and flushes after
+// every read, so an event is not held in a buffer. The read deadline of the
+// server (two seconds) is cleared as a precaution: a stream lives longer, and a
+// deadline that runs out must not fail a read of the connection under it. The
+// stream ends when the add-on closes its body or the host drops the connection.
+func serveStream(ctx context.Context, w http.ResponseWriter, body io.ReadCloser) {
+	defer func() { _ = body.Close() }()
+	rc := http.NewResponseController(w)
+	_ = rc.SetReadDeadline(time.Time{})
+	stop := context.AfterFunc(ctx, func() { _ = body.Close() })
+	defer stop()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	_ = rc.Flush()
+	buf := make([]byte, 4<<10)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				return
+			}
+			_ = rc.Flush()
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+// Serve runs the protocol on an already bound listener until ctx ends.
+func Serve(ctx context.Context, l net.Listener, startup Startup, rt contract.Runtime) error {
+	srv := &http.Server{Handler: Handler(startup, rt), ReadHeaderTimeout: time.Second, ReadTimeout: 2 * time.Second, IdleTimeout: time.Second, MaxHeaderBytes: 16 << 10}
+	go func() { <-ctx.Done(); _ = srv.Close() }()
+	if err := srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+// Run is the whole behaviour of an add-on executable: the owner starts it with
+// "--localai-addon-v1" and hands it a loopback listener and the startup
+// channel (see Listener and StartupChannel). The factory builds the runtime
+// from the startup object, so a runtime can use the host fields of it. It
+// returns the process exit code.
+func Run(args []string, factory func(Startup) contract.Runtime) int {
+	if len(args) != 2 || args[1] != "--localai-addon-v1" {
+		return 2
+	}
+	channel, err := StartupChannel()
+	if err != nil {
+		return 3
+	}
+	startup, rest, err := ReadStartup(channel)
+	if err != nil || !filepath.IsAbs(startup.DataDir) {
+		return 3
+	}
+	// The watch starts before the factory, which may be slow. A stop that
+	// arrives meanwhile waits for the runtime, but not longer than the budget.
+	var rt contract.Runtime
+	built := make(chan struct{})
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			select {
+			case <-built:
+			case <-time.After(shutdownBudget):
+			}
+			newShutdown(rt, os.Exit)()
+		})
+	}
+	exitOnParentLoss(rest, stop)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+	go func() { <-sig; stop() }()
+	listener, err := Listener()
+	if err != nil {
+		return 6
+	}
+	rt = factory(startup)
+	close(built)
+	if err := Serve(context.Background(), listener, startup, rt); err != nil {
+		return 8
+	}
+	return 0
+}

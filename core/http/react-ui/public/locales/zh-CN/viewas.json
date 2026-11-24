@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "以用户身份查看",
+    "readonlyTag": "只读",
+    "actingTag": "操作中",
+    "readonlyLead": "正在以 {{name}} 的身份查看。",
+    "readonlyRest": "只读。",
+    "actingLead": "正在以 {{name}} 的身份操作。",
+    "actingRest": "更改将作用于 {{name}} 的账户，并会被记录。",
+    "allow": "允许更改",
+    "exit": "退出",
+    "exitLabel": "退出以 {{name}} 的身份查看"
+  },
+  "confirm": {
+    "title": "允许更改 {{name}} 的账户？",
+    "intro": "你即将以 {{name}} 的身份操作。立即生效，适用于所有跟随“以用户身份查看”的页面。",
+    "can": "你可以创建、编辑和删除 {{name}} 的项目。",
+    "logged": "每次更改都会被记录，操作人是你，账户是 {{name}}。",
+    "back": "你可以随时在顶部栏切换回只读。",
+    "stay": "保持只读",
+    "allow": "允许更改",
+    "close": "关闭"
+  },
+  "scope": {
+    "chip": "{{name}} 的数据",
+    "navMark": "显示 {{name}} 的数据",
+    "legend": "带此标记的页面显示 {{name}} 的数据，其他页面显示你自己的数据。",
+    "notice": "此页面显示的是你自己的数据，而不是 {{name}} 的数据。"
+  },
+  "write": {
+    "hint": "允许更改后才能编辑",
+    "blocked": "只读。请在顶部栏打开“允许更改”，才能编辑 {{name}} 的数据。"
+  },
+  "notice": {
+    "idle": "{{minutes}} 分钟无操作，更改已关闭，已恢复为只读。",
+    "ended": "{{name}} 已不可用，因此“以用户身份查看”已结束。"
+  },
+  "users": {
+    "action": "以用户身份查看",
+    "actionFor": "以 {{name}} 的身份查看",
+    "hint": "查看 {{name}} 所看到的内容。先从只读开始。"
+  },
+  "palette": {
+    "kind": "以用户身份查看",
+    "title": "以 {{name}} 的身份查看",
+    "where": "{{email}} · 先从只读开始"
+  }
+}

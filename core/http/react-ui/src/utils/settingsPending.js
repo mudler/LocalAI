@@ -1,0 +1,272 @@
+// The pending changes of the Settings page: what differs between the values
+// the server returned and the values on screen, the checks that can be made
+// in the browser, the request body, and the change log kept in this browser.
+//
+// Nothing here talks to the server. The checks cover only facts the page can
+// ground: a duration parses the way Go parses it, a VRAM budget is one the
+// server's parser accepts, a JSON box holds JSON, and the warnings repeat what
+// the handler or the field's own description says.
+
+import {
+  FIELDS, FIELD_BY_KEY, getValue, valuesEqual, parseGoDuration, vramBudgetError, compactDuration,
+} from './settingsSchema.js'
+import { checkHost, hostEntries, MAX_ALLOWED_HOSTS } from './egressHosts.js'
+
+// Fields in the order of the page that differ from `initial`. A field the
+// page saves at once (the logos) never appears.
+export function pendingChanges(initial, draft) {
+  if (!initial || !draft) return []
+  const out = []
+  for (const field of FIELDS) {
+    if (field.immediate) continue
+    const from = getValue(field, initial)
+    const to = getValue(field, draft)
+    if (!valuesEqual(field, from, to)) {
+      out.push({ field, from, to, silent: !!field.composite })
+    }
+  }
+  return out
+}
+
+// What a person sees in the count and in the diff: the master watchdog switch
+// is a shortcut for the two checks below it, which are listed themselves.
+export function visibleChanges(changes) {
+  return changes.filter(c => !c.silent)
+}
+
+export function restartChanges(changes) {
+  return visibleChanges(changes).filter(c => c.field.apply === 'restart')
+}
+
+// ---- Showing a value ---------------------------------------------------------
+
+function clip(text, n = 44) {
+  const t = String(text).replace(/\s+/g, ' ').trim()
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t
+}
+
+export function jsonCount(text) {
+  try {
+    const v = JSON.parse(String(text || '').trim() || '[]')
+    return Array.isArray(v) ? v.length : null
+  } catch { return null }
+}
+
+export function linesOf(text) {
+  return String(text || '').split(/[\n,]/).map(s => s.trim()).filter(Boolean)
+}
+
+export function displayValue(field, v) {
+  if (field.sensitive) {
+    return String(v ?? '').trim() ? 'set' : 'empty'
+  }
+  switch (field.kind) {
+    case 'bool': return v ? 'on' : 'off'
+    case 'percent': return `${Math.round(Number(v) * 100)}%`
+    case 'duration': return String(v ?? '').trim() ? compactDuration(String(v).trim()) : 'empty'
+    case 'json': {
+      const n = jsonCount(v)
+      return n === null ? clip(v) : `${n} ${n === 1 ? 'entry' : 'entries'}`
+    }
+    case 'lines': {
+      const n = linesOf(v).length
+      return `${n} ${n === 1 ? 'key' : 'keys'}`
+    }
+    case 'hosts': {
+      const n = hostEntries(v).length
+      return n ? `${n} ${n === 1 ? 'host' : 'hosts'}` : 'empty'
+    }
+    default: {
+      const t = String(v ?? '').trim()
+      return t ? clip(t) : 'empty'
+    }
+  }
+}
+
+// ---- Checks ------------------------------------------------------------------
+// Each check is { level: 'ok' | 'warn' | 'error', text }. An 'error' stops
+// Apply: the server would refuse the same value.
+
+export function runChecks(changes, initial, draft) {
+  const checks = []
+  const changed = key => changes.find(c => c.field.key === key)
+  for (const { field, to } of visibleChanges(changes)) {
+    if (field.kind === 'duration') {
+      const zero = field.allowZero && (String(to).trim() === '' || String(to).trim() === '0')
+      if (zero || parseGoDuration(to) !== null) {
+        checks.push({ level: 'ok', text: `${String(to).trim() || '0'} is a valid duration for ${field.label.toLowerCase()}.` })
+      } else {
+        checks.push({ level: 'error', text: `${field.label}: "${String(to).trim()}" is not a duration. Use values such as 30s, 15m or 1h.` })
+      }
+    }
+    if (field.key === 'vram_budget') {
+      const err = vramBudgetError(to)
+      checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
+    }
+    if (field.key === 'chats_egress_extra_registries' && String(to || '').includes('*')) {
+      checks.push({ level: 'error', text: 'Extra package registries require exact host names, not patterns.' })
+    }
+    if (field.kind === 'hosts') {
+      const entries = hostEntries(to)
+      const allowPrivate = !!draft?.chats_egress_allow_private
+      const bad = entries.find(e => { const r = checkHost(e, { allowPrivate }); return r.error && r.error !== 'duplicate' && r.error !== 'full' })
+      if (bad) checks.push({ level: 'error', text: `${field.label}: "${bad}" is not a valid host or whole-label pattern. Write host, *.domain or *, optionally with :port; no scheme or path.` })
+      else if (entries.length > MAX_ALLOWED_HOSTS) checks.push({ level: 'error', text: `${field.label}: at most ${MAX_ALLOWED_HOSTS} hosts.` })
+      else checks.push({ level: 'ok', text: `${field.label}: ${entries.length} ${entries.length === 1 ? 'host' : 'hosts'}.` })
+    }
+    if (field.key === 'chats_egress_allow_private' && to && !getValue(field, initial)) {
+      checks.push(String(draft?.[EGRESS_CONFIRM_KEY] || '').trim() === EGRESS_PRIVATE_PHRASE
+        ? { level: 'ok', text: `${field.label}: the phrase is typed.` }
+        : { level: 'error', text: `${field.label}: type the phrase "${EGRESS_PRIVATE_PHRASE}" in Settings > Tools to turn it on.` })
+    }
+    if (field.key === 'chats_web_search_providers') {
+      const err = searchProvidersError(to)
+      checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${field.label}: ${String(to || '').trim() || 'the default order'}.` })
+    }
+    if (field.key === 'chats_tool_providers') {
+      const text = String(to || '').trim()
+      let parsed = null
+      try { parsed = text ? JSON.parse(text) : {} } catch { /* reported below */ }
+      const ok = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+        Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch', 'xlsx', 'docx', 'pptx', 'pdf'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
+      checks.push(ok
+        ? { level: 'ok', text: `${field.label}: ${Object.keys(parsed).length} chosen.` }
+        : { level: 'error', text: `${field.label}: map bash, web_search, web_fetch or a skill (xlsx, docx, pptx, pdf) to an add-on ID, for example { "bash": "<add-on ID>" }.` })
+    } else if (field.kind === 'json') {
+      const text = String(to || '').trim()
+      if (text) {
+        let parsed = null
+        try { parsed = JSON.parse(text) } catch { /* reported below */ }
+        if (!Array.isArray(parsed)) checks.push({ level: 'error', text: `${field.label}: this must be a JSON list.` })
+        else if (parsed.some(g => !g || typeof g !== 'object' || !g.url)) checks.push({ level: 'error', text: `${field.label}: every entry needs a url.` })
+        else checks.push({ level: 'ok', text: `${field.label} is valid JSON with ${parsed.length} ${parsed.length === 1 ? 'entry' : 'entries'}.` })
+      }
+    }
+  }
+  const restart = restartChanges(changes)
+  if (restart.length) {
+    checks.push({ level: 'warn', text: `Restart LocalAI for ${restart.map(c => c.field.label).join(', ')} to take effect.` })
+  }
+  const force = changed('force_eviction_when_busy')
+  if (force && force.to) {
+    checks.push({ level: 'warn', text: 'Evicting while busy can interrupt requests in flight.' })
+  }
+  const csrf = changed('csrf')
+  if (csrf && !csrf.to) {
+    checks.push({ level: 'warn', text: 'With CSRF protection off, forged cross-site browser requests are not blocked.' })
+  }
+  const engine = String(draft.collections_vector_engine || 'chromem')
+  if (engine === 'postgres' && (changed('collections_vector_engine') || changed('collections_database_url')) && !String(draft.collections_database_url || '').trim()) {
+    checks.push({ level: 'warn', text: 'The postgres vector engine needs a database URL.' })
+  }
+  if (changed('api_keys')) {
+    checks.push({ level: 'warn', text: 'Shared keys set in the environment stay in force; only the keys listed here change.' })
+  }
+  return checks
+}
+
+export function hasBlockingCheck(checks) {
+  return checks.some(c => c.level === 'error')
+}
+
+// ---- Request body ------------------------------------------------------------
+// POST /api/settings merges the keys it receives over the saved settings, so
+// the page sends only the fields that changed.
+
+export function payloadFor(changes, source) {
+  const body = {}
+  for (const { field } of changes) {
+    if (field.composite) {
+      body.watchdog_enabled = !!(source.watchdog_idle_enabled || source.watchdog_busy_enabled)
+      body.watchdog_idle_enabled = !!source.watchdog_idle_enabled
+      body.watchdog_busy_enabled = !!source.watchdog_busy_enabled
+      continue
+    }
+    switch (field.key) {
+      case 'galleries':
+      case 'backend_galleries': {
+        const text = String(getValue(field, source) || '').trim()
+        body[field.key] = text ? JSON.parse(text) : []
+        break
+      }
+      case 'api_keys':
+        body.api_keys = linesOf(getValue(field, source))
+        break
+      case 'chats_tool_providers': {
+        const text = String(getValue(field, source) || '').trim()
+        body.chats_tool_providers = text ? JSON.parse(text) : {}
+        break
+      }
+      case 'csrf':
+        body.csrf = !!source.csrf
+        break
+      case 'chats_egress_allow_private':
+        // Turning it on needs the typed phrase in the same request; the
+        // server does not store it.
+        body.chats_egress_allow_private = !!source.chats_egress_allow_private
+        if (source.chats_egress_allow_private && source[EGRESS_CONFIRM_KEY]) body[EGRESS_CONFIRM_KEY] = source[EGRESS_CONFIRM_KEY]
+        break
+      default:
+        body[field.key] = getValue(field, source)
+    }
+  }
+  return body
+}
+
+// The phrase an administrator types to let isolated commands reach private
+// networks (core/config/chats_egress.go), and the draft key that carries it.
+export const EGRESS_PRIVATE_PHRASE = 'I understand that commands can reach my private network'
+export const EGRESS_CONFIRM_KEY = 'chats_egress_private_confirm'
+
+// ---- Change log ---------------------------------------------------------------
+// LocalAI keeps no log of settings changes. This one lives in this browser's
+// storage, holds the last HISTORY_LIMIT changes applied from it, and says so
+// where it is shown. A secret is logged as changed, never with its value.
+
+export const HISTORY_KEY = 'localai_settings_history'
+export const HISTORY_LIMIT = 50
+
+export function loadHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    return Array.isArray(raw) ? raw.filter(e => e && FIELD_BY_KEY[e.key]).slice(0, HISTORY_LIMIT) : []
+  } catch { return [] }
+}
+
+export function historyEntries(changes, at = Date.now()) {
+  return visibleChanges(changes).map(({ field, from, to }) => ({
+    at,
+    key: field.key,
+    from: field.sensitive ? null : from,
+    to: field.sensitive ? null : to,
+  }))
+}
+
+export function appendHistory(entries) {
+  const next = [...entries.slice().reverse(), ...loadHistory()].slice(0, HISTORY_LIMIT)
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)) } catch { /* storage may be blocked */ }
+  return next
+}
+
+export function clearHistory() {
+  try { localStorage.removeItem(HISTORY_KEY) } catch { /* storage may be blocked */ }
+  return []
+}
+
+// The names chats_web_search_providers accepts, as ParseSearchProviders in
+// core/config/chats_web.go reads them.
+export const SEARCH_PROVIDERS = ['searxng', 'duckduckgo', 'brave_html', 'bing_html']
+
+// searchProvidersError says what is wrong with a provider list, or '' when
+// the server takes it.
+export function searchProvidersError(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const names = text.split(',').map(n => n.trim().toLowerCase()).filter(Boolean)
+  if (names.length === 0) return 'list at least one provider, or switch web search off.'
+  const unknown = names.find(n => !SEARCH_PROVIDERS.includes(n))
+  if (unknown) return `"${unknown}" is not a search provider. Use ${SEARCH_PROVIDERS.join(', ')}.`
+  const twice = names.find((n, i) => names.indexOf(n) !== i)
+  if (twice) return `"${twice}" is listed twice.`
+  return ''
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "talk",
+  "version": "0.1.0",
+  "executable": "talk",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/talk.js",
+      "css": ["ui/talk.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["talk"],
+      "navigation": ["talk"],
+      "modelActions": [{"capability": "FLAG_TRANSCRIPT", "page": "talk"}],
+      "mainPage": "talk",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Talk",
+        "it": "Conversazione vocale",
+        "de": "Sprachchat",
+        "es": "Conversación de voz",
+        "fr": "Vocal",
+        "pt-BR": "Conversa por voz",
+        "zh-CN": "语音对话",
+        "ko": "음성 대화",
+        "id": "Obrolan suara"
+      },
+      "description": {
+        "en": "Have a spoken conversation with a model: your voice goes in, the answer is spoken back.",
+        "it": "Conversa a voce con un modello: la tua voce entra, la risposta viene pronunciata.",
+        "de": "Führen Sie ein gesprochenes Gespräch mit einem Modell: Ihre Stimme geht hinein, die Antwort wird gesprochen.",
+        "es": "Mantén una conversación hablada con un modelo: tu voz entra y la respuesta se pronuncia en voz alta.",
+        "fr": "Dialoguez à voix haute avec un modèle : votre voix entre, la réponse est prononcée.",
+        "pt-BR": "Tenha uma conversa falada com um modelo: sua voz entra e a resposta é falada de volta.",
+        "zh-CN": "与模型进行语音对话：你说话输入，回答以语音读出。",
+        "ko": "모델과 음성으로 대화합니다. 내 목소리가 입력되고 답변은 음성으로 들려줍니다.",
+        "id": "Lakukan percakapan lisan dengan model: suara Anda masuk, jawabannya diucapkan kembali."
+      }
+    }
+  }
+}

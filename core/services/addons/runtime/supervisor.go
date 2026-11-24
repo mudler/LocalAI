@@ -1,0 +1,1025 @@
+// SPDX-License-Identifier: MIT
+// Package runtime supervises trusted addon executables, independently of model scheduling.
+package runtime
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
+	goruntime "runtime"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
+)
+
+var ErrRuntime = errors.New("addon runtime unavailable or invalid protocol")
+
+// ErrConflict is the add-on's own refusal (HTTP 409) of a request that
+// conflicts with a record it holds, such as an operation ID already used
+// for another request. Nothing was changed. It is an ErrRuntime for every
+// caller that does not tell refusals apart.
+var ErrConflict = fmt.Errorf("addon refused the request as a conflict: %w", ErrRuntime)
+
+// ErrNotSent says the request never reached the wire: no admission slot, a
+// withdrawn client, an envelope that failed validation, or a connection that
+// was never written to. The add-on cannot have seen the request, so a caller
+// may try again and must not record an unknown outcome. It is an ErrRuntime
+// for every caller that does not tell the two apart. A failure after the
+// first request byte may have been written is never an ErrNotSent.
+var ErrNotSent = fmt.Errorf("addon request was not sent: %w", ErrRuntime)
+
+// ErrRefused is the add-on's own refusal (HTTP 400 or 422) of a request it
+// judged invalid. It is deterministic: the add-on changed nothing and the same
+// request is refused again, so it is neither an outage nor an unknown outcome.
+// It is not an ErrRuntime.
+var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused)
+
+// ErrDenied is the add-on's own 403 "forbidden": the person lacks a permission
+// the request needs. Nothing was changed and it is deterministic, so it is
+// neither an outage nor an unknown outcome. It is not an ErrRuntime.
+var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
+
+// ErrCredentialRejected is the add-on's own 401 "credential_rejected": the
+// service behind it refused the access token and nothing changed. The host
+// may refresh the token and call again, or ask the person to reconnect. It is
+// neither an outage nor an unknown outcome, and not an ErrRuntime. A 401 with
+// another reason keeps its old meaning.
+var ErrCredentialRejected = fmt.Errorf("addon reported the credential as rejected: %w", contract.ErrCredentialRejected)
+
+// Refusal is the typed form of ErrRefused. Reason is a short printable class
+// taken from the add-on's answer and bounded, so it is safe to log.
+type Refusal struct {
+	Status int
+	Reason string
+	// Upstream is the status that the service behind the add-on answered, when
+	// the add-on says its refusal comes from there (0 when it does not). Hint
+	// is the one sentence the add-on wrote for the person about it.
+	Upstream int
+	Hint     string
+}
+
+func (r *Refusal) Error() string {
+	return fmt.Sprintf("addon refused the request (%d): %s", r.Status, r.Reason)
+}
+func (r *Refusal) Unwrap() error { return ErrRefused }
+
+type Config struct {
+	StateRoot string // private owner-local durable process ledger, required
+	// DataRoot holds one private directory per addon ID. When set, the
+	// supervisor creates the directory (mode 0700) and tells the addon its
+	// path in Startup.DataDir. Empty means the addon is given no data directory.
+	DataRoot                   string
+	Limits                     contract.Limits
+	ReadyTimeout, StableHealth time.Duration
+	// HostOps, when set, gives each add-on that holds a host operation, or
+	// declares one in its manifest, a host operation endpoint. Nil means no
+	// add-on gets one.
+	HostOps *HostOps
+	// Output receives each line an add-on writes to its standard output
+	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
+	// log with the add-on ID as a prefix.
+	Output func(addonID, stream, line string)
+	// WSL runs the add-ons whose manifest has osSettings.windows.execution
+	// "wsl2". Nil refuses them with ErrNoWSL; it is set only on Windows.
+	WSL WSL
+}
+
+// HostOps wires the host operation channel into the supervisor. Authority
+// decides, on every call, what an add-on may run; it is not copied at start, so
+// a grant or a revoke applies without a restart. An add-on gets an endpoint and
+// a credential when it holds an operation or its manifest declares one: a
+// declared operation that is not granted yet is refused by the endpoint, and a
+// later grant works at once. An add-on with neither gets none. InFlight records
+// the envelope of each request while the add-on serves it.
+type HostOps struct {
+	Broker    *hostops.Broker
+	InFlight  *hostops.InFlight
+	Authority hostops.Authority
+}
+
+// wants reports whether the add-on gets a host operation endpoint.
+func (h *HostOps) wants(id string, declared *contract.HostOperations) bool {
+	if h == nil || h.Broker == nil || h.InFlight == nil || h.Authority == nil {
+		return false
+	}
+	if declared != nil && len(declared.Required)+len(declared.Optional) > 0 {
+		return true
+	}
+	return h.Authority.Entitled(id)
+}
+
+type Registration struct {
+	AddonID      string                `json:"addonId"`
+	Generation   uint64                `json:"generation"`
+	Incarnation  string                `json:"incarnation"`
+	Protocol     int                   `json:"protocol"`
+	Endpoint     string                `json:"endpoint"`
+	Capabilities contract.Capabilities `json:"capabilities"`
+}
+
+// Startup is delivered only on the inherited startup channel (descriptor 4,
+// or the pipe named by contract.StartupHandleEnv on Windows), never argv or
+// environment. The listener is descriptor 3, already bound to loopback, or on
+// Windows one the child binds and reports. EOF on the startup channel means
+// the owner has died; cooperating addons must exit rather than become orphans.
+type Startup struct {
+	Registration Registration    `json:"registration"`
+	Credential   string          `json:"credential"`
+	Limits       contract.Limits `json:"limits"`
+	// DataDir is the addon's private mutable data directory, an absolute path
+	// the owner created. The package directory is immutable and never holds data.
+	DataDir string `json:"dataDir,omitempty"`
+	// HostEndpoint and HostCredential give an add-on that the host setting
+	// names a loopback endpoint for host operations, with a credential of its
+	// own. Both are absent for every other add-on.
+	HostEndpoint   string `json:"hostEndpoint,omitempty"`
+	HostCredential string `json:"hostCredential,omitempty"`
+}
+type Instance struct {
+	PID         int
+	Incarnation string
+	Generation  uint64
+	Client      contract.Runtime
+	process     *process
+	slot        *slot
+}
+type process struct {
+	cmd          *exec.Cmd
+	parent       io.Closer
+	tree         interface{ terminate() }
+	done         chan struct{}
+	client       *Client
+	registration Registration
+	readyAt      time.Time
+}
+type slot struct {
+	owner      *Supervisor
+	pkg        packages.PackageReceipt
+	generation uint64
+	current    *process
+	stopped    bool
+	cancel     context.CancelFunc
+	attempts   int
+	original   *process
+	// launching is true while a launch of this slot is between exec and
+	// readiness, for the first start and for every restart.
+	launching  bool
+	workerDone chan struct{}
+	stopDone   chan struct{}
+	stopErr    error
+}
+type Registry struct{ supervisor *Supervisor }
+type Supervisor struct {
+	ledger        *processLedger
+	closeMu       sync.Mutex
+	ledgerClosed  bool
+	mu            sync.Mutex
+	config        Config
+	slots         map[string]*slot
+	closed        bool
+	Registry      *Registry
+	workers       sync.WaitGroup
+	launchStarted func(*process) // deterministic launch-boundary instrumentation for subprocess tests
+	// reportEndpoint selects how a child gets its channels: false passes
+	// descriptors 3 and 4, true passes named pipe handles and the child
+	// reports its endpoint. It is true only on Windows; specs set it to run
+	// that way on other platforms.
+	reportEndpoint bool
+	// wslSpec, when set, runs every add-on the way an add-on with execution
+	// "wsl2" runs, through this WSL. Specs set it to check that way on
+	// other platforms.
+	wslSpec WSL
+	// hostDataDirs is the data directory, as this host sees it, of each
+	// running add-on whose data directory is not under DataRoot.
+	hostDataDirs map[string]string
+}
+
+func NewSupervisor(c Config) (*Supervisor, error) {
+	if c.Limits.Validate() != nil || c.ReadyTimeout <= 0 || c.StableHealth <= 0 {
+		return nil, ErrRuntime
+	}
+	l, e := openLedger(c.StateRoot, c.Limits.ShutdownTimeout)
+	if e != nil {
+		return nil, e
+	}
+	s := &Supervisor{config: c, slots: map[string]*slot{}, ledger: l, reportEndpoint: reportEndpointDefault}
+	s.Registry = &Registry{supervisor: s}
+	return s, nil
+}
+func (r *Registry) Snapshot(ctx context.Context) ([]Registration, error) {
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	s := r.supervisor
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	result := []Registration{}
+	for _, slot := range s.slots {
+		p := slot.current
+		if slot.stopped || p == nil {
+			continue
+		}
+		select {
+		case <-p.done:
+			continue
+		default:
+		}
+		if !p.client.admitting() {
+			continue
+		}
+		b, _ := json.Marshal(p.registration)
+		var copy Registration
+		_ = json.Unmarshal(b, &copy)
+		result = append(result, copy)
+	}
+	return result, nil
+}
+func (s *Supervisor) Start(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (Instance, error) {
+	wait, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout+2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	type result struct {
+		i Instance
+		e error
+	}
+	done := make(chan result, 1)
+	// A canceled caller still waits for the launch to finish cleaning up. The
+	// slot of the add-on stays reserved until then, and a caller that must
+	// start another generation right away would otherwise be refused. The wait
+	// is bounded: the launch itself stops at the ready timeout.
+	go func() {
+		i, e := s.start(wait, pkg, generation)
+		if e == nil && wait.Err() != nil {
+			// The caller is gone, but the launched process must still be stopped.
+			_ = s.Stop(context.WithoutCancel(ctx), i)
+			i, e = Instance{}, wait.Err()
+		}
+		done <- result{i, e}
+	}()
+	r := <-done
+	return r.i, r.e
+}
+
+func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (Instance, error) {
+	if generation == 0 {
+		return Instance{}, failed(StageStartRefused, "generation 0 is not a generation")
+	}
+	if e := ctx.Err(); e != nil {
+		return Instance{}, e
+	}
+	s.mu.Lock()
+	if s.closed || s.slots[pkg.Manifest.ID] != nil {
+		closed := s.closed
+		s.mu.Unlock()
+		if closed {
+			return Instance{}, failed(StageStartRefused, "the supervisor is closed")
+		}
+		return Instance{}, failed(StageStartRefused, "the add-on already has a running or starting generation")
+	}
+	life, cancel := context.WithCancel(context.Background())
+	slot := &slot{owner: s, pkg: pkg, generation: generation, cancel: cancel, workerDone: make(chan struct{}), stopDone: make(chan struct{})}
+	slot.launching = true
+	s.slots[pkg.Manifest.ID] = slot
+	s.workers.Add(1)
+	s.mu.Unlock()
+	defer s.workers.Done()
+	startup, stop := context.WithCancel(ctx)
+	end := context.AfterFunc(life, stop)
+	defer end()
+	defer stop()
+	p, e := s.launch(startup, pkg, generation)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if e != nil || ctx.Err() != nil || slot.stopped || s.closed {
+		cancel()
+		s.mu.Unlock()
+		if p != nil {
+			s.terminate(p)
+		}
+		s.mu.Lock()
+		if s.slots[pkg.Manifest.ID] == slot {
+			delete(s.slots, pkg.Manifest.ID)
+		}
+		close(slot.workerDone)
+		// A launch that knows why it failed (no WSL, for one) says so.
+		if e != nil && errors.Is(e, ErrRuntime) {
+			return Instance{}, e
+		}
+		if e == nil {
+			return Instance{}, failed(StageLaunchCanceled, "the launch was canceled or the supervisor stopped while the process started")
+		}
+		return Instance{}, failed(StageLaunchCanceled, "the launch failed: "+printableLine(e.Error()))
+	}
+	slot.launching = false
+	slot.current = p
+	slot.original = p
+	i := Instance{PID: p.cmd.Process.Pid, Incarnation: p.registration.Incarnation, Generation: generation, Client: p.client, process: p, slot: slot}
+	s.workers.Add(1)
+	go s.monitor(life, slot, p)
+	return i, nil
+}
+func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
+	defer cancel()
+	host := contract.HostCompatibility{Host: contract.HostVersion, API: contract.HostAPIVersion, Protocol: contract.HostProtocolVersion, SDK: contract.HostSDKVersion, DataFormat: contract.HostDataFormatVersion, FeatureLevel: contract.HostFeatureLevel, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	if e := contract.ValidateManifest(pkg.Manifest, host); e != nil {
+		return nil, failed(StageManifestInvalid, "the manifest does not fit this host: "+printableLine(e.Error()))
+	}
+	if !filepath.IsAbs(pkg.Directory) {
+		return nil, failed(StageManifestInvalid, "the package directory is not an absolute path")
+	}
+	pkgName := printableLine(filepath.Base(pkg.Directory))
+	// Receipts come from the owner journal. Reject substitutions before executing.
+	b, e := os.ReadFile(filepath.Join(pkg.Directory, "receipt.json"))
+	if e != nil {
+		return nil, failed(StageReceiptUnreadable, "receipt.json in "+pkgName+" cannot be read: "+reasonOf(e))
+	}
+	if len(b) > 1<<20 {
+		return nil, failed(StageReceiptUnreadable, "receipt.json in "+pkgName+" is larger than 1 MiB")
+	}
+	var disk packages.PackageReceipt
+	if e := json.Unmarshal(b, &disk); e != nil {
+		return nil, failed(StageReceiptMismatch, "receipt.json in "+pkgName+" is not a valid receipt")
+	}
+	if !reflect.DeepEqual(disk, pkg) {
+		return nil, failed(StageReceiptMismatch, "receipt.json in "+pkgName+" differs from the receipt in the journal")
+	}
+	// An add-on that runs in WSL 2 is a Linux program that wsl.exe starts.
+	wsl := s.wslSpec
+	if pkg.Manifest.RunsInWSL() {
+		if wsl = s.config.WSL; wsl == nil {
+			return nil, refusal(ErrNoWSL)
+		}
+	}
+	executable := executablePath
+	if wsl != nil {
+		executable = linuxExecutablePath
+	}
+	path, ok := executable(pkg.Directory, pkg.Manifest.Executable)
+	if !ok {
+		return nil, failed(StageExecutableMissing, "executable "+printableLine(pkg.Manifest.Executable)+" in "+pkgName+" is not a regular file with an execute bit, or a link is on its path")
+	}
+	var inWSL WSLLaunch
+	if wsl != nil {
+		inWSL, e = wsl.Prepare(ctx, pkg)
+		if e != nil {
+			return nil, refusal(e)
+		}
+	}
+	// The host operation endpoint belongs to the incarnation: only an add-on
+	// that the host setting names gets one. The listener is closed on every
+	// failed launch, and by serveHostOps when the process ends.
+	var hostListener net.Listener
+	var hostCredential string
+	hostReady := false
+	if s.config.HostOps.wants(pkg.Manifest.ID, pkg.Manifest.Capabilities.HostOperations) {
+		hostListener, e = net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+		if e != nil {
+			return nil, failed(StageHostEndpoint, "the host operation endpoint cannot listen: "+reasonOf(e))
+		}
+		defer func() {
+			if !hostReady {
+				_ = hostListener.Close()
+			}
+		}()
+		hc := make([]byte, 32)
+		if _, e = rand.Read(hc); e != nil {
+			return nil, failed(StageRandomSource, "no random bytes for the host credential")
+		}
+		hostCredential = hex.EncodeToString(hc)
+	}
+	// No shell, no inherited environment, no ambient host credentials. The argv
+	// contract is fixed; package manifests cannot smuggle interpreter switches.
+	cmd := exec.Command(path, "--localai-addon-v1") // #nosec G204 -- launches the verified add-on executable from the installed package directory, never from a request
+	cmd.Dir = pkg.Directory
+	cmd.Env = append([]string{"LANG=C", "TZ=UTC"}, platformEnv()...)
+	open := openDescriptorChannels
+	if s.reportEndpoint {
+		open = openReportedChannels
+	}
+	if wsl != nil {
+		// wsl.exe starts the executable in the distribution; only the
+		// variables that WSLENV names cross into it.
+		cmd = exec.Command(inWSL.Path, inWSL.Args...) // #nosec G204 -- wsl.exe with the arguments the WSL launcher built for the verified package
+		cmd.Dir = pkg.Directory
+		cmd.Env = append(append([]string{"LANG=C", "TZ=UTC"}, platformEnv()...), inWSL.Env...)
+		open = openStdioChannels
+	}
+	ch, e := open(cmd)
+	if e != nil {
+		return nil, failed(StageChannelOpen, "the startup channels cannot be opened: "+reasonOf(e))
+	}
+	defer ch.release()
+	// The stdio way holds its session for the life of the process; a launch
+	// that fails before the process is handed over closes it here.
+	handed := false
+	defer func() {
+		if !handed {
+			ch.end()
+		}
+	}()
+	if hostListener != nil && ch.stdio != nil {
+		ch.stdio.hostAddr = hostListener.Addr().String()
+	}
+	parent := ch.parent
+	credential := make([]byte, 32)
+	if _, e = rand.Read(credential); e != nil {
+		_ = parent.Close()
+		return nil, failed(StageRandomSource, "no random bytes for the credential")
+	}
+	inc := make([]byte, 16)
+	if _, e = rand.Read(inc); e != nil {
+		_ = parent.Close()
+		return nil, failed(StageRandomSource, "no random bytes for the incarnation")
+	}
+	r := Registration{AddonID: pkg.Manifest.ID, Generation: generation, Incarnation: hex.EncodeToString(inc), Protocol: int(contract.HostProtocolVersion), Endpoint: ch.endpoint, Capabilities: pkg.Manifest.Capabilities}
+	dataDir := ""
+	if s.config.DataRoot != "" {
+		if !filepath.IsAbs(s.config.DataRoot) {
+			return nil, failed(StageDataDir, "the data root is not an absolute path")
+		}
+		if !relativeSafe(pkg.Manifest.ID) {
+			return nil, failed(StageDataDir, "the add-on ID is not safe as a directory name")
+		}
+		dataDir = filepath.Join(s.config.DataRoot, pkg.Manifest.ID)
+		hostDir := dataDir
+		if wsl != nil {
+			// The data directory of an add-on in WSL is in the file system
+			// of the distribution; the host reaches it by another path.
+			if inWSL.DataDir == "" || inWSL.HostDataDir == "" {
+				return nil, failed(StageDataDir, "the WSL launcher gave no data directory")
+			}
+			dataDir, hostDir = inWSL.DataDir, inWSL.HostDataDir
+		}
+		if e := os.MkdirAll(hostDir, 0o700); e != nil {
+			return nil, failed(StageDataDir, "the data directory cannot be created: "+reasonOf(e))
+		}
+		if fi, e := os.Lstat(hostDir); e != nil || !fi.IsDir() {
+			return nil, failed(StageDataDir, "the data directory is not a directory (a file or a link is in its place)")
+		}
+		if wsl != nil {
+			s.mu.Lock()
+			if s.hostDataDirs == nil {
+				s.hostDataDirs = map[string]string{}
+			}
+			s.hostDataDirs[pkg.Manifest.ID] = hostDir
+			s.mu.Unlock()
+		}
+	}
+	// The streams are pipes the supervisor owns, not an io.Writer on the
+	// command: with a writer, Wait would block while a child of the add-on
+	// still holds the pipe open.
+	sink := s.config.Output
+	if sink == nil {
+		sink = defaultOutput
+	}
+	// The last line of output is kept for the cause of a failed launch.
+	output := newLastOutput()
+	inner := sink
+	sink = func(id, stream, line string) {
+		output.record(line)
+		inner(id, stream, line)
+	}
+	outR, outW, e := os.Pipe()
+	if e != nil {
+		_ = parent.Close()
+		return nil, failed(StageOutputPipe, "the output pipe cannot be made: "+reasonOf(e))
+	}
+	errR, errW, e := os.Pipe()
+	if e != nil {
+		_ = outR.Close()
+		_ = outW.Close()
+		_ = parent.Close()
+		return nil, failed(StageOutputPipe, "the error pipe cannot be made: "+reasonOf(e))
+	}
+	cmd.Stdout, cmd.Stderr = outW, errW
+	ch.claimStdio(cmd)
+	closeOutput := func() {
+		_ = outW.Close()
+		_ = errW.Close()
+		_ = outR.Close()
+		_ = errR.Close()
+	}
+	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
+		closeOutput()
+		_ = parent.Close()
+		return nil, failed(StageLedgerWrite, "the process ledger cannot record the launch: "+reasonOf(e))
+	}
+	if e = cmd.Start(); e != nil {
+		closeOutput()
+		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
+		_ = parent.Close()
+		return nil, failed(StageProcessStart, "the process did not start: "+reasonOf(e))
+	}
+	began := time.Now()
+	// One waiter owns cmd.Wait for the life of the process. Stdout and Stderr
+	// are files, so Wait never blocks on a child that holds a pipe open.
+	exited := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(exited) }()
+	// The child has its own ends; the readers stop when it and its children
+	// close theirs.
+	_ = outW.Close()
+	_ = errW.Close()
+	ch.started()
+	tree := newProcessTree(cmd.Process.Pid)
+	go func() { logOutput(outR, pkg.Manifest.ID, "stdout", sink); _ = outR.Close(); close(output.out) }()
+	go func() { logOutput(errR, pkg.Manifest.ID, "stderr", sink); _ = errR.Close(); close(output.err) }()
+	// how says what happened to the process and what it wrote last. It is
+	// called once the process has ended or is about to be stopped.
+	how := func() string {
+		select {
+		case <-exited:
+			return exitText(cmd.ProcessState, time.Since(began)) + "; " + output.text(true)
+		default:
+			return "still running after " + fmt.Sprintf("%.2fs", time.Since(began).Seconds()) + "; " + output.text(false)
+		}
+	}
+	// A child that reports its endpoint must do so within the ready timeout,
+	// and only as 127.0.0.1.
+	if r.Endpoint, e = ch.awaitEndpoint(ctx); e != nil {
+		// A stream that closed early is usually a process that ended: give the
+		// exit a moment to show, so the cause has its status.
+		var lf *LaunchFailure
+		if errors.As(e, &lf) && lf.Stage == StageProcessExited {
+			select {
+			case <-exited:
+			case <-time.After(300 * time.Millisecond):
+			}
+		}
+		detail := how()
+		_ = cmd.Process.Kill()
+		tree.terminate()
+		<-exited
+		_ = parent.Close()
+		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
+		if lf != nil {
+			if lf.Stage == StageProcessExited {
+				return nil, failed(StageProcessExited, "the startup stream closed before the endpoint report; "+detail)
+			}
+			return nil, failed(lf.Stage, lf.Reason+"; "+detail)
+		}
+		return nil, failed(StageHandshakeProtocol, "the endpoint report failed; "+detail)
+	}
+	// In the stdio way the startup stream replaces the standard input as
+	// the parent channel once the session runs.
+	parent = ch.parent
+	p := &process{cmd: cmd, parent: parent, tree: tree, done: make(chan struct{}), registration: r}
+	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
+	if e != nil {
+		detail := how()
+		_ = cmd.Process.Kill()
+		tree.terminate()
+		<-exited
+		_ = parent.Close()
+		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
+		return nil, failed(StageHandshakeProtocol, "the endpoint the process reported is not a loopback http endpoint; "+detail)
+	}
+	p.client = c
+	if hostListener != nil {
+		if hostCredential == c.credential {
+			s.terminate(p)
+			return nil, failed(StageRandomSource, "the host credential equals the add-on credential")
+		}
+		c.inflight = s.config.HostOps.InFlight
+		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential)
+	}
+	ident, identityErr := identity(cmd.Process.Pid)
+	ident.Incarnation = r.Incarnation
+	if identityErr == nil {
+		identityErr = s.ledger.put(pkg.Manifest.ID, ident)
+	}
+	go func() { <-exited; c.withdraw(); close(p.done) }()
+	handed = true
+	go func() { <-p.done; ch.end() }()
+	if identityErr != nil {
+		// A process that ended at once has no identity to read: say that.
+		select {
+		case <-exited:
+		case <-time.After(300 * time.Millisecond):
+		}
+		stage := StageProcessIdentity
+		select {
+		case <-exited:
+			stage = StageProcessExited
+		default:
+		}
+		detail := how()
+		s.terminate(p)
+		return nil, failed(stage, "the process identity cannot be recorded: "+reasonOf(identityErr)+"; "+detail)
+	}
+	s.mu.Lock()
+	hook := s.launchStarted
+	s.mu.Unlock()
+	if hook != nil {
+		hook(p)
+	}
+	// The startup object is bounded; write with a deadline so even a child that
+	// never reads its inherited pipe cannot hang the owner.
+	startupObject := Startup{Registration: r, Credential: c.credential, Limits: s.config.Limits, DataDir: dataDir}
+	if hostListener != nil {
+		startupObject.HostEndpoint, startupObject.HostCredential = "http://"+hostListener.Addr().String(), hostCredential
+	}
+	if e = writeStartup(ctx, ch.parent, time.Now().Add(s.config.ReadyTimeout), startupObject); e != nil {
+		select {
+		case <-exited:
+		case <-time.After(300 * time.Millisecond):
+		}
+		stage := StageStartupWrite
+		select {
+		case <-exited:
+			stage = StageProcessExited
+		default:
+		}
+		detail := how()
+		s.terminate(p)
+		return nil, failed(stage, "the startup object was not written: "+reasonOf(e)+"; "+detail)
+	}
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	// lastProbe is what the last readiness probe found, for the cause.
+	lastProbe := "no probe was made"
+	for {
+		probe := c.health(ctx, r)
+		if probe == nil {
+			select {
+			case <-p.done:
+				detail := how()
+				s.terminate(p)
+				return nil, failed(StageProcessExited, "the process ended right after it became ready; "+detail)
+			default:
+			}
+			c.mu.Lock()
+			c.accept = true
+			c.mu.Unlock()
+			p.readyAt = time.Now()
+			hostReady = true
+			return p, nil
+		}
+		var lf *LaunchFailure
+		switch {
+		case errors.As(probe, &lf):
+			lastProbe = lf.Cause()
+		case errors.Is(probe, ErrNotSent):
+			lastProbe = "the process did not accept a connection"
+		default:
+			lastProbe = "the health call failed"
+		}
+		select {
+		case <-ctx.Done():
+			detail := how()
+			s.terminate(p)
+			if lf != nil && lf.Stage == StageRegistrationRejected {
+				return nil, failed(StageRegistrationRejected, lf.Reason+"; "+detail)
+			}
+			if ctx.Err() == context.DeadlineExceeded {
+				return nil, failed(StageReadinessTimeout, "no good health answer within "+s.config.ReadyTimeout.String()+"; last probe: "+lastProbe+"; "+detail)
+			}
+			return nil, failed(StageLaunchCanceled, "the launch was canceled before the process was ready; "+detail)
+		case <-p.done:
+			detail := how()
+			s.terminate(p)
+			return nil, failed(StageProcessExited, "the process ended before it was ready; "+detail)
+		case <-ticker.C:
+		}
+	}
+}
+
+// serveHostOps serves the host operation channel of one incarnation and
+// stops admission when the process ends. Cleanup drains active requests before
+// releasing correlations; a handler ignoring cancellation cannot block terminate.
+func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string) {
+	endpoint := s.config.HostOps.Broker.EndpointForRuntime(id, credential, s.config.HostOps.Authority, p.registration.Generation, p.registration.Incarnation)
+	srv := &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
+	go func() { _ = srv.Serve(l) }()
+	go func() {
+		<-p.done
+		endpoint.Stop()
+		_ = srv.Close()
+		endpoint.Drain()
+		s.config.HostOps.InFlight.ForgetRuntime(id, p.registration.Incarnation)
+	}()
+}
+
+func (s *Supervisor) terminate(p *process) {
+	p.client.withdraw()
+	// Closing the startup channel is the add-on's signal to release what it
+	// owns outside its process (a sandbox add-on stops its sandboxes) and
+	// exit. Give it the shutdown period; SIGKILL cannot be caught, so a kill
+	// first would leak those resources.
+	_ = p.parent.Close()
+	grace := time.NewTimer(s.config.Limits.ShutdownTimeout)
+	select {
+	case <-p.done:
+	case <-grace.C:
+	}
+	grace.Stop()
+	// os.Process owns the OS process handle (pidfd on supported Linux). Never
+	// reconstruct a Process from a recorded numeric PID, which may be reused.
+	_ = p.cmd.Process.Kill()
+	// What the add-on started goes with it where the platform tracks it.
+	p.tree.terminate()
+	<-p.done
+	p.client.http.CloseIdleConnections()
+	_ = s.ledger.remove(p.registration.AddonID, p.registration.Incarnation)
+}
+
+// healthMissesToKill is how many probes in a row must fail before the
+// supervisor kills a running add-on.
+const healthMissesToKill = 3
+
+func (s *Supervisor) monitor(ctx context.Context, slot *slot, p *process) {
+	defer close(slot.workerDone)
+	defer s.workers.Done()
+	for {
+		misses := 0
+		ticker := time.NewTicker(100 * time.Millisecond)
+	healthLoop:
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-p.done:
+				break healthLoop
+			case <-ticker.C:
+				if p.client.health(ctx, p.registration) != nil {
+					if ctx.Err() != nil {
+						ticker.Stop()
+						return
+					}
+					// One missed probe is a busy add-on, not a dead one:
+					// killing it would drop the work it is serving.
+					misses++
+					if misses < healthMissesToKill {
+						continue
+					}
+					s.terminate(p)
+					break healthLoop
+				}
+				misses = 0
+				if time.Since(p.readyAt) >= s.config.StableHealth {
+					s.mu.Lock()
+					slot.attempts = 0
+					s.mu.Unlock()
+				}
+			}
+		}
+		ticker.Stop()
+		s.mu.Lock()
+		if slot.stopped || s.closed {
+			s.mu.Unlock()
+			return
+		}
+		slot.current = nil
+		s.mu.Unlock()
+		s.terminate(p)
+		for {
+			s.mu.Lock()
+			if slot.stopped || s.closed || int64(slot.attempts) >= s.config.Limits.BackoffAttempts {
+				s.mu.Unlock()
+				return
+			}
+			slot.attempts++
+			n := slot.attempts
+			s.mu.Unlock()
+			delay := s.config.Limits.BackoffInitial
+			for j := 1; j < n && delay < s.config.Limits.BackoffMax; j++ {
+				if delay > s.config.Limits.BackoffMax/2 {
+					delay = s.config.Limits.BackoffMax
+				} else {
+					delay *= 2
+				}
+			}
+			timer := time.NewTimer(delay)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
+			s.mu.Lock()
+			slot.launching = true
+			s.mu.Unlock()
+			next, e := s.launch(ctx, slot.pkg, slot.generation)
+			// The launch flag is cleared in the same critical section that
+			// publishes the process, so an observer never sees neither.
+			s.mu.Lock()
+			slot.launching = false
+			if e != nil {
+				s.mu.Unlock()
+				xlog.Warn("[" + slot.pkg.Manifest.ID + "] restart did not start: " + Cause(e))
+				continue
+			}
+			if slot.stopped || s.closed {
+				s.mu.Unlock()
+				s.terminate(next)
+				return
+			}
+			slot.current = next
+			s.mu.Unlock()
+			p = next
+			break
+		}
+	}
+}
+
+// Observed process states. They are an observation of the supervisor, not
+// durable intent.
+const (
+	StateRunning  = "running"
+	StateStarting = "starting"
+	StateFailed   = "failed"
+	StateStopped  = "stopped"
+)
+
+// State observes the process of one addon generation. It never starts,
+// restarts or stops anything.
+//
+//   - running: the incarnation is alive and admitting calls.
+//   - starting: a launch is between exec and readiness.
+//   - failed: the process is not serving and no launch is under way. The
+//     supervisor restarts it after its backoff while the budget lasts, so
+//     failed can be followed by starting; once the budget is spent it stays.
+//   - stopped: no process of this generation is held, or it is draining.
+func (s *Supervisor) State(id string, generation uint64) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slot := s.slots[id]
+	if s.closed || slot == nil || slot.generation != generation || slot.stopped {
+		return StateStopped
+	}
+	if slot.launching {
+		return StateStarting
+	}
+	p := slot.current
+	if p == nil {
+		return StateFailed
+	}
+	select {
+	case <-p.done:
+		return StateFailed
+	default:
+	}
+	if !p.client.admitting() {
+		return StateFailed
+	}
+	return StateRunning
+}
+func (s *Supervisor) Attempts(id string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if v := s.slots[id]; v != nil {
+		return v.attempts
+	}
+	return 0
+}
+func (s *Supervisor) Stop(ctx context.Context, i Instance) error {
+	s.mu.Lock()
+	slot := i.slot
+	if slot == nil || slot.owner != s || i.process == nil || (slot.original != i.process && slot.current != i.process) || i.Incarnation != i.process.registration.Incarnation || i.PID != i.process.cmd.Process.Pid || i.Generation != slot.generation {
+		s.mu.Unlock()
+		return ErrRuntime
+	}
+	return s.stopLocked(ctx, slot)
+}
+
+// The slot remains reserved until both the launch worker and its last child are
+// finished. A caller timeout does not release the reservation or claim success.
+func (s *Supervisor) stopLocked(ctx context.Context, slot *slot) error {
+	s.beginStopLocked(slot)
+	s.mu.Unlock()
+	return s.waitStop(ctx, slot)
+}
+
+// Initiate cleanup without waiting so Close can withdraw every slot atomically.
+func (s *Supervisor) beginStopLocked(slot *slot) {
+	if !slot.stopped {
+		slot.stopped = true
+		slot.cancel()
+		if slot.current != nil {
+			slot.current.client.withdraw()
+		}
+		go func() {
+			<-slot.workerDone
+			s.mu.Lock()
+			p := slot.current
+			s.mu.Unlock()
+			if p != nil {
+				drain, cancel := context.WithTimeout(context.Background(), s.config.Limits.ShutdownTimeout)
+				p.client.drain(drain)
+				cancel()
+				s.terminate(p)
+			}
+			s.mu.Lock()
+			slot.current = nil
+			slot.stopErr = s.ledger.remove(slot.pkg.Manifest.ID, func() string {
+				if p != nil {
+					return p.registration.Incarnation
+				}
+				return ""
+			}())
+			if slot.stopErr == nil && s.slots[slot.pkg.Manifest.ID] == slot {
+				delete(s.slots, slot.pkg.Manifest.ID)
+			}
+			close(slot.stopDone)
+			s.mu.Unlock()
+		}()
+	}
+}
+
+func (s *Supervisor) waitStop(ctx context.Context, slot *slot) error {
+	// Draining and OS cleanup each receive one finite shutdown interval.
+	wait, cancel := context.WithTimeout(ctx, 2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	select {
+	case <-slot.stopDone:
+		return slot.stopErr
+	case <-wait.Done():
+		return wait.Err()
+	}
+}
+
+// Current explicitly obtains a ready incarnation. Previously returned clients
+// never follow restarts, so callers cannot accidentally replay a stale mutation.
+func (s *Supervisor) Current(ctx context.Context, id string, generation uint64) (Instance, error) {
+	if e := ctx.Err(); e != nil {
+		return Instance{}, e
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	slot := s.slots[id]
+	if s.closed || slot == nil || slot.stopped || slot.generation != generation || slot.current == nil {
+		return Instance{}, ErrRuntime
+	}
+	p := slot.current
+	select {
+	case <-p.done:
+		return Instance{}, ErrRuntime
+	default:
+	}
+	if !p.client.admitting() {
+		return Instance{}, ErrRuntime
+	}
+	return Instance{PID: p.cmd.Process.Pid, Incarnation: p.registration.Incarnation, Generation: generation, Client: p.client, process: p, slot: slot}, nil
+}
+func (s *Supervisor) Close(ctx context.Context) error {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+	s.mu.Lock()
+	s.closed = true
+	slots := make([]*slot, 0, len(s.slots))
+	for _, slot := range s.slots {
+		s.beginStopLocked(slot)
+		slots = append(slots, slot)
+	}
+	s.mu.Unlock()
+	var cleanupErr error
+	for _, slot := range slots {
+		cleanupErr = errors.Join(cleanupErr, s.waitStop(ctx, slot))
+	}
+	if cleanupErr != nil {
+		return cleanupErr
+	}
+	done := make(chan struct{})
+	go func() { s.workers.Wait(); close(done) }()
+	wait, cancel := context.WithTimeout(ctx, 2*s.config.Limits.ShutdownTimeout)
+	defer cancel()
+	select {
+	case <-done:
+	case <-wait.Done():
+		return wait.Err()
+	}
+	if !s.ledgerClosed {
+		s.ledgerClosed = true
+		return s.ledger.close()
+	}
+	return nil
+}
+
+// HostDataDir returns the data directory of an add-on as this host sees it,
+// when it is not DataRoot/<id>: the directory of an add-on that runs in WSL 2,
+// in the file system of its distribution. Empty means DataRoot/<id>.
+func (s *Supervisor) HostDataDir(id string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.hostDataDirs[id]
+}
+
+// relativeSafe reports an addon ID that is one plain path element.
+func relativeSafe(id string) bool {
+	return id != "" && id != "." && id != ".." && !strings.ContainsAny(id, `/\`)
+}

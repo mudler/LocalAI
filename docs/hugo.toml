@@ -1,0 +1,130 @@
+# The documentation is a second Hugo site, served under /docs/ of the marketing
+# site (see ../website). CI passes the same path via --baseURL, so keeping it
+# here means a local build produces the same links as production.
+baseURL = 'https://localai.io/docs/'
+locale = 'en-GB'
+defaultContentLanguage = 'en'
+
+title = 'LocalAI'
+
+# Theme configuration
+theme = 'hugo-theme-relearn'
+
+# Enable Git info
+enableGitInfo = true
+enableEmoji = true
+
+[outputs]
+  home = ['html', 'rss', 'print']
+  section = ['html', 'rss', 'print']
+  page = ['html', 'print']
+
+[markup]
+  defaultMarkdownHandler = 'goldmark'
+  [markup.tableOfContents]
+    endLevel = 3
+    startLevel = 1
+  [markup.highlight]
+    # Colour code with the chroma style of the active theme variant.
+    noClasses = false
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.goldmark.parser.attribute]
+    block = true
+    title = true
+
+[params]
+  # Relearn theme parameters
+  editURL = 'https://github.com/mudler/LocalAI/edit/master/docs/content/'
+  author = { name = 'Ettore Di Giacinto' }
+  showVisitedLinks = true
+  disableBreadcrumb = false
+  disableNextPrev = false
+  disableLandingPageButton = false
+  titleSeparator = '·'
+  images = ['images/og-card-1200x630.jpg']
+  topbarEnd = [
+    { type = 'sitelink' },
+    { type = 'editbutton' },
+    { type = 'printbutton' },
+    { type = 'prevbutton' },
+    { type = 'nextbutton' },
+    { type = 'morebutton' },
+  ]
+  disableSeoHiddenPages = true
+  
+  # Additional theme options
+  search = { disable = false }
+  disableGenerator = false
+  disableLanguageSwitchingButton = true
+  
+  # Colour variants. They are generated from the LocalAI theme tokens, see
+  # tools/gen-theme-variants.py. "auto" follows the system setting and uses
+  # the first two variants, light then dark. Each variant has its own logo.
+  themeVariant = [
+    { identifier = 'auto', name = 'System' },
+    { identifier = 'localai-light', name = 'Light', params = { logo = { src = 'images/logo/lockup-light.svg' } } },
+    { identifier = 'localai-dark', name = 'Dark', params = { logo = { src = 'images/logo/lockup-dark.svg' } } },
+  ]
+  
+  # ordersectionsby = 'weight'
+
+[languages]
+  [languages.en]
+    title = 'LocalAI'
+    label = 'English'
+    weight = 10
+    contentDir = 'content'
+    [languages.en.params]
+      landingPageName = '<i class="fa-fw fas fa-home"></i> Home'
+
+# Menu shortcuts
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fas fa-fw fa-star"></i> Star us on GitHub'
+  identifier = 'star-github'
+  url = 'https://github.com/mudler/LocalAI'
+  weight = 5
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-github"></i> GitHub'
+  identifier = 'github'
+  url = 'https://github.com/mudler/LocalAI'
+  weight = 10
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-discord"></i> Discord'
+  identifier = 'discord'
+  url = 'https://discord.gg/uJAeKSAGDy'
+  weight = 20
+
+[[languages.en.menu.shortcuts]]
+  name = '<i class="fab fa-fw fa-x-twitter"></i> X/Twitter'
+  identifier = 'twitter'
+  url = 'https://twitter.com/LocalAI_API'
+  weight = 20
+
+
+# Module configuration for theme
+[module]
+  [[module.mounts]]
+    source = 'content'
+    target = 'content'
+  [[module.mounts]]
+    source = 'static'
+    target = 'static'
+  [[module.mounts]]
+    source = 'layouts'
+    target = 'layouts'
+  [[module.mounts]]
+    source = 'data'
+    target = 'data'
+  [[module.mounts]]
+    source = 'assets'
+    target = 'assets'
+  [[module.mounts]]
+    source = '../images'
+    target = 'static/images'
+  [[module.mounts]]
+    source = 'i18n'
+    target = 'i18n'

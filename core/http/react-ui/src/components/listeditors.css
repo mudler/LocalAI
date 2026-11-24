@@ -1,0 +1,31 @@
+/* Repeating-row editors of the model editor: patterns, entity actions,
+   router policies and router candidates. */
+.le { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+.le__hint { padding: var(--sp-2) 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.le__row { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.le__in { font-size: var(--fs-small); }
+.le__in--name { flex: 1 1 180px; min-width: 150px; }
+.le__in--match { flex: 2 1 240px; min-width: 200px; font-family: var(--font-mono); }
+.le__in--num { width: 80px; }
+.le__in--group { flex: 1 1 220px; min-width: 180px; }
+.le__select--action { flex: 1 1 200px; min-width: 180px; }
+.le__select--entity { flex: 1 1 240px; min-width: 220px; }
+
+.card.le__policy { display: grid; grid-template-columns: 180px 1fr auto; gap: var(--sp-2); align-items: center; padding: var(--sp-2); border: 1px solid var(--dk-edge); }
+.card.le__policy.is-duplicate { border-color: var(--dk-warn); }
+
+.card.le__cand { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--dk-edge); }
+.le__cand-head { display: flex; gap: var(--sp-1); align-items: center; font-size: var(--fs-meta); color: var(--dk-muted); }
+.le__cand-note { margin-left: auto; }
+.le__cand-model { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-2); align-items: center; }
+.le__cand-help { margin-bottom: var(--sp-1); font-size: var(--fs-meta); color: var(--dk-muted); }
+.le__labels { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.le__label {
+  padding: var(--sp-1) 10px; border-radius: var(--r-md); font-size: var(--fs-meta); font-family: var(--font-mono);
+  border: 1px solid var(--dk-edge); background: transparent; color: var(--dk-text); cursor: pointer;
+}
+.le__label:hover { background: var(--dk-hover); }
+.le__label.is-on { border-color: var(--dk-accent); background: var(--dk-accent); color: var(--dk-on-accent); }
+.le__label.is-unknown { color: var(--dk-warn-text); }
+.le__label.is-on.is-unknown { color: var(--dk-on-accent); }
+.le__label:focus-visible { outline: none; box-shadow: var(--focus-ring); }

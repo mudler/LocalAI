@@ -1,0 +1,483 @@
+// SPDX-License-Identifier: MIT
+package addons
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/http/auth"
+	managerpkg "github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
+	"gorm.io/gorm"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+)
+
+// AddonError is the error object of every failure response of the addon endpoints.
+type AddonError struct {
+	// Type is addon_error, outcome_unknown when a mutation may have run,
+	// proposal_unavailable when a proposal call could not be served and the
+	// same call can be repeated by the same proposal ID after reading it, or
+	// outcome_blocked (403) when another operation on the resource has an
+	// unresolved outcome and the caller is the resource's owner role. The
+	// resource management routes add sharing_disabled (409, local-owner mode
+	// has no named users to share with), stale (409, the generation or the
+	// revision the caller saw is out of date), operation_conflict (409, the
+	// operation ID was used for another request and nothing was applied),
+	// invalid_request (400, for
+	// example a missing deletion confirmation or an unsupported operation),
+	// quota_reached (403) and not_selected (404, no resource is selected for
+	// the conversation). The undo of a change says why it was refused in
+	// the type: stale (409, with the words of what changed), not_found (404),
+	// expired (410), already_undone (409) or cannot_undo (409).
+	Type string `json:"type" example:"outcome_unknown"`
+	// Message describes the failure and never carries owner details.
+	Message string `json:"message"`
+	// Code repeats the HTTP status. It is absent from outcome_unknown responses.
+	Code int `json:"code,omitempty"`
+	// OperationID is the original operation, which is the proposal ID for a
+	// proposal call. It is present only with type outcome_unknown or
+	// proposal_unavailable.
+	OperationID string `json:"operationId,omitempty"`
+	// BlockedBy is the unresolved operation that blocks the write. It is
+	// present only with type outcome_blocked, and only for the owner role of
+	// the resource.
+	BlockedBy string `json:"blockedBy,omitempty"`
+}
+
+// AddonErrorResponse is the body of every failure response of the addon endpoints.
+type AddonErrorResponse struct {
+	Error AddonError `json:"error"`
+}
+
+func failure(c echo.Context, code int, message string) error {
+	return c.JSON(code, AddonErrorResponse{Error: AddonError{Code: code, Message: message, Type: "addon_error"}})
+}
+
+// Option configures the deployment-level behaviour of a handler.
+type Option func(*settings)
+
+type settings struct {
+	mode  string
+	guard SelectionGuard
+	// account checks the caller with the account check of the kinds that are
+	// not add-ons instead of the add-on check: the sharing routes.
+	account bool
+	// queue and opcache run the queued installs; see WithOperationQueue.
+	queue   *galleryop.GalleryService
+	opcache *galleryop.OpCache
+	// runs and upgrader make the upgrade route start an upgrade run of one
+	// item; see WithUpgradeRuns.
+	runs     func() *upgraderun.Service
+	upgrader *QueuedUpgrader
+}
+
+// SelectionGuard says whether the person may select a resource for a
+// conversation. The chats service answers it for the add-ons whose resources
+// are scoped per agent: a chat of an agent selects only what the agent lists.
+// An error is an outage, never a yes.
+type SelectionGuard func(ctx context.Context, a contract.Actor, conversationID, addonID, resourceID string) (bool, error)
+
+// WithSelectionGuard sets the check of the conversation selection.
+func WithSelectionGuard(g SelectionGuard) Option {
+	return func(s *settings) { s.guard = g }
+}
+
+// WithOwnership selects the ownership mode the deployment configured. The
+// default is named-user; local-owner is never inferred from a request. The
+// CLI selects it as the documented default of an install with authentication off.
+func WithOwnership(mode string) Option {
+	return func(s *settings) { s.mode = mode }
+}
+
+func resolve(opts []Option) settings {
+	s := settings{mode: auth.AddonModeNamedUser}
+	for _, o := range opts {
+		o(&s)
+	}
+	return s
+}
+
+func actor(c echo.Context, db *gorm.DB, s settings) (contract.Actor, error) {
+	a, e := auth.AddonActorForMode(c, s.mode)
+	if e != nil {
+		return a, e
+	}
+	if s.account {
+		return a, auth.AccountRevalidate(db, s.mode)(c.Request().Context(), a, "")
+	}
+	e = auth.AddonRevalidate(db, s.mode)(c.Request().Context(), a)
+	return a, e
+}
+
+// administrator checks the lifecycle mutation right against current storage.
+// In local-owner mode every caller shares the owner's authority, so without an
+// account database there is no role to check; with one, the authenticated
+// caller must still be an administrator.
+func administrator(c echo.Context, db *gorm.DB, a contract.Actor, s settings) error {
+	if s.mode == auth.AddonModeLocalOwner {
+		if db == nil {
+			return nil
+		}
+		named, e := auth.AddonActor(c)
+		if e != nil {
+			return e
+		}
+		a = named
+	}
+	return auth.ValidateAddonActor(c.Request().Context(), db, a, true)
+}
+
+// denied reports a failed identity step: a store outage is unavailable, any
+// other failure is an authentication problem.
+func denied(c echo.Context, e error) error {
+	if errors.Is(e, gateway.ErrUnavailable) {
+		return failure(c, 503, "Addons unavailable")
+	}
+	return failure(c, 401, "Named authentication required")
+}
+
+const (
+	ctxAction  = "addon.action"
+	ctxAddonID = "addon.id"
+)
+
+// noteRequest remembers the action and add-on ID of a parsed request, the
+// only request fields a denial log may carry.
+func noteRequest(c echo.Context, r contract.Request) {
+	c.Set(ctxAction, r.Action)
+	c.Set(ctxAddonID, r.AddonID)
+}
+
+// logDenial writes one Warn line for a request refused with the generic
+// message, so an operator can tell which check fired. The client response
+// is not affected. It logs the action and add-on ID of a parsed request (or
+// the route pattern when the request has none), the fixed rule that refused
+// it or the innermost message of err, and the error kind. It never logs the
+// request body, arguments, headers, cookies or credential references.
+func logDenial(c echo.Context, rule string, err error) {
+	action, _ := c.Get(ctxAction).(string)
+	id, _ := c.Get(ctxAddonID).(string)
+	if action == "" {
+		action = c.Path()
+	}
+	if id == "" {
+		id = c.Param("id")
+	}
+	args := []any{"action", action, "addonId", id, "status", http.StatusForbidden}
+	if rule != "" {
+		args = append(args, "rule", rule)
+	}
+	if err != nil {
+		inner := err
+		for u := errors.Unwrap(inner); u != nil; u = errors.Unwrap(inner) {
+			inner = u
+		}
+		kind := fmt.Sprintf("%T", err)
+		switch {
+		case errors.Is(err, gateway.ErrForbidden):
+			kind = "ErrForbidden"
+		case errors.Is(err, gateway.ErrUnavailable):
+			kind = "ErrUnavailable"
+		}
+		args = append(args, "kind", kind, "reason", inner.Error())
+	}
+	xlog.Warn("Addon request denied", args...)
+}
+
+func decode(c echo.Context, v any) error {
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, 2<<20)
+	d := json.NewDecoder(c.Request().Body)
+	d.DisallowUnknownFields()
+	if e := d.Decode(v); e != nil {
+		return e
+	}
+	var extra any
+	if d.Decode(&extra) != io.EOF {
+		return gateway.ErrForbidden
+	}
+	return nil
+}
+
+// undoStatus is the status and the default message of a refused undo, by its
+// code. The code is the type of the error, so a client tells the refusals
+// apart without reading the message.
+func undoStatus(code string) (int, string) {
+	switch code {
+	case contract.UndoNotFound:
+		return 404, "No change set with this ID: it was never kept, was too large to keep or was dropped"
+	case contract.UndoExpired:
+		return 410, "The change set expired and the change can no longer be undone"
+	case contract.UndoAlreadyUndone:
+		return 409, "The change was undone already"
+	case contract.UndoCannot:
+		return 409, "The change cannot be undone"
+	}
+	return 409, "The data changed after this change, so it cannot be undone without overwriting later work"
+}
+
+// operationCauseMessage is the text for the cause of a failed install or
+// upgrade. The type tells the causes apart; the server log has the detail.
+func operationCauseMessage(code string) string {
+	switch code {
+	case managerpkg.CauseLibraryUnavailable:
+		return "The library could not be read. Check that it is reachable and refresh it, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseLibraryConflict:
+		return "Two enabled libraries list this add-on. Disable one of them, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseReleaseNotFound:
+		return "The library does not list this add-on or version for this platform. Nothing was installed"
+	case managerpkg.CausePackageFetch:
+		return "The package could not be downloaded. Try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseInstallStorage:
+		return "The package could not be written to the add-on storage. Check the free space and the permissions of the add-on folder. Nothing was installed"
+	case managerpkg.CauseFileMissing:
+		return "The uploaded file is gone: it expired, or another user uploaded it. Upload it again. Nothing was installed"
+	case managerpkg.CauseVersionNotNewer:
+		return "This version of the add-on is installed already. Nothing was installed"
+	case managerpkg.CauseInstalledIncompatible:
+		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
+	case managerpkg.CauseNeedsNewerHost:
+		return "This add-on needs a newer LocalAI. Update LocalAI, then try again. Nothing was installed"
+	case managerpkg.CauseDowngradeRefused:
+		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
+	}
+	return "The operation failed"
+}
+
+// ownerNotAnswering is the typed answer of a read the owner did not serve.
+// owner_busy says the owner is up but did not answer in time (an upgrade is
+// running, say), so a page keeps what it shows and asks again; any other
+// cause is owner_unavailable. Both are 503 and neither is an empty list.
+func ownerNotAnswering(c echo.Context, e error) error {
+	var timeout *gateway.OwnerTimeout
+	if errors.As(e, &timeout) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_busy", Code: 503, Message: "The add-on server is busy and did not answer in time. Try again in a moment"}})
+	}
+	return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_unavailable", Code: 503, Message: "The add-on server cannot be reached right now"}})
+}
+
+func resultError(c echo.Context, e error) error {
+	// The add-on's own refusal of a request is a typed 400 from every path,
+	// never an outage banner.
+	e = gateway.Refused(e)
+	var unknown *gateway.OutcomeUnknown
+	if errors.As(e, &unknown) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "outcome_unknown", Message: "Check operation status; do not submit a new mutation", OperationID: unknown.OperationID}})
+	}
+	var blocked *gateway.OutcomeBlocked
+	if errors.As(e, &blocked) && blocked.BlockedBy != "" && gateway.StatusFor(e) == http.StatusForbidden {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "outcome_blocked", Code: 403, Message: "Another operation on the resource has an unresolved outcome; resolve it first", BlockedBy: blocked.BlockedBy}})
+	}
+	var unavailable *gateway.ProposalUnavailable
+	if errors.As(e, &unavailable) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "proposal_unavailable", Message: "Proposal call unavailable; read the proposal and repeat the same call with the same proposal ID", OperationID: unavailable.ProposalID}})
+	}
+	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
+		var timeout *gateway.OwnerTimeout
+		if errors.As(e, &timeout) {
+			return ownerNotAnswering(c, e)
+		}
+		return failure(c, 503, "Addon owner unavailable")
+	}
+	// An add-on built for another SDK range is refused at install. The
+	// administrator gets that text and no other internal error text.
+	var refusal *contract.SDKRefusal
+	if errors.As(e, &refusal) {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "sdk_incompatible", Code: 403, Message: refusal.Error()}})
+	}
+	var failed *managerpkg.FailureCause
+	if errors.As(e, &failed) && gateway.IsOperationCause(failed.Code) {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: failed.Code, Code: 403, Message: operationCauseMessage(failed.Code)}})
+	}
+	var refused *gateway.UndoRefused
+	if errors.As(e, &refused) {
+		status, msg := undoStatus(refused.Code)
+		if refused.Detail != "" {
+			msg = refused.Detail
+		}
+		return c.JSON(status, AddonErrorResponse{Error: AddonError{Type: refused.Code, Code: status, Message: msg}})
+	}
+	for _, t := range []struct {
+		err     error
+		status  int
+		kind    string
+		message string
+	}{
+		{gateway.ErrNotPermitted, 403, "not_permitted", "You do not have the permission this needs. An administrator can grant it"},
+		{gateway.ErrResourceUnreachable, 403, "resource_unreachable", "That resource does not exist or you have no access to it"},
+		{packages.ErrPackage, 403, "package_unverified", "The package could not be verified: it does not match its library entry, or it is not a valid add-on package. Nothing was installed"},
+		{gateway.ErrSharingDisabled, 409, "sharing_disabled", "Sharing is disabled: this installation has no named users to share with"},
+		{gateway.ErrStale, 409, "stale", "The view is out of date; reload it and repeat the action"},
+		{gateway.ErrOperationConflict, 409, "operation_conflict", "The operation ID was used for another request; nothing was applied. Repeat the change under a new operation ID"},
+		{gateway.ErrInvalidRequest, 400, "invalid_request", "The request cannot be carried out as given"},
+		{gateway.ErrQuotaReached, 403, "quota_reached", "The resource limit is reached"},
+		{managerpkg.ErrOperationNotFound, 404, "operation_not_found", "The add-on operation is not known to this server. Read the add-on version to see its state"},
+		{gateway.ErrNotSelected, 404, "not_selected", "No resource is selected for the conversation"},
+		{gateway.ErrSearchLimited, 429, "rate_limited", "Too many searches for people; wait a moment and search again"},
+	} {
+		if errors.Is(e, t.err) {
+			return c.JSON(t.status, AddonErrorResponse{Error: AddonError{Type: t.kind, Code: t.status, Message: t.message}})
+		}
+	}
+	logDenial(c, "", e)
+	return failure(c, 403, "Addon request denied")
+}
+
+// Dispatch forwards typed operations to the explicitly configured owner.
+// @Summary Submit a typed addon lifecycle operation or read an addon resource
+// @Description Authenticates the named caller, checks the addons feature, requires administration for every action except read, and forwards the typed request to the designated addon owner. A mutation is never retried: after an outcome_unknown response keep the operationId and poll operation-status instead of submitting a new mutation. Lifecycle actions are install, upgrade, enable, disable and uninstall (arguments sourceId and version; enable and disable take the generation that was listed). The management reads, all administrator-only and never mutations, are catalog-search (arguments text, kind, sourceId, offset, limit up to 100; kind is addon by default, or backend, or all), catalog-details (addonId plus arguments sourceId and version), catalog-sources and addons-installed. The library changes are catalog-source-save (arguments are one source: id, name, url, enabled, policy, authReference; removed true deletes it and never touches installed addons) and catalog-source-refresh (argument sourceId). A library names a credential only by a reference the owner configured, never a secret. Unknown argument fields are denied. The update actions are update-status and update-check (no arguments; the check fetches the library again and applies nothing) and update-upgrade (arguments expectedDigest and candidateDigest, the pinned upgrade); each answers with a payload {error: {type, message, status}} or {data}, the same from every frontend. The browser pages use the dedicated routes under /api/addons/{id}/update and /api/addons/{id}/upgrade, which accept only an administrator's own browser session.
+// @Tags Addons
+// @Accept json
+// @Produce json
+// @Param request body contract.Request true "Typed addon request"
+// @Success 200 {object} contract.Result "Operation accepted or read result"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides. An install or upgrade that failed before anything was installed has the type of its cause: library_unavailable (the library could not be read), library_conflict (two enabled libraries list the add-on), release_not_found (the library does not list the release for this platform), package_fetch_failed (the package could not be downloaded) or install_storage_failed (the verified package could not be written to the add-on storage). Repeat it with a new operationId after you correct the cause"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
+// @Router /api/addons/dispatch [post]
+func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		var r contract.Request
+		if decode(c, &r) != nil {
+			return failure(c, 400, "Invalid addon request")
+		}
+		noteRequest(c, r)
+		// Recovery and update mutations have their own routes, which accept
+		// only the administrator's own browser session. The generic dispatch
+		// also takes API keys, so it must not carry them.
+		if (gateway.RecoveryAction(r.Action) && r.Action != gateway.ActionRecoveryStatus) ||
+			(gateway.UpdateAction(r.Action) && r.Action != gateway.ActionUpdateStatus) {
+			logDenial(c, "recovery-and-update-actions-use-their-own-routes", nil)
+			return failure(c, 403, "Addon request denied")
+		}
+		if r.Action != "read" {
+			if e = administrator(c, db, a, s); e != nil {
+				if errors.Is(e, gateway.ErrUnavailable) {
+					return failure(c, 503, "Addons unavailable")
+				}
+				return failure(c, 403, "Addon administration required")
+			}
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		out, e := g.Dispatch(c.Request().Context(), a, r)
+		if e != nil {
+			return resultError(c, e)
+		}
+		return c.JSON(200, out)
+	}
+}
+
+// Relay keeps all streams on the receiving frontend.
+// @Summary Relay addon status, lifecycle progress, JSON, attachments or immutable UI assets
+// @Description Streams the response of the designated addon owner through the receiving frontend, bounded per kind by the configured byte and time limits. The kind selects the response: status (JSON), progress (text/event-stream), json, file (a private file result as an attachment: the handle is the artifact ID that a read returned, never an addon handle) or asset (text/javascript or text/css). An owner decision made before the first byte is returned with the same status from every frontend; a failure after the first byte aborts the stream.
+// @Tags Addons
+// @Accept json
+// @Produce json
+// @Produce text/event-stream
+// @Produce application/octet-stream
+// @Produce text/javascript
+// @Produce text/css
+// @Param request body gateway.RelayRequest true "Relay request"
+// @Success 200 {string} string "Relayed response body"
+// @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
+// @Failure 401 {object} AddonErrorResponse "Named authentication required"
+// @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable"
+// @Router /api/addons/relay [post]
+func Relay(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
+	s := resolve(opts)
+	return func(c echo.Context) error {
+		a, e := actor(c, db, s)
+		if e != nil {
+			return denied(c, e)
+		}
+		var r gateway.RelayRequest
+		if decode(c, &r) != nil {
+			return failure(c, 400, "Invalid addon relay")
+		}
+		if g == nil {
+			return failure(c, 503, "Addons unavailable")
+		}
+		e = g.Relay(c.Request().Context(), a, r, c.Response())
+		if e != nil {
+			if c.Response().Committed {
+				panic(http.ErrAbortHandler)
+			}
+			return resultError(c, e)
+		}
+		return nil
+	}
+}
+
+// BrowserProtection is stricter than the legacy CSRF compatibility skipper:
+// cookie mutations without fetch metadata are rejected, not assumed safe.
+func BrowserProtection() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			h := c.Request().Header
+			_, session := c.Cookie("session")
+			// The legacy token cookie carries an API key. It is a browser
+			// credential too, unless a header credential is sent with it.
+			_, token := c.Cookie("token")
+			headerCredential := h.Get("Authorization") != "" || h.Get("X-Api-Key") != "" || h.Get("Xi-Api-Key") != ""
+			if session == nil || (token == nil && !headerCredential) {
+				// The global CSRF check lets same-site requests through, so
+				// a sibling origin could drive an administrator's cookie.
+				// A present Sec-Fetch-Site that is not same-origin is a
+				// cross-site request and is always refused.
+				//
+				// Browsers omit Sec-Fetch-* over plain HTTP on an address that
+				// is not localhost, so an absent header does not mean cross-site:
+				// a LAN address over HTTP would never work. Without the header
+				// the request must still prove it comes from this host, through
+				// Origin or, when Origin is absent, Referer. The check is still
+				// needed because a missing header alone would let any client
+				// that strips it, or any page that sends none, drive the cookie.
+				site := h.Get("Sec-Fetch-Site")
+				if site == "" {
+					if !sameHostBrowserRequest(c.Request()) {
+						return failure(c, 403, "Same-origin browser request required")
+					}
+				} else if site != "same-origin" {
+					return failure(c, 403, "Same-origin browser request required")
+				}
+			}
+			return next(c)
+		}
+	}
+}
+
+// sameHostBrowserRequest reports whether Origin, or failing that Referer,
+// names the same host and port as the request. A malformed or "null" value
+// never matches. When Origin is present, Referer is not consulted.
+func sameHostBrowserRequest(r *http.Request) bool {
+	source := r.Header.Get("Origin")
+	if source == "" {
+		source = r.Header.Get("Referer")
+	}
+	if source == "" {
+		return false
+	}
+	u, err := url.Parse(source)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
+}

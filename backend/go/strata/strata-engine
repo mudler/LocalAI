@@ -1,0 +1,119 @@
+#!/bin/sh
+# Start the Strata engine that matches this machine, passing all arguments on.
+#
+# The image holds one engine package per supported target in engines/<name>:
+#   cuda12, cuda13, sycl, metal  one package, always used
+#   hip-rx9070 hip-rx7900 hip-rx6000 hip-halo
+#                                one per AMD GPU family; chosen from the GPU the
+#                                kernel driver reports
+# STRATA_ENGINE_VARIANT=<name> forces one.
+#
+# STRATA_ENGINE_FAMILY=hy4 (set by the backend for Tencent Hy4-Flash) selects the Hy4 packages in engines-hy4/
+# and their program, strata-hy4, in place of engines/ and strata. The package names and the choice among them
+# are the same.
+# STRATA_ENGINE_FAMILY=inkling (Thinking Machines Inkling 2 Mini) does the same with engines-inkling/ and strata-inkling.
+#
+# STRATA_KFD_NODES names another folder of kernel driver nodes (tests use it).
+# STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
+# a one-line reason on stderr, which the backend shows in its load error.
+#
+# With --print-engine-dir as the only argument the launcher prints the folder of the chosen package and exits. run.sh
+# uses it to find the programs that ship beside the engine, such as strata-vision.
+set -eu
+
+HERE=$(dirname "$(realpath "$0")")
+case "${STRATA_ENGINE_FAMILY:-}" in
+hy4)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines-hy4}"
+	BIN="${STRATA_ENGINE_BIN:-strata-hy4}"
+	;;
+inkling)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines-inkling}"
+	BIN="${STRATA_ENGINE_BIN:-strata-inkling}"
+	;;
+*)
+	ENGINES="${STRATA_ENGINES_DIR:-$HERE/engines}"
+	BIN="${STRATA_ENGINE_BIN:-strata}"
+	;;
+esac
+
+die() {
+	echo "strata: $*" >&2
+	exit 1
+}
+
+[ -d "$ENGINES" ] || die "no engines directory in $HERE"
+
+# gfx name of every AMD GPU the amdgpu driver lists (gfx_target_version is
+# MMmmss, for example 120001 for gfx1201, 110501 for gfx1151).
+amd_gfx_list() {
+	for props in "${STRATA_KFD_NODES:-/sys/class/kfd/kfd/topology/nodes}"/*/properties; do
+		[ -r "$props" ] || continue
+		v=$(sed -n 's/^gfx_target_version[[:space:]]*//p' "$props")
+		case "$v" in '' | *[!0-9]*) continue ;; esac
+		[ "$v" -gt 0 ] || continue
+		printf 'gfx%d%x%x\n' $((v / 10000)) $((v / 100 % 100)) $((v % 100))
+	done
+}
+
+# The GPU targets each AMD package has code for (upstream tools/packaging/build_hip_linux.sh).
+hip_targets_for() {
+	case "$1" in
+	hip-rx9070) echo "gfx1200 gfx1201" ;;
+	hip-rx7900) echo "gfx1100 gfx1101 gfx1102" ;;
+	hip-rx6000) echo "gfx1030 gfx1031 gfx1032" ;;
+	hip-halo) echo "gfx1151" ;;
+	*) return 1 ;;
+	esac
+}
+
+hip_variant_for() {
+	for v in hip-rx9070 hip-rx7900 hip-rx6000 hip-halo; do
+		for t in $(hip_targets_for "$v"); do
+			[ "$t" = "$1" ] && { echo "$v"; return; }
+		done
+	done
+	return 1
+}
+
+choose() {
+	if [ -n "${STRATA_ENGINE_VARIANT:-}" ]; then
+		[ -d "$ENGINES/$STRATA_ENGINE_VARIANT" ] || die "STRATA_ENGINE_VARIANT=$STRATA_ENGINE_VARIANT is not in this image (have: $(ls "$ENGINES" | tr '\n' ' '))"
+		echo "$STRATA_ENGINE_VARIANT"
+		return
+	fi
+	count=$(ls "$ENGINES" | wc -l | tr -d ' ')
+	if [ "$count" = 1 ]; then
+		only=$(ls "$ENGINES")
+		case "$only" in
+		hip-*)
+			# One AMD package: it must still fit the card, or the engine fails with a
+			# message about missing kernels.
+			gfx=$(amd_gfx_list | head -n 20)
+			[ -n "$gfx" ] || die "no AMD GPU found (checked /sys/class/kfd)"
+			for g in $gfx; do
+				[ "$(hip_variant_for "$g" 2>/dev/null)" = "$only" ] && { echo "$only"; return; }
+			done
+			die "this engine has code for $(hip_targets_for "$only" || echo unknown) only; this machine has: $(echo "$gfx" | tr "\n" " ")"
+			;;
+		esac
+		echo "$only"
+		return
+	fi
+	gfx=$(amd_gfx_list | head -n 20)
+	[ -n "$gfx" ] || die "no AMD GPU found (checked /sys/class/kfd); set STRATA_ENGINE_VARIANT to one of: $(ls "$ENGINES" | tr '\n' ' ')"
+	for g in $gfx; do
+		if v=$(hip_variant_for "$g") && [ -d "$ENGINES/$v" ]; then
+			echo "$v"
+			return
+		fi
+	done
+	die "Strata has no engine for this AMD GPU ($(echo "$gfx" | tr "\n" " ")); supported:$(for v in hip-rx9070 hip-rx7900 hip-rx6000 hip-halo; do printf ' %s' "$(hip_targets_for "$v")"; done)"
+}
+
+variant=$(choose)
+if [ "$#" -eq 1 ] && [ "$1" = "--print-engine-dir" ]; then
+	echo "$ENGINES/$variant"
+	exit 0
+fi
+exec "$ENGINES/$variant/$BIN" "$@"

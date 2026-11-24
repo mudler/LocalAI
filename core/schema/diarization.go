@@ -1,0 +1,69 @@
+package schema
+
+// DiarizationSegment is one continuous span of speech attributed to a
+// single speaker. Times are in seconds. Speaker is the normalized label
+// (SPEAKER_NN, zero-padded, stable across segments); Label preserves the
+// raw backend-emitted identifier for clients that already track their
+// own speaker dictionary.
+type DiarizationSegment struct {
+	Id      int     `json:"id"`
+	Speaker string  `json:"speaker"`
+	Label   string  `json:"label,omitempty"`
+	Start   float64 `json:"start"`
+	End     float64 `json:"end"`
+	Text    string  `json:"text,omitempty"`
+	// Name is the registered speaker this segment was matched to, and NameScore
+	// the cosine similarity of the match. Both are omitted when the backend did
+	// not identify the speaker. Speaker stays the normalized SPEAKER_NN label.
+	Name      string  `json:"name,omitempty"`
+	NameScore float32 `json:"name_score,omitempty"`
+}
+
+// DiarizationSpeaker summarizes one speaker across the whole audio so
+// clients can build per-speaker UIs (timeline strips, talk-time charts)
+// without re-aggregating the segment list.
+type DiarizationSpeaker struct {
+	Id                  string  `json:"id"`
+	Label               string  `json:"label,omitempty"`
+	Name                string  `json:"name,omitempty"`
+	TotalSpeechDuration float64 `json:"total_speech_duration"`
+	SegmentCount        int     `json:"segment_count"`
+}
+
+// DiarizationSound is one closed sound event found over the whole clip. Times
+// are in seconds. Label is an AudioSet class name and Confidence the peak score
+// of the event (0 to 1).
+type DiarizationSound struct {
+	Start      float64 `json:"start"`
+	End        float64 `json:"end"`
+	Label      string  `json:"label"`
+	Confidence float32 `json:"confidence"`
+}
+
+// DiarizationResult is the JSON payload returned by /v1/audio/diarization.
+// Speakers and segment text are omitted when empty so the default `json`
+// response stays minimal; verbose_json keeps both populated.
+type DiarizationResult struct {
+	SpeakerProfiles *SpeakerProfiles     `json:"speaker_profiles,omitempty"`
+	Task            string               `json:"task"`
+	Duration        float64              `json:"duration,omitempty"`
+	Language        string               `json:"language,omitempty"`
+	NumSpeakers     int                  `json:"num_speakers"`
+	Segments        []DiarizationSegment `json:"segments"`
+	Speakers        []DiarizationSpeaker `json:"speakers,omitempty"`
+	// Sounds is present only when the request set include_sounds. An empty
+	// list then means the model ran and heard no event; omitzero keeps a nil
+	// list (not requested) out of the payload while an empty one stays.
+	Sounds []DiarizationSound `json:"sounds,omitzero"`
+}
+
+// DiarizationResponseFormatType mirrors transcription's response_format
+// pattern: json (default, no per-segment text), verbose_json (adds
+// speakers summary + text when available), and rttm (NIST RTTM rows).
+type DiarizationResponseFormatType string
+
+const (
+	DiarizationResponseFormatJson        DiarizationResponseFormatType = "json"
+	DiarizationResponseFormatJsonVerbose DiarizationResponseFormatType = "verbose_json"
+	DiarizationResponseFormatRTTM        DiarizationResponseFormatType = "rttm"
+)

@@ -1,0 +1,130 @@
+CMAKE_ARGS?=
+BUILD_TYPE?=
+NATIVE?=false
+
+GOCMD?=go
+GO_TAGS?=
+JOBS?=$(shell nproc --ignore=1)
+
+# whisper.cpp version
+WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
+WHISPER_CPP_VERSION?=5eaee0cc9024eb9e9a99469199920c8b7f5cb9ec
+SO_TARGET?=libgowhisper.so
+
+CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
+
+ifeq ($(NATIVE),false)
+	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+endif
+
+ifeq ($(BUILD_TYPE),cublas)
+	CMAKE_ARGS+=-DGGML_CUDA=ON
+else ifeq ($(BUILD_TYPE),openblas)
+	CMAKE_ARGS+=-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
+else ifeq ($(BUILD_TYPE),clblas)
+	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
+else ifeq ($(BUILD_TYPE),hipblas)
+	# ggml only understands GGML_HIP (GGML_HIPBLAS was removed upstream) and needs the
+	# gfx targets forwarded; otherwise the build silently falls back to CPU (see #10666).
+	ROCM_HOME ?= /opt/rocm
+	ROCM_PATH ?= /opt/rocm
+	export CXX=$(ROCM_HOME)/llvm/bin/clang++
+	export CC=$(ROCM_HOME)/llvm/bin/clang
+	AMDGPU_TARGETS ?= gfx908,gfx90a,gfx942,gfx950,gfx1030,gfx1100,gfx1101,gfx1102,gfx1103,gfx1150,gfx1151,gfx1152,gfx1153,gfx1200,gfx1201
+	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS=$(AMDGPU_TARGETS) -DGPU_TARGETS=$(AMDGPU_TARGETS)
+else ifeq ($(BUILD_TYPE),vulkan)
+	CMAKE_ARGS+=-DGGML_VULKAN=ON
+else ifeq ($(OS),Darwin)
+	ifneq ($(BUILD_TYPE),metal)
+		CMAKE_ARGS+=-DGGML_METAL=OFF
+	else
+		CMAKE_ARGS+=-DGGML_METAL=ON
+		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
+	endif
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f16)
+	CMAKE_ARGS+=-DGGML_SYCL=ON \
+		-DCMAKE_C_COMPILER=icx \
+		-DCMAKE_CXX_COMPILER=icpx \
+		-DGGML_SYCL_F16=ON
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f32)
+	CMAKE_ARGS+=-DGGML_SYCL=ON \
+		-DCMAKE_C_COMPILER=icx \
+		-DCMAKE_CXX_COMPILER=icpx
+endif
+
+sources/whisper.cpp:
+	mkdir -p sources/whisper.cpp
+	cd sources/whisper.cpp && \
+	git init && \
+	git remote add origin $(WHISPER_REPO) && \
+	git fetch origin && \
+	git checkout $(WHISPER_CPP_VERSION) && \
+	git submodule update --init --recursive --depth 1 --single-branch
+
+# Detect OS
+UNAME_S := $(shell uname -s)
+
+# Only build CPU variants on Linux
+ifeq ($(UNAME_S),Linux)
+	VARIANT_TARGETS = libgowhisper-avx.so libgowhisper-avx2.so libgowhisper-avx512.so libgowhisper-fallback.so
+else
+	# On non-Linux (e.g., Darwin), build only fallback variant
+	VARIANT_TARGETS = libgowhisper-fallback.so
+endif
+
+whisper: main.go gowhisper.go $(VARIANT_TARGETS)
+	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o whisper ./
+
+package: whisper
+	bash package.sh
+
+build: package
+
+clean: purge
+	rm -rf libgowhisper*.so package sources/whisper.cpp whisper
+
+purge:
+	rm -rf build*
+
+# Build all variants (Linux only)
+ifeq ($(UNAME_S),Linux)
+libgowhisper-avx.so: sources/whisper.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I whisper build info:avx${RESET})
+	SO_TARGET=libgowhisper-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
+	rm -rfv build*
+
+libgowhisper-avx2.so: sources/whisper.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I whisper build info:avx2${RESET})
+	SO_TARGET=libgowhisper-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgowhisper-custom
+	rm -rfv build*
+
+libgowhisper-avx512.so: sources/whisper.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I whisper build info:avx512${RESET})
+	SO_TARGET=libgowhisper-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on -DGGML_BMI2=on" $(MAKE) libgowhisper-custom
+	rm -rfv build*
+endif
+
+# Build fallback variant (all platforms)
+libgowhisper-fallback.so: sources/whisper.cpp
+	$(MAKE) purge
+	$(info ${GREEN}I whisper build info:fallback${RESET})
+	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_BMI2=off" $(MAKE) libgowhisper-custom
+	rm -rfv build*
+
+libgowhisper-custom: CMakeLists.txt cpp/gowhisper.cpp cpp/gowhisper.h
+	mkdir -p build-$(SO_TARGET) && \
+	cd build-$(SO_TARGET) && \
+	cmake .. $(CMAKE_ARGS) && \
+	cmake --build . --config Release -j$(JOBS) && \
+	cd .. && \
+	mv build-$(SO_TARGET)/libgowhisper.so ./$(SO_TARGET) 2>/dev/null || \
+		mv build-$(SO_TARGET)/libgowhisper.dylib ./$(SO_TARGET:.so=.dylib)
+
+all: whisper package

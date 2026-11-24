@@ -1,0 +1,8 @@
+{
+  "name": "localai-addon-host-compat",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Stand-ins for the host modules that the Studio and Talk pages were written against; each answers through the SDK.",
+  "type": "module",
+  "scripts": { "test": "node test/run.mjs" }
+}

@@ -1,0 +1,819 @@
+---
+title: "Backends"
+description: "Learn how to use, manage, and develop backends in LocalAI"
+weight: 80
+devbuild: feature
+aliases:
+  - "/backends/"
+---
+
+
+A backend is the program that runs a model. LocalAI downloads the right one the first time a model needs it, and you rarely have to choose.
+
+## Available Backends
+
+LocalAI ships **more than 80 backends** covering text generation, speech-to-text, text-to-speech, music and sound generation, image and video generation, vision and object detection, audio processing, reranking, fine-tuning, and more. Each one is published as an on-demand OCI image with the appropriate acceleration variants (CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T).
+
+For the complete list of backends, the model families they support, and their acceleration targets, see the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}). The source of the list is the backend library, [`gallery/backends/index.yaml`](https://github.com/mudler/LocalAI/blob/master/gallery/backends/index.yaml). The default gallery that a server reads is generated from it (see [The backend library and the generated gallery](#the-backend-library-and-the-generated-gallery)). You can browse the same catalog in **Admin → Runtime → Backends**.
+
+## Managing Backends in the UI
+
+Manage backends in **Admin → Runtime → Backends**. It is one list with two views, **Installed** and
+**Catalog**, each with a count:
+
+1. **Catalog** browses configured galleries, searches by name or description,
+   filters by capability, and installs a backend. Catalog is the default view.
+   On a new installation with nothing installed it recommends llama-cpp, which
+   runs most text models, with a single install button.
+2. **Installed** shows the runtimes present on the host or cluster, those with
+   an update first.
+3. Target-node links compose with the current view and selection instead of
+   opening a separate management page.
+
+Above the list there is one row of controls: the two views, the search, a
+**Filters** button and a **More** menu (⋮). The row stays at the top of the
+page while you scroll a long list.
+
+- **Filters** opens a menu (a sheet on a phone). In Installed, filter by state:
+  user, system, with an update, or on an offline node. In Catalog, filter by
+  type: chat, image, video, TTS, STT, or vision. In both, **Variant builds**
+  and **Development builds** show the builds that are hidden by default, and,
+  when library sources are set up, **Library** narrows the list to one source.
+  The button shows how many filters are on.
+- The line under the controls shows how many backends are listed, each active
+  filter as a chip that you can remove, and, when updates exist, **N updates
+  available · Review**. **Review** opens the [Updates page](#the-updates-page)
+  on the ready updates.
+- **More** holds the actions you need less often: **Updates** opens the
+  Updates page, where **Check now** runs a real check,
+  **Install from URL…** installs a backend from an OCI image, a URL or a path,
+  and **Manage libraries…** opens the library sources panel.
+
+Each row shows the backend, its version and its state: **Current**, **Update
+1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
+installs, with **Cancel** in the row. A failed install says why, with **Retry**.
+The one action that matters sits in the row (**Install**, or **Review** when
+an update exists). The row menu (⋮) holds **Reinstall backend** and **Delete
+backend** in both views, and the chevron opens the row for the rest. This page
+starts no update of a gallery backend. **Review** on a row only opens the
+Updates page: the page of that backend when nodes report it (it asks before
+it updates a node), otherwise the list of ready updates. The update runs there,
+as an operation in Activity. A backend that came from a library keeps its
+**Update** button in the row, which installs the newer build that library
+lists and shows the progress in the row. The same update is also listed on
+the Updates page.
+
+The current view, search, filter, open row, and target node are stored in the
+URL, so a shared link opens the same state.
+
+**Removing** a backend asks first. The dialog names the configured models that
+ask for that backend by name, and any installed meta backend that points at it
+(for example `llama-cpp` pointing at a hardware-specific build), because those
+stop working without it. The catalog does not report a size per backend, and
+LocalAI keeps no earlier version of a backend once an upgrade has finished, so
+there is no size column and no rollback after the fact.
+
+**Admin → Runtime → Logs** (`/app/backend-logs`) lists the backend processes
+that have printed something. Open one to read its output live, filter by stream
+or text, follow the end, show or hide times, export the lines as JSON, or clear
+them. Clearing hides the lines at once and wipes them on the server after 6
+seconds, unless you press **Undo**.
+
+Installs run in the background. The strip at the top of the app follows the
+current one, and **Admin → Activity** lists everything in flight, what needs
+attention, and what has finished, and is where a running install is paused,
+cancelled or a failed one retried. See [Activity]({{% relref "/administration/activity" %}}).
+
+Each open row displays:
+- Backend name and description
+- Type of models it supports
+- Installation status
+- Version, source, digest, placement, and catalog information
+- The models that use the backend, a link to its logs, and, in a cluster, the
+  per-node controls
+
+## The Updates page
+
+**Admin → Updates** (`/app/updates`) is the one place that answers "what is
+out of date, and what is changing". It is for administrators. It lists backends of the gallery, backends of a library, add-ons and, in their
+own rows, the installed gallery models whose entry changed (see [Model
+updates]({{% relref "/models/model-updates" %}}); in a review, models start unselected).
+
+At the top, one sentence says how many updates there are and how many are ready,
+updating or need you. Under it a line for each source (the backend gallery, the
+backend library and the add-ons) says when it was last checked or why the check
+failed, and the two settings **Update backends automatically** and **Update
+add-ons automatically** are shown as facts, with a link to Settings. The page
+never says "Everything is up to date" while a source failed or was never
+checked. A failed source gets a red notice that says what may be missing, and
+the list keeps the last good result and marks its rows as from an earlier check.
+
+The rows are in four groups, in this order:
+
+| Group | What is in it |
+|---|---|
+| **Needs you** | An update that failed (**Retry**), an add-on upgrade that is held until you approve the access it asks for (**Review**), and an update that cannot start, with the reason (an add-on that cannot run on this host, or backend installs turned off on this server). |
+| **Updating** | An update in progress, with its phase and progress. **Cancel** shows where the operation can be cancelled. |
+| **Ready to update** | An update that you can start. **Update** opens the review of that row. |
+| **Up to date** | One collapsed line. A backend is listed here only when its source answered. |
+
+**Check now** runs a real check of every source and waits for the answer. It
+asks the registries (at most 45 seconds), reads each add-on library with your own
+browser session, and shows the result under the sentence. The button waits 15
+seconds before the next check, as the server answers a check within that time
+from the last one.
+
+### Review and update run
+
+Every update starts with a review, and nothing changes until you start it.
+**Update N ready** reviews every ready row. **Update** or **Retry** on a row
+reviews that row only. The server makes the plan of the review:
+
+- The items are grouped by kind: backends, add-ons and models. Each item has a
+  checkbox and its versions.
+- An item shows a risk line only when the server knows the risk. In a
+  cluster, a backend says how many loaded models stop while it switches and on
+  how many nodes ("Stops 2 loaded models on 2 nodes while it switches"). When
+  no loaded model is known to use it, it says on how many nodes it is replaced,
+  and when the nodes run different builds now, it says so. A single server does
+  not know which models use a backend, so its backends have no such line. An
+  add-on says that its data is backed up and migrated. A model update that
+  changes only the settings says that nothing is downloaded. See
+  [Risks]({{% relref "/models/upgrade-runs#risks" %}}).
+- The versions are the versions you know: an add-on shows "0.8.1 to 0.8.2",
+  and the run pins the exact release the review showed.
+- Models start unselected, because an update reloads a model. **Select all**,
+  **Select none** and the count ("6 of 8 selected") are at the top.
+- An item that cannot start (for example a held add-on) shows the reason and
+  cannot be selected.
+
+The primary button starts an **update run** with the selected items. The
+**Upgrade** and **Retry** of a model row, and an approved add-on upgrade, start
+a run of one item; the page shows that run as soon as the server accepts it. The server
+owns the run. It updates the backends first, then the models, then the add-ons
+one at a time. Each update keeps the previous version until the new version
+runs. You can close the page: the run continues, and the page shows it again
+when you come back (the address `/app/updates?run=<id>` opens one run).
+
+While the run is active, the top of the page says how many items are updated,
+running and waiting, with a progress bar and **Cancel remaining**. Each queued
+item has **Cancel**, and a running item has it while its update can still stop. The group
+**This update run** lists the items in the order they run, with their state:
+queued (with the reason it waits), updating (with progress), updated, failed,
+rolled back, cancelled, skipped, or not confirmed. An item is updated only when
+its operation ended without an error and a new check no longer lists it. When
+the result is not known (for example, the reply of a worker was lost), the item
+is "not confirmed": run **Check now** to see its version.
+
+When the run ends, the top of the page gives the result, for example "5
+updated, 1 needs attention". An item needs attention when it failed, was
+rolled back, is not confirmed, or was skipped for a reason; a cancelled item
+does not. The result in the notification center counts the same items. A failed item says what happened, which version
+it is on now and that its data did not change. **Retry** shows only when the
+server can retry the item; **Details** shows the server's own words.
+**Retry failed** runs the retryable items again, and **Dismiss** removes the
+result from the page.
+
+Each run also has one item in the notification center: it shows the progress
+while the run is active, and when the run ends it is replaced by the result.
+It opens the run on this page. The footer of the notification center has **Open Updates** with the
+number of updates, for administrators.
+
+In a cluster, a backend that more than one node has shows a **Nodes** action.
+It opens `/app/updates/backend/<name>`, which lists each node with its version,
+the models that use the backend there, and its state, and updates one node or
+every node that needs it, after a confirmation that names the models that stop.
+On the Updates page, such a backend is part of the review like any other row,
+and its risk line says how many loaded models stop on how many nodes. See
+[the Workers page]({{% relref "/administration/distributed-mode" %}}).
+
+### Shortcuts from other pages
+
+Other pages show that an update exists and send you here; none of them runs a bulk
+update of its own. The Backends page has **Review** in its rows and in the line above
+its list. The **Admin → Overview** page lists the backends with an update as one row,
+"N updates available", with **Review**. The Apps page has **Open Updates**. The
+**Nodes** page keeps its **Update** button for the nodes you selected, which opens the same
+confirmation as this page, and a node's **Backends** tab has **Update** for a backend that
+is behind on that node.
+
+### The count on the Updates tab and on Admin
+
+A number on the **Updates** tab and on the **Admin** item of the sidebar (on
+every page, for administrators) counts what needs a person: ready updates that
+no automatic setting covers, plus updates that failed, are held for approval, or
+are blocked by something other than the server setting for backend installs. An
+update that an automatic setting will apply is listed on the page but not
+counted. The number is red when an update failed. One poll reads the numbers
+once a minute while the browser tab is visible, and again when an operation ends.
+
+The badge on the **Admin** item has one number at a time, so it follows an
+order: failed operations first (red, counting the failed operations), then the
+count above, then the number of operations that are running. The tab always
+shows the count above, so the two numbers differ while an operation has failed.
+
+## Updates in the inbox
+
+Administrators get updates in the [inbox]({{% relref "/features/chats-and-agents/chats-agents#inbox" %}}) (the **Notifications** entry in the sidebar), so they see them on any page and, through browser push and a Telegram chat, away from the browser. Four kinds of item exist. Every one has a `code` and `params`, so the app words it in your language. Every one is for administrators only (when authentication is off, for the one local user). They work with the chats on or off, and they never go to a Telegram or Slack chat: only the runs of your triggers and connectors do.
+
+- **The digest**, "N backend updates available". It counts the backend updates (gallery and library) that need a person: the same updates the badge of the Updates tab counts for backends. It does not count a backend that **Update backends automatically** covers, so with that setting on there is no digest, and a stored digest is removed. With the setting off, every update that the last check found is counted, and a server that refuses backend installs counts none. There is one digest for each administrator, kept up to date in place:
+  - the first update creates it;
+  - a **new update** brings it back as a new, unread item at the top, and pushes it once. A new update is an id that the digest did not show before: a backend and the version or digest it would move to. A newer release of a backend that the digest already listed is a new update;
+  - when updates are done, the count goes down quietly: the item keeps its place and its read state, and nothing is pushed;
+  - when you delete it, it is hidden, not forgotten. It stays hidden while the updates are the same or fewer, and it comes back, unread, for the next new update;
+  - when none is left it is removed. A later update is then new again.
+  The digest changes only when every source that can be checked answered in that pass. A failed check does not turn "unknown" into "all done".
+- **The result of an automatic pass**, "Backends: 2 updated automatically, 1 failed". On a server that keeps upgrade runs, the automatic pass starts a run instead of installing, and the run writes its own items (see [Notifications of a run]({{% relref "/models/upgrade-runs#notifications-of-a-run" %}})); the item below is then written only by a server without runs. When the automatic update installed or failed to install something, the pass writes one item, with the counts and the names. A pass that did nothing writes nothing. The item is a failure (red) when anything failed, and then it links to the updates that need you. A report is written once: the same failure of the same release at the next pass (the pass retries every six hours) does not write it again, also after you deleted the first item. A different release, or a different set of outcomes, is a new item. Gallery models write their own items (see [Model updates]({{% relref "/models/model-updates#where-you-see-it" %}})). Add-ons write their own item in their own pass (see [Add-ons]({{% relref "/addons/manage-addons#automatic-upgrade" %}})).
+- **The end of an operation**, "Model qwen3-4b installed" or "Backend whisper: install failed". When an install, removal or upgrade that an administrator started completes, fails or is cancelled, the frontend that ran it writes one item for each administrator (code `updates.opDone`, or `updates.opFailed` with the outcome `failed` or `cancelled`). It is a once item keyed by the operation, so it is written once. A failure carries the reason. Model items open the Models page, backend items the Updates page.
+- **The failed check**, "The update check failed". When the automatic check of the backend gallery or the backend library fails in two passes in a row (more than half a day), one item names the sources. It is removed when the check works again, and written again only if a source fails again for two passes. The Updates page shows the same failure on its source line at once.
+
+Each item opens the Updates page on the list it is about: the digest opens **Ready**, a result with a failure or a held update opens **Needs you**.
+
+**What is not in the digest.** Add-on updates are not counted in the digest. The state of an add-on update is read by the add-on owner with the session of an administrator, and the frontend that writes the digest may not be the owner; the digest would then change with whichever frontend holds the lock. The Updates page and its badge show add-ons. With **Update add-ons automatically** on, the add-on result is in the inbox. With it off, an add-on update shows on the page and in the badge only.
+
+**Who writes them.** The digest, the failed-check item and the backend result are written at the end of the automatic pass, by the process that runs it. In [distributed mode]({{% relref "/administration/distributed-mode#automatic-backend-updates" %}}) that is the frontend that holds the update lock (`KeyBackendUpgradeCheck`), so there is one writer for the cluster, and its push and Telegram forward happen once. A standalone server writes after each pass that may install. A check you start with **Check now**, a trigger after an operation, and the first check of a frontend write nothing.
+
+## Checking for backend updates
+
+`GET /backends/updates` (the UI uses the alias `GET /api/backends/updates`)
+lists the gallery and library backends that have a newer build. Both routes
+need an administrator. The answer comes from the cache of the instance that
+serves the request and contacts no registry. It has:
+
+- `items`: one entry per backend with an update. `kind` is `gallery` or
+  `library`. Each has `installedVersion`, `availableVersion`, the digests when
+  there are any, and a `state`: `update` (a newer version or digest), `stale`
+  (a request showed that the backend is older than the server; `reason` says
+  how) or `drift` (the nodes of a cluster do not agree on the build). A library
+  item also has `sourceId` and `signed`. In a cluster an item has `nodes`, with
+  the version of every node that has the backend and `drift` on the ones that
+  differ from the majority. With **Update backends automatically** on, an item
+  has `heldBack: true` when the automatic update does not take its release,
+  because the same release already did not start in a recent upgrade run (see
+  [Automatic updates are runs]({{% relref "/models/upgrade-runs#automatic-updates-are-runs" %}})).
+  You can still update it by hand.
+- `sources.gallery` and `sources.library`: the freshness of each source. `state`
+  is `ok`, `failed`, `never` (not checked since the server started) or
+  `disabled` (with a `reason`). A source also has `checkedAt`, `lastSuccessAt`
+  and `error`. When the last check failed, `stale` is true and `items` still
+  lists what the last good check found. A client must not say "no updates"
+  while a source is `failed` or `never`.
+- `autoUpdate.backends`: the value of **Update backends automatically**
+  (`auto_upgrade_backends`). It covers gallery and library backends.
+- `checkedAt`: the latest check of any source.
+
+`POST /backends/updates/check` (alias `POST /api/backends/updates/check`) checks
+now. It refreshes the library index, asks the registries, waits for the check
+(at most 45 seconds) and answers with the same body, with fresh times. A check
+that fails or times out is an `error` in the state of its source, and the
+previous list stays. Callers that arrive during a check share it. A call within
+15 seconds of the last check is answered from it, with `throttled` set. A check
+installs nothing. The older `POST /backends/upgrades/check` still only starts a
+check and returns the cache at once.
+
+**Starting an upgrade.** `POST /backends/upgrade/{name}` (alias
+`POST /api/backends/upgrade/{name}`) and `POST /api/nodes/{id}/backends/upgrade`
+answer at once when the request cannot do anything, and queue nothing. The body
+is `{"error": "...", "code": "..."}`:
+
+| Status | `code` | Meaning |
+|---|---|---|
+| `404` | `not_installed` | The backend is not installed (on that node, for the node route). |
+| `409` | `no_update` | The backend is installed but has nothing to upgrade to: no newer build in the last check, or a backend that the system provides. |
+| `409` | `stale` | The request named a build with `expected_to` and it is no longer the available one. |
+
+`expected_to` is optional. It is the version or the digest that the caller saw
+in the update list, in the query or in a JSON body field of the same name. The
+server compares it with the available build when it accepts the request, and
+answers `stale` when it moved. The job then installs the build the gallery
+lists when it runs; it does not compare it with `expected_to` again. The
+integrity checks of the gallery entry (SHA-256, signature policy) run before
+the swap. A request without `expected_to` upgrades to whatever is available.
+
+A request is never refused as `no_update` from an old list. When the last
+successful check is older than five minutes, or there is none, the request first
+runs a check (the one of **Check now**, shared with a check that already runs)
+and waits for it at most 15 seconds. The fresh list decides. When that check
+fails or runs out of time the request is accepted, and the job reports what
+happens. A request for a build with `expected_to` is compared with the list as
+it is.
+
+An upgrade that fails after it started ends the job with an `error_key` next to
+the `error` text in the status of the job (`GET /backends/jobs/{id}`):
+
+| `error_key` | The step that failed |
+|---|---|
+| `download` | The new build could not be fetched or staged. |
+| `verify` | A checksum or signature check refused the new build, or its content is not a runnable backend. |
+| `swap` | The new build could not be moved into place. The installed build is restored. |
+| `start` | The new build was moved into place but did not start. See below: the previous build is normally back. |
+| `not_installed`, `no_update`, `stale` | As above, when the request was accepted and the state changed before the job ran. |
+| `unknown` | Any other failure. |
+
+Read the `error_key`, not the text: the text can change. Cancelled jobs have no
+`error_key`, and neither has a failed install. A panic in an upgrade ends as
+`unknown`. In distributed mode the key is stored with the operation record
+(`gallery_operations.error_key`, added by the automatic migration at start-up),
+so every frontend and the history (`errorKey`) have it.
+
+**When the new build does not start.** An upgrade keeps the build you have
+until the new one has started once. After the new build is moved into place
+and its metadata is written, LocalAI starts it from its final path, the way a
+model load starts a backend, on a free local port of its own, and waits up to
+40 seconds for it to answer a health check. Then it stops it again. Only when
+the new build answered is the previous build deleted.
+
+When the new build exits, or does not answer in time, LocalAI puts the previous
+build and its metadata back, registers the backends again, and ends the job
+with `error_key` `start` and `rolled_back: true`. The `error` text ends with the
+last lines the new build wrote (at most 512 bytes), for example a missing
+shared library. The backend then runs the version it ran before. A metadata
+write or a backend registration that fails after the swap is handled the same
+way, with `error_key` `swap`. When the previous build cannot be put back,
+`rolled_back` is false, the text says so, and the failed build stays in place
+for diagnosis next to the previous one (`<name>.backup`).
+
+A forced reinstall of an installed backend (`force: true`) keeps the replaced
+build in the same way. A first install starts nothing.
+
+Limits of the start check:
+
+- It proves that the build starts and listens. It loads no model, so it does
+  not prove that a model loads, or that it loads on the GPU. A build that starts
+  but fails to load a model is found at the next load.
+- Models that run on the backend keep running during the check: the check uses
+  its own process and port, and running processes keep the files of the build
+  they started from.
+- Cancelling the job stops the check and puts the previous build back.
+- The check runs the downloaded build as the user LocalAI runs as. Without
+  strict integrity, a build with no SHA-256 and no signature policy runs at
+  this point, at upgrade time, and not only at the next model load.
+
+Limits:
+
+- **Library backends are those of the host.** The library comparison reads the
+  backends installed on the host that answers. On a cluster frontend that holds
+  no backends, library backends installed on workers are not listed, and the
+  `library` source says so in its `note`.
+- **Models that would stop.** A node entry lists the loaded models whose
+  recorded backend has the name of the item. The node registry records the
+  backend a model was loaded with; it can be empty, or name a meta backend
+  instead of the installed build. An empty `models` list does not prove that no
+  model would stop.
+- **Without a checker** (backend installs are disabled, or no backend gallery is
+  configured) both sources are `disabled` and `items` is empty.
+
+In [distributed mode]({{% relref "/administration/distributed-mode#automatic-backend-updates" %}})
+the cache is per frontend. The frontend that gets a check request updates its
+own cache only, whether or not it holds the lock that runs automatic updates.
+`checkedAt` says how old each answer is.
+
+The LocalAI Assistant reads the same data with the `backend_updates` tool
+(`action` `list` or `check`).
+
+## Prefer installed development backends
+
+Development builds are ignored when a stable build is installed. Set `LOCALAI_PREFER_DEV_BACKENDS=true` (legacy alias: `PREFER_DEV_BACKENDS`)
+or pass `--prefer-development-backends` to prefer them for generic backend aliases. The default is `false`, which preserves existing selection,
+including installations that contain only development builds.
+
+When enabled, LocalAI selects compatible installed builds with an existing,
+non-directory run file. It prefers names ending in `-development` (or the
+configured `LOCALAI_BACKEND_DEV_SUFFIX`). Within that group, existing hardware
+ranking and lexical-name ordering still apply. If no eligible development build
+exists, LocalAI selects an eligible non-development build. If neither group has
+an eligible build, it does not register the alias.
+
+For example (`my-engine` is a placeholder name, not a real backend), generic `my-engine` selects `cpu-my-engine-development`
+over `cpu-my-engine` when both are installed and compatible. A compatible
+CPU development build also takes priority over a stable CUDA build.
+An incompatible development build cannot take priority over a compatible stable
+build. Compatibility uses LocalAI's existing hardware heuristics, including the
+`LOCALAI_FORCE_META_BACKEND_CAPABILITY=disable` override; it does not guarantee
+that native libraries can load.
+
+Explicit concrete names keep their original paths. Selecting
+`cpu-my-engine` does not redirect to its development counterpart.
+Installing a development image under a stable name does not rename that entry.
+The preference also retains its existing development-first download behavior.
+
+The **Settings** value `prefer_development_backends` supplies the frontend's
+preference at its next startup. POST `/api/settings` returns `restart_required: true` when this value changes,
+while retaining the existing `success` and `message` response fields. Unchanged
+values return `restart_required: false`. This notification does not reconfigure
+the watchdog; genuine watchdog setting updates still apply live. Neither API
+updates nor edits to `runtime_settings.json` change
+registered paths or restart running models. The displayed preference can change
+before the resolver adopts it. Startup uses the existing settings merge:
+explicit default-valued CLI or environment values, including `false`, can be
+indistinguishable from unset and do not necessarily override a saved `true`.
+
+For distributed `local-ai worker`, set the flag or environment variable on each
+worker, then restart it. Frontend flags and Settings changes do not configure
+remote workers. Legacy specialized worker subcommands do not expose this
+worker-local option.
+
+## Backend Galleries
+
+Backend galleries are repositories that contain backend definitions. They work similarly to model galleries but are specifically for backends.
+
+### Adding a Backend Gallery
+
+You can add backend galleries by specifying the **Environment Variable**  `LOCALAI_BACKEND_GALLERIES`:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"my-gallery","url":"https://raw.githubusercontent.com/username/repo/main/backends"}]'
+```
+The URL needs to point to a valid yaml file, for example:
+
+```yaml
+- name: "test-backend"
+  uri: "quay.io/image/tests:localai-backend-test"
+  alias: "foo-backend"
+```
+
+Where URI is the path to an OCI container image.
+
+To use a backend gallery or backend images that need authentication, such as a private registry, add a matching entry to the credentials file. See [Private Registries and Galleries]({{% relref "/models/private-sources" %}}).
+
+### Backend Gallery Structure
+
+A backend gallery is a collection of YAML files, each defining a backend. Here's an example structure:
+
+```yaml
+name: "llm-backend"
+description: "A backend for running LLM models"
+uri: "quay.io/username/llm-backend:latest"
+alias: "llm"
+tags:
+  - "llm"
+  - "text-generation"
+```
+
+### Verifying OCI Backends
+
+The default backend gallery tries `https://index.localai.io/backends`, then `github:mudler/LocalAI/backend/index.yaml@master`, then `oci://quay.io/go-skynet/local-ai-backends:gallery-backends`. The OCI fallback is signed by `gallery_publish.yml`. Its `artifact_verification` policy applies only to the gallery artifact; `verification` continues to control backend image signatures. Existing custom gallery lists are not changed. See [gallery publishing]({{% relref "/models#official-gallery-publishing" %}}) for details.
+
+Backend galleries can require keyless Sigstore signatures for every OCI image
+they provide. Add a `verification` policy to the gallery configuration, then
+enable strict integrity mode:
+
+```bash
+export LOCALAI_BACKEND_GALLERIES='[{"name":"localai","url":"https://index.localai.io/backends","mirrors":["github:mudler/LocalAI/backend/index.yaml@master"],"verification":{"issuer":"https://token.actions.githubusercontent.com","identity_regex":"^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$"}}]'
+export LOCALAI_REQUIRE_BACKEND_INTEGRITY=1
+local-ai run
+```
+
+The policy pins the Fulcio issuer and the GitHub Actions workflow identity that
+signed the image. The identity expression covers development images produced
+from `master` and release images produced from tags. Use a narrower expression
+if your deployment only accepts one release channel.
+
+Without strict mode, an OCI gallery without a verification policy installs
+with a warning. With strict mode, LocalAI refuses galleries without a policy,
+images without a compatible Sigstore bundle, and signatures that do not match
+the configured identity. Existing images published before bundle signing was
+enabled must be rebuilt or re-signed before strict deployments can install
+them.
+
+An optional `not_before` RFC3339 value revokes signatures logged before that
+time. Advance it after a signing-workflow compromise, then rebuild or re-sign
+the trusted images:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/mudler/LocalAI/\\.github/workflows/backend_merge\\.yml@refs/(heads/master|tags/.+)$",
+    "not_before": "2026-08-05T00:00:00Z"
+  }
+}
+```
+
+When one reusable workflow signs images for several repositories, the
+certificate identity names the shared workflow, not the repository that called
+it, so an identity match alone accepts an image signed for any of those
+repositories. Add `source_repository` to pin the repository the signature was
+made for. LocalAI compares it exactly with the source-repository extension of
+the signing certificate: a trailing slash, a different letter case or a `.git`
+suffix does not match. The value must be an `https://` URL, or LocalAI refuses
+the policy when it uses it, when it installs a backend or fetches an `oci://`
+gallery. LocalAI versions before this field existed ignore it and do not pin
+the repository, so upgrade every node, workers included, before you rely on it:
+
+```json
+{
+  "verification": {
+    "issuer": "https://token.actions.githubusercontent.com",
+    "identity_regex": "^https://github\\.com/example/signer/\\.github/workflows/release\\.yml@refs/tags/v.+$",
+    "source_repository": "https://github.com/acme/backends"
+  }
+}
+```
+
+### Disabling backend installation
+
+Some deployments must not acquire executable code at runtime: production
+systems that run only the backend set they were tested with, locked-down or
+air-gapped hosts, images that are built once and then promoted unchanged, and
+hosts where backends come from a package manager (placed under
+`--backends-system-path`, `LOCALAI_BACKENDS_SYSTEM_PATH`). For all of these,
+`--disable-backend-install` (`LOCALAI_DISABLE_BACKEND_INSTALL=1`) tells
+LocalAI never to install or upgrade a backend itself:
+
+```bash
+export LOCALAI_DISABLE_BACKEND_INSTALL=1
+local-ai run
+```
+
+What is refused:
+
+- installs from the backend gallery, from OCI images, URLs or local paths:
+  the Backends page, `POST /backends/apply`, the `/api/backends/...`
+  install routes, the LocalAI Assistant's `install_backend` tool and the
+  `LOCALAI_EXTERNAL_BACKENDS` boot-time list;
+- upgrades: manual, "update all", the Assistant's `upgrade_backend` tool and
+  the background auto-upgrader, which is not started at all (upgrade checks
+  stop too, so no registry is polled for versions nobody can apply);
+- installing a model whose backend is not present: refused before anything
+  is downloaded, naming the backend, on every install path (gallery, import,
+  preload, the Assistant's tools).
+
+What still works: backends already installed, backends provided under the
+system path, listing and browsing the backend galleries, and deleting a
+backend. In distributed mode a model counts as installable when a healthy
+worker has its backend, under its own name or an alias. Availability is
+judged where inference runs. The frontend keeps no backends of its own.
+
+How clients can tell: install and upgrade endpoints answer `403` with
+`"code": "backend_install_disabled"`; installing a gallery model whose
+backend is not present answers `409` with `"code": "backend_not_installed"`
+and the backend's name. `GET /api/features` and the capabilities object in
+`GET /.well-known/localai.json` report `"backend_install": false`, and the
+Backends page shows a notice and offers no install or upgrade actions.
+
+The switch is read at start-up only; it is not a runtime setting. In
+[distributed mode]({{% relref "/administration/distributed-mode#disabling-backend-installation-on-workers" %}})
+each worker enforces it for its own backends, so set it on every frontend
+and every worker. The standalone `local-ai worker ...` subcommands honour
+the same variable: they start with the backend already present under their
+backends or system path and exit with an error instead of installing one.
+
+## The backend library and the generated gallery
+
+The backend library, `gallery/backends/index.yaml`, is the **source of truth** of the backends, the way the model library is for the models. Edits go there. The backend gallery, `backend/index.yaml`, is a **generated copy** of it. It stays only so that releases from before the cutover, which read the gallery, keep working. Never edit it by hand; CI fails when it differs from the generated copy.
+
+An entry of the library is one backend image for one platform, pinned by a digest. It carries what the gallery carried: the name, `alias`, `description`, `license`, `urls`, `tags`, an `icon` URL, the ordered `mirrors` and the `capabilities` map of a meta backend. A development image (a `master-` tag) keeps its tag and has no digest in the library; the install pins it. The [Add-ons page]({{% relref "/addons/install-and-update#a-backend-entry" %}}) lists every field.
+
+### Which source a build reads
+
+A build reads one of the two by default, and the other stays listed so you can turn it on with `local-ai library enable`:
+
+| Build | Default backend source |
+|---|---|
+| From master, or a plain `go build` | The library (`official-backends`) |
+| From a tag, before the cutover | The gallery (`localai-backends`) |
+| From a tag, after the release workflow cuts over | The library |
+
+The value is set at build time with `-X github.com/mudler/LocalAI/core/library.BackendSource=library` (or `gallery`), through `LOCALAI_BACKEND_SOURCE` in the Makefile and GoReleaser. The Makefile picks `gallery` when the commit carries a tag. The release workflow has a step that sets `LOCALAI_BACKEND_SOURCE=library`, so a release build cuts over by itself. The container image `Dockerfile` pins `LOCALAI_MODEL_SOURCE=library` and `LOCALAI_BACKEND_SOURCE=library` as build arguments, so a tagged image reads the same sources as a release binary; pass `--build-arg LOCALAI_BACKEND_SOURCE=gallery` to build an image that reads the gallery. Any other value reads the library, so a build never has no backend source. `--addons-backend-library=false` removes the library and every build reads the gallery.
+
+When the library is the source, LocalAI reads it as a gallery in library format. A backend installs by the tag and the mirrors of its entry, the way the gallery installs it, and the Backends page lists the same backends. If the library cannot be fetched or read, listing the backends fails with an error; LocalAI does not fall back to the gallery, so the problem is never silent. The library has no mirrors of its own. A backend library you add with `local-ai library add` is read by the add-on catalog only, which installs its images by digest.
+
+### Edit the library, generate the gallery
+
+To add a backend, write its entries in the gallery shape in a scratch file (see [Adding a new backend](https://github.com/mudler/LocalAI/blob/master/.agents/adding-backends.md)) and merge them into the library. Then generate the gallery:
+
+```bash
+go run ./scripts/backends/cmd/backendcatalog --add my-backend.yaml --library gallery/backends/index.yaml
+go run ./scripts/backends/cmd/backendcatalog --library gallery/backends/index.yaml --out backend/index.yaml
+```
+
+The first command pins the `latest-` images that are in the registry to the digest of each platform. An image that is not published yet is written unpinned and `mutable`, and installs by its tag until a maintainer pins it with `--repin`. The second command reads the library with the same strict reader the host uses, converts every backend to a gallery entry and back, loads its own output the way the host loads a gallery, and fails if one backend does not come back equal. It does not use the network.
+
+CI (the `backend library` workflow) checks the library file itself. It decodes, every entry passes the checks a host applies, every backend round trips, every meta backend names backends the library has, and the gallery reader loads the generated gallery and sees the same backends as the library. It then generates the gallery again and fails with a message to regenerate, not to edit by hand, when `backend/index.yaml` differs. The tests in `core/gallery` run the same checks on every entry of the real backend gallery from before the library became the source, kept as golden files in `core/gallery/testdata/backend_library`, and log how many entries they covered.
+
+## Installing from a library
+
+A library of the [Add-ons page]({{% relref "/addons/contract-reference" %}}) can list backends too, and the backend library is one of them. A library entry installs with a pinned image digest, the signature check of the library and a size limit (8 GiB by default). The Browse tab of the Add-ons page shows each entry with its kind. See [Backends in the library]({{% relref "/addons/install-and-update#backends-in-the-library" %}}) for the entry format, the signer pattern and the install route.
+
+## Pre-installing Backends
+
+You can pre-install backends when starting LocalAI using the `LOCALAI_EXTERNAL_BACKENDS` environment variable:
+
+```bash
+export LOCALAI_EXTERNAL_BACKENDS="llm-backend,diffusion-backend"
+local-ai run
+```
+
+## Backend Directory Format
+
+Every backend, whether the gallery installed it into the user-managed
+location or a system package shipped it, is a directory with one
+required file:
+
+- `run.sh`: the entry point LocalAI executes to start the backend.
+
+and one optional file, `metadata.json`:
+
+```json
+{
+  "name": "rocm-audio-cpp",
+  "alias": "audio-cpp"
+}
+```
+
+- `name`: the concrete backend name (defaults to the directory name).
+- `alias`: registers this directory as a *variant* of a backend
+  family. When several installed variants share an alias
+  (`cpu-audio-cpp`, `rocm-audio-cpp`, ... all aliased to `audio-cpp`),
+  a model config using `backend: audio-cpp` resolves to the variant
+  best matching the host's capability (CUDA before Vulkan before CPU
+  on an NVIDIA host, ROCm first on AMD, and so on). Each variant also
+  stays individually addressable by its concrete name, e.g.
+  `backend: cpu-audio-cpp` to keep VRAM free for other models.
+- `meta_backend_for`: points a meta entry at a concrete backend
+  directory installed next to it.
+
+A directory without `metadata.json` is a plain backend under its
+directory name. Gallery installs write this metadata automatically
+(with additional bookkeeping fields such as `gallery_url` and
+`installed_at`); it only needs writing by hand when packaging backends
+outside the gallery.
+
+## System-Provided Backends
+
+Backends do not have to come from the gallery: directories under
+`LOCALAI_BACKENDS_SYSTEM_PATH` (default `/var/lib/local-ai/backends`, on
+Windows `%ProgramData%\LocalAI\backends`)
+are discovered on every scan, using the same
+[directory format](#backend-directory-format) as user-managed
+backends. This is the integration point for distribution packages.
+The package manager installs backends there, while gallery installs
+keep living in the user-managed `LOCALAI_BACKENDS_PATH`.
+
+One difference in error handling: a system directory with unreadable
+metadata is skipped with a warning, while unreadable metadata in the
+user-managed location fails the listing. A system package must not
+be able to break the discovery of the user's own backends.
+
+### Precedence between the two locations
+
+User-managed backends always win over system-provided ones:
+
+- **Same name in both locations**: the user-managed backend hides the
+  system one entirely.
+- **Family takeover**: installing *any* variant of an alias family
+  into the user-managed location (e.g. from the gallery) replaces the
+  whole system family: the alias resolves only among user-managed
+  variants, and the system family's concrete names disappear from the
+  listing. Variants of one family are versioned together; resolution
+  never mixes installations of different origins within a family, and
+  a stale system variant is not kept reachable.
+- **Names never get hijacked**: a system variant's alias cannot take
+  over a name that exists as a user-managed backend (including a meta
+  backend): `backend:
+  audio-cpp` keeps running the user's `audio-cpp` installation even if
+  a system package later ships variants aliased to that name.
+
+## Creating a Backend
+
+To create a new backend, you need to:
+
+1. Create a container image that implements the LocalAI backend interface
+2. Define a backend YAML file
+3. Publish your backend to a container registry
+
+### Backend Container Requirements
+
+Your backend container should:
+
+1. Implement the LocalAI backend interface (gRPC or HTTP)
+2. Handle model loading and inference
+3. Support the required model types
+4. Include necessary dependencies. Python backends are unpacked from the
+   builder path into a runtime directory, so packages must be installed into
+   the backend virtualenv with a regular `pip install .` / `uv pip install .`
+   not an editable (`-e`) source install. An editable finder keeps pointing
+   at the vanished builder tree, and `import` fails after relocation.
+5. Have a top level `run.sh` file that will be used to run the backend
+6. Pushed to a registry so can be used in a gallery
+
+{{% callout style="warning" %}}
+An already-installed Python backend that was built with an editable install
+(for example vllm-omni from v4.0.0) keeps that broken finder until it is
+replaced with a rebuilt artifact. Reusing or renaming the unpacked directory
+does not rewrite the stale path; delete or upgrade the backend so the new
+site-packages copy is what runs.
+{{% /callout %}}
+
+### Getting started
+
+For getting started, see the available backends in LocalAI here: https://github.com/mudler/LocalAI/tree/master/backend . 
+
+- For Python based backends there is a template that can be used as starting point: https://github.com/mudler/LocalAI/tree/master/backend/python/common/template . 
+- For Golang based backends, you can see the `piper` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/go/piper
+- For C++ based backends, you can see the `llama-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/cpp/llama-cpp
+
+### Publishing Your Backend
+
+1. Build your container image:
+   ```bash
+   docker build -t quay.io/username/my-backend:latest .
+   ```
+
+2. Push to a container registry:
+   ```bash
+   docker push quay.io/username/my-backend:latest
+   ```
+
+3. Add your backend to a gallery:
+   - Create a YAML entry in your gallery repository
+   - Include the backend definition
+   - Make the gallery accessible via HTTP/HTTPS
+
+## Backend Types
+
+LocalAI supports various types of backends:
+
+- **LLM Backends**: For running language models (e.g., llama.cpp, vLLM, vllm.cpp, SGLang, transformers, MLX, the experimental [Strata engine]({{% relref "/models/engines/strata" %}}) (NVIDIA CUDA, AMD ROCm, Intel SYCL, Apple Metal, prebuilt engine packages), and [RKLLM on Rockchip NPUs]({{% relref "/models/engines/rkllm" %}}) through the cloud-proxy backend)
+- **Speech-to-Text Backends**: For transcription, forced alignment and speaker diarization (e.g., whisper.cpp, parakeet.cpp, moss-transcribe.cpp, [NeMo-Speech.cpp]({{%relref "/models/engines/nemo-speech-cpp" %}}), faster-whisper, [Whisper-Medusa]({{%relref "/models/engines/whisper-medusa" %}}), FunASR/SenseVoice, NeMo, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Text-to-Speech Backends**: For speech synthesis (e.g., piper, Kokoro, VibeVoice, Qwen3-TTS, [NeMo-Speech.cpp]({{%relref "/models/engines/nemo-speech-cpp" %}}), [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Sound Generation Backends**: For music and audio generation (e.g., ACE-Step, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Sound Classification Backends**: For sound-event classification / audio tagging - identifying everyday sounds like baby cry, glass breaking, alarms (e.g., ced.cpp)
+- **Image & Video Generation Backends**: For diffusion and audio-conditioned avatar models (e.g., stable-diffusion.cpp, diffusers, vLLM-Omni, [MLX-Video on Apple Silicon]({{%relref "/models/capabilities/vision/video-generation" %}}), [LongCat-Video]({{%relref "/models/capabilities/vision/video-generation" %}}), [MiniMax-H3 on stable-diffusion.cpp]({{%relref "/models/capabilities/vision/video-generation" %}}))
+- **3D Generation Backends**: For image-to-3D mesh generation ([trellis2.cpp]({{%relref "/models/capabilities/vision/3d-generation" %}}): Microsoft TRELLIS.2, producing GLB assets with PBR textures)
+- **Vision & Detection Backends**: For object detection, segmentation, depth, and face/voice recognition (e.g., rf-detr.cpp, locate-anything.cpp, sam3.cpp, insightface)
+- **Time-Series Backends**: For quantile forecasting of numeric series ([timestral.cpp]({{%relref "/models/capabilities/text/forecast" %}}), Mistral's Timestral models)
+- **Audio Processing Backends**: For voice activity detection and audio enhancement (e.g., Silero VAD, LocalVQE, [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Source Separation & Voice Conversion Backends**: For splitting a mix into named stems (vocals, drums, bass) and for converting speech or singing to a target voice (e.g., [audio.cpp]({{%relref "/models/engines/audio-cpp" %}}))
+- **Utility Backends**: For reranking, PII/NER token classification, fine-tuning, quantization, and vector storage (e.g., rerankers, privacy-filter.cpp, TRL, local-store, valkey-store, qdrant-store)
+
+See the [Backend & Model Compatibility Table]({{%relref "/models/compatibility-table" %}}) for the full catalog.
+
+### DS4 request cancellation
+
+The DS4 backend stops inference when a client cancels or disconnects, including
+when a streaming response can no longer be written. Already-streamed chunks
+cannot be retracted; DS4 does not flush incomplete buffered parser state or
+persist an abandoned request to the disk KV cache. Cancellation is cooperative:
+DS4 checks it at safe prompt-prefill and decode-loop boundaries, so a GPU kernel
+already in flight may finish before the request stops.
+
+### llama.cpp request cancellation
+
+The llama.cpp backend stops a streaming generation as soon as the response can
+no longer be written to the client, not only when the RPC is formally cancelled.
+A stream never recovers once a write fails, so the backend treats the first
+failed write as final and returns, which releases the slot the generation held.
+
+This matters most for a model configured without a generation cap. With
+`max_tokens: 0` and a large `context_size`, an abandoned request that keeps
+decoding occupies its slot until it reaches the context limit, which takes tens of minutes
+on a large model, and every other request for that model queues behind it. A
+couple of abandoned requests is enough to make a healthy node look wedged.
+
+Cancellation is cooperative and checked between decoded results, so a batch
+already in flight may finish before the request stops.
+
+{{% callout style="tip" %}}
+A generation cap is still worth setting. Cancellation only helps once a client
+has actually gone away; a client that waits receives the full context worth of
+tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
+`1` so a repetition loop terminates on its own.
+{{% /callout %}}
+
+### Motion capture
+
+- [gem-x.cpp](https://github.com/localai-org/gem-x.cpp): live SOMA-77 and SMPL-24 human poses on CPU/Vulkan. See [Motion Capture]({{% relref "/models/capabilities/vision/motion" %}}).
+
+### Remove an installed backend from one node
+
+In distributed mode, expand a row in **Backends → Installed** to see its node
+installations. Turn on **Variant builds** and **Development builds** under
+**Filters** when needed to reveal concrete builds such as `cpu-my-engine-development`. Removal uses
+that exact row name, not a generic alias or the recommended build.
+
+**Remove from worker-alpha…** asks for confirmation naming both the backend and
+node. Only that installation is affected; other nodes and sibling builds remain.
+Removal can stop models using the backend on that node. Cancel, Escape, or clicking
+outside the dialog sends no removal request. A target-node URL restricts the
+available actions to that node; it never falls back to a different worker.
+
+The page checks each expanded node's actual inventory. System and meta backends,
+unknown protection metadata, absent builds, and unavailable or draining nodes
+cannot be removed through these controls. A system installation on one node does
+not prevent removal of a user-managed installation on another. Inventory and
+node status are checked again when you confirm; server-side protection still
+applies. Retry inventory explicitly if it could not be loaded.
+
+A removal error is scoped to the node and backend. Refresh and confirm again
+before retrying; an API failure does not guarantee that nothing changed. If
+removal succeeds but refresh fails, the page keeps the last successful installed
+list and warns that it may be stale. **Retry** refreshes data without repeating
+the deletion. Ordinary refresh failures do not report deletion success. Targeted
+installation and removal controls block conflicting requests for the same node
+and build, including while the post-removal refresh is pending. Generic catalog
+removal also stays blocked during targeted installation, scoped removal, and
+refresh, even if the URL
+target is cleared. Its confirmation rechecks current row conflicts before
+deleting. Standalone deletion and its system-backend protection are unchanged.

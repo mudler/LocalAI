@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "suara realtime",
+  "stage": "Sesi suara",
+  "picker": {
+    "title": "Pipeline suara: mendengar, berpikir, berbicara",
+    "heading": "Model pipeline",
+    "label": "Model pipeline",
+    "none": "Tanpa pipeline",
+    "defaultVoice": "suara bawaan",
+    "auto": "otomatis"
+  },
+  "view": {
+    "idle": {
+      "title": "Siap",
+      "body": "Mulai sesi dan bicaralah. Mikrofon hanya dipakai selama sesi terbuka.",
+      "note": "Mikrofon Anda dialirkan selama sesi berjalan. Server mengetahui saat Anda berhenti bicara dan menjawab sendiri.",
+      "noteManual": "Mikrofon Anda dialirkan selama sesi berjalan. Model ini tidak punya deteksi suara, jadi tekan Selesai bicara saat Anda mengakhiri satu giliran."
+    },
+    "connecting": {
+      "title": "Menghubungkan",
+      "body": "Menyiapkan panggilan. Model belum mendengarkan."
+    },
+    "listening": {
+      "title": "Mendengarkan",
+      "body": "Katakan apa yang Anda perlukan. Saya menjawab saat Anda berhenti.",
+      "hearing": "Mendengar Anda berbicara.",
+      "manual": "Katakan apa yang Anda perlukan, lalu tekan Selesai bicara."
+    },
+    "interrupted": {
+      "title": "Terinterupsi",
+      "body": "Saya berhenti. Silakan, saya mendengarkan."
+    },
+    "thinking": {
+      "title": "Berpikir",
+      "body": "Menyusun balasan."
+    },
+    "speaking": {
+      "title": "Berbicara",
+      "body": "Bicaralah kapan saja untuk menyela saya."
+    },
+    "blocked": {
+      "title": "Mikrofon diblokir",
+      "body": "Browser tidak memberi halaman ini akses ke mikrofon.",
+      "cardTitle": "Izinkan mikrofon",
+      "card": "Klik ikon gembok di bilah alamat, setel Mikrofon ke Izinkan, lalu coba lagi. Tidak ada yang direkam."
+    },
+    "lost": {
+      "title": "Koneksi terputus",
+      "body": "Tautan ke server terputus.",
+      "cardTitle": "Sesi berakhir",
+      "card": "Tautan WebRTC gagal. Percakapan sejauh ini tetap ada di transkrip."
+    },
+    "error": {
+      "title": "Terjadi kesalahan",
+      "body": "Panggilan tidak dapat disiapkan atau server melaporkan kesalahan."
+    },
+    "nopipe": {
+      "title": "Talk memerlukan model pipeline",
+      "body": "Model pipeline menggabungkan model speech-to-text, model chat, dan model text-to-speech menjadi satu asisten suara. Belum ada yang dikonfigurasi. Buat satu, atau cari modelnya di galeri terlebih dahulu.",
+      "create": "Buat model pipeline",
+      "gallery": "Jelajahi galeri"
+    }
+  },
+  "detail": {
+    "tool": "Menjalankan {{name}}.",
+    "processing": "Menyusun balasan.",
+    "generating": "Menulis balasan.",
+    "server": "Server melaporkan kesalahan: {{message}}",
+    "insecure": "Akses mikrofon memerlukan HTTPS atau localhost.",
+    "noMic": "Mikrofon tidak ditemukan.",
+    "failed": "Panggilan tidak dapat disiapkan: {{message}}",
+    "unknown": "kesalahan tidak diketahui"
+  },
+  "controls": {
+    "start": "Mulai sesi",
+    "end": "Akhiri sesi",
+    "testTone": "Nada uji",
+    "endTurn": "Selesai bicara",
+    "diagnostics": "Diagnostik",
+    "viewTraces": "Lihat trace",
+    "retry": {
+      "blocked": "Coba lagi",
+      "lost": "Hubungkan ulang",
+      "error": "Coba lagi"
+    }
+  },
+  "transcript": {
+    "title": "Transkrip",
+    "copy": "Salin",
+    "empty": "Apa yang Anda ucapkan dan jawaban model muncul di sini saat terjadi. Tidak disimpan.",
+    "emptyNoPipeline": "Belum ada yang ditampilkan.",
+    "user": "Anda",
+    "assistant": "Balasan",
+    "tool_call": "Alat",
+    "tool_result": "Hasil",
+    "interrupted": "Balasan terinterupsi",
+    "toneRequested": "Nada uji diminta"
+  },
+  "settings": {
+    "title": "Pengaturan sesi",
+    "desc": "Berlaku saat sesi dimulai.",
+    "close": "Tutup",
+    "voiceLanguage": "Suara dan bahasa",
+    "voice": "Suara",
+    "voicePlaceholder": "Nama suara (kosongkan untuk bawaan model)",
+    "language": "Bahasa transkripsi",
+    "languagePlaceholder": "Kode bahasa, misalnya en (kosong untuk mendeteksinya)",
+    "instructions": "Instruksi",
+    "instructionsPlaceholder": "Instruksi sistem untuk model",
+    "instructionsHelp": "Dikirim sebagai instruksi sesi. Buat singkat: balasan diucapkan.",
+    "tools": "Alat",
+    "manage": "Mode kelola",
+    "manageDesc": "Biarkan model menanyakan LocalAI: model, backend, dan info sistem.",
+    "manageLocked": "Terkunci selama sesi terbuka. Akhiri sesi untuk mengubahnya.",
+    "pipeline": "{{name}} secara rinci",
+    "anyToAny": "Model speech-to-speech: satu model mendengar Anda, menjawab, dan berbicara. Tidak perlu model transkripsi, bahasa, atau suara terpisah.",
+    "noVad": "Model deteksi suara belum diatur. Tekan Selesai bicara setelah tiap giliran.",
+    "editConfig": "Ubah konfigurasi model",
+    "editPipeline": "Ubah pipeline",
+    "slot": {
+      "vad": "Deteksi suara",
+      "transcription": "Transkripsi",
+      "llm": "Model bahasa",
+      "tts": "Suara ucap"
+    }
+  },
+  "diag": {
+    "title": "Diagnostik audio",
+    "waveform": "Bentuk gelombang",
+    "spectrum": "Spektrum (FFT)",
+    "waiting": "Menunggu statistik...",
+    "peakFreq": "Frekuensi puncak",
+    "thd": "THD",
+    "rms": "Level RMS",
+    "sampleRate": "Sample rate",
+    "packetsRecv": "Paket diterima",
+    "packetsLost": "Paket hilang",
+    "jitter": "Jitter",
+    "concealed": "Sampel yang disamarkan"
+  },
+  "toasts": {
+    "selectModel": "Pilih model pipeline terlebih dahulu.",
+    "modelsFailed": "Gagal memuat model realtime: {{message}}",
+    "viewTraces": "Lihat trace",
+    "copied": "Transkrip disalin",
+    "copyFailed": "Tidak dapat menyalin ke clipboard"
+  }
+}
