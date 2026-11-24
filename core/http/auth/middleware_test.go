@@ -105,6 +105,10 @@ var _ = Describe("Auth Middleware", func() {
 		{http.MethodPost, "/api/chats/triggers"},
 		{http.MethodGet, "/api/chats/triggers/abc/hook"},
 		{http.MethodPost, "/api/chats/triggers/abc/run"},
+		// An escaped form decodes to the hook path, but Echo routes on the raw
+		// form, so it is not the hook route.
+		{http.MethodPost, "/api/chats/triggers/abc/%68ook"},
+		{http.MethodPost, "/api/chats/triggers%2Fabc/hook"},
 		{http.MethodPost, "/api/chats/triggers/abc/hook/more"},
 		{http.MethodPost, "/api/chats/triggers/hook"},
 		{http.MethodPost, "/api/chats/triggers//hook"},

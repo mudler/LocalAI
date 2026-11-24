@@ -111,7 +111,7 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 
 			// 4. Public rules are evaluated after authentication so public handlers
 			// can still observe a valid user when credentials are supplied.
-			public := isPublicRoute(c.Request().Method, path)
+			public := isPublicRequest(c)
 			overridden := isExemptPath(path, appConfig)
 			alternativeAuth := usesAlternativeAuthentication(path)
 			if authenticated || public || overridden || alternativeAuth {
@@ -309,7 +309,7 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 			// that does carry a client key is no preflight, and a route that a
 			// later change registers for every method (Any) would otherwise
 			// answer it. It takes the same deny-by-default path as any other.
-			if ck := ClientKey(c); ck != nil && (method == http.MethodOptions || !isPublicRoute(method, c.Request().URL.Path)) {
+			if ck := ClientKey(c); ck != nil && (method == http.MethodOptions || !isPublicRequest(c)) {
 				if clientFeature == "" || !ck.ClientAllows(clientFeature) {
 					return c.JSON(http.StatusForbidden, schema.ErrorResponse{
 						Error: &schema.APIError{

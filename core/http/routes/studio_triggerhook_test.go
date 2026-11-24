@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
@@ -29,7 +30,15 @@ var _ = Describe("the public hook of an event trigger", func() {
 	ctx := context.Background()
 	var s *studioServer
 
-	BeforeEach(func() { s = newStudioServer() })
+	var clock time.Time
+	BeforeEach(func() {
+		clock = time.Now()
+		studioRouteOptions = func(*studioServer) []studioendpoint.HandlerOption {
+			return []studioendpoint.HandlerOption{studioendpoint.WithClock(func() time.Time { return clock })}
+		}
+		DeferCleanup(func() { studioRouteOptions = nil })
+		s = newStudioServer()
+	})
 
 	put := func(id string, mod func(*triggers.Trigger)) {
 		t := triggers.Trigger{ID: id, Owner: "alice", Name: "Hook " + id, Prompt: "Look at the event.", Kind: triggers.KindEvent, Enabled: true,
@@ -120,6 +129,44 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(runs("t1")).To(Equal(1))
 	})
 
+	Context("a signed call that is sent again", func() {
+		sendSigned := func(id, body string, at time.Time, webhookID string) *httptest.ResponseRecorder {
+			return call(id, "?source=example-hook", body, func(r *http.Request) {
+				r.Header.Set("X-Webhook-Timestamp", strconv.FormatInt(at.Unix(), 10))
+				r.Header.Set("X-Webhook-Signature-V2", triggers.Sign(secret, at, []byte(body)))
+				if webhookID != "" {
+					r.Header.Set("X-Webhook-Id", webhookID)
+				}
+			})
+		}
+
+		It("is one run when it comes again in the next minute", func() {
+			put("t1", nil)
+			at := clock
+			Expect(sendSigned("t1", push, at, "").Code).To(Equal(http.StatusAccepted))
+			clock = clock.Add(61 * time.Second)
+			Expect(sendSigned("t1", push, at, "").Code).To(Equal(http.StatusAccepted))
+			Expect(runs("t1")).To(Equal(1))
+		})
+
+		It("is one run when the unsigned delivery id changes", func() {
+			put("t1", nil)
+			at := clock
+			Expect(sendSigned("t1", push, at, "id-a").Code).To(Equal(http.StatusAccepted))
+			Expect(sendSigned("t1", push, at, "id-b").Code).To(Equal(http.StatusAccepted))
+			Expect(runs("t1")).To(Equal(1))
+		})
+
+		It("is two runs for two different signed calls", func() {
+			put("t1", nil)
+			at := clock
+			Expect(sendSigned("t1", push, at, "same-id").Code).To(Equal(http.StatusAccepted))
+			Expect(sendSigned("t1", `{"type":"push","ref":"dev"}`, at, "same-id").Code).To(Equal(http.StatusAccepted))
+			Expect(sendSigned("t1", push, at.Add(time.Second), "same-id").Code).To(Equal(http.StatusAccepted))
+			Expect(runs("t1")).To(BeNumerically(">=", 3))
+		})
+	})
+
 	It("takes a GitHub signed call, with the event and the delivery from its headers", func() {
 		put("gh", func(t *triggers.Trigger) { t.Source, t.EventType = "github", "pull_request" })
 		body := `{"action":"opened"}`
@@ -202,6 +249,20 @@ var _ = Describe("the public hook of an event trigger", func() {
 		s.e.ServeHTTP(rec, req)
 		Expect(rec.Code).To(Equal(http.StatusNotFound))
 		Expect(strings.TrimSpace(rec.Body.String())).To(Equal(notFound))
+	})
+
+	It("keeps an escaped form of the hook path behind the login", func() {
+		put("t1", nil)
+		want := s.do("", http.MethodPost, "/api/chats/triggers/t1/run", nil).Code
+		Expect(want).To(Equal(http.StatusUnauthorized))
+		for _, p := range []string{"/api/chats/triggers/t1/%68ook", "/api/chats/triggers%2Ft1/hook", "/api/chats/triggers/t1%2Fhook"} {
+			req := httptest.NewRequest(http.MethodPost, p, strings.NewReader(push))
+			bearer(secret)(req)
+			rec := httptest.NewRecorder()
+			s.e.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(want), p)
+		}
+		Expect(runs("t1")).To(BeZero())
 	})
 
 	It("leaves the other trigger routes behind the login", func() {

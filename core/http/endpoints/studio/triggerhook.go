@@ -80,33 +80,43 @@ func hookNotFound(c echo.Context, why string) error {
 	return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
 }
 
+// hookScheme is the way a call authenticated.
+type hookScheme int
+
+const (
+	hookNone hookScheme = iota
+	hookSigned
+	hookGitHub
+	hookBearer
+)
+
 // hookAuthorized checks the call against the secret of the trigger. The scheme
 // is chosen by the headers present, first match wins: a signed call with a
 // timestamp, a GitHub signature, a bearer secret. A trigger with no secret
 // never authenticates.
-func hookAuthorized(secret string, h http.Header, body []byte, now time.Time) bool {
+func hookAuthorized(secret string, h http.Header, body []byte, now time.Time) (hookScheme, bool) {
 	if secret == "" {
-		return false
+		return hookNone, false
 	}
 	if sig := h.Get("X-Webhook-Signature-V2"); sig != "" {
 		secs, err := strconv.ParseInt(strings.TrimSpace(h.Get("X-Webhook-Timestamp")), 10, 64)
 		if err != nil {
-			return false
+			return hookNone, false
 		}
-		return triggers.Verify(secret, sig, time.Unix(secs, 0), body, now, hookSkew)
+		return hookSigned, triggers.Verify(secret, sig, time.Unix(secs, 0), body, now, hookSkew)
 	}
 	if sig := h.Get("X-Hub-Signature-256"); sig != "" {
-		return triggers.VerifyGitHub(secret, sig, body)
+		return hookGitHub, triggers.VerifyGitHub(secret, sig, body)
 	}
 	if got, ok := strings.CutPrefix(h.Get("Authorization"), "Bearer "); ok {
 		a, b := sha256.Sum256([]byte(got)), sha256.Sum256([]byte(secret))
-		return subtle.ConstantTimeCompare(a[:], b[:]) == 1
+		return hookBearer, subtle.ConstantTimeCompare(a[:], b[:]) == 1
 	}
-	return false
+	return hookNone, false
 }
 
 // hookEvent builds the event of a call that authenticated.
-func hookEvent(c echo.Context, body []byte, now time.Time) triggers.Event {
+func hookEvent(c echo.Context, scheme hookScheme, body []byte, now time.Time) triggers.Event {
 	h := c.Request().Header
 	ev := triggers.Event{Payload: body}
 	gh := h.Get("X-GitHub-Event")
@@ -137,7 +147,13 @@ func hookEvent(c echo.Context, body []byte, now time.Time) triggers.Event {
 		}
 	}
 	key := h.Get("X-GitHub-Delivery")
-	if key == "" {
+	if scheme == hookSigned {
+		// Only the signature covers the timestamp and the body. A delivery id
+		// or the minute of the call is not signed, so a replay of a captured
+		// call would get a new key from either. The signature does not change.
+		sum := sha256.Sum256([]byte(h.Get("X-Webhook-Signature-V2")))
+		key = "v2:" + hex.EncodeToString(sum[:])
+	} else if key == "" {
 		key = h.Get("X-Webhook-Id")
 	}
 	if key == "" {
@@ -189,14 +205,18 @@ func (h *Handlers) TriggerHook(c echo.Context) error {
 		return hookNotFound(c, "not an enabled event trigger")
 	}
 	now := time.Now()
-	if !hookAuthorized(t.Secret, c.Request().Header, body, now) {
+	if h.clock != nil {
+		now = h.clock()
+	}
+	scheme, ok := hookAuthorized(t.Secret, c.Request().Header, body, now)
+	if !ok {
 		return hookNotFound(c, "not authenticated")
 	}
 	if !h.hooks.allow(t.ID, now) {
 		c.Response().Header().Set("Retry-After", "60")
 		return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "too many events"})
 	}
-	run, err := host.PublishRun(ctx, t.ID, hookEvent(c, body, now))
+	run, err := host.PublishRun(ctx, t.ID, hookEvent(c, scheme, body, now))
 	switch {
 	case err == nil:
 		return c.JSON(http.StatusAccepted, map[string]string{"run": run.ID})

@@ -5,6 +5,8 @@ package auth
 import (
 	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
 type publicRouteRule struct {
@@ -89,6 +91,24 @@ func isEventHookPath(path string) bool {
 	}
 	id, last, ok := strings.Cut(rest, "/")
 	return ok && id != "" && last == "hook"
+}
+
+// eventHookRoute is the route pattern of that hook as the studio registers it.
+const eventHookRoute = eventHookPrefix + ":id/hook"
+
+// isPublicRequest is isPublicRoute for a request that is being routed. The
+// decoded URL path is not what Echo routes on when the URL has an escaped form
+// (RawPath), so the hook is public only when the router really matched the
+// hook route; any other match, or none, leaves it behind the login.
+func isPublicRequest(c echo.Context) bool {
+	req := c.Request()
+	if !isPublicRoute(req.Method, req.URL.Path) {
+		return false
+	}
+	if req.Method == http.MethodPost && isEventHookPath(req.URL.Path) {
+		return c.Path() == eventHookRoute
+	}
+	return true
 }
 
 func isPublicRoute(method, path string) bool {

@@ -77,6 +77,8 @@ func newAuthTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *echo.Echo
 	e.POST("/mcp/chat/completions", ok)
 	e.GET("/api/settings", ok)
 	e.POST("/api/settings", ok)
+	// The hook of an event trigger: public only on its own route pattern.
+	e.POST("/api/chats/triggers/:id/hook", ok)
 
 	// Failover chain reads and the event stream: standard auth, no admin gate.
 	e.GET("/api/failover", ok)
@@ -99,6 +101,8 @@ func newCatchAllAuthTestApp(db *gorm.DB, appConfig *config.ApplicationConfig) *e
 	e.Use(auth.Middleware(db, appConfig))
 	e.Any("/", ok)
 	e.Any("/*", ok)
+	// The hook of an event trigger is public only on its own route pattern.
+	e.POST("/api/chats/triggers/:id/hook", ok)
 	return e
 }
 
