@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +35,13 @@ const (
 type Strata struct {
 	base.SingleThread
 
+	// lifeMu serializes Load and the restart of a dead engine. They can run
+	// for minutes (a pack build takes up to two hours), so they must not hold
+	// mu: Status, Free and the request path only ever need mu, briefly.
+	lifeMu sync.Mutex
+
 	mu     sync.RWMutex
+	freed  uint64 // counts Free calls, so a Load that Free overtook can tell
 	eng    *engine
 	tok    Tokenizer
 	vision *imageEncoder
@@ -82,9 +91,16 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
 	}
 
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	// The previous model goes first, so its memory is free for the new one.
+	// From here until the swap below the backend reports no model, and the
+	// slow steps (pack build, tokenizer, engine start) run without mu.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.freeLocked()
+	freedAt := s.freed
+	s.mu.Unlock()
 
 	if c.build != nil {
 		b := *c.build
@@ -110,16 +126,18 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
 	}
-	eng, err := s.startEngine(engineConfig{
-		Path:         c.enginePath,
-		Args:         c.engineArgs(),
-		Env:          c.env,
-		ReadyTimeout: c.readyTimeout,
-		StopTimeout:  c.stopTimeout,
-	})
+	eng, err := s.startEngine(c.engineConfig())
 	if err != nil {
 		_ = tok.Close()
 		return fmt.Errorf("strata: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.freed != freedAt {
+		eng.close()
+		_ = tok.Close()
+		return errors.New("strata: the model was freed while it was loading")
 	}
 	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
@@ -146,6 +164,72 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	}
 	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision) || (c.inkling != nil && c.inkling.useVision))
 	return nil
+}
+
+func (c loadConfig) engineConfig() engineConfig {
+	return engineConfig{
+		Path:         c.enginePath,
+		Args:         c.engineArgs(),
+		Env:          c.env,
+		ReadyTimeout: c.readyTimeout,
+		StopTimeout:  c.stopTimeout,
+	}
+}
+
+// restartAttempts bounds how often one request tries to start the engine again.
+const restartAttempts = 2
+
+// restartEngine replaces an engine that has died with a new one started from
+// the saved load configuration. The model stays loaded in every other way (the
+// tokenizer, the image encoder, the end tokens), so only the process is new;
+// its conversation cache starts empty.
+//
+// It is single-flight: restarts and Load share lifeMu, so a second request
+// that finds the same dead engine waits for the first and then uses its result.
+// A failed restart leaves the dead engine in place; the next request tries
+// again.
+func (s *Strata) restartEngine(ctx context.Context, dead *engine) (*engine, error) {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	s.mu.RLock()
+	cur, cfg := s.eng, s.cfg
+	s.mu.RUnlock()
+	if cur == nil {
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	if cur != dead && cur.alive() {
+		return cur, nil // another request, or a Load, already replaced it
+	}
+	xlog.Warn("strata: the engine is not running, starting it again", "pid", cur.pid())
+	cur.close() // reaps it if it is still being waited for
+
+	var (
+		eng *engine
+		err error
+	)
+	for attempt := 1; attempt <= restartAttempts; attempt++ {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
+		if eng, err = s.startEngine(cfg.engineConfig()); err == nil {
+			break
+		}
+		xlog.Warn("strata: the engine did not restart", "attempt", attempt, "error", err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("strata: the engine exited and could not be started again: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.eng != cur { // Free ran meanwhile
+		eng.close()
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	s.eng = eng
+	xlog.Info("strata: engine restarted", "context", eng.ctxLen)
+	return eng, nil
 }
 
 // defaultEOS finds the end-of-turn tokens of the model family by name, and
@@ -239,6 +323,7 @@ func (s *Strata) freeLocked() {
 func (s *Strata) Free() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.freed++
 	s.freeLocked()
 	return nil
 }
@@ -483,12 +568,68 @@ func samplingKeys(opts *pb.PredictOptions) []string {
 	return k
 }
 
+// logitBiasKey turns the request's logit_bias (a JSON object of token id to
+// bias, as LocalAI sends it) into the engine's key, "logit_bias=id:bias,id:bias"
+// with the ids in ascending order. It returns "" when there is no bias. The
+// engine takes biases from -100 to 100, where -100 bans the token, and refuses
+// a repeated id.
+func logitBiasKey(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	var m map[string]float64
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return "", fmt.Errorf("strata: logit_bias is not a JSON object of token id to bias: %w", err)
+	}
+	biases := make(map[int]float64, len(m))
+	for k, v := range m {
+		id, err := strconv.Atoi(k)
+		if err != nil || id < 0 {
+			return "", fmt.Errorf("strata: logit_bias: %q is not a token id", k)
+		}
+		if math.IsNaN(v) || v < -100 || v > 100 {
+			return "", fmt.Errorf("strata: logit_bias: the bias of token %d must be between -100 and 100", id)
+		}
+		if _, dup := biases[id]; dup {
+			return "", fmt.Errorf("strata: logit_bias: token %d is given twice", id)
+		}
+		biases[id] = v
+	}
+	if len(biases) == 0 {
+		return "", nil
+	}
+	ids := make([]int, 0, len(biases))
+	for id := range biases {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.Itoa(id) + ":" + strconv.FormatFloat(biases[id], 'g', -1, 64)
+	}
+	return "logit_bias=" + strings.Join(parts, ","), nil
+}
+
 // logprobsK is the number of alternatives to ask the engine for, or -1.
 func logprobsK(opts *pb.PredictOptions) int {
 	if opts.GetLogprobs() <= 0 && opts.GetTopLogprobs() <= 0 {
 		return -1
 	}
 	return min(int(opts.GetTopLogprobs()), maxLogprobs)
+}
+
+// noBiasEngine names the engine of this model when it has no logit_bias key
+// (the engine reads the key only on the pack path), or returns "".
+func (s *Strata) noBiasEngine() string {
+	switch {
+	case s.cfg.hy4 != nil:
+		return "the Hy4-Flash engine"
+	case s.cfg.inkling != nil:
+		return "the Inkling engine"
+	case s.cfg.noPackFlag:
+		return "the Qwen engine of a model that runs without a pack"
+	}
+	return ""
 }
 
 type runResult struct {
@@ -509,6 +650,11 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	if err != nil {
 		return res, err
 	}
+	if !eng.alive() {
+		if eng, err = s.restartEngine(ctx, eng); err != nil {
+			return res, err
+		}
+	}
 	s.mu.RLock()
 	eos, ctxLen := s.eos, s.ctxLen
 	s.mu.RUnlock()
@@ -517,6 +663,21 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	}
 	if len(opts.GetVideos()) > 0 || len(opts.GetAudios()) > 0 {
 		return res, errors.New("strata: video and audio input are not supported")
+	}
+
+	// Refuse what the engine would ignore: a request that is accepted and then
+	// answered without its logprobs or its bias is worse than an error.
+	biasKey, err := logitBiasKey(opts.GetLogitBias())
+	if err != nil {
+		return res, err
+	}
+	if biasKey != "" {
+		if name := s.noBiasEngine(); name != "" {
+			return res, fmt.Errorf("strata: logit_bias is not supported by %s", name)
+		}
+	}
+	if s.cfg.noPackFlag && logprobsK(opts) >= 0 {
+		return res, errors.New("strata: logprobs are not supported by the Qwen engine of a model that runs without a pack")
 	}
 
 	p, err := s.preparePrompt(tok, opts)
@@ -625,7 +786,11 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 		return nil
 	}
 
-	greq := genRequest{MaxNew: maxNew, Keys: append(samplingKeys(opts), imageKeys...), IDs: ids, Embeddings: embFile}
+	keys := append(samplingKeys(opts), imageKeys...)
+	if biasKey != "" {
+		keys = append(keys, biasKey)
+	}
+	greq := genRequest{MaxNew: maxNew, Keys: keys, IDs: ids, Embeddings: embFile}
 	if k >= 0 {
 		greq.Logprobs = &k
 	}

@@ -8,9 +8,13 @@ package main
 //	ok          READY, then answer each GEN with the tokens in STRATA_STUB_TOKENS
 //	noready     never prints READY
 //	exitearly   exits before READY
+//	errexit     prints "ERR <reason>" on stdout and the same reason on stderr,
+//	            then exits with status 1, before READY
 //	crash       prints two tokens of a request, then exits
 //	err         answers every GEN with an ERR line
 //	hangstop    like ok, but ignores STOP and never ends a request
+//	dropstop    like ok, but drops the first STOP it receives, as the real
+//	            engine does when STOP arrives before it has taken the request
 //	native      like ok, but refuses to start the way the engine does for a
 //	            native (IQ) pack unless --native, --spec T (T >= 2) and --prefill
 //	            are on the command line
@@ -64,6 +68,10 @@ func runStub(mode string) {
 	case "exitearly":
 		fmt.Fprintln(os.Stderr, "stub: cannot load model")
 		os.Exit(2)
+	case "errexit":
+		say("ERR stub-stdout-reason")
+		fmt.Fprintln(os.Stderr, "stub-stderr-reason")
+		os.Exit(1)
 	}
 	ready := "READY 4096 stop"
 	if os.Getenv("STRATA_STUB_NOSTOP") != "" {
@@ -76,12 +84,17 @@ func runStub(mode string) {
 	toks := strings.Split(os.Getenv("STRATA_STUB_TOKENS"), ",")
 
 	var stop atomic.Bool
+	dropped := mode != "dropstop"
 	lines := make(chan string, 16)
 	go func() {
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
 			l := sc.Text()
 			if l == "STOP" {
+				if !dropped {
+					dropped = true
+					continue
+				}
 				if mode != "hangstop" {
 					stop.Store(true)
 				}

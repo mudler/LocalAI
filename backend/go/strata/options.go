@@ -344,7 +344,7 @@ func parseTimeouts(c *loadConfig, kv map[string]string) error {
 		}
 		c.readyTimeout = d
 	}
-	c.stopTimeout = 30 * time.Second
+	c.stopTimeout = defaultStopTimeout
 	if v := kv["stop_timeout"]; v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {

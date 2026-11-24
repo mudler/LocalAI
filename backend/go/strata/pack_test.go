@@ -84,6 +84,41 @@ var _ = Describe("pack build", func() {
 		Expect(runs(counter)).To(Equal(1), "a finished pack must not be built again")
 	})
 
+	It("does not hold the state lock while the pack builds", func() {
+		dir, root := packModel()
+		s := NewStrata()
+		started, release := make(chan struct{}), make(chan struct{})
+		s.buildPack = func(b packBuild) error {
+			close(started)
+			<-release
+			return runPackBuildStub(b)
+		}
+		DeferCleanup(func() { _ = s.Free() })
+		loadErr := make(chan error, 1)
+		go func() {
+			loadErr <- loadPackModel(s, dir, root, "pack_gguf:m-00001-of-00002.gguf")
+		}()
+		Eventually(started).Should(BeClosed())
+
+		// Status and Free answer at once while the build runs.
+		answered := make(chan pb.StatusResponse_State, 1)
+		go func() {
+			st, _ := s.Status()
+			answered <- st.State
+		}()
+		Eventually(answered, 2*time.Second).Should(Receive(Equal(pb.StatusResponse_UNINITIALIZED)))
+		freed := make(chan error, 1)
+		go func() { freed <- s.Free() }()
+		Eventually(freed, 2*time.Second).Should(Receive(BeNil()))
+
+		// A Free that came while the model was loading wins: the load does
+		// not bring the model back.
+		close(release)
+		Eventually(loadErr, 10*time.Second).Should(Receive(MatchError(ContainSubstring("freed while it was loading"))))
+		st, _ := s.Status()
+		Expect(st.State).To(Equal(pb.StatusResponse_UNINITIALIZED))
+	})
+
 	It("passes the shard, the output and the extra arguments to the tool", func() {
 		dir, root := packModel()
 		var got packBuild

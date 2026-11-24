@@ -49,7 +49,7 @@ renders the prompt with the model's own chat template.
 | `vision_gpu`, `vision_threads`, `vision_max_tokens` | no | Encoder settings: run on the GPU (`true`), CPU threads (default: the model's `threads`), and the most image tokens per image. |
 | `media_marker` | no | The placeholder LocalAI puts in message text for each image. Default `<__media__>`. |
 | `ready_timeout` | no | Go duration. How long to wait for `READY`. Default `15m`. |
-| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `30s`. |
+| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `2m`. |
 | `eos_ids` | no | Comma-separated end-of-turn token ids. Default: the ids of `<|endoftext|>` and `<|im_end|>` in the tokenizer. |
 
 Model options LocalAI sends and what they do: `context_size` becomes `--max-context`; `main_gpu` becomes
@@ -202,7 +202,11 @@ The EXIF orientation of a JPEG is not applied. Video and audio are refused.
 
 ## Not supported
 
-- Embeddings, grammar, `logit_bias`, mirostat, typical-p, tail-free sampling, video and audio input.
+- Embeddings, grammar, mirostat, typical-p, tail-free sampling, video and audio input.
+- `logit_bias` is sent to the engine of a pack model (`--pack`). The Hy4-Flash and Inkling engines, and
+  the Qwen engine of a model that runs without a pack (`pack_tool: tokenizer`), have no such key, so
+  a request with `logit_bias` fails there instead of being answered without it. The same Qwen engine
+  has no `logprobs` either, and a request that asks for them fails.
 - A forced tool call together with thinking (see `tool_choice`).
 - A tool call cut off by the token limit is delivered as far as it was written, with incomplete arguments.
 - One engine and one request at a time. `--batch` and `--slots` are not used.
@@ -239,9 +243,14 @@ Stop strings are matched in Go, then the engine is sent `STOP`.
 - On Linux the engine gets `PDEATHSIG=SIGKILL`, tied to a pinned OS thread so it fires when the
   backend process dies, not when some Go thread exits. Closing stdin also ends the serve loop.
 - `Free` sends `QUIT`, closes stdin, and kills the engine after 10 s.
-- A cancelled gRPC stream sends `STOP`. If the engine does not finish within `stop_timeout`, it is
-  killed and the next request fails with an "engine exited" error until the model is reloaded.
-  `Status` reports `ERROR` when the engine is dead.
+- A cancelled gRPC stream sends `STOP`, and sends it again every 1.5 s until the engine ends the
+  request, because the engine can lose a `STOP` that arrives right after the request. If the engine
+  does not finish within `stop_timeout`, it is killed.
+- A request that finds the engine dead (it crashed, or it was killed) starts it again from the
+  load configuration, up to two attempts, and runs on the new engine. The request in which the
+  engine died still fails, and the new engine starts with an empty conversation cache. If the
+  restart fails, the request fails with that error and the next request tries again. `Status`
+  reports `ERROR` while the engine is dead.
 
 ## Tokenizer, template and parser
 
