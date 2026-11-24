@@ -630,6 +630,10 @@ func (g *GalleryService) StoreCancellationActions(id string, cancelFunc, pauseFu
 	g.storeCancellation(id, cancelFunc, pauseFunc)
 }
 
+// RemoveCancellation drops the cancellation of an operation that ended. A job
+// that registered its own cancel with StoreCancellation calls it when it ends.
+func (g *GalleryService) RemoveCancellation(id string) { g.removeCancellation(id) }
+
 // removeCancellation removes a cancellation function when operation completes
 func (g *GalleryService) removeCancellation(id string) {
 	g.Lock()

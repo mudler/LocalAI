@@ -142,9 +142,31 @@ var _ = Describe("Upgrade runs through the in-process client", func() {
 		}
 	})
 
+	It("refuses a library install while a run runs, as the REST route does", func() {
+		lib := &countingLibrary{}
+		c.BackendLibrary = lib
+		_, err := c.UpgradeBackend(context.Background(), "kokoro")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = c.InstallLibraryBackend(context.Background(), localaitools.InstallLibraryBackendRequest{SourceID: "src", Name: "kokoro", Version: "v2"})
+		Expect(upgraderun.CodeOf(err)).To(Equal(upgraderun.CodeRunActive))
+		Expect(lib.installs).To(BeZero())
+	})
+
 	It("answers that runs are unavailable when the server keeps none", func() {
 		c.UpgradeRunService = nil
 		_, err := c.UpgradeRuns(context.Background(), "")
 		Expect(err).To(MatchError(errUpgradeRunsOff))
 	})
 })
+
+// countingLibrary counts the installs it was asked for.
+type countingLibrary struct{ installs int }
+
+func (l *countingLibrary) Install(context.Context, string, string, string) error {
+	l.installs++
+	return nil
+}
+
+func (l *countingLibrary) Updates(context.Context) ([]localaitools.BackendLibraryUpdate, error) {
+	return nil, nil
+}

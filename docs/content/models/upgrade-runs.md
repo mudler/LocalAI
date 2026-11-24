@@ -600,4 +600,5 @@ they answer with an error that names the run to follow, never a job.
 `upgrade_backend` refuses a backend that is not installed or
 has no update before it starts anything, as the REST routes do. While a run
 runs, every upgrade from the assistant (also `upgrade_model` with the actions
-`config_only` and `retry`) is refused with `run_active`.
+`config_only` and `retry`, and `install_library_backend`) is refused with
+`run_active`. `POST /backends/library/install` is refused the same way.

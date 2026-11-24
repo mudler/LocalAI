@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/galleryop"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -74,7 +75,7 @@ var _ = Describe("install a backend from a library", func() {
 		req := httptest.NewRequest(http.MethodPost, "/backends/library/install", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
-		Expect(localai.InstallBackendFromLibraryEndpoint(f, jobs)(e.NewContext(req, rec))).To(Succeed())
+		Expect(localai.InstallBackendFromLibraryEndpoint(&backendlib.JobRunner{Install: f.Install}, jobs, nil)(e.NewContext(req, rec))).To(Succeed())
 		return rec
 	}
 	jobID := func(rec *httptest.ResponseRecorder) string {
@@ -157,7 +158,7 @@ var _ = Describe("install a backend from a library", func() {
 		jobs := &fakeJobs{}
 		body := `{"sourceId":"pilot","name":"cpu-demo","version":"latest"}`
 		e := echo.New()
-		handler := localai.InstallBackendFromLibraryEndpoint(f, jobs)
+		handler := localai.InstallBackendFromLibraryEndpoint(&backendlib.JobRunner{Install: f.Install}, jobs, nil)
 		call := func() *httptest.ResponseRecorder {
 			req := httptest.NewRequest(http.MethodPost, "/backends/library/install", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -171,6 +172,38 @@ var _ = Describe("install a backend from a library", func() {
 		close(f.block)
 		last(jobs, jobID(first))
 		Eventually(func() int { return call().Code }).Should(Equal(http.StatusOK))
+	})
+
+	It("refuses a name that another path installs through the same runner, such as an upgrade run", func() {
+		f := &fakeLibrary{block: make(chan struct{})}
+		jobs := &fakeJobs{}
+		runner := &backendlib.JobRunner{Install: f.Install}
+		// The library item of an upgrade run installs src/cpu-demo.
+		runJob, err := runner.Start(context.Background(), jobs, backendlib.Job{SourceID: "src", Backend: "cpu-demo", Version: "2", Upgrade: true})
+		Expect(err).NotTo(HaveOccurred())
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/backends/library/install", strings.NewReader(`{"sourceId":"pilot","name":"cpu-demo","version":"latest"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		Expect(localai.InstallBackendFromLibraryEndpoint(runner, jobs, nil)(e.NewContext(req, rec))).To(Succeed())
+		Expect(rec.Code).To(Equal(http.StatusConflict))
+		close(f.block)
+		last(jobs, runJob)
+	})
+
+	It("refuses an install while an upgrade run runs", func() {
+		f := &fakeLibrary{}
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/backends/library/install", strings.NewReader(`{"sourceId":"pilot","name":"cpu-demo","version":"latest"}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		refuse := func() error {
+			return &upgraderun.Error{Code: upgraderun.CodeRunActive, Message: "another upgrade run is running"}
+		}
+		Expect(localai.InstallBackendFromLibraryEndpoint(&backendlib.JobRunner{Install: f.Install}, &fakeJobs{}, refuse)(e.NewContext(req, rec))).To(Succeed())
+		Expect(rec.Code).To(Equal(http.StatusConflict))
+		Expect(rec.Body.String()).To(ContainSubstring(upgraderun.CodeRunActive))
+		Expect(f.last).To(Equal([3]string{}), "nothing was installed")
 	})
 
 	It("refuses a request that does not name an entry", func() {

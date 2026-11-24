@@ -20029,7 +20029,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "the same backend is already being installed",
+                        "description": "the same backend is already being installed (also by an upgrade run), or an upgrade run runs (type run_active)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

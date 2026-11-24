@@ -132,8 +132,13 @@ type Application struct {
 	addonAdminCheck func(context.Context, contract.Actor) error
 	librarySnap     librarySnapshot
 	backendLibrary  *backendlib.Installer
-	addonManager    *addons.Manager
-	addonHostOps    *addonruntime.HostOps
+	// libraryJobs runs every library install of this node under one guard;
+	// see LibraryJobs.
+	libraryJobsMu  sync.Mutex
+	libraryJobs    *backendlib.JobRunner
+	libraryJobsFor *backendlib.Installer
+	addonManager   *addons.Manager
+	addonHostOps   *addonruntime.HostOps
 	// hostAuthority answers what each add-on may call; see addonAuthority.
 	hostAuthority      hostops.Authority
 	addonAuthorityOnce sync.Once
@@ -987,7 +992,7 @@ func (a *Application) start() (startErr error) {
 		return a.studioVisionModel("")
 	}
 	if a.backendLibrary != nil {
-		assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
+		assistantClient.BackendLibrary = libraryInstallNoProgress{in: a.backendLibrary, jobs: a.LibraryJobs}
 	}
 	assistantClient.UpdatesChecker = func() localaiInproc.BackendUpdatesSource {
 		if a.upgradeChecker == nil {
@@ -1102,6 +1107,23 @@ func (a *Application) AddonManager() *addons.Manager { return a.addonManager }
 // BackendLibrary installs backends from the library entries of kind backend.
 // It is nil unless this instance owns the add-on libraries.
 func (a *Application) BackendLibrary() *backendlib.Installer { return a.backendLibrary }
+
+// LibraryJobs runs the library installs of this node: the install route, the
+// library items of upgrade runs and the Assistant's install all go through it,
+// so one install of a backend name runs at a time. nil without a backend
+// library.
+func (a *Application) LibraryJobs() *backendlib.JobRunner {
+	lib := a.BackendLibrary()
+	if lib == nil {
+		return nil
+	}
+	a.libraryJobsMu.Lock()
+	defer a.libraryJobsMu.Unlock()
+	if a.libraryJobs == nil || a.libraryJobsFor != lib {
+		a.libraryJobs, a.libraryJobsFor = &backendlib.JobRunner{Install: lib.Install}, lib
+	}
+	return a.libraryJobs
+}
 
 // AddonSources exposes owner-only source administration and explicit live refresh.
 // Forwarders never load source configuration or perform catalog I/O.
@@ -1321,10 +1343,14 @@ func startLibraryRefresh(ctx context.Context, refresh func(context.Context) erro
 
 // libraryInstallNoProgress adapts the library installer to the assistant's
 // installer interface, which does not report progress.
-type libraryInstallNoProgress struct{ in *backendlib.Installer }
+// The install runs under the guard of every library install of this node.
+type libraryInstallNoProgress struct {
+	in   *backendlib.Installer
+	jobs func() *backendlib.JobRunner
+}
 
 func (l libraryInstallNoProgress) Install(ctx context.Context, sourceID, backend, version string) error {
-	return l.in.Install(ctx, sourceID, backend, version, backendlib.Progress{})
+	return l.jobs().Run(ctx, backendlib.Job{SourceID: sourceID, Backend: backend, Version: version})
 }
 
 func (l libraryInstallNoProgress) Updates(ctx context.Context) ([]localaitools.BackendLibraryUpdate, error) {
