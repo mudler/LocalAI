@@ -52,6 +52,18 @@ var helperExts = map[string]bool{
 	".pl": true, ".ps1": true, ".bat": true, ".log": true, ".tmp": true,
 }
 
+// resultExts are the extensions of files that a person opens: images, office
+// documents, PDF, audio and video. A script saves such a file with a bare
+// name, and a command starts in the work folder, so the file lands there.
+// It is the result, whatever folder it is in. Text, data and code stay what
+// the folder says: a script's helper output is not a result.
+var resultExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true, ".svg": true, ".avif": true, ".bmp": true,
+	".pdf": true, ".docx": true, ".xlsx": true, ".xlsm": true, ".pptx": true,
+	".mp3": true, ".wav": true, ".ogg": true, ".oga": true, ".m4a": true, ".flac": true, ".opus": true,
+	".mp4": true, ".webm": true, ".mov": true, ".m4v": true,
+}
+
 // helperDirs are folder names that hold helper files, in any case.
 var helperDirs = map[string]bool{"scripts": true, "tmp": true, "scratch": true}
 
@@ -105,14 +117,17 @@ func inWorkFolder(segs []string) bool {
 
 // Kind classifies a file by its path: a path of the home ("/report.docx"),
 // a guest path (/workspace/home/..., /workspace/shared-<name>/...). A file
-// below the work folder of any chat is Working; so is a script, a log or a
-// temporary file by its extension, or a file in a folder named scripts, tmp
-// or scratch. Pages, the settings folder and the shared folders hold
+// below the work folder of any chat is Working, unless it is a result a person
+// opens (an image, an office document, a PDF, audio or video: see resultExts);
+// so is a script, a log or a temporary file by its extension, or a file in a
+// folder named scripts, tmp or scratch. Pages, the settings folder and the shared folders hold
 // deliverables, whatever the files are. Everything else is a Deliverable.
 func Kind(p string) string {
 	segs, shared := segments(p)
 	switch {
 	case shared || len(segs) == 0:
+		return Deliverable
+	case resultExts[strings.ToLower(path.Ext(segs[len(segs)-1]))]:
 		return Deliverable
 	case inWorkFolder(segs):
 		return Working
