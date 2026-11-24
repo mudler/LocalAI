@@ -49,7 +49,7 @@ renders the prompt with the model's own chat template.
 | `vision_gpu`, `vision_threads`, `vision_max_tokens` | no | Encoder settings: run on the GPU (`true`), CPU threads (default: the model's `threads`), and the most image tokens per image. |
 | `media_marker` | no | The placeholder LocalAI puts in message text for each image. Default `<__media__>`. |
 | `ready_timeout` | no | Go duration. How long to wait for `READY`. Default `15m`. |
-| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `30s`. |
+| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `2m`. |
 | `eos_ids` | no | Comma-separated end-of-turn token ids. Default: the ids of `<|endoftext|>` and `<|im_end|>` in the tokenizer. |
 
 Model options LocalAI sends and what they do: `context_size` becomes `--max-context`; `main_gpu` becomes
