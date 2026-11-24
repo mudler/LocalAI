@@ -9,6 +9,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -75,6 +76,52 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(rec.Code).To(Equal(http.StatusAccepted), rec.Body.String())
 		Expect(rec.Body.String()).To(MatchRegexp(`^\{"run":"[^"]+"\}`))
 		Expect(runs("t1")).To(Equal(1))
+	})
+
+	It("stops a confirmed proposal's secret when it is undone, and a new confirm makes a new one", func() {
+		put("p1", func(t *triggers.Trigger) { t.Proposed, t.Enabled, t.Secret = true, false, "" })
+		var out struct {
+			Secret   string `json:"secret"`
+			HookPath string `json:"hook_path"`
+		}
+		confirm := func() string {
+			rec := s.do("alice", http.MethodPost, "/api/chats/triggers/proposals/p1/confirm", map[string]any{})
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+			Expect(out.Secret).NotTo(BeEmpty())
+			return out.Secret
+		}
+		first := confirm()
+		Expect(call("p1", "?source=example-hook", push, bearer(first)).Code).To(Equal(http.StatusAccepted))
+
+		// A run blocks the undo, so end the run of that call and prune it: the
+		// person undid the answer before anything used the trigger.
+		rs, err := s.trigStore.ListRuns(ctx, "p1", 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rs).To(HaveLen(1))
+		r := rs[0]
+		r.Status, r.Ended = triggers.StatusDone, time.Now()
+		Expect(s.trigStore.SetRunStatus(ctx, r)).To(Succeed())
+		_, err = s.trigStore.PruneRuns(ctx, "p1", triggers.Retention{Expire: time.Now().Add(time.Hour)})
+		Expect(err).NotTo(HaveOccurred())
+
+		rec := s.do("alice", http.MethodPost, "/api/chats/triggers/proposals/p1/undo", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		stored, err := s.trigStore.GetTrigger(ctx, "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(stored.Proposed).To(BeTrue())
+		Expect(stored.Enabled).To(BeFalse())
+		Expect(stored.Secret).To(BeEmpty(), "the stored proposal still holds the secret of the sender")
+		old := call("p1", "?source=example-hook", push, bearer(first))
+		Expect(old.Code).To(Equal(http.StatusNotFound))
+		Expect(strings.TrimSpace(old.Body.String())).To(Equal(notFound))
+
+		rec = s.do("alice", http.MethodPost, "/api/chats/triggers/proposals/p1/reopen", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		second := confirm()
+		Expect(second).NotTo(Equal(first))
+		Expect(call("p1", "?source=example-hook", push, bearer(first)).Code).To(Equal(http.StatusNotFound))
+		Expect(call("p1", "?source=example-hook", `{"type":"push","ref":"dev"}`, bearer(second)).Code).To(Equal(http.StatusAccepted))
 	})
 
 	It("answers every refusal with the same 404 and starts nothing", func() {

@@ -103,7 +103,8 @@ func (h *Triggers) ProposalStatus(ctx context.Context, user, id string) (Proposa
 		return ProposalView{}, triggers.ErrNotFound // a trigger nobody proposed
 	}
 	t = h.lapse(ctx, t)
-	// The secret of an event trigger is shown once, when the proposal is confirmed.
+	// Defensive duplicate: no view shows the secret of an event trigger, which is
+	// shown once, when the proposal is confirmed.
 	t.Secret = ""
 	v := ProposalView{State: stateOf(t), Trigger: t, At: t.OutcomeAt}
 	if v.State == ProposalAccepted {
@@ -142,6 +143,9 @@ func (h *Triggers) UndoProposal(ctx context.Context, user, id string) (triggers.
 	}
 	undone := t
 	undone.Enabled, undone.Proposed, undone.Touched = false, true, false
+	// A proposal has no secret: the one the sender got stops working, and a
+	// reopen and a new confirm make a fresh one.
+	undone.Secret = ""
 	undone.Outcome, undone.OutcomeAt = triggers.OutcomeUndone, h.o.Clock().UTC()
 	if err := h.o.Store.PutTrigger(ctx, undone); err != nil {
 		return triggers.Trigger{}, err
