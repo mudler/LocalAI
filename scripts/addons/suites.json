@@ -2367,7 +2367,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       },
       {
@@ -3384,7 +3392,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -3930,7 +3946,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -4506,7 +4530,15 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
