@@ -231,6 +231,34 @@ test.describe('Inbox: update runs', () => {
     await expect(page).toHaveURL(/\/app\/updates\?run=run-7$/)
   })
 
+  test('the summary of a failed run keeps the case of the name and says once that the new version did not start', async ({ page }) => {
+    const inbox = makeInbox(0)
+    inbox.rows = [{
+      id: 30, kind: 'needs_attention', status: 'failed', source: 'system', code: 'updates.run.end', title: 'STORED', body: 'STORED',
+      link: '', read: false, created: ago(2),
+      params: { run: 'run-8', total: 3, updated: 2, failed: 1, source: 'manual', first_name: 'e2e-bad', first_from: '1.0.0', first_key: 'start', first_error: 'the backend process exited (exit code 3)' },
+    }]
+    await stubInbox(page, inbox)
+    await withUpdates(page)
+    await open(page)
+    const end = itemOf(page, 30)
+    await expect(end).toContainText('e2e-bad is still on 1.0.0: the new version did not start: the backend process exited (exit code 3).')
+    await expect(end).not.toContainText('E2e-bad')
+  })
+
+  test('the summary of a cancelled run says it was cancelled, as the Updates page does', async ({ page }) => {
+    const inbox = makeInbox(0)
+    inbox.rows = [{
+      id: 31, kind: 'run_ended', status: 'ok', source: 'system', code: 'updates.run.end', title: 'STORED', body: 'STORED',
+      link: '', read: false, created: ago(2),
+      params: { run: 'run-9', total: 3, updated: 1, failed: 0, source: 'manual', state: 'cancelled', cancelled: 2 },
+    }]
+    await stubInbox(page, inbox)
+    await withUpdates(page)
+    await open(page)
+    await expect(itemOf(page, 31)).toContainText('Update run cancelled: 1 updated')
+  })
+
   test('the summary names the first item that needs attention and leads to its run', async ({ page }) => {
     await stubInbox(page, runRows())
     await withUpdates(page)

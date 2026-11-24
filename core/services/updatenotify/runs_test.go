@@ -178,6 +178,28 @@ var _ = Describe("the notifications of an upgrade run", func() {
 		Expect(end[0].Params["first_error"]).To(ContainSubstring("x.tar"))
 	})
 
+	It("says that a run was cancelled, with the items that did not run", func() {
+		build("admin")
+		r := runOf("rc", upgraderun.SourceManual, upgraderun.RunCancelled,
+			runItem("a", upgraderun.PhaseUpdated, 100), runItem("b", upgraderun.PhaseCancelled, 0), runItem("c", upgraderun.PhaseCancelled, 0))
+		local(r)
+		_, end := rows("admin")
+		Expect(end).To(HaveLen(1))
+		Expect(end[0].Params).To(Equal(map[string]any{
+			"run": "rc", "total": 3, "updated": 1, "failed": 0, "source": "manual", "state": "cancelled", "cancelled": 2,
+		}))
+		Expect(end[0].Title).To(Equal("Update run cancelled: 1 of 3 updated"))
+	})
+
+	It("gives the error key of the first item that needs attention", func() {
+		build("admin")
+		bad := runItem("e2e-bad", upgraderun.PhaseRolledBack, 0)
+		bad.From, bad.ErrorKey, bad.Error = "1.0.0", upgraderun.ErrKeyStart, "the backend process exited (exit code 3)"
+		local(runOf("rk", upgraderun.SourceManual, upgraderun.RunFinished, bad))
+		_, end := rows("admin")
+		Expect(end[0].Params).To(HaveKeyWithValue("first_key", "start"))
+	})
+
 	It("names an add-on by its title and its version, never its id and digest", func() {
 		build("admin")
 		notes := upgraderun.Item{Key: "addon:notes", Kind: upgraderun.KindAddon, Name: "notes", Title: "Notes sync",

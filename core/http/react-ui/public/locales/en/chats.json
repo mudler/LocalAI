@@ -409,7 +409,12 @@
           "done_other": "{{count}} updated",
           "auto": "Automatic: {{text}}",
           "first": "{{name}} is still on {{version}}.",
-          "firstWhy": "{{name}} is still on {{version}}: {{reason}}."
+          "firstWhy": "{{name}} is still on {{version}}: {{reason}}.",
+          "cancelled_one": "Update run cancelled: {{count}} updated",
+          "cancelled_other": "Update run cancelled: {{count}} updated",
+          "cancelledAttention_one": "Update run cancelled: {{updated}} updated, {{count}} needs attention",
+          "cancelledAttention_other": "Update run cancelled: {{updated}} updated, {{count}} need attention",
+          "firstStart": "{{name}} is still on {{version}}: the new version did not start: {{reason}}."
         }
       }
     },

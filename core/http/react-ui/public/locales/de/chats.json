@@ -834,7 +834,12 @@
           "done_other": "{{count}} aktualisiert",
           "auto": "Automatisch: {{text}}",
           "first": "{{name}} ist weiter auf {{version}}.",
-          "firstWhy": "{{name}} ist weiter auf {{version}}: {{reason}}."
+          "firstWhy": "{{name}} ist weiter auf {{version}}: {{reason}}.",
+          "cancelled_one": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelled_other": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelledAttention_one": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "cancelledAttention_other": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "firstStart": "{{name}} ist weiter auf {{version}}: Die neue Version ist nicht gestartet: {{reason}}."
         }
       }
     },

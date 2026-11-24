@@ -293,10 +293,13 @@ The live item has these params: `run`, `progress` (0 to 100 for the whole run),
             "updated": 1, "running": 1, "queued": 1}}
 ```
 
-The end item has `run`, `total`, `updated`, `failed` and `source`. When
-`failed` is more than zero it also has `first_name`, `first_from` and
-`first_error`. `first_name` is the title of an add-on, and `first_from` is the
-version the item is still on (a digest only when there is no version).
+The end item has `run`, `total`, `updated`, `failed` and `source`. A run that
+was cancelled also has `state: "cancelled"` and `cancelled`, the number of
+items that did not run, and its title says "Update run cancelled: 1 updated".
+When `failed` is more than zero it also has `first_name`, `first_from`,
+`first_error` and `first_key`. `first_name` is the title of an add-on,
+`first_from` is the version the item is still on (a digest only when there is
+no version), and `first_key` is the error key of that item.
 
 ```json
 {"code": "updates.run.end", "key": "updates.run.end.2f0c6a52", "link": "/app/updates?run=2f0c6a52",

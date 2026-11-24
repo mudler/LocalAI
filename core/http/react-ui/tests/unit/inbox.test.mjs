@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
-  badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, dayOf, groupByDay, filterItems,
+  badgeText, sourceOf, toneOf, iconOf, targetOf, reasonText, bodyOf, dayOf, groupByDay, filterItems,
   hasUnreadFailure, entryVisible, inboxOff, streamWanted, textOf, linkDisabled, runProgressOf, runItemKind,
 } from '../../src/utils/inbox.js'
 
@@ -320,6 +320,28 @@ test('inbox: the end of an update run gives the counts and the first item that n
   assert.equal(iconOf(ended({})), 'alert-circle')
   assert.equal(toneOf(ended({ failed: 0 })), 'ok')
   assert.equal(iconOf(ended({ failed: 0 })), 'check-circle')
+})
+
+test('inbox: the end of an update run keeps the case of the name it starts with', async () => {
+  const t = await translator('en')
+  const n = ended({ first_name: 'e2e-bad', first_from: '1.0.0', first_error: 'exit code 3' }, { status: 'failed' })
+  assert.equal(bodyOf(n, textOf(n, t)), 'e2e-bad is still on 1.0.0: exit code 3.')
+  // Any other failure starts with a capital, as before.
+  const op = note({ kind: 'system', code: 'updates.opFailed', status: 'failed', title: 'x', body: 'took longer than 15m' })
+  assert.equal(bodyOf(op, { title: 'x', body: 'took longer than 15m' }), 'Took longer than 15m')
+})
+
+test('inbox: the end of a run whose new build did not start says so before the cause', async () => {
+  const t = await translator('en')
+  const out = textOf(ended({ first_name: 'e2e-bad', first_from: '1.0.0', first_key: 'start', first_error: 'the backend process exited (exit code 3)' }), t)
+  assert.equal(out.body, 'e2e-bad is still on 1.0.0: the new version did not start: the backend process exited (exit code 3).')
+})
+
+test('inbox: the end of a cancelled run says it was cancelled, as the Updates page does', async () => {
+  const t = await translator('en')
+  assert.equal(textOf(ended({ state: 'cancelled', cancelled: 2, updated: 1, failed: 0, total: 3 }), t).title, 'Update run cancelled: 1 updated')
+  assert.equal(textOf(ended({ state: 'cancelled', cancelled: 1, updated: 1, failed: 1, total: 3 }), t).title, 'Update run cancelled: 1 updated, 1 needs attention')
+  assert.equal(textOf(ended({ state: 'cancelled', updated: 1, failed: 0, total: 3, source: 'auto' }), t).title, 'Automatic: Update run cancelled: 1 updated')
 })
 
 test('inbox: both items of an update run lead to the run on the Updates page', () => {

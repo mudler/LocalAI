@@ -834,7 +834,12 @@
           "done_other": "{{count}} actualizados",
           "auto": "Automática: {{text}}",
           "first": "{{name}} sigue en {{version}}.",
-          "firstWhy": "{{name}} sigue en {{version}}: {{reason}}."
+          "firstWhy": "{{name}} sigue en {{version}}: {{reason}}.",
+          "cancelled_one": "Tanda cancelada: {{count}} actualizados",
+          "cancelled_other": "Tanda cancelada: {{count}} actualizados",
+          "cancelledAttention_one": "Tanda cancelada: {{updated}} actualizados, {{count}} necesita atención",
+          "cancelledAttention_other": "Tanda cancelada: {{updated}} actualizados, {{count}} necesitan atención",
+          "firstStart": "{{name}} sigue en {{version}}: la nueva versión no arrancó: {{reason}}."
         }
       }
     },

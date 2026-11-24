@@ -9,7 +9,7 @@ import { disablePush, enablePush, pushState } from '../../utils/chatPush'
 import { relativeDate } from '../../utils/fileBrowser'
 import { cssVars } from '../../utils/modelLedger'
 import {
-  failed, filterItems, groupByDay, iconOf, linkDisabled, reasonText, runItemKind, runProgressOf, sourceOf, targetOf, textOf, toneOf,
+  bodyOf, failed, filterItems, groupByDay, iconOf, linkDisabled, runItemKind, runProgressOf, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
 import { isPending } from '../../utils/updates'
 import { useUpdates } from '../../contexts/UpdatesContext'
@@ -91,7 +91,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, chatsOn, onOpen, onRead, on
   const noChats = linkDisabled(n, chatsOn)
   const source = sourceOf(n)
   const text = textOf(n, t)
-  const body = isFailed ? reasonText(text.body) : text.body
+  const body = bodyOf(n, text)
   const name = n.read ? text.title : t('inbox.itemUnread', { title: text.title })
   const cls = ['nx-item', !n.read && 'is-unread', isFailed && 'is-failed', fresh && 'is-fresh'].filter(Boolean).join(' ')
   // An update run: the live item has a bar, and both say where they lead.

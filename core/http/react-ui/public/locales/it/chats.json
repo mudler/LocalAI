@@ -834,7 +834,12 @@
           "done_other": "{{count}} aggiornati",
           "auto": "Automatico: {{text}}",
           "first": "{{name}} è ancora alla {{version}}.",
-          "firstWhy": "{{name}} è ancora alla {{version}}: {{reason}}."
+          "firstWhy": "{{name}} è ancora alla {{version}}: {{reason}}.",
+          "cancelled_one": "Serie annullata: {{count}} aggiornati",
+          "cancelled_other": "Serie annullata: {{count}} aggiornati",
+          "cancelledAttention_one": "Serie annullata: {{updated}} aggiornati, {{count}} richiede attenzione",
+          "cancelledAttention_other": "Serie annullata: {{updated}} aggiornati, {{count}} richiedono attenzione",
+          "firstStart": "{{name}} è ancora alla {{version}}: la nuova versione non si è avviata: {{reason}}."
         }
       }
     },

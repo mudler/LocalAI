@@ -222,16 +222,28 @@ function runText(t, n, p) {
   }
   const updated = nonNeg(p.updated)
   const attention = runAttention(p)
-  let title = attention > 0
-    ? t('inbox.codes.run.end.attention', { updated, count: attention })
-    : t('inbox.codes.run.end.done', { count: updated })
+  // A cancelled run says so, in the words of the Updates page.
+  const cancelled = p.state === 'cancelled'
+  let title
+  if (cancelled) {
+    title = attention > 0
+      ? t('inbox.codes.run.end.cancelledAttention', { updated, count: attention })
+      : t('inbox.codes.run.end.cancelled', { count: updated })
+  } else {
+    title = attention > 0
+      ? t('inbox.codes.run.end.attention', { updated, count: attention })
+      : t('inbox.codes.run.end.done', { count: updated })
+  }
   if (auto) title = t('inbox.codes.run.end.auto', { text: title })
   const name = typeof p.first_name === 'string' ? p.first_name : ''
   const version = typeof p.first_from === 'string' ? p.first_from : ''
   const reason = typeof p.first_error === 'string' ? p.first_error.trim().replace(/[.\s]+$/, '') : ''
   let body = n.body || ''
   if (attention > 0 && name && version) {
-    body = reason ? t('inbox.codes.run.end.firstWhy', { name, version, reason }) : t('inbox.codes.run.end.first', { name, version })
+    // The error of a new build that did not start is its bare cause: the
+    // key says what happened, and the words go first.
+    const why = reason && p.first_key === 'start' ? 'inbox.codes.run.end.firstStart' : 'inbox.codes.run.end.firstWhy'
+    body = reason ? t(why, { name, version, reason }) : t('inbox.codes.run.end.first', { name, version })
   }
   return { title, body }
 }
@@ -274,6 +286,14 @@ export function textOf(n, t) {
 export function reasonText(body) {
   const s = (body || '').trim()
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+}
+
+// The body of an item as the list shows it. The end item of an update run is
+// a sentence that starts with the name of an item ("e2e-bad is still on
+// 1.0.0"): a name keeps its case, so it is shown as it is.
+export function bodyOf(n, text) {
+  const body = text ? text.body : ''
+  return failed(n) && runItemKind(n) !== 'end' ? reasonText(body) : body
 }
 
 function dayStart(ms) {
