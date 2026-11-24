@@ -85,6 +85,9 @@ type Store interface {
 	QueuedRuns(ctx context.Context) ([]Run, error)
 	// RunByChat returns the run that started the chat, or ErrNotFound.
 	RunByChat(ctx context.Context, chatID string) (Run, error)
+	// LastStarted returns the newest Started time of the runs of a trigger, or
+	// the zero time when none started.
+	LastStarted(ctx context.Context, triggerID string) (time.Time, error)
 	// CountRunsSince counts the runs of a trigger whose Due is not before since
 	// and whose status is not skipped.
 	CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error)

@@ -263,6 +263,18 @@ func (s *jsonStore) AppendRunPayload(_ context.Context, runID, payload string, k
 	return ErrNotFound
 }
 
+func (s *jsonStore) LastStarted(_ context.Context, triggerID string) (time.Time, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var last time.Time
+	for _, x := range s.d.Runs {
+		if x.TriggerID == triggerID && x.Started.After(last) {
+			last = x.Started
+		}
+	}
+	return last, nil
+}
+
 func (s *jsonStore) ListRuns(_ context.Context, triggerID string, limit int) ([]Run, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

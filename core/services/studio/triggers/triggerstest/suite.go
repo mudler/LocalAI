@@ -154,6 +154,24 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(s.AppendRunPayload(ctx, "ap1", `{"n":11}`, 8)).To(MatchError(triggers.ErrNotFound), "a running run")
 		Expect(s.AppendRunPayload(ctx, "nope", `{}`, 8)).To(MatchError(triggers.ErrNotFound), "an unknown run")
 	})
+	It("reports the newest start of a trigger", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("ls", "1"))).To(Succeed())
+		got, err := s.LastStarted(ctx, "ls")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.IsZero()).To(BeTrue())
+		for i, st := range []time.Duration{time.Hour, 3 * time.Hour, 2 * time.Hour} {
+			r := run(fmt.Sprintf("ls%d", i), "ls", fmt.Sprintf("k%d", i), triggers.StatusDone)
+			r.Started = base.Add(st)
+			_, err := s.Claim(ctx, r)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err = s.Claim(ctx, run("ls9", "ls", "k9", triggers.StatusSkipped)) // newest claim, never started
+		Expect(err).NotTo(HaveOccurred())
+		got, err = s.LastStarted(ctx, "ls")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Equal(base.Add(3*time.Hour))).To(BeTrue(), "got %v", got)
+	})
 	It("stores the connector place and the delivery of a trigger", func() {
 		s := newStore()
 		tr := sample("r1", "1", "Morning")

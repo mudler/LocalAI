@@ -318,6 +318,15 @@ func (s *gormStore) AppendRunPayload(ctx context.Context, runID, payload string,
 	})
 }
 
+func (s *gormStore) LastStarted(ctx context.Context, triggerID string) (time.Time, error) {
+	var rows []runRow
+	err := s.db.WithContext(ctx).Where("trigger_id = ?", triggerID).Order("started DESC").Limit(1).Find(&rows).Error
+	if err != nil || len(rows) == 0 {
+		return time.Time{}, err
+	}
+	return utc(rows[0].Started), nil
+}
+
 func (s *gormStore) runs(q *gorm.DB) ([]Run, error) {
 	var rows []runRow
 	if err := q.Find(&rows).Error; err != nil {

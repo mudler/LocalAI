@@ -1,6 +1,7 @@
 package triggers_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -179,4 +180,54 @@ var _ = Describe("Runner.Fire", func() {
 		}
 		Expect(queued).To(Equal(1))
 	})
+
+	It("keeps the gap after a burst of more than 50 merged events", func() {
+		rg.finish(fire("e", ev("first", `{}`)), triggers.StatusDone, "")
+		for i := range 70 {
+			fire("e", ev(fmt.Sprintf("b%d", i), `{}`))
+		}
+		rg.after(triggers.DefaultFileGap - time.Second)
+		Expect(rg.host.startCount()).To(Equal(1))
+		rg.after(time.Second)
+		Expect(rg.host.startCount()).To(Equal(2))
+	})
+
+	It("puts an event in a new run when the queued run started before the append", func() {
+		rg.finish(fire("e", ev("first", `{}`)), triggers.StatusDone, "")
+		q := fire("e", ev("q", `{"n":0}`))
+		Expect(q.Status).To(Equal(triggers.StatusQueued))
+		racy := &startAfterSnapshot{Store: rg.store, runID: q.ID}
+		rg.opts.Store = racy
+		rg.runner = rg.newRunner()
+		got := fire("e", ev("late", `{"n":1}`))
+		Expect(got.ID).NotTo(Equal(q.ID))
+		Expect(got.Payload).To(Equal(`{"n":1}`))
+		Expect(got.DueKey).To(Equal("event@late"))
+		again := fire("e", ev("late", `{"n":1}`))
+		Expect(again.ID).To(Equal(got.ID), "the key is still unique")
+		old, _ := rg.store.GetRun(ctx, q.ID)
+		Expect(old.Payload).To(Equal(`{"n":0}`))
+	})
 })
+
+// startAfterSnapshot starts the run right after QueuedRuns returned it, as
+// another replica could.
+type startAfterSnapshot struct {
+	triggers.Store
+	runID string
+	done  bool
+}
+
+func (s *startAfterSnapshot) QueuedRuns(ctx context.Context) ([]triggers.Run, error) {
+	runs, err := s.Store.QueuedRuns(ctx)
+	if err == nil && !s.done {
+		for _, r := range runs {
+			if r.ID == s.runID {
+				s.done = true
+				r.Status = triggers.StatusRunning
+				err = s.Store.SetRunStatus(ctx, r)
+			}
+		}
+	}
+	return runs, err
+}

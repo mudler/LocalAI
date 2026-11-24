@@ -528,15 +528,9 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 // gapHolds tells whether an event run must wait for the gap of its trigger:
 // the previous run of the trigger started less than the gap ago.
 func (r *Runner) gapHolds(ctx context.Context, t Trigger, run Run, now time.Time) (bool, error) {
-	prev, err := r.o.Store.ListRuns(ctx, t.ID, 50)
+	last, err := r.o.Store.LastStarted(ctx, t.ID)
 	if err != nil {
 		return false, err
-	}
-	var last time.Time
-	for _, x := range prev {
-		if x.ID != run.ID && x.Started.After(last) {
-			last = x.Started
-		}
 	}
 	return !last.IsZero() && now.Before(last.Add(t.GapOrDefault())), nil
 }
@@ -832,16 +826,22 @@ func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, err
 		if q.TriggerID != t.ID || !strings.HasPrefix(q.DueKey, EventPrefix) {
 			continue
 		}
-		marker := Run{ID: newID(), TriggerID: t.ID, DueKey: key, Due: now.UTC(), Status: StatusSkipped, Reason: ReasonMerged, Ended: now.UTC()}
-		claimed, err := r.o.Store.Claim(ctx, marker)
+		if dup, err := r.eventRun(ctx, t.ID, key); err == nil {
+			return dup, nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return Run{}, err
+		}
+		// Append first: when the run has started meanwhile, the event goes to
+		// a new run below and its key is still free.
+		err := r.o.Store.AppendRunPayload(ctx, q.ID, payload, KeepMergedPayloads)
+		if errors.Is(err, ErrNotFound) {
+			break
+		}
 		if err != nil {
 			return Run{}, err
 		}
-		if !claimed {
-			return r.eventRun(ctx, t.ID, key)
-		}
-		err = r.o.Store.AppendRunPayload(ctx, q.ID, payload, KeepMergedPayloads)
-		if err != nil {
+		marker := Run{ID: newID(), TriggerID: t.ID, DueKey: key, Due: now.UTC(), Status: StatusSkipped, Reason: ReasonMerged, Ended: now.UTC()}
+		if _, err := r.o.Store.Claim(ctx, marker); err != nil {
 			return Run{}, err
 		}
 		return r.o.Store.GetRun(ctx, q.ID)
