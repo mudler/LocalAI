@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,7 +17,74 @@ func goodFile() Trigger {
 	return Trigger{ID: "t", Owner: "1", Name: "Contracts", Prompt: "Read it.", Kind: KindFile, Folder: "/users/1/Contracts", Quiet: time.Minute}
 }
 
+func goodEvent() Trigger {
+	return Trigger{ID: "t", Owner: "1", Name: "PRs", Prompt: "Review it.", Kind: KindEvent, Source: "github", EventType: "pull_request", Matches: []string{"action=opened"}}
+}
+
 var _ = Describe("Trigger types", func() {
+	It("validates an event trigger", func() {
+		Expect(goodEvent().Validate()).To(Succeed())
+		bare := goodEvent()
+		bare.EventType, bare.Matches = "", nil
+		Expect(bare.Validate()).To(Succeed(), "type and matches are optional")
+		long := strings.Repeat("x", MaxEventField+1)
+		for name, c := range map[string]struct {
+			edit func(*Trigger)
+			want string
+		}{
+			"empty source": {func(t *Trigger) { t.Source = "" }, "source is required"},
+			"long source":  {func(t *Trigger) { t.Source = long }, "source"},
+			"long type":    {func(t *Trigger) { t.EventType = long }, "event type"},
+			"too many": {func(t *Trigger) {
+				t.Matches = make([]string, MaxMatches+1)
+				for i := range t.Matches {
+					t.Matches[i] = "a=b"
+				}
+			}, "at most 8 matches"},
+			"no equals":       {func(t *Trigger) { t.Matches = []string{"action"} }, "field=value"},
+			"empty field":     {func(t *Trigger) { t.Matches = []string{"=x"} }, "field=value"},
+			"long match":      {func(t *Trigger) { t.Matches = []string{"a=" + long} }, "match"},
+			"control in type": {func(t *Trigger) { t.EventType = "a\nb" }, "event type"},
+		} {
+			tr := goodEvent()
+			c.edit(&tr)
+			err := tr.Validate()
+			Expect(err).To(HaveOccurred(), name)
+			Expect(err.Error()).To(ContainSubstring(c.want), name)
+		}
+		for name, edit := range map[string]func(*Trigger){
+			"source": func(t *Trigger) { t.Source = "github" }, "type": func(t *Trigger) { t.EventType = "push" },
+			"matches": func(t *Trigger) { t.Matches = []string{"a=b"} }, "secret": func(t *Trigger) { t.Secret = "s" },
+		} {
+			tr := goodSchedule()
+			edit(&tr)
+			Expect(tr.Validate()).NotTo(Succeed(), "schedule trigger with event field "+name)
+			f := goodFile()
+			edit(&f)
+			Expect(f.Validate()).NotTo(Succeed(), "file trigger with event field "+name)
+		}
+	})
+
+	It("re-arms an event trigger when its source or type changes", func() {
+		now := time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)
+		old := goodEvent()
+		old.Since = now.Add(-time.Hour)
+		same := goodEvent()
+		Expect(Arm(&old, same, now).Since).To(Equal(old.Since))
+		src := goodEvent()
+		src.Source = "gitlab"
+		Expect(Arm(&old, src, now).Since).To(Equal(now))
+		typ := goodEvent()
+		typ.EventType = "push"
+		Expect(Arm(&old, typ, now).Since).To(Equal(now))
+	})
+
+	It("keeps the secret out of formatted output", func() {
+		tr := goodEvent()
+		tr.Secret = "hunter2-secret"
+		Expect(fmt.Sprintf("%v %+v %s", tr, tr, tr)).NotTo(ContainSubstring("hunter2-secret"))
+	})
+
 	It("accepts good triggers on validation", func() {
 		for _, tr := range []Trigger{goodSchedule(), goodFile()} {
 			Expect(tr.Validate()).To(Succeed(), "%s trigger", tr.Kind)

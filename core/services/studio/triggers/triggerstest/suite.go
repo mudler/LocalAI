@@ -45,6 +45,14 @@ func fileTrigger(id, owner string) triggers.Trigger {
 	}
 }
 
+func eventTrigger(id, owner string) triggers.Trigger {
+	return triggers.Trigger{
+		ID: id, Owner: owner, Name: "Events " + id, Prompt: "Review it.", Enabled: true, Kind: triggers.KindEvent,
+		Source: "github", EventType: "pull_request", Matches: []string{"action=opened", "pull_request.base.ref=main"},
+		Secret: "raw-secret-" + id, Since: base,
+	}
+}
+
 func run(id, trigger, key string, status triggers.Status) triggers.Run {
 	return triggers.Run{ID: id, TriggerID: trigger, DueKey: key, Due: base, Status: status}
 }
@@ -54,7 +62,8 @@ func same(a, b triggers.Trigger) bool {
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
 		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.RunLimit == b.RunLimit && a.Since.Equal(b.Since) &&
 		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
-		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change && sameRoute(a.Route, b.Route)
+		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Source == b.Source && a.EventType == b.EventType &&
+		slices.Equal(a.Matches, b.Matches) && a.Secret == b.Secret && a.Change == b.Change && sameRoute(a.Route, b.Route)
 }
 
 func sameRoute(a, b triggers.Route) bool {
@@ -65,7 +74,7 @@ func sameRoute(a, b triggers.Route) bool {
 func sameRun(a, b triggers.Run) bool {
 	return a.ID == b.ID && a.TriggerID == b.TriggerID && a.DueKey == b.DueKey && a.Due.Equal(b.Due) &&
 		a.Status == b.Status && a.Reason == b.Reason && a.ChatID == b.ChatID && a.File == b.File &&
-		a.Started.Equal(b.Started) && a.Ended.Equal(b.Ended)
+		a.Started.Equal(b.Started) && a.Ended.Equal(b.Ended) && a.Payload == b.Payload
 }
 
 // RunStoreSuite registers the specs that check a triggers.Store: triggers,
@@ -81,12 +90,29 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 	}
 	It("stores a trigger with every field", func() {
 		s := newStore()
-		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1")} {
+		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1"), eventTrigger("t3", "1")} {
 			Expect(s.PutTrigger(ctx, tr)).To(Succeed())
 			got, err := s.GetTrigger(ctx, tr.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
+	})
+	It("stores a run with its payload", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("e1", "1"))).To(Succeed())
+		r := run("er1", "e1", "event@d1", triggers.StatusQueued)
+		r.Payload = `{"action":"opened"}`
+		ok, err := s.Claim(ctx, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		got, err := s.GetRun(ctx, "er1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Payload).To(Equal(r.Payload))
+		Expect(sameRun(got, r)).To(BeTrue())
+		r.Status = triggers.StatusDone
+		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
+		got, _ = s.GetRun(ctx, "er1")
+		Expect(got.Payload).To(Equal(r.Payload), "a status change keeps the payload")
 	})
 	It("stores the connector place and the delivery of a trigger", func() {
 		s := newStore()

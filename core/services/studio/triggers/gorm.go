@@ -47,6 +47,12 @@ type triggerRow struct {
 	Route string `gorm:"size:1024"`
 	// Acts is Trigger.Acts, comma separated; empty: read only runs.
 	Acts string `gorm:"size:1024"`
+	// Source, EventType, Matches (a JSON list) and Secret are the fields of an
+	// event trigger.
+	Source    string `gorm:"size:255"`
+	EventType string `gorm:"size:255"`
+	Matches   string `gorm:"size:2048"`
+	Secret    string `gorm:"size:255"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -67,6 +73,8 @@ type runRow struct {
 	Started   time.Time
 	Ended     time.Time
 	Tokens    int
+	// Payload is the text of the event of an event run.
+	Payload string
 }
 
 func (runRow) TableName() string { return "studio_trigger_runs" }
@@ -102,7 +110,8 @@ func (r triggerRow) trigger() Trigger {
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap, RunLimit: time.Duration(r.RunLimitNs),
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
-		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts)}
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts),
+		Source: r.Source, EventType: r.EventType, Matches: matchesOf(r.Matches), Secret: r.Secret}
 }
 
 func changeOf(raw string) Change {
@@ -128,6 +137,22 @@ func actsOf(raw string) []string {
 	return strings.Split(raw, ",")
 }
 
+func matchesOf(raw string) []string {
+	var m []string
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &m) // a broken value reads as no matches
+	}
+	return m
+}
+
+func matchesText(m []string) string {
+	if len(m) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(m)
+	return string(raw)
+}
+
 func routeOf(raw string) Route {
 	var r Route
 	if raw != "" {
@@ -149,7 +174,8 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap, RunLimitNs: int64(t.RunLimit),
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
-		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ",")}
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ","),
+		Source: t.Source, EventType: t.EventType, Matches: matchesText(t.Matches), Secret: t.Secret}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 
@@ -209,7 +235,7 @@ func (s *gormStore) EnabledTriggers(ctx context.Context) ([]Trigger, error) {
 
 func (r runRow) run() Run {
 	return Run{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: Status(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens, Payload: r.Payload}
 }
 
 // Claim inserts the run. The unique index on (trigger, due key) refuses a
@@ -231,7 +257,7 @@ func (s *gormStore) Claim(ctx context.Context, r Run) (bool, error) {
 		return false, fmt.Errorf("triggers: run %s already exists", r.ID)
 	}
 	row := runRow{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: string(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens, Payload: r.Payload}
 	err := s.db.WithContext(ctx).Create(&row).Error
 	if err == nil {
 		return true, nil
