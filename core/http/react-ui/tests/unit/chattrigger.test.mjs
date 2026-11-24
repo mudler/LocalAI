@@ -130,6 +130,19 @@ test('event triggers: the curl example carries the secret, the sender and a matc
   assert.ok(out.includes(`-d '{"type":"pull_request","action":"opened"}'`))
 })
 
+test('event triggers: the curl example nests a dotted match path and indexes arrays as numbers', () => {
+  const out = curlExample('https://example.com/h', 's', { source: 'github', event_type: 'pull_request', matches: ['pull_request.base.ref=main', 'pull_request.labels.0.name=bug', 'action=opened'] })
+  const body = JSON.parse(out.slice(out.indexOf("-d '") + 4, out.lastIndexOf("'")))
+  assert.deepEqual(body, { type: 'pull_request', pull_request: { base: { ref: 'main' }, labels: [{ name: 'bug' }] }, action: 'opened' })
+  assert.ok(Array.isArray(body.pull_request.labels))
+  assert.ok(!out.includes('pull_request.base.ref'))
+})
+
+test('event triggers: the curl example escapes a single quote for the shell', () => {
+  const out = curlExample('https://example.com/h', 's', { source: 'github', matches: ["title=it's here"] })
+  assert.ok(out.includes(`-d '{"title":"it'\\''s here"}'`), out)
+})
+
 test('event triggers: the form of an event trigger writes kind, source, type and matches', () => {
   assert.ok(presetOrder.includes('event'))
   const tr = { id: 't1', name: 'PRs', prompt: 'Review it.', kind: 'event', enabled: true, source: 'github', event_type: 'pull_request', matches: ['action=opened', 'draft=false'] }

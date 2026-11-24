@@ -80,7 +80,7 @@ export default function EventHook({ trigger, secret = '', onSecret }) {
 
   return (
     <div className="cx-hook" data-testid="event-hook">
-      <p className="cx-hook__label" id={`hook-url-${trigger.id}`}>{t('event.hook.urlLabel')}</p>
+      <p className="cx-hook__label">{t('event.hook.urlLabel')}</p>
       <Copyable text={url} label={t('event.hook.urlLabel')} copyLabel={t('event.hook.copyUrl')} testId="hook-url" copyTestId="hook-copy-url" />
       {secret ? (
         <div className="cx-hook__secret" data-testid="hook-secret-box">

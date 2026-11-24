@@ -222,23 +222,47 @@ export function hookUrl(path, origin, base = '') {
   return path ? `${origin}${base}${path}` : ''
 }
 
+/** Sets a value at a dot path, with objects, and arrays for a numeric segment. */
+function setPath(root, path, value) {
+  const segs = path.split('.')
+  let cur = root
+  segs.forEach((seg, n) => {
+    const last = n === segs.length - 1
+    const key = /^\d+$/.test(seg) ? Number(seg) : seg
+    if (last) {
+      cur[key] = value
+      return
+    }
+    if (cur[key] === undefined || typeof cur[key] !== 'object' || cur[key] === null) {
+      cur[key] = /^\d+$/.test(segs[n + 1]) ? [] : {}
+    }
+    cur = cur[key]
+  })
+}
+
+/** One shell word in single quotes; a single quote inside becomes '\''. */
+function shq(v) {
+  return `'${String(v).replace(/'/g, "'\\''")}'`
+}
+
 /**
  * A call that makes a matching event, with the secret filled in. The sender
  * name goes in the query because a plain call has no header that names it; the
- * body has a type and the fields the matches look for.
+ * body has a type and the fields the matches look for, nested as the dot path
+ * says (pull_request.base.ref=main is {"pull_request":{"base":{"ref":"main"}}}).
  */
 export function curlExample(url, secret, t) {
   const body = {}
   if (t.event_type) body.type = t.event_type
   for (const m of t.matches || []) {
     const i = m.indexOf('=')
-    if (i > 0) body[m.slice(0, i)] = m.slice(i + 1)
+    if (i > 0) setPath(body, m.slice(0, i), m.slice(i + 1))
   }
   const q = t.source ? `?source=${encodeURIComponent(t.source)}` : ''
   return [
-    `curl -X POST '${url}${q}'`,
-    `  -H 'Authorization: Bearer ${secret}'`,
+    `curl -X POST ${shq(url + q)}`,
+    `  -H ${shq('Authorization: Bearer ' + secret)}`,
     "  -H 'Content-Type: application/json'",
-    `  -d '${JSON.stringify(body)}'`,
+    `  -d ${shq(JSON.stringify(body))}`,
   ].join(' \\\n')
 }
