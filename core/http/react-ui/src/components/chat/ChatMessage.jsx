@@ -7,7 +7,9 @@ import { renderMarkdown } from '../../utils/markdown'
 import { escapeHtml } from './chatText'
 import { messageParts } from '../../utils/chatAttachments'
 import { chatFileTarget, spaceSafeLinks } from '../../utils/chatMedia'
-import { filesApi } from '../../utils/api'
+import { backendsApi, filesApi } from '../../utils/api'
+import { useUpdates } from '../../contexts/UpdatesContext'
+import { updateForBackend } from '../../utils/updates'
 import { iconHtml } from '../../utils/iconHtml'
 // eslint-disable-next-line no-unused-vars
 import { InvokedChip } from './CommandCards'
@@ -115,6 +117,38 @@ function Prose({ html, className = '', files, onOpenFile }) {
 // that the turn failed and offers the Retry. For a turn a restart interrupted,
 // auto says what the page does by itself (see utils/turnResume.js): wait, then
 // resume; the person can stop it or give up and retry.
+// The update of the backend that was too old for the model. It shows for an
+// administrator when the server knows a newer build of that backend; it starts
+// the same upgrade as the Updates page and leaves the retry to the person, since
+// the upgrade runs for a while and the Operate badge follows it.
+function OutdatedBackendAction({ backend }) {
+  const { t } = useTranslation('chat')
+  const updates = useUpdates()
+  const row = updateForBackend(updates && updates.rows, backend)
+  const [phase, setPhase] = useState('idle')
+  if (!row) return null
+  const start = async () => {
+    setPhase('busy')
+    try {
+      await backendsApi.upgrade(row.name)
+      setPhase('started')
+      if (updates.refresh) updates.refresh()
+    } catch {
+      setPhase('failed')
+    }
+  }
+  return (
+    <>
+      <button type="button" className="cx-btn cx-btn--primary" onClick={start} disabled={phase === 'busy' || phase === 'started'} data-testid="chat-error-update-backend">
+        {phase === 'busy' || phase === 'started' ? t('error.updateBackendBusy') : t('error.updateBackend', { backend: row.name })}
+      </button>
+      <Link to="/app/updates?filter=ready" className="cx-btn" data-testid="chat-error-updates">{t('error.openUpdates')}</Link>
+      {phase === 'started' && <span className="text-note" role="status" data-testid="chat-error-update-started">{t('error.updateBackendStarted', { backend: row.name })}</span>}
+      {phase === 'failed' && <span className="text-note" role="alert" data-testid="chat-error-update-failed">{t('error.updateBackendFailed')}</span>}
+    </>
+  )
+}
+
 export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onStopTrying }) {
   const { t } = useTranslation('chat')
   const view = failureView(t, failure, { isAdmin })
@@ -142,6 +176,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry, auto, onS
               {t('error.resume.stop')}
             </button>
           )}
+          {view.outdatedBackend && isAdmin && <OutdatedBackendAction backend={view.outdatedBackend} />}
           {view.backendsLink && (
             <Link to="/app/backends" className="cx-btn" data-testid="chat-error-backends">
               {t('error.openBackends')}

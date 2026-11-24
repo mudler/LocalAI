@@ -21,7 +21,9 @@ import (
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/auth"
+	addonendpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/library"
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -39,6 +41,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/uploads"
 	"github.com/mudler/LocalAI/core/services/addons/usersettings"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -73,6 +76,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studiohistory"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -217,6 +221,8 @@ type Application struct {
 	notifyPusher          *notify.Pusher                    // browser push of the notifier; nil when there is nowhere to keep subscriptions
 	studioLocks           []*advisorylock.HeldLock          // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop  context.CancelFunc
+	bindingCapsStop       context.CancelFunc // stops the one-time permissions migration of the connector bindings
+	bindingCapsDone       chan struct{}      // closed when that migration returned
 	studioProvider        *provider.Provider
 	studioService         *studio.Service
 	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
@@ -277,6 +283,24 @@ type Application struct {
 	modelUpdates *modelupdates.Service
 	// modelUpgrader runs model upgrades; nil without model galleries.
 	modelUpgrader *modelupdates.Upgrader
+
+	// upgradeRuns owns the server-owned upgrade runs; nil when they could not
+	// start. upgradeRunsStop stops its sweep and runners and closes a
+	// database opened for it. See upgrade_runs.go.
+	upgradeRuns      *upgraderun.Service
+	upgradeRunsStop  func()
+	addonRunUpgrader *addonendpoints.QueuedUpgrader
+	// upgradeRunTweak changes the options of the service before it starts;
+	// tests set it to hand in fake checks and job paths.
+	upgradeRunTweak func(*upgraderun.Options)
+
+	// autoRuns starts the upgrade runs of the automatic update passes; made
+	// on first use (autoRunner).
+	autoRuns       *autoRunner
+	autoRunnerOnce sync.Once
+	// opCache is the cache of /api/operations the HTTP layer built; see
+	// SetOperationCache.
+	opCache atomic.Pointer[galleryop.OpCache]
 
 	// LocalAI Assistant in-process MCP server. nil until initialised in start() after galleryService, and
 	// when that initialisation fails.
@@ -775,6 +799,13 @@ func (a *Application) Shutdown() error {
 		if a.studioConnectorsStop != nil {
 			a.studioConnectorsStop()
 		}
+		// The migration writes the connector store under DataPath: it ends
+		// before Shutdown returns, so whoever removes the directory next does
+		// not race its last write.
+		if a.bindingCapsStop != nil {
+			a.bindingCapsStop()
+			<-a.bindingCapsDone
+		}
 		if a.studioConnectors != nil {
 			a.studioConnectors.Close()
 		}
@@ -841,6 +872,7 @@ func (a *Application) Shutdown() error {
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
+		a.stopUpgradeRuns()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {
 			err = errors.Join(err, a.modelLoader.StopAllGRPC())
@@ -973,6 +1005,24 @@ func (a *Application) start() (startErr error) {
 	}
 	assistantClient.ModelUpdatesService = a.ModelUpdates
 	assistantClient.ModelUpgrader = a.ModelUpgrader
+	assistantClient.UpgradeRunService = a.UpgradeRuns
+	// The same early refusal as the backend upgrade routes.
+	assistantClient.BackendUpgradeGuard = func() *backendupdates.UpgradeGuard {
+		if a.galleryService == nil {
+			return nil
+		}
+		var src backendupdates.UpgradeInfoSource
+		if a.upgradeChecker != nil {
+			src = a.upgradeChecker
+		}
+		return backendupdates.NewUpgradeGuard(func() (gallery.SystemBackends, error) {
+			manager := a.galleryService.BackendManager()
+			if manager == nil {
+				return nil, backendupdates.ErrNoBackendManager
+			}
+			return manager.ListBackends()
+		}, src)
+	}
 	if a.distributed != nil && a.distributed.Unloader != nil {
 		assistantClient.LoadStopper = a.distributed.Unloader
 	}

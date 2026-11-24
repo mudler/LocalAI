@@ -251,7 +251,7 @@ context slot for safe generation.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `batch` | int | Batch size for processing |
+| `batch` | int | Batch size for processing (llama.cpp `n_batch`). A value you set is used as is, also in distributed mode, where only LocalAI's own default is tuned to the node's GPU |
 | `ignore_eos` | bool | Ignore end-of-sequence tokens |
 | `negative_prompt` | string | Negative prompt for image generation |
 | `rope_freq_base` | float32 | RoPE frequency base |

@@ -62,6 +62,13 @@ linux:
   syncDesktopName: true
 
 mac:
+  # The builder names the app bundle and CFBundleExecutable after
+  # executableName, not after productName, so the top-level
+  # `local-ai-launcher` would show as local-ai-launcher.app in the DMG, in
+  # Finder, Launchpad and the Dock. Override it here: the app is LocalAI.app
+  # and its executable is `LocalAI` (not the server's `local-ai`). Linux and
+  # Windows keep local-ai-launcher.
+  executableName: LocalAI
   target:
     - target: dmg
       arch: [arm64]
@@ -79,6 +86,9 @@ mac:
   # It does not notarize the DMG file: the workflow does that afterwards.
   # Without these variables it logs "skipped macOS notarization".
   extendInfo:
+    # The name in the menu bar, the Dock and Finder.
+    CFBundleName: LocalAI
+    CFBundleDisplayName: LocalAI
     NSMicrophoneUsageDescription: The LocalAI WebUI uses the microphone for voice input and talk mode, only when you start them.
     NSCameraUsageDescription: The LocalAI WebUI uses the camera only when you start a feature that needs it, for example to send an image to a model.
   # The zip is what the updater applies. latest-mac.yml names it.
@@ -91,7 +101,8 @@ dmg:
   # The name of the DMG link that earlier releases used, so that link works.
   # The build workflow adds "dev" for a development build.
   artifactName: LocalAI.dmg
-  title: LocalAI Launcher
+  # The name of the mounted volume.
+  title: LocalAI
 
 win:
   # x64 only: the release has no windows/arm64 server. Windows on Arm runs the

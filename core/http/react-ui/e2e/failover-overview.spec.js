@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import { mockSwarm, clusterNodes } from './swarm-fixtures.js'
 
 // Failover overview page (Operate -> Runtime -> Failover on a single install,
@@ -58,16 +59,16 @@ test.describe('Failover overview', () => {
     })
   })
 
-  test('admin reaches Failover from the Runtime tab', async ({ page }) => {
+  test('admin reaches Failover from the Models and runtime group', async ({ page }) => {
     await mockAuth(page)
     await mockFailover(page, [CHAIN_A])
     await page.goto('/app/backends')
 
-    const link = page.locator('.hub-subnav a[href="/app/failover"]')
+    const link = adminItem(page, '/app/failover')
     await expect(link).toBeVisible({ timeout: 10_000 })
     await expect(link).toContainText('Failover')
     await link.click()
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).toHaveAttribute('aria-current', 'page')
+    await expect(link).toHaveAttribute('aria-current', 'page')
   })
 
   test('lists chains from GET /api/failover with their live health', async ({ page }) => {
@@ -120,7 +121,7 @@ test.describe('Failover overview', () => {
     await mockFailover(page, [])
     await page.goto('/app/failover')
 
-    await expect(page.locator('.dk-empty')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('.ui-empty')).toBeVisible({ timeout: 10_000 })
     const cta = page.getByRole('link', { name: /create a failover chain/i })
     await expect(cta).toHaveAttribute('href', '/app/model-editor?template=failover')
   })
@@ -154,14 +155,14 @@ test.describe('Failover on a cluster', () => {
     page.on('pageerror', (err) => { throw new Error(`uncaught page error: ${err.message}`) })
   })
 
-  test('is a Swarm page, and no longer a Runtime one', async ({ page }) => {
+  test('is the Failover view of Placement, and no longer a Models and runtime page', async ({ page }) => {
     await mockSwarm(page, { chains: [CHAIN_A] })
     await page.goto('/app/failover')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="swarm"]')).toHaveAttribute('aria-current', 'page', { timeout: 15_000 })
-    await expect(page.locator('.hub-subnav a[href="/app/failover"]')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"]')).not.toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/app\/scheduling\/failover$/)
+    await expect(adminItem(page, '/app/scheduling')).toHaveAttribute('aria-current', 'page', { timeout: 15_000 })
+    await expect(page.getByTestId('placement-view-failover')).toHaveAttribute('aria-current', 'page')
     await page.goto('/app/backends')
-    await expect(page.locator('.hub-subnav a[href="/app/failover"]')).toHaveCount(0)
+    await expect(adminItem(page, '/app/failover')).toHaveCount(0)
   })
 
   test('says what happens when a node stops answering, in four lines', async ({ page }) => {
@@ -179,6 +180,24 @@ test.describe('Failover on a cluster', () => {
     const banner = page.getByTestId('failover-lost')
     await expect(banner).toContainText('gpu-box-2 is not answering.', { timeout: 15_000 })
     await expect(banner.getByRole('link', { name: 'Open node' })).toHaveAttribute('href', '/app/nodes/n-gpu2')
+  })
+
+  test('shows how the lost node was connected, from what it reported', async ({ page }) => {
+    const nodes = clusterNodes().map(node => (node.id === 'n-gpu2' ? { ...node, attached: 'tunnel', peer_id: '12D3KooWQx8tR2vN6mHcR8yLdQe5Gh6iKoPzTz1', tunnel_transport: 'p2p', tunnel_path: 'relayed', tunnel_limited: true, route_state: [{ route: 'heartbeat', state: 'down', reason: 'the heartbeat is stale' }, { route: 'tunnel', transport: 'p2p', state: 'down', reason: 'the tunnel is gone' }] } : node))
+    await mockSwarm(page, { nodes, chains: [] })
+    await page.goto('/app/failover')
+    const connections = page.getByTestId('failover-lost-connections')
+    await expect(connections).toContainText('gpu-box-2', { timeout: 15_000 })
+    await expect(connections.getByTestId('connections')).toContainText('P2P')
+    await expect(connections.getByTestId('connections')).toContainText('the tunnel is gone')
+  })
+
+  test('a lost node that reported nothing about its connection shows no connection line', async ({ page }) => {
+    const nodes = clusterNodes().map(node => { const { route_state: _unused, ...rest } = node; return rest })
+    await mockSwarm(page, { nodes, chains: [] })
+    await page.goto('/app/failover')
+    await expect(page.getByTestId('failover-lost')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('failover-lost-connections')).toHaveCount(0)
   })
 
   test('shows no lost-node banner when every node answers', async ({ page }) => {
@@ -228,5 +247,50 @@ test.describe('Failover on a cluster', () => {
     await page.goto('/app/failover')
     await expect(page.getByTestId('failover-try')).toBeVisible({ timeout: 15_000 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+})
+
+// Placement: the tabs are real views, the one primary action is the header's
+// New rule, and a rule's routing policy is called a policy, never a route.
+test.describe('Placement page', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockAuth(page)
+    page.on('pageerror', (err) => { throw new Error(`uncaught page error: ${err.message}`) })
+  })
+
+  test('the Rules and Failover tabs switch the view and the address', async ({ page }) => {
+    await mockSwarm(page, { chains: [] })
+    await page.goto('/app/scheduling')
+    await expect(page.getByTestId('placement-rules')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('placement-view-rules')).toHaveAttribute('aria-current', 'page')
+    await page.getByTestId('placement-view-failover').click()
+    await expect(page).toHaveURL(/\/app\/scheduling\/failover$/)
+    await expect(page.getByTestId('failover-overview')).toBeVisible()
+    await expect(page.getByTestId('placement-rules')).toHaveCount(0)
+    await page.getByTestId('placement-view-rules').click()
+    await expect(page).toHaveURL(/\/app\/scheduling$/)
+  })
+
+  test('New rule is the header action of the Rules view only, and opens the rule sheet', async ({ page }) => {
+    await mockSwarm(page, { chains: [] })
+    await page.goto('/app/scheduling')
+    const header = page.locator('.page-header')
+    await expect(header.getByRole('button', { name: 'New rule' })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('button', { name: 'New rule' })).toHaveCount(1)
+    await header.getByRole('button', { name: 'New rule' }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await page.getByTestId('placement-view-failover').click()
+    await expect(header.getByRole('button', { name: 'New rule' })).toHaveCount(0)
+  })
+
+  test('says policy where it means the routing policy of a rule', async ({ page }) => {
+    await mockSwarm(page, { chains: [] })
+    await page.goto('/app/scheduling')
+    const rows = page.getByTestId('rule-row')
+    await expect(rows.first()).toContainText('Its policy is prefix cache.', { timeout: 15_000 })
+    await expect(rows.first()).toContainText('Prefix cache policy')
+    await expect(rows.nth(1)).toContainText('Default policy')
+    await expect(page.getByTestId('placement-rules')).not.toContainText(/routed|Default routing|routing$/i)
   })
 })

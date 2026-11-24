@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import { MEMBER, statusFixture } from './access-fixtures.js'
-import { addonRecord, failedOp, galleryItem, mockUpdates, snapshotOf, updateAvailable } from './updates-fixtures.js'
+import { addonRecord, failedOp, galleryItem, mockUpdateRuns, mockUpdates, previewItem, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
 // The per-node view of a backend update and its confirmation. The API is
 // stubbed; the page, the dialog, the shell provider and the run are the real
@@ -80,12 +80,13 @@ test.describe('Updates: the nodes of a backend', () => {
     await nodes.click()
     await expect(page).toHaveURL(/\/app\/updates\/backend\/llama-cpp$/)
     await expect(page.getByRole('heading', { level: 1, name: 'llama-cpp' })).toBeVisible()
-    // The Updates tab stays the current one.
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveAttribute('aria-current', 'page')
+    // The Updates item stays the current one.
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('a single node has no Nodes action and its Update starts at once, with no dialog', async ({ page }) => {
+  test('a single node has no Nodes action and its Update opens the review, not the node dialog', async ({ page }) => {
     const state = await setup(page, { nodes: { a: NODE('a', 'only', '0.9.4', ['m']) } })
+    await mockUpdateRuns(page)
     const direct = []
     await page.route('**/api/backends/upgrade/*', (route) => { direct.push(route.request().url()); return route.fulfill({ json: { jobID: 'j', uuid: 'j' } }) })
     await page.goto('/app/updates')
@@ -97,7 +98,8 @@ test.describe('Updates: the nodes of a backend', () => {
     await page.getByRole('button', { name: 'Check now' }).click()
     await expect(row.getByTestId('update-row-nodes')).toHaveCount(0)
     await row.getByRole('button', { name: 'Update llama-cpp' }).click()
-    await expect.poll(() => direct.length).toBe(1)
+    await expect(page.getByTestId('update-review')).toBeVisible()
+    expect(direct).toEqual([])
     await expect(dialog(page)).toHaveCount(0)
   })
 
@@ -235,15 +237,6 @@ test.describe('Updates: the node confirmation', () => {
     await expect(page.getByTestId('node-update-item')).toHaveCount(1)
     await expect(page.getByTestId('node-update-confirm')).toHaveText('Update 1 node')
   })
-
-  test('the Update of a cluster row on the Updates page asks the question too', async ({ page }) => {
-    const state = await setup(page)
-    await page.goto('/app/updates')
-    await page.getByRole('button', { name: 'Update llama-cpp' }).click()
-    await expect(dialog(page)).toBeVisible()
-    await expect(page.getByTestId('node-update-item')).toHaveCount(2)
-    expect(state.posts).toEqual([])
-  })
 })
 
 test.describe('Updates: the node run', () => {
@@ -351,125 +344,67 @@ test.describe('Updates: nodes, access and layout', () => {
   })
 })
 
-test.describe('Updates: every path to a cluster backend asks first', () => {
-  const VLLM_NODES = [NODE('a', 'gpu-a', '0.9.4', ['m1'])]
-  const vllm = galleryItem('vllm', '0.9.4', '0.9.7', { nodes: VLLM_NODES, driftNodes: 0 })
+test.describe('Updates: a cluster backend on the Updates page goes through the review', () => {
+  const STOPS = [{ code: 'stops_models', params: { count: 2, nodes: 2 } }]
+  const planWithNodes = (items) => items.map(i => previewItem(`${i.kind}:${i.name}`, 'v0.9.4', 'v0.9.7', { risk: i.name === 'llama-cpp' ? STOPS : [] }))
 
-  test('Update ready with a cluster row opens one dialog first, and cancel runs nothing', async ({ page }) => {
+  test('the Update of a cluster row opens its review with the models that stop, and sends nothing to a node', async ({ page }) => {
     const state = await setup(page)
+    const runs = await mockUpdateRuns(page, { preview: planWithNodes })
     const direct = []
-    await page.route('**/api/backends/upgrade/*', (route) => { direct.push(route.request().url()); return route.fulfill({ json: { jobID: 'x' } }) })
+    await page.route('**/api/backends/upgrade/*', (route) => { direct.push(1); return route.fulfill({ json: { jobID: 'x' } }) })
     await page.goto('/app/updates')
-    const button = page.getByTestId('updates-update-ready')
-    await expect(button).toContainText('Update 1 ready')
-    await button.click()
-    await expect(dialog(page).getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
-    await expect(page.getByTestId('node-update-item')).toHaveCount(2)
-    await expect(page.getByTestId('node-update-cancel')).toBeFocused()
-    await page.getByTestId('node-update-cancel').click()
+    await page.getByRole('button', { name: 'Update llama-cpp' }).click()
+    await expect(page.getByTestId('update-review').getByRole('heading', { name: 'Update llama-cpp?' })).toBeVisible()
+    await expect(page.getByTestId('update-review-note')).toContainText('Stops 2 loaded models on 2 nodes while it switches')
     await expect(dialog(page)).toHaveCount(0)
-    await expect(page.getByTestId('updates-bulk')).toHaveCount(0)
+    expect(runs.previews[0].items).toEqual([{ kind: 'gallery', name: 'llama-cpp' }])
     expect(state.posts).toEqual([])
-    expect(direct).toEqual([])
-    // Confirming runs the nodes one after another and never the plain update.
-    await button.click()
-    await page.getByTestId('node-update-confirm').click()
-    await expect(page.getByTestId('node-update-summary')).toHaveText('2 updated, 0 failed, 0 skipped', { timeout: 60_000 })
-    expect(state.posts.map(p => p.id)).toEqual(['a', 'b'])
     expect(direct).toEqual([])
   })
 
-  test('a mixed selection asks about the nodes, and starts the other rows only when it is confirmed', async ({ page }) => {
-    test.setTimeout(120_000)
+  test('Update ready lists the cluster row with the other rows in one review, and cancel runs nothing', async ({ page }) => {
     const state = await setup(page, {
       moreItems: [galleryItem('whisper', '1.7.2', '1.8.0')],
       addons: [addonRecord('notes', 'Notes sync', updateAvailable('0.8.2'), { version: '0.8.1' })],
     })
-    const addonPosts = []
-    await page.route(/\/api\/addons\/notes\/upgrade$/, (route) => { addonPosts.push(1); return route.fulfill({ status: 500, json: {} }) })
+    const runs = await mockUpdateRuns(page, { preview: planWithNodes })
     await page.goto('/app/updates')
     const button = page.getByTestId('updates-update-ready')
     await expect(button).toContainText('Update 3 ready')
     await button.click()
-    // The dialog lists the nodes, and apart from them the rows that start when it is confirmed.
-    await expect(dialog(page).getByRole('heading', { name: 'Start 3 updates?' })).toBeVisible()
-    await expect(page.getByTestId('node-update-item')).toHaveCount(2)
-    await expect(page.getByTestId('node-update-other')).toHaveCount(2)
-    const others = page.getByTestId('node-update-others')
-    await expect(others).toContainText('whisper')
-    await expect(others).toContainText('v1.7.2 to v1.8.0')
-    await expect(others).toContainText('Notes sync')
-    await expect(others).toContainText('Add-on')
-    await expect(others).toContainText('Library official')
-    await expect(others).toContainText('v0.8.1 to v0.8.2')
-    await expect(others).toContainText('backed up and migrated')
-    await expect(page.getByTestId('node-update-confirm')).toContainText('plus 2 more')
-    expect(state.api.upgrades).toEqual([])
-    expect(addonPosts).toEqual([])
+    const review = page.getByTestId('update-review')
+    await expect(review.locator('[data-testid="update-review-item"]')).toHaveCount(3)
+    await expect(review.locator('[data-key="gallery:llama-cpp"]')).toContainText('Stops 2 loaded models on 2 nodes')
     await page.keyboard.press('Escape')
-    await expect(dialog(page)).toHaveCount(0)
+    await expect(review).toHaveCount(0)
+    expect(runs.starts).toEqual([])
+    expect(state.posts).toEqual([])
     expect(state.api.upgrades).toEqual([])
-    expect(addonPosts).toEqual([])
-    expect(state.posts).toEqual([])
-    await button.click()
-    await page.getByTestId('node-update-confirm').click()
-    await expect.poll(() => state.api.upgrades, { timeout: 30_000 }).toEqual(['whisper'])
-    await expect.poll(() => addonPosts.length, { timeout: 60_000 }).toBeGreaterThan(0)
-    await expect(page.getByTestId('node-update-summary')).toHaveText('2 updated, 0 failed, 0 skipped', { timeout: 60_000 })
-    expect(state.posts.map(p => p.id)).toEqual(['a', 'b'])
   })
 
-  test('only node backends selected: the dialog has no other-updates section', async ({ page }) => {
-    await setup(page)
-    await page.goto('/app/updates')
-    await page.getByTestId('updates-update-ready').click()
-    await expect(dialog(page).getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
-    await expect(page.getByTestId('node-update-others')).toHaveCount(0)
-  })
-
-  test('rows without a cluster start at once, with no dialog', async ({ page }) => {
-    const state = await setup(page, { nodes: { c: NODE('c', 'cpu-c', '0.9.7', []), d: NODE('d', 'cpu-d', '0.9.7', []) }, moreItems: [galleryItem('whisper', '1.7.2', '1.8.0')] })
-    await page.goto('/app/updates')
-    await page.getByTestId('updates-update-ready').click()
-    await expect.poll(() => state.api.upgrades).toEqual(['whisper'])
-    await expect(dialog(page)).toHaveCount(0)
-  })
-
-  test('two cluster backends make one combined dialog that names the backend on each line', async ({ page }) => {
-    const state = await setup(page, { moreItems: [vllm] })
-    await page.goto('/app/updates')
-    await expect(page.getByTestId('updates-update-ready')).toContainText('Update 2 ready')
-    await page.getByTestId('updates-update-ready').click()
-    await expect(dialog(page).getByRole('heading', { name: 'Update 2 backends on 2 nodes?' })).toBeVisible()
-    await expect(page.getByTestId('node-update-item')).toHaveCount(3)
-    await expect(itemOf(page, 'a').first()).toContainText('llama-cpp')
-    await expect(dialog(page)).toContainText('vllm')
-    await expect(dialog(page)).toContainText('Stops m1')
-    expect(state.posts).toEqual([])
-  })
-
-  test('Retry on a failed cluster row asks first and never sends the plain update', async ({ page }) => {
+  test('Retry on a failed cluster row opens its review and never sends the plain update', async ({ page }) => {
     const state = await setup(page, { operations: [failedOp('llama-cpp')] })
+    const runs = await mockUpdateRuns(page, { preview: planWithNodes })
     const direct = []
     await page.route('**/api/backends/upgrade/*', (route) => { direct.push(1); return route.fulfill({ json: { jobID: 'x' } }) })
     await page.goto('/app/updates')
     await page.getByRole('button', { name: 'Retry llama-cpp' }).click()
-    await expect(dialog(page).getByRole('heading', { name: 'Update llama-cpp on 2 nodes?' })).toBeVisible()
+    await expect(page.getByTestId('update-review')).toBeVisible()
+    expect(runs.previews[0].items).toEqual([{ kind: 'gallery', name: 'llama-cpp' }])
     expect(direct).toEqual([])
     expect(state.posts).toEqual([])
-    await page.getByTestId('node-update-cancel').click()
-    expect(direct).toEqual([])
   })
 
-  test('narrow: the sticky Update button opens the same dialog, and it fits the screen', async ({ page }) => {
+  test('narrow: the sticky Update button opens the review, and it fits the screen', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    const state = await setup(page, { moreItems: [vllm] })
+    const state = await setup(page)
+    await mockUpdateRuns(page, { preview: planWithNodes })
     await page.goto('/app/updates')
     await page.getByTestId('updates-sticky').getByTestId('updates-update-ready').click()
-    const box = await dialog(page).boundingBox()
+    const box = await page.getByTestId('update-review').boundingBox()
     expect(box.x).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(390)
-    await expect(page.getByTestId('node-update-item')).toHaveCount(3)
     expect(state.posts).toEqual([])
   })
 })

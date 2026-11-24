@@ -50,6 +50,13 @@ var _ = Describe("Policy", func() {
 		}
 	})
 
+	It("checks a source repository alone with the rule the policy applies", func() {
+		Expect(cosignverify.CheckSourceRepository("https://github.com/example-org/example-repo")).To(Succeed())
+		for _, bad := range []string{"", "github.com/example-org/example-repo", "http://github.com/example-org/example-repo", "https://", "https://github.com/example-org/example-repo "} {
+			Expect(cosignverify.CheckSourceRepository(bad)).NotTo(Succeed(), bad)
+		}
+	})
+
 	It("still requires the identity when a source repository is set", func() {
 		_, err := cosignverify.NewVerifier(cosignverify.Policy{
 			Issuer:           "https://token.actions.githubusercontent.com",

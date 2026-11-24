@@ -337,6 +337,8 @@ jobs:
     # release tag, version and SHA-256 (see backend/go/strata/Makefile), and a
     # bump takes each package from the newest release that has it. The newest
     # release and its commit are pinned too: the Python modules come from it.
+    # The engine has three package families (strata-engine, strata-hy4 and
+    # strata-inkling), each with its own pins; the script moves all of them.
     # bump_deps.sh handles one commit variable only. Releases, not main.
     # If a release changes Strata's Python requirements, regenerate
     # backend/go/strata/requirements.txt by hand in the bump PR.

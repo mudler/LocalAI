@@ -1,22 +1,31 @@
 package localai
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/monitoring"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/mudler/xlog"
 )
 
-// SystemInformations returns the system informations
+// RemoteLoadedModelsFunc lists the models loaded on distributed workers. It is
+// nil, or returns nil, when the instance is not distributed.
+type RemoteLoadedModelsFunc func(ctx context.Context) ([]nodes.NodeModel, error)
+
+// SystemInformations returns the system informations. In distributed mode the
+// loaded models include those held by workers, so clients see a model as
+// loaded even when no backend process runs on this host.
 // @Summary Show the LocalAI instance information
 // @Tags monitoring
 // @Success 200 {object} schema.SystemInformationResponse "Response"
 // @Router /system [get]
-func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, sampler *monitoring.LocalProcessSampler) echo.HandlerFunc {
+func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, sampler *monitoring.LocalProcessSampler, remoteLoaded RemoteLoadedModelsFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		availableBackends := []string{}
 		loadedModels := ml.ListLoadedModels()
@@ -52,6 +61,30 @@ func SystemInformations(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 		if sampler != nil {
 			sampler.Retain(live)
+		}
+		if remoteLoaded != nil {
+			remote, err := remoteLoaded(c.Request().Context())
+			if err != nil {
+				xlog.Warn("Could not list models loaded on workers", "error", err)
+			}
+			seen := make(map[string]struct{}, len(sysmodels))
+			for _, m := range sysmodels {
+				seen[m.ID] = struct{}{}
+			}
+			for _, nm := range remote {
+				if nm.State != "loaded" {
+					continue
+				}
+				if _, dup := seen[nm.ModelName]; dup {
+					continue
+				}
+				seen[nm.ModelName] = struct{}{}
+				entry := schema.SysInfoModel{ID: nm.ModelName}
+				if cfg, ok := cl.GetModelConfig(nm.ModelName); ok {
+					entry.Backend = cfg.Backend
+				}
+				sysmodels = append(sysmodels, entry)
+			}
 		}
 		return c.JSON(200,
 			schema.SystemInformationResponse{

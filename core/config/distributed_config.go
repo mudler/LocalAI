@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/natsauth"
 	"github.com/mudler/xlog"
 )
@@ -260,6 +261,13 @@ func WithNatsURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Distributed.NatsURL = url
 	}
+}
+
+// WorkerAuthToken is the bearer token between the frontends and the workers for
+// the data plane. It is derived from the registration token, and empty when
+// there is none.
+func (c DistributedConfig) WorkerAuthToken() string {
+	return workerctl.WorkerAuthToken(c.RegistrationToken)
 }
 
 func WithRegistrationToken(token string) AppOption {

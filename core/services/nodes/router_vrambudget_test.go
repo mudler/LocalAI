@@ -30,7 +30,7 @@ var _ = Describe("applyNodeHardwareDefaults with VRAM budget", func() {
 			TotalVRAM:            64 * gb,
 			VRAMBudgetBytes:      2 * gb, // tiny operator budget
 		}
-		opts := &pb.ModelOptions{NBatch: int32(config.BlackwellPhysicalBatch), ContextSize: largeCtx}
+		opts := &pb.ModelOptions{NBatch: int32(config.BlackwellPhysicalBatch), BatchManaged: true, ContextSize: largeCtx}
 
 		applyNodeHardwareDefaults(opts, node, "llama-cpp")
 

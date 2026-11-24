@@ -135,6 +135,29 @@ var _ = Describe("Library source routes", func() {
 		Expect(ok).To(BeTrue())
 	})
 
+	It("adds an oci:// add-on source that names its signer by a pattern pinned to a source repository", func() {
+		body := `{"kind":"addon","id":"fixture","url":"oci://registry.example/fixture-addon/library:1","issuer":"https://issuer.example","identity_regex":"^https://github\\.com/example-org/shared/.+$","source_repository":"https://github.com/example-org/example-repo"}`
+		rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", body)
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		want := catalog.VerificationPolicy{RequireSignature: true, Issuer: "https://issuer.example", IdentityRegex: `^https://github\.com/example-org/shared/.+$`, SourceRepository: "https://github.com/example-org/example-repo"}
+		found := false
+		for _, s := range store.Entries() {
+			if s.ID == "fixture" {
+				found = true
+				Expect(s.Policy).To(Equal(want))
+			}
+		}
+		Expect(found).To(BeTrue())
+	})
+
+	It("refuses a pattern without a source repository with a plain message", func() {
+		body := `{"kind":"addon","url":"oci://registry.example/a:1","issuer":"https://issuer.example","identity_regex":"^https://github\\.com/example-org/shared/.+$"}`
+		rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", body)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("source_repository"))
+		Expect(applied).To(BeZero())
+	})
+
 	It("refuses a half policy and a policy on another kind of source", func() {
 		for _, body := range []string{
 			`{"kind":"addon","url":"oci://registry.example/a:1","issuer":"https://issuer.example"}`,

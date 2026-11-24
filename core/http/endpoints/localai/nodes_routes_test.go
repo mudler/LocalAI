@@ -74,17 +74,30 @@ var _ = Describe("Registration mints a credential for each route a worker asks f
 		natsCfg = natsauth.Config{AccountSeed: string(seed)}
 	})
 
+	// A node that registers again presents the own credential that its first
+	// registration gave it, as a worker does after a restart.
+	credentials := map[string]string{}
 	register := func(body string, autoApprove bool, opts ...RegisterOption) (int, map[string]any) {
 		GinkgoHelper()
 		e := echo.New()
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		var named struct {
+			Name string `json:"name"`
+		}
+		_ = json.Unmarshal([]byte(body), &named)
+		if c := credentials[named.Name]; c != "" {
+			req.Header.Set("Authorization", "Bearer "+c)
+		}
 		rec := httptest.NewRecorder()
 		opts = append(opts, WithTunnelDisconnector(tunnels))
 		Expect(RegisterNodeEndpoint(registry, "", autoApprove, nil, "", natsCfg, opts...)(e.NewContext(req, rec))).To(Succeed())
 		var resp map[string]any
 		if rec.Code == http.StatusCreated {
 			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			if tok, ok := resp["node_token"].(string); ok {
+				credentials[named.Name] = tok
+			}
 		}
 		return rec.Code, resp
 	}

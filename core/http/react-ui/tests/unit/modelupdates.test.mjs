@@ -5,7 +5,7 @@ import {
   modelSource, opForModel, upgradeBody, valueText,
 } from '../../src/utils/modelUpdates.js'
 import {
-  badgeOf, bulkItemsOf, filterCounts, groupOf, groupRows, headlineOf, needsPersonRows, sourceViews,
+  badgeOf, filterCounts, groupOf, groupRows, headlineOf, needsPersonRows, sourceViews,
 } from '../../src/utils/updates.js'
 
 const D1 = 'sha256:1111111111111111aaaa'
@@ -95,8 +95,6 @@ test('model rows: models always need a person, the hold does not count, and the 
   // Running upgrades are followed, not counted.
   const running = modelRows({ items: [item('a', 'update-available')] }, { operations: [{ name: 'a', jobID: 'j', isBackend: false, taskType: 'upgrade', phase: 'staging' }] })
   assert.equal(badgeOf(running).count, 0)
-  // Update ready never runs a model.
-  assert.deepEqual(bulkItemsOf(rows), [])
   const groups = groupRows(rows)
   assert.deepEqual(groups.other.map(r => r.name).sort(), ['d', 'e', 'f'])
   assert.equal(filterCounts(rows).all, 7)

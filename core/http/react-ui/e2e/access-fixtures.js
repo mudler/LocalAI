@@ -47,14 +47,14 @@ const allOn = { chat: true, images: true, audio_speech: true, embeddings: true, 
 
 export function usersFixture() {
   return [
-    { id: 'u-alice', email: 'alice@lab.example', name: 'alice', role: 'admin', status: 'active', provider: 'local', createdAt: iso(-90 * DAY), permissions: allOn },
-    { id: 'u-bob', email: 'bob@lab.example', name: 'bob', role: 'user', status: 'active', provider: 'github', createdAt: iso(-60 * DAY),
+    { id: 'u-alice', email: 'alice@lab.example', name: 'alice', role: 'admin', status: 'active', provider: 'local', createdAt: iso(-90 * DAY), lastActiveAt: iso(-30_000), apiKeyCount: 3, permissions: allOn },
+    { id: 'u-bob', email: 'bob@lab.example', name: 'bob', role: 'user', status: 'active', provider: 'github', createdAt: iso(-60 * DAY), lastActiveAt: iso(-2 * HOUR), apiKeyCount: 1,
       permissions: { ...allOn, agents: true, skills: true }, allowed_models: { enabled: true, models: ['qwen3-8b-instruct', 'bge-m3'] }, quotas: [] },
-    { id: 'u-carol', email: 'carol@lab.example', name: 'carol', role: 'user', status: 'active', provider: 'oidc', createdAt: iso(-30 * DAY),
+    { id: 'u-carol', email: 'carol@lab.example', name: 'carol', role: 'user', status: 'active', provider: 'oidc', createdAt: iso(-30 * DAY), lastActiveAt: iso(-5 * DAY), apiKeyCount: 2,
       permissions: { ...allOn, agents: true }, allowed_models: { enabled: false, models: [] },
       quotas: [{ id: 'q1', model: '', max_requests: null, max_total_tokens: 2_000_000, window: '1d', current_requests: 0, current_total_tokens: 1_180_000 }] },
-    { id: 'u-dave', email: 'dave@lab.example', name: 'dave', role: 'user', status: 'pending', provider: 'local', createdAt: iso(-1 * DAY), permissions: allOn, allowed_models: { enabled: false, models: [] } },
-    { id: 'u-erin', email: 'erin@lab.example', name: '', role: 'user', status: 'disabled', provider: 'local', createdAt: iso(-120 * DAY), permissions: allOn, allowed_models: { enabled: false, models: [] } },
+    { id: 'u-dave', email: 'dave@lab.example', name: 'dave', role: 'user', status: 'pending', provider: 'local', createdAt: iso(-1 * DAY), lastActiveAt: null, apiKeyCount: 0, permissions: allOn, allowed_models: { enabled: false, models: [] } },
+    { id: 'u-erin', email: 'erin@lab.example', name: '', role: 'user', status: 'disabled', provider: 'local', createdAt: iso(-120 * DAY), lastActiveAt: iso(-45 * DAY), apiKeyCount: 0, permissions: allOn, allowed_models: { enabled: false, models: [] } },
   ]
 }
 
@@ -97,7 +97,7 @@ export function myUsageFixture() {
 // changes something, as { method, path, body }. Pass `status` to pick the
 // auth status variant.
 export async function mockAccess(page, { status = 'admin', statusExtra = {}, users = usersFixture(), invites = invitesFixture(), keys = keysFixture(), quotas = QUOTAS } = {}) {
-  const state = { writes: [], users, invites, keys, quotas, failNext: null }
+  const state = { writes: [], users, invites, keys, quotas, failNext: null, usersDown: false }
   const body = (route) => { try { return route.request().postDataJSON() } catch { return null } }
   const record = (route, path) => state.writes.push({ method: route.request().method(), path, body: body(route) })
   const json = (route, data, status = 200) => route.fulfill({ status, json: data })
@@ -107,7 +107,7 @@ export async function mockAccess(page, { status = 'admin', statusExtra = {}, use
   await page.route('**/api/auth/quota', route => json(route, { quotas: state.quotas }))
   await page.route('**/api/auth/usage?*', route => json(route, myUsageFixture()))
   await page.route('**/api/auth/admin/features', route => json(route, FEATURES))
-  await page.route('**/api/auth/admin/users', route => json(route, { users: state.users }))
+  await page.route('**/api/auth/admin/users', route => (state.usersDown ? json(route, { error: 'database is down' }, 500) : json(route, { users: state.users })))
   await page.route('**/api/auth/admin/users/*/**', async route => {
     const req = route.request()
     const path = new URL(req.url()).pathname

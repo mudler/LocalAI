@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,7 +35,13 @@ const (
 type Strata struct {
 	base.SingleThread
 
+	// lifeMu serializes Load and the restart of a dead engine. They can run
+	// for minutes (a pack build takes up to two hours), so they must not hold
+	// mu: Status, Free and the request path only ever need mu, briefly.
+	lifeMu sync.Mutex
+
 	mu     sync.RWMutex
+	freed  uint64 // counts Free calls, so a Load that Free overtook can tell
 	eng    *engine
 	tok    Tokenizer
 	vision *imageEncoder
@@ -47,12 +56,26 @@ type Strata struct {
 	startEngine  func(engineConfig) (*engine, error)
 	buildPack    func(packBuild) error
 	newTokenizer func(python, strataRoot, pack, family string, timeout time.Duration) (Tokenizer, error)
+
+	// Hy4 seams: the tokenizer from the model file, and the engine's --info.
+	prepareHy4Tokenizer func(hy4TokenizerJob) error
+	probeHy4Info        func(enginePath, native string, env []string) (map[string]string, error)
+
+	// Inkling seams: the tokenizer from the model files, and the engine's --info.
+	prepareInklingTokenizer func(inklingTokenizerJob) error
+	probeInklingInfo        func(enginePath string, args, env []string) (map[string]string, error)
 }
 
 func NewStrata() *Strata {
 	return &Strata{
 		startEngine: startEngine,
 		buildPack:   runPackBuild,
+
+		prepareHy4Tokenizer: prepareHy4Tokenizer,
+		probeHy4Info:        probeHy4Info,
+
+		prepareInklingTokenizer: prepareInklingTokenizer,
+		probeInklingInfo:        probeInklingInfo,
 		newTokenizer: func(python, root, pack, family string, timeout time.Duration) (Tokenizer, error) {
 			return newHelperTokenizer(python, root, pack, family, timeout)
 		},
@@ -68,9 +91,16 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
 	}
 
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	// The previous model goes first, so its memory is free for the new one.
+	// From here until the swap below the backend reports no model, and the
+	// slow steps (pack build, tokenizer, engine start) run without mu.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.freeLocked()
+	freedAt := s.freed
+	s.mu.Unlock()
 
 	if c.build != nil {
 		b := *c.build
@@ -80,20 +110,34 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 	}
 
+	if c.hy4 != nil {
+		if err := s.prepareHy4(&c); err != nil {
+			return err
+		}
+	}
+
+	if c.inkling != nil {
+		if err := s.prepareInkling(&c); err != nil {
+			return err
+		}
+	}
+
 	tok, err := s.newTokenizer(c.python, c.strataRoot, c.pack, c.family, c.readyTimeout)
 	if err != nil {
 		return fmt.Errorf("strata: %w", err)
 	}
-	eng, err := s.startEngine(engineConfig{
-		Path:         c.enginePath,
-		Args:         c.engineArgs(),
-		Env:          c.env,
-		ReadyTimeout: c.readyTimeout,
-		StopTimeout:  c.stopTimeout,
-	})
+	eng, err := s.startEngine(c.engineConfig())
 	if err != nil {
 		_ = tok.Close()
 		return fmt.Errorf("strata: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.freed != freedAt {
+		eng.close()
+		_ = tok.Close()
+		return errors.New("strata: the model was freed while it was loading")
 	}
 	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
@@ -101,13 +145,14 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	switch {
 	case eosIDs != nil:
 	default:
-		eosIDs = defaultEOS(tok)
+		eosIDs = defaultEOS(tok, c.family)
 	}
 	for _, id := range eosIDs {
 		s.eos[id] = true
 	}
 	s.padID, s.startID, s.padLiteral = -1, -1, nil
-	if c.vision != nil {
+	// Hy4 and Inkling: the engine reads pictures itself, so there is no encoder to start.
+	if c.hy4 == nil && c.inkling == nil && c.vision != nil {
 		s.vision = newImageEncoder(*c.vision)
 		if ids, err := tok.Encode(imagePadText, true); err == nil && len(ids) == 1 {
 			s.padID = ids[0]
@@ -117,23 +162,147 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		}
 		s.padLiteral, _ = tok.Encode(imagePadText, false)
 	}
-	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil)
+	xlog.Info("strata: engine ready", "context", eng.ctxLen, "stop_supported", eng.canStop, "vision", c.vision != nil || (c.hy4 != nil && c.hy4.useVision) || (c.inkling != nil && c.inkling.useVision))
 	return nil
 }
 
-// defaultEOS finds the end-of-turn tokens of the Qwen family by name, and
+func (c loadConfig) engineConfig() engineConfig {
+	return engineConfig{
+		Path:         c.enginePath,
+		Args:         c.engineArgs(),
+		Env:          c.env,
+		ReadyTimeout: c.readyTimeout,
+		StopTimeout:  c.stopTimeout,
+	}
+}
+
+// restartAttempts bounds how often one request tries to start the engine again.
+const restartAttempts = 2
+
+// restartEngine replaces an engine that has died with a new one started from
+// the saved load configuration. The model stays loaded in every other way (the
+// tokenizer, the image encoder, the end tokens), so only the process is new;
+// its conversation cache starts empty.
+//
+// It is single-flight: restarts and Load share lifeMu, so a second request
+// that finds the same dead engine waits for the first and then uses its result.
+// A failed restart leaves the dead engine in place; the next request tries
+// again.
+func (s *Strata) restartEngine(ctx context.Context, dead *engine) (*engine, error) {
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	s.mu.RLock()
+	cur, cfg := s.eng, s.cfg
+	s.mu.RUnlock()
+	if cur == nil {
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	if cur != dead && cur.alive() {
+		return cur, nil // another request, or a Load, already replaced it
+	}
+	xlog.Warn("strata: the engine is not running, starting it again", "pid", cur.pid())
+	cur.close() // reaps it if it is still being waited for
+
+	var (
+		eng *engine
+		err error
+	)
+	for attempt := 1; attempt <= restartAttempts; attempt++ {
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
+		if eng, err = s.startEngine(cfg.engineConfig()); err == nil {
+			break
+		}
+		xlog.Warn("strata: the engine did not restart", "attempt", attempt, "error", err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("strata: the engine exited and could not be started again: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.eng != cur { // Free ran meanwhile
+		eng.close()
+		return nil, grpcerrors.ModelNotLoaded(backendName)
+	}
+	s.eng = eng
+	xlog.Info("strata: engine restarted", "context", eng.ctxLen)
+	return eng, nil
+}
+
+// defaultEOS finds the end-of-turn tokens of the model family by name, and
 // falls back to their known ids.
-func defaultEOS(tok Tokenizer) []int {
+func defaultEOS(tok Tokenizer, family string) []int {
+	names, fallback := []string{"<|endoftext|>", "<|im_end|>"}, defaultEOSIDs
+	switch family {
+	case familyHy4:
+		names, fallback = hy4EOSTexts, defaultHy4EOSIDs
+	case familyInkling:
+		names, fallback = inklingEOSTexts, defaultInklingEOSIDs
+	}
 	var out []int
-	for _, t := range []string{"<|endoftext|>", "<|im_end|>"} {
+	for _, t := range names {
 		if ids, err := tok.Encode(t, true); err == nil && len(ids) == 1 {
 			out = append(out, ids[0])
 		}
 	}
 	if len(out) == 0 {
-		return defaultEOSIDs
+		return fallback
 	}
 	return out
+}
+
+// prepareHy4 makes the tokenizer directory from the model file and asks the
+// engine what it can do. It sets the pack the tokenizer helper reads.
+func (s *Strata) prepareHy4(c *loadConfig) error {
+	h := c.hy4
+	if c.strataRoot == "" {
+		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
+	}
+	pack := hy4PackDir(h.native)
+	if err := s.prepareHy4Tokenizer(hy4TokenizerJob{native: h.native, pack: pack, python: c.python, strataRoot: c.strataRoot}); err != nil {
+		return fmt.Errorf("strata: cannot make the tokenizer from %s: %w", filepath.Base(h.native), err)
+	}
+	c.pack = pack
+	var info map[string]string
+	if h.wantDrafter || h.vision != "" {
+		var err error
+		if info, err = s.probeHy4Info(c.enginePath, h.native, c.env); err != nil {
+			xlog.Warn("strata: cannot ask the engine what it supports", "error", err)
+		}
+	}
+	for _, n := range h.applyInfo(info) {
+		xlog.Info("strata: " + n)
+	}
+	return nil
+}
+
+// prepareInkling makes the tokenizer directory from the model files and asks
+// the engine what it can do. It sets the pack the tokenizer helper reads.
+func (s *Strata) prepareInkling(c *loadConfig) error {
+	h := c.inkling
+	if c.strataRoot == "" {
+		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
+	}
+	pack := inklingPackDir(h.native)
+	job := inklingTokenizerJob{native: h.native, tokenizerJSON: h.tokenizerJSON, chatTemplate: h.chatTemplate, pack: pack, python: c.python, strataRoot: c.strataRoot}
+	if err := s.prepareInklingTokenizer(job); err != nil {
+		return fmt.Errorf("strata: cannot make the tokenizer for %s: %w", filepath.Base(h.native), err)
+	}
+	c.pack = pack
+	var info map[string]string
+	if h.wantDrafter || h.vision != "" {
+		var err error
+		if info, err = s.probeInklingInfo(c.enginePath, h.infoArgs(), c.env); err != nil {
+			xlog.Warn("strata: cannot ask the engine what it supports", "error", err)
+		}
+	}
+	for _, n := range h.applyInfo(info) {
+		xlog.Info("strata: " + n)
+	}
+	return nil
 }
 
 func (s *Strata) freeLocked() {
@@ -154,6 +323,7 @@ func (s *Strata) freeLocked() {
 func (s *Strata) Free() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.freed++
 	s.freeLocked()
 	return nil
 }
@@ -284,7 +454,14 @@ func (s *Strata) preparePrompt(tok Tokenizer, opts *pb.PredictOptions) (prepared
 		if got := strings.Count(text, marker); got != n {
 			return p, fmt.Errorf("the prompt has %d image markers (%s) for %d images", got, marker, n)
 		}
-		text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
+		switch {
+		case s.cfg.hy4 != nil:
+			text = strings.ReplaceAll(text, marker, hy4ImageStartText+hy4ImagePadText+hy4ImageEndText)
+		case s.cfg.inkling != nil:
+			text = strings.ReplaceAll(text, marker, inklingImageText)
+		default:
+			text = strings.ReplaceAll(text, marker, visionStartText+imagePadText+visionEndText)
+		}
 		p.Images = opts.GetImages()
 	}
 	ids, err := tok.Encode(text, true)
@@ -391,12 +568,68 @@ func samplingKeys(opts *pb.PredictOptions) []string {
 	return k
 }
 
+// logitBiasKey turns the request's logit_bias (a JSON object of token id to
+// bias, as LocalAI sends it) into the engine's key, "logit_bias=id:bias,id:bias"
+// with the ids in ascending order. It returns "" when there is no bias. The
+// engine takes biases from -100 to 100, where -100 bans the token, and refuses
+// a repeated id.
+func logitBiasKey(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	var m map[string]float64
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return "", fmt.Errorf("strata: logit_bias is not a JSON object of token id to bias: %w", err)
+	}
+	biases := make(map[int]float64, len(m))
+	for k, v := range m {
+		id, err := strconv.Atoi(k)
+		if err != nil || id < 0 {
+			return "", fmt.Errorf("strata: logit_bias: %q is not a token id", k)
+		}
+		if math.IsNaN(v) || v < -100 || v > 100 {
+			return "", fmt.Errorf("strata: logit_bias: the bias of token %d must be between -100 and 100", id)
+		}
+		if _, dup := biases[id]; dup {
+			return "", fmt.Errorf("strata: logit_bias: token %d is given twice", id)
+		}
+		biases[id] = v
+	}
+	if len(biases) == 0 {
+		return "", nil
+	}
+	ids := make([]int, 0, len(biases))
+	for id := range biases {
+		ids = append(ids, id)
+	}
+	sort.Ints(ids)
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.Itoa(id) + ":" + strconv.FormatFloat(biases[id], 'g', -1, 64)
+	}
+	return "logit_bias=" + strings.Join(parts, ","), nil
+}
+
 // logprobsK is the number of alternatives to ask the engine for, or -1.
 func logprobsK(opts *pb.PredictOptions) int {
 	if opts.GetLogprobs() <= 0 && opts.GetTopLogprobs() <= 0 {
 		return -1
 	}
 	return min(int(opts.GetTopLogprobs()), maxLogprobs)
+}
+
+// noBiasEngine names the engine of this model when it has no logit_bias key
+// (the engine reads the key only on the pack path), or returns "".
+func (s *Strata) noBiasEngine() string {
+	switch {
+	case s.cfg.hy4 != nil:
+		return "the Hy4-Flash engine"
+	case s.cfg.inkling != nil:
+		return "the Inkling engine"
+	case s.cfg.noPackFlag:
+		return "the Qwen engine of a model that runs without a pack"
+	}
+	return ""
 }
 
 type runResult struct {
@@ -417,6 +650,11 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	if err != nil {
 		return res, err
 	}
+	if !eng.alive() {
+		if eng, err = s.restartEngine(ctx, eng); err != nil {
+			return res, err
+		}
+	}
 	s.mu.RLock()
 	eos, ctxLen := s.eos, s.ctxLen
 	s.mu.RUnlock()
@@ -427,6 +665,21 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 		return res, errors.New("strata: video and audio input are not supported")
 	}
 
+	// Refuse what the engine would ignore: a request that is accepted and then
+	// answered without its logprobs or its bias is worse than an error.
+	biasKey, err := logitBiasKey(opts.GetLogitBias())
+	if err != nil {
+		return res, err
+	}
+	if biasKey != "" {
+		if name := s.noBiasEngine(); name != "" {
+			return res, fmt.Errorf("strata: logit_bias is not supported by %s", name)
+		}
+	}
+	if s.cfg.noPackFlag && logprobsK(opts) >= 0 {
+		return res, errors.New("strata: logprobs are not supported by the Qwen engine of a model that runs without a pack")
+	}
+
 	p, err := s.preparePrompt(tok, opts)
 	if err != nil {
 		return res, fmt.Errorf("strata: %w", err)
@@ -434,8 +687,36 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 	if len(p.IDs) == 0 {
 		return res, errors.New("strata: empty prompt")
 	}
-	embFile, release, err := s.expandImages(vis, &p)
-	if err != nil {
+	var (
+		embFile   string
+		imageKeys []string
+		release   = func() {}
+	)
+	if s.cfg.hy4 != nil {
+		if logprobsK(opts) >= 0 {
+			return res, errors.New("strata: logprobs are not supported by the Hy4-Flash engine")
+		}
+		if len(p.Images) > 0 {
+			if !s.cfg.hy4.useVision {
+				return res, errors.New("strata: this model cannot read images: the vision file is missing or the engine does not support it")
+			}
+			if imageKeys, release, err = hy4ImageKeys(p.Images); err != nil {
+				return res, fmt.Errorf("strata: %w", err)
+			}
+		}
+	} else if s.cfg.inkling != nil {
+		if logprobsK(opts) >= 0 {
+			return res, errors.New("strata: logprobs are not supported by the Inkling engine")
+		}
+		if len(p.Images) > 0 {
+			if !s.cfg.inkling.useVision {
+				return res, errors.New("strata: this model cannot read images: the vision file is missing or the engine does not support it")
+			}
+			if imageKeys, release, err = directImageKeys("strata-inkling-images-", p.Images); err != nil {
+				return res, fmt.Errorf("strata: %w", err)
+			}
+		}
+	} else if embFile, release, err = s.expandImages(vis, &p); err != nil {
 		return res, err
 	}
 	defer release()
@@ -505,7 +786,11 @@ func (s *Strata) run(ctx context.Context, opts *pb.PredictOptions, emit func(raw
 		return nil
 	}
 
-	greq := genRequest{MaxNew: maxNew, Keys: samplingKeys(opts), IDs: ids, Embeddings: embFile}
+	keys := append(samplingKeys(opts), imageKeys...)
+	if biasKey != "" {
+		keys = append(keys, biasKey)
+	}
+	greq := genRequest{MaxNew: maxNew, Keys: keys, IDs: ids, Embeddings: embFile}
 	if k >= 0 {
 		greq.Logprobs = &k
 	}
@@ -591,8 +876,17 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 			return ctx.Err()
 		}
 	}
+	// A chat reply streams the parsed content as Message, as the llama.cpp
+	// backend does. With the raw text, LocalAI's stream worker falls back to it
+	// for any chunk whose ChatDelta has no content (a tool call, held text) and
+	// streams tool-call markup and reasoning as content.
+	parsed := opts.GetUseTokenizerTemplate() && len(opts.GetMessages()) > 0
 	res, err := s.run(ctx, opts, func(raw string, d *pb.ChatDelta) error {
-		r := &pb.Reply{Message: []byte(raw)}
+		msg := raw
+		if parsed && d != nil {
+			msg = d.Content
+		}
+		r := &pb.Reply{Message: []byte(msg)}
 		if d != nil {
 			r.ChatDeltas = []*pb.ChatDelta{d}
 		}
@@ -602,6 +896,19 @@ func (s *Strata) PredictStreamRichContext(ctx context.Context, opts *pb.PredictO
 		return err
 	}
 	return put(res.usage())
+}
+
+// PredictRich and PredictStreamRich make Strata a grpc.AIModelRich as well.
+// The gRPC server's PredictStream only looks for AIModelRichContext inside its
+// AIModelRich check (pkg/grpc/server.go), so without these a streamed request
+// takes the legacy text-only PredictStream below and loses the ChatDeltas
+// (tool calls, reasoning) the output parser produced.
+func (s *Strata) PredictRich(opts *pb.PredictOptions) (*pb.Reply, error) {
+	return s.PredictRichContext(context.Background(), opts)
+}
+
+func (s *Strata) PredictStreamRich(opts *pb.PredictOptions, out chan<- *pb.Reply) error {
+	return s.PredictStreamRichContext(context.Background(), opts, out)
 }
 
 // Legacy entry points, for callers that do not use the rich interface.

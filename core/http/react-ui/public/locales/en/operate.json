@@ -210,7 +210,9 @@
       "failed": "Failed",
       "queued": "Queued",
       "workerBusy": "Worker busy",
-      "downloading": "Downloading"
+      "downloading": "Downloading",
+      "rolledBack": "Rolled back",
+      "unconfirmed": "Not confirmed"
     },
     "kind": {
       "model": "model",
@@ -520,5 +522,38 @@
     "emptyStream": "No {{stream}} output. Try switching to \"All\".",
     "emptyFilter": "No line contains that text.",
     "emptyBody": "Log output will appear here as the backend process runs."
+  },
+  "overview": {
+    "title": "Overview",
+    "openWorker": "Open worker",
+    "approve": "Approve",
+    "approveAll": "Approve all",
+    "signups_one": "{{count}} sign-up waits for approval",
+    "signups_other": "{{count}} sign-ups wait for approval",
+    "approved_one": "Approved {{count}} sign-up",
+    "approved_other": "Approved {{count}} sign-ups",
+    "approveFailed": "Could not approve: {{message}}",
+    "cluster": "Cluster",
+    "machine": "This machine",
+    "openWorkers": "Open workers",
+    "openMachine": "Open This machine",
+    "online": "Online",
+    "ofTotal": "of {{total}}",
+    "loaded": "Loaded",
+    "inFlight": "In flight",
+    "memory": "Memory",
+    "disk": "Disk",
+    "diskFree": "{{free}} free of {{total}}",
+    "traffic": "Traffic, {{hours}} h",
+    "openUsage": "Open usage",
+    "requests": "Requests",
+    "failed": "Failed",
+    "p95": "P95",
+    "barsLabel": "Requests over the last {{hours}} hours",
+    "access": "Access",
+    "users": "Users",
+    "waiting": "Waiting",
+    "admins": "Admins",
+    "openUsers": "Open users"
   }
 }

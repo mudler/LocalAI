@@ -11,7 +11,8 @@ import { useModels } from '../hooks/useModels'
 import ActionMenu from '../components/ActionMenu'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Icon from '../components/Icon'
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Guarded } from '../components/viewas/parts'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, Tabs } from '../components/ui'
 import ProjectSheet from '../components/projects/ProjectSheet'
 import ProjectChats, { ChatRows, chatPath } from '../components/projects/ProjectChats'
 import ProjectAgents from '../components/projects/ProjectAgents'
@@ -25,7 +26,7 @@ import { deleteProjectWithUndo } from '../components/projects/projectUndo'
 import { ProjectStatus } from './Projects'
 import { readChatStart, readLastModel } from '../utils/lastModel'
 import { proposalsForProject } from '../utils/changeProposal'
-import { defaultsCount, memoryTopicCount, isProjectsOff, pickStartModel, startChatBody, whenAgo, wrapKey } from '../utils/projects'
+import { defaultsCount, memoryTopicCount, isProjectsOff, pickStartModel, startChatBody, whenAgo } from '../utils/projects'
 import './projects.css'
 
 const TABS = ['overview', 'files', 'chats', 'agents', 'connections', 'automations', 'memory', 'skills', 'tools']
@@ -51,7 +52,6 @@ export default function ProjectPage() {
   const [tabsEdge, setTabsEdge] = useState({ start: false, end: false })
   const tabsRef = useRef(null)
   const { models, loading: modelsLoading } = useModels(CAP_CHAT)
-  const tabRefs = useRef({})
   // Sharing the project folder. It is offered only where folders can be
   // shared (accounts on and the server allows it); without that the button is
   // not drawn. `shares` is { available, count } from the folder shares list.
@@ -118,7 +118,7 @@ export default function ProjectPage() {
 
   // On a narrow screen the strip scrolls: keep the open tab in view.
   useEffect(() => {
-    tabRefs.current[tab]?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
+    document.getElementById(`project-tab-${tab}`)?.scrollIntoView?.({ inline: 'center', block: 'nearest' })
   }, [tab, state])
 
   // Which edges of the tab strip have tabs hidden behind them, for the fades.
@@ -141,15 +141,7 @@ export default function ProjectPage() {
   const scrollTabs = (dir) => tabsRef.current?.scrollBy?.({ left: dir * Math.max(120, tabsRef.current.clientWidth * 0.6), behavior: 'smooth' })
 
   const setTab = (next) => setParams(next === 'overview' ? {} : { tab: next }, { replace: true })
-  const onTabKey = (e) => {
-    const i = TABS.indexOf(tab)
-    const to = wrapKey(e.key, i, TABS.length)
-    if (to < 0) return
-    e.preventDefault()
-    const next = TABS[to]
-    setTab(next)
-    tabRefs.current[next]?.focus()
-  }
+
 
   const startChat = async () => {
     // The model the Home composer would start with: the chosen default, else
@@ -234,7 +226,7 @@ export default function ProjectPage() {
           actions={(
             <div className="pj-acts">
               {shares.available && !broken && <Button icon="users" onClick={openShare} data-testid="project-share">{t('actions.share')}</Button>}
-              <Button icon="edit" disabled={broken || archived} title={archived ? t('actions.editArchived') : undefined} onClick={() => setEditing(true)} data-testid="project-edit">{t('actions.edit')}</Button>
+              <Guarded><Button icon="edit" disabled={broken || archived} title={archived ? t('actions.editArchived') : undefined} onClick={() => setEditing(true)} data-testid="project-edit">{t('actions.edit')}</Button></Guarded>
               <ActionMenu ariaLabel={t('actions.more', { name: project.name })} items={menu} />
             </div>
           )}
@@ -247,7 +239,7 @@ export default function ProjectPage() {
 
         {broken && <Callout tone="error" role="alert" title={t('broken.title')} testId="project-broken">{project.error || t('broken.fallback')}</Callout>}
         {archived && tab !== 'automations' && (
-          <Callout tone="info" testId="project-archived" actions={<Button size="sm" onClick={() => act('restore')} data-testid="project-archived-restore">{t('actions.restore')}</Button>}>
+          <Callout tone="info" testId="project-archived" actions={<Guarded><Button size="sm" onClick={() => act('restore')} data-testid="project-archived-restore">{t('actions.restore')}</Button></Guarded>}>
             {t('archivedNote')}
           </Callout>
         )}
@@ -256,25 +248,16 @@ export default function ProjectPage() {
           <>
             <div className="pj-tabswrap" data-start={tabsEdge.start || undefined} data-end={tabsEdge.end || undefined} data-testid="project-tabs-wrap">
             <button type="button" className="pj-tabsmore pj-tabsmore--start" tabIndex={-1} aria-hidden="true" onClick={() => scrollTabs(-1)} data-testid="project-tabs-prev"><Icon name="chevron-left" /></button>
-            <div className="pj-tabs" ref={tabsRef} onScroll={measureTabs} role="tablist" aria-label={t('tabs.label')} onKeyDown={onTabKey}>
-              {TABS.map(k => (
-                <button
-                  key={k}
-                  ref={el => { tabRefs.current[k] = el }}
-                  type="button"
-                  role="tab"
-                  id={`project-tab-${k}`}
-                  aria-selected={tab === k}
-                  aria-controls={`project-panel-${k}`}
-                  tabIndex={tab === k ? 0 : -1}
-                  className="pj-tab"
-                  data-testid={`project-tab-${k}`}
-                  onClick={() => setTab(k)}
-                >
-                  {t(`tabs.${k}`)}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              listRef={tabsRef}
+              onScroll={measureTabs}
+              label={t('tabs.label')}
+              idPrefix="project"
+              value={tab}
+              onChange={setTab}
+              itemTestId="project-tab-"
+              items={TABS.map(k => ({ id: k, label: t(`tabs.${k}`) }))}
+            />
             <button type="button" className="pj-tabsmore pj-tabsmore--end" tabIndex={-1} aria-hidden="true" onClick={() => scrollTabs(1)} data-testid="project-tabs-next"><Icon name="chevron-right" /></button>
             </div>
             <div role="tabpanel" id={`project-panel-${tab}`} aria-labelledby={`project-tab-${tab}`} className="pj-panel">

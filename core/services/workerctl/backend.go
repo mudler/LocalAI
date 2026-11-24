@@ -1,6 +1,11 @@
 package workerctl
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/sanitize"
+)
 
 // BackendInstallRequest is the payload for a backend.install control request.
 type BackendInstallRequest struct {
@@ -88,12 +93,46 @@ type BackendUpgradeRequest struct {
 	OpID string `json:"op_id,omitempty"`
 }
 
-// BackendUpgradeReply mirrors BackendInstallReply minus Address: upgrade does
-// not start a process, so there is no port to advertise. The subsequent
-// routine load will re-bind via backend.install and learn the new address.
+// BackendUpgradeReply is the answer of backend.upgrade. It advertises no
+// address: the processes the upgrade stopped are started again on new ports
+// (RestartedProcessKeys) with no model loaded, and the next routine load
+// learns the address through backend.install.
+//
+// The worker keeps the build it had until the new build starts from its final
+// path (a candidate start with the readiness check of a model load). When the
+// new build does not start, the worker puts the previous build back and
+// answers Success false, Code "start" and RolledBack true. The fields travel
+// the same way on every route (NATS, and the tunnel over a websocket or P2P).
+// Frontend and workers are upgraded together: a worker that does not send
+// Code is not supported.
 type BackendUpgradeReply struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error,omitempty"`
+
+	// Code is the gallery.UpgradeFailureCode of a failed upgrade ("download",
+	// "verify", "swap", "start", "not_installed", "no_update", "unknown").
+	// Empty when Success is true.
+	Code string `json:"code,omitempty"`
+	// RolledBack is true when the new build was in place, failed, and the
+	// previous build was restored and registered again: the node runs the
+	// version it ran before the upgrade.
+	RolledBack bool `json:"rolled_back,omitempty"`
+	// Verified is true when the new build passed the candidate start. A
+	// candidate start proves the process starts and answers a health check,
+	// not that a model loads on the GPU. It is false for an upgrade that did
+	// not replace an installed build (nothing to keep, so nothing checked).
+	Verified bool `json:"verified,omitempty"`
+	// Cause is the end of the output of the failed candidate start, bounded
+	// (CauseLimit bytes) and on one line, so the reason a build did not
+	// start reaches the frontend. Empty when there is none.
+	Cause string `json:"cause,omitempty"`
+	// RestartedProcessKeys lists the stopped processes that the worker
+	// started again after the upgrade (on the build in place then: the new
+	// one, or the restored one). They hold no model until the next load.
+	RestartedProcessKeys []string `json:"restarted_process_keys,omitempty"`
+	// RestartError says why some stopped processes could not be started
+	// again. The next load starts them; it does not fail the upgrade.
+	RestartError string `json:"restart_error,omitempty"`
 
 	// StoppedProcessKeys / ReportsStoppedProcesses carry the same
 	// stale-row-invalidation contract as on BackendDeleteReply; an upgrade
@@ -219,4 +258,46 @@ func (r *BackendInstallRequest) UnmarshalJSON(data []byte) error {
 	*r = BackendInstallRequest(decoded.wire)
 	r.EnvVars = decoded.EnvVars
 	return nil
+}
+
+// Sanitize bounds and cleans the free-text fields of a reply on receipt.
+// The worker bounds Cause and RestartError itself, but the frontend must not
+// trust that: a compromised or an older worker can send megabytes, markup or
+// a credential, which would reach the operation status, the run item, the
+// database and the context of the assistant. Each of Error, Cause and
+// RestartError keeps its last CauseLimit bytes (BoundCause) and is then
+// cleaned as every run text is (sanitize.Text).
+func (r *BackendUpgradeReply) Sanitize() {
+	if r == nil {
+		return
+	}
+	r.Error = boundReplyText(r.Error)
+	r.Cause = boundReplyText(r.Cause)
+	r.RestartError = boundReplyText(r.RestartError)
+}
+
+func boundReplyText(s string) string {
+	if s == "" {
+		return s
+	}
+	return sanitize.Text(BoundCause(s), CauseLimit)
+}
+
+// CauseLimit bounds BackendUpgradeReply.Cause in bytes.
+const CauseLimit = 512
+
+// BoundCause makes s fit BackendUpgradeReply.Cause: control characters are
+// dropped, lines are joined with "; " and only the last CauseLimit bytes are
+// kept, because the end of a process output says why it stopped.
+func BoundCause(s string) string {
+	out := sanitize.JoinLines(s)
+	if len(out) <= CauseLimit {
+		return out
+	}
+	out = out[len(out)-CauseLimit:]
+	// Do not start in the middle of a rune.
+	for len(out) > 0 && !utf8.RuneStart(out[0]) {
+		out = out[1:]
+	}
+	return out
 }

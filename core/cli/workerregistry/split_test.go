@@ -27,7 +27,7 @@ var _ = Describe("The split report of a node", func() {
 			})
 		}))
 		DeferCleanup(srv.Close)
-		c := &RegistrationClient{FrontendURL: srv.URL, RegistrationToken: "tok"}
+		c := &RegistrationClient{FrontendURL: srv.URL, credLoaded: true, nodeToken: "tok"}
 		got, err := c.SplitSync(context.Background(), "n1", workerctl.SplitReport{PeerID: "peer-n1"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.Workers).To(HaveLen(1))

@@ -8,6 +8,14 @@ token ids and the rendered prompt match what the Strata server would produce:
 
 Usage: python3 -c <this script> <strata_root> <pack_dir> [family]
 
+family "hy4" is Tencent Hy4-Flash: the tokenizer directory comes from the model file (hy4_tokenizer.py),
+the reasoning effort words are Hy4's (no_think, high, max) and the output parser is the one the Strata
+server picks for that template, which reads Hy4's tagged reasoning and tool-call tokens.
+
+family "inkling" is Thinking Machines Inkling 2 Mini: the tokenizer directory comes from the model files
+(inkling_tokenizer.py), the model has no thinking mode, the prompt gets Strata's explicit answer opener
+(inkling_dialect.finish_prompt) and the output parser reads the model's channel tokens (InklingOutputParser).
+
 family "deepseek41" is refused: Strata dropped its DeepSeek V4.1 code (serve.dsml and the V4.1 template)
 in v0.2.15, so the helper cannot render that model's prompts or read its tool calls. Any other family
 (or none) is the Qwen path.
@@ -46,6 +54,10 @@ import sys
 
 PARSERS = {}
 FAMILY = ""
+# Texts that stay plain text when they appear inside a message, beyond the tokenizer's control tokens.
+EXTRA_LITERALS = ()
+# The output parser class; the Hy4 and Inkling families replace it at load.
+PARSER_CLASS = None
 
 
 def event_json(ev):
@@ -70,12 +82,21 @@ def build_prompt(tk, template, req):
         # The engine has no grammar. A forced call is written into the prompt, which only works without thinking.
         kwargs["enable_thinking"] = False
     thinking = kwargs.get("enable_thinking", True) is not False
-    literals = frontend.literal_tags(getattr(tk, "control_tokens", ()))
+    if FAMILY == "inkling":
+        thinking = False  # the model has no thinking mode
+    literals = frontend.literal_tags(list(getattr(tk, "control_tokens", ())) + list(EXTRA_LITERALS))
     marked, marked_tools, changed = frontend.mark_think_literals(messages, tools, literals)
     prompt = template.render(marked, tools=marked_tools, **kwargs)
     plain = ()
     if changed:
         prompt, plain = frontend.unmark_think_literals(prompt, literals)
+    if FAMILY == "inkling":
+        from serve import inkling_dialect  # noqa: E402
+
+        # The template ends at the last message: open the answer, as the Strata server does.
+        prompt = inkling_dialect.finish_prompt(prompt, has_tools=bool(tools))
+        if force:
+            force = inkling_dialect.force_text(force)
     ids = tk.encode(prompt, parse_special=True, plain=plain) if plain else tk.encode(prompt, parse_special=True)
     if force:
         ids = ids + tk.encode(force, parse_special=True)
@@ -84,6 +105,7 @@ def build_prompt(tk, template, req):
 
 
 def load(strata_root, pack, family=""):
+    global EXTRA_LITERALS, PARSER_CLASS
     if family == "deepseek41":
         raise RuntimeError("the DeepSeek V4.1 family is not supported by this Strata version (its DeepSeek code was removed upstream)")
     root = pathlib.Path(strata_root)
@@ -111,6 +133,24 @@ def load(strata_root, pack, family=""):
         from serve import frontend  # noqa: E402
 
         template = frontend.ChatTemplate(tpl)
+    if family == "hy4":
+        from serve import frontend  # noqa: E402
+
+        frontend.use_family("hy4")
+        if template is not None:
+            PARSER_CLASS = frontend.parser_for_template(template.source)
+        # Hy4's think and tool-call tags are not special tokens (type 4): always matched in text, so a
+        # quoted one in a message must be kept as text, as the Strata server does.
+        types = tk.token_types or []
+        EXTRA_LITERALS = tuple(tk.tokens[i] for i, ty in enumerate(types) if ty == 4 and i < len(tk.tokens))
+    if family == "inkling":
+        from serve import frontend  # noqa: E402
+
+        frontend.use_family("inkling2")
+        PARSER_CLASS = frontend.InklingOutputParser
+        # Control tokens are matched in text; a quoted one in a message must be kept as text, as the Strata server does.
+        types = tk.token_types or []
+        EXTRA_LITERALS = tuple(tk.tokens[i] for i, ty in enumerate(types) if ty == 4 and i < len(tk.tokens))
     return tk, cfg, template
 
 
@@ -147,7 +187,7 @@ def main():
             elif op == "parser_new":
                 from serve import frontend  # noqa: E402
 
-                parser = frontend.OutputParser(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
+                parser = (PARSER_CLASS or frontend.OutputParser)(thinking=bool(req.get("thinking", True)), tools=req.get("tools") or None,
                                                stream_tools=True, recover=True)
                 PARSERS[req["id"]] = parser
                 opening = req.get("opening") or ""

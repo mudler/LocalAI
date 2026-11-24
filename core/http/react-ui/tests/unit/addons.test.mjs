@@ -352,6 +352,19 @@ test('a library signer is named exactly or by a pattern, never both', () => {
   assert.equal(sourceToDraft({ policy: { requireSignature: true, issuer: 'i', identityRegex: '^a$' } }).identityRegex, '^a$')
 })
 
+test('a library signer pattern can pin the source repository it was signed for', () => {
+  const ok = { id: 'b', name: 'B', url: 'https://library.example/i.yaml', enabled: true, requireSignature: true, issuer: 'i', identityRegex: '^a$' }
+  const repo = 'https://github.com/example-org/example-repo'
+  assert.deepEqual(validateSourceDraft({ ...ok, sourceRepository: repo }), {})
+  assert.equal(validateSourceDraft({ ...ok, sourceRepository: 'http://github.com/example-org/example-repo' }).sourceRepository, 'sourceRepository')
+  assert.equal(validateSourceDraft({ ...ok, sourceRepository: 'example-org/example-repo' }).sourceRepository, 'sourceRepository')
+  const wire = draftToSource({ ...ok, sourceRepository: ` ${repo} ` })
+  assert.deepEqual(wire.policy, { requireSignature: true, issuer: 'i', identityRegex: '^a$', sourceRepository: repo })
+  assert.equal(sourceToDraft({ policy: { requireSignature: true, issuer: 'i', identityRegex: '^a$', sourceRepository: repo } }).sourceRepository, repo)
+  // Without a required signature the pin is not sent, as the other signer fields are not.
+  assert.equal(draftToSource({ ...ok, requireSignature: false, sourceRepository: repo }).policy.sourceRepository, undefined)
+})
+
 test('a backend install follows its job through the steps and ends with the result', async () => {
   const phases = ['resolving', 'size', 'fetching', 'writing']
   let polls = 0

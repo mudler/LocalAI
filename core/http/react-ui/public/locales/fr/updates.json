@@ -89,8 +89,6 @@
     "ready": "Prêtes à mettre à jour",
     "current_one": "{{count}} à jour",
     "current_other": "{{count}} à jour",
-    "selectAll": "Sélectionner toutes les prêtes",
-    "selectNone": "Ne rien sélectionner",
     "show": "Afficher",
     "hide": "Masquer",
     "other": "Autres modèles"
@@ -116,7 +114,6 @@
     "drift_one": "{{count}} diffère",
     "drift_other": "{{count}} diffèrent",
     "old": "d'une vérification antérieure",
-    "select": "Sélectionner {{name}}",
     "update": "Mettre à jour",
     "updateNamed": "Mettre à jour {{name}}",
     "check": "Vérifier",
@@ -143,19 +140,16 @@
     "updatingPhase": "Mise à jour : {{phase}}",
     "updatingPlain": "Mise à jour",
     "queued": "En file d'attente, en attente d'une place libre",
-    "addonConfirm": "Demande votre confirmation dans ce navigateur",
     "nodesAction": "Nœuds",
     "nodesNamed": "Afficher les nœuds de {{name}}",
-    "needsConfirm": "{{name}} tourne sur des nœuds et demande d’abord votre confirmation. Utilisez Mettre à jour sur sa ligne."
+    "heldBack": "Retenue : cette version n’a pas démarré. Les mises à jour automatiques l’ignorent jusqu’à la sortie d’une nouvelle version. Mettez-la à jour ici pour réessayer."
   },
   "bulk": {
     "start": "Mettre à jour {{count}} prêtes",
     "running": "Mise à jour {{current}} sur {{total}}",
     "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
-    "details": "Détails",
-    "cancelAll": "Tout annuler",
     "retryFailed": "Réessayer les échecs ({{count}})",
-    "dismiss": "Fermer"
+    "review": "Vérifier les mises à jour"
   },
   "check": {
     "result_one": "Vérification terminée : {{count}} mise à jour.",
@@ -164,10 +158,6 @@
     "failedSources_other": "{{count}} sources en échec.",
     "throttled": "Une vérification a eu lieu il y a un instant. Voici son résultat."
   },
-  "live": {
-    "updated": "{{name}} a été mis à jour.",
-    "failed": "{{name}} n'a pas été mis à jour."
-  },
   "empty": {
     "title": "Rien à mettre à jour pour l'instant",
     "body": "Installez un backend ou un add-on et ses mises à jour apparaîtront ici.",
@@ -175,26 +165,7 @@
     "addons": "Ouvrir les apps"
   },
   "dialog": {
-    "title": "Mettre à jour les prêtes",
-    "intro": "Choisissez ce qu'il faut mettre à jour. Chaque élément est mis à jour séparément, l'un après l'autre, et compte comme terminé seulement quand une nouvelle vérification ne le liste plus. Un échec n'arrête pas les autres.",
-    "selection": "Choisir ce qu'il faut mettre à jour",
-    "selectAll": "Tout sélectionner",
-    "selectNone": "Ne rien sélectionner",
-    "item": "Mettre à jour {{name}}",
-    "versions": "{{from}} vers {{to}}",
-    "blocked": "Ne peut pas démarrer",
-    "start": "Mettre à jour la sélection",
-    "starting": "Mise à jour...",
-    "retry": "Réessayer les échecs ({{count}})",
-    "again": "Nouvelle sélection",
-    "close": "Fermer",
-    "closeRunning": "Fermer (continue en arrière-plan)",
-    "runningNote": "Fermer cette fenêtre n'arrête pas les mises à jour.",
-    "progress": "Mise à jour {{current}} sur {{total}}",
-    "summary": "{{done}} mises à jour, {{failed}} en échec, {{skipped}} ignorées",
-    "empty": "Rien à mettre à jour.",
-    "selectedCount_one": "{{count}} sélectionné",
-    "selectedCount_other": "{{count}} sélectionnés"
+    "close": "Fermer"
   },
   "item": {
     "queued": "En file",
@@ -407,5 +378,124 @@
       "after": "LocalAI enregistre l'entrée et vérifie ses mises à jour. Votre configuration ne change pas.",
       "failed": "Adoption impossible : {{message}}"
     }
+  },
+  "review": {
+    "title_one": "Vérifier {{count}} mise à jour",
+    "title_other": "Vérifier {{count}} mises à jour",
+    "loadingTitle": "Vérifier les mises à jour",
+    "intro": "Rien ne change avant que vous ne lanciez.",
+    "loading": "Lecture du plan",
+    "loadError": "Impossible de lire le plan des mises à jour.",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Ne rien sélectionner",
+    "selected_one": "{{count}} sur {{total}} sélectionnée",
+    "selected_other": "{{count}} sur {{total}} sélectionnées",
+    "order": "Les backends d’abord, puis les modèles, puis les extensions une par une. Chaque mise à jour garde la version précédente jusqu’à ce que la nouvelle fonctionne. Une fois lancée, vous pouvez fermer cette fenêtre et quitter la page.",
+    "group": {
+      "backends": "Backends ({{count}})",
+      "addons": "Extensions ({{count}})",
+      "models": "Modèles ({{count}})"
+    },
+    "item": "Mettre à jour {{name}}",
+    "backsUp": "Sauvegarde vos données",
+    "modelNote": "Non sélectionné par défaut : mettre à jour un modèle le recharge. Les anciens fichiers restent jusqu’à votre confirmation.",
+    "blocked": "Impossible de lancer : {{reason}}",
+    "empty": "Rien à mettre à jour.",
+    "start_one": "Mettre à jour {{count}} élément",
+    "start_other": "Mettre à jour {{count}} éléments",
+    "startOne": "Mettre à jour",
+    "cancel": "Annuler",
+    "singleTitle": "Mettre à jour {{name}} ?",
+    "singleLoading": "Mettre à jour",
+    "singleNote": "L’ancienne version reste jusqu’à ce que la nouvelle fonctionne.",
+    "risk": {
+      "stopsModels_one": "Arrête {{count}} modèle chargé pendant le changement",
+      "stopsModels_other": "Arrête {{count}} modèles chargés pendant le changement",
+      "stopsModelsNodes_one": "Arrête {{count}} modèle chargé sur {{nodes}} nœuds pendant le changement",
+      "stopsModelsNodes_other": "Arrête {{count}} modèles chargés sur {{nodes}} nœuds pendant le changement",
+      "migratesData": "Vos données sont migrées. Une sauvegarde vérifiée est faite d’abord.",
+      "editedKeys_one": "Vous avez modifié {{count}} réglage de ce modèle. Utilisez {{action}} sur sa ligne pour choisir quoi garder.",
+      "editedKeys_other": "Vous avez modifié {{count}} réglages de ce modèle. Utilisez {{action}} sur sa ligne pour choisir quoi garder.",
+      "held": "Cette version attend votre approbation.",
+      "cluster_one": "Mis à jour sur {{count}} nœud",
+      "cluster_other": "Mis à jour sur {{count}} nœuds",
+      "drift_one": "{{count}} nœud a une autre version en ce moment. La mise à jour amène chaque nœud à la nouvelle.",
+      "drift_other": "{{count}} nœuds ont une autre version en ce moment. La mise à jour amène chaque nœud à la nouvelle.",
+      "configOnly": "Ne change que les réglages du modèle. Rien n’est téléchargé."
+    },
+    "follow": "Voir la série"
+  },
+  "run": {
+    "group": "Cette série de mises à jour",
+    "title_one": "Mise à jour de {{count}} élément",
+    "title_other": "Mise à jour de {{count}} éléments",
+    "count": {
+      "updated_one": "{{count}} mis à jour",
+      "updated_other": "{{count}} mis à jour",
+      "running_one": "{{count}} en cours",
+      "running_other": "{{count}} en cours",
+      "waiting_one": "{{count}} en attente",
+      "waiting_other": "{{count}} en attente",
+      "attention_one": "{{count}} demande votre attention",
+      "attention_other": "{{count}} demandent votre attention"
+    },
+    "started": "Lancée {{when}}",
+    "finished": "Terminée {{when}}",
+    "result": {
+      "attention_one": "{{updated}} mis à jour, {{count}} demande votre attention",
+      "attention_other": "{{updated}} mis à jour, {{count}} demandent votre attention",
+      "done_one": "{{count}} mis à jour",
+      "done_other": "{{count}} mis à jour",
+      "cancelled_one": "Série annulée, {{count}} mis à jour",
+      "cancelled_other": "Série annulée, {{count}} mis à jour",
+      "clean": "Rien n’est resté à moitié mis à jour",
+      "unknown_one": "{{count}} résultat n’est pas encore confirmé",
+      "unknown_other": "{{count}} résultats ne sont pas encore confirmés"
+    },
+    "progress": "Progression de la série de mises à jour",
+    "cancelRemaining": "Annuler le reste",
+    "retryFailed": "Relancer les échecs",
+    "dismiss": "Masquer",
+    "actionFailed": "La demande a échoué : {{message}}",
+    "phase": {
+      "queued": "En file d’attente",
+      "running": "Mise à jour",
+      "updated": "Mis à jour",
+      "failed": "Échec",
+      "rolled_back": "Rétabli",
+      "cancelled": "Annulé",
+      "skipped": "Ignoré",
+      "unconfirmed": "Non confirmé"
+    },
+    "queued": {
+      "afterBackends": "En attente des backends.",
+      "oneAddon": "Les extensions se mettent à jour une par une.",
+      "waitingFor": "En attente de {{name}}.",
+      "plain": "En attente de démarrage.",
+      "afterModels": "En attente des modèles.",
+      "backendLimit": "En attente d’une place libre pour les backends.",
+      "sameBackend": "En attente d’une autre opération sur ce backend.",
+      "oneModel": "Les modèles se mettent à jour un par un."
+    },
+    "detail": {
+      "updating": "Mise à jour en cours",
+      "node": "Nœud {{index}} sur {{count}} : {{message}}",
+      "failed": "{{reason}}. {{name}} reste en {{version}} et vos données sont inchangées.",
+      "rolledBack": "La nouvelle version n’a pas démarré : {{reason}}. {{name}} reste en {{version}} et vos données sont inchangées.",
+      "unconfirmed": "Impossible de confirmer. Vérifiez à nouveau la version de {{name}}.",
+      "cancelled": "Annulée. {{name}} reste en {{version}}.",
+      "skipped": "Ignorée.",
+      "skippedWhy": "Ignorée : {{reason}}.",
+      "checking": "Vérification que la mise à jour est appliquée."
+    },
+    "details": {
+      "toggle": "Détails",
+      "code": "Code : {{code}}",
+      "node": "{{name}} : {{phase}}",
+      "none": "Le serveur n’a pas donné plus de détails."
+    },
+    "busy": "Une série de mises à jour est en cours.",
+    "unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur.",
+    "auto": "Mise à jour automatique"
   }
 }

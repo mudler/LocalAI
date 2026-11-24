@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Icon from './Icon'
+import './fieldbrowser.css'
 
 export default function FieldBrowser({ fields, activeFieldPaths, onAddField }) {
   const [query, setQuery] = useState('')
@@ -91,35 +92,25 @@ export default function FieldBrowser({ fields, activeFieldPaths, onAddField }) {
   }
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', marginBottom: 'var(--spacing-md)' }}>
-      <div style={{ position: 'relative' }}>
-        <Icon name="search" style={{
-          position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-          color: 'var(--color-text-muted)', fontSize: '0.75rem', pointerEvents: 'none',
-        }} />
+    <div ref={wrapperRef} className="fb">
+      <div className="fb__box">
+        <Icon name="search" className="fb__icon" />
         <input
-          className="input"
+          className="dk-input fb__input"
           value={query}
           onChange={e => { setQuery(e.target.value); setOpen(true); setFocusIndex(-1) }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search fields to add..."
-          style={{ width: '100%', paddingLeft: 32, fontSize: '0.8125rem' }}
         />
       </div>
       {open && (
         <div
           ref={listRef}
-          style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, marginTop: 4,
-            maxHeight: 320, overflowY: 'auto',
-            background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)',
-            animation: 'dropdownIn 120ms ease-out',
-          }}
+          className="fb__list"
         >
           {filtered.length === 0 ? (
-            <div style={{ padding: '12px 16px', fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+            <div className="fb__empty">
               {query ? 'No matching fields' : 'All fields are already configured'}
             </div>
           ) : (
@@ -129,37 +120,28 @@ export default function FieldBrowser({ fields, activeFieldPaths, onAddField }) {
               return (
                 <div
                   key={field.path}
-                  style={{
-                    padding: '8px 12px', cursor: 'pointer',
-                    background: isFocused ? 'var(--color-bg-tertiary)' : 'transparent',
-                    borderBottom: '1px solid var(--color-border-subtle)',
-                  }}
+                  className={`fb__item${isFocused ? ' is-focused' : ''}`}
                   onMouseEnter={() => setFocusIndex(i)}
                   onMouseDown={(e) => {
                     e.preventDefault()
                     handleSelect(field)
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{
-                      fontSize: '0.625rem', padding: '1px 6px', borderRadius: 'var(--radius-sm)',
-                      background: `color-mix(in srgb, ${sectionColors[field.section] || 'var(--color-text-muted)'} 15%, transparent)`,
-                      color: sectionColors[field.section] || 'var(--color-text-muted)',
-                      fontWeight: 600, whiteSpace: 'nowrap',
-                    }}>
+                  <div className="fb__head">
+                    <span className="fb__section" style={{ '--fb-ink': sectionColors[field.section] || 'var(--dk-muted)' }}>
                       {field.section}
                     </span>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 500 }}>{field.label}</span>
+                    <span className="fb__label">{field.label}</span>
                     {isEnterTarget && (
-                      <span style={{ marginLeft: 'auto', color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>↵</span>
+                      <span className="fb__enter">↵</span>
                     )}
                   </div>
                   {field.description && (
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 2, marginLeft: 0 }}>
+                    <div className="fb__desc">
                       {field.description}
                     </div>
                   )}
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 1, fontFamily: 'var(--font-mono)' }}>
+                  <div className="fb__path">
                     {field.path}
                   </div>
                 </div>

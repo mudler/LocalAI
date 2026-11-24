@@ -33,6 +33,15 @@
     "diskChip": "Disque presque plein"
   },
   "activity": {
+    "node": {
+      "done": "Terminé",
+      "failed": "Échec",
+      "queued": "En file d’attente",
+      "workerBusy": "Worker occupé",
+      "downloading": "Téléchargement",
+      "rolledBack": "Rétabli",
+      "unconfirmed": "Non confirmé"
+    },
     "kind": {
       "addon": "module"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "Le paquet demande plus d'accès à l'hôte que vous n'en avez approuvé.",
     "review": "Vérifier",
     "reviewLabel": "Vérifier {{name}}"
+  },
+  "overview": {
+    "title": "Vue d'ensemble",
+    "openWorker": "Ouvrir le worker",
+    "approve": "Approuver",
+    "approveAll": "Tout approuver",
+    "signups_one": "{{count}} inscription attend une approbation",
+    "signups_other": "{{count}} inscriptions attendent une approbation",
+    "approved_one": "{{count}} inscription approuvée",
+    "approved_other": "{{count}} inscriptions approuvées",
+    "approveFailed": "Approbation impossible : {{message}}",
+    "cluster": "Cluster",
+    "machine": "Cette machine",
+    "openWorkers": "Ouvrir les workers",
+    "openMachine": "Ouvrir cette machine",
+    "online": "En ligne",
+    "ofTotal": "sur {{total}}",
+    "loaded": "Chargés",
+    "inFlight": "En cours",
+    "memory": "Mémoire",
+    "disk": "Disque",
+    "diskFree": "{{free}} libres sur {{total}}",
+    "traffic": "Trafic, {{hours}} h",
+    "openUsage": "Ouvrir l'usage",
+    "requests": "Requêtes",
+    "failed": "Échecs",
+    "p95": "P95",
+    "barsLabel": "Requêtes des {{hours}} dernières heures",
+    "access": "Accès",
+    "users": "Utilisateurs",
+    "waiting": "En attente",
+    "admins": "Admins",
+    "openUsers": "Ouvrir les utilisateurs"
   }
 }

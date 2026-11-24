@@ -1,24 +1,16 @@
-import Icon from '../Icon'
+import { Tabs } from '../ui'
 
-export default function TabSwitch({ tabs, value, onChange }) {
+// The views of a biometrics tool (and of the add-ons that use it through the
+// host components). The kit's Tabs: one tab stop, arrow keys, Home and End.
+// The caller draws the panel of the selected tab.
+export default function TabSwitch({ tabs, value, onChange, label, idPrefix }) {
   return (
-    <div className="biometrics-tabs" role="tablist">
-      {tabs.map(t => {
-        const active = t.id === value
-        return (
-          <button
-            key={t.id}
-            role="tab"
-            type="button"
-            aria-selected={active}
-            className={`biometrics-tab ${active ? 'active' : ''}`}
-            onClick={() => onChange(t.id)}
-          >
-            {t.icon && <Icon name={t.icon} aria-hidden="true" />}
-            <span>{t.label}</span>
-          </button>
-        )
-      })}
-    </div>
+    <Tabs
+      label={label}
+      idPrefix={idPrefix}
+      value={value}
+      onChange={onChange}
+      items={tabs.map(t => ({ id: t.id, label: t.label, icon: t.icon }))}
+    />
   )
 }

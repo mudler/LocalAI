@@ -1,71 +1,19 @@
-import { useEffect, useRef } from 'react'
-import '../pages/auth.css'
+// eslint-disable-next-line no-unused-vars
+import Dialog from './Dialog'
 
+// The add-on SDK's Modal (sdk.ui.Modal): a dialog with no head, for content
+// that brings its own heading and actions. It draws the shared Dialog, so it
+// has the same surface, motion and focus handling as every other dialog. Core
+// pages use Dialog, ConfirmDialog or SideSheet; this stays for add-ons.
+//
+//   onClose     Escape, a click on the veil
+//   ariaLabel   the accessible name of the dialog
+//   maxWidth    kept for add-ons: above 600px the dialog takes the wide width
 export default function Modal({ onClose, children, maxWidth = '600px', ariaLabel }) {
-  const dialogRef = useRef(null)
-  const lastFocusRef = useRef(null)
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
-
-  useEffect(() => {
-    lastFocusRef.current = document.activeElement
-
-    // Focus trap
-    const dialog = dialogRef.current
-    if (!dialog) return
-
-    const focusableSelector = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    const getFocusable = () => dialog.querySelectorAll(focusableSelector)
-
-    const firstFocusable = getFocusable()[0]
-    firstFocusable?.focus()
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onCloseRef.current?.()
-        return
-      }
-      if (e.key !== 'Tab') return
-      const focusable = getFocusable()
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      lastFocusRef.current?.focus()
-    }
-  }, []) // Run once on mount — onClose accessed via stable ref
-
+  const wide = parseInt(String(maxWidth), 10) > 600
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={ariaLabel}
-      className="modal-backdrop"
-      onClick={onClose}
-    >
-      <div
-        ref={dialogRef}
-        className="modal-panel"
-        style={{ maxWidth }}
-        onClick={e => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>
+    <Dialog title={null} closable={false} ariaLabel={ariaLabel} wide={wide} onClose={() => onClose?.()}>
+      {children}
+    </Dialog>
   )
 }

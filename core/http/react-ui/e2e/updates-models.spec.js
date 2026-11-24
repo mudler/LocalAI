@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockOperate } from './operate-fixtures.js'
+import { adminItem } from './admin-nav.js'
 import {
   DIGEST_B, galleryItem, minutesAgo, mockUpdates, modelFiles, modelItem, modelOp, modelSnapshotOf, snapshotOf,
 } from './updates-fixtures.js'
@@ -52,7 +53,7 @@ test.describe('Updates page: models', () => {
     await expect(ready).toContainText('3 files change.')
     await expect(ready.getByTestId('update-row-chip')).toContainText('Update available')
     await expect(ready.getByRole('button', { name: 'Upgrade qwen3-8b' })).toBeVisible()
-    // A model is never part of "Update ready": no checkbox.
+    // A model row has no checkbox: it is picked in the review.
     await expect(ready.locator('input[type="checkbox"]')).toHaveCount(0)
 
     const edited = rowOf(page, 'llama-3.2-3b')
@@ -79,7 +80,7 @@ test.describe('Updates page: models', () => {
     await expect(page.locator('[data-group="current"]')).toContainText('kokoro')
 
     // The badge counts the update, the edited update and the failure, never the hold.
-    await expect(page.getByTestId('operate-updates-badge')).toContainText('3')
+    await expect(adminItem(page, '/app/updates').getByTestId('admin-signal-updates')).toContainText('3')
   })
 
   test('the confirmation lists the files, says the loaded model stops, and asks a choice for each edited key', async ({ page }) => {
@@ -173,7 +174,7 @@ test.describe('Updates page: models', () => {
     await expect(row.getByTestId('update-row-chip')).toContainText('Updating')
     await expect(row).toContainText('Upgrading: downloading the new files')
     await expect(row.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '35')
-    await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
+    await expect(adminItem(page, '/app/updates').getByTestId('admin-signal-updates')).toHaveCount(0)
     await row.getByRole('button', { name: 'Cancel the update of qwen3-8b' }).click()
     await expect.poll(() => cancelled).toContain('/api/operations/job-qwen3-8b/cancel')
 
@@ -219,14 +220,14 @@ test.describe('Updates page: models', () => {
   test('Hold this version takes a model out of the count, and Release hold puts it back', async ({ page }) => {
     const state = await setup(page, [modelItem('qwen3-8b', 'update-available', { changedFiles: modelFiles() })])
     await page.goto('/app/updates')
-    await expect(page.getByTestId('operate-updates-badge')).toContainText('1')
+    await expect(adminItem(page, '/app/updates').getByTestId('admin-signal-updates')).toContainText('1')
     const row = rowOf(page, 'qwen3-8b')
     await row.getByRole('button', { name: 'More actions for qwen3-8b' }).click()
     state.onModelAction = (_action, _name, _body, s) => { s.models = modelSnapshotOf([modelItem('qwen3-8b', 'held', { held: true })]) }
     await page.getByRole('menuitem', { name: 'Hold this version' }).click()
     await expect.poll(() => state.modelCalls).toEqual([{ action: 'hold', name: 'qwen3-8b', body: { hold: true } }])
     await expect(row).toHaveAttribute('data-state', 'on-hold')
-    await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
+    await expect(adminItem(page, '/app/updates').getByTestId('admin-signal-updates')).toHaveCount(0)
     await expect(page.getByTestId('updates-check-result')).toHaveText('qwen3-8b is held at this version.')
 
     state.onModelAction = (_action, _name, _body, s) => { s.models = modelSnapshotOf([modelItem('qwen3-8b', 'update-available', { availableDigest: DIGEST_B })]) }

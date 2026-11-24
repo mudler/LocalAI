@@ -289,8 +289,9 @@ continue. On a single LocalAI instance, a restart removes the pin. In
   its status pill, active target, a small pill per target, and time since the
   last switch. It links each chain name to its model editor page and shows an
   empty state linking to the failover template when no chains exist yet. It
-  sits under **Admin → Runtime** on a single install and under **Admin →
-  Swarm** when distributed mode is on. On a cluster it also describes what the
+  sits under **Admin → Models and runtime** on a single install and is the
+  **Failover** view of **Admin → Cluster → Placement** when distributed mode is
+  on. On a cluster it also describes what the
   router and the health monitor do when a worker stops answering, and shows a
   preview of what would stop if a chosen node went away, worked out in the
   browser from the loaded replicas and the placement rules. The server does not

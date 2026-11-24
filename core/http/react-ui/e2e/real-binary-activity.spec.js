@@ -75,5 +75,5 @@ test('Clear history empties the record against the real store', async ({ page })
   await page.getByRole('button', { name: /clear history/i }).click()
 
   await expect(page.locator('.activity-row')).toHaveCount(0, { timeout: 15_000 })
-  await expect(page.locator('.activity-empty')).toBeVisible()
+  await expect(page.locator('.ui-empty')).toBeVisible()
 })

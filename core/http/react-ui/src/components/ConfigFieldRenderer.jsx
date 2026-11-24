@@ -1,7 +1,6 @@
 import { useFormContext } from '../contexts/FormContext'
 import { useState } from 'react'
 import SettingRow from './SettingRow'
-import Toggle from './Toggle'
 import SearchableSelect from './SearchableSelect'
 import ModelPicker from './ModelPicker'
 import AutocompleteInput from './AutocompleteInput'
@@ -13,6 +12,7 @@ import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 import FailoverTargetsEditor from './FailoverTargetsEditor'
 import Icon from './Icon'
+import { Button, Switch } from './ui'
 
 // Map autocomplete provider to SearchableModelSelect capability
 const PROVIDER_TO_CAPABILITY = {
@@ -68,15 +68,13 @@ function StringListEditor({ value, onChange, options }) {
           ) : (
             <input className="input cfr-input" value={item} onChange={e => update(i, e.target.value)} />
           )}
-          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} />
         </div>
       ))}
       {(!options || availableOptions.length > 0) && (
-        <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-          <Icon name="plus" /> Add
-        </button>
+        <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+          Add
+        </Button>
       )}
     </div>
   )
@@ -103,14 +101,12 @@ function MapEditor({ value, onChange }) {
         <div key={i} className="cfr-row">
           <input className="input cfr-input" value={k} placeholder="key" onChange={e => update(i, e.target.value, v)} />
           <input className="input cfr-input" value={typeof v === 'string' ? v : JSON.stringify(v)} placeholder="value" onChange={e => update(i, k, e.target.value)} />
-          <button type="button" className="btn btn-secondary btn-sm pill-tiny" onClick={() => remove(i)}>
-            <Icon name="close" />
-          </button>
+          <Button icon="close" size="sm" onClick={() => remove(i)} />
         </div>
       ))}
-      <button type="button" className="btn btn-secondary btn-sm self-start text-xs" onClick={add}>
-        <Icon name="plus" /> Add
-      </button>
+      <Button size="sm" icon="plus" className="self-start text-xs" onClick={add}>
+        Add
+      </Button>
     </div>
   )
 }
@@ -191,7 +187,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   if (component === 'toggle') {
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
-        <Toggle checked={!!value} onChange={handleChange} />
+        <Switch checked={!!value} label={field.label} onChange={handleChange} />
       </SettingRow>
     )
   }
@@ -460,7 +456,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
         <div className="stack stack--xs">
           {(field.options || []).map(opt => (
             <label key={opt.value} className="cfr-radio">
-              <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
+              <input type="checkbox" className="dk-check" checked={selected.includes(opt.value)} onChange={() => toggle(opt.value)} />
               {opt.label || opt.value}
             </label>
           ))}

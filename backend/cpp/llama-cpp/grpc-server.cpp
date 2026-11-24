@@ -4456,7 +4456,12 @@ public:
                 return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
                     "This decision model requires an image-capable projector for image input");
             }
+#if LOCALAI_HAS_DECISION_AUDIO_INPUT
+            // A spoken question needs a model with an audio encoder, as in upstream's /decision route.
+            const auto questions = decision.parse_questions(body, ctx_server.impl->chat_params.allow_audio);
+#else
             const auto questions = decision.parse_questions(body);
+#endif
             std::vector<raw_buffer> files;
             const json state = decision.parse_state(body, files);
             if (context->IsCancelled()) {

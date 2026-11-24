@@ -88,6 +88,17 @@ type LocalAIClient interface {
 	InstallLibraryBackend(ctx context.Context, req InstallLibraryBackendRequest) (*InstallLibraryBackendResult, error)
 	UpgradeBackend(ctx context.Context, name string) (jobID string, err error)
 
+	// ---- Upgrade runs ----
+	// StartUpgradeRun starts one server-owned run of backend and model
+	// updates. Add-on items are refused: their upgrade needs the
+	// administrator's own browser session.
+	StartUpgradeRun(ctx context.Context, req UpgradeRunStartRequest) (*UpgradeRun, error)
+	// UpgradeRuns returns one run by id, or the running run and the recent
+	// ones when id is empty.
+	UpgradeRuns(ctx context.Context, id string) ([]UpgradeRun, error)
+	// CancelUpgradeRun cancels a run, or one item of it when key is set.
+	CancelUpgradeRun(ctx context.Context, id, key string) (*UpgradeRun, error)
+
 	// ---- Model updates ----
 	// ModelUpdates returns the installed gallery models with their update
 	// state, as of the last check. It contacts no gallery.

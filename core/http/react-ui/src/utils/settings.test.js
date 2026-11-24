@@ -193,6 +193,12 @@ test('the loop limits say loops and waits, and keep their keys, ranges and defau
   }
 })
 
+test('the add-on tool limit keeps its key, bounds and default, and applies live', () => {
+  const f = FIELD_BY_KEY.chats_addon_tool_limit
+  assert.deepEqual([f.group, f.kind, f.min, f.max, f.default, f.apply], ['tools', 'int', 16, 256, 64, 'live'])
+  assert.match(f.desc, /32 tools/)
+})
+
 test('the run limit shows the effective maximum of a chat of a messaging app', () => {
   assert.equal(systemLoopRuns(100), 20)
   assert.equal(systemLoopRuns(4), 1, 'at least 1')

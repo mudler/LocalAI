@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
@@ -11,7 +11,7 @@ import { refreshPages, usePages } from '../hooks/usePages'
 import { usePageLinks } from '../hooks/usePageLinks'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import Switch from '../components/ui/Switch'
-import { Button } from '../components/ui'
+import { Button, EmptyState, Tag } from '../components/ui'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -34,8 +34,8 @@ export function SendAsk({ ask, chats, onSend, onDismiss, t }) {
         <Icon name="check-circle" className="pg-ask__icon" />
         <span className="pg-ask__label">{t('send.sent', { title: ask.result.title })}</span>
         <span className="pg-ask__actions">
-          <Link className="btn btn-secondary btn-sm" to={`/app/chats/${encodeURIComponent(ask.result.chat_id)}`}>{t('send.openChat')}</Link>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>{t('send.dismiss')}</button>
+          <Button size="sm" to={`/app/chats/${encodeURIComponent(ask.result.chat_id)}`}>{t('send.openChat')}</Button>
+          <Button variant="ghost" size="sm" onClick={onDismiss}>{t('send.dismiss')}</Button>
         </span>
       </div>
     )
@@ -52,10 +52,10 @@ export function SendAsk({ ask, chats, onSend, onDismiss, t }) {
             {chats.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
           </select>
         </label>
-        <button type="button" className="btn btn-primary btn-sm" disabled={ask.status === 'sending'} onClick={() => onSend(target)}>
+        <Button variant="primary" size="sm" disabled={ask.status === 'sending'} onClick={() => onSend(target)}>
           {ask.status === 'sending' ? t('send.sending') : t('send.send')}
-        </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={onDismiss}>{t('send.dismiss')}</button>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDismiss}>{t('send.dismiss')}</Button>
       </span>
       {ask.error && <span className="pg-ask__error" role="alert">{t('send.failed', { message: ask.error })}</span>}
     </div>
@@ -289,13 +289,15 @@ export default function PageView() {
   if (status === 'notfound' || status === 'error') {
     return (
       <div className="page page--medium pg-page" data-testid="page-view">
-        <div className="empty-state" data-testid={status === 'notfound' ? 'page-not-found' : 'page-error'}>
-          <h1 className="empty-state-title">{status === 'notfound' ? t('view.notFound', { name }) : t('view.failed', { message: error })}</h1>
-          <div className="empty-state__actions">
-            <Link className="btn btn-secondary" to="/app/pages"><Icon name="arrow-left" /> {t('view.back')}</Link>
-            {status === 'error' && <button type="button" className="btn btn-primary" onClick={() => load()}>{t('retry')}</button>}
-          </div>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          title={status === 'notfound' ? t('view.notFound', { name }) : t('view.failed', { message: error })}
+          testId={status === 'notfound' ? 'page-not-found' : 'page-error'}
+          actions={<>
+            <Button icon="arrow-left" to="/app/pages">{t('view.back')}</Button>
+            {status === 'error' && <Button variant="primary" onClick={() => load()}>{t('retry')}</Button>}
+          </>}
+        />
       </div>
     )
   }
@@ -315,30 +317,30 @@ export default function PageView() {
         </div>
         {page && (
           <div className="pg-strip__pills">
-            <span className="pg-pill" title={t('view.runsAsYouHint')} data-testid="page-runs-as-you">
-              <Icon name="user" /> {t('view.runsAsYou')}
-            </span>
+            <Tag icon="user" title={t('view.runsAsYouHint')} testId="page-runs-as-you">
+              {t('view.runsAsYou')}
+            </Tag>
             {guarded && (
-              <span className="pg-pill pg-pill--warn" data-testid="page-others-edit"><Icon name="pencil" /> {t('card.othersEdit')}</span>
+              <Tag tone="warn" icon="pencil" testId="page-others-edit">{t('card.othersEdit')}</Tag>
             )}
             {guarded && (
-              <span className={`pg-pill pg-pill--${run ? 'ok' : 'warn'}`} data-testid="page-consent-pill" data-state={run ? 'allowed' : 'not'}>
-                <Icon name={run ? 'check-circle' : 'warning'} /> {t(run ? (run.token ? 'trust.pill.once' : 'trust.pill.allowed') : (stopped === 'stale' ? 'trust.pill.changed' : 'trust.pill.notYet'))}
-              </span>
+              <Tag tone={run ? 'ok' : 'warn'} icon={run ? 'check-circle' : 'warning'} testId="page-consent-pill" data-state={run ? 'allowed' : 'not'}>
+                {t(run ? (run.token ? 'trust.pill.once' : 'trust.pill.allowed') : (stopped === 'stale' ? 'trust.pill.changed' : 'trust.pill.notYet'))}
+              </Tag>
             )}
             {shared.total > 0 && (
-              <span className="pg-pill" data-testid="page-shared-pill">
-                <Icon name="users" /> {shared.onlyEveryone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.total })}
-              </span>
+              <Tag icon="users" testId="page-shared-pill">
+                {shared.onlyEveryone ? t('card.sharedEveryone') : t('card.sharedWith', { count: shared.total })}
+              </Tag>
             )}
             {isStart && (
-              <span className="pg-pill pg-pill--start" data-testid="page-start-badge">
-                <Icon name="pin" /> {t('view.startPage')}
-              </span>
+              <Tag tone="accent" icon="pin" testId="page-start-badge">
+                {t('view.startPage')}
+              </Tag>
             )}
-            <span className="pg-pill pg-pill--live" data-testid="page-updated">
-              <Icon name="check-circle" /> {t(`view.updated.${by}`, { when })}
-            </span>
+            <Tag tone="ok" icon="check-circle" testId="page-updated">
+              {t(`view.updated.${by}`, { when })}
+            </Tag>
           </div>
         )}
         <div className="pg-strip__actions">
@@ -355,12 +357,12 @@ export default function PageView() {
           {page && (
             <Button size="sm" icon="users" onClick={() => setSharing(true)} data-testid="page-share">{t('card.share')}</Button>
           )}
-          <button type="button" className="btn btn-ghost btn-sm" onClick={reload} data-testid="page-reload">
-            <Icon name="refresh" /> {t('view.reload')}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={ask} data-testid="page-ask">
-            <Icon name="sparkles" /> {t('view.ask')}
-          </button>
+          <Button variant="ghost" size="sm" icon="refresh" onClick={reload} data-testid="page-reload">
+            {t('view.reload')}
+          </Button>
+          <Button size="sm" icon="sparkles" onClick={ask} data-testid="page-ask">
+            {t('view.ask')}
+          </Button>
           {guarded && run && (
             <span className="pg-menu">
               <Button variant="ghost" size="sm" icon="more-vertical" aria-haspopup="menu" aria-expanded={menu} aria-label={t('shared.menu')} onClick={() => setMenu((m) => !m)} data-testid="page-menu" />
@@ -429,7 +431,7 @@ export default function PageView() {
         ) : navigated ? (
           <div className="pg-stage__state" role="alert" data-testid="page-navigated">
             <span>{t('view.navigated')}</span>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={reload}>{t('view.reload')}</button>
+            <Button size="sm" onClick={reload}>{t('view.reload')}</Button>
           </div>
         ) : (
           <PageFrame

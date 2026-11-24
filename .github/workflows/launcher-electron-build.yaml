@@ -34,7 +34,7 @@ on:
         type: boolean
         default: false
       feed:
-        description: Keep the update feed files (latest-*.yml, latest.yml), blockmaps and the macOS zip. Releases only.
+        description: Keep the update feed files (latest-*.yml, latest.yml), blockmaps and the macOS zip. Releases and the development build.
         type: boolean
         default: false
       upload:
@@ -280,6 +280,8 @@ jobs:
           fi
           if [[ "$LAUNCHER_VERSION" == *-dev.* ]]; then
             args+=("-c.dmg.artifactName=LocalAI-Launcher-dev.dmg")
+            # The zip is what the updater applies (latest-mac.yml names it).
+            args+=("-c.mac.artifactName=LocalAI-Launcher-dev-\${arch}-mac.\${ext}")
           fi
           npm run build
           npx electron-builder --mac dmg zip --arm64 --publish never \

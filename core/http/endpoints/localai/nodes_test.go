@@ -253,6 +253,8 @@ var _ = Describe("Node HTTP handlers", func() {
 			handler := RegisterNodeEndpoint(registry, "", true, nil, "", natsauth.Config{})
 			Expect(handler(e.NewContext(req1, rec1))).To(Succeed())
 			Expect(rec1.Code).To(Equal(http.StatusCreated))
+			var first map[string]any
+			Expect(json.Unmarshal(rec1.Body.Bytes(), &first)).To(Succeed())
 
 			node, err := registry.GetByName(ctx, "worker-merge")
 			Expect(err).ToNot(HaveOccurred())
@@ -266,6 +268,8 @@ var _ = Describe("Node HTTP handlers", func() {
 			body2 := `{"name":"worker-merge","address":"10.0.0.50:50051","labels":{"tier":"b","gpu":"a100"}}`
 			req2 := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body2))
 			req2.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			// The worker registers again with the own credential of its node.
+			req2.Header.Set("Authorization", "Bearer "+first["node_token"].(string))
 			rec2 := httptest.NewRecorder()
 			Expect(handler(e.NewContext(req2, rec2))).To(Succeed())
 			Expect(rec2.Code).To(Equal(http.StatusCreated))

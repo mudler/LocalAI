@@ -10,7 +10,7 @@ import { formatBytes } from '../utils/format'
 import { compactCount, durationText, filterRows, groupUsage, modelStats, sortModelRows } from '../utils/traffic'
 import WindowSwitch from '../components/traffic/WindowSwitch'
 import Icon from '../components/Icon'
-import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
+import { Button, EmptyState, LoadError, SearchField, SkeletonRows } from '../components/ui'
 import './traffic.css'
 
 function SortHead({ col, label, sort, onSort, className }) {
@@ -97,10 +97,7 @@ export default function TrafficModels() {
         <>
           <div className="tf-controls">
             <p className="tf-summary">{t('models.summary', { count: all.length, loaded: loadedCount })}</p>
-            <div className="dk-input-icon tf-search">
-              <Icon name="search" className="dk-icon" />
-              <input className="dk-input" type="search" aria-label={t('models.search')} placeholder={t('models.search')} value={query} onChange={e => setQuery(e.target.value)} />
-            </div>
+            <SearchField className="tf-search" label={t('models.search')} value={query} onChange={setQuery} />
           </div>
 
           <div className="dk-table-wrap" data-testid="models-table">

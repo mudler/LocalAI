@@ -128,3 +128,11 @@ var _ = Describe("Tool JSON", func() {
 		Expect(string(data)).To(ContainSubstring(`"strict":true`))
 	})
 })
+
+var _ = Describe("JSONBNF", func() {
+	It("excludes unescaped control characters in the string rule", func() {
+		Expect(JSONBNF).To(ContainSubstring(`[^"\\\x7F\x00-\x1F]`))
+		Expect(JSONBNF).ToNot(ContainSubstring(`[^"\\]`))
+		Expect(JSONBNF).To(ContainSubstring(`"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])`))
+	})
+})

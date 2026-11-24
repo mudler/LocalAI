@@ -33,6 +33,15 @@
     "diskChip": "Datenträger fast voll"
   },
   "activity": {
+    "node": {
+      "done": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "queued": "In der Warteschlange",
+      "workerBusy": "Worker ausgelastet",
+      "downloading": "Wird heruntergeladen",
+      "rolledBack": "Zurückgesetzt",
+      "unconfirmed": "Nicht bestätigt"
+    },
     "kind": {
       "addon": "Add-on"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "Das Paket verlangt mehr Host-Zugriff, als du genehmigt hast.",
     "review": "Prüfen",
     "reviewLabel": "{{name}} prüfen"
+  },
+  "overview": {
+    "title": "Übersicht",
+    "openWorker": "Worker öffnen",
+    "approve": "Freigeben",
+    "approveAll": "Alle freigeben",
+    "signups_one": "{{count}} Registrierung wartet auf Freigabe",
+    "signups_other": "{{count}} Registrierungen warten auf Freigabe",
+    "approved_one": "{{count}} Registrierung freigegeben",
+    "approved_other": "{{count}} Registrierungen freigegeben",
+    "approveFailed": "Freigabe fehlgeschlagen: {{message}}",
+    "cluster": "Cluster",
+    "machine": "Dieser Rechner",
+    "openWorkers": "Worker öffnen",
+    "openMachine": "Diesen Rechner öffnen",
+    "online": "Online",
+    "ofTotal": "von {{total}}",
+    "loaded": "Geladen",
+    "inFlight": "In Bearbeitung",
+    "memory": "Speicher",
+    "disk": "Datenträger",
+    "diskFree": "{{free}} frei von {{total}}",
+    "traffic": "Traffic, {{hours}} Std.",
+    "openUsage": "Nutzung öffnen",
+    "requests": "Anfragen",
+    "failed": "Fehlgeschlagen",
+    "p95": "P95",
+    "barsLabel": "Anfragen der letzten {{hours}} Stunden",
+    "access": "Zugriff",
+    "users": "Benutzer",
+    "waiting": "Wartend",
+    "admins": "Admins",
+    "openUsers": "Benutzer öffnen"
   }
 }

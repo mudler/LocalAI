@@ -210,7 +210,9 @@
       "failed": "ব্যর্থ",
       "queued": "সারিबद्ध",
       "workerBusy": "কর্মী ব্যস্ত",
-      "downloading": "ডাউনলোড করা"
+      "downloading": "ডাউনলোড করা",
+      "rolledBack": "আগের অবস্থায় ফেরানো হয়েছে",
+      "unconfirmed": "নিশ্চিত নয়"
     },
     "kind": {
       "model": "মডেল",
@@ -520,5 +522,38 @@
     "emptyStream": "কোনও {{stream}} আউটপুট নেই। \"All\"-এ পরিবর্তন করে দেখুন।",
     "emptyFilter": "কোনো লাইনেই সেই টেক্সট নেই।",
     "emptyBody": "ব্যাকএন্ড প্রক্রিয়া চলার সময় লগ আউটপুট এখানে প্রদর্শিত হবে।"
+  },
+  "overview": {
+    "title": "ওভারভিউ",
+    "openWorker": "ওয়ার্কার খুলুন",
+    "approve": "অনুমোদন করুন",
+    "approveAll": "সব অনুমোদন করুন",
+    "signups_one": "{{count}}টি সাইন-আপ অনুমোদনের অপেক্ষায়",
+    "signups_other": "{{count}}টি সাইন-আপ অনুমোদনের অপেক্ষায়",
+    "approved_one": "{{count}}টি সাইন-আপ অনুমোদিত",
+    "approved_other": "{{count}}টি সাইন-আপ অনুমোদিত",
+    "approveFailed": "অনুমোদন করা যায়নি: {{message}}",
+    "cluster": "ক্লাস্টার",
+    "machine": "এই মেশিন",
+    "openWorkers": "ওয়ার্কার খুলুন",
+    "openMachine": "এই মেশিন খুলুন",
+    "online": "অনলাইন",
+    "ofTotal": "{{total}}-এর মধ্যে",
+    "loaded": "লোড করা",
+    "inFlight": "চলমান",
+    "memory": "মেমরি",
+    "disk": "ডিস্ক",
+    "diskFree": "{{total}}-এর মধ্যে {{free}} খালি",
+    "traffic": "ট্রাফিক, {{hours}} ঘণ্টা",
+    "openUsage": "ব্যবহার খুলুন",
+    "requests": "অনুরোধ",
+    "failed": "ব্যর্থ",
+    "p95": "P95",
+    "barsLabel": "গত {{hours}} ঘণ্টার অনুরোধ",
+    "access": "অ্যাক্সেস",
+    "users": "ব্যবহারকারী",
+    "waiting": "অপেক্ষমাণ",
+    "admins": "অ্যাডমিন",
+    "openUsers": "ব্যবহারকারী খুলুন"
   }
 }

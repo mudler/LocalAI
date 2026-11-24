@@ -130,12 +130,12 @@ test.describe("Models Gallery - Backend Features", () => {
   test("selecting a model names its backend in the pane", async ({ page }) => {
     await railItem(page, "llama-model").click();
     await expect(
-      page.locator(PANE).locator(".dk-badge", { hasText: "llama-cpp" }).first(),
+      page.locator(PANE).locator(".ui-tag", { hasText: "llama-cpp" }).first(),
     ).toBeVisible();
 
     await railItem(page, "whisper-model").click();
     await expect(
-      page.locator(PANE).locator(".dk-badge", { hasText: /^whisper$/ }).first(),
+      page.locator(PANE).locator(".ui-tag", { hasText: /^whisper$/ }).first(),
     ).toBeVisible();
   });
 
@@ -374,12 +374,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
       railItem(page, "stablediffusion-model"),
     ).toBeVisible();
 
-    // The shared <Toggle> visually hides its native input (opacity:0;w:0;h:0),
-    // so .check() can't interact with it directly — click the visible track.
-    await page
-      .locator("label.filter-bar-group__toggle", { hasText: "Fits in GPU" })
-      .locator(".toggle__track")
-      .click();
+    await page.getByRole("switch", { name: "Fits in GPU" }).click();
 
     await expect(
       railItem(page, "stablediffusion-model"),
@@ -392,10 +387,7 @@ test.describe("Models Gallery - Fits In GPU Filter", () => {
   });
 
   test("fits filter state persists after reload", async ({ page }) => {
-    await page
-      .locator("label.filter-bar-group__toggle", { hasText: "Fits in GPU" })
-      .locator(".toggle__track")
-      .click();
+    await page.getByRole("switch", { name: "Fits in GPU" }).click();
     await page.reload();
     await expect(page.getByLabel("Fits in GPU")).toBeChecked();
   });
@@ -431,10 +423,10 @@ test.describe("Models Gallery - Empty State", () => {
 
     await chatBtn.click();
 
-    await expect(page.locator(".dk-empty-title")).toHaveText(
+    await expect(page.locator(".ui-empty__title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".dk-empty-text")).toHaveText(
+    await expect(page.locator(".ui-empty__body")).toHaveText(
       "No models match your current search or filters.",
     );
 
@@ -608,7 +600,7 @@ test.describe("Models Gallery - Variant picker", () => {
     const unfit = detail.locator(".variant-row--unfit");
     await expect(unfit).toHaveCount(1);
     await expect(unfit).toContainText("llama-model-f16");
-    await expect(unfit.locator(".badge-warning")).toHaveText("Does not fit");
+    await expect(unfit.locator(".ui-chip--warn")).toHaveText("Does not fit");
     // Auto-selected still answers "what do I get if I just hit Install".
     await expect(
       detail.locator(".variant-row", { hasText: "llama-model-q8" }),
@@ -701,13 +693,13 @@ test.describe("Models Gallery - Variant picker", () => {
     await expect(
       page
         .locator(".variant-row", { hasText: "llama-model-q8" })
-        .locator(".badge", { hasText: "Faster: DFlash" }),
+        .locator(".ui-tag", { hasText: "Faster: DFlash" }),
     ).toBeVisible();
     // A build declaring no feature carries no feature badge at all.
     await expect(
       page
         .locator(".variant-row", { hasText: "llama-model-mlx" })
-        .locator(".badge", { hasText: "Faster" }),
+        .locator(".ui-tag", { hasText: "Faster" }),
     ).toHaveCount(0);
   });
 
@@ -1078,7 +1070,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   // by clicking the visible track.
   const collapseToggle = (page) => page.getByLabel("One row per model");
   const flipCollapse = (page) =>
-    page.getByTestId("models-collapse-variants").locator(".toggle__track").click();
+    page.getByTestId("models-collapse-variants").getByRole("switch").click();
 
   test("the collapse toggle sits in the refinements band, on by default", async ({
     page,
@@ -1267,10 +1259,10 @@ test.describe("Models Gallery - Collapsed Listing", () => {
   }) => {
     await facet(page, "chat").click();
 
-    await expect(page.locator(".dk-empty-title")).toHaveText(
+    await expect(page.locator(".ui-empty__title")).toHaveText(
       "No models found",
     );
-    await expect(page.locator(".dk-empty-text")).toHaveText(
+    await expect(page.locator(".ui-empty__body")).toHaveText(
       "No models match your current search or filters.",
     );
     // The chip is applied server-side over every build the gallery holds, and
@@ -1278,7 +1270,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     // nothing matched rather than that the collapse swallowed the matches.
     // Pointing at the toggle would send the user to a control that cannot
     // change this result.
-    await expect(page.locator(".empty-state-hint")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty-hint")).toHaveCount(0);
   });
 
   test("the empty state does not blame the collapse for a search", async ({
@@ -1289,7 +1281,7 @@ test.describe("Models Gallery - Collapsed Listing", () => {
     await searchBox(page).fill("nothing-matches-this");
     await expect(page.getByTestId("gallery-empty")).toBeVisible();
 
-    await expect(page.locator(".empty-state-hint")).toHaveCount(0);
+    await expect(page.getByTestId("gallery-empty-hint")).toHaveCount(0);
   });
 
   test("clear filters returns to the collapsed browsing view", async ({

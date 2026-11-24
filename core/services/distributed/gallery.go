@@ -30,6 +30,9 @@ type GalleryOperationRecord struct {
 	TotalBytes         int64     `json:"total_bytes,omitempty"`
 	Message            string    `gorm:"type:text" json:"message,omitempty"`
 	Error              string    `gorm:"type:text" json:"error,omitempty"`
+	ErrorKey           string    `gorm:"size:32" json:"error_key,omitempty"` // stable code of a failed backend upgrade
+	RolledBack         bool      `json:"rolled_back,omitempty"`              // a failed backend upgrade put the previous build back
+	Unconfirmed        bool      `json:"unconfirmed,omitempty"`              // a backend upgrade whose worker reply never came
 	FileName           string    `gorm:"size:512" json:"file_name,omitempty"`
 	TotalFileSize      string    `gorm:"size:32" json:"total_file_size,omitempty"`
 	DownloadedFileSize string    `gorm:"size:32" json:"downloaded_file_size,omitempty"`
@@ -168,11 +171,34 @@ func (s *GalleryStore) UpdateProgress(id string, progress float64, message, down
 // and that then succeeded would be recorded as completed while still carrying
 // "stale operation reaped" as its error.
 func (s *GalleryStore) UpdateStatus(id, status, errMsg string) error {
+	return s.UpdateStatusWithOutcome(id, status, errMsg, OperationOutcome{})
+}
+
+// OperationOutcome is what a finished backend upgrade says beyond its status
+// and error text. A replica that reads the row later (Hydrate after a restart,
+// the Activity record) must see the same outcome as the replica that ran it.
+type OperationOutcome struct {
+	// ErrorKey is the stable code of the failure (gallery.UpgradeFailureCode).
+	ErrorKey string
+	// RolledBack is true when the failed upgrade put the previous build back.
+	RolledBack bool
+	// Unconfirmed is true when the outcome is not known: a worker reply never
+	// came.
+	Unconfirmed bool
+}
+
+// UpdateStatusWithOutcome is UpdateStatus that also records the outcome of a
+// backend upgrade. Like the error text it is written unconditionally: a
+// corrected outcome drops the previous one.
+func (s *GalleryStore) UpdateStatusWithOutcome(id, status, errMsg string, out OperationOutcome) error {
 	updates := map[string]any{
 		"status":      status,
 		"cancellable": false,
 		"updated_at":  time.Now(),
 		"error":       errMsg,
+		"error_key":   out.ErrorKey,
+		"rolled_back": out.RolledBack,
+		"unconfirmed": out.Unconfirmed,
 	}
 	return s.db.Model(&GalleryOperationRecord{}).
 		Where("id = ? AND status NOT IN ?", id, settledStatuses).
@@ -287,6 +313,21 @@ func (s *GalleryStore) CleanStale(age time.Duration) (int64, error) {
 			"updated_at": time.Now(),
 		})
 	return res.RowsAffected, res.Error
+}
+
+// TouchActive moves updated_at of the given operations to now, when they are
+// still in flight. An upgrade run calls it for the operations it runs and
+// follows: an operation that waits in the queue behind a long download does
+// not tick, and CleanStale would otherwise fail it after 30 minutes although
+// it is going to run. Only the frontend that runs the operation touches it,
+// so an operation whose frontend died still goes stale.
+func (s *GalleryStore) TouchActive(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.db.Model(&GalleryOperationRecord{}).
+		Where("id IN ? AND status IN ?", ids, activeStatuses).
+		Update("updated_at", time.Now()).Error
 }
 
 // CleanOld removes operations older than the given duration.

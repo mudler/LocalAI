@@ -20,6 +20,11 @@ func RegisterAddonRoutes(e *echo.Echo, a *application.Application, opcache *gall
 	var queue []endpoints.Option
 	if gs := a.GalleryService(); gs != nil {
 		queue = append(queue, endpoints.WithOperationQueue(gs, opcache))
+		// The upgrade route starts an upgrade run of one item, so a single
+		// upgrade and a run of several never run beside each other.
+		if up := a.AddonRunUpgrader(); up != nil {
+			queue = append(queue, endpoints.WithUpgradeRuns(a.UpgradeRuns, up))
+		}
 	}
 	registerAddonRoutes(e, a.AddonGateway(), a.AuthDB(), a.AddonOwnershipMode(), a.StudioSelectionGuard(), queue, gate...)
 }

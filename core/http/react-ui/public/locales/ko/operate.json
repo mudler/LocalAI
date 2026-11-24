@@ -33,6 +33,15 @@
     "diskChip": "디스크 거의 가득 참"
   },
   "activity": {
+    "node": {
+      "done": "완료",
+      "failed": "실패",
+      "queued": "대기 중",
+      "workerBusy": "워커 사용 중",
+      "downloading": "다운로드 중",
+      "rolledBack": "되돌림",
+      "unconfirmed": "확인되지 않음"
+    },
     "kind": {
       "addon": "애드온"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "패키지가 승인한 것보다 많은 호스트 접근을 요구합니다.",
     "review": "검토",
     "reviewLabel": "{{name}} 검토"
+  },
+  "overview": {
+    "title": "개요",
+    "openWorker": "워커 열기",
+    "approve": "승인",
+    "approveAll": "모두 승인",
+    "signups_one": "가입 {{count}}건이 승인을 기다립니다",
+    "signups_other": "가입 {{count}}건이 승인을 기다립니다",
+    "approved_one": "가입 {{count}}건 승인됨",
+    "approved_other": "가입 {{count}}건 승인됨",
+    "approveFailed": "승인할 수 없습니다: {{message}}",
+    "cluster": "클러스터",
+    "machine": "이 컴퓨터",
+    "openWorkers": "워커 열기",
+    "openMachine": "이 컴퓨터 열기",
+    "online": "온라인",
+    "ofTotal": "/ {{total}}",
+    "loaded": "로드됨",
+    "inFlight": "처리 중",
+    "memory": "메모리",
+    "disk": "디스크",
+    "diskFree": "{{total}} 중 {{free}} 여유",
+    "traffic": "트래픽, {{hours}}시간",
+    "openUsage": "사용량 열기",
+    "requests": "요청",
+    "failed": "실패",
+    "p95": "P95",
+    "barsLabel": "최근 {{hours}}시간의 요청",
+    "access": "접근",
+    "users": "사용자",
+    "waiting": "대기 중",
+    "admins": "관리자",
+    "openUsers": "사용자 열기"
   }
 }

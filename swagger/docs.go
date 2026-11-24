@@ -6909,6 +6909,12 @@ const docTemplate = `{
                         "description": "a saved agent of yours",
                         "name": "agent_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "comma-separated add-on IDs the draft switched off; they free room under the limit on add-on tools (tool_cap)",
+                        "name": "addons_off",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8946,11 +8952,31 @@ const docTemplate = `{
                     "chats"
                 ],
                 "summary": "List your projects.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Your projects, sorted by name",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "409": {
@@ -8976,6 +9002,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8987,6 +9019,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9113,6 +9151,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9120,6 +9164,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9143,11 +9199,29 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "204": {
                         "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "No such project, or it is another user's",
@@ -9179,6 +9253,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9190,6 +9270,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9223,6 +9309,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9230,6 +9322,18 @@ const docTemplate = `{
                         "description": "The agents of the project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectAgentList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9261,6 +9365,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9268,6 +9378,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9305,6 +9427,12 @@ const docTemplate = `{
                         "description": "most chats to return",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9312,6 +9440,18 @@ const docTemplate = `{
                         "description": "The chats",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversationList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9337,6 +9477,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9344,6 +9490,18 @@ const docTemplate = `{
                         "description": "The connections",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectConnectionList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9375,6 +9533,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9382,6 +9546,18 @@ const docTemplate = `{
                         "description": "The loops",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectLoopList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9413,6 +9589,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9420,6 +9602,18 @@ const docTemplate = `{
                         "description": "The index and the topic files",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectMemory"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9461,6 +9655,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectMemoryWrite"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9469,6 +9669,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The file name or the body is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -9501,6 +9707,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9508,6 +9720,18 @@ const docTemplate = `{
                         "description": "The project",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProject"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -9539,6 +9763,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9546,6 +9776,18 @@ const docTemplate = `{
                         "description": "The triggers",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsProjectTriggerList"
+                        }
+                    },
+                    "400": {
+                        "description": "user_id is not a well-formed user id",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -13236,6 +13478,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatProject"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13247,6 +13495,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13289,6 +13543,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatPulledProjects"
                         }
+                    },
+                    {
+                        "type": "string",
+                        "description": "an administrator only: act on the projects of this user id instead of your own",
+                        "name": "user_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13300,6 +13560,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "user_id names another user and you are not an administrator",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -13572,7 +13838,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory, saved_agents and history; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). deferred is true on a group whose tools the chat loads on demand behind tool_search, tool_describe and tool_call (the localai_client and localai_admin groups, see the setting chats_tool_search). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead. tool_cap is present only when the server's limit on add-on tools (64 per chat) left tools out: it gives the limit, how many tools are offered, the total your add-ons declare, how many were cut and the add-ons that lost tools (id, title, cut). Switching add-ons off in one chat does not bring the cut tools back; stop or disable the add-ons you do not use.",
                 "tags": [
                     "chats"
                 ],
@@ -13608,6 +13874,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/cluster/join-tokens": {
+            "get": {
+                "description": "Lists the join tokens with their state (unused, partly_used, used_up, expired, revoked), the uses left, the connections they allow and who minted them. A token stays in the list for a day after it ends. The secret is never in the list. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List the join tokens",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/localai.JoinTokenView"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Mints a random join token that lets a worker register with the cluster. It is good for 10 minutes and one use unless the request says otherwise (up to 24 hours and 100 uses, for Kubernetes or Compose), it can limit the connections of the worker (nats, websocket; P2P workers use their own invite), and a worker that uses it waits for an admin approval unless auto_approve is true (the default comes from the cluster setting join_auto_approve, off unless set). The server keeps only a hash of the token. The response carries the plain token and ready-to-copy commands for each way to run a worker (install script, Windows, docker, docker compose, kubernetes, manual), built from the external URL of this frontend; it is the only time the plain token is shown. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Mint a join token for a worker",
+                "parameters": [
+                    {
+                        "description": "token options",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.MintJoinTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/localai.MintJoinTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "A limit is out of range or a connection is unknown",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/cluster/join-tokens/{id}": {
+            "delete": {
+                "description": "Ends a join token at once. A worker that already registered with it keeps its own credential; revoke the node to end that. Admin only.",
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Revoke a join token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "join token id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such token",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Distributed mode is not enabled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/cluster/settings": {
             "get": {
                 "description": "Returns the NATS address of the frontends and of the workers, the carrier weights (nats, websocket, p2p) that break a tie between equally fit nodes, the broadcast bus of the frontend that answers (nats while it reaches the NATS server, postgres otherwise), and the live frontend replicas. A user name, password or query string in an address is dropped. Admin only.",
@@ -13634,7 +14020,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Stores the NATS address, the address workers use, or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
+                "description": "Stores the NATS address, the address workers use, join_auto_approve (the default of the auto-approve choice of a new join token, off unless set), or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight is a tie-break between equally fit nodes and never overrides fit; null puts the default back; the change applies to every frontend within seconds, with no restart). Saving a NATS address checks that the serving replica reaches it; the frontends use a new address after a restart. Admin only.",
                 "tags": [
                     "Nodes"
                 ],
@@ -14751,7 +15137,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
+                "description": "Adds a source of your own. kind is addon, backend or model; format is library (default) or gallery. The id is derived from the name or URL when it is empty. issuer and identity, set together, pin the signer of an oci:// add-on library: its artifact must then be signed by that issuer and exact identity (400 otherwise, and on any other source). identity_regex, an anchored pattern, can take the place of identity only together with source_repository, the https URL of the repository the signature must be made for (400 for a pattern alone). source_repository can also go with an exact identity. A source with the same kind and URL is refused (409), as is a taken id. Administrators only.",
                 "consumes": [
                     "application/json"
                 ],
@@ -15066,7 +15452,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Repository uri: huggingface://owner/repo or pirateface://owner/repo",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or ollama://name[:tag]",
                         "name": "uri",
                         "in": "query",
                         "required": true
@@ -15120,7 +15506,7 @@ const docTemplate = `{
         },
         "/api/models/remote/files": {
             "get": {
-                "description": "Reads one repository of Hugging Face or Pirate Face and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
+                "description": "Reads one repository of Hugging Face or Pirate Face, or one model tag of the Ollama registry, and returns its weight files with sizes, one variant per quantization (shards are one variant), the licence, whether access is gated, a short description from the model card, the GGUF header summary Hugging Face reports, whether an installed model already comes from the repository, and the backend a dry run of the import selects. Nothing is downloaded or enqueued. A variant's ` + "`" + `preference` + "`" + ` is the value for ` + "`" + `preferences.quantizations` + "`" + ` on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate Face repository come from the Hugging Face commit its torrent mirrors; ` + "`" + `size_known` + "`" + ` is false when Hugging Face does not know the repository. The answer is cached per repository for 10 minutes.",
                 "tags": [
                     "models"
                 ],
@@ -15128,7 +15514,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo or a huggingface.co url",
+                        "description": "Repository uri: huggingface://owner/repo, pirateface://owner/repo, ollama://name[:tag] or a huggingface.co url",
                         "name": "uri",
                         "in": "query",
                         "required": true
@@ -15400,7 +15786,7 @@ const docTemplate = `{
         },
         "/api/models/upgrade/{name}": {
             "post": {
-                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
+                "description": "Queues an upgrade and returns its operation; follow it on status_url or /api/operations. Without config_only and choices the upgrade runs as an upgrade run of one item (see /api/updates/runs) and the answer adds the run; with them it is queued directly. While an upgrade run runs, every request is refused with 409 and code run_active. The upgrade checks the backend, the free disk and the files other models share, downloads the changed files beside the old ones and verifies their sha256, stops the model, switches the files and the config, and loads the new version as a check. A failed load puts the old version back (state failed, with the error and a retry). The old files are kept until removed with POST /api/models/{name}/remove-old. Keys a person edited are kept; an edited key the update also changes needs a choice in choices, or the request is refused with 409 and the keys. A held model is refused with 409; release the hold first. Nothing upgrades without this request.",
                 "tags": [
                     "models"
                 ],
@@ -15424,9 +15810,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Operation",
+                        "description": "Operation, and the run when one started it",
                         "schema": {
-                            "$ref": "#/definitions/schema.ModelUpgradeResponse"
+                            "$ref": "#/definitions/localai.ModelUpgradeRunResponse"
                         }
                     },
                     "404": {
@@ -15436,7 +15822,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Running, held, or edited keys need a choice",
+                        "description": "Running, held, edited keys need a choice, or another upgrade run runs (code run_active)",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
@@ -15747,7 +16133,7 @@ const docTemplate = `{
         },
         "/api/models/{name}/upgrade/retry": {
             "post": {
-                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held.",
+                "description": "Runs the last upgrade of the model again, with its options and choices, toward what the gallery entry installs now. Refused with 409 when the last upgrade did not fail or the model is held, and with 409 and code run_active while an upgrade run runs.",
                 "tags": [
                     "models"
                 ],
@@ -15775,7 +16161,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Nothing to retry, held, or an upgrade runs",
+                        "description": "Nothing to retry, held, an upgrade runs, or an upgrade run runs (code run_active)",
                         "schema": {
                             "$ref": "#/definitions/schema.ModelUpgradeError"
                         }
@@ -18799,6 +19185,339 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/updates/runs": {
+            "get": {
+                "description": "The running run first, then the newest. active=1 lists only the running run. Dismissed runs are left out. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "List upgrade runs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "1 lists only the running run",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Most runs to return (default 20)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Runs",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunList"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Checks every item (installed, an update available, the update still goes to expected_to) and starts one run; if one item fails a check, no run is created. Only one run runs at a time (409 run_active). A held model or one whose update changes edited keys is part of the run as skipped. Add-on items run for the administrator who started the run, through the same owner checks as POST /api/addons/{id}/upgrade; they need the administrator's own browser session with the header X-LocalAI-Confirm: upgrade-run, or they are skipped with error key not_human_surface. source must be manual. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Start an upgrade run",
+                "parameters": [
+                    {
+                        "description": "Items and the version or digest each must move to",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.StartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "400": {
+                        "description": "Code invalid",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code no_update, stale, run_active or source_unchecked",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/preview": {
+            "post": {
+                "description": "Lists the backends, gallery models and add-ons that have an update, in run order (backends, then models, then add-ons), with what each update does and whether it can start. Starts nothing. Send expected_to of each item back in the start request. Administrators only.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Preview an upgrade run",
+                "parameters": [
+                    {
+                        "description": "Items to preview; empty previews all",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Plan",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunPreview"
+                        }
+                    },
+                    "400": {
+                        "description": "Malformed request",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "503": {
+                        "description": "Upgrade runs are not available",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}": {
+            "get": {
+                "description": "The run with each item: phase, progress, error key and the operation (job_id) of /api/operations it runs. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Read an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Hides a finished run from the default list. Administrators only.",
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Dismiss an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Dismissed"
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_not_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/cancel": {
+            "post": {
+                "description": "Drops the queued items and stops the running ones that can stop; the run then ends cancelled. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Cancel an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/items/{key}/cancel": {
+            "post": {
+                "description": "A queued item is dropped; a running item is stopped only while its operation says it can stop. Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Cancel one item of an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Item key, \u003ckind\u003e:\u003cname\u003e, URL-encoded",
+                        "name": "key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code not_cancellable or run_finished",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/updates/runs/{id}/retry": {
+            "post": {
+                "description": "Starts a new run with the items of a finished run that failed, rolled back or stayed unconfirmed and still have an update, toward what the checks offer now. The old run does not change. The new run is a manual run of the administrator who retries, also when the old run was automatic or was started by another administrator. When that includes add-on items, the request needs the administrator's own browser session with X-LocalAI-Confirm: upgrade-run (409 not_human_surface). Administrators only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "updates"
+                ],
+                "summary": "Retry an upgrade run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new run",
+                        "schema": {
+                            "$ref": "#/definitions/upgraderun.Run"
+                        }
+                    },
+                    "404": {
+                        "description": "Code not_found",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    },
+                    "409": {
+                        "description": "Code run_not_finished, nothing_to_retry, run_active, not_human_surface or source_unchecked",
+                        "schema": {
+                            "$ref": "#/definitions/localai.UpgradeRunError"
+                        }
+                    }
+                }
+            }
+        },
         "/api/voice-profiles": {
             "get": {
                 "description": "List the saved voice-cloning references the caller may use (their own and the instance-wide ones; an administrator sees all), without exposing filesystem paths.",
@@ -19540,6 +20259,7 @@ const docTemplate = `{
         },
         "/backends/upgrade/{name}": {
             "post": {
+                "description": "Refused before anything is queued when the backend is not installed (404, code not_installed), has no pending upgrade (409, code no_update), or when the optional expected_to (the available version or digest, as a query parameter or a JSON field) is no longer the available build (409, code stale).",
                 "tags": [
                     "backends"
                 ],
@@ -19551,6 +20271,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The version or digest the caller wants; refused with code stale when it is no longer the available one",
+                        "name": "expected_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -19562,6 +20288,20 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Backend installation is disabled on this server (code backend_install_disabled)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "The backend is not installed (code not_installed)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "The backend has no pending upgrade (code no_update) or the requested build is no longer the available one (code stale)",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -19633,6 +20373,192 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/join.ps1": {
+            "get": {
+                "description": "Returns the script that installs a worker and joins it to this cluster: join.sh for Linux and macOS (installs the binary through install.sh in worker mode, writes a systemd unit or a launchd daemon, keeps the settings in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret and a StatefulSet with a volume for the state directory). Public, but answers only for a join token that exists and is not expired, revoked or used up; the answer is the same 404 for every other token. Serving the script does not spend the token.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Join script for a worker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "join token",
+                        "name": "t",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "connections of the worker, comma separated: nats, websocket",
+                        "name": "routes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the script",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "A connection is unknown or the token does not allow it",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The token is not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many tokens that are not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/join.sh": {
+            "get": {
+                "description": "Returns the script that installs a worker and joins it to this cluster: join.sh for Linux and macOS (installs the binary through install.sh in worker mode, writes a systemd unit or a launchd daemon, keeps the settings in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret and a StatefulSet with a volume for the state directory). Public, but answers only for a join token that exists and is not expired, revoked or used up; the answer is the same 404 for every other token. Serving the script does not spend the token.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Join script for a worker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "join token",
+                        "name": "t",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "connections of the worker, comma separated: nats, websocket",
+                        "name": "routes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the script",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "A connection is unknown or the token does not allow it",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The token is not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many tokens that are not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/join.yaml": {
+            "get": {
+                "description": "Returns the script that installs a worker and joins it to this cluster: join.sh for Linux and macOS (installs the binary through install.sh in worker mode, writes a systemd unit or a launchd daemon, keeps the settings in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret and a StatefulSet with a volume for the state directory). Public, but answers only for a join token that exists and is not expired, revoked or used up; the answer is the same 404 for every other token. Serving the script does not spend the token.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Join script for a worker",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "join token",
+                        "name": "t",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "connections of the worker, comma separated: nats, websocket",
+                        "name": "routes",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the script",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "A connection is unknown or the token does not allow it",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "The token is not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "Too many tokens that are not valid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -22493,6 +23419,10 @@ const docTemplate = `{
                 "driftNodes": {
                     "type": "integer"
                 },
+                "heldBack": {
+                    "description": "HeldBack is true when the automatic update does not take this\nrelease: the same release already rolled back, or failed because it\ndoes not work here, in a recent upgrade run. A manual update still\ncan. It goes away when the gallery lists another release.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -22730,7 +23660,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "identityRegex": {
-                    "description": "IdentityRegex is an anchored pattern for the signer identity, used\ninstead of Identity so that master and tagged builds both verify. Only a\nlibrary that serves backends may use it; an add-on install refuses it.",
+                    "description": "IdentityRegex is an anchored pattern for the signer identity, used\ninstead of Identity so that master and tagged builds both verify. A\nbackend install accepts it alone. An add-on install and an oci:// add-on\nlibrary accept it only with SourceRepository: a shared signing workflow\nsigns for every repository that calls it, so the pattern alone would\nadmit a signature made for any of them.",
                     "type": "string"
                 },
                 "issuer": {
@@ -22738,6 +23668,10 @@ const docTemplate = `{
                 },
                 "requireSignature": {
                     "type": "boolean"
+                },
+                "sourceRepository": {
+                    "description": "SourceRepository pins the repository the signature was made for: an\nhttps URL compared exactly with the source-repository extension of the\nsigning certificate, such as https://github.com/\u003cowner\u003e/\u003crepo\u003e. It is\nvalid only when a signature is required.",
+                    "type": "string"
                 }
             }
         },
@@ -23401,6 +24335,10 @@ const docTemplate = `{
                     "description": "ApprovalOverridable lets the person relax Approval to \"ask never\" for\nthis tool, and nothing else. The choice is a user setting that the\nmanifest declares under ApprovalSettingKey(Name), with the values\nApprovalAsk and ApprovalSkip and the default ApprovalAsk, so the answer\nis the person's own, written from their own browser session only. The\nhost honors ApprovalSkip only for a call that the person makes in their\nown chat, or that a sender paired with the person's bot makes in a\nmessaging chat. Every other caller, and every call without a chat,\nstill waits for a confirmation. Only a tool with Approval \"always\" may\nset it.",
                     "type": "boolean"
                 },
+                "deferred": {
+                    "description": "Deferred says that a chat offers this tool through the tool search\n(tool_search, tool_describe and tool_call) instead of as a typed tool, so\nits schema is not sent on every turn. It changes the model's prompt only:\nthe tool keeps its name, its kind, its role check and its approval, and\npages, MCP clients, agents and triggers list it as before. It is refused\non a UIOnly tool, which no model is offered, and on a tool that Shadows a\nbuilt-in one, which must keep its name.",
+                    "type": "boolean"
+                },
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
@@ -23977,6 +24915,10 @@ const docTemplate = `{
                 "error": {
                     "type": "string"
                 },
+                "error_key": {
+                    "description": "ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade\non this node (status error or rolled_back).",
+                    "type": "string"
+                },
                 "file_name": {
                     "type": "string"
                 },
@@ -24021,6 +24963,10 @@ const docTemplate = `{
                 "downloaded_size": {
                     "type": "string"
                 },
+                "error_key": {
+                    "description": "ErrorKey is the stable code of a failed backend upgrade (the string\nof a gallery.UpgradeFailureCode), next to the text of the failure. It\nis empty for every other outcome. Readers branch on it, never on the\nmessage.",
+                    "type": "string"
+                },
                 "file_name": {
                     "type": "string"
                 },
@@ -24049,8 +24995,16 @@ const docTemplate = `{
                 "progress": {
                     "type": "number"
                 },
+                "rolled_back": {
+                    "description": "RolledBack is true for a failed backend upgrade (or forced install)\nwhose new build did not start and whose previous build was put back:\nthe backend still runs the version it ran before. On a cluster it is\ntrue when every node that failed rolled back.",
+                    "type": "boolean"
+                },
                 "total_bytes": {
                     "type": "integer"
+                },
+                "unconfirmed": {
+                    "description": "Unconfirmed is true for a backend upgrade whose outcome is not known:\na worker did not reply (a timeout, or a link that broke after it took\nthe request). It is neither a failure nor a success; a later check of\nthe node decides.",
+                    "type": "boolean"
                 },
                 "upgrade": {
                     "description": "Upgrade is true if the operation re-installs a backend to move it to a\nnewer build. Without it an upgrade reads as an install: the UI needs the\ndifference for its wording and for what Retry has to call.",
@@ -25718,6 +26672,10 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "join_auto_approve": {
+                    "description": "JoinAutoApprove sets the default of the auto-approve choice of a new join\ntoken. null puts the default (off) back.",
+                    "type": "boolean"
+                },
                 "nats_url": {
                     "type": "string"
                 },
@@ -25752,6 +26710,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/cluster.CarrierWeights"
                         }
                     ]
+                },
+                "join_auto_approve": {
+                    "description": "JoinAutoApprove is the default of the auto-approve choice of a new join\ntoken: when true, a worker that registers with such a token joins with no\nadmin approval. Off unless set.",
+                    "type": "boolean"
                 },
                 "nats_url": {
                     "description": "NATSURL is the NATS address that the frontends use.",
@@ -25934,6 +26896,84 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.JoinCommands": {
+            "type": "object",
+            "properties": {
+                "docker": {
+                    "description": "Docker runs the worker as one container.",
+                    "type": "string"
+                },
+                "docker_compose": {
+                    "description": "DockerCompose is a compose file with one worker service.",
+                    "type": "string"
+                },
+                "install_script": {
+                    "description": "InstallScript installs the binary and a service on a Linux or macOS host.",
+                    "type": "string"
+                },
+                "kubernetes": {
+                    "description": "Kubernetes applies a Secret and a StatefulSet.",
+                    "type": "string"
+                },
+                "manual": {
+                    "description": "Manual starts a worker from a binary that is already installed.",
+                    "type": "string"
+                },
+                "windows": {
+                    "description": "Windows installs the binary and a service on a Windows host (PowerShell).",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.JoinTokenView": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "nats, websocket; empty means any",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "unused, partly_used, used_up, expired or revoked",
+                    "type": "string"
+                },
+                "uses": {
+                    "type": "integer"
+                }
+            }
+        },
         "localai.LibrarySourcesResponse": {
             "type": "object",
             "properties": {
@@ -25945,6 +26985,95 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/library.Info"
                     }
+                }
+            }
+        },
+        "localai.MintJoinTokenRequest": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "description": "AutoApprove makes the worker that uses the token join with no admin step.",
+                    "type": "boolean"
+                },
+                "label": {
+                    "description": "Label is a note for the list, for example the name of the machine.",
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "Routes limits the connections of the worker: nats, websocket. Empty allows any.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ttl_seconds": {
+                    "description": "TTLSeconds is how long the token is good for, up to 86400 (24 hours).",
+                    "type": "integer"
+                },
+                "uses": {
+                    "description": "Uses is how many workers may register with it, up to 100. Use more than\none for Kubernetes and Compose, where several replicas start together.",
+                    "type": "integer"
+                }
+            }
+        },
+        "localai.MintJoinTokenResponse": {
+            "type": "object",
+            "properties": {
+                "auto_approve": {
+                    "type": "boolean"
+                },
+                "commands": {
+                    "description": "Commands are ready to copy, one for each way to run a worker.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/localai.JoinCommands"
+                        }
+                    ]
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "last_used_at": {
+                    "type": "string"
+                },
+                "max_uses": {
+                    "type": "integer"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "revoked_by": {
+                    "type": "string"
+                },
+                "routes": {
+                    "description": "nats, websocket; empty means any",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "unused, partly_used, used_up, expired or revoked",
+                    "type": "string"
+                },
+                "token": {
+                    "description": "Token is the plain token. It is shown once.",
+                    "type": "string"
+                },
+                "uses": {
+                    "type": "integer"
                 }
             }
         },
@@ -25984,6 +27113,26 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "localai.ModelUpgradeRunResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "jobID": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "run": {
+                    "$ref": "#/definitions/upgraderun.Run"
+                },
+                "status_url": {
+                    "type": "string"
                 }
             }
         },
@@ -26342,6 +27491,148 @@ const docTemplate = `{
                 }
             }
         },
+        "localai.UpgradeRunError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "run_active"
+                },
+                "key": {
+                    "type": "string",
+                    "example": "gallery:kokoro"
+                },
+                "message": {
+                    "type": "string",
+                    "example": "another upgrade run is running"
+                }
+            }
+        },
+        "localai.UpgradeRunList": {
+            "type": "object",
+            "properties": {
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.Run"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunPreview": {
+            "type": "object",
+            "properties": {
+                "active_run_id": {
+                    "description": "ActiveRunID is the run that runs now; a start is refused while it runs.",
+                    "type": "string"
+                },
+                "complete": {
+                    "description": "Complete is false when a source did not answer, so items may be\nmissing.",
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.UpgradeRunPreviewItem"
+                    }
+                },
+                "order": {
+                    "description": "Order is the keys in run order.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunPreviewItem": {
+            "type": "object",
+            "properties": {
+                "default_selected": {
+                    "type": "boolean"
+                },
+                "expected_to": {
+                    "description": "ExpectedTo is what a start request should send back as expected_to:\nthe version, or for an add-on the digest of the candidate.",
+                    "type": "string"
+                },
+                "from": {
+                    "description": "From and To are the versions for display.",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "order": {
+                    "description": "Order is the position in the run, from 0.",
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "risk": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/localai.UpgradeRunRisk"
+                    }
+                },
+                "risks": {
+                    "description": "Risks are what the update does beyond replacing the item.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "selected": {
+                    "description": "Selected is the default selection: backends and add-ons, not models.",
+                    "type": "boolean"
+                },
+                "stage": {
+                    "type": "integer"
+                },
+                "startable": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name a person knows the item by (an add-on's title).",
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "localai.UpgradeRunPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.ItemRef"
+                    }
+                }
+            }
+        },
+        "localai.UpgradeRunRisk": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "example": "stops_models"
+                },
+                "params": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "localai.VoiceProfileListResponse": {
             "type": "object",
             "properties": {
@@ -26584,7 +27875,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "kind": {
-                    "description": "Kind is \"gguf\", \"mmproj\" or \"weights\" (safetensors, bin, pt).",
+                    "description": "Kind is \"gguf\", \"mmproj\", \"drafter\" (a speculative-decoding sidecar such\nas dspark-*.gguf, never a variant of its own) or \"weights\" (safetensors,\nbin, pt).",
                     "type": "string"
                 },
                 "path": {
@@ -27316,6 +28607,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "omit_lan_addrs": {
+                    "description": "OmitLANAddrs keeps the private addresses of this server out of the\nlink. By default the link carries them, so a device on the same network\ncan redeem it with no relay and no multicast discovery.",
+                    "type": "boolean"
                 },
                 "relays": {
                     "description": "Relays is \"auto\", \"none\" or a list of relay IDs.",
@@ -32874,6 +34169,10 @@ const docTemplate = `{
                 "after": {
                     "type": "integer"
                 },
+                "backend": {
+                    "description": "Backend names the backend of a model_backend_outdated failure.",
+                    "type": "string"
+                },
                 "before": {
                     "description": "Before and After are context sizes in tokens, for compacted.",
                     "type": "integer"
@@ -33081,6 +34380,10 @@ const docTemplate = `{
         "schema.ChatsFailure": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the backend the cause is about, when it is known (code\nmodel_backend_outdated).",
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code names the cause, such as model_not_found, upstream, timeout or agent.",
                     "type": "string"
@@ -34712,6 +36015,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "owner": {
+                    "description": "Owner is the id of the user that owns the project. Every response\ncarries it: the caller's own id, or the user an administrator acts for\nwith ?user_id=.",
+                    "type": "string"
+                },
                 "skills_blocked": {
                     "description": "SkillsBlocked is true when the project's own skills are off because\nanother person may write the project folder (a share with write access).\nIt is set on a read of one project; the list leaves it out.",
                     "type": "boolean"
@@ -35939,6 +37246,57 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsToolCap": {
+            "type": "object",
+            "properties": {
+                "addons": {
+                    "description": "Addons are the add-ons that lost tools, by ID.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsToolCapAddon"
+                    }
+                },
+                "cut": {
+                    "description": "Cut is how many tools were left out.",
+                    "type": "integer",
+                    "example": 16
+                },
+                "limit": {
+                    "description": "Limit is the most add-on tools one chat is offered.",
+                    "type": "integer",
+                    "example": 64
+                },
+                "offered": {
+                    "description": "Offered is how many add-on tools are offered.",
+                    "type": "integer",
+                    "example": 64
+                },
+                "total": {
+                    "description": "Total is how many your add-ons declare: offered plus cut.",
+                    "type": "integer",
+                    "example": 80
+                }
+            }
+        },
+        "schema.ChatsToolCapAddon": {
+            "type": "object",
+            "properties": {
+                "cut": {
+                    "description": "Cut is how many tools of the add-on were left out.",
+                    "type": "integer",
+                    "example": 16
+                },
+                "id": {
+                    "type": "string",
+                    "example": "notes"
+                },
+                "title": {
+                    "description": "Title is what the add-on declares for people, or empty.",
+                    "type": "string",
+                    "example": "Notes"
+                }
+            }
+        },
         "schema.ChatsToolCard": {
             "type": "object",
             "properties": {
@@ -36092,6 +37450,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsMCPServerSwitch"
                     }
+                },
+                "tool_cap": {
+                    "description": "ToolCap is present only when the server limits how many add-on tools a\nchat is offered and that limit left some out. Absent otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsToolCap"
+                        }
+                    ]
                 }
             }
         },
@@ -39083,6 +40449,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "code": {
+                    "description": "Code is a stable code when the refusal has one, such as run_active\n(another upgrade run is running) or the error key of an upgrade run\nitem that could not start.",
+                    "type": "string"
                 },
                 "error": {
                     "type": "string"
@@ -42373,6 +43743,232 @@ const docTemplate = `{
                 "throttled": {
                     "description": "Throttled is true when an explicit refresh was not performed because\none ran moments ago. The status is then the last one.",
                     "type": "boolean"
+                }
+            }
+        },
+        "upgraderun.Item": {
+            "type": "object",
+            "properties": {
+                "cancellable": {
+                    "type": "boolean"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "error_key": {
+                    "type": "string"
+                },
+                "expected_to": {
+                    "description": "ExpectedTo is the version or digest the item had to move to when the\nrun was requested (for an add-on the digest of its candidate). A later\nchange of the target fails the item as stale instead of installing\nsomething nobody looked at.",
+                    "type": "string"
+                },
+                "from": {
+                    "description": "From and To are the versions for display: the version, or the digest\nwhen there is no version.",
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.NodeState"
+                    }
+                },
+                "phase": {
+                    "$ref": "#/definitions/upgraderun.Phase"
+                },
+                "progress": {
+                    "type": "integer"
+                },
+                "queued_reason": {
+                    "description": "QueuedReason says why a queued item waits.",
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "description": "Title is the name a person knows the item by (an add-on's title);\nempty when it is Name.",
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.ItemRef": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.Kind": {
+            "type": "string",
+            "enum": [
+                "gallery",
+                "library",
+                "addon",
+                "model"
+            ],
+            "x-enum-varnames": [
+                "KindGallery",
+                "KindLibrary",
+                "KindAddon",
+                "KindModel"
+            ]
+        },
+        "upgraderun.NodeState": {
+            "type": "object",
+            "properties": {
+                "error_key": {
+                    "description": "ErrorKey is the failure code of the upgrade on this node, when its\nphase is error or rolled_back.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "integer"
+                }
+            }
+        },
+        "upgraderun.Phase": {
+            "type": "string",
+            "enum": [
+                "queued",
+                "running",
+                "updated",
+                "failed",
+                "rolled_back",
+                "cancelled",
+                "skipped",
+                "unconfirmed"
+            ],
+            "x-enum-varnames": [
+                "PhaseQueued",
+                "PhaseRunning",
+                "PhaseUpdated",
+                "PhaseFailed",
+                "PhaseRolledBack",
+                "PhaseCancelled",
+                "PhaseSkipped",
+                "PhaseUnconfirmed"
+            ]
+        },
+        "upgraderun.Run": {
+            "type": "object",
+            "properties": {
+                "actor": {
+                    "type": "string"
+                },
+                "cancel_requested": {
+                    "description": "CancelRequested is set when the whole run was cancelled; nothing new\nstarts, and the run ends cancelled once the running items settle.",
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "dismissed": {
+                    "description": "Dismissed hides a finished run from the default list.",
+                    "type": "boolean"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.Item"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/upgraderun.Source"
+                },
+                "state": {
+                    "$ref": "#/definitions/upgraderun.RunState"
+                }
+            }
+        },
+        "upgraderun.RunState": {
+            "type": "string",
+            "enum": [
+                "running",
+                "finished",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "RunRunning",
+                "RunFinished",
+                "RunCancelled"
+            ]
+        },
+        "upgraderun.Source": {
+            "type": "string",
+            "enum": [
+                "manual",
+                "auto"
+            ],
+            "x-enum-varnames": [
+                "SourceManual",
+                "SourceAuto"
+            ]
+        },
+        "upgraderun.StartItem": {
+            "type": "object",
+            "properties": {
+                "expected_to": {
+                    "description": "ExpectedTo is the version or digest the caller saw as the target\n(PlanItem.ExpectedTo). A start whose target moved since is refused.",
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/upgraderun.Kind"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "upgraderun.StartRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/upgraderun.StartItem"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/upgraderun.Source"
                 }
             }
         },

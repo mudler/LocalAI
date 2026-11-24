@@ -35,6 +35,10 @@ func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func())
 	return func() { connectorTransportForTests, connectorTransportWired = prev, false }
 }
 
+// bindingCapsMigrationForTests, when set, runs at the start of the binding
+// permissions migration, before it touches the store.
+var bindingCapsMigrationForTests func(context.Context)
+
 // connectorOptionsForTests changes the options of the connector manager of
 // applications built after UseConnectorOptionsForTests.
 var connectorOptionsForTests func(*studio.ConnectorOptions)
@@ -195,7 +199,13 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	if a.applicationConfig.SkipBindingCapsMigration {
 		xlog.Info("Connectors: the grant of the usual permissions to old bindings is skipped (LOCALAI_SKIP_BINDING_CAPS_MIGRATION)")
 	} else {
-		go a.migrateBindingCaps(a.backgroundContext(), tr)
+		ctx, cancel := context.WithCancel(a.backgroundContext())
+		done := make(chan struct{})
+		a.bindingCapsStop, a.bindingCapsDone = cancel, done
+		go func() {
+			defer close(done)
+			a.migrateBindingCaps(ctx, tr)
+		}()
 	}
 	if a.ownsAddonsOnly() {
 		// The manager stays: frontends get the stored bot credentials from it
@@ -238,6 +248,12 @@ const (
 // permissions, so it waits for them. With none (add-ons off, or none installed)
 // it does nothing and tries again at the next start.
 func (a *Application) migrateBindingCaps(ctx context.Context, tr studio.ConnectorTransport) {
+	if bindingCapsMigrationForTests != nil {
+		bindingCapsMigrationForTests(ctx)
+	}
+	if ctx.Err() != nil {
+		return // the application is shutting down: the next start runs it
+	}
 	// loops.wait needs no kind, so it goes first and does not wait for add-ons.
 	if _, err := studio.MigrateLoopsWait(ctx, a.studioConnStore, time.Now(), nil); err != nil {
 		xlog.Warn("Connectors: could not add loops.wait to old bindings; it is tried again at the next start", "error", err)

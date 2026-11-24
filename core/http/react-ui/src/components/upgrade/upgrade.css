@@ -22,3 +22,11 @@
 .up-row__state[data-phase='done'] { color: var(--dk-ok-text); }
 .up-row__state[data-phase='failed'] { color: var(--dk-error-text); }
 .up-row__state[data-phase='upgrading'] { color: var(--dk-accent-text); }
+/* The review of an update run: groups by kind, and the one-item question. */
+.up-group + .up-group { margin-top: var(--sp-3); }
+.up-group__title { margin: 0 0 var(--sp-2); font-size: var(--fs-meta); font-weight: var(--font-weight-semibold); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dk-muted); }
+.up-row__name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.up-row__why[data-tone='warn'] { color: var(--dk-warn-text); }
+.up-pick__bar + .ui-callout { margin-bottom: var(--sp-3); }
+.up-single .up-row__versions { margin: 0 0 var(--sp-3); }
+.up-single + .ui-callout, .up-group + .ui-callout { margin-top: var(--sp-3); }

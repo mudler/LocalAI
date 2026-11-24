@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import SettingRow from './SettingRow'
-import Toggle from './Toggle'
+import { Switch } from './ui'
 import { declaresVision, withVision } from '../utils/chatVision'
 
 // The cloud-proxy section's "can look at images" switch. LocalAI cannot ask
@@ -13,7 +13,7 @@ export default function ProxyVisionSwitch({ usecases, onChange }) {
   return (
     <div data-testid="proxy-vision-switch">
       <SettingRow label={t('proxyVision.label')} description={t('proxyVision.hint')}>
-        <Toggle checked={declaresVision(usecases)} onChange={on => onChange(withVision(usecases, on))} />
+        <Switch checked={declaresVision(usecases)} label={t('proxyVision.label')} onChange={on => onChange(withVision(usecases, on))} />
       </SettingRow>
     </div>
   )

@@ -35,16 +35,23 @@ var _ = Describe("Agent worker registration", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	credential := ""
 	register := func(autoApprove bool) map[string]any {
 		e := echo.New()
 		body := `{"name":"agent-1","node_type":"agent"}`
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		if credential != "" {
+			req.Header.Set("Authorization", "Bearer "+credential)
+		}
 		rec := httptest.NewRecorder()
 		Expect(RegisterNodeEndpoint(registry, "", autoApprove, db, "secret", natsauth.Config{})(e.NewContext(req, rec))).To(Succeed())
 		Expect(rec.Code).To(Equal(http.StatusCreated))
 		var resp map[string]any
 		Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+		if tok, ok := resp["node_token"].(string); ok {
+			credential = tok
+		}
 		return resp
 	}
 

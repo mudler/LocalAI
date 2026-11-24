@@ -40,11 +40,13 @@ type p2pTunnels struct {
 	live map[string]*liveTunnel
 	errs map[string]string
 	host *p2pnet.Host
+	gate *p2pnet.Allowlist // nil in mode connect
 	ctx  context.Context
 }
 
 type liveTunnel struct {
-	fwd *p2pnet.Forwarder
+	fwd  *p2pnet.Forwarder
+	peer p2pnet.ID
 
 	mu sync.Mutex
 	st remotes.P2PInfo
@@ -139,7 +141,11 @@ func (t *p2pTunnels) startLocked(tn remotes.Tunnel) (int, error) {
 		}
 		dial = append(dial, o)
 	}
-	lt := &liveTunnel{st: remotes.P2PInfo{State: remotes.TunnelListening}}
+	if t.gate != nil {
+		// The server may redial this host after its own address changed.
+		t.gate.AllowConn(peerID)
+	}
+	lt := &liveTunnel{peer: peerID, st: remotes.P2PInfo{State: remotes.TunnelListening}}
 	fwd, err := t.host.Forward(t.ctx, peerID, p2pnet.ProtoHTTP, net.JoinHostPort("127.0.0.1", strconv.Itoa(tn.Port)),
 		p2pnet.WithDialOptions(dial...),
 		p2pnet.WithStatus(func(st p2pnet.ForwardStatus) { lt.update(st) }))
@@ -185,6 +191,9 @@ func (lt *liveTunnel) update(st p2pnet.ForwardStatus) {
 func (t *p2pTunnels) closeLocked(id string) {
 	if lt := t.live[id]; lt != nil {
 		_ = lt.fwd.Close()
+		if t.gate != nil {
+			t.gate.DisallowConn(lt.peer)
+		}
 		delete(t.live, id)
 	}
 	delete(t.errs, id)
@@ -195,7 +204,7 @@ func (t *p2pTunnels) closeLocked(id string) {
 func (t *p2pTunnels) start(rt *p2pRuntime) {
 	t.mu.Lock()
 	t.init()
-	t.host, t.ctx = rt.host, rt.ctx
+	t.host, t.ctx, t.gate = rt.host, rt.ctx, rt.gate
 	ids := make([]string, 0, len(t.want))
 	for id, tn := range t.want {
 		if _, err := t.startLocked(tn); err != nil {
@@ -204,6 +213,10 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 		ids = append(ids, id)
 	}
 	t.mu.Unlock()
+	// Remember the address of every working connection to a remote's peer,
+	// so that a remote whose server got a new IP address is found again
+	// after a restart too.
+	rt.host.WatchDialedAddrs(func(p p2pnet.ID, a []p2pnet.Multiaddr) { t.learn(rt, p, a) })
 	svc := t.n.app.Remotes()
 	if svc == nil || len(ids) == 0 {
 		return
@@ -220,6 +233,50 @@ func (t *p2pTunnels) start(rt *p2pRuntime) {
 	})
 }
 
+// learn stores addrs, direct addresses that a connection to p proves, as the
+// newest direct addresses of the remotes whose server is p. It runs off the thread of
+// the connection: the store may be a database.
+func (t *p2pTunnels) learn(rt *p2pRuntime, p p2pnet.ID, addrs []p2pnet.Multiaddr) {
+	t.mu.Lock()
+	t.init()
+	var ids []string
+	for id, tn := range t.want {
+		if tn.Peer == p.String() {
+			ids = append(ids, id)
+		}
+	}
+	t.mu.Unlock()
+	svc := t.n.app.Remotes()
+	if len(ids) == 0 || svc == nil || rt.ctx.Err() != nil {
+		return
+	}
+	text := make([]string, len(addrs))
+	for i, a := range addrs {
+		text[i] = a.String()
+	}
+	rt.wg.Go(func() {
+		for _, id := range ids {
+			stored, changed, err := remotes.LearnAddrs(rt.ctx, svc, id, text)
+			if err != nil {
+				if !errors.Is(err, remotes.ErrNotFound) && rt.ctx.Err() == nil {
+					xlog.Warn("P2P: could not store the address of a remote", "remote", id, "error", err)
+				}
+				continue
+			}
+			if !changed {
+				continue
+			}
+			xlog.Info("P2P: stored new addresses of a remote", "remote", id, "addresses", len(text))
+			t.mu.Lock()
+			if tn, ok := t.want[id]; ok {
+				tn.Addrs = stored
+				t.want[id] = tn
+			}
+			t.mu.Unlock()
+		}
+	})
+}
+
 // stop closes every forwarder; the wanted set stays for the next start.
 func (t *p2pTunnels) stop() {
 	t.mu.Lock()
@@ -229,7 +286,7 @@ func (t *p2pTunnels) stop() {
 		t.closeLocked(id)
 	}
 	clear(t.errs)
-	t.host, t.ctx = nil, nil
+	t.host, t.ctx, t.gate = nil, nil, nil
 }
 
 func errP2POff() error {
@@ -283,9 +340,12 @@ func pairError(err error) error {
 		msg, reason = "The server saw too many wrong codes from this server. Wait a while and try again.", remotes.ErrInviteRateLimited
 	case errors.Is(err, pairclient.ErrWrongServer):
 		msg = "Another server answered than the one of the invite. Do not use this invite."
+	case errors.Is(err, pairclient.ErrNoRoute):
+		xlog.Warn("P2P pairing: the invite names no address and no relay", "error", err)
+		msg, reason = "The invite has no address and no relay, so the server cannot be found from here. Ask for a new invite from a server that has a public address, a relay, or a local network address.", remotes.ErrInviteUnreachable
 	case errors.Is(err, pairclient.ErrUnreachable):
 		xlog.Warn("P2P pairing: the server of the invite is unreachable", "error", err)
-		msg, reason = "The server of the invite cannot be reached. Check that it is online, or ask for an invite with a relay.", remotes.ErrInviteUnreachable
+		msg, reason = "The server of the invite cannot be reached. Check that it is online and that this server can reach its address, or ask for an invite with a relay.", remotes.ErrInviteUnreachable
 	default:
 		xlog.Warn("P2P pairing failed", "error", err)
 		msg = "The server refused the invite. Ask for a new one."

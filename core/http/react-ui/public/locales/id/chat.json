@@ -529,7 +529,9 @@
       "upstream": "Penyedia di balik model mengembalikan kesalahan.",
       "timeout": "Model terlalu lama menjawab.",
       "cancelled": "Giliran dibatalkan sebelum model menjawab.",
-      "interrupted": "Server dimulai ulang saat sedang menjawab."
+      "interrupted": "Server dimulai ulang saat sedang menjawab.",
+      "model_backend_outdated": "Model \"{{model}}\" tidak dapat dimulai: backend mungkin terlalu lama untuk model ini.",
+      "model_backend_outdated_anon": "Model tidak dapat dimulai: backend mungkin terlalu lama untuk model ini."
     },
     "hint": {
       "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
@@ -542,7 +544,9 @@
       "upstream_unreachable": "Periksa alamat di pengaturan model.",
       "upstream": "Coba lagi sebentar lagi. Jika terus gagal, periksa alamat dan kunci penyedia.",
       "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
-      "cancelled": "Coba lagi saat Anda siap."
+      "cancelled": "Coba lagi saat Anda siap.",
+      "model_backend_outdated": "Minta administrator memperbarui backend, lalu coba lagi.",
+      "model_backend_outdated_admin": "Perbarui backend dari halaman Pembaruan, lalu coba lagi."
     },
     "openBackends": "Buka Backend",
     "titleInterrupted": "Balasan terputus",
@@ -552,7 +556,12 @@
       "server": "Server melanjutkan dari bagian yang terhenti.",
       "exhausted": "Tidak bisa dilanjutkan setelah {{max}} percobaan. Coba lagi.",
       "stop": "Berhenti mencoba"
-    }
+    },
+    "updateBackend": "Perbarui {{backend}}",
+    "updateBackendBusy": "Memperbarui...",
+    "updateBackendStarted": "Pembaruan {{backend}} telah dimulai. Coba lagi setelah selesai.",
+    "updateBackendFailed": "Pembaruan tidak dapat dimulai.",
+    "openUpdates": "Buka Pembaruan"
   },
   "allChats": {
     "title": "Semua obrolan",

@@ -109,6 +109,8 @@ type Event struct {
 	Model  string `json:",omitempty"`
 	Retry  int    `json:",omitempty"`
 	Detail string `json:",omitempty"`
+	// Backend names the backend of a model_backend_outdated failure.
+	Backend string `json:",omitempty"`
 	// Before and After are the size of the model's context in tokens, before
 	// and after a compaction (compacted only).
 	Before, After int

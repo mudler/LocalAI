@@ -53,6 +53,9 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `install_library_backend` — Install a backend from an add-on library entry by `source_id`, `name` and `version`. The call returns when the install is done, with no job id. The backend gallery is not changed.
 - `upgrade_backend` — Upgrade an installed backend by name. Same refusal as `install_backend` on such servers.
 - `upgrade_model` — One `action` on a gallery model: `upgrade`, `config_only`, `retry`, `remove_old`, `hold`, `unhold`, `adopt`. An upgrade is a job: poll `get_job_status`.
+- `upgrade_run_start` — Update several backends and gallery models in one server-owned run (backends first, then models one at a time). Items are `{kind, name, expected_to}` with kind `gallery`, `library` or `model`. Never add-ons.
+- `upgrade_run_status` — One run by `id`, or the running and recent runs: phase, progress and error of each item.
+- `upgrade_run_cancel` — Cancel a run, or one item of it (`key`).
 - `edit_model_config` — Patch (deep-merge) JSON into an installed model's config.
 - `reload_models` — Reload all model configs from disk.
 - `cancel_model_load` — Cancel one distributed load by the exact job_id from load-status. `stopping` means pending, not proof the work stopped.

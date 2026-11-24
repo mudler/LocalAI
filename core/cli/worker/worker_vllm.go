@@ -43,7 +43,9 @@ type VLLMDistributed struct {
 	// registers as an agent-type node, heartbeats while vLLM is
 	// running, and deregisters on shutdown.
 	RegisterTo        string `env:"LOCALAI_REGISTER_TO" help:"Frontend URL for self-registration. Empty = no registration." group:"registration"`
-	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
+	RegistrationToken string `env:"LOCALAI_REGISTRATION_TOKEN" help:"Shared registration token of the frontend, if it has one. Used to register only" group:"registration"`
+	JoinToken         string `name:"join-token" env:"LOCALAI_JOIN_TOKEN" help:"Single-use join token that an admin minted on the frontend. It replaces the registration token for registering" group:"registration"`
+	StateDir          string `name:"state-dir" env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Directory where the follower keeps its own credential, so that a restart needs no join token" group:"registration"`
 	NodeName          string `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to vllm-<hostname>)" group:"registration"`
 	NodeLabels        string `env:"LOCALAI_NODE_LABELS" help:"Comma-separated key=value labels for this node (node.role=vllm-follower is always added)" group:"registration"`
 	HeartbeatInterval string `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
@@ -99,6 +101,10 @@ func (r *VLLMDistributed) Run(ctx *cliContext.Context) error {
 		regClient := &workerregistry.RegistrationClient{
 			FrontendURL:       r.RegisterTo,
 			RegistrationToken: r.RegistrationToken,
+			JoinToken:         r.JoinToken,
+			Credential: &workerregistry.FileCredential{
+				Dir: r.StateDir, FrontendURL: r.RegisterTo, NodeName: r.registrationBody()["name"].(string),
+			},
 		}
 		nodeID, _, _, _, regErr := regClient.RegisterWithRetry(context.Background(), r.registrationBody(), 10)
 		if regErr != nil {
@@ -204,9 +210,6 @@ func (r *VLLMDistributed) registrationBody() map[string]any {
 		"total_vram":     totalVRAM,
 		"available_vram": totalVRAM,
 		"gpu_vendor":     gpuVendor,
-	}
-	if r.RegistrationToken != "" {
-		body["token"] = r.RegistrationToken
 	}
 
 	labels := ParseNodeLabels(r.NodeLabels)

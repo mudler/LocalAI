@@ -40,12 +40,14 @@ export const NAMESPACES = [
   'admin',
   'operate',
   'swarm',
+  'cluster',
   'p2psettings',
   'traffic',
   'usage',
   'addons',
   'upgrade',
   'updates',
+  'viewas',
 ]
 
 i18n

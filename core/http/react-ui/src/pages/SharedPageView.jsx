@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
@@ -15,6 +15,7 @@ import { authorOf, isPageName } from '../utils/pages'
 import { folderLabel, refreshSharedPages } from '../hooks/useSharedPages'
 import { SendAsk } from './PageView'
 import './pages.css'
+import { Button, EmptyState, Tag } from '../components/ui'
 
 const MAX_ASKS = 3
 const POLL = 30_000
@@ -213,12 +214,14 @@ export default function SharedPageView() {
     const key = status === 'off' ? 'shared.off' : status === 'notfound' ? 'shared.gone' : 'view.failed'
     return (
       <div className="page page--medium pg-page" data-testid="page-view">
-        <div className="empty-state" data-testid={`shared-${status}`}>
-          <h1 className="empty-state-title">{t(key, { message: error })}</h1>
-          <div className="empty-state__actions">
-            <Link className="btn btn-secondary" to="/app/pages"><Icon name="arrow-left" /> {t('view.back')}</Link>
-          </div>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          title={t(key, { message: error })}
+          testId={`shared-${status}`}
+          actions={<>
+            <Button icon="arrow-left" to="/app/pages">{t('view.back')}</Button>
+          </>}
+        />
       </div>
     )
   }
@@ -246,30 +249,28 @@ export default function SharedPageView() {
         </div>
         {page && (
           <div className="pg-strip__pills">
-            <span className={`pg-pill pg-pill--${PILL[pill].tone}`} data-testid="shared-pill" data-state={pill}>
-              <Icon name={PILL[pill].icon} /> {pillText}
-            </span>
-            <span className="pg-pill pg-pill--plain" data-testid="shared-author"><Icon name="user" /> {t('trust.from', { author })}</span>
+            <Tag tone={PILL[pill].tone} icon={PILL[pill].icon} testId="shared-pill" data-state={pill}>
+              {pillText}
+            </Tag>
+            <Tag icon="user" testId="shared-author">{t('trust.from', { author })}</Tag>
             {page.user_shared === true && ['view', 'use', 'edit'].includes(page.role) && (
-              <span className="pg-pill" data-testid="shared-role">{t(`share.role.${page.role}`)}</span>
+              <Tag testId="shared-role">{t(`share.role.${page.role}`)}</Tag>
             )}
             {page.user_shared === true && page.role === 'view' && (
-              <span className="pg-pill pg-pill--plain" data-testid="shared-view-only"><Icon name="eye" /> {t('share.viewOnly')}</span>
+              <Tag icon="eye" testId="shared-view-only">{t('share.viewOnly')}</Tag>
             )}
-            {run && <span className="pg-pill" title={t('view.runsAsYouHint')}><Icon name="user" /> {t('view.runsAsYou')}</span>}
+            {run && <Tag icon="user" title={t('view.runsAsYouHint')}>{t('view.runsAsYou')}</Tag>}
           </div>
         )}
         <div className="pg-strip__actions">
           {run && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setNavigated(false); setFrameKey((k) => k + 1) }} data-testid="page-reload">
-              <Icon name="refresh" /> {t('view.reload')}
-            </button>
+            <Button variant="ghost" size="sm" icon="refresh" onClick={() => { setNavigated(false); setFrameKey((k) => k + 1) }} data-testid="page-reload">
+              {t('view.reload')}
+            </Button>
           )}
           {(run || src?.consent?.state === 'allowed' || src?.consent?.state === 'changed') && (
             <span className="pg-menu">
-              <button type="button" className="btn btn-ghost btn-sm btn-icon" aria-haspopup="menu" aria-expanded={menu} aria-label={t('shared.menu')} onClick={() => setMenu((m) => !m)} data-testid="shared-menu">
-                <Icon name="more-vertical" />
-              </button>
+              <Button variant="ghost" size="sm" icon="more-vertical" aria-haspopup="menu" aria-expanded={menu} aria-label={t('shared.menu')} onClick={() => setMenu((m) => !m)} data-testid="shared-menu" />
               {menu && (
                 <span className="pg-menu__list" role="menu">
                   <button type="button" role="menuitem" onClick={revoke} data-testid="shared-revoke"><Icon name="ban" /> {t('viewer.stopAllowing')}</button>
@@ -285,7 +286,7 @@ export default function SharedPageView() {
           <div className="pg-ask" role="status" data-testid="shared-newer">
             <Icon name="info" className="pg-ask__icon" />
             <span className="pg-ask__label">{t('viewer.authorChanged', { author })}</span>
-            <span className="pg-ask__actions"><button type="button" className="btn btn-secondary btn-sm" onClick={() => setSheet('changed')}>{t('shared.review')}</button></span>
+            <span className="pg-ask__actions"><Button size="sm" onClick={() => setSheet('changed')}>{t('shared.review')}</Button></span>
           </div>
         </div>
       )}
@@ -328,7 +329,7 @@ export default function SharedPageView() {
         ) : run && navigated ? (
           <div className="pg-stage__state" role="alert" data-testid="page-navigated">
             <span>{t('view.navigated')}</span>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setNavigated(false); setFrameKey((k) => k + 1) }}>{t('view.reload')}</button>
+            <Button size="sm" onClick={() => { setNavigated(false); setFrameKey((k) => k + 1) }}>{t('view.reload')}</Button>
           </div>
         ) : (
           <div className="pg-blocked" data-testid={declined ? 'shared-blocked' : 'shared-waiting'}>
@@ -339,8 +340,8 @@ export default function SharedPageView() {
             </p>
             {stopped !== 'off' && (
               <div className="pg-blocked__acts">
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => setSheet(src.consent?.state === 'changed' ? 'changed' : 'first')} data-testid="shared-review">{t('trust.blocked.review')}</button>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSource(true)} data-testid="shared-source"><Icon name="code" /> {t('trust.viewSource')}</button>
+                <Button variant="primary" size="sm" onClick={() => setSheet(src.consent?.state === 'changed' ? 'changed' : 'first')} data-testid="shared-review">{t('trust.blocked.review')}</Button>
+                <Button variant="ghost" size="sm" icon="code" onClick={() => setSource(true)} data-testid="shared-source">{t('trust.viewSource')}</Button>
               </div>
             )}
           </div>

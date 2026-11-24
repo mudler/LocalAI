@@ -1,5 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
+import { galleryItem, snapshotOf } from './updates-fixtures.js'
 
 // The chats page with the API stubbed, so the moments that are too quick to
 // catch on a real server can be held still: messages waiting while a turn runs,
@@ -370,6 +371,45 @@ test.describe('Chats page with a stubbed API', () => {
     await expect(page.getByTestId('chat-foot').getByRole('status')).toHaveText('Failed')
     await expect(page.getByRole('alert')).toHaveCount(1)
     await page.screenshot({ path: process.env.ERRCAUSE_SHOTS ? `${process.env.ERRCAUSE_SHOTS}/backend-missing.png` : 'test-results/backend-missing.png' })
+  })
+
+  test('a backend that is too old offers its update, then the retry', async ({ page }) => {
+    const api = newChatsApi(page, failed())
+    await api.install()
+    await failedTurn(page, {
+      text: 'The model "qwen" could not be started: the backend may be too old for it. Update the backend, then retry.',
+      code: 'model_backend_outdated', model: 'qwen', backend: 'llama-cpp', retry: 8, fatal: true,
+      detail: 'the model could not be loaded: model "qwen" load is in cooldown after a recent failure; retry after 8s',
+    })
+    await page.route('**/api/backends/updates', route => route.fulfill({
+      json: snapshotOf([galleryItem('metal-llama-cpp', 'v1', 'v2')]),
+    }))
+    const upgrades = []
+    await page.route('**/api/backends/upgrade/*', route => {
+      upgrades.push(route.request().url().split('/').pop())
+      return route.fulfill({ json: { jobID: 'job-1', message: 'upgrade queued' } })
+    })
+    await page.goto('/app/chats/c1')
+
+    await expect(page.getByTestId('chat-error-reason')).toHaveText('The model "qwen" could not be started: the backend may be too old for it.')
+    await expect(page.getByTestId('chat-error-hint')).toContainText('Updates page')
+    const update = page.getByTestId('chat-error-update-backend')
+    await expect(update).toHaveText('Update metal-llama-cpp')
+    await update.click()
+    await expect(page.getByTestId('chat-error-update-started')).toBeVisible()
+    expect(upgrades).toEqual(['metal-llama-cpp'])
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+    await page.screenshot({ path: process.env.ERRCAUSE_SHOTS ? `${process.env.ERRCAUSE_SHOTS}/backend-outdated.png` : 'test-results/backend-outdated.png' })
+  })
+
+  test('a backend that is too old with no known update offers no button', async ({ page }) => {
+    const api = newChatsApi(page, failed())
+    await api.install()
+    await failedTurn(page, { text: 'x', code: 'model_backend_outdated', model: 'qwen', backend: 'llama-cpp', fatal: true })
+    await page.route('**/api/backends/updates', route => route.fulfill({ json: snapshotOf([]) }))
+    await page.goto('/app/chats/c1')
+    await expect(page.getByTestId('chat-error-reason')).toContainText('may be too old')
+    await expect(page.getByTestId('chat-error-update-backend')).toHaveCount(0)
   })
 
   test('an upstream that rejects the address names the endpoint and does not blame the backend', async ({ page }) => {

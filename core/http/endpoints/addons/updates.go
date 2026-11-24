@@ -73,6 +73,10 @@ func updateCall(c echo.Context, g *gateway.Gateway, a contract.Actor, id, opID, 
 	}
 	if after != nil {
 		data, e := after(c, a, id, opID, env.Data)
+		var refusal *afterRefusal
+		if errors.As(e, &refusal) {
+			return c.JSON(refusal.status, AddonErrorResponse{Error: AddonError{Type: refusal.kind, Message: refusal.message, Code: refusal.status}})
+		}
 		if e != nil {
 			return failure(c, 503, "Addons unavailable")
 		}
@@ -165,6 +169,7 @@ func updateMutationWith(g *gateway.Gateway, db *gorm.DB, opts []Option, action s
 		if g == nil {
 			return failure(c, 503, "Addons unavailable")
 		}
+		c.Set(ctxUpdateRequest, req)
 		generation, args := argsOf(req)
 		return updateCall(c, g, a, id, opID, action, generation, args, wrap, after)
 	}
@@ -215,6 +220,11 @@ func UpgradeAddon(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerF
 			func(v any) string { return v.(*UpgradeRequest).OperationID },
 			upgradeArgs,
 			func(c echo.Context, a contract.Actor, id, opID string, status json.RawMessage) (json.RawMessage, error) {
+				if s.runs != nil && s.upgrader != nil {
+					if svc := s.runs(); svc != nil {
+						return runUpgrade(c, g, s, svc, a, id, opID, status)
+					}
+				}
 				return queueUpgrade(g, s, a, id, opID, status)
 			})
 	}
@@ -246,15 +256,41 @@ func queueUpgrade(g *gateway.Gateway, s settings, a contract.Actor, id, opID str
 	if phase, _ := view["Phase"].(string); phase != "accepted" {
 		return status, nil
 	}
+	var opcache addonOpCache
+	if s.opcache != nil {
+		opcache = s.opcache
+	}
+	jobID := enqueueRecordedUpgrade(g, s.queue, opcache, a, id, opID, false)
+	view["jobId"] = jobID
+	return json.Marshal(view)
+}
+
+// addonQueue is the operation queue a recorded upgrade runs on (the gallery
+// service implements it).
+type addonQueue interface {
+	EnqueueAddonOp(op galleryop.AddonOp)
+}
+
+// addonOpCache lists an operation in /api/operations (galleryop.OpCache
+// implements it).
+type addonOpCache interface {
+	Set(key, value string)
+}
+
+// enqueueRecordedUpgrade hands an upgrade the owner recorded (update-queue) to
+// the operation queue and returns the job of /api/operations that runs it.
+// The owner runs it for the actor that recorded it and checks the pins again
+// when it starts. inRun marks the operation as one of an upgrade run.
+func enqueueRecordedUpgrade(g *gateway.Gateway, queue addonQueue, opcache addonOpCache, a contract.Actor, id, opID string, inRun bool) string {
 	call := func(ctx context.Context, action string) (contract.Result, error) {
 		return g.Dispatch(ctx, a, contract.Request{AddonID: id, OperationID: opID, Action: action, Arguments: json.RawMessage(`{}`)})
 	}
 	jobID := uuid.NewString()
-	if s.opcache != nil {
-		s.opcache.Set(galleryop.AddonOpKey(id), jobID)
+	if opcache != nil {
+		opcache.Set(galleryop.AddonOpKey(id), jobID)
 	}
-	s.queue.EnqueueAddonOp(galleryop.AddonOp{
-		ID: jobID, AddonID: id, Upgrade: true,
+	queue.EnqueueAddonOp(galleryop.AddonOp{
+		ID: jobID, AddonID: id, Upgrade: true, InRun: inRun,
 		Run: func(ctx context.Context, progress func(*galleryop.OpStatus)) error {
 			ctx = managerpkg.WithInstallProgress(ctx, func(p managerpkg.InstallProgress) { progress(installStatus(p)) })
 			out, err := call(ctx, gateway.ActionUpdateRunQueued)
@@ -276,6 +312,5 @@ func queueUpgrade(g *gateway.Gateway, s settings, a contract.Actor, id, opID str
 		},
 		Abandon: func() { _, _ = call(context.Background(), gateway.ActionUpdateDropQueued) },
 	})
-	view["jobId"] = jobID
-	return json.Marshal(view)
+	return jobID
 }

@@ -135,7 +135,9 @@ func (r VersionRange) isHostAPI() bool {
 // Level 9: capabilities.modelSearch (a source of the model-search slot).
 // Level 10: osSettings (OS-specific runtime settings; osSettings.windows.execution
 // "wsl2" runs a Linux executable in WSL 2 on Windows).
-const HostFeatureLevel uint64 = 10
+// Level 11: capabilities.toolDefinitions[].deferred (a chat offers the tool
+// through the tool search).
+const HostFeatureLevel uint64 = 11
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
 const BaseFeatureLevel uint64 = 1
@@ -174,6 +176,11 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
+	for _, d := range m.Capabilities.ToolDefinitions {
+		if d.Deferred {
+			return 11
+		}
+	}
 	if m.OSSettings != nil {
 		return 10
 	}

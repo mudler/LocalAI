@@ -2,7 +2,6 @@ package nodes
 
 import (
 	"context"
-	"encoding/json"
 	"runtime"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 )
 
 // These specs pin the reactions the seams contract allows on ErrNoRoute: the
-// status-only MarkUnhealthy, and the legacy install fallback for an upgrade.
+// status-only MarkUnhealthy. An upgrade has no fallback to a legacy install.
 // Each one drives the real caller with a scripted no-responders reply and reads
 // the outcome back from the registry or the recorded requests, so a change to
 // the reaction fails here instead of silently widening or dropping it.
@@ -77,35 +76,42 @@ var _ = Describe("ErrNoRoute reactions", func() {
 			})
 		})
 
-		It("falls back to the legacy forced install when the upgrade has no route", func() {
+		It("keeps a queued upgrade and marks the node unhealthy when the upgrade has no route", func() {
 			n := registerHealthy("worker-old")
 			Expect(registry.UpsertPendingBackendOp(ctx, n.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
-
 			mc.scriptNoResponders(messaging.SubjectNodeBackendUpgrade(n.ID))
-			mc.scriptReplyMatching(messaging.SubjectNodeBackendInstall(n.ID),
-				func(req workerctl.BackendInstallRequest) bool { return req.Force },
-				workerctl.BackendInstallReply{Success: true, Address: "10.0.0.1:50100"})
 
 			rc.drainPendingBackendOps(ctx)
 
-			var forcedInstalls int
 			mc.mu.Lock()
 			for _, call := range mc.calls {
-				if call.Subject != messaging.SubjectNodeBackendInstall(n.ID) {
-					continue
-				}
-				var req workerctl.BackendInstallRequest
-				Expect(json.Unmarshal(call.Data, &req)).To(Succeed())
-				if req.Force && req.Backend == "vllm" {
-					forcedInstalls++
-				}
+				Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n.ID)), "no legacy install is sent")
 			}
 			mc.mu.Unlock()
-			Expect(forcedInstalls).To(Equal(1))
+			row, queued := pendingRow(n.ID, OpBackendUpgrade)
+			Expect(queued).To(BeTrue(), "the row waits for a node that serves the upgrade")
+			Expect(row.Attempts).To(Equal(1))
+			Expect(statusOf(n.ID)).To(Equal(StatusUnhealthy))
+		})
 
-			_, stillQueued := pendingRow(n.ID, OpBackendUpgrade)
-			Expect(stillQueued).To(BeFalse(), "a successful fallback drains the row")
-			Expect(statusOf(n.ID)).To(Equal(StatusHealthy), "an old worker that answered the fallback is not unhealthy")
+		It("drops a queued upgrade that the worker rolled back, and keeps one that failed otherwise", func() {
+			rolled := registerHealthy("worker-rolled")
+			failed := registerHealthy("worker-failed")
+			Expect(registry.UpsertPendingBackendOp(ctx, rolled.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+			Expect(registry.UpsertPendingBackendOp(ctx, failed.ID, "vllm", OpBackendUpgrade, []byte("[]"))).To(Succeed())
+			mc.scriptReply(messaging.SubjectNodeBackendUpgrade(rolled.ID),
+				workerctl.BackendUpgradeReply{Success: false, Code: "start", RolledBack: true, Error: "the new build did not start"})
+			mc.scriptReply(messaging.SubjectNodeBackendUpgrade(failed.ID),
+				workerctl.BackendUpgradeReply{Success: false, Code: "download", Error: "registry unreachable"})
+
+			rc.drainPendingBackendOps(ctx)
+
+			_, queued := pendingRow(rolled.ID, OpBackendUpgrade)
+			Expect(queued).To(BeFalse(), "a retry would download the same build and fail the same way")
+			row, queued := pendingRow(failed.ID, OpBackendUpgrade)
+			Expect(queued).To(BeTrue())
+			Expect(row.Attempts).To(Equal(1))
+			Expect(statusOf(rolled.ID)).To(Equal(StatusHealthy), "the worker answered: it is present")
 		})
 
 		It("marks the node unhealthy when an op has no route, and still counts the attempt", func() {

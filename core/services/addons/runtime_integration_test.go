@@ -14,8 +14,10 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -316,5 +318,104 @@ var _ = Describe("Runtime startup of many add-ons", func() {
 		// Serial start takes count*boot (8s). Four at a time takes two waves.
 		Expect(took).To(BeNumerically("<", 5*time.Second), "started %d add-ons in %s", count, took)
 		GinkgoWriter.Printf("started %d add-ons of %s boot each in %s\n", count, boot, took)
+	})
+})
+
+var _ = Describe("Upgrade whose candidate does not start", func() {
+	It("logs the start error as the cause and keeps the previous generation running", func() {
+		var logged bytes.Buffer
+		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+		cfg, c, installer := fixture()
+		dir := GinkgoT().TempDir()
+		out, e := exec.Command("go", "build", "-o", filepath.Join(dir, "fixture"), "../../../tests/addons/fixture/cmd").CombinedOutput()
+		Expect(e).NotTo(HaveOccurred(), string(out))
+		b, e := os.ReadFile("../../../tests/addons/fixtures/contracts/service.json")
+		Expect(e).NotTo(HaveOccurred())
+		manifest, e := contract.ParseManifest(b)
+		Expect(e).NotTo(HaveOccurred())
+		manifest.Executable = "fixture"
+		receipt := packages.PackageReceipt{Directory: dir, Manifest: manifest}
+		b, e = json.Marshal(receipt)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.WriteFile(filepath.Join(dir, "receipt.json"), b, 0400)).To(Succeed())
+		m, e := NewManager(ctx, cfg, c, installer, admin)
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(m.Close)
+		m.journal.Addons["sample"] = Status{AddonID: "sample", Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: receipt}}}
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: 2 * time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		old, e := m.Runtime(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(old.Generation).To(Equal(uint64(1)))
+
+		// Version 2 is a genuine package whose executable exits at once and
+		// never completes the handshake.
+		manifest.Version = "2.0.0"
+		manifestBytes, e := json.Marshal(manifest)
+		Expect(e).NotTo(HaveOccurred())
+		var archive bytes.Buffer
+		tw := tar.NewWriter(&archive)
+		for name, data := range map[string][]byte{"manifest.json": manifestBytes, "fixture": []byte("#!/bin/sh\necho candidate-boom >&2\nexit 3\n")} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+			_, e = tw.Write(data)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		Expect(tw.Close()).To(Succeed())
+		artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(archive.Bytes()) }))
+		DeferCleanup(artifact.Close)
+		release := catalog.Release{ID: "sample", Name: "Sample", Version: "2.0.0", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes())), OS: manifest.OS, Arch: manifest.Arch}
+		library := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = catalog.WriteIndex(w, []catalog.Release{release})
+		}))
+		DeferCleanup(library.Close)
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Removed: true})).To(Succeed())
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "upgrade", Name: "Upgrade", URL: library.URL, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+		_, e = c.Sources.Refresh(ctx, "upgrade")
+		Expect(e).NotTo(HaveOccurred())
+
+		status, e := m.Submit(ctx, actor, LifecycleCommand{OperationID: "upgrade-bad-candidate", AddonID: "sample", Action: "upgrade", SourceID: "upgrade", Version: "2.0.0"})
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(status.FailureCode).To(Equal("upgrade_failed"))
+		// The error text of the client stays generic.
+		Expect(e.Error()).NotTo(ContainSubstring("candidate"))
+
+		line := logged.String()
+		Expect(line).To(ContainSubstring("Addon operation failed"))
+		Expect(line).To(ContainSubstring("the new generation did not start; the previous generation was kept: addon runtime unavailable or invalid protocol"))
+		Expect(line).NotTo(ContainSubstring("no cause recorded"))
+		// The cause says how the process ended and what it wrote last.
+		Expect(line).To(ContainSubstring("process_exited_before_handshake"))
+		Expect(line).To(ContainSubstring("exited 3"))
+		Expect(line).To(ContainSubstring(`last output: \"candidate-boom\"`))
+
+		// The previous generation is the journaled one and the running one.
+		Expect(m.journal.Addons["sample"].Generation).To(Equal(uint64(1)))
+		now, e := m.Runtime(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(now.Generation).To(Equal(uint64(1)))
+	})
+})
+
+var _ = Describe("The text of a cause in the owner log", func() {
+	It("is one bounded line without credentials", func() {
+		text := boundCause("start: dial https://user:hunter2@example.test/x failed\nAPI_TOKEN=abc123 password: s3cret " + strings.Repeat("x", 1000))
+		Expect(text).NotTo(ContainSubstring("hunter2"))
+		Expect(text).NotTo(ContainSubstring("abc123"))
+		Expect(text).NotTo(ContainSubstring("s3cret"))
+		Expect(text).NotTo(ContainSubstring("\n"))
+		Expect(len([]rune(text))).To(BeNumerically("<=", maxCauseText+3))
+	})
+})
+
+var _ = Describe("The cause of a candidate that did not start", func() {
+	It("carries the launch stage and reason in the log, bounded and without credentials", func() {
+		cause := startCause(&addonruntime.LaunchFailure{Stage: addonruntime.StageProcessExited, Reason: "exited 3; last output: \"dial https://user:hunter2@example.test/x API_TOKEN=abc123\" " + strings.Repeat("y", 1000)})
+		text := cause.Error()
+		Expect(text).To(ContainSubstring("the new generation did not start; the previous generation was kept: addon runtime unavailable or invalid protocol: process_exited_before_handshake: exited 3"))
+		Expect(text).NotTo(ContainSubstring("hunter2"))
+		Expect(text).NotTo(ContainSubstring("abc123"))
+		Expect(len([]rune(text))).To(BeNumerically("<", 600))
 	})
 })

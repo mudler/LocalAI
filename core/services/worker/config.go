@@ -3,6 +3,8 @@ package worker
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 
 	"github.com/mudler/xlog"
@@ -74,7 +76,8 @@ type Config struct {
 	SplitServer             bool     `name:"split-server" env:"LOCALAI_SPLIT_SERVER" help:"Declare this worker a split server: it may serve model-split workers (llama.cpp RPC and MLX helpers). It then runs a P2P host with open ports, the frontend admits it on the relays it administers, and the helpers attached to it join the next model it loads. The admin can also turn it on or off on the Nodes page" group:"registration"`
 	AllowOpenRelay          bool     `env:"LOCALAI_ALLOW_OPEN_RELAY" help:"With --join: redeem an invite that names an open relay, which anyone can use" group:"registration"`
 	NodeName                string   `env:"LOCALAI_NODE_NAME" help:"Node name for registration (defaults to hostname)" group:"registration"`
-	RegistrationToken       string   `env:"LOCALAI_REGISTRATION_TOKEN" help:"Token for authenticating with the frontend" group:"registration"`
+	RegistrationToken       string   `env:"LOCALAI_REGISTRATION_TOKEN" help:"Shared registration token of the frontend, if it has one. It is used to register only; after that the worker holds its own credential" group:"registration"`
+	JoinToken               string   `name:"join-token" env:"LOCALAI_JOIN_TOKEN" help:"Single-use join token that an admin minted on the frontend. It replaces the registration token for registering. The worker keeps the own credential that it gets in its state directory, so a restart needs no token" group:"registration"`
 	RegistrationRequireAuth bool     `env:"LOCALAI_REGISTRATION_REQUIRE_AUTH" default:"false" help:"Refuse to start the HTTP file-transfer server when no registration token is set (otherwise it fails open and serves read/write to models/staging/data unauthenticated)" group:"registration"`
 	DistributedRequireAuth  bool     `env:"LOCALAI_DISTRIBUTED_REQUIRE_AUTH" default:"false" help:"Umbrella switch implying both --nats-require-auth and --registration-require-auth" group:"distributed"`
 	HeartbeatInterval       string   `env:"LOCALAI_HEARTBEAT_INTERVAL" default:"10s" help:"Interval between heartbeats" group:"registration"`
@@ -115,6 +118,27 @@ type Config struct {
 
 	// join is the P2P side of a worker that started with --join. Run sets it.
 	join *p2pJoin
+
+	// dataToken is the bearer token between the frontends and this worker for the
+	// data plane (the gRPC calls to its backends and its file transfer server). Run
+	// sets it after registration: the frontend hands it over, or it is derived
+	// from the registration token.
+	dataToken string
+}
+
+// dataDir is the state directory of the worker. It holds its own credential, the
+// process ledger and the P2P identity.
+func (c Config) dataDir() string { return filepath.Join(c.ModelsPath, "..", "data") }
+
+// nodeName is the name that the worker registers under.
+func (c Config) nodeName() string {
+	if c.NodeName != "" {
+		return c.NodeName
+	}
+	if hostname, err := os.Hostname(); err == nil {
+		return hostname
+	}
+	return fmt.Sprintf("node-%d", os.Getpid())
 }
 
 // validateFrontend checks that the worker knows how to reach the frontend:
@@ -123,6 +147,8 @@ func (c Config) validateFrontend() error {
 	switch {
 	case c.Join != "" && c.RegisterTo != "":
 		return errors.New("--join and --register-to are two ways to reach the frontend: give one of them")
+	case c.Join != "" && c.JoinToken != "":
+		return errors.New("--join (a P2P invite) and --join-token (a join token) are two ways to join: give one of them")
 	case c.Join == "" && c.RegisterTo == "":
 		return errors.New("missing --register-to (LOCALAI_REGISTER_TO): the URL of the frontend, or --join with a worker invite link")
 	}

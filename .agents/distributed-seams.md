@@ -93,8 +93,8 @@ frontend runs. A new NATS address is read at the next start.
 
 `NodeControl` is the whole control surface a route gives the frontend:
 `NodeCommandSender`, the process lister, the three unload interfaces the model
-loader reads by type assertion, and the install timeout, model file deletion and
-forced install that the managers and the reconciler call. Take it, not a
+loader reads by type assertion, and the install timeout and model file deletion
+that the managers and the reconciler call. Take it, not a
 concrete sender. The `Files` holder implements `RequestFileReleaser` because
 `FileStagingClient` looks for it, and `carrier.FileCarrier` makes every route
 provide it.
@@ -211,6 +211,30 @@ of the sessions that a replica holds, and `Splice`. The connect endpoint is
 - `Splice` passes the end of one direction on with `CloseWrite` and goes on
   copying the other direction. It closes both streams at once when a direction
   fails or when a stream cannot half-close.
+- A worker joins with a join token (`cluster.JoinTokenStore`, table
+  `join_tokens`, minted by `POST /api/cluster/join-tokens`) or, when the
+  frontend has one, the shared registration token. Both are registration only.
+  `RegisterNodeEndpoint` tries the own credential of the node, then the join
+  token, then the registration token. A join token is checked with `Peek`, spent
+  with `Consume` (one conditional UPDATE, so a race for the last use has one
+  winner) after the request is valid, and given back with `Refund` when the
+  registration then fails. It returns `node_token` once and stores only its hash
+  (`BackendNode.NodeTokenHash`). `nodeCredentialAuth` accepts that credential and
+  nothing else on the other `/api/node/:id/*` routes, for that node only. A new
+  join or shared-token registration replaces it and ends the tunnel session. A
+  node that joined with a token keeps to its connections (`JoinRoutes`). A
+  registration with no proof does not replace the credential of a node that has
+  one. The worker keeps the credential in `<data dir>/node-credential.json`
+  (`workerregistry.FileCredential`).
+- The data plane token between the frontends and the workers (gRPC auth and the
+  file-transfer bearer) is `workerctl.WorkerAuthToken(registrationToken)`, a
+  derivation: the registration token itself never leaves the frontends. The
+  registration answer carries it as `worker_token`. A frontend with no
+  registration token has none, and the data plane is open as it always was.
+- The join scripts (`/join.sh`, `/join.ps1`, `/join.yaml`) are public and
+  answer only for a token that `Peek` accepts; they never spend it. Anything
+  that logs a request must leave out the query string of these paths, and the
+  API trace skips `/api/cluster/join-tokens` and `/api/node/register`.
 - A node has its own tunnel credential. A registration that asks for the
   tunnel route (`"routes": ["tunnel"]`) mints it, returns it once, and stores
   only its SHA-256 (`BackendNode.TunnelTokenHash`). The connect endpoint
@@ -409,8 +433,9 @@ installing (`waitExpired`), whether a missing acknowledgement of `backend.stop`
 may be read as an older worker (`acknowledgementMissing`: true only for NATS), and
 how the carrier is named in a log line. An HTTP link never reads silence as a
 stop that was done. A 404 is a worker that does not serve the verb. It becomes
-`ErrNoRoute` only for `backend.upgrade`, which keeps the fallback to the older
-install, and it is a plain error for every other verb.
+`ErrNoRoute` only for `backend.upgrade`: the worker is older than the verb, and
+the upgrade fails on it. There is no fallback to a forced install; an old worker
+must be upgraded with the frontend. A 404 is a plain error for every other verb.
 
 ## Agent RPC
 

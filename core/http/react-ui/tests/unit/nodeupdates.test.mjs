@@ -1,11 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  entriesFromPairs, entryOf, hasNodeView, isClusterRow, splitUpdate, nodeConfirmed, nodeStateOf, nodeView, planEntries, planTotals, stopKind,
+  entriesFromPairs, entryOf, hasNodeView, isClusterRow, nodeConfirmed, nodeStateOf, nodeView, planEntries, planTotals, stopKind,
 } from '../../src/utils/nodeUpdates.js'
-import { runNodeRow, confirmNodeUpdated, runAddonRow } from '../../src/utils/updateRun.js'
+import { runNodeRow, confirmNodeUpdated } from '../../src/utils/updateRun.js'
 import { beginRun, runSequential } from '../../src/utils/bulkUpgrade.js'
-import { bulkItemsOf } from '../../src/utils/updates.js'
 
 const item = (over = {}) => ({
   id: 'gallery:llama-cpp', kind: 'gallery', name: 'llama-cpp', state: 'update',
@@ -206,85 +205,4 @@ test('a cluster row is a gallery backend that any node reports', () => {
   assert.equal(isClusterRow({ kind: 'addon', nodes: [{}] }), false)
 })
 
-test('split: cluster rows become one combined plan, everything else keeps its own way', () => {
-  const vllm = item({ id: 'gallery:vllm', name: 'vllm', nodes: [{ nodeId: 'a', nodeName: 'gpu-a', version: '0.9.4', models: ['m1'] }] })
-  const items = [item(), vllm, { id: 'gallery:whisper', kind: 'gallery', name: 'whisper' }]
-  const rows = [
-    { id: 'gallery:llama-cpp', kind: 'gallery', nodes: item().nodes },
-    { id: 'gallery:vllm', kind: 'gallery', nodes: vllm.nodes },
-    { id: 'gallery:whisper', kind: 'gallery' },
-    { id: 'library:official/piper', kind: 'library' },
-    { id: 'addon:notes', kind: 'addon' },
-  ]
-  const all = splitUpdate({ rows, selected: new Set(rows.map(r => r.id)), items })
-  assert.deepEqual(all.entries.map(e => e.key), ['llama-cpp@a', 'llama-cpp@b', 'vllm@a'])
-  assert.deepEqual([...all.restIds].sort(), ['addon:notes', 'gallery:whisper', 'library:official/piper'])
-  const onlyOne = splitUpdate({ rows, selected: new Set(['gallery:vllm', 'addon:notes']), items })
-  assert.deepEqual(onlyOne.entries.map(e => e.key), ['vllm@a'])
-  assert.deepEqual([...onlyOne.restIds], ['addon:notes'])
-  // Nothing selected on a cluster: no entry and no plain update for it.
-  const none = splitUpdate({ rows, selected: new Set(['gallery:whisper']), items })
-  assert.deepEqual(none.entries, [])
-  assert.deepEqual([...none.restIds], ['gallery:whisper'])
-  // A cluster row whose nodes all are current or unreachable has nothing to confirm and does not fall back.
-  const current = item({ nodes: [{ nodeId: 'c', nodeName: 'cpu-c', status: 'healthy', version: '0.9.7' }] })
-  const stuck = splitUpdate({ rows: [{ id: 'gallery:llama-cpp', kind: 'gallery', nodes: current.nodes }], selected: new Set(['gallery:llama-cpp']), items: [current] })
-  assert.deepEqual(stuck.entries, [])
-  assert.equal(stuck.restIds.size, 0)
-})
 
-const addonRow = (id, over = {}) => ({
-  id: `addon:${id}`, kind: 'addon', name: `Add-on ${id}`, addonId: id, state: 'ready', startable: true,
-  from: '1.0.0', to: '1.1.0', sourceId: 'official',
-  record: { id, title: `Add-on ${id}`, version: '1.0.0', channel: 'stable', update: { state: 'update-available', version: '1.1.0', digest: 'sha256:cc' } },
-  ...over,
-})
-
-test('review: the add-ons and other rows of a selection with node backends are listed, not only started', () => {
-  const rows = [
-    { id: 'gallery:llama-cpp', kind: 'gallery', name: 'llama-cpp', nodes: item().nodes },
-    addonRow('notes'),
-    addonRow('mail', { to: '2.0.0', from: '1.4.0' }),
-    { id: 'library:official/piper', kind: 'library', name: 'piper', from: '1.0', to: '1.2', sourceId: 'official' },
-    { id: 'gallery:whisper', kind: 'gallery', name: 'whisper', from: '0.1', to: '0.2' },
-  ]
-  const review = splitUpdate({ rows, selected: new Set(rows.map(r => r.id)), items: [item()] })
-  assert.deepEqual(review.entries.map(e => e.key), ['llama-cpp@a', 'llama-cpp@b'])
-  // Every id that would start is listed, with a name and the versions, and nothing else is.
-  assert.deepEqual(review.others.map(o => o.id).sort(), [...review.restIds].sort())
-  const notes = review.others.find(o => o.id === 'addon:notes')
-  assert.deepEqual(
-    { kind: notes.kind, name: notes.name, from: notes.from, to: notes.to, sourceId: notes.sourceId, channel: notes.channel },
-    { kind: 'addon', name: 'Add-on notes', from: '1.0.0', to: '1.1.0', sourceId: 'official', channel: 'stable' },
-  )
-  assert.equal(review.others.find(o => o.id === 'addon:mail').to, '2.0.0')
-  assert.deepEqual(review.others.map(o => o.kind).sort(), ['addon', 'addon', 'gallery', 'library'])
-})
-
-test('review: with only node backends selected the others list is empty', () => {
-  const rows = [{ id: 'gallery:llama-cpp', kind: 'gallery', name: 'llama-cpp', nodes: item().nodes }]
-  const review = splitUpdate({ rows, selected: new Set(['gallery:llama-cpp']), items: [item()] })
-  assert.deepEqual(review.others, [])
-  assert.equal(review.restIds.size, 0)
-})
-
-test('the plain bulk path upgrades a selected add-on without any confirmation step', async () => {
-  // Documents what "Update ready" does with an add-on row: it goes straight to
-  // the upgrade of the store (runRow -> runAddonRow), no per-add-on dialog.
-  const row = addonRow('notes')
-  const items = bulkItemsOf([row])
-  assert.equal(items.length, 1)
-  assert.equal(items[0].startable, true)
-  const started = []
-  const run = beginRun(null, items, new Set([row.id]))
-  const done = await runSequential(run, async (it) => {
-    const res = await runAddonRow({
-      row: it.row,
-      upgrade: async (rec) => { started.push(rec.id); return { ok: true } },
-      reread: async () => [{ id: 'notes', update: { state: 'up-to-date' } }],
-    })
-    return res.ok ? { ok: true } : { ok: false, message: res.error }
-  })
-  assert.deepEqual(started, ['notes'])
-  assert.equal(done.status[row.id].phase, 'done')
-})

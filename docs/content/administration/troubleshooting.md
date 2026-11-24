@@ -470,7 +470,7 @@ for Docker, Podman, and UnRAID guidance.
 **Symptoms:** a device, remote or worker that you paired with an invite does not connect, or the invite fails.
 
 - Check that the server runs in the right P2P mode: `share` to accept paired machines, `connect` to only use other servers.
-- Open **Swarm**, **P2P** on the server and check the peer ID, the reachability and the path of each device.
+- Open **Cluster**, **Sharing** on the server and check the peer ID, the reachability and the path of each device.
 - Behind strict NAT on both sides, add a relay that you run. See [Run a relay]({{% relref "/administration/p2p-relay" %}}).
 
 The [P2P troubleshooting section]({{% relref "/administration/p2p" %}}#troubleshooting) has the full list. A setup that still uses a P2P token, `--p2p` or `--federated` does not start: see [Moving from the old P2P network]({{% relref "/administration/p2p-migration" %}}).

@@ -116,6 +116,10 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	if coolErr.BackendMissing {
 		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
 	}
+	if coolErr.OutdatedBackend != "" {
+		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendOutdated)
+		c.Response().Header().Set(model.LoadBackendHeader, coolErr.OutdatedBackend)
+	}
 	return http.StatusServiceUnavailable
 }
 
@@ -517,6 +521,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
+		application.SetOperationCache(opcache)
 		// In distributed mode, wire the NATS client + gallery store so this
 		// replica's OpCache stays in sync with peers — without this the
 		// /api/operations endpoint returns whatever this single replica
@@ -670,6 +675,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 		tunnels = d.Tunnels
 		registerOpts = append(registerOpts, localai.WithTunnelDisconnector(d))
 		registerOpts = append(registerOpts, localai.WithNATSHandover(d.NATS))
+		// A worker may register with a join token, and gets the data plane
+		// token in the answer, so it never needs the registration token.
+		registerOpts = append(registerOpts, localai.WithJoinTokens(d.JoinTokens, d.JoinLimiter))
+		registerOpts = append(registerOpts, localai.WithWorkerToken(distCfg.WorkerAuthToken()))
 		// A worker that joined with a worker invite registers over P2P with
 		// its peer ID, and opens its tunnel there.
 		registerOpts = append(registerOpts, localai.WithWorkerPeers(application))
@@ -698,10 +707,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 	routes.RegisterClusterRoutes(e, registry, tunnels, instances, onPeer)
 	var clusterAdmin routes.ClusterAdmin
 	if d := application.Distributed(); d != nil {
-		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS}
+		clusterAdmin = routes.ClusterAdmin{Settings: d.Settings, NATS: d.NATS, State: d.NATS, JoinTokens: d.JoinTokens}
 	}
 	routes.RegisterClusterAdminRoutes(e, adminMiddleware, clusterAdmin)
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial, registerOpts...)
+	if d := application.Distributed(); d != nil {
+		routes.RegisterJoinScriptRoutes(e, d.JoinTokens, d.JoinLimiter)
+	} else {
+		routes.RegisterJoinScriptRoutes(e, nil, nil)
+	}
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, application.UpgradeChecker(), registerOpts...)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
@@ -859,7 +873,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application))
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application))
 	// The notification center works with the chats on or off.
 	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 

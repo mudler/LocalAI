@@ -253,6 +253,10 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			switch c.Path() {
 			case "/v1/audio/diarization", "/audio/diarization", "/v1/voice/register":
 				return next(c)
+			// A join token is a credential: the mint response holds it in plain
+			// text, and a worker sends a token in the body of its registration.
+			case "/api/cluster/join-tokens", "/api/node/register":
+				return next(c)
 			}
 
 			ct, _, _ := mime.ParseMediaType(c.Request().Header.Get("Content-Type"))

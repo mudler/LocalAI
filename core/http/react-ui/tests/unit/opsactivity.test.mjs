@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import i18next from 'i18next'
 import {
   isFailedOp, splitOps, meanProgress, ringOf, openingTab, verbOf, titleOf, failedTitleOf, reasonOf, detailOf,
-  canCancel, recentRecords, recentTitle, nextTab, RECENT_MAX,
+  canCancel, recentRecords, recentTitle, RECENT_MAX,
 } from '../../src/utils/opsActivity.js'
 
 const LOCALES = readdirSync(new URL('../../public/locales', import.meta.url)).sort()
@@ -166,16 +166,6 @@ test('ops activity: Recent titles say what finished', async () => {
   assert.equal(recentTitle(rec({ taskType: 'upgrade' }), t), 'Updated a')
   assert.equal(recentTitle(rec({ taskType: 'deletion' }), t), 'Removed a')
   assert.equal(recentTitle(rec({ taskType: 'staging' }), t), 'Staged a')
-})
-
-test('ops activity: the arrows, Home and End move between the two tabs', () => {
-  assert.equal(nextTab('notifications', 'ArrowRight'), 'activity')
-  assert.equal(nextTab('activity', 'ArrowRight'), 'notifications')
-  assert.equal(nextTab('notifications', 'ArrowLeft'), 'activity')
-  assert.equal(nextTab('activity', 'Home'), 'notifications')
-  assert.equal(nextTab('notifications', 'End'), 'activity')
-  assert.equal(nextTab('notifications', 'a'), '')
-  assert.equal(nextTab('nope', 'ArrowRight'), '')
 })
 
 test('ops activity: every language words every title and label with no key or placeholder left over', async () => {

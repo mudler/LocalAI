@@ -731,23 +731,32 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
 				// the library or the channel, whatever the add-on holds.
-				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); !ok || recovery.CheckCompatible(last, staged.Receipt()) != nil || staged.Receipt().Digest != cmd.CandidateDigest {
-					return fail()
+				last, ok := lastReceipt(m.journal.Addons[cmd.AddonID])
+				if !ok {
+					return fail(logOnly("the add-on has no installed generation to upgrade"))
+				}
+				if e := recovery.CheckCompatible(last, staged.Receipt()); e != nil {
+					return fail(logOnly("the candidate is not compatible with the installed generation: " + e.Error()))
+				}
+				if staged.Receipt().Digest != cmd.CandidateDigest {
+					return fail(logOnly("the candidate digest is not the one that was reviewed"))
 				}
 			}
 			if m.recovery != nil && m.recovery.HasData(cmd.AddonID) {
 				// Retained data is only handed to the same trusted identity
 				// and never to an older data format: this holds for an
 				// upgrade and for a reinstall alike.
-				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.CheckCompatible(last, staged.Receipt()) != nil {
-					return fail()
+				if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok {
+					if e := recovery.CheckCompatible(last, staged.Receipt()); e != nil {
+						return fail(logOnly("the package is not compatible with the retained data: " + e.Error()))
+					}
 				}
 				if cmd.Action != "upgrade" {
 					// A reinstall has no running generation to back up, and
 					// the candidate would migrate the retained data when it
 					// starts. Only an upgrade takes a verified backup first.
 					if last, ok := lastReceipt(m.journal.Addons[cmd.AddonID]); ok && recovery.FormatChanged(last, staged.Receipt()) {
-						return fail()
+						return fail(logOnly("a reinstall cannot migrate the retained data without a backup, and the package changes the data format"))
 					}
 				}
 				if cmd.Action == "upgrade" {
@@ -797,7 +806,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					m.canceled[cmd.OperationID] = receipt
 					return op.Status, e
 				}
-				return fail()
+				return fail(startCause(e))
 			}
 		}
 	case "enable":
@@ -806,7 +815,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
-			return fail()
+			return fail(logOnly("the retained data needs recovery before the add-on can be served"))
 		}
 		// A package the host cannot run would only fail to start and leave
 		// the add-on off with no reason. Say so, and keep the upgrade open.
@@ -854,15 +863,48 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	return result, m.syncFor(ctx, cmd.AddonID)
 }
 
+// logOnly is a cause that only the owner log shows. It has no wire code, so
+// the answer to the client stays the generic failure. It does not unwrap, so
+// no typed handling in fail() applies to the text.
+type logOnly string
+
+func (c logOnly) Error() string { return string(c) }
+
+// maxCauseText bounds one cause in the log, in runes.
+const maxCauseText = 400
+
+var (
+	causeURLUserinfo = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/\s@]+@`)
+	causeSecretPair  = regexp.MustCompile(`(?i)\b([a-z0-9_.-]*(?:token|secret|password|passwd|apikey|api_key|authorization|credential)[a-z0-9_.-]*)\s*[=:]\s*\S+`)
+)
+
+// boundCause makes the text of an error fit one log field: one line, no
+// credentials in URLs or in key=value pairs, at most maxCauseText runes.
+func boundCause(text string) string {
+	text = strings.Join(strings.Fields(text), " ")
+	text = causeURLUserinfo.ReplaceAllString(text, "${1}[redacted]@")
+	text = causeSecretPair.ReplaceAllString(text, "${1}=[redacted]")
+	if r := []rune(text); len(r) > maxCauseText {
+		text = string(r[:maxCauseText]) + "..."
+	}
+	return text
+}
+
+// startCause is the log cause of a candidate generation that did not start or
+// did not complete its handshake. The previous generation was restored.
+func startCause(e error) error {
+	return logOnly("the new generation did not start; the previous generation was kept: " + boundCause(addonruntime.Cause(e)))
+}
+
 // describeCauses is the text of the errors a failed operation had, for the log.
 func describeCauses(causes []error) string {
 	var parts []string
 	for _, c := range causes {
 		var typed *FailureCause
 		if errors.As(c, &typed) && typed.detail != nil {
-			parts = append(parts, typed.Code+": "+typed.detail.Error())
+			parts = append(parts, typed.Code+": "+boundCause(addonruntime.Cause(typed.detail)))
 		} else if c != nil {
-			parts = append(parts, c.Error())
+			parts = append(parts, boundCause(addonruntime.Cause(c)))
 		}
 	}
 	if len(parts) == 0 {
@@ -1112,6 +1154,7 @@ func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, re
 		// Recorded so that the next command on this add-on, with any
 		// operation ID, tries the journaled generation again.
 		m.startFailed[id] = be
+		xlog.Warn("Addon previous generation did not restart after a failed upgrade", "addonId", id, "generation", g.Number, "cause", boundCause(addonruntime.Cause(be)))
 	}
 	return e
 }

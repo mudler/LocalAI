@@ -112,6 +112,8 @@ appends `localai-UID/backend-runtime`; the default base is `TMPDIR`.
 | `--force-eviction-when-busy` | `false` | Force eviction even when models have active API calls (default: false for safety). **Warning:** Enabling this can interrupt active requests | `$LOCALAI_FORCE_EVICTION_WHEN_BUSY`, `$FORCE_EVICTION_WHEN_BUSY` |
 | `--lru-eviction-max-retries` | `30` | Maximum number of retries when waiting for busy models to become idle before eviction | `$LOCALAI_LRU_EVICTION_MAX_RETRIES`, `$LRU_EVICTION_MAX_RETRIES` |
 | `--lru-eviction-retry-interval` | `1s` | Interval between retries when waiting for busy models to become idle (e.g., `1s`, `2s`) | `$LOCALAI_LRU_EVICTION_RETRY_INTERVAL`, `$LRU_EVICTION_RETRY_INTERVAL` |
+| `--upgrade-run-keep` | `200` | Most finished [upgrade runs]({{% relref "/models/upgrade-runs#retention" %}}) kept; the oldest beyond it are removed. `-1` keeps any number | `$LOCALAI_UPGRADE_RUN_KEEP` |
+| `--upgrade-run-retention-days` | `30` | Days to keep finished upgrade runs. `-1` keeps them forever | `$LOCALAI_UPGRADE_RUN_RETENTION_DAYS` |
 | `--model-load-failure-cooldown` | `10s` | After a model load fails, refuse new load attempts for that model for this long (HTTP 503 + `Retry-After`) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. `0` disables | `$LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN`, `$MODEL_LOAD_FAILURE_COOLDOWN` |
 
 For more information on VRAM management, see [VRAM and Memory Management]({{%relref "/models/vram-management" %}}).
@@ -345,7 +347,7 @@ The token-based P2P mode, federation and the Explorer were removed. A server tha
 | Command | What it does |
 |---------|--------------|
 | `local-ai library list` | List every source with its kind, id, URL, and whether it is enabled, a shipped default, or removed |
-| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery] [--issuer ISSUER --identity IDENTITY]` | Add a source of your own. `--issuer` and `--identity` go together and apply to an `oci://` add-on library: its artifact must be signed by that issuer and exact identity |
+| `local-ai library add <url> --kind addon\|backend\|model [--id ID] [--name NAME] [--format library\|gallery] [--issuer ISSUER --identity IDENTITY \| --identity-regex PATTERN --source-repository URL]` | Add a source of your own. `--issuer` and `--identity` go together and apply to an `oci://` add-on library: its artifact must be signed by that issuer and exact identity. `--identity-regex`, an anchored pattern, takes the place of `--identity` only together with `--source-repository`, the `https` URL of the repository the signature must be made for. `--source-repository` can also go with `--identity` |
 | `local-ai library remove <id>` | Remove a source. A removed default leaves a tombstone, so it does not come back at the next start |
 | `local-ai library enable <id>` | Turn a source on. This also brings back a removed default |
 | `local-ai library disable <id>` | Turn a source off without removing it |

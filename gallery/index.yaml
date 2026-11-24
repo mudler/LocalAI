@@ -680,6 +680,648 @@
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-IQ1_M, about 1-bit) (about 68 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 45 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/Qwen3.8-Flash-Next-UD-IQ1_M-00001-of-00003.gguf
+      sha256: b0d883bb9464021f31074145af74bfc2aa2d4bf0cf506f26f6f5107f4ca6ce17
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ1_M/Qwen3.8-Flash-Next-UD-IQ1_M-00001-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/Qwen3.8-Flash-Next-UD-IQ1_M-00002-of-00003.gguf
+      sha256: bddcd79634ccddbb2e0951345c73c6ae8bd7b12594f55a2a529474701757391e
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ1_M/Qwen3.8-Flash-Next-UD-IQ1_M-00002-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/Qwen3.8-Flash-Next-UD-IQ1_M-00003-of-00003.gguf
+      sha256: 05716382c280d999b81afff92b2d527fadbfd926ac225ffdc273f2d1d13331c6
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ1_M/Qwen3.8-Flash-Next-UD-IQ1_M-00003-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-IQ1_M-00001-of-00003.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-IQ1_M-00001-of-00003.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-iq1_m-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-q2_0-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-Q2_0, 2-bit) (about 71 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 47 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/Qwen3.8-Flash-Next-UD-Q2_0-00001-of-00003.gguf
+      sha256: 38803c4e8d13077165aa9854502b3d4e7fef750e72a21d27a38ee42089f96ad6
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_0/Qwen3.8-Flash-Next-UD-Q2_0-00001-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/Qwen3.8-Flash-Next-UD-Q2_0-00002-of-00003.gguf
+      sha256: 57af20207d5f18fa72fba503806d98d65f58ba3982fe55c89c6ed6e691471acc
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_0/Qwen3.8-Flash-Next-UD-Q2_0-00002-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/Qwen3.8-Flash-Next-UD-Q2_0-00003-of-00003.gguf
+      sha256: 05716382c280d999b81afff92b2d527fadbfd926ac225ffdc273f2d1d13331c6
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_0/Qwen3.8-Flash-Next-UD-Q2_0-00003-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-Q2_0-00001-of-00003.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-Q2_0-00001-of-00003.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-q2_0-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-IQ2_XS, 2-bit i-quant) (about 76 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 52 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ2_XS-00001-of-00003.gguf
+      sha256: 91e8dc8f1428ce25d48fd1f711e4bf1f42215c5bac0f32eeb5608e6ec7ae91e9
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ2_XS/Qwen3.8-Flash-Next-UD-IQ2_XS-00001-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ2_XS-00002-of-00003.gguf
+      sha256: 11a67c82f54a9edf683d6b708062de78d803921a18a6cb2bf1dd55949b4ef9bd
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ2_XS/Qwen3.8-Flash-Next-UD-IQ2_XS-00002-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ2_XS-00003-of-00003.gguf
+      sha256: 05716382c280d999b81afff92b2d527fadbfd926ac225ffdc273f2d1d13331c6
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ2_XS/Qwen3.8-Flash-Next-UD-IQ2_XS-00003-of-00003.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-IQ2_XS-00001-of-00003.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-IQ2_XS-00001-of-00003.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-iq2_xs-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-Q2_K_XL, 2-bit with some 3-bit experts) (about 80 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 56 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00004.gguf
+      sha256: 297e174dc185f2bf3ab1856461059cb8a05aa741bc27edf42461cde87e5420af
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q2_K_XL-00002-of-00004.gguf
+      sha256: a4782511810bb61bd6b3236607a0aad05b1bfa04b90356defd202bb17e7db16d
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00002-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q2_K_XL-00003-of-00004.gguf
+      sha256: 4dffc4a1cea7ad484f2d5c711b747840e459b040b636cc8ddaa524d01e60662e
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00003-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q2_K_XL-00004-of-00004.gguf
+      sha256: 5de8b5dbf89409acc39468decafd4a4a95b13c29d88a14b0356107897829ec36
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q2_K_XL/Qwen3.8-Flash-Next-UD-Q2_K_XL-00004-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00004.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-Q2_K_XL-00001-of-00004.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-q2_k_xl-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-IQ3_XXS, 3-bit i-quant) (about 84 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 60 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/Qwen3.8-Flash-Next-UD-IQ3_XXS-00001-of-00004.gguf
+      sha256: 9d5644b371ffac921427c8021cc7242dab8e3ba37d7b48d1e79fe3770fbf9915
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ3_XXS/Qwen3.8-Flash-Next-UD-IQ3_XXS-00001-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/Qwen3.8-Flash-Next-UD-IQ3_XXS-00002-of-00004.gguf
+      sha256: aacaff3bdb9032c2c3be428167930809735f65d3cfb204eba07d85e421e7ddf4
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ3_XXS/Qwen3.8-Flash-Next-UD-IQ3_XXS-00002-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/Qwen3.8-Flash-Next-UD-IQ3_XXS-00003-of-00004.gguf
+      sha256: ef8f14e790ab471b363f146d5e8664eefbaf03e5776f317a1fb96a2bc7707b07
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ3_XXS/Qwen3.8-Flash-Next-UD-IQ3_XXS-00003-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/Qwen3.8-Flash-Next-UD-IQ3_XXS-00004-of-00004.gguf
+      sha256: 5de8b5dbf89409acc39468decafd4a4a95b13c29d88a14b0356107897829ec36
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ3_XXS/Qwen3.8-Flash-Next-UD-IQ3_XXS-00004-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-IQ3_XXS-00001-of-00004.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-IQ3_XXS-00001-of-00004.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-iq3_xxs-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-Q3_K_XL, 3-bit with some 4-bit experts) (about 90 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 66 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q3_K_XL-00001-of-00004.gguf
+      sha256: 7666000ba91eb5527f8e12e0414de36766dc82a082876337f7827c2caa859143
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q3_K_XL/Qwen3.8-Flash-Next-UD-Q3_K_XL-00001-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q3_K_XL-00002-of-00004.gguf
+      sha256: e954cb3044ae087a003ce8cc1631c9d40fe15ae64a8befcf4aa06457848c647c
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q3_K_XL/Qwen3.8-Flash-Next-UD-Q3_K_XL-00002-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q3_K_XL-00003-of-00004.gguf
+      sha256: fcce26b1e5e6e54559a7e7c2f8d6e37067ec695ff1f14bce662810bde78abe1f
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q3_K_XL/Qwen3.8-Flash-Next-UD-Q3_K_XL-00003-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/Qwen3.8-Flash-Next-UD-Q3_K_XL-00004-of-00004.gguf
+      sha256: 5de8b5dbf89409acc39468decafd4a4a95b13c29d88a14b0356107897829ec36
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-Q3_K_XL/Qwen3.8-Flash-Next-UD-Q3_K_XL-00004-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-Q3_K_XL-00001-of-00004.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-Q3_K_XL-00001-of-00004.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-q3_k_xl-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1
+  description: |
+    Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
+    Unsloth's Dynamic v3.1 quantization (UD-IQ4_XS, about 4-bit i-quant) (about 94 GB
+    to download).
+    It reads images through the vision projector published for the original model,
+    and the Strata backend parses its reasoning and tool calls.
+    Needs about 70 GB of RAM to keep every expert in memory; with less, the mapped
+    experts are read from the SSD while it answers, which works and is much
+    slower. Keep the files on an SSD. Needs a GPU the strata backend supports;
+    NVIDIA with 12 GB of VRAM or more is the class Strata tests. Runs only on the
+    experimental strata backend.
+    On the first load the strata backend builds the Strata pack from the GGUF
+    files (a few minutes, a few GB of extra disk); a finished pack is never
+    rebuilt. The experts are read from the GGUF files in place (mapped); add
+    --resident-experts to engine_args to copy them into RAM when there is room.
+    Licensed under the Qwen Community License 1.0 (inherited from
+    Qwen/Qwen3.8-Flash-Next): free use, but a Model as a Service or AI Work
+    Assistant business needs a licence from Qwen. Read the LICENSE file in the
+    repository first.
+    The GGUF files are the Unsloth v3.1 quantization (revision of 2026-11-04); the vision projector is
+    ISTA-DASLab's file for the original model; Strata is by Niko1221. The MTP
+    draft layer is not configured here.
+  license: qwen-community-1.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+    - https://github.com/Niko1221/Strata
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - qwen
+    - qwen3
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - experimental
+  files:
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00004.gguf
+      sha256: 93ff23a08e5cd7501f24fa16f5b415d5807d0175e04edd3ed6a7a41b601a4eef
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ4_XS-00002-of-00004.gguf
+      sha256: 13d5dc8b93d039e4cfade5a9af7037f10c97f7ec4e53f75bd2e9ae34aae54aeb
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00002-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ4_XS-00003-of-00004.gguf
+      sha256: f6b9b5934908a2043732269dd740155d0f921d0763a1dcdd3452246311651f87
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00003-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/Qwen3.8-Flash-Next-UD-IQ4_XS-00004-of-00004.gguf
+      sha256: 5de8b5dbf89409acc39468decafd4a4a95b13c29d88a14b0356107897829ec36
+      uri: https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF/resolve/d96201194f103c906994f283f504209dc8d2a10c/UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00004-of-00004.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+      sha256: b1a82259702816a5330d7bd7607cd9676b11780e79ff7348c21103ff3ce49bd0
+      uri: https://huggingface.co/ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF/resolve/ed59f92082b1e93c0e96d60a8b11aab089b52f09/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    - filename: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/expert-profile.bin
+      sha256: 8f59b4aa8873209dff11c11e37bcda9529a1335b724a1afeea37bf6388975baf
+      uri: https://raw.githubusercontent.com/Niko1221/Strata/c3b3f5035506f3e966f1b4b7b188aeaabae92f1d/data/expert-profile.bin
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1/mmproj-Qwen3.8-Flash-Next-BF16.gguf
+    options:
+      - native:Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00004.gguf
+      - expert_profile:expert-profile.bin
+      - pack_gguf:Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00004.gguf
+      - pack_args:--compat-bf16
+      - mmap_experts:true
+      - engine_args:--expert-cache auto --prefill auto
+    parameters:
+      min_p: 0
+      model: strata/models/qwen3.8-flash-next-unsloth-ud-iq4_xs-v3.1
+      temperature: 1.0
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.8-flash-next-unsloth-ud-iq4_xs
   description: |
     Qwen3.8-Flash-Next, a 125B-parameter hybrid mixture-of-experts model, in
@@ -1763,6 +2405,1241 @@
       temperature: 1.0
       top_k: 20
       top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-64-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-64 quantization, the smallest build (about 130 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-64 build is made for 64 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 59.4 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-64.strata
+      sha256: b2cc38fe4bded35df82a701f9e868ea09c6fcd9be52c8446289e394f804417b2
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-64.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-64.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-96-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-96 quantization, a build close to the full model (about 157 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-96 build is made for 96 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 85.1 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-96.strata
+      sha256: 3b1c5755a220c69892b3d2dbad506b8593a30be24b17a390ecbd1642c0c1e14c
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-96.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-96.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: hy4-flash-sq-128-strata
+  description: |
+    Tencent Hy4-Flash, a 220B-parameter mixture-of-experts model with 12B active
+    parameters, 1M tokens of context, reasoning, tool calling and image input, in
+    Strata's SQ-128 quantization, the build closest to the full model (about 181 GB to download: the model file
+    plus the 68 GB Engram file every build shares and the 1 GB vision file).
+    The SQ-128 build is made for 128 GiB of RAM and a GPU with 8 GiB of memory or
+    more. The vendor's own figures: about 107.5 GiB of RAM and GPU memory together
+    in use, and a fast SSD for the Engram file, which is read while the model
+    answers. The three builds of this model share one directory and one copy of
+    the Engram and vision files. Speculative decoding (DFly2) is built in and on
+    by default. Runs only on the experimental strata backend, on the Hy4-Flash
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The model reasons by default; ask for a lower effort or none with the
+    reasoning effort of the request. Tencent recommends temperature 0.9, top_p 1.0
+    and no top_k.
+    Licensed under the Tencent Hy License, Version 1.0 (inherited from
+    tencent/Hy4-flash): derived from the Apache License 2.0, with extra commercial
+    terms for very large Model-as-a-Service businesses. Read the LICENSE file in
+    the repository first. The quantization is by Strata; Strata is by Niko1221.
+  license: tencent-hy-license
+  urls:
+    - https://huggingface.co/tencent/Hy4-flash
+    - https://huggingface.co/strata-engine/Hy4-Flash-Strata
+    - https://github.com/Niko1221/Strata
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - reasoning
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/hy4-flash/Hy4-Flash-SQ-128.strata
+      sha256: 6e8ba2729465f38ed42b5bfa7db02c92beddc25ca0413b7f0c24ab9f1e8b51f4
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-SQ-128.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Engram-Q8.strata
+      sha256: ab0cf9b3f9c64bd25f6212d4508e7443ab8b9bc133fbccc7bdfb83510a20c2c1
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Engram-Q8.strata
+    - filename: strata/models/hy4-flash/Hy4-Flash-Vision.strata
+      sha256: ef09bceff8f01b8d226d2dc56aef09cec719b21b45783ee9b5d64e7241b72a09
+      uri: https://huggingface.co/strata-engine/Hy4-Flash-Strata/resolve/995bac227ab7e0d221772be641e2b5954a9fac06/Hy4-Flash-Vision.strata
+  overrides:
+    backend: strata
+    context_size: 131072
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:hy4
+      - native:Hy4-Flash-SQ-128.strata
+      - engram:Hy4-Flash-Engram-Q8.strata
+      - vision:Hy4-Flash-Vision.strata
+    parameters:
+      model: strata/models/hy4-flash
+      temperature: 0.9
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-sq-10-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Strata's SQ-10 build (10.47 GB), the compact build: it
+    fits whole in the memory of a 12 GiB card or a 16 GiB Mac, and runs mixed across
+    RAM and GPU memory from a 4 GiB card. The vision file (0.64 GB) and the
+    tokenizer file are included, about 11 GB to download in all. A Strata build
+    carries its own DSpark drafter, so speculative decoding is on by default. The
+    model files of all Inkling 2 Mini entries share one directory, so the vision,
+    tokenizer and drafter files are downloaded once. Runs only on the experimental
+    strata backend, on the Inkling engine that ships in its image, for NVIDIA, AMD,
+    Intel and Apple Silicon GPUs. The memory figures are Strata's own, not measured
+    by LocalAI. Sampling follows the model card: temperature 1.0 with no truncation.
+    Licensed under the Apache License 2.0 (inherited from
+    thinkingmachines/Inkling-2-Mini). The quantization is by Strata; Strata is by
+    Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-SQ-10.strata
+      sha256: ac4d452ad03e4930abd9d46f9c5eec22b2f75a1da45a1e49bd24ccd58b065934
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-SQ-10.strata
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-SQ-10.strata
+      - vision:Inkling-2-Mini-Vision.strata
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-sq-15-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Strata's SQ-15 build (14.35 GB), the build that is
+    made for a 16 GiB card or a 24 GiB Mac, and runs mixed across RAM and GPU memory
+    on a 12 GiB card. The vision file (0.64 GB) and the tokenizer file are included,
+    about 15 GB to download in all. A Strata build carries its own DSpark drafter,
+    so speculative decoding is on by default. The model files of all Inkling 2 Mini
+    entries share one directory, so the vision, tokenizer and drafter files are
+    downloaded once. Runs only on the experimental strata backend, on the Inkling
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The memory figures are Strata's own, not measured by LocalAI. Sampling follows
+    the model card: temperature 1.0 with no truncation. Licensed under the
+    Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini). The
+    quantization is by Strata; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-SQ-15.strata
+      sha256: 2ea32eed533afba257e2cbee7b073dc2c3da80fe55d1d2d794779b5498e30737
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-SQ-15.strata
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-SQ-15.strata
+      - vision:Inkling-2-Mini-Vision.strata
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-sq-20-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Strata's SQ-20 build (19.35 GB), the lossless build
+    (bit-exact against the original weights in Strata's own tests), made for a 24
+    GiB card or more, or 32 GiB or more of unified memory; with less GPU memory it
+    runs mixed across RAM and the card. The vision file (0.64 GB) and the tokenizer
+    file are included, about 20 GB to download in all. A Strata build carries its
+    own DSpark drafter, so speculative decoding is on by default. The model files of
+    all Inkling 2 Mini entries share one directory, so the vision, tokenizer and
+    drafter files are downloaded once. Runs only on the experimental strata backend,
+    on the Inkling engine that ships in its image, for NVIDIA, AMD, Intel and Apple
+    Silicon GPUs. The memory figures are Strata's own, not measured by LocalAI.
+    Sampling follows the model card: temperature 1.0 with no truncation. Licensed
+    under the Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini).
+    The quantization is by Strata; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-SQ-20.strata
+      sha256: 0bbfd52344f0dd4779a7807b5f73554a812f24c035e6877b63cd0d499f7e1b97
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-SQ-20.strata
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-SQ-20.strata
+      - vision:Inkling-2-Mini-Vision.strata
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-q8_k_xl-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-Q8_K_XL GGUF quantization (22.9 GB),
+    Unsloth Dynamic 8-bit, near lossless. Strata reads the GGUF file as it is, with
+    no conversion step. The Strata vision file (0.64 GB), the DSpark drafter (0.4
+    GB) and the tokenizer files are included, about 24 GB to download in all. Strata
+    sizes it for 24 GiB or more of GPU memory, or 32 GiB or more of RAM; the DSpark
+    drafter turns on speculative decoding. The model files of all Inkling 2 Mini
+    entries share one directory, so the vision, tokenizer and drafter files are
+    downloaded once. Runs only on the experimental strata backend, on the Inkling
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The memory figures are Strata's own, not measured by LocalAI. Sampling follows
+    the model card: temperature 1.0 with no truncation. Licensed under the
+    Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini). The GGUF
+    quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-Q8_K_XL.gguf
+      sha256: dfb04bf37bee457f98800989dedf93ec442ede8636dbea9433992f1e527e9a41
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-Q8_K_XL.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-Q8_K_XL.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-q4_k_xl-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-Q4_K_XL GGUF quantization (17.6 GB),
+    Unsloth Dynamic 4.5-bit, high quality. Strata reads the GGUF file as it is, with
+    no conversion step. The Strata vision file (0.64 GB), the DSpark drafter (0.4
+    GB) and the tokenizer files are included, about 19 GB to download in all. Strata
+    sizes it for a 16 to 24 GiB card, or a smaller card with enough RAM for the
+    rest; the DSpark drafter turns on speculative decoding. The model files of all
+    Inkling 2 Mini entries share one directory, so the vision, tokenizer and drafter
+    files are downloaded once. Runs only on the experimental strata backend, on the
+    Inkling engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon
+    GPUs. The memory figures are Strata's own, not measured by LocalAI. Sampling
+    follows the model card: temperature 1.0 with no truncation. Licensed under the
+    Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini). The GGUF
+    quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-Q4_K_XL.gguf
+      sha256: e62d463c135ffe283df8d94b279a96ca145ac128b52ce854478613045bf4de15
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-Q4_K_XL.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-Q4_K_XL.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-q4_k_m-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-Q4_K_M GGUF quantization (16.6 GB),
+    Unsloth Dynamic 4-bit medium, balanced. Strata reads the GGUF file as it is,
+    with no conversion step. The Strata vision file (0.64 GB), the DSpark drafter
+    (0.4 GB) and the tokenizer files are included, about 18 GB to download in all.
+    Strata sizes it for a 16 to 24 GiB card, or a smaller card with enough RAM for
+    the rest; the DSpark drafter turns on speculative decoding. The model files of
+    all Inkling 2 Mini entries share one directory, so the vision, tokenizer and
+    drafter files are downloaded once. Runs only on the experimental strata backend,
+    on the Inkling engine that ships in its image, for NVIDIA, AMD, Intel and Apple
+    Silicon GPUs. The memory figures are Strata's own, not measured by LocalAI.
+    Sampling follows the model card: temperature 1.0 with no truncation. Licensed
+    under the Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini).
+    The GGUF quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-Q4_K_M.gguf
+      sha256: f90c5a4df44d335ac9f9eea2a15c31d6c5a377b1b3cd9ff7fc2cf123f3cdf7e1
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-Q4_K_M.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-Q4_K_M.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-iq4_xs-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-IQ4_XS GGUF quantization (15.7 GB),
+    Unsloth Dynamic 4-bit i-quant, compact. Strata reads the GGUF file as it is,
+    with no conversion step. The Strata vision file (0.64 GB), the DSpark drafter
+    (0.4 GB) and the tokenizer files are included, about 17 GB to download in all.
+    Strata sizes it for a 16 GiB card, or a smaller card with enough RAM for the
+    rest; the DSpark drafter turns on speculative decoding. The model files of all
+    Inkling 2 Mini entries share one directory, so the vision, tokenizer and drafter
+    files are downloaded once. Runs only on the experimental strata backend, on the
+    Inkling engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon
+    GPUs. The memory figures are Strata's own, not measured by LocalAI. Sampling
+    follows the model card: temperature 1.0 with no truncation. Licensed under the
+    Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini). The GGUF
+    quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-IQ4_XS.gguf
+      sha256: a861d21e7c6d7bc69d8cdcdfb9eb195fd37ef1cd2ab31499db61cd7d30d9b3a1
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-IQ4_XS.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-IQ4_XS.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-q3_k_xl-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-Q3_K_XL GGUF quantization (13.6 GB),
+    Unsloth Dynamic 3.5-bit, strong for its size. Strata reads the GGUF file as it
+    is, with no conversion step. The Strata vision file (0.64 GB), the DSpark
+    drafter (0.4 GB) and the tokenizer files are included, about 15 GB to download
+    in all. Strata sizes it for a 12 to 16 GiB card, or a smaller card with enough
+    RAM for the rest; the DSpark drafter turns on speculative decoding. The model
+    files of all Inkling 2 Mini entries share one directory, so the vision,
+    tokenizer and drafter files are downloaded once. Runs only on the experimental
+    strata backend, on the Inkling engine that ships in its image, for NVIDIA, AMD,
+    Intel and Apple Silicon GPUs. The memory figures are Strata's own, not measured
+    by LocalAI. Sampling follows the model card: temperature 1.0 with no truncation.
+    Licensed under the Apache License 2.0 (inherited from
+    thinkingmachines/Inkling-2-Mini). The GGUF quantization is by Unsloth; Strata is
+    by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-Q3_K_XL.gguf
+      sha256: f72f396d1b479b14d76346df80baa449c8b1f399653bff38fa4764b359a40048
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-Q3_K_XL.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-Q3_K_XL.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-iq3_xxs-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-IQ3_XXS GGUF quantization (11.7 GB),
+    Unsloth Dynamic 3-bit i-quant, compact. Strata reads the GGUF file as it is,
+    with no conversion step. The Strata vision file (0.64 GB), the DSpark drafter
+    (0.4 GB) and the tokenizer files are included, about 13 GB to download in all.
+    Strata sizes it for an 8 to 12 GiB card, or a 4 to 6 GiB card with enough RAM
+    for the rest; the DSpark drafter turns on speculative decoding. The model files
+    of all Inkling 2 Mini entries share one directory, so the vision, tokenizer and
+    drafter files are downloaded once. Runs only on the experimental strata backend,
+    on the Inkling engine that ships in its image, for NVIDIA, AMD, Intel and Apple
+    Silicon GPUs. The memory figures are Strata's own, not measured by LocalAI.
+    Sampling follows the model card: temperature 1.0 with no truncation. Licensed
+    under the Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini).
+    The GGUF quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-IQ3_XXS.gguf
+      sha256: bd7ef0865adf119b5183e45e741c629bafa649769b33b5ebf689bb4bcc4690d6
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-IQ3_XXS.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-IQ3_XXS.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-q2_k_xl-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-Q2_K_XL GGUF quantization (9.1 GB),
+    Unsloth Dynamic 2.5-bit, small. Strata reads the GGUF file as it is, with no
+    conversion step. The Strata vision file (0.64 GB), the DSpark drafter (0.4 GB)
+    and the tokenizer files are included, about 10 GB to download in all. Strata
+    sizes it for a 4 to 12 GiB card with about 16 GiB of RAM; the DSpark drafter
+    turns on speculative decoding. The model files of all Inkling 2 Mini entries
+    share one directory, so the vision, tokenizer and drafter files are downloaded
+    once. Runs only on the experimental strata backend, on the Inkling engine that
+    ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs. The memory
+    figures are Strata's own, not measured by LocalAI. Sampling follows the model
+    card: temperature 1.0 with no truncation. Licensed under the Apache License 2.0
+    (inherited from thinkingmachines/Inkling-2-Mini). The GGUF quantization is by
+    Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-Q2_K_XL.gguf
+      sha256: 20292e8142b69535ca88a5d04439d0fdeb4dc698d44c002dca706dcf92901441
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-Q2_K_XL.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-Q2_K_XL.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-iq2_xxs-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-IQ2_XXS GGUF quantization (8.5 GB),
+    Unsloth Dynamic 2-bit i-quant, very small. Strata reads the GGUF file as it is,
+    with no conversion step. The Strata vision file (0.64 GB), the DSpark drafter
+    (0.4 GB) and the tokenizer files are included, about 10 GB to download in all.
+    Strata sizes it for a 4 to 8 GiB card with about 16 GiB of RAM; the DSpark
+    drafter turns on speculative decoding. The model files of all Inkling 2 Mini
+    entries share one directory, so the vision, tokenizer and drafter files are
+    downloaded once. Runs only on the experimental strata backend, on the Inkling
+    engine that ships in its image, for NVIDIA, AMD, Intel and Apple Silicon GPUs.
+    The memory figures are Strata's own, not measured by LocalAI. Sampling follows
+    the model card: temperature 1.0 with no truncation. Licensed under the
+    Apache License 2.0 (inherited from thinkingmachines/Inkling-2-Mini). The GGUF
+    quantization is by Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-IQ2_XXS.gguf
+      sha256: 4fe958f73a667d8082f911a4347e52bc34696a7816cf3d5b9f7c8a81d5c5ceaa
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-IQ2_XXS.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-IQ2_XXS.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-iq1_m-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-IQ1_M GGUF quantization (8.0 GB), Unsloth
+    Dynamic 1.7-bit, tiny. Strata reads the GGUF file as it is, with no conversion
+    step. The Strata vision file (0.64 GB), the DSpark drafter (0.4 GB) and the
+    tokenizer files are included, about 9 GB to download in all. Strata sizes it for
+    a 4 to 8 GiB card with little RAM; the DSpark drafter turns on speculative
+    decoding. The model files of all Inkling 2 Mini entries share one directory, so
+    the vision, tokenizer and drafter files are downloaded once. Runs only on the
+    experimental strata backend, on the Inkling engine that ships in its image, for
+    NVIDIA, AMD, Intel and Apple Silicon GPUs. The memory figures are Strata's own,
+    not measured by LocalAI. Sampling follows the model card: temperature 1.0 with
+    no truncation. Licensed under the Apache License 2.0 (inherited from
+    thinkingmachines/Inkling-2-Mini). The GGUF quantization is by Unsloth; Strata is
+    by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-IQ1_M.gguf
+      sha256: 544e0b2412ba2392272b0510b0c8f53a1ab872b73c2ba4f7488de0d5d61467d9
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-IQ1_M.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-IQ1_M.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-ud-iq1_s-strata
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, a 26.4B-parameter looped
+    mixture-of-experts model with 3.4B active parameters per token, up to 1M tokens
+    of context, text and image input and tool calling. It has no thinking mode: it
+    answers directly. This is Unsloth's UD-IQ1_S GGUF quantization (7.8 GB), Unsloth
+    Dynamic 1.5-bit, the smallest download. Strata reads the GGUF file as it is,
+    with no conversion step. The Strata vision file (0.64 GB), the DSpark drafter
+    (0.4 GB) and the tokenizer files are included, about 9 GB to download in all.
+    Strata sizes it for a 4 to 8 GiB card with little RAM; the DSpark drafter turns
+    on speculative decoding. The model files of all Inkling 2 Mini entries share one
+    directory, so the vision, tokenizer and drafter files are downloaded once. Runs
+    only on the experimental strata backend, on the Inkling engine that ships in its
+    image, for NVIDIA, AMD, Intel and Apple Silicon GPUs. The memory figures are
+    Strata's own, not measured by LocalAI. Sampling follows the model card:
+    temperature 1.0 with no truncation. Licensed under the Apache License 2.0
+    (inherited from thinkingmachines/Inkling-2-Mini). The GGUF quantization is by
+    Unsloth; Strata is by Niko1221.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+    - https://huggingface.co/strata-engine/Inkling-2-Mini-Strata
+    - https://github.com/Niko1221/Strata
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - chat
+    - multimodal
+    - vision
+    - function-calling
+    - moe
+    - strata
+    - gguf
+    - gpu
+    - cuda
+    - nvidia
+    - rocm
+    - amd
+    - experimental
+  files:
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-UD-IQ1_S.gguf
+      sha256: c09c028b050c108624682baeb28ac6e0cdb936af021ac637c8c3609f923ea4b8
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/Inkling-2-Mini-UD-IQ1_S.gguf
+    - filename: strata/models/inkling-2-mini/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/45fd08764f2b0bf16b03a5483a80e5c7aaec8772/dspark-Inkling-2-Mini-Q8_0.gguf
+    - filename: strata/models/inkling-2-mini/Inkling-2-Mini-Vision.strata
+      sha256: 6589eff47f9c20bc3a032faa3d449f10bf4f04a84cc6b2ee8a44d51d2b6fc677
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/Inkling-2-Mini-Vision.strata
+    - filename: strata/models/inkling-2-mini/tokenizer.json
+      sha256: 7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/tokenizer.json
+    - filename: strata/models/inkling-2-mini/chat_template.jinja
+      sha256: 53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc
+      uri: https://huggingface.co/strata-engine/Inkling-2-Mini-Strata/resolve/04996a1e2c45009b6a04f2af126cb6bdb2ba3587/chat_template.jinja
+  overrides:
+    backend: strata
+    context_size: 32768
+    function:
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    options:
+      - family:inkling
+      - native:Inkling-2-Mini-UD-IQ1_S.gguf
+      - vision:Inkling-2-Mini-Vision.strata
+      - dspark:dspark-Inkling-2-Mini-Q8_0.gguf
+    parameters:
+      model: strata/models/inkling-2-mini
+      temperature: 1.0
+      top_p: 1.0
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -5349,7 +7226,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: b2a982635c17428304b487b0f8c40df79b66df548e520fb76c343ab4ba6daec8
+      sha256: 8554c2bf6c0873415e847516e4f5fb0ebd8bf1606e3b0555b8fad4ba846b0163
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
@@ -13791,7 +15668,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
-      sha256: 7827805ae9f2d20cc71e46bf05d9cb045e222d3fa0429363c324bbf6d3cab959
+      sha256: d713d93d5c9fc5ee4c3e9db1f04577d58eca4c9af6379de9e55c43cecd7c5491
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-NVFP4.gguf
   overrides:
     backend: llama-cpp
@@ -13832,7 +15709,7 @@
     - long-context
   files:
     - filename: llama-cpp/models/nemotron-3.5-lightning-30b-a3b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
-      sha256: d4cc4c9fffaa356db8b49cfaba9233609cfb29b4dd89d827665210dc1cc8dbbb
+      sha256: dad34ec5cb8da3147ad8666bde0d59c4c7845e5d070a8011b29108326d741a06
       uri: huggingface://ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -17278,6 +19155,242 @@
       use_tokenizer_template: true
   variants:
     - model: inkling-small-iq2-m
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q4_K_XL GGUF quantization (17.6 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    A smaller build is available as a variant.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q4_K_XL.gguf
+      sha256: e64276656f072e9b2197a61723667cbdb71da66a716ffd966e572c21088f3cd3
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q4_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q4_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: inkling-2-mini-q3
+    - model: inkling-2-mini-q2
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-q3
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q3_K_XL GGUF quantization (13.6 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    This entry is the Q3_K_XL build (13.6 GB) for hosts with less memory; the Q4_K_XL build is the default.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q3_K_XL.gguf
+      sha256: e2d03e8c92ac21cff0e3309b95f40dfd27d1825184f0d2bc09db249797273639
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q3_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q3_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants: []
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: inkling-2-mini-q2
+  description: |
+    Inkling 2 Mini from Thinking Machines Lab, in Unsloth's UD-Q2_K_XL GGUF quantization (9.1 GB).
+    It is a 26.2B-parameter mixture-of-experts model with 3.4B active parameters,
+    built as a looped transformer: the middle 12 of its 24 layers run three times
+    with shared weights. It accepts text and images (the F16 vision projector is
+    included) and generates text. It reasons before it answers and supports tool use.
+    This entry is the Q2_K_XL build (9.1 GB) for hosts with less memory; the Q4_K_XL build is the default.
+
+    The entry uses the Mainline_Support build of the weights, the layout that
+    mainline llama.cpp reads, and pairs it with Unsloth's Q8_0 DSpark drafter
+    (0.4 GB) for speculative decoding with blocks of 3 draft tokens. The drafter
+    is meant to speed up generation on a GPU. In one CPU-only test it accepted
+    40 to 67 percent of the drafted tokens and gave no speed-up.
+
+    Limits from the model card: the model can get stuck in long reasoning loops,
+    so set limits on output tokens and on agent turns. Setting the reasoning effort
+    to its minimum does not turn reasoning off completely. It is less reliable than
+    larger models at following detailed tool instructions, so run agents in a
+    sandbox and confirm destructive actions. Output quality can be lower outside
+    English. Sampling follows the card: temperature 1.0 with no truncation.
+
+    Needs a LocalAI build whose llama.cpp backend supports the inkling2_loop
+    architecture and the DSpark drafter.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/thinkingmachines/Inkling-2-Mini
+    - https://huggingface.co/unsloth/Inkling-2-Mini-GGUF
+  icon: https://cdn-uploads.huggingface.co/production/uploads/630e8f0bf6f6d700f50ebd2e/AvmDwmrWRMnKjOWvmLieg.png
+  tags:
+    - llm
+    - gguf
+    - vision
+    - multimodal
+    - reasoning
+    - moe
+    - dflash
+    - cpu
+    - gpu
+  files:
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q2_K_XL.gguf
+      sha256: b42841608ea380ddde5a3f1125081357128a3c71b80d006246de4e31292fc6c1
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/Mainline_Support/Inkling-2-Mini-UD-Q2_K_XL.gguf_file
+    - filename: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+      sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
+    - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+      sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
+      uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    draft_model: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_input_modalities:
+      - text
+      - image
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Inkling-2-Mini-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+      - spec_type:draft-dspark
+      - spec_n_max:3
+    parameters:
+      min_p: 0
+      model: llama-cpp/models/Inkling-2-Mini-GGUF/Inkling-2-Mini-UD-Q2_K_XL.gguf
+      temperature: 1.0
+      top_k: 0
+      top_p: 1.0
+    template:
+      use_tokenizer_template: true
+  variants: []
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: inkling-small-iq2-m
   description: |
@@ -82192,5 +84305,202 @@
       - use_jinja:true
     parameters:
       model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q5-k-m
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 5-bit (Q5_K_M), about 6.0 GB, the smallest file with no measured quality loss. For x86 CPU and Apple Silicon.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+      sha256: ed353d2632c406be9ca2022b35e4c13049d6f8f7390b1c1bb61d6a7d6b971860
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q5-k-m
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q5_k_m.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q6-k
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 6-bit (Q6_K), about 6.3 GB. For x86 CPU and Apple Silicon.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q6_k.gguf
+      sha256: 58a2b658158290687a431705c3c256c1331580ad4e8e99db55d03a8131d223c8
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q6_k.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q6-k
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q6_k.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-q8-0
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is 8-bit (q8_0-safe2), about 6.9 GB. For x86 CPU.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+      sha256: 0bb4560fa6800b41d16a15507ad1843ca17c0849ce0cc989bca337dcf55136d7
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-q8-0
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-q8_0-safe2.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: olala-v1.0-mini-7a1b-bf16
+  description: |
+    Olala v1.0 mini 7A1B by OVHai LLM: a 6.8B-parameter hybrid model (Mamba3 state space layers
+    with mixture-of-experts, about 1B active parameters) with a 32768 token context, 36 languages,
+    reasoning with four effort levels and tool calling. This build is BF16 (16-bit), about 13.6 GB. Use this file on an NVIDIA GPU: the quantized files can produce NaN on GPU backends.
+    It runs only on the olala backend, which builds the OVHai llama.cpp fork: upstream llama.cpp
+    cannot load the olala architecture. Context is at most 32768 and is shared by parallel
+    requests. The chat template takes a reasoning effort of disabled, low, medium (default) or high.
+    Do not quantize this model with generic recipes: they can produce NaN.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B
+    - https://huggingface.co/OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF
+    - https://github.com/OVHai-LLM/llama.cpp
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62cd7b157a036fc9941bb688/d22dF7Bz4v-4LTxgLYALu.jpeg
+  tags:
+    - llm
+    - gguf
+    - chat
+    - reasoning
+    - tools
+    - moe
+    - mamba
+    - multilingual
+    - gpu
+    - cpu
+  files:
+    - filename: olala/models/Olala-v1.0-mini-7A1B-bf16.gguf
+      sha256: b266da8e292fb502b161ef0af413242f40c3d5736ebbcb5153fbf9c16bef5747
+      uri: huggingface://OVHaiLLM/Olala-v1.0-mini-7A1B-GGUF/Olala-v1.0-mini-7A1B-bf16.gguf
+  overrides:
+    backend: olala
+    context_size: 32768
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    name: olala-v1.0-mini-7a1b-bf16
+    options:
+      - use_jinja:true
+    parameters:
+      model: olala/models/Olala-v1.0-mini-7A1B-bf16.gguf
+      temperature: 0.8
+      top_k: 40
+      top_p: 0.9
     template:
       use_tokenizer_template: true

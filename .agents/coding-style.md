@@ -134,10 +134,13 @@ link and the translated words. `tests/unit/uikitpackage.test.mjs` checks these
 rules.
 
 - Use the kit for every button (`Button`), text input (`dk-input`), select
-  (`dk-select`), switch (`Switch`), checkbox (`<input type="checkbox"
-  className="dk-check">`), segmented control (`Segmented`), pill
-  (`StatusChip`), callout (`Callout`), pane (`SidePane`) and sheet
-  (`SideSheet`). Do not write a new one. Do not restyle one with a page class:
+  (`dk-select` for a short fixed list, `ListPicker` for a long or rich list,
+  several picks or a chip; the rule is in the kit README), switch (`Switch`),
+  checkbox (`<input type="checkbox" className="dk-check">`), segmented control
+  (`Segmented`), tabs (`Tabs` and `TabPanel`), state pill (`StatusChip`),
+  label tag (`Tag`), callout (`Callout`), pane (`SidePane`) and sheet
+  (`SideSheet`). Do not write `role="tab"` markup or a `badge` class in a
+  page. Do not write a new one. Do not restyle one with a page class:
   no size, colour, radius or width override.
 - A switch applies at once. A checkbox applies when the person presses Save.
   Do not pair a switch with a Save button.
@@ -149,6 +152,13 @@ rules.
 - A detail beside a list is a `SidePane` (360 px, `wide` 400 px). A create or
   edit form is a `SideSheet` (480 px, `wide` 720 px). Never write `dk-sheet`
   markup in a page. Never set a width on a sheet or a pane.
+- A question that stops the page is a `Dialog` (`src/components/Dialog.jsx`);
+  a yes or no before an action is a `ConfirmDialog`. A row menu is an
+  `ActionMenu`, and any other floating panel a `Popover`. All of them draw the
+  one floating surface of the kit (the look of the home model menu). Never
+  write `dk-veil`, `dk-dialog` or a menu surface by hand, and never redefine
+  `.popover` or `.action-menu` in page CSS; a page may only place or size the
+  kebab trigger.
 - A form with more than about eight fields becomes steps or a disclosure.
   Required fields come first.
 - `src/components/Toggle.jsx` is legacy. Do not import it in new code. Use

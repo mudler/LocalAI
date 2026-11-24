@@ -67,7 +67,7 @@ func splitRelayCandidates(devs []p2ppair.Device, nodeList []nodes.BackendNode, r
 			c.State, c.Reason = p2papi.NodeRelayNotNeeded, "the node joined over P2P; the relays admit it as a paired device"
 		case n.Status == nodes.StatusPending:
 			c.State, c.Reason = p2papi.NodeRelayRefused, "the node is not approved yet"
-		case tokenHash != "" && n.TokenHash != tokenHash:
+		case tokenHash != "" && n.JoinTokenID == "" && n.TokenHash != tokenHash:
 			c.State, c.Reason = p2papi.NodeRelayRefused, "the node registered with a registration token that is no longer valid"
 		case !reported || rep.PinnedPeer == "" || rep.Report.PeerID != rep.PinnedPeer:
 			c.State, c.Reason = p2papi.NodeRelayPending, "the node has not reported its P2P host yet"

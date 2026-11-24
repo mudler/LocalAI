@@ -137,7 +137,7 @@ var _ = Describe("InstallBackendOnNodeEndpoint async behavior", func() {
 			c.SetParamNames("id")
 			c.SetParamValues("node-xyz")
 
-			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg)
+			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg, nil)
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusAccepted))
 
@@ -165,7 +165,7 @@ var _ = Describe("InstallBackendOnNodeEndpoint async behavior", func() {
 			c.SetParamNames("id")
 			c.SetParamValues("node-xyz")
 
-			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg)
+			handler := localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appCfg, nil)
 			Expect(handler(c)).To(Succeed())
 			Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		})

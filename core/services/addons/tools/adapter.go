@@ -28,6 +28,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -36,6 +37,7 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -55,7 +57,8 @@ const (
 	// made at once. The chat keeps a tool result capped at 2 KiB, so the whole
 	// document must stay well under it to remain valid JSON there.
 	MaxAppliedBytes = 512
-	// MaxTools bounds the tools one discovery returns.
+	// MaxTools is the default of the tool cap: the most tools one discovery
+	// returns while no limit is set (see WithToolLimit).
 	MaxTools = 64
 	// MaxSummaryBytes bounds the effect sample copied into a proposal
 	// reference. The approval card loads the full preview from the host.
@@ -138,6 +141,11 @@ type ToolDefinition struct {
 	// "always" and lets the person relax it with their own setting (see
 	// contract.ToolDefinition). The chat consumer shows it; the broker decides.
 	ApprovalOverridable bool `json:"approvalOverridable,omitempty"`
+	// Deferred is true for a tool the add-on marked deferred (see
+	// contract.ToolDefinition). Only the chat consumer acts on it, to put the
+	// tool behind the tool search; every other consumer lists it as before.
+	// It is not part of the wire form.
+	Deferred bool `json:"-"`
 	// ResourceArgument and ResourceLabel come from the credential slot of the
 	// add-on. They only shape the line that says which connection acted.
 	ResourceArgument string `json:"-"`
@@ -439,6 +447,17 @@ type ToolAdapter struct {
 	apply   Applier
 	backend Backend
 	newID   func() (string, error)
+	// limit is the tool cap now, or nil for MaxTools. It is read on every
+	// discovery, so a change applies without a restart.
+	limit func() int
+}
+
+// capLog remembers, per actor, the last cap report that was logged, so a
+// truncation is logged when it starts or changes and not on every call. It is
+// shared by every adapter because the host builds a new one per request.
+var capLog struct {
+	sync.Mutex
+	seen map[string]string
 }
 
 // ConnectionNamer returns the display name of the binding that a call of the
@@ -831,7 +850,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	}
 	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, OwnerData: a.OwnerData, Permission: contract.ToolPermission(a.Credentialed || a.OwnerData || (a.Resources != nil && a.Resources.AgentScoped), d), Credentialed: a.Credentialed, ApprovalOverridable: d.ApprovalOverridable && d.Approval == contract.ApprovalAlways,
 		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel, ResourceScoped: a.Resources != nil && a.Resources.AgentScoped,
-		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields)}
+		Title: d.Title, SummaryFields: slices.Clone(d.SummaryFields), Deferred: d.Deferred}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
@@ -858,29 +877,143 @@ func executionOf(a apps.App, d contract.ToolDefinition) *contract.ExecutionDescr
 	return &e
 }
 
+// WithToolLimit makes the adapter read its tool cap from f on every
+// discovery. A value below 1 means MaxTools. It returns t.
+func (t *ToolAdapter) WithToolLimit(f func() int) *ToolAdapter {
+	t.limit = f
+	return t
+}
+
+// toolLimit is the tool cap that applies now.
+func (t *ToolAdapter) toolLimit() int {
+	if t.limit != nil {
+		if n := t.limit(); n >= 1 {
+			return n
+		}
+	}
+	return MaxTools
+}
+
+// CapAddon is one add-on that lost tools to MaxTools.
+type CapAddon struct {
+	ID    string `json:"id"`
+	Title string `json:"title,omitempty"`
+	// Cut is how many tool definitions of the add-on were left out.
+	Cut int `json:"cut"`
+}
+
+// CapReport says whether the tool cap left tool definitions out of one discovery.
+// It never changes which tools are offered.
+type CapReport struct {
+	// Cap is the tool cap that applied (MaxTools unless it was set).
+	Cap int `json:"cap"`
+	// Offered is how many definitions the discovery returned.
+	Offered int `json:"offered"`
+	// Cut is how many were left out. Zero means nothing was cut.
+	Cut int `json:"cut"`
+	// Addons lists the add-ons that lost tools, by ID.
+	Addons []CapAddon `json:"addons,omitempty"`
+}
+
+// Total is how many definitions the actor's add-ons declared before the cap.
+func (r CapReport) Total() int { return r.Offered + r.Cut }
+
+// Truncated reports whether at least one definition was left out.
+func (r CapReport) Truncated() bool { return r.Cut > 0 }
+
 // Discover returns the tools the actor may offer a model now, in a stable
 // order. A model is never told about a tool it could not call.
 func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]ToolDefinition, error) {
+	out, _, err := t.DiscoverWithReport(ctx, actor, nil)
+	return out, err
+}
+
+// DiscoverWithReport is Discover that applies the cap to what a chat would
+// really be offered and reports what the cap left out. excluded says which
+// add-ons the chat does not use (switched off for it, outside its agent, or
+// not allowed for the person): their tools neither count against the cap nor
+// are returned, so switching an add-on off frees room for the others. A nil
+// excluded keeps every add-on. A truncation is logged once when it starts or
+// changes for the actor, from the calls that exclude nothing.
+func (t *ToolAdapter) DiscoverWithReport(ctx context.Context, actor contract.Actor, excluded func(addonID string) bool) ([]ToolDefinition, CapReport, error) {
+	limit := t.toolLimit()
 	list, err := t.visible(ctx, actor)
 	if err != nil {
-		return nil, err
+		return nil, CapReport{}, err
 	}
-	var out []ToolDefinition
+	// The apps list is ordered by add-on ID, so a plain cap would drop the
+	// tools of whichever add-ons sort last, however many are installed. A tool
+	// that replaces a built-in chat tool is what lets a chat run commands or
+	// reach the web at all: it is admitted first, then the rest in order.
+	var replacing, others []ToolDefinition
+	titles := map[string]string{}
 	for _, a := range list {
-		if l, ok := t.listingOf(a); ok && len(out) < MaxTools {
-			out = append(out, resourceListingDefinition(a, l))
+		if excluded != nil && excluded(a.ID) {
+			continue
+		}
+		titles[a.ID] = a.Title
+		if l, ok := t.listingOf(a); ok {
+			others = append(others, resourceListingDefinition(a, l))
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
 				continue
 			}
-			if def, ok := definition(a, d); ok && len(out) < MaxTools {
-				out = append(out, def)
+			if def, ok := definition(a, d); ok {
+				if def.Shadows != "" {
+					replacing = append(replacing, def)
+				} else {
+					others = append(others, def)
+				}
 			}
 		}
 	}
+	keptReplacing := replacing[:min(len(replacing), limit)]
+	room := max(0, limit-len(replacing))
+	out := append(slices.Clone(keptReplacing), others[:min(len(others), room)]...)
+	dropped := append(slices.Clone(replacing[len(keptReplacing):]), others[min(len(others), room):]...)
 	slices.SortFunc(out, func(x, y ToolDefinition) int { return strings.Compare(x.Name, y.Name) })
-	return out, nil
+	report := CapReport{Cap: limit, Offered: len(out), Cut: len(dropped)}
+	if len(dropped) > 0 {
+		counts := map[string]int{}
+		for _, d := range dropped {
+			counts[d.AddonID]++
+		}
+		for id, n := range counts {
+			report.Addons = append(report.Addons, CapAddon{ID: id, Title: titles[id], Cut: n})
+		}
+		slices.SortFunc(report.Addons, func(x, y CapAddon) int { return strings.Compare(x.ID, y.ID) })
+	}
+	if excluded == nil {
+		t.logCap(actor, report)
+	}
+	return out, report, nil
+}
+
+// logCap warns when the cap cuts tools, once per change of the cut for an
+// actor, and forgets the actor once nothing is cut so a new truncation warns
+// again. It names add-on IDs and counts only.
+func (t *ToolAdapter) logCap(actor contract.Actor, r CapReport) {
+	capLog.Lock()
+	defer capLog.Unlock()
+	if !r.Truncated() {
+		delete(capLog.seen, actor.UserID)
+		return
+	}
+	var parts []string
+	for _, a := range r.Addons {
+		parts = append(parts, fmt.Sprintf("%s=%d", a.ID, a.Cut))
+	}
+	sig := fmt.Sprintf("%d:%s", r.Cap, strings.Join(parts, ","))
+	if capLog.seen[actor.UserID] == sig {
+		return
+	}
+	if capLog.seen == nil {
+		capLog.seen = map[string]string{}
+	}
+	capLog.seen[actor.UserID] = sig
+	xlog.Warn("add-on tool cap reached: some add-on tools are not offered to chats",
+		"cap", r.Cap, "offered", r.Offered, "cut", r.Cut, "addons", sig)
 }
 
 // Execute runs one tool call as actor. The actor is the authenticated

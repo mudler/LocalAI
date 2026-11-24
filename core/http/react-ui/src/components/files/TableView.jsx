@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { filesApi } from '../../utils/api'
+import { Tabs } from '../ui'
 
 const columnName = (i) => {
   let s = ''
@@ -13,13 +14,6 @@ export default function TableView({ data, item, t }) {
   const sheets = data?.sheets || []
   const [at, setAt] = useState(0)
   const sheet = sheets[Math.min(at, sheets.length - 1)]
-  const onKey = (e) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
-    e.preventDefault()
-    const next = (at + (e.key === 'ArrowRight' ? 1 : -1) + sheets.length) % sheets.length
-    setAt(next)
-    e.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus()
-  }
   if (!sheet) return <p className="pv__note">{t('preview.sheetEmpty')}</p>
   const width = Math.max(0, ...sheet.rows.map(r => r.length))
   const cols = Array.from({ length: width }, (_, i) => i)
@@ -28,17 +22,14 @@ export default function TableView({ data, item, t }) {
   return (
     <div className="pv-table" data-testid="preview-table">
       {sheets.length > 1 && (
-        <div className="pv-tabs" role="tablist" aria-label={t('preview.sheets')} onKeyDown={onKey}>
-          {sheets.map((s, i) => (
-            <button
-              key={`${i}-${s.name}`} type="button" role="tab" className="pv-tab"
-              id={`pv-tab-${i}`} aria-controls="pv-sheet" aria-selected={i === at} tabIndex={i === at ? 0 : -1}
-              onClick={() => setAt(i)} data-testid="preview-sheet-tab"
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          label={t('preview.sheets')}
+          idPrefix="pv"
+          panelId="pv-sheet"
+          value={String(Math.min(at, sheets.length - 1))}
+          onChange={(id) => setAt(Number(id))}
+          items={sheets.map((s, i) => ({ id: String(i), label: s.name, testId: 'preview-sheet-tab' }))}
+        />
       )}
       <div
         className="pv-table__scroll" id="pv-sheet" tabIndex={0}

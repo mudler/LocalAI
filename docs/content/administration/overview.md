@@ -2,73 +2,58 @@
 title = "Admin overview"
 weight = 20
 aliases = ["/operations/overview/"]
-description = "The Status page of the Admin section shows if anything is wrong with your LocalAI instance."
+description = "The Overview page of the Admin section shows if anything is wrong with your LocalAI instance."
 keywords = ["operate","admin","monitoring"]
 +++
 
-**Admin → Status** (`/app/operate`) is the front door to the Admin section. It answers one
-question, is anything wrong, without you having to open four other pages.
+**Admin → Overview** (`/app/operate`) is the front door to the Admin section. It
+answers one question, is anything wrong, without you having to open four other
+pages.
 
-The page opens with one sentence: **Everything is running.**, **2 things need
-you.** or, when nothing needs a decision but a row has something to read,
-**Running, with 1 thing to look at.** On a new installation, with no backend, no
-model and nothing loaded, it says **Nothing is running yet.** and offers
-**Install a backend** and **Browse models**.
-
-Under the sentence are four rows. A row with a problem opens by itself and holds
-the button that deals with it. A row with nothing to say stays one line. Click a
-row to open or close it.
+The page opens with its scope (**Single node** or **Cluster, 4 nodes**) and one
+sentence: **Everything is running.** or **2 things need you.** On a new
+installation, with no backend, no model and nothing loaded, it says **Nothing is
+running yet.** and offers **Install a backend** and **Browse models**.
 
 ## Needs you
 
-Only things that want a decision:
+The first card lists only things that want a decision, most urgent first. Each
+row has the button that deals with it:
 
-- a backend with an update available, with an **Update** button
+- a worker that is not answering, with **Open worker**
 - an operation that failed, with **Retry** and **Dismiss**
-- a node that is not answering, with a link to the nodes
+- sign-ups waiting for approval (with sign-in on), with **Approve** (or
+  **Approve all** for several) and **Review**
+- backends and add-ons with an update available, with **Review**, which opens
+  the Updates page and starts nothing
 
-**Update** starts the same update as the Backends page. **Retry** installs the
-failed model or backend again, after moving the failure into the Activity
-record, and **Dismiss** moves it there without retrying. When nothing needs you
-the row says so in one line. There is no green panel: a status page that shouts
-when everything is fine teaches you to stop reading it.
+**Retry** installs the failed model or backend again, after moving the failure
+into the Activity record, and **Dismiss** moves it there without retrying.
+**Approve** activates the people who signed up, with the same call the Users
+page makes. When nothing needs you the card says so in one line. There is no
+green panel: a status page that shouts when everything is fine teaches you to
+stop reading it.
 
-The attention count on the **Status** tab is the number of items in this row.
+The count on the **Overview** item of the sidebar is the number of rows in this
+card.
 
-## Capacity
+## The cards
 
-One line says how full GPU memory is (system memory on a host without a GPU),
-and how much room the models disk has left. On a cluster it adds the memory of
-the nodes that are answering, and the row lists each node's memory when opened.
+Under **Needs you** are up to three cards. A card whose data the server does not
+report is left out.
 
-The row opens by itself when memory is 90% full or more, or when the models disk
-has less than a tenth free or less than 20 GB. It then lists the models loaded
-on this machine, each with an **Unload** button. Unloading asks first, stops the
-backend process of that model and frees its memory. The next request that uses
-the model loads it again.
+- **Cluster** (distributed mode) shows how many workers are online, how many
+  models are loaded, how many requests are in flight, and a memory meter for
+  each worker, with the free space of the models disk. On a single install the
+  card is **This machine**: the models loaded, how full GPU memory is (system
+  memory on a host without a GPU), and the free space of the models disk.
+- **Traffic** shows the requests, the share that failed and the p95 latency of
+  the last 24 hours, counted server-side by `GET /api/traces/summary`, with a
+  bar for each time bucket. It links to **Usage**.
+- **Access** (with sign-in on) shows how many people there are, how many wait
+  for approval and how many are administrators. It links to **Users**.
 
-Under the rows, a bar shows the memory in use now. **LocalAI keeps no memory
-history**, so the chart under the bar is drawn from readings the page took
-itself, one with each summary poll (every 15 seconds), while the Status page is
-open. It starts with the second reading, keeps at most 240 readings (about an
-hour), and is labelled "Since you opened Status". The axis starts at zero, the
-capacity is a labelled line, and a data table sits behind the chart. Leaving
-the Status page empties it. Temperature and power are not shown because the resources
-endpoint does not report them.
-
-## Running now
-
-Operations in progress, and the models loaded on this machine. On a single-node
-install the row lists the heaviest five models: backend, resident memory, CPU
-share and uptime, with **View logs** and **Stop model…** in the row menu. **Open
-this machine** leads to the full list. With distributed mode on, models run on
-workers rather than on the controller, so the row links to the Swarm page
-instead.
-
-## Recent failures
-
-Requests and failed requests over the last 24 hours, and p95 latency, counted
-server-side by `GET /api/traces/summary`:
+The traffic figures come from one call:
 
 ```bash
 curl http://localhost:8080/api/traces/summary?hours=24 \
@@ -86,13 +71,14 @@ curl http://localhost:8080/api/traces/summary?hours=24 \
 ```
 
 `hours` defaults to 24 and is capped at 168. Only 5xx responses and transport
-errors count as failures. A 4xx means the caller got the request wrong, so it says nothing about the installation. `p95_ms` is a nearest-rank percentile, not the
-slowest request. The endpoint exists so a dashboard wanting three numbers does
-not fetch the whole trace list to count it. An installation that has recorded
-nothing says so rather than showing zeroes dressed as telemetry. The row opens
-when at least one request failed, and links to Traces and Usage.
+errors count as failures. A 4xx means the caller got the request wrong, so it
+says nothing about the installation. `p95_ms` is a nearest-rank percentile, not
+the slowest request. The endpoint exists so a dashboard wanting three numbers
+does not fetch the whole trace list to count it. An installation that has
+recorded nothing says so rather than showing zeroes dressed as telemetry.
 
-The page does not report models that failed to load, because LocalAI records no
+The page polls every 15 seconds while it is open, and asks for nothing on other
+pages. It does not report models that failed to load, because LocalAI records no
 load failures to read.
 
 ## This machine
@@ -122,8 +108,8 @@ readings come from the `cpu` and `disk` fields of `GET /api/resources`.
 
 **Add a machine** reveals the command to start LocalAI in distributed mode, and
 a link to the steps for adding a worker. Once distributed mode is on, the same
-route becomes the Nodes page and the **This machine** tab gives way to the
-**Swarm** tab.
+route becomes the Workers page and the **This machine** group gives way to the
+**Cluster** group.
 
 Models and backends no longer live under a nested Host page. Use **Models →
 Installed** for model runtime and configuration actions, and **Admin →
@@ -134,25 +120,42 @@ Old `/app/manage` bookmarks remain supported. They redirect with replace
 semantics to the matching Installed Models or Installed Backends view while
 preserving legacy search, filter, selection, variant, and development flags.
 
-## The tab bar
+## The Administration sidebar
 
-The Admin section has one row of tabs above the page: **Status** (this overview),
-**This machine**, **Swarm** (with distributed mode on, or with P2P on), **Runtime**,
-**Updates**, **Traffic** and **Settings**. A tab that holds several pages shows a second row
-of links under the bar: Runtime holds Backends, Activity, Logs and (on a single
-install) Failover; Traffic holds Overview, Usage, Models, GPU and host, Traces, Middleware and Prometheus; Settings holds
-Settings, Users and keys (with authentication on) and Chats of all users (with Chats on); Swarm holds Nodes, Placement rules,
-Failover and P2P (on a single install with P2P on, P2P alone; with P2P off, P2P
-sits under This machine). Adding a node opens from the Nodes page. Every page keeps its
-own URL, and a page such as a node detail keeps its tab highlighted. On a phone
-the bar scrolls sideways. The **API** link at the end of the bar opens the
-API documentation.
+Click **Administration** in the sidebar and the sidebar changes: a **LocalAI**
+link at the top leads back, and the pages of the Admin section are listed in
+groups. There is no tab bar over the pages. The group that holds the page you
+are on is always open, and a breadcrumb above the page title says where you are.
 
-Several tabs carry a live value: pending backend updates and running operations
-on Runtime, the healthy node count on Swarm, running models on This machine, the
-attention count on Status and the error count on Traffic. Host capacity lives on
-the overview instead of appearing as a separate destination.
+- **Overview**: this page.
+- **This machine** (single install): **This machine**, and **Sharing** while
+  P2P is off.
+- **Cluster** (with distributed mode on, or with P2P on): **Workers**,
+  **Placement** and **Sharing**. **Placement** is one page with two views,
+  **Rules** and **Failover**. An old `/app/failover` address opens the Failover
+  view on a cluster. On a single install Failover stays a page of its own.
+- **Models and runtime**: **Backends**, **Activity**, **Logs**, **Updates** and,
+  on a single install, **Failover**.
+- **Traffic** (folded until one of its pages is open): **Overview**, **Usage**,
+  **Models**, **GPU and host**, **Traces**, **Middleware** and **Prometheus**.
+- **Access**: **Users** and **API keys** (with authentication on) and **Chats of
+  all users** (with Chats on).
+- **Settings**, and an **API reference** link that opens the API documentation.
 
-Those values are **orientation, not an alarm**. The bar only exists on Admin
-routes, so anything urgent also appears in the Needs you row and on the
-operations badge attached to the sidebar entry, which is always visible.
+Every page keeps its own URL, and a page such as a worker's detail keeps its
+item highlighted. A few items carry a live value: the number of things that need
+you on **Overview**, pending backend updates on **Updates**, running operations
+on **Activity**, workers on **Workers**, running models on **This machine**,
+sign-ups waiting for approval on **Users**, and failed requests on the folded
+**Traffic** group. On a tablet the sidebar is an icon rail, and on a phone it
+is the menu drawer.
+
+Press **Ctrl K** (**Cmd K** on a Mac), or click **Search** at the top of the
+sidebar, to open the command palette on any Administration page. It finds
+pages and, once you type, settings, users (with authentication on) and
+workers (on a cluster). Use the arrow keys and **Enter**; **Escape** closes it.
+
+Those values are **orientation, not an alarm**. The sidebar only shows them
+while you are in the Admin section, so anything urgent also appears in the Needs
+you row and on the badge on the **Administration** entry of the main sidebar,
+which is always visible.

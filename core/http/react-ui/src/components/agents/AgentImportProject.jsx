@@ -46,17 +46,19 @@ export default function AgentImportProject({ name, agent, busy = false, onImport
     >
       <div className="dk-field">
         <label className="dk-label" htmlFor="ag-import-project">{t('importProject.label')}</label>
-        <select
-          id="ag-import-project" className="dk-input" value={value}
-          aria-invalid={missing && !value ? 'true' : undefined}
-          aria-describedby="ag-import-project-help"
-          onChange={(e) => { setValue(e.target.value); setMissing(false) }}
-          data-testid="agent-import-project-select"
-        >
-          <option value="">{t('importProject.choose')}</option>
-          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          <option value={CREATE_PROJECT}>{name ? t('importProject.create', { name }) : t('importProject.createUnnamed')}</option>
-        </select>
+        <div className="dk-select-wrap">
+          <select
+            id="ag-import-project" className="dk-select" value={value}
+            aria-invalid={missing && !value ? 'true' : undefined}
+            aria-describedby="ag-import-project-help"
+            onChange={(e) => { setValue(e.target.value); setMissing(false) }}
+            data-testid="agent-import-project-select"
+          >
+            <option value="">{t('importProject.choose')}</option>
+            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <option value={CREATE_PROJECT}>{name ? t('importProject.create', { name }) : t('importProject.createUnnamed')}</option>
+          </select>
+        </div>
         {missing && !value
           ? <p className="ag-import-error" id="ag-import-project-help" role="alert" data-testid="agent-import-project-error"><Icon name="alert-circle" />{t('importProject.needsChoice')}</p>
           : <p className="ag-note" id="ag-import-project-help">{value === CREATE_PROJECT ? t('importProject.createHelp', { name: name || agent || '' }) : t('importProject.help')}</p>}

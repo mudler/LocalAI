@@ -133,6 +133,10 @@ The default folders are the same as for `local-ai run`: `models`, `backends` and
 
 Ctrl+C or Ctrl+Break stops the worker. The worker deregisters from the frontend and stops its backends. Each backend runs in a Windows job object, so it also stops when the worker process is killed. The worker also records the process of each backend, and its next start stops any backend that is still running.
 
+### Join a cluster with a join token
+
+An admin mints a join token on the Nodes page of the frontend (**Add worker**), which gives a command such as `irm 'https://ai.example.com/join.ps1?t=...' | iex`. Run it from an elevated PowerShell. It runs `install.ps1` with `LOCALAI_WORKER=1`, which installs `local-ai.exe` in `%ProgramFiles%\LocalAI\bin` and creates the `LocalAIWorker` service with `sc.exe`, as in the next section. The models, backends and the credential of the worker go to `%ProgramData%\LocalAI`. The join token is stored in the `Environment` value of the service key, which the script closes to `SYSTEM` and Administrators, and it is not put on a command line. The worker needs the token once. To remove it: `sc.exe stop LocalAIWorker`, `sc.exe delete LocalAIWorker`, delete `%ProgramData%\LocalAI`, and delete the node on the Nodes page. This mode is new and has not been tested on every Windows version. See [Join tokens]({{% relref "/administration/distributed-mode" %}}#join-tokens).
+
 ### Run a worker as a Windows service
 
 LocalAI connects to the Windows service manager when it starts as a service. This applies to every command, for example `local-ai run` and `local-ai worker`. A stop or shutdown request then stops LocalAI like Ctrl+C. Create the service from an elevated PowerShell, with the full path to the executable and the worker flags:

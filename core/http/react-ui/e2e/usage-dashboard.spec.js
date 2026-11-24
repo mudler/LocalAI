@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { adminItem, adminGroup } from './admin-nav.js'
 
 // Mock usage payload as the new /api/usage endpoint returns it.
 const MOCK_USAGE = {
@@ -73,12 +74,12 @@ test.describe('Usage page — single-user no-auth mode', () => {
     page.usageHits = () => usageHits
   })
 
-  test('Usage entry is visible in the hub without auth', async ({ page }) => {
-    // Usage sits in the Operate Traffic tab. In no-auth (single-user) mode
-    // isAdmin is true, so the hub renders and the Usage link is reachable.
+  test('Usage entry is visible in the Administration sidebar without auth', async ({ page }) => {
+    // Usage sits in the Traffic group. In no-auth (single-user) mode isAdmin
+    // is true, so the sidebar renders and the Usage link is reachable.
     await page.goto('/app/usage')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="traffic"]')).toHaveAttribute('aria-current', 'page')
-    await expect(page.locator('.hub-subnav a[href="/app/usage"]')).toBeVisible()
+    await expect(adminGroup(page, 'traffic').getByRole('button', { name: /Traffic/ })).toHaveAttribute('aria-expanded', 'true')
+    await expect(adminItem(page, '/app/usage')).toBeVisible()
   })
 
   test('navigating to /app/usage renders the dashboard with local-user data', async ({ page }) => {

@@ -245,15 +245,6 @@ export function isBusy(err) {
   return err?.status === 409 && err.body?.error?.type !== 'projects_off'
 }
 
-// The index a tab list moves to for a key, or -1 when the key moves nothing.
-export function wrapKey(key, index, count) {
-  if (key === 'ArrowRight') return (index + 1) % count
-  if (key === 'ArrowLeft') return (index - 1 + count) % count
-  if (key === 'Home') return 0
-  if (key === 'End') return count - 1
-  return -1
-}
-
 // The attached lists have the shape of the defaults, so one clean step serves both.
 export const cleanAttached = (attached) => cleanDefaults(attached)
 export const attachedCount = (attached) => defaultsCount(attached)

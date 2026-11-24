@@ -90,7 +90,7 @@ of the last good check.
 - The **Updates page** (**Admin → Updates**) has a row for each model that
   needs you or is changing. Held models, `unknown` and `gone` models, and
   models that still keep an old version, are in the group **Other models**.
-  Models never take part in **Update N ready**: you upgrade them one at a time, each after its own confirmation. Upgrades you start are queued on the server and run in the background, so you can close the page. Upgrades of different models run in parallel, up to the limit of concurrent model operations; the rest wait as queued and can be cancelled. **Update N ready** (backends, libraries and add-ons) submits every row at once the same way, with the limit of concurrent backend operations, and its **Cancel all** button cancels the rows that have not finished. Both limits default to 2: see [Concurrent Model Operations]({{% relref "/administration/runtime-settings" %}}).
+  **Upgrade** on a model row opens the model's own confirmation (the files, the loaded model that stops, a choice for each edited key). The review of **Update N ready** lists the models too, unselected: a model update reloads the model. Upgrades you start run on the server in the background, so you can close the page. On a server that keeps [upgrade runs]({{% relref "/models/upgrade-runs" %}}), the **Upgrade** of a model row starts a run of one item, and the page shows the run at once. Only one run runs at a time: while a run runs, another upgrade (also one with options, and a **Retry**) is refused with `409` and code `run_active`, and the row says so. A run updates the models after the backends, one model at a time (see [Upgrade runs]({{% relref "/models/upgrade-runs#order" %}})), and **Cancel remaining** cancels the items that have not finished. A server that keeps no runs queues each upgrade directly; upgrades of different models then run at the same time, up to the limit of concurrent model operations (default 2, see [Concurrent Model Operations]({{% relref "/administration/runtime-settings" %}})), and the rest wait as queued and can be cancelled.
 - The **notification center** gets three kinds of item for administrators. They
   work with the chats on or off, and they are not sent to a Telegram or Slack
   chat.
@@ -307,12 +307,17 @@ curl -X POST http://localhost:8080/api/models/upgrade/qwen3-4b \
 {"id": "<job>", "jobID": "<job>", "status_url": "http://localhost:8080/models/jobs/<job>", "message": "Upgrade started"}
 ```
 
-Follow the job on `status_url` or on `/api/operations`. The route answers:
+Follow the job on `status_url` or on `/api/operations`. Without `config_only`
+and `choices`, the upgrade runs as an [upgrade run]({{% relref "/models/upgrade-runs" %}})
+of one item, and the answer also has the run in `run`. With `config_only` or
+`choices`, and for `POST /api/models/{name}/upgrade/retry`, the upgrade is
+queued directly, because a run makes no such choice; while a run runs, these
+are refused with `409` and code `run_active` too. The route answers:
 
 | Status | Meaning |
 |--------|---------|
 | `404` | The model is not installed. |
-| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. |
+| `409` | An upgrade of this model runs, the model is held, or edited keys need a choice. The last case lists the keys in `keys`. With `code` `run_active`, an upgrade run is running. |
 | `422` | The model was not installed from a gallery with a recorded origin. |
 | `400` | A choice is not `mine` or `gallery`. |
 | `500` | An unexpected error. The answer does not repeat its text, which can name paths of the server; the server log has it. |

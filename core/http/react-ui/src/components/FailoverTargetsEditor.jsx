@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
 import ModelPicker from './ModelPicker'
-import Toggle from './Toggle'
 import Icon from './Icon'
+import { Button, Switch } from './ui'
 
 // FailoverTargetsEditor renders the ordered member list of a failover
 // chain. Each row binds a downstream model plus a warm flag that keeps a
@@ -84,13 +84,9 @@ export default function FailoverTargetsEditor({ value, onChange }) {
         />
       ))}
 
-      <button
-        type="button"
-        className="btn btn-secondary btn-sm self-start"
-        onClick={add}
-      >
-        <Icon name="plus" /> Add target
-      </button>
+      <Button size="sm" icon="plus" className="self-start" onClick={add}>
+        Add target
+      </Button>
     </div>
   )
 }
@@ -106,24 +102,8 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
     <div className={`card fte-row${error ? ' fte-row--error' : ''}`}>
       <div className="hstack hstack--xs fte-row__head">
         <span className="fw-semibold">#{index + 1}</span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(-1)}
-          disabled={index === 0}
-          title="Move up (tried earlier)"
-        >
-          <Icon name="arrow-up" />
-        </button>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={() => onMove(1)}
-          disabled={index === total - 1}
-          title="Move down"
-        >
-          <Icon name="arrow-down" />
-        </button>
+        <Button icon="arrow-up" size="sm" onClick={() => onMove(-1)} disabled={index === 0} title="Move up (tried earlier)" />
+        <Button icon="arrow-down" size="sm" onClick={() => onMove(1)} disabled={index === total - 1} title="Move down" />
         <span className="ml-auto text-meta">
           {index === 0 ? 'served first' : 'fallback'}
         </span>
@@ -137,17 +117,10 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
           placeholder="target model..."
         />
         <span className="hstack hstack--xs">
-          <Toggle checked={!!row?.warm} onChange={(v) => onChange((r) => ({ ...r, warm: v }))} />
+          <Switch checked={!!row?.warm} label="Warm" onChange={(v) => onChange((r) => ({ ...r, warm: v }))} />
           <span className="text-meta">Warm</span>
         </span>
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={onRemove}
-          title="Remove target"
-        >
-          <Icon name="trash" />
-        </button>
+        <Button icon="trash" size="sm" onClick={onRemove} title="Remove target" />
       </div>
 
       {error && (

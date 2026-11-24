@@ -4,7 +4,10 @@
 # The strata backend does not build the engine. It fetches the engine packages
 # upstream publishes with its releases. Upstream versions each platform on its
 # own and does not attach every package to every release, so the Makefile pins
-# every package separately: its release tag, its version and its SHA-256. This
+# every package separately: its release tag, its version and its SHA-256. There
+# are three families of packages: the engine (strata-engine-...), the Hy4-Flash
+# engine (strata-hy4-...) and the Inkling engine (strata-inkling-...), each with
+# its own pins. This
 # script moves those pins, plus STRATA_VERSION and STRATA_COMMIT (the newest
 # release and its commit; the Python modules come from it). bump_deps.sh only
 # handles one commit variable, hence this script.
@@ -54,7 +57,7 @@ if not releases:
     sys.exit("Refusing to bump: no release found")
 
 text = open(makefile).read()
-families = {"ENGINE": "strata-engine"}
+families = {"ENGINE": "strata-engine", "HY4": "strata-hy4", "INKLING": "strata-inkling"}
 plan, tags = [], [releases[0]["tag_name"]]
 for fam, prefix in families.items():
     for pkg in re.findall(rf"^STRATA_{fam}_SHA256_([a-z0-9_]+)\?=", text, re.M):
@@ -135,7 +138,7 @@ for row in open(f"{work}/plan.tsv").read().splitlines():
         sys.exit(f"Refusing to bump: SHA256SUMS.txt and the GitHub asset digest disagree for {name} ({sha} vs '{digest}')")
     old = (get(f"STRATA_{fam}_TAG_{pkg}"), get(f"STRATA_{fam}_VERSION_{pkg}"), get(f"STRATA_{fam}_SHA256_{pkg}"))
     if old != (tag, ver, sha):
-        label = "engine"
+        label = {"HY4": "Hy4 engine", "INKLING": "Inkling engine"}.get(fam, "engine")
         changes.append(f"- {label} `{pkg}`: {old[0]} / {old[1]} -> {tag} / {ver}")
         put(f"STRATA_{fam}_TAG_{pkg}", tag)
         put(f"STRATA_{fam}_VERSION_{pkg}", ver)

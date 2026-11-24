@@ -53,6 +53,9 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const builtinsRef = useRef(builtins)
   // The built-in tools an installed add-on replaces but cannot serve here now.
   const [fallbacks, setFallbacks] = useState([])
+  // What the cap on add-on tools left out of this chat (tool_cap of the tools
+  // list), or null when it cut nothing.
+  const [toolCap, setToolCap] = useState(null)
   // Whether memory works in the chat and which level turned it off (the memory
   // object of the tools list), or null before the list is read.
   const [memory, setMemory] = useState(null)
@@ -81,7 +84,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null); setSkills([]); setReplaced([]); return undefined }
+    if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setToolCap(null); setMemory(null); setSkills([]); setReplaced([]); return undefined }
     let live = true
     const rev = draftRev
     const epoch = ++commandEpoch.current
@@ -103,7 +106,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         if (epoch === commandEpoch.current) setCommands(noCommands)
       })
       .finally(() => { if (live) mark('addons', rev) })
-    ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
+    ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatToolsApi.list(chatId))
       .then((res) => {
         if (!live) return
         const m = mcpOf(res)
@@ -111,9 +114,10 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setMcp(draftOn ? { servers: got.servers, connectors: got.connectors, off: got.mcpOff } : m)
         setBuiltins(got.builtins)
         setFallbacks(res.fallbacks || [])
+        setToolCap(res.tool_cap || null)
         setMemory(res.memory || null)
       })
-      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]); setMemory(null) } })
+      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]); setToolCap(null); setMemory(null) } })
       .finally(() => { if (live) mark('tools', rev) })
     return () => { live = false }
   }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession, draftRev])
@@ -158,6 +162,11 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current))
       .then((res) => { if (epoch === commandEpoch.current) setCommands(commandsOf(res)) })
       .catch(() => { if (epoch === commandEpoch.current) setCommands(noCommands) })
+    // A switched-off add-on frees room under the cap on add-on tools, so the
+    // cap notice is read again for the same choices.
+    chatToolsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current))
+      .then((res) => { if (epoch === commandEpoch.current) setToolCap(res.tool_cap || null) })
+      .catch(() => {})
   }, [draftModel, draftAgent])
 
   // Switches the add-ons with these ids (an array) on or off with one request.
@@ -189,7 +198,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       // An add-on switched off or on changes who serves the tools it
       // replaces, and the notes about them.
       chatToolsApi.list(chatId)
-        .then((r) => { putBuiltins(r.builtins || []); setFallbacks(r.fallbacks || []) })
+        .then((r) => { putBuiltins(r.builtins || []); setFallbacks(r.fallbacks || []); setToolCap(r.tool_cap || null) })
         .catch(() => {})
     } catch (e) {
       if (epoch !== commandEpoch.current) return
@@ -255,6 +264,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       putMcp(mcpOf(res))
       putBuiltins(res.builtins || [])
       setFallbacks(res.fallbacks || [])
+      setToolCap(res.tool_cap || null)
     } catch (e) {
       putMcp(before)
       setError(e.message || 'error')
@@ -366,7 +376,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     editsSinceApply: () => editsRef.current,
     // The draft lists have answered the last applyDraftTools (see answered).
     listsReady: answered.tools >= draftRev && answered.addons >= draftRev && answered.skills >= skillsRev,
-    addons: shown.addons, builtins, fallbacks, memory, commands: commands.context === context ? commands : noCommands, servers: shown.servers, connectors: shown.connectors, skills: shown.skills, attachedCollections: attachedCollections(attached), replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons: shown.addons, builtins, fallbacks, toolCap, memory, commands: commands.context === context ? commands : noCommands, servers: shown.servers, connectors: shown.connectors, skills: shown.skills, attachedCollections: attachedCollections(attached), replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons: shown.addons, servers: shown.servers, connectors: shown.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
   }

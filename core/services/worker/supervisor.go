@@ -134,7 +134,7 @@ type backendSupervisor struct {
 	// run. nil means installBackend and upgradeBackend; specs set them to drive
 	// the verbs without a gallery.
 	installFn func(req workerctl.BackendInstallRequest, force bool, downloadCb func(file, current, total string, percentage float64)) (string, error)
-	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error)
+	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) (upgradeOutcome, error)
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
@@ -180,7 +180,15 @@ type backendSupervisor struct {
 	opKillTTL time.Duration
 	opTick    time.Duration
 	readyFn   func(addr string) bool
+	// startTimeout bounds the readiness wait of startBackend. Overridden only
+	// by tests; zero means defaultStartTimeout.
+	startTimeout time.Duration
 }
+
+// defaultStartTimeout is how long startBackend waits for a new process to
+// answer a health check. Slow nodes (Jetson Orin doing first-boot CUDA init,
+// large CGO libs) can take 10-15 s before the gRPC port accepts connections.
+const defaultStartTimeout = 30 * time.Second
 
 // defaultPortQuarantine is how long a released gRPC port waits before it can be
 // re-bound by another backend.
@@ -609,11 +617,12 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// 4s window made the worker reply Success on a not-yet-listening port,
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
-	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.RegistrationToken)
-	const (
-		readinessPollInterval = 200 * time.Millisecond
-		readinessTimeout      = 30 * time.Second
-	)
+	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.dataToken)
+	const readinessPollInterval = 200 * time.Millisecond
+	readinessTimeout := s.startTimeout
+	if readinessTimeout <= 0 {
+		readinessTimeout = defaultStartTimeout
+	}
 	deadline := time.Now().Add(readinessTimeout)
 	var lastHealthErr error
 	for time.Now().Before(deadline) {
@@ -647,7 +656,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
 			xlog.Warn("Backend process died during startup", "backend", backend, "healthError", lastHealthErr, "stderr", stderrTail)
 			s.releaseBackendStart(backend, bp)
-			return "", fmt.Errorf("backend process %s died during startup. Last stderr:\n%s", backend, stderrTail)
+			return "", &workerStartError{reason: fmt.Sprintf("backend process %s died during startup", backend), output: stderrTail}
 		}
 	}
 
@@ -662,7 +671,24 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}
 	s.releaseBackendStart(backend, bp)
-	return "", fmt.Errorf("backend %s did not become ready within %s. Last stderr:\n%s", backend, readinessTimeout, stderrTail)
+	return "", &workerStartError{reason: fmt.Sprintf("backend %s did not become ready within %s", backend, readinessTimeout), output: stderrTail}
+}
+
+// workerStartError is a backend process that did not become ready: it died,
+// or it did not answer a health check in time. output is the end of its
+// stderr, kept apart so an upgrade can report it as the cause.
+type workerStartError struct {
+	reason string
+	output string
+}
+
+// Error is the reason, then the output when the process wrote any: an empty
+// "Last stderr:" label read as a cause that was lost.
+func (e *workerStartError) Error() string {
+	if strings.TrimSpace(e.output) == "" {
+		return e.reason
+	}
+	return e.reason + ". Last stderr:\n" + e.output
 }
 
 // markBackendServing verifies that a successful readiness probe still belongs
@@ -977,7 +1003,7 @@ func (s *backendSupervisor) stopBackendExactBP(key string, bp *backendProcess, f
 
 func (s *backendSupervisor) finishStopping(key string, bp *backendProcess, force bool) error {
 	if !force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		xlog.Debug("Calling bounded Free() before stopping backend", "backend", key, "timeout", workerBackendFreeTimeout)
 		if err := client.Free(freeCtx); err != nil {
@@ -1017,7 +1043,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	// A stop of a load operation may omit the address: the controller learns it
 	// only after the install replies. The operation, process key and instance
 	// checks below then carry the identity.
-	if bp.addr != req.ExpectedAddress && !(req.OperationID != "" && req.ExpectedAddress == "") {
+	if !s.namesProcess(bp, req.ExpectedAddress) && !(req.OperationID != "" && req.ExpectedAddress == "") {
 		s.mu.Unlock()
 		reply.Error = fmt.Sprintf("address mismatch for process %s: recorded %q, expected %q", req.ProcessKey, bp.addr, req.ExpectedAddress)
 		return reply
@@ -1042,7 +1068,7 @@ func (s *backendSupervisor) stopModelExact(req workerctl.ModelStopRequest) worke
 	s.mu.Unlock()
 
 	if !req.Force {
-		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.RegistrationToken)
+		client := grpc.NewClientWithToken(bp.addr, false, nil, false, s.cfg.dataToken)
 		freeCtx, cancel := context.WithTimeout(context.Background(), workerBackendFreeTimeout)
 		freeErr := client.Free(freeCtx)
 		cancel()

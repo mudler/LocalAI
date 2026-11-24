@@ -258,7 +258,8 @@ test.describe('Settings: pending, diff, apply, discard and undo', () => {
 
   test('leaving with unapplied edits asks first', async ({ page }) => {
     await row(page, 'watchdog_idle_timeout').getByRole('textbox').fill('30m')
-    await page.locator('.dk-hubtabs a[href="/app/traffic"]').click()
+    await page.locator('[data-testid="admin-nav"] [data-group="traffic"] button').click()
+    await page.locator('[data-testid="admin-nav"] a[data-admin-item="/app/traffic"]').click()
     await expect(page.getByRole('alertdialog')).toBeVisible()
   })
 })

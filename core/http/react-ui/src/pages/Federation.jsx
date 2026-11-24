@@ -6,7 +6,7 @@ import Dialog from '../components/Dialog'
 import SideSheet from '../components/SideSheet'
 import { HubHeader } from '../components/hub/HubHeader'
 import P2PTabs from '../components/p2p/P2PTabs'
-import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows, StatusChip, useLoad } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows, StatusChip, Tag, useLoad } from '../components/ui'
 import { federationApi } from '../utils/api'
 import { candidateGroups, instancePath, memberTone, POLICIES, shortPeer } from '../utils/federation'
 import '../components/p2p/p2p.css'
@@ -182,7 +182,7 @@ function GroupCard({ group, onDelete, addToast, reload }) {
                     <StatusChip tone={memberTone(m)} dot title={m.last_error || undefined}>
                       {m.drained ? t('federation.members.state.drained') : t(`federation.members.state.${m.state || 'unknown'}`, { defaultValue: m.state })}
                     </StatusChip>
-                    {m.constrained && <span className="dk-badge" title={t('federation.members.constrainedHint')}>{t('federation.members.constrained')}</span>}
+                    {m.constrained && <Tag title={t('federation.members.constrainedHint')}>{t('federation.members.constrained')}</Tag>}
                   </span>
                 </td>
                 <td className="fed-num dk-mono dk-hide-phone">{m.in_flight}</td>
@@ -246,7 +246,7 @@ function InstancesSection({ instances }) {
                   <td>
                     <span className="p2p-path">
                       <StatusChip tone={path.tone} dot>{t(`federation.path.${path.key}`)}</StatusChip>
-                      {path.limited && <span className="dk-badge" title={t('federation.path.limitedHint')}>{t('federation.path.limited')}</span>}
+                      {path.limited && <Tag title={t('federation.path.limitedHint')}>{t('federation.path.limited')}</Tag>}
                     </span>
                   </td>
                   <td className="fed-num dk-mono">{inst.in_flight}</td>

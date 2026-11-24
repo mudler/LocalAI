@@ -33,6 +33,15 @@
     "diskChip": "Disk hampir penuh"
   },
   "activity": {
+    "node": {
+      "done": "Selesai",
+      "failed": "Gagal",
+      "queued": "Dalam antrean",
+      "workerBusy": "Worker sibuk",
+      "downloading": "Mengunduh",
+      "rolledBack": "Dikembalikan",
+      "unconfirmed": "Belum dikonfirmasi"
+    },
     "kind": {
       "addon": "add-on"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "Paket meminta akses host lebih banyak daripada yang Anda setujui.",
     "review": "Tinjau",
     "reviewLabel": "Tinjau {{name}}"
+  },
+  "overview": {
+    "title": "Ringkasan",
+    "openWorker": "Buka worker",
+    "approve": "Setujui",
+    "approveAll": "Setujui semua",
+    "signups_one": "{{count}} pendaftaran menunggu persetujuan",
+    "signups_other": "{{count}} pendaftaran menunggu persetujuan",
+    "approved_one": "{{count}} pendaftaran disetujui",
+    "approved_other": "{{count}} pendaftaran disetujui",
+    "approveFailed": "Tidak dapat menyetujui: {{message}}",
+    "cluster": "Klaster",
+    "machine": "Mesin ini",
+    "openWorkers": "Buka worker",
+    "openMachine": "Buka mesin ini",
+    "online": "Online",
+    "ofTotal": "dari {{total}}",
+    "loaded": "Dimuat",
+    "inFlight": "Berjalan",
+    "memory": "Memori",
+    "disk": "Disk",
+    "diskFree": "{{free}} bebas dari {{total}}",
+    "traffic": "Lalu lintas, {{hours}} jam",
+    "openUsage": "Buka penggunaan",
+    "requests": "Permintaan",
+    "failed": "Gagal",
+    "p95": "P95",
+    "barsLabel": "Permintaan dalam {{hours}} jam terakhir",
+    "access": "Akses",
+    "users": "Pengguna",
+    "waiting": "Menunggu",
+    "admins": "Admin",
+    "openUsers": "Buka pengguna"
   }
 }

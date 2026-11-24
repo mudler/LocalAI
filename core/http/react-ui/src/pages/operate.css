@@ -44,117 +44,7 @@
 .op-note--quiet { color: var(--dk-muted); }
 
 .op-list { display: flex; flex-direction: column; border-top: 1px solid var(--dk-edge); }
-
-/* ---- Status: the line in the Administration header ---------------------- */
-
-/* Scope, statement and hint read as one supporting line, so the h1 takes the
-   line's size: the hub name above it is the title. */
-.op-status__lead { display: inline; margin: 0; color: var(--dk-muted); }
-.op-status__scope { color: var(--dk-muted); }
-.op-status__scope::after { content: " · "; }
-.op-status__title {
-  display: inline;
-  margin: 0;
-  font: 500 var(--fs-body) / var(--lh-body) var(--font-sans);
-  letter-spacing: 0;
-  color: var(--dk-text);
-}
-.op-status__sub { color: var(--dk-muted); }
-.op-status__sub::before { content: " "; }
-
-.op-first__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-
-/* ---- Status: the ledger -------------------------------------------------- */
-
-/* One list on one surface: a flat card, rows split by hairlines. */
-.op-ledger {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-radius: var(--r-lg);
-  background: var(--dk-card);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
-  overflow: hidden;
-}
-.op-row { border-bottom: 1px solid var(--dk-edge); }
-.op-row:last-child { border-bottom: 0; }
-.op-row__head {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  grid-template-areas: "mark name toggle" "mark summary toggle";
-  align-items: center;
-  column-gap: var(--sp-3);
-  row-gap: 2px;
-  width: 100%;
-  min-height: 64px;
-  padding: 14px var(--sp-4);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--dk-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--dur-instant) var(--ease-out);
-}
-.op-row__head:hover:not(:disabled) { background: var(--dk-hover); }
-.op-row[data-loading="true"] .op-row__head { cursor: default; }
-.op-row[data-loading="true"] .op-row__toggle { visibility: hidden; }
 .op-page .page-header { margin-bottom: 0; }
-.op-row__head:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus-ring-color); }
-.op-row__mark { grid-area: mark; align-self: start; display: inline-grid; place-items: center; height: 36px; font-size: 20px; color: var(--dk-muted); }
-.op-row[data-level="ok"] .op-row__mark { color: var(--dk-ok-text); }
-.op-row[data-level="warn"] .op-row__mark { color: var(--dk-warn-text); }
-.op-row[data-level="error"] .op-row__mark { color: var(--dk-error-text); }
-.op-row[data-level="active"] .op-row__mark { color: var(--dk-accent-text); }
-.op-row__name { grid-area: name; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
-.op-row__summary { grid-area: summary; min-width: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.op-row__name .ui-chip { margin-left: var(--sp-2); vertical-align: 1px; }
-.op-row[data-level="ok"] .op-row__summary,
-.op-row[data-level="idle"] .op-row__summary { color: var(--dk-muted); }
-/* The disclosure is a chevron. Its word stays in the button's name for a
-   screen reader; the chevron and aria-expanded say the same on screen. */
-.op-row__toggle {
-  grid-area: toggle;
-  display: inline-grid;
-  place-items: center;
-  width: var(--ctl-h-sm);
-  height: var(--ctl-h-sm);
-  border-radius: var(--r-md);
-  font-size: 0;
-  color: var(--dk-muted);
-}
-.op-row__head:hover .op-row__toggle { color: var(--dk-text); }
-.op-row__toggle .lai-icon { width: 16px; height: 16px; font-size: 16px; transition: transform var(--dur-base) var(--ease-out); }
-.op-row[data-open="true"] .op-row__toggle .lai-icon { transform: rotate(180deg); }
-.op-row__body { padding: 0 var(--sp-4) var(--sp-4) calc(var(--sp-4) + 36px + var(--sp-3)); }
-.op-skeleton { display: block; width: min(320px, 70%); }
-
-.op-capbody { display: flex; flex-direction: column; gap: var(--dk-space-3); }
-.op-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-
-/* Items in a row: one per thing to look at, the action at the right. */
-.op-items { list-style: none; margin: 0; padding: 0; }
-.op-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--dk-space-4);
-  padding: var(--dk-space-3) 0;
-  border-top: 1px dashed var(--dk-edge);
-}
-.op-item:first-child { border-top: 0; }
-.op-item__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.op-item__title { font-size: var(--dk-text-15); font-weight: var(--dk-weight-bold); overflow-wrap: anywhere; }
-.op-item__detail { font-size: var(--dk-text-13); color: var(--dk-muted); overflow-wrap: anywhere; }
-.op-item--compact { padding: var(--dk-space-2) 0; }
-.op-item--compact .op-item__text { flex-direction: row; align-items: baseline; flex-wrap: wrap; gap: 2px var(--dk-space-3); }
-.op-item__acts { display: flex; align-items: center; gap: var(--dk-space-2); flex: none; }
-
-.op-nodes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--dk-space-2); }
-.op-nodes__row { display: grid; grid-template-columns: minmax(80px, 160px) minmax(80px, 1fr) minmax(110px, auto); align-items: center; gap: var(--dk-space-3); font-size: var(--dk-text-13); }
-.op-nodes__name { font-weight: var(--dk-weight-semibold); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.op-nodes__fig { color: var(--dk-muted); text-align: right; }
 
 .op-facts.dk-kv { max-width: 420px; }
 
@@ -252,12 +142,10 @@
 
 /* ---- Activity ------------------------------------------------------------ */
 
-.activity-filters { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
 .activity-section { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 .activity-section__title { margin: 0; display: flex; align-items: baseline; gap: var(--dk-space-2); font-size: var(--dk-text-17); font-weight: var(--dk-weight-bold); }
 .activity-section__count { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
 .activity-note { margin: 0; font-size: var(--dk-text-12); color: var(--dk-muted); }
-.activity-empty { padding: var(--dk-space-6) var(--dk-space-4); }
 
 .operation-card { border-bottom: 1px solid var(--dk-edge); }
 .operation-card__main { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-2); }
@@ -299,6 +187,8 @@
 .operation-card .operation-node-status-error { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .operation-card .operation-node-status-running_on_worker { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .operation-card .operation-node-status-downloading { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.operation-card .operation-node-status-rolled_back,
+.operation-card .operation-node-status-unconfirmed { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .operation-card .operation-node-name { color: var(--dk-text); font-weight: var(--dk-weight-semibold); }
 .operation-card .operation-node-file { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--dk-font-mono); }
 .operation-card .operation-node-error { color: var(--dk-error-text); }
@@ -505,16 +395,11 @@
 .lg-line__stream { flex: none; width: 3ch; color: var(--dk-muted); text-transform: uppercase; font-size: 11px; line-height: 1.8; }
 .lg-line[data-stream="stderr"] .lg-line__stream, .lg-line[data-stream="stderr"] .lg-line__text { color: var(--dk-error-text); }
 .lg-line__text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--dk-text); }
-.lg-empty { padding: var(--dk-space-6) var(--dk-space-4); }
 .lg-processes { max-width: 560px; }
 
 /* ---- Phone --------------------------------------------------------------- */
 
 @media (max-width: 760px) {
-  .op-row__head { grid-template-columns: 24px minmax(0, 1fr) auto; padding: var(--sp-3); }
-  .op-row__mark { height: 24px; }
-  .op-row__body { padding-left: var(--sp-3); padding-right: var(--sp-3); }
-  .op-item { flex-direction: column; align-items: flex-start; gap: var(--dk-space-2); }
   .op-host { grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-5); }
   .op-nodes__row, .op-gpus li { grid-template-columns: minmax(70px, 1fr) minmax(60px, 1fr); }
   .op-nodes__fig, .op-gpus__fig { grid-column: 1 / -1; text-align: left; }

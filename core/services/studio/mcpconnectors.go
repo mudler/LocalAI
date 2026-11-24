@@ -113,6 +113,10 @@ type ToolsPanel struct {
 	// Memory says whether memory works in this chat and, when it does not,
 	// which level turned it off and where to turn it on.
 	Memory MemoryReason
+	// ToolCap is set when the add-on tool cap left tools out, and nil when
+	// nothing is cut. Switching add-ons off for one chat does not bring them
+	// back: the cap applies before the chat's switches.
+	ToolCap *ToolCap
 }
 
 // Tools lists what a chat can use, with its switches.
@@ -145,7 +149,7 @@ func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRec
 			return ToolsPanel{}, err
 		}
 	}
-	if p.Addons, err = s.addonsFor(ctx, user, rec); err != nil {
+	if p.Addons, p.ToolCap, err = s.addonsFor(ctx, user, rec, sc); err != nil {
 		return p, err
 	}
 	off := set(rec.McpOff)

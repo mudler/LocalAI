@@ -3,11 +3,13 @@ package carrier_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http/httptest"
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,10 +18,13 @@ import (
 	ggrpc "google.golang.org/grpc"
 
 	"github.com/mudler/LocalAI/core/cli/workerregistry"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	clusterapi "github.com/mudler/LocalAI/core/http/endpoints/cluster"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/carrier"
 	"github.com/mudler/LocalAI/core/services/cluster"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/testutil"
@@ -28,6 +33,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/natsauth"
+	"github.com/mudler/LocalAI/pkg/system"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,6 +54,7 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		bus      *testutil.FakeBus
 		natsOps  atomic.Int32
 		table    *carrier.RouteTable
+		lossy    *lossyBus
 	)
 
 	register := func(name, address, peerID string) string {
@@ -110,8 +117,9 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		// The direct route: NATS for the verbs, and a direct dial of the address.
 		bus = testutil.NewFakeBus()
 		natsOps.Store(0)
+		lossy = &lossyBus{closingBus: &closingBus{FakeBus: bus}}
 		direct, err := carrier.NewNATSRoutes(carrier.NATSOptions{
-			Client: &closingBus{FakeBus: bus}, Registry: nodeReg, Token: registrationToken,
+			Client: lossy, Registry: nodeReg, Token: registrationToken,
 			InstallTimeout: time.Minute, UpgradeTimeout: time.Minute,
 			HTTPAddrFor: func(string) (string, error) { return httpAddr, nil },
 		})
@@ -128,21 +136,18 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		table.Pin(direct)
 	})
 
-	It("reaches a NATS worker, a websocket worker and a P2P worker at once, each on its own route", func() {
+	// fleet starts a NATS worker, a websocket worker and a P2P worker and
+	// waits until the frontend reaches each on its own route. natsVerbs
+	// serves the verbs of the NATS worker on the bus.
+	fleet := func(natsVerbs func(natsID string)) (natsID, wsID, p2pID string) {
+		GinkgoHelper()
 		// The NATS worker: it advertises an address and answers on the bus.
-		natsID := register("nats-w", grpcAddr, "")
+		natsID = register("nats-w", grpcAddr, "")
 		report(natsID, nodes.RouteNATS, nodes.TunnelRoute{})
-		_, err := bus.SubscribeReply(messaging.SubjectNodeModelOp(natsID), func(data []byte, reply func([]byte)) {
-			var req workerctl.OperationRequest
-			_ = json.Unmarshal(data, &req)
-			natsOps.Add(1)
-			out, _ := json.Marshal(workerctl.OperationReply{Renewed: req.Renew})
-			reply(out)
-		})
-		Expect(err).ToNot(HaveOccurred())
+		natsVerbs(natsID)
 
 		// The websocket worker: no address, a tunnel to the replica.
-		wsID := register("ws-w", "", "")
+		wsID = register("ws-w", "", "")
 		Expect(nodeReg.SetTunnelTokenHash(ctx, wsID, hashOf(workerToken))).To(Succeed())
 		report(wsID, nodes.RouteTunnelID, nodes.TunnelRoute{Transport: nodes.TunnelWebSocket})
 		ws, err := worker.StartTunnel(ctx, worker.TunnelConfig{
@@ -154,7 +159,7 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		// The P2P worker: pinned to a peer, its lanes come through another door
 		// than the websocket and land in the same tunnel registry. The admission
 		// of the P2P door has its own specs; here its stream is a pipe.
-		p2pID := register("p2p-w", "", "12D3KooWExamplePeerOfTheP2PWorker")
+		p2pID = register("p2p-w", "", "12D3KooWExamplePeerOfTheP2PWorker")
 		report(p2pID, nodes.RouteTunnelID, nodes.TunnelRoute{Transport: nodes.TunnelP2P, Path: "direct"})
 		p2p, err := worker.StartTunnel(ctx, worker.TunnelConfig{
 			FrontendURL: a.url, NodeID: p2pID, Token: func() string { return workerToken }, Services: services(),
@@ -182,6 +187,20 @@ var _ = Describe("A mixed fleet through the route table", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodes.RoutesOf(n)).To(ConsistOf(HaveField("Kind", want)), n.Name)
 		}
+		return natsID, wsID, p2pID
+	}
+
+	It("reaches a NATS worker, a websocket worker and a P2P worker at once, each on its own route", func() {
+		natsID, wsID, p2pID := fleet(func(natsID string) {
+			_, err := bus.SubscribeReply(messaging.SubjectNodeModelOp(natsID), func(data []byte, reply func([]byte)) {
+				var req workerctl.OperationRequest
+				_ = json.Unmarshal(data, &req)
+				natsOps.Add(1)
+				out, _ := json.Marshal(workerctl.OperationReply{Renewed: req.Renew})
+				reply(out)
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		commands, clients := carrier.NewCommands(table), carrier.NewClients(table)
 		for _, id := range []string{natsID, wsID, p2pID} {
@@ -197,6 +216,120 @@ var _ = Describe("A mixed fleet through the route table", func() {
 		Expect(control.seenRenewals()).To(Equal(2), "the websocket and the P2P worker are asked through their tunnels")
 		Expect(bus.PublishCount(messaging.SubjectNodeModelOp(wsID))+bus.PublishCount(messaging.SubjectNodeModelOp(p2pID))).To(BeZero(),
 			"a tunnel worker never talks to NATS")
+	})
+
+	// The answer of a worker whose new build did not start, as the worker
+	// builds it (see the worker's upgrade specs): the previous build is back.
+	rolledBack := workerctl.BackendUpgradeReply{
+		Success: false, Code: "start", RolledBack: true,
+		Error: "the new build did not start; the previous build was restored",
+		Cause: "fatal: libcuda.so.1: cannot open shared object file",
+	}
+
+	// upgradeFleet starts the fleet with vllm installed on every worker; the
+	// NATS worker answers backend.upgrade with reply on the bus.
+	upgradeFleet := func(reply workerctl.BackendUpgradeReply) (natsID, wsID, p2pID string) {
+		GinkgoHelper()
+		control.mu.Lock()
+		control.installed, control.upgrade = []string{"vllm"}, reply
+		control.mu.Unlock()
+		return fleet(func(natsID string) {
+			_, err := bus.SubscribeReply(messaging.SubjectNodeBackendList(natsID), func(_ []byte, r func([]byte)) {
+				out, _ := json.Marshal(workerctl.BackendListReply{Backends: []workerctl.NodeBackendInfo{{Name: "vllm"}}})
+				r(out)
+			})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = bus.SubscribeReply(messaging.SubjectNodeBackendUpgrade(natsID), func(_ []byte, r func([]byte)) {
+				natsOps.Add(1)
+				out, _ := json.Marshal(reply)
+				r(out)
+			})
+			Expect(err).ToNot(HaveOccurred())
+		})
+	}
+	frontend := func(sink *nodeSink) *nodes.DistributedBackendManager {
+		appCfg := &config.ApplicationConfig{SystemState: &system.SystemState{}}
+		return nodes.NewDistributedBackendManager(appCfg, nil, carrier.NewCommands(table), nodeReg, sink)
+	}
+	upgradeOp := func(id string) *galleryop.ManagementOp[gallery.GalleryBackend, any] {
+		return &galleryop.ManagementOp[gallery.GalleryBackend, any]{ID: id, GalleryElementName: "vllm", Upgrade: true}
+	}
+
+	It("brings the rolled back answer of a worker on every route to the frontend, with its code, per node", func() {
+		natsID, wsID, p2pID := upgradeFleet(rolledBack)
+
+		commands := carrier.NewCommands(table)
+		for _, id := range []string{natsID, wsID, p2pID} {
+			reply, err := commands.UpgradeBackend(id, "vllm", "[]", "", "", "", 0, "", nil)
+			Expect(err).ToNot(HaveOccurred(), id)
+			Expect(reply.Code).To(Equal("start"), id)
+			Expect(reply.RolledBack).To(BeTrue(), id)
+			Expect(reply.Cause).To(Equal(rolledBack.Cause), id)
+			typed := nodes.UpgradeReplyError(reply)
+			Expect(gallery.UpgradeCodeOf(typed)).To(Equal(gallery.UpgradeFailureStart), id)
+			Expect(gallery.UpgradeRolledBack(typed)).To(BeTrue(), id)
+		}
+		Expect(natsOps.Load()).To(BeEquivalentTo(1), "only the NATS worker is asked on the bus")
+		Expect(control.seenUpgrades()).To(Equal(2), "the websocket and the P2P worker are asked through their tunnels")
+		Expect(bus.PublishCount(messaging.SubjectNodeBackendUpgrade(wsID)) + bus.PublishCount(messaging.SubjectNodeBackendUpgrade(p2pID))).To(BeZero())
+
+		sink := &nodeSink{}
+		err := frontend(sink).UpgradeBackend(ctx, upgradeOp("op-rolled-back"), nil)
+		Expect(errors.Is(err, gallery.ErrUpgradeStart)).To(BeTrue(), "%v", err)
+		Expect(gallery.UpgradeRolledBack(err)).To(BeTrue())
+		Expect(err.Error()).To(ContainSubstring("libcuda.so.1"))
+		var nodesErr *gallery.UpgradeNodesError
+		Expect(errors.As(err, &nodesErr)).To(BeTrue())
+		Expect(nodesErr.Nodes).To(HaveLen(3))
+		for _, n := range nodesErr.Nodes {
+			Expect(n.Phase).To(Equal(gallery.UpgradeNodeRolledBack), n.NodeName)
+			Expect(n.Code).To(Equal(gallery.UpgradeFailureStart), n.NodeName)
+		}
+		for _, id := range []string{natsID, wsID, p2pID} {
+			last, ok := sink.last("op-rolled-back", id)
+			Expect(ok).To(BeTrue(), id)
+			Expect(last.Status).To(Equal(galleryop.NodeStatusRolledBack), id)
+			Expect(last.ErrorKey).To(Equal("start"), id)
+		}
+	})
+
+	It("bounds and cleans an oversized, markup-laden reply on every route", func() {
+		junk := "<script>alert(1)</script>\x1b[31m https://user:pass@host/x Bearer abc /home/alice/.config/k.pem\n"
+		big := strings.Repeat(junk, 4000)
+		natsID, wsID, p2pID := upgradeFleet(workerctl.BackendUpgradeReply{Code: "<b>pwn</b>", Error: big, Cause: big, RestartError: big})
+		commands := carrier.NewCommands(table)
+		for _, id := range []string{natsID, wsID, p2pID} {
+			reply, err := commands.UpgradeBackend(id, "vllm", "[]", "", "", "", 0, "", nil)
+			Expect(err).ToNot(HaveOccurred(), id)
+			for _, s := range []string{reply.Error, reply.Cause, reply.RestartError} {
+				Expect(len(s)).To(BeNumerically("<=", workerctl.CauseLimit+len("…")), id)
+				for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+					Expect(s).NotTo(ContainSubstring(bad), id)
+				}
+			}
+			Expect(gallery.UpgradeCodeOf(nodes.UpgradeReplyError(reply))).To(Equal(gallery.UpgradeFailureUnknown), id)
+		}
+	})
+
+	It("leaves an upgrade whose reply is lost unconfirmed on every route", func() {
+		control.mu.Lock()
+		control.loseUpgrade = true
+		control.mu.Unlock()
+		natsID, wsID, p2pID := upgradeFleet(workerctl.BackendUpgradeReply{Success: true, Verified: true})
+		lossy.lose(messaging.SubjectNodeBackendUpgrade(natsID))
+
+		sink := &nodeSink{}
+		err := frontend(sink).UpgradeBackend(ctx, upgradeOp("op-lost"), nil)
+		Expect(errors.Is(err, galleryop.ErrWorkerStillInstalling)).To(BeTrue(), "%v", err)
+		Expect(gallery.UpgradeCodeOf(err)).To(BeEmpty(), "a lost reply is not a failure")
+		for _, id := range []string{natsID, wsID, p2pID} {
+			last, ok := sink.last("op-lost", id)
+			Expect(ok).To(BeTrue(), id)
+			Expect(last.Status).To(Equal(galleryop.NodeStatusUnconfirmed), id)
+		}
+		rows, err := nodeReg.ListPendingBackendOps(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rows).To(HaveLen(3), "the intent stays until a check confirms the outcome")
 	})
 
 	It("does not reach a P2P worker whose tunnel is gone, and never sends it to NATS", func() {
@@ -414,3 +547,55 @@ var _ = Describe("A mixed fleet of real workers", func() {
 		Expect(opsOn(w, worker.RouteTunnel)).To(Equal(1))
 	})
 })
+
+// lossyBus is the fake bus with requests on some subjects that time out, as a
+// request whose worker took it and never answered does.
+type lossyBus struct {
+	*closingBus
+	mu   sync.Mutex
+	lost map[string]bool
+}
+
+func (b *lossyBus) lose(subject string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.lost == nil {
+		b.lost = map[string]bool{}
+	}
+	b.lost[subject] = true
+}
+
+func (b *lossyBus) Request(subject string, data []byte, timeout time.Duration) ([]byte, error) {
+	b.mu.Lock()
+	lost := b.lost[subject]
+	b.mu.Unlock()
+	if lost {
+		return nil, errors.New("nats: timeout")
+	}
+	return b.closingBus.Request(subject, data, timeout)
+}
+
+// nodeSink records the per-node outcomes a backend operation writes.
+type nodeSink struct {
+	mu    sync.Mutex
+	calls map[string][]galleryop.NodeProgress
+}
+
+func (s *nodeSink) UpdateNodeProgress(opID, nodeID string, np galleryop.NodeProgress) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.calls == nil {
+		s.calls = map[string][]galleryop.NodeProgress{}
+	}
+	s.calls[opID+"/"+nodeID] = append(s.calls[opID+"/"+nodeID], np)
+}
+
+func (s *nodeSink) last(opID, nodeID string) (galleryop.NodeProgress, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := s.calls[opID+"/"+nodeID]
+	if len(c) == 0 {
+		return galleryop.NodeProgress{}, false
+	}
+	return c[len(c)-1], true
+}

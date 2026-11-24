@@ -117,10 +117,18 @@ func (p Policy) Validate() error {
 		return errors.New("cosignverify: policy must set Identity or IdentityRegex")
 	}
 	if p.SourceRepository != "" {
-		u, err := url.Parse(p.SourceRepository)
-		if err != nil || u.Scheme != "https" || u.Host == "" || strings.TrimSpace(p.SourceRepository) != p.SourceRepository {
-			return errors.New("cosignverify: source repository must be an https URL, such as https://github.com/<owner>/<repo>")
-		}
+		return CheckSourceRepository(p.SourceRepository)
+	}
+	return nil
+}
+
+// CheckSourceRepository applies the rule of Policy.SourceRepository to one
+// value, so a caller that stores a policy refuses what the verifier would
+// refuse later.
+func CheckSourceRepository(s string) error {
+	u, err := url.Parse(s)
+	if err != nil || u.Scheme != "https" || u.Host == "" || strings.TrimSpace(s) != s {
+		return errors.New("cosignverify: source repository must be an https URL, such as https://github.com/<owner>/<repo>")
 	}
 	return nil
 }

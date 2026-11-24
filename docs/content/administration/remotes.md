@@ -275,7 +275,7 @@ the remote also stays. Remove it again.
 
 A LocalAI that is not reachable at an address (behind a home router, on a
 laptop) can still be a remote. Its administrator creates an invite of kind
-**remote** in **Swarm**, **P2P**, **Share** (see
+**remote** in **Cluster**, **Sharing**, **Share** (see
 [P2P]({{% relref "/administration/p2p" %}})). There it chooses which models
 this server may use: **All models** or a list. On this server you paste the
 invite link instead of an address.
@@ -315,7 +315,7 @@ Security notes:
   the other server as this server, but they still need the key: the other
   server has authentication on.
 - To stop using the remote, remove it here and revoke this server in
-  **Swarm**, **P2P**, **Devices** on the other server.
+  **Cluster**, **Sharing**, **Devices** on the other server.
 
 Limits:
 

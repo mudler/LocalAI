@@ -73,3 +73,36 @@ var _ = Describe("AIModelRichContext dispatch", func() {
 		}, b.seen)
 	})
 })
+
+// ctxOnlyBackend implements AIModelRichContext but not AIModelRich, and
+// streams one reply carrying a ChatDelta with a tool call.
+type ctxOnlyBackend struct {
+	base.SingleThread
+}
+
+func (b *ctxOnlyBackend) PredictRichContext(_ context.Context, _ *pb.PredictOptions) (*pb.Reply, error) {
+	return &pb.Reply{}, nil
+}
+
+func (b *ctxOnlyBackend) PredictStreamRichContext(_ context.Context, _ *pb.PredictOptions, out chan<- *pb.Reply) error {
+	out <- &pb.Reply{ChatDeltas: []*pb.ChatDelta{{
+		ToolCalls: []*pb.ToolCallDelta{{Index: 0, Name: "get_weather", Arguments: `{"city":"Ahmedabad"}`}},
+	}}}
+	return nil
+}
+
+var _ AIModelRichContext = (*ctxOnlyBackend)(nil)
+
+var _ = Describe("AIModelRichContext without AIModelRich", func() {
+	It("streams ChatDeltas through PredictStream", func() {
+		Provide("test://rich-ctx-only-stream", &ctxOnlyBackend{})
+		c := NewClient("test://rich-ctx-only-stream", true, nil, false)
+		var got []*pb.Reply
+		Expect(c.PredictStream(context.Background(), &pb.PredictOptions{}, func(r *pb.Reply) {
+			got = append(got, r)
+		})).To(Succeed())
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].GetChatDeltas()).To(HaveLen(1))
+		Expect(got[0].GetChatDeltas()[0].GetToolCalls()[0].GetName()).To(Equal("get_weather"))
+	})
+})

@@ -592,6 +592,8 @@ upgrades by itself. Each scheduled pass reads the current owner-host policy, so
 changes take effect without a restart. If the owner policy is unavailable, the
 pass skips upgrades and logs an error; it does not use frontend-local settings.
 
+On a server that keeps upgrade runs, the pass starts one run with the source `auto` for the add-ons it would upgrade, with the same rules, and the run writes its own items to the inbox (see [Automatic updates are runs]({{% relref "/models/upgrade-runs#automatic-updates-are-runs" %}})). A release that waits for approval then ends as a failed item of the run that says it is held. A server without runs upgrades inside the pass, and the next paragraph applies.
+
 At the end of a pass the owner writes one item to the inbox of the administrators when it did something: "Add-ons: 1 updated automatically, 1 waiting for approval". It names the add-ons that were upgraded, the ones that failed, and the ones that wait for an administrator because the new version needs host access that nobody approved (an automatic upgrade never approves). A failure or a wait links to the updates that need you. A pass that did nothing writes nothing, and the same add-on failing or waiting for the same candidate again is not written again, also after a restart. The owner is the only writer, so the item exists once in a cluster. With the setting off nothing is written, and add-on updates are not in the backend digest of the inbox; see [Updates in the inbox]({{% relref "/models/backends#updates-in-the-inbox" %}}).
 
 ### On the Updates page
@@ -636,8 +638,9 @@ the check found an update with a digest, **Update** replaces the reason. A check
 shows why, and you can run it again.
 
 The Apps page has no bulk update and no check of all add-ons. **Open Updates** in its
-bar goes to the Updates page, where **Update N ready** runs the add-on updates one after
-another (a failure does not stop the others, and a held one waits for approval), and
+bar goes to the Updates page, where **Update N ready** opens a review and then starts an
+update run on the server. The run updates the add-ons one at a time, after the
+backends; a failure does not stop the others, and a held one waits for approval. And
 **Check now** reads the library of every installed add-on again. A check applies
 nothing, and an add-on that cannot be checked does not stop the others. Add-ons that
 share a library are all checked, whether they are turned on or off, and every one with a

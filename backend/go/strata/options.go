@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +19,15 @@ import (
 // backend drops them from the output. Override with the eos_ids option.
 var defaultEOSIDs = []int{248044, 248046}
 
-// Model families. Qwen is the only one Strata still serves. Strata v0.2.15
-// removed DeepSeek V4.1, so family:deepseek41 is refused at load.
+// Model families. Qwen runs on the Strata engine ("strata"). Hy4 is Tencent
+// Hy4-Flash, which runs on its own engine program ("strata-hy4"); see hy4.go.
+// Inkling is Thinking Machines Inkling 2 Mini, which runs on a third engine
+// program ("strata-inkling"); see inkling.go.
+// Strata v0.2.15 removed DeepSeek V4.1, so family:deepseek41 is refused at load.
 const (
 	familyQwen       = "qwen"
+	familyHy4        = "hy4"
+	familyInkling    = "inkling"
 	familyDeepSeek41 = "deepseek41"
 )
 
@@ -48,13 +54,36 @@ type loadConfig struct {
 	// build is set when the pack does not exist yet and must be made from the
 	// GGUF files before the engine starts (the pack_gguf option).
 	build *packBuild
-	// family is familyQwen.
+	// family is familyQwen, familyHy4 or familyInkling.
 	family string
+
+	// hy4 is set for the Hy4 family: the files of a .strata model and the
+	// options of the strata-hy4 engine. Nil for every other family.
+	hy4 *hy4Config
+
+	// inkling is set for the Inkling family: the files of an Inkling 2 Mini
+	// model and the options of the strata-inkling engine. Nil for every other
+	// family.
+	inkling *inklingConfig
+
+	// nativePack is set when the pack is a native (IQ) pack, the kind the iq
+	// pack tool makes. The engine refuses it without --native, --spec and
+	// --prefill, so the backend supplies them.
+	nativePack bool
 
 	// noPackFlag leaves --pack off the engine command line: the engine path
 	// of this model reads the GGUF as it is and takes only the tokenizer.
 	noPackFlag bool
 }
+
+// Defaults for a native (IQ) pack. The engine needs a speculative window of at
+// least 2 tokens and a prefill chunk; these are the values Strata's own setup
+// writes for a CUDA or HIP card: a window of 4, and a chunk it picks itself.
+// engine_args can set either flag to override them.
+const (
+	defaultNativeSpec    = "4"
+	defaultNativePrefill = "auto"
+)
 
 type engineFile struct{ flag, path string }
 
@@ -71,6 +100,12 @@ var fileOptions = []struct{ option, flag string }{
 // engineArgs is the command line before --serve. User arguments come last so
 // they can override what the options chose.
 func (c loadConfig) engineArgs() []string {
+	if c.hy4 != nil {
+		return c.hy4EngineArgs()
+	}
+	if c.inkling != nil {
+		return c.inklingEngineArgs()
+	}
 	var args []string
 	if !c.noPackFlag {
 		args = append(args, "--pack", c.pack)
@@ -86,6 +121,16 @@ func (c loadConfig) engineArgs() []string {
 	}
 	if c.vision != nil {
 		args = append(args, "--vision")
+	}
+	if c.nativePack {
+		// Only what the user did not set: the engine takes the last value of a
+		// flag, but a missing flag is an error, so add nothing that is there.
+		if !hasEngineFlag(c.extraArgs, "--spec") {
+			args = append(args, "--spec", defaultNativeSpec)
+		}
+		if !hasEngineFlag(c.extraArgs, "--prefill") {
+			args = append(args, "--prefill", defaultNativePrefill)
+		}
 	}
 	return append(args, c.extraArgs...)
 }
@@ -208,10 +253,14 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	c.family = familyQwen
 	switch f := kv["family"]; f {
 	case "", familyQwen:
+	case familyHy4:
+		c.family = familyHy4
+	case familyInkling:
+		c.family = familyInkling
 	case familyDeepSeek41:
 		return c, errors.New("strata: family:deepseek41 is not supported: Strata v0.2.15 removed DeepSeek V4.1")
 	default:
-		return c, fmt.Errorf("strata: family %q must be %s", f, familyQwen)
+		return c, fmt.Errorf("strata: family %q must be %s, %s or %s", f, familyQwen, familyHy4, familyInkling)
 	}
 	envName := "STRATA_ENGINE_PATH"
 	c.enginePath = kv["engine_path"]
@@ -227,6 +276,13 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	}
 	c.enginePath = enginePath
 
+	if c.family == familyHy4 {
+		return parseHy4(c, kv, opts)
+	}
+	if c.family == familyInkling {
+		return parseInkling(c, kv, opts)
+	}
+
 	pack, dirs, err := planPack(&c, opts, kv)
 	if err != nil {
 		return c, err
@@ -234,15 +290,7 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 	c.pack = pack
 	dirs = append([]string{pack}, dirs...)
 
-	c.strataRoot = kv["strata_root"]
-	if c.strataRoot == "" {
-		c.strataRoot = os.Getenv("STRATA_ROOT")
-	}
-	c.python = kv["python"]
-	c.mediaMarker = kv["media_marker"]
-	if v := kv["engine_args"]; v != "" {
-		c.extraArgs = strings.Fields(v)
-	}
+	parseRuntime(&c, kv)
 	for _, fo := range fileOptions {
 		if v := kv[fo.option]; v != "" {
 			p, err := resolve(v, dirs...)
@@ -252,6 +300,9 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 			c.files = append(c.files, engineFile{fo.flag, p})
 		}
 	}
+	if err := parseNativePack(&c, kv, dirs); err != nil {
+		return c, err
+	}
 	if v := kv["ple_io"]; v != "" {
 		c.extraArgs = append([]string{"--ple-io", v}, c.extraArgs...)
 	}
@@ -259,19 +310,45 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 		c.extraArgs = append([]string{"--mmap-experts"}, c.extraArgs...)
 	}
 
+	if err := parseTimeouts(&c, kv); err != nil {
+		return c, err
+	}
+
+	if err := parseVision(&c, kv, opts, dirs); err != nil {
+		return c, err
+	}
+	return c, nil
+}
+
+// parseRuntime reads the options every family shares: where the Strata Python
+// files are, the Python to run, the image marker and the extra engine arguments.
+func parseRuntime(c *loadConfig, kv map[string]string) {
+	c.strataRoot = kv["strata_root"]
+	if c.strataRoot == "" {
+		c.strataRoot = os.Getenv("STRATA_ROOT")
+	}
+	c.python = kv["python"]
+	c.mediaMarker = kv["media_marker"]
+	if v := kv["engine_args"]; v != "" {
+		c.extraArgs = strings.Fields(v)
+	}
+}
+
+// parseTimeouts reads the two timeouts and the end-of-turn ids.
+func parseTimeouts(c *loadConfig, kv map[string]string) error {
 	c.readyTimeout = 15 * time.Minute
 	if v := kv["ready_timeout"]; v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad ready_timeout %q", v)
+			return fmt.Errorf("strata: bad ready_timeout %q", v)
 		}
 		c.readyTimeout = d
 	}
-	c.stopTimeout = 30 * time.Second
+	c.stopTimeout = defaultStopTimeout
 	if v := kv["stop_timeout"]; v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil || d <= 0 {
-			return c, fmt.Errorf("strata: bad stop_timeout %q", v)
+			return fmt.Errorf("strata: bad stop_timeout %q", v)
 		}
 		c.stopTimeout = d
 	}
@@ -280,16 +357,13 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 		for _, f := range strings.Split(v, ",") {
 			n, err := strconv.Atoi(strings.TrimSpace(f))
 			if err != nil {
-				return c, fmt.Errorf("strata: bad eos_ids entry %q", f)
+				return fmt.Errorf("strata: bad eos_ids entry %q", f)
 			}
 			c.eos = append(c.eos, n)
 		}
 	}
 
-	if err := parseVision(&c, kv, opts, dirs); err != nil {
-		return c, err
-	}
-	return c, nil
+	return nil
 }
 
 // parseVision enables images when the model has an mmproj file and the
@@ -357,4 +431,86 @@ func parseVision(c *loadConfig, kv map[string]string, opts *pb.ModelOptions, dir
 func fileExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()
+}
+
+// hasEngineFlag reports whether args sets flag, as "--flag value" or "--flag=value".
+func hasEngineFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag || strings.HasPrefix(a, flag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+var shardName = regexp.MustCompile(`^(.*)-(\d+)-of-(\d+)\.gguf$`)
+
+// firstShard returns the first file of the split GGUF set that path belongs
+// to, or path itself when it is not a split file or is already the first. The
+// engine finds the other shards from the first one.
+func firstShard(path string) string {
+	m := shardName.FindStringSubmatch(path)
+	if m == nil {
+		return path
+	}
+	if n, err := strconv.Atoi(m[2]); err != nil || n <= 1 {
+		return path
+	}
+	first := fmt.Sprintf("%s-%0*d-of-%s.gguf", m[1], len(m[2]), 1, m[3])
+	if fileExists(first) {
+		return first
+	}
+	return path
+}
+
+// findFirstShard looks for the one first shard of a split model in dir, for a
+// pack that has no native or pack_gguf option. The vision projector is not a
+// model shard.
+func findFirstShard(dir string) string {
+	matches, _ := filepath.Glob(filepath.Join(dir, "*-00001-of-*.gguf"))
+	var found []string
+	for _, m := range matches {
+		if !strings.HasPrefix(strings.ToLower(filepath.Base(m)), "mmproj") {
+			found = append(found, m)
+		}
+	}
+	if len(found) == 1 {
+		return found[0]
+	}
+	return ""
+}
+
+// parseNativePack handles a native (IQ) pack: a pack the iq pack tool made or
+// will make. The engine reads its experts from the GGUF files and needs
+// --native with the first shard. The shard comes from the native option (a
+// later shard is replaced by the first), else from pack_gguf, else from the
+// one split model in the model directory.
+func parseNativePack(c *loadConfig, kv map[string]string, dirs []string) error {
+	if c.noPackFlag || c.pack == "" {
+		return nil
+	}
+	if c.build == nil && !packComplete(c.pack, packToolIQ) {
+		return nil
+	}
+	c.nativePack = true
+	for i := range c.files {
+		if c.files[i].flag == "--native" {
+			c.files[i].path = firstShard(c.files[i].path)
+			return nil
+		}
+	}
+	shard := ""
+	if v := kv["pack_gguf"]; v != "" {
+		if p, err := resolve(v, dirs...); err == nil {
+			shard = firstShard(p)
+		}
+	}
+	if shard == "" && len(dirs) > 1 {
+		shard = findFirstShard(dirs[1])
+	}
+	if shard == "" {
+		return errors.New("strata: this is a native (IQ) pack and the engine needs the model's first GGUF file; set the native option")
+	}
+	c.files = append([]engineFile{{"--native", shard}}, c.files...)
+	return nil
 }

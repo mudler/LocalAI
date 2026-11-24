@@ -3,6 +3,9 @@
 import { mockChat } from './chat-fixtures.js'
 
 export const minutesAgo = (n) => new Date(Date.now() - n * 60_000).toISOString()
+// Like minutesAgo, but never before the start of the local day, so that the
+// chat stays in the Today group however late a long run reaches it.
+const todayAgo = (n) => new Date(Math.max(Date.now() - n * 60_000, new Date().setHours(0, 0, 1, 0))).toISOString()
 
 export const RECENT = [
   { id: 'c1', title: 'Vector database setup', model: 'qwen3-8b', kind: 'chat', created: minutesAgo(300), updated: minutesAgo(20), running: false },
@@ -25,7 +28,10 @@ export async function mockSearch(page, { answer, delay = 0, fail = false } = {})
   await mockChat(page)
   await page.route(/\/api\/chats(\?.*)?$/, (route) => {
     const origin = new URL(route.request().url()).searchParams.get('origin') || ''
-    const conversations = origin === 'automated' ? [TRIG] : origin === 'person' ? RECENT : [...RECENT, TRIG]
+    // The fixtures are built when the worker loads this file. A run of an hour
+    // or more can cross midnight before this test, so date the Today chat now.
+    const recent = RECENT.map(c => (c.id === 'c1' ? { ...c, updated: todayAgo(20) } : c))
+    const conversations = origin === 'automated' ? [TRIG] : origin === 'person' ? recent : [...recent, TRIG]
     route.fulfill({ json: { conversations, persistent: true, files: true } })
   })
   await page.route('**/api/chats/agents', route => route.fulfill({ json: { agents: [{ id: 'helper', name: 'Helper' }, { id: 'writer', name: 'Writer' }] } }))

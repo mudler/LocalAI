@@ -248,13 +248,26 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// whatever its parent names (the group refuses a sub-agent as well).
 	// A deferred connector tool still holds its name, so no LocalAI tool takes it.
 	aTools, aDeferred, aDeferredGroups, aPrompt, aNote := s.localaiTurn(ctx, a, x, rec, append(slices.Clone(tools), connDeferred...))
+	// The deferred tools of the add-ons are a source of their own: the LocalAI
+	// groups keep their decision whatever add-ons are installed, and the
+	// add-on tools are decided by the same modes on their own size.
+	var addonDeferred []session.Tool
+	if dt := deferrableAddonTools(tools); shouldDefer(s.toolSearchMode(), dt, s.windowOf(rec)) {
+		// They go behind the bridge: out of the typed tools, into the set the
+		// bridge may run. They were gated with the typed add-on tools.
+		addonDeferred = dt
+		tools = slices.DeleteFunc(tools, func(t session.Tool) bool { return t.Deferrable })
+	}
 	tools = append(tools, aTools...)
 	// The deferred tools are gated like the typed ones (the action policy of
 	// an unattended run), then hidden behind the three tool-search tools. The
 	// connector tools were gated in scopedHostTools.
-	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred)
+	deferred := slices.Concat(s.gateBuiltinActs(ctx, rec, aDeferred), connDeferred, addonDeferred)
 	if len(connDeferred) > 0 {
 		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchConnectors)
+	}
+	if len(addonDeferred) > 0 {
+		aDeferredGroups = append(slices.Clone(aDeferredGroups), toolSearchAddons)
 	}
 	tools = append(tools, toolSearchTools(deferred, aDeferredGroups)...)
 	// The tools of a self-paced loop, while the chat has one.

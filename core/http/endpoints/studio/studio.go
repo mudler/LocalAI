@@ -57,6 +57,8 @@ type Handlers struct {
 	previews *previewCache
 	// oauth wires the OAuth routes of the connections to the add-on owner.
 	oauth OAuthConfig
+	// userExists says whether a user id names a known user (see WithUserLookup).
+	userExists func(ctx context.Context, id string) (bool, error)
 }
 
 // New returns the handlers. A nil models skips the model check.
@@ -71,6 +73,13 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 		h.trust = pages.NewTrust(h.pages, store)
 	}
 	return h
+}
+
+// WithUserLookup tells the handlers how to check that a user id names a known
+// user. An administrator who acts on behalf of another user (?user_id=) needs it;
+// without it every such user is unknown.
+func WithUserLookup(exists func(ctx context.Context, id string) (bool, error)) HandlerOption {
+	return func(h *Handlers) { h.userExists = exists }
 }
 
 // maxAttachBytes caps one message with its attachments. It applies when the
@@ -483,7 +492,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		}
 		if e.Role == session.RoleFailure {
 			f := session.ParseFailure(e)
-			m.Failure = &schema.ChatsFailure{Code: f.Code, Model: f.Model, RetryAfter: f.RetryAfter, Detail: f.Detail}
+			m.Failure = &schema.ChatsFailure{Code: f.Code, Model: f.Model, RetryAfter: f.RetryAfter, Detail: f.Detail, Backend: f.Backend}
 		}
 		out.Messages = append(out.Messages, m)
 	}
@@ -664,7 +673,7 @@ func (h *Handlers) Events(c echo.Context) error {
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After, Steps: ev.Steps,
-		Code: ev.Code, Model: ev.Model, Retry: ev.Retry, Detail: ev.Detail}
+		Code: ev.Code, Model: ev.Model, Retry: ev.Retry, Detail: ev.Detail, Backend: ev.Backend}
 	if u := ev.Usage; u != nil {
 		out.Usage = &schema.ChatsUsage{
 			Used: u.Used, Limit: u.Limit, Completion: u.Completion, TokensPerSecond: u.TokensPerSecond,

@@ -150,15 +150,7 @@ func (cfg *Config) advertiseHTTPAddr() string {
 
 // registrationBody builds the JSON body for node registration.
 func (cfg *Config) registrationBody() map[string]any {
-	nodeName := cfg.NodeName
-	if nodeName == "" {
-		hostname, err := os.Hostname()
-		if err != nil {
-			nodeName = fmt.Sprintf("node-%d", os.Getpid())
-		} else {
-			nodeName = hostname
-		}
-	}
+	nodeName := cfg.nodeName()
 
 	// Detect GPU info for VRAM-aware scheduling
 	totalVRAM, err := totalAvailableVRAM()
@@ -237,9 +229,7 @@ func (cfg *Config) registrationBody() map[string]any {
 		body["total_ram"] = ramInfo.Total
 		body["available_ram"] = ramInfo.Available
 	}
-	if cfg.RegistrationToken != "" {
-		body["token"] = cfg.RegistrationToken
-	}
+	// The registration client adds the registration token and the join token.
 
 	if cpuInfo, err := getCPUInfo(); err != nil {
 		xlog.Debug("Failed to sample worker CPU for registration", "error", err)

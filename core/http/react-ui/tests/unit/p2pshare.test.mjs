@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   QR_KINDS, SHARE_KINDS, clock, mintBlockedReason, mintModelFields, modelGrant, inviteFailure, inviteProblem, inviteWarnings, multiaddrHost, parseInviteLink,
-  pathKey, pathTone, pendingInvites, phraseWords, relativeTime, secondsLeft, shareKinds, shortPeer, sortedDevices,
+  pathKey, pathTone, pendingInvites, phraseWords, relativeTime, secondsLeft, shareKinds, shortPeer, sortedDevices, splitWorkers, isWorkerKind,
 } from '../../src/utils/p2p.js'
 import { joinCommand, nodeRoute } from '../../src/utils/swarm.js'
 import { qrPath } from '../../src/components/p2p/qrPath.js'
@@ -168,4 +168,16 @@ test('p2p: Make invite is blocked for a remote limited to models with none chose
   assert.equal(mintBlockedReason('remote', 'specific', new Set(['a'])), '')
   assert.equal(mintBlockedReason('remote', 'all', new Set()), '')
   assert.equal(mintBlockedReason('device', 'specific', new Set()), '')
+})
+
+test('p2p: Sharing lists what other people hold and leaves the workers to Workers', () => {
+  assert.equal(isWorkerKind('worker'), true)
+  assert.equal(isWorkerKind('split'), true)
+  assert.equal(isWorkerKind('device'), false)
+  assert.equal(isWorkerKind('remote'), false)
+  const rows = [{ id: 1, kind: 'device' }, { id: 2, kind: 'worker' }, { id: 3, kind: 'remote' }, { id: 4, kind: 'split' }]
+  const { shared, workers } = splitWorkers(rows)
+  assert.deepEqual(shared.map(r => r.id), [1, 3])
+  assert.deepEqual(workers.map(r => r.id), [2, 4])
+  assert.deepEqual(splitWorkers(undefined), { shared: [], workers: [] })
 })

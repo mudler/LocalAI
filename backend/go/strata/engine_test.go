@@ -41,6 +41,19 @@ var _ = Describe("engine", func() {
 		}
 	})
 
+	It("keeps the reason of a failed start every time", func() {
+		// The engine says why it failed on stdout (ERR) and on stderr, then
+		// exits. Both reasons must be in the error, on every start: the output
+		// pumps must be drained before the error is built.
+		for i := 0; i < 300; i++ {
+			_, err := startEngine(stubConfig("errexit"))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, errEngineDied)).To(BeTrue(), "start %d: %v", i, err)
+			Expect(err.Error()).To(ContainSubstring("stub-stderr-reason"), "start %d", i)
+			Expect(err.Error()).To(ContainSubstring("stub-stdout-reason"), "start %d", i)
+		}
+	})
+
 	It("missing executable", func() {
 		cfg := stubConfig("ok")
 		cfg.Path = filepath.Join(GinkgoT().TempDir(), "nope")
@@ -115,6 +128,40 @@ var _ = Describe("engine", func() {
 		if _, err := e.generate(context.Background(), genRequest{MaxNew: 2, IDs: []int{1}}, collect(&got)); err != nil || len(got) != 2 {
 			Fail(fmt.Sprintf("request after cancel: %v %v", got, err))
 		}
+	})
+
+	It("sends stop again when the engine lost it", func() {
+		cfg := stubConfig("dropstop", "STRATA_STUB_DELAY_MS=10")
+		cfg.StopResend = 50 * time.Millisecond
+		e, err := startEngine(cfg)
+		Expect(err).ToNot(HaveOccurred())
+		defer e.close()
+		ctx, cancel := context.WithCancel(context.Background())
+		n := 0
+		start := time.Now()
+		dr, err := e.generate(ctx, genRequest{MaxNew: 100000, IDs: []int{1}}, func(genToken) error {
+			if n++; n == 3 {
+				cancel()
+			}
+			return nil
+		})
+		Expect(err).To(MatchError(context.Canceled))
+		Expect(dr.Finish).To(Equal("cancel"))
+		Expect(time.Since(start)).To(BeNumerically("<", 3*time.Second))
+		Expect(e.alive()).To(BeTrue())
+	})
+
+	It("does not send a request that is already cancelled", func() {
+		log := filepath.Join(GinkgoT().TempDir(), "gen.log")
+		e, err := startEngine(stubConfig("ok", "STRATA_STUB_LOG="+log))
+		Expect(err).ToNot(HaveOccurred())
+		defer e.close()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err = e.generate(ctx, genRequest{MaxNew: 5, IDs: []int{1}}, func(genToken) error { return nil })
+		Expect(err).To(MatchError(context.Canceled))
+		b, _ := os.ReadFile(log)
+		Expect(string(b)).To(BeEmpty())
 	})
 
 	It("callback error stops engine", func() {

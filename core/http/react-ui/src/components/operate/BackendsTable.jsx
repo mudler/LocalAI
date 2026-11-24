@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { cssVars } from '../../utils/modelLedger'
 import { versionLabel } from '../../utils/backendRows'
 import Icon from '../Icon'
+import { Tag } from '../ui'
 
 function SortHead({ col, label, sort, order, onSort, className }) {
   const active = sort === col
@@ -106,9 +107,9 @@ export default function BackendsTable({
                 <td>
                   <span className="dk-table-name dk-mono">{row.name}</span>
                   {row.library && (
-                    <span className="dk-badge bk-library" data-testid="backend-library" title={row.library.digest ? t('backends.library.pinned', { digest: row.library.digest }) : undefined}>
-                      <Icon name="book" /> {t('backends.library.from', { library: row.library.id })}
-                    </span>
+                    <Tag icon="book" className="bk-library" testId="backend-library" title={row.library.digest ? t('backends.library.pinned', { digest: row.library.digest }) : undefined}>
+                      {t('backends.library.from', { library: row.library.id })}
+                    </Tag>
                   )}
                   <span className="dk-table-sub" title={row.state.kind === 'failed' ? row.state.error : row.description}>
                     {row.state.kind === 'failed' ? row.state.error : (row.description || ' ')}

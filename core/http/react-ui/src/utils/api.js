@@ -2,6 +2,7 @@ import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
+import { confirmedPost } from './upgradeRun'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
 import { createPageSharesApi } from './pageSharesApi'
@@ -193,6 +194,22 @@ export const backendsApi = {
   // checkUpdatesNow runs a real check and waits for it (at most 45 s).
   updates: () => fetchJSON(API_CONFIG.endpoints.backendUpdates),
   checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
+}
+
+// Update runs. The server orders the items, runs them and keeps the state, so
+// a run goes on when the page is closed and a reload finds it again.
+export const updateRunsApi = {
+  preview: (items) => postJSON(API_CONFIG.endpoints.updateRunsPreview, { items }),
+  // A start and a retry carry the confirmation of the administrator's browser.
+  start: (items) => fetchJSON(API_CONFIG.endpoints.updateRuns, confirmedPost({ items, source: 'manual' })),
+  active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
+  // The newest runs that are not dismissed, the running one first.
+  list: (limit = 1) => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { limit })),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
+  cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
+  cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),
+  retry: (id) => fetchJSON(API_CONFIG.endpoints.updateRunRetry(id), confirmedPost({})),
+  dismiss: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id), { method: 'DELETE' }),
 }
 
 // Chats API: conversations the server keeps. A message sent while a turn runs
@@ -621,7 +638,8 @@ export const chatProjectsApi = {
 export const chatToolsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
   // The tools of a chat that does not exist yet, on model with the agent.
-  draft: (model, agentId) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId)}`),
+  // switches: the add-ons switched off in the composer (addons_off), which free room under the add-on tool cap.
+  draft: (model, agentId, switches) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId, switches)}`),
   setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
   // on lists the opt-in groups that are on (saved_agents); omit it to keep them.
   setBuiltinsOff: (chat, off, on) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify(on ? { off, on } : { off }) }),
@@ -1276,6 +1294,12 @@ export const clusterApi = {
     method: 'PUT',
     body: JSON.stringify(settings),
   }),
+  // Join tokens: mint one (the answer holds the plain token and the commands,
+  // once), list them, revoke one. Admin only; 503 on a frontend that is not
+  // distributed.
+  mintJoinToken: (body) => postJSON(API_CONFIG.endpoints.clusterJoinTokens, body),
+  joinTokens: () => fetchJSON(API_CONFIG.endpoints.clusterJoinTokens),
+  revokeJoinToken: (id) => fetchJSON(API_CONFIG.endpoints.clusterJoinToken(id), { method: 'DELETE' }),
 }
 
 export const nodesApi = {

@@ -104,6 +104,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.authDB = authDB
 	}
 
+	sweepInterruptedUpdates(options)
+
 	if err := application.start(); err != nil {
 		if application.authDB != nil {
 			if sqlDB, e := application.authDB.DB(); e == nil {
@@ -521,6 +523,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 			gs.OnBackendOpCompleted = uc.TriggerCheck
 		}
 		uc.SetAnnouncer(application.updateEmitter())
+		uc.SetAutoRuns(application.autoRunner())
 		go uc.Run(options.Context)
 	}
 
@@ -528,6 +531,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if len(options.Galleries) > 0 {
 		application.startModelUpdates()
 	}
+
+	// The server-owned upgrade runs, fed by the two checks above and the
+	// add-on owner's check.
+	application.startUpgradeRuns()
 
 	// Wire gallery generation counter into VRAM caches so they invalidate
 	// when gallery data refreshes instead of using a fixed TTL.

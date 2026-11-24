@@ -48,13 +48,13 @@
     "memory": "জ্ঞান",
     "mcpJobs": "MCP CI Jobs",
     "usage": "ব্যবহার",
-    "users": "ব্যবহারকারী এবং কী",
+    "users": "ব্যবহারকারী",
     "middleware": "মিডলওয়্যার",
     "backends": "ব্যাকএন্ড",
     "voiceLibrary": "কণ্ঠ গ্রন্থাগার",
     "traces": "চিহ্নসমূহ",
-    "nodes": "নোডসমূহ",
-    "scheduling": "স্থান নির্ধারণের নিয়মাবলী",
+    "nodes": "ওয়ার্কার",
+    "scheduling": "প্লেসমেন্ট",
     "swarm": "ঝাঁক",
     "system": "সিস্টেম",
     "settings": "সেটিংস",
@@ -64,7 +64,7 @@
     "thisMachine": "এই যন্ত্র",
     "failover": "ব্যর্থতার বিকল্প",
     "logs": "লগসমূহ",
-    "p2p": "P2P",
+    "p2p": "শেয়ারিং",
     "trafficModels": "মডেলসমূহ",
     "gpuHost": "GPU and host",
     "prometheus": "প্রমিথিউস",
@@ -76,7 +76,8 @@
     "chatsAdmin": "সমস্ত ব্যবহারকারীর চ্যাটসমূহ",
     "pages": "পৃষ্ঠাগুলো",
     "allChats": "সমস্ত চ্যাট",
-    "inbox": "অবহিতকরণসমূহ"
+    "inbox": "অবহিতকরণসমূহ",
+    "apiKeys": "API কী"
   },
   "footer": {
     "github": "GitHub",
@@ -137,5 +138,41 @@
   "activityEntry": "ক্রিয়াকলাপ",
   "navLinkExternal": "আপনি নিশ্চিত করার পর {{site}} একটি নতুন ট্যাবে খুলবে।",
   "navLinkAsk": "এই লিঙ্কটি খুলবেন?",
-  "startPage": "শুরু পৃষ্ঠা"
+  "startPage": "শুরু পৃষ্ঠা",
+  "admin": {
+    "nav": {
+      "overview": "ওভারভিউ",
+      "apiReference": "API রেফারেন্স",
+      "back": "{{name}}-এ ফিরে যান",
+      "search": "অনুসন্ধান",
+      "label": "অ্যাডমিনিস্ট্রেশন",
+      "crumbs": "ব্রেডক্রাম্ব"
+    },
+    "groups": {
+      "machine": "এই মেশিন",
+      "cluster": "ক্লাস্টার",
+      "runtime": "মডেল ও রানটাইম",
+      "access": "অ্যাক্সেস"
+    },
+    "palette": {
+      "label": "অ্যাডমিনিস্ট্রেশনে অনুসন্ধান",
+      "input": "পৃষ্ঠা, ব্যক্তি, ওয়ার্কার ও সেটিংস খুঁজুন",
+      "placeholder": "পৃষ্ঠা, ব্যক্তি, ওয়ার্কার, সেটিংস খুঁজুন",
+      "results": "ফলাফল",
+      "none": "\"{{query}}\"-এর সাথে কিছু মেলেনি।",
+      "move": "সরান",
+      "open": "খুলুন",
+      "kinds": {
+        "page": "পৃষ্ঠা",
+        "setting": "সেটিংস",
+        "worker": "ওয়ার্কার",
+        "person": "ব্যক্তি"
+      }
+    },
+    "filters": {
+      "label": "ফিল্টার",
+      "active": "{{count}}টি সেট করা",
+      "sort": "সাজান"
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { modelsApi } from '../utils/api'
 import { adoptBody, adoptCandidates } from '../utils/modelUpdates'
@@ -17,9 +17,13 @@ import { useOperations } from './useOperations'
 // candidates and the hook opens a dialog to pick one.
 //
 // `readModels` is the UpdatesContext reader. `addToast` (optional) shows the
-// outcome of an adoption.
-export function useModelUpgradeActions({ readModels, addToast }) {
+// outcome of an adoption. `onStarted` (optional) is called after an upgrade
+// or a retry was accepted: the server may have started a run of one for it.
+export function useModelUpgradeActions({ readModels, addToast, onStarted }) {
   const { t } = useTranslation('updates')
+  const startedRef = useRef(onStarted)
+  startedRef.current = onStarted
+  const started = useCallback(() => { if (startedRef.current) startedRef.current() }, [])
   const { cancelOperation, refetch: refetchOperations } = useOperations()
   const [confirming, setConfirming] = useState(null)
   const [removing, setRemoving] = useState(null)
@@ -64,13 +68,18 @@ export function useModelUpgradeActions({ readModels, addToast }) {
     try {
       await modelsApi.upgrade(row.name, body)
       setAnnouncement(t('model.live.started', { name: row.name }))
+      started()
     } finally {
       mark(row.name, false)
       await after()
     }
-  }, [after, mark, t])
+  }, [after, mark, started, t])
 
-  const retry = useCallback((row) => run(row, () => modelsApi.retryUpgrade(row.name), () => t('model.live.started', { name: row.name })), [run, t])
+  const retry = useCallback((row) => run(row, async () => {
+    const out = await modelsApi.retryUpgrade(row.name)
+    started()
+    return out
+  }, () => t('model.live.started', { name: row.name })), [run, started, t])
 
   const cancel = useCallback((row) => { if (row.jobID) cancelOperation(row.jobID) }, [cancelOperation])
 

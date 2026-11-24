@@ -7,7 +7,7 @@ import { keyState, timeUntil, KEY_EXPIRIES } from '../../utils/access'
 import { useDelayedAction, UNDO_WINDOW_MS } from '../../hooks/useDelayedAction'
 import LoadingSpinner from '../LoadingSpinner'
 import Icon from '../Icon'
-import { Button } from '../ui'
+import { Button, EmptyState } from '../ui'
 import AgentConnect from '../connect/AgentConnect'
 
 function formatDate(d) {
@@ -169,10 +169,11 @@ export default function ApiKeysPanel({ addToast, intro, connect = false }) {
       {loading ? (
         <div className="ak-loading"><LoadingSpinner size="sm" /></div>
       ) : keys.length === 0 ? (
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="key" /></div>
-          <p className="dk-empty-text">{t('account.apiKeys.empty')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="key"
+          body={t('account.apiKeys.empty')}
+        />
       ) : (
         <ul className="ak-list">
           {keys.map((k) => {

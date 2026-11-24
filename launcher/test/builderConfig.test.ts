@@ -57,6 +57,13 @@ describe('electron-builder.yml', () => {
       { target: 'zip', arch: ['arm64'] },
     ])
     expect(cfg.dmg.artifactName).toBe('LocalAI.dmg')
+    // The app bundle takes its name from executableName, so the macOS app is
+    // shown as LocalAI and not as local-ai-launcher. It must not be the
+    // server's name `local-ai`.
+    expect(cfg.mac.executableName).toBe('LocalAI')
+    expect(cfg.mac.extendInfo.CFBundleName).toBe('LocalAI')
+    expect(cfg.mac.extendInfo.CFBundleDisplayName).toBe('LocalAI')
+    expect(cfg.dmg.title).toBe('LocalAI')
     // The workflow signs and notarizes the DMG file with scripts/sign-dmg.sh.
     // The builder's own DMG signing has no secure timestamp.
     expect(cfg.dmg.sign).not.toBe(true)

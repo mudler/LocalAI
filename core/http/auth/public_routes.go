@@ -39,6 +39,13 @@ var publicRouteRegistry = []publicRouteRule{
 	// yet. The handler rate limits and answers every failure the same way.
 	{Method: http.MethodPost, Path: "/api/client/pair"},
 
+	// The scripts that join a worker. They answer only for a valid join token
+	// in the query, which is the credential, and do not spend it. See
+	// localai.JoinScriptEndpoint.
+	{Method: http.MethodGet, Path: "/join.sh"},
+	{Method: http.MethodGet, Path: "/join.ps1"},
+	{Method: http.MethodGet, Path: "/join.yaml"},
+
 	// CORS preflight. An OPTIONS request cannot carry credentials by HTTP
 	// spec, so preflights targeting any endpoint must not be gated on auth;
 	// the CORS middleware (registered after auth in app.go) answers them.

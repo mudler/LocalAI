@@ -10,7 +10,7 @@ import { SOURCE_KINDS, canRefresh, countByKind, createOperationBook, draftToLibr
 import './catalog.css'
 import '../addons/addons.css'
 
-const BLANK = { mirrors: '', kind: 'addon', format: 'library', id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', identityRegex: '', authReference: '', allowLoopbackHTTP: false }
+const BLANK = { mirrors: '', kind: 'addon', format: 'library', id: '', name: '', url: '', enabled: true, requireSignature: false, issuer: '', identity: '', identityRegex: '', sourceRepository: '', authReference: '', allowLoopbackHTTP: false }
 
 function seen(iso) {
   const d = new Date(iso)
@@ -301,19 +301,20 @@ function SourceEditor({ kinds, draft, onSave, onClose, saving, t }) {
         )}
         {addon && (
           <label className="cat-check">
-            <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} />
+            <input type="checkbox" className="dk-check" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })} />
             <span>{t('libraries.fields.enabled')}</span>
           </label>
         )}
         {addon && (
           <label className="cat-check">
-            <input type="checkbox" checked={form.requireSignature} onChange={e => set({ requireSignature: e.target.checked })} />
+            <input type="checkbox" className="dk-check" checked={form.requireSignature} onChange={e => set({ requireSignature: e.target.checked })} />
             <span>{t('libraries.fields.requireSignature')}</span>
           </label>
         )}
         {addon && form.requireSignature && field('issuer', t('libraries.fields.issuer'), { autoComplete: 'off' })}
         {addon && form.requireSignature && field('identity', t('libraries.fields.identity'), { autoComplete: 'off' })}
         {addon && form.requireSignature && field('identityRegex', t('libraries.fields.identityRegex'), { autoComplete: 'off', spellCheck: false }, t('libraries.hints.identityRegex'))}
+        {addon && form.requireSignature && field('sourceRepository', t('libraries.fields.sourceRepository'), { type: 'url', inputMode: 'url', autoComplete: 'off', spellCheck: false, placeholder: 'https://' }, t('libraries.hints.sourceRepository'))}
         {addon && field('authReference', t('libraries.fields.reference'), { autoComplete: 'off', spellCheck: false }, t('libraries.hints.reference'))}
       </form>
     </SideSheet>

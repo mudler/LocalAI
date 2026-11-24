@@ -272,9 +272,9 @@ function PurgeDialog({ t, addon, status, onCancel, onConfirm }) {
           <p>{t('recovery.purgeBody')}</p>
           <fieldset className="ad-recovery__scope">
             <legend>{t('recovery.scope')}</legend>
-            <label><input type="checkbox" checked={scope.data} onChange={() => flip('data')} data-testid="scope-data" /> {t('recovery.scopeData')}</label>
-            <label><input type="checkbox" checked={scope.backups} onChange={() => flip('backups')} data-testid="scope-backups" /> {t('recovery.scopeBackups', { count: status.backups?.length || 0 })}</label>
-            <label><input type="checkbox" checked={scope.recoveryCopies} onChange={() => flip('recoveryCopies')} data-testid="scope-copies" /> {t('recovery.scopeCopies', { count: status.previousCopies || 0 })}</label>
+            <label><input type="checkbox" className="dk-check" checked={scope.data} onChange={() => flip('data')} data-testid="scope-data" /> {t('recovery.scopeData')}</label>
+            <label><input type="checkbox" className="dk-check" checked={scope.backups} onChange={() => flip('backups')} data-testid="scope-backups" /> {t('recovery.scopeBackups', { count: status.backups?.length || 0 })}</label>
+            <label><input type="checkbox" className="dk-check" checked={scope.recoveryCopies} onChange={() => flip('recoveryCopies')} data-testid="scope-copies" /> {t('recovery.scopeCopies', { count: status.previousCopies || 0 })}</label>
           </fieldset>
           {blocked === 'running' && <p className="ad-entry__note" data-tone="error" role="alert">{t('recovery.stopFirst')}</p>}
           {blocked === 'scope' && <p className="ad-quiet" role="status">{t('recovery.scopeNone')}</p>}

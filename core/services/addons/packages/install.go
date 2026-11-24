@@ -107,9 +107,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	}
 	// Do not accept a caller's substituted artifact, policy, source or digest.
 	r.Selection = selection
-	// An add-on library names its signer exactly. A pattern is for backend
-	// sources only, so an add-on install refuses a policy that carries one.
-	if r.Policy.IdentityRegex != "" || r.EntryKind() != catalog.KindAddon {
+	// An add-on library names its signer exactly, or by a pattern together
+	// with the source repository. A shared signing workflow matches a pattern
+	// for every repository that calls it, so a pattern alone is refused.
+	if !r.Policy.ValidForAddon() || r.EntryKind() != catalog.KindAddon {
 		return out, ErrPackage
 	}
 	// The entry says what the package needs. A host that is too old refuses
@@ -171,9 +172,9 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
 		if r.Policy.RequireSignature {
 			report(Progress{Phase: "verifying"})
-			verifier, e := cosignverify.NewVerifier(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport)
+			verifier, e := cosignverify.NewVerifier(r.Policy.CosignPolicy(), nil, transport)
 			if i.SignatureTrust != nil {
-				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(cosignverify.Policy{Issuer: r.Policy.Issuer, Identity: r.Policy.Identity}, nil, transport, i.SignatureTrust)
+				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(r.Policy.CosignPolicy(), nil, transport, i.SignatureTrust)
 			}
 			if e != nil {
 				return out, ErrPackage
@@ -305,7 +306,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	report(Progress{Phase: "verified", Bytes: x.bytes})
 	signer := ""
 	if verification == "sha256+sigstore" && !catalog.IsOfficialSource(r.SourceID, r.SourceURL) {
-		signer = r.Policy.Identity
+		signer = r.Policy.SignerLabel()
 	}
 	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Signer: signer, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
 }

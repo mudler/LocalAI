@@ -10,6 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
 import { readStored, writeStored } from '../utils/storage'
 import './traffic.css'
+import { Button, EmptyState } from '../components/ui'
 
 // Middleware: what a request passes through, in the order the server runs it.
 //   Proxy      an optional TLS proxy for clients that cannot be pointed at the API
@@ -240,14 +241,9 @@ function FilteringStep({ status, addToast, onChanged }) {
                       : '-'}
                   </td>
                   <td className="dk-table-actions">
-                    <Link
-                      to={`/app/model-editor/${encodeURIComponent(m.name)}`}
-                      state={fromState(location, 'Middleware')}
-                      className="dk-btn dk-btn--ghost dk-btn--sm"
-                      title={t('middleware.editFile', { name: m.name })}
-                    >
-                      <Icon name="edit" /> {t('middleware.edit')}
-                    </Link>
+                    <Button variant="ghost" size="sm" icon="edit" to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} title={t('middleware.editFile', { name: m.name })}>
+                      {t('middleware.edit')}
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -300,14 +296,9 @@ function DetectorModels({ pii, addToast, onChanged }) {
             <Icon name={open ? 'chevron-down' : 'chevron-right'} /> {t('middleware.detectorsTitle')}
           </button>
         </h2>
-        <button
-          type="button"
-          className="dk-btn dk-btn--secondary dk-btn--sm"
-          onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })}
-          title={t('middleware.addDetectorTitle')}
-        >
-          <Icon name="plus" /> {t('middleware.addDetector')}
-        </button>
+        <Button variant="secondary" size="sm" icon="plus" onClick={() => navigate('/app/model-editor?template=secret-filter', { state: fromState(location, 'Middleware') })} title={t('middleware.addDetectorTitle')}>
+          {t('middleware.addDetector')}
+        </Button>
       </div>
       {open && (
         <>
@@ -337,9 +328,9 @@ function DetectorModels({ pii, addToast, onChanged }) {
                     <td><Switch checked={!!d.default} disabled={busy.has(d.name)} onChange={v => toggleDefault(d.name, v)} label={t('middleware.defaultFor', { name: d.name })} /></td>
                     <td className="dk-table-actions">
                       {!d.missing && (
-                        <Link to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} className="dk-btn dk-btn--ghost dk-btn--sm" title={t('middleware.editFile', { name: d.name })}>
-                          <Icon name="edit" /> {t('middleware.edit')}
-                        </Link>
+                        <Button variant="ghost" size="sm" icon="edit" to={`/app/model-editor/${encodeURIComponent(d.name)}`} state={fromState(location, 'Middleware')} title={t('middleware.editFile', { name: d.name })}>
+                          {t('middleware.edit')}
+                        </Button>
                       )}
                     </td>
                   </tr>
@@ -433,16 +424,18 @@ function RoutingStep({ status, decisions }) {
 
   if (!router.configured || !router.models || router.models.length === 0) {
     return (
-      <div className="dk-empty tf-empty" data-testid="step-routing">
-        <Icon name="route" className="dk-empty-icon" />
-        <h2 className="dk-empty-title">{t('middleware.noRoutersTitle')}</h2>
-        <p className="dk-empty-text">{router.note || t('middleware.noRoutersText')}</p>
-        <div className="tf-empty__acts">
-          <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}>
-            <Icon name="plus" /> {t('middleware.createRouter')}
-          </button>
-        </div>
-      </div>
+      <EmptyState
+        variant="first-run"
+        icon="route"
+        title={t('middleware.noRoutersTitle')}
+        body={router.note || t('middleware.noRoutersText')}
+        testId="step-routing"
+        actions={(
+          <Button variant="primary" icon="plus" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })}>
+            {t('middleware.createRouter')}
+          </Button>
+        )}
+      />
     )
   }
 
@@ -451,9 +444,9 @@ function RoutingStep({ status, decisions }) {
       <section className="tf-section">
         <div className="tf-section__head">
           <h2 className="tf-h2">{t('middleware.activeRouters')}</h2>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })} title={t('middleware.addRouterTitle')}>
-            <Icon name="plus" /> {t('middleware.addRouter')}
-          </button>
+          <Button variant="secondary" size="sm" icon="plus" onClick={() => navigate('/app/model-editor?template=router', { state: fromState(location, 'Middleware') })} title={t('middleware.addRouterTitle')}>
+            {t('middleware.addRouter')}
+          </Button>
         </div>
         <p className="tf-note-line">{t('middleware.routersNote')}</p>
         <div className="dk-table-wrap">
@@ -575,11 +568,13 @@ function ProxyStep({ status, addToast, onChanged }) {
 
   if (!mitm) {
     return (
-      <div className="dk-empty tf-empty" data-testid="step-proxy">
-        <Icon name="shield" className="dk-empty-icon" />
-        <h2 className="dk-empty-title">{t('middleware.proxyUnavailable')}</h2>
-        <p className="dk-empty-text">{t('middleware.proxyUnavailableText')}</p>
-      </div>
+      <EmptyState
+        variant="unavailable"
+        icon="shield"
+        title={t('middleware.proxyUnavailable')}
+        body={t('middleware.proxyUnavailableText')}
+        testId="step-proxy"
+      />
     )
   }
 
@@ -626,9 +621,9 @@ function ProxyStep({ status, addToast, onChanged }) {
           <p className="tf-note-line">{t('middleware.noHosts')}</p>
         )}
         {mitm.ca_available ? (
-          <a className="dk-btn dk-btn--secondary dk-btn--sm" href={apiUrl(mitm.ca_cert_url)} download="localai-mitm-ca.crt">
-            <Icon name="download" /> {t('middleware.downloadCa')}
-          </a>
+          <Button variant="secondary" size="sm" icon="download" href={apiUrl(mitm.ca_cert_url)} download="localai-mitm-ca.crt">
+            {t('middleware.downloadCa')}
+          </Button>
         ) : (
           <p className="tf-note-line">{t('middleware.noCa')}</p>
         )}
@@ -637,9 +632,9 @@ function ProxyStep({ status, addToast, onChanged }) {
       <section className="tf-section">
         <div className="tf-section__head">
           <h2 className="tf-h2">{t('middleware.proxyModels')}</h2>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })} title={t('middleware.addProxyModelTitle')}>
-            <Icon name="plus" /> {t('middleware.addProxyModel')}
-          </button>
+          <Button variant="secondary" size="sm" icon="plus" onClick={() => navigate('/app/model-editor?template=mitm', { state: fromState(location, 'Middleware') })} title={t('middleware.addProxyModelTitle')}>
+            {t('middleware.addProxyModel')}
+          </Button>
         </div>
         {mitmModels.length === 0 ? (
           <p className="tf-note-line">{t('middleware.noProxyModels')}</p>
@@ -662,9 +657,9 @@ function ProxyStep({ status, addToast, onChanged }) {
                     <td className="dk-mono tf-sub">{(m.hosts || []).join(', ')}</td>
                     <td><StateWord on={m.pii_enabled} /></td>
                     <td className="dk-table-actions">
-                      <Link to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')} className="dk-btn dk-btn--ghost dk-btn--sm">
-                        <Icon name="edit" /> {t('middleware.edit')}
-                      </Link>
+                      <Button variant="ghost" size="sm" icon="edit" to={`/app/model-editor/${encodeURIComponent(m.name)}`} state={fromState(location, 'Middleware')}>
+                        {t('middleware.edit')}
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -683,11 +678,11 @@ function ProxyStep({ status, addToast, onChanged }) {
         </label>
         <p className="tf-note-line">{t('middleware.interceptNote')}</p>
         <div className="tf-actions">
-          <button type="button" className="dk-btn dk-btn--primary" onClick={save} disabled={!dirty || saving}>
+          <Button variant="primary" onClick={save} disabled={!dirty || saving}>
             <Icon name={saving ? 'spinner' : 'save'} spin={Boolean(saving)} /> {saving ? t('traces.settings.saving') : t('middleware.apply')}
-          </button>
+          </Button>
           {dirty && (
-            <button type="button" className="dk-btn dk-btn--ghost" onClick={() => setListen(mitm.configured_addr || '')} disabled={saving}>{t('middleware.discard')}</button>
+            <Button variant="ghost" onClick={() => setListen(mitm.configured_addr || '')} disabled={saving}>{t('middleware.discard')}</Button>
           )}
         </div>
       </section>
@@ -719,7 +714,7 @@ function AdmissionStep({ events }) {
         <h2 className="tf-h2">{t('middleware.admissionTitle')}</h2>
         <p className="tf-note-line">{t('middleware.admissionText')}</p>
         <div className="tf-actions">
-          <Link className="dk-btn dk-btn--secondary dk-btn--sm" to="/app/users"><Icon name="users" /> {t('middleware.admissionUsers')}</Link>
+          <Button variant="secondary" size="sm" icon="users" to="/app/users">{t('middleware.admissionUsers')}</Button>
         </div>
         <p className="tf-note-line" data-testid="admission-count">{refused.length > 0 ? t('middleware.admissionRecent', { count: refused.length }) : t('middleware.admissionNone')}</p>
       </section>
@@ -786,11 +781,13 @@ function EventsSection({ events }) {
         </div>
       </div>
       {filtered.length === 0 ? (
-        <div className="dk-empty tf-empty">
-          <Icon name="list" className="dk-empty-icon" />
-          <h3 className="dk-empty-title">{t('middleware.noEvents')}</h3>
-          <p className="dk-empty-text">{t('middleware.noEventsText')}</p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="list"
+          title={t('middleware.noEvents')}
+          level={3}
+          body={t('middleware.noEventsText')}
+        />
       ) : (
         <div className="dk-table-wrap">
           <table className="dk-table dk-table--compact tf-table">

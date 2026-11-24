@@ -10,33 +10,38 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config/harnessctx"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // Codes of a failed turn. The chat page picks its plain-words text by code, so
 // the codes are part of the event payload: add new ones, do not rename.
 const (
-	CodeBackendMissing = "model_backend_missing" // the model's backend is not installed
-	CodeCooldown       = "model_cooldown"        // a recent load failed and the model rests
-	CodeLoadFailed     = "model_load_failed"     // the model's backend did not start
-	CodeModelNotFound  = "model_not_found"       // no such model
-	CodeUpstream       = "upstream"              // the provider or proxy behind the model failed
-	CodeUpstreamKey    = "upstream_key"          // the upstream refused the key
-	CodeUpstreamPath   = "upstream_path"         // the upstream has no such endpoint at that address
-	CodeUpstreamDown   = "upstream_unreachable"  // the upstream address does not resolve or answer
-	CodeTimeout        = "timeout"
-	CodeCancelled      = "cancelled"
-	CodeNotAllowed     = "not_allowed"
-	CodeQuota          = "quota"
-	CodeContext        = "context_too_small"
-	CodeUnknownTool    = "unknown_tool"
-	CodeToolSchema     = "tool_schema" // the model refused the definition of a tool
-	CodeAgent          = "agent"       // anything else
+	CodeBackendMissing  = "model_backend_missing"  // the model's backend is not installed
+	CodeBackendOutdated = "model_backend_outdated" // the backend build is too old for the model
+	CodeCooldown        = "model_cooldown"         // a recent load failed and the model rests
+	CodeLoadFailed      = "model_load_failed"      // the model's backend did not start
+	CodeModelNotFound   = "model_not_found"        // no such model
+	CodeUpstream        = "upstream"               // the provider or proxy behind the model failed
+	CodeUpstreamKey     = "upstream_key"           // the upstream refused the key
+	CodeUpstreamPath    = "upstream_path"          // the upstream has no such endpoint at that address
+	CodeUpstreamDown    = "upstream_unreachable"   // the upstream address does not resolve or answer
+	CodeTimeout         = "timeout"
+	CodeCancelled       = "cancelled"
+	CodeNotAllowed      = "not_allowed"
+	CodeQuota           = "quota"
+	CodeContext         = "context_too_small"
+	CodeUnknownTool     = "unknown_tool"
+	CodeToolSchema      = "tool_schema" // the model refused the definition of a tool
+	CodeAgent           = "agent"       // anything else
 )
 
 // Marks the model client puts in the error of a model that could not be loaded.
 const (
 	// MarkBackendMissing says that the backend of the model is not installed.
 	MarkBackendMissing = "[studio:backend-missing]"
+	// MarkBackendOutdated says that the backend is too old for the model. The
+	// backend follows as: backend "name".
+	MarkBackendOutdated = "[studio:backend-outdated]"
 	// MarkLoadFailed says that the model's load failed for another reason.
 	MarkLoadFailed = "[studio:load-failed]"
 	// MarkUpstreamKey and MarkUpstreamPath say that a cloud-proxy model's
@@ -55,6 +60,9 @@ type Failure struct {
 	Model string
 	// RetryAfter is the seconds until a model in cooldown loads again.
 	RetryAfter int
+	// Backend names the backend that is too old for the model, when the error
+	// says. The chat page offers to update it.
+	Backend string
 	// Detail is the error text for the technical view: one line, with
 	// addresses, paths and secrets removed, and cut to a limit.
 	Detail string
@@ -62,16 +70,17 @@ type Failure struct {
 
 // failureNote is the form of a Failure in the Note of a RoleFailure entry.
 type failureNote struct {
-	Code   string `json:"code"`
-	Model  string `json:"model,omitempty"`
-	Retry  int    `json:"retry,omitempty"`
-	Detail string `json:"detail,omitempty"`
+	Code    string `json:"code"`
+	Model   string `json:"model,omitempty"`
+	Retry   int    `json:"retry,omitempty"`
+	Detail  string `json:"detail,omitempty"`
+	Backend string `json:"backend,omitempty"`
 }
 
 // FailureEntry is the transcript line that keeps why a turn ended: a reload
 // of the chat shows the same reason as the live stream did.
 func FailureEntry(turn int, f Failure) Entry {
-	note, _ := json.Marshal(failureNote{Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail})
+	note, _ := json.Marshal(failureNote{Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Backend: f.Backend})
 	return Entry{Turn: turn, Role: RoleFailure, Text: f.Reason, Note: string(note)}
 }
 
@@ -81,12 +90,13 @@ func ParseFailure(e Entry) Failure {
 	f := Failure{Code: CodeAgent, Reason: e.Text}
 	var n failureNote
 	if json.Unmarshal([]byte(e.Note), &n) == nil && n.Code != "" {
-		f.Code, f.Model, f.RetryAfter, f.Detail = n.Code, n.Model, n.Retry, n.Detail
+		f.Code, f.Model, f.RetryAfter, f.Detail, f.Backend = n.Code, n.Model, n.Retry, n.Detail, n.Backend
 	}
 	return f
 }
 
 var (
+	quotedBackendRe  = regexp.MustCompile(`backend "([A-Za-z0-9._-]{1,64})"`)
 	quotedModelRe    = regexp.MustCompile(`model "([^"]{1,128})"`)
 	retryAfterRe     = regexp.MustCompile(`retry after (?:(\d+)m)?(?:(\d+)s)?`)
 	notFoundModelRe  = regexp.MustCompile(`(?i)model (?:"([^"]{1,128})"|'([^']{1,128})'|([A-Za-z0-9._:/@+-]{1,128})) (?:was )?not found`)
@@ -177,16 +187,22 @@ func smallWindowReason(window int) string {
 func isLoadFailure(lower string) bool {
 	return strings.Contains(lower, strings.ToLower(MarkBackendMissing)) || strings.Contains(lower, strings.ToLower(MarkLoadFailed)) ||
 		strings.Contains(lower, "the model could not be loaded") || strings.Contains(lower, "load is in cooldown") ||
-		strings.Contains(lower, "backend not found") || strings.Contains(lower, "failed to load model")
+		strings.Contains(lower, "backend not found") || strings.Contains(lower, "failed to load model") ||
+		strings.Contains(lower, strings.ToLower(MarkBackendOutdated)) || model.BackendTooOldText(lower)
 }
 
 func loadFailure(f Failure, msg, lower string) Failure {
 	f.Model = firstModel(quotedModelRe.FindStringSubmatch(msg))
 	missing := strings.Contains(msg, MarkBackendMissing) || strings.Contains(lower, "backend not found")
+	outdated := strings.Contains(msg, MarkBackendOutdated) || model.BackendTooOldText(msg)
 	if strings.Contains(lower, "load is in cooldown") {
 		f.RetryAfter = retrySeconds(msg)
 	}
 	switch {
+	case outdated:
+		f.Code = CodeBackendOutdated
+		f.Backend = firstModel(quotedBackendRe.FindStringSubmatch(msg))
+		f.Reason = namedModel("The model", f.Model, " could not be started: the backend may be too old for it. Update the backend, then retry.")
 	case missing:
 		f.Code = CodeBackendMissing
 		f.Reason = namedModel("The model", f.Model, " could not be started: its backend is not installed. Install the backend, or pick another model.")

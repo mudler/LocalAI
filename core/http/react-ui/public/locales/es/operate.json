@@ -33,6 +33,15 @@
     "diskChip": "Disco casi lleno"
   },
   "activity": {
+    "node": {
+      "done": "Hecho",
+      "failed": "Falló",
+      "queued": "En cola",
+      "workerBusy": "Worker ocupado",
+      "downloading": "Descargando",
+      "rolledBack": "Revertido",
+      "unconfirmed": "Sin confirmar"
+    },
     "kind": {
       "addon": "complemento"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "El paquete pide más acceso al host del que aprobaste.",
     "review": "Revisar",
     "reviewLabel": "Revisar {{name}}"
+  },
+  "overview": {
+    "title": "Resumen",
+    "openWorker": "Abrir worker",
+    "approve": "Aprobar",
+    "approveAll": "Aprobar todos",
+    "signups_one": "{{count}} registro espera aprobación",
+    "signups_other": "{{count}} registros esperan aprobación",
+    "approved_one": "{{count}} registro aprobado",
+    "approved_other": "{{count}} registros aprobados",
+    "approveFailed": "No se pudo aprobar: {{message}}",
+    "cluster": "Clúster",
+    "machine": "Esta máquina",
+    "openWorkers": "Abrir workers",
+    "openMachine": "Abrir esta máquina",
+    "online": "En línea",
+    "ofTotal": "de {{total}}",
+    "loaded": "Cargados",
+    "inFlight": "En curso",
+    "memory": "Memoria",
+    "disk": "Disco",
+    "diskFree": "{{free}} libres de {{total}}",
+    "traffic": "Tráfico, {{hours}} h",
+    "openUsage": "Abrir uso",
+    "requests": "Solicitudes",
+    "failed": "Fallidas",
+    "p95": "P95",
+    "barsLabel": "Solicitudes de las últimas {{hours}} horas",
+    "access": "Acceso",
+    "users": "Usuarios",
+    "waiting": "En espera",
+    "admins": "Administradores",
+    "openUsers": "Abrir usuarios"
   }
 }

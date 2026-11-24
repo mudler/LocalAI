@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chatAppsApi } from '../utils/api'
 import { appText, buildSrcdoc, createHost, linkLabel } from '../utils/chatApps'
+import { Button } from './ui'
 
 const MAX_SUGGESTIONS = 5
 const MAX_LINKS = 3
@@ -88,7 +89,7 @@ export default function ChatAppFrame({ chatId, app, onSend, t }) {
           <span className="ch-app__ask-label">{t('app.suggests')}</span>
           <q className="ch-app__ask-text">{s.text}</q>
           <span className="ch-pending__actions">
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => { drop(setSuggestions, s.key); onSend?.(s.text) }}>{t('app.send')}</button>
+            <Button variant="primary" size="sm" onClick={() => { drop(setSuggestions, s.key); onSend?.(s.text) }}>{t('app.send')}</Button>
             <button type="button" className="ch-link" onClick={() => drop(setSuggestions, s.key)}>{t('app.dismiss')}</button>
           </span>
         </div>
@@ -97,7 +98,7 @@ export default function ChatAppFrame({ chatId, app, onSend, t }) {
         <div key={l.key} className="ch-app__ask" data-testid="chat-app-link">
           <span className="ch-app__ask-label">{t('app.wantsLink', { host: linkLabel(l.url) })}</span>
           <span className="ch-pending__actions">
-            <a className="btn btn-primary btn-sm" href={l.url} target="_blank" rel="noopener noreferrer" onClick={() => drop(setLinks, l.key)}>{t('app.open')}</a>
+            <Button variant="primary" size="sm" href={l.url} target="_blank" rel="noopener noreferrer" onClick={() => drop(setLinks, l.key)}>{t('app.open')}</Button>
             <button type="button" className="ch-link" onClick={() => drop(setLinks, l.key)}>{t('app.dismiss')}</button>
           </span>
         </div>

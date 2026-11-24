@@ -862,7 +862,15 @@
           "an empty block",
           "a null windows block",
           "refuses the former top-level execution field",
-          "refuses the block under the key platform"
+          "refuses the block under the key platform",
+          "is accepted on every kind",
+          "keeps an approval ceiling and a title on a deferred write tool",
+          "is refused on a page-only tool",
+          "is refused on a tool that shadows a built-in tool",
+          "is false when omitted and is not written when false",
+          "survives a JSON round trip",
+          "is not counted against the limits of the definitions",
+          "requires featureLevel 11 for a deferred tool, and a level 10 host refuses it"
         ]
       },
       {
@@ -1054,6 +1062,7 @@
           "has consistent package files for mail",
           "has consistent package files for pikvm",
           "has consistent package files for pirateface-search",
+          "has consistent package files for ollama-search",
           "has consistent package files for ssh",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
@@ -1064,6 +1073,7 @@
           "audits actual host calls and strict package contract for mail",
           "audits actual host calls and strict package contract for pikvm",
           "audits actual host calls and strict package contract for pirateface-search",
+          "audits actual host calls and strict package contract for ollama-search",
           "audits actual host calls and strict package contract for ssh",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
@@ -1315,7 +1325,34 @@
       "logs why the registry refused the read, without a secret",
       "does not reuse a copy admitted under another policy",
       "keeps the previous good copy when a pull returns an empty or non-YAML index",
-      "fails a first fetch of a junk index"
+      "fails a first fetch of a junk index",
+      "accepts a pattern for an add-on only with a source repository",
+      "says in words why a policy is refused",
+      "verifies a pattern and a source repository and labels the entries with the repository",
+      "refuses a pattern and a source repository that do not verify and serves no older copy",
+      "oci:// add-on library: a pattern without a source repository",
+      "oci:// add-on library with no kind: a pattern without a source repository",
+      "oci:// add-on library: a pattern with a source repository",
+      "oci:// add-on library: an exact identity without a source repository",
+      "oci:// add-on library: an exact identity with a source repository",
+      "oci:// add-on library: a source repository without a required signature",
+      "oci:// add-on library: a source repository over http",
+      "oci:// add-on library: a source repository that is not a URL",
+      "oci:// add-on library: a source repository with a space around it",
+      "oci:// add-on library: both an identity and a pattern",
+      "oci:// add-on library: a pattern that is not anchored",
+      "https add-on library: a pattern without a source repository",
+      "https add-on library: a pattern with a source repository",
+      "backend library: a pattern without a source repository",
+      "backend library: a pattern with a source repository",
+      "backend library: a source repository without a required signature",
+      "names what was checked in the signer label",
+      "passes every signer field to the verifier",
+      "survives a save and a reload of the store",
+      "a library signed for the pinned repository",
+      "a library signed for another repository",
+      "a library signed with no repository in the certificate",
+      "an identity pattern with a source repository"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1375,7 +1412,8 @@
       "refuses names that are not plain lowercase ASCII",
       "refuses text that is not UTF-8 or holds a NUL",
       "refuses oversize files, deep paths and too many files",
-      "is for backend sources only: an add-on install refuses it",
+      "refuses a library pattern without a source repository before any registry request",
+      "verifies a pattern and a source repository, and records the repository as the signer",
       "installs the darwin/amd64 child of an index with four platforms",
       "installs the darwin/arm64 child of an index with four platforms",
       "installs the linux/amd64 child of an index with four platforms",
@@ -1583,7 +1621,10 @@
       "accepts the upgrades of many different add-ons at once and runs every one",
       "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
       "fails with a credential error and installs nothing without a rule",
-      "lists and installs with a rule, and sends no credential to the redirect target"
+      "lists and installs with a rule, and sends no credential to the redirect target",
+      "logs the start error as the cause and keeps the previous generation running",
+      "is one bounded line without credentials",
+      "carries the launch stage and reason in the log, bounded and without credentials"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1736,7 +1777,25 @@
           "sign",
           "too long",
           "is not waited for when the owner bound the listener",
-          "writes the startup object through a pipe with a deadline"
+          "writes the startup object through a pipe with a deadline",
+          "names a receipt on disk that differs from the journal",
+          "names a missing receipt",
+          "names a manifest that does not fit the host",
+          "names a missing executable and keeps the host path out",
+          "names a data directory that cannot be made",
+          "names a process that cannot start",
+          "gives the exit status and the last line of a process that exits at once",
+          "takes the last line of the standard output too",
+          "says so when the process wrote nothing",
+          "bounds a huge last line",
+          "keeps credentials and control characters out of the last line",
+          "names a process that never became ready, with the last output",
+          "names a process whose health answer does not repeat the registration",
+          "names a start that is refused before a process is made",
+          "is the text of any other error",
+          "names a process that never reports its endpoint",
+          "names a process that reports an endpoint that is not loopback",
+          "names a process that exits before it reports"
         ]
       },
       {
@@ -2116,7 +2175,10 @@
           "answers an unknown lifecycle operation with its own type, not as a denial",
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
-          "carries the credential-slot words and the translated resource nouns of an app"
+          "carries the credential-slot words and the translated resource nouns of an app",
+          "names the signer of a package from a signed source that is not official",
+          "classifies the lifecycle actions that run for minutes and keeps quick calls short",
+          "lets an owner answer an install after the short deadline and the server write deadline"
         ]
       },
       {
@@ -2305,7 +2367,36 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway",
+          "the owner is unavailable",
+          "the upgrade failed and the installed version is kept",
+          "the upgrade was interrupted",
+          "a refusal with no type",
+          "the installed version moved",
+          "the check failed",
+          "an incompatible release",
+          "the add-on needs a recovery",
+          "an integrity error",
+          "an upgrade conflict",
+          "an approval is required",
+          "the account is forbidden",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       },
       {
@@ -2509,7 +2600,11 @@
           "describes the project mounts in the prompt",
           "tells the model not to change the memory of a shared project, also through the shared folder",
           "describes a mount by the role it was asked for, never by its name",
-          "adds the notes of the view to the prompt"
+          "adds the notes of the view to the prompt",
+          "backend too old, from the cooldown",
+          "backend too old, from the load error",
+          "names the backend that is too old",
+          "keeps the backend through the transcript line"
         ]
       }
     ]
@@ -3322,7 +3417,36 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway",
+          "the owner is unavailable",
+          "the upgrade failed and the installed version is kept",
+          "the upgrade was interrupted",
+          "a refusal with no type",
+          "the installed version moved",
+          "the check failed",
+          "an incompatible release",
+          "the add-on needs a recovery",
+          "an integrity error",
+          "an upgrade conflict",
+          "an approval is required",
+          "the account is forbidden",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -3676,7 +3800,10 @@
           "answers an unknown lifecycle operation with its own type, not as a denial",
           "carries the jobs tool of an app, which the public apps API leaves out",
           "carries the provider slots and the model-search source of an app, which the public apps API leaves out",
-          "carries the credential-slot words and the translated resource nouns of an app"
+          "carries the credential-slot words and the translated resource nouns of an app",
+          "names the signer of a package from a signed source that is not official",
+          "classifies the lifecycle actions that run for minutes and keeps quick calls short",
+          "lets an owner answer an install after the short deadline and the server write deadline"
         ]
       },
       {
@@ -3865,7 +3992,36 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway",
+          "the owner is unavailable",
+          "the upgrade failed and the installed version is kept",
+          "the upgrade was interrupted",
+          "a refusal with no type",
+          "the installed version moved",
+          "the check failed",
+          "an incompatible release",
+          "the add-on needs a recovery",
+          "an integrity error",
+          "an upgrade conflict",
+          "an approval is required",
+          "the account is forbidden",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -3953,7 +4109,8 @@
           "writes the field names setup, setups and localizedSetup",
           "names the scopes of an OAuth login, and nothing of a token slot",
           "tells an administrator whether an add-on comes from the official library, and nobody else",
-          "names the jobs tool of an execution provider, and none for an add-on without one"
+          "names the jobs tool of an execution provider, and none for an add-on without one",
+          "shows the signer of an add-on only when the receipt says the signature was checked"
         ]
       },
       {
@@ -4106,7 +4263,10 @@
           "accepts the upgrades of many different add-ons at once and runs every one",
           "keeps refusing the same add-on twice, a reused operation ID with another body and a stale request while other add-ons queue",
           "fails with a credential error and installs nothing without a rule",
-          "lists and installs with a rule, and sends no credential to the redirect target"
+          "lists and installs with a rule, and sends no credential to the redirect target",
+          "logs the start error as the cause and keeps the previous generation running",
+          "is one bounded line without credentials",
+          "carries the launch stage and reason in the log, bounded and without credentials"
         ]
       },
       {
@@ -4230,7 +4390,25 @@
           "says why when the launcher refuses, and starts nothing",
           "refuses an executable that is not a Linux program",
           "stops an add-on in WSL that outlives its wsl.exe once the session ends",
-          "is refused on a host without WSL, with the reason"
+          "is refused on a host without WSL, with the reason",
+          "names a receipt on disk that differs from the journal",
+          "names a missing receipt",
+          "names a manifest that does not fit the host",
+          "names a missing executable and keeps the host path out",
+          "names a data directory that cannot be made",
+          "names a process that cannot start",
+          "gives the exit status and the last line of a process that exits at once",
+          "takes the last line of the standard output too",
+          "says so when the process wrote nothing",
+          "bounds a huge last line",
+          "keeps credentials and control characters out of the last line",
+          "names a process that never became ready, with the last output",
+          "names a process whose health answer does not repeat the registration",
+          "names a start that is refused before a process is made",
+          "is the text of any other error",
+          "names a process that never reports its endpoint",
+          "names a process that reports an endpoint that is not loopback",
+          "names a process that exits before it reports"
         ]
       },
       {
@@ -4419,7 +4597,36 @@
           "answers a refused item without stopping the others",
           "turns an approval the package outgrew into an install that needs a new review",
           "reports the download in bytes and percent",
-          "queues the upgrade on the operation queue, answers its job at once and runs it in the background"
+          "queues the upgrade on the operation queue, answers its job at once and runs it in the background",
+          "takes the actor of a run from the administrator's own browser session, and nothing else",
+          "upgrades an add-on item as the actor of the run, through the owner's queue",
+          "skips an add-on item of a run that did not come from the browser surface, and records nothing",
+          "skips an add-on item of a run whose actor has no add-on identity",
+          "fails an add-on item the owner refuses with the owner's type, as the explicit upgrade does",
+          "lets the upgrade route start a run of one item with the caller's operation, and refuses it while another run runs",
+          "lists the add-on updates, previews and starts an add-on item as the actor of the run",
+          "fails an add-on item with a typed reason when the owner cannot be reached",
+          "never sends the system actor of the automatic update through the gateway",
+          "the owner is unavailable",
+          "the upgrade failed and the installed version is kept",
+          "the upgrade was interrupted",
+          "a refusal with no type",
+          "the installed version moved",
+          "the check failed",
+          "an incompatible release",
+          "the add-on needs a recovery",
+          "an integrity error",
+          "an upgrade conflict",
+          "an approval is required",
+          "the account is forbidden",
+          "accepts the key in the cookie on a same-origin fetch in local-owner mode",
+          "refuses the same key in an Authorization header",
+          "refuses the cookie together with an Authorization header",
+          "refuses the cookie on a cross-site request",
+          "refuses the cookie without the confirm header",
+          "refuses the cookie on a tool call",
+          "refuses a cookie that is not a configured key",
+          "refuses the cookie in named-user mode"
         ]
       }
     ]
@@ -4525,7 +4732,8 @@
       "unit: addons: every locale words the source warning with the library name and no markup",
       "unit: addons: the dialog names the signer of a non-official entry and keeps the warning",
       "unit: addons: the catalog entry carries the signer only as text",
-      "unit: addons: every locale words the signed-by notice with the signer and no markup"
+      "unit: addons: every locale words the signed-by notice with the signer and no markup",
+      "unit: a library signer pattern can pin the source repository it was signed for"
     ]
   },
   "esm-ui": {
@@ -5361,7 +5569,17 @@
       "go: is never offered to a model, and a model cannot call it by name",
       "go: says an add-on without a jobs tool cannot run jobs, and sends nothing",
       "go: refuses invalid arguments before it sends anything, and a plain adapter never calls it",
-      "go: refuses an answer that is too large, malformed, or about another job"
+      "go: refuses an answer that is too large, malformed, or about another job",
+      "go: still offers the add-on that replaces bash when earlier add-ons fill the cap",
+      "go: reports what the cap left out, without changing what is offered",
+      "go: reports nothing when the cap cuts nothing",
+      "go: lets a switched-off add-on free room for the ones that were cut",
+      "go: logs a cut once when it starts or changes, naming add-on IDs and counts only",
+      "go: takes the cap from the limit that is set, read at each discovery",
+      "go: tells the chat consumer which tools are deferred, and no other consumer",
+      "go: lists the same tools with the same wire form whether or not they are deferred (MCP, agents, triggers)",
+      "go: never lists a page-only tool, deferred or not",
+      "go: still runs a deferred tool through the broker like any other"
     ]
   },
   "tables-admin": {
@@ -5893,6 +6111,7 @@
       "go: audits actual host calls and strict package contract for office",
       "go: audits actual host calls and strict package contract for pikvm",
       "go: audits actual host calls and strict package contract for pirateface-search",
+      "go: audits actual host calls and strict package contract for ollama-search",
       "go: audits actual host calls and strict package contract for ssh",
       "go: audits actual host calls and strict package contract for quantization",
       "go: audits actual host calls and strict package contract for sandbox",
@@ -5917,6 +6136,7 @@
       "go: has consistent package files for mail",
       "go: has consistent package files for pikvm",
       "go: has consistent package files for pirateface-search",
+      "go: has consistent package files for ollama-search",
       "go: has consistent package files for ssh",
       "go: changes the package digest when a translation changes, and the package still verifies",
       "go: refuses to build a package whose translation the host would refuse",

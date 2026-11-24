@@ -5,6 +5,7 @@ import { fitFor, gbNumber } from '../../../utils/modelLedger'
 import { contextLabel } from '../../../utils/placement'
 import { formatBytes } from '../../../utils/format'
 import Icon from '../../Icon'
+import { Tag } from '../../ui'
 
 function variantFeatureLabel(feature, t) {
   return t(`variants.features.${feature}`, { defaultValue: feature.toUpperCase() })
@@ -116,10 +117,10 @@ export default function VariantsTab({ view }) {
                         <span className="dk-table-sub">
                           {v.model !== v.quantization ? v.model : ''}
                           <span className="modelpage-variants__size"> · {v.memory_bytes ? formatBytes(v.memory_bytes) : t('variants.unknownSize')}</span>
-                          {v.model === autoBuild && <span className="dk-badge dk-badge--ok modelpage-inline-badge"><Icon name="check-circle" /> {t('variants.autoSelected')}</span>}
-                          {v.is_base && v.model !== autoBuild && <span className="dk-badge modelpage-inline-badge">{t('variants.base')}</span>}
+                          {v.model === autoBuild && <Tag tone="ok" icon="check-circle" className="modelpage-inline-badge">{t('variants.autoSelected')}</Tag>}
+                          {v.is_base && v.model !== autoBuild && <Tag className="modelpage-inline-badge">{t('variants.base')}</Tag>}
                           {(v.features || []).map(f => (
-                            <span key={f} className="dk-badge dk-badge--accent modelpage-inline-badge"><Icon name="bolt" /> {variantFeatureLabel(f, t)}</span>
+                            <Tag tone="accent" icon="bolt" className="modelpage-inline-badge" key={f}>{variantFeatureLabel(f, t)}</Tag>
                           ))}
                         </span>
                       </td>

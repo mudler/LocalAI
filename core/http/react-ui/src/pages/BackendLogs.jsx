@@ -12,6 +12,7 @@ import { useDistributedMode } from '../hooks/useDistributedMode'
 import Icon from '../components/Icon'
 import './operate.css'
 import { shouldReconnect } from '../utils/logSocket'
+import { Button, EmptyState } from '../components/ui'
 
 function wsUrl(path) {
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -246,12 +247,12 @@ function BackendLogsDetail({ modelId, embedded = false }) {
             <button type="button" className="dk-switch" role="switch" aria-checked={showDetails} aria-label={t('logs.times')} onClick={() => setShowDetails(v => !v)} />
             <span aria-hidden="true">{t('logs.times')}</span>
           </span>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={handleExport} disabled={filteredLines.length === 0}>
-            <Icon name="download" /> {t('logs.export')}
-          </button>
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={clear} disabled={lines.length === 0 || hidden > 0}>
-            <Icon name="trash" /> {t('logs.clear')}
-          </button>
+          <Button variant="ghost" size="sm" icon="download" onClick={handleExport} disabled={filteredLines.length === 0}>
+            {t('logs.export')}
+          </Button>
+          <Button variant="ghost" size="sm" icon="trash" onClick={clear} disabled={lines.length === 0 || hidden > 0}>
+            {t('logs.clear')}
+          </Button>
         </div>
       </div>
 
@@ -261,15 +262,14 @@ function BackendLogsDetail({ modelId, embedded = false }) {
           <LoadingSpinner size="lg" />
         </div>
       ) : nothingToShow ? (
-        <div className="dk-empty lg-empty">
-          <div className="dk-empty-icon"><Icon name="terminal" /></div>
-          <h2 className="dk-empty-title">{t('logs.emptyTitle')}</h2>
-          <p className="dk-empty-text">
-            {filter !== 'all'
+        <EmptyState
+          variant="first-run"
+          icon="terminal"
+          title={t('logs.emptyTitle')}
+          body={filter !== 'all'
               ? t('logs.emptyStream', { stream: filter })
               : text.trim() ? t('logs.emptyFilter') : t('logs.emptyBody')}
-          </p>
-        </div>
+        />
       ) : (
         <div
           ref={logContainerRef}
@@ -352,11 +352,12 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
   if (error) {
     return (
       <div className="page page--wide op-page">
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="warning" /></div>
-          <h2 className="dk-empty-title">Failed to resolve hosting nodes</h2>
-          <p className="dk-empty-text">{error.message}</p>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="warning"
+          title="Failed to resolve hosting nodes"
+          body={error.message}
+        />
       </div>
     )
   }
@@ -372,14 +373,13 @@ function DistributedBackendLogsResolver({ modelId, fromTimestamp }) {
   if (hits.length === 0) {
     return (
       <div className="page page--wide op-page">
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="terminal" /></div>
-          <h2 className="dk-empty-title">Model not loaded on any worker</h2>
-          <p className="dk-empty-text">
-            <span className="dk-mono">{modelId}</span> isn't currently loaded on any node in the cluster.
-            Check the <Link to="/app/nodes" className="dk-link">Nodes page</Link> to see which models are running where.
-          </p>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="terminal"
+          title="Model not loaded on any worker"
+          body={<><span className="dk-mono">{modelId}</span> isn't currently loaded on any node in the cluster.
+            Check the <Link to="/app/nodes" className="dk-link">Nodes page</Link> to see which models are running where.</>}
+        />
       </div>
     )
   }
@@ -451,15 +451,24 @@ function BackendLogsRouter({ modelId }) {
 // each a link to its log. Reached from a backend's "Logs" link.
 function LogProcessList() {
   const { t } = useTranslation('operate')
+  const { enabled: distributedMode, loading: probing, nodes } = useDistributedMode()
   const [processes, setProcesses] = useState(null)
   const [error, setError] = useState('')
   useEffect(() => {
+    if (probing) return undefined
     let cancelled = false
-    backendLogsApi.listModels()
-      .then(list => { if (!cancelled) setProcesses(Array.isArray(list) ? list : []) })
+    // A cluster frontend has no /api/backend-logs (inference runs on the
+    // workers), so the processes are the models the workers have loaded.
+    // One unreachable worker does not hide the others.
+    const list = distributedMode
+      ? Promise.all((nodes || []).map(node => nodesApi.getModels(node.id).catch(() => [])))
+        .then(perNode => [...new Set(perNode.flat().map(m => m?.model_name).filter(Boolean))])
+      : backendLogsApi.listModels()
+    list
+      .then(ids => { if (!cancelled) setProcesses(Array.isArray(ids) ? ids : []) })
       .catch(err => { if (!cancelled) { setError(err.message); setProcesses([]) } })
     return () => { cancelled = true }
-  }, [])
+  }, [probing, distributedMode, nodes])
 
   return (
     <div className="page page--wide op-page lg" data-testid="logs-processes">
@@ -470,13 +479,12 @@ function LogProcessList() {
       ) : error ? (
         <div className="op-error" role="alert"><Icon name="alert-circle" /> <span>{t('logs.listFailed', { message: error })}</span></div>
       ) : processes.length === 0 ? (
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="terminal" /></div>
-          <h2 className="dk-empty-title">{t('logs.noProcessesTitle')}</h2>
-          <p className="dk-empty-text">
-            {t('logs.noProcessesBody')} <Link to="/app/models?view=installed" className="dk-link">{t('logs.noProcessesLink')}</Link>.
-          </p>
-        </div>
+        <EmptyState
+          variant="first-run"
+          icon="terminal"
+          title={t('logs.noProcessesTitle')}
+          body={<>{t('logs.noProcessesBody')} <Link to="/app/models?view=installed" className="dk-link">{t('logs.noProcessesLink')}</Link>.</>}
+        />
       ) : (
         <ul className="dk-list lg-processes">
           {[...processes].sort((a, b) => a.localeCompare(b)).map(id => (

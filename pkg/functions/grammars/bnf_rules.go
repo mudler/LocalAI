@@ -11,7 +11,7 @@ var (
 		"number":  `("-"? ([0-9] | [1-9] [0-9]*)) ("." [0-9]+)? ([eE] [-+]? [0-9]+)? space`,
 		"integer": `("-"? ([0-9] | [1-9] [0-9]*)) space`,
 		"string": `"\"" (
-			[^"\\] |
+			[^"\\\x7F\x00-\x1F] |
 			"\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])
 		  )* "\"" space`,
 		// TODO: we shouldn't forbid \" and \\ or all unicode and have this branch here,

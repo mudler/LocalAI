@@ -45,8 +45,8 @@ settings. Remove the old options and start again.
 | Removed | Replacement |
 |---------|-------------|
 | `--p2p`, `$LOCALAI_P2P`, `$P2P` | `--p2p-mode connect` or `--p2p-mode share` (`$LOCALAI_P2P_MODE`) |
-| `--p2p-token`, `--p2ptoken`, `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$LOCALAI_TOKEN`, `$TOKEN`, setting `p2p_token` | An invite created under **Swarm**, **P2P** |
-| `--p2p-network-id`, `--peer-2-peer-network-id`, `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID`, setting `p2p_network_id` | An invite created under **Swarm**, **P2P** |
+| `--p2p-token`, `--p2ptoken`, `$LOCALAI_P2P_TOKEN`, `$P2P_TOKEN`, `$LOCALAI_TOKEN`, `$TOKEN`, setting `p2p_token` | An invite created under **Cluster**, **Sharing** |
+| `--p2p-network-id`, `--peer-2-peer-network-id`, `$LOCALAI_P2P_NETWORK_ID`, `$P2P_NETWORK_ID`, setting `p2p_network_id` | An invite created under **Cluster**, **Sharing** |
 | `--p2p-dht-interval`, `--p2p-otp-interval` and their variables | None. They applied only to the token. |
 | `--p2p-enable-limits`, `$LOCALAI_P2P_ENABLE_LIMITS` | None. Limits are set on the relay (`local-ai p2p relay`). |
 | `$LOCALAI_P2P_DISABLE_DHT` | The runtime setting `p2p_public_dht` |
@@ -77,7 +77,7 @@ invite for each machine.
 2. Start the server once. It makes its identity, a key file under the data
    path. Keep this file: every machine that pairs with the server knows it by
    this key.
-3. For each machine, make an invite under **Swarm**, **P2P**, **Share this
+3. For each machine, make an invite under **Cluster**, **Sharing**, **Share this
    instance**, and use the link on that machine. The kind of invite depends on
    what the machine does: a device, a remote, a worker or a model-split
    worker. See [Pair a device or a remote]({{% relref "/administration/p2p" %}}#pair-a-device-or-a-remote).
@@ -91,11 +91,11 @@ uses the other instances as remotes, and a federation group serves one model
 name from them.
 
 1. On each other instance, set `--p2p-mode share` and make an invite of kind
-   **Remote** under **Swarm**, **P2P**, **Share this instance**.
+   **Remote** under **Cluster**, **Sharing**, **Share this instance**.
 2. On the server that takes the requests, set `--p2p-mode connect` (or
    `share`) and add each instance under **Models**, **Remotes** with its
    invite link.
-3. Open **Swarm**, **P2P**, **Federation**, select **New group**, enter the
+3. Open **Cluster**, **Sharing**, **Federation**, select **New group**, enter the
    model name, pick the routing (least busy or round robin) and the members.
 
 Clients call the model name of the group as before. A member that fails is
@@ -108,7 +108,7 @@ Before, a worker started with the token and the server found it on the
 network. Now each worker pairs with the server with its own invite.
 
 1. On the server, set `--p2p-mode share`.
-2. Open **Nodes**, **Add a node**, choose **Model-split worker**, pick the
+2. Open **Workers**, press **Add worker**, choose **Model-split worker**, pick the
    engine (llama.cpp or MLX) and make an invite.
 3. On the worker, run the command that the page shows, for example:
 

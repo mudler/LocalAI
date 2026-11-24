@@ -2,16 +2,16 @@ import { useContext, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { HubHeaderContext } from './hubHeaderContext'
 
-// The hub draws one page header above its tabs: the hub name as the title.
-// The page under the tabs says what is true right now (the supporting line)
-// and what to do about it (the actions) by rendering <HubHeader>. The parts
-// are portalled into the header, so the page keeps its own state and handlers
-// and the header never re-renders the page.
+// The Administration layout (admin/AdminLayout) keeps a header zone above the
+// page. A page says what is true right now (the supporting line) and what to
+// do about it (the actions) by rendering <HubHeader>. The parts are portalled
+// into that zone, so the page keeps its own state and handlers and the layout
+// never re-renders the page.
 export function HubHeader({ supporting, actions }) {
   const slots = useContext(HubHeaderContext)
   const claim = slots?.claim
   const fills = Boolean(supporting)
-  // Tells the hub that a page fills the line, so its default line steps back.
+  // Tells the layout that a page fills the line.
   useLayoutEffect(() => {
     if (!claim || !fills) return undefined
     claim(1)

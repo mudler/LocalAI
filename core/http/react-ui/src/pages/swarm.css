@@ -199,6 +199,9 @@
 .sw-banner[data-level="error"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .sw-banner[data-level="warn"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .sw-banner strong { font-weight: var(--dk-weight-bold); }
+.sw-banner__routes { display: flex; flex-wrap: wrap; gap: var(--dk-space-1) var(--dk-space-4); margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; font-size: var(--dk-text-13); }
+.sw-banner__routes li { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+.sw-banner__label { color: inherit; }
 .sw-banner__more { margin-top: var(--dk-space-2) !important; }
 .sw-banner .dk-link { color: inherit; text-decoration: underline; }
 
@@ -230,8 +233,7 @@
 .sw-leave__item[data-kind="blocked"] .lai-icon { color: var(--dk-error-text); }
 .sw-leave__item[data-kind="reload"] .lai-icon { color: var(--dk-warn-text); }
 
-.sw-tabs { align-self: flex-start; max-width: 100%; overflow-x: auto; }
-.sw-tab__n { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
+.sw-tabs { align-self: flex-start; max-width: 100%; }
 .sw-rep { margin-left: var(--dk-space-2); }
 .sw-loglinks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--dk-space-2); }
 .sw-loglinks li { display: flex; align-items: baseline; gap: var(--dk-space-3); font-size: var(--dk-text-13); }
@@ -368,3 +370,9 @@
 .sw-invite__ready { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
 .sw-invite__warn { margin: 0; padding-left: var(--dk-space-4); font-size: var(--dk-text-13); color: var(--dk-warn-text); }
 .sw-note[data-level="error"] { color: var(--dk-error-text); }
+
+/* The view switch of the Placement page: links in the kit tab style. */
+.placement-tabs { margin-bottom: var(--sp-5); }
+.placement-tabs .dk-tab { text-decoration: none; }
+.placement-tabs .dk-tab[aria-current="page"] { color: var(--dk-text); }
+.placement-tabs .dk-tab[aria-current="page"]::after { transform: scaleX(1); }

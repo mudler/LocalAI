@@ -15,6 +15,7 @@ import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import { useUpdates } from '../contexts/UpdatesContext'
 import Icon from './Icon'
+import AdminSidebar from './admin/AdminSidebar'
 import './sidebar.css'
 import { NavInboxEntry } from './inbox/InboxTriggers'
 import AppsPinnedLinks from './AppsPinnedLinks'
@@ -29,6 +30,9 @@ import { useNavConfig, useNavLinks } from '../hooks/useNavConfig'
 import { sections as navSections, entryLabel } from '../utils/nav'
 import { useUiString } from './wellknown/Identity'
 import WorkspaceSlot from './slots/WorkspaceSlot'
+import { NavMark, NavLegend } from './viewas/parts'
+import { useViewAs } from '../contexts/ViewAsContext'
+import { followsNav } from '../utils/viewAsRoutes'
 import { readSidebarCollapsed, writeSidebarCollapsed, readSidebarSections, writeSidebarSections } from '../utils/sidebarState'
 
 
@@ -57,6 +61,8 @@ function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
   // before the synthetic click on mobile; mouseenter/focus cover desktop and
   // keyboard. The underlying import() is memoised so multiple triggers are free.
   const preload = () => preloadRoute(item.path)
+  // The marker of a page that follows "View as".
+  const { active: viewing } = useViewAs()
   return (
     <NavLink
       to={item.path}
@@ -72,6 +78,7 @@ function NavItem({ item, onClose, collapsed, active, badge, label: ownLabel }) {
     >
       <Icon name={item.icon} className="nav-icon" aria-hidden="true" />
       <span className="nav-label">{label}</span>
+      {viewing && followsNav(item.id) && <NavMark />}
       {badge}
     </NavLink>
   )
@@ -199,6 +206,9 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
   }
   // The one-time "New" label of the Pages entry, kept in user.json.
   const pagesNew = useNewLabel('pages', { enabled: hasPages, visiting: location.pathname.startsWith('/app/pages') })
+  // On an Administration page the administrator's sidebar replaces this list.
+  // Ownership ignores the gates so the swap does not wait for /api/features.
+  const adminMode = isAdmin && hubOwnsPath(operateHub, location.pathname)
   const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
   // nav.json: the order, names and hidden entries the user chose. With no file
@@ -257,6 +267,10 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
         className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}
         aria-label={t('primaryNavigation')}
       >
+        {adminMode ? (
+          <AdminSidebar auth={auth} collapsed={collapsed} onClose={onClose} closeBtnRef={closeBtnRef} />
+        ) : (
+          <>
         {/* Logo */}
         <div className="sidebar-header">
           <a href="./" className="sidebar-logo-link">
@@ -331,6 +345,7 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
           {!legacy && hasFeature('chats') && features.chats !== false && (
             <SidebarChats onClose={onClose} collapsed={collapsed} />
           )}
+          {!collapsed && <NavLegend />}
 
           {/* Collapsible sections */}
           {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {
@@ -387,9 +402,12 @@ export default function Sidebar({ isOpen, onClose, features: featuresProp }) {
           </nav>
         )}
 
+          </>
+        )}
+
         {/* The sidebarFooter slot of ui.json: page tiles and tool buttons.
             A collapsed sidebar has no room for them. */}
-        {!collapsed && <WorkspaceSlot name="sidebarFooter" />}
+        {!collapsed && !adminMode && <WorkspaceSlot name="sidebarFooter" />}
 
         {/* Footer */}
         <div className="sidebar-footer">

@@ -1,12 +1,13 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockOperate } from './operate-fixtures.js'
 import { ADMIN, sessionFor, stubAddonRoutes } from './addons-fixtures.js'
-import { addonRecord, mockUpdates, snapshotOf, updateAvailable } from './updates-fixtures.js'
+import { addonRecord, mockUpdateRuns, mockUpdates, runItem, runOf, snapshotOf, updateAvailable } from './updates-fixtures.js'
 
-// Add-on upgrades of the Updates page go on the shared operation queue: all of
-// them are submitted at the click, whatever the page does next, and each one is
-// a row that says it waits and can be cancelled by its job. The API is stubbed;
-// the page, the upgrade store and the rules are the real ones.
+// Add-on upgrades go on the shared operation queue. The Updates page starts
+// them as an update run that the server owns, so the browser never posts an
+// add-on upgrade itself; an upgrade the server lists (another tab, an earlier
+// run) is a row that says it waits and can be cancelled by its job. The API is
+// stubbed; the page, the upgrade store and the rules are the real ones.
 
 const rowOf = (page, name) => page.locator(`[data-testid="update-row"][data-name="${name}"]`)
 const IDS = ['notes', 'tables', 'mail']
@@ -55,33 +56,20 @@ async function setup(page, { respondAfterMs = 0 } = {}) {
 }
 
 test.describe('Updates: add-on upgrades on the shared queue', () => {
-  test('Update ready sends every add-on upgrade at the click, even when the page is left at once', async ({ page }) => {
-    const { posts } = await setup(page, { respondAfterMs: 400 })
+  test('Update ready starts one run with every add-on and never posts an add-on upgrade from the browser', async ({ page }) => {
+    const { posts } = await setup(page)
+    const runs = await mockUpdateRuns(page, { startReply: () => runOf(IDS.map(id => runItem(`addon:${id}`, 'queued', { queued_reason: 'one_addon_at_a_time' }))) })
     await page.goto('/app/updates')
     const button = page.getByTestId('updates-update-ready')
     await expect(button).toContainText('Update 3 ready')
     await button.click()
-    // Leave the page right after the click: the Updates page unmounts.
-    await page.getByRole('link', { name: 'Home' }).first().click()
+    await page.getByTestId('update-review-start').click()
+    await expect.poll(() => runs.starts.length).toBe(1)
+    expect(runs.starts[0].items.map(i => i.name).sort()).toEqual(['mail', 'notes', 'tables'])
+    // Leaving the page does not stop the run: it is the server's.
+    await page.getByRole('link', { name: 'Back to LocalAI' }).click()
     await expect(page).not.toHaveURL(/\/app\/updates/)
-    await expect.poll(() => posts.map(p => p.id).sort(), { timeout: 10_000 }).toEqual(['mail', 'notes', 'tables'])
-    // Each has its own operation identity, named in the confirm header.
-    expect(new Set(posts.map(p => p.body.operationId)).size).toBe(3)
-    for (const p of posts) expect(p.confirm).toBe(p.body.operationId)
-  })
-
-  test('coming back shows each upgrade once, queued, with an empty bar', async ({ page }) => {
-    await setup(page)
-    await page.goto('/app/updates')
-    await page.getByTestId('updates-update-ready').click()
-    await page.getByRole('link', { name: 'Home' }).first().click()
-    await page.goto('/app/updates')
-    for (const id of IDS) {
-      const row = rowOf(page, TITLES[id])
-      await expect(row).toHaveCount(1)
-      await expect(row).toContainText('Queued, waiting for a free slot')
-      await expect(row.getByRole('progressbar')).toHaveAttribute('data-queued', '')
-    }
+    expect(posts).toEqual([])
   })
 
   test('a queued add-on upgrade that only the server lists shows, and Cancel calls the cancel route of its job', async ({ page }) => {
@@ -96,15 +84,4 @@ test.describe('Updates: add-on upgrades on the shared queue', () => {
     await expect.poll(() => cancels).toEqual(['job-notes'])
   })
 
-  test('Cancel on a row started here cancels the job on the server, not only the page', async ({ page }) => {
-    const { cancels } = await setup(page)
-    await page.goto('/app/updates')
-    await rowOf(page, 'Notes sync').getByRole('button', { name: /^Update/ }).click()
-    // The confirmation of one add-on upgrade.
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Update', exact: true }).click()
-    const row = rowOf(page, 'Notes sync')
-    await expect(row).toContainText('Queued, waiting for a free slot')
-    await row.getByRole('button', { name: /^Cancel/ }).click()
-    await expect.poll(() => cancels).toEqual(['job-notes'])
-  })
 })

@@ -11,6 +11,7 @@ import { cssVars } from '../utils/modelLedger'
 import Icon from '../components/Icon'
 import LoadingSpinner from '../components/LoadingSpinner'
 import './traffic.css'
+import { Button, EmptyState } from '../components/ui'
 
 // A body stays closed until someone opens it: it can hold prompts and personal
 // data. Opening it is a choice made on this page and is not remembered.
@@ -23,9 +24,9 @@ function Body({ id, title, body, truncated, bytes, t }) {
       <div className="tf-block__head">
         <h3 className="tf-h3">{title} <span className="tf-sub dk-mono">{size > 0 ? bytesText(bytes || size) : t('trace.noBody')}</span></h3>
         {size > 0 && (
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" aria-expanded={shown} onClick={() => setShown(v => !v)}>
+          <Button variant="secondary" size="sm" aria-expanded={shown} onClick={() => setShown(v => !v)}>
             <Icon name={shown ? 'eye-off' : 'eye'} /> {shown ? t('trace.hide') : t('trace.reveal')}
-          </button>
+          </Button>
         )}
       </div>
       {size === 0
@@ -86,12 +87,14 @@ export default function TracePage() {
     return (
       <div className="page page--wide tf-page" data-testid="trace-page">
         {back}
-        <div className="dk-empty tf-empty" data-testid="trace-missing">
-          <Icon name="waveform" className="dk-empty-icon" />
-          <h2 className="dk-empty-title">{state.missing ? t('trace.missingTitle') : t('trace.errorTitle')}</h2>
-          <p className="dk-empty-text">{state.missing ? t('trace.missingText') : state.error}</p>
-          <div className="tf-empty__acts"><Link className="dk-btn dk-btn--primary" to="/app/traces">{t('trace.back')}</Link></div>
-        </div>
+        <EmptyState
+          variant="unavailable"
+          icon="waveform"
+          title={state.missing ? t('trace.missingTitle') : t('trace.errorTitle')}
+          body={state.missing ? t('trace.missingText') : state.error}
+          testId="trace-missing"
+          actions={<Button variant="primary" to="/app/traces">{t('trace.back')}</Button>}
+        />
       </div>
     )
   }
@@ -187,10 +190,10 @@ export default function TracePage() {
 
       {model && (
         <div className="tf-links">
-          <a className="dk-btn dk-btn--secondary" href={`/app/backend-logs/${encodeURIComponent(model)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}>
-            <Icon name="terminal" /> {t('trace.logs')}
-          </a>
-          <Link className="dk-btn dk-btn--secondary" to="/app/traffic/models"><Icon name="cube" /> {t('trace.moreModel', { model })}</Link>
+          <Button variant="secondary" icon="terminal" href={`/app/backend-logs/${encodeURIComponent(model)}${trace.timestamp ? `?from=${encodeURIComponent(trace.timestamp)}` : ''}`}>
+            {t('trace.logs')}
+          </Button>
+          <Button variant="secondary" icon="cube" to="/app/traffic/models">{t('trace.moreModel', { model })}</Button>
         </div>
       )}
     </div>

@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
-  Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
-  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch,
+  Button, Callout, EmptyState, ListPicker, Notice, LoadError, Page, PageHeader, PaneLayout, Segmented, SidePane,
+  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, Slider, StatusChip, STATUS, Switch, TabPanel, Tabs, Tag,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
 import SideSheet from '../components/SideSheet'
@@ -107,6 +107,58 @@ function Chips() {
   )
 }
 
+function Tags() {
+  return (
+    <Section id="tags" title="Tag" note="A label on an item that is not a state: a kind, a format, a capability. A state is a status chip.">
+      <div className="ui-cat__cell ui-tags" data-testid="tags">
+        <Tag>GGUF</Tag>
+        <Tag tone="accent">alias</Tag>
+        <Tag tone="ok" icon="check">Fits</Tag>
+        <Tag tone="warn">Dev</Tag>
+        <Tag tone="error">Broken</Tag>
+        <Tag mono>v1.4.2</Tag>
+      </div>
+    </Section>
+  )
+}
+
+function TabsDemo() {
+  const [tab, setTab] = useState('overview')
+  const [source, setSource] = useState('file')
+  return (
+    <Section id="tabs" title="Tabs" note="Views of one region, one at a time. One tab stop; arrow keys, Home and End move the selection. The pill variant is a view switch in a header or a small card.">
+      <Tabs
+        label="Sample views"
+        idPrefix="cat-tabs"
+        value={tab}
+        onChange={setTab}
+        testId="cat-tabs"
+        itemTestId="cat-tab-"
+        items={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'files', label: 'Files', icon: 'folder', count: 4 },
+          { id: 'locked', label: 'Locked', disabled: true },
+          { id: 'access', label: 'Access', count: 2, countTone: 'warn', countLabel: '2 waiting' },
+        ]}
+      />
+      <TabPanel idPrefix="cat-tabs" value={tab} tabIndex={0} testId="cat-tabpanel">Panel: {tab}</TabPanel>
+      <div className="ui-cat__stack">
+        <Tabs
+          variant="pill"
+          label="Source"
+          idPrefix="cat-pill"
+          panelId="cat-pill-panel"
+          value={source}
+          onChange={setSource}
+          testId="cat-tabs-pill"
+          items={[{ id: 'file', label: 'Upload', icon: 'upload' }, { id: 'live', label: 'Record', icon: 'mic' }]}
+        />
+        <TabPanel idPrefix="cat-pill" panelId="cat-pill-panel" value={source}>Source: {source}</TabPanel>
+      </div>
+    </Section>
+  )
+}
+
 function Switches() {
   const [on, setOn] = useState(true)
   return (
@@ -144,6 +196,62 @@ function FormControls() {
           <input type="checkbox" className="dk-check" checked={checked} onChange={e => setChecked(e.target.checked)} />
           <span>Keep the run history</span>
         </label>
+      </div>
+    </Section>
+  )
+}
+
+const PICK_BACKENDS = [
+  { id: 'llama-cpp', label: 'llama-cpp', mono: true, group: 'Text', secondary: 'GGUF', tags: [{ label: 'default', kind: 'alias' }] },
+  { id: 'vllm', label: 'vllm', mono: true, group: 'Text', secondary: 'CUDA' },
+  { id: 'mlx', label: 'mlx', mono: true, group: 'Text', disabled: true, tags: ['not on this host'] },
+  { id: 'whisper', label: 'whisper', mono: true, group: 'Audio', description: 'Speech to text, many languages' },
+  { id: 'piper', label: 'piper', mono: true, group: 'Audio', description: 'Text to speech, fast on a CPU' },
+  { id: 'kokoro', label: 'kokoro', mono: true, group: 'Audio', description: 'Text to speech, natural voices' },
+  { id: 'stablediffusion', label: 'stablediffusion', mono: true, group: 'Image' },
+  { id: 'diffusers', label: 'diffusers', mono: true, group: 'Image' },
+]
+const PICK_TOOLS = [
+  { id: 'search', label: 'Search', icon: 'globe', dot: true },
+  { id: 'files', label: 'Files', icon: 'folder', dot: true },
+  { id: 'memory', label: 'Memory', icon: 'brain', dot: false },
+]
+
+function Pickers() {
+  const [backend, setBackend] = useState('')
+  const [tools, setTools] = useState(['search'])
+  const [mode, setMode] = useState('read')
+  return (
+    <Section id="picker" title="ListPicker" note="A choice from a long list, rows with more than text, several picks, or a chip in a toolbar. A filter box from 8 rows, groups, and the keyboard: arrows, Home, End, Enter, Escape. For a short fixed list in a form, use the native select.">
+      <div className="ui-cat__stack ui-cat__form">
+        <div className="dk-field">
+          <span className="dk-label" id="cat-pick-backend-label">Backend</span>
+          <ListPicker
+            variant="field" icon="server" labelledBy="cat-pick-backend-label" testId="cat-pick-backend"
+            items={PICK_BACKENDS} value={backend} onChange={setBackend}
+            noneLabel="Automatic" placeholder="Automatic" filterLabel="Filter backends" noMatchText="No backend matches."
+          />
+        </div>
+        <div className="ui-cat__cell">
+          <ListPicker
+            icon="wrench" ariaLabel="Tools" testId="cat-pick-tools" multiple
+            items={PICK_TOOLS} value={tools} onChange={setTools} placeholder="No tools"
+          />
+          <ListPicker
+            ariaLabel="Empty list" testId="cat-pick-empty" items={[]} value="" placeholder="Nothing yet" openable
+            emptyText="No backends are installed."
+          />
+          <ListPicker ariaLabel="Disabled" testId="cat-pick-disabled" items={PICK_TOOLS} value="search" disabled />
+        </div>
+        <div className="ui-cat__cell">
+          <span className="dk-select-wrap dk-select-wrap--sm">
+            <select className="dk-select" aria-label="Access" value={mode} onChange={e => setMode(e.target.value)} data-testid="cat-select-sm">
+              <option value="read">Can read</option>
+              <option value="write">Can edit</option>
+            </select>
+          </span>
+          <Button size="sm">A sm button</Button>
+        </div>
       </div>
     </Section>
   )
@@ -452,9 +560,12 @@ export default function UiCatalog() {
       <Buttons />
       <Header />
       <Chips />
+      <Tags />
       <Switches />
       <FormControls />
+      <Pickers />
       <Segments />
+      <TabsDemo />
       <Sliders />
       <Callouts />
       <Notices />

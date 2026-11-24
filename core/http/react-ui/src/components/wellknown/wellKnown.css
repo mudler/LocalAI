@@ -203,9 +203,7 @@
 /* Account: the privacy note of the You card, the Invalid badge, the Versions
    popover and the Help and suggestions card. */
 .wk-note--info { background: var(--color-bg-tertiary); color: var(--color-text-secondary); font-size: var(--text-xs); margin: 0; }
-.wk-badge { padding: 1px var(--sp-2); border-radius: var(--r-sm); font-size: var(--text-xs); font-weight: var(--font-weight-semibold); }
-.wk-badge--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
-.wk-meta .wk-badge { margin-left: auto; }
+.wk-meta .ui-tag { margin-left: auto; }
 
 .wk-versions { display: flex; flex-direction: column; gap: 8px; width: min(340px, calc(100vw - 32px)); padding: 12px; }
 .wk-versions__title { margin: 0; font-size: var(--text-sm); font-weight: var(--font-weight-semibold); }
@@ -325,6 +323,8 @@
    theme. */
 .bg-layer { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .bg-layer__art { position: absolute; }
+.bg-layer__video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bg-layer__video--contain { object-fit: contain; }
 .bg-layer__scrim { position: absolute; inset: 0; background: var(--dk-canvas); }
 
 /* The picture of the assistant (persona.json avatar), or its first letter. */

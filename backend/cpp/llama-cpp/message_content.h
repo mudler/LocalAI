@@ -38,8 +38,8 @@ inline nlohmann::ordered_json normalize_message_content(const std::string& role,
                 content_val = parsed.dump();
             }
             // arrays / scalars: keep the original plain-text string as-is
-        } catch (const nlohmann::ordered_json::parse_error&) {
-            // Not JSON, already the plain string
+        } catch (const nlohmann::ordered_json::exception&) {
+            // Not valid JSON (or e.g. out_of_range on overflowing numeric prefixes like bare SHA digests): keep the plain string
         }
     }
     return content_val;
@@ -186,8 +186,8 @@ inline nlohmann::ordered_json build_reconstructed_message(const ReconstructedMes
                 (msg_json["content"].is_string() && msg_json["content"].get<std::string>().empty())) {
                 msg_json["content"] = " ";
             }
-        } catch (const nlohmann::ordered_json::parse_error&) {
-            // Malformed tool_calls JSON: leave content as-is (prior behavior).
+        } catch (const nlohmann::ordered_json::exception&) {
+            // Malformed or out-of-range tool_calls JSON: leave content as-is (prior behavior).
         }
     }
 

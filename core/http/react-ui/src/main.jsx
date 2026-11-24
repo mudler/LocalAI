@@ -20,9 +20,23 @@ import './theme.css'
 // The kit's rules sit between the tokens and the app's own rules: a page's
 // class on the same element still wins over a kit component's base rule.
 import '../packages/ui-kit/css/kit.css'
+import '../packages/ui-kit/css/tabs.css'
+import '../packages/ui-kit/css/tag.css'
+// ListPicker's menu and chip, also drawn by pickers that do not use it.
+import './components/ui/picker.css'
 import './App.css'
 import './components/remotes/remotes.css'
 import { ShellFallback } from './components/RouteFallback'
+import i18n from 'i18next'
+import { installViewAsFetch, viewAsStore } from './utils/viewAsStore'
+import { basePath } from './utils/basePath'
+
+// "View as" adds user_id to the routes that follow it and stops writes in
+// read-only mode, for every fetch of the app (see utils/viewAsStore.js).
+installViewAsFetch(viewAsStore, {
+  base: basePath,
+  message: (name) => i18n.t('viewas:write.blocked', { name }),
+})
 
 // The first paint is the app shell with placeholders, not a blank window
 // with a spinner, while the translations and the session load.

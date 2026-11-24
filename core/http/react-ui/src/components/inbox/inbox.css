@@ -23,7 +23,8 @@
   display: flex;
   flex-direction: column;
   width: min(400px, calc(100vw - var(--sp-8)));
-  max-height: min(600px, calc(100dvh - var(--sp-4)));
+  /* The panel grows up from its entry, so the room above the entry limits it. */
+  max-height: min(600px, calc(100dvh - var(--nx-bottom, var(--sp-2)) - var(--sp-2)));
   overflow: hidden;
   border: 1px solid var(--dk-edge);
   border-radius: var(--r-lg);
@@ -317,3 +318,11 @@
     .nx-panel { animation: dk-sheet-up-in var(--dur-slow) var(--ease-out) both; }
   }
 }
+
+/* An update run: the warn tile of a summary that needs attention, the bar of
+   the live item, the words that say where the row leads, and the way to the
+   Updates page in the footer. */
+.nx-tile--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
+.nx-item__bar { margin: var(--sp-1) 0; }
+.nx-item__run { font-weight: var(--font-weight-semibold); color: var(--dk-text); }
+.nx-jump { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); width: 100%; }

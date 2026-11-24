@@ -65,6 +65,7 @@ var _ = Describe("The advisory lock keys", func() {
 			"KeyOpenResponsesSweep":  KeyOpenResponsesSweep,
 			"KeyRemotesRefresh":      KeyRemotesRefresh,
 			"KeyModelUpdateCheck":    KeyModelUpdateCheck,
+			"KeyUpgradeRuns":         KeyUpgradeRuns,
 		}
 		seen := map[int64]string{}
 		for name, key := range keys {

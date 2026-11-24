@@ -15,11 +15,18 @@ import (
 // DraftTools lists what a new chat on model, with the saved agent agentID when
 // it is set, could use, every switch in its default state. The agent's model,
 // when it has one, replaces model, as Create does.
-func (s *Service) DraftTools(ctx context.Context, user, model, agentID string) (ToolsPanel, error) {
+func (s *Service) DraftTools(ctx context.Context, user, model, agentID string, sw Switches) (ToolsPanel, error) {
 	rec, err := s.draftRecord(ctx, user, model, agentID)
 	if err != nil {
 		return ToolsPanel{}, err
 	}
+	// The add-ons the person switched off in the composer free room under the
+	// cap on add-on tools, so the panel answers for the chat that would start.
+	clean, err := s.cleanSwitches(Switches{AddonsOff: sw.AddonsOff})
+	if err != nil {
+		return ToolsPanel{}, err
+	}
+	rec.AddonsOff = orNil(clean.AddonsOff)
 	// The add-on gate reads the execution status. A draft has no chat, so the
 	// scope has no conversation and the status says "draft".
 	ctx, closeScope := s.executionScope(ctx, principal(user), rec.ID)
@@ -48,7 +55,7 @@ func (s *Service) DraftAddons(ctx context.Context, user, model, agentID string, 
 	rec.Connections = s.knownConnections(ctx, user, sw.Connections)
 	ctx, closeScope := s.executionScope(ctx, principal(user), rec.ID)
 	defer closeScope()
-	list, err := s.addonsFor(ctx, user, rec)
+	list, _, err := s.addonsFor(ctx, user, rec, s.scopeOf(ctx, rec))
 	if err != nil {
 		return nil, Commands{}, err
 	}

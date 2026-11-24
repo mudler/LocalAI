@@ -835,6 +835,13 @@ definitions:
         type: string
       driftNodes:
         type: integer
+      heldBack:
+        description: |-
+          HeldBack is true when the automatic update does not take this
+          release: the same release already rolled back, or failed because it
+          does not work here, in a recent upgrade run. A manual update still
+          can. It goes away when the gallery lists another release.
+        type: boolean
       id:
         type: string
       installedDigest:
@@ -1026,13 +1033,23 @@ definitions:
       identityRegex:
         description: |-
           IdentityRegex is an anchored pattern for the signer identity, used
-          instead of Identity so that master and tagged builds both verify. Only a
-          library that serves backends may use it; an add-on install refuses it.
+          instead of Identity so that master and tagged builds both verify. A
+          backend install accepts it alone. An add-on install and an oci:// add-on
+          library accept it only with SourceRepository: a shared signing workflow
+          signs for every repository that calls it, so the pattern alone would
+          admit a signature made for any of them.
         type: string
       issuer:
         type: string
       requireSignature:
         type: boolean
+      sourceRepository:
+        description: |-
+          SourceRepository pins the repository the signature was made for: an
+          https URL compared exactly with the source-repository extension of the
+          signing certificate, such as https://github.com/<owner>/<repo>. It is
+          valid only when a signature is required.
+        type: string
     type: object
   cluster.CarrierWeights:
     properties:
@@ -1580,6 +1597,16 @@ definitions:
           still waits for a confirmation. Only a tool with Approval "always" may
           set it.
         type: boolean
+      deferred:
+        description: |-
+          Deferred says that a chat offers this tool through the tool search
+          (tool_search, tool_describe and tool_call) instead of as a typed tool, so
+          its schema is not sent on every turn. It changes the model's prompt only:
+          the tool keeps its name, its kind, its role check and its approval, and
+          pages, MCP clients, agents and triggers list it as before. It is refused
+          on a UIOnly tool, which no model is offered, and on a tool that Shadows a
+          built-in one, which must keep its name.
+        type: boolean
       description:
         description: Description is plain text for the model.
         type: string
@@ -2032,6 +2059,11 @@ definitions:
         type: string
       error:
         type: string
+      error_key:
+        description: |-
+          ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade
+          on this node (status error or rolled_back).
+        type: string
       file_name:
         type: string
       node_id:
@@ -2062,6 +2094,13 @@ definitions:
         type: boolean
       downloaded_size:
         type: string
+      error_key:
+        description: |-
+          ErrorKey is the stable code of a failed backend upgrade (the string
+          of a gallery.UpgradeFailureCode), next to the text of the failure. It
+          is empty for every other outcome. Readers branch on it, never on the
+          message.
+        type: string
       file_name:
         type: string
       file_size:
@@ -2086,8 +2125,22 @@ definitions:
         type: boolean
       progress:
         type: number
+      rolled_back:
+        description: |-
+          RolledBack is true for a failed backend upgrade (or forced install)
+          whose new build did not start and whose previous build was put back:
+          the backend still runs the version it ran before. On a cluster it is
+          true when every node that failed rolled back.
+        type: boolean
       total_bytes:
         type: integer
+      unconfirmed:
+        description: |-
+          Unconfirmed is true for a backend upgrade whose outcome is not known:
+          a worker did not reply (a timeout, or a link that broke after it took
+          the request). It is neither a failure nor a success; a later check of
+          the node decides.
+        type: boolean
       upgrade:
         description: |-
           Upgrade is true if the operation re-installs a backend to move it to a
@@ -3354,6 +3407,11 @@ definitions:
           number from 0 to 1000. A key that is absent stays as it is, null puts the
           default back, and a key that is not one of the three is refused.
         type: object
+      join_auto_approve:
+        description: |-
+          JoinAutoApprove sets the default of the auto-approve choice of a new join
+          token. null puts the default (off) back.
+        type: boolean
       nats_url:
         type: string
       nats_worker_url:
@@ -3379,6 +3437,12 @@ definitions:
         - $ref: '#/definitions/cluster.CarrierWeights'
         description: CarrierWeightsDefault are the weights that apply when none is
           stored.
+      join_auto_approve:
+        description: |-
+          JoinAutoApprove is the default of the auto-approve choice of a new join
+          token: when true, a worker that registers with such a token joins with no
+          admin approval. Off unless set.
+        type: boolean
       nats_url:
         description: NATSURL is the NATS address that the frontends use.
         type: string
@@ -3526,6 +3590,61 @@ definitions:
           $ref: '#/definitions/gallery.Variant'
         type: array
     type: object
+  localai.JoinCommands:
+    properties:
+      docker:
+        description: Docker runs the worker as one container.
+        type: string
+      docker_compose:
+        description: DockerCompose is a compose file with one worker service.
+        type: string
+      install_script:
+        description: InstallScript installs the binary and a service on a Linux or
+          macOS host.
+        type: string
+      kubernetes:
+        description: Kubernetes applies a Secret and a StatefulSet.
+        type: string
+      manual:
+        description: Manual starts a worker from a binary that is already installed.
+        type: string
+      windows:
+        description: Windows installs the binary and a service on a Windows host (PowerShell).
+        type: string
+    type: object
+  localai.JoinTokenView:
+    properties:
+      auto_approve:
+        type: boolean
+      created_at:
+        type: string
+      created_by:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      revoked_at:
+        type: string
+      revoked_by:
+        type: string
+      routes:
+        description: nats, websocket; empty means any
+        items:
+          type: string
+        type: array
+      state:
+        description: unused, partly_used, used_up, expired or revoked
+        type: string
+      uses:
+        type: integer
+    type: object
   localai.LibrarySourcesResponse:
     properties:
       officialLibraries:
@@ -3534,6 +3653,71 @@ definitions:
         items:
           $ref: '#/definitions/library.Info'
         type: array
+    type: object
+  localai.MintJoinTokenRequest:
+    properties:
+      auto_approve:
+        description: AutoApprove makes the worker that uses the token join with no
+          admin step.
+        type: boolean
+      label:
+        description: Label is a note for the list, for example the name of the machine.
+        type: string
+      routes:
+        description: 'Routes limits the connections of the worker: nats, websocket.
+          Empty allows any.'
+        items:
+          type: string
+        type: array
+      ttl_seconds:
+        description: TTLSeconds is how long the token is good for, up to 86400 (24
+          hours).
+        type: integer
+      uses:
+        description: |-
+          Uses is how many workers may register with it, up to 100. Use more than
+          one for Kubernetes and Compose, where several replicas start together.
+        type: integer
+    type: object
+  localai.MintJoinTokenResponse:
+    properties:
+      auto_approve:
+        type: boolean
+      commands:
+        allOf:
+        - $ref: '#/definitions/localai.JoinCommands'
+        description: Commands are ready to copy, one for each way to run a worker.
+      created_at:
+        type: string
+      created_by:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      last_used_at:
+        type: string
+      max_uses:
+        type: integer
+      revoked_at:
+        type: string
+      revoked_by:
+        type: string
+      routes:
+        description: nats, websocket; empty means any
+        items:
+          type: string
+        type: array
+      state:
+        description: unused, partly_used, used_up, expired or revoked
+        type: string
+      token:
+        description: Token is the plain token. It is shown once.
+        type: string
+      uses:
+        type: integer
     type: object
   localai.ModelExportsStatus:
     properties:
@@ -3563,6 +3747,19 @@ definitions:
         type: integer
       success:
         type: boolean
+    type: object
+  localai.ModelUpgradeRunResponse:
+    properties:
+      id:
+        type: string
+      jobID:
+        type: string
+      message:
+        type: string
+      run:
+        $ref: '#/definitions/upgraderun.Run'
+      status_url:
+        type: string
     type: object
   localai.MotionSessionInfo:
     properties:
@@ -3825,6 +4022,109 @@ definitions:
           the cap.
         type: string
     type: object
+  localai.UpgradeRunError:
+    properties:
+      code:
+        example: run_active
+        type: string
+      key:
+        example: gallery:kokoro
+        type: string
+      message:
+        example: another upgrade run is running
+        type: string
+    type: object
+  localai.UpgradeRunList:
+    properties:
+      runs:
+        items:
+          $ref: '#/definitions/upgraderun.Run'
+        type: array
+    type: object
+  localai.UpgradeRunPreview:
+    properties:
+      active_run_id:
+        description: ActiveRunID is the run that runs now; a start is refused while
+          it runs.
+        type: string
+      complete:
+        description: |-
+          Complete is false when a source did not answer, so items may be
+          missing.
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/localai.UpgradeRunPreviewItem'
+        type: array
+      order:
+        description: Order is the keys in run order.
+        items:
+          type: string
+        type: array
+    type: object
+  localai.UpgradeRunPreviewItem:
+    properties:
+      default_selected:
+        type: boolean
+      expected_to:
+        description: |-
+          ExpectedTo is what a start request should send back as expected_to:
+          the version, or for an add-on the digest of the candidate.
+        type: string
+      from:
+        description: From and To are the versions for display.
+        type: string
+      key:
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+      order:
+        description: Order is the position in the run, from 0.
+        type: integer
+      reason:
+        type: string
+      risk:
+        items:
+          $ref: '#/definitions/localai.UpgradeRunRisk'
+        type: array
+      risks:
+        description: Risks are what the update does beyond replacing the item.
+        items:
+          type: string
+        type: array
+      selected:
+        description: 'Selected is the default selection: backends and add-ons, not
+          models.'
+        type: boolean
+      stage:
+        type: integer
+      startable:
+        type: boolean
+      title:
+        description: Title is the name a person knows the item by (an add-on's title).
+        type: string
+      to:
+        type: string
+    type: object
+  localai.UpgradeRunPreviewRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.ItemRef'
+        type: array
+    type: object
+  localai.UpgradeRunRisk:
+    properties:
+      code:
+        example: stops_models
+        type: string
+      params:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
   localai.VoiceProfileListResponse:
     properties:
       data:
@@ -4016,7 +4316,10 @@ definitions:
   modelsearch.RepoFile:
     properties:
       kind:
-        description: Kind is "gguf", "mmproj" or "weights" (safetensors, bin, pt).
+        description: |-
+          Kind is "gguf", "mmproj", "drafter" (a speculative-decoding sidecar such
+          as dspark-*.gguf, never a variant of its own) or "weights" (safetensors,
+          bin, pt).
         type: string
       path:
         type: string
@@ -4573,6 +4876,12 @@ definitions:
         items:
           type: string
         type: array
+      omit_lan_addrs:
+        description: |-
+          OmitLANAddrs keeps the private addresses of this server out of the
+          link. By default the link carries them, so a device on the same network
+          can redeem it with no relay and no multicast discovery.
+        type: boolean
       relays:
         description: Relays is "auto", "none" or a list of relay IDs.
         example: auto
@@ -9159,6 +9468,9 @@ definitions:
     properties:
       after:
         type: integer
+      backend:
+        description: Backend names the backend of a model_backend_outdated failure.
+        type: string
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
@@ -9312,6 +9624,11 @@ definitions:
     type: object
   schema.ChatsFailure:
     properties:
+      backend:
+        description: |-
+          Backend is the backend the cause is about, when it is known (code
+          model_backend_outdated).
+        type: string
       code:
         description: Code names the cause, such as model_not_found, upstream, timeout
           or agent.
@@ -10548,6 +10865,12 @@ definitions:
         type: string
       name:
         type: string
+      owner:
+        description: |-
+          Owner is the id of the user that owns the project. Every response
+          carries it: the caller's own id, or the user an administrator acts for
+          with ?user_id=.
+        type: string
       skills_blocked:
         description: |-
           SkillsBlocked is true when the project's own skills are off because
@@ -11495,6 +11818,44 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsToolCap:
+    properties:
+      addons:
+        description: Addons are the add-ons that lost tools, by ID.
+        items:
+          $ref: '#/definitions/schema.ChatsToolCapAddon'
+        type: array
+      cut:
+        description: Cut is how many tools were left out.
+        example: 16
+        type: integer
+      limit:
+        description: Limit is the most add-on tools one chat is offered.
+        example: 64
+        type: integer
+      offered:
+        description: Offered is how many add-on tools are offered.
+        example: 64
+        type: integer
+      total:
+        description: 'Total is how many your add-ons declare: offered plus cut.'
+        example: 80
+        type: integer
+    type: object
+  schema.ChatsToolCapAddon:
+    properties:
+      cut:
+        description: Cut is how many tools of the add-on were left out.
+        example: 16
+        type: integer
+      id:
+        example: notes
+        type: string
+      title:
+        description: Title is what the add-on declares for people, or empty.
+        example: Notes
+        type: string
+    type: object
   schema.ChatsToolCard:
     properties:
       file_kind:
@@ -11616,6 +11977,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsMCPServerSwitch'
         type: array
+      tool_cap:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsToolCap'
+        description: |-
+          ToolCap is present only when the server limits how many add-on tools a
+          chat is offered and that limit left some out. Absent otherwise.
     type: object
   schema.ChatsTrash:
     properties:
@@ -13802,6 +14169,12 @@ definitions:
         items:
           type: string
         type: array
+      code:
+        description: |-
+          Code is a stable code when the refusal has one, such as run_active
+          (another upgrade run is running) or the error key of an upgrade run
+          item that could not start.
+        type: string
       error:
         type: string
       keys:
@@ -16238,6 +16611,180 @@ definitions:
           Throttled is true when an explicit refresh was not performed because
           one ran moments ago. The status is then the last one.
         type: boolean
+    type: object
+  upgraderun.Item:
+    properties:
+      cancellable:
+        type: boolean
+      error:
+        type: string
+      error_key:
+        type: string
+      expected_to:
+        description: |-
+          ExpectedTo is the version or digest the item had to move to when the
+          run was requested (for an add-on the digest of its candidate). A later
+          change of the target fails the item as stale instead of installing
+          something nobody looked at.
+        type: string
+      from:
+        description: |-
+          From and To are the versions for display: the version, or the digest
+          when there is no version.
+        type: string
+      job_id:
+        type: string
+      key:
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      message:
+        type: string
+      name:
+        type: string
+      nodes:
+        items:
+          $ref: '#/definitions/upgraderun.NodeState'
+        type: array
+      phase:
+        $ref: '#/definitions/upgraderun.Phase'
+      progress:
+        type: integer
+      queued_reason:
+        description: QueuedReason says why a queued item waits.
+        type: string
+      retryable:
+        type: boolean
+      title:
+        description: |-
+          Title is the name a person knows the item by (an add-on's title);
+          empty when it is Name.
+        type: string
+      to:
+        type: string
+    type: object
+  upgraderun.ItemRef:
+    properties:
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+    type: object
+  upgraderun.Kind:
+    enum:
+    - gallery
+    - library
+    - addon
+    - model
+    type: string
+    x-enum-varnames:
+    - KindGallery
+    - KindLibrary
+    - KindAddon
+    - KindModel
+  upgraderun.NodeState:
+    properties:
+      error_key:
+        description: |-
+          ErrorKey is the failure code of the upgrade on this node, when its
+          phase is error or rolled_back.
+        type: string
+      id:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      phase:
+        type: string
+      progress:
+        type: integer
+    type: object
+  upgraderun.Phase:
+    enum:
+    - queued
+    - running
+    - updated
+    - failed
+    - rolled_back
+    - cancelled
+    - skipped
+    - unconfirmed
+    type: string
+    x-enum-varnames:
+    - PhaseQueued
+    - PhaseRunning
+    - PhaseUpdated
+    - PhaseFailed
+    - PhaseRolledBack
+    - PhaseCancelled
+    - PhaseSkipped
+    - PhaseUnconfirmed
+  upgraderun.Run:
+    properties:
+      actor:
+        type: string
+      cancel_requested:
+        description: |-
+          CancelRequested is set when the whole run was cancelled; nothing new
+          starts, and the run ends cancelled once the running items settle.
+        type: boolean
+      created_at:
+        type: string
+      dismissed:
+        description: Dismissed hides a finished run from the default list.
+        type: boolean
+      finished_at:
+        type: string
+      id:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.Item'
+        type: array
+      source:
+        $ref: '#/definitions/upgraderun.Source'
+      state:
+        $ref: '#/definitions/upgraderun.RunState'
+    type: object
+  upgraderun.RunState:
+    enum:
+    - running
+    - finished
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - RunRunning
+    - RunFinished
+    - RunCancelled
+  upgraderun.Source:
+    enum:
+    - manual
+    - auto
+    type: string
+    x-enum-varnames:
+    - SourceManual
+    - SourceAuto
+  upgraderun.StartItem:
+    properties:
+      expected_to:
+        description: |-
+          ExpectedTo is the version or digest the caller saw as the target
+          (PlanItem.ExpectedTo). A start whose target moved since is refused.
+        type: string
+      kind:
+        $ref: '#/definitions/upgraderun.Kind'
+      name:
+        type: string
+    type: object
+  upgraderun.StartRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/upgraderun.StartItem'
+        type: array
+      source:
+        $ref: '#/definitions/upgraderun.Source'
     type: object
   voiceprofile.AudioMetadata:
     properties:
@@ -21327,6 +21874,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatProject'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21334,6 +21886,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -21366,6 +21922,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsChatPulledProjects'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chat
@@ -21373,6 +21934,10 @@ paths:
             $ref: '#/definitions/schema.ChatsConversation'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -21580,11 +22145,11 @@ paths:
       - chats
   /api/chats/{id}/tools:
     get:
-      description: The groups of built-in tools (shell, web, files, media, collections,
+      description: 'The groups of built-in tools (shell, web, files, media, collections,
         subagents, triggers, memory, saved_agents and history; a group the server
         does not offer is absent, and shell is listed even when nothing can run commands,
-        not usable with the reason), add-ons, the MCP servers of the chat's model
-        and your MCP connectors, each with the chat's switch and whether it can be
+        not usable with the reason), add-ons, the MCP servers of the chat''s model
+        and your MCP connectors, each with the chat''s switch and whether it can be
         used now (with the reason when not). deferred is true on a group whose tools
         the chat loads on demand behind tool_search, tool_describe and tool_call (the
         localai_client and localai_admin groups, see the setting chats_tool_search).
@@ -21593,7 +22158,11 @@ paths:
         (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in
         tools (bash, web_search, web_fetch) that an installed add-on replaces but
         that no add-on serves in this chat now, with the add-on and whether the built-in
-        serves instead.
+        serves instead. tool_cap is present only when the server''s limit on add-on
+        tools (64 per chat) left tools out: it gives the limit, how many tools are
+        offered, the total your add-ons declare, how many were cut and the add-ons
+        that lost tools (id, title, cut). Switching add-ons off in one chat does not
+        bring the cut tools back; stop or disable the add-ons you do not use.'
       parameters:
       - description: conversation id
         in: path
@@ -23478,6 +24047,11 @@ paths:
         in: query
         name: agent_id
         type: string
+      - description: comma-separated add-on IDs the draft switched off; they free
+          room under the limit on add-on tools (tool_cap)
+        in: query
+        name: addons_off
+        type: string
       responses:
         "200":
           description: The tools and their default switches
@@ -25039,11 +25613,25 @@ paths:
         folders, so a project you added or edited by hand shows up. chat_count counts
         up to 500 chats; agent_count is the number of your agents that belong to the
         project. Another user's projects are never listed.
+      parameters:
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: Your projects, sorted by name
           schema:
             $ref: '#/definitions/schema.ChatsProjectList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: Projects are not available (projects_off)
           schema:
@@ -25063,6 +25651,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "201":
           description: The project
@@ -25070,6 +25663,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
@@ -25090,9 +25687,22 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Deleted
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25111,11 +25721,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25151,6 +25774,11 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
@@ -25158,6 +25786,10 @@ paths:
             $ref: '#/definitions/schema.ChatsProject'
         "400":
           description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25185,11 +25817,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The agents of the project
           schema:
             $ref: '#/definitions/schema.ChatsProjectAgentList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25210,11 +25855,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25240,11 +25898,24 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The chats
           schema:
             $ref: '#/definitions/schema.ChatsConversationList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25264,11 +25935,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The connections
           schema:
             $ref: '#/definitions/schema.ChatsProjectConnectionList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25293,11 +25977,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The loops
           schema:
             $ref: '#/definitions/schema.ChatsProjectLoopList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25319,11 +26016,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The index and the topic files
           schema:
             $ref: '#/definitions/schema.ChatsProjectMemory'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25355,11 +26065,20 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/schema.ChatsProjectMemoryWrite'
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "204":
           description: Written
         "400":
           description: The file name or the body is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
@@ -25381,11 +26100,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The project
           schema:
             $ref: '#/definitions/schema.ChatsProject'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -25410,11 +26142,24 @@ paths:
         name: id
         required: true
         type: string
+      - description: 'an administrator only: act on the projects of this user id instead
+          of your own'
+        in: query
+        name: user_id
+        type: string
       responses:
         "200":
           description: The triggers
           schema:
             $ref: '#/definitions/schema.ChatsProjectTriggerList'
+        "400":
+          description: user_id is not a well-formed user id
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: user_id names another user and you are not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such project, or it is another user's
           schema:
@@ -26841,6 +27586,99 @@ paths:
       summary: List the versions of a well-known file.
       tags:
       - chats
+  /api/cluster/join-tokens:
+    get:
+      description: Lists the join tokens with their state (unused, partly_used, used_up,
+        expired, revoked), the uses left, the connections they allow and who minted
+        them. A token stays in the list for a day after it ends. The secret is never
+        in the list. Admin only.
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/localai.JoinTokenView'
+            type: array
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List the join tokens
+      tags:
+      - Nodes
+    post:
+      description: Mints a random join token that lets a worker register with the
+        cluster. It is good for 10 minutes and one use unless the request says otherwise
+        (up to 24 hours and 100 uses, for Kubernetes or Compose), it can limit the
+        connections of the worker (nats, websocket; P2P workers use their own invite),
+        and a worker that uses it waits for an admin approval unless auto_approve
+        is true (the default comes from the cluster setting join_auto_approve, off
+        unless set). The server keeps only a hash of the token. The response carries
+        the plain token and ready-to-copy commands for each way to run a worker (install
+        script, Windows, docker, docker compose, kubernetes, manual), built from the
+        external URL of this frontend; it is the only time the plain token is shown.
+        Admin only.
+      parameters:
+      - description: token options
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.MintJoinTokenRequest'
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/localai.MintJoinTokenResponse'
+        "400":
+          description: A limit is out of range or a connection is unknown
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Mint a join token for a worker
+      tags:
+      - Nodes
+  /api/cluster/join-tokens/{id}:
+    delete:
+      description: Ends a join token at once. A worker that already registered with
+        it keeps its own credential; revoke the node to end that. Admin only.
+      parameters:
+      - description: join token id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: No such token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Distributed mode is not enabled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Revoke a join token
+      tags:
+      - Nodes
   /api/cluster/settings:
     get:
       description: Returns the NATS address of the frontends and of the workers, the
@@ -26863,12 +27701,13 @@ paths:
       tags:
       - Nodes
     put:
-      description: 'Stores the NATS address, the address workers use, or the carrier
-        weights (carrier_weights: nats, websocket and p2p, each 0 to 1000; a weight
-        is a tie-break between equally fit nodes and never overrides fit; null puts
-        the default back; the change applies to every frontend within seconds, with
-        no restart). Saving a NATS address checks that the serving replica reaches
-        it; the frontends use a new address after a restart. Admin only.'
+      description: 'Stores the NATS address, the address workers use, join_auto_approve
+        (the default of the auto-approve choice of a new join token, off unless set),
+        or the carrier weights (carrier_weights: nats, websocket and p2p, each 0 to
+        1000; a weight is a tie-break between equally fit nodes and never overrides
+        fit; null puts the default back; the change applies to every frontend within
+        seconds, with no restart). Saving a NATS address checks that the serving replica
+        reaches it; the frontends use a new address after a restart. Admin only.'
       parameters:
       - description: settings to store
         in: body
@@ -27669,8 +28508,12 @@ paths:
         is library (default) or gallery. The id is derived from the name or URL when
         it is empty. issuer and identity, set together, pin the signer of an oci://
         add-on library: its artifact must then be signed by that issuer and exact
-        identity (400 otherwise, and on any other source). A source with the same
-        kind and URL is refused (409), as is a taken id. Administrators only.'
+        identity (400 otherwise, and on any other source). identity_regex, an anchored
+        pattern, can take the place of identity only together with source_repository,
+        the https URL of the repository the signature must be made for (400 for a
+        pattern alone). source_repository can also go with an exact identity. A source
+        with the same kind and URL is refused (409), as is a taken id. Administrators
+        only.'
       produces:
       - application/json
       responses:
@@ -28025,7 +28868,8 @@ paths:
     post:
       description: Runs the last upgrade of the model again, with its options and
         choices, toward what the gallery entry installs now. Refused with 409 when
-        the last upgrade did not fail or the model is held.
+        the last upgrade did not fail or the model is held, and with 409 and code
+        run_active while an upgrade run runs.
       parameters:
       - description: Installed model name
         in: path
@@ -28042,7 +28886,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Nothing to retry, held, or an upgrade runs
+          description: Nothing to retry, held, an upgrade runs, or an upgrade run
+            runs (code run_active)
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
       summary: Retry a failed model upgrade
@@ -28164,7 +29009,8 @@ paths:
         is true. The header read runs through the same bounded upstream budget as
         the file listing.'
       parameters:
-      - description: 'Repository uri: huggingface://owner/repo or pirateface://owner/repo'
+      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo
+          or ollama://name[:tag]'
         in: query
         name: uri
         required: true
@@ -28204,20 +29050,20 @@ paths:
       - models
   /api/models/remote/files:
     get:
-      description: Reads one repository of Hugging Face or Pirate Face and returns
-        its weight files with sizes, one variant per quantization (shards are one
-        variant), the licence, whether access is gated, a short description from the
-        model card, the GGUF header summary Hugging Face reports, whether an installed
-        model already comes from the repository, and the backend a dry run of the
-        import selects. Nothing is downloaded or enqueued. A variant's `preference`
-        is the value for `preferences.quantizations` on POST /models/import-uri that
-        selects exactly that variant. Sizes of a Pirate Face repository come from
-        the Hugging Face commit its torrent mirrors; `size_known` is false when Hugging
-        Face does not know the repository. The answer is cached per repository for
-        10 minutes.
+      description: Reads one repository of Hugging Face or Pirate Face, or one model
+        tag of the Ollama registry, and returns its weight files with sizes, one variant
+        per quantization (shards are one variant), the licence, whether access is
+        gated, a short description from the model card, the GGUF header summary Hugging
+        Face reports, whether an installed model already comes from the repository,
+        and the backend a dry run of the import selects. Nothing is downloaded or
+        enqueued. A variant's `preference` is the value for `preferences.quantizations`
+        on POST /models/import-uri that selects exactly that variant. Sizes of a Pirate
+        Face repository come from the Hugging Face commit its torrent mirrors; `size_known`
+        is false when Hugging Face does not know the repository. The answer is cached
+        per repository for 10 minutes.
       parameters:
-      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo
-          or a huggingface.co url'
+      - description: 'Repository uri: huggingface://owner/repo, pirateface://owner/repo,
+          ollama://name[:tag] or a huggingface.co url'
         in: query
         name: uri
         required: true
@@ -28447,15 +29293,18 @@ paths:
   /api/models/upgrade/{name}:
     post:
       description: Queues an upgrade and returns its operation; follow it on status_url
-        or /api/operations. The upgrade checks the backend, the free disk and the
-        files other models share, downloads the changed files beside the old ones
-        and verifies their sha256, stops the model, switches the files and the config,
-        and loads the new version as a check. A failed load puts the old version back
-        (state failed, with the error and a retry). The old files are kept until removed
-        with POST /api/models/{name}/remove-old. Keys a person edited are kept; an
-        edited key the update also changes needs a choice in choices, or the request
-        is refused with 409 and the keys. A held model is refused with 409; release
-        the hold first. Nothing upgrades without this request.
+        or /api/operations. Without config_only and choices the upgrade runs as an
+        upgrade run of one item (see /api/updates/runs) and the answer adds the run;
+        with them it is queued directly. While an upgrade run runs, every request
+        is refused with 409 and code run_active. The upgrade checks the backend, the
+        free disk and the files other models share, downloads the changed files beside
+        the old ones and verifies their sha256, stops the model, switches the files
+        and the config, and loads the new version as a check. A failed load puts the
+        old version back (state failed, with the error and a retry). The old files
+        are kept until removed with POST /api/models/{name}/remove-old. Keys a person
+        edited are kept; an edited key the update also changes needs a choice in choices,
+        or the request is refused with 409 and the keys. A held model is refused with
+        409; release the hold first. Nothing upgrades without this request.
       parameters:
       - description: Installed model name
         in: path
@@ -28469,15 +29318,16 @@ paths:
           $ref: '#/definitions/schema.ModelUpgradeRequest'
       responses:
         "200":
-          description: Operation
+          description: Operation, and the run when one started it
           schema:
-            $ref: '#/definitions/schema.ModelUpgradeResponse'
+            $ref: '#/definitions/localai.ModelUpgradeRunResponse'
         "404":
           description: Not installed
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "409":
-          description: Running, held, or edited keys need a choice
+          description: Running, held, edited keys need a choice, or another upgrade
+            run runs (code run_active)
           schema:
             $ref: '#/definitions/schema.ModelUpgradeError'
         "422":
@@ -30664,6 +31514,247 @@ paths:
       summary: Summarize recent API traces
       tags:
       - monitoring
+  /api/updates/runs:
+    get:
+      description: The running run first, then the newest. active=1 lists only the
+        running run. Dismissed runs are left out. Administrators only.
+      parameters:
+      - description: 1 lists only the running run
+        in: query
+        name: active
+        type: string
+      - description: Most runs to return (default 20)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Runs
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunList'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: List upgrade runs
+      tags:
+      - updates
+    post:
+      consumes:
+      - application/json
+      description: 'Checks every item (installed, an update available, the update
+        still goes to expected_to) and starts one run; if one item fails a check,
+        no run is created. Only one run runs at a time (409 run_active). A held model
+        or one whose update changes edited keys is part of the run as skipped. Add-on
+        items run for the administrator who started the run, through the same owner
+        checks as POST /api/addons/{id}/upgrade; they need the administrator''s own
+        browser session with the header X-LocalAI-Confirm: upgrade-run, or they are
+        skipped with error key not_human_surface. source must be manual. Administrators
+        only.'
+      parameters:
+      - description: Items and the version or digest each must move to
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/upgraderun.StartRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "400":
+          description: Code invalid
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code no_update, stale, run_active or source_unchecked
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Start an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}:
+    delete:
+      description: Hides a finished run from the default list. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Dismissed
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_not_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Dismiss an upgrade run
+      tags:
+      - updates
+    get:
+      description: 'The run with each item: phase, progress, error key and the operation
+        (job_id) of /api/operations it runs. Administrators only.'
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Read an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/cancel:
+    post:
+      description: Drops the queued items and stops the running ones that can stop;
+        the run then ends cancelled. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Cancel an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/items/{key}/cancel:
+    post:
+      description: A queued item is dropped; a running item is stopped only while
+        its operation says it can stop. Administrators only.
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Item key, <kind>:<name>, URL-encoded
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code not_cancellable or run_finished
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Cancel one item of an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/{id}/retry:
+    post:
+      description: 'Starts a new run with the items of a finished run that failed,
+        rolled back or stayed unconfirmed and still have an update, toward what the
+        checks offer now. The old run does not change. The new run is a manual run
+        of the administrator who retries, also when the old run was automatic or was
+        started by another administrator. When that includes add-on items, the request
+        needs the administrator''s own browser session with X-LocalAI-Confirm: upgrade-run
+        (409 not_human_surface). Administrators only.'
+      parameters:
+      - description: Run id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The new run
+          schema:
+            $ref: '#/definitions/upgraderun.Run'
+        "404":
+          description: Code not_found
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "409":
+          description: Code run_not_finished, nothing_to_retry, run_active, not_human_surface
+            or source_unchecked
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Retry an upgrade run
+      tags:
+      - updates
+  /api/updates/runs/preview:
+    post:
+      consumes:
+      - application/json
+      description: Lists the backends, gallery models and add-ons that have an update,
+        in run order (backends, then models, then add-ons), with what each update
+        does and whether it can start. Starts nothing. Send expected_to of each item
+        back in the start request. Administrators only.
+      parameters:
+      - description: Items to preview; empty previews all
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/localai.UpgradeRunPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Plan
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunPreview'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+        "503":
+          description: Upgrade runs are not available
+          schema:
+            $ref: '#/definitions/localai.UpgradeRunError'
+      summary: Preview an upgrade run
+      tags:
+      - updates
   /api/voice-profiles:
     get:
       description: List the saved voice-cloning references the caller may use (their
@@ -31196,11 +32287,20 @@ paths:
       - backends
   /backends/upgrade/{name}:
     post:
+      description: Refused before anything is queued when the backend is not installed
+        (404, code not_installed), has no pending upgrade (409, code no_update), or
+        when the optional expected_to (the available version or digest, as a query
+        parameter or a JSON field) is no longer the available build (409, code stale).
       parameters:
       - description: Backend name
         in: path
         name: name
         required: true
+        type: string
+      - description: The version or digest the caller wants; refused with code stale
+          when it is no longer the available one
+        in: query
+        name: expected_to
         type: string
       responses:
         "200":
@@ -31209,6 +32309,17 @@ paths:
             $ref: '#/definitions/schema.BackendResponse'
         "403":
           description: Backend installation is disabled on this server (code backend_install_disabled)
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: The backend is not installed (code not_installed)
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: The backend has no pending upgrade (code no_update) or the
+            requested build is no longer the available one (code stale)
           schema:
             additionalProperties: true
             type: object
@@ -31259,6 +32370,150 @@ paths:
       summary: Serve a custom branding asset
       tags:
       - branding
+  /join.ps1:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.sh:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
+  /join.yaml:
+    get:
+      description: 'Returns the script that installs a worker and joins it to this
+        cluster: join.sh for Linux and macOS (installs the binary through install.sh
+        in worker mode, writes a systemd unit or a launchd daemon, keeps the settings
+        in a root-only file), join.ps1 for Windows, join.yaml for Kubernetes (a Secret
+        and a StatefulSet with a volume for the state directory). Public, but answers
+        only for a join token that exists and is not expired, revoked or used up;
+        the answer is the same 404 for every other token. Serving the script does
+        not spend the token.'
+      parameters:
+      - description: join token
+        in: query
+        name: t
+        required: true
+        type: string
+      - description: 'connections of the worker, comma separated: nats, websocket'
+        in: query
+        name: routes
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: the script
+          schema:
+            type: string
+        "400":
+          description: A connection is unknown or the token does not allow it
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: The token is not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "429":
+          description: Too many tokens that are not valid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Join script for a worker
+      tags:
+      - Nodes
   /metrics:
     get:
       produces:

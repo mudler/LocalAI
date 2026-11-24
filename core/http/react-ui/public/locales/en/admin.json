@@ -108,8 +108,153 @@
     "subtitle": "View logged API requests, responses, and backend operations"
   },
   "users": {
-    "title": "Users and keys",
-    "subtitle": "People, invites and API keys"
+    "title": "Users",
+    "subtitle": "People who can sign in, and what each of them can use.",
+    "invite": "Invite someone",
+    "summary": {
+      "label": "Users at a glance",
+      "total": "Users",
+      "totalUnit": "in total",
+      "active": "Active",
+      "activeUnit": "can sign in",
+      "waiting": "Waiting approval",
+      "waitingUnit": "sign-ups",
+      "admins": "Admins",
+      "adminsUnit": "of {{count}}"
+    },
+    "filters": {
+      "label": "Filter users",
+      "all": "All",
+      "pending": "Pending",
+      "admins": "Admins",
+      "disabled": "Disabled",
+      "inactive": "Inactive 30 d+"
+    },
+    "popover": {
+      "signIn": "Sign-in method",
+      "access": "Access",
+      "any": "Any",
+      "custom": "Custom access"
+    },
+    "search": {
+      "label": "Search by name or email",
+      "placeholder": "Search name or email"
+    },
+    "sort": {
+      "label": "Sort",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "provider": "Sign-in",
+      "lastActive": "Last active",
+      "keys": "API keys"
+    },
+    "refresh": "Refresh users",
+    "loading": "Loading users",
+    "region": "Users",
+    "caption": "Users with role, access, status, last activity and API keys",
+    "columns": {
+      "user": "User",
+      "role": "Role",
+      "access": "Access",
+      "status": "Status",
+      "lastActive": "Last active",
+      "keys": "Keys",
+      "actions": "Actions"
+    },
+    "role": {
+      "admin": "admin",
+      "user": "user"
+    },
+    "state": {
+      "active": "Active",
+      "pending": "Pending",
+      "disabled": "Disabled"
+    },
+    "access": {
+      "all": "All access",
+      "default": "Default access",
+      "models_one": "{{count}} model only",
+      "models_other": "{{count}} models only",
+      "more_one": "{{count}} more feature",
+      "more_other": "{{count}} more features",
+      "fewer_one": "{{count}} fewer feature",
+      "fewer_other": "{{count}} fewer features",
+      "limits_one": "{{count}} limit",
+      "limits_other": "{{count}} limits"
+    },
+    "noName": "(no name)",
+    "you": "you",
+    "created": "Created {{date}}",
+    "never": "Never",
+    "approve": "Approve user",
+    "approveShort": "Approve",
+    "enable": "Enable",
+    "disable": "Disable user",
+    "disableFor": "Disable {{name}}",
+    "editAccessFor": "Edit access for {{name}}",
+    "actionsFor": "Actions for {{name}}",
+    "showing": "Showing {{shown}} of {{total}}.",
+    "cancel": "Cancel",
+    "undo": "Undo",
+    "dismiss": "Dismiss",
+    "menu": {
+      "editAccess": "Edit access",
+      "makeAdmin": "Make admin",
+      "makeUser": "Make user",
+      "resetPassword": "Reset password",
+      "delete": "Delete…"
+    },
+    "sheet": {
+      "account": "Account",
+      "activity": "Activity",
+      "apiKeys": "API keys"
+    },
+    "empty": {
+      "title": "No users yet",
+      "body": "People appear here when they register or accept an invite."
+    },
+    "noMatch": {
+      "title": "No matching users",
+      "body": "Try a different search or filter.",
+      "clear": "Clear filters"
+    },
+    "error": {
+      "title": "Could not load the users.",
+      "stale": "Cannot reach the server.",
+      "staleNote": "The list below is from {{when}}."
+    },
+    "toast": {
+      "approved": "Approved {{name}}",
+      "disabled": "Disabled {{name}}",
+      "approveFailed": "Failed to approve user: {{message}}",
+      "disableFailed": "Failed to disable user: {{message}}",
+      "disabledUndo": "Disabled {{name}}. Undo sets them back to active.",
+      "restored": "{{name}} is active again",
+      "restoreFailed": "Failed to restore user: {{message}}",
+      "roleChanged": "{{name}} is now {{role}}",
+      "roleFailed": "Failed to update role: {{message}}",
+      "deleted": "User deleted",
+      "deleteFailed": "Failed to delete user: {{message}}",
+      "passwordReset": "Password reset for {{name}}",
+      "resetFailed": "Failed to reset password: {{message}}"
+    },
+    "reset": {
+      "title": "Reset password",
+      "description": "Set a new password for {{name}}. All existing sessions will be invalidated.",
+      "label": "New password",
+      "placeholder": "New password (min 12 characters)",
+      "confirm": "Reset password",
+      "busy": "Resetting…",
+      "anyway": "Use this password anyway"
+    },
+    "delete": {
+      "title": "Delete user",
+      "description": "This also removes their sessions and API keys. It cannot be undone.",
+      "type": "Type <n>{{name}}</n> to confirm",
+      "confirm": "Delete",
+      "busy": "Deleting…"
+    }
   },
   "usage": {
     "title": "Usage",
@@ -215,5 +360,56 @@
       }
     },
     "addonSettings": "Settings of {{name}}"
+  },
+  "invites": {
+    "title": "Invite someone",
+    "description": "Make a link that lets one person register. The link works until it expires.",
+    "close": "Close",
+    "lifetime": "New invite link valid for",
+    "life": {
+      "24": "1 day",
+      "168": "7 days",
+      "720": "30 days"
+    },
+    "generate": "Generate invite link",
+    "created": "Invite link created",
+    "createFailed": "Failed to create invite: {{message}}",
+    "copiedToast": "Invite URL copied to clipboard",
+    "copyFailed": "Failed to copy URL",
+    "copyUrl": "Copy invite URL",
+    "copy": "Copy",
+    "revoked": "Invite revoked",
+    "revokeFailed": "Failed to revoke invite: {{message}}",
+    "loading": "Loading invites",
+    "loadFailed": "Could not load the invites.",
+    "region": "Invites",
+    "caption": "Invite links with who made and used them",
+    "empty": {
+      "title": "No invite links.",
+      "body": "Generate one to let someone register."
+    },
+    "columns": {
+      "link": "Invite link",
+      "createdBy": "Created by",
+      "usedBy": "Used by",
+      "expires": "Expires",
+      "actions": "Actions"
+    },
+    "state": {
+      "open": "Available",
+      "used": "Used",
+      "expired": "Expired"
+    },
+    "revoke": "Revoke",
+    "revokeTitle": "Revoke invite",
+    "revokeDialog": {
+      "title": "Revoke invite",
+      "description": "The link stops working at once. People who already registered with it keep their accounts.",
+      "body": "Revoke the invite link that starts with {{prefix}}?"
+    }
+  },
+  "apiKeys": {
+    "title": "API keys",
+    "subtitle": "Your own keys for programs that call this server."
   }
 }

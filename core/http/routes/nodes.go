@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"crypto/subtle"
 	"net/http"
 	"strings"
 
@@ -31,22 +30,25 @@ func nodeReadyMiddleware(registry *nodes.NodeRegistry) echo.MiddlewareFunc {
 
 // RegisterNodeSelfServiceRoutes registers /api/node/ endpoints used by backend
 // nodes themselves (register, heartbeat, drain, query own models, deregister).
-// These are authenticated via the registration token, not admin middleware.
+// They are authenticated by the node, not by admin middleware.
 //
-// TODO(security): Node self-service endpoints authenticate via shared registration
-// token but do not verify per-node identity. A compromised worker can heartbeat/drain/
-// deregister other nodes. Future: issue per-node JWT at registration, validate node
-// identity on subsequent requests (compare :id param with token subject).
+// Registration is the step where a worker joins. It takes a join token, the
+// shared registration token when the frontend has one, or the own credential of
+// a node that registers again. It hands the worker its own credential. Every
+// other route here takes that credential and nothing else, and only for the
+// node that it belongs to, so the registration token, which every worker may
+// hold, cannot act on another worker's node. A paired worker over P2P is
+// authenticated by its peer ID, as before.
 func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, registrationToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
 
 	readyMw := nodeReadyMiddleware(registry)
-	tokenAuthMw := nodeTokenAuth(registrationToken, registry, options...)
 
-	node := e.Group("/api/node", readyMw, tokenAuthMw)
-	node.POST("/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg, options...))
+	e.POST("/api/node/register", localai.RegisterNodeEndpoint(registry, registrationToken, autoApprove, authDB, hmacSecret, natsCfg, options...), readyMw)
+
+	node := e.Group("/api/node", readyMw, nodeCredentialAuth(registry, options...))
 	node.POST("/:id/heartbeat", localai.HeartbeatEndpoint(registry, options...))
 	node.POST("/:id/drain", localai.DrainNodeEndpoint(registry, nil))
 	node.POST("/:id/resume", localai.ResumeNodeEndpoint(registry))
@@ -63,7 +65,7 @@ func RegisterNodeSelfServiceRoutes(e *echo.Echo, registry *nodes.NodeRegistry, r
 // backend install path (POST /:id/backends/install). That handler enqueues a
 // ManagementOp on the gallery channel rather than blocking on a NATS reply, so
 // the browser gets HTTP 202 + jobID immediately instead of waiting up to 3 minutes.
-func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, options ...localai.RegisterOption) {
+func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloader nodes.NodeCommandSender, galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, adminMw echo.MiddlewareFunc, authDB *gorm.DB, hmacSecret string, registrationToken string, natsCfg natsauth.Config, workerHTTPDial nodes.WorkerNetDialerFor, upgrades localai.UpgradeInfoProvider, options ...localai.RegisterOption) {
 	if registry == nil {
 		return
 	}
@@ -95,7 +97,7 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	// Upgrade is a distinct route (not install) because the worker's
 	// backend.install handler short-circuits when the backend already exists
 	// on disk; only the Upgrade op path force-reinstalls.
-	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig), middleware.RequireBackendInstallEnabled(appConfig))
+	admin.POST("/:id/backends/upgrade", localai.UpgradeBackendOnNodeEndpoint(galleryService, opcache, appConfig, localai.NewBackendUpgradeGuard(galleryService, upgrades)), middleware.RequireBackendInstallEnabled(appConfig))
 	admin.POST("/:id/backends/delete", localai.DeleteBackendOnNodeEndpoint(unloader))
 
 	// Model management on workers
@@ -132,28 +134,30 @@ func RegisterNodeAdminRoutes(e *echo.Echo, registry *nodes.NodeRegistry, unloade
 	e.GET("/ws/nodes/:id/backend-logs/:modelId", localai.NodeBackendLogsWSEndpoint(registry, registrationToken, workerHTTPDial), readyMw, adminMw)
 }
 
-// nodeTokenAuth validates the registration token for node self-service endpoints.
-// When registrationToken is empty (single-node / non-distributed mode), these
-// endpoints are unprotected. This is intentional: in single-node mode there are
-// no remote workers to authenticate. Operators enabling distributed mode MUST
-// set a registration token via LOCALAI_REGISTRATION_TOKEN or config.
+// nodeCredentialAuth validates the own credential of a node on the node
+// self-service routes. The credential comes in an Authorization: Bearer header
+// and is compared with the hash that registration stored, in constant time.
 //
-// It validates the token from an Authorization: Bearer <token> header using
-// constant-time comparison.
+// A request is accepted for the node named by the :id of its route and for no
+// other, so a worker cannot heartbeat, drain or deregister another worker. A
+// node that holds no credential (it registered before credentials existed) is
+// refused with 401 and the worker registers again. The shared registration
+// token is not a credential here.
 //
 // A paired worker that calls over P2P needs no token: the P2P layer has
 // authenticated its peer ID. It may act only on the node that is pinned to
 // that peer, so a route with a node ID answers 403 for any other node. The
 // registration route pins the node (see localai.RegisterNodeEndpoint).
-func nodeTokenAuth(registrationToken string, registry *nodes.NodeRegistry, options ...localai.RegisterOption) echo.MiddlewareFunc {
+func nodeCredentialAuth(registry *nodes.NodeRegistry, options ...localai.RegisterOption) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if peer, ok := localai.P2PWorkerPeer(c.Request().Context(), options...); ok {
-				id := c.Param("id")
+			ctx := c.Request().Context()
+			id := c.Param("id")
+			if peer, ok := localai.P2PWorkerPeer(ctx, options...); ok {
 				if id == "" {
 					return next(c)
 				}
-				node, err := registry.Get(c.Request().Context(), id)
+				node, err := registry.Get(ctx, id)
 				if err != nil || node.PeerID != peer {
 					return c.JSON(http.StatusForbidden, map[string]string{
 						"error": "this worker may act on its own node only",
@@ -161,22 +165,20 @@ func nodeTokenAuth(registrationToken string, registry *nodes.NodeRegistry, optio
 				}
 				return next(c)
 			}
-			if registrationToken == "" {
-				return next(c)
-			}
 
 			token, ok := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
-			if !ok {
+			if !ok || token == "" {
 				return c.JSON(http.StatusUnauthorized, map[string]string{
 					"error": "missing or invalid Authorization header",
 				})
 			}
-			if subtle.ConstantTimeCompare([]byte(token), []byte(registrationToken)) != 1 {
+			// An unknown node and a wrong credential look the same.
+			node, err := registry.Get(ctx, id)
+			if err != nil || !nodes.NodeCredentialMatches(node, token) {
 				return c.JSON(http.StatusUnauthorized, map[string]string{
-					"error": "invalid registration token",
+					"error": "invalid node credential",
 				})
 			}
-
 			return next(c)
 		}
 	}

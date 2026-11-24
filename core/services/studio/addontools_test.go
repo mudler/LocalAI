@@ -243,3 +243,110 @@ var _ = Describe("addontools", func() {
 		Expect(fa.calls).To(BeEmpty(), "the stand-in tool called the add-on: %v", fa.calls)
 	})
 })
+
+// cappingAddons is a fakeAddons whose broker keeps at most limit tools, in
+// add-on ID order, after leaving out the add-ons it is told to exclude.
+type cappingAddons struct {
+	*fakeAddons
+	limit int
+}
+
+func (c cappingAddons) ToolsScoped(ctx context.Context, user string, excluded func(string) bool) ([]studio.AddonTool, *studio.ToolCap, error) {
+	all, err := c.fakeAddons.Tools(ctx, user)
+	if err != nil {
+		return nil, nil, err
+	}
+	var kept []studio.AddonTool
+	cut := map[string]int{}
+	var order []string
+	for _, t := range all {
+		if excluded != nil && excluded(t.AddonID) {
+			continue
+		}
+		if len(kept) < c.limit {
+			kept = append(kept, t)
+			continue
+		}
+		if cut[t.AddonID] == 0 {
+			order = append(order, t.AddonID)
+		}
+		cut[t.AddonID]++
+	}
+	if len(order) == 0 {
+		return kept, nil, nil
+	}
+	r := &studio.ToolCap{Cap: c.limit, Offered: len(kept)}
+	for _, id := range order {
+		r.Cut += cut[id]
+		r.Addons = append(r.Addons, studio.ToolCapAddon{ID: id, Title: "Add-on " + id, Cut: cut[id]})
+	}
+	return kept, r, nil
+}
+
+var _ = Describe("The cap on add-on tools in the tools panel", func() {
+	ctx := context.Background()
+	newCapped := func() (*studio.Service, cappingAddons) {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: {
+			addonTool("aaa", "one"), addonTool("aaa", "two"), addonTool("bbb", "one"), addonTool("bbb", "two"), addonTool("ccc", "one"), addonTool("ccc", "two"),
+		}}}
+		capped := cappingAddons{fakeAddons: fa, limit: 4}
+		svc, _ := newToolService(nil, func(d *studio.Deps) { d.AddonTools = capped })
+		return svc, capped
+	}
+
+	It("says what the cap left out, for a chat", func() {
+		svc, _ := newCapped()
+		id := create(svc, alice)
+		p, err := svc.Tools(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.ToolCap).NotTo(BeNil())
+		Expect(p.ToolCap.Cap).To(Equal(4))
+		Expect(p.ToolCap.Offered).To(Equal(4))
+		Expect(p.ToolCap.Cut).To(Equal(2))
+		Expect(p.ToolCap.Addons).To(Equal([]studio.ToolCapAddon{{ID: "ccc", Title: "Add-on ccc", Cut: 2}}))
+	})
+
+	It("is freed by switching an add-on off in the chat, and cut again when it is on", func() {
+		svc, _ := newCapped()
+		id := create(svc, alice)
+		Expect(svc.SetAddonsOff(ctx, alice, id, []string{"aaa"})).To(Succeed())
+		p, err := svc.Tools(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.ToolCap).To(BeNil(), "bbb and ccc fit once aaa is off")
+		var counts = map[string]int{}
+		for _, a := range p.Addons {
+			counts[a.ID] = a.Tools
+		}
+		Expect(counts).To(Equal(map[string]int{"aaa": 2, "bbb": 2, "ccc": 2}), "the add-on that is off still lists its tools, so it can be switched on")
+		Expect(svc.SetAddonsOff(ctx, alice, id, nil)).To(Succeed())
+		p, err = svc.Tools(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.ToolCap).NotTo(BeNil())
+		Expect(p.ToolCap.Cut).To(Equal(2))
+	})
+
+	It("answers for the switches of the composer in a draft", func() {
+		svc, _ := newCapped()
+		p, err := svc.DraftTools(ctx, alice, "m", "", studio.Switches{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.ToolCap).NotTo(BeNil())
+		p, err = svc.DraftTools(ctx, alice, "m", "", studio.Switches{AddonsOff: []string{"bbb"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.ToolCap).To(BeNil(), "the add-on switched off in the composer frees room")
+	})
+
+	It("offers the freed tools to the model", func() {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: {addonTool("aaa", "one"), addonTool("aaa", "two"), addonTool("bbb", "one"), addonTool("bbb", "two")}}}
+		svc, h := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, func(d *studio.Deps) { d.AddonTools = cappingAddons{fakeAddons: fa, limit: 2} })
+		id := create(svc, alice)
+		sent(svc, alice, id, "one")
+		idle(svc, alice, id)
+		Expect(h.ToolNames(id)).To(ContainElement("addon__aaa__one"))
+		Expect(h.ToolNames(id)).NotTo(ContainElement("addon__bbb__one"))
+		Expect(svc.SetAddonsOff(ctx, alice, id, []string{"aaa"})).To(Succeed())
+		sent(svc, alice, id, "two")
+		idle(svc, alice, id)
+		Expect(h.ToolNames(id)).To(ContainElement("addon__bbb__one"), "switching aaa off let bbb through the cap")
+		Expect(h.ToolNames(id)).NotTo(ContainElement("addon__aaa__one"))
+	})
+})

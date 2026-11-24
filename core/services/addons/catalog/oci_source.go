@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
 	"github.com/mudler/LocalAI/pkg/oci/ociindex"
 	"github.com/mudler/xlog"
+	"github.com/sigstore/sigstore-go/pkg/root"
 )
 
 const (
@@ -44,12 +45,17 @@ const (
 var libraryCacheTTL = time.Hour
 
 // verifyLibraryArtifact checks the publisher signature over a digest-pinned
-// artifact reference.
+// artifact reference. A nil trust uses the public Sigstore trust root; a
+// non-nil trust is host-provisioned material (see Sources.signatureTrust),
+// never material that a library or a registry supplies.
 //
 // A var so tests can drive the policy path without reaching the public
 // Sigstore TUF mirror, which a unit test must not depend on.
-var verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, digestRef string) error {
-	verifier, err := cosignverify.NewVerifier(cosignverify.Policy{Issuer: p.Issuer, Identity: p.Identity}, nil, nil)
+var verifyLibraryArtifact = func(ctx context.Context, p VerificationPolicy, digestRef string, trust root.TrustedMaterial) error {
+	verifier, err := cosignverify.NewVerifier(p.CosignPolicy(), nil, nil)
+	if trust != nil {
+		verifier, err = cosignverify.NewVerifierWithTrustedMaterial(p.CosignPolicy(), nil, nil, trust)
+	}
 	if err != nil {
 		return err
 	}
@@ -75,9 +81,12 @@ func validOCISource(s Source) bool {
 	if s.Kind != "" && s.Kind != KindAddon {
 		return false
 	}
-	// An anchored pattern could let a signature for another workflow of the
-	// same publisher admit a library; an add-on source pins one identity.
-	if s.Policy.IdentityRegex != "" {
+	// The policy verifies the library artifact itself. A pattern alone could
+	// let a signature that a shared signing workflow made for another
+	// repository admit the library, so a pattern needs the source repository.
+	// An https add-on library may keep a pattern alone, because it can also
+	// list backends; the install of its add-ons refuses that policy.
+	if !s.Policy.ValidForAddon() {
 		return false
 	}
 	ref := ociReference(s.URL)
@@ -141,9 +150,9 @@ func (s *Sources) fetchOCI(ctx context.Context, src Source) ([]byte, error) {
 		Usable:       usableLibraryIndex,
 	}
 	if src.Policy.RequireSignature {
-		policy := src.Policy
+		policy, trust := src.Policy, s.signatureTrust
 		opts.Verify = func(ctx context.Context, digestRef string) error {
-			return verifyLibraryArtifact(ctx, policy, digestRef)
+			return verifyLibraryArtifact(ctx, policy, digestRef, trust)
 		}
 	} else {
 		xlog.Warn("fetching an OCI library without signature verification", "source", src.ID)

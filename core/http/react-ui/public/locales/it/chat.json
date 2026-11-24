@@ -447,7 +447,9 @@
       "upstream": "Il provider dietro il modello ha restituito un errore.",
       "timeout": "Il modello ha impiegato troppo tempo a rispondere.",
       "cancelled": "Il turno è stato annullato prima della risposta del modello.",
-      "interrupted": "Il server si è riavviato mentre rispondeva."
+      "interrupted": "Il server si è riavviato mentre rispondeva.",
+      "model_backend_outdated": "Il modello \"{{model}}\" non si è potuto avviare: il backend potrebbe essere troppo vecchio.",
+      "model_backend_outdated_anon": "Il modello non si è potuto avviare: il backend potrebbe essere troppo vecchio."
     },
     "hint": {
       "model_backend_missing": "Scegli un altro modello oppure chiedi a un amministratore di installare il backend.",
@@ -460,7 +462,9 @@
       "upstream_unreachable": "Controlla l'indirizzo nelle impostazioni del modello.",
       "upstream": "Riprova tra un attimo. Se continua a fallire, controlla indirizzo e chiave del provider.",
       "timeout": "Riprova, oppure usa un modello più piccolo o più veloce.",
-      "cancelled": "Riprova quando vuoi."
+      "cancelled": "Riprova quando vuoi.",
+      "model_backend_outdated": "Chiedi a un amministratore di aggiornare il backend, poi riprova.",
+      "model_backend_outdated_admin": "Aggiorna il backend dalla pagina Aggiornamenti, poi riprova."
     },
     "openBackends": "Apri Backend",
     "titleInterrupted": "La risposta è stata interrotta",
@@ -470,7 +474,12 @@
       "server": "Il server riprende da dove si era fermata.",
       "exhausted": "Non è riuscita a riprendere dopo {{max}} tentativi. Riprova.",
       "stop": "Smetti di riprovare"
-    }
+    },
+    "updateBackend": "Aggiorna {{backend}}",
+    "updateBackendBusy": "Aggiornamento in corso...",
+    "updateBackendStarted": "L'aggiornamento di {{backend}} è iniziato. Riprova quando è finito.",
+    "updateBackendFailed": "Non è stato possibile avviare l'aggiornamento.",
+    "openUpdates": "Apri Aggiornamenti"
   },
   "allChats": {
     "title": "Tutte le chat",

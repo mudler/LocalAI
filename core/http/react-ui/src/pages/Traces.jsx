@@ -12,6 +12,7 @@ import BackendTraceDetail from '../components/traffic/BackendTraceDetail'
 import Icon from '../components/Icon'
 import LoadingSpinner from '../components/LoadingSpinner'
 import './traffic.css'
+import { Button, EmptyState, SearchField } from '../components/ui'
 
 const PAGE_SIZE = DEFAULT_TRACE_PAGE_SIZE
 // A request this slow is marked, not only long.
@@ -137,9 +138,9 @@ function TracingStrip({ tracing, expanded, setExpanded, addToast }) {
             <button type="button" className="dk-switch" role="switch" aria-checked={!!settings.enable_backend_logging} aria-label={t('traces.settings.logging')} onClick={() => set('enable_backend_logging', !settings.enable_backend_logging)} />
           </div>
           <div className="tf-strip__foot">
-            <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={() => save(settings)}>
+            <Button variant="primary" disabled={saving} onClick={() => save(settings)}>
               {saving ? <><LoadingSpinner size="sm" /> {t('traces.settings.saving')}</> : <><Icon name="save" /> {t('traces.settings.save')}</>}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -263,11 +264,11 @@ export default function Traces() {
           <h1 className="tf-title">{t('traces.title')}</h1>
         </div>
         <div className="tf-head__acts">
-          <button type="button" className="dk-btn dk-btn--secondary" onClick={refetch}><Icon name="refresh" /> {t('traces.refresh')}</button>
-          <button type="button" className="dk-btn dk-btn--secondary" onClick={exportJson} disabled={traces.length === 0}><Icon name="download" /> {t('traces.export')}</button>
+          <Button variant="secondary" icon="refresh" onClick={refetch}>{t('traces.refresh')}</Button>
+          <Button variant="secondary" icon="download" onClick={exportJson} disabled={traces.length === 0}>{t('traces.export')}</Button>
           {/* Stays enabled while loading: a huge trace buffer is the case where
               the table cannot be seen yet and Clear is how to recover. */}
-          <button type="button" className="dk-btn dk-btn--secondary tf-danger" onClick={clear} disabled={!loading && traces.length === 0}><Icon name="trash" /> {t('traces.clear')}</button>
+          <Button variant="secondary" icon="trash" className="tf-danger" onClick={clear} disabled={!loading && traces.length === 0}>{t('traces.clear')}</Button>
         </div>
       </header>
 
@@ -291,31 +292,26 @@ export default function Traces() {
             <button type="button" className="dk-chip" aria-pressed={state === 'failed'} onClick={() => setFilterState('failed')}>{t('traces.failed')} <span className="tf-count">{counts.failed}</span></button>
             <button type="button" className="dk-chip" aria-pressed={state === 'slow'} onClick={() => setFilterState('slow')}>{t('traces.slow')} <span className="tf-count">{counts.slow}</span></button>
           </div>}
-          <div className="dk-input-icon tf-search">
-            <Icon name="search" className="dk-icon" />
-            <input className="dk-input" type="search" aria-label={t('traces.search')} placeholder={t('traces.search')} value={query} onChange={e => setQuery(e.target.value)} />
-          </div>
+          <SearchField className="tf-search" label={t('traces.search')} value={query} onChange={setQuery} />
         </div>
       )}
 
       {loading ? (
         <div className="tf-loading"><LoadingSpinner size="lg" /></div>
       ) : traces.length === 0 ? (
-        <div className="dk-empty tf-empty" data-testid="traces-empty">
-          <Icon name="waveform" className="dk-empty-icon" />
-          <h2 className="dk-empty-title">
-            {tab === 'api'
-              ? (off ? t('traces.offTitle') : t('traces.noneTitle'))
-              : (backendOff ? t('traces.backendOffTitle') : t('traces.backendNoneTitle'))}
-          </h2>
-          <p className="dk-empty-text">
-            {tab === 'api'
-              ? (off ? t('traces.offText') : t('traces.noneText'))
-              : (backendOff ? t('traces.backendOffText') : t('traces.backendNoneText'))}
-          </p>
-          {tab === 'api' && off && tracing.settings && (
-            <div className="tf-empty__acts">
-              <button type="button" className="dk-btn dk-btn--primary" data-testid="turn-on-tracing" onClick={async () => {
+        <EmptyState
+          variant={(tab === 'api' ? off : backendOff) ? 'unavailable' : 'first-run'}
+          icon="waveform"
+          title={tab === 'api'
+            ? (off ? t('traces.offTitle') : t('traces.noneTitle'))
+            : (backendOff ? t('traces.backendOffTitle') : t('traces.backendNoneTitle'))}
+          body={tab === 'api'
+            ? (off ? t('traces.offText') : t('traces.noneText'))
+            : (backendOff ? t('traces.backendOffText') : t('traces.backendNoneText'))}
+          testId="traces-empty"
+          actions={<>
+            {tab === 'api' && off && tracing.settings && (
+              <Button variant="primary" data-testid="turn-on-tracing" onClick={async () => {
                 try {
                   await settingsApi.save({ ...tracing.settings, enable_tracing: true })
                   tracing.reload()
@@ -323,16 +319,18 @@ export default function Traces() {
                 } catch (err) {
                   addToast?.(t('traces.settings.failed', { message: err.message }), 'error')
                 }
-              }}>{t('traces.turnOn')}</button>
-            </div>
-          )}
-          {tab === 'api' && off && <p className="tf-note-line">{t('traces.offEnv')}</p>}
-        </div>
+              }}>{t('traces.turnOn')}</Button>
+            )}
+            {tab === 'api' && off && <p className="tf-note-line">{t('traces.offEnv')}</p>}
+          </>}
+        />
       ) : sorted.length === 0 ? (
-        <div className="dk-empty tf-empty" data-testid="traces-nomatch">
-          <h2 className="dk-empty-title">{t('traces.noMatch')}</h2>
-          <p className="dk-empty-text">{t('traces.noMatchText')}</p>
-        </div>
+        <EmptyState
+          variant="no-results"
+          title={t('traces.noMatch')}
+          body={t('traces.noMatchText')}
+          testId="traces-nomatch"
+        />
       ) : tab === 'api' ? (
         <div className="dk-table-wrap" data-testid="api-traces-table">
           <table className="dk-table tf-table">

@@ -1,5 +1,4 @@
 import { useState, useEffect, useId, useMemo, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatProjectsApi, chatTriggersApi, filesApi } from '../utils/api'
@@ -39,7 +38,9 @@ import ReportsTo from '../components/agents/ReportsTo'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch } from '../components/ui'
+import SideSheet from '../components/SideSheet'
+// eslint-disable-next-line no-unused-vars
+import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch, Tabs } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
@@ -791,100 +792,65 @@ function TaskForm({ id, isNew }) {
 // eslint-disable-next-line no-unused-vars
 function PreviewSheet({ tab, onTab, task, next, diff, isNew, saving, onSave, onClose }) {
   const { t } = useTranslation(['agents', 'chats'])
-  const sheetRef = useRef(null)
-  const closeRef = useRef(null)
-  // The parent passes a fresh onClose on every render. Read it through a ref
-  // so the effect below runs once per open: re-running it would move focus to
-  // the opener and back to Close, pulling it out of the control in use.
-  const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose })
 
-  useEffect(() => {
-    const opener = document.activeElement
-    closeRef.current?.focus()
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
-      if (e.key !== 'Tab' || !sheetRef.current) return
-      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), [tabindex]:not([tabindex="-1"])'))
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
-    }
-    window.addEventListener('keydown', onKey, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      if (opener && document.contains(opener)) opener.focus?.()
-    }
-  }, [])
-
-  return createPortal(
-    <div className="dk-sheet-veil" data-state="open" onMouseDown={onClose}>
-      <div
-        ref={sheetRef}
-        className="dk-sheet dk-sheet--wide"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="aj-preview-title"
-        data-state="open"
-        data-testid="task-preview"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <span className="dk-sheet-grip" aria-hidden="true" />
-        <div className="dk-sheet-head">
-          <div>
-            <h2 className="dk-sheet-title" id="aj-preview-title">{t('jobs.edit.previewTitle')}</h2>
-            <p className="dk-sheet-desc">{isNew ? t('jobs.edit.previewNew') : t('jobs.edit.previewEdit')}</p>
-          </div>
-          <button ref={closeRef} type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('jobs.edit.close')} onClick={onClose}>
-            <Icon name="close" />
-          </button>
-        </div>
-        <div className="dk-sheet-body">
-          <div className="dk-tabs ag-sheet-tabs" role="tablist" aria-label={t('jobs.edit.previewTitle')}>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'prompt'} onClick={() => onTab('prompt')}>{t('jobs.edit.tabPrompt')}</button>
-            <button type="button" role="tab" className="dk-tab" aria-selected={tab === 'changes'} onClick={() => onTab('changes')}>
-              {t('jobs.edit.tabChanges')}{diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-          </div>
-          {tab === 'prompt' ? (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="task-preview-prompt">
-              <p className="ag-note ag-note--bottom">{t('jobs.edit.promptAsSent')}</p>
-              {task.prompt.trim() ? <pre className="aj-prompt">{task.prompt}</pre> : <p className="ag-note">{t('jobs.edit.emptyPrompt')}</p>}
-              {next && (
-                <div className="aj-context">
-                  <span className="ag-eyebrow">{t('jobs.task.schedule')}</span>
-                  <p className="ag-sec__text">{next}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="dk-tabpanel" role="tabpanel" data-testid="task-preview-changes">
-              {diff.length === 0 ? (
-                <p className="ag-note">{isNew ? t('jobs.edit.nothingSet') : t('jobs.edit.noChanges')}</p>
-              ) : (
-                <div className="ag-diff">
-                  {diff.map(d => (
-                    <div key={d.key} className="ag-diff__item" data-key={d.key}>
-                      <span className="ag-diff__key">{d.key}</span>
-                      <div className="ag-diff__pair">
-                        <div className="ag-diff__side" data-side="before"><span className="ag-diff__label">{t('jobs.edit.saved')}</span>{d.before || t('jobs.edit.empty')}</div>
-                        <div className="ag-diff__side" data-side="after"><span className="ag-diff__label">{t('jobs.edit.new')}</span>{d.after || t('jobs.edit.empty')}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+  return (
+    <SideSheet
+      wide
+      title={t('jobs.edit.previewTitle')}
+      description={isNew ? t('jobs.edit.previewNew') : t('jobs.edit.previewEdit')}
+      closeLabel={t('jobs.edit.close')}
+      labelId="aj-preview-title"
+      testId="task-preview"
+      initialFocus="close"
+      onClose={onClose}
+      footer={(
+        <>
+          <button type="button" className="dk-btn dk-btn--secondary" onClick={onClose}>{t('jobs.edit.close')}</button>
+          <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={onSave}>{isNew ? t('jobs.edit.create') : t('jobs.edit.save')}</button>
+        </>
+      )}
+    >
+      <Tabs
+        className="ag-sheet-tabs"
+        label={t('jobs.edit.previewTitle')}
+        idPrefix="task-preview"
+        value={tab}
+        onChange={onTab}
+        items={[
+          { id: 'prompt', label: t('jobs.edit.tabPrompt') },
+          { id: 'changes', label: t('jobs.edit.tabChanges'), ...(diff.length > 0 ? { count: diff.length } : {}) },
+        ]}
+      />
+      {tab === 'prompt' ? (
+        <div className="dk-tabpanel" role="tabpanel" id="task-preview-panel-prompt" aria-labelledby="task-preview-tab-prompt" data-testid="task-preview-prompt">
+          <p className="ag-note ag-note--bottom">{t('jobs.edit.promptAsSent')}</p>
+          {task.prompt.trim() ? <pre className="aj-prompt">{task.prompt}</pre> : <p className="ag-note">{t('jobs.edit.emptyPrompt')}</p>}
+          {next && (
+            <div className="aj-context">
+              <span className="ag-label">{t('jobs.task.schedule')}</span>
+              <p className="ag-sec__text">{next}</p>
             </div>
           )}
         </div>
-        <div className="dk-sheet-foot">
-          <button type="button" className="dk-btn dk-btn--secondary" onClick={onClose}>{t('jobs.edit.close')}</button>
-          <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={onSave}>{isNew ? t('jobs.edit.create') : t('jobs.edit.save')}</button>
+      ) : (
+        <div className="dk-tabpanel" role="tabpanel" id="task-preview-panel-changes" aria-labelledby="task-preview-tab-changes" data-testid="task-preview-changes">
+          {diff.length === 0 ? (
+            <p className="ag-note">{isNew ? t('jobs.edit.nothingSet') : t('jobs.edit.noChanges')}</p>
+          ) : (
+            <div className="ag-diff">
+              {diff.map(d => (
+                <div key={d.key} className="ag-diff__item" data-key={d.key}>
+                  <span className="ag-diff__key">{d.key}</span>
+                  <div className="ag-diff__pair">
+                    <div className="ag-diff__side" data-side="before"><span className="ag-diff__label">{t('jobs.edit.saved')}</span>{d.before || t('jobs.edit.empty')}</div>
+                    <div className="ag-diff__side" data-side="after"><span className="ag-diff__label">{t('jobs.edit.new')}</span>{d.after || t('jobs.edit.empty')}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      )}
+    </SideSheet>
   )
 }

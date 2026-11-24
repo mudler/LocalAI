@@ -7,7 +7,7 @@ import { downloadFrom } from '../utils/chatThread'
 import { byteText } from '../utils/changeProposal'
 import { allFiles, groupId, groupKind, indexFits, indexUse, noteTabs } from '../utils/memoryFiles'
 import Icon from './Icon'
-import { Button, Callout, EmptyState, LoadError, SkeletonRows } from './ui'
+import { Button, Callout, EmptyState, LoadError, SkeletonRows, Tabs } from './ui'
 import './memorytab.css'
 
 const READ_LIMIT = 64 * 1024
@@ -119,26 +119,19 @@ function groupTitle(g, t) {
 }
 
 // The tab strip of the notes list: yours, one tab for each agent, the agents
-// that were deleted, and the conversations. Arrow keys move between tabs.
-function Tabs({ tabs, active, onPick, t }) {
+// that were deleted, and the conversations.
+function NoteTabs({ tabs, active, onPick, t }) {
   const label = (tb) => (tb.kind === 'agent' ? tb.name : t(`memoryPage.tabs.${tb.kind}`))
-  const move = (e, i) => {
-    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-    if (!step) return
-    e.preventDefault()
-    const next = tabs[(i + step + tabs.length) % tabs.length]
-    onPick(next.id)
-    document.getElementById(`mt-tab-${next.id}`)?.focus()
-  }
   return (
-    <div className="mt-tabs" role="tablist" aria-label={t('memoryPage.tabs.label')} data-testid="memory-tabs">
-      {tabs.map((tb, i) => (
-        <button key={tb.id} id={`mt-tab-${tb.id}`} type="button" role="tab" className="mt-tabs__tab" aria-selected={active === tb.id} aria-controls="mt-tabpanel"
-          tabIndex={active === tb.id ? 0 : -1} data-testid="memory-tab-button" data-tab={tb.id} onClick={() => onPick(tb.id)} onKeyDown={(e) => move(e, i)}>
-          {label(tb)}
-        </button>
-      ))}
-    </div>
+    <Tabs
+      label={t('memoryPage.tabs.label')}
+      idPrefix="mt"
+      panelId="mt-tabpanel"
+      value={active}
+      onChange={onPick}
+      testId="memory-tabs"
+      items={tabs.map(tb => ({ id: tb.id, label: label(tb), testId: 'memory-tab-button' }))}
+    />
   )
 }
 
@@ -216,7 +209,7 @@ export default function MemoryTab({ addToast, embedded = false }) {
         <EmptyState variant="first-run" icon="memory" title={t('memoryPage.emptyTitle')} body={t('memoryPage.emptyBody')} testId="memory-empty" />
       ) : (
         <>
-          {tabs.length > 1 && <Tabs tabs={tabs} active={tab.id} onPick={pick} t={t} />}
+          {tabs.length > 1 && <NoteTabs tabs={tabs} active={tab.id} onPick={pick} t={t} />}
           <div id="mt-tabpanel" role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? `mt-tab-${tab.id}` : undefined} className="mt-panelgroup" data-testid="memory-tabpanel" data-tab={tab.id}>
             {tab.kind === 'deleted' && <p className="mt-lede" data-testid="memory-deleted-note">{t('memoryPage.deletedNote')}</p>}
             {tab.kind === 'channels' && <p className="mt-lede" data-testid="memory-channels-note">{t('memoryPage.tabs.channelsNote')}</p>}

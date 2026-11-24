@@ -536,6 +536,9 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	if s.ChatsExtractMaxEntries != nil && (*s.ChatsExtractMaxEntries < config.MinChatsExtractMaxEntries || *s.ChatsExtractMaxEntries > config.MaxChatsExtractMaxEntries) {
 		return fmt.Sprintf("Invalid chats_extract_max_entries: use %d to %d", config.MinChatsExtractMaxEntries, config.MaxChatsExtractMaxEntries)
 	}
+	if s.ChatsAddonToolLimit != nil && (*s.ChatsAddonToolLimit < config.MinChatsAddonToolLimit || *s.ChatsAddonToolLimit > config.MaxChatsAddonToolLimit) {
+		return fmt.Sprintf("Invalid chats_addon_tool_limit: use %d to %d", config.MinChatsAddonToolLimit, config.MaxChatsAddonToolLimit)
+	}
 	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
 		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)
 	}

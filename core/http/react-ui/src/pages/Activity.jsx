@@ -7,11 +7,13 @@ import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
 import { isAddonInstallOp } from '../utils/addonQueue'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendsApi, modelsApi } from '../utils/api'
-import PageHeader from '../components/PageHeader'
+import AdminPage from '../components/admin/AdminPage'
+import AdminFilterBar from '../components/admin/AdminFilterBar'
 import OperationCard from '../components/OperationCard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import Icon from '../components/Icon'
 import './operate.css'
+import { Button, EmptyState } from '../components/ui'
 
 const FILTERS = [
   { id: 'all', labelKey: 'activity.filter.all' },
@@ -141,30 +143,25 @@ export default function Activity() {
   else supporting = t('activity.summaryIdle')
 
   return (
-    <div className="page page--wide op-page activity-page">
-      <PageHeader
-        title={t('activity.title')}
-        supporting={supporting}
-        actions={history.length > 0 ? (
-          <button type="button" className="dk-btn dk-btn--ghost" onClick={clearHistory}>
-            {t('activity.clearHistory')}
-          </button>
-        ) : null}
+    <AdminPage
+      width="full"
+      className="op-page activity-page"
+      title={t('activity.title')}
+      supporting={supporting}
+      action={history.length > 0 ? (
+        <Button variant="ghost" onClick={clearHistory}>
+          {t('activity.clearHistory')}
+        </Button>
+      ) : null}
+    >
+      <AdminFilterBar
+        chips={{
+          label: t('activity.filterLabel'),
+          value: filter,
+          onChange: setFilter,
+          options: FILTERS.map(entry => ({ id: entry.id, label: t(entry.labelKey) })),
+        }}
       />
-
-      <div className="activity-filters" role="group" aria-label={t('activity.filterLabel')}>
-        {FILTERS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            className="dk-chip activity-chip"
-            aria-pressed={filter === entry.id}
-            onClick={() => setFilter(entry.id)}
-          >
-            {t(entry.labelKey)}
-          </button>
-        ))}
-      </div>
 
       {liveOps.length > 0 && (
         <section className="activity-section" aria-labelledby="activity-live">
@@ -220,14 +217,9 @@ export default function Activity() {
                 <span className="activity-row__when">{timeOfDay(record.finishedAt)}</span>
                 <span className="activity-row__acts">
                   {record.outcome === 'cancelled' && record.taskType !== 'deletion' && record.taskType !== 'staging' && !record.isAddon && (
-                    <button
-                      type="button"
-                      className="dk-btn dk-btn--ghost dk-btn--sm activity-row__resume"
-                      title={t('activity.startAgainTitle')}
-                      onClick={() => startAgain(record)}
-                    >
+                    <Button variant="ghost" size="sm" className="activity-row__resume" title={t('activity.startAgainTitle')} onClick={() => startAgain(record)}>
                       {t('activity.startAgain')}
-                    </button>
+                    </Button>
                   )}
                   <Link className="dk-link activity-row__action" to={record.isAddon ? '/app/addons' : record.isBackend ? '/app/backends' : '/app/models'}>
                     {record.isAddon ? t('activity.viewInAddons') : record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
@@ -245,20 +237,26 @@ export default function Activity() {
           the line above them counts those same three, is simply false. */}
       {liveOps.length === 0 && failing.length === 0 && records.length === 0 && (
         filter === 'all' ? (
-          <div className="dk-empty activity-empty">
-            <div className="dk-empty-icon"><Icon name="download" /></div>
-            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyTitle')}</h2>
-            <p className="dk-empty-text activity-empty__body">{t('activity.emptyBody')}</p>
-            <Link className="dk-btn dk-btn--primary" to="/app/models">{t('activity.browseModels')}</Link>
-          </div>
+          <EmptyState
+            variant="first-run"
+            icon="download"
+            title={t('activity.emptyTitle')}
+            body={t('activity.emptyBody')}
+            actions={<>
+              <Button variant="primary" to="/app/models">{t('activity.browseModels')}</Button>
+            </>}
+          />
         ) : (
-          <div className="dk-empty activity-empty activity-empty--filtered">
-            <div className="dk-empty-icon"><Icon name="filter" /></div>
-            <h2 className="dk-empty-title activity-empty__title">{t('activity.emptyFiltered')}</h2>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setFilter('all')}>
+          <EmptyState
+            variant="no-results"
+            icon="filter"
+            title={t('activity.emptyFiltered')}
+            actions={<>
+              <Button variant="secondary" onClick={() => setFilter('all')}>
               {t('activity.showAll')}
-            </button>
-          </div>
+              </Button>
+            </>}
+          />
         )
       )}
 
@@ -274,6 +272,6 @@ export default function Activity() {
           onExpire={cancelling.commit}
         />
       )}
-    </div>
+    </AdminPage>
   )
 }

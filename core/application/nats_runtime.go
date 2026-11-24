@@ -194,7 +194,7 @@ func (rt *natsRuntime) directRoutes(fileMgr *storage.FileManager) (*carrier.Work
 		Registry:       rt.registry,
 		InstallTimeout: d.BackendInstallTimeoutOrDefault(),
 		UpgradeTimeout: d.BackendUpgradeTimeoutOrDefault(),
-		Token:          d.RegistrationToken,
+		Token:          d.WorkerAuthToken(),
 		S3Staging:      d.StorageURL != "",
 		FileManager:    fileMgr,
 		ExpectedSHA256: managedFileSHA256(rt.cfg),

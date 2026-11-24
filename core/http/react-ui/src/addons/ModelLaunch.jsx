@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAddonRegistry } from './useAddonRegistry'
 import { projectModelActions } from './modelActions'
 import ActionMenu from '../components/ActionMenu'
+import { Tag } from '../components/ui'
 
 // Shared by the inspector, gallery Open and actual model detail renderer.
 // Acquiring the list does not hold or load any addon module.
@@ -23,7 +24,7 @@ export default function ModelLaunch({ useCase, model, label, className = 'dk-chi
     {projection.choices.length === 1
       ? <button type="button" className={className} onClick={() => launch(projection.choices[0])}>{label}</button>
       : projection.choices.length > 1
-        ? <><span className="dk-badge">{label}</span><ActionMenu ariaLabel={label} items={projection.choices.map(c => ({ key: c.addonId, label: c.label, onClick: () => launch(c) }))} /></>
-        : <span className="dk-badge" title={projection.states.map(s => `${s.addonId}: ${s.status}`).join(', ') || status}>{label}</span>}
+        ? <><Tag>{label}</Tag><ActionMenu ariaLabel={label} items={projection.choices.map(c => ({ key: c.addonId, label: c.label, onClick: () => launch(c) }))} /></>
+        : <Tag title={projection.states.map(s => `${s.addonId}: ${s.status}`).join(', ') || status}>{label}</Tag>}
   </span>
 }

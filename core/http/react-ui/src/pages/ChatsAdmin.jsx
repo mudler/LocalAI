@@ -84,7 +84,7 @@ export default function ChatsAdmin() {
 
       {on('agents') && (
         <section className="aj-sec" data-testid="admin-agents">
-          <h2 className="ag-eyebrow" id="adm-agents">{t('admin.agents', { count: data.agents.length })}</h2>
+          <h2 className="ag-label" id="adm-agents">{t('admin.agents', { count: data.agents.length })}</h2>
           {data.agents.length === 0 ? <p className="ag-note">{t('admin.noneAgents')}</p> : table('adm-agents', [t('admin.owner'), t('admin.name'), t('admin.model'), ''], data.agents.map(a => (
             <tr key={a.id} data-testid="admin-agent-row">
               <td className="aj-mono">{a.owner}</td>
@@ -98,7 +98,7 @@ export default function ChatsAdmin() {
 
       {on('triggers') && (
         <section className="aj-sec" data-testid="admin-triggers">
-          <h2 className="ag-eyebrow" id="adm-triggers">{t('admin.triggers', { count: data.triggers.length })}</h2>
+          <h2 className="ag-label" id="adm-triggers">{t('admin.triggers', { count: data.triggers.length })}</h2>
           {data.triggers.length === 0 ? <p className="ag-note">{t('admin.noneTriggers')}</p> : table('adm-triggers', [t('admin.owner'), t('admin.name'), t('admin.state'), ''], data.triggers.flatMap(tr => [
             <tr key={tr.id} data-testid="admin-trigger-row">
               <td className="aj-mono">{tr.owner}</td>
@@ -131,7 +131,7 @@ export default function ChatsAdmin() {
 
       {on('connectors') && (
         <section className="aj-sec" data-testid="admin-connectors">
-          <h2 className="ag-eyebrow" id="adm-connectors">{t('admin.connectors', { count: data.connectors.length })}</h2>
+          <h2 className="ag-label" id="adm-connectors">{t('admin.connectors', { count: data.connectors.length })}</h2>
           {data.connectors.length === 0 ? <p className="ag-note">{t('admin.noneConnectors')}</p> : table('adm-connectors', [t('admin.owner'), t('admin.name'), t('admin.state'), ''], data.connectors.map(c => (
             <tr key={c.id} data-testid="admin-connector-row">
               <td className="aj-mono">{c.owner}</td>

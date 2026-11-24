@@ -114,7 +114,7 @@ type RuntimeSettings struct {
 	// The two built-in groups of LocalAI tools of the chats. Read at each turn.
 	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
 	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
-	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups on demand: auto, on or off (default: auto)
+	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups and the deferred add-on tools on demand: auto, on or off (default: auto)
 	// Jobs that an add-on starts for a paired client. Read when a job
 	// runs. By default such a job may only use tools that read.
 	ClientJobsAllowAllTools *bool `json:"client_jobs_allow_all_tools,omitempty"` // let jobs from a paired client use the write and act tools that the task's agent is set up with, no more (default: false)
@@ -131,6 +131,9 @@ type RuntimeSettings struct {
 	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
 	// 40). Read at each turn.
 	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most add-on tools one chat is offered, 16 to 256 (default: 64).
+	// Read at each discovery, so a change applies at once.
+	ChatsAddonToolLimit *int `json:"chats_addon_tool_limit,omitempty"`
 	// The most turns the server starts by itself for one goal of a chat, 1 to
 	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
 	// 10000 (default: 400). Read when a turn ends.

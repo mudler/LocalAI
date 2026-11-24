@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, EmptyState, LoadError, SkeletonRows, StatusChip } from '../ui'
+import { Button, EmptyState, LoadError, SkeletonRows, StatusChip, Tag } from '../ui'
 import { chatAgentsApi, chatProjectsApi } from '../../utils/api'
 import { agentPayload } from '../../utils/chatAgents'
 import { unavailableReason } from '../../utils/projectAgents'
@@ -90,8 +90,8 @@ export default function ProjectAgents({ project, archived, addToast, onChanged }
                     {why
                       ? <StatusChip tone="warn" icon="alert-circle" label={t('agents.unavailable')} testId="project-agent-state" />
                       : <StatusChip tone="ok" label={t('agents.ready')} testId="project-agent-state" />}
-                    <span className="pjag-chip" data-testid="project-agent-files"><Icon name={row.files_mode === 'read' ? 'eye' : 'edit'} />{t(row.files_mode === 'read' ? 'agents.filesRead' : 'agents.filesWrite')}</span>
-                    {row.memory_write && <span className="pjag-chip" data-testid="project-agent-memory"><Icon name="database" />{t('agents.remembers')}</span>}
+                    <Tag icon={row.files_mode === 'read' ? 'eye' : 'edit'} testId="project-agent-files">{t(row.files_mode === 'read' ? 'agents.filesRead' : 'agents.filesWrite')}</Tag>
+                    {row.memory_write && <Tag icon="database" testId="project-agent-memory">{t('agents.remembers')}</Tag>}
                   </span>
                   {why && <span className="pjag-why" data-testid="project-agent-reason"><Icon name="warning" />{t(`agents.reason.${why}`)}</span>}
                 </div>

@@ -1,25 +1,25 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Segmented, SkeletonRows } from '../components/ui'
 import PageHeader from '../components/PageHeader'
 import UpdateRow from '../components/updates/UpdateRow'
-import UpdateStrip, { UpdateSources } from '../components/updates/UpdateStrip'
-import { BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
-import NodeUpdateDialog from '../components/updates/NodeUpdateDialog'
+import UpdateStrip, { RunStrip, UpdateSources } from '../components/updates/UpdateStrip'
+import ReviewDialog from '../components/updates/ReviewDialog'
+import RunItemRow from '../components/updates/RunItemRow'
 import { ModelActionDialogs } from '../components/updates/ModelUpgradeDialog'
 import { useModelUpgradeActions } from '../hooks/useModelUpgradeActions'
-import { UpgradeConfirm } from '../components/addons/UpgradeControls'
 import ApproveUpgradeDialog from '../components/addons/ApproveUpgradeDialog'
 import Icon from '../components/Icon'
 import { useUpdates, CHECK_COOLDOWN_MS } from '../contexts/UpdatesContext'
 import { useUpdateActions } from '../hooks/useUpdateActions'
+import { useUpgradeRun } from '../hooks/useUpgradeRun'
 import { backendsApi } from '../utils/api'
-import { isClusterRow, nodeView, splitUpdate } from '../utils/nodeUpdates'
-import { addonsApi } from '../utils/addonsClient'
+import { isRunning, runKeys } from '../utils/upgradeRun'
+import { upgradeFailureWords } from '../components/addons/updateReview'
 import {
-  breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, isPending, normalizeFilter,
+  breakdownOf, currentBackendRows, filterCountsWithRun, filterRows, filterRunItems, groupRows, headlineOf, isPending, normalizeFilter,
 } from '../utils/updates'
 import '../components/updates/updates.css'
 
@@ -60,17 +60,28 @@ function UpdatesUnavailable() {
 
 function UpdatesPage({ updates }) {
   const { t } = useTranslation('updates')
+  const { t: ta } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const filter = normalizeFilter(params.get('filter'))
+  const runParam = params.get('run') || ''
   const [installedBackends, setInstalledBackends] = useState(null)
   const [showCurrent, setShowCurrent] = useState(false)
   const [now, setNow] = useState(Date.now())
-  const [nodePlan, setNodePlan] = useState(null)
   const narrow = useNarrow()
   const actions = useUpdateActions({ updates })
-  const { bulk } = actions
   const outlet = useOutletContext()
-  const model = useModelUpgradeActions({ readModels: updates.readModels, addToast: outlet && outlet.addToast })
+  // A model row's Upgrade or Retry may start a run of one on the server: look
+  // for it at once (the hook is made below, hence the ref).
+  const runRefresh = useRef(null)
+  const model = useModelUpgradeActions({
+    readModels: updates.readModels, addToast: outlet && outlet.addToast, onStarted: () => { if (runRefresh.current) runRefresh.current() },
+  })
+  const { refresh } = updates
+  // The run is the server's. When it ends the lists change: read them again.
+  const upgrade = useUpgradeRun({ runId: runParam, onEnded: () => refresh() })
+  runRefresh.current = upgrade.refresh
+  const shownRun = upgrade.run
+  const runActive = isRunning(shownRun)
 
   // The installed backends, for the ones that are known to be current. Read
   // again when a check answers.
@@ -97,44 +108,79 @@ function UpdatesPage({ updates }) {
   const cooling = Boolean(lastCheckAt) && now - lastCheckAt < CHECK_COOLDOWN_MS
 
   const rows = useMemo(
-    () => [...actions.rows, ...currentBackendRows(installedBackends || [], updates.snapshot)],
-    [actions.rows, installedBackends, updates.snapshot],
+    () => [...updates.rows, ...currentBackendRows(installedBackends || [], updates.snapshot)],
+    [updates.rows, installedBackends, updates.snapshot],
   )
-  const groups = useMemo(() => groupRows(filterRows(rows, filter)), [rows, filter])
-  const counts = useMemo(() => filterCounts(rows), [rows])
+  const rowsByKey = useMemo(() => new Map(rows.map(r => [r.id, r])), [rows])
+  // The names the page showed, so an item that left the lists (it was updated)
+  // keeps the name the person knows (an add-on's title, not its id).
+  const names = useRef(new Map())
+  for (const r of rows) names.current.set(r.id, r.name)
+
+  // An item of the shown run is listed once: in the run group.
+  const inRun = useMemo(() => runKeys(shownRun), [shownRun])
+  const listRows = useMemo(() => (inRun.size > 0 ? rows.filter(r => !inRun.has(r.id)) : rows), [rows, inRun])
+  const groups = useMemo(() => groupRows(filterRows(listRows, filter)), [listRows, filter])
+  // The items of the run are listed once, in the run group, and counted with
+  // the filter they match there.
+  const counts = useMemo(() => filterCountsWithRun(listRows, shownRun && shownRun.items, runActive), [listRows, shownRun, runActive])
   const breakdown = useMemo(() => breakdownOf(rows), [rows])
   const headline = headlineOf({ rows, sources: updates.sources, loading: updates.loading, loadError: updates.loadError })
   const lastChecked = updates.snapshot ? updates.snapshot.checkedAt : ''
 
-  // A backend that nodes report is updated node by node, after a confirmation
-  // that names the models that stop. Every path that would start such an
-  // update (a row's Update, its Retry, the Update ready button) opens the one
-  // dialog; nothing starts until it is confirmed. The other selected rows
-  // (single machine, library, add-on) are listed in the same dialog and start
-  // when it is confirmed, so nothing starts that the dialog did not name.
-  const { update: updateRow, retry: retryRow } = actions
-  const todoOf = useCallback((row) => {
-    const item = updates.snapshot && (updates.snapshot.items || []).find(i => i.id === row.id)
-    return item ? nodeView(item).todo : []
-  }, [updates.snapshot])
-  const onUpdate = useCallback((row) => {
-    if (isClusterRow(row)) {
-      const todo = todoOf(row)
-      if (todo.length > 0) setNodePlan({ entries: todo, restIds: new Set(), others: [] })
-      return
-    }
-    updateRow(row)
-  }, [todoOf, updateRow])
+  // Every update starts from a review: "Update N ready" reviews every ready
+  // row (models included, unselected by default), a row's Update or Retry
+  // reviews that row alone. A backend that nodes report is in the same review:
+  // the server names the models that stop. Per-node control stays on the
+  // row's Nodes page.
+  const readyRows = useMemo(() => listRows.filter(r => r.state === 'ready'), [listRows])
+  const readyCount = readyRows.filter(r => r.startable && r.kind !== 'model').length
+  const { openReview } = upgrade
+  const onUpdate = useCallback((row) => { openReview([row], { single: true }) }, [openReview])
   const onRetry = useCallback((row) => {
-    if (isClusterRow(row)) onUpdate(row)
-    else retryRow(row)
-  }, [onUpdate, retryRow])
-  const { bulk: bulkRun } = actions
-  const onBulkStart = useCallback(() => {
-    const { entries, restIds, others } = splitUpdate({ rows: actions.rows, selected: bulkRun.selected, items: updates.snapshot ? updates.snapshot.items : [] })
-    if (entries.length === 0) { bulkRun.start(restIds); return }
-    setNodePlan({ entries, restIds, others })
-  }, [actions.rows, bulkRun, updates.snapshot])
+    // The approval of a held upgrade is spent when it is accepted: a new try is a new review.
+    if (row.approval && row.grant) actions.setReview(row.grant)
+    else openReview([row], { single: true })
+  }, [actions, openReview])
+  const onReviewAll = useCallback(() => { openReview(readyRows) }, [openReview, readyRows])
+  const onStart = useCallback(async () => {
+    const started = await upgrade.start()
+    if (started && started.id) {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev)
+        out.set('run', started.id)
+        return out
+      }, { replace: true })
+    }
+  }, [upgrade, setParams])
+  // A retry is a new run (the old one stays finished): follow it.
+  const onRetryRun = useCallback(async () => {
+    const next = await upgrade.retry()
+    if (next && next.id) {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev)
+        out.set('run', next.id)
+        return out
+      }, { replace: true })
+    }
+  }, [upgrade, setParams])
+  // The review found a run in progress: close it and show that run.
+  const onFollow = useCallback((id) => {
+    upgrade.closeReview()
+    setParams((prev) => {
+      const out = new URLSearchParams(prev)
+      out.set('run', id)
+      return out
+    }, { replace: true })
+  }, [upgrade, setParams])
+  const onDismiss = useCallback(async () => {
+    await upgrade.dismiss()
+    setParams((prev) => {
+      const out = new URLSearchParams(prev)
+      out.delete('run')
+      return out
+    }, { replace: true })
+  }, [upgrade, setParams])
 
   const setFilter = useCallback((next) => {
     setParams((prev) => {
@@ -147,14 +193,12 @@ function UpdatesPage({ updates }) {
 
   const checkNow = useCallback(() => { updates.checkNow() }, [updates])
 
-  // One line under the sentence: the run in progress or its summary, else the
-  // answer of the last check, else the result of the last single update. It is
-  // the one live region of the page.
-  const { summary, running } = bulk
+  // One line under the sentence: a failed action on the run, else the answer
+  // of the last check, else the result of the last model action. It is the one
+  // live region of the page.
   let result = ''
-  if (running) result = t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
-  else if (bulk.run) result = t('bulk.summary', summary)
-  else if (model.announcement || actions.announcement) result = model.announcement || actions.announcement
+  if (upgrade.error || upgrade.errorCode) result = t('run.actionFailed', { message: upgrade.errorCode ? upgradeFailureWords(upgrade.errorCode, ta, upgrade.error, 'run') : upgrade.error })
+  else if (model.announcement) result = model.announcement
   else if (updates.lastCheck && !updates.checking) {
     const failed = updates.sources.filter(s => s.state === 'failed').length
     const found = rows.filter(isPending).length
@@ -165,33 +209,21 @@ function UpdatesPage({ updates }) {
     ].filter(Boolean).join(' ')
   }
 
-  const startable = bulk.items.filter(i => i.startable).length
-  const primary = (running || bulk.selected.size > 0) ? (
+  // A server that keeps no update runs: nothing can start from this page.
+  const noRuns = upgrade.unavailable
+  const primary = (!shownRun && readyRows.length > 0) ? (
     <span className="uc-primary">
       <Button
         variant="primary"
         icon="arrow-up"
-        busy={running}
-        disabled={running || bulk.selected.size === 0}
-        onClick={onBulkStart}
+        disabled={upgrade.review != null || noRuns}
+        title={noRuns ? t('run.unavailable') : undefined}
+        onClick={onReviewAll}
         data-testid="updates-update-ready"
       >
-        {running
-          ? t('bulk.running', { current: Math.min(summary.done + summary.failed + summary.skipped + summary.upgrading, summary.total), total: summary.total })
-          : t('bulk.start', { count: bulk.selected.size })}
+        {readyCount > 0 ? t('bulk.start', { count: readyCount }) : t('bulk.review')}
       </Button>
     </span>
-  ) : null
-
-  const bulkTail = bulk.run ? (
-    <div className="uc-bulk" data-testid="updates-bulk">
-      <Button size="sm" variant="ghost" onClick={bulk.show}>{t('bulk.details')}</Button>
-      {!running && bulk.failed.length > 0 && (
-        <Button size="sm" icon="refresh" onClick={bulk.retry} data-testid="updates-retry-failed">{t('bulk.retryFailed', { count: bulk.failed.length })}</Button>
-      )}
-      {running && <Button size="sm" variant="ghost" icon="close" onClick={() => actions.cancelRun(bulk.run)} data-testid="updates-cancel-run">{t('bulk.cancelAll')}</Button>}
-      {!running && <Button size="sm" variant="ghost" onClick={bulk.reset}>{t('bulk.dismiss')}</Button>}
-    </div>
   ) : null
 
   const filterOptions = ['all', 'ready', 'needs-you', 'updating', 'current'].map(id => ({ id, label: t(`filter.${id}`), count: counts[id] }))
@@ -200,18 +232,25 @@ function UpdatesPage({ updates }) {
     <UpdateRow
       key={row.id}
       row={row}
-      selected={bulk.selected.has(row.id)}
-      onToggle={bulk.toggle}
       onUpdate={onUpdate}
       onRetry={onRetry}
       onReview={(r) => actions.setReview(r.grant)}
       onCancel={actions.cancel}
       onCheck={actions.check}
       checking={actions.checking(row)}
-      locked={actions.busy}
+      locked={runActive || noRuns}
+      lockedReason={runActive ? t('run.busy') : noRuns ? t('run.unavailable') : ''}
       model={model.actions}
     />
   )
+
+  // `rows` is a dependency: the names arrive with the lists, which may answer
+  // after the run.
+  const runItems = useMemo(() => (shownRun && Array.isArray(shownRun.items) ? shownRun.items : [])
+    .map(i => ({ ...i, displayName: (rowsByKey.get(i.key) || {}).name || names.current.get(i.key) || i.title || i.name })), [shownRun, rowsByKey])
+  // The run group follows the filter too; the queued reasons still read the
+  // whole run.
+  const shownRunItems = useMemo(() => filterRunItems(runItems, filter, runActive), [runItems, filter, runActive])
 
   const body = () => {
     if (updates.loading) return <SkeletonRows count={4} label={t('loading')} testId="updates-loading" />
@@ -225,7 +264,7 @@ function UpdatesPage({ updates }) {
         />
       )
     }
-    const nothingInstalled = installedBackends != null && installedBackends.length === 0 && updates.addons.installed.length === 0 && rows.length === 0
+    const nothingInstalled = installedBackends != null && installedBackends.length === 0 && updates.addons.installed.length === 0 && rows.length === 0 && runItems.length === 0
     if (nothingInstalled && updates.sources.every(s => s.state !== 'failed')) {
       return (
         <EmptyState
@@ -243,10 +282,29 @@ function UpdatesPage({ updates }) {
     const shown = groups.needs.length + groups.updating.length + groups.ready.length + groups.other.length
     return (
       <>
-        {rows.length > 0 && (
+        {(listRows.length > 0 || runItems.length > 0) && (
           <Segmented options={filterOptions} value={filter} onChange={setFilter} label={t('filter.label')} testId="updates-filter" itemTestId="updates-filter-" />
         )}
-        {rows.length > 0 && shown === 0 && groups.current.length === 0 && (
+        {shownRunItems.length > 0 && (
+          <section className="uc-group" aria-labelledby="uc-g-run" data-group="run" data-testid="updates-run">
+            <h2 className="uc-group__title" id="uc-g-run">{t('run.group')} <span className="uc-group__count">{shownRunItems.length}</span></h2>
+            <ul className="uc-list">
+              {shownRunItems.map(item => (
+                <RunItemRow
+                  key={item.key}
+                  item={item}
+                  row={rowsByKey.get(item.key) || null}
+                  items={runItems}
+                  runActive={runActive}
+                  busy={upgrade.busy}
+                  onCancel={upgrade.cancelItem}
+                  onRetry={onRetryRun}
+                />
+              ))}
+            </ul>
+          </section>
+        )}
+        {(listRows.length > 0 || runItems.length > 0) && shown === 0 && groups.current.length === 0 && shownRunItems.length === 0 && (
           <p className="uc-none" data-testid="updates-filter-empty">{t('filter.none')}</p>
         )}
         {groups.needs.length > 0 && (
@@ -263,15 +321,7 @@ function UpdatesPage({ updates }) {
         )}
         {groups.ready.length > 0 && (
           <section className="uc-group" aria-labelledby="uc-g-ready" data-group="ready">
-            <div className="uc-group__head">
-              <h2 className="uc-group__title" id="uc-g-ready">{t('group.ready')} <span className="uc-group__count">{groups.ready.length}</span></h2>
-              {startable > 0 && (
-                <span className="uc-group__acts">
-                  <Button size="sm" variant="ghost" disabled={actions.busy} onClick={bulk.selectAll} data-testid="updates-select-all">{t('group.selectAll')}</Button>
-                  <Button size="sm" variant="ghost" disabled={actions.busy || bulk.selected.size === 0} onClick={bulk.selectNone}>{t('group.selectNone')}</Button>
-                </span>
-              )}
-            </div>
+            <h2 className="uc-group__title" id="uc-g-ready">{t('group.ready')} <span className="uc-group__count">{groups.ready.length}</span></h2>
             <ul className="uc-list">{groups.ready.map(renderRow)}</ul>
           </section>
         )}
@@ -287,7 +337,7 @@ function UpdatesPage({ updates }) {
               <Icon name="check" />
               <h2 className="uc-current__text" id="uc-g-current">
                 <strong>{t('group.current', { count: groups.current.length })}</strong>
-                {!(showCurrent || filter === 'current') && <span className="uc-current__names">: {groups.current.slice(0, 4).map(r => r.name).join(', ')}{groups.current.length > 4 ? '\u2026' : ''}</span>}
+                {!(showCurrent || filter === 'current') && <span className="uc-current__names">: {groups.current.slice(0, 4).map(r => r.name).join(', ')}{groups.current.length > 4 ? '…' : ''}</span>}
               </h2>
               {filter !== 'current' && (
                 <Button size="sm" variant="ghost" aria-expanded={showCurrent} onClick={() => setShowCurrent(v => !v)} data-testid="updates-current-toggle">
@@ -306,17 +356,30 @@ function UpdatesPage({ updates }) {
   return (
     <div className="page page--wide op-page uc-page" data-testid="updates-page" data-narrow={narrow || undefined}>
       <PageHeader title={t('title')} supporting={t('supporting')} />
-      <UpdateStrip
-        headline={headline}
-        breakdown={breakdown}
-        lastChecked={lastChecked}
-        checking={updates.checking}
-        cooling={cooling}
-        result={result}
-        onCheck={checkNow}
-        primary={stripPrimary}
-      />
-      {bulkTail}
+      {shownRun ? (
+        <RunStrip
+          run={shownRun}
+          busy={upgrade.busy}
+          result={result}
+          onCheck={checkNow}
+          checking={updates.checking}
+          cooling={cooling}
+          onCancel={upgrade.cancel}
+          onRetry={onRetryRun}
+          onDismiss={onDismiss}
+        />
+      ) : (
+        <UpdateStrip
+          headline={headline}
+          breakdown={breakdown}
+          lastChecked={lastChecked}
+          checking={updates.checking}
+          cooling={cooling}
+          result={result}
+          onCheck={checkNow}
+          primary={stripPrimary}
+        />
+      )}
       {!updates.loading && !updates.loadError && (
         <UpdateSources
           sources={updates.sources}
@@ -326,26 +389,28 @@ function UpdatesPage({ updates }) {
           installsDisabled={Boolean(updates.snapshot && updates.snapshot.installsDisabled)}
         />
       )}
+      {noRuns && <Callout tone="warn" testId="updates-runs-unavailable">{t('run.unavailable')}</Callout>}
       {body()}
       {narrow && primary && <div className="uc-sticky" data-testid="updates-sticky">{primary}</div>}
-      {nodePlan && (
-        <NodeUpdateDialog
-          entries={nodePlan.entries}
-          others={nodePlan.others}
-          onClose={() => setNodePlan(null)}
-          onStart={() => { if (nodePlan.restIds.size > 0) bulkRun.start(nodePlan.restIds) }}
-        />
-      )}
-      <UpgradeConfirm upgrade={actions.confirmApi} />
       {actions.review && (
         <ApproveUpgradeDialog
           addon={actions.review}
-          upgrade={actions.confirmApi}
+          upgrade={actions.addonUpgrade}
           onClose={() => actions.setReview(null)}
-          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons() }}
+          onDone={(done) => { actions.setReview(cur => (cur && cur.id === done.id ? null : cur)); updates.readAddons(); upgrade.refresh() }}
         />
       )}
-      <BulkUpgradeDialog bulk={bulk} />
+      <ReviewDialog
+        review={upgrade.review}
+        rowsByKey={rowsByKey}
+        busy={upgrade.busy}
+        onToggle={upgrade.toggle}
+        onSelectAll={upgrade.selectAll}
+        onSelectNone={upgrade.selectNone}
+        onStart={onStart}
+        onFollow={onFollow}
+        onClose={upgrade.closeReview}
+      />
       <ModelActionDialogs model={model} />
     </div>
   )

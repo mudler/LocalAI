@@ -16,6 +16,11 @@ const (
 	// has one, even a hidden one. The key names what the row reports, so the
 	// same report is silent the second time.
 	ModeOnce
+	// ModeSetQuiet is ModeSet for a row that shows work in progress: a
+	// created or revived row is not announced. The clients of the principal
+	// only read the list again, and the OnAdd hooks (browser push, Telegram)
+	// do not run. The end of the work is announced by a row of its own.
+	ModeSetQuiet
 )
 
 // UpsertResult says what an Upsert did.

@@ -264,8 +264,11 @@ func (c *Client) health(ctx context.Context, r Registration) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var got Registration
-	if decode(resp.Body, c.limits.ManifestBytes, &got) != nil || !reflect.DeepEqual(got, r) {
-		return ErrRuntime
+	if decode(resp.Body, c.limits.ManifestBytes, &got) != nil {
+		return failed(StageRegistrationRejected, "the health answer is not a valid registration")
+	}
+	if !reflect.DeepEqual(got, r) {
+		return failed(StageRegistrationRejected, "the health answer does not repeat the registration the host sent")
 	}
 	return nil
 }

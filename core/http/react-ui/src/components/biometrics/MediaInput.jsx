@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMediaCapture } from '../../hooks/useMediaCapture'
 import { fileToBase64 } from '../../utils/api'
 import Icon from '../Icon'
+import { Button, TabPanel, Tabs } from '../ui'
 
 // MediaInput — one control, three ways to supply a sample.
 // mode: 'image' | 'audio'. onChange receives null | { base64, dataUrl, mime, source }.
@@ -134,22 +135,21 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
     >
       {label && <label className="form-label" htmlFor={inputId}>{label}</label>}
 
-      <div className="biometrics-mediainput__tabs" role="tablist" aria-label={`${label || 'Media'} source`}>
-        <button type="button" role="tab" aria-selected={tab === 'file'}
-          className={`biometrics-mediainput__tab ${tab === 'file' ? 'active' : ''}`}
-          onClick={() => setTab('file')}>
-          <Icon name="upload" /> Upload
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'live'}
-          className={`biometrics-mediainput__tab ${tab === 'live' ? 'active' : ''}`}
-          onClick={() => setTab('live')}>
-          <Icon name={mode === 'image' ? 'camera' : 'mic'} />
-          {mode === 'image' ? ' Webcam' : ' Record'}
-        </button>
-      </div>
+      <Tabs
+        variant="pill"
+        className="biometrics-mediainput__tabs"
+        label={`${label || 'Media'} source`}
+        idPrefix={`${idPrefix}-${mode}-src`}
+        value={tab}
+        onChange={setTab}
+        items={[
+          { id: 'file', label: 'Upload', icon: 'upload' },
+          { id: 'live', label: mode === 'image' ? 'Webcam' : 'Record', icon: mode === 'image' ? 'camera' : 'mic' },
+        ]}
+      />
 
       {tab === 'file' && (
-        <div className="biometrics-mediainput__body">
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="file" flush className="biometrics-mediainput__body">
           <input
             ref={fileRef}
             id={inputId}
@@ -161,26 +161,25 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
           {mode === 'image' && (
             <p className="form-hint"><Icon name="clipboard" /> Paste an image from the clipboard</p>
           )}
-        </div>
+        </TabPanel>
       )}
 
       {tab === 'live' && (
-        <div className="biometrics-mediainput__body">
+        <TabPanel idPrefix={`${idPrefix}-${mode}-src`} value="live" flush className="biometrics-mediainput__body">
           {!cap.supported && <UnsupportedNotice mode={mode} />}
           {cap.supported && !cap.active && (
-            <button type="button" className="btn btn-secondary btn-full" onClick={cap.start}>
-              <Icon name={mode === 'image' ? 'camera' : 'mic'} />
-              {mode === 'image' ? ' Start webcam' : ' Enable microphone'}
-            </button>
+            <Button className="biometrics-mediainput__start" icon={mode === 'image' ? 'camera' : 'mic'} onClick={cap.start}>
+              {mode === 'image' ? 'Start webcam' : 'Enable microphone'}
+            </Button>
           )}
           {cap.active && mode === 'image' && (
             <div className="biometrics-mediainput__live">
               <video ref={cap.videoRef} autoPlay muted playsInline className="biometrics-mediainput__video" />
               <div className="biometrics-mediainput__controls">
-                <button type="button" className="btn btn-primary" onClick={handleSnap}>
-                  <Icon name="circle-dot" /> Capture
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={cap.stop}>Stop</button>
+                <Button variant="primary" icon="circle-dot" onClick={handleSnap}>
+                  Capture
+                </Button>
+                <Button onClick={cap.stop}>Stop</Button>
               </div>
             </div>
           )}
@@ -191,18 +190,17 @@ export default function MediaInput({ mode, label, value, onChange, onError, maxB
                 <span>{cap.recording ? `Recording… ${cap.elapsed.toFixed(1)}s` : 'Microphone ready'}</span>
               </div>
               <div className="biometrics-mediainput__controls">
-                <button type="button" className={`btn ${cap.recording ? 'btn-secondary' : 'btn-primary'}`} onClick={handleRecordToggle}>
-                  <Icon name={cap.recording ? 'stop' : 'circle'} />
-                  {cap.recording ? ' Stop' : ' Record'}
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={cap.stop} disabled={cap.recording}>Close</button>
+                <Button variant={cap.recording ? 'secondary' : 'primary'} icon={cap.recording ? 'stop' : 'circle'} onClick={handleRecordToggle}>
+                  {cap.recording ? 'Stop' : 'Record'}
+                </Button>
+                <Button onClick={cap.stop} disabled={cap.recording}>Close</Button>
               </div>
             </div>
           )}
           {cap.error && (
             <p className="biometrics-mediainput__error" role="alert">{cap.error}</p>
           )}
-        </div>
+        </TabPanel>
       )}
 
       {value && (

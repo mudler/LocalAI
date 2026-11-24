@@ -44,6 +44,21 @@ func NewStudioOAuth(app *application.Application) studioendpoint.HandlerOption {
 	}})
 }
 
+// NewStudioUserLookup lets the project routes check that the user an
+// administrator names (?user_id=) is a user of this instance. Without an auth
+// database no user is known.
+func NewStudioUserLookup(app *application.Application) studioendpoint.HandlerOption {
+	return studioendpoint.WithUserLookup(func(ctx context.Context, id string) (bool, error) {
+		db := app.AuthDB()
+		if db == nil {
+			return false, nil
+		}
+		var n int64
+		err := db.WithContext(ctx).Model(&auth.User{}).Where("id = ?", id).Count(&n).Error
+		return n > 0, err
+	})
+}
+
 // checkStudioModelResolves rejects a model with no config and an alias that
 // points nowhere, so a broken alias is refused when it is saved and not when
 // the first message fails.

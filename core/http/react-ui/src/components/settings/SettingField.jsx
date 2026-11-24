@@ -182,7 +182,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
   const was = OLD_SECTIONS[field.was]
 
   return (
-    <div className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
+    <div id={`settings-field-${field.key}`} className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
       <div className="st-row__main">
         <div className="st-row__title">
           <label id={labelId} htmlFor={field.kind === 'bool' ? undefined : id} className="st-row__label">{labelOf(field)}</label>

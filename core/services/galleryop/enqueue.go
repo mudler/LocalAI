@@ -143,7 +143,7 @@ func (g *GalleryService) EnqueueModelUpgrade(name string, opts ModelUpgradeOptio
 	ctx, cancel, pause := NewUserCancellableContext(context.Background())
 	g.StoreCancellationActions(uid, cancel, pause)
 	g.EnqueueModelOp(ManagementOp[gallery.GalleryModel, gallery.ModelConfig]{
-		ID: uid, GalleryElementName: name, Upgrade: true, Context: ctx, CancelFunc: cancel, PauseFunc: pause,
+		ID: uid, GalleryElementName: name, Upgrade: true, InRun: opts.InRun, Context: ctx, CancelFunc: cancel, PauseFunc: pause,
 		ModelUpgrade: &opts,
 	})
 	return uid, nil

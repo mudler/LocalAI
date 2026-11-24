@@ -21,6 +21,10 @@ const nodeStatusKeys = {
   queued: 'activity.node.queued',
   running_on_worker: 'activity.node.workerBusy',
   downloading: 'activity.node.downloading',
+  // A backend upgrade only: the new build did not start and the previous one
+  // is back, or the worker's reply never came.
+  rolled_back: 'activity.node.rolledBack',
+  unconfirmed: 'activity.node.unconfirmed',
 }
 
 // etaSeconds is derived by OperationsContext from the byte delta between

@@ -1,9 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
+import { adminGroup } from './admin-nav.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import { MEMBER, statusFixture } from './access-fixtures.js'
 import {
-  addonRecord, failedOp, galleryItem, heldGrant, libraryItem, minutesAgo, mockUpdates, okSource, runningOp, snapshotOf,
-  updateAvailable, upToDate,
+  addonRecord, failedOp, galleryItem, heldGrant, libraryItem, minutesAgo, mockUpdateRuns, mockUpdates, okSource, previewItem, runningOp,
+  snapshotOf, updateAvailable, upToDate,
 } from './updates-fixtures.js'
 
 // The Updates page: what is out of date, what is changing, and whether the
@@ -80,7 +81,6 @@ test.describe('Updates page: states', () => {
 
     const addon = rowOf(page, 'Notes sync')
     await expect(addon).toContainText('Add-on')
-    await expect(addon).toContainText('Needs your confirmation in this browser')
   })
 
   test('the chip of an optional update is the accent tone, a failure is not', async ({ page }) => {
@@ -254,75 +254,7 @@ test.describe('Updates page: check now', () => {
   })
 })
 
-test.describe('Updates page: one update, done only when it is done', () => {
-  // The operation is listed for a few polls, then leaves the list; the check
-  // after it answers according to `after`.
-  async function singleBackend(page, { after }) {
-    await mockOperate(page)
-    const state = await mockUpdates(page, {
-      snapshot: snapshotOf([galleryItem('llama-cpp', '0.9.4', '0.9.7')]),
-      installed: [installedBackend('llama-cpp', '0.9.4')],
-      onUpgrade: (name, jobID, s) => {
-        s.operations = [runningOp(name, { jobID })]
-        setTimeout(() => { s.operations = [] }, 2200)
-      },
-      onCheck: (s) => after(s),
-    })
-    return state
-  }
-
-  test('the row is updating until the operation ended and the fresh check no longer lists it', async ({ page }) => {
-    const state = await singleBackend(page, { after: () => snapshotOf([]) })
-    await page.goto('/app/updates')
-    await rowOf(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
-    await expect(rowOf(page, 'llama-cpp')).toHaveAttribute('data-state', 'updating')
-    // Dispatch is not completion: nothing says "updated" while the operation runs.
-    await expect(page.getByTestId('updates-check-result')).toHaveText('')
-    expect(state.checks).toBe(0)
-    await expect(page.getByTestId('updates-check-result')).toHaveText('llama-cpp was updated.', { timeout: 15_000 })
-    expect(state.checks).toBe(1)
-    await expect(rowOf(page, 'llama-cpp')).toHaveCount(0)
-    await expect(page.getByTestId('updates-headline')).toHaveText('Everything is up to date')
-  })
-
-  test('an operation that ended with the update still listed is a failed update', async ({ page }) => {
-    await singleBackend(page, { after: () => snapshotOf([galleryItem('llama-cpp', '0.9.4', '0.9.7')]) })
-    await page.goto('/app/updates')
-    await rowOf(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
-    const row = rowOf(page, 'llama-cpp')
-    await expect(row).toHaveAttribute('data-state', 'failed', { timeout: 15_000 })
-    await expect(row).toContainText('The update ended but the version did not change.')
-    await expect(row.getByRole('button', { name: 'Retry llama-cpp' })).toBeVisible()
-    await expect(page.getByTestId('updates-check-result')).toHaveText('llama-cpp was not updated.')
-  })
-
-  test('a failed operation shows its reason, and Retry starts a new update', async ({ page }) => {
-    await mockOperate(page)
-    const state = await mockUpdates(page, {
-      snapshot: snapshotOf([galleryItem('whisper', '1.7.2', '1.8.0')]),
-      operations: [failedOp('whisper')],
-      installed: [installedBackend('whisper', '1.7.2')],
-      onUpgrade: (name, jobID, s) => { s.operations = [runningOp(name, { jobID })] },
-    })
-    await page.route('**/api/operations/*/dismiss', route => { state.operations = []; return route.fulfill({ json: {} }) })
-    await page.goto('/app/updates')
-    const row = rowOf(page, 'whisper')
-    await expect(row).toContainText('Update failed: download interrupted')
-    await row.getByRole('button', { name: 'Retry whisper' }).click()
-    await expect(row).toHaveAttribute('data-state', 'updating')
-    expect(state.upgrades).toEqual(['whisper'])
-  })
-
-  test('a request the server refuses is a failed update with its words', async ({ page }) => {
-    await mockOperate(page)
-    await mockUpdates(page, { snapshot: snapshotOf([galleryItem('llama-cpp', '1', '2')]) })
-    await page.route('**/api/backends/upgrade/*', route => route.fulfill({ status: 403, json: { error: 'backend_install_disabled' } }))
-    await page.goto('/app/updates')
-    await rowOf(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
-    await expect(rowOf(page, 'llama-cpp')).toHaveAttribute('data-state', 'failed')
-    await expect(rowOf(page, 'llama-cpp')).toContainText('The update could not start')
-  })
-
+test.describe('Updates page: operations the page did not start', () => {
   test('a queued update shows an empty bar and says it waits; a running one shows its progress', async ({ page }) => {
     await mockOperate(page)
     await mockUpdates(page, {
@@ -354,112 +286,35 @@ test.describe('Updates page: one update, done only when it is done', () => {
 })
 
 test.describe('Updates page: update ready', () => {
-  test('submits every row at once and counts each as done only when it is', async ({ page }) => {
-    await mockOperate(page)
-    const state = await mockUpdates(page, {
-      snapshot: snapshotOf([galleryItem('alpha', '1', '2'), galleryItem('beta', '1', '2')]),
-      installed: [installedBackend('alpha', '1'), installedBackend('beta', '1')],
-      onUpgrade: (name, jobID, s) => {
-        s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })]
-        setTimeout(() => {
-          s.operations = s.operations.filter(o => o.name !== name)
-          s.finished = [...(s.finished || []), { name, at: Date.now() }]
-        }, 1800)
-      },
-      onCheck: (s) => snapshotOf(s.snapshot.items.filter(i => !(s.finished || []).some(f => f.name === i.name))),
-    })
-    await page.goto('/app/updates')
-    const button = page.getByTestId('updates-update-ready')
-    await expect(button).toContainText('Update 2 ready')
-    await button.click()
-    await expect(button).toContainText('Updating 2 of 2')
-    await expect(page.getByTestId('updates-check-result')).toContainText('2 updated, 0 failed, 0 skipped', { timeout: 30_000 })
-    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta'])
-    // Neither start waited for the other update to end: the server queues them.
-    const firstEnd = Math.min(...state.finished.map(f => f.at))
-    expect(Math.max(...state.upgradeTimes)).toBeLessThan(firstEnd)
-    await expect(page.getByTestId('updates-headline')).toHaveText('Everything is up to date')
-  })
-
-  test('Cancel all cancels the operations of the rows that have not finished', async ({ page }) => {
-    await mockOperate(page)
-    const cancelled = []
-    await mockUpdates(page, {
-      snapshot: snapshotOf([galleryItem('alpha', '1', '2'), galleryItem('beta', '1', '2')]),
-      installed: [],
-      onUpgrade: (name, jobID, s) => { s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })] },
-    })
-    await page.route('**/api/operations/*/cancel', route => { cancelled.push(route.request().url()); return route.fulfill({ json: {} }) })
-    await page.goto('/app/updates')
-    await page.getByTestId('updates-update-ready').click()
-    await expect(page.getByTestId('updates-cancel-run')).toBeVisible()
-    await expect(rowOf(page, 'alpha')).toHaveAttribute('data-state', 'updating')
-    await expect(rowOf(page, 'beta')).toHaveAttribute('data-state', 'updating')
-    await page.getByTestId('updates-cancel-run').click()
-    await expect.poll(() => cancelled.length).toBe(2)
-    expect(cancelled.join(' ')).toContain('job-alpha')
-    expect(cancelled.join(' ')).toContain('job-beta')
-  })
-
-  test('a failure in the middle does not stop the rest, and Retry failed runs only the failed one', async ({ page }) => {
-    await mockOperate(page)
-    let betaTries = 0
-    const state = await mockUpdates(page, {
-      snapshot: snapshotOf([galleryItem('alpha', '1', '2'), galleryItem('beta', '1', '2'), galleryItem('gamma', '1', '2')]),
-      installed: [],
-      onUpgrade: (name, jobID, s) => {
-        if (name === 'beta' && betaTries++ === 0) {
-          s.operations = [...s.operations, failedOp('beta', 'disk full', { jobID })]
-          return
-        }
-        s.operations = [...s.operations.filter(o => o.name !== name), runningOp(name, { jobID })]
-        setTimeout(() => { s.operations = s.operations.filter(o => o.name !== name); s.finished = [...(s.finished || []), { name }] }, 1500)
-      },
-      onCheck: (s) => snapshotOf(s.snapshot.items.filter(i => !(s.finished || []).some(f => f.name === i.name))),
-    })
-    await page.route('**/api/operations/*/dismiss', route => route.fulfill({ json: {} }))
-    await page.goto('/app/updates')
-    await page.getByTestId('updates-update-ready').click()
-    await expect(page.getByTestId('updates-check-result')).toContainText('2 updated, 1 failed, 0 skipped', { timeout: 40_000 })
-    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta', 'gamma'])
-    const retry = page.getByTestId('updates-retry-failed')
-    await expect(retry).toContainText('Retry failed (1)')
-    // beta is the only row left, failed by its operation.
-    state.operations = []
-    // The page reads the list once a second: let it drop the failed operation first.
-    await page.waitForTimeout(2500)
-    await retry.click()
-    await expect(page.getByTestId('updates-check-result')).toContainText('1 updated, 0 failed', { timeout: 30_000 })
-    expect(state.upgrades.slice().sort()).toEqual(['alpha', 'beta', 'beta', 'gamma'])
-  })
-
-  test('held and blocked rows are never part of the run, and a row can be left out', async ({ page }) => {
+  test('held, blocked, failed and updating rows are never part of the review', async ({ page }) => {
     await mixed(page)
+    const runs = await mockUpdateRuns(page)
     await page.goto('/app/updates')
     // Two rows can start: llama-cpp and Notes sync. Tables is held.
     await expect(page.getByTestId('updates-update-ready')).toContainText('Update 2 ready')
-    await rowOf(page, 'Notes sync').getByLabel('Select Notes sync').uncheck()
-    await expect(page.getByTestId('updates-update-ready')).toContainText('Update 1 ready')
-    await expect(rowOf(page, 'Tables').getByRole('checkbox')).toHaveCount(0)
-    await page.getByTestId('updates-select-all').click()
-    await expect(page.getByTestId('updates-update-ready')).toContainText('Update 2 ready')
+    await expect(page.locator('[data-testid="update-row"] input[type="checkbox"]')).toHaveCount(0)
+    await page.getByTestId('updates-update-ready').click()
+    await expect(page.getByTestId('update-review')).toBeVisible()
+    expect(runs.previews[0].items).toEqual([{ kind: 'gallery', name: 'llama-cpp' }, { kind: 'addon', name: 'notes' }])
   })
 })
 
 test.describe('Updates page: add-ons', () => {
-  test('Update asks for the add-on confirmation before anything starts', async ({ page }) => {
+  test('Update asks for a review before anything starts', async ({ page }) => {
     await mockOperate(page)
     const posts = []
     await mockUpdates(page, { addons: [addonRecord('notes', 'Notes sync', updateAvailable('0.8.2'), { version: '0.8.1' })] })
+    const runs = await mockUpdateRuns(page, { preview: items => items.map(i => previewItem(`${i.kind}:${i.name}`, 'v0.8.1', 'v0.8.2')) })
     await page.route(/\/api\/addons\/notes\/upgrade$/, route => { posts.push(1); return route.fulfill({ status: 500, json: {} }) })
     await page.goto('/app/updates')
     await rowOf(page, 'Notes sync').getByRole('button', { name: 'Update Notes sync' }).click()
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog')).first()
     await expect(dialog).toContainText('Notes sync')
     await expect(dialog).toContainText('0.8.2')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await dialog.getByRole('button', { name: 'Cancel' }).last().click()
     await expect(dialog).toHaveCount(0)
     expect(posts).toHaveLength(0)
+    expect(runs.starts).toHaveLength(0)
   })
 
   test('an add-on with an update that has no build to pin offers a check, not a dead Update', async ({ page }) => {
@@ -515,30 +370,32 @@ test.describe('Updates page: access and layout', () => {
     page.on('request', req => { if (/\/api\/(backends\/updates|addons\/host-grants)/.test(req.url())) seen.push(req.url()) })
     await page.goto('/app/updates')
     await expect(page).toHaveURL(/\/app$/)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveCount(0)
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveCount(0)
     await expect(page.getByTestId('operate-updates-badge')).toHaveCount(0)
     expect(seen).toEqual([])
   })
 
-  test('the tab sits between Runtime and Traffic and has no second accessible name', async ({ page }) => {
+  test('the item is the last of Models and runtime and has no second accessible name', async ({ page }) => {
     await mixed(page)
     await page.goto('/app/updates')
-    await expect(page.locator('[data-hub-tab="updates"]')).toBeVisible()
-    const tabs = await page.locator('.dk-hubtabs [data-hub-tab]').evaluateAll(els => els.map(el => el.getAttribute('data-hub-tab')))
-    expect(tabs.indexOf('updates')).toBe(tabs.indexOf('runtime') + 1)
-    expect(tabs.indexOf('traffic')).toBe(tabs.indexOf('updates') + 1)
-    await expect(page.locator('[data-hub-tab="updates"]')).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toBeVisible()
+    const items = await adminGroup(page, 'runtime').locator('a[data-admin-item]').evaluateAll(els => els.map(el => el.getAttribute('data-admin-item')))
+    expect(items.at(-1)).toBe('/app/updates')
+    await expect(page.locator('[data-admin-item="/app/updates"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('keyboard: every action is a named button reached with Tab, and Enter starts it', async ({ page }) => {
+  test('keyboard: every action is a named button reached with Tab, and Enter opens its review', async ({ page }) => {
     await mockOperate(page)
-    const state = await mockUpdates(page, { snapshot: snapshotOf([galleryItem('llama-cpp', '1', '2')]) })
+    await mockUpdates(page, { snapshot: snapshotOf([galleryItem('llama-cpp', '1', '2')]) })
+    const runs = await mockUpdateRuns(page)
     await page.goto('/app/updates')
     const update = page.getByRole('button', { name: 'Update llama-cpp' })
     await update.focus()
     await expect(update).toBeFocused()
     await page.keyboard.press('Enter')
-    await expect.poll(() => state.upgrades.length).toBe(1)
+    await expect(page.getByTestId('update-review')).toBeVisible()
+    await expect.poll(() => runs.previews.length).toBe(1)
+    await page.keyboard.press('Escape')
     // Landmarks and names.
     await expect(page.getByRole('list', { name: 'Where updates come from' })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Filter updates' })).toBeVisible()
@@ -558,8 +415,6 @@ test.describe('Updates page: access and layout', () => {
     const button = rowOf(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' })
     const box = await button.boundingBox()
     expect(box.height).toBeGreaterThanOrEqual(40)
-    // The row's checkbox is left out on a phone; the run takes every row that can start.
-    await expect(rowOf(page, 'llama-cpp').locator('input[type="checkbox"]')).toBeHidden()
     const rowBox = await rowOf(page, 'llama-cpp').boundingBox()
     expect(rowBox.width).toBeLessThanOrEqual(390)
   })

@@ -39,12 +39,13 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return err
 	}
 
-	// Fail fast (before prefetch/registration/NATS) when enforcement is on but no
-	// registration token is set: the worker's HTTP file-transfer server fails
-	// open on an empty token (see nodes.checkBearerToken), so refuse to start
-	// rather than register and then die mid-boot.
-	if cfg.RegistrationAuthRequired() && cfg.RegistrationToken == "" {
-		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but LOCALAI_REGISTRATION_TOKEN is empty — refusing to start an unauthenticated file-transfer server")
+	// Fail fast (before prefetch/registration/NATS) when enforcement is on but the
+	// worker has no token to register with: the worker's HTTP file-transfer server
+	// fails open on an empty token (see nodes.checkBearerToken), so refuse to
+	// start rather than register and then die mid-boot. A worker with a join token
+	// gets its data plane token from the frontend, and is checked again below.
+	if cfg.RegistrationAuthRequired() && cfg.RegistrationToken == "" && cfg.JoinToken == "" {
+		return fmt.Errorf("registration auth is required (LOCALAI_REGISTRATION_REQUIRE_AUTH or LOCALAI_DISTRIBUTED_REQUIRE_AUTH) but neither LOCALAI_REGISTRATION_TOKEN nor LOCALAI_JOIN_TOKEN is set — refusing to start an unauthenticated file-transfer server")
 	}
 
 	systemState, err := cfg.systemState()
@@ -105,6 +106,14 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	regClient := &workerregistry.RegistrationClient{
 		FrontendURL:       cfg.RegisterTo,
 		RegistrationToken: cfg.RegistrationToken,
+		JoinToken:         cfg.JoinToken,
+	}
+	if cfg.join == nil {
+		// The own credential of the node lives in the state directory, so that a
+		// restart registers with it and needs no join token.
+		regClient.Credential = &workerregistry.FileCredential{
+			Dir: cfg.dataDir(), FrontendURL: cfg.RegisterTo, NodeName: cfg.nodeName(),
+		}
 	}
 	if cfg.join != nil {
 		// Longer than over TCP: the first call may wait for a hole punch.
@@ -145,6 +154,10 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	}
 	nodeID := res.ID
 	xlog.Info("Registered with frontend", "nodeID", nodeID, "frontend", cfg.RegisterTo, "routes", routes)
+	cfg.dataToken = cmp.Or(regClient.WorkerToken(), workerctl.WorkerAuthToken(cfg.RegistrationToken))
+	if cfg.RegistrationAuthRequired() && cfg.dataToken == "" {
+		return fmt.Errorf("registration auth is required but the frontend gave this worker no data plane token: set a registration token on the frontend — refusing to start an unauthenticated file-transfer server")
+	}
 	heartbeatInterval, err := time.ParseDuration(cfg.HeartbeatInterval)
 	if err != nil && cfg.HeartbeatInterval != "" {
 		xlog.Warn("invalid heartbeat interval, using default 10s", "input", cfg.HeartbeatInterval, "error", err)
@@ -157,7 +170,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	httpAddr := cfg.resolveHTTPAddr(bindHost)
 	stagingDir := filepath.Join(cfg.ModelsPath, "..", "staging")
 	cacheDir := filepath.Join(cfg.ModelsPath, "..", "cache")
-	dataDir := filepath.Join(cfg.ModelsPath, "..", "data")
+	dataDir := cfg.dataDir()
 	ephemeralRoots := []string{
 		filepath.Join(stagingDir, "ephemeral"),
 		filepath.Join(cacheDir, "ephemeral"),
@@ -193,7 +206,7 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 		return terr
 	}
 	controlMux := plane.Control()
-	httpServer, err := nodes.StartFileTransferServerWithControl(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.RegistrationToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, controlMux, ml.BackendLogs())
+	httpServer, err := nodes.StartFileTransferServerWithControl(httpAddr, stagingDir, cfg.ModelsPath, dataDir, cfg.dataToken, config.DefaultMaxUploadSize, readiness, ephemeralCapacity, controlMux, ml.BackendLogs())
 	if err != nil {
 		return fmt.Errorf("starting HTTP file transfer server: %w", err)
 	}
@@ -206,9 +219,9 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	// manager, which is not a signal.
 	signals.NotifyTermination(sigCh)
 
-	// Set the registration token once before any backends are started
-	if cfg.RegistrationToken != "" {
-		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.RegistrationToken); err != nil {
+	// Set the data plane token once before any backends are started
+	if cfg.dataToken != "" {
+		if err := os.Setenv(grpc.AuthTokenEnvVar, cfg.dataToken); err != nil {
 			nodes.ShutdownFileTransferServer(httpServer)
 			return fmt.Errorf("setting backend authentication token: %w", err)
 		}

@@ -8,7 +8,8 @@ the target accelerator, the Strata Python files the backend uses, and a Python r
 
 Status: experimental. The unit tests run against a stub engine that speaks the same line protocol,
 including `LP` lines and `GENI`. The backend has not yet been run against a real engine and model;
-that check is still open.
+that check is still open. The Hy4-Flash family has the same status: its unit tests use the stub engine, and its tokenizer and
+chat-template path was checked against the real Section 0 of an SQ-64 build file, but no Hy4 engine has loaded a model through this backend.
 
 `make test-extra-backend-strata` runs the shared gRPC suite (`tests/e2e-backends`) against the built backend with a stub engine
 (`e2e/stub_engine.py`) and a synthetic tokenizer pack (`e2e/make_pack.py`). It needs Python 3 with `regex` and `jinja2`.
@@ -34,7 +35,7 @@ renders the prompt with the model's own chat template.
 |---|---|---|
 | `engine_path` | no. Set by the image (env `STRATA_ENGINE_PATH`) | Path to the engine executable. |
 | `strata_root` | no. Set by the image (env `STRATA_ROOT`) | Strata source checkout. Must contain `tools/strata_tokenizer.py` and `serve/frontend.py`. |
-| `family` | no | `qwen` (default). `deepseek41` is refused at load: Strata v0.2.15 removed DeepSeek V4.1. |
+| `family` | no | `qwen` (default) or `hy4` (Tencent Hy4-Flash, see "Hy4-Flash"). `deepseek41` is refused at load: Strata v0.2.15 removed DeepSeek V4.1. |
 | `python` | no | Python executable. Default `python3`. |
 | `pack` | no | Pack directory, when it is not the model directory itself or its `pack/` subdirectory. |
 | `native`, `native_dense_gguf`, `ple_gguf`, `embd_gguf`, `expert_profile`, `mtp` | no | Files the engine reads next to the pack. Each becomes the engine flag of the same name (`--native`, `--native-dense-gguf`, `--ple-gguf`, `--embd-gguf`, `--expert-profile`, `--mtp`). A relative path is looked up in the pack directory, the models directory and the pack's parent. |
@@ -44,11 +45,11 @@ renders the prompt with the model's own chat template.
 | `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). |
 | `engine_args` | no | Extra engine arguments, split on spaces. Placed last, so they can override the options above. |
 | `env` | no | `KEY=VALUE` for the engine process. Repeat the option for more. LocalAI's `environment` map is passed too. |
-| `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to `strata-vision` next to the engine, or env `STRATA_VISION_PATH`. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
+| `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to env `STRATA_VISION_PATH`, which the image's `run.sh` sets to the `strata-vision` of the engine package that fits the machine, or to `strata-vision` next to the engine. A package without the program gives no image support; `vision: on` then fails at load. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
 | `vision_gpu`, `vision_threads`, `vision_max_tokens` | no | Encoder settings: run on the GPU (`true`), CPU threads (default: the model's `threads`), and the most image tokens per image. |
 | `media_marker` | no | The placeholder LocalAI puts in message text for each image. Default `<__media__>`. |
 | `ready_timeout` | no | Go duration. How long to wait for `READY`. Default `15m`. |
-| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `30s`. |
+| `stop_timeout` | no | Go duration. How long to wait for the engine to end a request after `STOP` before it is killed. Default `2m`. |
 | `eos_ids` | no | Comma-separated end-of-turn token ids. Default: the ids of `<|endoftext|>` and `<|im_end|>` in the tokenizer. |
 
 Model options LocalAI sends and what they do: `context_size` becomes `--max-context`; `main_gpu` becomes
@@ -58,6 +59,69 @@ settings are ignored: the engine decides placement from the free memory, and the
 engine arguments.
 
 The engine is started as `<engine_path> --pack <pack> [file flags] [--max-context N] [--gpu N] [--vision] [engine_args] --serve`.
+
+## Hy4-Flash
+
+Tencent Hy4-Flash runs on its own engine program, `strata-hy4`, that speaks the same `--serve` line protocol with a short
+list of flags and a stricter parser (an unknown flag or `GEN` key is an error). Set `family:hy4`. The backend image carries
+the Hy4 engine packages in `engines-hy4/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=hy4`, which
+the backend sets for this family.
+
+A Hy4 model is a build file (`Hy4-Flash-SQ-64.strata`, `-96` or `-128`), the Engram file all builds share and an optional
+vision file. There is no pack. The tokenizer and the chat template are inside the build file; on the first load the backend
+reads that section, runs Strata's `tools/hy4_tokenizer.py` on it and keeps the result next to the build file
+(`<build>.tokenizer/`, made again if the file changes). The engine is started as
+`<engine_path> --native <build> --engram <file> --max-context N [--vision <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dfly2] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <build>` and asks for `--draft dfly2` and `--vision` only when the engine
+reports `drafter=dfly2` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `hy4`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The build file. |
+| `engram` | no | The Engram file. Default `Hy4-Flash-Engram-Q8.strata`, looked up next to the build file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dfly2` or `auto` (default), or `off`. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 131072. Pictures are files: the backend writes each to a scratch file, adds one `image=<path>` key per picture to the
+`GEN` line (spaces and `%` in the path escaped) and removes the files after the request. The prompt carries one image placeholder per
+picture and the engine expands it, so there is no encoder program and no `GENI`. The model's reasoning and tool calls are tagged tokens;
+the helper uses Strata's `serve/hy4_dialect.py` and the parser class the Strata server uses for this template. `logprobs`
+are refused: the engine has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, `ple_gguf`, ...) do not apply to this family.
+
+## Inkling 2 Mini
+
+Thinking Machines Inkling 2 Mini (26.4B parameters, 3.4B active, text and image input, no thinking mode) runs on a third
+engine program, `strata-inkling`, with the same `--serve` line protocol and a strict parser. Set `family:inkling`. The image
+carries its packages in `engines-inkling/`; the `strata-engine` launcher uses them when `STRATA_ENGINE_FAMILY=inkling`, which
+the backend sets for this family.
+
+An Inkling model is one file: a Strata build (`Inkling-2-Mini-SQ-10.strata`, `-SQ-15` or `-SQ-20`) or an Unsloth GGUF
+(`Inkling-2-Mini-UD-Q4_K_XL.gguf` and the other UD quants), plus an optional vision file (`Inkling-2-Mini-Vision.strata`) and,
+for a GGUF, the DSpark drafter file (`dspark-Inkling-2-Mini-Q8_0.gguf`). A Strata build carries its drafter. There is no pack.
+The tokenizer (o200k byte-level BPE) and the chat template come from the manifest at the end of a Strata build and from the
+`tokenizer.json` and `chat_template.jinja` files that Strata publishes beside its builds; a Strata build has the template but not
+the tokenizer, and a GGUF has neither, so both files are needed in the model directory. On the first load the backend runs
+Strata's `tools/inkling_tokenizer.py` and keeps the result next to the model file (`<model>.tokenizer/`, made again if a source
+file changes). The engine is started as
+`<engine_path> --native <file> --max-context N [--vision <file>] [--dspark <file>] [--vram-experts-gb X] [--ram-experts-gb Y] [--gpu N] [--draft dspark|off] [engine_args] --serve`.
+Before that the backend runs `<engine_path> --info <file> [--vision <file>] [--dspark <file>]` and asks for `--draft dspark` and
+`--vision` only when the engine reports `drafter=dspark` and `images=1`; if it cannot be asked it starts without both and logs why.
+
+| Option (family `inkling`) | Required | Meaning |
+|---|---|---|
+| `native` | yes | The model file. |
+| `vision` | no | The vision file, `on` (default file, must exist), `off`, or a path. With no option, the default file is used when it exists. |
+| `drafter` | no | `dspark` or `auto` (default), or `off`. |
+| `dspark` | no | The drafter file of a GGUF model. Default `dspark-Inkling-2-Mini-Q8_0.gguf` next to the model; a GGUF model without it starts without a drafter. |
+| `tokenizer_json`, `chat_template` | no | The tokenizer sources. Defaults `tokenizer.json` and `chat_template.jinja` next to the model. |
+| `vram_experts_gb`, `ram_experts_gb` | no | Caps for the experts held on the card and in RAM. Not set by default. |
+
+`context_size` defaults to 32768 (the model reads up to 1M tokens; the KV cache grows with the context). Pictures are files, as for
+Hy4-Flash: one `image=<path>` key per picture on the `GEN` line. The model writes its output as channel tokens; the prompt gets
+Strata's explicit answer opener and the helper uses Strata's `InklingOutputParser` (`serve/inkling_dialect.py`) to read content and
+tool calls. The model has no thinking mode, so a reasoning effort in a request changes nothing. `logprobs` are refused: the engine
+has none. The Qwen options (`pack`, `pack_gguf`, `mmproj`, `vision_exe`, ...) do not apply to this family.
 
 ## Model files
 
@@ -86,6 +150,8 @@ one model directory must not run at the same time. The tool needs numpy, and ggu
 `--compat-bf16`). The image carries both, under `strata-src/third_party/llama.cpp/gguf-py`.
 
 The gallery entries for the GGUF models set `pack_gguf`, so they download only the GGUF files.
+
+Deleting a model that sets `pack_gguf` also removes its `pack/` and `pack.partial/` directories, so the disk space comes back. A directory that another model uses, or that the `pack` option names, is kept.
 
 Example:
 
@@ -138,7 +204,11 @@ The EXIF orientation of a JPEG is not applied. Video and audio are refused.
 
 ## Not supported
 
-- Embeddings, grammar, `logit_bias`, mirostat, typical-p, tail-free sampling, video and audio input.
+- Embeddings, grammar, mirostat, typical-p, tail-free sampling, video and audio input.
+- `logit_bias` is sent to the engine of a pack model (`--pack`). The Hy4-Flash and Inkling engines, and
+  the Qwen engine of a model that runs without a pack (`pack_tool: tokenizer`), have no such key, so
+  a request with `logit_bias` fails there instead of being answered without it. The same Qwen engine
+  has no `logprobs` either, and a request that asks for them fails.
 - A forced tool call together with thinking (see `tool_choice`).
 - A tool call cut off by the token limit is delivered as far as it was written, with incomplete arguments.
 - One engine and one request at a time. `--batch` and `--slots` are not used.
@@ -175,9 +245,14 @@ Stop strings are matched in Go, then the engine is sent `STOP`.
 - On Linux the engine gets `PDEATHSIG=SIGKILL`, tied to a pinned OS thread so it fires when the
   backend process dies, not when some Go thread exits. Closing stdin also ends the serve loop.
 - `Free` sends `QUIT`, closes stdin, and kills the engine after 10 s.
-- A cancelled gRPC stream sends `STOP`. If the engine does not finish within `stop_timeout`, it is
-  killed and the next request fails with an "engine exited" error until the model is reloaded.
-  `Status` reports `ERROR` when the engine is dead.
+- A cancelled gRPC stream sends `STOP`, and sends it again every 1.5 s until the engine ends the
+  request, because the engine can lose a `STOP` that arrives right after the request. If the engine
+  does not finish within `stop_timeout`, it is killed.
+- A request that finds the engine dead (it crashed, or it was killed) starts it again from the
+  load configuration, up to two attempts, and runs on the new engine. The request in which the
+  engine died still fails, and the new engine starts with an empty conversation cache. If the
+  restart fails, the request fails with that error and the next request tries again. `Status`
+  reports `ERROR` while the engine is dead.
 
 ## Tokenizer, template and parser
 

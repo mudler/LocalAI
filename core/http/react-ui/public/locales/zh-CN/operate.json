@@ -33,6 +33,15 @@
     "diskChip": "磁盘快满了"
   },
   "activity": {
+    "node": {
+      "done": "完成",
+      "failed": "失败",
+      "queued": "排队中",
+      "workerBusy": "工作节点繁忙",
+      "downloading": "下载中",
+      "rolledBack": "已回滚",
+      "unconfirmed": "未确认"
+    },
     "kind": {
       "addon": "插件"
     },
@@ -99,5 +108,38 @@
     "addonNeedsReview": "该包请求的主机访问权限超出你批准的范围。",
     "review": "检查",
     "reviewLabel": "检查 {{name}}"
+  },
+  "overview": {
+    "title": "概览",
+    "openWorker": "打开工作节点",
+    "approve": "批准",
+    "approveAll": "全部批准",
+    "signups_one": "{{count}}个注册等待批准",
+    "signups_other": "{{count}} 个注册等待批准",
+    "approved_one": "已批准 {{count}} 个注册",
+    "approved_other": "已批准 {{count}} 个注册",
+    "approveFailed": "无法批准：{{message}}",
+    "cluster": "集群",
+    "machine": "本机",
+    "openWorkers": "打开工作节点",
+    "openMachine": "打开本机",
+    "online": "在线",
+    "ofTotal": "共 {{total}}",
+    "loaded": "已加载",
+    "inFlight": "处理中",
+    "memory": "内存",
+    "disk": "磁盘",
+    "diskFree": "{{total}} 中剩余 {{free}}",
+    "traffic": "流量，{{hours}} 小时",
+    "openUsage": "打开用量",
+    "requests": "请求",
+    "failed": "失败",
+    "p95": "P95",
+    "barsLabel": "过去 {{hours}} 小时的请求",
+    "access": "访问",
+    "users": "用户",
+    "waiting": "等待中",
+    "admins": "管理员",
+    "openUsers": "打开用户"
   }
 }

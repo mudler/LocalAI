@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/cluster"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/nodes/prefixcache"
@@ -105,11 +107,16 @@ func GetNodeEndpoint(registry *nodes.NodeRegistry, options ...RegisterOption) ec
 
 // RegisterNodeRequest is the request body for registering a new worker node.
 type RegisterNodeRequest struct {
-	Name            string  `json:"name"`
-	NodeType        string  `json:"node_type,omitempty"` // "backend" (default) or "agent"
-	Address         string  `json:"address"`
-	HTTPAddress     string  `json:"http_address,omitempty"`
-	Token           string  `json:"token,omitempty"`
+	Name        string `json:"name"`
+	NodeType    string `json:"node_type,omitempty"` // "backend" (default) or "agent"
+	Address     string `json:"address"`
+	HTTPAddress string `json:"http_address,omitempty"`
+	// Token is the shared registration token of the deployment. It is used for
+	// registration only, and only when the frontend has one.
+	Token string `json:"token,omitempty"`
+	// JoinToken is a single-use token that an admin minted. It takes the place
+	// of Token for a worker that joins; the worker then holds its own credential.
+	JoinToken       string  `json:"join_token,omitempty"`
 	TotalVRAM       uint64  `json:"total_vram,omitempty"`
 	AvailableVRAM   uint64  `json:"available_vram,omitempty"`
 	TotalRAM        uint64  `json:"total_ram,omitempty"`
@@ -188,6 +195,27 @@ type registerOptions struct {
 	workers WorkerPeers
 	split   SplitNodes
 	routes  NodeRouteStates
+	// joins and joinLimiter are the join tokens and the throttle of the callers
+	// that present a token that is not valid.
+	joins       JoinTokens
+	joinLimiter *cluster.JoinFailureLimiter
+	// workerToken is the bearer token between the frontends and the workers for
+	// the data plane (file transfer and gRPC). It is handed to a worker at
+	// registration, so that a worker that joined with a join token does not need
+	// the registration token.
+	workerToken string
+}
+
+// WithJoinTokens lets a worker register with a join token. The limiter may be
+// nil, which turns the throttle off.
+func WithJoinTokens(t JoinTokens, l *cluster.JoinFailureLimiter) RegisterOption {
+	return func(o *registerOptions) { o.joins, o.joinLimiter = t, l }
+}
+
+// WithWorkerToken sets the data plane token that a registration hands to the
+// worker. Empty means the data plane has no token.
+func WithWorkerToken(token string) RegisterOption {
+	return func(o *registerOptions) { o.workerToken = token }
 }
 
 // WorkerPeers says whether a peer of the P2P layer is a paired worker: a peer
@@ -292,15 +320,65 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		// token.
 		peer, viaP2P := opts.workerPeer(c.Request().Context())
 
-		// Validate registration token if one is configured on the frontend
-		if expectedToken != "" && !viaP2P {
-			if req.Token == "" {
-				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "registration token required"))
+		// A worker proves who it is in one of five ways. A paired worker over P2P
+		// uses its peer ID. A worker that registers again uses the own credential
+		// that its first registration gave it. A new worker uses a join token, or
+		// the shared registration token when the frontend has one. A frontend with
+		// neither is open, as it always was. The registration token is for this
+		// step only: no other node route accepts it.
+		var (
+			via      registerVia
+			joinRow  *cluster.JoinToken
+			existing *nodes.BackendNode
+		)
+		if viaP2P {
+			via = viaPeer
+		} else {
+			if req.Name != "" {
+				if n, err := registry.GetByName(c.Request().Context(), req.Name); err == nil {
+					existing = n
+				}
 			}
-			expectedHash := sha256.Sum256([]byte(expectedToken))
-			providedHash := sha256.Sum256([]byte(req.Token))
-			if subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) != 1 {
-				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "invalid registration token"))
+			bearer, _ := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
+			switch {
+			case bearer != "" && nodes.NodeCredentialMatches(existing, bearer):
+				via = viaNodeCredential
+			case req.JoinToken != "":
+				row, status, msg := checkJoinToken(c, opts, req.JoinToken)
+				if row == nil {
+					return c.JSON(status, nodeError(status, msg))
+				}
+				via, joinRow = viaJoinToken, row
+			case expectedToken != "":
+				if req.Token == "" {
+					return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "registration token required"))
+				}
+				expectedHash := sha256.Sum256([]byte(expectedToken))
+				providedHash := sha256.Sum256([]byte(req.Token))
+				if subtle.ConstantTimeCompare(expectedHash[:], providedHash[:]) != 1 {
+					return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "invalid registration token"))
+				}
+				via = viaSharedToken
+			default:
+				via = viaOpen
+			}
+			// A node that joined with a join token keeps to the connections that the
+			// token allowed, also when it registers again for a route's credential.
+			if via == viaNodeCredential && existing.JoinRoutes != "" {
+				allowed := strings.Split(existing.JoinRoutes, ",")
+				w1, w2 := requestedRoutes(req.Routes)
+				for _, r := range joinRoutes(w1, w2) {
+					if !slices.Contains(allowed, r) {
+						return c.JSON(http.StatusForbidden, nodeError(http.StatusForbidden, "the join token of this node does not allow the connection that it asked for"))
+					}
+				}
+			}
+			// A registration with no proof must not replace the credential of a
+			// node that holds one. Its own credential, a join token or the
+			// registration token may.
+			if via == viaOpen && existing != nil && existing.NodeTokenHash != "" {
+				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict,
+					"this node name belongs to a node with its own credential: present it, or use a join token"))
 			}
 		}
 
@@ -315,6 +393,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		}
 
 		ctx := c.Request().Context()
+		var credential string
 		wantsNATS, wantsTunnel := requestedRoutes(req.Routes)
 		// A worker over P2P reaches the cluster through its tunnel and nothing
 		// else: it never gets a NATS credential, whatever it asks for.
@@ -349,9 +428,9 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "http_address exceeds 512 characters"))
 		}
 
-		// Hash the token for storage (if provided)
+		// Hash the shared token for storage when that is how the node joined.
 		var tokenHash string
-		if req.Token != "" {
+		if req.Token != "" && via == viaSharedToken {
 			h := sha256.Sum256([]byte(req.Token))
 			tokenHash = hex.EncodeToString(h[:])
 		}
@@ -395,7 +474,31 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 		// its peer ID with the person who runs it. Register keeps the
 		// approval of a node that registers again from the same peer.
 		approve := autoApprove && !viaP2P
+		if joinRow != nil && joinRow.AutoApprove {
+			approve = true
+		}
+
+		// A join token is spent when the request is otherwise good, and given back
+		// when the registration then fails for a reason that is not the worker's.
+		if via == viaJoinToken {
+			spent, err := opts.joins.Consume(ctx, req.JoinToken, joinRoutes(wantsNATS, wantsTunnel)...)
+			switch {
+			case errors.Is(err, cluster.ErrJoinRouteNotAllowed):
+				return c.JSON(http.StatusForbidden, nodeError(http.StatusForbidden, "this join token does not allow the connection that the worker asked for"))
+			case err != nil:
+				// Used up by a racing registration, revoked or expired in between.
+				opts.failJoin(c)
+				return c.JSON(http.StatusUnauthorized, nodeError(http.StatusUnauthorized, "join token is not valid"))
+			}
+			joinRow = spent
+		}
+		refund := func() {
+			if joinRow != nil {
+				opts.joins.Refund(ctx, joinRow.ID)
+			}
+		}
 		if err := registry.Register(ctx, node, approve); err != nil {
+			refund()
 			if errors.Is(err, nodes.ErrNodePinned) {
 				xlog.Warn("Refusing a registration under the name of a node that belongs to another worker", "name", req.Name, "p2p", viaP2P)
 				return c.JSON(http.StatusConflict, nodeError(http.StatusConflict,
@@ -403,6 +506,26 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			}
 			xlog.Error("Failed to register node", "name", req.Name, "error", err)
 			return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
+		}
+		// The own credential of the node. A node that registered with a join token
+		// or the registration token gets a new one, and the old one stops working
+		// at once; a node that registered with its own credential keeps it.
+		if via != viaPeer && via != viaNodeCredential {
+			secret := rand.Text()
+			joinID, allowed := "", ""
+			if joinRow != nil {
+				joinID, allowed = joinRow.ID, joinRow.Routes
+			}
+			if err := registry.SetNodeCredential(ctx, node.ID, nodes.HashNodeSecret(secret), joinID, allowed); err != nil {
+				refund()
+				xlog.Error("Failed to store the credential of a node", "node", node.Name, "error", err)
+				return c.JSON(http.StatusInternalServerError, nodeError(http.StatusInternalServerError, "failed to register node"))
+			}
+			replaced := existing != nil && existing.NodeTokenHash != ""
+			credential = secret
+			if replaced && opts.tunnels != nil && opts.tunnels.Disconnect(node.ID) {
+				xlog.Info("Ended the tunnel session of a node whose credential was replaced", "node", node.Name)
+			}
 		}
 		if tunnelOnly {
 			// Register keeps a column when the new value is empty, so a node that
@@ -434,6 +557,13 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			"created_at": node.CreatedAt,
 		}
 
+		if credential != "" {
+			response["node_token"] = credential
+		}
+		if opts.workerToken != "" && !viaP2P {
+			response["worker_token"] = opts.workerToken
+		}
+
 		// An earlier release gave every agent worker a user and an API key with
 		// the collections grant. The worker no longer calls the HTTP API, so
 		// remove what is left of that account the next time the node registers.
@@ -452,7 +582,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			attachNatsJWT(response, node, natsCfg)
 			attachNATSHandover(ctx, response, opts.nats)
 		}
-		if wantsTunnel && expectedToken == "" && autoApprove {
+		if wantsTunnel && via == viaOpen && autoApprove {
 			openRegistrationWarning.Do(func() {
 				xlog.Warn("Worker registration is open: there is no registration token and new nodes are approved at once, " +
 					"so anyone who can reach this frontend can register a node, get a tunnel to it, and receive the requests that are sent to workers. " +
@@ -462,6 +592,59 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 
 		return c.JSON(http.StatusCreated, response)
 	}
+}
+
+// registerVia is how a worker proved who it is at registration.
+type registerVia int
+
+const (
+	viaOpen registerVia = iota
+	viaPeer
+	viaNodeCredential
+	viaJoinToken
+	viaSharedToken
+)
+
+// joinRoutes names the connections of a join token that a registration uses.
+func joinRoutes(nats, tunnel bool) []string {
+	var out []string
+	if nats {
+		out = append(out, cluster.JoinRouteNATS)
+	}
+	if tunnel {
+		out = append(out, cluster.JoinRouteWebSocket)
+	}
+	return out
+}
+
+func (o registerOptions) failJoin(c echo.Context) {
+	if o.joinLimiter != nil {
+		o.joinLimiter.Fail(c.RealIP())
+	}
+}
+
+// checkJoinToken looks at a join token without spending it. It returns the row,
+// or the status and message to answer. A caller that presents too many tokens
+// that are not valid is throttled by its address. Nothing it logs carries the
+// token.
+func checkJoinToken(c echo.Context, opts registerOptions, token string) (*cluster.JoinToken, int, string) {
+	if opts.joins == nil {
+		return nil, http.StatusUnauthorized, "join token is not valid"
+	}
+	if opts.joinLimiter != nil && !opts.joinLimiter.Allowed(c.RealIP()) {
+		c.Response().Header().Set("Retry-After", "60")
+		return nil, http.StatusTooManyRequests, "too many join tokens that are not valid: try again later"
+	}
+	row, err := opts.joins.Peek(c.Request().Context(), token)
+	if err != nil {
+		opts.failJoin(c)
+		if !errors.Is(err, cluster.ErrJoinTokenInvalid) {
+			xlog.Error("Reading a join token failed", "error", err)
+			return nil, http.StatusInternalServerError, "failed to register node"
+		}
+		return nil, http.StatusUnauthorized, "join token is not valid"
+	}
+	return row, 0, ""
 }
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
@@ -904,20 +1087,28 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 // Only gallery-name upgrades are supported: the distributed upgrade path
 // resolves galleries from server config, so unlike install there is no
 // URI/name/alias or galleries-override surface.
-func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, guard *BackendUpgradeGuard) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if galleryService == nil {
 			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
 		}
 		nodeID := c.Param("id")
 		var req struct {
-			Backend string `json:"backend"`
+			Backend    string `json:"backend"`
+			ExpectedTo string `json:"expected_to"`
 		}
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
 		if req.Backend == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name required"))
+		}
+		expectedTo := req.ExpectedTo
+		if expectedTo == "" {
+			expectedTo = c.QueryParam("expected_to")
+		}
+		if refusal := guard.Check(c.Request().Context(), req.Backend, nodeID, expectedTo); refusal != nil {
+			return refusal.Write(c)
 		}
 
 		jobUUID, err := uuid.NewUUID()

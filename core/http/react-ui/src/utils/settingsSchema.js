@@ -152,7 +152,7 @@ export const FIELDS = [
   { key: 'csrf', group: 'access', was: 'api', kind: 'bool', label: 'CSRF protection', inverted: true,
     desc: 'Block forged cross-site browser requests. Requests that carry an API key are exempt.', default: true },
   { key: 'api_keys', group: 'access', was: 'apikeys', kind: 'lines', label: 'Shared API keys', sensitive: true, apply: 'live',
-    desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Users and keys.',
+    desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Access, API keys.',
     placeholder: 'sk-key-1\nsk-key-2' },
   { key: 'mcp_connectors_allow_private', group: 'access', was: 'chats', kind: 'bool', label: 'MCP connectors may reach private networks',
     desc: 'Let the MCP servers that users add as connectors in the chats use addresses on private networks: this machine, link-local, private ranges and cloud metadata. Off, a connector can only reach public hosts, and every connection and redirect is checked at connect time. Turn it on only if your users are trusted: a connector can then probe your internal network through this server.',
@@ -222,7 +222,7 @@ export const FIELDS = [
     desc: 'Offer the chats of administrators the LocalAI admin tools, which manage this server: models, backends, settings and the state. Each chat, or saved agent, must switch the group on; a sub-agent and a run that starts by itself never has it.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
   { key: 'chats_tool_search', group: 'tools', was: 'chats', kind: 'select', options: ['auto', 'on', 'off'], label: 'Load LocalAI tools on demand',
-    desc: 'The LocalAI client and admin tool groups are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas would take a tenth or more of the model\'s context window. on: always, and the tools of the user\'s MCP connectors load on demand too. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
+    desc: 'The LocalAI client and admin tool groups, and the tools that an add-on marks as deferred, are large, and their schemas are sent to the model on every turn. auto: the chat sends three small tools (tool_search, tool_describe and tool_call) in their place when the schemas of a source would take a tenth or more of the model\'s context window; each source is decided on its own. on: always, and the tools of the user\'s MCP connectors load on demand too. off: never, the tools are always sent in full. The model finds and runs the tools with the same permissions as before.',
     default: 'auto', fallback: 'auto', emptyIsDefault: true, apply: 'live' },
   // The Tools tab draws this switch on the list_agents row.
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
@@ -286,6 +286,11 @@ export const FIELDS = [
   { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
     desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
     placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The most add-on tools one chat is offered (core/config/runtime_settings_registry.go;
+  // read at each discovery, so live). Each add-on is limited to 32 tools apart from this.
+  { key: 'chats_addon_tool_limit', group: 'tools', was: 'chats', kind: 'int', label: 'Add-on tools per chat',
+    desc: 'The most add-on tools one chat is offered, from 16 to 256. Tools that replace a built-in one, such as the shell, come first. Every tool is described to the model on every turn, so a higher limit costs model context and can make the model choose worse; raise it only if chats show that add-on tools are left out. An add-on can offer at most 32 tools whatever this says.',
+    placeholder: '64', default: 64, min: 16, max: 256, apply: 'live' },
   // The limits of a chat's goal (core/config/runtime_settings_registry.go;
   // read when a turn ends, so live).
   { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',

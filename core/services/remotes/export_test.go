@@ -84,3 +84,5 @@ func TargetBase(kind Kind, rawURL string) (string, error) {
 
 // SetNow replaces the clock of a service made by New.
 func SetNow(svc Service, now func() time.Time) { svc.(*service).now = now }
+
+var MergeAddr = mergeAddr

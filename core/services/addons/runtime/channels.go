@@ -130,12 +130,12 @@ func (c *channels) awaitStdio(ctx context.Context) (string, error) {
 	st := c.stdio
 	session, e := stdiomux.Client(stdiomux.Conn(st.out, st.in))
 	if e != nil {
-		return "", ErrRuntime
+		return "", failed(StageHandshakeProtocol, "the session cannot start on the standard streams: "+reasonOf(e))
 	}
 	st.session = session
 	first, e := session.Open(ctx)
 	if e != nil {
-		return "", ErrRuntime
+		return "", failed(StageProcessExited, "the startup stream cannot be opened: "+reasonOf(e))
 	}
 	type result struct {
 		line string
@@ -149,14 +149,14 @@ func (c *channels) awaitStdio(ctx context.Context) (string, error) {
 	select {
 	case <-ctx.Done():
 		_ = first.Close()
-		return "", ErrRuntime
+		return "", failed(StageHandshakeTimeout, "the process did not send its hello line in time")
 	case r := <-done:
 		if r.e != nil {
-			return "", ErrRuntime
+			return "", failed(StageProcessExited, "the hello line cannot be read: "+reasonOf(r.e))
 		}
 		pid, e := strconv.ParseUint(strings.TrimSuffix(r.line, "\n"), 10, 31)
 		if e != nil || pid == 0 {
-			return "", ErrRuntime
+			return "", failed(StageHandshakeProtocol, "the hello line is not a process ID")
 		}
 	}
 	c.parent = first
@@ -277,10 +277,13 @@ func (c *channels) awaitEndpoint(ctx context.Context) (string, error) {
 	}()
 	select {
 	case <-ctx.Done():
-		return "", ErrRuntime
+		return "", failed(StageHandshakeTimeout, "the process did not report its endpoint in time")
 	case r := <-done:
 		if r.e != nil {
-			return "", ErrRuntime
+			return "", failed(StageProcessExited, "the endpoint report cannot be read: "+reasonOf(r.e))
+		}
+		if len(r.b) == 0 {
+			return "", failed(StageProcessExited, "the endpoint report ended with no data")
 		}
 		endpoint, e := parseEndpointReport(r.b)
 		if e != nil {
@@ -296,16 +299,16 @@ func (c *channels) awaitEndpoint(ctx context.Context) (string, error) {
 // so a child may not report anything else.
 func parseEndpointReport(b []byte) (string, error) {
 	if len(b) > contract.MaxEndpointReport || !bytes.HasSuffix(b, []byte("\n")) {
-		return "", ErrRuntime
+		return "", failed(StageHandshakeProtocol, "the endpoint report is too long or has no line end")
 	}
 	line := string(b[:len(b)-1])
 	host, port, e := net.SplitHostPort(line)
 	if e != nil || host != "127.0.0.1" {
-		return "", ErrRuntime
+		return "", failed(StageHandshakeProtocol, "the process reported an endpoint that is not 127.0.0.1")
 	}
 	n, e := strconv.ParseUint(port, 10, 16)
 	if e != nil || n == 0 || strconv.FormatUint(n, 10) != port {
-		return "", ErrRuntime
+		return "", failed(StageHandshakeProtocol, "the process reported a port that is not valid")
 	}
 	return "http://" + line, nil
 }

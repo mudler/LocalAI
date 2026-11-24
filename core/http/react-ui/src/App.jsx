@@ -9,7 +9,7 @@ import { useBranding } from './contexts/BrandingContext'
 import BrandName from './components/BrandName'
 import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
-import { hubs, hubOwnsPath } from './components/hub/hubConfig'
+import { hubs, hubOwnsPath, operateHub } from './components/hub/hubConfig'
 import Icon from './components/Icon'
 // eslint-disable-next-line no-unused-vars
 import AppearanceSync from './components/wellknown/AppearanceSync'
@@ -18,8 +18,12 @@ import { displayVersion } from './utils/version'
 import { apiUrl } from './utils/basePath'
 import { InboxProvider } from './contexts/InboxContext'
 import { UpdatesProvider } from './contexts/UpdatesContext'
+import { OperateSummaryProvider } from './contexts/OperateSummaryContext'
 import { MobileInboxButton } from './components/inbox/InboxTriggers'
 import { readSidebarCollapsed } from './utils/sidebarState'
+import { ViewAsProvider } from './contexts/ViewAsContext'
+import ViewAsBar from './components/viewas/ViewAsBar'
+import { ViewAsNotice } from './components/viewas/parts'
 
 // The page wrapper is keyed so its transition replays on navigation. Within a
 // hub, collapse the key to the hub id so the layout (and its tab bar)
@@ -56,7 +60,7 @@ export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
-  const { authEnabled, user } = useAuth()
+  const { authEnabled, user, isAdmin } = useAuth()
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
@@ -119,9 +123,17 @@ export default function App() {
   const accountLabel = user?.name || user?.email || t('account')
   const themeToggleLabel = theme === 'dark' ? t('switchToLightMode') : t('switchToDarkMode')
 
+  // Updates sits above the inbox: the panel's footer shows the number of
+  // updates and the way to the Updates page.
   return (
-    <InboxProvider features={features}>
+    <ViewAsProvider>
     <UpdatesProvider features={features}>
+    <InboxProvider features={features}>
+    {/* The Administration sidebar draws its counts from the summary, so the
+        provider sits above it; it asks for nothing off an Administration page. */}
+    <OperateSummaryProvider enabled={isAdmin && hubOwnsPath(operateHub, location.pathname)}>
+      {/* "View as": above the whole shell, on every page. */}
+      <ViewAsBar addToast={addToast} />
       <div className={layoutClasses}>
         <AppearanceSync />
         <SoundSync />
@@ -172,6 +184,7 @@ export default function App() {
             </div>
           </header>
           <div className="main-content-inner">
+            <ViewAsNotice />
             <div className="page-transition" key={pageTransitionKey(location.pathname)}>
               {/* Per-route Suspense catches React.lazy chunk loads (router.jsx)
                   here, inside the App layout. Without it, suspension would bubble
@@ -213,7 +226,9 @@ export default function App() {
         {/* On a chat page the stack rises above the composer. */}
         <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
       </div>
-    </UpdatesProvider>
+    </OperateSummaryProvider>
     </InboxProvider>
+    </UpdatesProvider>
+    </ViewAsProvider>
   )
 }

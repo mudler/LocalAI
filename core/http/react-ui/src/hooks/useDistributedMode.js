@@ -16,7 +16,7 @@ import { nodesApi } from '../utils/api'
 // refetch after operations complete. The hook does not poll on its own —
 // the Nodes page handles its own 5s polling and the Backends gallery only
 // needs a one-shot read on mount.
-export function useDistributedMode() {
+export function useDistributedMode({ enabled: active = true } = {}) {
   const [enabled, setEnabled] = useState(false)
   const [nodes, setNodes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -36,7 +36,7 @@ export function useDistributedMode() {
     }
   }, [])
 
-  useEffect(() => { probe() }, [probe])
+  useEffect(() => { if (active) probe() }, [probe, active])
 
   return { enabled, nodes, loading, refetch: probe }
 }
