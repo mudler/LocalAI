@@ -290,7 +290,7 @@ type Application struct {
 	// upgradeRuns owns the server-owned upgrade runs; nil when they could not
 	// start. upgradeRunsStop stops its sweep and runners and closes a
 	// database opened for it. See upgrade_runs.go.
-	upgradeRuns      *upgraderun.Service
+	upgradeRuns      atomic.Pointer[upgraderun.Service]
 	upgradeRunsStop  func()
 	addonRunUpgrader *addonendpoints.QueuedUpgrader
 	// upgradeRunTweak changes the options of the service before it starts;

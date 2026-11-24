@@ -55,6 +55,60 @@ var _ = Describe("Upgrade run wiring", func() {
 		a.stopUpgradeRuns()
 	})
 
+	It("tells its observers the first change of a run it takes over at start", func() {
+		dir := GinkgoT().TempDir()
+		db, err := upgraderuntest.OpenSQLite(dir)
+		Expect(err).NotTo(HaveOccurred())
+		store, err := distributed.NewUpgradeRunStore(db)
+		Expect(err).NotTo(HaveOccurred())
+		// A run that a frontend which went away left running, with an
+		// item whose operation has no status any more.
+		Expect(store.Create(&distributed.UpgradeRunRecord{ID: "left", Source: "manual", Actor: "admin", State: "running", Runner: "gone", CreatedAt: time.Now()},
+			[]distributed.UpgradeRunItemRecord{{Key: "gallery:kokoro", Kind: "gallery", Name: "kokoro", Phase: "running", JobID: "lost-job"}})).To(Succeed())
+		a := runApp(ctx, "", "frontend-a")
+		a.distributed = &DistributedServices{Broadcaster: testutil.NewFakeBus(), DistStores: &distributed.Stores{UpgradeRuns: store}}
+		seen := make(chan upgraderun.Change, 64)
+		a.upgradeRunTweak = func(o *upgraderun.Options) {
+			o.Jobs = upgraderuntest.NewJobs()
+			o.Checkers = []upgraderun.Checker{upgraderuntest.NewChecker(upgraderun.KindGallery)}
+			o.Observers = append(o.Observers, upgraderun.ObserverFunc(func(c upgraderun.Change) {
+				select {
+				case seen <- c:
+				default:
+				}
+			}))
+		}
+		a.startUpgradeRuns()
+		DeferCleanup(a.stopUpgradeRuns)
+		var first upgraderun.Change
+		Eventually(seen, 5*time.Second).Should(Receive(&first))
+		Expect(first.Run.ID).To(Equal("left"))
+		Expect(first.Local).To(BeTrue())
+		Expect(first.Run.Item("gallery:kokoro").Phase).To(Equal(upgraderun.PhaseUnconfirmed), "the takeover itself is the first change")
+	})
+
+	It("publishes the service so that readers on other goroutines never race its start", func() {
+		a := runApp(ctx, GinkgoT().TempDir(), "")
+		stop := make(chan struct{})
+		read := make(chan struct{})
+		go func() {
+			defer close(read)
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+					_ = a.UpgradeRuns()
+				}
+			}
+		}()
+		a.startUpgradeRuns()
+		close(stop)
+		<-read
+		Expect(a.UpgradeRuns()).NotTo(BeNil())
+		a.stopUpgradeRuns()
+	})
+
 	It("does not start without a database or a data path, and the routes fall back", func() {
 		a := runApp(ctx, "", "")
 		a.startUpgradeRuns()

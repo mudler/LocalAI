@@ -76,6 +76,10 @@ type Options struct {
 	Starters map[Kind]Starter
 	// Checkers list the items with an update. Each kind is listed by one.
 	Checkers []Checker
+	// Observers are told of every change of a run from the start, also of
+	// the first change of a run that Run takes over at once. AddObserver
+	// adds one later.
+	Observers []Observer
 	// Toucher keeps the operations of a live run from being reaped. Set it
 	// to the gallery store in distributed mode.
 	Toucher OperationToucher
@@ -196,7 +200,7 @@ func New(opts Options) (*Service, error) {
 	}
 	opts.defaults()
 	ctx, quit := context.WithCancel(context.Background())
-	s := &Service{opts: opts, ctx: ctx, quit: quit, runners: map[string]*runner{}}
+	s := &Service{opts: opts, ctx: ctx, quit: quit, runners: map[string]*runner{}, observers: append([]Observer(nil), opts.Observers...)}
 	if opts.Bus != nil {
 		sub, err := opts.Bus.Subscribe(SubjectChanged, s.onChanged)
 		if err != nil {

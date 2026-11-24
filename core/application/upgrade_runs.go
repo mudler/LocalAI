@@ -31,7 +31,7 @@ const upgradeRunsDBFile = "upgrade_runs.db"
 // UpgradeRuns returns the service of the server-owned upgrade runs, or nil
 // when it could not start (no database to keep the runs in). The routes that
 // update one item fall back to their direct path then.
-func (a *Application) UpgradeRuns() *upgraderun.Service { return a.upgradeRuns }
+func (a *Application) UpgradeRuns() *upgraderun.Service { return a.upgradeRuns.Load() }
 
 // AddonRunUpgrader starts the add-on items of upgrade runs; the add-on upgrade
 // route hands its recorded upgrade to it. Never nil.
@@ -111,6 +111,14 @@ func (a *Application) startUpgradeRuns() {
 		store, closeDB = s, closer
 	}
 	opts := a.upgradeRunOptions(store, bus, toucher)
+	// The observers are part of the options, so they hear the first change
+	// of a run that the sweep takes over as soon as the service runs: one
+	// live row and one end row for each run in the inbox of each
+	// administrator, written by the frontend that runs the run, and the
+	// drop of an add-on upgrade that a run recorded and never started.
+	opts.Observers = append(opts.Observers,
+		&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context},
+		a.addonRunUpgrader)
 	if a.upgradeRunTweak != nil {
 		a.upgradeRunTweak(&opts)
 	}
@@ -120,19 +128,13 @@ func (a *Application) startUpgradeRuns() {
 		xlog.Warn("Upgrade runs are not available", "error", err)
 		return
 	}
+	a.upgradeRuns.Store(svc)
 	ctx, stop := context.WithCancel(a.applicationConfig.Context)
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		svc.Run(ctx)
 	}()
-	// One live row and one end row for each run in the inbox of each
-	// administrator, written by the frontend that runs the run.
-	svc.AddObserver(&updatenotify.RunNotifier{Emitter: a.updateEmitter(), Context: a.applicationConfig.Context})
-	// An add-on item that ended without starting the operation its upgrade
-	// route recorded drops that record on the owner.
-	svc.AddObserver(a.addonRunUpgrader)
-	a.upgradeRuns = svc
 	a.upgradeRunsStop = func() {
 		stop()
 		<-done
