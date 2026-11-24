@@ -15,6 +15,9 @@
 #
 # STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
 # a one-line reason on stderr, which the backend shows in its load error.
+#
+# With --print-engine-dir as the only argument the launcher prints the folder of the chosen package and exits. run.sh
+# uses it to find the programs that ship beside the engine, such as strata-vision.
 set -eu
 
 HERE=$(dirname "$(realpath "$0")")
@@ -98,4 +101,8 @@ choose() {
 }
 
 variant=$(choose)
+if [ "$#" -eq 1 ] && [ "$1" = "--print-engine-dir" ]; then
+	echo "$ENGINES/$variant"
+	exit 0
+fi
 exec "$ENGINES/$variant/$BIN" "$@"
