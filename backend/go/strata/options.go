@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -65,10 +66,24 @@ type loadConfig struct {
 	// family.
 	inkling *inklingConfig
 
+	// nativePack is set when the pack is a native (IQ) pack, the kind the iq
+	// pack tool makes. The engine refuses it without --native, --spec and
+	// --prefill, so the backend supplies them.
+	nativePack bool
+
 	// noPackFlag leaves --pack off the engine command line: the engine path
 	// of this model reads the GGUF as it is and takes only the tokenizer.
 	noPackFlag bool
 }
+
+// Defaults for a native (IQ) pack. The engine needs a speculative window of at
+// least 2 tokens and a prefill chunk; these are the values Strata's own setup
+// writes for a CUDA or HIP card: a window of 4, and a chunk it picks itself.
+// engine_args can set either flag to override them.
+const (
+	defaultNativeSpec    = "4"
+	defaultNativePrefill = "auto"
+)
 
 type engineFile struct{ flag, path string }
 
@@ -106,6 +121,16 @@ func (c loadConfig) engineArgs() []string {
 	}
 	if c.vision != nil {
 		args = append(args, "--vision")
+	}
+	if c.nativePack {
+		// Only what the user did not set: the engine takes the last value of a
+		// flag, but a missing flag is an error, so add nothing that is there.
+		if !hasEngineFlag(c.extraArgs, "--spec") {
+			args = append(args, "--spec", defaultNativeSpec)
+		}
+		if !hasEngineFlag(c.extraArgs, "--prefill") {
+			args = append(args, "--prefill", defaultNativePrefill)
+		}
 	}
 	return append(args, c.extraArgs...)
 }
@@ -275,6 +300,9 @@ func parseLoad(opts *pb.ModelOptions) (loadConfig, error) {
 			c.files = append(c.files, engineFile{fo.flag, p})
 		}
 	}
+	if err := parseNativePack(&c, kv, dirs); err != nil {
+		return c, err
+	}
 	if v := kv["ple_io"]; v != "" {
 		c.extraArgs = append([]string{"--ple-io", v}, c.extraArgs...)
 	}
@@ -403,4 +431,86 @@ func parseVision(c *loadConfig, kv map[string]string, opts *pb.ModelOptions, dir
 func fileExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()
+}
+
+// hasEngineFlag reports whether args sets flag, as "--flag value" or "--flag=value".
+func hasEngineFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag || strings.HasPrefix(a, flag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+var shardName = regexp.MustCompile(`^(.*)-(\d+)-of-(\d+)\.gguf$`)
+
+// firstShard returns the first file of the split GGUF set that path belongs
+// to, or path itself when it is not a split file or is already the first. The
+// engine finds the other shards from the first one.
+func firstShard(path string) string {
+	m := shardName.FindStringSubmatch(path)
+	if m == nil {
+		return path
+	}
+	if n, err := strconv.Atoi(m[2]); err != nil || n <= 1 {
+		return path
+	}
+	first := fmt.Sprintf("%s-%0*d-of-%s.gguf", m[1], len(m[2]), 1, m[3])
+	if fileExists(first) {
+		return first
+	}
+	return path
+}
+
+// findFirstShard looks for the one first shard of a split model in dir, for a
+// pack that has no native or pack_gguf option. The vision projector is not a
+// model shard.
+func findFirstShard(dir string) string {
+	matches, _ := filepath.Glob(filepath.Join(dir, "*-00001-of-*.gguf"))
+	var found []string
+	for _, m := range matches {
+		if !strings.HasPrefix(strings.ToLower(filepath.Base(m)), "mmproj") {
+			found = append(found, m)
+		}
+	}
+	if len(found) == 1 {
+		return found[0]
+	}
+	return ""
+}
+
+// parseNativePack handles a native (IQ) pack: a pack the iq pack tool made or
+// will make. The engine reads its experts from the GGUF files and needs
+// --native with the first shard. The shard comes from the native option (a
+// later shard is replaced by the first), else from pack_gguf, else from the
+// one split model in the model directory.
+func parseNativePack(c *loadConfig, kv map[string]string, dirs []string) error {
+	if c.noPackFlag || c.pack == "" {
+		return nil
+	}
+	if c.build == nil && !packComplete(c.pack, packToolIQ) {
+		return nil
+	}
+	c.nativePack = true
+	for i := range c.files {
+		if c.files[i].flag == "--native" {
+			c.files[i].path = firstShard(c.files[i].path)
+			return nil
+		}
+	}
+	shard := ""
+	if v := kv["pack_gguf"]; v != "" {
+		if p, err := resolve(v, dirs...); err == nil {
+			shard = firstShard(p)
+		}
+	}
+	if shard == "" && len(dirs) > 1 {
+		shard = findFirstShard(dirs[1])
+	}
+	if shard == "" {
+		return errors.New("strata: this is a native (IQ) pack and the engine needs the model's first GGUF file; set the native option")
+	}
+	c.files = append([]engineFile{{"--native", shard}}, c.files...)
+	return nil
 }
