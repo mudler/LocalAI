@@ -104,6 +104,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.authDB = authDB
 	}
 
+	sweepInterruptedUpdates(options)
+
 	if err := application.start(); err != nil {
 		if application.authDB != nil {
 			if sqlDB, e := application.authDB.DB(); e == nil {

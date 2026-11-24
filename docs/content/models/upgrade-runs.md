@@ -201,6 +201,17 @@ fresh check decides: `updated` if the item is no longer listed, `failed` with
 `interrupted` if it is ("the update was interrupted by a restart"). The item
 is retryable. Queued items continue.
 
+A crash in the middle of a backend install or upgrade can leave files on
+disk. At start, before any operation can run, a server that is not part of a
+cluster cleans them: it removes the staged new build next to the backend
+(`<backend>.upgrade-tmp`, `<backend>.install-tmp`) and the partial downloads in
+the download staging directory (`LOCALAI_DOWNLOAD_STAGING_PATH`). It never
+removes a previous build (`<backend>.backup`, `<backend>.install-backup`): when
+the backend directory is missing, the previous build is put back; when both
+are there, the server logs it and leaves both, because the backend in place
+may be a new build whose start check never ran. A build moved aside because it
+did not start (`<backend>.failed`) stays too.
+
 ## Distributed mode
 
 The run uses two of the modes of distributed state: shared state and a single
