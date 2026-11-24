@@ -22,3 +22,6 @@ branches:
   - name: feat/chat-message-timestamps
     description: "Show when each chat message was written."
     upstream_pr: null
+  - name: fix/addon-library-sources
+    description: "Show only add-on libraries in Find add-ons; clear a stale source filter."
+    upstream_pr: null
