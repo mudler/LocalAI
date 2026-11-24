@@ -44,6 +44,14 @@ func concrete(pattern string) string {
 	return strings.ReplaceAll(p, "/*", "/x1")
 }
 
+// isEventHook tells the one chats route that is public by design: the webhook
+// of an event trigger. The secret of the trigger is its credential, and it
+// answers 404 to a request without a valid signature, so that a caller cannot
+// learn which trigger ids exist. It never answers 401 or 403.
+func isEventHook(r routeSpec) bool {
+	return r.Method == http.MethodPost && r.Pattern == "/api/chats/triggers/:id/hook"
+}
+
 func allNewRoutes() []routeSpec {
 	r := registeredRoutes("core/http/routes/studio.go", "/api/chats")
 	return append(r, registeredRoutes("core/http/routes/collections.go", "/api/collections")...)
@@ -78,11 +86,21 @@ var _ = Describe("Permissions and the registry of the new routes", Label("platfo
 	It("answers 401 to every new route without a credential", func() {
 		var bad []string
 		for _, r := range allNewRoutes() {
+			if isEventHook(r) {
+				continue // public by design, covered by the next spec
+			}
 			if code := statusOf(anon, r); code != http.StatusUnauthorized {
 				bad = append(bad, fmt.Sprintf("%s %s -> %d", r.Method, r.Pattern, code))
 			}
 		}
 		Expect(bad).To(BeEmpty())
+	})
+
+	It("answers 404 to the event trigger webhook without a valid signature, whoever calls it", func() {
+		for name, a := range map[string]*api{"anonymous": anon, "user": user, "admin": admin} {
+			code, _ := a.do(http.MethodPost, "/api/chats/triggers/x1/hook", obj{})
+			Expect(code).To(Equal(http.StatusNotFound), name)
+		}
 	})
 
 	It("answers 403 to every chats route for a user whose chats feature is off, and 401 stays 401", func() {
@@ -92,6 +110,9 @@ var _ = Describe("Permissions and the registry of the new routes", Label("platfo
 		})
 		var bad []string
 		for _, r := range registeredRoutes("core/http/routes/studio.go", "/api/chats") {
+			if isEventHook(r) {
+				continue // public by design, its secret is the credential
+			}
 			if code := statusOf(user, r); code != http.StatusForbidden {
 				bad = append(bad, fmt.Sprintf("%s %s -> %d", r.Method, r.Pattern, code))
 			}
