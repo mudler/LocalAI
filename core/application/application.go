@@ -74,6 +74,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
@@ -231,6 +232,7 @@ type Application struct {
 	studioTextIndexStop   func()             // stops the indexer's loop and waits for it; nil when it does not run
 	authDB                *gorm.DB
 	metricsService        *monitoring.LocalAIMetricsService
+	telemetryService      *telemetry.Service
 	statsRecorder         *billing.Recorder
 	fallbackUser          *auth.User
 	piiRedactor           *pii.Redactor
@@ -859,6 +861,13 @@ func (a *Application) Shutdown() error {
 		if a.applicationConfig != nil && a.applicationConfig.DataPath != "" {
 			trace.ReleaseBackendTracePersistence(a.applicationConfig.DataPath)
 			tracepersist.CloseUnder(a.applicationConfig.DataPath)
+		}
+		// Last: give the trace exporter a bounded window to flush the spans
+		// buffered during this shutdown, without holding the process open.
+		if a.telemetryService != nil {
+			flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err = errors.Join(err, a.telemetryService.Shutdown(flushCtx))
+			cancel()
 		}
 	})
 	return err

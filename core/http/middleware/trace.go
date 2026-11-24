@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/telemetry"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
 )
@@ -307,6 +308,13 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 				exchange.UserID = user.ID
 				exchange.UserName = user.Name
 			}
+			// Publish the exchange ID to the trace exporter. The OTel
+			// middleware stamps it on the server span once the handler
+			// returns, and backend spans read it from the request context, so
+			// a span in the collector can be joined to the captured
+			// request/response payload kept in-process.
+			c.Set(telemetry.ExchangeIDKey, exchange.ID)
+			c.SetRequest(c.Request().WithContext(telemetry.WithExchangeID(c.Request().Context(), exchange.ID)))
 			mu.Lock()
 			inFlightTraces[exchange.ID] = exchange
 			mu.Unlock()
