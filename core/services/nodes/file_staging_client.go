@@ -619,6 +619,82 @@ func (f *FileStagingClient) Diarize(ctx context.Context, in *pb.DiarizeRequest, 
 	return f.Backend.Diarize(ctx, in, opts...)
 }
 
+// AudioTransform stages the input and reference audio on the worker, runs the
+// transform into a worker-side temp file and brings every output back to the
+// frontend paths the caller asked for.
+//
+// A multi-output transform (source separation) writes one file per stem next
+// to dst on the worker and reports their worker paths in the result. Each one
+// is retrieved beside the frontend dst, named like the backend names
+// siblings, and the result is rewritten to frontend paths. Any retrieval failure is
+// an error: a caller that gets a result naming a missing file cannot tell it
+// from a backend bug.
+func (f *FileStagingClient) AudioTransform(ctx context.Context, in *pb.AudioTransformRequest, opts ...ggrpc.CallOption) (*pb.AudioTransformResult, error) {
+	lifecycle := f.newStagedInputLifecycle()
+	defer lifecycle.release()
+	in = proto.Clone(in).(*pb.AudioTransformRequest)
+
+	if in.AudioPath != "" && isFilePath(in.AudioPath) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.AudioPath, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging audio for transform: %w", err)
+		}
+		in.AudioPath = backendPath
+	}
+	if in.ReferencePath != "" && isFilePath(in.ReferencePath) {
+		backendPath, err := f.stageInputFile(ctx, lifecycle, in.ReferencePath, "inputs")
+		if err != nil {
+			return nil, fmt.Errorf("staging reference audio for transform: %w", err)
+		}
+		in.ReferencePath = backendPath
+	}
+
+	frontendDst := in.Dst
+	if frontendDst != "" {
+		tmpPath, err := f.stager.AllocRemoteTemp(ctx, f.nodeID)
+		if err != nil {
+			return nil, fmt.Errorf("allocating temp for transform output: %w", err)
+		}
+		in.Dst = tmpPath
+	}
+
+	result, err := f.Backend.AudioTransform(ctx, in, opts...)
+	if err != nil || frontendDst == "" || in.Dst == frontendDst {
+		return result, err
+	}
+
+	if err := f.retrieveOutputFile(ctx, in.Dst, frontendDst); err != nil {
+		return nil, fmt.Errorf("retrieving transform output: %w", err)
+	}
+	if result == nil {
+		return result, nil
+	}
+	result.Dst = frontendDst
+
+	// The backend writes each stem beside its dst as "<stem of dst>.<name><ext>".
+	// The worker dst is a temp name, so the frontend names are built the same
+	// way from the frontend dst: that is where the caller looks for them.
+	ext := filepath.Ext(frontendDst)
+	localPrefix := strings.TrimSuffix(frontendDst, ext)
+	if ext == "" {
+		ext = ".wav"
+	}
+	for _, stem := range result.Stems {
+		if stem.Dst == "" {
+			continue
+		}
+		if stem.Name == "" {
+			return nil, fmt.Errorf("transform stem %q has no name", stem.Dst)
+		}
+		localStem := localPrefix + "." + stem.Name + ext
+		if err := f.retrieveOutputFile(ctx, stem.Dst, localStem); err != nil {
+			return nil, fmt.Errorf("retrieving transform stem %q: %w", stem.Name, err)
+		}
+		stem.Dst = localStem
+	}
+	return result, nil
+}
+
 func (f *FileStagingClient) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...ggrpc.CallOption) (*pb.TranscriptResult, error) {
 	lifecycle := f.newStagedInputLifecycle()
 	defer lifecycle.release()
