@@ -133,7 +133,7 @@ func TrimPayload(raw []byte, max int) string {
 // of "<unix seconds>." followed by the body.
 func Sign(secret string, ts time.Time, body []byte) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	fmt.Fprintf(mac, "%d.", ts.Unix())
+	_, _ = fmt.Fprintf(mac, "%d.", ts.Unix())
 	mac.Write(body)
 	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
