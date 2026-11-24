@@ -17,23 +17,18 @@ assert_target() {
   fi
 }
 
-assert_target amd64 cublas llama-cpp-cpu-all
-assert_target amd64 vulkan llama-cpp-cpu-all
-assert_target amd64 "" llama-cpp-cpu-all
-assert_target arm64 cublas llama-cpp-fallback
-assert_target arm64 "" llama-cpp-cpu-all
+# One mechanism for every flavor: the CPU variants come from their own gcc stage,
+# so no flavor falls back to the static binary.
+for arch in amd64 arm64; do
+  for build_type in "" cublas vulkan hipblas sycl_f16 sycl_f32; do
+    assert_target "$arch" "$build_type" llama-cpp-cpu-all
+  done
+done
 
-# SYCL builds the whole tree with icpx -fsycl, and icpx never finishes
-# ggml-cpu/arch/x86/repack.cpp at -march=sapphirerapids: every sycl job sat on
-# that one translation unit until GitHub killed it at its 6h limit.
-assert_target amd64 sycl_f16 llama-cpp-fallback
-assert_target amd64 sycl_f32 llama-cpp-fallback
+# The variants must not be compiled by a GPU toolchain: the selected target has to
+# take them prebuilt and switch the CPU backend off in the GPU tree.
+MAKEFILE="$CURDIR/../../backend/cpp/llama-cpp/Makefile"
+grep -q -- '-DGGML_CPU=OFF' "$MAKEFILE" || { echo "FAIL: Makefile does not build the GPU tree with -DGGML_CPU=OFF"; exit 1; }
+grep -q 'CPU_VARIANTS_DIR' "$CURDIR/../../.docker/llama-cpp-compile.sh" || { echo "FAIL: compile script does not pass CPU_VARIANTS_DIR"; exit 1; }
 
-# ROCm exhausts the same 6h budget through volume rather than a stall: hipcc
-# compiles ggml's HIP kernels once per AMDGPU target, eleven of them, and the
-# CPU variant matrix goes on top. 2h27m before it was added, killed at exactly
-# 6h00m on every run since.
-assert_target amd64 hipblas llama-cpp-fallback
-assert_target arm64 hipblas llama-cpp-fallback
-
-echo "PASS: llama.cpp build target preserves CPU variants where supported"
+echo "PASS: every llama.cpp image flavor selects the CPU variant build"

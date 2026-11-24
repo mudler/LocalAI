@@ -24,7 +24,7 @@ cp -rfv $CURDIR/run.sh $CURDIR/package/
 #     scanning the executable's own directory (readlink /proc/self/exe). run.sh launches via
 #     the bundled $CURDIR/lib/ld.so, so /proc/self/exe -> .../lib/ld.so and ggml scans lib/.
 #     That is why the variants must sit in lib/ (next to ld.so), not just on the link path.
-# No-op on builds (arm64/darwin) that don't produce the all-variants set.
+# No-op on builds that do not produce the all-variants set.
 if [ -d "$CURDIR/ggml-shared-libs" ]; then
     echo "Bundling ggml shared backends (CPU_ALL_VARIANTS)..."
     cp -avf $CURDIR/ggml-shared-libs/*.so* $CURDIR/package/lib/
