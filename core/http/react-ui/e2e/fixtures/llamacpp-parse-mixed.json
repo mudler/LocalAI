@@ -1,0 +1,44 @@
+{
+  "fields": {
+    "parameters": {
+      "model": "/models/x.gguf"
+    },
+    "context_size": 4096
+  },
+  "options": [
+    "--rope-freq-base:10000",
+    "--no-warmup"
+  ],
+  "unmapped": [
+    {
+      "flag": "--host",
+      "value": "0.0.0.0",
+      "reason": "ignored: LocalAI starts and addresses the backend process itself"
+    },
+    {
+      "flag": "--port",
+      "value": "8080",
+      "reason": "ignored: LocalAI starts and addresses the backend process itself"
+    },
+    {
+      "flag": "--rope-freq-base",
+      "value": "10000",
+      "reason": "no first-class setting; kept as a raw passthrough option"
+    },
+    {
+      "flag": "--no-warmup",
+      "value": "",
+      "reason": "no first-class setting; kept as a raw passthrough option"
+    },
+    {
+      "flag": "-t",
+      "value": "abc",
+      "reason": "\"abc\" is not an integer"
+    }
+  ],
+  "warnings": [
+    "the model \"/models/x.gguf\" is a path; LocalAI expects a file name inside the models directory",
+    "--rope-freq-base is not a known flag; \"10000\" was read as its value"
+  ],
+  "placements": []
+}

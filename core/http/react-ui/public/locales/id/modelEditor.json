@@ -38,5 +38,170 @@
     "proxyVision": {
         "label": "Model ini dapat melihat gambar",
         "hint": "Aktifkan jika model upstream menerima gambar. LocalAI tidak dapat memeriksanya. Gambar terlampir lalu dikirim ke model bersama pesan."
+    },
+    "runtime": {
+        "title": "Penyetelan runtime",
+        "lead": "Cara llama.cpp memuat dan menjalankan model ini. Setiap kolom adalah flag llama-server. Kolom kosong memakai nilai bawaan.",
+        "loading": "Memuat pengaturan llama.cpp",
+        "default": "Bawaan",
+        "defaultIs": "Bawaan ({{value}})",
+        "on": "Aktif",
+        "off": "Nonaktif",
+        "auto": "Otomatis",
+        "reset": "Atur ulang {{name}}",
+        "groups": {
+            "memory": "Memori",
+            "sampling": "Sampling bawaan",
+            "template": "Templat chat",
+            "speed": "Kecepatan"
+        },
+        "fields": {
+            "context_size": "Ukuran konteks",
+            "gpu_layers": "Lapisan di GPU",
+            "options_parallel": "Slot paralel",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "Tipe cache KV (K)",
+            "cache_type_v": "Tipe cache KV (V)",
+            "parameters_batch": "Ukuran batch",
+            "threads": "Thread",
+            "options_threads_batch": "Thread batch",
+            "options_fit": "Sesuaikan dengan memori bebas",
+            "options_no_op_offload": "Tanpa offload operasi",
+            "parameters_temperature": "Temperatur",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Templat chat Jinja",
+            "loadMode": "Mode muat",
+            "options_ubatch": "Ukuran micro-batch"
+        },
+        "loadModes": {
+            "default": "Bawaan (dipetakan ke memori)",
+            "none": "Tidak ada (dibaca ke memori)",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "I/O langsung"
+        },
+        "loadModeHint": "Cara file model dibaca. Menulis mmap, mmlock, dan opsi direct_io.",
+        "errors": {
+            "notInteger": "Ketik bilangan bulat.",
+            "notNumber": "Ketik angka.",
+            "range": "Ketik nilai dari {{min}} sampai {{max}}.",
+            "min": "Ketik {{min}} atau lebih.",
+            "max": "Ketik {{max}} atau kurang.",
+            "enum": "Gunakan salah satu: {{values}}.",
+            "colon": "Titik dua memotong nilai. Hapus titik dua itu.",
+            "empty": "Ketik entri, atau hapus barisnya.",
+            "rawOwned": "{{name}} diatur oleh kolom di atas. Gunakan kolom itu.",
+            "layerRange": "Setiap rentang memerlukan lapisan awal dan akhir, dan akhirnya tidak boleh sebelum awal.",
+            "overrideShape": "Tulis setiap entri sebagai pola=buffer: {{entry}}",
+            "overrideTarget": "Nama buffer hanya boleh berisi huruf, angka, dan garis bawah: {{target}}",
+            "overrideRegex": "Pola ini bukan ekspresi reguler yang valid: {{entry}}"
+        },
+        "ot": {
+            "title": "Penempatan tensor",
+            "modes": {
+                "off": "Nonaktif (llama.cpp yang memutuskan)",
+                "experts": "Expert MoE di CPU",
+                "rest": "N lapisan pertama di GPU, expert sisanya di CPU",
+                "ranges": "Expert lapisan pilihan di CPU",
+                "raw": "Regex khusus"
+            },
+            "help": {
+                "off": "Tidak ada yang ditulis.",
+                "experts": "Menyimpan bobot expert setiap lapisan di memori sistem. Bagian model lainnya tetap di GPU.",
+                "rest": "Menyimpan N lapisan pertama di GPU dan menaruh expert semua lapisan berikutnya di CPU. Dengan jumlah total lapisan, pola mencantumkan sisanya sebagai satu rentang.",
+                "ranges": "Menyimpan expert dari lapisan yang Anda pilih di memori sistem, misalnya 0-6 dan 18-23.",
+                "raw": "Menulis nilai persis seperti yang Anda ketik."
+            },
+            "gpuLayers": "Lapisan dengan expert di GPU",
+            "layers": "Lapisan",
+            "rangeN": "Rentang {{n}}",
+            "from": "Lapisan pertama",
+            "to": "Lapisan terakhir",
+            "addRange": "Tambah rentang",
+            "removeRange": "Hapus rentang {{n}}",
+            "raw": "Nilai override",
+            "rawHint": "Entri pola=buffer yang dipisahkan koma, seperti pada llama-server -ot.",
+            "generated": "Nilai yang dihasilkan",
+            "nothing": "Tidak ada. llama.cpp yang menempatkan tensor.",
+            "mode": "Penempatan",
+            "totalLayers": "Jumlah lapisan",
+            "totalUnknown": "Tidak diketahui",
+            "failed": "Server tidak dapat membuat pola: {{message}}",
+            "building": "Membuat pola"
+        },
+        "presets": {
+            "title": "Mulai dari sebuah pengaturan",
+            "bigMoe": {
+                "name": "MoE besar di GPU kecil",
+                "text": "Semua lapisan di GPU, expert di CPU, cache KV 8-bit."
+            },
+            "maxContext": {
+                "name": "Konteks maksimum",
+                "text": "Konteks 128K, flash attention, dan cache KV 8-bit."
+            },
+            "lowVram": {
+                "name": "VRAM rendah",
+                "text": "Konteks 4K, cache KV 4-bit, dan micro-batch kecil."
+            }
+        },
+        "applied": {
+            "title": "{{name}}: pengaturan yang berubah: {{count}}.",
+            "none": "Tidak ada yang berubah. Formulir sudah berisi nilai ini.",
+            "note": "Kolom tetap bisa diedit. Tidak ada yang disimpan sampai Anda menyimpan model.",
+            "undo": "Urungkan",
+            "dismiss": "Sembunyikan"
+        },
+        "raw": {
+            "title": "Opsi lanjutan",
+            "hint": "Entri lain dari daftar options, satu per baris: nama:nilai, atau flag llama-server seperti --rope-scale:2.",
+            "empty": "Tidak ada opsi lain.",
+            "entry": "Opsi {{n}}",
+            "remove": "Hapus {{entry}}",
+            "add": "Tambah opsi"
+        },
+        "preview": {
+            "title": "Pratinjau perintah",
+            "aside": "Baris perintah",
+            "updating": "Memperbarui",
+            "loading": "Memuat perintah",
+            "copy": "Salin",
+            "copied": "Disalin",
+            "copyFailed": "Gagal menyalin",
+            "failed": "Pratinjau tidak tersedia.",
+            "note": "Perintah llama-server yang sesuai dengan pengaturan ini. LocalAI menjalankan backend sendiri; baris ini untuk perbandingan dan untuk dipakai di luar LocalAI."
+        },
+        "paste": {
+            "title": "Tempel perintah llama-server",
+            "hint": "Flag yang punya kolom mengisi kolom itu. Flag tanpa kolom disimpan sebagai opsi mentah dan dicantumkan di bawah.",
+            "fill": "Isi formulir",
+            "failed": "Perintah tidak dapat dibaca.",
+            "source": "Perintah yang ditempel",
+            "filled": "Pengaturan yang diisi: {{count}}.",
+            "allMapped": "Semua flag berhasil dipetakan.",
+            "modelFile": "Perintah ini memakai file model {{file}}.",
+            "modelFileKept": "Model ini tetap memakai {{file}} sampai Anda memilih yang lain.",
+            "useModelFile": "Gunakan file ini",
+            "warnings": "Peringatan: {{count}}",
+            "unmapped": "Flag yang tidak dipetakan: {{count}}",
+            "unmappedNote": "Flag tanpa kolom disimpan sebagai opsi mentah dan diteruskan ke llama.cpp apa adanya. Hapus yang tidak Anda inginkan.",
+            "keep": "Simpan sebagai opsi mentah",
+            "keepAll": "Simpan semua",
+            "kept": "Disimpan",
+            "ignored": "Diabaikan",
+            "drop": "Hapus"
+        },
+        "schemaError": {
+            "title": "Penyetelan runtime tidak tersedia.",
+            "body": "Server tidak mengirim pengaturan llama.cpp ({{message}}). Anda tetap bisa mengedit setiap pengaturan sebagai teks di tab lain editor ini.",
+            "retry": "Coba lagi",
+            "openYaml": "Edit sebagai teks"
+        },
+        "readOnly": {
+            "title": "Hanya baca.",
+            "body": "Hanya administrator yang dapat mengubah pengaturan ini."
+        }
     }
 }

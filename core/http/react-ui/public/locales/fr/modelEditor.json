@@ -2,5 +2,170 @@
     "proxyVision": {
         "label": "Ce modèle peut regarder les images",
         "hint": "Activez-le si le modèle en amont accepte les images. LocalAI ne peut pas le vérifier. Les images jointes sont alors envoyées au modèle avec le message."
+    },
+    "runtime": {
+        "title": "Réglages d'exécution",
+        "lead": "Comment llama.cpp charge et exécute ce modèle. Chaque champ est un flag de llama-server. Un champ vide garde la valeur par défaut.",
+        "loading": "Chargement des réglages de llama.cpp",
+        "default": "Par défaut",
+        "defaultIs": "Par défaut ({{value}})",
+        "on": "Activé",
+        "off": "Désactivé",
+        "auto": "Automatique",
+        "reset": "Réinitialiser {{name}}",
+        "groups": {
+            "memory": "Mémoire",
+            "sampling": "Échantillonnage par défaut",
+            "template": "Modèle de chat",
+            "speed": "Vitesse"
+        },
+        "fields": {
+            "context_size": "Taille du contexte",
+            "gpu_layers": "Couches sur le GPU",
+            "options_parallel": "Emplacements parallèles",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "Type de cache KV (K)",
+            "cache_type_v": "Type de cache KV (V)",
+            "parameters_batch": "Taille du lot",
+            "threads": "Threads",
+            "options_threads_batch": "Threads du lot",
+            "options_fit": "Ajuster à la mémoire libre",
+            "options_no_op_offload": "Pas de délestage des opérations",
+            "parameters_temperature": "Température",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Modèle de chat Jinja",
+            "loadMode": "Mode de chargement",
+            "options_ubatch": "Taille du micro-lot"
+        },
+        "loadModes": {
+            "default": "Par défaut (projeté en mémoire)",
+            "none": "Aucun (lu en mémoire)",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "E/S directes"
+        },
+        "loadModeHint": "Comment le fichier du modèle est lu. Écrit mmap, mmlock et l'option direct_io.",
+        "errors": {
+            "notInteger": "Saisissez un nombre entier.",
+            "notNumber": "Saisissez un nombre.",
+            "range": "Saisissez une valeur de {{min}} à {{max}}.",
+            "min": "Saisissez {{min}} ou plus.",
+            "max": "Saisissez {{max}} ou moins.",
+            "enum": "Utilisez l'une de ces valeurs : {{values}}.",
+            "colon": "Un deux-points coupe la valeur. Supprimez-le.",
+            "empty": "Saisissez une entrée ou supprimez la ligne.",
+            "rawOwned": "{{name}} est défini par un champ ci-dessus. Utilisez ce champ.",
+            "layerRange": "Chaque plage a besoin d'une première et d'une dernière couche, la fin ne pouvant pas précéder le début.",
+            "overrideShape": "Écrivez chaque entrée sous la forme motif=tampon : {{entry}}",
+            "overrideTarget": "Le nom du tampon ne peut contenir que des lettres, des chiffres et des tirets bas : {{target}}",
+            "overrideRegex": "Ce motif n'est pas une expression régulière valide : {{entry}}"
+        },
+        "ot": {
+            "title": "Placement des tenseurs",
+            "modes": {
+                "off": "Désactivé (llama.cpp décide)",
+                "experts": "Experts MoE sur le CPU",
+                "rest": "N premières couches sur le GPU, experts des autres sur le CPU",
+                "ranges": "Experts des couches choisies sur le CPU",
+                "raw": "Regex personnalisée"
+            },
+            "help": {
+                "off": "Rien n'est écrit.",
+                "experts": "Garde les poids des experts de chaque couche dans la mémoire système. Le reste du modèle reste sur le GPU.",
+                "rest": "Garde les N premières couches sur le GPU et place sur le CPU les experts de toutes les couches suivantes. Avec le nombre total de couches, le motif liste le reste en une seule plage.",
+                "ranges": "Garde en mémoire système les experts des couches choisies, par exemple 0-6 et 18-23.",
+                "raw": "Écrit la valeur telle que vous la saisissez."
+            },
+            "gpuLayers": "Couches avec experts sur le GPU",
+            "layers": "Couches",
+            "rangeN": "Plage {{n}}",
+            "from": "Première couche",
+            "to": "Dernière couche",
+            "addRange": "Ajouter une plage",
+            "removeRange": "Supprimer la plage {{n}}",
+            "raw": "Valeur de remplacement",
+            "rawHint": "Entrées motif=tampon séparées par des virgules, comme dans llama-server -ot.",
+            "generated": "Valeur générée",
+            "nothing": "Aucune. llama.cpp place les tenseurs.",
+            "mode": "Placement",
+            "totalLayers": "Nombre total de couches",
+            "totalUnknown": "Inconnu",
+            "failed": "Le serveur n'a pas pu construire le motif : {{message}}",
+            "building": "Construction du motif"
+        },
+        "presets": {
+            "title": "Partir d'une configuration",
+            "bigMoe": {
+                "name": "Gros MoE sur petit GPU",
+                "text": "Toutes les couches sur le GPU, experts sur le CPU, cache KV 8 bits."
+            },
+            "maxContext": {
+                "name": "Contexte maximal",
+                "text": "Contexte de 128K, flash attention et cache KV 8 bits."
+            },
+            "lowVram": {
+                "name": "Peu de VRAM",
+                "text": "Contexte de 4K, cache KV 4 bits et petit micro-lot."
+            }
+        },
+        "applied": {
+            "title": "{{name}} : réglages modifiés : {{count}}.",
+            "none": "Rien n'a changé. Le formulaire avait déjà ces valeurs.",
+            "note": "Les champs restent modifiables. Rien n'est enregistré tant que vous n'enregistrez pas le modèle.",
+            "undo": "Annuler",
+            "dismiss": "Masquer"
+        },
+        "raw": {
+            "title": "Options avancées",
+            "hint": "Autres entrées de la liste options, une par ligne : nom:valeur, ou un flag de llama-server comme --rope-scale:2.",
+            "empty": "Aucune autre option.",
+            "entry": "Option {{n}}",
+            "remove": "Supprimer {{entry}}",
+            "add": "Ajouter une option"
+        },
+        "preview": {
+            "title": "Aperçu de la commande",
+            "aside": "Ligne de commande",
+            "updating": "Mise à jour",
+            "loading": "Chargement de la commande",
+            "copy": "Copier",
+            "copied": "Copié",
+            "copyFailed": "Échec de la copie",
+            "failed": "L'aperçu n'est pas disponible.",
+            "note": "La commande llama-server qui correspond à ces réglages. LocalAI démarre lui-même le backend ; cette ligne sert à comparer et à l'utiliser en dehors de LocalAI."
+        },
+        "paste": {
+            "title": "Coller une commande llama-server",
+            "hint": "Les flags qui ont un champ remplissent ce champ. Les flags sans champ sont gardés comme options brutes et listés ci-dessous.",
+            "fill": "Remplir le formulaire",
+            "failed": "Impossible de lire la commande.",
+            "source": "Commande collée",
+            "filled": "Réglages remplis : {{count}}.",
+            "allMapped": "Tous les flags ont été associés.",
+            "modelFile": "La commande utilise le fichier de modèle {{file}}.",
+            "modelFileKept": "Ce modèle garde {{file}} jusqu'à ce que vous choisissiez autre chose.",
+            "useModelFile": "Utiliser ce fichier",
+            "warnings": "Avertissements : {{count}}",
+            "unmapped": "Flags non associés : {{count}}",
+            "unmappedNote": "Un flag sans champ est gardé comme option brute et passé tel quel à llama.cpp. Supprimez ceux que vous ne voulez pas.",
+            "keep": "Garder comme option brute",
+            "keepAll": "Tout garder",
+            "kept": "Gardé",
+            "ignored": "Ignoré",
+            "drop": "Supprimer"
+        },
+        "schemaError": {
+            "title": "Les réglages d'exécution ne sont pas disponibles.",
+            "body": "Le serveur n'a pas envoyé les réglages de llama.cpp ({{message}}). Vous pouvez toujours modifier chaque réglage sous forme de texte dans l'autre onglet de cet éditeur.",
+            "retry": "Réessayer",
+            "openYaml": "Modifier en texte"
+        },
+        "readOnly": {
+            "title": "Lecture seule.",
+            "body": "Seul un administrateur peut modifier ces réglages."
+        }
     }
 }

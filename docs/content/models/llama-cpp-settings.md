@@ -7,9 +7,9 @@ keywords = ["llama.cpp", "llama-server", "options", "ngl", "flash attention", "k
 +++
 
 A model that uses the `llama-cpp` backend runs `llama-server` settings that you
-write in its YAML file. The model editor has a section for them. This page lists
-the keys, shows how a `llama-server` command maps to them, and describes the
-paste-a-command flow.
+write in its YAML file. The model editor has a **Runtime tuning** section for
+them. This page lists the keys, shows how a `llama-server` command maps to them,
+and describes the section.
 
 ## Where each flag goes
 
@@ -95,23 +95,55 @@ options:
   - '-ot:blk\.([0-6]|1[89]|2[0-3])\.ffn_.*_exps.*=CPU'
 ```
 
+## The Runtime tuning section
+
+Open a model in the model editor (**Models**, then **Edit** on the model). When
+the model's backend is `llama-cpp` (or a build of it, or no backend at all),
+the **Interactive** tab has a **Runtime tuning** section. A model on another
+backend does not show it.
+
+- **Fields.** The settings of the table above, in the groups Memory, Speed,
+  Sampling defaults and Chat template. Each field shows its `llama-server` flag
+  and the server's description. An empty field, or **Default**, keeps the
+  setting out of the file. A value that does not fit the type or the range is
+  marked, and **Save** stays off until you correct it.
+- **Load mode.** One choice for `mmap`, `mmlock` and `direct_io`, as in the
+  load mode table.
+- **Tensor placement.** Off by default. See [Tensor placement](#tensor-placement).
+- **Start from a setup.** Three presets fill several fields at once: **Big MoE
+  on a small GPU** (all layers on the GPU, experts on the CPU, 8-bit KV cache),
+  **Max context** (128K context, flash attention, 8-bit KV cache) and **Low
+  VRAM** (4K context, 4-bit KV cache, a small micro-batch). The section lists
+  each setting it changed, with **Undo**. A setting you edit after the preset
+  keeps your value when you undo.
+- **Command preview.** The `llama-server` command that matches the form, with a
+  **Copy** button. It follows your edits.
+- **Advanced options.** The other entries of `options`, one per row. An entry
+  that a field above sets is refused here, so no setting is written twice.
+
+The section edits the same file as the YAML tab. Nothing is written until you
+press **Save**, and a YAML save shows in the section.
+
 ## Paste a command
 
-In the model editor, open the llama.cpp section and choose **Paste a
-llama-server command**. LocalAI reads the text and shows what it found. You
-then choose to apply it to the form.
+In the **Runtime tuning** section, paste the command in **Paste a llama-server
+command** and press **Fill the form**. LocalAI reads the text and writes what it
+found into the fields. The section lists the settings that changed, with
+**Undo**.
 
 - The text is only split into words, with the quoting rules of a POSIX shell.
   Nothing is run, and `$(...)`, backticks and `;` are plain text.
 - Flags with a first-class key go to that key.
 - Flags without one stay in `options` as raw entries. They are also listed as
-  unmapped, so you see what was not turned into a field.
+  unmapped, so you see what was not turned into a field. **Remove** drops one.
 - Flags that LocalAI sets itself (`--host`, `--port`, `--api-key`, `-hf` and
   similar) are listed as ignored, with the reason, and are not kept.
 - A value that does not fit (for example `-c abc`) is listed as unmapped with the
-  reason and is not kept.
-- A model path in `-m` is stored in `parameters.model`. LocalAI expects a file
-  name inside the models directory, so the editor warns about a path.
+  reason and is not kept. **Keep as raw option** adds it to `options` as written.
+- A model path in `-m` maps to `parameters.model`. LocalAI expects a file
+  name inside the models directory, so the editor warns about a path. The editor
+  keeps the model's own file and shows the one of the command with **Use this
+  file**.
 
 The editor also shows a live preview of the command that matches the form.
 The preview is text for you to read. It is never run.
@@ -122,8 +154,9 @@ Placement is opt-in. LocalAI never adds an `-ot` entry for you, and a model
 without one loads as before.
 
 On a model with mixture-of-experts layers (`ffn_*_exps` tensors), you can keep
-the large expert tensors in system memory and the rest on the GPU. The editor
-offers three presets:
+the large expert tensors in system memory and the rest on the GPU. The
+**Tensor placement** group of the editor offers three presets, a **Custom
+regex** box for any other pattern, and shows the value it writes:
 
 | Preset | Result |
 |---|---|

@@ -1,0 +1,47 @@
+{
+  "fields": {
+    "parameters": {
+      "model": "Inkling-2-Mini-UD-Q3_K_XL.gguf",
+      "temperature": 1,
+      "top_p": 1,
+      "top_k": 0,
+      "min_p": 0
+    },
+    "context_size": 18000,
+    "threads": 6,
+    "gpu_layers": 99,
+    "flash_attention": "on",
+    "cache_type_k": "q8_0",
+    "cache_type_v": "q8_0",
+    "mmap": false
+  },
+  "options": [
+    "use_jinja:true",
+    "parallel:1",
+    "ubatch:64",
+    "threads_batch:12",
+    "fit:off",
+    "no_op_offload",
+    "-ot:blk\\.([0-6]|1[89]|2[0-3])\\.ffn_.*_exps.*=CPU"
+  ],
+  "unmapped": [],
+  "warnings": [],
+  "placements": [
+    {
+      "option": "-ot:blk\\.([0-6]|1[89]|2[0-3])\\.ffn_.*_exps.*=CPU",
+      "placement": {
+        "mode": "experts_cpu_layers",
+        "layers": [
+          {
+            "from": 0,
+            "to": 6
+          },
+          {
+            "from": 18,
+            "to": 23
+          }
+        ]
+      }
+    }
+  ]
+}

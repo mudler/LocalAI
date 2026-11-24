@@ -1,0 +1,354 @@
+{
+  "flags": [
+    {
+      "key": "context_size",
+      "target": "field",
+      "path": "context_size",
+      "cli": [
+        "--ctx-size",
+        "-c"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "sized from the model and the free memory",
+      "doc": "Context window in tokens. 0 uses the size stored in the model file.",
+      "group": "memory"
+    },
+    {
+      "key": "gpu_layers",
+      "target": "field",
+      "path": "gpu_layers",
+      "cli": [
+        "-ngl",
+        "--gpu-layers",
+        "--n-gpu-layers"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "all layers",
+      "doc": "Number of layers to offload to the GPU. A large value such as 99 offloads every layer.",
+      "group": "memory"
+    },
+    {
+      "key": "threads",
+      "target": "field",
+      "path": "threads",
+      "cli": [
+        "-t",
+        "--threads"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "backend default",
+      "doc": "CPU threads used while generating tokens.",
+      "group": "speed"
+    },
+    {
+      "key": "batch",
+      "target": "parameter",
+      "path": "parameters.batch",
+      "cli": [
+        "-b",
+        "--batch-size"
+      ],
+      "type": "int",
+      "min": 1,
+      "default": "backend default",
+      "doc": "Logical batch size: the most prompt tokens processed in one step.",
+      "group": "speed"
+    },
+    {
+      "key": "flash_attention",
+      "target": "field",
+      "path": "flash_attention",
+      "cli": [
+        "-fa",
+        "--flash-attn"
+      ],
+      "type": "enum",
+      "enum": [
+        "on",
+        "off",
+        "auto"
+      ],
+      "default": "auto",
+      "doc": "Flash attention. A bare flag means on.",
+      "group": "speed"
+    },
+    {
+      "key": "cache_type_k",
+      "target": "field",
+      "path": "cache_type_k",
+      "cli": [
+        "-ctk",
+        "--cache-type-k"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the K half of the KV cache. Smaller types save memory at some cost in quality.",
+      "group": "memory"
+    },
+    {
+      "key": "cache_type_v",
+      "target": "field",
+      "path": "cache_type_v",
+      "cli": [
+        "-ctv",
+        "--cache-type-v"
+      ],
+      "type": "enum",
+      "enum": [
+        "f32",
+        "f16",
+        "bf16",
+        "q8_0",
+        "q4_0",
+        "q4_1",
+        "iq4_nl",
+        "q5_0",
+        "q5_1"
+      ],
+      "default": "f16",
+      "doc": "Data type of the V half of the KV cache. A quantized V cache needs flash attention.",
+      "group": "memory"
+    },
+    {
+      "key": "mmap",
+      "target": "field",
+      "path": "mmap",
+      "cli": [
+        "--mmap"
+      ],
+      "cli_negated": [
+        "--no-mmap"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Map the model file into memory instead of reading it. With mmap off and no mlock, the load mode is none.",
+      "group": "memory"
+    },
+    {
+      "key": "mmlock",
+      "target": "field",
+      "path": "mmlock",
+      "cli": [
+        "--mlock"
+      ],
+      "cli_negated": [
+        "--no-mlock"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Lock the model in RAM so the system cannot swap it out.",
+      "group": "memory"
+    },
+    {
+      "key": "use_jinja",
+      "target": "option",
+      "path": "options",
+      "option": "use_jinja",
+      "cli": [
+        "--jinja"
+      ],
+      "cli_negated": [
+        "--no-jinja"
+      ],
+      "type": "bool",
+      "default": "backend default",
+      "doc": "Render the chat template with the Jinja engine of llama.cpp.",
+      "group": "template"
+    },
+    {
+      "key": "parallel",
+      "target": "option",
+      "path": "options",
+      "option": "parallel",
+      "cli": [
+        "-np",
+        "--parallel"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "1",
+      "doc": "Number of requests served at the same time (server slots). The context is shared between the slots.",
+      "group": "speed"
+    },
+    {
+      "key": "ubatch",
+      "target": "option",
+      "path": "options",
+      "option": "ubatch",
+      "cli": [
+        "-ub",
+        "--ubatch-size"
+      ],
+      "type": "int",
+      "min": 1,
+      "default": "same as the batch size",
+      "doc": "Physical batch size: the most tokens one compute step handles. Smaller values use less memory.",
+      "group": "speed"
+    },
+    {
+      "key": "threads_batch",
+      "target": "option",
+      "path": "options",
+      "option": "threads_batch",
+      "cli": [
+        "-tb",
+        "--threads-batch"
+      ],
+      "type": "int",
+      "min": -1,
+      "default": "same as threads",
+      "doc": "CPU threads used while processing the prompt.",
+      "group": "speed"
+    },
+    {
+      "key": "fit",
+      "target": "option",
+      "path": "options",
+      "option": "fit",
+      "cli": [
+        "-fit",
+        "--fit"
+      ],
+      "type": "enum",
+      "enum": [
+        "on",
+        "off"
+      ],
+      "default": "on",
+      "doc": "Let llama.cpp lower the context size and the offload so the model fits in device memory.",
+      "group": "memory"
+    },
+    {
+      "key": "no_op_offload",
+      "target": "option",
+      "path": "options",
+      "option": "no_op_offload",
+      "cli": [
+        "--no-op-offload"
+      ],
+      "cli_negated": [
+        "--op-offload"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Do not offload host tensor operations to the GPU.",
+      "group": "speed"
+    },
+    {
+      "key": "direct_io",
+      "target": "option",
+      "path": "options",
+      "option": "direct_io",
+      "cli": [
+        "-dio",
+        "--direct-io"
+      ],
+      "cli_negated": [
+        "--no-direct-io"
+      ],
+      "type": "bool",
+      "default": "false",
+      "doc": "Read the model file with direct I/O, bypassing the page cache. Takes priority over mmap and mlock.",
+      "group": "memory"
+    },
+    {
+      "key": "temperature",
+      "target": "parameter",
+      "path": "parameters.temperature",
+      "cli": [
+        "--temp",
+        "--temperature"
+      ],
+      "type": "float",
+      "min": 0,
+      "default": "request value, then model default",
+      "doc": "Sampling temperature. Requests that set their own value override it.",
+      "group": "sampling"
+    },
+    {
+      "key": "top_p",
+      "target": "parameter",
+      "path": "parameters.top_p",
+      "cli": [
+        "--top-p"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "request value, then model default",
+      "doc": "Nucleus sampling: keep the smallest set of tokens whose probability adds up to this value.",
+      "group": "sampling"
+    },
+    {
+      "key": "top_k",
+      "target": "parameter",
+      "path": "parameters.top_k",
+      "cli": [
+        "--top-k"
+      ],
+      "type": "int",
+      "min": 0,
+      "default": "request value, then model default",
+      "doc": "Keep only the K most likely tokens. 0 turns the filter off.",
+      "group": "sampling"
+    },
+    {
+      "key": "min_p",
+      "target": "parameter",
+      "path": "parameters.min_p",
+      "cli": [
+        "--min-p"
+      ],
+      "type": "float",
+      "min": 0,
+      "max": 1,
+      "default": "request value, then model default",
+      "doc": "Drop tokens whose probability is below this fraction of the top token. 0 turns the filter off.",
+      "group": "sampling"
+    },
+    {
+      "key": "override_tensor",
+      "target": "option",
+      "path": "options",
+      "option": "-ot",
+      "cli": [
+        "-ot",
+        "--override-tensor"
+      ],
+      "type": "string",
+      "default": "no override",
+      "doc": "Place the tensors that match a regular expression on a given device, as pattern=buffer. Opt-in: nothing is placed this way unless you set it. Use the placement helper to keep MoE expert tensors on the CPU.",
+      "group": "placement",
+      "repeatable": true
+    }
+  ],
+  "groups": [
+    "memory",
+    "speed",
+    "sampling",
+    "template",
+    "placement"
+  ],
+  "load_modes": [
+    "none",
+    "mmap",
+    "mlock",
+    "mmap_mlock",
+    "direct_io",
+    "auto"
+  ]
+}

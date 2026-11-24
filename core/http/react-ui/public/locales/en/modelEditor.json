@@ -38,5 +38,170 @@
     "proxyVision": {
         "label": "This model can look at images",
         "hint": "Turn this on when the upstream model accepts images. LocalAI cannot check it. Attached images then go to the model with the message."
+    },
+    "runtime": {
+        "title": "Runtime tuning",
+        "lead": "How llama.cpp loads and runs this model. Each field is a llama-server flag. An empty field keeps the default.",
+        "loading": "Loading the llama.cpp settings",
+        "default": "Default",
+        "defaultIs": "Default ({{value}})",
+        "on": "On",
+        "off": "Off",
+        "auto": "Auto",
+        "reset": "Reset {{name}}",
+        "groups": {
+            "memory": "Memory",
+            "sampling": "Sampling defaults",
+            "template": "Chat template",
+            "speed": "Speed"
+        },
+        "fields": {
+            "context_size": "Context size",
+            "gpu_layers": "GPU layers",
+            "options_parallel": "Parallel slots",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "KV cache type (K)",
+            "cache_type_v": "KV cache type (V)",
+            "parameters_batch": "Batch size",
+            "threads": "Threads",
+            "options_threads_batch": "Batch threads",
+            "options_fit": "Fit to free memory",
+            "options_no_op_offload": "No op offload",
+            "parameters_temperature": "Temperature",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Jinja chat template",
+            "loadMode": "Load mode",
+            "options_ubatch": "Micro-batch size"
+        },
+        "loadModes": {
+            "default": "Default (memory-mapped)",
+            "none": "None (read into memory)",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "Direct I/O"
+        },
+        "loadModeHint": "How the model file is read. Writes mmap, mmlock and the direct_io option.",
+        "errors": {
+            "notInteger": "Type a whole number.",
+            "notNumber": "Type a number.",
+            "range": "Type a value from {{min}} to {{max}}.",
+            "min": "Type {{min}} or more.",
+            "max": "Type {{max}} or less.",
+            "enum": "Use one of: {{values}}.",
+            "colon": "A colon cuts the value short. Remove it.",
+            "empty": "Type an entry, or remove the row.",
+            "rawOwned": "{{name}} is set by a field above. Use that field.",
+            "layerRange": "Each range needs a start and an end layer, with the end not before the start.",
+            "overrideShape": "Write each entry as pattern=buffer: {{entry}}",
+            "overrideTarget": "The buffer name can only have letters, digits and underscores: {{target}}",
+            "overrideRegex": "This pattern is not a valid regular expression: {{entry}}"
+        },
+        "ot": {
+            "title": "Tensor placement",
+            "modes": {
+                "off": "Off (llama.cpp decides)",
+                "experts": "MoE experts on CPU",
+                "rest": "First N layers on GPU, experts of the rest on CPU",
+                "ranges": "Experts of chosen layers on CPU",
+                "raw": "Custom regex"
+            },
+            "help": {
+                "off": "Nothing is written.",
+                "experts": "Keeps the expert weights of every layer in system memory. The rest of the model stays on the GPU.",
+                "rest": "Keeps the first N layers on the GPU and the experts of every later layer on the CPU. With the total number of layers, the pattern lists the rest as one range.",
+                "ranges": "Keeps the experts of the layers you choose in system memory, for example 0-6 and 18-23.",
+                "raw": "Writes the value as you type it."
+            },
+            "gpuLayers": "Layers with experts on the GPU",
+            "layers": "Layers",
+            "rangeN": "Range {{n}}",
+            "from": "First layer",
+            "to": "Last layer",
+            "addRange": "Add range",
+            "removeRange": "Remove range {{n}}",
+            "raw": "Override value",
+            "rawHint": "Comma-separated pattern=buffer entries, as in llama-server -ot.",
+            "generated": "Generated value",
+            "nothing": "Nothing. llama.cpp places the tensors.",
+            "mode": "Placement",
+            "totalLayers": "Total layers",
+            "totalUnknown": "Not known",
+            "failed": "The server could not build the pattern: {{message}}",
+            "building": "Building the pattern"
+        },
+        "presets": {
+            "title": "Start from a setup",
+            "bigMoe": {
+                "name": "Big MoE on a small GPU",
+                "text": "All layers on the GPU, experts on the CPU, 8-bit KV cache."
+            },
+            "maxContext": {
+                "name": "Max context",
+                "text": "128K context, flash attention and an 8-bit KV cache."
+            },
+            "lowVram": {
+                "name": "Low VRAM",
+                "text": "4K context, a 4-bit KV cache and a small micro-batch."
+            }
+        },
+        "applied": {
+            "title": "{{name}}: {{count}} settings changed.",
+            "none": "Nothing changed. The form already had these values.",
+            "note": "The fields stay editable. Nothing is saved until you save the model.",
+            "undo": "Undo",
+            "dismiss": "Hide"
+        },
+        "raw": {
+            "title": "Advanced options",
+            "hint": "Other entries of the options list, one per row: name:value, or a llama-server flag such as --rope-scale:2.",
+            "empty": "No other options.",
+            "entry": "Option {{n}}",
+            "remove": "Remove {{entry}}",
+            "add": "Add option"
+        },
+        "preview": {
+            "title": "Command preview",
+            "aside": "Command line",
+            "updating": "Updating",
+            "loading": "Loading the command",
+            "copy": "Copy",
+            "copied": "Copied",
+            "copyFailed": "Copy failed",
+            "failed": "The preview is not available.",
+            "note": "The llama-server command these settings match. LocalAI starts the backend itself; this line is for comparison and for use outside LocalAI."
+        },
+        "paste": {
+            "title": "Paste a llama-server command",
+            "hint": "Flags with a field fill that field. Flags with no field are kept as raw options and listed below.",
+            "fill": "Fill the form",
+            "failed": "The command could not be read.",
+            "source": "Pasted command",
+            "filled": "Settings filled: {{count}}.",
+            "allMapped": "Every flag was mapped.",
+            "modelFile": "The command uses the model file {{file}}.",
+            "modelFileKept": "This model keeps {{file}} until you choose otherwise.",
+            "useModelFile": "Use this file",
+            "warnings": "Warnings: {{count}}",
+            "unmapped": "Flags not mapped: {{count}}",
+            "unmappedNote": "A flag with no field is kept as a raw option and passed to llama.cpp as written. Remove the ones you do not want.",
+            "keep": "Keep as raw option",
+            "keepAll": "Keep all",
+            "kept": "Kept",
+            "ignored": "Ignored",
+            "drop": "Remove"
+        },
+        "schemaError": {
+            "title": "Runtime tuning is not available.",
+            "body": "The server did not send the llama.cpp settings ({{message}}). You can still edit every setting as text in the other tab of this editor.",
+            "retry": "Try again",
+            "openYaml": "Edit as text"
+        },
+        "readOnly": {
+            "title": "Read only.",
+            "body": "Only an administrator can change these settings."
+        }
     }
 }

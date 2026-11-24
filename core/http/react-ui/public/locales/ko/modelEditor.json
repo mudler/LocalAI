@@ -2,5 +2,170 @@
     "proxyVision": {
         "label": "이 모델은 이미지를 볼 수 있음",
         "hint": "업스트림 모델이 이미지를 받으면 켜세요. LocalAI는 이를 확인할 수 없습니다. 첨부한 이미지는 메시지와 함께 모델로 전송됩니다."
+    },
+    "runtime": {
+        "title": "런타임 튜닝",
+        "lead": "llama.cpp가 이 모델을 불러와 실행하는 방식입니다. 각 필드는 llama-server 플래그입니다. 비워 둔 필드는 기본값을 유지합니다.",
+        "loading": "llama.cpp 설정을 불러오는 중",
+        "default": "기본값",
+        "defaultIs": "기본값 ({{value}})",
+        "on": "켜기",
+        "off": "끄기",
+        "auto": "자동",
+        "reset": "{{name}} 초기화",
+        "groups": {
+            "memory": "메모리",
+            "sampling": "기본 샘플링",
+            "template": "채팅 템플릿",
+            "speed": "속도"
+        },
+        "fields": {
+            "context_size": "컨텍스트 크기",
+            "gpu_layers": "GPU 레이어",
+            "options_parallel": "병렬 슬롯",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "KV 캐시 유형 (K)",
+            "cache_type_v": "KV 캐시 유형 (V)",
+            "parameters_batch": "배치 크기",
+            "threads": "스레드",
+            "options_threads_batch": "배치 스레드",
+            "options_fit": "여유 메모리에 맞추기",
+            "options_no_op_offload": "연산 오프로드 안 함",
+            "parameters_temperature": "온도",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Jinja 채팅 템플릿",
+            "loadMode": "로드 방식",
+            "options_ubatch": "마이크로배치 크기"
+        },
+        "loadModes": {
+            "default": "기본값 (메모리 매핑)",
+            "none": "없음 (메모리로 읽기)",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "직접 I/O"
+        },
+        "loadModeHint": "모델 파일을 읽는 방식입니다. mmap, mmlock, direct_io 옵션을 기록합니다.",
+        "errors": {
+            "notInteger": "정수를 입력하세요.",
+            "notNumber": "숫자를 입력하세요.",
+            "range": "{{min}}부터 {{max}}까지의 값을 입력하세요.",
+            "min": "{{min}} 이상을 입력하세요.",
+            "max": "{{max}} 이하를 입력하세요.",
+            "enum": "다음 중 하나를 사용하세요: {{values}}.",
+            "colon": "콜론이 있으면 값이 잘립니다. 콜론을 지우세요.",
+            "empty": "항목을 입력하거나 행을 삭제하세요.",
+            "rawOwned": "{{name}}은(는) 위의 필드가 설정합니다. 그 필드를 사용하세요.",
+            "layerRange": "각 범위에는 시작 레이어와 끝 레이어가 필요하며, 끝이 시작보다 앞설 수 없습니다.",
+            "overrideShape": "각 항목을 pattern=buffer 형식으로 쓰세요: {{entry}}",
+            "overrideTarget": "버퍼 이름에는 문자, 숫자, 밑줄만 쓸 수 있습니다: {{target}}",
+            "overrideRegex": "이 패턴은 올바른 정규식이 아닙니다: {{entry}}"
+        },
+        "ot": {
+            "title": "텐서 배치",
+            "modes": {
+                "off": "끄기 (llama.cpp가 결정)",
+                "experts": "MoE 전문가를 CPU에",
+                "rest": "처음 N개 레이어는 GPU, 나머지 전문가는 CPU",
+                "ranges": "선택한 레이어의 전문가를 CPU에",
+                "raw": "사용자 정규식"
+            },
+            "help": {
+                "off": "아무것도 기록하지 않습니다.",
+                "experts": "모든 레이어의 전문가 가중치를 시스템 메모리에 둡니다. 나머지 모델은 GPU에 남습니다.",
+                "rest": "처음 N개 레이어는 GPU에 두고, 그 이후 모든 레이어의 전문가는 CPU에 둡니다. 전체 레이어 수를 주면 패턴은 나머지를 하나의 범위로 나열합니다.",
+                "ranges": "선택한 레이어(예: 0-6, 18-23)의 전문가를 시스템 메모리에 둡니다.",
+                "raw": "입력한 값을 그대로 기록합니다."
+            },
+            "gpuLayers": "전문가가 GPU에 있는 레이어 수",
+            "layers": "레이어",
+            "rangeN": "범위 {{n}}",
+            "from": "첫 레이어",
+            "to": "마지막 레이어",
+            "addRange": "범위 추가",
+            "removeRange": "범위 {{n}} 삭제",
+            "raw": "오버라이드 값",
+            "rawHint": "llama-server -ot처럼 쉼표로 구분한 pattern=buffer 항목입니다.",
+            "generated": "생성된 값",
+            "nothing": "없음. llama.cpp가 텐서를 배치합니다.",
+            "mode": "배치 방식",
+            "totalLayers": "전체 레이어 수",
+            "totalUnknown": "알 수 없음",
+            "failed": "서버가 패턴을 만들지 못했습니다: {{message}}",
+            "building": "패턴을 만드는 중"
+        },
+        "presets": {
+            "title": "구성에서 시작",
+            "bigMoe": {
+                "name": "작은 GPU의 큰 MoE",
+                "text": "모든 레이어는 GPU, 전문가는 CPU, 8비트 KV 캐시."
+            },
+            "maxContext": {
+                "name": "최대 컨텍스트",
+                "text": "128K 컨텍스트, flash attention, 8비트 KV 캐시."
+            },
+            "lowVram": {
+                "name": "적은 VRAM",
+                "text": "4K 컨텍스트, 4비트 KV 캐시, 작은 마이크로배치."
+            }
+        },
+        "applied": {
+            "title": "{{name}}: 변경된 설정 {{count}}개.",
+            "none": "바뀐 것이 없습니다. 폼에 이미 이 값들이 있었습니다.",
+            "note": "필드는 계속 편집할 수 있습니다. 모델을 저장하기 전에는 아무것도 저장되지 않습니다.",
+            "undo": "실행 취소",
+            "dismiss": "숨기기"
+        },
+        "raw": {
+            "title": "고급 옵션",
+            "hint": "options 목록의 다른 항목을 한 줄에 하나씩 씁니다: name:value 또는 --rope-scale:2 같은 llama-server 플래그.",
+            "empty": "다른 옵션이 없습니다.",
+            "entry": "옵션 {{n}}",
+            "remove": "{{entry}} 삭제",
+            "add": "옵션 추가"
+        },
+        "preview": {
+            "title": "명령 미리보기",
+            "aside": "명령줄",
+            "updating": "업데이트 중",
+            "loading": "명령을 불러오는 중",
+            "copy": "복사",
+            "copied": "복사됨",
+            "copyFailed": "복사 실패",
+            "failed": "미리보기를 사용할 수 없습니다.",
+            "note": "이 설정에 해당하는 llama-server 명령입니다. LocalAI는 백엔드를 직접 시작합니다. 이 줄은 비교용이며 LocalAI 밖에서 쓸 수 있습니다."
+        },
+        "paste": {
+            "title": "llama-server 명령 붙여넣기",
+            "hint": "필드가 있는 플래그는 그 필드를 채웁니다. 필드가 없는 플래그는 원시 옵션으로 유지되고 아래에 표시됩니다.",
+            "fill": "폼 채우기",
+            "failed": "명령을 읽을 수 없습니다.",
+            "source": "붙여넣은 명령",
+            "filled": "채운 설정: {{count}}개.",
+            "allMapped": "모든 플래그가 매핑되었습니다.",
+            "modelFile": "이 명령은 모델 파일 {{file}}을(를) 사용합니다.",
+            "modelFileKept": "다른 파일을 고르기 전까지 이 모델은 {{file}}을(를) 유지합니다.",
+            "useModelFile": "이 파일 사용",
+            "warnings": "경고: {{count}}개",
+            "unmapped": "매핑되지 않은 플래그: {{count}}개",
+            "unmappedNote": "필드가 없는 플래그는 원시 옵션으로 유지되어 llama.cpp에 그대로 전달됩니다. 원하지 않는 것은 삭제하세요.",
+            "keep": "원시 옵션으로 유지",
+            "keepAll": "모두 유지",
+            "kept": "유지됨",
+            "ignored": "무시됨",
+            "drop": "삭제"
+        },
+        "schemaError": {
+            "title": "런타임 튜닝을 사용할 수 없습니다.",
+            "body": "서버가 llama.cpp 설정을 보내지 않았습니다 ({{message}}). 이 편집기의 다른 탭에서 모든 설정을 텍스트로 계속 편집할 수 있습니다.",
+            "retry": "다시 시도",
+            "openYaml": "텍스트로 편집"
+        },
+        "readOnly": {
+            "title": "읽기 전용.",
+            "body": "관리자만 이 설정을 바꿀 수 있습니다."
+        }
     }
 }

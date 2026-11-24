@@ -2,5 +2,170 @@
     "proxyVision": {
         "label": "Este modelo puede ver imágenes",
         "hint": "Actívalo si el modelo remoto acepta imágenes. LocalAI no puede comprobarlo. Las imágenes adjuntas se envían al modelo con el mensaje."
+    },
+    "runtime": {
+        "title": "Ajuste del tiempo de ejecución",
+        "lead": "Cómo llama.cpp carga y ejecuta este modelo. Cada campo es un flag de llama-server. Un campo vacío mantiene el valor predeterminado.",
+        "loading": "Cargando los ajustes de llama.cpp",
+        "default": "Predeterminado",
+        "defaultIs": "Predeterminado ({{value}})",
+        "on": "Activado",
+        "off": "Desactivado",
+        "auto": "Automático",
+        "reset": "Restablecer {{name}}",
+        "groups": {
+            "memory": "Memoria",
+            "sampling": "Muestreo predeterminado",
+            "template": "Plantilla de chat",
+            "speed": "Velocidad"
+        },
+        "fields": {
+            "context_size": "Tamaño del contexto",
+            "gpu_layers": "Capas en la GPU",
+            "options_parallel": "Ranuras paralelas",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "Tipo de caché KV (K)",
+            "cache_type_v": "Tipo de caché KV (V)",
+            "parameters_batch": "Tamaño del lote",
+            "threads": "Hilos",
+            "options_threads_batch": "Hilos del lote",
+            "options_fit": "Ajustar a la memoria libre",
+            "options_no_op_offload": "Sin descarga de operaciones",
+            "parameters_temperature": "Temperatura",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Plantilla de chat Jinja",
+            "loadMode": "Modo de carga",
+            "options_ubatch": "Tamaño del microlote"
+        },
+        "loadModes": {
+            "default": "Predeterminado (mapeado en memoria)",
+            "none": "Ninguno (leído en memoria)",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "E/S directa"
+        },
+        "loadModeHint": "Cómo se lee el archivo del modelo. Escribe mmap, mmlock y la opción direct_io.",
+        "errors": {
+            "notInteger": "Escribe un número entero.",
+            "notNumber": "Escribe un número.",
+            "range": "Escribe un valor de {{min}} a {{max}}.",
+            "min": "Escribe {{min}} o más.",
+            "max": "Escribe {{max}} o menos.",
+            "enum": "Usa uno de estos: {{values}}.",
+            "colon": "Los dos puntos cortan el valor. Quítalos.",
+            "empty": "Escribe una entrada o quita la fila.",
+            "rawOwned": "{{name}} lo define un campo de arriba. Usa ese campo.",
+            "layerRange": "Cada rango necesita una capa inicial y una final, y el final no puede estar antes del inicio.",
+            "overrideShape": "Escribe cada entrada como patrón=búfer: {{entry}}",
+            "overrideTarget": "El nombre del búfer solo puede tener letras, dígitos y guiones bajos: {{target}}",
+            "overrideRegex": "Este patrón no es una expresión regular válida: {{entry}}"
+        },
+        "ot": {
+            "title": "Ubicación de los tensores",
+            "modes": {
+                "off": "Desactivado (decide llama.cpp)",
+                "experts": "Expertos MoE en la CPU",
+                "rest": "Primeras N capas en la GPU, expertos del resto en la CPU",
+                "ranges": "Expertos de las capas elegidas en la CPU",
+                "raw": "Regex personalizada"
+            },
+            "help": {
+                "off": "No se escribe nada.",
+                "experts": "Mantiene los pesos de los expertos de cada capa en la memoria del sistema. El resto del modelo se queda en la GPU.",
+                "rest": "Mantiene las primeras N capas en la GPU y pone en la CPU los expertos de todas las capas siguientes. Con el número total de capas, el patrón lista el resto como un solo rango.",
+                "ranges": "Mantiene en la memoria del sistema los expertos de las capas que elijas, por ejemplo 0-6 y 18-23.",
+                "raw": "Escribe el valor tal como lo tecleas."
+            },
+            "gpuLayers": "Capas con expertos en la GPU",
+            "layers": "Capas",
+            "rangeN": "Rango {{n}}",
+            "from": "Primera capa",
+            "to": "Última capa",
+            "addRange": "Añadir rango",
+            "removeRange": "Quitar el rango {{n}}",
+            "raw": "Valor de override",
+            "rawHint": "Entradas patrón=búfer separadas por comas, como en llama-server -ot.",
+            "generated": "Valor generado",
+            "nothing": "Ninguno. llama.cpp coloca los tensores.",
+            "mode": "Ubicación",
+            "totalLayers": "Capas totales",
+            "totalUnknown": "Desconocido",
+            "failed": "El servidor no pudo construir el patrón: {{message}}",
+            "building": "Construyendo el patrón"
+        },
+        "presets": {
+            "title": "Empezar desde una configuración",
+            "bigMoe": {
+                "name": "MoE grande en GPU pequeña",
+                "text": "Todas las capas en la GPU, expertos en la CPU, caché KV de 8 bits."
+            },
+            "maxContext": {
+                "name": "Contexto máximo",
+                "text": "Contexto de 128K, flash attention y caché KV de 8 bits."
+            },
+            "lowVram": {
+                "name": "Poca VRAM",
+                "text": "Contexto de 4K, caché KV de 4 bits y un microlote pequeño."
+            }
+        },
+        "applied": {
+            "title": "{{name}}: ajustes cambiados: {{count}}.",
+            "none": "No cambió nada. El formulario ya tenía estos valores.",
+            "note": "Los campos siguen siendo editables. No se guarda nada hasta que guardes el modelo.",
+            "undo": "Deshacer",
+            "dismiss": "Ocultar"
+        },
+        "raw": {
+            "title": "Opciones avanzadas",
+            "hint": "Otras entradas de la lista options, una por fila: nombre:valor, o un flag de llama-server como --rope-scale:2.",
+            "empty": "No hay otras opciones.",
+            "entry": "Opción {{n}}",
+            "remove": "Quitar {{entry}}",
+            "add": "Añadir opción"
+        },
+        "preview": {
+            "title": "Vista previa del comando",
+            "aside": "Línea de comandos",
+            "updating": "Actualizando",
+            "loading": "Cargando el comando",
+            "copy": "Copiar",
+            "copied": "Copiado",
+            "copyFailed": "No se pudo copiar",
+            "failed": "La vista previa no está disponible.",
+            "note": "El comando de llama-server que corresponde a estos ajustes. LocalAI inicia el backend por su cuenta; esta línea sirve para comparar y para usarla fuera de LocalAI."
+        },
+        "paste": {
+            "title": "Pegar un comando de llama-server",
+            "hint": "Los flags con un campo rellenan ese campo. Los flags sin campo se conservan como opciones sin procesar y se listan abajo.",
+            "fill": "Rellenar el formulario",
+            "failed": "No se pudo leer el comando.",
+            "source": "Comando pegado",
+            "filled": "Ajustes rellenados: {{count}}.",
+            "allMapped": "Se asignaron todos los flags.",
+            "modelFile": "El comando usa el archivo de modelo {{file}}.",
+            "modelFileKept": "Este modelo mantiene {{file}} hasta que elijas otra cosa.",
+            "useModelFile": "Usar este archivo",
+            "warnings": "Avisos: {{count}}",
+            "unmapped": "Flags sin asignar: {{count}}",
+            "unmappedNote": "Un flag sin campo se conserva como opción sin procesar y llega a llama.cpp tal cual. Quita los que no quieras.",
+            "keep": "Conservar como opción sin procesar",
+            "keepAll": "Conservar todos",
+            "kept": "Conservado",
+            "ignored": "Ignorado",
+            "drop": "Quitar"
+        },
+        "schemaError": {
+            "title": "El ajuste del tiempo de ejecución no está disponible.",
+            "body": "El servidor no envió los ajustes de llama.cpp ({{message}}). Aún puedes editar cada ajuste como texto en la otra pestaña de este editor.",
+            "retry": "Reintentar",
+            "openYaml": "Editar como texto"
+        },
+        "readOnly": {
+            "title": "Solo lectura.",
+            "body": "Solo un administrador puede cambiar estos ajustes."
+        }
     }
 }

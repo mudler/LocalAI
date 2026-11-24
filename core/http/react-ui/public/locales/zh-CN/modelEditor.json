@@ -2,5 +2,170 @@
     "proxyVision": {
         "label": "此模型可以查看图片",
         "hint": "当上游模型接受图片时打开。LocalAI 无法检查这一点。附加的图片随后会随消息一起发送给模型。"
+    },
+    "runtime": {
+        "title": "运行时调优",
+        "lead": "llama.cpp 加载和运行此模型的方式。每个字段对应一个 llama-server 参数。留空的字段保持默认值。",
+        "loading": "正在加载 llama.cpp 设置",
+        "default": "默认",
+        "defaultIs": "默认（{{value}}）",
+        "on": "开",
+        "off": "关",
+        "auto": "自动",
+        "reset": "重置{{name}}",
+        "groups": {
+            "memory": "内存",
+            "sampling": "默认采样",
+            "template": "聊天模板",
+            "speed": "速度"
+        },
+        "fields": {
+            "context_size": "上下文大小",
+            "gpu_layers": "GPU 层数",
+            "options_parallel": "并行槽位",
+            "flash_attention": "Flash attention",
+            "cache_type_k": "KV 缓存类型（K）",
+            "cache_type_v": "KV 缓存类型（V）",
+            "parameters_batch": "批大小",
+            "threads": "线程数",
+            "options_threads_batch": "批处理线程数",
+            "options_fit": "适配空闲内存",
+            "options_no_op_offload": "不卸载运算",
+            "parameters_temperature": "温度",
+            "parameters_top_p": "Top-p",
+            "parameters_top_k": "Top-k",
+            "parameters_min_p": "Min-p",
+            "options_use_jinja": "Jinja 聊天模板",
+            "loadMode": "加载方式",
+            "options_ubatch": "微批大小"
+        },
+        "loadModes": {
+            "default": "默认（内存映射）",
+            "none": "无（读入内存）",
+            "mmap": "mmap",
+            "mlock": "mlock",
+            "mmap_mlock": "mmap + mlock",
+            "direct_io": "直接 I/O"
+        },
+        "loadModeHint": "读取模型文件的方式。写入 mmap、mmlock 和 direct_io 选项。",
+        "errors": {
+            "notInteger": "请输入整数。",
+            "notNumber": "请输入数字。",
+            "range": "请输入 {{min}} 到 {{max}} 之间的值。",
+            "min": "请输入 {{min}} 或更大的值。",
+            "max": "请输入 {{max}} 或更小的值。",
+            "enum": "请使用以下之一：{{values}}。",
+            "colon": "冒号会截断该值。请删除冒号。",
+            "empty": "请输入条目，或删除该行。",
+            "rawOwned": "{{name}} 已由上方的字段设置。请使用该字段。",
+            "layerRange": "每个范围都需要起始层和结束层，且结束层不能在起始层之前。",
+            "overrideShape": "每个条目请写成 pattern=buffer：{{entry}}",
+            "overrideTarget": "缓冲区名称只能包含字母、数字和下划线：{{target}}",
+            "overrideRegex": "此模式不是有效的正则表达式：{{entry}}"
+        },
+        "ot": {
+            "title": "张量放置",
+            "modes": {
+                "off": "关（由 llama.cpp 决定）",
+                "experts": "MoE 专家放在 CPU",
+                "rest": "前 N 层在 GPU，其余层的专家在 CPU",
+                "ranges": "选定层的专家放在 CPU",
+                "raw": "自定义正则"
+            },
+            "help": {
+                "off": "不写入任何内容。",
+                "experts": "将每一层的专家权重保留在系统内存中，模型其余部分留在 GPU 上。",
+                "rest": "前 N 层留在 GPU 上，之后所有层的专家放到 CPU 上。如果给出总层数，模式会把其余层列为一个范围。",
+                "ranges": "将所选层（例如 0-6 和 18-23）的专家保留在系统内存中。",
+                "raw": "按输入原样写入该值。"
+            },
+            "gpuLayers": "专家在 GPU 上的层数",
+            "layers": "层",
+            "rangeN": "范围 {{n}}",
+            "from": "第一层",
+            "to": "最后一层",
+            "addRange": "添加范围",
+            "removeRange": "删除范围 {{n}}",
+            "raw": "覆盖值",
+            "rawHint": "以逗号分隔的 pattern=buffer 条目，与 llama-server -ot 相同。",
+            "generated": "生成的值",
+            "nothing": "无。由 llama.cpp 放置张量。",
+            "mode": "放置方式",
+            "totalLayers": "总层数",
+            "totalUnknown": "未知",
+            "failed": "服务器无法生成该模式：{{message}}",
+            "building": "正在生成模式"
+        },
+        "presets": {
+            "title": "从预设配置开始",
+            "bigMoe": {
+                "name": "小显卡跑大 MoE",
+                "text": "所有层在 GPU，专家在 CPU，8 位 KV 缓存。"
+            },
+            "maxContext": {
+                "name": "最大上下文",
+                "text": "128K 上下文、flash attention 和 8 位 KV 缓存。"
+            },
+            "lowVram": {
+                "name": "低显存",
+                "text": "4K 上下文、4 位 KV 缓存和较小的微批。"
+            }
+        },
+        "applied": {
+            "title": "{{name}}：已更改 {{count}} 项设置。",
+            "none": "没有变化。表单中已是这些值。",
+            "note": "字段仍可编辑。在保存模型之前不会保存任何内容。",
+            "undo": "撤销",
+            "dismiss": "隐藏"
+        },
+        "raw": {
+            "title": "高级选项",
+            "hint": "options 列表中的其他条目，每行一个：name:value，或 llama-server 参数，例如 --rope-scale:2。",
+            "empty": "没有其他选项。",
+            "entry": "选项 {{n}}",
+            "remove": "删除 {{entry}}",
+            "add": "添加选项"
+        },
+        "preview": {
+            "title": "命令预览",
+            "aside": "命令行",
+            "updating": "正在更新",
+            "loading": "正在加载命令",
+            "copy": "复制",
+            "copied": "已复制",
+            "copyFailed": "复制失败",
+            "failed": "预览不可用。",
+            "note": "与这些设置对应的 llama-server 命令。LocalAI 会自行启动后端；此命令行用于对比，或在 LocalAI 之外使用。"
+        },
+        "paste": {
+            "title": "粘贴 llama-server 命令",
+            "hint": "有对应字段的参数会填入该字段。没有字段的参数保留为原始选项，并列在下方。",
+            "fill": "填写表单",
+            "failed": "无法读取该命令。",
+            "source": "粘贴的命令",
+            "filled": "已填写设置：{{count}} 项。",
+            "allMapped": "所有参数都已映射。",
+            "modelFile": "该命令使用模型文件 {{file}}。",
+            "modelFileKept": "在你另行选择之前，此模型保留 {{file}}。",
+            "useModelFile": "使用此文件",
+            "warnings": "警告：{{count}} 条",
+            "unmapped": "未映射的参数：{{count}} 个",
+            "unmappedNote": "没有字段的参数会保留为原始选项，并按原样传给 llama.cpp。删除你不需要的参数。",
+            "keep": "保留为原始选项",
+            "keepAll": "全部保留",
+            "kept": "已保留",
+            "ignored": "已忽略",
+            "drop": "删除"
+        },
+        "schemaError": {
+            "title": "运行时调优不可用。",
+            "body": "服务器未发送 llama.cpp 设置（{{message}}）。你仍可以在此编辑器的另一个标签页中以文本形式编辑每项设置。",
+            "retry": "重试",
+            "openYaml": "以文本编辑"
+        },
+        "readOnly": {
+            "title": "只读。",
+            "body": "只有管理员可以更改这些设置。"
+        }
     }
 }

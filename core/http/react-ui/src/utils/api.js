@@ -68,6 +68,22 @@ async function postJSON(endpoint, body, options = {}) {
   })
 }
 
+// llama.cpp runtime settings: the settings the model editor's Runtime tuning
+// section draws, and the two-way translation between a model config and a
+// llama-server command line.
+//
+//   settingsSchema()          -> { flags: [{ key, target, path, option, cli, type, enum, min, max, default, doc, group }], groups, load_modes }
+//   commandPreview(config)    -> { command, warnings }          config: a model config (YAML keys)
+//   parseCommand(command)     -> { fields, options, unmapped: [{ flag, value, reason }], warnings, placements }
+//   tensorPlacement(body)     -> { option, placement, raw }     body: { placement } builds an -ot entry,
+//                                                              { option } reads one back
+export const llamaCppApi = {
+  settingsSchema: (options) => fetchJSON(API_CONFIG.endpoints.llamaCppSettingsSchema, options),
+  commandPreview: (config, options) => postJSON(API_CONFIG.endpoints.llamaCppCommandPreview, { config }, options),
+  parseCommand: (command, options) => postJSON(API_CONFIG.endpoints.llamaCppParseCommand, { command }, options),
+  tensorPlacement: (body, options) => postJSON(API_CONFIG.endpoints.llamaCppTensorPlacement, body, options),
+}
+
 // Models API
 export const modelsApi = {
   list: (params) => fetchJSON(buildUrl(API_CONFIG.endpoints.models, params)),

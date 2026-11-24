@@ -17,6 +17,10 @@ import TemplateSelector from '../components/TemplateSelector'
 import { ModelFailoverStatus } from '../components/FailoverChainStatus'
 // eslint-disable-next-line no-unused-vars
 import PlacementSection from '../components/models/placement/PlacementSection'
+// eslint-disable-next-line no-unused-vars
+import RuntimeTuningSection from '../components/models/runtime/RuntimeTuningSection'
+import { isLlamaCppBackend } from '../utils/moePlacement'
+import { useAuth } from '../context/AuthContext'
 import MODEL_TEMPLATES from '../utils/modelTemplates'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
@@ -92,6 +96,7 @@ export default function ModelEditor() {
   const backState = location.state && location.state.from ? location.state : null
   const { addToast } = useOutletContext()
   const { sections, fields, loading: metaLoading, error: metaError } = useConfigMetadata()
+  const { isAdmin } = useAuth()
 
   // Registered schema leaf paths. flattenConfig stops recursing at these so
   // map-typed fields (e.g. pii_detection.entity_actions) bind as a whole
@@ -120,6 +125,8 @@ export default function ModelEditor() {
   // Keys the Placement section unset. A patch only merges what it is given, so
   // an unset key has to be sent as null for the file to lose it.
   const [clearedPaths, setClearedPaths] = useState(new Set())
+  // False while a Runtime tuning field holds text that does not validate.
+  const [runtimeValid, setRuntimeValid] = useState(true)
 
   const sectionRefs = useRef({})
 
@@ -278,6 +285,9 @@ export default function ModelEditor() {
   }, [isCreateMode, yamlText, savedYamlText])
 
   const isDirty = tab === 'interactive' ? interactiveDirty : yamlDirty
+  // Runtime tuning is drawn for a saved model whose backend is llama.cpp.
+  const showRuntime = !isCreateMode && isLlamaCppBackend(values['backend'])
+  const blockedByRuntime = tab === 'interactive' && showRuntime && !runtimeValid
 
   const vramAnnotation = useMemo(() => {
     if (isCreateMode) return null
@@ -546,12 +556,12 @@ export default function ModelEditor() {
             </Button>
           )}
           {!showTemplateSelector && tab === 'interactive' && (
-            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleInteractiveSave} disabled={saving || !isDirty || blockedByRuntime} data-testid="editor-save">
               {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
             </Button>
           )}
           {!showTemplateSelector && tab === 'yaml' && (
-            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleYamlSave} disabled={saving || !isDirty}>
+            <Button variant={isDirty ? 'primary' : 'secondary'} icon="save" busy={saving} onClick={handleYamlSave} disabled={saving || !isDirty} data-testid="editor-save">
               {saving ? t('actions.saving') : (isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved')))}
             </Button>
           )}
@@ -678,6 +688,16 @@ export default function ModelEditor() {
                   {tModels('placement.title')}
                 </button>
               )}
+              {showRuntime && (
+                <button
+                  onClick={() => scrollTo('runtime')}
+                  className={`set-rail__item${activeSection === 'runtime' ? ' set-rail__item--on' : ''}`}
+                  data-testid="rail-runtime"
+                >
+                  <Icon name="gauge" className="set-rail__icon" />
+                  {t('runtime.title')}
+                </button>
+              )}
               {activeSections.map(s => (
                 <button
                   key={s.id}
@@ -716,6 +736,23 @@ export default function ModelEditor() {
                         backend: values['backend'],
                       }}
                       onChange={handlePlacementChange}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {showRuntime && (
+                <div ref={el => { sectionRefs.current.runtime = el }} className="mb-xl">
+                  <div className="card pad-md" data-testid="editor-runtime">
+                    <RuntimeTuningSection
+                      values={values}
+                      onChange={handlePlacementChange}
+                      readOnly={!isAdmin}
+                      onValidity={setRuntimeValid}
+                      onOpenYaml={() => {
+                        if (isDirty) { setTabSwitchWarning(true); return }
+                        setTab('yaml')
+                      }}
                     />
                   </div>
                 </div>
