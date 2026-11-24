@@ -134,6 +134,7 @@
   "gap.minute": "1 minute",
   "gap.minutes": "{n} minutes",
   "when.files": "nouveaux fichiers dans {folder}",
+  "when.event": "quand {source} appelle",
   "when.never": "Jamais",
   "when.daily": "Tous les jours à {time}",
   "when.weekdays": "Tous les jours ouvrés à {time}",

@@ -103,6 +103,8 @@ func (h *Triggers) ProposalStatus(ctx context.Context, user, id string) (Proposa
 		return ProposalView{}, triggers.ErrNotFound // a trigger nobody proposed
 	}
 	t = h.lapse(ctx, t)
+	// The secret of an event trigger is shown once, when the proposal is confirmed.
+	t.Secret = ""
 	v := ProposalView{State: stateOf(t), Trigger: t, At: t.OutcomeAt}
 	if v.State == ProposalAccepted {
 		block, err := h.undoBlock(ctx, t)

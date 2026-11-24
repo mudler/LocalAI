@@ -11099,7 +11099,7 @@
         },
         "/api/chats/triggers/proposals/{id}/confirm": {
             "post": {
-                "description": "Turns the proposal into a trigger that is on. time_zone is used when the proposal names none.",
+                "description": "Turns the proposal into a trigger that is on. time_zone is used when the proposal names none. For an event trigger the response has secret, the key that signs its events: it is shown here and when you rotate it, and never again; hook_path is where the events go.",
                 "tags": [
                     "chats"
                 ],
@@ -11123,9 +11123,9 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "The trigger",
+                        "description": "The trigger, with its secret when it is an event trigger",
                         "schema": {
-                            "$ref": "#/definitions/schema.ChatsTrigger"
+                            "$ref": "#/definitions/schema.ChatsTriggerCreated"
                         }
                     }
                 }

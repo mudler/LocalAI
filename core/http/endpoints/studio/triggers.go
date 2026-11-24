@@ -390,11 +390,11 @@ func (h *Handlers) ListTriggerProposals(c echo.Context) error {
 
 // ConfirmTriggerProposal confirms a proposal.
 // @Summary Confirm a trigger proposal.
-// @Description Turns the proposal into a trigger that is on. time_zone is used when the proposal names none.
+// @Description Turns the proposal into a trigger that is on. time_zone is used when the proposal names none. For an event trigger the response has secret, the key that signs its events: it is shown here and when you rotate it, and never again; hook_path is where the events go.
 // @Tags chats
 // @Param id path string true "the proposal's id"
 // @Param request body schema.ChatsTriggerConfirm false "the time zone of the person confirming"
-// @Success 200 {object} schema.ChatsTrigger "The trigger"
+// @Success 200 {object} schema.ChatsTriggerCreated "The trigger, with its secret when it is an event trigger"
 // @Router /api/chats/triggers/proposals/{id}/confirm [post]
 func (h *Handlers) ConfirmTriggerProposal(c echo.Context) error {
 	host, ok := h.triggerHost(c)
@@ -407,7 +407,10 @@ func (h *Handlers) ConfirmTriggerProposal(c echo.Context) error {
 	if err != nil {
 		return failTrigger(c, err)
 	}
-	return c.JSON(http.StatusOK, triggerOut(c.Request().Context(), host, t, true))
+	if t.Secret != "" {
+		c.Response().Header().Set("Cache-Control", "no-store")
+	}
+	return c.JSON(http.StatusOK, schema.ChatsTriggerCreated{ChatsTrigger: triggerOut(c.Request().Context(), host, t, true), Secret: t.Secret})
 }
 
 // EditTriggerProposal changes a proposal.

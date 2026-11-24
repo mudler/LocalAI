@@ -256,6 +256,18 @@ var _ = Describe("triggers proposed from a connector chat", func() {
 			Expect(res[0].Out).NotTo(ContainSubstring(p.Route.Code), "the model does not repeat the code")
 		})
 
+		It("is refused for an event trigger, with a message that sends the person to Studio", func() {
+			setup()
+			gate.set(studio.CapTriggersPropose, true)
+			args = `{"name":"Hook","prompt":"RUN p","kind":"event","source":"github"}`
+			say("propose")
+			answered(1)
+			res := r.h.ResultsFor("propose_trigger")
+			Expect(res).To(HaveLen(1))
+			Expect(res[0].Err).To(MatchError(ContainSubstring("create the event trigger in Studio")))
+			Expect(proposals()).To(BeEmpty())
+		})
+
 		It("defaults to the Inbox", func() {
 			setup()
 			gate.set(studio.CapTriggersPropose, true)

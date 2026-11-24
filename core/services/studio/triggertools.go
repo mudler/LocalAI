@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -25,6 +26,10 @@ import (
 // ProposalCardKind is the Kind of the tool card that points at a trigger
 // proposal; the card's ID is the proposal's ID.
 const ProposalCardKind = "trigger_proposal"
+
+// maxEventCondition is the most characters of the condition of an event
+// trigger that a model may propose.
+const maxEventCondition = 300
 
 const (
 	proposeTriggerName = "propose_trigger"
@@ -46,7 +51,12 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
 	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it. " +
 	"A run with nobody present only reads unless acts lists what it may also do; ask for the least it needs, and only for what the user's request needs. " +
-	"The proposal shows the acts to the user before they confirm. " + triggerFilesNote
+	"The proposal shows the acts to the user before they confirm. " +
+	"Use kind event, with no when, when the user wants something to happen when an outside system calls, such as a code host, a CI job or a script: " +
+	"source is the name of the sender, event_type narrows the events (leave it out for all), matches is a list of field=value tests on the event's JSON, such as action=opened, and all must hold. " +
+	"condition is a short sentence for a test that matches cannot make; the run checks it and stops if it does not hold. " +
+	"After the user confirms, they get a URL and a secret once, to paste into the sender; tell them so, and never say the sender is set up. " +
+	"Name in acts what the run needs, because an event run acts alone and only reads without them. " + triggerFilesNote
 
 // triggerFilesNote ends the descriptions of propose_trigger and update_trigger.
 // It keeps a model from putting a script or a state file of a trigger in a
@@ -69,6 +79,11 @@ func chatPathWarning(texts ...string) string {
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
+	`"kind":{"type":"string","enum":["schedule","file","event"],"description":"event: runs when an outside system calls, and then there is no when. Leave it out for a schedule or a folder."},` +
+	`"source":{"type":"string","maxLength":80,"description":"With kind event: the name of the sender, such as github."},` +
+	`"event_type":{"type":"string","maxLength":80,"description":"With kind event: the event type to take, such as pull_request. Leave it out for every type."},` +
+	`"matches":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"With kind event: tests on the event's JSON, each field=value, such as action=opened. All must hold."},` +
+	`"condition":{"type":"string","maxLength":300,"description":"With kind event: one sentence that the run checks, such as the PR touches core/. The run stops if it does not hold."},` +
 	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
@@ -87,7 +102,7 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"connection":{"type":"string","description":"With target channel: the id of a connection from list_connections that can receive reports."},` +
 	`"channel":{"type":"string","description":"With target channel: the name or the id of one of the approved channels of that connection."},` +
 	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}}},` +
-	`"required":["name","prompt","when"]}`
+	`"required":["name","prompt"]}`
 
 // proposeTriggerConnectorSchema is the schema of propose_trigger in a chat of
 // a messaging app: the same, with the delivery of the runs.
@@ -124,6 +139,7 @@ const connectorProposeNote = " This chat is in a messaging app. The host writes 
 	"Use delivery.target origin when the person wants the result in this chat, and a mode that fits (on_change for a watch, on_problem for a check). " +
 	"Set access read_only only when the runs just read and report. " +
 	"A run only reads unless acts says more, and only the acts named below can be asked for here; anything else is dropped and the person is told. " +
+	"An event trigger cannot be proposed here: its secret is shown once, so ask the person to create it in Studio. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
 // connectorChangeNote is added to the descriptions of update_trigger and
@@ -466,19 +482,24 @@ func (h *Triggers) toolTriggerOrProposal(ctx context.Context, a workspace.Actor,
 func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtins.Chat, raw json.RawMessage) (string, error) {
 	agentID, model := c.AgentID, c.Model
 	var args struct {
-		Name     string          `json:"name"`
-		Prompt   string          `json:"prompt"`
-		When     json.RawMessage `json:"when"`
-		TimeZone string          `json:"time_zone"`
-		DailyCap int             `json:"daily_cap"`
-		RunLimit string          `json:"run_limit"`
-		Reads    string          `json:"reads"`
-		Writes   string          `json:"writes"`
-		Widget   string          `json:"widget"`
-		Tokens   int             `json:"estimated_tokens"`
-		Access   string          `json:"access"`
-		Acts     []string        `json:"acts"`
-		Delivery *struct {
+		Name      string          `json:"name"`
+		Prompt    string          `json:"prompt"`
+		When      json.RawMessage `json:"when"`
+		TimeZone  string          `json:"time_zone"`
+		DailyCap  int             `json:"daily_cap"`
+		RunLimit  string          `json:"run_limit"`
+		Reads     string          `json:"reads"`
+		Writes    string          `json:"writes"`
+		Widget    string          `json:"widget"`
+		Tokens    int             `json:"estimated_tokens"`
+		Access    string          `json:"access"`
+		Acts      []string        `json:"acts"`
+		Kind      string          `json:"kind"`
+		Source    string          `json:"source"`
+		EventType string          `json:"event_type"`
+		Matches   []string        `json:"matches"`
+		Condition string          `json:"condition"`
+		Delivery  *struct {
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
 			Channel string `json:"channel"`
@@ -504,7 +525,33 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		// A model sometimes puts the zone next to "at" instead of beside when.
 		TimeZone string `json:"time_zone"`
 	}
+	hasWhen := len(args.When) > 0 && string(args.When) != "null"
+	if args.Kind != "" && args.Kind != string(triggers.KindEvent) && args.Kind != string(triggers.KindSchedule) && args.Kind != string(triggers.KindFile) {
+		return "", errors.New(`kind must be "schedule", "file" or "event"`)
+	}
+	if args.Condition != "" && args.Kind != string(triggers.KindEvent) {
+		return "", errors.New("condition is only for kind event")
+	}
 	switch {
+	case args.Kind == string(triggers.KindEvent):
+		if c.Origin == session.OriginConnector {
+			return "", errors.New("an event trigger cannot be proposed from a messaging app: its secret is shown once, and this chat must not carry it. Ask the person to create the event trigger in Studio")
+		}
+		if hasWhen {
+			return "", errors.New("an event trigger has no when: it runs when the sender calls")
+		}
+		in.Kind, in.Source, in.EventType, in.Matches = triggers.KindEvent, args.Source, args.EventType, args.Matches
+		if args.Condition != "" {
+			cond := strings.TrimSpace(args.Condition)
+			switch {
+			case utf8.RuneCountInString(cond) > maxEventCondition:
+				return "", fmt.Errorf("condition can have at most %d characters", maxEventCondition)
+			case strings.ContainsAny(cond, "\r\n\x00"):
+				return "", errors.New("condition is one line")
+			case cond != "":
+				in.Prompt = strings.TrimRight(in.Prompt, " \t\r\n") + "\nAct only if: " + cond
+			}
+		}
 	case json.Unmarshal(args.When, &text) == nil && text != "":
 		in.Kind, in.Schedule = triggers.KindSchedule, text
 	case json.Unmarshal(args.When, &obj) == nil && obj.FileArrivesIn != "":
@@ -602,6 +649,9 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	// line, also after a reload; the event tells a client that is watching.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ProposalCardKind, ID: t.ID})
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
+	if t.Kind == triggers.KindEvent {
+		warn += " After they confirm, they get the URL and the secret once, to paste into the sender."
+	}
 	return fmt.Sprintf("%sProposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.%s%s",
 		again, t.Name, h.summary(t), warn, h.proofOf(ctx, t.ID)), nil
 }
@@ -629,6 +679,10 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		EstTokens int    `json:"estimated_tokens,omitempty"`
 		// Acts are shown so the model can tell the person; no tool changes them.
 		Acts []string `json:"acts,omitempty"`
+		// Event fields of an event trigger. Its secret is never shown.
+		Source    string   `json:"source,omitempty"`
+		EventType string   `json:"event_type,omitempty"`
+		Matches   []string `json:"matches,omitempty"`
 	}
 	type row struct {
 		Ref  string `json:"ref"`
@@ -685,7 +739,8 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		}
 		if args.IncludePrompt {
 			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap, RunLimit: runLimitText(t.RunLimit),
-				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
+				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts,
+				Source: t.Source, EventType: t.EventType, Matches: t.Matches}
 		}
 		rows = append(rows, r)
 	}
@@ -853,6 +908,9 @@ func (h *Triggers) summary(t triggers.Trigger) string { return h.summaryIn(hostm
 func (h *Triggers) summaryIn(v hostmsg.Voice, t triggers.Trigger) string {
 	if t.Kind == triggers.KindFile {
 		return v.T("when.files", "folder", h.RelFolder(t))
+	}
+	if t.Kind == triggers.KindEvent {
+		return v.T("when.event", "source", strings.TrimSpace(t.Source+" "+t.EventType))
 	}
 	sch, err := triggers.ParseSchedule(t.Schedule)
 	if err != nil {

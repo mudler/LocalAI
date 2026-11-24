@@ -1084,6 +1084,16 @@ body of a create or replace is ignored. The old secret stops working at once. A
 replace keeps the stored secret. A replace that makes a trigger an event trigger gives it a secret; rotate it to read it. Only the owner can rotate; for a trigger that
 is not an event trigger the call is a `400`.
 
+A model in a Studio chat can propose an event trigger with `propose_trigger` and
+`kind` `event`: it gives `source`, `event_type`, `matches` and an optional
+one-line `condition` (at most 300 characters), which is added to the prompt as
+`Act only if: ...`. It names in `acts` what the run needs, within what its agent
+holds; without acts the run only reads. The proposal is off and has no secret.
+When you confirm it, the response (`POST /api/chats/triggers/proposals/{id}/confirm`)
+has `secret` and `hook_path` once, as the create does; paste them into the
+sender. Reloading the proposal or the chat never shows the secret again. A
+messaging-app chat cannot propose an event trigger: create it in Studio.
+
 `GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
 and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its
 running run and drops its queued runs; the chats it made stay. Another user's

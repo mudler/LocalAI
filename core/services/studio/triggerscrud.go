@@ -521,7 +521,7 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 		// A model that proposes the same thing again, in this chat or the next,
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
-			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
+			m.TZ == t.TZ && m.Folder == t.Folder && m.Source == t.Source && m.EventType == t.EventType && slices.Equal(m.Matches, t.Matches) && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
 			((m.Route.FromConnector() && t.Route.FromConnector()) || deliveryKey(m) == deliveryKey(t)) {
 			return m, false, nil
 		}
@@ -662,6 +662,11 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 		if n, err := h.svc.d.Files.Store().Stat(ctx, agentReader(t.Owner, scope), t.Folder); err != nil || n.Kind != workspace.KindDir {
 			return triggers.Trigger{}, bad("the folder does not exist in your files any more")
 		}
+	}
+	if t.Kind == triggers.KindEvent {
+		// The proposal never had a secret; the one made here is returned once
+		// to the person who confirms, and is kept only in the trigger.
+		t.Secret = newEventSecret()
 	}
 	t = triggers.Arm(nil, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
