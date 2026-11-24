@@ -221,6 +221,47 @@ var _ = Describe("features", func() {
 		}
 	})
 
+	It("forwards logit_bias to the engine", func() {
+		log := filepath.Join(GinkgoT().TempDir(), "gen.log")
+		s, _ := loaded("ok", idsOf("A"), "STRATA_STUB_LOG="+log)
+		opts := chat("x")
+		opts.LogitBias = `{"66":-100,"65":2.5}`
+		_, err := s.PredictRichContext(context.Background(), opts)
+		Expect(err).ToNot(HaveOccurred())
+		b, _ := os.ReadFile(log)
+		Expect(string(b)).To(ContainSubstring(" logit_bias=65:2.5,66:-100 "))
+
+		for _, bad := range []string{`{"x":1}`, `{"65":101}`, `[1]`, `{"-3":1}`, `{"65":1,"065":2}`} {
+			opts.LogitBias = bad
+			_, err = s.PredictRichContext(context.Background(), opts)
+			Expect(err).To(MatchError(ContainSubstring("logit_bias")), bad)
+		}
+		opts.LogitBias = `{}`
+		_, err = s.PredictRichContext(context.Background(), opts)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("refuses logit_bias and logprobs where the engine would ignore them", func() {
+		s, _ := loaded("ok", idsOf("A"))
+		s.cfg.noPackFlag = true
+		opts := chat("x")
+		opts.LogitBias = `{"65":1}`
+		_, err := s.PredictRichContext(context.Background(), opts)
+		Expect(err).To(MatchError(ContainSubstring("logit_bias is not supported")))
+		opts.LogitBias = ""
+		opts.Logprobs, opts.TopLogprobs = 1, 2
+		_, err = s.PredictRichContext(context.Background(), opts)
+		Expect(err).To(MatchError(ContainSubstring("logprobs are not supported")))
+		// Without either, the same model answers.
+		_, err = s.PredictRichContext(context.Background(), chat("x"))
+		Expect(err).ToNot(HaveOccurred())
+
+		s.cfg.noPackFlag, s.cfg.hy4 = false, &hy4Config{}
+		opts.Logprobs, opts.TopLogprobs, opts.LogitBias = 0, 0, `{"65":1}`
+		_, err = s.PredictRichContext(context.Background(), opts)
+		Expect(err).To(MatchError(ContainSubstring("logit_bias is not supported by the Hy4-Flash engine")))
+	})
+
 	It("logprobs in stream", func() {
 		s, _ := loaded("ok", idsOf("hi"))
 		opts := chat("x")

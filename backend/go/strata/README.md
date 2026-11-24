@@ -202,7 +202,11 @@ The EXIF orientation of a JPEG is not applied. Video and audio are refused.
 
 ## Not supported
 
-- Embeddings, grammar, `logit_bias`, mirostat, typical-p, tail-free sampling, video and audio input.
+- Embeddings, grammar, mirostat, typical-p, tail-free sampling, video and audio input.
+- `logit_bias` is sent to the engine of a pack model (`--pack`). The Hy4-Flash and Inkling engines, and
+  the Qwen engine of a model that runs without a pack (`pack_tool: tokenizer`), have no such key, so
+  a request with `logit_bias` fails there instead of being answered without it. The same Qwen engine
+  has no `logprobs` either, and a request that asks for them fails.
 - A forced tool call together with thinking (see `tool_choice`).
 - A tool call cut off by the token limit is delivered as far as it was written, with incomplete arguments.
 - One engine and one request at a time. `--batch` and `--slots` are not used.
