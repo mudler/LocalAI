@@ -1,17 +1,87 @@
 +++
 disableToc = false
-title = "llama.cpp runtime settings"
+title = "Engine runtime settings"
 weight = 95
-description = "Set llama-server options on a llama-cpp model: the YAML keys, the options list, tensor placement, and how to paste a llama-server command."
-keywords = ["llama.cpp", "llama-server", "options", "ngl", "flash attention", "kv cache", "override tensor", "moe"]
+description = "Runtime settings of an inference engine on a model: how LocalAI maps them to YAML keys, how an engine registers, how to add one, and the llama.cpp settings."
+keywords = ["engine settings", "runtime tuning", "llama.cpp", "llama-server", "options", "ngl", "flash attention", "kv cache", "override tensor", "moe"]
 +++
 
-A model that uses the `llama-cpp` backend runs `llama-server` settings that you
-write in its YAML file. The model editor has a **Runtime tuning** section for
-them. This page lists the keys, shows how a `llama-server` command maps to them,
-and describes the section.
+An inference engine has its own runtime settings: the context size, the GPU
+offload, the KV cache type, and many more. LocalAI keeps them in the model's
+YAML file, as YAML keys or as entries of the `options` list. The model editor
+has a **Runtime tuning** section that shows the settings of the model's engine
+as fields, so you do not have to know which key or option holds each one.
 
-## Where each flag goes
+This page explains how the settings are described, how an engine registers,
+and how to add an engine. Then it lists the settings of llama.cpp, the first
+engine.
+
+## How it works
+
+Each engine is one description in Go, in the package `pkg/enginesettings`. The
+description is the only place that knows the settings of the engine. The model
+editor, the API and the LocalAI Assistant read it, so they always agree.
+
+An engine description has these parts:
+
+| Part | What it is |
+|---|---|
+| ID and name | A stable id, for example `llama-cpp`, used in the API routes, and a display name, for example `llama.cpp`. |
+| Backends | The model backend names the engine serves: exact names, families (a name and its hardware builds, such as `cuda12-llama-cpp`), names to exclude, and whether a model with no backend uses this engine. |
+| Flag table | One row per setting: a key, where the value goes (a YAML key or an `options` entry), the option name and its aliases, the command-line spellings, the type, the allowed values, the limits, the default, a doc line and the editor group. |
+| Groups | The editor sections, in the order the editor draws them. |
+| Combined controls | Optional. One control that writes several settings, such as a load mode that writes `mmap`, `mmlock` and `direct_io`. |
+| Presets | Optional. Whole-setup starting points. |
+| Capabilities | Optional features. `command-line`: the engine reads a pasted command and writes the command of a config. `tensor-placement`: the engine builds and reads an `options` entry that keeps MoE expert tensors on the CPU. |
+
+The editor draws the fields, groups, combined controls and presets from the
+schema of the engine. It shows the command preview and the paste box only for
+an engine with `command-line`, and the placement control only for an engine
+with `tensor-placement`. The editor has no code for a specific engine.
+
+The editor finds the engine of a model from its `backend` key, with
+`GET /api/engines?backend=<name>`. A model whose backend no engine serves has
+no **Runtime tuning** section. You can still set every option in the YAML tab.
+
+## Add an engine
+
+To add the runtime settings of another engine:
+
+1. Create a package under `pkg/enginesettings/`, for example
+   `pkg/enginesettings/myengine`, with a function `Engine()` that returns an
+   `*enginesettings.Engine`.
+2. Set the id, the display name and the `Backends` match. Use the backend names
+   of the gallery.
+3. Write the flag table. Each row needs a unique key, a target (`config` with a
+   YAML path, or `option` with an option name), a type, a doc line and a group
+   from the `Groups` list. Add the command-line spellings if the engine has a
+   command line.
+4. Optional: add combined controls, presets and `ReservedOptions` (option names
+   that another part of LocalAI writes).
+5. Optional: set `Command` for the `command-line` capability. Give the binary
+   name, the flags that LocalAI sets itself (`Ignored`), and handlers for flags
+   that do not map to one key (`Special`).
+6. Optional: set `Placement` for the `tensor-placement` capability.
+7. Register the engine in `pkg/enginesettings/builtin`. The registry validates
+   the description at start-up, so a broken table fails early.
+8. Write Ginkgo tests for the table: parse and build round trips, the backend
+   match, and the presets.
+9. Add translations for new group, field and preset labels under
+   `engineSettings` in the `modelEditor` namespace of the React UI. Without a
+   translation, the editor shows the name or the English text of the schema.
+10. Document the settings in a section of this page.
+
+Other engines, such as vLLM, can be added this way. Today only llama.cpp is
+registered.
+
+## llama.cpp
+
+The engine id is `llama-cpp`. It serves the `llama-cpp` backend, every
+hardware build of it, and models with no backend. It has the `command-line`
+and `tensor-placement` capabilities. A model that uses it runs `llama-server`
+settings that you write in its YAML file.
+
+### Where each flag goes
 
 | `llama-server` flag | Model YAML |
 |---|---|
@@ -41,7 +111,7 @@ LocalAI passes the entry to the `llama-server` parser as it is.
 Sampling values go in `parameters`, not in raw flags. A request that sets its
 own `temperature`, `top_p`, `top_k` or `min_p` replaces the value of a raw flag.
 
-### Load mode
+#### Load mode
 
 `--load-mode` is a combination of three settings. LocalAI derives it:
 
@@ -56,7 +126,7 @@ own `temperature`, `top_p`, `top_k` or `min_p` replaces the value of a raw flag.
 `--load-mode auto` has no LocalAI equivalent. The paste flow leaves the keys
 unset and shows a warning.
 
-## Example
+### Example
 
 This command:
 
@@ -95,12 +165,12 @@ options:
   - '-ot:blk\.([0-6]|1[89]|2[0-3])\.ffn_.*_exps.*=CPU'
 ```
 
-## The Runtime tuning section
+### The Runtime tuning section
 
 Open a model in the model editor (**Models**, then **Edit** on the model). When
 the model's backend is `llama-cpp` (or a build of it, or no backend at all),
-the **Interactive** tab has a **Runtime tuning** section. A model on another
-backend does not show it.
+the **Interactive** tab has a **Runtime tuning** section with the badge
+`llama.cpp`.
 
 - **Fields.** The settings of the table above, in the groups Memory, Speed,
   Sampling defaults and Chat template. Each field shows its `llama-server` flag
@@ -124,7 +194,7 @@ backend does not show it.
 The section edits the same file as the YAML tab. Nothing is written until you
 press **Save**, and a YAML save shows in the section.
 
-## Paste a command
+### Paste a command
 
 In the **Runtime tuning** section, paste the command in **Paste a llama-server
 command** and press **Fill the form**. LocalAI reads the text and writes what it
@@ -148,7 +218,7 @@ found into the fields. The section lists the settings that changed, with
 The editor also shows a live preview of the command that matches the form.
 The preview is text for you to read. It is never run.
 
-## Tensor placement
+### Tensor placement
 
 Placement is opt-in. LocalAI never adds an `-ot` entry for you, and a model
 without one loads as before.
@@ -173,19 +243,22 @@ generated. Any other pattern is shown as raw text.
 
 ## API
 
-These routes need an administrator. The same operations are available to the
-LocalAI Assistant as the `parse_llama_cpp_command` and
-`preview_llama_cpp_command` tools.
+These routes need an administrator. The LocalAI Assistant has the same
+operations as the `parse_engine_command` and `preview_engine_command` tools.
 
 | Route | Purpose |
 |---|---|
-| `GET /api/llama-cpp/settings-schema` | The table of supported flags: key, YAML path, CLI spellings, type, allowed values, limits, default, doc line and group (`memory`, `speed`, `sampling`, `template`, `placement`). |
-| `POST /api/llama-cpp/parse-command` | Body `{"command": "..."}`. Returns `fields`, `options`, `unmapped`, `warnings` and `placements`. |
-| `POST /api/llama-cpp/command-preview` | Body `{"config": {...}}` with the keys above. Returns `{"command": "...", "warnings": []}`. |
-| `POST /api/llama-cpp/tensor-placement` | Body `{"placement": {...}, "layers": "0-6,18-23"}` returns the `-ot` option. Body `{"option": "-ot:..."}` returns its structured form, or `raw: true`. |
+| `GET /api/engines` | The registered engines: id, name, binary, the backend names each serves, and the capabilities. With `?backend=<name>`, only the engine that serves that backend. An empty name is a model with no backend. |
+| `GET /api/engines/{engine}/settings-schema` | The schema of one engine: the flag table (key, target, YAML path, option name and aliases, CLI spellings, type, allowed values, limits, default, doc line, group), the groups, the combined controls, the presets, the reserved options and the capabilities. |
+| `POST /api/engines/{engine}/parse-command` | Needs `command-line`. Body `{"command": "..."}`. Returns `fields`, `options`, `unmapped` and `warnings`, plus `placements` for an engine with `tensor-placement`. |
+| `POST /api/engines/{engine}/command-preview` | Needs `command-line`. Body `{"config": {...}}` with model YAML keys. Returns `{"command": "...", "warnings": []}`. |
+| `POST /api/engines/{engine}/placement` | Needs `tensor-placement`. Body `{"placement": {...}, "layers": "0-6,18-23"}` returns the `options` entry. Body `{"option": "-ot:..."}` returns its structured form, or `raw: true`. |
+
+An unknown engine returns status 404. An operation of a capability that the
+engine does not have returns status 400.
 
 ```bash
-curl -s http://localhost:8080/api/llama-cpp/parse-command \
+curl -s http://localhost:8080/api/engines/llama-cpp/parse-command \
   -H "Authorization: Bearer $LOCALAI_API_KEY" -H "Content-Type: application/json" \
   -d '{"command": "llama-server -m model.gguf -c 8192 -ngl 99 -fa on"}'
 ```

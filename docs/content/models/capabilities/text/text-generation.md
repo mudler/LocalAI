@@ -619,7 +619,7 @@ The `ggml` file format has been deprecated. If you are using `ggml` models and y
 
 #### Features
 
-For the `llama-server` options you can set on a model, and for pasting a `llama-server` command into the model editor, see [llama.cpp runtime settings]({{%relref "/models/llama-cpp-settings" %}}).
+For the `llama-server` options you can set on a model, and for pasting a `llama-server` command into the model editor, see [Engine runtime settings]({{%relref "/models/engine-settings#llamacpp" %}}).
 
 The `llama.cpp` model supports the following features:
 - [📖 Text generation (GPT)]({{%relref "/models/capabilities/text/text-generation" %}})
