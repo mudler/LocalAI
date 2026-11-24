@@ -9,8 +9,39 @@ ARG BUILDER_BASE_IMAGE=${BASE_IMAGE}
 # usable in `FROM ${BUILDER_TARGET}` below. Default keeps local
 # `make backends/bonsai` on the from-source path.
 ARG BUILDER_TARGET=builder-fromsource
+# Base of the stage that builds the ggml CPU variants. Keep it at the oldest glibc of any
+# GPU builder image: see the cpu-variants stage.
+ARG CPU_VARIANTS_BASE_IMAGE=ubuntu:22.04
 ARG APT_MIRROR=""
 ARG APT_PORTS_MIRROR=""
+
+# ============================================================================
+# Stage: cpu-variants - the ggml CPU variants (libggml-cpu-*.so) of this fork, built
+# once per architecture with plain gcc and shared by every image flavor. They come from
+# the fork's own pin, patched like the GPU tree. See backend/Dockerfile.llama-cpp for
+# why this is a separate stage on Ubuntu 22.04.
+# ============================================================================
+FROM ${CPU_VARIANTS_BASE_IMAGE} AS cpu-variants
+ARG TARGETARCH
+ARG APT_MIRROR
+ARG APT_PORTS_MIRROR
+ENV APT_MIRROR=${APT_MIRROR} \
+    APT_PORTS_MIRROR=${APT_PORTS_MIRROR} \
+    DEBIAN_FRONTEND=noninteractive \
+    CC=/usr/local/bin/gcc CXX=/usr/local/bin/g++ \
+    CPU_VARIANTS_VERSION_VAR=BONSAI_VERSION
+
+RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
+    --mount=type=bind,source=.docker/cpu-variants-toolchain.sh,target=/usr/local/sbin/cpu-variants-toolchain.sh \
+    sh /usr/local/sbin/cpu-variants-toolchain.sh
+
+RUN --mount=type=bind,source=.docker/llama-cpp-cpu-variants.sh,target=/usr/local/sbin/cpu-variants.sh \
+    --mount=type=bind,source=backend/cpp/bonsai/Makefile,target=/usr/local/share/backend/Makefile \
+    --mount=type=bind,source=backend/cpp/bonsai/apply-patches.sh,target=/usr/local/share/backend/apply-patches.sh \
+    --mount=type=bind,source=backend/cpp/bonsai/patches,target=/usr/local/share/backend/patches \
+    --mount=type=cache,target=/root/.ccache,id=bonsai-cpu-variants-${TARGETARCH},sharing=locked \
+    bash /usr/local/sbin/cpu-variants.sh /usr/local/share/backend/Makefile /out \
+      /usr/local/share/backend/apply-patches.sh /usr/local/share/backend/patches
 
 
 # ============================================================================
@@ -85,6 +116,8 @@ RUN --mount=type=bind,source=.docker/install-base-deps.sh,target=/usr/local/sbin
 RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
+# The ggml CPU variants of this fork for this architecture; bonsai-compile.sh hands them to make.
+COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/bonsai/cpu-variants/
 
 # BuildKit cache mount for ccache. See Dockerfile.llama-cpp (commit 9228e5b4)
 # for rationale. bonsai is a llama.cpp fork that reuses
@@ -135,6 +168,8 @@ ARG TARGETVARIANT
 RUN cp -a /opt/grpc/. /usr/local/
 
 COPY . /LocalAI
+# The ggml CPU variants of this fork for this architecture; bonsai-compile.sh hands them to make.
+COPY --from=cpu-variants /out/ /LocalAI/backend/cpp/bonsai/cpu-variants/
 
 RUN --mount=type=bind,source=.docker/bonsai-compile.sh,target=/usr/local/sbin/compile.sh \
     --mount=type=cache,target=/root/.ccache,id=bonsai-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \

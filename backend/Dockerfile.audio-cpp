@@ -111,14 +111,13 @@ COPY . /LocalAI
 # the table has to COMPILE even though a host only ever dlopens the one its own
 # CPU supports, so one unbuildable variant fails the whole image.
 #
-# ON EVERY arm64 BUILD_TYPE, which is where this differs from llama-cpp's script
-# and why that difference is spelled out rather than assumed. llama-cpp only
-# needs gcc-14 for its pure-CPU image because its GPU builds run
-# llama-cpp-fallback, which has no variant table at all. This backend's Makefile
-# sets ENGINE_ENABLE_CPU_ALL_VARIANTS for every non-Darwin build, GPU included,
-# so an arm64 GPU image would hit the identical compile error. Gating this on an
-# empty BUILD_TYPE would leave that trap armed for the first arm64 GPU entry
-# added to the matrix, which today has none.
+# ON EVERY arm64 BUILD_TYPE: this backend's Makefile sets ENGINE_ENABLE_CPU_ALL_VARIANTS
+# for every non-Darwin build, GPU included, so an arm64 GPU image hits the same compile
+# error. llama-cpp no longer needs this step: its variants come from a separate stage
+# (backend/Dockerfile.llama-cpp, cpu-variants). This backend cannot use that stage because
+# its ggml is vendored and configured by the audio.cpp project's own CMake
+# (ENGINE_ENABLE_*), at its own pin, and the engine links ggml statically with its
+# variants, so there is no loader and GPU backend tree to split from the CPU tree.
 RUN --mount=type=cache,target=/root/.ccache,id=audio-cpp-ccache-${TARGETARCH}-${BUILD_TYPE},sharing=locked \
     if [ "${TARGETARCH}" = "arm64" ]; then \
         export CC=gcc-14 CXX=g++-14; \

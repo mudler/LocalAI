@@ -31,8 +31,7 @@ ARG APT_PORTS_MIRROR=""
 # change. It uses an Ubuntu 22.04 base on purpose: the package runs on the
 # glibc bundled from the GPU builder, and a variant built against an older
 # glibc runs on any newer one, not the other way round. arm64 needs gcc-14 for
-# the armv9.2 SME variants, which Ubuntu 22.04 only has in the toolchain PPA. The PPA is
-# added by hand: add-apt-repository starts gpg-agent, which cannot run in a BuildKit RUN.
+# the armv9.2 SME variants, which Ubuntu 22.04 only has in the toolchain PPA.
 # ============================================================================
 FROM ${CPU_VARIANTS_BASE_IMAGE} AS cpu-variants
 ARG TARGETARCH
@@ -43,22 +42,8 @@ ENV APT_MIRROR=${APT_MIRROR} \
     DEBIAN_FRONTEND=noninteractive
 
 RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mirror \
-    set -eux; \
-    sh /usr/local/sbin/apt-mirror || true; \
-    sh /usr/local/sbin/apt-mirror apt-get update -qq; \
-    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends \
-        ca-certificates curl gpg git cmake make ccache binutils; \
-    if [ "${TARGETARCH}" = "arm64" ]; then GCC_VERSION=14; \
-        curl -fsSL --retry 3 "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC8EC952E2A0E1FBDC5090F6A2C277A0A352154E5" \
-            | gpg --dearmor -o /usr/share/keyrings/ubuntu-toolchain-r-test.gpg; \
-        echo "deb [signed-by=/usr/share/keyrings/ubuntu-toolchain-r-test.gpg] https://ppa.launchpadcontent.net/ubuntu-toolchain-r/test/ubuntu jammy main" \
-            > /etc/apt/sources.list.d/ubuntu-toolchain-r-test.list; \
-        sh /usr/local/sbin/apt-mirror apt-get update -qq; \
-    else GCC_VERSION=12; fi; \
-    sh /usr/local/sbin/apt-mirror apt-get install -y --no-install-recommends gcc-${GCC_VERSION} g++-${GCC_VERSION}; \
-    update-alternatives --install /usr/local/bin/cc cc /usr/bin/gcc-${GCC_VERSION} 100; \
-    update-alternatives --install /usr/local/bin/c++ c++ /usr/bin/g++-${GCC_VERSION} 100; \
-    ln -s /usr/bin/gcc-${GCC_VERSION} /usr/local/bin/gcc; ln -s /usr/bin/g++-${GCC_VERSION} /usr/local/bin/g++
+    --mount=type=bind,source=.docker/cpu-variants-toolchain.sh,target=/usr/local/sbin/cpu-variants-toolchain.sh \
+    sh /usr/local/sbin/cpu-variants-toolchain.sh
 
 ENV CC=/usr/local/bin/gcc CXX=/usr/local/bin/g++
 RUN --mount=type=bind,source=.docker/llama-cpp-cpu-variants.sh,target=/usr/local/sbin/cpu-variants.sh \

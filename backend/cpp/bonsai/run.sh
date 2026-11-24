@@ -12,9 +12,10 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=bonsai-fallback
 
-# x86/arm64 ship a single bonsai-cpu-all built with ggml CPU_ALL_VARIANTS: ggml's
-# backend registry dlopens the best libggml-cpu-*.so for this host, so no shell-side
-# probing. ROCm ships only bonsai-fallback, so fall back to it when cpu-all is absent.
+# Every image ships a single bonsai-cpu-all: ggml's backend registry dlopens the best
+# libggml-cpu-*.so for this host (the variants sit in lib/ next to the bundled ld.so), so
+# no shell-side probing. bonsai-fallback only exists in packages built before the variants
+# were shared between flavors.
 if [ -e "$CURDIR"/bonsai-cpu-all ]; then
 	BINARY=bonsai-cpu-all
 fi

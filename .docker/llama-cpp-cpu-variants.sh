@@ -7,15 +7,30 @@
 # image then compiles only its own backend and the loader, with the CPU backend
 # switched off (-DGGML_CPU=OFF), so icpx and hipcc never see ggml-cpu sources.
 #
-# Usage: llama-cpp-cpu-variants.sh <Makefile with the LLAMA_VERSION pin> <output dir>
+# Usage: llama-cpp-cpu-variants.sh <Makefile with the pin> <output dir> [<apply-patches.sh> <patches dir>]
+#
+# Backends that build a llama.cpp fork (turboquant, bonsai, olala) have their own pin and
+# repository, and the variants must come from exactly that source. Select them with
+#   CPU_VARIANTS_VERSION_VAR   Makefile variable of the pin (default LLAMA_VERSION)
+#   CPU_VARIANTS_ARGS_VAR      Makefile variable of extra CMake flags that shape the CPU
+#                              kernels (default: none)
+# The repository comes from LLAMA_REPO. The optional patch script is the backend's own and
+# runs on the checkout before the build, so the variants match the patched GPU tree.
 set -euxo pipefail
 
-makefile=${1:?Makefile that carries the LLAMA_VERSION pin is required}
+makefile=${1:?Makefile that carries the pin is required}
 out=${2:?output directory is required}
+patch_script=${3:-}
+patches_dir=${4:-}
 
-version=$(sed -n 's/^LLAMA_VERSION?=//p' "$makefile" | head -n 1)
+version_var=${CPU_VARIANTS_VERSION_VAR:-LLAMA_VERSION}
+version=$(sed -n "s/^${version_var}?=//p" "$makefile" | head -n 1)
 repo=$(sed -n 's/^LLAMA_REPO?=//p' "$makefile" | head -n 1)
-[ -n "$version" ] && [ -n "$repo" ] || { echo "no LLAMA_VERSION or LLAMA_REPO in $makefile" >&2; exit 1; }
+extra_args=
+if [ -n "${CPU_VARIANTS_ARGS_VAR:-}" ]; then
+  extra_args=$(sed -n "s/^${CPU_VARIANTS_ARGS_VAR}[ ]*:\?=[ ]*//p" "$makefile" | head -n 1)
+fi
+[ -n "$version" ] && [ -n "$repo" ] || { echo "no pin or LLAMA_REPO in $makefile" >&2; exit 1; }
 
 src=${CPU_VARIANTS_SRC:-/build/llama.cpp}
 mkdir -p "$src" "$out"
@@ -29,6 +44,9 @@ until git fetch -q --depth 1 origin "$version"; do
   attempt=$((attempt + 1))
 done
 git checkout -q FETCH_HEAD
+if [ -n "$patch_script" ]; then
+  bash "$patch_script" "$src" "$patches_dir"
+fi
 
 # Same flags the single-tree build used: shared ggml, backends as modules, every
 # variant of the table, no host-specific tuning.
@@ -42,7 +60,8 @@ cmake -S . -B build \
   -DLLAMA_CURL=OFF \
   -DLLAMA_OPENSSL=OFF \
   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+  -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+  $extra_args
 cmake --build build --config Release -j "$(nproc)" --target ggml
 
 cp -av build/bin/libggml-cpu-*.so "$out"/

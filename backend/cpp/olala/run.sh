@@ -12,9 +12,10 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=olala-fallback
 
-# x86/arm64 ship a single olala-cpu-all built with ggml CPU_ALL_VARIANTS: ggml's
-# backend registry dlopens the best libggml-cpu-*.so for this host, so no shell-side
-# probing. ROCm ships only olala-fallback, so fall back to it when cpu-all is absent.
+# Every image ships a single olala-cpu-all: ggml's backend registry dlopens the best
+# libggml-cpu-*.so for this host (the variants sit in lib/ next to the bundled ld.so), so
+# no shell-side probing. olala-fallback only exists in packages built before the variants
+# were shared between flavors.
 if [ -e "$CURDIR"/olala-cpu-all ]; then
 	BINARY=olala-cpu-all
 fi
