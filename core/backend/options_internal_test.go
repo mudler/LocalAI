@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("grpcModelOpts EngineArgs", func() {
@@ -216,6 +217,30 @@ var _ = Describe("grpcModelOpts NBatch", func() {
 		cfg.Batch = 1024
 		opts := grpcModelOpts(cfg, "/tmp/models")
 		Expect(opts.NBatch).To(BeEquivalentTo(1024))
+	})
+
+	It("carries parameters.batch from YAML to NBatch as an explicit value", func() {
+		var cfg config.ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: m\nbackend: llama-cpp\nparameters:\n  batch: 2048\n"), &cfg)).To(Succeed())
+		cfg.Threads = &threads
+		cfg.ContextSize = &ctx
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(2048))
+		Expect(opts.BatchManaged).To(BeFalse())
+	})
+
+	It("flags the stock batch as managed", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.BatchManaged).To(BeTrue())
+	})
+
+	It("flags a hardware-chosen batch as managed", func() {
+		cfg := config.ModelConfig{Threads: &threads, LLMConfig: config.LLMConfig{ContextSize: &ctx}}
+		config.ApplyHardwareDefaults(&cfg, config.GPU{ComputeCapability: "12.1", VRAM: 119 * gib})
+		opts := grpcModelOpts(cfg, "/tmp/models")
+		Expect(opts.NBatch).To(BeEquivalentTo(config.BlackwellPhysicalBatch))
+		Expect(opts.BatchManaged).To(BeTrue())
 	})
 
 	It("sizes the batch to the context window for embedding models", func() {

@@ -348,8 +348,8 @@ type scheduleLoadResult struct {
 // heuristics as single-host config loading (core/config). On Blackwell it
 // raises the physical batch; on non-Blackwell it resets a hardware-default that
 // an upstream host (the GPU-less frontend in distributed mode) guessed higher.
-// Only values the heuristics themselves manage are touched, so an explicit user
-// batch (e.g. 1024) is never overridden.
+// Only a batch flagged as managed is touched, so an explicit user batch is never
+// overridden, even one that equals a managed value such as 2048.
 func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend string) {
 	if opts == nil || node == nil || config.HardwareDefaultsDisabled() {
 		return
@@ -369,7 +369,7 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 		ComputeCapability: node.GPUComputeCapability,
 		VRAM:              usableVRAM,
 	}
-	if config.IsManagedPhysicalBatch(int(opts.NBatch)) {
+	if opts.BatchManaged && config.IsManagedPhysicalBatch(int(opts.NBatch)) {
 		// Gate the raised batch on the selected node's per-device VRAM at this
 		// model's context, so a large context can't overflow the node's compute
 		// buffer (issue #10485). node.TotalVRAM is the node's reported ceiling.

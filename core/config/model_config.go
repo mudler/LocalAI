@@ -72,6 +72,9 @@ type ModelConfig struct {
 	// than one per request body. Unexported, so it never enters the hash it
 	// describes and never reaches YAML or JSON.
 	persistedConfigRevision string `yaml:"-" json:"-"`
+	// batchFromHardware marks a Batch that ApplyHardwareDefaults wrote, so a
+	// later consumer can tell it from a `batch:` the user set.
+	batchFromHardware bool `yaml:"-" json:"-"`
 	// mcpSessionKey keys the MCP session cache when it must differ from Name.
 	// A profile alias that brings its own MCP servers resolves to its target's
 	// config (so Name, and with it the backend process, stays the target's),
@@ -2991,4 +2994,10 @@ func (c *ModelConfig) warnRemovedAgentOptions() {
 		xlog.Warn("Deprecated agent options are ignored: the chats loop has no planning, plan re-evaluation, loop detection or reasoning switch",
 			"model", c.Name, "file", c.modelConfigFile, "options", strings.Join(removed, ", "))
 	}
+}
+
+// BatchIsManaged reports whether the physical batch is a LocalAI default
+// (unset, or written by the hardware heuristics) rather than a user value.
+func (c *ModelConfig) BatchIsManaged() bool {
+	return c.Batch == 0 || c.batchFromHardware
 }

@@ -540,6 +540,13 @@ message ModelOptions {
   // from the model's explicit `known_usecases: [score]` declaration so models
   // that never score retain their ordinary serving footprint.
   bool EnableScore = 75;
+
+  // BatchManaged is true when NBatch was chosen by LocalAI's own defaults
+  // (the stock value or a hardware guess) and not set by the user. Only a
+  // managed value may be re-tuned to the GPU that finally runs the model; an
+  // explicit `batch:` must reach the backend unchanged, even when it equals
+  // one of the managed values.
+  bool BatchManaged = 78;
 }
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and
