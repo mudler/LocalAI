@@ -32,7 +32,13 @@ const (
 type Strata struct {
 	base.SingleThread
 
+	// lifeMu serializes Load and the restart of a dead engine. They can run
+	// for minutes (a pack build takes up to two hours), so they must not hold
+	// mu: Status, Free and the request path only ever need mu, briefly.
+	lifeMu sync.Mutex
+
 	mu     sync.RWMutex
+	freed  uint64 // counts Free calls, so a Load that Free overtook can tell
 	eng    *engine
 	tok    Tokenizer
 	vision *imageEncoder
@@ -82,9 +88,16 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 		return errors.New("strata: strata_root option (a Strata source checkout, used for its tokenizer and chat template) is required")
 	}
 
+	s.lifeMu.Lock()
+	defer s.lifeMu.Unlock()
+
+	// The previous model goes first, so its memory is free for the new one.
+	// From here until the swap below the backend reports no model, and the
+	// slow steps (pack build, tokenizer, engine start) run without mu.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.freeLocked()
+	freedAt := s.freed
+	s.mu.Unlock()
 
 	if c.build != nil {
 		b := *c.build
@@ -120,6 +133,14 @@ func (s *Strata) Load(opts *pb.ModelOptions) error {
 	if err != nil {
 		_ = tok.Close()
 		return fmt.Errorf("strata: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.freed != freedAt {
+		eng.close()
+		_ = tok.Close()
+		return errors.New("strata: the model was freed while it was loading")
 	}
 	s.eng, s.tok, s.ctxLen, s.cfg = eng, tok, eng.ctxLen, c
 	s.eos = map[int]bool{}
@@ -239,6 +260,7 @@ func (s *Strata) freeLocked() {
 func (s *Strata) Free() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.freed++
 	s.freeLocked()
 	return nil
 }
