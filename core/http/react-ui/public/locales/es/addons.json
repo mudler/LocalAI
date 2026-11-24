@@ -654,7 +654,8 @@
       "forbidden": "Su cuenta no puede actualizar complementos.",
       "run_unavailable": "Las tandas de actualizaciones no están disponibles en este servidor.",
       "in_run": "Ya está en la tanda de actualizaciones en curso",
-      "installs_disabled": "La instalación de backends está desactivada en este servidor"
+      "installs_disabled": "La instalación de backends está desactivada en este servidor",
+      "interrupted": "Un reinicio interrumpió la actualización. Vuelva a comprobar"
     },
     "upgradeNamed": "Actualizar {{name}}",
     "why": {

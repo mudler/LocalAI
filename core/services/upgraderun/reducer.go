@@ -192,8 +192,11 @@ const (
 	msgChecking  = "checking that the update applied"
 	msgRecovered = "the server restarted; checking whether the update applied"
 	msgStale     = "the operation ended but the update is still listed"
-	msgNoAnswer  = "no check could confirm the update"
-	msgCancelled = "cancelled"
+	// msgInterrupted is the end of a recovered item that the check still
+	// lists: its operation did not end, the restart stopped it.
+	msgInterrupted = "the update was interrupted by a restart"
+	msgNoAnswer    = "no check could confirm the update"
+	msgCancelled   = "cancelled"
 )
 
 // Reduce applies one event to a run. It never changes its input and does no
@@ -311,7 +314,14 @@ func Reduce(in Run, ev Event, env Env) Result {
 			it.Phase, it.Progress, it.Message = PhaseUpdated, 100, ""
 			it.ErrorKey, it.Error, it.Retryable = "", "", false
 		case VerifyListed:
-			it.Phase, it.ErrorKey, it.Error, it.Message, it.Retryable = PhaseFailed, ErrKeyStale, msgStale, msgStale, RetryableKey(ErrKeyStale)
+			key, msg := ErrKeyStale, msgStale
+			// The message of RestartRecovered marks an item that the restart
+			// settled. It is stored with the item, so it survives another
+			// restart before the check answers.
+			if it.Message == msgRecovered {
+				key, msg = ErrKeyInterrupted, msgInterrupted
+			}
+			it.Phase, it.ErrorKey, it.Error, it.Message, it.Retryable = PhaseFailed, key, msg, msg, RetryableKey(key)
 		default:
 			// No check answered: a retry runs the check again with the update.
 			it.Phase, it.Message, it.Retryable = PhaseUnconfirmed, msgNoAnswer, true

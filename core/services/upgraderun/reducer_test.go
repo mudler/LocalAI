@@ -397,12 +397,24 @@ var _ = Describe("Reduce", func() {
 			Expect(starts(fx)).To(Equal([]string{"model:m"}))
 		})
 
-		It("fails a recovered item the check still lists", func() {
+		It("fails a recovered item the check still lists as interrupted by the restart", func() {
 			r, _ := newRun(item(KindGallery, "a"))
 			r = started(r, "gallery:a", "j", true)
 			r, _ = step(r, RestartRecovered{})
 			r, _ = step(r, ItemVerified{Key: "gallery:a", Result: VerifyListed})
-			Expect(phaseOf(r, "gallery:a")).To(Equal(PhaseFailed))
+			a := r.Item("gallery:a")
+			Expect(a.Phase).To(Equal(PhaseFailed))
+			// The operation did not end: the restart stopped it.
+			Expect(a.ErrorKey).To(Equal(ErrKeyInterrupted))
+			Expect(a.Error).To(Equal("the update was interrupted by a restart"))
+			Expect(a.Retryable).To(BeTrue())
+		})
+
+		It("keeps stale for an item whose operation ended and that the check still lists", func() {
+			r, _ := newRun(item(KindGallery, "a"))
+			r = started(r, "gallery:a", "j", true)
+			r, _ = step(r, ItemJobEnded{Key: "gallery:a", Outcome: JobOK})
+			r, _ = step(r, ItemVerified{Key: "gallery:a", Result: VerifyListed})
 			Expect(r.Item("gallery:a").ErrorKey).To(Equal(ErrKeyStale))
 		})
 	})

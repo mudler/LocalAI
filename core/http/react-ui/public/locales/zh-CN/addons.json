@@ -654,7 +654,8 @@
       "forbidden": "您的账户无法更新插件。",
       "run_unavailable": "此服务器不支持批量更新。",
       "in_run": "它已在正在进行的更新中",
-      "installs_disabled": "此服务器已关闭后端安装"
+      "installs_disabled": "此服务器已关闭后端安装",
+      "interrupted": "更新因重启而中断。请重新检查"
     },
     "upgradeNamed": "更新 {{name}}",
     "why": {

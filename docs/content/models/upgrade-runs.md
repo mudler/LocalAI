@@ -186,7 +186,7 @@ doing something first. The error key decides:
 
 | Retryable | Error keys |
 |-----------|------------|
-| Yes | `download`, `verify`, `swap`, `start`, `stale`, `unknown`, `unavailable`, and the add-on codes `upgrade_failed`, `interrupted`, `stale_installed`, `candidate_changed` and `check_failed` |
+| Yes | `download`, `verify`, `swap`, `start`, `stale`, `unknown`, `unavailable`, `interrupted` (also an item that a restart stopped), and the add-on codes `upgrade_failed`, `stale_installed`, `candidate_changed` and `check_failed` |
 | No | Every other key, for example `incompatible`, `integrity_error`, `recovery_required`, `forbidden`, `not_human_surface`, `held`, `edited_keys`, `approval_required`, `approval_stale`, `upgrade_conflict` and `operation_conflict` |
 
 An `unconfirmed` item is retryable: the retry checks it again. The Updates
@@ -198,7 +198,8 @@ The run and its items are stored in the database. When the server restarts,
 it takes over the runs that were running. The operations of the old process
 stopped with it, so each item that was running becomes `unconfirmed` and a
 fresh check decides: `updated` if the item is no longer listed, `failed` with
-`stale` if it is. Queued items continue.
+`interrupted` if it is ("the update was interrupted by a restart"). The item
+is retryable. Queued items continue.
 
 ## Distributed mode
 

@@ -654,7 +654,8 @@
       "forbidden": "Il tuo account non può aggiornare i componenti aggiuntivi.",
       "run_unavailable": "Le serie di aggiornamenti non sono disponibili su questo server.",
       "in_run": "È già nella serie di aggiornamenti in corso",
-      "installs_disabled": "L’installazione dei backend è disattivata su questo server"
+      "installs_disabled": "L’installazione dei backend è disattivata su questo server",
+      "interrupted": "Un riavvio ha interrotto l’aggiornamento. Controlla di nuovo"
     },
     "upgradeNamed": "Aggiorna {{name}}",
     "why": {

@@ -658,7 +658,8 @@
       "forbidden": "Votre compte ne peut pas mettre à jour les extensions.",
       "run_unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur.",
       "in_run": "Il fait déjà partie de la série de mises à jour en cours",
-      "installs_disabled": "L’installation de backends est désactivée sur ce serveur"
+      "installs_disabled": "L’installation de backends est désactivée sur ce serveur",
+      "interrupted": "Un redémarrage a interrompu la mise à jour. Vérifiez à nouveau"
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {

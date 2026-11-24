@@ -654,7 +654,8 @@
       "forbidden": "계정에 애드온을 업데이트할 권한이 없습니다.",
       "run_unavailable": "이 서버에서는 업데이트 실행을 사용할 수 없습니다.",
       "in_run": "이미 진행 중인 업데이트 실행에 포함되어 있습니다",
-      "installs_disabled": "이 서버에서는 백엔드 설치가 꺼져 있습니다"
+      "installs_disabled": "이 서버에서는 백엔드 설치가 꺼져 있습니다",
+      "interrupted": "재시작으로 업데이트가 중단되었습니다. 다시 확인하세요"
     },
     "upgradeNamed": "{{name}} 업데이트",
     "why": {
