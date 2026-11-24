@@ -390,6 +390,14 @@ EOT
 
 RUN git config --global --add safe.directory /LocalAI
 
+# Keep optional mesh-processing dependencies after the shared SDK layers so
+# adding this backend does not invalidate every backend's Vulkan SDK cache.
+RUN if [ "${BACKEND}" = "meshremesh" ] || [ "${BACKEND}" = "skintokenscpp" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends nlohmann-json3-dev && \
+        if [ "${BACKEND}" = "meshremesh" ]; then apt-get install -y --no-install-recommends libcgal-dev; fi && \
+        apt-get clean && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Prebuild the native engine from a layer that depends on this backend's own
 # directory and nothing else.
 #

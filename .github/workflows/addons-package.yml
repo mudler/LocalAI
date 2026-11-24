@@ -127,7 +127,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]
+        addon: [asset-pipeline, tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -158,12 +158,19 @@ jobs:
         if: hashFiles(format('addons/{0}/ui/build.mjs', matrix.addon)) != ''
         env:
           ADDON: ${{ matrix.addon }}
-        run: node "addons/$ADDON/ui/build.mjs"
+        run: |
+          if [ -f "addons/$ADDON/ui/package-lock.json" ]; then npm ci --prefix "addons/$ADDON/ui"; fi
+          node "addons/$ADDON/ui/build.mjs"
       - name: Fill the module cache the packaging checks read
         # package_test.sh runs offline (GOPROXY=off) against its own cache.
         # The suite covers every add-on, so one leg runs it.
         if: matrix.addon == 'tables'
         run: |
+          # This leg packages every add-on, including those with private UI dependencies.
+          for lock in addons/*/ui/package-lock.json; do
+            [ -f "$lock" ] || continue
+            npm ci --prefix "$(dirname "$lock")" --no-audit --no-fund
+          done
           GOPATH="$PWD/.cache/addons/go" GOMODCACHE="$PWD/.cache/addons/go/pkg/mod" \
           GOCACHE="$PWD/.cache/addons/go-build" go mod download
       - name: Run the packaging checks
@@ -250,7 +257,7 @@ jobs:
           # that publishes nothing: that add-on gets no legs. On a publishing
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
-          all_ids="tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search ollama-search sandbox ssh web"
+          all_ids="asset-pipeline tables voice face fine-tuning quantization studio talk telegram slack discord github gdrive gmail home-assistant jellyfin calendar contacts mail office pikvm pirateface-search ollama-search sandbox ssh web"
           ids=$all_ids
           if [ "$EVENT" = "pull_request" ]; then
             # A pull request builds only the add-ons whose own files changed,
@@ -361,6 +368,7 @@ jobs:
           ADDON: ${{ matrix.addon }}
         run: |
           npm ci --prefix core/http/react-ui
+          if [ -f "addons/$ADDON/ui/package-lock.json" ]; then npm ci --prefix "addons/$ADDON/ui"; fi
           node "addons/$ADDON/ui/build.mjs"
       - name: Fetch the runtime files
         env:

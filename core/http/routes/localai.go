@@ -378,6 +378,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	// of a realtime pipeline's sub-models) into memory so clients can drive
 	// warm-up explicitly instead of paying the cold-start cost on first use.
 	router.POST("/backend/load", localai.LoadModelEndpoint(cl, ml, appConfig), adminMiddleware)
+	router.POST("/backend/leases/:id/release", localai.ReleaseModelLeaseEndpoint(ml), adminMiddleware)
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
 	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService), adminMiddleware)
 	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService), adminMiddleware)

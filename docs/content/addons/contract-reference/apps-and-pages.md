@@ -538,6 +538,13 @@ authenticated download of the host route. A chat tool result of kind
 chat stores. An add-on cannot supply a link, a name or a path that the card
 shows.
 
+For interactive previews, `await sdk.files.blob(id, { signal })` retrieves an
+authenticated `Blob` for an identifier previously returned by `sdk.files.read`
+to the same live SDK instance. It waits for ingestion, enforces the artifact size
+bound and cancels with the SDK's lifetime. It does not accept URLs or add-on paths.
+The page owns any object URL or WebGL resources it creates and must release them
+when unloading a preview. Use `ArtifactCard` for ordinary download-only results.
+
 ### Verification
 
 `sh scripts/addons/verify.sh host-slots` runs the node unit tests of the slot registry,

@@ -165,6 +165,7 @@ var adminRoutesWithoutTool = map[string]string{
 	"POST /api/settings (p2p_mode)":      "turns on accepting paired devices: a person's choice on the Swarm, P2P page",
 	"POST /api/settings (p2p_relays...)": "the P2P discovery and relay settings: set on the Swarm, P2P page",
 	"GET /api/federation/groups/:name":   "list_federation returns every group with the same fields",
+	"POST /backend/leases/:id/release":   "internal cleanup of a caller-owned preload lease; conversational admins use load_model and shutdown_backend",
 	// The administrator's oversight of other users' saved agents, triggers
 	// and connectors. Each acts on another person's private automation
 	// (disable or delete it). It stays a deliberate click on the

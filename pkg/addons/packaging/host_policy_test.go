@@ -12,14 +12,14 @@ import (
 )
 
 var _ = Describe("official host policy deployment", func() {
-	It("loads exactly the historical grants through the actual host loader", func() {
+	It("loads exactly the shipped grants through the actual host loader", func() {
 		root, err := filepath.Abs(filepath.Join("..", "..", ".."))
 		Expect(err).NotTo(HaveOccurred())
 		grants, err := config.LoadAddonHostPolicy(filepath.Join(root, "deploy", "addons", "host-policy.json"))
 		Expect(err).NotTo(HaveOccurred())
-		// Deployment-owned exception: historical identity grants, not core defaults.
-		legacy := "fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,home-assistant=workspace.,pikvm=workspace.,telegram=connector.,slack=connector.,discord=connector."
-		want, err := config.ParseAddonHostOps(legacy)
+		// Deployment-owned exception: explicit identity grants, not core defaults.
+		shipped := "asset-pipeline=pipeline.,fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,home-assistant=workspace.,pikvm=workspace.,telegram=connector.,slack=connector.,discord=connector."
+		want, err := config.ParseAddonHostOps(shipped)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(grants).To(Equal(want))
 	})

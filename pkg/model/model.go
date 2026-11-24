@@ -14,6 +14,9 @@ import (
 const healthCheckTTL = 30 * time.Second
 
 type Model struct {
+	// leaseCreator is immutable and set only by the callback that cold-loaded
+	// this exact instance. A cache hit never acquires unload ownership.
+	leaseCreator    string
 	ID              string `json:"id"`
 	address         string
 	client          grpc.Backend

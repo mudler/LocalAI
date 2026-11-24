@@ -311,6 +311,8 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     return host.api[kind](body, merged)
   }
 
+  const issuedFiles = new Set()
+
   // The resource management of this add-on: its own resources, sharing,
   // the conversation selection and the changes a person makes in its pages.
   // Each call is bound to this add-on and generation and is shaped by the
@@ -494,7 +496,24 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     // add-on's handle, a path or a URL never reaches the add-on's page. The
     // file is drawn by sdk.ui.ArtifactCard from the identifier.
     files: Object.freeze({
-      read: (request, options) => callApi('dispatchFile', { ...request, action: 'read' }, options),
+      async read(request, options) {
+        const result = await callApi('dispatchFile', { ...request, action: 'read' }, options)
+        alive()
+        for (const file of result?.files || []) {
+          if (/^a[0-9a-f]{32}$/.test(file.id)) issuedFiles.add(file.id)
+        }
+        while (issuedFiles.size > 1024) issuedFiles.delete(issuedFiles.values().next().value)
+        return result
+      },
+      // Only handles issued to this live SDK can be previewed. The host still
+      // revalidates the authenticated caller and source resource on download.
+      async blob(id, options) {
+        alive()
+        if (!issuedFiles.has(id)) throw new TypeError('Read this artifact through files.read before previewing it')
+        const blob = await host.api.artifactBlob(id, anySignal(signal, options?.signal))
+        alive()
+        return blob
+      },
     }),
     // Asks the host to show the stored proposal of this add-on in the host's
     // approval frame. The frame, Confirm and Cancel stay the host's: the

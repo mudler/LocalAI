@@ -62,7 +62,8 @@ func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, load
 		}()
 	}
 	phaseStart := time.Now()
-	inferenceModel, err := loader.Load(ModelOptions(modelConfig, appConfig)...)
+	// Keep the caller's model lease and cancellation attached to the load.
+	inferenceModel, err := loader.Load(ModelOptions(modelConfig, appConfig, model.WithContext(ctx))...)
 	if entry != nil {
 		entry.Data["load_ms"] = time.Since(phaseStart).Milliseconds()
 	}

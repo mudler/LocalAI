@@ -1010,7 +1010,7 @@ var _ = Describe("catalog template", func() {
 		}
 	})
 	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
-		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 6, "web": 5}
+		counts := map[string]int{"asset-pipeline": 6, "tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 6, "web": 5}
 		for id, want := range counts {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
@@ -1084,7 +1084,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 15, "gdrive": 8, "gmail": 7, "home-assistant": 11, "jellyfin": 16, "calendar": 12, "contacts": 11, "mail": 8, "office": 11, "pikvm": 8, "pirateface-search": 1, "ollama-search": 1, "sandbox": 6, "ssh": 3, "web": 5}))
+		Expect(got).To(Equal(map[string]int{"asset-pipeline": 6, "tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "discord": 0, "github": 15, "gdrive": 8, "gmail": 7, "home-assistant": 11, "jellyfin": 16, "calendar": 12, "contacts": 11, "mail": 8, "office": 11, "pikvm": 8, "pirateface-search": 1, "ollama-search": 1, "sandbox": 6, "ssh": 3, "web": 5}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()
@@ -1246,7 +1246,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
 		expect(mutate("node \"addons/$ADDON/ui/build.mjs\"\n      - name: Fill", "node addons/tables/ui/build.mjs\n      - name: Fill"), "P_ADDON_PATH")
-		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]\n", "        platform: [x]\n"), "P_MATRIX")
+		expect(mutate("        addon: [asset-pipeline, tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, gdrive, gmail, home-assistant, jellyfin, calendar, contacts, mail, office, pikvm, pirateface-search, ollama-search, sandbox, ssh, web]\n", "        platform: [x]\n"), "P_MATRIX")
 	})
 	It("rejects a plan that does not refuse an add-on without an enabled platform", func() {
 		expect(mutate("has no enabled platform; refusing to publish", "has no platform"), "P_FAIL_CLOSED")
@@ -1296,7 +1296,7 @@ var _ = Describe("workflow policy", func() {
 
 // firstPartyAddons are the add-ons the release workflow packages. The list is
 // written out so a new add-on is a deliberate change here and in the workflow.
-var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "ollama-search", "sandbox", "ssh", "web"}
+var firstPartyAddons = []string{"asset-pipeline", "tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "discord", "github", "gdrive", "gmail", "home-assistant", "jellyfin", "calendar", "contacts", "mail", "office", "pikvm", "pirateface-search", "ollama-search", "sandbox", "ssh", "web"}
 
 // uilessAddons are the first-party add-ons that ship no UI: a source of the
 // model search, say. The host draws what they give, and the library entry
@@ -1495,7 +1495,7 @@ var _ = Describe("workflow behavior", func() {
 		all := firstPartyAddons
 
 		It("fails on a publishing event when an add-on has no enabled platform", func() {
-			_, out, err := plan("push", "refs/heads/master", []string{"tables", "face"}, nil)
+			_, out, err := plan("push", "refs/heads/master", []string{"asset-pipeline", "tables", "face"}, nil)
 			Expect(err).To(HaveOccurred())
 			Expect(out).To(ContainSubstring("add-on voice has no enabled platform; refusing to publish"))
 		})

@@ -430,7 +430,7 @@ It polls no faster than 250 milliseconds and rechecks authority on each poll.
 It closes on a completed or failed operation. A lifecycle writer can delay observation;
 disconnecting still cancels the waiting lookup. Install-byte progress requires later integration.
 
-`RelayLimits` has finite startup defaults: 60 seconds, 16 concurrent streams, 64 MiB
+`RelayLimits` has finite startup defaults: 60 seconds, 16 concurrent streams, 512 MiB
 for files, 8 MiB for assets, and 1 MiB for progress. Heartbeats default to five seconds.
 Overrides cannot remove these bounds. Streams cancel on disconnect and reject excess bytes.
 The receiving frontend applies the budget of the relay kind: `file` uses the file

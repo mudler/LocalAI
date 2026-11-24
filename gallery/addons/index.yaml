@@ -10,6 +10,55 @@
 # backend. A tagged release does not read this file for its pins: the release
 # workflow renders pinned entries into the asset addons-index.yaml of the
 # release (see .agents/preparing-a-release.md).
+- id: "asset-pipeline"
+  name: 3D Asset Pipeline
+  description: "Create, inspect and refine 3D assets from text or images, with saved execution history."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:asset-pipeline-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "3D Asset Pipeline"
+    description: "Create, inspect and refine 3D assets from text or images, with saved execution history."
+    mainPage: "pipelines"
+    icon: "ui/icon.png"
+    titles:
+      "de": "3D-Asset-Pipeline"
+      "es": "Pipeline de recursos 3D"
+      "fr": "Pipeline de ressources 3D"
+      "id": "Pipeline Aset 3D"
+      "it": "Pipeline di risorse 3D"
+      "ko": "3D 에셋 파이프라인"
+      "pt-BR": "Pipeline de recursos 3D"
+      "zh-CN": "3D 资产流水线"
+    descriptions:
+      "de": "3D-Assets aus Text oder Bildern erstellen, prüfen und verfeinern, mit gespeichertem Ausführungsverlauf."
+      "es": "Crea, inspecciona y perfecciona recursos 3D a partir de texto o imágenes, con un historial de ejecución guardado."
+      "fr": "Créez, inspectez et affinez des ressources 3D à partir de texte ou d’images, avec un historique des exécutions enregistré."
+      "id": "Buat, periksa, dan sempurnakan aset 3D dari teks atau gambar, dengan riwayat eksekusi tersimpan."
+      "it": "Crea, ispeziona e perfeziona risorse 3D da testo o immagini, con una cronologia delle esecuzioni salvata."
+      "ko": "텍스트나 이미지로 3D 에셋을 만들고 검사하고 다듬으며 실행 기록을 저장합니다."
+      "pt-BR": "Crie, inspecione e refine recursos 3D a partir de texto ou imagens, com histórico de execução salvo."
+      "zh-CN": "根据文本或图像创建、检查和优化 3D 资产，并保存执行历史。"
+  toolCount: 6
+  tools:
+    - "resource-exists"
+    - "pipeline-create"
+    - "pipeline-inspect"
+    - "pipeline-change"
+    - "pipeline-upload"
+    - "pipeline-artifact"
+  hostOperations:
+    required:
+      - "pipeline.apply"
+      - "pipeline.read"
+      - "pipeline.upload"
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
