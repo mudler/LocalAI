@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/driver/sqlite"
@@ -204,4 +205,23 @@ var _ = Describe("automatic workspace", func() {
 		_, direct := blob.NewObjectStore(&sharedFilesObjectSpy{}, GinkgoT().TempDir()).(interface{ IsFilesystem() bool })
 		Expect(direct).To(BeFalse())
 	})
+	DescribeTable("refuses startup when participants sharing a database disagree on S3 vs filesystem", func(firstS3 bool) {
+		first := newApp(GinkgoT().TempDir())
+		withSQLite(first)
+		second := newApp(GinkgoT().TempDir())
+		second.authDB = first.authDB
+		spy := &workspaceS3Spy{bytes: map[string]string{}}
+		constructor := func(context.Context, storage.S3Config) (storage.ObjectStore, error) { return spy, nil }
+		enableS3 := func(app *Application) {
+			app.applicationConfig.Distributed.StorageURL = "http://s3.invalid:9000"
+			app.applicationConfig.Distributed.StorageBucket = "workspace"
+		}
+		if firstS3 {
+			enableS3(first)
+		} else {
+			enableS3(second)
+		}
+		Expect(first.initStudioFilesWithS3(constructor)).To(Succeed())
+		Expect(second.initStudioFilesWithS3(constructor)).To(MatchError(gormstore.ErrBackendMismatch))
+	}, Entry("S3 first then filesystem", true), Entry("filesystem first then S3", false))
 })

@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
 
@@ -80,5 +81,42 @@ var _ = Describe("VerifyBlobVolume", func() {
 		id, err := s.volumeID(ctx)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(id).To(BeEmpty())
+	})
+
+	objectNode := func() *Workspace {
+		GinkgoHelper()
+		obj, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+		Expect(err).ToNot(HaveOccurred())
+		s, err := New(db, blob.NewObjectStore(obj, GinkgoT().TempDir()), Options{Admin: "admin"})
+		Expect(err).ToNot(HaveOccurred())
+		return s
+	}
+
+	It("records and accepts matching object-store nodes without writing blob_volume", func() {
+		Expect(objectNode().VerifyBlobVolume(ctx)).To(Succeed())
+		Expect(objectNode().VerifyBlobVolume(ctx)).To(Succeed())
+		id, err := objectNode().volumeID(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(id).To(BeEmpty())
+	})
+
+	It("refuses an object-store node when the database uses filesystem", func() {
+		Expect(node(root).VerifyBlobVolume(ctx)).To(Succeed())
+		Expect(objectNode().VerifyBlobVolume(ctx)).To(MatchError(ErrBackendMismatch))
+	})
+
+	It("refuses a filesystem node when the database uses object store", func() {
+		Expect(objectNode().VerifyBlobVolume(ctx)).To(Succeed())
+		Expect(node(root).VerifyBlobVolume(ctx)).To(MatchError(ErrBackendMismatch))
+		id, err := objectNode().volumeID(ctx)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(id).To(BeEmpty())
+	})
+
+	It("refuses an object-store node on a database that only has a legacy blob_volume marker", func() {
+		s := objectNode()
+		_, err := s.db.ExecContext(ctx, `INSERT INTO studio_ws_meta (key, value) VALUES (?, ?)`, volumeKey, "legacy-vol")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.VerifyBlobVolume(ctx)).To(MatchError(ErrBackendMismatch))
 	})
 })
