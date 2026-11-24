@@ -1,0 +1,291 @@
+{
+  "title": "P2P settings",
+  "lede": {
+    "off": "P2P is off. Choose a mode to use other instances or to share this one.",
+    "connect": "Connect only: this server uses remotes over P2P and accepts nobody.",
+    "share": "Connect and share: this server also accepts the devices you pair."
+  },
+  "loadError": "Could not load the P2P settings",
+  "notRunning": "P2P does not run.",
+  "saved": "Saved. P2P restarts with the new setting.",
+  "saveFailed": "The server did not save the setting.",
+  "sections": {
+    "label": "P2P setting sections",
+    "network": "Network",
+    "relays": "Relays",
+    "identity": "Identity"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "copy": "Copy",
+    "done": "Done"
+  },
+  "units": {
+    "kibps": "KiB/s",
+    "gib": "GiB",
+    "minutes": "minutes"
+  },
+  "modes": {
+    "off": {
+      "title": "Off",
+      "body": "No P2P. Nodes on NATS and WebSocket are not affected."
+    },
+    "connect": {
+      "title": "Connect only",
+      "body": "Use the models of other instances over P2P. This server accepts nobody. No authentication needed."
+    },
+    "share": {
+      "title": "Connect and share",
+      "body": "Also accept paired devices, remotes and P2P nodes. Needs authentication on."
+    }
+  },
+  "network": {
+    "title": "Network",
+    "mode": {
+      "title": "P2P mode",
+      "lede": "What this instance does over P2P. A change applies at once.",
+      "needsAuth": "Needs authentication",
+      "replaces": "Replaces --p2p"
+    },
+    "defaultOn": "Default on",
+    "shareOnly": "Connect and share only",
+    "shareOnlyNote": "Shown only in Connect and share: Share this instance, Devices and invites, Relay for paired devices and Relays.",
+    "dht": {
+      "title": "Public DHT",
+      "desc": "Find and be found through the public libp2p network. Joining never needs it: an invite carries the peer ID and the relay hint, and the client dials the peer ID."
+    },
+    "mdns": {
+      "title": "Local network discovery",
+      "desc": "Find other instances on the same local network (mDNS), so they connect directly without the internet."
+    },
+    "bootstrap": {
+      "title": "Bootstrap peers",
+      "desc": "Your own entry points to the libp2p network, one address per line. Each address ends in /p2p/<peer ID>. Leave it empty to use the public bootstrap peers."
+    },
+    "relayPaired": {
+      "title": "Relay for paired devices",
+      "desc": "This server carries traffic between its own paired devices when they cannot connect directly. Shown as Via your server."
+    },
+    "relayMode": {
+      "title": "When this server relays",
+      "desc": "Automatic runs the relay only while other peers can reach this server from the internet.",
+      "auto": "Automatic: when this server is reachable",
+      "on": "Always",
+      "off": "Never"
+    },
+    "relayRate": {
+      "title": "Bandwidth per circuit",
+      "desc": "The limit for each connection this server relays. 0 means no limit."
+    }
+  },
+  "share": {
+    "title": "Share this instance from here",
+    "body": "Let your laptop use the models of this server, and add P2P nodes. Every device that pairs gets its own API key, so sharing needs authentication on.",
+    "authOn": "Authentication is on. Switching adds Devices and invites, Share this instance and Relays. Your remotes stay connected.",
+    "turnOnAuth": "Turn on authentication",
+    "switch": "Switch to Connect and share"
+  },
+  "relays": {
+    "title": "Relays",
+    "run": "Run a relay…",
+    "lede": "LocalAI runs no public relays. Public libp2p relays coordinate hole punching and carry pairing and small requests; they reset a connection after about 128 KiB. Some pairs of networks cannot connect directly, so run your own relay. A gated relay admits only the peers this server has paired. An open relay can be used in invites, with a warning.",
+    "loadError": "Could not load the relays",
+    "col": {
+      "relay": "Relay",
+      "health": "Health",
+      "invites": "Invites",
+      "limits": "Limits",
+      "actions": "Actions"
+    },
+    "thisServer": "This server",
+    "self": {
+      "running": "Relaying",
+      "reason": {
+        "off": "Off",
+        "not_share": "Off: not sharing",
+        "not_public": "Waiting: not reachable from the internet"
+      },
+      "pairedOnly": "Paired devices only",
+      "limits": "Set under Network"
+    },
+    "yourRelay": "Your relay",
+    "admins_one": "{{count}} admin",
+    "admins_other": "{{count}} admins",
+    "state": {
+      "in_sync": "Gated, in sync",
+      "out_of_sync": "Gated, out of sync",
+      "open": "Open: anyone can use it",
+      "unclaimed": "Not claimed yet",
+      "not_admin": "This server is not admin",
+      "denied": "Refuses this server",
+      "unreachable": "Unreachable",
+      "checking": "Checking"
+    },
+    "latency": "Round trip {{ms}} ms",
+    "checked": {
+      "now": "Checked just now",
+      "minutes_one": "Checked {{count}} min ago",
+      "minutes_other": "Checked {{count}} min ago",
+      "hours_one": "Checked {{count}} h ago",
+      "hours_other": "Checked {{count}} h ago",
+      "days_one": "Checked {{count}} day ago",
+      "days_other": "Checked {{count}} days ago"
+    },
+    "pass": {
+      "pass": "Relay pass",
+      "open": "With a warning",
+      "none": "Not used"
+    },
+    "members_one": "{{count}} peer allowed",
+    "members_other": "{{count}} peers allowed",
+    "noLimit": "No limit",
+    "perCircuit": "{{limits}} per circuit",
+    "sync": "Sync now",
+    "synced": "The relay has the current list of paired devices.",
+    "claim": "Claim",
+    "limitsOf": "Limits of {{name}}",
+    "checkOf": "Check {{name}} again",
+    "removeOf": "Remove {{name}}",
+    "empty": {
+      "title": "No relay of your own yet",
+      "body": "Devices behind strict routers cannot connect directly. A small relay on a machine with a public address gets them in."
+    },
+    "outOfSync": {
+      "title": "{{name}} is out of sync.",
+      "body_one": "It may still admit a device you revoked. Sync now pushes the current list of {{count}} paired device.",
+      "body_other": "It may still admit a device you revoked. Sync now pushes the current list of {{count}} paired devices."
+    },
+    "claimTitle": "Claim this relay",
+    "claimLede": "The relay has no admin yet. It printed a one-time claim code when it started.",
+    "claimed": "This server is now the admin of the relay.",
+    "removeTitle": "Remove this relay?",
+    "removeBody": "{{name}} is not used in new invites any more. The relay keeps running; stop it on its machine.",
+    "remove": "Remove",
+    "removed": "Relay removed."
+  },
+  "run": {
+    "title": "Run a relay",
+    "lede": "For peers that cannot connect directly. It admits only the peers this server has paired.",
+    "step1": "1. Start it on a machine with a public address",
+    "dockerLabel": "Start the relay with Docker",
+    "orBinary": "Or with the binary:",
+    "binaryLabel": "Start the relay with the local-ai binary",
+    "explain": "Open UDP and TCP port 4001. The volume keeps the relay key, so its peer ID survives restarts. <b>--admin</b> names this server: the relay admits only the peers this server has paired, and this server updates that list when you pair or revoke a device. Two servers can share one relay: add one <b>--admin</b> for each. The relay is a separate small image, <b>localai/relay</b>. Limits per circuit: <b>--circuit-max-bytes</b>, <b>--circuit-max-duration</b>, <b>--rate-limit</b>, <b>--max-circuits-per-peer</b>. With <b>--open</b> anyone may use it, and it starts at 64 KiB/s per circuit.",
+    "step2": "2. Paste the relay address",
+    "addrHint": "The relay prints its address when it starts.",
+    "addrInvalid": "Paste the full address. It starts with / and ends in /p2p/ and the peer ID of the relay.",
+    "check": "Check reachability",
+    "claimLabel": "Claim code",
+    "claim": "Claim",
+    "claimFailed": "The relay refused the claim code: {{error}}",
+    "add": "Add relay",
+    "added": "Relay added. New invites name it.",
+    "ready": "Ready to add.",
+    "nothingSaved": "Nothing is saved until you add the relay.",
+    "steps": {
+      "reserve": {
+        "waiting": "Reserve a slot on the relay",
+        "ok": "Reserved a slot on the relay",
+        "failed": "Reserve a slot: no answer",
+        "skipped": "Reserve a slot"
+      },
+      "circuit": {
+        "waiting": "Circuit test",
+        "ok": "Circuit test: data went through the relay",
+        "failed": "Circuit test failed",
+        "skipped": "Circuit test: skipped, this server is not admin"
+      },
+      "allowlist": {
+        "waiting": "Push the allowlist",
+        "ok": "Allowlist pushed. This server is admin.",
+        "failed": "Allowlist not pushed",
+        "skipped": "Allowlist: not needed for an open relay"
+      }
+    },
+    "result": {
+      "ok": {
+        "title": "The relay works and is gated.",
+        "body": "It goes into every new invite as the relay hint, with a relay pass."
+      },
+      "open": {
+        "title": "The relay works, but it is open.",
+        "body": "Anyone can use it. Invites name it only with a warning. Start it with --admin to make it gated."
+      },
+      "wrong_peer": {
+        "title": "Wrong peer ID.",
+        "body": "The relay answered as {{actual}}, but the address says {{expected}}. Copy the address again from the relay log. If the relay restarted without its key volume, it made a new ID."
+      },
+      "unreachable": {
+        "title": "Cannot reach the relay.",
+        "body": "Check that it runs and that UDP and TCP port 4001 are open on its machine and its router. Then check again."
+      },
+      "circuit": {
+        "title": "The relay answers, but no data went through it.",
+        "body": "Its limits may be too low, or it is overloaded. Check its log, then check again."
+      },
+      "unclaimed": {
+        "title": "The relay has no admin yet.",
+        "body": "Enter the claim code it printed when it started, or start it again with --admin and the peer ID of this server."
+      },
+      "not_admin": {
+        "title": "This server is not an admin of the relay.",
+        "body": "Start the relay with --admin and the peer ID of this server, as in step 1. Then check again."
+      }
+    }
+  },
+  "limits": {
+    "title": "Limits for {{name}}",
+    "ledeOpen": "Open relay: anyone can use it.",
+    "ledeGated": "Gated relay: only paired peers use it.",
+    "reset": "Reset to defaults",
+    "noLimitTitle": "No limit.",
+    "noLimitOpen": "One stranger can use all the bandwidth and data of this relay, and your own peers slow down.",
+    "noLimitGated": "A paired peer can use all the bandwidth of this relay, for example for a model copy.",
+    "mode": "Mode",
+    "limited": "Limited",
+    "none": "No limit",
+    "fields": {
+      "dataGiB": "Data per circuit",
+      "minutes": "Time per circuit",
+      "kibps": "Bandwidth per circuit"
+    },
+    "zeroHint": "0 means no limit for that value.",
+    "invalid": "Each value must be a number of 0 or more.",
+    "applyHint": "A new bandwidth limit applies to the next circuit. A new data or time limit restarts the relay's circuit service: circuits that are open keep the old limits until they close, and paired devices reconnect through the relay within moments.",
+    "save": "Save limits",
+    "saved": "Limits saved on {{name}}.",
+    "savedRestarted": "Limits saved on {{name}}. The relay restarted its circuit service; devices reconnect in a moment.",
+    "loadError": "Could not read the limits from the relay.",
+    "readOnlyTitle": "This server cannot change these limits.",
+    "readOnlyOpen": "This is an open relay and this server is not its admin. Set the limits where the relay runs, with --circuit-max-bytes, --circuit-max-duration and --rate-limit.",
+    "readOnlyMember": "This server is not an admin of this relay. Ask its admin, or set the limits where the relay runs, with --circuit-max-bytes, --circuit-max-duration and --rate-limit.",
+    "max": "Maximum: {{value}}",
+    "noMax": "No maximum",
+    "ceilingTitle": "The relay operator set maximums.",
+    "ceilingBody": "The operator of this relay set an upper bound for each limit with its start flags. You can change a limit up to its maximum, not above it, and you cannot remove a limit that has a maximum.",
+    "issue": {
+      "above": "Above the maximum of {{max}}.",
+      "required": "Enter a value up to {{max}}: a limit with a maximum cannot be removed."
+    },
+    "refusedTitle": "The relay refused the change."
+  },
+  "identity": {
+    "title": "Identity",
+    "lede": "Clients pin this peer ID when they redeem an invite. Your relays name it as their admin. It stays the same across restarts.",
+    "notRunning": "P2P does not run, so this server has no peer ID to show.",
+    "copied": "Peer ID copied.",
+    "copyFailed": "Could not copy the peer ID.",
+    "regenerateTitle": "Regenerate the peer ID",
+    "regenerateDesc": "Makes a new identity key. The old key is kept as a backup next to the new one. Do this only if the identity key leaked.",
+    "regenerateButton": "Regenerate…",
+    "regenerate": "Regenerate",
+    "regenerated": "New peer ID made. Send each device and remote a new invite.",
+    "confirmTitle": "Regenerate the peer ID?",
+    "confirmBody": "Every paired device, remote and P2P worker pinned the current ID. They stop connecting and refuse the new ID as a security warning. You must send each of them a new invite. Pending invites stop working.",
+    "confirmOnly": "Do this only if the identity key leaked.",
+    "confirmCheck_one": "I understand that {{count}} paired device must pair again",
+    "confirmCheck_other": "I understand that {{count}} paired devices must pair again"
+  }
+}

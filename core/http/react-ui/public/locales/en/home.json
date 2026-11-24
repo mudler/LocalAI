@@ -1,0 +1,342 @@
+{
+  "cluster": {
+    "vram": "Cluster VRAM",
+    "ram": "Cluster RAM",
+    "nodesOnline": "{{healthy}}/{{total}} nodes online"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "loadedLabel": "Loaded",
+    "nodesLabel": "Nodes"
+  },
+  "assistant": {
+    "title": "Manage LocalAI by chatting",
+    "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
+    "open": "Open assistant",
+    "tooltip": "Manage LocalAI by chatting",
+    "dismiss": "Dismiss",
+    "noModel": "Pick a chat model first.",
+    "startFailed": "Could not start the assistant chat: {{message}}",
+    "chatTitle": "LocalAI Assistant"
+  },
+  "input": {
+    "placeholder": "Message...",
+    "attachFile": "Attach file",
+    "dropFiles": "Drop files to attach",
+    "dropFilesNote": "Drop the files to attach them to the message.",
+    "enterToSend": "Enter to send",
+    "selectModelFirst": "Select a model first",
+    "sendMessage": "Send message",
+    "selectModelToast": "Please select a model first",
+    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged.",
+    "placeholderFirstRun": "Install a model to start chatting",
+    "label": "Message",
+    "slashHint": "Type <kbd>/</kbd> for actions",
+    "enterHint": "Enter to send, Shift+Enter for a new line",
+    "send": "Send",
+    "removeFile": "Remove {{name}}",
+    "stop": "Stop",
+    "dictate": "Dictate (speech to text)",
+    "dictateStop": "Stop recording",
+    "dictateBusy": "Transcribing…",
+    "dictateEmpty": "No speech recognised.",
+    "dictateFailed": "Transcription failed: {{error}}",
+    "dictateNoMic": "Microphone not available: {{error}}",
+    "pdfScannedAsImages": "{{name}} has no text layer (scan). Attached {{count}} of {{total}} pages as images for a vision model."
+  },
+  "quickLinks": {
+    "manageByChat": "Manage by chat",
+    "installedModels": "Installed Models",
+    "browseGallery": "Browse Gallery",
+    "importModel": "Import Model",
+    "documentation": "Documentation"
+  },
+  "loadedModels": {
+    "heading": "Active models",
+    "count_one": "{{count}} model loaded",
+    "count_other": "{{count}} models loaded",
+    "stop": "Stop model",
+    "stopAll": "Stop all",
+    "serving": "Serving"
+  },
+  "stopDialog": {
+    "title": "Stop Model",
+    "message": "Stop model {{model}}?",
+    "confirm": "Stop {{model}}",
+    "stopAllTitle": "Stop All Models",
+    "stopAllMessage": "Stop all {{count}} loaded models?",
+    "stopAllConfirm": "Stop all",
+    "stoppedToast": "Stopped {{model}}",
+    "allStoppedToast": "All models stopped",
+    "stopFailed": "Failed to stop: {{message}}"
+  },
+  "wizard": {
+    "getStarted": "Get started with {{name}}",
+    "intro": "Install your first model to begin. Browse the gallery or import your own.",
+    "steps": {
+      "step1Title": "Browse the Model Gallery",
+      "step1Body": "Find the right model for your needs from our curated collection.",
+      "step2Title": "Install a Model",
+      "step2Body": "Click install to download and configure it automatically.",
+      "step3Title": "Start Chatting",
+      "step3Body": "Chat with your model right from the browser or use the API.",
+      "step4Title": "Onboard your agents",
+      "step4Body": "Create an API key, then connect a coding agent: {{agents}}. The guide fills in the address and the key for you.",
+      "step5Title": "Extend LocalAI with an add-on",
+      "step5Body": "Add-ons bring new abilities to LocalAI. Install them from the library."
+    },
+    "browseGallery": "Browse Model Gallery",
+    "importModel": "Import Model",
+    "docs": "Docs",
+    "noModelsTitle": "No Models Available",
+    "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
+    "guideLabel": "Getting started",
+    "connectAgents": "Connect a coding agent",
+    "browseAddons": "Browse add-ons"
+  },
+  "starters": {
+    "title": "Recommended for your machine",
+    "tier": {
+      "cpu": "CPU only",
+      "gpu-small": "Small GPU",
+      "gpu-mid": "Mid-range GPU",
+      "gpu-large": "Large GPU"
+    },
+    "cpuNote": "No GPU detected. These models stay responsive on a processor.",
+    "gpuNote": "Picked to fit your graphics card with room for a full chat.",
+    "install": "Install",
+    "installing": "Installing",
+    "installStarted": "Installing {{model}}…",
+    "installFailed": "Install failed: {{message}}",
+    "undetected": "We could not detect your hardware, so these are the models for a computer without a GPU.",
+    "cluster": "Sized for the best machine in your cluster.",
+    "nothingFits": "None of the recommended models fits this machine. This is the smallest one; it may run slowly or fail to load.",
+    "facts": {
+      "size": "{{size}} download",
+      "window": "{{window}} context",
+      "memory": "about {{memory}} in use"
+    },
+    "fit": {
+      "tight": "Tight fit",
+      "does_not_fit": "Does not fit"
+    },
+    "reasons": {
+      "little_headroom": "It fits, but leaves little memory free.",
+      "below_chat_minimum": "The context window would be too small for chat.",
+      "exceeds_memory": "It needs more memory than this machine has.",
+      "estimate_unavailable": "Its memory use could not be estimated.",
+      "hardware_unknown": "Your hardware could not be read, so the fit is not checked."
+    },
+    "more": "More models",
+    "fewer": "Fewer models",
+    "askAdmin": "Only an administrator can install models. Ask yours to install one of these.",
+    "installModel": "Install {{model}}"
+  },
+  "connect": {
+    "title": "One endpoint, every API",
+    "subtitle": "LocalAI serves its own full API — image & video generation, depth, object detection, reranking, audio, face & voice recognition, and realtime voice over WebRTC and WebSocket. On top of that, a drop-in compatibility layer lets any app built for OpenAI, Anthropic, Ollama or OpenAI Responses talk to it unchanged.",
+    "nativeTitle": "Native API",
+    "compatTitle": "Drop-in compatibility",
+    "apiReference": "Full API reference",
+    "copy": "Copy",
+    "copied": "Copied",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss",
+    "hideSection": "Hide this section",
+    "agentsLink": "Connect a coding agent: create an API key and copy its config"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "move": "move",
+    "resume": "Resume",
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "week": "Earlier this week",
+      "older": "Older"
+    },
+    "messages_one": "{{count}} message",
+    "messages_other": "{{count}} messages",
+    "delete": "Delete conversation",
+    "deleteNamed": "Delete conversation: {{title}}",
+    "deleted": "Deleted \"{{title}}\"",
+    "undo": "Undo",
+    "dismissToast": "Dismiss",
+    "showMore_one": "Show {{count}} older conversation",
+    "showMore_other": "Show {{count}} older conversations",
+    "emptyTitle": "Your conversations will wait here.",
+    "emptyBody": "They are grouped by day, with the model that answered. Move with j and k, resume with Enter.",
+    "hasImage": "Includes an image",
+    "noModel": "No model",
+    "examples": "Slash actions",
+    "allChats": "All chats"
+  },
+  "picker": {
+    "loading": "Loading models",
+    "none": "No chat model",
+    "noneSelected": "No model selected",
+    "chooseModel": "Choose a model",
+    "defaultMissing": "Your default {{model}} is not installed. Choose a model.",
+    "title": "Choose the model for this message",
+    "filter": "Filter models",
+    "label": "Model",
+    "heading": "Chat models",
+    "noMatch": "No model matches.",
+    "warm": "warm",
+    "cold": "not loaded",
+    "loadedNow": "Loaded now",
+    "installed": "Installed",
+    "vision": "Understands images",
+    "aliasOf": "alias of {{target}}",
+    "aliasBroken": "broken alias",
+    "disabled": "disabled",
+    "pinned": "pinned",
+    "useTyped": "Use \"{{name}}\"",
+    "empty": "No models available",
+    "add": "Add a model",
+    "remove": "Remove {{name}}",
+    "clear": "Clear"
+  },
+  "slash": {
+    "label": "Actions",
+    "move": "move",
+    "close": "close",
+    "commandDiagnostics": "App command diagnostics",
+    "apps": {
+      "label": "Apps",
+      "desc": "Browse installed apps"
+    },
+    "group": {
+      "addons": "Apps",
+      "chat": "Chat",
+      "models": "Models",
+      "go": "Go to"
+    },
+    "model": {
+      "label": "Switch model",
+      "desc": "Pick a different chat model"
+    },
+    "new": {
+      "label": "New chat",
+      "desc": "Start an empty conversation"
+    },
+    "chat": {
+      "label": "All chats",
+      "desc": "Find, rename and delete your chats"
+    },
+    "assistant": {
+      "label": "Manage by chat",
+      "desc": "Install and configure models by talking"
+    },
+    "gallery": {
+      "label": "Browse gallery",
+      "desc": "Find and install models"
+    },
+    "installed": {
+      "label": "Installed models",
+      "desc": "See and manage what is installed"
+    },
+    "import": {
+      "label": "Import model",
+      "desc": "Add your own model files"
+    },
+    "stop": {
+      "label": "Stop a model",
+      "desc": "Free memory by unloading a model"
+    },
+    "settings": {
+      "label": "Settings",
+      "desc": "Change how LocalAI runs"
+    },
+    "docs": {
+      "label": "Documentation",
+      "desc": "Open localai.io in a new tab"
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Your saved agents, triggers and skills"
+    },
+    "mcp": {
+      "label": "MCP connectors",
+      "desc": "MCP servers your chats can use"
+    },
+    "memory": {
+      "label": "Knowledge",
+      "desc": "Knowledge your chats can search"
+    },
+    "complete": "complete"
+  },
+  "strip": {
+    "label": "Memory",
+    "noneLoaded": "No models loaded",
+    "modelsLoaded_one": "model loaded",
+    "modelsLoaded_other": "models loaded",
+    "modelsOn_one": "model on",
+    "modelsOn_other": "models on",
+    "nodes_one": "node",
+    "nodes_other": "nodes",
+    "gpus_one": "{{count}} GPU",
+    "gpus_other": "{{count}} GPUs",
+    "memoryLabel": "Memory in use",
+    "ramLabel": "System RAM in use",
+    "nodesLabel": "Nodes",
+    "progress": "Progress for {{name}}",
+    "staging": "Staging {{name}}",
+    "stagingTo": "to {{node}}",
+    "failed": "could not be staged",
+    "firstRun": "No models running. Memory use shows here once one loads."
+  },
+  "notice": {
+    "appUnavailable": "App is no longer available.",
+    "loadFailedTitle": "LocalAI could not load your models",
+    "loadFailedBody": "The server did not answer. Check that it is running, then try again.",
+    "retry": "Try again",
+    "stagingFailedTitle": "{{name}} could not be staged",
+    "stagingFailedBody": "The model could not be sent to a node. Nothing else was changed.",
+    "stagingFailedBodyNode": "The model could not be sent to {{node}}. Nothing else was changed.",
+    "openActivity": "Open Activity",
+    "details": "Details",
+    "addonsOffTitle": "Add-ons are off on this server",
+    "addonsOffAdmin": "{{name}} is an add-on. Start LocalAI with add-ons on, then install it from Add-ons.",
+    "addonsOffReader": "{{name}} is an add-on. Ask an administrator to turn add-ons on.",
+    "addonsDownTitle": "Add-ons are not answering right now",
+    "addonsDownBody": "{{name}} is an add-on. Try again in a moment.",
+    "addonsRetry": "Try again",
+    "thisPage": "That page",
+    "addonsDocs": "How to turn add-ons on",
+    "dismiss": "Dismiss"
+  },
+  "library": {
+    "label": "Library"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "Where do your models run?",
+      "local": "On this machine",
+      "remote": "On another server or service",
+      "remoteIntro": "Connect a model that already runs somewhere else. You can install local models later.",
+      "remoteNote": "The recommended-model and context-size checks are skipped for remote models."
+    },
+    "step1Title": "Connect a remote",
+    "step1Body": "Pick the kind, then check that LocalAI can reach it.",
+    "step2Title": "Choose models",
+    "step2Body": "Each model you pick becomes a model here.",
+    "done": "Connected {{name}}. Added {{count}} model.",
+    "done_other": "Connected {{name}}. Added {{count}} models.",
+    "skipped": "{{count}} model was not added:",
+    "skipped_other": "{{count}} models were not added:"
+  }
+}

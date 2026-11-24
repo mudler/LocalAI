@@ -1,0 +1,161 @@
+import { useContext, useEffect, useMemo } from 'react'
+import { RegistryContext, EMPTY_LIST } from './registryContext'
+import { usable } from './registryState'
+import { localizedText } from '../components/addons/addonState'
+import { toolAddons } from '../utils/chatAddons'
+import { declaresSlot, slotContributions } from './slots'
+import { hasAddonSettings } from './hostControls'
+
+export function useAddonRegistry() {
+  const value = useContext(RegistryContext)
+  if (!value) throw new Error('useAddonRegistry must be used inside AddonRegistryProvider')
+  return value
+}
+
+// The navigation entries add-ons contribute, from the usable ones only.
+export function useAddonNavigation(enabled = true) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (enabled && acquire && allowed ? acquire() : undefined), [enabled, acquire, allowed])
+  return enabled && registry ? registry.navigationItems : EMPTY_LIST
+}
+
+
+// The chat actions add-ons contribute. The chat page draws them in its own
+// overflow menu and owns the panel or dialog an action opens. Only ready
+// instances of the listed generation contribute, and an action carries no
+// conversation history: `open` receives { conversationId, resourceRef? }.
+export function useAddonChatActions() {
+  const registry = useContext(RegistryContext)
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const wanted = useMemo(() => apps.filter(a => usable(a) && (a.ui.chatActions || []).length > 0), [apps])
+  const hold = registry ? registry.hold : null
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const key = wanted.map(a => `${a.id}@${a.generation}`).join(',')
+  useEffect(() => {
+    if (!hold) return undefined
+    const handles = wanted.map(app => hold(app))
+    return () => handles.forEach(h => h.release())
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return registry ? registry.chatActions : []
+}
+
+// Every contribution of `slot`, with the holds that keep the instances it
+// needs loaded. An instance withdrawn by a disable or a crash is loaded again
+// once the add-on is usable, so a slot comes back with the add-on. With
+// `addonId`, only that add-on is held and only its contributions come back:
+// an add-on's own page draws its own settings and no one else's.
+export function useSlotContributions(slot, enabled = true, extension, addonId) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const hold = registry ? registry.hold : null
+  const reload = registry ? registry.reload : null
+  const allowed = registry ? registry.allowed && enabled : false
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const instances = registry ? registry.instances : EMPTY_LIST
+  const language = registry ? registry.language : 'en'
+
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+
+  const wanted = useMemo(() => apps.filter(a => usable(a) && declaresSlot(a, slot) && (!addonId || a.id === addonId)), [apps, slot, addonId])
+  const key = wanted.map(a => `${a.id}@${a.generation}`).join(',')
+  useEffect(() => {
+    if (!hold || !allowed) return undefined
+    const handles = wanted.map(app => hold(app))
+    return () => handles.forEach(h => h.release())
+  }, [key, allowed]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A withdrawn instance of an add-on that is usable again (re-enabled, or a
+  // newer generation) is replaced by a fresh load.
+  const stale = wanted.filter(app => {
+    const inst = instances.find(i => i.id === app.id)
+    return inst && inst.status === 'unavailable'
+  }).map(app => `${app.id}@${app.generation}`).join(',')
+  useEffect(() => {
+    if (!reload || !stale) return
+    for (const app of wanted) {
+      const inst = instances.find(i => i.id === app.id)
+      if (inst && inst.status === 'unavailable') reload(app)
+    }
+  }, [stale]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  return useMemo(() => {
+    const all = slotContributions(slot, { apps, instances, language, allowed, extension })
+    return addonId ? all.filter(c => c.addonId === addonId) : all
+  }, [slot, apps, instances, language, allowed, extension, addonId])
+}
+
+// The add-ons that declare a settings section, from the apps list alone (no
+// module is loaded): the Settings page lists them with a link to the Settings
+// tab of each. `usable` says whether the section can be drawn now; `settled`
+// says the list was read (or cannot be), so an empty list means none.
+export function useAddonsWithSettings(enabled = true) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed && enabled : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const known = registry ? registry.known !== false : true
+  const settled = known && (!allowed || (registry ? registry.status !== 'idle' : true))
+  const items = useMemo(
+    () => (allowed ? apps.filter(a => hasAddonSettings(a)).map(a => ({ app: a, usable: usable(a) })) : EMPTY_LIST),
+    [allowed, apps],
+  )
+  return useMemo(() => ({ items, settled }), [items, settled])
+}
+
+// The add-ons that offer tools to a model: enabled, running, with at least one
+// tool in the manifest. The server decides what a chat may call; this only
+// decides what to offer. Add-ons without tools are not listed.
+export function useAddonToolAddons() {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  return useMemo(() => (allowed ? toolAddons(apps) : EMPTY_LIST), [allowed, apps])
+}
+
+// Whether the signed-in person has any add-on that offers tools to a model.
+export function useAddonToolsAvailable() {
+  return useAddonToolAddons().length > 0
+}
+
+// The title of a listed add-on in the page language, or '' while the list is
+// not read or the add-on is not in it. A page that names an add-on the server
+// gave it by ID (the one that runs a chat's commands) uses it.
+export function useAddonTitle(addonId) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed && Boolean(addonId) : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const language = registry ? registry.language : 'en'
+  if (!addonId) return ''
+  const app = apps.find(a => a.id === addonId)
+  return app ? (localizedText(app, 'title', language) || app.id) : ''
+}
+
+// Home holds the existing registry, not addon modules. Disabled and failed
+// installations remain live consumers so recovery is observed automatically.
+export function useAddonHomeCommands() {
+  const registry = useAddonRegistry()
+  const { acquire, allowed } = registry
+  useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
+  return registry
+}
+
+// The listed add-ons, read when this is first mounted; empty while the list is
+// not read or the person has no add-ons. A page that needs a fact of the apps
+// list about an add-on it got from another API (the scopes of a login) reads
+// it here.
+export function useListedAddons() {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  return allowed && registry ? registry.apps : EMPTY_LIST
+}

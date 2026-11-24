@@ -1,0 +1,46 @@
+/* Styles of the GitHub add-on page and its approval card. Tokens only. */
+.gh-help { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.gh-help .cn-help { max-width: 640px; }
+.gh-help details[open] { padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.gh-help details > p { margin: var(--dk-space-2) 0; }
+.gh-link { color: var(--dk-accent-text); text-underline-offset: 3px; }
+.gh-perms { width: 100%; border-collapse: collapse; font-size: var(--fs-small); margin-top: var(--dk-space-2); }
+.gh-perms caption { text-align: left; color: var(--color-text-muted); padding-bottom: var(--dk-space-1); }
+.gh-perms th, .gh-perms td { text-align: left; padding: var(--dk-space-1) var(--dk-space-2); border-bottom: 1px solid var(--color-border-subtle); vertical-align: top; }
+.gh-perms thead th { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.gh-perms tbody th { font-weight: var(--font-weight-semibold); }
+
+.gh-mode-block { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.gh-modecard { display: flex; flex-direction: column; gap: 2px; }
+.gh-modecard__title { font-weight: var(--font-weight-semibold); }
+.gh-modecard__line { color: var(--color-text-muted); font-size: var(--fs-small); }
+.gh-note { margin-top: var(--dk-space-1); }
+
+.gh-chip { display: inline-block; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.gh-chip--off { color: var(--dk-ok-text, var(--color-text-secondary)); background: var(--dk-ok-wash, var(--color-bg-secondary)); }
+.gh-chip--propose { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+.gh-chip--auto { color: var(--dk-error-text, var(--color-text-secondary)); background: var(--dk-error-wash, var(--color-bg-secondary)); }
+
+.gh-checks { list-style: none; margin: var(--dk-space-1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.gh-check { display: flex; align-items: flex-start; gap: var(--dk-space-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+.gh-check--ok { color: var(--dk-ok-text, var(--color-text-secondary)); }
+.gh-check--warn { color: var(--dk-warn-text, var(--color-text-secondary)); }
+
+.gh-prop { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.gh-prop__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.gh-prop__facts { margin: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.gh-prop__row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--dk-space-2); }
+.gh-prop__row dt { color: var(--color-text-muted); font-size: var(--fs-small); }
+.gh-prop__row dd { margin: 0; overflow-wrap: anywhere; }
+.gh-prop__target { display: block; color: var(--color-text-muted); font-size: var(--fs-small); }
+.gh-prop__label { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); }
+.gh-prop__text {
+  margin: 0; padding: var(--dk-space-3); border-left: 3px solid var(--color-border-subtle); border-radius: var(--r-sm);
+  background: var(--color-bg-secondary); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto;
+}
+@media (max-width: 480px) { .gh-prop__row { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* Three cards on one row when they fit, one column on a phone. */
+.gh-mode-block .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+.gh-classic { display: flex; flex-direction: column; gap: 0.5rem; }

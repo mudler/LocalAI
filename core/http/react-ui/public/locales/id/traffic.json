@@ -1,0 +1,12 @@
+{
+  "overview": {
+    "usageErrorTitle": "Penggunaan tidak dapat dibaca."
+  },
+  "host": {
+    "errorTitle": "Host tidak dapat dibaca."
+  },
+  "models": {
+    "noMatch": "Tidak ada model yang cocok dengan “{{query}}”."
+  },
+  "clearSearch": "Hapus pencarian"
+}

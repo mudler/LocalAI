@@ -1,0 +1,498 @@
+package gallery
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/xlog"
+	cp "github.com/otiai10/copy"
+)
+
+// UpgradeInfo holds details about an available backend upgrade.
+type UpgradeInfo struct {
+	BackendName      string `json:"backend_name"`
+	InstalledVersion string `json:"installed_version"`
+	AvailableVersion string `json:"available_version"`
+	InstalledDigest  string `json:"installed_digest,omitempty"`
+	AvailableDigest  string `json:"available_digest,omitempty"`
+	// Reason says why the backend is flagged when version and digest alone
+	// would not flag it: the backend failed a request in a way that shows it
+	// is older than the server. Empty for ordinary version or digest upgrades.
+	Reason string `json:"reason,omitempty"`
+	// NodeDrift lists nodes whose installed version or digest differs from
+	// the cluster majority. Non-empty means the cluster has diverged and an
+	// upgrade will realign it. Empty in single-node mode.
+	NodeDrift []NodeDriftInfo `json:"node_drift,omitempty"`
+	// Nodes lists every node that reports this backend, with the version it
+	// has, so a view of one backend can show the nodes that are current too.
+	// Empty in single-node mode.
+	Nodes []NodeVersionInfo `json:"nodes,omitempty"`
+}
+
+// NodeVersionInfo is the version a node reports for one backend.
+type NodeVersionInfo struct {
+	NodeID     string `json:"node_id"`
+	NodeName   string `json:"node_name"`
+	NodeStatus string `json:"node_status,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Digest     string `json:"digest,omitempty"`
+}
+
+func nodeVersions(refs []NodeBackendRef) []NodeVersionInfo {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]NodeVersionInfo, 0, len(refs))
+	for _, n := range refs {
+		out = append(out, NodeVersionInfo{NodeID: n.NodeID, NodeName: n.NodeName, NodeStatus: n.NodeStatus, Version: n.Version, Digest: n.Digest})
+	}
+	return out
+}
+
+// NodeDriftInfo describes one node that disagrees with the cluster majority
+// on which version/digest of a backend is installed.
+type NodeDriftInfo struct {
+	NodeID   string `json:"node_id"`
+	NodeName string `json:"node_name"`
+	Version  string `json:"version,omitempty"`
+	Digest   string `json:"digest,omitempty"`
+}
+
+// CheckBackendUpgrades is the single-node entrypoint. Distributed callers use
+// CheckUpgradesAgainst directly with their aggregated SystemBackends.
+func CheckBackendUpgrades(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState) (map[string]UpgradeInfo, error) {
+	installed, err := ListSystemBackends(systemState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list installed backends: %w", err)
+	}
+	return CheckUpgradesAgainst(ctx, galleries, systemState, installed)
+}
+
+// CheckUpgradesAgainst compares a caller-supplied SystemBackends set against
+// the gallery. Fixes the distributed-mode bug where the old code passed the
+// frontend's (empty) local filesystem through ListSystemBackends and so never
+// surfaced any upgrades.
+//
+// Cluster drift policy: if a backend's per-node versions/digests disagree, the
+// row is flagged upgradeable regardless of whether any node matches the gallery
+// — next Upgrade All realigns the cluster. NodeDrift lists the outliers.
+func CheckUpgradesAgainst(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, installedBackends SystemBackends) (map[string]UpgradeInfo, error) {
+	// Unfiltered on purpose. AvailableBackends drops every gallery entry the
+	// *local* host cannot run, and in distributed mode the host running this
+	// check is a CPU-only controller while the GPU backends live on worker
+	// nodes. Filtering there made FindGalleryElement return nil for every
+	// cuda/rocm/l4t entry, so those backends were silently skipped and never
+	// reported an upgrade. Every name we look up here is already installed
+	// somewhere in the cluster, so hardware compatibility has been decided at
+	// install time and re-deciding it against the controller is wrong.
+	galleryBackends, err := AvailableBackendsUnfiltered(galleries, systemState)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list available backends: %w", err)
+	}
+
+	result := make(map[string]UpgradeInfo)
+
+	// Build a set of installed metadata names so we can suppress non-dev
+	// candidates whose `-development` counterpart is already installed —
+	// dev variants share an alias with the stable one and are explicit
+	// drop-in replacements, so auto-upgrade must never reintroduce the
+	// non-dev alongside them.
+	_, _, devSuffix := getFallbackTagValues(systemState)
+	devTag := "-" + devSuffix
+	installedNames := make(map[string]struct{}, len(installedBackends))
+	for _, installed := range installedBackends {
+		if installed.Metadata == nil || installed.Metadata.Name == "" {
+			continue
+		}
+		installedNames[installed.Metadata.Name] = struct{}{}
+	}
+
+	for key, installed := range installedBackends {
+		// Skip system backends — they are managed outside the gallery
+		if installed.IsSystem {
+			continue
+		}
+		if installed.Metadata == nil {
+			continue
+		}
+
+		// Skip synthetic alias rows: ListSystemBackends emits an extra
+		// entry keyed by the alias name that re-uses the chosen concrete's
+		// metadata pointer. Iterating it just duplicates the concrete's
+		// gallery lookup, and in distributed mode the wire-reconstructed
+		// version of that row carries a forged Metadata.Name = alias which
+		// can match an unrelated gallery entry.
+		if key != installed.Metadata.Name {
+			continue
+		}
+
+		// Drop-in replacement guard: skip non-dev `X` if `X-<devSuffix>`
+		// is installed. Without this, any upgrade flagged on the non-dev
+		// row (e.g. surfaced via a synthetic-alias path on older workers,
+		// or because both variants happen to be present on disk via stale
+		// state) would tell auto-upgrade to install the stable variant on
+		// top of the user's explicit dev pick.
+		name := installed.Metadata.Name
+		if !strings.HasSuffix(name, devTag) {
+			if _, devInstalled := installedNames[name+devTag]; devInstalled {
+				continue
+			}
+		}
+
+		// Find matching gallery entry by metadata name
+		galleryEntry := FindGalleryElement(galleryBackends, installed.Metadata.Name)
+		if galleryEntry == nil {
+			continue
+		}
+
+		installedVersion := installed.Metadata.Version
+		installedDigest := installed.Metadata.Digest
+		galleryVersion := galleryEntry.Version
+
+		// A request showed this backend is older than the server, even though
+		// its tag, version or digest matches the gallery. See stale_backend.go.
+		if reason, stale := staleReason(installed.Metadata); stale {
+			result[installed.Metadata.Name] = UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: installedVersion,
+				AvailableVersion: galleryVersion,
+				InstalledDigest:  installedDigest,
+				Reason:           reason,
+				Nodes:            nodeVersions(installed.Nodes),
+			}
+			continue
+		}
+
+		// Detect cluster drift: does every node report the same version+digest?
+		// In single-node mode this stays empty (Nodes is nil).
+		majority, drift := summarizeNodeDrift(installed.Nodes)
+		if majority.version != "" {
+			installedVersion = majority.version
+		}
+		if majority.digest != "" {
+			installedDigest = majority.digest
+		}
+
+		makeInfo := func(info UpgradeInfo) UpgradeInfo {
+			info.NodeDrift = drift
+			info.Nodes = nodeVersions(installed.Nodes)
+			return info
+		}
+
+		// If versions are available on both sides, they're the source of truth.
+		if galleryVersion != "" && installedVersion != "" {
+			if galleryVersion != installedVersion || len(drift) > 0 {
+				result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
+					BackendName:      installed.Metadata.Name,
+					InstalledVersion: installedVersion,
+					AvailableVersion: galleryVersion,
+				})
+			}
+			continue
+		}
+
+		// Gallery has a version but installed doesn't — backends installed before
+		// version tracking was added. Flag as upgradeable to pick up metadata.
+		if galleryVersion != "" && installedVersion == "" {
+			result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: "",
+				AvailableVersion: galleryVersion,
+			})
+			continue
+		}
+
+		// Fall back to OCI digest comparison when versions are unavailable.
+		if galleryURI := downloader.URI(galleryEntry.URI); galleryURI.LooksLikeRegistryOCI() {
+			remoteDigest, err := lookupImageDigest(galleryURI.OCIReference())
+			if err != nil {
+				xlog.Warn("Failed to get remote OCI digest for upgrade check", "backend", installed.Metadata.Name, "error", err)
+				continue
+			}
+			// If we have a stored digest, compare; otherwise any remote digest
+			// means we can't confirm we're up to date — flag as upgradeable.
+			if installedDigest == "" || remoteDigest != installedDigest || len(drift) > 0 {
+				result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
+					BackendName:     installed.Metadata.Name,
+					InstalledDigest: installedDigest,
+					AvailableDigest: remoteDigest,
+				})
+			}
+		} else if len(drift) > 0 {
+			// No version/digest path but nodes disagree — still worth flagging.
+			result[installed.Metadata.Name] = makeInfo(UpgradeInfo{
+				BackendName:      installed.Metadata.Name,
+				InstalledVersion: installedVersion,
+				InstalledDigest:  installedDigest,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+// summarizeNodeDrift collapses per-node version/digest tuples to a majority
+// pair and returns the outliers. In single-node mode (empty nodes slice) this
+// returns zero values and a nil drift list.
+func summarizeNodeDrift(nodes []NodeBackendRef) (majority struct{ version, digest string }, drift []NodeDriftInfo) {
+	if len(nodes) == 0 {
+		return majority, nil
+	}
+
+	type key struct{ version, digest string }
+	counts := map[key]int{}
+	var topKey key
+	var topCount int
+	for _, n := range nodes {
+		k := key{n.Version, n.Digest}
+		counts[k]++
+		if counts[k] > topCount {
+			topCount = counts[k]
+			topKey = k
+		}
+	}
+
+	majority.version = topKey.version
+	majority.digest = topKey.digest
+
+	if len(counts) == 1 {
+		return majority, nil // unanimous — no drift
+	}
+	for _, n := range nodes {
+		if n.Version == majority.version && n.Digest == majority.digest {
+			continue
+		}
+		drift = append(drift, NodeDriftInfo{
+			NodeID:   n.NodeID,
+			NodeName: n.NodeName,
+			Version:  n.Version,
+			Digest:   n.Digest,
+		})
+	}
+	return majority, drift
+}
+
+// UpgradeBackend upgrades a single backend to the latest gallery version using
+// an atomic swap with backup-based rollback on failure.
+func UpgradeBackend(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, galleries []config.Gallery, backendName string, downloadStatus func(string, string, string, float64), requireIntegrity bool) error {
+	if systemState.DisableBackendInstall {
+		return fmt.Errorf("%w: %s", ErrBackendInstallDisabled, backendName)
+	}
+	if err := ValidateBackendName(backendName); err != nil {
+		return WithUpgradeCode(UpgradeFailureUnknown, err)
+	}
+	// Look up the installed backend
+	installedBackends, err := ListSystemBackends(systemState)
+	if err != nil {
+		return fmt.Errorf("failed to list installed backends: %w", err)
+	}
+
+	installed, ok := installedBackends.Get(backendName)
+	if !ok {
+		return WithUpgradeCode(UpgradeFailureNotInstalled, fmt.Errorf("backend %q: %w", backendName, ErrBackendNotFound))
+	}
+
+	if installed.IsSystem {
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("system backend %q cannot be upgraded via gallery", backendName))
+	}
+
+	// If this is a meta backend, recursively upgrade the concrete backend it points to
+	if installed.Metadata != nil && installed.Metadata.MetaBackendFor != "" {
+		xlog.Info("Meta backend detected, upgrading concrete backend", "meta", backendName, "concrete", installed.Metadata.MetaBackendFor)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, installed.Metadata.MetaBackendFor, downloadStatus, requireIntegrity)
+	}
+
+	// The requested name can be an alias, which may also be the name of
+	// another backend's directory. The build to replace is the directory of
+	// the run file the name resolves to; upgrade it under its own name.
+	dirName := filepath.Base(filepath.Dir(installed.RunFile))
+	if filepath.Dir(filepath.Dir(installed.RunFile)) != filepath.Clean(systemState.Backend.BackendsPath) {
+		return WithUpgradeCode(UpgradeFailureUnknown, fmt.Errorf("%w: backend %q is not a directory of the backends path", ErrInvalidBackendName, backendName))
+	}
+	if dirName != backendName {
+		xlog.Info("Backend name resolves to another directory, upgrading that one", "name", backendName, "directory", dirName)
+		return UpgradeBackend(ctx, systemState, modelLoader, galleries, dirName, downloadStatus, requireIntegrity)
+	}
+
+	// Find the gallery entry. Unfiltered for the same reason as the check
+	// above: backendName is already installed here, so the capability filter
+	// can only reject an entry we must be able to resolve.
+	galleryBackends, err := AvailableBackendsUnfiltered(galleries, systemState)
+	if err != nil {
+		return fmt.Errorf("failed to list available backends: %w", err)
+	}
+
+	galleryEntry := FindGalleryElement(galleryBackends, backendName)
+	if galleryEntry == nil {
+		return WithUpgradeCode(UpgradeFailureNoUpdate, fmt.Errorf("no gallery entry found for backend %q", backendName))
+	}
+
+	// Resolve integrity options (cosign verifier for OCI URIs, strict-mode
+	// gate for missing SHA256/policy) BEFORE writing anything to disk.
+	// Without this, the upgrade path would atomically swap in an
+	// unverified backend even when the gallery has a verification policy
+	// — see backendDownloadOptions in backends.go.
+	downloadOpts, err := backendDownloadOptions(galleryEntry, requireIntegrity)
+	if err != nil {
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade %q: %w", backendName, err))
+	}
+	downloadOpts = append(downloadOpts, downloader.WithStagingDir(systemState.StagingPath))
+
+	backendPath := filepath.Join(systemState.Backend.BackendsPath, backendName)
+	tmpPath := backendPath + ".upgrade-tmp"
+	backupPath := backendPath + ".backup"
+
+	// Clean up any stale tmp/backup dirs from prior attempts
+	os.RemoveAll(tmpPath)
+	os.RemoveAll(backupPath)
+
+	// Step 1: Download the new backend into the tmp directory
+	if err := os.MkdirAll(tmpPath, 0750); err != nil {
+		return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to create upgrade tmp dir: %w", err))
+	}
+
+	uri := downloader.URI(galleryEntry.URI)
+	if uri.LooksLikeDir() {
+		if err := cp.Copy(string(uri), tmpPath); err != nil {
+			os.RemoveAll(tmpPath)
+			return WithUpgradeCode(UpgradeFailureDownload, fmt.Errorf("failed to copy backend from directory: %w", err))
+		}
+	} else {
+		if err := uri.DownloadFileWithContext(ctx, tmpPath, galleryEntry.SHA256, 1, 1, downloadStatus, downloadOpts...); err != nil {
+			os.RemoveAll(tmpPath)
+			return downloadUpgradeError(ctx, err)
+		}
+	}
+
+	// Step 2: Validate — check that run.sh exists in the new content
+	newRunFile := filepath.Join(tmpPath, runFile)
+	if _, err := os.Stat(newRunFile); os.IsNotExist(err) {
+		os.RemoveAll(tmpPath)
+		return WithUpgradeCode(UpgradeFailureVerify, fmt.Errorf("upgrade validation failed: run.sh not found in new backend"))
+	}
+
+	// Step 3: Atomic swap — rename current to backup, then tmp to current
+	if err := renameBackend(backendPath, backupPath); err != nil {
+		os.RemoveAll(tmpPath)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move current backend to backup: %w", err))
+	}
+
+	if err := renameBackend(tmpPath, backendPath); err != nil {
+		// Restore backup on failure
+		xlog.Error("Failed to move new backend into place, restoring backup", "error", err)
+		if restoreErr := os.Rename(backupPath, backendPath); restoreErr != nil {
+			xlog.Error("Failed to restore backup", "error", restoreErr)
+		}
+		os.RemoveAll(tmpPath)
+		return WithUpgradeCode(UpgradeFailureSwap, fmt.Errorf("failed to move new backend into place: %w", err))
+	}
+
+	// Step 4: Write updated metadata, preserving alias from old metadata
+	var oldAlias string
+	if installed.Metadata != nil {
+		oldAlias = installed.Metadata.Alias
+	}
+
+	newMetadata := &BackendMetadata{
+		Name:        backendName,
+		Version:     galleryEntry.Version,
+		URI:         galleryEntry.URI,
+		InstalledAt: time.Now().Format(time.RFC3339),
+		Alias:       oldAlias,
+	}
+
+	if galleryEntry.Gallery.URL != "" {
+		newMetadata.GalleryURL = galleryEntry.Gallery.URL
+	}
+
+	// Record OCI digest if applicable (non-fatal on failure)
+	if uri.LooksLikeRegistryOCI() {
+		digest, digestErr := lookupImageDigest(uri.OCIReference())
+		if digestErr != nil {
+			xlog.Warn("Failed to get OCI image digest after upgrade", "uri", galleryEntry.URI, "error", digestErr)
+		} else {
+			newMetadata.Digest = digest
+		}
+	}
+
+	if err := settleUpgrade(ctx, systemState, modelLoader, backendName, backendPath, backupPath, newMetadata); err != nil {
+		return err
+	}
+
+	xlog.Info("Backend upgraded successfully", "backend", backendName, "version", galleryEntry.Version)
+	return nil
+}
+
+// settleUpgrade runs the steps after the swap: it writes the metadata of the
+// new build, checks that the new build starts from its final path, registers
+// the backends again and only then removes the previous build. When a step
+// fails, the previous build and its metadata are put back and registered,
+// and the error says whether that worked.
+//
+// A failed metadata write or registration used to be logged while the
+// upgrade reported success with stale metadata; both now roll back like a
+// build that does not start, with the code swap (the new build could not be
+// put in place completely).
+func settleUpgrade(ctx context.Context, systemState *system.SystemState, modelLoader *model.ModelLoader, backendName, backendPath, backupPath string, newMetadata *BackendMetadata) error {
+	rollback := func(code UpgradeFailureCode, cause error) error {
+		return rollbackSwap(ctx, systemState, modelLoader, code, cause, backendPath, backupPath)
+	}
+
+	if err := writeUpgradeMetadata(backendPath, newMetadata); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to write metadata after upgrade: %w", err))
+	}
+
+	check := newUpgradeStartCheck(modelLoader, backendName)
+	if err := check(ctx, filepath.Join(backendPath, runFile)); err != nil {
+		// The code says that the new build did not start; the readers word
+		// the code (the Updates page, the inbox), so the text is the bare
+		// cause and no reader says it twice.
+		return rollback(UpgradeFailureStart, err)
+	}
+
+	if err := registerBackends(systemState, modelLoader); err != nil {
+		return rollback(UpgradeFailureSwap, fmt.Errorf("failed to register backends after upgrade: %w", err))
+	}
+
+	if err := os.RemoveAll(backupPath); err != nil {
+		xlog.Warn("Could not remove the previous build after the upgrade", "path", backupPath, "error", err)
+	}
+	return nil
+}
+
+// downloadUpgradeError classifies a failed download of an upgrade. A
+// cancelled context keeps its own error, because callers read it as a stop
+// and not as a failure. A refused checksum or signature is a verify failure;
+// everything else is a failed transfer.
+func downloadUpgradeError(ctx context.Context, err error) error {
+	wrapped := fmt.Errorf("failed to download backend: %w", err)
+	if ctx.Err() != nil {
+		return wrapped
+	}
+	if errors.Is(err, downloader.ErrIntegrity) {
+		return WithUpgradeCode(UpgradeFailureVerify, wrapped)
+	}
+	return WithUpgradeCode(UpgradeFailureDownload, wrapped)
+}
+
+// Seams of the swap and the steps after it. Vars so a spec can fail one step
+// without a filesystem or a backend that fails on cue.
+var (
+	// renameBackend moves a backend directory.
+	renameBackend = os.Rename
+	// writeUpgradeMetadata writes the metadata of the new build.
+	writeUpgradeMetadata = writeBackendMetadata
+	// registerBackends registers the installed backends with the loader.
+	registerBackends = RegisterBackends
+	// newUpgradeStartCheck gives the start check of an upgrade.
+	newUpgradeStartCheck = LoaderStartCheck
+)

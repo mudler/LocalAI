@@ -1,0 +1,69 @@
+//go:build !windows
+
+// SPDX-License-Identifier: MIT
+package addons
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"sync"
+	"syscall"
+)
+
+func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
+	c := g.Config
+	if e := c.validate(); e != nil {
+		return nil, e
+	}
+	if c.InstanceID != c.OwnerID {
+		return nil, ErrNotOwner
+	}
+	if e := ctx.Err(); e != nil {
+		return nil, e
+	}
+	if e := os.MkdirAll(c.Root, 0700); e != nil {
+		return nil, e
+	}
+	// On Unix, use filepath.ToSlash for os.Lstat compatibility
+	info, e := os.Lstat(filepath.ToSlash(c.Root))
+	if e != nil {
+		return nil, e
+	}
+	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
+		return nil, ErrConfiguration
+	}
+	f, e := os.OpenFile(filepath.Join(c.Root, "owner.lock"), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	if e != nil {
+		return nil, e
+	}
+	if e = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); e != nil {
+		_ = f.Close()
+		return nil, ErrOwnerBusy
+	}
+	var once sync.Once
+	var releaseErr error
+	release := func() error {
+		once.Do(func() { releaseErr = errors.Join(syscall.Flock(int(f.Fd()), syscall.LOCK_UN), f.Close()) })
+		return releaseErr
+	}
+	identity := ownerIdentity{OwnerID: c.OwnerID, StorageID: c.StorageID}
+	expected, _ := json.Marshal(identity)
+	p := filepath.Join(c.Root, "identity.json")
+	b, e := os.ReadFile(p) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	if os.IsNotExist(e) {
+		e = durableWrite(p, expected)
+	} else if e == nil {
+		var stored ownerIdentity
+		if json.Unmarshal(b, &stored) != nil || stored != identity {
+			e = ErrConfiguration
+		}
+	}
+	if e != nil {
+		_ = release()
+		return nil, e
+	}
+	return release, nil
+}

@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "에이전트가 나열한 저장소의 코드, 이슈, 풀 리퀘스트를 읽을 수 있게 합니다. 허용하면 거기에 댓글을 달고 이슈를 열 수도 있습니다.",
+  "limits": "이 연결은 아직 GitHub의 @멘션에 답변하지 않습니다. 에이전트는 채팅에서 요청할 때만 GitHub에서 작업합니다.",
+  "new": "새 GitHub 연결",
+  "edit": "GitHub 연결 편집",
+  "name": "이름",
+  "token": "세분화된 액세스 토큰",
+  "tokenHelp": "github_pat_로 시작합니다. 봉인되어 보관되며 다시 표시되지 않습니다.",
+  "tokenLink": "GitHub에서 토큰 만들기",
+  "tokenSaved": "저장됨. 교체하려면 토큰을 입력하세요.",
+  "tokenShape": "세분화된 토큰을 사용하세요. github_pat_로 시작합니다.",
+  "tokenSpace": "토큰에는 공백이 없습니다. 앞뒤 공백 없이 다시 복사하세요.",
+  "repos": "에이전트가 사용할 수 있는 저장소",
+  "reposHelp": "한 줄에 하나씩: owner/name, 한 owner의 모든 저장소는 owner/*, 토큰이 접근할 수 있는 모든 저장소는 *. {{count}}개 등록됨. 그 외 저장소는 거부됩니다.",
+  "reposShape": "\"{{entry}}\"은(는) owner/name(또는 owner/*, *) 형식이 아닙니다. 예: mudler/LocalAI.",
+  "reposMany": "저장소는 최대 50개입니다.",
+  "agent": "에이전트",
+  "agentNone": "에이전트 고르기",
+  "agentCredentialsOnly": "에이전트 없음(자격 증명만)",
+  "credentialsOnly": "자격 증명만",
+  "agentNoModel": "{{name}}(모델 필요)",
+  "test": "테스트",
+  "testOk": "{{bot}}(으)로 연결되었습니다.",
+  "checkFailed": "저장했습니다. 토큰 확인에 실패했습니다: {{reason}}",
+  "checkSeveral": "이 페이지의 확인으로는 어느 연결인지 알 수 없으므로, 저장소 확인은 GitHub 연결이 하나일 때만 실행됩니다. 채팅에서는 도구 메뉴에서 연결을 켜세요.",
+  "check": {
+    "title": "{{name}} 확인",
+    "running": "저장소를 확인하는 중...",
+    "at": "{{time}}에 확인함",
+    "unreachable": "{{repo}}: 이 토큰으로 접근할 수 없습니다. GitHub에서 토큰의 저장소에 추가하세요.",
+    "readOnly": "{{repo}}: 접근 가능, 읽기 전용.",
+    "readWrite": "{{repo}}: 접근 가능, 토큰으로 쓸 수 있습니다.",
+    "refused": "{{repo}}: GitHub가 이 토큰을 거부했습니다. 만료되지 않았는지, 이 저장소를 포함하는지 확인하세요.",
+    "failed": "{{repo}}: 확인이 끝나지 않았습니다. 잠시 후 다시 시도하세요.",
+    "owner": "{{repo}}: 이 owner의 모든 저장소. 토큰은 GitHub가 나열하는 저장소에만 접근합니다.",
+    "any": "모든 저장소: 토큰이 {{count}}개 저장소에 접근합니다.",
+    "anyMore": "모든 저장소: 토큰이 최소 {{count}}개 저장소에 접근합니다."
+  },
+  "save": "저장",
+  "cancel": "취소",
+  "editButton": "편집",
+  "delete": "삭제",
+  "empty": "아직 GitHub 연결이 없습니다.",
+  "noRepos": "나열된 저장소가 없습니다. 에이전트가 읽을 수 있는 것이 없습니다.",
+  "reposOf": "저장소 {{count}}개: {{list}}",
+  "agentOf": "에이전트: {{name}}",
+  "inactive": "실행 중이 아님: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}}을(를) 삭제할까요?",
+    "message": "에이전트가 더 이상 이 저장소에 접근할 수 없고, 함께 저장된 토큰이 삭제됩니다. 다시 설정하려면 토큰을 다시 입력해야 합니다.",
+    "confirm": "삭제"
+  },
+  "setup": {
+    "title": "토큰 만드는 방법",
+    "link": "GitHub에서 토큰 만들기",
+    "linkLabel": "GitHub에서 토큰 만들기(새 탭에서 열림)",
+    "step1": "위의 버튼으로 GitHub를 여세요. 토큰 이름(예: LocalAI)을 정하고 만료일을 설정하세요. 90일이 무난합니다.",
+    "step2": "Repository access에서 Only select repositories를 고르고 여기에 나열한 저장소를 선택하세요.",
+    "step3": "Permissions에서 원하는 모드에 맞게 표에 나온 대로 설정하세요. 나머지는 모두 꺼 두세요.",
+    "step4": "토큰을 만들어 복사한 다음 토큰 필드에 붙여 넣으세요. GitHub는 토큰을 한 번만 보여 줍니다.",
+    "table": {
+      "caption": "토큰에 부여할 저장소 권한",
+      "permission": "권한",
+      "read": "읽기 전용",
+      "write": "먼저 묻기 또는 묻지 않고 실행",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "읽기",
+        "readwrite": "읽기 및 쓰기",
+        "auto": "읽기(GitHub가 설정)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "에이전트가 GitHub에서 바꿀 수 있는 것",
+    "hint": "댓글, 새 이슈, 라벨, 이슈 닫기. 병합, 삭제, 코드 푸시는 하지 않습니다.",
+    "off": "읽기 전용",
+    "propose": "먼저 묻기",
+    "auto": "바로 실행",
+    "line": {
+      "off": "GitHub에서 아무것도 바꿀 수 없습니다.",
+      "propose": "변경마다 내 승인을 기다립니다.",
+      "auto": "내 채팅은 바로 게시합니다."
+    },
+    "note": {
+      "off": "쓰기 접근이 꺼져 있습니다. 이 연결은 읽기만 합니다.",
+      "propose": "변경마다 내가 확인할 때까지 승인 대기열에서 기다립니다. 에이전트가 쓰는 내용은 저장소를 볼 수 있는 모든 사람에게 공개됩니다.",
+      "auto": "내 채팅은 묻지 않고 변경을 바로 게시합니다. 에이전트가 쓰는 내용은 저장소를 볼 수 있는 모든 사람에게 공개됩니다. 내가 없는 상태에서 실행되는 작업은 계속 내 확인을 기다립니다."
+    },
+    "row": {
+      "off": "읽기 전용",
+      "propose": "먼저 묻기",
+      "auto": "바로 실행"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "이슈 #{{number}}에 댓글 달기",
+      "comment-pr": "풀 리퀘스트 #{{number}}에 댓글 달기",
+      "create-issue": "새 이슈 열기",
+      "edit-issue": "#{{number}} 변경",
+      "add-labels": "#{{number}}에 라벨 추가",
+      "review-comment-pr": "풀 리퀘스트 #{{number}}의 한 줄에 댓글 달기"
+    },
+    "where": "위치",
+    "repo": "{{repo}}에서",
+    "open": "GitHub에서 #{{number}} 열기",
+    "as": "사용할 연결",
+    "asOne": "연결 {{name}}",
+    "asFirst": "{{repo}}을(를) 나열한 첫 번째 연결",
+    "asUnknown": "{{repo}}을(를) 나열한 GitHub 연결",
+    "text": "게시될 텍스트",
+    "title": "제목",
+    "newTitle": "새 제목",
+    "labels": "라벨",
+    "file": "파일과 줄",
+    "fileLine": "{{path}}, {{line}}번째 줄({{side}})",
+    "sideRight": "새 파일",
+    "sideLeft": "이전 파일",
+    "state": "변경",
+    "close": "닫기",
+    "closeReason": "닫기, 사유: {{reason}}",
+    "reopen": "다시 열기",
+    "completed": "완료",
+    "not_planned": "계획 없음",
+    "public": "공개: {{repo}}을(를) 볼 수 있는 모든 사람이 이 내용을 보게 됩니다.",
+    "cut": "여기에 표시된 텍스트는 잘렸습니다. 전체 텍스트 {{bytes}}바이트가 게시됩니다."
+  },
+  "tokenClassic": "클래식 토큰(ghp_)입니다. 사용하려면 아래에서 클래식 토큰을 허용하거나, github_pat_로 시작하는 토큰을 만드세요.",
+  "classic": {
+    "allow": "이 연결에서 클래식 토큰(ghp_) 허용",
+    "warning": "클래식 토큰은 목록의 저장소로 제한되지 않습니다. 권한 범위가 계정이 접근할 수 있는 모든 저장소에 적용됩니다. LocalAI는 목록에 없는 저장소를 계속 거부하고 쓰기 모드도 따르지만, 이 토큰이 유출되면 GitHub 자체는 더 많은 일을 허용합니다. 세분화된 토큰이 더 안전합니다.",
+    "confirm": "클래식 토큰이 저장소 목록보다 범위가 넓다는 것을 이해합니다."
+  },
+  "reposAnyAlone": "*는 이미 모든 저장소를 포함합니다. 다른 줄을 지우세요.",
+  "any": {
+    "warning": "*는 나중에 만든 것을 포함해 토큰이 접근할 수 있는 모든 저장소를 에이전트가 쓸 수 있게 합니다. 아래 쓰기 모드가 여전히 변경 가능한 범위를 정합니다. 읽기 전용이면 아무것도 바꾸지 않습니다.",
+    "confirm": "에이전트가 이 토큰이 접근하는 모든 저장소를 사용할 수 있기를 원합니다."
+  },
+  "anyRepos": "토큰이 접근할 수 있는 모든 저장소"
+}

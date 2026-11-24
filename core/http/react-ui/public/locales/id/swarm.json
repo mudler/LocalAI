@@ -1,0 +1,195 @@
+{
+  "split": {
+    "title": "Worker model terbagi",
+    "online": "{{online}} dari {{total}} online",
+    "note": "Bukan node kluster: tanpa backend dan tanpa aturan penempatan. Worker ini meminjamkan memorinya untuk model yang berjalan di instans ini.",
+    "slowTitle": "Membagi model paling baik lewat jalur langsung atau jalur hasil hole punching.",
+    "slowBody": "Hanya relay yang menjangkau {{names}}. Ini berjalan, tetapi setiap token menunggu relay. Pilih Tetap gunakan atau biarkan worker tidak dipakai. Membuka port 4001 UDP dan TCP di jaringannya memberi jalur langsung.",
+    "limitedTitle": "Relay publik tidak bisa membawa lapisan model.",
+    "limitedBody": "Satu-satunya jalur ke worker ini adalah relay publik, yang batasnya tidak bisa Anda ubah. Beri worker jalur langsung, atau relay milik Anda di kedua sisi.",
+    "cutTitle": "Relay milik Anda memutus setiap koneksi pada batasnya.",
+    "cutBody": "{{names}} lewat relay milik Anda yang mengakhiri setiap koneksi setelah batas data atau waktunya. Tetap gunakan berjalan, lambat, sampai relay memutus koneksi; lalu muat ulang model. Naikkan atau hapus batas relay untuk sesi yang lebih panjang.",
+    "cutHint": "Terputus setelah {{limits}}",
+    "relayLimits": "Batas relay",
+    "memoryInUse": "Memori tambahan dari worker yang dipakai: {{memory}}.",
+    "add": {
+      "p2pTitle": "Bagikan dulu instans ini lewat P2P",
+      "p2pBody": "Worker model terbagi dipasangkan dengan undangan, dan undangan memerlukan mode P2P Hubungkan dan bagikan.",
+      "p2pOpen": "Buka pengaturan P2P",
+      "engineTitle": "Mesin",
+      "engineSub": {
+        "llama": "Model berjalan di instans ini. Worker menyimpan sebagian lapisannya di memorinya sendiri.",
+        "mlx": "Model berjalan di instans ini dan di worker, sebagai rank dari satu cincin MLX. Hanya Apple Silicon."
+      },
+      "inviteTitle": "Buat undangan",
+      "name": "Nama worker (opsional)",
+      "namePlaceholder": "attic-3090",
+      "mint": "Buat undangan",
+      "inviteReady": "Undangan siap",
+      "inviteExpired": "Undangan kedaluwarsa",
+      "inviteUsed": "Undangan sudah dipakai",
+      "inviteMeta": "Sekali pakai · kedaluwarsa dalam {{time}}",
+      "noPass": "Relay tidak bisa dijangkau, jadi tautan tidak membawa pass relay.",
+      "pathTitle": "Membagi model paling baik lewat jalur langsung atau jalur hasil hole punching.",
+      "pathBody": "Lapisan saling berbicara di setiap token. Lewat relay tetap berjalan, tetapi setiap token menunggu relay. Jika hanya ada jalur relay, Anda yang memutuskan apakah worker ditambahkan.",
+      "runTitle": "Jalankan ini di worker",
+      "runFirst": "Buat undangan dulu: perintahnya memuat tautan undangan.",
+      "runNote": "Volume menyimpan identitas dan pemasangan worker, jadi perintah yang sama tetap berjalan setelah restart. Nama lama p2p-worker masih berfungsi.",
+      "runNoteMlx": "Worker menyimpan identitas dan pemasangannya di ./p2p/mlx-distributed, jadi perintah yang sama tetap berjalan setelah restart.",
+      "waitTitle": "Menunggu worker",
+      "waiting": "Menunggu worker terhubung…",
+      "pairedTitle": "Worker sudah dipasangkan",
+      "pairedWaiting": "Worker sudah memakai undangan. Menunggu koneksinya.",
+      "foundTitle": "Worker sedang dipakai",
+      "foundBody": "Worker tampil di halaman Node di bawah Worker model terbagi, beserta memori yang ditambahkannya. Muat ulang model untuk memakainya.",
+      "openNodes": "Buka Node",
+      "relayTitle": "Worker hanya terhubung lewat relay",
+      "slowTitle": "Lambat: lewat relay.",
+      "slowBody": "{{name}} tidak punya jalur langsung atau jalur hole punching ke instans ini. Pembagian model berjalan lewat relay Anda, tetapi setiap token menunggunya. Membuka port 4001 UDP dan TCP di salah satu sisi dapat memberi jalur langsung nanti.",
+      "slowCut": "Relay mengakhiri setiap koneksi setelah {{limits}}: model lalu berhenti sampai dimuat ulang. Naikkan atau hapus batasnya agar berjalan lebih lama.",
+      "addAnyway": "Tetap tambahkan",
+      "notNow": "Nanti saja",
+      "engineSubNode": {
+        "llama": "Model berjalan di node yang Anda pilih berikutnya. Worker menyimpan sebagian lapisannya di memorinya sendiri.",
+        "mlx": "Model berjalan di node yang Anda pilih berikutnya dan di worker, sebagai rank dalam satu ring MLX. Hanya Apple Silicon."
+      },
+      "nodeTitle": "Node",
+      "nodeLabel": "Pasang worker ke",
+      "nodeSub": "Model yang dimuat node ini memakai worker. Tetapkan model ke node ini dengan aturan penempatan agar dimuat di sana. Anda bisa mengganti node nanti di halaman Node.",
+      "nodeServer": "Instans ini (tidak menjalankan model dalam kluster)",
+      "nodePick": "Pilih server split",
+      "nodeOffline": "{{name}} (offline)"
+    },
+    "col": {
+      "worker": "Worker",
+      "engine": "Mesin",
+      "path": "Jalur",
+      "memory": "Memori tambahan",
+      "status": "Status",
+      "actions": "Tindakan",
+      "node": "Dipasang ke"
+    },
+    "engine": {
+      "llama": "llama.cpp RPC",
+      "mlx": "MLX",
+      "llamaLong": "llama.cpp RPC",
+      "mlxLong": "MLX (Apple Silicon)"
+    },
+    "path": {
+      "direct": "Langsung",
+      "holePunched": "Hole punching",
+      "relayed": "Lewat {{relay}}",
+      "relayedUnknown": "Lewat relay",
+      "none": "Tanpa jalur",
+      "rtt": "{{ms}} ms"
+    },
+    "state": {
+      "online": "Online",
+      "offline": "Offline",
+      "slow": "Lambat: lewat relay",
+      "limited": "Relay publik: tidak dipakai",
+      "refused": "Ditolak"
+    },
+    "useAnyway": "Tetap gunakan",
+    "stopUsing": "Berhenti memakai",
+    "revoke": "Cabut…",
+    "revokeTitle": "Cabut {{name}}?",
+    "revokeBody": "Worker langsung diputus dan harus dipasangkan lagi dengan undangan baru. Model yang dimuat dengannya gagal sampai dimuat ulang.",
+    "revokeConfirm": "Cabut",
+    "revoking": "Mencabut…",
+    "addWorker": "Tambahkan worker model terbagi",
+    "toast": {
+      "used": "{{name}} dipakai lewat relay.",
+      "stopped": "{{name}} tidak lagi dipakai lewat relay.",
+      "revoked": "{{name}} sudah dicabut.",
+      "attached": "{{name}} dipasang ke {{node}}. Model yang dimuat {{node}} mulai sekarang memakainya.",
+      "detached": "{{name}} dipasang ke instans ini."
+    },
+    "noteCluster": "Bukan node kluster: tanpa backend dan tanpa aturan penempatan. Masing-masing meminjamkan memorinya untuk model di node tempat ia dipasang.",
+    "thisServer": "Instans ini",
+    "nodeLabel": "Node untuk {{name}}",
+    "unattachedTitle": "Worker ini tidak dipakai: pasang ke sebuah node.",
+    "unattachedBody": "Dipasang ke instans ini: {{names}}. Dalam kluster, model berjalan di node backend, bukan di instans ini. Pilih node untuk masing-masing.",
+    "noServerTitle": "Belum ada worker yang menjadi server split.",
+    "noServerBody": "Worker split model hanya bisa dipasang ke worker yang menjadi server split. Buat satu di sini, atau jalankan worker dengan --split-server.",
+    "offlineTitle": "Node dari worker split model sedang offline.",
+    "offlineBody": "{{names}} tetap terpasang dan menunggu node-nya kembali. Tidak ada yang memindahkannya ke node lain.",
+    "relayRefusedTitle": "Relay Anda tidak menerima sebuah node.",
+    "relayRefusedBody": "Worker hanya menjangkau {{names}} secara langsung atau dengan hole punching: {{reason}}.",
+    "nextLoad": "Perubahan worker sebuah node berlaku untuk model berikutnya yang dimuatnya.",
+    "nodeOffline": "Node offline",
+    "relay": {
+      "admitted": "Relay: diterima",
+      "refused": "Relay: ditolak",
+      "pending": "Relay: menunggu",
+      "notNeeded": "Relay: tidak perlu"
+    }
+  },
+  "nodes": {
+    "retry": "Coba lagi",
+    "title": "Worker"
+  },
+  "add": {
+    "run": {}
+  },
+  "inspector": {
+    "peer": "Peer ID"
+  },
+  "splitServer": {
+    "label": "Server split",
+    "make": "Jadikan server split…",
+    "clear": "Berhenti menjadi server split…",
+    "open": "Siapkan server split",
+    "title": "Siapkan server split",
+    "desc": "Server split adalah worker yang menjalankan model dengan memori dari worker split yang terpasang padanya.",
+    "node": "Worker",
+    "nodeDeclared": "{{name}} (server split)",
+    "changesTitle": "Saat Anda konfirmasi, {{node}} menjadi server split:",
+    "changes": {
+      "ports": "Ia membuka port P2P dan menjalankan host P2P untuk worker split-nya.",
+      "relay": "Instance ini menerimanya di relay terlindungi yang Anda jalankan, agar worker bisa menjangkaunya lewat relay itu.",
+      "load": "Worker yang terpasang dipakai untuk model llama.cpp atau MLX berikutnya yang dimuatnya. Model yang sudah dimuat tetap memakai worker-nya sampai dimuat ulang.",
+      "undo": "Anda bisa mematikannya di halaman Node. Worker-nya lalu dilepas."
+    },
+    "offline": "{{node}} sedang offline. Worker-nya menunggu sampai ia kembali.",
+    "helpers": "Pasang worker split ini",
+    "noHelpers": "Belum ada worker split lain yang dipasangkan. Anda bisa memasang worker nanti.",
+    "moveFrom": "sekarang di {{node}}",
+    "noNodes": "Cluster belum punya worker backend. Tambahkan satu dulu.",
+    "cancel": "Batal",
+    "confirm": "Jadikan server split dan pasang",
+    "confirmAttach": "Pasang",
+    "clearTitle": "Hentikan {{node}} sebagai server split?",
+    "clearBody": "Host P2P-nya berhenti, relay Anda berhenti menerimanya, dan worker split-nya ({{count}}) dilepas. Mereka menunggu tanpa node sampai Anda memasangnya lagi.",
+    "clearConfirm": "Berhenti menjadi server split",
+    "clearing": "Menghentikan…",
+    "toast": {
+      "set": "{{node}} adalah server split. Worker terpasang sekarang: {{count}}. Mereka dipakai untuk model berikutnya yang dimuatnya.",
+      "cleared": "{{node}} bukan lagi server split. Worker dilepas: {{count}}."
+    }
+  },
+  "placement": {
+    "title": "Penempatan",
+    "supporting": "Di mana model berjalan di klaster, dan apa yang terjadi saat sebuah target berhenti merespons.",
+    "views": {
+      "label": "Tampilan penempatan",
+      "rules": "Aturan",
+      "failover": "Failover"
+    }
+  },
+  "rules": {
+    "byPrefix": "Kebijakannya adalah prefix cache.",
+    "byRound": "Kebijakannya adalah round robin.",
+    "kind": {
+      "inactive": "Hanya kebijakan"
+    },
+    "route": {
+      "default": "Kebijakan default",
+      "prefix_cache": "Kebijakan prefix cache",
+      "round_robin": "Kebijakan round robin"
+    }
+  },
+  "failover": {
+    "lostConnection": "Koneksi:"
+  }
+}

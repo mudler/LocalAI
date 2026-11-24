@@ -1,0 +1,5 @@
+---
+name: "whisper-base"
+
+config_file: |
+  backend: whisper

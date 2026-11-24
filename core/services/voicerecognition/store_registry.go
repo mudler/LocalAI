@@ -1,0 +1,196 @@
+package voicerecognition
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/pkg/store"
+)
+
+// StoreResolver resolves a named vector store to a gRPC backend. The
+// HTTP handler layer wires this to backend.StoreBackend so the
+// registry stays decoupled from ModelLoader plumbing.
+type StoreResolver func(ctx context.Context, storeName string) (grpc.Backend, error)
+
+// NewStoreRegistry returns a Registry backed by LocalAI's generic
+// StoresSet / StoresFind / StoresDelete gRPC surface.
+//
+// storeName selects which vector-store model to use (defaults to the
+// local-store Go backend). `dim` is the expected embedding dimension;
+// pass 0 to accept whatever dimension arrives (useful when the voice
+// backend exposes recognizers of different sizes, e.g. ECAPA-TDNN at
+// 192 vs ResNet at 256).
+//
+// A vector store holds one dimension only, so with dim 0 the registry keeps
+// one store per embedding dimension. The first dimension seen uses storeName
+// itself (single-encoder setups are unchanged); every later dimension uses
+// "<storeName>-<dim>". Identify compares the probe with voices of its own
+// dimension only.
+func NewStoreRegistry(resolve StoreResolver, storeName string, dim int) Registry {
+	return &storeRegistry{
+		resolve:   resolve,
+		storeName: storeName,
+		dim:       dim,
+	}
+}
+
+type storeRegistry struct {
+	resolve   StoreResolver
+	storeName string
+	dim       int
+
+	// TODO(postgres): the local-store gRPC surface keys by embedding
+	// vector and exposes no "list all" method, so we cannot delete by ID
+	// or list voices without remembering them. This in-memory index holds
+	// every registration with its metadata. It is rebuilt on every Register
+	// and lost on restart, which matches the lifetime of the in-memory store.
+	idIndex sync.Map // map[string]Entry
+
+	// namespaces maps an embedding dimension to the store that holds it.
+	nsMu       sync.Mutex
+	namespaces map[int]string
+}
+
+// namespace returns the store name for a dimension. With create set, an
+// unknown dimension gets a new name; without it, ok is false for a dimension
+// that has no voices yet.
+func (r *storeRegistry) namespace(dim int, create bool) (name string, ok bool) {
+	r.nsMu.Lock()
+	defer r.nsMu.Unlock()
+	if name, ok := r.namespaces[dim]; ok {
+		return name, true
+	}
+	if !create {
+		return "", false
+	}
+	if r.namespaces == nil {
+		r.namespaces = map[int]string{}
+	}
+	name = r.storeName
+	if len(r.namespaces) > 0 {
+		name = fmt.Sprintf("%s-%d", r.storeName, dim)
+	}
+	r.namespaces[dim] = name
+	return name, true
+}
+
+func (r *storeRegistry) Register(ctx context.Context, embedding []float32, meta Metadata) (Metadata, error) {
+	if len(embedding) == 0 {
+		return Metadata{}, ErrEmptyEmbedding
+	}
+	if r.dim != 0 && len(embedding) != r.dim {
+		return Metadata{}, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(embedding))
+	}
+
+	ns, _ := r.namespace(len(embedding), true)
+	backend, err := r.resolve(ctx, ns)
+	if err != nil {
+		return Metadata{}, fmt.Errorf("voicerecognition: resolve store: %w", err)
+	}
+
+	meta.ID = uuid.NewString()
+	if meta.RegisteredAt.IsZero() {
+		meta.RegisteredAt = time.Now().UTC()
+	}
+
+	payload, err := json.Marshal(meta)
+	if err != nil {
+		return Metadata{}, fmt.Errorf("voicerecognition: marshal metadata: %w", err)
+	}
+
+	if err := store.SetSingle(ctx, backend, embedding, payload); err != nil {
+		return Metadata{}, fmt.Errorf("voicerecognition: set: %w", err)
+	}
+
+	embCopy := append([]float32(nil), embedding...)
+	r.idIndex.Store(meta.ID, Entry{Metadata: meta, Embedding: embCopy})
+	return meta, nil
+}
+
+func (r *storeRegistry) Identify(ctx context.Context, probe []float32, topK int) ([]Match, error) {
+	if len(probe) == 0 {
+		return nil, ErrEmptyEmbedding
+	}
+	if r.dim != 0 && len(probe) != r.dim {
+		return nil, fmt.Errorf("%w: expected %d, got %d", ErrDimensionMismatch, r.dim, len(probe))
+	}
+	if topK <= 0 {
+		topK = 5
+	}
+
+	// No voice of this dimension was ever registered: nothing can match, and
+	// querying another dimension's store would be an error.
+	ns, ok := r.namespace(len(probe), false)
+	if !ok {
+		return []Match{}, nil
+	}
+	backend, err := r.resolve(ctx, ns)
+	if err != nil {
+		return nil, fmt.Errorf("voicerecognition: resolve store: %w", err)
+	}
+
+	_, values, similarities, err := store.Find(ctx, backend, probe, topK)
+	if err != nil {
+		return nil, fmt.Errorf("voicerecognition: find: %w", err)
+	}
+
+	matches := make([]Match, 0, len(values))
+	for i, raw := range values {
+		var meta Metadata
+		if err := json.Unmarshal(raw, &meta); err != nil {
+			// Shared stores may contain non-voice records; skip them.
+			continue
+		}
+		matches = append(matches, Match{
+			ID:       meta.ID,
+			Metadata: meta,
+			Distance: 1 - similarities[i],
+		})
+	}
+
+	sort.SliceStable(matches, func(i, j int) bool { return matches[i].Distance < matches[j].Distance })
+	return matches, nil
+}
+
+func (r *storeRegistry) Forget(ctx context.Context, id string) error {
+	raw, ok := r.idIndex.Load(id)
+	if !ok {
+		return ErrNotFound
+	}
+	embedding := raw.(Entry).Embedding
+
+	ns, _ := r.namespace(len(embedding), true)
+	backend, err := r.resolve(ctx, ns)
+	if err != nil {
+		return fmt.Errorf("voicerecognition: resolve store: %w", err)
+	}
+	if err := store.DeleteSingle(ctx, backend, embedding); err != nil {
+		return fmt.Errorf("voicerecognition: delete: %w", err)
+	}
+	r.idIndex.Delete(id)
+	return nil
+}
+
+func (r *storeRegistry) List(ctx context.Context) ([]Entry, error) {
+	var out []Entry
+	r.idIndex.Range(func(_, v any) bool {
+		e := v.(Entry)
+		e.Embedding = append([]float32(nil), e.Embedding...)
+		out = append(out, e)
+		return true
+	})
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].Metadata.RegisteredAt.Equal(out[j].Metadata.RegisteredAt) {
+			return out[i].Metadata.RegisteredAt.Before(out[j].Metadata.RegisteredAt)
+		}
+		return out[i].Metadata.ID < out[j].Metadata.ID
+	})
+	return out, nil
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SmartRouter scheduling</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.rw { display:grid; grid-template-columns: 74px 640px 56px 1fr; align-items:center; gap:0; margin-bottom: 14px; }
+.rw i { font-style:normal; font-weight:700; font-size:26px; width:46px; height:46px; border-radius:50%; background:var(--accent-wash); color:var(--accent-text); display:grid; place-items:center; }
+.rw .node { padding: 14px 20px; } .rw .node b { font-size: 27px; } .rw .ar { width:44px; margin-left:6px; }
+</style>
+</head>
+<body>
+<p class="k">SmartRouter</p>
+<h1>Where a request <span class="hl">lands</span></h1>
+<img class="mark" src="tile.svg" alt="">
+
+<div class="stage">
+  <div class="rw"><i>1</i><div class="node"><b>Model already loaded on a node?</b></div><div class="ar"></div><div class="node soft"><b>Yes: use that node</b></div></div>
+  <div class="rw"><i>2</i><div class="node"><b>Enough free disk for the files?</b></div><div class="ar"></div><div class="node soft"><b>No: drop that node</b></div></div>
+  <div class="rw"><i>3</i><div class="node"><b>Enough free VRAM?</b></div><div class="ar"></div><div class="node soft"><b>Yes: load it there</b></div></div>
+  <div class="rw"><i>4</i><div class="node"><b>An idle node, then the least loaded?</b></div><div class="ar"></div><div class="node soft"><b>Load it there</b></div></div>
+  <div class="rw"><i>5</i><div class="node"><b>No room: a model with no requests?</b></div><div class="ar"></div><div class="node soft"><b>Evict the least recently used</b></div></div>
+  <div class="rw"><i>6</i><div class="node"><b>All models busy?</b></div><div class="ar"></div><div class="node soft"><b>Wait, then evict</b></div></div>
+  <div class="node core" style="margin-top:14px;padding:16px 24px"><b style="font-size:28px">Then: backend.install event, LoadModel call, request served</b></div>
+</div>
+<div class="foot">Idle-first placement. <b>Loaded models are never evicted while they serve a request.</b></div>
+</body></html>

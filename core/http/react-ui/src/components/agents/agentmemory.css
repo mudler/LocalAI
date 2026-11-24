@@ -1,0 +1,31 @@
+/* The Memory section of the agent form, and the dialog that asks what to do with an agent's notes. */
+.am-wrap { display: grid; gap: var(--sp-3); max-width: 720px; }
+.am { display: grid; gap: var(--sp-3); max-width: 720px; }
+.am__lede { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); max-width: 60ch; }
+.am__cards { display: grid; gap: var(--sp-2); }
+.am__card, .am__grant { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-3); border-radius: var(--dk-radius-2); box-shadow: inset 0 0 0 1px var(--dk-edge); cursor: pointer; }
+.am__card--on { background: var(--dk-accent-wash); box-shadow: inset 0 0 0 1px var(--dk-accent); }
+.am__card input, .am__grant input { margin-top: 3px; accent-color: var(--dk-accent); flex: none; }
+.am__card:focus-within, .am__grant:focus-within { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+.am__text { display: grid; gap: 2px; min-width: 0; }
+.am__title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-weight: 600; color: var(--dk-text); }
+.am__body { font-size: var(--text-sm); color: var(--dk-muted); overflow-wrap: anywhere; }
+.am__tag { padding: 0 6px; border-radius: var(--dk-radius-3); background: var(--dk-inset); color: var(--dk-muted); font-size: var(--text-xs); font-weight: 400; }
+.am__rule { display: grid; gap: var(--sp-2); }
+.am__rule-title { margin: 0; font-size: var(--text-sm); font-weight: 600; color: var(--dk-text); }
+.am__rule-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+.am__card--small { padding: var(--sp-2) var(--sp-3); }
+@media (max-width: 560px) {
+  .am__rule-cards { grid-template-columns: minmax(0, 1fr); }
+}
+.am__before, .am__warn, .am__note { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
+.am__before { padding: var(--sp-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); color: var(--dk-text); }
+.am__warn { color: var(--dk-warning-text, var(--dk-text)); }
+.am__note { font-size: var(--text-xs); }
+.am__before svg, .am__warn svg, .am__note svg { flex: none; margin-top: 2px; }
+
+/* The question on deleting an agent that has notes. */
+.am-del { display: grid; gap: var(--sp-3); text-align: left; }
+.am-del__ask { margin: 0; }
+.am-del__opts { display: grid; gap: var(--sp-2); border: 0; margin: 0; padding: 0; min-width: 0; }
+.am-del__note { margin: 0; font-size: var(--text-xs); color: var(--dk-muted); }

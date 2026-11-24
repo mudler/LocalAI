@@ -1,0 +1,10 @@
+Recorded pages of ollama.com, fetched once on 2026-11-21 with the user agent of the add-on:
+  search-qwen.html   GET /search?q=qwen&o=popular&c=tools (the site redirects to /search?c=tools&q=qwen)
+  search-empty.html  GET /search?c=local&q=zzqxjkvv (a page with no results)
+  tags-qwen3.html    GET /library/qwen3/tags
+  tags-q38.html      GET /library/qwen3.8/tags (tags of MLX, nvfp4 and mxfp8 builds next to GGUF ones)
+The tests read these files and never call the live site. Record them again, by hand and
+politely, when the site changes its markup.
+The search page lists the first 14 of the results it counts (data-result-count is the
+total, data-has-more is true) and loads the rest with a script, so one request gives at
+most about 14 rows.

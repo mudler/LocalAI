@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "face",
+  "version": "0.1.0",
+  "executable": "face",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/face.js",
+      "css": ["ui/face.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["recognition"],
+      "navigation": [],
+      "modelActions": [{"capability": "FLAG_FACE_RECOGNITION", "page": "recognition"}],
+      "mainPage": "recognition",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Face",
+        "it": "Volto",
+        "de": "Gesicht",
+        "es": "Rostro",
+        "fr": "Visage",
+        "pt-BR": "Rosto",
+        "zh-CN": "人脸",
+        "ko": "얼굴",
+        "id": "Wajah"
+      },
+      "description": {
+        "en": "Find out whose face is in a photo, or whether two photos show the same person.",
+        "it": "Scopri di chi è il volto in una foto, o se due foto mostrano la stessa persona.",
+        "de": "Finden Sie heraus, wessen Gesicht auf einem Foto zu sehen ist oder ob zwei Fotos dieselbe Person zeigen.",
+        "es": "Descubre de quién es el rostro de una foto, o si dos fotos muestran a la misma persona.",
+        "fr": "Découvrez à qui appartient le visage sur une photo, ou si deux photos montrent la même personne.",
+        "pt-BR": "Descubra de quem é o rosto em uma foto, ou se duas fotos mostram a mesma pessoa.",
+        "zh-CN": "找出照片中的人是谁，或判断两张照片是否是同一个人。",
+        "ko": "사진 속 얼굴이 누구인지, 또는 두 사진이 같은 사람인지 확인합니다.",
+        "id": "Cari tahu wajah siapa yang ada di sebuah foto, atau apakah dua foto menunjukkan orang yang sama."
+      }
+    }
+  }
+}

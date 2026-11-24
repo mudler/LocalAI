@@ -1,0 +1,37 @@
+{{ define "main" }}
+<main id="main">
+<header class="pagehead"><div class="shell">
+  <p class="kicker">From the team</p>
+  <h1>{{ .Title }}</h1>
+  {{ with .Description }}<p class="lede">{{ . }}</p>{{ end }}
+</div></header>
+
+<section><div class="shell">
+  <div class="bp-list">
+    {{ range .Pages.ByDate.Reverse }}
+    <a class="bp-item rv" href="{{ .RelPermalink }}">
+      <span class="bp-item__m">
+        <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 Jan 2006" }}</time>
+        {{ with .Params.category }}<em>{{ . }}</em>{{ end }}
+      </span>
+      <span class="bp-item__b">
+        <span class="bp-item__t">{{ .Title }}</span>
+        <span class="bp-item__s">{{ with .Params.summary }}{{ . }}{{ else }}{{ .Summary | plainify }}{{ end }}</span>
+      </span>
+      <span class="bp-item__go" aria-hidden="true">Read &rarr;</span>
+    </a>
+    {{ end }}
+  </div>
+
+  <div class="bp-end rv">
+    <p class="kicker">Next</p>
+    <h2>Install it and check the numbers yourself.</h2>
+    <p>Every figure in these posts comes out of a benchmark suite or a release that you can run on your own hardware.</p>
+    <div class="acts">
+      <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
+      <a class="btn btn--o" href="{{ .Site.Params.docsURL }}">Read the documentation</a>
+    </div>
+  </div>
+</div></section>
+</main>
+{{ end }}

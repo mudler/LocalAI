@@ -1,0 +1,625 @@
+{
+  "api": {
+    "max": 2,
+    "min": 2
+  },
+  "arch": "amd64",
+  "capabilities": {
+    "actions": true,
+    "executionProvider": {
+      "jobs": {
+        "tool": "job"
+      },
+      "statusTool": "execution-status",
+      "tools": [
+        "bash"
+      ]
+    },
+    "hostOperations": {
+      "optional": [
+        "egress.audit",
+        "egress.check",
+        "workspace.admin"
+      ],
+      "required": [
+        "workspace.changes",
+        "workspace.commit",
+        "workspace.materialize"
+      ]
+    },
+    "network": {
+      "kind": "egress-check",
+      "title": "Sandbox"
+    },
+    "skillDefinitions": [
+      {
+        "name": "docx",
+        "shadows": "docx"
+      },
+      {
+        "name": "pptx",
+        "shadows": "pptx"
+      },
+      {
+        "name": "pdf",
+        "shadows": "pdf"
+      },
+      {
+        "name": "xlsx",
+        "shadows": "xlsx"
+      }
+    ],
+    "toolDefinitions": [
+      {
+        "name": "bash",
+        "description": "Run bash. Starts in $WORK, the chat's work folder. Use $WORK or relative paths, not typed absolute ones. Double-quote every path. Never type a name with spaces or non-ASCII characters; take it from ls or a glob. Only /workspace/home is saved. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "description": "The script to run.",
+              "type": "string"
+            },
+            "timeoutSeconds": {
+              "maximum": 1680,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        },
+        "shadows": "bash",
+        "execution": {
+          "class": "commands",
+          "title": "Sandbox",
+          "skills": {
+            "providesRuntimeFor": [
+              "documents"
+            ]
+          },
+          "profiles": [
+            {
+              "id": "base",
+              "title": "Base",
+              "description": "Python, documents, PDF and the usual command-line tools.",
+              "cpus": 2,
+              "memoryMiB": 2048,
+              "diskMiB": 10240,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "media",
+              "title": "Media",
+              "description": "Base plus ffmpeg, sox and ImageMagick to cut and convert audio, video and images.",
+              "cpus": 2,
+              "memoryMiB": 4096,
+              "diskMiB": 20480,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "ffmpeg",
+                  "detail": "with ffprobe",
+                  "check": [
+                    "ffmpeg -version",
+                    "ffprobe -version"
+                  ]
+                },
+                {
+                  "name": "sox",
+                  "check": [
+                    "sox --version"
+                  ]
+                },
+                {
+                  "name": "ImageMagick",
+                  "detail": "magick, convert",
+                  "check": [
+                    "magick -version",
+                    "convert -version"
+                  ]
+                },
+                {
+                  "name": "rsvg-convert",
+                  "detail": "renders SVG to PNG, also the SVG reader of ImageMagick",
+                  "check": [
+                    "rsvg-convert --version"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "office",
+              "title": "Office",
+              "description": "Base plus LibreOffice Impress, Writer and Calc and fonts to render presentations and documents to images and to recalculate workbooks.",
+              "cpus": 2,
+              "memoryMiB": 4096,
+              "diskMiB": 20480,
+              "tools": [
+                {
+                  "name": "python3",
+                  "detail": "pandas, matplotlib, openpyxl, docx, pptx, pypdf, Pillow",
+                  "check": [
+                    "python3 --version"
+                  ]
+                },
+                {
+                  "name": "pip",
+                  "check": [
+                    "pip --version"
+                  ]
+                },
+                {
+                  "name": "jq",
+                  "check": [
+                    "jq --version"
+                  ]
+                },
+                {
+                  "name": "ripgrep",
+                  "detail": "rg",
+                  "check": [
+                    "rg --version"
+                  ]
+                },
+                {
+                  "name": "sqlite3",
+                  "check": [
+                    "sqlite3 --version"
+                  ]
+                },
+                {
+                  "name": "zip",
+                  "check": [
+                    "zip -v"
+                  ]
+                },
+                {
+                  "name": "unzip",
+                  "check": [
+                    "unzip -v"
+                  ]
+                },
+                {
+                  "name": "file",
+                  "check": [
+                    "file --version"
+                  ]
+                },
+                {
+                  "name": "tree",
+                  "check": [
+                    "tree --version"
+                  ]
+                },
+                {
+                  "name": "poppler",
+                  "detail": "pdftotext, pdftoppm",
+                  "check": [
+                    "pdftotext -v",
+                    "pdftoppm -v"
+                  ]
+                },
+                {
+                  "name": "git",
+                  "check": [
+                    "git --version"
+                  ]
+                },
+                {
+                  "name": "curl",
+                  "check": [
+                    "curl --version"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Impress",
+                  "detail": "soffice, renders .pptx to PDF",
+                  "check": [
+                    "soffice --version",
+                    "check-office-convert"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Writer",
+                  "detail": "soffice, renders .docx to PDF",
+                  "check": [
+                    "check-office-docx"
+                  ]
+                },
+                {
+                  "name": "LibreOffice Calc",
+                  "detail": "soffice, recalculates .xlsx and renders it to PDF",
+                  "check": [
+                    "check-office-xlsx"
+                  ]
+                },
+                {
+                  "name": "fonts",
+                  "detail": "DejaVu, Liberation, Carlito (as Calibri), Caladea (as Cambria)",
+                  "check": [
+                    "check-office-fonts"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "execution-status",
+        "description": "Report typed execution readiness and isolation.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "status",
+        "description": "Say whether this host can run commands in a sandbox now, which backend runs them, and the state of the image of each sandbox profile.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "conversation": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "set-backend",
+        "description": "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "backend": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "gvisor",
+                "kvm",
+                "vz",
+                "host",
+                "off"
+              ]
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "confirm-host",
+        "description": "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phrase": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "phrase"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "job",
+        "description": "Background jobs of the chat: start, list, read, input, kill. The host's job tool calls it; no model does.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "verb": {
+              "type": "string",
+              "enum": [
+                "start",
+                "list",
+                "read",
+                "input",
+                "kill"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 16
+            },
+            "command": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "since": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 256,
+              "maximum": 65536
+            },
+            "observe": {
+              "type": "boolean"
+            },
+            "input": {
+              "type": "string",
+              "maxLength": 2000
+            },
+            "closeInput": {
+              "type": "boolean"
+            },
+            "signal": {
+              "type": "string",
+              "enum": [
+                "term",
+                "int",
+                "kill"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "stopped",
+                "chat_deleted",
+                "agent_ended",
+                "shell_off",
+                "group_off",
+                "fenced"
+              ]
+            }
+          },
+          "required": [
+            "verb"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      }
+    ],
+    "tools": [
+      "bash",
+      "execution-status",
+      "status",
+      "set-backend",
+      "confirm-host",
+      "job"
+    ],
+    "ui": {
+      "controls": [
+        "network-policy",
+        "tool-providers",
+        "sandbox-profiles"
+      ],
+      "css": [
+        "ui/sandbox.css"
+      ],
+      "description": {
+        "de": "Lassen Sie Ihre Chats Befehle und Code in einer isolierten Sandbox ausführen, mit eingebundenen Dateien.",
+        "en": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
+        "es": "Permite que tus chats ejecuten comandos y código en un sandbox aislado, con tus archivos montados.",
+        "fr": "Laissez vos conversations exécuter des commandes et du code dans une sandbox isolée, avec vos fichiers montés.",
+        "id": "Izinkan obrolan Anda menjalankan perintah dan kode di sandbox terisolasi, dengan berkas Anda terpasang.",
+        "it": "Lascia che le tue chat eseguano comandi e codice in una sandbox isolata, con i tuoi file montati.",
+        "ko": "채팅이 격리된 샌드박스에서 명령과 코드를 실행할 수 있게 하며, 내 파일이 마운트됩니다.",
+        "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados.",
+        "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。"
+      },
+      "entry": "ui/sandbox.js",
+      "icon": "ui/icon.png",
+      "mainPage": "sandbox",
+      "pages": [
+        "sandbox"
+      ],
+      "sdk": {
+        "max": 2,
+        "min": 2
+      },
+      "slots": [
+        {
+          "component": "SandboxSettings",
+          "id": "settings",
+          "slot": "settings.sections"
+        }
+      ],
+      "title": {
+        "de": "Sandbox",
+        "en": "Sandbox",
+        "es": "Sandbox",
+        "fr": "Sandbox",
+        "id": "Sandbox",
+        "it": "Sandbox",
+        "ko": "샌드박스",
+        "pt-BR": "Sandbox",
+        "zh-CN": "沙箱"
+      }
+    }
+  },
+  "dataFormat": {
+    "max": 1,
+    "min": 1
+  },
+  "executable": "sandbox",
+  "featureLevel": 6,
+  "host": {
+    "max": 1,
+    "min": 1
+  },
+  "id": "sandbox",
+  "os": "linux",
+  "protocol": {
+    "max": 1,
+    "min": 1
+  },
+  "schemaVersion": 1,
+  "version": "0.1.0"
+}

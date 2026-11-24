@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT
+package transport_test
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+
+	"github.com/mudler/LocalAI/addons/internal/connector"
+	"github.com/mudler/LocalAI/addons/slack/transport"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("the Web API client", func() {
+	ctx := context.Background()
+
+	It("names the bot, posts, edits and reads people and files", func() {
+		f := fake()
+		api := apiOf(f)
+		id, err := api.AuthTest(ctx, botToken)
+		Expect(err).NotTo(HaveOccurred())
+		Expect([]string{id.UserID, id.User, id.Team}).To(Equal([]string{"UBOT", "helper", "Acme"}))
+		ts, err := api.PostMessage(ctx, botToken, "C1", "1.1", "hi")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(api.Update(ctx, botToken, "C1", ts, "edited")).To(Succeed())
+		posts := f.Posts(botToken)
+		Expect(posts).To(HaveLen(2))
+		Expect(posts[0]).To(MatchPost("C1", "1.1", "hi", false))
+		Expect(posts[1].TS).To(Equal(ts))
+		Expect(posts[1].Edited).To(BeTrue())
+		u, err := api.UserInfo(ctx, botToken, "U1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect([]string{u.Name, u.Display()}).To(Equal([]string{"ada", "Ada Lovelace"}))
+		f.AddFile("F1", "notes.txt", "text/plain", []byte("file body"))
+		fi, err := api.FileInfo(ctx, botToken, "F1")
+		Expect(err).NotTo(HaveOccurred())
+		body, err := api.DownloadStream(ctx, botToken, fi.Download)
+		Expect(err).NotTo(HaveOccurred())
+		data, err := io.ReadAll(body)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body.Close()).To(Succeed())
+		Expect(string(data)).To(Equal("file body"))
+	})
+
+	It("types a refused token, a wait and any other error, and never repeats the token", func() {
+		f := fake()
+		api := apiOf(f)
+		_, err := api.AuthTest(ctx, "xoxb-SECRET-unknown")
+		Expect(errors.Is(err, connector.ErrUnauthorized)).To(BeTrue())
+		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+		f.RateLimitOnce("chat.postMessage", 7)
+		_, err = api.PostMessage(ctx, botToken, "C1", "", "x")
+		var ra *connector.RetryAfter
+		Expect(errors.As(err, &ra)).To(BeTrue())
+		Expect(ra.Seconds).To(Equal(7))
+		_, err = api.UserInfo(ctx, botToken, "U404")
+		Expect(err).To(MatchError(ContainSubstring("user_not_found")))
+		_, err = api.OpenConnection(ctx, botToken)
+		Expect(errors.Is(err, connector.ErrUnauthorized)).To(BeTrue(), "a bot token cannot open a link")
+		dead := &transport.API{BaseURL: "http://127.0.0.1:1"}
+		_, err = dead.AuthTest(ctx, botToken)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
+	})
+
+	It("downloads only from the files host, and refuses the sign-in page", func() {
+		f := fake()
+		api := apiOf(f)
+		for _, bad := range []string{"https://evil.example/files/F1", "ftp://" + f.FilesHost + "/files/F1", "http://user@" + f.FilesHost + "/files/F1"} {
+			_, err := api.DownloadStream(ctx, botToken, bad)
+			Expect(err).To(MatchError(ContainSubstring("files host")), bad)
+		}
+		_, err := api.DownloadStream(ctx, appToken, "http://"+f.FilesHost+"/files/F9")
+		Expect(err).To(MatchError(ContainSubstring("files:read")))
+		_, err = api.DownloadStream(ctx, botToken, "http://"+f.FilesHost+"/files/F9")
+		Expect(err).To(MatchError(ContainSubstring("404")))
+		real := &transport.API{}
+		_, err = real.DownloadStream(ctx, botToken, "http://files.slack.com/x")
+		Expect(err).To(MatchError(ContainSubstring("files host")), "plain http is refused for the real host")
+	})
+
+	It("reads a non-JSON answer and a 429 without Retry-After", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/auth.test" {
+				w.WriteHeader(http.StatusTooManyRequests)
+				return
+			}
+			if r.URL.Path == "/api/apps.connections.open" {
+				_, _ = w.Write([]byte(`{"ok":true,"url":"https://not-a-socket"}`))
+				return
+			}
+			_, _ = w.Write([]byte("<html>"))
+		}))
+		DeferCleanup(srv.Close)
+		api := &transport.API{BaseURL: srv.URL + "/api"}
+		_, err := api.AuthTest(ctx, botToken)
+		var ra *connector.RetryAfter
+		Expect(errors.As(err, &ra)).To(BeTrue())
+		Expect(ra.Seconds).To(Equal(1))
+		_, err = api.UserInfo(ctx, botToken, "U1")
+		Expect(err).To(MatchError(ContainSubstring("not JSON")))
+		_, err = api.OpenConnection(ctx, appToken)
+		Expect(err).To(MatchError(ContainSubstring("no Socket Mode address")))
+	})
+
+	It("sends the bytes of an upload only to the files host of Slack", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"upload_url":"https://elsewhere.example/upload/F1","file_id":"F1"}`))
+		}))
+		DeferCleanup(srv.Close)
+		api := &transport.API{BaseURL: srv.URL + "/api"}
+		_, err := api.UploadStream(context.Background(), "xoxb-SECRET", "C1", "", "a.txt", 1, strings.NewReader("x"))
+		Expect(err).To(MatchError(ContainSubstring("files host")))
+	})
+})

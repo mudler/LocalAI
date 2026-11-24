@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Fine-tune job lifecycle</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Fine-tuning</p>
+<h1>The fine-tune job <span class="hl">lifecycle</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="panel" style="padding:20px 24px 22px;margin-bottom:22px"><h3>Create a job, then follow its status</h3>
+ <div class="row" style="gap:14px;flex-wrap:wrap;margin-bottom:16px"><span class="code" style="font-size:24px"><b>POST</b> /api/fine-tuning/jobs</span></div>
+ <div class="row" style="gap:6px;flex-wrap:wrap"><span class="status">queued</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">loading_model</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">loading_dataset</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">training</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">saving</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status end">completed</span></div>
+ <div class="row" style="margin-top:16px;gap:12px"><span class="status bad">stopped</span><span class="status bad">failed</span><span style="font-size:24px;color:var(--muted)">can end a job. Progress as SSE:</span><span class="code" style="font-size:22px">GET .../jobs/{id}/progress</span></div></div>
+<div class="panel" style="padding:20px 24px 24px"><h3>Then export</h3><div class="code" style="font-size:24px;margin-bottom:14px"><b>POST</b> /api/fine-tuning/jobs/{id}/export</div>
+ <div class="row" style="gap:16px;align-items:stretch"><div class="node fl cen" style="padding:16px 10px"><b class="code" style="font-size:26px">lora</b><span style="font-size:21px">adapter only</span></div><div class="node fl cen" style="padding:16px 10px"><b class="code" style="font-size:26px">merged_16bit</b><span style="font-size:21px">full model, 16-bit</span></div><div class="node fl cen" style="padding:16px 10px"><b class="code" style="font-size:26px">merged_4bit</b><span style="font-size:21px">full model, 4-bit</span></div><div class="node fl cen" style="padding:16px 10px"><b class="code" style="font-size:26px">gguf</b><span style="font-size:21px">ready for llama.cpp</span></div></div></div>
+
+</div>
+<div class="foot">Fine-tuning is an add-on. <b>An admin turns it on per user.</b></div>
+</body></html>

@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/rocm7.0
+torch==2.10.0+rocm7.0
+torchvision==0.25.0+rocm7.0
+rfdetr
+opencv-python
+accelerate
+inference
+peft
+optimum-quanto

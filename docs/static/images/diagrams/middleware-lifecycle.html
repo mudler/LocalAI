@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>The request lifecycle</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Middleware</p>
+<h1>Every request, the <span class="hl">same</span> chain</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="lab">Request pipeline</div>
+<div class="flow tight big"><div class="node cen"><b>Auth</b><span>API key, access</span></div><div class="ar"></div><div class="node cen"><b>Route model</b><span>may change the model name</span></div><div class="ar"></div><div class="node cen"><b>Redact input</b><span>PII, per model</span></div><div class="ar"></div><div class="node core cen"><b>Model runs</b><span>backend answers</span></div><div class="ar"></div><div class="node cen"><b>Redact output</b><span>PII, while streaming</span></div></div>
+<div class="row" style="justify-content:center;margin:26px 0 10px"><div class="ar v" style="height:50px"></div></div>
+<div class="panel" style="padding:22px 26px"><h3>Shared hook chain</h3><div class="row" style="gap:24px">
+ <div class="node fl" style="flex:1"><b>Decision log</b><span>auth and routing choices</span></div>
+ <div class="node fl" style="flex:1"><b>Event log</b><span>PII redaction and backend events</span></div></div></div>
+
+</div>
+<div class="foot">A hook sees the request <b>before</b> the model and the reply <b>before</b> the client.</div>
+</body></html>

@@ -1,0 +1,11 @@
+/* The Web page and its settings. The controls, rows, chips and callouts are
+   the host's (sdk.ui); this sheet only lays the page out, with the host
+   tokens. */
+.web-page { max-width: 44rem; margin: 0 auto; padding: var(--dk-space-6, 1.5rem) var(--dk-space-4, 1rem); display: flex; flex-direction: column; gap: var(--dk-space-4, 1rem); }
+.web-page > p { margin: 0; color: var(--dk-muted); line-height: 1.55; }
+.web-page__title { margin: 0; }
+.web-page__rules { margin: 0; padding-left: var(--dk-space-5, 1.25rem); display: grid; gap: var(--dk-space-2, 0.5rem); color: var(--dk-muted); }
+.web-settings { display: flex; flex-direction: column; gap: var(--dk-space-5, 1.25rem); min-width: 0; }
+.web-settings__serving { margin: 0; font-size: var(--dk-text-13, 13px); }
+.web-settings__name { display: inline-flex; align-items: center; gap: var(--dk-space-3, 0.75rem); font-family: var(--dk-font-body); }
+.web-settings__cooling { margin: 0; padding-left: var(--dk-space-5, 1.25rem); font-size: var(--dk-text-13, 13px); color: var(--dk-muted); }

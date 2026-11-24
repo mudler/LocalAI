@@ -1,0 +1,558 @@
+// SPDX-License-Identifier: MIT
+package catalog
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/credentials"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestCatalog(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Addon catalog") }
+
+var ctx = context.Background()
+var admin = contract.Actor{UserID: "owner", CredentialID: "session", Mode: "named-user"}
+
+func checker(_ context.Context, a contract.Actor) error {
+	if a != admin {
+		return fmt.Errorf("denied")
+	}
+	return nil
+}
+func release() Release {
+	return Release{ID: "tables", Name: "Tables", Version: "1.0.0", Artifact: "oci://registry.example/tables", Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", OS: "linux", Arch: "amd64"}
+}
+func library(handler http.HandlerFunc) *httptest.Server {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer GinkgoRecover()
+		handler(w, r)
+	}))
+	DeferCleanup(s.Close)
+	return s
+}
+func setup() *Sources {
+	s, e := NewSources(GinkgoT().TempDir()+"/sources.json", checker, CredentialResolver{})
+	Expect(e).NotTo(HaveOccurred())
+	return s
+}
+func save(s *Sources, id, url string) {
+	Expect(s.Save(ctx, admin, Source{ID: id, Name: id, URL: url, Enabled: true})).To(Succeed())
+}
+
+var _ = Describe("private catalogs", func() {
+	It("fetches private bearer and basic catalogs without OCI credentials", func() {
+		for _, kind := range []string{"bearer", "basic"} {
+			server := library(func(w http.ResponseWriter, r *http.Request) {
+				if kind == "bearer" {
+					Expect(r.Header.Get("Authorization")).To(Equal("Bearer secret"))
+				} else {
+					u, p, ok := r.BasicAuth()
+					Expect(ok).To(BeTrue())
+					Expect(u).To(Equal("user"))
+					Expect(p).To(Equal("secret"))
+				}
+				_ = WriteIndex(w, []Release{release()})
+			})
+			auth := "bearer: secret"
+			if kind == "basic" {
+				auth = "username: user\n  password: secret"
+			}
+			store, e := credentials.Parse([]byte("- match: "+server.URL+"\n  allow_insecure: true\n  "+auth), nil)
+			Expect(e).NotTo(HaveOccurred())
+			resolver := CredentialResolver{References: map[string]CredentialBinding{"http": {Origin: server.URL, Store: store}, "oci": {Origin: "https://registry.example", Store: store}}}
+			s := setup()
+			s.credentials = resolver
+			Expect(s.Save(ctx, admin, Source{ID: "private", Name: "Private", URL: server.URL, Enabled: true, AuthReference: "http"})).To(Succeed())
+			_, e = s.Refresh(ctx, "private")
+			Expect(e).NotTo(HaveOccurred())
+			c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+			r, e := c.Resolve(ctx, "private", "tables", "1.0.0")
+			Expect(e).NotTo(HaveOccurred())
+			Expect(r.SourceID).To(Equal("private"))
+			Expect(r.Digest).To(Equal(release().Digest))
+			_, e = resolver.Resolve(ctx, "oci", server.URL)
+			Expect(e).To(HaveOccurred())
+			b, e := json.Marshal(resolver)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(string(b)).NotTo(ContainSubstring("secret"))
+		}
+	})
+	It("lists only releases the configured target platform can install", func() {
+		other := release()
+		other.OS, other.Arch = "windows", "arm64"
+		onlyOther := release()
+		onlyOther.ID, onlyOther.Name = "notes", "Notes"
+		onlyOther.OS, onlyOther.Arch = "windows", "arm64"
+		server := library(func(w http.ResponseWriter, r *http.Request) {
+			_ = WriteIndex(w, []Release{release(), other, onlyOther})
+		})
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		Expect(e).NotTo(HaveOccurred())
+		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(1))
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Releases[0].OS + "/" + page.Releases[0].Arch).To(Equal("linux/amd64"))
+		// Everything listed resolves, and what is not listed does not.
+		_, e = c.Resolve(ctx, "main", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).To(MatchError(ErrNotFound))
+		// The same cache serves another owner target its own entries.
+		w := Catalog{Sources: s, TargetOS: "windows", TargetArch: "arm64"}
+		page, e = w.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(2))
+		// Paging counts the filtered set.
+		page, e = w.Search(ctx, Query{Limit: 1, Offset: 1})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(2))
+		Expect(page.Releases).To(HaveLen(1))
+	})
+	It("blocks redirects without leaking credentials or error details", func() {
+		hits := 0
+		target := library(func(w http.ResponseWriter, r *http.Request) { hits++ })
+		server := library(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL+"/?secret=hidden", 302) })
+		store, e := credentials.Parse([]byte("- match: "+server.URL+"\n  allow_insecure: true\n  bearer: secret"), nil)
+		Expect(e).NotTo(HaveOccurred())
+		s := setup()
+		s.credentials = CredentialResolver{References: map[string]CredentialBinding{"http": {Origin: server.URL, Store: store}}}
+		Expect(s.Save(ctx, admin, Source{ID: "one", Name: "One", URL: server.URL, Enabled: true, AuthReference: "http"})).To(Succeed())
+		_, e = s.Refresh(ctx, "one")
+		Expect(e).To(MatchError(ErrRefresh))
+		Expect(hits).To(BeZero())
+		Expect(e.Error()).NotTo(ContainSubstring("hidden"))
+	})
+	It("refuses an entry two of your sources list, and excludes disabled sources", func() {
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{release()}) })
+		s := setup()
+		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+		for _, id := range []string{"one", "two"} {
+			save(s, id, server.URL)
+			_, e := s.Refresh(ctx, id)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		// Two sources of your own list "tables": refused, naming both.
+		_, e := c.Search(ctx, Query{Text: "tables"})
+		Expect(e).To(MatchError(ErrConflict))
+		Expect(e.Error()).To(ContainSubstring(`"one"`))
+		Expect(e.Error()).To(ContainSubstring(`"two"`))
+		Expect(s.Save(ctx, admin, Source{ID: "one", Name: "one", URL: server.URL})).To(Succeed())
+		var page Page
+		page, e = c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		_, e = c.Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).To(HaveOccurred())
+		_, e = s.Refresh(ctx, "one")
+		Expect(e).To(HaveOccurred())
+	})
+	It("reports refresh failures rather than serving stale success", func() {
+		fail := false
+		server := library(func(w http.ResponseWriter, r *http.Request) {
+			if fail {
+				http.Error(w, "secret", 401)
+				return
+			}
+			_ = WriteIndex(w, []Release{release()})
+		})
+		s := setup()
+		save(s, "one", server.URL)
+		_, e := s.Refresh(ctx, "one")
+		Expect(e).NotTo(HaveOccurred())
+		fail = true
+		result, e := s.Refresh(ctx, "one")
+		Expect(e).To(MatchError(ErrRefresh))
+		Expect(result.LastSuccess.IsZero()).To(BeFalse())
+		_, e = (&Catalog{Sources: s}).Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).To(MatchError(ErrRefresh))
+	})
+})
+
+var _ = Describe("a failing library", func() {
+	other := func(id string) Release { r := release(); r.ID = id; r.Name = id; return r }
+	good := func(releases ...Release) *httptest.Server {
+		return library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, releases) })
+	}
+	down := func() *httptest.Server {
+		return library(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "nope", http.StatusNotFound) })
+	}
+	cat := func(s *Sources) Catalog { return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"} }
+
+	It("does not hide the entries of the libraries that loaded", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "broken", down().URL)
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).To(MatchError(ErrRefresh))
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Total).To(Equal(1))
+		Expect(page.Releases[0].SourceID).To(Equal("up"))
+		Expect(page.Failed).To(HaveLen(1))
+		Expect(page.Failed[0].SourceID).To(Equal("broken"))
+		Expect(page.Failed[0].Name).To(Equal("broken"))
+		Expect(page.Failed[0].Error).To(ContainSubstring("HTTP 404"))
+		Expect(page.Failed[0].LastSuccess.IsZero()).To(BeTrue())
+	})
+	It("reports when a library last loaded", func() {
+		fail := false
+		server := library(func(w http.ResponseWriter, _ *http.Request) {
+			if fail {
+				http.Error(w, "nope", http.StatusBadGateway)
+				return
+			}
+			_ = WriteIndex(w, []Release{other("tables")})
+		})
+		s := setup()
+		save(s, "flaky", server.URL)
+		save(s, "up", good(other("mail")).URL)
+		for _, id := range []string{"flaky", "up"} {
+			_, e := s.Refresh(ctx, id)
+			Expect(e).NotTo(HaveOccurred())
+		}
+		fail = true
+		_, e := s.Refresh(ctx, "flaky")
+		Expect(e).To(MatchError(ErrRefresh))
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Failed).To(HaveLen(1))
+		Expect(page.Failed[0].LastSuccess.IsZero()).To(BeFalse())
+		// The entries of a failed library are not served: they could not be
+		// resolved or installed, and a listed entry must be installable.
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Releases[0].ID).To(Equal("mail"))
+	})
+	It("does not block the others while its first refresh is pending", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "pending", "https://example.org")
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(BeEmpty())
+	})
+	It("answers a request that names it with the refresh error", func() {
+		s := setup()
+		save(s, "up", good(other("tables")).URL)
+		save(s, "broken", down().URL)
+		save(s, "pending", "https://example.org")
+		_, e := s.Refresh(ctx, "up")
+		Expect(e).NotTo(HaveOccurred())
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).To(HaveOccurred())
+
+		_, e = cat(s).Search(ctx, Query{SourceID: "broken"})
+		Expect(e).To(MatchError(ErrRefresh))
+		_, e = cat(s).Search(ctx, Query{SourceID: "pending"})
+		Expect(e).To(MatchError(ErrUnavailable))
+		_, e = cat(s).Resolve(ctx, "broken", "tables", "1.0.0")
+		Expect(e).To(MatchError(ErrRefresh))
+		_, e = cat(s).Releases(ctx, "broken", "tables")
+		Expect(e).To(MatchError(ErrRefresh))
+		page, e := cat(s).Search(ctx, Query{SourceID: "up"})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(BeEmpty())
+	})
+	It("answers with the refresh error when every library failed", func() {
+		s := setup()
+		save(s, "one", down().URL)
+		save(s, "two", down().URL)
+		for _, id := range []string{"one", "two"} {
+			_, e := s.Refresh(ctx, id)
+			Expect(e).To(HaveOccurred())
+		}
+		_, e := cat(s).Search(ctx, Query{})
+		Expect(e).To(MatchError(ErrRefresh))
+	})
+	It("answers as unavailable when nothing has been read yet", func() {
+		s := setup()
+		save(s, "pending", "https://example.org")
+		_, e := cat(s).Search(ctx, Query{})
+		Expect(e).To(MatchError(ErrUnavailable))
+	})
+	It("says why in the status of the library, and clears it after a good refresh", func() {
+		s := setup()
+		save(s, "broken", down().URL)
+		_, e := s.Refresh(ctx, "broken")
+		Expect(e).To(HaveOccurred())
+		views, e := s.Views(ctx, admin)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(views).To(HaveLen(1))
+		Expect(views[0].Refresh.Failed).To(BeTrue())
+		Expect(views[0].Refresh.Error).To(ContainSubstring("HTTP 404"))
+		state, ok := s.State("broken")
+		Expect(ok).To(BeTrue())
+		Expect(state.Error).To(Equal(views[0].Refresh.Error))
+
+		save(s, "broken", good(other("tables")).URL)
+		_, e = s.Refresh(ctx, "broken")
+		Expect(e).NotTo(HaveOccurred())
+		state, _ = s.State("broken")
+		Expect(state.Failed).To(BeFalse())
+		Expect(state.Error).To(BeEmpty())
+	})
+	It("names the cause of an index it cannot read", func() {
+		s := setup()
+		save(s, "junk", library(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"secret":"value"}`)) }).URL)
+		_, e := s.Refresh(ctx, "junk")
+		Expect(e).To(MatchError(ErrRefresh))
+		state, _ := s.State("junk")
+		Expect(state.Error).To(ContainSubstring("not a valid library index"))
+		Expect(state.Error).NotTo(ContainSubstring("secret"))
+	})
+	It("refreshes the libraries after a failing one at startup", func() {
+		s := setup()
+		save(s, "a-broken", down().URL)
+		save(s, "b-up", good(other("tables")).URL)
+		Expect(s.RefreshEnabled(ctx)).To(MatchError(ErrRefresh))
+		page, e := cat(s).Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(1))
+		Expect(page.Failed).To(HaveLen(1))
+	})
+})
+
+var _ = Describe("target platform resolution", func() {
+	It("resolves the host platform from a multi platform catalog", func() {
+		host := release()
+		host.OS, host.Arch = runtime.GOOS, runtime.GOARCH
+		other := host
+		other.Arch = "arm64"
+		if host.Arch == other.Arch {
+			other.Arch = "amd64"
+		}
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{host, other}) })
+		s := setup()
+		save(s, "one", server.URL)
+		_, e := s.Refresh(ctx, "one")
+		Expect(e).NotTo(HaveOccurred())
+		got, e := (Catalog{Sources: s}).Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(got.OS).To(Equal(host.OS))
+		Expect(got.Arch).To(Equal(host.Arch))
+	})
+})
+
+var _ = Describe("owner target override", func() {
+	It("selects exact configured owner targets and rejects absent or ambiguous targets", func() {
+		amd := release()
+		arm := amd
+		arm.Arch = "arm64"
+		arm.Digest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, []Release{amd, arm}) })
+		s := setup()
+		save(s, "one", server.URL)
+		_, e := s.Refresh(ctx, "one")
+		Expect(e).NotTo(HaveOccurred())
+		for _, want := range []Release{amd, arm} {
+			got, err := (Catalog{Sources: s, TargetOS: want.OS, TargetArch: want.Arch}).Resolve(ctx, "one", "tables", "1.0.0")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.OS).To(Equal(want.OS))
+			Expect(got.Arch).To(Equal(want.Arch))
+			Expect(got.Digest).To(Equal(want.Digest))
+		}
+		for _, c := range []Catalog{{Sources: s, TargetOS: "linux", TargetArch: "riscv64"}, {Sources: s, TargetOS: "darwin", TargetArch: "arm64"}} {
+			_, e := c.Resolve(ctx, "one", "tables", "1.0.0")
+			Expect(e).To(MatchError(ErrNotFound))
+		}
+		// Even a corrupt cache must not resolve an ambiguous exact target.
+		s.mu.Lock()
+		cache := s.cache["one"]
+		cache.releases = append(cache.releases, cache.releases[0])
+		s.cache["one"] = cache
+		s.mu.Unlock()
+		_, e = (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Resolve(ctx, "one", "tables", "1.0.0")
+		Expect(e).To(MatchError(ErrInvalid))
+	})
+})
+
+var _ = Describe("package references", func() {
+	It("pins channels and restricts package transport to secure or opted in loopback origins", func() {
+		for _, tc := range []struct {
+			artifact     string
+			allow, valid bool
+		}{{"https://example.org/p.tar", false, true}, {"http://example.org/p.tar", true, false}, {"http://127.0.0.1:8080/p.tar", false, false}, {"http://127.0.0.1:8080/p.tar", true, true}, {"file:///tmp/p.tar", true, false}, {"https://user:secret@example.org/p.tar", false, false}} {
+			r := release()
+			r.Artifact = tc.artifact
+			r.Channel = "development"
+			server := library(func(w http.ResponseWriter, _ *http.Request) { _ = WriteIndex(w, []Release{r}) })
+			s := setup()
+			Expect(s.Save(ctx, admin, Source{ID: "test", Name: "Test", URL: server.URL, Enabled: true, AllowLoopbackHTTP: tc.allow})).To(Succeed())
+			_, e := s.Refresh(ctx, "test")
+			if !tc.valid {
+				Expect(e).To(HaveOccurred())
+				continue
+			}
+			Expect(e).NotTo(HaveOccurred())
+			c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+			got, e := c.Resolve(ctx, "test", "tables", "development")
+			Expect(e).NotTo(HaveOccurred())
+			Expect(got.Channel).To(Equal("development"))
+			Expect(got.Selection).To(Equal("development"))
+			Expect(got.Version).To(Equal("1.0.0"))
+			Expect(got.Digest).To(Equal(r.Digest))
+		}
+	})
+})
+
+var _ = Describe("catalog display metadata", func() {
+	entries := func(mutate func(*Release)) []Release {
+		plain := release()
+		app := release()
+		app.ID, app.Name = "notes", "Notes"
+		app.UI = EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}
+		if mutate != nil {
+			mutate(&app)
+		}
+		return []Release{plain, app}
+	}
+	refresh := func(releases []Release) (Catalog, error) {
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, releases) })
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}, e
+	}
+	It("surfaces optional UI metadata in search results and resolutions without changing plain entries", func() {
+		c, e := refresh(entries(nil))
+		Expect(e).NotTo(HaveOccurred())
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(HaveLen(2))
+		byID := map[string]Release{}
+		for _, r := range page.Releases {
+			byID[r.ID] = r
+		}
+		Expect(byID["tables"].UI).To(Equal(EntryUI{}))
+		Expect(byID["notes"].UI).To(Equal(EntryUI{Title: "Notes", Description: "Keep notes.", MainPage: "home", Icon: "ui/icon.png", LaunchMode: "always"}))
+		r, e := c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r.UI).To(Equal(byID["notes"].UI))
+		// A plain entry keeps its wire form: no empty ui object appears.
+		b, e := json.Marshal(byID["tables"])
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(b)).NotTo(ContainSubstring(`"ui"`))
+	})
+	It("rejects entries with remote icons, reserved launch modes, markup or overlong display text", func() {
+		for name, mutate := range map[string]func(*Release){
+			"https icon":     func(r *Release) { r.UI.Icon = "https://cdn.example/i.png" },
+			"scheme-less":    func(r *Release) { r.UI.Icon = "//cdn.example/i.png" },
+			"data icon":      func(r *Release) { r.UI.Icon = "data:image/png;base64,AAAA" },
+			"absolute icon":  func(r *Release) { r.UI.Icon = "/etc/passwd.png" },
+			"traversal icon": func(r *Release) { r.UI.Icon = "../i.png" },
+			"svg icon":       func(r *Release) { r.UI.Icon = "ui/icon.svg" },
+			"on-demand":      func(r *Release) { r.UI.LaunchMode = "on-demand" },
+			"unknown mode":   func(r *Release) { r.UI.LaunchMode = "sometimes" },
+			"markup title":   func(r *Release) { r.UI.Title = "<img src=x onerror=alert(1)>" },
+			"long title":     func(r *Release) { r.UI.Title = strings.Repeat("t", 81) },
+			"long text":      func(r *Release) { r.UI.Description = strings.Repeat("d", 281) },
+			"control text":   func(r *Release) { r.UI.Description = "a\nb" },
+			"bad main page":  func(r *Release) { r.UI.MainPage = "../home" },
+		} {
+			_, e := refresh(entries(mutate))
+			Expect(e).To(MatchError(ErrRefresh), name)
+		}
+		// One bad entry never leaves the others served as if it were fine.
+		c, e := refresh(entries(func(r *Release) { r.UI.Icon = "https://cdn.example/i.png" }))
+		Expect(e).To(HaveOccurred())
+		_, e = c.Search(ctx, Query{})
+		Expect(e).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("catalog translations", func() {
+	translated := func(mutate func(*Release)) []Release {
+		app := release()
+		app.ID, app.Name = "notes", "Notes"
+		app.UI = EntryUI{
+			Title: "Notes", Description: "Keep notes.", MainPage: "home",
+			Titles:       map[string]string{"it": "Appunti", "pt-BR": "Anotações"},
+			Descriptions: map[string]string{"it": "Tieni degli appunti.", "pt-BR": "Guarde anotações."},
+		}
+		if mutate != nil {
+			mutate(&app)
+		}
+		return []Release{app}
+	}
+	refresh := func(releases []Release) (Catalog, error) {
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, releases) })
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}, e
+	}
+	It("carries the translated title and description of an entry through the library", func() {
+		c, e := refresh(translated(nil))
+		Expect(e).NotTo(HaveOccurred())
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases[0].UI.Titles).To(Equal(map[string]string{"it": "Appunti", "pt-BR": "Anotações"}))
+		Expect(page.Releases[0].UI.Descriptions["it"]).To(Equal("Tieni degli appunti."))
+		r, e := c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r.UI.Titles).To(Equal(page.Releases[0].UI.Titles))
+	})
+	It("finds an entry by its translated text as well as by the English text", func() {
+		c, e := refresh(translated(nil))
+		Expect(e).NotTo(HaveOccurred())
+		for _, text := range []string{"notes", "appunti", "ANOTAÇÕES", "tieni degli"} {
+			page, e := c.Search(ctx, Query{Text: text})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1), text)
+		}
+		page, e := c.Search(ctx, Query{Text: "tabelle"})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(BeEmpty())
+	})
+	It("keeps a plain entry free of translation fields on the wire", func() {
+		c, e := refresh(translated(func(r *Release) { r.UI.Titles, r.UI.Descriptions = nil, nil }))
+		Expect(e).NotTo(HaveOccurred())
+		page, _ := c.Search(ctx, Query{})
+		b, _ := json.Marshal(page.Releases[0])
+		Expect(string(b)).NotTo(ContainSubstring("titles"))
+		Expect(string(b)).NotTo(ContainSubstring("descriptions"))
+	})
+	It("rejects translations that the manifest would refuse", func() {
+		many := map[string]string{}
+		for i := 0; i < contract.MaxLanguages+1; i++ {
+			many[string(rune('a'+i%26))+string(rune('b'+i/26))+"-US"] = "x"
+		}
+		for name, mutate := range map[string]func(*Release){
+			"English entry":    func(r *Release) { r.UI.Titles["en"] = "Notes" },
+			"bad tag":          func(r *Release) { r.UI.Titles["not a tag"] = "x" },
+			"underscore tag":   func(r *Release) { r.UI.Titles["pt_BR"] = "x" },
+			"tag case clash":   func(r *Release) { r.UI.Titles["PT-br"] = "x" },
+			"markup":           func(r *Release) { r.UI.Titles["it"] = "<b>Appunti</b>" },
+			"control":          func(r *Release) { r.UI.Descriptions["it"] = "a\nb" },
+			"empty":            func(r *Release) { r.UI.Titles["it"] = "" },
+			"long title":       func(r *Release) { r.UI.Titles["it"] = strings.Repeat("t", 81) },
+			"long description": func(r *Release) { r.UI.Descriptions["it"] = strings.Repeat("d", 281) },
+			"too many":         func(r *Release) { r.UI.Titles = many },
+			"bidi override":    func(r *Release) { r.UI.Titles["it"] = "A\u202eB" },
+		} {
+			_, e := refresh(translated(mutate))
+			Expect(e).To(MatchError(ErrRefresh), name)
+		}
+	})
+})
