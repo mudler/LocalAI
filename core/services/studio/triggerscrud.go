@@ -2,6 +2,8 @@ package studio
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"slices"
@@ -53,7 +55,7 @@ type TriggerInput struct {
 	// names one. SourceChatID is the chat the trigger was made from.
 	AgentID, Model, SourceChatID string
 	Enabled                      bool
-	// MinGap is the shortest time between two runs of a file trigger; zero
+	// MinGap is the shortest time between two runs of a file or event trigger; zero
 	// is the default of one minute.
 	MinGap time.Duration
 	// The plan of a run (see triggers.Trigger): what it reads, the file it
@@ -69,6 +71,21 @@ type TriggerInput struct {
 	// what the trigger has; an empty list takes everything away. Only a
 	// person sets them: a model's proposal never carries acts.
 	Acts []string
+	// Source, EventType and Matches are for an event trigger (see
+	// triggers.Trigger). The secret is not an input: the host makes it.
+	Source, EventType string
+	Matches           []string
+}
+
+// newEventSecret makes the secret of an event trigger: 32 random bytes as
+// unpadded base64url. Every path that creates an event trigger, from the API or
+// from a confirmed proposal, takes its secret from here.
+func newEventSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic("studio: no random bytes: " + err.Error()) // rand.Read does not fail on a supported platform
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // keepPlan fills the fields of the plan and the gap that in leaves empty from
@@ -102,6 +119,10 @@ func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
 // a shorter gap is refused. A trigger saved before this floor with a shorter
 // gap keeps running; only a new save is checked (see checkCadence).
 const MinCadence = 5 * time.Minute
+
+// errEventFromChat refuses an event trigger that a chat of a messaging app
+// would make: its secret is shown once, and nobody would see it.
+var errEventFromChat = fmt.Errorf("%w: an event trigger has a secret that is shown only once, so a chat of a messaging app cannot make it; create it in Studio", ErrBadTrigger)
 
 func bad(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrBadTrigger, fmt.Sprintf(format, args...))
@@ -164,7 +185,8 @@ func countLive(ts []triggers.Trigger) int {
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, RunLimit: in.RunLimit, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
-		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
+		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route,
+		Source: strings.TrimSpace(in.Source), EventType: strings.TrimSpace(in.EventType), Matches: in.Matches}
 	acts, err := cleanActs(in.Acts)
 	if err != nil {
 		return t, err
@@ -289,6 +311,9 @@ func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInp
 		return triggers.Trigger{}, h.errTooMany()
 	}
 	t.ID = newID()
+	if t.Kind == triggers.KindEvent {
+		t.Secret = newEventSecret()
+	}
 	t = triggers.Arm(nil, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
@@ -323,6 +348,13 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 		}
 	}
 	t.ID, t.Route = old.ID, old.Route
+	// The client never sends the secret: an event trigger keeps its own, and
+	// one that becomes an event trigger gets a new one (see RotateSecret).
+	if t.Kind == triggers.KindEvent {
+		if t.Secret = old.Secret; old.Kind != triggers.KindEvent || t.Secret == "" {
+			t.Secret = newEventSecret()
+		}
+	}
 	// The answer to the proposal stays, and the edit is the reason the card
 	// can no longer undo it.
 	t.Outcome, t.OutcomeAt, t.Touched = old.Outcome, old.OutcomeAt, old.Touched || old.Outcome != ""
@@ -332,6 +364,26 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	}
 	h.Notify()
 	return t, nil
+}
+
+// RotateSecret makes a new secret for an event trigger of the user and returns
+// it. The old secret stops working at once: the hook reads the stored one.
+func (h *Triggers) RotateSecret(ctx context.Context, user, id string) (string, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	t, err := h.owned(ctx, user, id)
+	if err != nil {
+		return "", err
+	}
+	if t.Kind != triggers.KindEvent {
+		return "", bad("only an event trigger has a secret")
+	}
+	t.Secret = newEventSecret()
+	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		return "", err
+	}
+	h.Notify()
+	return t.Secret, nil
 }
 
 // SetTriggerEnabled switches a trigger on or off.
@@ -445,6 +497,9 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 	owner := principal(user)
 	in.Enabled = false
 	now := h.o.Clock()
+	if in.Kind == triggers.KindEvent && in.Route.FromConnector() {
+		return triggers.Trigger{}, false, errEventFromChat
+	}
 	if in.Route.FromConnector() {
 		in.Route.ProposedAt, in.Route.Expires = now.UTC(), now.UTC().Add(ProposalTTL)
 		in.Route.Code = ""
@@ -473,7 +528,7 @@ func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (t
 		// A model that proposes the same thing again, in this chat or the next,
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
-			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
+			m.TZ == t.TZ && m.Folder == t.Folder && m.Source == t.Source && m.EventType == t.EventType && slices.Equal(m.Matches, t.Matches) && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) &&
 			((m.Route.FromConnector() && t.Route.FromConnector()) || deliveryKey(m) == deliveryKey(t)) {
 			return m, false, nil
 		}
@@ -583,6 +638,10 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	if old.Kind == triggers.KindEvent && old.Route.FromConnector() {
+		// Also the way an answer in a chat and an automatic setup confirm.
+		return triggers.Trigger{}, errEventFromChat
+	}
 	t := old
 	if t.Kind == triggers.KindSchedule && t.TZ == "" {
 		t.TZ = tz
@@ -614,6 +673,11 @@ func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*t
 		if n, err := h.svc.d.Files.Store().Stat(ctx, agentReader(t.Owner, scope), t.Folder); err != nil || n.Kind != workspace.KindDir {
 			return triggers.Trigger{}, bad("the folder does not exist in your files any more")
 		}
+	}
+	if t.Kind == triggers.KindEvent {
+		// The proposal never had a secret; the one made here is returned once
+		// to the person who confirms, and is kept only in the trigger.
+		t.Secret = newEventSecret()
 	}
 	t = triggers.Arm(nil, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {

@@ -1,0 +1,11 @@
+/* The address and the secret of an event trigger: what the owner pastes into the sender. */
+.cx-hook { display: grid; gap: 6px; margin-top: 8px; min-width: 0; }
+.cx-hook__label { margin: 4px 0 0; font-size: var(--text-xs); color: var(--dk-muted); }
+.cx-hook__secret { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--dk-radius-2); background: var(--dk-warn-wash); }
+.cx-hook__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.cx-hook__text { flex: 1 1 220px; min-width: 0; margin: 0; padding: 6px 10px; border-radius: var(--dk-radius-1); background: var(--dk-inset); color: var(--dk-text); font-family: var(--font-mono); font-size: var(--text-xs); line-height: 1.5; overflow-wrap: anywhere; user-select: all; }
+.cx-hook__row--block .cx-hook__text { overflow-x: auto; overflow-wrap: normal; white-space: pre; user-select: text; }
+.cx-hook__row--block .cx-hook__text code { font: inherit; }
+.cx-hook__note { margin: 2px 0 0; font-size: var(--text-xs); color: var(--dk-muted); }
+.cx-hook__note--err { color: var(--dk-error-text); }
+.cx-hook__acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }

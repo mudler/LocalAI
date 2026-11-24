@@ -59,6 +59,10 @@ type Handlers struct {
 	oauth OAuthConfig
 	// userExists says whether a user id names a known user (see WithUserLookup).
 	userExists func(ctx context.Context, id string) (bool, error)
+	// hooks limits the calls of the public trigger hook.
+	hooks hookLimiter
+	// clock is the time of the trigger hook; nil is the wall clock.
+	clock func() time.Time
 }
 
 // New returns the handlers. A nil models skips the model check.
@@ -80,6 +84,12 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 // without it every such user is unknown.
 func WithUserLookup(exists func(ctx context.Context, id string) (bool, error)) HandlerOption {
 	return func(h *Handlers) { h.userExists = exists }
+}
+
+// WithClock sets the clock that the trigger hook reads, for a spec that moves
+// time. Without it the hook uses the wall clock.
+func WithClock(now func() time.Time) HandlerOption {
+	return func(h *Handlers) { h.clock = now }
 }
 
 // maxAttachBytes caps one message with its attachments. It applies when the

@@ -47,6 +47,11 @@ export function proposalEdit(p, { name, when }) {
   if (p.kind === 'file') {
     body.folder = when.trim()
     if (p.quiet_seconds) body.quiet_seconds = p.quiet_seconds
+  } else if (p.kind === 'event') {
+    // The card edits the name only; what the trigger listens for is sent back as it is.
+    body.source = p.source || ''
+    body.event_type = p.event_type || ''
+    body.matches = p.matches || []
   } else {
     body.schedule = when.trim()
     if (p.time_zone) body.time_zone = p.time_zone

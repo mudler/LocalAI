@@ -269,6 +269,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/changes/:id/undo", h.UndoChange)
 	e.GET(base+"/triggers", h.ListTriggers)
 	e.POST(base+"/triggers", h.CreateTrigger)
+	// Public: the secret of the trigger is the credential (see auth.isEventHookPath).
+	e.POST(base+"/triggers/:id/hook", h.TriggerHook)
 	e.GET(base+"/triggers/preview", h.PreviewTrigger)
 	e.GET(base+"/triggers/proposals", h.ListTriggerProposals)
 	e.GET(base+"/triggers/proposals/:id", h.GetTriggerProposal)
@@ -285,6 +287,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/triggers/:id", h.UpdateTrigger)
 	e.DELETE(base+"/triggers/:id", h.DeleteTrigger)
 	e.POST(base+"/triggers/:id/run", h.RunTrigger)
+	e.POST(base+"/triggers/:id/secret", h.RotateTriggerSecret)
 	e.POST(base+"/triggers/:id/enable", h.EnableTrigger)
 	e.POST(base+"/triggers/:id/disable", h.DisableTrigger)
 	e.GET(base+"/triggers/:id/runs", h.TriggerRuns)

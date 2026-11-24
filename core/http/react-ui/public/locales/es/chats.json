@@ -1552,7 +1552,10 @@
     "mcp": "Servidores MCP"
   },
   "triggersPage": {
-    "runLimit": "Límite de tiempo de una ejecución"
+    "runLimit": "Límite de tiempo de una ejecución",
+    "presets": {
+      "event": "Cuando llega un evento"
+    }
   },
   "sandboxProfile": {
     "label": "Perfil de sandbox",
@@ -1627,6 +1630,46 @@
       "title": "El tamaño de contexto de este chat es demasiado pequeño",
       "reason": "El ajuste de este chat es de {{window}} tokens y el chat necesita al menos {{minimum}}.",
       "fix": "Usar la ventana del modelo"
+    }
+  },
+  "event": {
+    "listening": "A la escucha:",
+    "announceAccepted": "Creado {{name}}. Copia ahora su secreto: se muestra una sola vez.",
+    "sentence": {
+      "typed": "Cuando {{source}} envía {{type}}",
+      "any": "Cuando {{source}} envía cualquier evento",
+      "where": " donde {{matches}}",
+      "and": " y "
+    },
+    "hook": {
+      "title": "Dirección del hook y secreto",
+      "urlLabel": "URL del hook",
+      "secretLabel": "Secreto (se muestra una vez)",
+      "curlLabel": "Llamada de ejemplo",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyUrl": "Copiar la URL del hook",
+      "copySecret": "Copiar el secreto",
+      "copyCurl": "Copiar la llamada de ejemplo",
+      "paste": "Pega la URL y el secreto en la configuración de webhook del remitente. El secreto no se vuelve a mostrar.",
+      "noSecret": "El secreto no se vuelve a mostrar. Rótalo para obtener uno nuevo.",
+      "rotate": "Rotar secreto",
+      "rotateTitle": "¿Rotar el secreto de {{name}}?",
+      "rotateBody": "El secreto anterior deja de funcionar de inmediato. Pon el nuevo en el remitente antes de su próximo evento.",
+      "rotateConfirm": "Rotar",
+      "rotated": "Secreto nuevo creado.",
+      "rotateFailed": "No se pudo rotar el secreto: {{message}}"
+    },
+    "form": {
+      "source": "Remitente",
+      "sourceHint": "El nombre del remitente, por ejemplo github.",
+      "sourceEmpty": "Indica el remitente de los eventos.",
+      "type": "Tipo de evento",
+      "typeHint": "Déjalo vacío para aceptar cualquier tipo de evento.",
+      "matches": "Solo cuando (un campo=valor por línea)",
+      "matchesHint": "Hasta 8 líneas, por ejemplo action=opened.",
+      "createdTitle": "{{name}} está listo",
+      "done": "Hecho"
     }
   }
 }

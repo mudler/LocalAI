@@ -502,6 +502,15 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 		case err == nil && (n >= r.o.MaxRunning || busy[run.TriggerID]):
 			continue
 		case err == nil:
+			if strings.HasPrefix(run.DueKey, EventPrefix) {
+				var held bool
+				if held, err = r.gapHolds(ctx, t, run, now); err != nil {
+					return err
+				}
+				if held {
+					continue
+				}
+			}
 			var started bool
 			started, err = r.begin(ctx, t, run, now)
 			if started { // a failed start leaves its slot free for the next run
@@ -514,6 +523,16 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 		}
 	}
 	return nil
+}
+
+// gapHolds tells whether an event run must wait for the gap of its trigger:
+// the previous run of the trigger started less than the gap ago.
+func (r *Runner) gapHolds(ctx context.Context, t Trigger, run Run, now time.Time) (bool, error) {
+	last, err := r.o.Store.LastStarted(ctx, t.ID)
+	if err != nil {
+		return false, err
+	}
+	return !last.IsZero() && now.Before(last.Add(t.GapOrDefault())), nil
 }
 
 // ManualPrefix starts the DueKey of a run that RunNow made. A host that cannot
@@ -748,3 +767,130 @@ func (r *Runner) Cancel(ctx context.Context, triggerID string) error {
 // ErrStopped is returned by Sync and RunNow once Run has returned: a stopped
 // Runner starts nothing.
 var ErrStopped = errors.New("triggers: the Runner has stopped")
+
+// EventPrefix starts the DueKey of a run that an event made: "event@" and the
+// dedupe key of the event.
+const EventPrefix = "event@"
+
+// ErrNotEnabled is returned by Fire for a trigger that is switched off or is
+// not an event trigger. A host answers it like an unknown trigger.
+var ErrNotEnabled = errors.New("triggers: not an enabled event trigger")
+
+// ErrNoMatch is returned by Fire for an event that the trigger does not take.
+var ErrNoMatch = errors.New("triggers: the event does not match")
+
+// ReasonMerged is the reason of the row that records an event that was merged
+// into a queued run. The row keeps the dedupe key, so that a repeat of the
+// event does nothing.
+const ReasonMerged = "merged into a waiting run"
+
+// Fire turns an event into a run of an event trigger. The run is queued, or
+// skipped by the daily limit, and starts when a slot is free and the gap of the
+// trigger since the previous start has passed. The same DedupeKey gives the
+// run that the first call made, and makes no new one. An event that arrives
+// while a run of the trigger is queued and not started merges into that run
+// (see MergePayload); one that arrives while the run is going makes a new
+// queued run. It returns ErrNotFound for an unknown trigger, ErrNotEnabled for
+// a trigger that is off or of another kind, and ErrNoMatch, with nothing
+// claimed, for an event that the trigger does not take.
+func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, error) {
+	return r.fire(ctx, triggerID, ev, true)
+}
+
+// FireQueued does what Fire does (the same checks, merge and admission) but
+// starts no run on this host: a run it claims stays queued, and the leader's
+// pass starts it. A frontend that does not lead calls it. It does not run the
+// recovery of the runs that were going (see Sync), which belongs to the leader.
+func (r *Runner) FireQueued(ctx context.Context, triggerID string, ev Event) (Run, error) {
+	return r.fire(ctx, triggerID, ev, false)
+}
+
+func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start bool) (Run, error) {
+	if ev.DedupeKey == "" {
+		return Run{}, errors.New("triggers: an event needs a dedupe key")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.stopped() {
+		return Run{}, ErrStopped
+	}
+	now := r.o.Clock()
+	// Recovery marks the runs that are not live on this host as interrupted;
+	// only the host that starts runs may do that. A queue-only call must not,
+	// or a replica that does not lead would fail the leader's runs.
+	if start {
+		if err := r.ensureRecovered(ctx, now); err != nil {
+			return Run{}, err
+		}
+	}
+	t, err := r.o.Store.GetTrigger(ctx, triggerID)
+	if err != nil {
+		return Run{}, err
+	}
+	if t.Kind != KindEvent || !t.Enabled {
+		return Run{}, ErrNotEnabled
+	}
+	if !t.MatchesEvent(ev) {
+		return Run{}, ErrNoMatch
+	}
+	key := EventPrefix + ev.DedupeKey
+	payload := TrimPayload(ev.Payload, MaxPayloadBytes)
+	queued, err := r.o.Store.QueuedRuns(ctx)
+	if err != nil {
+		return Run{}, err
+	}
+	for _, q := range queued {
+		if q.TriggerID != t.ID || !strings.HasPrefix(q.DueKey, EventPrefix) {
+			continue
+		}
+		if dup, err := r.eventRun(ctx, t.ID, key); err == nil {
+			return dup, nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return Run{}, err
+		}
+		// Append first: when the run has started meanwhile, the event goes to
+		// a new run below and its key is still free.
+		err := r.o.Store.AppendRunPayload(ctx, q.ID, payload, KeepMergedPayloads)
+		if errors.Is(err, ErrNotFound) {
+			break
+		}
+		if err != nil {
+			return Run{}, err
+		}
+		marker := Run{ID: newID(), TriggerID: t.ID, DueKey: key, Due: now.UTC(), Status: StatusSkipped, Reason: ReasonMerged, Ended: now.UTC()}
+		if _, err := r.o.Store.Claim(ctx, marker); err != nil {
+			return Run{}, err
+		}
+		return r.o.Store.GetRun(ctx, q.ID)
+	}
+	run := Run{ID: newID(), TriggerID: t.ID, DueKey: key, Due: now.UTC(), Payload: payload}
+	if err := r.admit(ctx, t, &run, now, false, false); err != nil {
+		return Run{}, err
+	}
+	if run.Status != StatusQueued {
+		// A skipped run needs no payload, and finished runs stay for a day
+		// or more, so keeping it would store every flood call in full.
+		run.Payload = ""
+	}
+	claimed, err := r.o.Store.Claim(ctx, run)
+	if err != nil {
+		return Run{}, err
+	}
+	if !claimed {
+		return r.eventRun(ctx, t.ID, key)
+	}
+	if run.Status.Final() {
+		r.prune(ctx, t.ID, now)
+	}
+	if start {
+		if err := r.startQueued(ctx, now); err != nil {
+			return Run{}, err
+		}
+	}
+	return r.o.Store.GetRun(ctx, run.ID)
+}
+
+// eventRun returns the run that holds a DueKey of a trigger.
+func (r *Runner) eventRun(ctx context.Context, triggerID, key string) (Run, error) {
+	return r.o.Store.RunByKey(ctx, triggerID, key)
+}

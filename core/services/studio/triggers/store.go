@@ -62,6 +62,10 @@ type Store interface {
 	// error, and stores nothing, when only the ID is taken.
 	// Two concurrent calls with the same key return true once.
 	Claim(ctx context.Context, r Run) (bool, error)
+	// AppendRunPayload merges payload into the Payload of the run with the ID,
+	// as MergePayload does with keep. It does so only while the run is queued
+	// and returns ErrNotFound for an unknown run or one that is not queued.
+	AppendRunPayload(ctx context.Context, runID, payload string, keep int) error
 	// GetRun returns ErrNotFound for an unknown ID.
 	GetRun(ctx context.Context, id string) (Run, error)
 	// SetRunStatus replaces Status, Reason, ChatID, Started and Ended of the
@@ -79,8 +83,14 @@ type Store interface {
 	RunningRuns(ctx context.Context) ([]Run, error)
 	// QueuedRuns returns every run with the status queued, oldest claim first.
 	QueuedRuns(ctx context.Context) ([]Run, error)
+	// RunByKey returns the run of a trigger that holds the DueKey, or
+	// ErrNotFound.
+	RunByKey(ctx context.Context, triggerID, dueKey string) (Run, error)
 	// RunByChat returns the run that started the chat, or ErrNotFound.
 	RunByChat(ctx context.Context, chatID string) (Run, error)
+	// LastStarted returns the newest Started time of the runs of a trigger, or
+	// the zero time when none started.
+	LastStarted(ctx context.Context, triggerID string) (time.Time, error)
 	// CountRunsSince counts the runs of a trigger whose Due is not before since
 	// and whose status is not skipped.
 	CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error)

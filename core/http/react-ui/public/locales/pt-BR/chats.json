@@ -1552,7 +1552,10 @@
     "mcp": "Servidores MCP"
   },
   "triggersPage": {
-    "runLimit": "Limite de tempo de uma execução"
+    "runLimit": "Limite de tempo de uma execução",
+    "presets": {
+      "event": "Quando um evento chega"
+    }
   },
   "sandboxProfile": {
     "label": "Perfil de sandbox",
@@ -1627,6 +1630,46 @@
       "title": "O tamanho de contexto deste chat é pequeno demais",
       "reason": "A configuração deste chat é de {{window}} tokens e o chat precisa de pelo menos {{minimum}}.",
       "fix": "Usar a janela do modelo"
+    }
+  },
+  "event": {
+    "listening": "Escutando:",
+    "announceAccepted": "{{name}} foi criado. Copie o segredo agora: ele é mostrado uma única vez.",
+    "sentence": {
+      "typed": "Quando {{source}} envia {{type}}",
+      "any": "Quando {{source}} envia qualquer evento",
+      "where": " onde {{matches}}",
+      "and": " e "
+    },
+    "hook": {
+      "title": "Endereço do hook e segredo",
+      "urlLabel": "URL do hook",
+      "secretLabel": "Segredo (mostrado uma vez)",
+      "curlLabel": "Chamada de exemplo",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copyUrl": "Copiar a URL do hook",
+      "copySecret": "Copiar o segredo",
+      "copyCurl": "Copiar a chamada de exemplo",
+      "paste": "Cole a URL e o segredo nas configurações de webhook do remetente. O segredo não é mostrado de novo.",
+      "noSecret": "O segredo não é mostrado de novo. Gere um novo para obter outro.",
+      "rotate": "Girar segredo",
+      "rotateTitle": "Girar o segredo de {{name}}?",
+      "rotateBody": "O segredo antigo deixa de funcionar na hora. Coloque o novo no remetente antes do próximo evento.",
+      "rotateConfirm": "Girar",
+      "rotated": "Novo segredo criado.",
+      "rotateFailed": "Não foi possível girar o segredo: {{message}}"
+    },
+    "form": {
+      "source": "Remetente",
+      "sourceHint": "O nome do remetente, por exemplo github.",
+      "sourceEmpty": "Informe o remetente dos eventos.",
+      "type": "Tipo de evento",
+      "typeHint": "Deixe vazio para aceitar qualquer tipo de evento.",
+      "matches": "Somente quando (um campo=valor por linha)",
+      "matchesHint": "Até 8 linhas, por exemplo action=opened.",
+      "createdTitle": "{{name}} está pronto",
+      "done": "Concluído"
     }
   }
 }

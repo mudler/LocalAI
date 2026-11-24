@@ -1552,7 +1552,10 @@
     "mcp": "Serveurs MCP"
   },
   "triggersPage": {
-    "runLimit": "Durée maximale d'une exécution"
+    "runLimit": "Durée maximale d'une exécution",
+    "presets": {
+      "event": "Quand un événement arrive"
+    }
   },
   "sandboxProfile": {
     "label": "Profil de sandbox",
@@ -1627,6 +1630,46 @@
       "title": "La taille de contexte de ce chat est trop petite",
       "reason": "Le réglage de ce chat est de {{window}} jetons et le chat en demande au moins {{minimum}}.",
       "fix": "Utiliser la fenêtre du modèle"
+    }
+  },
+  "event": {
+    "listening": "À l'écoute :",
+    "announceAccepted": "{{name}} est créé. Copiez son secret maintenant : il n'est affiché qu'une fois.",
+    "sentence": {
+      "typed": "Quand {{source}} envoie {{type}}",
+      "any": "Quand {{source}} envoie n'importe quel événement",
+      "where": " où {{matches}}",
+      "and": " et "
+    },
+    "hook": {
+      "title": "Adresse du hook et secret",
+      "urlLabel": "URL du hook",
+      "secretLabel": "Secret (affiché une fois)",
+      "curlLabel": "Appel d'exemple",
+      "copy": "Copier",
+      "copied": "Copié",
+      "copyUrl": "Copier l'URL du hook",
+      "copySecret": "Copier le secret",
+      "copyCurl": "Copier l'appel d'exemple",
+      "paste": "Collez l'URL et le secret dans les réglages webhook de l'expéditeur. Le secret n'est plus affiché ensuite.",
+      "noSecret": "Le secret n'est plus affiché. Renouvelez-le pour en obtenir un nouveau.",
+      "rotate": "Renouveler le secret",
+      "rotateTitle": "Renouveler le secret de {{name}} ?",
+      "rotateBody": "L'ancien secret cesse de fonctionner tout de suite. Mettez le nouveau chez l'expéditeur avant son prochain événement.",
+      "rotateConfirm": "Renouveler",
+      "rotated": "Nouveau secret créé.",
+      "rotateFailed": "Le secret n'a pas pu être renouvelé : {{message}}"
+    },
+    "form": {
+      "source": "Expéditeur",
+      "sourceHint": "Le nom de l'expéditeur, par exemple github.",
+      "sourceEmpty": "Indiquez l'expéditeur des événements.",
+      "type": "Type d'événement",
+      "typeHint": "Laissez vide pour accepter tous les types d'événement.",
+      "matches": "Seulement quand (un champ=valeur par ligne)",
+      "matchesHint": "Jusqu'à 8 lignes, par exemple action=opened.",
+      "createdTitle": "{{name}} est prêt",
+      "done": "Terminé"
     }
   }
 }

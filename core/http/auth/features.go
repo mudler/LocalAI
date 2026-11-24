@@ -211,6 +211,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/chats/triggers/:id", FeatureTriggers},
 	{"DELETE", "/api/chats/triggers/:id", FeatureTriggers},
 	{"POST", "/api/chats/triggers/:id/run", FeatureTriggers},
+	{"POST", "/api/chats/triggers/:id/secret", FeatureTriggers},
 	{"POST", "/api/chats/triggers/:id/enable", FeatureTriggers},
 	{"POST", "/api/chats/triggers/:id/disable", FeatureTriggers},
 	{"GET", "/api/chats/triggers/:id/runs", FeatureTriggers},

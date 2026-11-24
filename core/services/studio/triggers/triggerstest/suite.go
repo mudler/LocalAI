@@ -2,6 +2,7 @@ package triggerstest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -45,6 +46,14 @@ func fileTrigger(id, owner string) triggers.Trigger {
 	}
 }
 
+func eventTrigger(id, owner string) triggers.Trigger {
+	return triggers.Trigger{
+		ID: id, Owner: owner, Name: "Events " + id, Prompt: "Review it.", Enabled: true, Kind: triggers.KindEvent,
+		Source: "github", EventType: "pull_request", Matches: []string{"action=opened", "pull_request.base.ref=main"},
+		Secret: "raw-secret-" + id, Since: base,
+	}
+}
+
 func run(id, trigger, key string, status triggers.Status) triggers.Run {
 	return triggers.Run{ID: id, TriggerID: trigger, DueKey: key, Due: base, Status: status}
 }
@@ -54,7 +63,8 @@ func same(a, b triggers.Trigger) bool {
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
 		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.RunLimit == b.RunLimit && a.Since.Equal(b.Since) &&
 		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
-		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change && sameRoute(a.Route, b.Route)
+		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Source == b.Source && a.EventType == b.EventType &&
+		slices.Equal(a.Matches, b.Matches) && a.Secret == b.Secret && a.Change == b.Change && sameRoute(a.Route, b.Route)
 }
 
 func sameRoute(a, b triggers.Route) bool {
@@ -65,7 +75,7 @@ func sameRoute(a, b triggers.Route) bool {
 func sameRun(a, b triggers.Run) bool {
 	return a.ID == b.ID && a.TriggerID == b.TriggerID && a.DueKey == b.DueKey && a.Due.Equal(b.Due) &&
 		a.Status == b.Status && a.Reason == b.Reason && a.ChatID == b.ChatID && a.File == b.File &&
-		a.Started.Equal(b.Started) && a.Ended.Equal(b.Ended)
+		a.Started.Equal(b.Started) && a.Ended.Equal(b.Ended) && a.Payload == b.Payload
 }
 
 // RunStoreSuite registers the specs that check a triggers.Store: triggers,
@@ -81,12 +91,86 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 	}
 	It("stores a trigger with every field", func() {
 		s := newStore()
-		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1")} {
+		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1"), eventTrigger("t3", "1")} {
 			Expect(s.PutTrigger(ctx, tr)).To(Succeed())
 			got, err := s.GetTrigger(ctx, tr.ID)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
+	})
+	It("stores matches that JSON escaping makes long", func() {
+		s := newStore()
+		tr := eventTrigger("e2", "1")
+		tr.Matches = nil
+		for range triggers.MaxMatches {
+			tr.Matches = append(tr.Matches, "f="+strings.Repeat("<", triggers.MaxEventField-2))
+		}
+		Expect(tr.Validate()).To(Succeed())
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
+		got, err := s.GetTrigger(ctx, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same(got, tr)).To(BeTrue())
+	})
+	It("stores a run with its payload", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("e1", "1"))).To(Succeed())
+		r := run("er1", "e1", "event@d1", triggers.StatusQueued)
+		r.Payload = `{"action":"opened"}`
+		ok, err := s.Claim(ctx, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		got, err := s.GetRun(ctx, "er1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Payload).To(Equal(r.Payload))
+		Expect(sameRun(got, r)).To(BeTrue())
+		r.Status = triggers.StatusDone
+		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
+		got, _ = s.GetRun(ctx, "er1")
+		Expect(got.Payload).To(Equal(r.Payload), "a status change keeps the payload")
+	})
+	It("appends a payload to a queued run only", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("e1", "1"))).To(Succeed())
+		r := run("ap1", "e1", "event@d1", triggers.StatusQueued)
+		r.Payload = `{"n":0}`
+		_, err := s.Claim(ctx, r)
+		Expect(err).NotTo(HaveOccurred())
+		for i := 1; i <= 10; i++ {
+			Expect(s.AppendRunPayload(ctx, "ap1", fmt.Sprintf(`{"n":%d}`, i), 8)).To(Succeed())
+		}
+		got, err := s.GetRun(ctx, "ap1")
+		Expect(err).NotTo(HaveOccurred())
+		var items []json.RawMessage
+		Expect(json.Unmarshal([]byte(got.Payload), &items)).To(Succeed())
+		Expect(items).To(HaveLen(9), "the count and 8 payloads")
+		Expect(string(items[0])).To(Equal(`{"dropped":3}`))
+		Expect(string(items[1])).To(Equal(`{"n":3}`))
+		Expect(string(items[8])).To(Equal(`{"n":10}`))
+		Expect(len(got.Payload)).To(BeNumerically("<=", triggers.MaxPayloadBytes))
+		Expect(got.Status).To(Equal(triggers.StatusQueued))
+
+		r.Status = triggers.StatusRunning
+		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
+		Expect(s.AppendRunPayload(ctx, "ap1", `{"n":11}`, 8)).To(MatchError(triggers.ErrNotFound), "a running run")
+		Expect(s.AppendRunPayload(ctx, "nope", `{}`, 8)).To(MatchError(triggers.ErrNotFound), "an unknown run")
+	})
+	It("reports the newest start of a trigger", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, eventTrigger("ls", "1"))).To(Succeed())
+		got, err := s.LastStarted(ctx, "ls")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.IsZero()).To(BeTrue())
+		for i, st := range []time.Duration{time.Hour, 3 * time.Hour, 2 * time.Hour} {
+			r := run(fmt.Sprintf("ls%d", i), "ls", fmt.Sprintf("k%d", i), triggers.StatusDone)
+			r.Started = base.Add(st)
+			_, err := s.Claim(ctx, r)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		_, err = s.Claim(ctx, run("ls9", "ls", "k9", triggers.StatusSkipped)) // newest claim, never started
+		Expect(err).NotTo(HaveOccurred())
+		got, err = s.LastStarted(ctx, "ls")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Equal(base.Add(3*time.Hour))).To(BeTrue(), "got %v", got)
 	})
 	It("stores the connector place and the delivery of a trigger", func() {
 		s := newStore()
@@ -433,6 +517,21 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		}
 		wg.Wait()
 		Expect(wins.Load()).To(Equal(int32(workers)), "claims won")
+	})
+	It("finds a run by trigger and due key", func() {
+		s := newStore()
+		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone))
+		_, _ = s.Claim(ctx, run("r2", "t2", "k1", triggers.StatusQueued))
+		got, err := s.RunByKey(ctx, "t1", "k1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("r1"), "RunByKey of t1")
+		got, err = s.RunByKey(ctx, "t2", "k1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("r2"), "RunByKey of t2 with the same key")
+		_, err = s.RunByKey(ctx, "t1", "k2")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByKey of an unknown key")
+		_, err = s.RunByKey(ctx, "t3", "k1")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByKey of an unknown trigger")
 	})
 	It("ignores runs without a chat in RunByChat", func() {
 		s := newStore()

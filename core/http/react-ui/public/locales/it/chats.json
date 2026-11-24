@@ -1552,7 +1552,10 @@
     "mcp": "Server MCP"
   },
   "triggersPage": {
-    "runLimit": "Limite di tempo di un'esecuzione"
+    "runLimit": "Limite di tempo di un'esecuzione",
+    "presets": {
+      "event": "Quando arriva un evento"
+    }
   },
   "sandboxProfile": {
     "label": "Profilo sandbox",
@@ -1627,6 +1630,46 @@
       "title": "La dimensione del contesto di questa chat è troppo piccola",
       "reason": "L'impostazione di questa chat è di {{window}} token e la chat ne richiede almeno {{minimum}}.",
       "fix": "Usa la finestra del modello"
+    }
+  },
+  "event": {
+    "listening": "In ascolto:",
+    "announceAccepted": "Creato {{name}}. Copia subito il suo segreto: viene mostrato una volta sola.",
+    "sentence": {
+      "typed": "Quando {{source}} invia {{type}}",
+      "any": "Quando {{source}} invia un evento qualsiasi",
+      "where": " dove {{matches}}",
+      "and": " e "
+    },
+    "hook": {
+      "title": "Indirizzo dell'hook e segreto",
+      "urlLabel": "URL dell'hook",
+      "secretLabel": "Segreto (mostrato una volta)",
+      "curlLabel": "Chiamata di esempio",
+      "copy": "Copia",
+      "copied": "Copiato",
+      "copyUrl": "Copia l'URL dell'hook",
+      "copySecret": "Copia il segreto",
+      "copyCurl": "Copia la chiamata di esempio",
+      "paste": "Incolla l'URL e il segreto nelle impostazioni webhook del mittente. Il segreto non viene mostrato di nuovo.",
+      "noSecret": "Il segreto non viene mostrato di nuovo. Ruotalo per averne uno nuovo.",
+      "rotate": "Ruota il segreto",
+      "rotateTitle": "Ruotare il segreto di {{name}}?",
+      "rotateBody": "Il vecchio segreto smette di funzionare subito. Inserisci il nuovo nel mittente prima del prossimo evento.",
+      "rotateConfirm": "Ruota",
+      "rotated": "Nuovo segreto creato.",
+      "rotateFailed": "Non è stato possibile ruotare il segreto: {{message}}"
+    },
+    "form": {
+      "source": "Mittente",
+      "sourceHint": "Il nome del mittente, per esempio github.",
+      "sourceEmpty": "Indica il mittente degli eventi.",
+      "type": "Tipo di evento",
+      "typeHint": "Lascia vuoto per accettare ogni tipo di evento.",
+      "matches": "Solo quando (un campo=valore per riga)",
+      "matchesHint": "Fino a 8 righe, per esempio action=opened.",
+      "createdTitle": "{{name}} è pronto",
+      "done": "Fatto"
     }
   }
 }

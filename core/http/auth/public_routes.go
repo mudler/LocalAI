@@ -5,6 +5,8 @@ package auth
 import (
 	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
 type publicRouteRule struct {
@@ -74,7 +76,45 @@ var publicRouteRegistry = []publicRouteRule{
 	{Method: http.MethodGet, Path: "/branding/asset/", Prefix: true},
 }
 
+// eventHookPrefix is the start of the hook path of an event trigger.
+const eventHookPrefix = "/api/chats/triggers/"
+
+// isEventHookPath tells whether path is exactly <prefix><id>/hook, with one
+// segment for the id. The hook of an event trigger is public because its
+// caller is a service with no session; the handler checks the secret of the
+// trigger. It is no prefix rule, so no other route under the triggers path
+// becomes public.
+func isEventHookPath(path string) bool {
+	rest, ok := strings.CutPrefix(path, eventHookPrefix)
+	if !ok {
+		return false
+	}
+	id, last, ok := strings.Cut(rest, "/")
+	return ok && id != "" && last == "hook"
+}
+
+// eventHookRoute is the route pattern of that hook as the studio registers it.
+const eventHookRoute = eventHookPrefix + ":id/hook"
+
+// isPublicRequest is isPublicRoute for a request that is being routed. The
+// decoded URL path is not what Echo routes on when the URL has an escaped form
+// (RawPath), so the hook is public only when the router really matched the
+// hook route; any other match, or none, leaves it behind the login.
+func isPublicRequest(c echo.Context) bool {
+	req := c.Request()
+	if !isPublicRoute(req.Method, req.URL.Path) {
+		return false
+	}
+	if req.Method == http.MethodPost && isEventHookPath(req.URL.Path) {
+		return c.Path() == eventHookRoute
+	}
+	return true
+}
+
 func isPublicRoute(method, path string) bool {
+	if method == http.MethodPost && isEventHookPath(path) {
+		return true
+	}
 	for _, rule := range publicRouteRegistry {
 		if method != rule.Method {
 			continue

@@ -1552,7 +1552,10 @@
     "mcp": "MCP-Server"
   },
   "triggersPage": {
-    "runLimit": "Zeitlimit eines Laufs"
+    "runLimit": "Zeitlimit eines Laufs",
+    "presets": {
+      "event": "Wenn ein Ereignis eintrifft"
+    }
   },
   "sandboxProfile": {
     "label": "Sandbox-Profil",
@@ -1627,6 +1630,46 @@
       "title": "Die Kontextgröße dieses Chats ist zu klein",
       "reason": "Die Einstellung dieses Chats ist {{window}} Token, der Chat braucht mindestens {{minimum}}.",
       "fix": "Fenster des Modells verwenden"
+    }
+  },
+  "event": {
+    "listening": "Lauscht:",
+    "announceAccepted": "{{name}} wurde erstellt. Kopiere jetzt das Geheimnis: Es wird nur einmal angezeigt.",
+    "sentence": {
+      "typed": "Wenn {{source}} {{type}} sendet",
+      "any": "Wenn {{source}} ein beliebiges Ereignis sendet",
+      "where": " mit {{matches}}",
+      "and": " und "
+    },
+    "hook": {
+      "title": "Hook-Adresse und Geheimnis",
+      "urlLabel": "Hook-URL",
+      "secretLabel": "Geheimnis (wird einmal angezeigt)",
+      "curlLabel": "Beispielaufruf",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copyUrl": "Hook-URL kopieren",
+      "copySecret": "Geheimnis kopieren",
+      "copyCurl": "Beispielaufruf kopieren",
+      "paste": "Füge die URL und das Geheimnis in die Webhook-Einstellungen des Absenders ein. Das Geheimnis wird nicht noch einmal angezeigt.",
+      "noSecret": "Das Geheimnis wird nicht noch einmal angezeigt. Erneuere es, um ein neues zu erhalten.",
+      "rotate": "Geheimnis erneuern",
+      "rotateTitle": "Geheimnis von {{name}} erneuern?",
+      "rotateBody": "Das alte Geheimnis funktioniert sofort nicht mehr. Trage das neue beim Absender ein, bevor sein nächstes Ereignis kommt.",
+      "rotateConfirm": "Erneuern",
+      "rotated": "Neues Geheimnis erstellt.",
+      "rotateFailed": "Das Geheimnis konnte nicht erneuert werden: {{message}}"
+    },
+    "form": {
+      "source": "Absender",
+      "sourceHint": "Der Name des Absenders, zum Beispiel github.",
+      "sourceEmpty": "Nenne den Absender der Ereignisse.",
+      "type": "Ereignistyp",
+      "typeHint": "Leer lassen, um jeden Ereignistyp anzunehmen.",
+      "matches": "Nur wenn (ein Feld=Wert pro Zeile)",
+      "matchesHint": "Bis zu 8 Zeilen, zum Beispiel action=opened.",
+      "createdTitle": "{{name}} ist bereit",
+      "done": "Fertig"
     }
   }
 }

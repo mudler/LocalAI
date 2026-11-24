@@ -70,6 +70,8 @@ var allowed = []entry{
 
 	// Third-party services: the login, the release source, the token issuer.
 	{"core/cli/run.go", "GitHub OAuth App", "help of the GitHub OAuth login: GitHub the service, not the add-on"},
+	{"core/http/endpoints/studio/triggerhook.go", `github`, "the source of an event that carries the GitHub delivery header: the sender, not the add-on"},
+	{ui + "pages/AgentTaskDetails.jsx", `placeholder="github"`, "an example source of an event trigger: the sender, not the add-on"},
 	{"core/http/auth/models.go", `github`, "the id of the GitHub OAuth login provider"},
 	{ui + "pages/Login.jsx", "github", "the GitHub OAuth login button: the service, not the add-on"},
 	{ui + "pages/Login.jsx", "'GitHub'", "the GitHub OAuth login button: the service, not the add-on"},

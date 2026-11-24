@@ -1552,7 +1552,10 @@
     "mcp": "MCP 服务器"
   },
   "triggersPage": {
-    "runLimit": "单次运行的时间限制"
+    "runLimit": "单次运行的时间限制",
+    "presets": {
+      "event": "收到事件时"
+    }
   },
   "sandboxProfile": {
     "label": "沙箱配置",
@@ -1627,6 +1630,46 @@
       "title": "此聊天的上下文大小太小",
       "reason": "此聊天的设置为 {{window}} 个 token,聊天至少需要 {{minimum}} 个。",
       "fix": "使用模型的窗口"
+    }
+  },
+  "event": {
+    "listening": "监听中：",
+    "announceAccepted": "已创建 {{name}}。请立即复制它的密钥：密钥只显示一次。",
+    "sentence": {
+      "typed": "当 {{source}} 发送 {{type}}",
+      "any": "当 {{source}} 发送任意事件",
+      "where": " 且 {{matches}}",
+      "and": "、"
+    },
+    "hook": {
+      "title": "钩子地址和密钥",
+      "urlLabel": "钩子 URL",
+      "secretLabel": "密钥（只显示一次）",
+      "curlLabel": "调用示例",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyUrl": "复制钩子 URL",
+      "copySecret": "复制密钥",
+      "copyCurl": "复制调用示例",
+      "paste": "把 URL 和密钥粘贴到发送方的 webhook 设置中。密钥不会再次显示。",
+      "noSecret": "密钥不会再次显示。轮换密钥可获得新的密钥。",
+      "rotate": "轮换密钥",
+      "rotateTitle": "要轮换 {{name}} 的密钥吗？",
+      "rotateBody": "旧密钥会立即失效。请在发送方下一次发送事件之前换成新密钥。",
+      "rotateConfirm": "轮换",
+      "rotated": "已生成新密钥。",
+      "rotateFailed": "无法轮换密钥：{{message}}"
+    },
+    "form": {
+      "source": "发送方",
+      "sourceHint": "发送方的名称，例如 github。",
+      "sourceEmpty": "请填写事件的发送方。",
+      "type": "事件类型",
+      "typeHint": "留空表示接收任意类型的事件。",
+      "matches": "仅当（每行一个 字段=值）",
+      "matchesHint": "最多 8 行，例如 action=opened。",
+      "createdTitle": "{{name}} 已就绪",
+      "done": "完成"
     }
   }
 }
