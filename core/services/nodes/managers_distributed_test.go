@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"runtime"
 	"sync"
 	"time"
@@ -816,6 +817,29 @@ var _ = Describe("DistributedBackendManager", func() {
 				for _, call := range mc.calls {
 					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendUpgrade(n1.ID)))
 					Expect(call.Subject).ToNot(Equal(messaging.SubjectNodeBackendInstall(n1.ID)))
+				}
+			})
+		})
+
+		Context("a worker that is older than backend.upgrade", func() {
+			It("fails the upgrade on that worker without marking it unhealthy or counting a failed attempt", func() {
+				n := registerHealthyBackend("worker-old", "10.0.0.1:50051")
+				scriptInstalled("vllm-development", n.ID)
+				mc.scriptErr(messaging.SubjectNodeBackendUpgrade(n.ID), fmt.Errorf("control request: %w", workerctl.ErrVerbNotServed))
+
+				err := mgr.UpgradeBackend(ctx, upgradeOp("vllm-development"), nil)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ErrWorkerTooOld)).To(BeTrue(), "%v", err)
+				Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "the worker answered: it is present")
+
+				fetched, getErr := registry.Get(ctx, n.ID)
+				Expect(getErr).ToNot(HaveOccurred())
+				Expect(fetched.Status).To(Equal(StatusHealthy), "the worker's own answer is not a routing fact")
+
+				rows, listErr := registry.ListPendingBackendOps(ctx)
+				Expect(listErr).ToNot(HaveOccurred())
+				for _, row := range rows {
+					Expect(row.Attempts).To(BeZero(), "an old worker does not burn the retries of the intent")
 				}
 			})
 		})

@@ -391,9 +391,10 @@ func (a *nodeControl) UpgradeBackend(nodeID, backendType, galleriesJSON, uri, na
 
 	if err != nil && errors.Is(err, errVerbNotServed) {
 		// A worker that answers, and has no such verb, is older than the verb.
-		// There is no fallback to a forced install: the upgrade fails on that
-		// worker with ErrNoRoute, and the worker must be upgraded first.
-		return nil, fmt.Errorf("%w: %v", ErrNoRoute, err)
+		// Its answer is not a routing fact: the node is present and stays
+		// healthy. There is no fallback to a forced install: the upgrade fails
+		// on that worker, and the worker must be upgraded first.
+		return nil, fmt.Errorf("%w (%s): %w", ErrWorkerTooOld, target, err)
 	}
 	if err != nil && a.link.waitExpired(err) {
 		return nil, fmt.Errorf("%w (%s nodeID=%s backend=%s): %v",
@@ -664,6 +665,12 @@ func (a *nodeControl) DeleteModelFilesScoped(modelName string, include func(node
 	}
 	return nil
 }
+
+// ErrWorkerTooOld is a worker that answered and does not serve backend.upgrade:
+// it is older than the verb. It is the worker's own answer, never a routing
+// fact (ErrNoRoute): the node is not marked unhealthy, and a pending upgrade
+// on it waits without counting a failed attempt until the worker is upgraded.
+var ErrWorkerTooOld = errors.New("the worker is older than backend.upgrade; upgrade the worker first")
 
 // errVerbNotServed means that the worker answered and does not serve the verb.
 // It is a fact about the version of the worker. It is not a routing fact and

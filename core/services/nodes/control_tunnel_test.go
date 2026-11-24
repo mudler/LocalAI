@@ -213,9 +213,10 @@ var _ = Describe("The tunnel carrier of the control verbs", func() {
 	})
 
 	Describe("a worker that is too old", func() {
-		It("turns the 404 of an upgrade into ErrNoRoute, so that the caller falls back to the install it understands", func() {
+		It("turns the 404 of an upgrade into ErrWorkerTooOld, never into a routing fact", func() {
 			_, err := control.UpgradeBackend(node, "b", "", "", "", "", 0, "", nil)
-			Expect(errors.Is(err, ErrNoRoute)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, ErrWorkerTooOld)).To(BeTrue(), "%v", err)
+			Expect(errors.Is(err, ErrNoRoute)).To(BeFalse(), "the worker answered; it is present")
 		})
 
 		It("does not turn the 404 of another verb into ErrNoRoute", func() {
