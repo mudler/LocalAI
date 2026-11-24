@@ -834,7 +834,12 @@
           "done_other": "{{count}}개 업데이트됨",
           "auto": "자동: {{text}}",
           "first": "{{name}}은(는) 여전히 {{version}}입니다.",
-          "firstWhy": "{{name}}은(는) 여전히 {{version}}입니다: {{reason}}."
+          "firstWhy": "{{name}}은(는) 여전히 {{version}}입니다: {{reason}}.",
+          "cancelled_one": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelled_other": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelledAttention_one": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "cancelledAttention_other": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "firstStart": "{{name}}은(는) 여전히 {{version}}입니다: 새 버전이 시작되지 않았습니다: {{reason}}."
         }
       }
     },

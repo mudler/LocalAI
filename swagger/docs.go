@@ -23155,6 +23155,10 @@ const docTemplate = `{
                 "driftNodes": {
                     "type": "integer"
                 },
+                "heldBack": {
+                    "description": "HeldBack is true when the automatic update does not take this\nrelease: the same release already rolled back, or failed because it\ndoes not work here, in a recent upgrade run. A manual update still\ncan. It goes away when the gallery lists another release.",
+                    "type": "boolean"
+                },
                 "id": {
                     "type": "string"
                 },

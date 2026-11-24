@@ -141,7 +141,8 @@
     "updatingPlain": "Updating",
     "queued": "Queued, waiting for a free slot",
     "nodesAction": "Nodes",
-    "nodesNamed": "Show the nodes of {{name}}"
+    "nodesNamed": "Show the nodes of {{name}}",
+    "heldBack": "Held back: this release did not start. Automatic updates skip it until a new release comes out. Update it here to try again."
   },
   "bulk": {
     "start": "Update {{count}} ready",
@@ -494,6 +495,7 @@
       "none": "The server gave no more details."
     },
     "busy": "An update run is in progress.",
-    "unavailable": "Update runs are not available on this server."
+    "unavailable": "Update runs are not available on this server.",
+    "auto": "Automatic update"
   }
 }

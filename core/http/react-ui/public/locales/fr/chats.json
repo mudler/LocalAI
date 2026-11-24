@@ -834,7 +834,12 @@
           "done_other": "{{count}} mis à jour",
           "auto": "Automatique : {{text}}",
           "first": "{{name}} reste en {{version}}.",
-          "firstWhy": "{{name}} reste en {{version}} : {{reason}}."
+          "firstWhy": "{{name}} reste en {{version}} : {{reason}}.",
+          "cancelled_one": "Série annulée : {{count}} mis à jour",
+          "cancelled_other": "Série annulée : {{count}} mis à jour",
+          "cancelledAttention_one": "Série annulée : {{updated}} mis à jour, {{count}} demande votre attention",
+          "cancelledAttention_other": "Série annulée : {{updated}} mis à jour, {{count}} demandent votre attention",
+          "firstStart": "{{name}} reste en {{version}} : la nouvelle version n’a pas démarré : {{reason}}."
         }
       }
     },

@@ -280,6 +280,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					// The install waits for a new review of its host access.
 					opData["needsApproval"] = true
 				}
+				// A backend upgrade that put the previous build back, with
+				// its code: the Updates page says "Rolled back", as the row
+				// of the run that ran it does.
+				if status.RolledBack {
+					opData["rolledBack"] = true
+				}
+				if status.ErrorKey != "" {
+					opData["errorKey"] = status.ErrorKey
+				}
 			}
 			// Expose the per-node breakdown when the Phase 4 progress sink
 			// has populated OpStatus.Nodes (distributed backend installs).

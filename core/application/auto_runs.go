@@ -121,10 +121,39 @@ func (r *autoRunner) begin(ctx context.Context, family string, items []upgraderu
 		xlog.Debug("Automatic update waits: another upgrade run is running", "family", family)
 		r.retryLater(ctx, family, items)
 		return autoRunWaiting
+	case upgraderun.CodeOf(err) == upgraderun.CodeHeldBack:
+		// Every item is a release that did not start before; the Updates
+		// page says so, and a new release in the gallery ends the hold.
+		xlog.Debug("Automatic update skipped releases that did not start before", "family", family)
+		return autoRunRefused
 	default:
 		xlog.Warn("Automatic update did not start its run; the next pass tries again", "family", family, "error", err)
 		return autoRunRefused
 	}
+}
+
+// heldBackSource is the part of upgraderun.Service that tells the releases an
+// automatic run leaves out.
+type heldBackSource interface {
+	HeldBack(ctx context.Context) (upgraderun.HeldBack, error)
+}
+
+// heldBack returns the releases the automatic runs leave out, or nil when
+// there is no run service or it cannot tell.
+func (r *autoRunner) heldBack(ctx context.Context) upgraderun.HeldBack {
+	if !r.available() {
+		return nil
+	}
+	src, ok := r.service().(heldBackSource)
+	if !ok {
+		return nil
+	}
+	held, err := src.HeldBack(ctx)
+	if err != nil {
+		xlog.Debug("Could not read the releases the automatic update holds back", "error", err)
+		return nil
+	}
+	return held
 }
 
 func (r *autoRunner) start(ctx context.Context, items []upgraderun.StartItem) (upgraderun.Run, error) {

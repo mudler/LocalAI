@@ -409,7 +409,12 @@
           "done_other": "{{count}}টি আপডেট হয়েছে",
           "auto": "স্বয়ংক্রিয়: {{text}}",
           "first": "{{name}} এখনও {{version}}-এ আছে।",
-          "firstWhy": "{{name}} এখনও {{version}}-এ আছে: {{reason}}।"
+          "firstWhy": "{{name}} এখনও {{version}}-এ আছে: {{reason}}।",
+          "cancelled_one": "আপডেট রান বাতিল: {{count}}টি আপডেট হয়েছে",
+          "cancelled_other": "আপডেট রান বাতিল: {{count}}টি আপডেট হয়েছে",
+          "cancelledAttention_one": "আপডেট রান বাতিল: {{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "cancelledAttention_other": "আপডেট রান বাতিল: {{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "firstStart": "{{name}} এখনও {{version}}-এ আছে: নতুন সংস্করণ চালু হয়নি: {{reason}}।"
         }
       }
     },

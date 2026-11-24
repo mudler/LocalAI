@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockOperate, installedBackend } from './operate-fixtures.js'
 import {
-  DIGEST_A, DIGEST_B, addonPin, addonRecord, galleryItem, minutesAgo, mockUpdateRuns, mockUpdates, modelItem, modelSnapshotOf, previewItem, runItem, runOf,
+  DIGEST_A, DIGEST_B, addonPin, addonRecord, failedOp, galleryItem, minutesAgo, mockUpdateRuns, mockUpdates, modelItem, modelSnapshotOf, previewItem, runItem, runOf,
   snapshotOf, updateAvailable,
 } from './updates-fixtures.js'
 
@@ -406,6 +406,90 @@ test.describe('Updates: the run', () => {
     await mockUpdateRuns(page, { active: [run], polls: [run] })
     await page.goto('/app/updates')
     await expect(page.getByTestId('updates-headline')).toHaveText('Update run cancelled, 1 updated')
+  })
+
+  test('a finished run stays on the page after a reload until it is dismissed', async ({ page }) => {
+    await fleet(page)
+    // The server lists the finished run (not dismissed); ?active=1 lists none.
+    const runs = await mockUpdateRuns(page, { active: [ENDED({ retryable: false })], polls: [ENDED({ retryable: false })] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('5 updated, 1 needs attention')
+    await page.reload()
+    await expect(page.getByTestId('updates-headline')).toHaveText('5 updated, 1 needs attention')
+    await expect(runRow(page, 'addon:notes')).toBeVisible()
+    await page.getByTestId('updates-dismiss-run').click()
+    await expect.poll(() => runs.dismissed).toEqual(['run-1'])
+    await page.reload()
+    await expect(page.getByTestId('updates-headline')).toHaveText(/updates available/)
+    await expect(page.getByTestId('run-item')).toHaveCount(0)
+  })
+
+  test('an automatic run says so in its banner', async ({ page }) => {
+    await fleet(page)
+    const run = { ...RUNNING(), source: 'auto' }
+    await mockUpdateRuns(page, { active: [run], polls: [run] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-run-auto')).toHaveText('Automatic update')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+  })
+
+  test('a manual run has no automatic label', async ({ page }) => {
+    await fleet(page)
+    await mockUpdateRuns(page, { active: [RUNNING()], polls: [RUNNING()] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-headline')).toHaveText('Updating 6 items')
+    await expect(page.getByTestId('updates-run-auto')).toHaveCount(0)
+  })
+
+  test('the filter counts the items of the run: running and waiting as updating, rolled back as needing you', async ({ page }) => {
+    await fleet(page)
+    const live = runOf([
+      runItem('gallery:kokoro', 'rolled_back', { error_key: 'start', error: 'the backend process exited before it answered a health check (exit code 3)', retryable: true }),
+      runItem('gallery:piper', 'updated'),
+      runItem('gallery:sglang', 'running', { progress: 30, message: 'Downloading 30%' }),
+      runItem('gallery:llama-cpp', 'queued', { queued_reason: 'backend_limit' }),
+    ])
+    await mockUpdateRuns(page, { active: [live], polls: [live] })
+    await page.goto('/app/updates')
+    await expect(page.getByTestId('updates-filter-updating').locator('.ui-seg__count')).toHaveText('2')
+    await expect(page.getByTestId('updates-filter-needs-you').locator('.ui-seg__count')).toHaveText('1')
+    // The rolled-back item reads the same word as the chip of the run.
+    await expect(runRow(page, 'gallery:kokoro').getByTestId('run-item-chip')).toHaveText('Rolled back')
+    // The sentence says once that the new version did not start.
+    await expect(runRow(page, 'gallery:kokoro').getByTestId('run-item-detail')).toHaveText(
+      'The new version did not start: the backend process exited before it answered a health check (exit code 3). kokoro is still on v1.0.0 and your data is unchanged.')
+    // The filter shows the items of the run it counts.
+    await page.getByTestId('updates-filter-needs-you').click()
+    await expect(page.getByTestId('run-item')).toHaveCount(1)
+    await expect(runRow(page, 'gallery:kokoro')).toBeVisible()
+    await page.getByTestId('updates-filter-updating').click()
+    await expect(page.getByTestId('run-item')).toHaveCount(2)
+  })
+
+  test('after the run, a backend whose new build did not start reads Rolled back, not Failed', async ({ page }) => {
+    await mockOperate(page)
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('e2e-bad', '1.0.0', '2.0.0')]),
+      installed: [installedBackend('e2e-bad', '1.0.0')],
+      operations: [failedOp('e2e-bad', 'the backend process exited before it answered a health check (exit code 3)', { rolledBack: true, errorKey: 'start' })],
+    })
+    await page.goto('/app/updates')
+    const row = rowOf(page, 'e2e-bad')
+    await expect(row.getByTestId('update-row-chip')).toHaveText('Rolled back')
+    await expect(row).toContainText('The new version did not start: the backend process exited before it answered a health check (exit code 3). e2e-bad is still on v1.0.0')
+    await expect(page.getByTestId('updates-filter-needs-you').locator('.ui-seg__count')).toHaveText('1')
+  })
+
+  test('a release the automatic update holds back says why, and can still be updated by hand', async ({ page }) => {
+    await mockOperate(page)
+    await mockUpdates(page, {
+      snapshot: snapshotOf([galleryItem('e2e-bad', '1.0.0', '2.0.0', { heldBack: true })]),
+      installed: [installedBackend('e2e-bad', '1.0.0')],
+    })
+    await page.goto('/app/updates')
+    const row = rowOf(page, 'e2e-bad')
+    await expect(row).toContainText('Held back: this release did not start.')
+    await expect(row.getByRole('button', { name: 'Update e2e-bad' })).toBeEnabled()
   })
 
   test('a model row\'s own Upgrade starts a run of one, and the page shows it at once', async ({ page }) => {

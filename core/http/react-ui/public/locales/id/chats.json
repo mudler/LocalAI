@@ -834,7 +834,12 @@
           "done_other": "{{count}} diperbarui",
           "auto": "Otomatis: {{text}}",
           "first": "{{name}} masih di {{version}}.",
-          "firstWhy": "{{name}} masih di {{version}}: {{reason}}."
+          "firstWhy": "{{name}} masih di {{version}}: {{reason}}.",
+          "cancelled_one": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelled_other": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelledAttention_one": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "cancelledAttention_other": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "firstStart": "{{name}} masih di {{version}}: versi baru tidak berjalan: {{reason}}."
         }
       }
     },

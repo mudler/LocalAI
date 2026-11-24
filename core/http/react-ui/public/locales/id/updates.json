@@ -141,7 +141,8 @@
     "updatingPlain": "Memperbarui",
     "queued": "Dalam antrean, menunggu slot kosong",
     "nodesAction": "Node",
-    "nodesNamed": "Tampilkan node {{name}}"
+    "nodesNamed": "Tampilkan node {{name}}",
+    "heldBack": "Ditahan: rilis ini tidak berjalan. Pembaruan otomatis melewatinya sampai ada rilis baru. Perbarui di sini untuk mencoba lagi."
   },
   "bulk": {
     "start": "Perbarui {{count}} yang siap",
@@ -494,6 +495,7 @@
       "none": "Server tidak memberikan detail lain."
     },
     "busy": "Rangkaian pembaruan sedang berjalan.",
-    "unavailable": "Rangkaian pembaruan tidak tersedia di server ini."
+    "unavailable": "Rangkaian pembaruan tidak tersedia di server ini.",
+    "auto": "Pembaruan otomatis"
   }
 }

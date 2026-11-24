@@ -19,7 +19,7 @@ import { backendsApi } from '../utils/api'
 import { isRunning, runKeys } from '../utils/upgradeRun'
 import { upgradeFailureWords } from '../components/addons/updateReview'
 import {
-  breakdownOf, currentBackendRows, filterCounts, filterRows, groupRows, headlineOf, isPending, normalizeFilter,
+  breakdownOf, currentBackendRows, filterCountsWithRun, filterRows, filterRunItems, groupRows, headlineOf, isPending, normalizeFilter,
 } from '../utils/updates'
 import '../components/updates/updates.css'
 
@@ -121,7 +121,9 @@ function UpdatesPage({ updates }) {
   const inRun = useMemo(() => runKeys(shownRun), [shownRun])
   const listRows = useMemo(() => (inRun.size > 0 ? rows.filter(r => !inRun.has(r.id)) : rows), [rows, inRun])
   const groups = useMemo(() => groupRows(filterRows(listRows, filter)), [listRows, filter])
-  const counts = useMemo(() => filterCounts(listRows), [listRows])
+  // The items of the run are listed once, in the run group, and counted with
+  // the filter they match there.
+  const counts = useMemo(() => filterCountsWithRun(listRows, shownRun && shownRun.items, runActive), [listRows, shownRun, runActive])
   const breakdown = useMemo(() => breakdownOf(rows), [rows])
   const headline = headlineOf({ rows, sources: updates.sources, loading: updates.loading, loadError: updates.loadError })
   const lastChecked = updates.snapshot ? updates.snapshot.checkedAt : ''
@@ -246,6 +248,9 @@ function UpdatesPage({ updates }) {
   // after the run.
   const runItems = useMemo(() => (shownRun && Array.isArray(shownRun.items) ? shownRun.items : [])
     .map(i => ({ ...i, displayName: (rowsByKey.get(i.key) || {}).name || names.current.get(i.key) || i.title || i.name })), [shownRun, rowsByKey])
+  // The run group follows the filter too; the queued reasons still read the
+  // whole run.
+  const shownRunItems = useMemo(() => filterRunItems(runItems, filter, runActive), [runItems, filter, runActive])
 
   const body = () => {
     if (updates.loading) return <SkeletonRows count={4} label={t('loading')} testId="updates-loading" />
@@ -277,14 +282,14 @@ function UpdatesPage({ updates }) {
     const shown = groups.needs.length + groups.updating.length + groups.ready.length + groups.other.length
     return (
       <>
-        {listRows.length > 0 && (
+        {(listRows.length > 0 || runItems.length > 0) && (
           <Segmented options={filterOptions} value={filter} onChange={setFilter} label={t('filter.label')} testId="updates-filter" itemTestId="updates-filter-" />
         )}
-        {runItems.length > 0 && (
+        {shownRunItems.length > 0 && (
           <section className="uc-group" aria-labelledby="uc-g-run" data-group="run" data-testid="updates-run">
-            <h2 className="uc-group__title" id="uc-g-run">{t('run.group')} <span className="uc-group__count">{runItems.length}</span></h2>
+            <h2 className="uc-group__title" id="uc-g-run">{t('run.group')} <span className="uc-group__count">{shownRunItems.length}</span></h2>
             <ul className="uc-list">
-              {runItems.map(item => (
+              {shownRunItems.map(item => (
                 <RunItemRow
                   key={item.key}
                   item={item}
@@ -299,7 +304,7 @@ function UpdatesPage({ updates }) {
             </ul>
           </section>
         )}
-        {listRows.length > 0 && shown === 0 && groups.current.length === 0 && (
+        {(listRows.length > 0 || runItems.length > 0) && shown === 0 && groups.current.length === 0 && shownRunItems.length === 0 && (
           <p className="uc-none" data-testid="updates-filter-empty">{t('filter.none')}</p>
         )}
         {groups.needs.length > 0 && (

@@ -203,6 +203,8 @@ export const updateRunsApi = {
   // A start and a retry carry the confirmation of the administrator's browser.
   start: (items) => fetchJSON(API_CONFIG.endpoints.updateRuns, confirmedPost({ items, source: 'manual' })),
   active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
+  // The newest runs that are not dismissed, the running one first.
+  list: (limit = 1) => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { limit })),
   get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
   cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
   cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),

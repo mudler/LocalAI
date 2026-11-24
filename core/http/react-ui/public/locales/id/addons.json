@@ -654,7 +654,8 @@
       "forbidden": "Akun Anda tidak dapat memperbarui add-on.",
       "run_unavailable": "Rangkaian pembaruan tidak tersedia di server ini.",
       "in_run": "Sudah ada dalam rangkaian pembaruan yang sedang berjalan",
-      "installs_disabled": "Pemasangan backend dimatikan di server ini"
+      "installs_disabled": "Pemasangan backend dimatikan di server ini",
+      "interrupted": "Pembaruan terhenti karena mulai ulang. Periksa lagi"
     },
     "upgradeNamed": "Perbarui {{name}}",
     "why": {

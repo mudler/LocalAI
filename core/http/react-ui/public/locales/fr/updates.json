@@ -141,7 +141,8 @@
     "updatingPlain": "Mise à jour",
     "queued": "En file d'attente, en attente d'une place libre",
     "nodesAction": "Nœuds",
-    "nodesNamed": "Afficher les nœuds de {{name}}"
+    "nodesNamed": "Afficher les nœuds de {{name}}",
+    "heldBack": "Retenue : cette version n’a pas démarré. Les mises à jour automatiques l’ignorent jusqu’à la sortie d’une nouvelle version. Mettez-la à jour ici pour réessayer."
   },
   "bulk": {
     "start": "Mettre à jour {{count}} prêtes",
@@ -494,6 +495,7 @@
       "none": "Le serveur n’a pas donné plus de détails."
     },
     "busy": "Une série de mises à jour est en cours.",
-    "unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur."
+    "unavailable": "Les séries de mises à jour ne sont pas disponibles sur ce serveur.",
+    "auto": "Mise à jour automatique"
   }
 }

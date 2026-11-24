@@ -654,7 +654,8 @@
       "forbidden": "Your account cannot update add-ons.",
       "run_unavailable": "Update runs are not available on this server.",
       "in_run": "It is already in the update run in progress",
-      "installs_disabled": "Installing backends is turned off on this server"
+      "installs_disabled": "Installing backends is turned off on this server",
+      "interrupted": "The update was interrupted by a restart. Check again"
     },
     "upgradeNamed": "Update {{name}}",
     "why": {

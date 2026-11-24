@@ -558,11 +558,9 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 		// The replaced build stays at backupPath until the new one starts
 		// from its final path, and goes back when it does not.
 		if err := options.startCheck(ctx, filepath.Join(backendPath, runFile)); err != nil {
-			cause := fmt.Errorf("the new build did not start: %w", err)
-			if ctx.Err() != nil {
-				cause = err
-			}
-			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureStart, cause, backendPath, backupPath)
+			// The code says that the new build did not start; the readers
+			// word the code, so the text is the bare cause.
+			return rollbackSwap(ctx, systemState, modelLoader, UpgradeFailureStart, err, backendPath, backupPath)
 		}
 	}
 	if err := registerBackends(systemState, modelLoader); err != nil {

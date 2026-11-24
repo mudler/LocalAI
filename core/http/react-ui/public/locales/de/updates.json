@@ -141,7 +141,8 @@
     "updatingPlain": "Wird aktualisiert",
     "queued": "In der Warteschlange, wartet auf einen freien Platz",
     "nodesAction": "Knoten",
-    "nodesNamed": "Knoten von {{name}} anzeigen"
+    "nodesNamed": "Knoten von {{name}} anzeigen",
+    "heldBack": "Zurückgehalten: Diese Version ist nicht gestartet. Automatische Aktualisierungen überspringen sie, bis eine neue Version erscheint. Aktualisieren Sie hier, um es erneut zu versuchen."
   },
   "bulk": {
     "start": "Bereite aktualisieren ({{count}})",
@@ -494,6 +495,7 @@
       "none": "Der Server hat keine weiteren Details genannt."
     },
     "busy": "Ein Aktualisierungslauf ist im Gange.",
-    "unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar."
+    "unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar.",
+    "auto": "Automatische Aktualisierung"
   }
 }

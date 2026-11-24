@@ -453,11 +453,10 @@ func settleUpgrade(ctx context.Context, systemState *system.SystemState, modelLo
 
 	check := newUpgradeStartCheck(modelLoader, backendName)
 	if err := check(ctx, filepath.Join(backendPath, runFile)); err != nil {
-		cause := fmt.Errorf("the new build did not start: %w", err)
-		if ctx.Err() != nil {
-			cause = err
-		}
-		return rollback(UpgradeFailureStart, cause)
+		// The code says that the new build did not start; the readers word
+		// the code (the Updates page, the inbox), so the text is the bare
+		// cause and no reader says it twice.
+		return rollback(UpgradeFailureStart, err)
 	}
 
 	if err := registerBackends(systemState, modelLoader); err != nil {

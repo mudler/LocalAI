@@ -141,7 +141,8 @@
     "updatingPlain": "In aggiornamento",
     "queued": "In coda, in attesa di uno slot libero",
     "nodesAction": "Nodi",
-    "nodesNamed": "Mostra i nodi di {{name}}"
+    "nodesNamed": "Mostra i nodi di {{name}}",
+    "heldBack": "Trattenuta: questa versione non si è avviata. Gli aggiornamenti automatici la saltano finché non esce una nuova versione. Aggiornala da qui per riprovare."
   },
   "bulk": {
     "start": "Aggiorna {{count}} pronti",
@@ -494,6 +495,7 @@
       "none": "Il server non ha fornito altri dettagli."
     },
     "busy": "È in corso una serie di aggiornamenti.",
-    "unavailable": "Le serie di aggiornamenti non sono disponibili su questo server."
+    "unavailable": "Le serie di aggiornamenti non sono disponibili su questo server.",
+    "auto": "Aggiornamento automatico"
   }
 }

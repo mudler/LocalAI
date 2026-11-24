@@ -312,6 +312,16 @@ func (e *Emitter) runEnd(ctx context.Context, run upgraderun.Run) error {
 	verb := "finished"
 	if run.State == upgraderun.RunCancelled {
 		verb = "cancelled"
+		// The UI says "Update run cancelled: 1 updated", as the Updates page
+		// does, and not only the count.
+		cancelled := 0
+		for _, it := range run.Items {
+			if it.Phase == upgraderun.PhaseCancelled {
+				cancelled++
+			}
+		}
+		n.Params["state"] = string(upgraderun.RunCancelled)
+		n.Params["cancelled"] = cancelled
 	}
 	n.Title = fmt.Sprintf("%s %s: %d of %d updated", label, verb, c.updated, c.total)
 	if len(attention) > 0 {
@@ -329,6 +339,11 @@ func (e *Emitter) runEnd(ctx context.Context, run upgraderun.Run) error {
 		n.Params["first_name"] = sanitize.OneLine(first.DisplayName(), 80)
 		n.Params["first_from"] = sanitize.OneLine(first.From, 80)
 		n.Params["first_error"] = errText
+		// The UI words the key (a new build that did not start, a restart)
+		// before the error, which is the bare cause.
+		if first.ErrorKey != "" {
+			n.Params["first_key"] = first.ErrorKey
+		}
 	}
 	return e.upsertAll(ctx, n, notify.ModeOnce)
 }

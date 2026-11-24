@@ -18,6 +18,7 @@
 .uc-strip__tile[data-kind="couldNot"], .uc-strip__tile[data-kind="loadError"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .uc-strip__tile[data-kind="noneButFailed"] { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .uc-strip__text { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.uc-strip__source { align-self: flex-start; }
 .uc-strip__title { margin: 0; font-size: var(--dk-text-17); line-height: 24px; font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; overflow-wrap: anywhere; }
 .uc-strip__sub, .uc-strip__result { margin: 0; font-size: var(--text-sm); color: var(--dk-muted); }
 .uc-strip__result:empty { display: none; }

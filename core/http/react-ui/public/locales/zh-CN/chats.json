@@ -834,7 +834,12 @@
           "done_other": "{{count}} 项已更新",
           "auto": "自动:{{text}}",
           "first": "{{name}} 仍是 {{version}}。",
-          "firstWhy": "{{name}} 仍是 {{version}}:{{reason}}。"
+          "firstWhy": "{{name}} 仍是 {{version}}:{{reason}}。",
+          "cancelled_one": "本次更新已取消:{{count}} 项已更新",
+          "cancelled_other": "本次更新已取消:{{count}} 项已更新",
+          "cancelledAttention_one": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "cancelledAttention_other": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "firstStart": "{{name}} 仍是 {{version}}:新版本未能启动:{{reason}}。"
         }
       }
     },

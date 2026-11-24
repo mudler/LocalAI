@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout } from '../ui'
+import { Button, Callout, Tag } from '../ui'
 import Icon from '../Icon'
 import { useWhen } from '../../hooks/useWhen'
 import { cssVars } from '../../utils/modelLedger'
@@ -113,6 +113,7 @@ export function RunStrip({ run, busy, result, onCheck, checking, cooling, onCanc
     <section className="uc-strip" aria-label={t('strip.label')} data-testid="updates-strip" data-kind={`run-${kind}`} data-run={run.id}>
       <span className="uc-strip__tile" data-kind={kind}><Icon name={icon} /></span>
       <div className="uc-strip__text">
+        {run.source === 'auto' && <Tag icon="clock" className="uc-strip__source" testId="updates-run-auto">{t('run.auto')}</Tag>}
         <p className="uc-strip__title" data-testid="updates-headline">{title}</p>
         <p className="uc-strip__sub" data-testid="updates-breakdown">{sub}</p>
         <span

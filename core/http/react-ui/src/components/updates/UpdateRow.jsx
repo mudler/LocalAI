@@ -12,12 +12,18 @@ import { modelChip, useModelDetail } from './modelWords'
 const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle', model: 'brain' }
 const STATE_ICON = { failed: 'alert-circle', held: 'lock', blocked: 'warning', 'on-hold': 'lock', gone: 'warning', cleanup: 'trash' }
 
+// The chip of a backend whose new build did not start and was replaced by the
+// previous one: the word and the look of the item of an update run.
+const ROLLED_BACK_CHIP = { tone: 'warn', icon: 'history' }
+
 // The chip word of a row. One word, never two states.
 function chipOf(row) {
   if (row.state === 'ready') return row.subtype === 'drift' ? 'differs' : 'update-ready'
   if (row.state === 'current') return null
   return row.state
 }
+
+const trimStop = (s) => String(s || '').trim().replace(/[.\s]+$/, '')
 
 // The origin line: where the new version comes from.
 export function originText(row, t) {
@@ -39,6 +45,11 @@ function useDetail(row) {
   const { t: ta } = useTranslation('addons')
   switch (row.state) {
     case 'failed': {
+      // The same sentence as the rolled-back item of a run: the error of the
+      // operation is the bare cause.
+      if (row.rolledBack && row.error) {
+        return { tone: 'error', text: t('run.detail.rolledBack', { reason: trimStop(row.error), name: row.name, version: row.from || '?' }) }
+      }
       const why = row.errorKey ? upgradeFailureWords(row.errorKey, ta) : (row.error || t('row.noReason'))
       return { tone: 'error', text: t('row.failedWhy', { message: why }) }
     }
@@ -52,6 +63,7 @@ function useDetail(row) {
       if (row.queued) return { tone: 'muted', text: t('row.queued') }
       return { tone: 'accent', text: row.phase ? t('row.updatingPhase', { phase: row.phase }) : t('row.updatingPlain') }
     case 'ready':
+      if (row.heldBack) return { tone: 'warn', text: t('row.heldBack') }
       if (row.needsCheck) return { tone: 'muted', text: reasonText(row.availability, ta) }
       if (row.reason) return { tone: 'muted', text: row.reason }
       return null
@@ -74,8 +86,9 @@ export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, 
   const modelDetail = useModelDetail(row)
   const isModel = row.kind === 'model'
   const detail = isModel ? modelDetail : otherDetail
-  const chip = isModel ? null : chipOf(row)
-  const ownChip = isModel ? modelChip(row, t) : null
+  const rolledBack = !isModel && row.state === 'failed' && row.rolledBack
+  const chip = isModel || rolledBack ? null : chipOf(row)
+  const ownChip = isModel ? modelChip(row, t) : rolledBack ? { ...ROLLED_BACK_CHIP, label: t('run.phase.rolled_back') } : null
   const tone = row.state === 'ready' ? 'accent' : row.state === 'updating' ? 'accent' : row.state === 'current' ? 'ok' : row.state === 'failed' ? 'error' : (row.state === 'on-hold' || row.state === 'unknown') ? 'idle' : row.state === 'cleanup' ? 'accent' : 'warn'
   const icon = STATE_ICON[row.state] || TILE_ICON[row.kind]
   const nodes = row.nodeCount > 1 ? t('row.nodes', { count: row.nodeCount }) : ''

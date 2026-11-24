@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   addonRows, addonSource, ageParts, backendRows, badgeOf, needsPersonRows, breakdownOf, currentBackendRows,
-  filterCounts, filterRows, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, sourceViews, trackJob,
+  filterCounts, filterCountsWithRun, filterRows, filterRunItems, galleryUpdateMap, groupOf, groupRows, headlineOf, normalizeFilter, runItemGroup, sourceViews, trackJob,
 } from '../../src/utils/updates.js'
 
 const okSource = (extra = {}) => ({ state: 'ok', checkedAt: '2026-11-08T10:00:00Z', lastSuccessAt: '2026-11-08T10:00:00Z', ...extra })
@@ -303,4 +303,39 @@ test('updates: a failed approved upgrade keeps the held grant, so its retry reop
   assert.deepEqual([rows[0].state, rows[0].approval, rows[0].grant.id], ['failed', true, 'tables'])
   const plain = addonRows({ installed: [addon('tables', available)], grants: null, live: [{ addonId: 'tables', kind: 'upgrade', state: 'failed', errorKey: 'upgrade_failed', jobID: 'j9' }] })
   assert.equal(plain[0].approval, undefined, 'a plain failed upgrade retries as before')
+})
+
+test('updates: the filter counts the items of the shown run in the group they are in', () => {
+  const items = [
+    { key: 'gallery:a', phase: 'running' }, { key: 'gallery:b', phase: 'queued' }, { key: 'gallery:c', phase: 'rolled_back', error_key: 'start' },
+    { key: 'gallery:d', phase: 'updated' }, { key: 'gallery:e', phase: 'cancelled' }, { key: 'gallery:f', phase: 'unconfirmed' },
+  ]
+  const rows = backendRows(snapshot([gallery('z')]))
+  const active = filterCountsWithRun(rows, items, true)
+  assert.deepEqual(active, { all: 7, ready: 1, 'needs-you': 1, updating: 3, current: 1 })
+  // Once the run ended, an unconfirmed item needs a look.
+  const ended = filterCountsWithRun(rows, items, false)
+  assert.equal(ended.updating, 0)
+  assert.equal(ended['needs-you'], 2)
+  assert.equal(runItemGroup({ phase: 'skipped', error_key: 'held' }, false), 'needs')
+  assert.equal(runItemGroup({ phase: 'skipped' }, false), '')
+  assert.deepEqual(filterRunItems(items, 'needs-you', true).map(i => i.key), ['gallery:c'])
+  assert.equal(filterRunItems(items, 'all', true).length, 6)
+  assert.deepEqual(filterCountsWithRun(rows, undefined, false), filterCounts(rows))
+})
+
+test('updates: a backend whose new build did not start is a rolled-back failure; a held-back release stays ready', () => {
+  const op = (extra) => ({ name: 'e2e-bad', jobID: 'j', error: 'exit code 3', ...extra })
+  const rolled = backendRows(snapshot([gallery('e2e-bad')]), { operations: [op({ rolledBack: true, errorKey: 'start' })] })[0]
+  assert.equal(rolled.state, 'failed')
+  assert.equal(rolled.rolledBack, true)
+  assert.equal(groupOf(rolled), 'needs')
+  const swap = backendRows(snapshot([gallery('e2e-bad')]), { operations: [op({ rolledBack: true, errorKey: 'swap' })] })[0]
+  assert.equal(swap.rolledBack, false, 'only a build that did not start reads Rolled back with its cause')
+  const plain = backendRows(snapshot([gallery('e2e-bad')]), { operations: [op({})] })[0]
+  assert.equal(plain.rolledBack, false)
+  const held = backendRows(snapshot([gallery('e2e-bad', { heldBack: true })]))[0]
+  assert.equal(held.state, 'ready')
+  assert.equal(held.heldBack, true)
+  assert.equal(held.startable, true, 'a person can still start it')
 })

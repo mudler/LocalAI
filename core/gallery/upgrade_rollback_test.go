@@ -150,6 +150,9 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 		Expect(UpgradeRolledBack(err)).To(BeTrue())
 		Expect(err.Error()).To(ContainSubstring(backendtest.ExitMessage))
 		Expect(err.Error()).To(ContainSubstring("exit code 3"))
+		// The code says that the new build did not start, and every reader
+		// words the code; the text is the bare cause, so no reader says it twice.
+		Expect(err.Error()).NotTo(ContainSubstring("did not start"))
 		var startErr *model.StartCheckError
 		Expect(errors.As(err, &startErr)).To(BeTrue())
 		Expect(len(startErr.Output)).To(BeNumerically("<=", 512))
@@ -268,6 +271,7 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 			err := forced(backendtest.Exit)
 			Expect(UpgradeCodeOf(err)).To(Equal(UpgradeFailureStart))
 			Expect(UpgradeRolledBack(err)).To(BeTrue())
+			Expect(err.Error()).NotTo(ContainSubstring("did not start"), "the code says it; the text is the cause")
 			Expect(installedVersion()).To(Equal("v1"))
 			Expect(installedMetadata()).To(Equal("1.0.0"))
 			expectRegistered()

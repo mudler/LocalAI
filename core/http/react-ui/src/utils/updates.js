@@ -16,6 +16,7 @@
 import { versionLabel, shortDigest, opForBackend } from './backendRows.js'
 import { updateView, upgradeAvailability } from '../components/addons/updateState.js'
 import { MODEL_OTHER_STATES } from './modelUpdates.js'
+import { countsAsAttention } from './upgradeRun.js'
 
 export const GROUPS = ['needs', 'updating', 'ready', 'current', 'other']
 export const FILTERS = ['all', 'ready', 'needs-you', 'updating', 'current']
@@ -69,12 +70,21 @@ export function backendRows(snapshot, { operations = [], auto = false } = {}) {
       old: Boolean(source && source.stale),
       startable: true,
       state: 'ready',
+      // The automatic update does not take this release: it did not start
+      // before. A person can still update it.
+      heldBack: Boolean(it.heldBack),
     }
     const op = opForBackend(operations, it.name)
     if (op && !op.error && !op.isDeletion) {
       return { ...row, state: 'updating', progress: op.isQueued ? 0 : (op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0), queued: Boolean(op.isQueued), phase: op.isQueued ? 'queued' : (op.message || op.phase || ''), jobID: op.jobID, cancellable: Boolean(op.cancellable) }
     }
-    if (op && op.error) return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false }
+    if (op && op.error) {
+      // A new build that did not start and was replaced by the previous one
+      // reads "Rolled back", as the item of the run that ran it does. The
+      // error of the operation is then the bare cause.
+      const rolledBack = Boolean(op.rolledBack) && (!op.errorKey || op.errorKey === 'start')
+      return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false, rolledBack }
+    }
     if (snapshot.installsDisabled) return { ...row, state: 'blocked', blocked: 'installsDisabled', startable: false }
     return row
   })
@@ -192,6 +202,43 @@ export function filterRows(rows, filter) {
 export function filterCounts(rows) {
   const g = groupRows(rows)
   return { all: rows.length, ready: g.ready.length, 'needs-you': g.needs.length, updating: g.updating.length, current: g.current.length }
+}
+
+// The group of an item of the shown update run, in the groups of the filter.
+// While the run runs, an item that waits, runs or is being checked is
+// updating; an item that needs attention (failed, rolled back, unconfirmed
+// once the run ended, skipped for a reason) needs you; an updated one is up
+// to date. Anything else (cancelled, skipped with no reason) is in no group.
+export function runItemGroup(item, active) {
+  if (!item) return ''
+  if (active && (item.phase === 'queued' || item.phase === 'running' || item.phase === 'unconfirmed')) return 'updating'
+  if (countsAsAttention(item)) return 'needs'
+  if (item.phase === 'updated') return 'current'
+  return ''
+}
+
+const FILTER_GROUP = { ready: 'ready', 'needs-you': 'needs', updating: 'updating', current: 'current' }
+
+// The items of the run that a filter shows: all of them, or those of its group.
+export function filterRunItems(items, filter, active) {
+  if (!Array.isArray(items)) return []
+  const group = FILTER_GROUP[filter]
+  return group ? items.filter(i => runItemGroup(i, active) === group) : items
+}
+
+// The counts of the filter with the items of the shown run. The page lists an
+// item of the run once, in the run group, so it is counted there: a running
+// backend counts as updating, a rolled-back one as needing you.
+export function filterCountsWithRun(rows, items, active) {
+  const out = filterCounts(rows)
+  for (const item of Array.isArray(items) ? items : []) {
+    out.all += 1
+    const group = runItemGroup(item, active)
+    if (group === 'needs') out['needs-you'] += 1
+    else if (group === 'updating') out.updating += 1
+    else if (group === 'current') out.current += 1
+  }
+  return out
 }
 
 export function normalizeFilter(value) {

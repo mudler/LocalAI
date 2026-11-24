@@ -654,7 +654,8 @@
       "forbidden": "Ihr Konto kann keine Add-ons aktualisieren.",
       "run_unavailable": "Aktualisierungsläufe sind auf diesem Server nicht verfügbar.",
       "in_run": "Es ist schon im laufenden Aktualisierungslauf",
-      "installs_disabled": "Das Installieren von Backends ist auf diesem Server ausgeschaltet"
+      "installs_disabled": "Das Installieren von Backends ist auf diesem Server ausgeschaltet",
+      "interrupted": "Die Aktualisierung wurde durch einen Neustart unterbrochen. Prüfen Sie erneut"
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {

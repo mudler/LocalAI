@@ -149,7 +149,11 @@ failed add-on keeps the failure code of the add-on owner, for example
 A backend item takes the error key and the rollback from its operation (see
 [Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})):
 a new build that did not start and was replaced by the previous one ends the
-item `rolled_back` with the key `start`. An operation whose worker reply never
+item `rolled_back` with the key `start`. The error of such an item is the
+cause alone (for example "the backend process exited before it answered a
+health check (exit code 3): ..."): the key already says that the new build did
+not start, and the Updates page and the inbox put that sentence before the
+cause. An operation whose worker reply never
 came ends the item `unconfirmed`, and a fresh check decides as above. In a
 cluster, `nodes` lists the result of each node: `id`, `name`, `phase`
 (`success`, `error`, `rolled_back`, `unconfirmed`, or a phase of a node that
@@ -182,7 +186,7 @@ doing something first. The error key decides:
 
 | Retryable | Error keys |
 |-----------|------------|
-| Yes | `download`, `verify`, `swap`, `start`, `stale`, `unknown`, `unavailable`, and the add-on codes `upgrade_failed`, `interrupted`, `stale_installed`, `candidate_changed` and `check_failed` |
+| Yes | `download`, `verify`, `swap`, `start`, `stale`, `unknown`, `unavailable`, `interrupted` (also an item that a restart stopped), and the add-on codes `upgrade_failed`, `stale_installed`, `candidate_changed` and `check_failed` |
 | No | Every other key, for example `incompatible`, `integrity_error`, `recovery_required`, `forbidden`, `not_human_surface`, `held`, `edited_keys`, `approval_required`, `approval_stale`, `upgrade_conflict` and `operation_conflict` |
 
 An `unconfirmed` item is retryable: the retry checks it again. The Updates
@@ -194,7 +198,19 @@ The run and its items are stored in the database. When the server restarts,
 it takes over the runs that were running. The operations of the old process
 stopped with it, so each item that was running becomes `unconfirmed` and a
 fresh check decides: `updated` if the item is no longer listed, `failed` with
-`stale` if it is. Queued items continue.
+`interrupted` if it is ("the update was interrupted by a restart"). The item
+is retryable. Queued items continue.
+
+A crash in the middle of a backend install or upgrade can leave files on
+disk. At start, before any operation can run, a server that is not part of a
+cluster cleans them: it removes the staged new build next to the backend
+(`<backend>.upgrade-tmp`, `<backend>.install-tmp`) and the partial downloads in
+the download staging directory (`LOCALAI_DOWNLOAD_STAGING_PATH`). It never
+removes a previous build (`<backend>.backup`, `<backend>.install-backup`): when
+the backend directory is missing, the previous build is put back; when both
+are there, the server logs it and leaves both, because the backend in place
+may be a new build whose start check never ran. A build moved aside because it
+did not start (`<backend>.failed`) stays too.
 
 ## Distributed mode
 
@@ -275,7 +291,8 @@ An item needs attention when it `failed`, `rolled_back`, stayed
 asked for it. The result at the top of the Updates page counts the same items.
 
 The operations of the items do not write their own "installed", "upgraded" or
-"failed" items: the item of the run replaces them. An operation started
+"failed" items: the item of the run replaces them. This holds for every kind,
+a model upgrade included. An operation started
 outside a run (an install, a removal) still writes its own item when it ends.
 
 The live item has these params: `run`, `progress` (0 to 100 for the whole run),
@@ -288,10 +305,13 @@ The live item has these params: `run`, `progress` (0 to 100 for the whole run),
             "updated": 1, "running": 1, "queued": 1}}
 ```
 
-The end item has `run`, `total`, `updated`, `failed` and `source`. When
-`failed` is more than zero it also has `first_name`, `first_from` and
-`first_error`. `first_name` is the title of an add-on, and `first_from` is the
-version the item is still on (a digest only when there is no version).
+The end item has `run`, `total`, `updated`, `failed` and `source`. A run that
+was cancelled also has `state: "cancelled"` and `cancelled`, the number of
+items that did not run, and its title says "Update run cancelled: 1 updated".
+When `failed` is more than zero it also has `first_name`, `first_from`,
+`first_error` and `first_key`. `first_name` is the title of an add-on,
+`first_from` is the version the item is still on (a digest only when there is
+no version), and `first_key` is the error key of that item.
 
 ```json
 {"code": "updates.run.end", "key": "updates.run.end.2f0c6a52", "link": "/app/updates?run=2f0c6a52",
@@ -324,6 +344,19 @@ by default.
   actor never goes through the add-on gateway, which refuses it. Runs that a
   person starts keep their path as that person. A process that is not the
   owner can start the run of the backends, and never has add-on items.
+- **A release that did not start is held back.** An automatic run leaves out
+  an item whose target (the version or digest in `expected_to`) already ended
+  `rolled_back`, or `failed` with the key `start`, `verify` or `swap`, in the
+  newest attempt of that release in one of the last 20 runs, dismissed runs
+  included. A new try of the same release ends the same way, so without the
+  hold every pass ran its start check again and added an item to the inbox.
+  Other failures (`download`, `unavailable`, `unknown`, `interrupted`, ...) are
+  tried again. The hold ends when the gallery lists another release. A run
+  that a person starts is never held back: start the item from its row to try
+  the release again. When every item of a pass is held back, no run starts and
+  nothing is written. The Updates page shows a held-back backend as
+  "Held back: this release did not start", and `GET /api/backends/updates`
+  marks it with `heldBack: true`.
 - **One run at a time.** When a run is already running, the pass does not
   start another and does not write anything. It tries again every minute,
   and at the latest at the next scheduled pass, which lists the same items
@@ -415,6 +448,7 @@ All routes need an administrator. Their definitions are in the API reference
 | `stale` | `409` | The update no longer goes to `expected_to`. Preview again. |
 | `source_unchecked` | `409` | The check of the kind of the item did not answer. Check again. |
 | `run_active` | `409` | Another run is running. |
+| `held_back` | `409` | Only an automatic run: every item is a release that did not start before (see [Automatic updates are runs](#automatic-updates-are-runs)). |
 | `not_cancellable` | `409` | The item cannot stop now. |
 | `run_finished` | `409` | The run is over. |
 | `run_not_finished` | `409` | The run still runs (retry and dismiss). |

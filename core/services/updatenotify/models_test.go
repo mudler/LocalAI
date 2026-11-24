@@ -57,6 +57,13 @@ var _ = Describe("the model notifications", func() {
 		Expect(failed.Params).To(HaveKeyWithValue("error", "load failed"))
 	})
 
+	It("writes no row for a model upgrade of an upgrade run, which tells its own end", func() {
+		f := newFrontend(memStore(), nil, "admin")
+		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-r1", Name: "tiny", From: "sha256:a", To: "sha256:b", InRun: true})).To(Succeed())
+		Expect(f.em.ModelUpgradeResult(ctx, ModelUpgrade{OpID: "op-r2", Name: "tiny", Failed: true, RolledBack: true, Err: "load failed", InRun: true})).To(Succeed())
+		Expect(list(f, "admin")).To(BeEmpty())
+	})
+
 	It("leaves the row of a completed or failed model upgrade to the upgrader", func() {
 		f := newFrontend(memStore(), nil, "admin")
 		Expect(f.em.Operation(ctx, galleryop.OpResult{ID: "op-9", Name: "tiny", Upgrade: true, Outcome: galleryop.OpFailed, Err: "the model is up to date"})).To(Succeed())

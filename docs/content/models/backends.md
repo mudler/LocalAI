@@ -247,7 +247,11 @@ serves the request and contacts no registry. It has:
   how) or `drift` (the nodes of a cluster do not agree on the build). A library
   item also has `sourceId` and `signed`. In a cluster an item has `nodes`, with
   the version of every node that has the backend and `drift` on the ones that
-  differ from the majority.
+  differ from the majority. With **Update backends automatically** on, an item
+  has `heldBack: true` when the automatic update does not take its release,
+  because the same release already did not start in a recent upgrade run (see
+  [Automatic updates are runs]({{% relref "/models/upgrade-runs#automatic-updates-are-runs" %}})).
+  You can still update it by hand.
 - `sources.gallery` and `sources.library`: the freshness of each source. `state`
   is `ok`, `failed`, `never` (not checked since the server started) or
   `disabled` (with a `reason`). A source also has `checkedAt`, `lastSuccessAt`
