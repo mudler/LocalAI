@@ -193,6 +193,10 @@ The scripts keep caches and transient results under `.cache/addons`:
 
 Do not commit caches, generated distributions, or test binaries.
 Keep the command and required-case inventory in `scripts/addons/suites.json` synchronized with the runner.
+When you add, rename or remove a Ginkgo spec in a package that a suite covers, run `make addons-inventory`.
+It builds the tests, lists their specs without running them, and fails with the name of each spec that is missing from the inventory or no longer exists.
+`make addons-inventory-write` updates `suites.json`; review the diff and commit it with the spec.
+The Add-on Tests workflow runs the same check first, so a missing entry fails the pull request before the suites start.
 Add future suites only when their actual tests and commands exist.
 A successful prerequisite gate demonstrates readiness, not acceptance of add-on functionality that has no tests yet.
 
