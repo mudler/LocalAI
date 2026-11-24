@@ -83,6 +83,9 @@ var _ = Describe("Upgrade run wiring", func() {
 				o.Starters = map[upgraderun.Kind]upgraderun.Starter{upgraderun.KindGallery: starter}
 				o.Checkers = []upgraderun.Checker{backends}
 				o.PollInterval, o.SweepInterval = 10*time.Millisecond, 20*time.Millisecond
+				// The fake status table keeps A's last status after A stops,
+				// as the other frontends keep it when A dies.
+				o.RecoveredIdleAfter = 200 * time.Millisecond
 			}
 			a.startUpgradeRuns()
 			Expect(a.UpgradeRuns()).NotTo(BeNil())
@@ -102,7 +105,8 @@ var _ = Describe("Upgrade run wiring", func() {
 		Expect(b.UpgradeRuns().Local()).To(BeEmpty())
 
 		// Frontend A stops while the backend item runs, and the update had
-		// applied: B's sweep takes the run over and its check confirms it.
+		// applied: B's sweep takes the run over, follows the operation, and
+		// once its status shows no change its check confirms it.
 		Eventually(func() string { return starter.Job("gallery:kokoro") }).ShouldNot(BeEmpty())
 		backends.Remove("gallery:kokoro")
 		a.stopUpgradeRuns()

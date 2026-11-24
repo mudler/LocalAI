@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -37,6 +38,10 @@ type runner struct {
 	seen       map[string]bool
 	lastTouch  time.Time
 	lastVerify time.Time
+	// recovered are the items a takeover follows, with the time their
+	// status last changed and that status.
+	recovered    map[string]time.Time
+	recoveredSig map[string]string
 }
 
 func newRunner(svc *Service, run Run, lock *advisorylock.HeldLock) *runner {
@@ -48,6 +53,7 @@ func newRunner(svc *Service, run Run, lock *advisorylock.HeldLock) *runner {
 		events: make(chan Event, 64), poke: make(chan struct{}, 1),
 		ctx: ctx, stop: stop, done: make(chan struct{}),
 		lastPhase: map[string]string{}, missing: map[string]time.Time{}, seen: map[string]bool{},
+		recovered: map[string]time.Time{}, recoveredSig: map[string]string{},
 	}
 }
 
@@ -86,6 +92,11 @@ func (r *runner) loop(first []Event, initial []Effect) {
 	r.save(r.snapshot())
 	r.execute(initial)
 	for _, ev := range first {
+		if rr, ok := ev.(RestartRecovered); ok {
+			for key := range rr.Live {
+				r.recovered[key] = r.svc.now()
+			}
+		}
 		r.apply(ev)
 	}
 	t := time.NewTicker(r.svc.opts.PollInterval)
@@ -298,6 +309,21 @@ func (r *runner) follow(it Item, now time.Time) {
 	}
 	r.seen[it.Key] = true
 	delete(r.missing, it.Key)
+	if since, ok := r.recovered[it.Key]; ok && !v.ended {
+		sig := fmt.Sprintf("%s|%d|%s|%v", v.phase, v.progress, v.message, v.nodes)
+		switch {
+		case sig != r.recoveredSig[it.Key]:
+			r.recovered[it.Key], r.recoveredSig[it.Key] = now, sig
+		case now.Sub(since) >= r.svc.opts.RecoveredIdleAfter:
+			// The status did not move since the takeover: the frontend that
+			// ran it is gone, and so is the operation.
+			delete(r.recovered, it.Key)
+			r.apply(ItemJobEnded{Key: it.Key, Outcome: JobLost})
+			return
+		}
+	} else if v.ended {
+		delete(r.recovered, it.Key)
+	}
 	if v.phase != "" {
 		r.lastPhase[it.Key] = v.phase
 	}

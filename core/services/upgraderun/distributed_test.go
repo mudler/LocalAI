@@ -121,6 +121,26 @@ func liveHandover(open func() *gorm.DB) {
 
 var _ = Describe("A run taken over with a live operation", func() {
 	liveHandover(openSQLite)
+
+	It("checks an item whose operation shows no change after the takeover: its frontend is gone", func() {
+		db := openSQLite()
+		jobs := newFakeJobs()
+		a := newHarness(harnessOpts{db: db, jobs: jobs, instance: "frontend-a"})
+		b := newHarness(harnessOpts{db: db, jobs: jobs, instance: "frontend-b", recoveredIdle: 200 * time.Millisecond,
+			starter: a.starter, backends: a.backends, models: a.models, addons: a.addons})
+		a.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+		r := a.start(si(KindGallery, "kokoro"))
+		kokoro := a.jobOf("gallery:kokoro")
+		jobs.set(kokoro, galleryop.OpStatus{Phase: "fetching", Progress: 40})
+		Eventually(func() int { return a.item(r.ID, "gallery:kokoro").Progress }).Should(Equal(40))
+		// A dies; the status it last wrote stays on the others. The update
+		// had applied.
+		a.svc.Close()
+		a.backends.remove("gallery:kokoro")
+		b.svc.Sweep(context.Background())
+		Eventually(b.svc.Local).Should(ConsistOf(r.ID))
+		Eventually(func() Phase { return b.phase(r.ID, "gallery:kokoro") }, 5*time.Second).Should(Equal(PhaseUpdated))
+	})
 })
 
 var _ = Describe("Two frontends on SQLite", func() {

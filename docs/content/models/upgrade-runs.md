@@ -243,7 +243,8 @@ runner.
   run as after a restart. A frontend that loses its lock but keeps running
   (a lost database session) leaves its operations running: the frontend that
   takes the run over follows an item whose operation still has a status, and
-  checks only the others. From the takeover on, the run rows refuse the writes
+  checks only the others. When that status shows no change for two minutes,
+  the frontend that ran it is taken as gone and the item is checked too. From the takeover on, the run rows refuse the writes
   of the frontend that lost the run.
 - **Admission.** A second advisory lock lets only one frontend at a time start
   a run, so two frontends cannot start two runs at the same time.

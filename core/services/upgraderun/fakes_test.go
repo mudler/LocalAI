@@ -260,6 +260,8 @@ type harnessOpts struct {
 	instance string
 	limit    int
 	toucher  OperationToucher
+	// recoveredIdle is RecoveredIdleAfter; zero keeps the default.
+	recoveredIdle time.Duration
 	// shared fakes, for a second frontend of the same cluster
 	starter  *fakeStarter
 	backends *fakeChecker
@@ -309,6 +311,7 @@ func newHarness(o harnessOpts) *harness {
 		PollInterval: 5 * time.Millisecond, SweepInterval: 20 * time.Millisecond, LostAfter: 300 * time.Millisecond,
 		TouchInterval: 5 * time.Millisecond, LockCheckInterval: 10 * time.Millisecond,
 		VerifyTries: 3, VerifyRetry: 5 * time.Millisecond,
+		RecoveredIdleAfter: o.recoveredIdle,
 	}
 	h.svc, err = New(opts)
 	Expect(err).NotTo(HaveOccurred())

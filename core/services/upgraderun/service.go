@@ -90,6 +90,12 @@ type Options struct {
 	// LostAfter is how long a started operation may have no status before
 	// its outcome counts as lost.
 	LostAfter time.Duration
+	// RecoveredIdleAfter is how long the operation of an item that a takeover
+	// follows (its status was still there) may show no change before its
+	// outcome counts as lost. A frontend that lost its lock keeps its
+	// download going, which changes the status; the status of a frontend
+	// that died stays as it was on the others.
+	RecoveredIdleAfter time.Duration
 	// TouchInterval is how often a runner touches its operations.
 	TouchInterval time.Duration
 	// Retention is how long and how many finished runs are kept. Nil uses
@@ -119,6 +125,9 @@ func (o *Options) defaults() {
 	}
 	if o.LostAfter <= 0 {
 		o.LostAfter = 30 * time.Second
+	}
+	if o.RecoveredIdleAfter <= 0 {
+		o.RecoveredIdleAfter = 2 * time.Minute
 	}
 	if o.TouchInterval <= 0 {
 		o.TouchInterval = 5 * time.Minute
