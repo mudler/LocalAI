@@ -81,7 +81,7 @@ export default function ConnectorSheet({ initial, isAdmin, items, focus, onSave,
   // their fields start empty and the saved flags say what is stored.
   const backToForm = () => {
     const next = { ...form, id: saved.id, token: '', headers: [], env: [], clearToken: false, clearHeaders: false, clearEnv: false,
-      has_token: saved.has_token, has_headers: saved.has_headers, has_env: saved.has_env, enabled: saved.enabled, updated: saved.updated }
+      has_token: saved.has_token, has_headers: saved.has_headers, has_env: saved.has_env, enabled: saved.enabled, agents_only: saved.agents_only, updated: saved.updated }
     start.current = formFingerprint(next)
     setForm(next)
     setCheck(null)
@@ -177,6 +177,14 @@ export default function ConnectorSheet({ initial, isAdmin, items, focus, onSave,
                 {show('name', nameErr)
                   ? <p className="dk-field-error" id="mcp-name-hint"><Icon name="alert-circle" />{show('name', nameErr)}</p>
                   : <p className="dk-hint" id="mcp-name-hint">{t('mcpPage.sheet.nameHelp')}</p>}
+              </div>
+              <div className="dk-field">
+                <label className="dk-choice mcp-choice">
+                  <input type="checkbox" className="dk-check" checked={Boolean(form.agents_only)} aria-describedby="mcp-agents-only-hint"
+                    onChange={(e) => set({ agents_only: e.target.checked })} data-testid="mcp-agents-only" />
+                  <span>{t('mcpPage.sheet.agentsOnly')}</span>
+                </label>
+                <p className="dk-hint" id="mcp-agents-only-hint">{t('mcpPage.sheet.agentsOnlyHelp')}</p>
               </div>
               {!stdio && (
                 <div className="dk-field">

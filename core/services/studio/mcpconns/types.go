@@ -65,7 +65,12 @@ type Connector struct {
 	// the sealed value.
 	HasToken, HasHeaders, HasEnv bool
 	Enabled                      bool
-	Created, Updated             time.Time
+	// AgentsOnly keeps the connector out of a chat with no agent: only a saved
+	// agent that names it gets its tools. It is kept apart from Enabled because
+	// an agent cannot use a switched-off connector, so a connector made for one
+	// agent would otherwise land in every plain chat.
+	AgentsOnly       bool
+	Created, Updated time.Time
 }
 
 // Secrets is what is sealed.

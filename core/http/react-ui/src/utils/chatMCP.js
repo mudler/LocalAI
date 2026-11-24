@@ -8,7 +8,7 @@ export const PREFIX = 'connector:'
 
 export function emptyMCP() {
   return {
-    id: '', name: '', transport: 'http', url: '', command: '', argsText: '', enabled: false,
+    id: '', name: '', transport: 'http', url: '', command: '', argsText: '', enabled: false, agents_only: false,
     token: '', headers: [], env: [], clearToken: false, clearHeaders: false, clearEnv: false,
     has_token: false, has_headers: false, has_env: false,
   }
@@ -25,9 +25,10 @@ const pairs = (rows) => {
 
 // The body of a create or replace request. Token, headers and environment go only
 // when typed, so an update keeps what the server stored; a clear flag sends the
-// empty value that removes it.
+// empty value that removes it. enabled and agents_only go every time: a replace
+// without them sets them false.
 export function mcpPayload(form) {
-  const body = { name: (form.name || '').trim(), transport: form.transport, enabled: Boolean(form.enabled) }
+  const body = { name: (form.name || '').trim(), transport: form.transport, enabled: Boolean(form.enabled), agents_only: Boolean(form.agents_only) }
   if (form.transport === 'stdio') {
     body.command = (form.command || '').trim()
     body.args = (form.argsText || '').split('\n').map(x => x.trim()).filter(Boolean)
@@ -95,7 +96,7 @@ export function formFingerprint(form) {
   if (!form) return ''
   const rows = (list) => (list || []).filter(r => (r.name || '').trim() || (r.value || '')).map(r => [r.name, r.value])
   return JSON.stringify([form.name, form.transport, form.url, form.command, form.argsText, form.token,
-    rows(form.headers), rows(form.env), form.clearToken, form.clearHeaders, form.clearEnv])
+    rows(form.headers), rows(form.env), form.clearToken, form.clearHeaders, form.clearEnv, Boolean(form.agents_only)])
 }
 
 // The form of an existing connector: secrets are never read back, so they start
