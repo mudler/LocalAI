@@ -54,6 +54,19 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return len(rs)
 	}
+	// started counts the runs that are not skipped: a call that merges into a
+	// waiting run adds a skipped marker row and no run of its own.
+	started := func(id string) int {
+		rs, err := s.trigStore.ListRuns(ctx, id, 0)
+		Expect(err).NotTo(HaveOccurred())
+		n := 0
+		for _, r := range rs {
+			if r.Status != triggers.StatusSkipped {
+				n++
+			}
+		}
+		return n
+	}
 	// call sends an unauthenticated-by-session POST; set adds the headers.
 	call := func(id, query, body string, set func(*http.Request)) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/api/chats/triggers/"+id+"/hook"+query, strings.NewReader(body))
@@ -210,7 +223,11 @@ var _ = Describe("the public hook of an event trigger", func() {
 			Expect(sendSigned("t1", push, at, "same-id").Code).To(Equal(http.StatusAccepted))
 			Expect(sendSigned("t1", `{"type":"push","ref":"dev"}`, at, "same-id").Code).To(Equal(http.StatusAccepted))
 			Expect(sendSigned("t1", push, at.Add(time.Second), "same-id").Code).To(Equal(http.StatusAccepted))
-			Expect(runs("t1")).To(BeNumerically(">=", 3))
+			// Three different calls make three rows. The first run starts at
+			// once; the second waits for the gap; the third merges into the
+			// waiting one and leaves a skipped marker. So two runs, not three.
+			Expect(runs("t1")).To(Equal(3))
+			Expect(started("t1")).To(Equal(2))
 		})
 	})
 
@@ -229,6 +246,23 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(send().Code).To(Equal(http.StatusAccepted))
 		Expect(send().Code).To(Equal(http.StatusAccepted))
 		Expect(runs("gh")).To(Equal(1), "the same delivery id is one run")
+	})
+
+	It("answers the generic 404 for a GitHub signature made with another trigger's secret", func() {
+		put("gh", func(t *triggers.Trigger) { t.Source, t.EventType = "github", "pull_request" })
+		put("gh2", func(t *triggers.Trigger) { t.Source, t.EventType, t.Secret = "github", "pull_request", "another-trigger-secret" })
+		body := `{"action":"opened"}`
+		mac := hmac.New(sha256.New, []byte("another-trigger-secret"))
+		mac.Write([]byte(body))
+		rec := call("gh", "", body, func(r *http.Request) {
+			r.Header.Set("X-Hub-Signature-256", "sha256="+hex.EncodeToString(mac.Sum(nil)))
+			r.Header.Set("X-GitHub-Event", "pull_request")
+			r.Header.Set("X-GitHub-Delivery", "d-2")
+		})
+		Expect(rec.Code).To(Equal(http.StatusNotFound))
+		Expect(strings.TrimSpace(rec.Body.String())).To(Equal(notFound))
+		Expect(runs("gh")).To(BeZero())
+		Expect(runs("gh2")).To(BeZero())
 	})
 
 	It("keeps one run for the same body in the same minute when no id is sent", func() {
