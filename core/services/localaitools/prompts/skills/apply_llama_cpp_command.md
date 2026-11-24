@@ -1,5 +1,5 @@
 ---
-description: Turn a pasted llama-server command line into the settings of a llama-cpp model.
+description: Turn a pasted llama-server command into model settings.
 ---
 # Skill: Apply a llama-server command to a model
 
