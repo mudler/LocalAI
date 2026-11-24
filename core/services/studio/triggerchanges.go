@@ -278,6 +278,9 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 	set(&in.Reads, p.Reads)
 	set(&in.Writes, p.Writes)
 	set(&in.Widget, p.Widget)
+	if p.Kind != "" {
+		in.Source, in.EventType, in.Matches = "", "", nil // the event fields end with the kind
+	}
 	switch p.Kind {
 	case triggers.KindSchedule:
 		in.Kind, in.Schedule, in.Folder = triggers.KindSchedule, p.Schedule, ""
@@ -692,8 +695,10 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 	t.ID = live.ID
 	// A change never carries a secret: the one the trigger has now stays, also
 	// when it was rotated after the change was asked for.
-	if t.Kind == triggers.KindEvent && live.Kind == triggers.KindEvent {
-		t.Secret = live.Secret
+	if t.Kind == triggers.KindEvent {
+		if t.Secret = live.Secret; live.Kind != triggers.KindEvent || t.Secret == "" {
+			t.Secret = newEventSecret() // a trigger that becomes an event trigger needs one
+		}
 	}
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
 	t = triggers.Arm(&live, t, h.o.Clock())
@@ -702,6 +707,11 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		return triggers.Trigger{}, err
 	}
 	kept := withDefinition(rec, live)
+	if live.Kind == triggers.KindEvent && t.Kind != triggers.KindEvent {
+		// An undo makes it an event trigger again, so it needs its secret. The
+		// record holds it only until the change is answered.
+		kept.Secret = live.Secret
+	}
 	kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(t)
 	kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 	if err := h.o.Store.PutTrigger(ctx, kept); err != nil {
@@ -788,11 +798,21 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	}
 	var t triggers.Trigger
 	if rec.Change.Op == triggers.ChangeDelete {
-		t = triggers.Arm(nil, asTrigger(rec), h.o.Clock())
+		t = asTrigger(rec)
+		t.Secret = rec.Secret
+		t = triggers.Arm(nil, t, h.o.Clock())
 	} else {
 		t = withDefinition(live, rec)
 		t.Enabled = rec.Change.On
+		if t.Kind != triggers.KindEvent {
+			t.Secret = ""
+		} else if live.Kind != triggers.KindEvent {
+			t.Secret = rec.Secret
+		}
 		t = triggers.Arm(&live, t, h.o.Clock())
+	}
+	if t.Kind == triggers.KindEvent && t.Secret == "" {
+		t.Secret = newEventSecret() // a restored event trigger is never without one
 	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
@@ -824,6 +844,7 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 		rec = withDefinition(rec, live)
 		rec.Change.On = live.Enabled
 	}
+	rec.Secret = "" // the change is answered: the record no longer holds the key
 	rec.Outcome, rec.OutcomeAt = triggers.OutcomeUndone, at
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		h.log.Warn("studio: could not mark a trigger change undone", "change", rec.ID, "error", err)

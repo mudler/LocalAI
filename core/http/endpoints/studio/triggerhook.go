@@ -201,7 +201,7 @@ func (h *Handlers) TriggerHook(c echo.Context) error {
 	if err != nil {
 		return hookNotFound(c, "unknown trigger")
 	}
-	if t.Kind != triggers.KindEvent || !t.Enabled {
+	if t.Kind != triggers.KindEvent || !t.Enabled || t.Proposed || t.IsChange() {
 		return hookNotFound(c, "not an enabled event trigger")
 	}
 	now := time.Now()
