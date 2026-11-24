@@ -8220,7 +8220,7 @@
     files:
       - filename: ds4flash.gguf
         uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
-        sha256: 8554c2bf6c0873415e847516e4f5fb0ebd8bf1606e3b0555b8fad4ba846b0163
+        sha256: 2e1990f863ad901f9baaaaebfd7abac4642ecf0d25affbbda3f2e696e666e039
     overrides:
       backend: ds4
       function:
@@ -22148,8 +22148,8 @@
         sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
       - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
-        sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+        sha256: 3da00cf7c31bbe5662b3c0d373ecf782d74d32ef43990acc158ce60c2add72e0
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -22236,8 +22236,8 @@
         sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
       - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
-        sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+        sha256: 3da00cf7c31bbe5662b3c0d373ecf782d74d32ef43990acc158ce60c2add72e0
     overrides:
       backend: llama-cpp
       context_size: 32768
@@ -22322,8 +22322,8 @@
         sha256: 3bff75ffeb2d6e0371ba7bd42e30d26a7d98aea681fa44b03b5a20891cfa2c5f
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/mmproj-F16.gguf
       - filename: llama-cpp/models/Inkling-2-Mini-GGUF/dspark-Inkling-2-Mini-Q8_0.gguf
-        sha256: 2ec78510da837e8fc3be54a14757a0c5fbd2d8d9e85a0d92853fafdf674f3773
         uri: https://huggingface.co/unsloth/Inkling-2-Mini-GGUF/resolve/main/dspark-Inkling-2-Mini-Q8_0.gguf
+        sha256: 3da00cf7c31bbe5662b3c0d373ecf782d74d32ef43990acc158ce60c2add72e0
     overrides:
       backend: llama-cpp
       context_size: 32768
