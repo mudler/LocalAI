@@ -1,0 +1,323 @@
+{
+  "group": {
+    "title": "Cluster",
+    "hint": "Come frontend e worker si connettono"
+  },
+  "unavailable": {
+    "title": "Questo server non fa parte di un cluster",
+    "body": "Le impostazioni del cluster compaiono quando la modalità distribuita è attiva."
+  },
+  "loadFailed": "Impossibile caricare le impostazioni del cluster.",
+  "sheet": {
+    "title": "Impostazioni del cluster",
+    "description": "Come si connettono frontend e worker. Le modifiche arrivano a ogni frontend in pochi secondi.",
+    "close": "Chiudi le impostazioni del cluster",
+    "openSettings": "Apri in Impostazioni",
+    "done": "Fatto"
+  },
+  "bus": {
+    "title": "Broadcast",
+    "note": "I frontend ascoltano su ogni bus che riescono a raggiungere. Pubblicano su NATS quando è raggiungibile, altrimenti su PostgreSQL.",
+    "state": {
+      "nats": "NATS connesso",
+      "postgres": "PostgreSQL",
+      "unknown": "Sconosciuto"
+    },
+    "publishing": {
+      "nats": "Pubblicazione su NATS",
+      "postgres": "Pubblicazione su PostgreSQL",
+      "unknown": "Sconosciuto"
+    },
+    "unreachable": "NATS è configurato, ma questo frontend non lo raggiunge. Trasmette tramite PostgreSQL e non sarà pronto finché NATS non torna raggiungibile.",
+    "noReplica": "Nessun frontend attivo.",
+    "replicas": "Frontend",
+    "unknownVersion": "versione sconosciuta",
+    "workers": "I worker non si connettono mai a PostgreSQL. Comunicano con i frontend tramite le connessioni qui sotto."
+  },
+  "nats": {
+    "title": "NATS",
+    "note": "Salvando si verifica che questo frontend raggiunga il server NATS. I frontend usano il nuovo indirizzo dopo un riavvio.",
+    "state": {
+      "connected": "Raggiungibile",
+      "unreachable": "Non raggiungibile",
+      "off": "Non impostato"
+    },
+    "url": "Indirizzo NATS",
+    "urlHint": "I frontend si connettono qui.",
+    "workerUrl": "Indirizzo fornito ai worker",
+    "workerUrlHint": "Solo se i worker raggiungono NATS a un indirizzo diverso. Se vuoto, vale l'indirizzo sopra.",
+    "save": "Salva",
+    "saved": "Salvato. Riavvia i frontend per usare il nuovo indirizzo.",
+    "savedReachable": "Salvato. Questo frontend raggiunge il server NATS. Riavvia i frontend per usare il nuovo indirizzo.",
+    "failed": "Le impostazioni non sono state salvate."
+  },
+  "weights": {
+    "title": "Preferenza di connessione",
+    "note": "Un worker può unirsi tramite NATS, WebSocket o P2P, anche tutti insieme. Se due worker sono ugualmente adatti a una richiesta, vince quello raggiunto tramite la connessione con il peso più alto. Il peso non batte mai l'idoneità. 0 significa: usalo solo quando nessun altro è adatto.",
+    "about": {
+      "nats": "Il più veloce. I worker si collegano al message bus.",
+      "websocket": "Funziona ovunque. I worker si collegano a questo server.",
+      "p2p": "Link di invito. Può passare da un relay."
+    },
+    "sliderLabel": "Peso di {{connection}}",
+    "resetOne": "Torna al valore predefinito, {{value}}",
+    "default": "Predefinito {{value}}",
+    "error": {
+      "empty": "Inserisci un numero intero da 0 a 1000.",
+      "whole": "Usa un numero intero da 0 a 1000.",
+      "range": "Un peso va da 0 a 1000."
+    },
+    "live": "Se due worker sono ugualmente adatti, {{sentence}}.",
+    "wins": "{{winner}} batte {{loser}}",
+    "ties": "{{a}} e {{b}} sono pari merito",
+    "apply": "Applica i pesi",
+    "useDefaults": "Usa i valori predefiniti",
+    "saved": "Salvato. Ogni frontend usa i nuovi pesi in pochi secondi.",
+    "defaultsBack": "Sono tornati i pesi predefiniti. Ogni frontend li usa entro pochi secondi.",
+    "failed": "I pesi non sono stati salvati."
+  },
+  "joining": {
+    "title": "Accesso",
+    "note": "Come viene accettato un nuovo worker quando si unisce con un token di accesso.",
+    "autoApprove": "Approva i worker automaticamente",
+    "autoApproveHint": "Disattivato per impostazione predefinita. Un worker che si unisce con un token attende la tua approvazione. Un token generato può comunque scegliere diversamente.",
+    "autoApproveOn": "Chiunque abbia un token di accesso valido si unisce senza la tua approvazione. Usa token di breve durata e monouso.",
+    "failed": "L'impostazione non è stata salvata."
+  },
+  "page": {
+    "supporting": "Macchine che eseguono i tuoi modelli. {{online}} su {{total}} sono online.",
+    "supportingEmpty": "Macchine che eseguono i tuoi modelli.",
+    "add": "Aggiungi worker",
+    "search": "Cerca worker",
+    "searchPlaceholder": "Cerca worker, modelli, etichette",
+    "chip": {
+      "all": "Tutti",
+      "healthy": "Integri",
+      "attention": "Richiede attenzione",
+      "offline": "Offline",
+      "pending": "In attesa"
+    },
+    "type": {
+      "backend": "backend",
+      "agent": "agent",
+      "model-split": "split del modello"
+    },
+    "reason": "Richiede attenzione per",
+    "anyReason": "Qualsiasi motivo"
+  },
+  "pill": {
+    "frontends_one": "{{count}} frontend",
+    "frontends_other": "{{count}} frontend"
+  },
+  "strip": {
+    "label": "Riepilogo del parco",
+    "online": "Worker online",
+    "ofTotal": "su {{total}}",
+    "models": "Modelli caricati",
+    "onWorkers_one": "su {{count}} worker",
+    "onWorkers_other": "su {{count}} worker",
+    "inFlight": "In esecuzione",
+    "requests_one": "richiesta",
+    "requests_other": "richieste",
+    "attention": "Richiede attenzione",
+    "allClear": "Tutto a posto",
+    "offline": "{{count}} offline",
+    "degraded": "{{count}} degradati"
+  },
+  "roster": {
+    "worker": "Worker",
+    "state": "Stato",
+    "connections": "Connessioni",
+    "load": "Carico",
+    "seen": "Visto",
+    "splitMark": "Split del modello",
+    "splitGroup": "Worker di split del modello",
+    "attachedTo": "collegato a {{node}}",
+    "lends": "presta {{memory}}"
+  },
+  "conn": {
+    "label": "Connessioni",
+    "of": "Connessioni di {{name}}",
+    "name": {
+      "nats": "NATS",
+      "websocket": "WebSocket",
+      "p2p": "P2P",
+      "heartbeat": "Heartbeat"
+    },
+    "live": "attiva",
+    "reconnecting": "riconnessione",
+    "down": "non attiva",
+    "notReported": "Non segnalato",
+    "state": {
+      "live": "Attiva",
+      "reconnecting": "Riconnessione",
+      "down": "Non attiva"
+    },
+    "path": {
+      "direct": "diretto",
+      "holePunched": "con hole punching",
+      "relayed": "tramite relay {{relay}}",
+      "relayedUnknown": "tramite relay",
+      "none": "nessun percorso"
+    },
+    "rtt": "{{ms}} ms",
+    "limited": "Limitata",
+    "limitedHint": "Il relay limita i dati o il tempo di questa connessione. I file dei modelli non passano da lì."
+  },
+  "inspector": {
+    "kicker": "Worker",
+    "splitKicker": "Worker di split del modello",
+    "connections": "Connessioni",
+    "noConnections": "Questo worker non ha ancora segnalato una connessione.",
+    "weight": "Peso {{weight}}",
+    "heartbeat": "heartbeat {{ago}}",
+    "update": "Aggiorna i backend",
+    "splitNote": "Presta la sua memoria a un unico modello grande che gira su più macchine. Non ha backend né regole di posizionamento."
+  },
+  "add": {
+    "title": "Aggiungi worker",
+    "supporting": "Collega una nuova macchina in tre passaggi.",
+    "cancel": "Annulla",
+    "back": "Indietro",
+    "continue": "Continua",
+    "backToWorker": "Torna a un worker con un token di accesso",
+    "stepsLabel": "Passaggi",
+    "step": {
+      "choose": "Scegli le connessioni",
+      "run": "Esegui il comando",
+      "wait": "Attendi il worker"
+    },
+    "choose": {
+      "title": "Come deve connettersi il worker?",
+      "note": "Scegline una o più. Un worker può usarle tutte insieme. Puoi aggiungerne altre in seguito.",
+      "none": "Scegli almeno una connessione."
+    },
+    "availability": "Disponibilità",
+    "needs": "Requisiti",
+    "weight": "Peso di preferenza {{weight}}",
+    "way": {
+      "nats": {
+        "name": "NATS",
+        "tag": "Il più veloce",
+        "about": "Il più veloce. Il worker si collega al message bus.",
+        "needs": "L'indirizzo NATS deve essere raggiungibile dal worker.",
+        "ready": "Disponibile, NATS è connesso",
+        "unreachable": "Configurato, ma questo frontend non lo raggiunge",
+        "off": "Non disponibile",
+        "offNote": "NATS non è configurato.",
+        "offLink": "Configuralo nelle impostazioni del cluster"
+      },
+      "websocket": {
+        "name": "WebSocket",
+        "tag": "Funziona ovunque",
+        "about": "Il worker si collega all'indirizzo di questo server con un token. Funziona attraverso NAT e firewall.",
+        "needs": "Solo l'indirizzo di questo server.",
+        "ready": "Disponibile"
+      },
+      "p2p": {
+        "name": "P2P",
+        "tag": "Link di invito",
+        "about": "Entra con un link di invito. Nessuna porta aperta. Può passare da un relay.",
+        "needs": "Condivisione P2P attiva.",
+        "ready": "Disponibile",
+        "off": "Non disponibile",
+        "checking": "Verifica in corso",
+        "offNote": "La condivisione P2P è disattivata.",
+        "offLink": "Attivala in Condivisione"
+      }
+    },
+    "split": {
+      "question": "Vuoi eseguire un modello grande su più macchine?",
+      "answer": "Aggiungi invece un worker di split del modello.",
+      "action": "Worker di split del modello"
+    },
+    "single": {
+      "splitNote": "Un worker di split del modello non richiede un cluster."
+    },
+    "run": {
+      "title": "Esegui il comando sulla nuova macchina",
+      "attach": "Questo worker si collegherà tramite {{ways}}",
+      "weights": "pesi {{weights}}",
+      "change": "Cambia connessioni",
+      "ran": "L'ho eseguito, attendi il worker"
+    },
+    "token": {
+      "title": "Token di accesso",
+      "show": "Mostra il token",
+      "hide": "Nascondi il token",
+      "copy": "Copia il token",
+      "expires": "Scade",
+      "in": "tra",
+      "expired": "Scaduto",
+      "connections": "Connessioni",
+      "any": "Qualsiasi",
+      "uses": "Utilizzi",
+      "one": "1 worker",
+      "many": "Più d'uno",
+      "count": "Quanti worker",
+      "max": "Fino a {{max}}.",
+      "usesHint": "Quanti worker possono entrare con questo token. Usane più d'uno per Kubernetes o Compose.",
+      "valid": "Valido per",
+      "ttl": {
+        "600": "10 minuti",
+        "3600": "1 ora",
+        "86400": "24 ore"
+      },
+      "again": "Genera un nuovo token",
+      "retry": "Riprova",
+      "making": "Creazione del token di accesso…",
+      "failed": "Il token di accesso non è stato creato: {{message}}",
+      "expiredNote": "Questo token è scaduto. Genera un nuovo token per ottenere un comando funzionante.",
+      "hiddenNote": "Il token è nascosto qui e viene aggiunto quando lo copi.",
+      "shownNote": "Il token è mostrato qui. Nascondilo prima di condividere lo schermo."
+    },
+    "tabs": {
+      "label": "Modi per eseguire il worker",
+      "install": "Script di installazione",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "kubernetes": "Kubernetes",
+      "manual": "Manuale"
+    },
+    "tabNote": {
+      "compose": "Possono partire più repliche insieme: scegli quanti worker possono usare il token.",
+      "kubernetes": "Applica un Secret e uno StatefulSet. Scegli quanti worker possono usare il token per le repliche che esegui."
+    },
+    "os": {
+      "label": "Sistema operativo",
+      "unix": "Linux e macOS",
+      "windows": "Windows"
+    },
+    "copyCommand": "Copia comando",
+    "copiedShort": "Copiato",
+    "copied": "Copiato negli appunti",
+    "copyFailed": "Impossibile copiare. Seleziona il testo e copialo.",
+    "invite": {
+      "title": "Invito P2P",
+      "note": "Un link di invito monouso. Il worker si unisce tramite P2P con questo link: nessun token e nessuna porta aperta.",
+      "ready": "Invito pronto",
+      "single": "Uso singolo",
+      "making": "Creazione dell'invito…",
+      "hardware": "Hardware",
+      "how": "Come eseguirlo",
+      "cli": "Riga di comando"
+    },
+    "wait": {
+      "title": "Attendi il worker",
+      "listening": "In attesa del worker",
+      "listeningNote": "Avvia il comando sulla nuova macchina. Questa pagina si aggiorna quando si connette. Fino ad allora non viene salvato nulla.",
+      "valid": "Token valido per {{time}}",
+      "found_one": "Worker trovato",
+      "found_other": "{{count}} worker trovati",
+      "open": "Apri",
+      "usesLeft_one": "{{count}} utilizzo del token rimasto.",
+      "usesLeft_other": "{{count}} utilizzi del token rimasti.",
+      "usedUp": "Il token non ha più utilizzi disponibili.",
+      "checkPeer": "Controlla l'ID del peer sulla macchina prima di approvarlo.",
+      "stuck": "Ancora nulla? Verifica che la macchina raggiunga questo server e che il comando sia stato eseguito senza errori.",
+      "stuckInvite": "Ancora nulla? Verifica che la macchina esegua il comando con il link di invito e che il link non sia scaduto.",
+      "another": "Aggiungi un altro worker",
+      "done": "Fatto"
+    }
+  }
+}

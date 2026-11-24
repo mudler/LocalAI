@@ -1,0 +1,223 @@
+package studio
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"sync"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
+)
+
+// The work folder of a chat (Chats/<chat>/work): the note of every turn
+// names it, and the scripts, logs and drafts a chat makes go there instead of
+// next to the user's files (see workfiles). The setting chats_work_folder
+// turns the steering off; the interface still shows working files apart.
+//
+// The steering is soft. When a call leaves a helper file outside the work
+// folder, its result gets one line that suggests moving it, at most once a
+// turn of a chat. That count is kept per process: a turn runs on one process,
+// so no other process needs it, and a lost count only repeats the line.
+
+// maxNudged bounds the turns remembered for the nudge.
+const maxNudged = 4096
+
+// nudges remembers, per conversation, the last turn whose result got the line.
+type nudges struct {
+	mu   sync.Mutex
+	turn map[string]int
+}
+
+// first reports whether the turn of the conversation has not had the line yet,
+// and marks it.
+func (n *nudges) first(k string, turn int) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.turn == nil || len(n.turn) >= maxNudged {
+		n.turn = map[string]int{}
+	}
+	if t, ok := n.turn[k]; ok && t == turn {
+		return false
+	}
+	n.turn[k] = turn
+	return true
+}
+
+// workFolderOn is the setting chats_work_folder.
+func (s *Service) workFolderOn() bool {
+	return s.d.WorkFolderOn == nil || s.d.WorkFolderOn()
+}
+
+// workFolderOf returns the chat folder name of the chat the actor works for
+// and its turn count, when the steering is on and the chat has a folder name.
+func (s *Service) workFolderOf(ctx context.Context, a workspace.Actor) (folder string, turns int) {
+	if !s.workFolderOn() || !s.d.Files.Available() || a.ChatID == "" {
+		return "", 0
+	}
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return "", 0
+	}
+	return rec.Folder, rec.Turns
+}
+
+// subWorkBlock is the prompt block about the parent's work folder for a
+// sub-agent, which saves in the parent's files, and the line of the turn's
+// note that names it. Both are "" when the parent has no folder name yet. x
+// is the sub-agent's access: a scoped one names /workspace/chat/work, the
+// parent's chat folder, in the block and says whether its folder may be
+// written. As for a chat, the folder of an unscoped one is named in the note
+// so that the prompt does not depend on the parent's title.
+func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x session.Access) (block, note string) {
+	if !s.workFolderOn() || !s.d.Files.Available() || rec.ParentID == "" {
+		return "", ""
+	}
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
+	if err != nil || parent.Folder == "" {
+		return "", ""
+	}
+	if p := x.Place(); p.Scoped() {
+		return workfiles.ScopedPrompt(p.PrimaryWritable()), ""
+	}
+	return workfiles.Prompt, workfiles.NoteFolder(workfiles.GuestFolder(parent.Folder))
+}
+
+// ensureWorkFolder makes the chat's work folder before a command runs, so a
+// script can save into it at once. A failure is logged: the command runs.
+// The folder is made as the user (a change set of no chat), with the chat's
+// fence kept, so a scoped chat makes it only inside its chat folder.
+func (s *Service) ensureWorkFolder(ctx context.Context, a workspace.Actor) {
+	folder, _ := s.workFolderOf(ctx, a)
+	if folder == "" {
+		return
+	}
+	if err := s.makeWorkFolder(ctx, a, folder); err != nil {
+		s.log.Warn("studio: could not make the chat's work folder", "chat", a.ChatID, "error", err)
+	}
+}
+
+func (s *Service) makeWorkFolder(ctx context.Context, a workspace.Actor, folder string) error {
+	user := a
+	user.ChatID = ""
+	return session.EnsureWorkFolder(ctx, s.d.Files.Store(), user, a.Principal, folder)
+}
+
+// parentFolder is the chat folder name of the parent of a sub-agent's chat,
+// whose files the sub-agent saves in (see subWorkBlock), or "".
+func (s *Service) parentFolder(ctx context.Context, a workspace.Actor) string {
+	if !s.workFolderOn() || !s.d.Files.Available() || a.ChatID == "" {
+		return ""
+	}
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
+	if err != nil || rec.ParentID == "" {
+		return ""
+	}
+	parent, err := s.getChatEffective(ctx, rec.Principal, rec.ParentID)
+	if err != nil {
+		return ""
+	}
+	return parent.Folder
+}
+
+// CommandWorkDir returns the guest path of the work folder of the chat of a,
+// without a final "/", for the shell of a command: it starts there and gets it
+// as $WORK. A scoped chat's folder is /workspace/chat/work, any other chat's
+// is below the home. It is "" when the chat has no folder yet, the steering is
+// off, or the folder is not there, and then the shell starts in the home.
+// With create the folder is made first, so the shell can start in it; without
+// it (a check that must change no file) a missing folder gives "".
+func (s *Service) CommandWorkDir(ctx context.Context, a workspace.Actor, create bool) string {
+	folder, _ := s.workFolderOf(ctx, a)
+	if folder == "" {
+		folder = s.parentFolder(ctx, a)
+	}
+	if folder == "" {
+		return ""
+	}
+	if create {
+		if err := s.makeWorkFolder(ctx, a, folder); err != nil {
+			s.log.Warn("studio: could not make the chat's work folder", "chat", a.ChatID, "error", err)
+			return ""
+		}
+	} else {
+		user := a
+		user.ChatID = ""
+		st, err := s.d.Files.Store().Stat(ctx, user, session.HomePath(a.Principal)+workfiles.Folder(folder))
+		if err != nil || st.Kind != workspace.KindDir {
+			return ""
+		}
+	}
+	if workspace.HasFence(a) {
+		return strings.TrimSuffix(workfiles.ChatGuestFolder, "/")
+	}
+	return strings.TrimSuffix(workfiles.GuestFolder(folder), "/")
+}
+
+// nudgeLine is the line for the first helper file among paths (paths of the
+// home, or guest paths) that a call created outside the work folder, or ""
+// when there is none or the turn had its line already. scoped comes from the
+// turn's access: a scoped chat's work folder is /workspace/chat/work.
+func (s *Service) nudgeLine(ctx context.Context, a workspace.Actor, scoped bool, paths []string) string {
+	stray := ""
+	for _, p := range paths {
+		if workfiles.Stray(p) {
+			stray = p
+			break
+		}
+	}
+	if stray == "" {
+		return ""
+	}
+	folder, turns := s.workFolderOf(ctx, a)
+	if folder == "" || !s.nudged.first(key(a.Principal, a.ChatID), turns) {
+		return ""
+	}
+	if !strings.HasPrefix(stray, session.GuestRoot+"/") {
+		stray = session.GuestRoot + "/" + session.GuestHome + stray
+	}
+	if scoped {
+		return workfiles.Nudge(workfiles.ChatGuestFolder, stray)
+	}
+	return workfiles.Nudge(workfiles.GuestFolder(folder), stray)
+}
+
+// withNudge appends line to a tool result, on a line of its own.
+func withNudge(out, line string) string {
+	if line == "" {
+		return out
+	}
+	return strings.TrimRight(out, "\n") + "\n" + line
+}
+
+// fileNudgeTools wraps write_file and move_file: a call that saved a helper
+// file outside the work folder gets the nudge. x is the access the tools
+// were built from.
+func (s *Service) fileNudgeTools(x session.Access, tools []session.Tool) []session.Tool {
+	a, scoped := x.Actor(), x.Place().Scoped()
+	for i, tool := range tools {
+		field := map[string]string{"write_file": "path", "move_file": "to"}[tool.Name]
+		if field == "" {
+			continue
+		}
+		run := tool.Run
+		tools[i].Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+			out, err := run(ctx, args)
+			if err != nil {
+				return out, err
+			}
+			var in map[string]any
+			_ = json.Unmarshal(args, &in)
+			p, _ := in[field].(string)
+			if p == "" {
+				return out, nil
+			}
+			if !strings.HasPrefix(p, "/") {
+				p = "/" + p
+			}
+			return withNudge(out, s.nudgeLine(ctx, a, scoped, []string{p})), nil
+		}
+	}
+	return tools
+}

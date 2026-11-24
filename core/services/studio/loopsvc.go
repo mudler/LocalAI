@@ -1,0 +1,1004 @@
+package studio
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/loops"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+)
+
+// DefaultLoopTick is the time between two passes of the loop host.
+const DefaultLoopTick = 5 * time.Second
+
+// loopStartGrace is how long a run that another process claimed may take to
+// start its turn before a pass takes the run for one that a dead process left.
+const loopStartGrace = time.Minute
+
+// Errors of the loop host.
+var (
+	// ErrLoopsClosed means the loop host has stopped.
+	ErrLoopsClosed = errors.New("studio: the loop host has stopped")
+	// ErrLoopsOff means the server runs no loop host.
+	ErrLoopsOff = errors.New("loops are turned off on this server")
+	// ErrLoopCommand refuses a loop prompt that is a command other than a skill.
+	ErrLoopCommand = errors.New("a loop repeats plain text or a skill (/skill-name and its words); other commands cannot repeat")
+	// ErrLoopSender refuses a loop or a wait that the model of a connector
+	// chat starts for a sender who does not hold the capability.
+	ErrLoopSender = errors.New("the sender of this chat may not start this: the owner has to enable it for the bot, and a loop needs a verified sender")
+	// ErrLoopChat refuses a loop in a chat that a person did not start.
+	ErrLoopChat = errors.New("a loop can run only in a chat that you started")
+	// ErrLoopState refuses a change of state that a loop cannot make.
+	ErrLoopState = errors.New("a loop can only be paused or made active, and an ended loop cannot go on: start a new one")
+)
+
+// errLoopSkip leaves a loop as it is in a Store.Update.
+var errLoopSkip = errors.New("studio: loop unchanged")
+
+// LoopLimits are the operator's limits of the loops. A zero field takes the
+// default of package loops.
+type LoopLimits struct {
+	// MinInterval is the shortest interval, and the shortest wait a self-paced
+	// loop may ask for.
+	MinInterval time.Duration
+	// MaxRuns ends a loop after that many runs.
+	MaxRuns int
+	// PerChat and PerUser bound the loops that are not ended.
+	PerChat, PerUser int
+	// DailyRuns is the number of loop runs one owner may start in a UTC day.
+	DailyRuns int
+	// DailyScriptChecks is the number of checks of waits on a script that one
+	// owner may spend in a UTC day, over all their waits. It is a budget apart
+	// from DailyRuns.
+	DailyScriptChecks int
+}
+
+func (l LoopLimits) withDefaults() LoopLimits {
+	if l.MinInterval < loops.MinInterval {
+		l.MinInterval = loops.DefaultMinInterval
+	}
+	if l.MinInterval > loops.MaxInterval {
+		l.MinInterval = loops.MaxInterval
+	}
+	if l.MaxRuns <= 0 {
+		l.MaxRuns = loops.DefaultMaxRuns
+	}
+	if l.PerChat <= 0 {
+		l.PerChat = loops.DefaultPerChat
+	}
+	if l.PerUser <= 0 {
+		l.PerUser = loops.DefaultPerUser
+	}
+	if l.DailyRuns <= 0 {
+		l.DailyRuns = loops.DefaultDailyRuns
+	}
+	if l.DailyScriptChecks <= 0 {
+		l.DailyScriptChecks = loops.DefaultDailyScriptChecks
+	}
+	l.DailyScriptChecks = min(l.DailyScriptChecks, loops.MaxDailyScriptChecks)
+	return l
+}
+
+// LoopOptions configures the loop host.
+type LoopOptions struct {
+	// Store holds the loops. Required.
+	Store loops.Store
+	// Clock gives the time; nil means time.Now. A test sets a fake one.
+	Clock func() time.Time
+	// Tick is the time between two passes; zero means DefaultLoopTick.
+	Tick time.Duration
+	// RunLimit is how long one run may take; zero means DefaultRunLimit.
+	RunLimit time.Duration
+	// Lead says whether this frontend runs the loops now. With a database,
+	// one frontend leads at a time (the host gives it an advisory lock). Nil:
+	// always.
+	Lead func(ctx context.Context) bool
+	// Limits gives the operator's limits, read at each use so that a change
+	// of the settings applies at once. Nil: the defaults.
+	Limits func() LoopLimits
+	// Logger; nil means slog.Default.
+	Logger *slog.Logger
+}
+
+// LoopInput is a loop that a person starts.
+type LoopInput struct {
+	// Interval is the time between runs, such as 5m. Empty makes the loop
+	// self-paced.
+	Interval string
+	Prompt   string
+}
+
+// Loops runs the loops of the chats: a prompt that a chat sends to itself
+// again, at an interval or when the model asks, as a new message of the person
+// in the same chat.
+//
+// State mode: single-runner. The loops are in the shared store; one frontend
+// at a time, the leader, fires them. A run is claimed in the store (a loop
+// whose run goes on is not due), and the turn claim of the chat keeps one turn
+// per chat, so a short overlap of two leaders starts no run twice. A new
+// leader finishes the runs that the old one watched from the store.
+type Loops struct {
+	svc *Service
+	o   LoopOptions
+	log *slog.Logger
+
+	pass sync.Mutex // one pass at a time
+
+	mu   sync.Mutex          // guards sup and shut
+	shut bool                // Close has begun: no supervisor may be added to wg
+	sup  map[string]struct{} // loops whose run this process watches
+
+	wake chan struct{}
+	done chan struct{}
+	once sync.Once
+	wg   sync.WaitGroup
+}
+
+// NewLoops returns the loop host of a service. It does nothing until Run or
+// Pass is called.
+func NewLoops(svc *Service, o LoopOptions) (*Loops, error) {
+	if svc == nil || o.Store == nil {
+		return nil, errors.New("studio: the loop host needs a service and a store")
+	}
+	if o.Clock == nil {
+		o.Clock = time.Now
+	}
+	if o.Tick <= 0 {
+		o.Tick = DefaultLoopTick
+	}
+	if o.RunLimit <= 0 {
+		o.RunLimit = DefaultRunLimit
+	}
+	if o.Logger == nil {
+		o.Logger = slog.Default()
+	}
+	return &Loops{svc: svc, o: o, log: o.Logger, sup: map[string]struct{}{}, wake: make(chan struct{}, 1), done: make(chan struct{})}, nil
+}
+
+// SetLoops gives the service its loop host. Without one the chats have no
+// loops.
+func (s *Service) SetLoops(h *Loops) { s.loops = h }
+
+// Loops returns the loop host, or nil when loops are off.
+func (s *Service) Loops() *Loops { return s.loops }
+
+// Limits returns the limits that apply now.
+func (h *Loops) Limits() LoopLimits {
+	var l LoopLimits
+	if h.o.Limits != nil {
+		l = h.o.Limits()
+	}
+	return l.withDefaults()
+}
+
+// Notify asks Run for a pass at once. It never blocks.
+func (h *Loops) Notify() {
+	select {
+	case h.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Run makes a pass at each tick and at each Notify while this frontend leads,
+// until ctx ends or Close is called.
+func (h *Loops) Run(ctx context.Context) {
+	tick := time.NewTicker(h.o.Tick)
+	defer tick.Stop()
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		if h.o.Lead == nil || h.o.Lead(ctx) {
+			if err := h.Pass(ctx); err != nil && ctx.Err() == nil && !errors.Is(err, ErrLoopsClosed) {
+				h.log.Warn("studio: loop pass failed", "error", err)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-h.done:
+			return
+		case <-tick.C:
+		case <-h.wake:
+		}
+	}
+}
+
+// Close stops the host. A run that goes on stays marked as running; the next
+// leader finishes it from the store.
+func (h *Loops) Close() {
+	h.mu.Lock()
+	h.shut = true
+	h.mu.Unlock()
+	h.once.Do(func() { close(h.done) })
+	h.wg.Wait()
+}
+
+func (h *Loops) closed() bool {
+	select {
+	case <-h.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// publish tells the watchers of a chat that its loops changed.
+func (h *Loops) publish(owner, chatID string) {
+	h.svc.bus.Publish(key(owner, chatID), session.Event{Kind: session.KindLoops})
+}
+
+// --- What a person does -----------------------------------------------------
+
+// chatOf returns the user's chat; another user's chat is session.ErrNotFound.
+func (h *Loops) chatOf(ctx context.Context, user, conv string) (session.ChatRecord, error) {
+	return h.svc.Get(ctx, user, conv)
+}
+
+// List returns the loops of a chat, oldest first. Another user's chat is
+// session.ErrNotFound.
+func (h *Loops) List(ctx context.Context, user, conv string) ([]loops.Loop, error) {
+	if _, err := h.chatOf(ctx, user, conv); err != nil {
+		return nil, err
+	}
+	return h.o.Store.ListChat(ctx, principal(user), conv)
+}
+
+// Start starts a loop in a chat. The first loop of a chat waits for the
+// person's yes (StatePending); later ones are active at once and run now.
+func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loops.Loop, error) {
+	return h.begin(ctx, user, conv, in, nil)
+}
+
+// modelStart says that the model started a loop with start_loop: the loop is
+// active at once, with no yes from the person, and its first run is due after
+// the wait, for the reason.
+type modelStart struct {
+	wait   time.Duration
+	reason string
+	// watch makes the loop a wait: wait is then its check interval, and the
+	// first check is due at once.
+	watch *loops.Watch
+	// report is where the loop tells the person how it ended; nil: nowhere.
+	report *loops.Report
+}
+
+// begin is Start. A non-nil by makes it the start of a model.
+func (h *Loops) begin(ctx context.Context, user, conv string, in LoopInput, by *modelStart) (loops.Loop, error) {
+	p := principal(user)
+	rec, err := h.chatOf(ctx, user, conv)
+	if err != nil {
+		return loops.Loop{}, err
+	}
+	switch {
+	case rec.Kind == session.KindSubAgent && by == nil:
+		// A person does not start loops in a sub-agent chat; its model may.
+		return loops.Loop{}, ErrSubAgentReadOnly
+	case by == nil && rec.Origin != "", by != nil && !h.svc.loopOriginKnown(rec.Origin):
+		return loops.Loop{}, ErrLoopChat
+	case by != nil && !h.svc.loopAllowed(ctx, rec, loopCapability(by)):
+		// The tool is not offered to a sender without the capability, and this
+		// check stops a call that names it anyway.
+		return loops.Loop{}, ErrLoopSender
+	}
+	lim := h.Limits()
+	prompt := strings.TrimSpace(in.Prompt)
+	if strings.HasPrefix(prompt, "/") {
+		if _, err := h.message(ctx, rec, loops.Loop{Prompt: prompt}); err != nil {
+			return loops.Loop{}, err
+		}
+	}
+	var interval time.Duration
+	if s := strings.TrimSpace(in.Interval); s != "" {
+		if interval, err = loops.ParseInterval(s, lim.MinInterval); err != nil {
+			return loops.Loop{}, err
+		}
+	}
+	ok, err := h.o.Store.Consented(ctx, p, conv)
+	if err != nil {
+		return loops.Loop{}, err
+	}
+	now := h.o.Clock().UTC()
+	l := loops.Loop{ID: newID(), Owner: p, ChatID: conv, Prompt: prompt, Interval: interval,
+		State: loops.StatePending, Created: now, Updated: now}
+	switch {
+	case by != nil:
+		l.Report = by.report
+		l.Grant = h.svc.armedGrant(ctx, rec)
+		l.State, l.Next, l.Scheduled, l.Wait = loops.StateActive, now.Add(by.wait), true, loops.Cut(by.reason)
+		if by.watch != nil {
+			l.Interval, l.Next, l.Watch = by.wait, now, by.watch
+			if l.Wait == "" {
+				l.Wait = loops.Cut("Waiting for " + by.watch.Describe())
+			}
+		}
+	case ok:
+		l.State, l.Next = loops.StateActive, now
+	}
+	if err := h.o.Store.Add(ctx, l, loops.Limits{PerChat: lim.PerChat, PerUser: lim.PerUser}); err != nil {
+		return loops.Loop{}, err
+	}
+	h.publish(p, conv)
+	h.Notify()
+	return l, nil
+}
+
+// loopSkill splits a loop prompt that invokes a skill ("/name words") into
+// the name and the words. ok is false for plain text.
+func loopSkill(prompt string) (name, words string, ok bool) {
+	if !strings.HasPrefix(prompt, "/") {
+		return "", "", false
+	}
+	head, rest, _ := strings.Cut(strings.TrimPrefix(prompt, "/"), " ")
+	return head, strings.TrimSpace(rest), true
+}
+
+// message is the message a run of l sends to the chat rec. A prompt that
+// invokes a skill is sent as the person's skill command would be: the words,
+// with the skill's text for the model and the skill named in the transcript.
+// Any other slash command is refused.
+func (h *Loops) message(ctx context.Context, rec session.ChatRecord, l loops.Loop) (session.Message, error) {
+	msg := session.Message{Text: l.Prompt}
+	if l.ID != "" {
+		msg.Loop = &session.LoopMark{ID: l.ID, Run: l.Runs, SelfPaced: l.SelfPaced()}
+	}
+	if l.Watch != nil && l.Watch.Wake != "" {
+		msg.Text = l.Watch.Wake
+		return msg, nil
+	}
+	name, words, ok := loopSkill(l.Prompt)
+	if !ok {
+		return msg, nil
+	}
+	directive, inv, err := h.svc.commandMessage(ctx, rec.Principal, rec, words, Command{Skill: name})
+	if err != nil {
+		why := strings.TrimPrefix(strings.TrimPrefix(err.Error(), ErrBadCommand.Error()), ": ")
+		return msg, fmt.Errorf("%w: %s", ErrLoopCommand, why)
+	}
+	msg.Text, msg.Directive, msg.Invoked = words, directive, inv
+	return msg, nil
+}
+
+// owned returns the loop id of the user's chat conv, or loops.ErrNotFound.
+func (h *Loops) owned(ctx context.Context, user, conv, id string) (loops.Loop, error) {
+	if _, err := h.chatOf(ctx, user, conv); err != nil {
+		return loops.Loop{}, err
+	}
+	l, err := h.o.Store.Get(ctx, id)
+	if err != nil || l.Owner != principal(user) || l.ChatID != conv {
+		return loops.Loop{}, loops.ErrNotFound
+	}
+	return l, nil
+}
+
+// SetState pauses a loop (StatePaused) or makes it active (StateActive). Making
+// a pending loop active is the person's yes: the chat asks no more. A loop
+// that becomes active runs at once.
+func (h *Loops) SetState(ctx context.Context, user, conv, id string, st loops.State) (loops.Loop, error) {
+	if st != loops.StateActive && st != loops.StatePaused {
+		return loops.Loop{}, ErrLoopState
+	}
+	cur, err := h.owned(ctx, user, conv, id)
+	if err != nil {
+		return loops.Loop{}, err
+	}
+	now := h.o.Clock().UTC()
+	l, err := h.o.Store.Update(ctx, id, func(l *loops.Loop) error {
+		// A pending loop waits for a yes or a no: Start or Cancel, not Pause.
+		if l.State == loops.StateEnded || (l.State == loops.StatePending && st == loops.StatePaused) {
+			return ErrLoopState
+		}
+		if l.State == st {
+			return errLoopSkip
+		}
+		if st == loops.StatePaused {
+			l.State, l.Next, l.Reason = loops.StatePaused, time.Time{}, ""
+		} else {
+			l.State, l.Failures, l.Reason, l.Next = loops.StateActive, 0, "", now
+		}
+		l.Updated = now
+		return nil
+	})
+	switch {
+	case errors.Is(err, errLoopSkip):
+		return h.o.Store.Get(ctx, id)
+	case err != nil:
+		return loops.Loop{}, err
+	}
+	if cur.State == loops.StatePending && st == loops.StateActive {
+		if err := h.o.Store.SetConsented(ctx, l.Owner, conv); err != nil {
+			h.log.Warn("studio: could not record the yes to a loop", "chat", conv, "error", err)
+		}
+	}
+	h.publish(l.Owner, conv)
+	h.Notify()
+	return l, nil
+}
+
+// Remove stops a loop for good. A run that goes on is not stopped: the
+// person stops it with the chat's Stop.
+func (h *Loops) Remove(ctx context.Context, user, conv, id string) error {
+	l, err := h.owned(ctx, user, conv, id)
+	if err != nil {
+		return err
+	}
+	if err := h.o.Store.Delete(ctx, l.ID); err != nil {
+		return err
+	}
+	h.publish(l.Owner, conv)
+	h.release(l.Owner, conv, store.TurnStopped)
+	return nil
+}
+
+// RemoveAll stops every loop of a chat and returns how many there were.
+func (h *Loops) RemoveAll(ctx context.Context, user, conv string) (int, error) {
+	list, err := h.List(ctx, user, conv)
+	if err != nil {
+		return 0, err
+	}
+	for _, l := range list {
+		if err := h.o.Store.Delete(ctx, l.ID); err != nil {
+			return 0, err
+		}
+	}
+	if len(list) > 0 {
+		h.publish(principal(user), conv)
+		h.release(principal(user), conv, store.TurnStopped)
+	}
+	return len(list), nil
+}
+
+// forgetChat removes the loops of a chat that was deleted.
+func (h *Loops) forgetChat(ctx context.Context, p, conv string) {
+	if _, err := h.o.Store.DeleteChat(context.WithoutCancel(ctx), p, conv); err != nil {
+		h.log.Warn("studio: could not remove the loops of a deleted chat", "chat", conv, "error", err)
+	}
+}
+
+// --- The runner -------------------------------------------------------------
+
+// Pass makes one pass as the leader: it fires the loops that are due and
+// finishes the runs that no supervisor of this process watches. A test calls
+// it instead of Run.
+func (h *Loops) Pass(ctx context.Context) error {
+	h.pass.Lock()
+	defer h.pass.Unlock()
+	if h.closed() {
+		return ErrLoopsClosed
+	}
+	list, err := h.o.Store.Working(ctx)
+	if err != nil {
+		return err
+	}
+	lim := h.Limits()
+	var checks []loops.Loop
+	for _, l := range list {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		now := h.o.Clock().UTC()
+		switch {
+		case l.Running:
+			h.reconcile(ctx, l, lim)
+		case l.State == loops.StateActive && !l.Next.IsZero() && !now.Before(l.Next):
+			if l.Watch != nil && l.Watch.Wake == "" {
+				checks = append(checks, l) // a check is code, not a run
+				continue
+			}
+			h.fire(ctx, l, now, lim)
+		}
+	}
+	h.checkWatches(ctx, checks, lim)
+	return nil
+}
+
+// fire starts the run of a due loop, or skips it when the chat is busy.
+func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopLimits) {
+	if !h.ready(ctx, l) {
+		return
+	}
+	if h.busy(ctx, l) {
+		h.skipBusy(ctx, l, now)
+		return
+	}
+	// The chat was started before its agent moved to another project: the
+	// loop ends, with no run and nothing counted.
+	if h.chatMoved(ctx, l) {
+		h.end(ctx, l.ID, AgentMovedText)
+		return
+	}
+	// A project that is not available gates the run, it does not change the
+	// loop: the run is skipped for its slot, nothing is counted as a failure
+	// and nothing is told, and the loop runs again when the project is back.
+	if h.projectGone(ctx, l) {
+		h.skipUnavailable(ctx, l, now)
+		return
+	}
+	if most := h.maxRunsFor(ctx, l.Owner, l.ChatID, lim); l.Runs >= most {
+		h.end(ctx, l.ID, fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most))
+		return
+	}
+	claimed, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+		if c.State != loops.StateActive || c.Running || c.Next.IsZero() || now.Before(c.Next) {
+			return errLoopSkip
+		}
+		c.Running, c.Runs, c.LastRun, c.Updated = true, c.Runs+1, now, now
+		c.Scheduled, c.Wait, c.Reason, c.Next = false, "", "", time.Time{}
+		return nil
+	})
+	if err != nil {
+		if !errors.Is(err, errLoopSkip) && !errors.Is(err, loops.ErrNotFound) {
+			h.log.Warn("studio: could not claim a loop run", "loop", l.ID, "error", err)
+		}
+		return
+	}
+	took, err := h.o.Store.TakeRun(ctx, l.Owner, loops.Day(now), lim.DailyRuns)
+	if err != nil || !took {
+		h.unclaim(ctx, claimed, func(c *loops.Loop) {
+			if err != nil {
+				c.Next = now.Add(h.o.Tick)
+				return
+			}
+			c.Next = loops.NextDay(now)
+			c.Reason = fmt.Sprintf("Waits for tomorrow (UTC): today's limit of %d loop runs is used up.", lim.DailyRuns)
+		})
+		return
+	}
+	h.start(ctx, claimed, now)
+}
+
+// ready says whether the chat and the owner of a due loop can have a run or a
+// check now. It drops or pauses the loop when they never can.
+func (h *Loops) ready(ctx context.Context, l loops.Loop) bool {
+	if _, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID); err != nil {
+		if errors.Is(err, session.ErrNotFound) {
+			h.drop(ctx, l, "the chat was deleted")
+		}
+		return false
+	}
+	if why, gone := h.checkOwner(ctx, l.Owner); gone {
+		h.drop(ctx, l, why)
+		return false
+	} else if why != "" {
+		h.pause(ctx, l, why)
+		return false
+	}
+	return true
+}
+
+// start sends the prompt of a claimed run to the chat and watches the turn.
+func (h *Loops) start(ctx context.Context, l loops.Loop, now time.Time) {
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now.Add(h.o.Tick) })
+		return
+	}
+	msg, err := h.message(ctx, rec, l)
+	if err != nil {
+		// The skill of the prompt is gone or switched off: a failed run.
+		h.finish(l.ID, true, err.Error())
+		return
+	}
+	events, cancel, err := h.svc.Events(ctx, l.Owner, l.ChatID) // before the send: the end must not be missed
+	if err != nil {
+		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now.Add(h.o.Tick) })
+		return
+	}
+	h.mu.Lock()
+	if h.shut {
+		h.mu.Unlock()
+		cancel()
+		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now })
+		return
+	}
+	h.sup[l.ID] = struct{}{}
+	h.wg.Add(1)
+	h.mu.Unlock()
+	started, err := h.svc.startIdle(ctx, l.Owner, l.ChatID, msg)
+	if err != nil || !started {
+		cancel()
+		h.mu.Lock()
+		delete(h.sup, l.ID)
+		h.mu.Unlock()
+		h.wg.Done()
+		if err != nil {
+			h.log.Warn("studio: a loop run could not start", "loop", l.ID, "chat", l.ChatID, "error", err)
+			if errors.Is(err, ErrProjectUnavailable) {
+				// The project went away between the check in fire and the send:
+				// the run is given back for its next slot, not counted as a
+				// failure. The unit of the owner's daily budget that TakeRun
+				// took stays spent: the stores have no give-back, and the
+				// window is only the time between two reads in one pass.
+				h.unclaim(ctx, l, func(c *loops.Loop) { h.nextAfterBusy(c, now) })
+				return
+			}
+			h.finish(l.ID, true, "the run could not start")
+			return
+		}
+		// The chat became busy between the check and the claim.
+		h.unclaim(ctx, l, func(c *loops.Loop) { h.nextAfterBusy(c, now) })
+		return
+	}
+	h.publish(l.Owner, l.ChatID)
+	go h.supervise(l, events, cancel)
+}
+
+// unclaim gives back a run that did not start: the loop is as before the
+// claim, with the next due time that set gives it.
+func (h *Loops) unclaim(ctx context.Context, l loops.Loop, set func(*loops.Loop)) {
+	_, err := h.o.Store.Update(context.WithoutCancel(ctx), l.ID, func(c *loops.Loop) error {
+		if !c.Running {
+			return errLoopSkip
+		}
+		c.Running, c.Runs = false, max(c.Runs-1, 0)
+		set(c)
+		return nil
+	})
+	if err != nil && !errors.Is(err, errLoopSkip) && !errors.Is(err, loops.ErrNotFound) {
+		h.log.Warn("studio: could not give back a loop run", "loop", l.ID, "error", err)
+	}
+	h.publish(l.Owner, l.ChatID)
+}
+
+// busy reports whether the chat runs a turn or has messages that wait.
+func (h *Loops) busy(ctx context.Context, l loops.Loop) bool {
+	info, err := h.svc.d.Store.Turn(ctx, l.Owner, l.ChatID)
+	if err != nil || info.Running {
+		return true
+	}
+	pend, err := h.svc.d.Store.Pending(ctx, l.Owner, l.ChatID)
+	return err != nil || len(pend) > 0
+}
+
+// chatMoved says whether the chat of a loop is stale for its agent, which
+// moved to another project (ErrAgentMoved).
+func (h *Loops) chatMoved(ctx context.Context, l loops.Loop) bool {
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		return false
+	}
+	return h.svc.chatMoved(ctx, rec)
+}
+
+// projectGone says whether the chat of a loop cannot start its next run for
+// the project of its agent: the full live fence check of the chat says the
+// project is not available, or the agent's folders are no longer the
+// project's (ErrProjectFoldersChanged wraps ErrProjectUnavailable). It is
+// asked before the claim and before the owner's daily budget is taken, so a
+// loop in that state costs nothing and keeps its counters.
+func (h *Loops) projectGone(ctx context.Context, l loops.Loop) bool {
+	rec, err := h.svc.getChatEffective(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		return false
+	}
+	_, _, err = h.svc.chatScopes(ctx, rec, false)
+	return errors.Is(err, ErrProjectUnavailable)
+}
+
+// Back-off of a loop whose project is not available: the first window is one
+// minute, each check that still finds the project unavailable doubles it, up
+// to half an hour.
+const (
+	projectBackoffMin = time.Minute
+	projectBackoffMax = 30 * time.Minute
+	// projectBackoffReason marks the Reason of a loop that waits for its
+	// project, so the next check can tell its window from a wait the model
+	// asked for.
+	projectBackoffReason = "Waits for its project: the project is not available."
+)
+
+// skipUnavailable skips a due run of a loop whose project is not available.
+// An interval loop goes to its next slot, as for a busy chat. A self-paced
+// loop or a wait would be due again at the next tick, and each check of a
+// deleted project reads the project index, so its Next moves out by a window
+// that doubles with each consecutive check. The window is kept in the loop
+// itself: while Reason is projectBackoffReason, Updated is when the last
+// window started and Next when it ends. The run claim clears the Reason, so a
+// project that is back starts the next window from one minute again.
+func (h *Loops) skipUnavailable(ctx context.Context, l loops.Loop, now time.Time) {
+	if !l.SelfPaced() && l.Watch == nil {
+		h.skipBusy(ctx, l, now)
+		return
+	}
+	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+		if c.State != loops.StateActive || c.Running || c.Next.IsZero() || now.Before(c.Next) {
+			return errLoopSkip
+		}
+		window := projectBackoffMin
+		if c.Reason == projectBackoffReason {
+			window = min(max(2*c.Next.Sub(c.Updated), projectBackoffMin), projectBackoffMax)
+		}
+		c.Reason, c.Updated, c.Next = projectBackoffReason, now, now.Add(window)
+		return nil
+	})
+	if err != nil && !errors.Is(err, errLoopSkip) && !errors.Is(err, loops.ErrNotFound) {
+		h.log.Warn("studio: could not back off a loop of an unavailable project", "loop", l.ID, "error", err)
+		return
+	}
+	if err == nil {
+		h.publish(l.Owner, l.ChatID)
+	}
+}
+
+// skipBusy moves an interval loop to its next slot: the runs a busy chat
+// missed do not pile up. A self-paced loop tries again at the next pass.
+func (h *Loops) skipBusy(ctx context.Context, l loops.Loop, now time.Time) {
+	if l.SelfPaced() || l.Watch != nil {
+		// A wait that ended keeps its wake-up until the chat is free.
+		return
+	}
+	_, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+		if c.State != loops.StateActive || c.Running {
+			return errLoopSkip
+		}
+		h.nextAfterBusy(c, now)
+		return nil
+	})
+	if err == nil {
+		h.publish(l.Owner, l.ChatID)
+	}
+}
+
+func (h *Loops) nextAfterBusy(c *loops.Loop, now time.Time) {
+	if c.SelfPaced() || c.Watch != nil {
+		c.Next = now
+		return
+	}
+	from := c.Next
+	if from.IsZero() {
+		from = now
+	}
+	c.Next = loops.NextSlot(from, c.Interval, now)
+}
+
+// supervise waits for the end of a run's turn and records it.
+func (h *Loops) supervise(l loops.Loop, events <-chan session.Event, cancel func()) {
+	defer h.wg.Done()
+	defer cancel()
+	defer func() {
+		h.mu.Lock()
+		delete(h.sup, l.ID)
+		h.mu.Unlock()
+	}()
+	end := h.svc.awaitTurn(l.Owner, l.ChatID, events, h.o.RunLimit, h.done)
+	switch end.How {
+	case TurnAbandoned:
+		return
+	case TurnTimedOut:
+		h.stopChat(l)
+		h.finish(l.ID, true, "the run took longer than "+limitText(h.o.RunLimit))
+	default:
+		h.finish(l.ID, turnFailed(end.Info.Last), end.ErrText)
+	}
+}
+
+func turnFailed(last store.TurnStatus) bool {
+	return last == store.TurnFailed || last == store.TurnInterrupted
+}
+
+func (h *Loops) stopChat(l loops.Loop) {
+	ctx, cancel := context.WithTimeout(context.Background(), stopWait)
+	defer cancel()
+	// Not Stop: that one ends the loops of a sub-agent chat, and a run that
+	// took too long is a failed run, which the loop survives.
+	if err := h.svc.stopTurn(ctx, l.Owner, l.ChatID); err != nil {
+		h.log.Warn("studio: could not stop the run of a loop", "chat", l.ChatID, "error", err)
+	}
+}
+
+// reconcile finishes a run that no supervisor of this process watches: one
+// that a former leader started, or whose frontend died.
+func (h *Loops) reconcile(ctx context.Context, l loops.Loop, _ LoopLimits) {
+	h.mu.Lock()
+	_, mine := h.sup[l.ID]
+	h.mu.Unlock()
+	if mine {
+		return
+	}
+	info, err := h.svc.Turn(ctx, l.Owner, l.ChatID) // not the store: WillResume depends on the service's settings
+	switch {
+	case errors.Is(err, session.ErrNotFound):
+		h.drop(ctx, l, "the chat was deleted")
+	case err != nil:
+	case info.WillResume:
+		// The server resumes the turn; the run ends with it.
+	case !info.Running && h.o.Clock().Sub(l.LastRun) < loopStartGrace:
+		// Another frontend may have claimed the run and not yet the chat.
+	case !info.Running:
+		h.finish(l.ID, turnFailed(info.Last), "")
+	case !l.LastRun.IsZero() && h.o.Clock().Sub(l.LastRun) > h.o.RunLimit:
+		h.stopChat(l)
+		h.finish(l.ID, true, "the run took longer than "+limitText(h.o.RunLimit))
+	}
+}
+
+// finish records the end of a run and decides what comes next.
+func (h *Loops) finish(id string, failed bool, why string) {
+	ctx, cancel := context.WithTimeout(context.Background(), finishTimeout)
+	defer cancel()
+	now := h.o.Clock().UTC()
+	lim := h.Limits()
+	cur, err := h.o.Store.Get(ctx, id)
+	if err != nil {
+		if !errors.Is(err, loops.ErrNotFound) {
+			h.log.Warn("studio: could not read a loop to record the end of a run", "loop", id, "error", err)
+		}
+		return
+	}
+	most := h.maxRunsFor(ctx, cur.Owner, cur.ChatID, lim)
+	// problem is what the on_problem report says, when this end of a run is one.
+	problem := ""
+	l, err := h.o.Store.Update(ctx, id, func(c *loops.Loop) error {
+		problem = ""
+		if !c.Running {
+			return errLoopSkip
+		}
+		c.Running, c.Updated = false, now
+		if failed {
+			c.Failures++
+		} else {
+			c.Failures = 0
+		}
+		switch {
+		case c.State == loops.StateEnded:
+			// loop_done during the run
+		case c.State != loops.StateActive:
+			c.Next = time.Time{}
+		case failed && c.Failures >= loops.MaxFailures:
+			c.State, c.Next = loops.StatePaused, time.Time{}
+			c.Reason = fmt.Sprintf("Paused after %d failed runs in a row.", loops.MaxFailures)
+			if why != "" {
+				c.Reason = loops.Cut(c.Reason + " Last error: " + why)
+			}
+			problem = c.Reason
+		case c.Runs >= most:
+			c.State, c.Next = loops.StateEnded, time.Time{}
+			c.Reason = fmt.Sprintf("Stopped after %d runs, the most a loop may make.", most)
+			problem = c.Reason
+		case c.Watch != nil && failed:
+			// The wake-up run failed: ask again, the wake-up text is kept.
+			c.Next = now.Add(lim.MinInterval)
+		case c.Watch != nil:
+			c.State, c.Next = loops.StateEnded, time.Time{}
+			c.Reason = loops.Cut("Done: the wait ended (" + c.Watch.Why + ") and the model was woken.")
+		case c.SelfPaced() && failed:
+			c.Next = now.Add(lim.MinInterval)
+		case c.SelfPaced() && !c.Scheduled:
+			c.State, c.Next = loops.StateEnded, time.Time{}
+			c.Reason = "Stopped: the model did not ask for another run."
+			problem = c.Reason
+		case c.SelfPaced():
+			// schedule_next set Next
+		default:
+			c.Next = loops.NextSlot(c.LastRun, c.Interval, now)
+		}
+		if failed && problem == "" && c.State != loops.StateEnded {
+			problem = "a run failed."
+			if why != "" {
+				problem = loops.Cut("a run failed: " + why)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if !errors.Is(err, errLoopSkip) && !errors.Is(err, loops.ErrNotFound) {
+			h.log.Warn("studio: could not record the end of a loop run", "loop", id, "error", err)
+		}
+		return
+	}
+	if l.State == loops.StateEnded {
+		h.pruneEnded(ctx, l.Owner, l.ChatID)
+	}
+	if problem != "" {
+		h.report(l, loops.ReportOnProblem, "problem. "+problem)
+	}
+	h.publish(l.Owner, l.ChatID)
+	h.Notify()
+	// A sub-agent waits for its loop: a loop that ended or paused lets the
+	// parent hear of the end. A loop that goes on holds the report back.
+	st := store.TurnDone
+	if l.State == loops.StatePaused && failed {
+		st = store.TurnFailed
+	}
+	h.release(l.Owner, l.ChatID, st)
+}
+
+// release tells the parent of a sub-agent chat that the chat is done, when its
+// loop no longer holds the report back. For any other chat it does nothing.
+func (h *Loops) release(owner, chatID string, st store.TurnStatus) {
+	ctx, cancel := context.WithTimeout(context.Background(), finishTimeout)
+	defer cancel()
+	if h.svc.loopHolds(ctx, owner, chatID) {
+		return
+	}
+	h.svc.notifyWaiters(key(owner, chatID), st)
+}
+
+// end ends a loop with a reason.
+func (h *Loops) end(ctx context.Context, id, reason string) {
+	l, err := h.o.Store.Update(ctx, id, func(c *loops.Loop) error {
+		c.State, c.Next, c.Reason, c.Updated = loops.StateEnded, time.Time{}, loops.Cut(reason), h.o.Clock().UTC()
+		return nil
+	})
+	if err != nil {
+		return
+	}
+	h.pruneEnded(ctx, l.Owner, l.ChatID)
+	h.report(l, loops.ReportOnProblem, "problem. "+l.Reason)
+	h.publish(l.Owner, l.ChatID)
+	h.release(l.Owner, l.ChatID, store.TurnDone)
+}
+
+// pause pauses a loop with a reason.
+func (h *Loops) pause(ctx context.Context, l loops.Loop, reason string) {
+	paused, err := h.o.Store.Update(ctx, l.ID, func(c *loops.Loop) error {
+		if c.State != loops.StateActive {
+			return errLoopSkip
+		}
+		c.State, c.Next, c.Reason, c.Updated = loops.StatePaused, time.Time{}, loops.Cut(reason), h.o.Clock().UTC()
+		return nil
+	})
+	if err == nil {
+		h.report(paused, loops.ReportOnProblem, "problem. "+paused.Reason)
+		h.publish(l.Owner, l.ChatID)
+		h.release(l.Owner, l.ChatID, store.TurnFailed)
+	}
+}
+
+// drop removes a loop that can never run again.
+func (h *Loops) drop(ctx context.Context, l loops.Loop, why string) {
+	if err := h.o.Store.Delete(ctx, l.ID); err != nil {
+		h.log.Warn("studio: could not remove a loop", "loop", l.ID, "error", err)
+		return
+	}
+	h.log.Info("studio: removed a loop", "loop", l.ID, "chat", l.ChatID, "why", why)
+	h.release(l.Owner, l.ChatID, store.TurnStopped)
+}
+
+// pruneEnded keeps the newest loops.KeepEnded ended loops of a chat.
+func (h *Loops) pruneEnded(ctx context.Context, owner, chatID string) {
+	list, err := h.o.Store.ListChat(ctx, owner, chatID)
+	if err != nil {
+		return
+	}
+	var ended []loops.Loop
+	for _, l := range list {
+		if l.State == loops.StateEnded && !l.Running {
+			ended = append(ended, l)
+		}
+	}
+	if len(ended) <= loops.KeepEnded {
+		return
+	}
+	sort.Slice(ended, func(i, j int) bool { return ended[i].Updated.Before(ended[j].Updated) })
+	for _, l := range ended[:len(ended)-loops.KeepEnded] {
+		_ = h.o.Store.Delete(ctx, l.ID)
+	}
+}
+
+// checkOwner tells why the owner cannot run a loop now. gone is true when the
+// owner no longer exists, so the loop can never run.
+func (h *Loops) checkOwner(ctx context.Context, owner string) (why string, gone bool) {
+	if h.svc.d.Users == nil {
+		return "", false
+	}
+	_, err := h.svc.d.Users(ctx, owner)
+	switch {
+	case err == nil, ctx.Err() != nil:
+		return "", false
+	case errors.Is(err, ErrUserDisabled):
+		return "Paused: the account is disabled.", false
+	case errors.Is(err, ErrChatsOff):
+		return "Paused: chats are switched off for the account.", false
+	case errors.Is(err, ErrNoUser):
+		return "the owner no longer exists", true
+	}
+	return "", false
+}

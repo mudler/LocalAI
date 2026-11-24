@@ -1,0 +1,343 @@
+// SPDX-License-Identifier: MIT
+// This executable is a real protocol fixture, not a model backend.
+package main
+
+import (
+	"crypto/subtle"
+	"encoding/json"
+	"fmt"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+func main() {
+	if len(os.Args) != 2 || os.Args[1] != "--localai-addon-v1" {
+		os.Exit(2)
+	}
+	var config struct {
+		Mode string `json:"mode"`
+		// Effects names a file that makes the add-on's data durable: one line
+		// per committed operation, and "<Effects>.applies" with one line per
+		// apply request that reached the process, duplicates included. Empty
+		// keeps the receipts in memory only.
+		Effects        string `json:"effects"`
+		ObservationLog string `json:"observationLog"`
+	}
+	b, _ := os.ReadFile("fixture.json")
+	_ = json.Unmarshal(b, &config)
+	// "report-remote" and "report-silent" misbehave in the reported way of
+	// passing the channels: the first reports an address that is not
+	// loopback, the second never reports. Both must be refused by the owner.
+	if h := os.Getenv(contract.EndpointHandleEnv); h != "" && (config.Mode == "report-remote" || config.Mode == "report-silent") { //nolint:forbidigo // the fixture reads the handle the owner passes, as an add-on does
+		n, _ := strconv.ParseUint(h, 10, 64)
+		f := os.NewFile(uintptr(n), "endpoint")
+		if config.Mode == "report-remote" {
+			_, _ = io.WriteString(f, "192.0.2.1:80\n")
+			_ = f.Close()
+		}
+		time.Sleep(time.Minute)
+		os.Exit(9)
+	}
+	// The startup channel and the listener come as the owner passes them on
+	// this platform: descriptors 3 and 4, or named handles (Windows).
+	parent, e := protocol.StartupChannel()
+	if e != nil {
+		os.Exit(3)
+	}
+	d := json.NewDecoder(parent)
+	var startup addonruntime.Startup
+	if d.Decode(&startup) != nil {
+		os.Exit(3)
+	}
+	// The "orphan" mode ignores the closing of the startup channel, as a
+	// misbehaving add-on would: only the owner's ledger can then stop it.
+	if config.Mode != "orphan" {
+		go func() {
+			_, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent))
+			// The "graceful" mode needs a moment to release what it owns, as a
+			// sandbox add-on does; it records that it got to finish.
+			if config.Mode == "graceful" {
+				time.Sleep(40 * time.Millisecond)
+				_ = os.WriteFile("fixture.closed", []byte("ok"), 0600)
+			}
+			os.Exit(0)
+		}()
+	}
+	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
+	// The data directory the owner passed is recorded as received, so a test
+	// can assert what the startup object carried. Writing a probe file there
+	// shows the add-on can use it.
+	_ = os.WriteFile("fixture.datadir", []byte(startup.DataDir), 0600)
+	if startup.DataDir != "" {
+		_ = os.WriteFile(filepath.Join(startup.DataDir, "fixture.probe"), []byte("ok"), 0600)
+	}
+	// The host operation endpoint and credential, as received, so a test can
+	// assert that an add-on the host does not name gets neither.
+	_ = os.WriteFile("fixture.hostops", []byte(startup.HostEndpoint+"\n"+startup.HostCredential), 0600)
+	// The "log" mode writes to its output streams, as an add-on that reports
+	// what it does would; one line is far over any sane limit.
+	if config.Mode == "log" {
+		_, _ = fmt.Fprintln(os.Stdout, "hello from stdout")
+		fmt.Fprintln(os.Stderr, "hello from stderr")
+		_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("x", 20000))
+		_, _ = fmt.Fprint(os.Stdout, "no newline at the end")
+	}
+	if config.Mode == "exit-start" {
+		os.Exit(4)
+	}
+	if config.Mode == "env-check" && (os.Getenv("LOCALAI_RUNTIME_TEST_SECRET") != "" || os.Getenv("HTTP_PROXY") != "" || !exactEnvironment()) { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
+		os.Exit(5)
+	}
+	listener, e := protocol.Listener()
+	if e != nil {
+		os.Exit(6)
+	}
+	var mu sync.Mutex
+	receipts := map[string]contract.Receipt{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+startup.Credential)) != 1 || r.Header.Get("X-LocalAI-Incarnation") != startup.Registration.Incarnation {
+			http.Error(w, "denied", 401)
+			return
+		}
+		if r.Method != "POST" || r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "invalid request", 400)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, startup.Limits.EnvelopeBytes)
+		defer func() { _ = r.Body.Close() }()
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		read := func(v any) bool {
+			if decoder.Decode(v) != nil || decoder.Decode(new(any)) != io.EOF {
+				http.Error(w, "invalid request", 400)
+				return false
+			}
+			return true
+		}
+		valid := func(v contract.Envelope, scope string) bool {
+			if v.Validate(time.Now(), startup.Limits) != nil || v.Authority.Scope != scope || v.Request.AddonID != startup.Registration.AddonID || v.Request.Generation != startup.Registration.Generation {
+				http.Error(w, "invalid authority", 403)
+				return false
+			}
+			return true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/health":
+			if config.Mode == "never-ready" {
+				http.Error(w, "starting", 503)
+				return
+			}
+			reg := startup.Registration
+			switch config.Mode {
+			case "forged":
+				reg.Capabilities.Tools = []string{"forged"}
+			case "nonloopback":
+				reg.Endpoint = "http://192.0.2.1:80"
+			case "stale":
+				reg.Incarnation = "stale"
+			case "wrong-version":
+				reg.Protocol = 2
+			}
+			_ = json.NewEncoder(w).Encode(reg)
+		case "/act":
+			// An action tool: it answers for the actor of the envelope and says
+			// the scope it ran under. The action "slow" waits for the caller to give up.
+			var v contract.Envelope
+			if !read(&v) || !valid(v, "act") {
+				return
+			}
+			var args struct {
+				Slow bool `json:"slow"`
+			}
+			_ = json.Unmarshal(v.Request.Arguments, &args)
+			if args.Slow {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-time.After(5 * time.Second):
+				}
+			}
+			payload, _ := json.Marshal(map[string]any{"actor": v.Authority.Actor.UserID, "scope": v.Authority.Scope, "arguments": v.Request.Arguments})
+			_ = json.NewEncoder(w).Encode(contract.Result{Payload: payload})
+		case "/read", "/preview":
+			var v contract.Envelope
+			if !read(&v) || !valid(v, r.URL.Path[1:]) {
+				return
+			}
+			if config.Mode == "execution-status" && r.URL.Path == "/read" {
+				// Record the authenticated envelope in a private test artifact, not
+				// in the status payload (whose schema is deliberately closed).
+				b, _ := json.Marshal(struct {
+					Incarnation string            `json:"incarnation"`
+					Envelope    contract.Envelope `json:"envelope"`
+				}{startup.Registration.Incarnation, v})
+				noteLine(config.ObservationLog, string(b))
+				if string(v.Request.Arguments) != `{"tool":"health"}` && string(v.Request.Arguments) != `{"tool":"inspect"}` {
+					http.Error(w, "wrong status tool", 400)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(contract.Result{Payload: json.RawMessage(`{"readiness":"available","isolation":"isolated"}`)})
+				return
+			}
+			if v.Request.Action == "delay" {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-time.After(time.Second):
+				}
+			}
+			if r.URL.Path == "/preview" {
+				_ = json.NewEncoder(w).Encode(contract.Preview{OperationID: v.Request.OperationID, Revision: contract.Revision{Schema: 1, Data: 1}, ExpiresAt: time.Now().Add(time.Minute), Summary: json.RawMessage(`{"rows":1}`)})
+				return
+			}
+			payload, _ := json.Marshal(map[string]any{"actor": v.Authority.Actor.UserID, "arguments": v.Request.Arguments})
+			result := contract.Result{Payload: payload}
+			// The tool "export" answers with a file result, and the owner
+			// turns it into a private artifact.
+			var tool struct {
+				Tool string `json:"tool"`
+			}
+			if json.Unmarshal(v.Request.Arguments, &tool) == nil && tool.Tool == "export" {
+				result.Outputs = []contract.OutputDescription{{Handle: "report", Name: "report.txt", MediaType: "text/plain", Size: int64(len("fixture\n"))}}
+			}
+			_ = json.NewEncoder(w).Encode(result)
+		case "/apply":
+			var v addonruntime.ApplyRequest
+			if !read(&v) || !valid(v.Envelope, "apply") {
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			id := v.Envelope.Request.OperationID
+			noteLine(config.Effects+".applies", id)
+			receipt, ok := lookup(config.Effects, receipts, id)
+			fresh := !ok
+			if fresh {
+				receipt = contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: v.Revision.Schema, Data: v.Revision.Data + 1}}
+				receipts[id] = receipt
+				noteLine(config.Effects, id)
+			}
+			// "lose-reply": the change is committed and the connection is
+			// dropped before the reply, as a crash or a network cut would.
+			if fresh && config.Mode == "lose-reply" {
+				if conn, _, e := w.(http.Hijacker).Hijack(); e == nil {
+					_ = conn.Close()
+					return
+				}
+			}
+			_ = json.NewEncoder(w).Encode(receipt)
+		case "/receipt":
+			var v addonruntime.ReceiptRequest
+			if !read(&v) {
+				return
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			receipt, ok := lookup(config.Effects, receipts, v.OperationID)
+			if !ok {
+				receipt = contract.Receipt{OperationID: v.OperationID, State: contract.ReceiptUnknown}
+			}
+			_ = json.NewEncoder(w).Encode(receipt)
+		case "/output":
+			var v addonruntime.OutputRequest
+			if !read(&v) || !valid(v.Envelope, "output") {
+				return
+			}
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.WriteHeader(200)
+			if v.Handle == "slow" {
+				w.(http.Flusher).Flush()
+				<-r.Context().Done()
+				return
+			}
+			if v.Handle == "oversized" {
+				for n := int64(0); n <= startup.Limits.ArtifactBytes; n++ {
+					if _, e := w.Write([]byte{'x'}); e != nil {
+						return
+					}
+				}
+				return
+			}
+			_, _ = io.WriteString(w, "fixture\n")
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	if config.Mode == "crash" {
+		go func() { time.Sleep(100 * time.Millisecond); os.Exit(7) }()
+	}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: time.Second, ReadTimeout: 2 * time.Second, IdleTimeout: time.Second, MaxHeaderBytes: 16 << 10}
+	_ = server.Serve(listener)
+}
+
+// exactEnvironment reports whether the environment is LANG and TZ, plus only
+// what the owner adds to pass the channels as handles and, on Windows, the
+// system folder and the temporary folder.
+func exactEnvironment() bool {
+	allowed := map[string]bool{"LANG": true, "TZ": true, contract.StartupHandleEnv: true, contract.EndpointHandleEnv: true, contract.ChannelEnv: true}
+	if runtime.GOOS == "windows" {
+		for _, k := range []string{"SYSTEMROOT", "TMP", "TEMP"} {
+			allowed[k] = true
+		}
+	}
+	n := 0
+	for _, kv := range os.Environ() { //nolint:forbidigo // the fixture checks the exact environment the host gives a child
+		k, _, _ := strings.Cut(kv, "=")
+		if runtime.GOOS == "windows" {
+			k = strings.ToUpper(k) // Windows names are not case sensitive
+		}
+		if !allowed[k] {
+			return false
+		}
+		if k == "LANG" || k == "TZ" {
+			n++
+		}
+	}
+	return n == 2
+}
+
+// noteLine appends one line to a durable log. An empty path keeps nothing.
+func noteLine(path, line string) {
+	if path == "" || path == ".applies" {
+		return
+	}
+	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304 -- test harness reads files it created in its own work directory
+	if e != nil {
+		return
+	}
+	_, _ = f.WriteString(line + "\n")
+	_ = f.Sync()
+	_ = f.Close()
+}
+
+// lookup finds the receipt of an operation, in memory and then in the durable
+// log, so that a restarted process still knows what it committed.
+func lookup(path string, memory map[string]contract.Receipt, id string) (contract.Receipt, bool) {
+	if r, ok := memory[id]; ok {
+		return r, true
+	}
+	if path == "" {
+		return contract.Receipt{}, false
+	}
+	b, e := os.ReadFile(path) // #nosec G304 -- test harness reads files it created in its own work directory
+	if e != nil {
+		return contract.Receipt{}, false
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if line == id {
+			return contract.Receipt{OperationID: id, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: 1, Data: 1}}, true
+		}
+	}
+	return contract.Receipt{}, false
+}

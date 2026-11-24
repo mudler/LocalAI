@@ -1,0 +1,2 @@
+{{- /* {{< devbuild >}}, {{< devbuild addon >}} or {{< devbuild install >}}: see partials/devbuild-note.html */ -}}
+{{- partial "devbuild-note.html" (dict "page" .Page "kind" (.Get 0 | default "feature")) -}}

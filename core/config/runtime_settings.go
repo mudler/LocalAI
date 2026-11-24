@@ -1,0 +1,228 @@
+package config
+
+// RuntimeSettings represents runtime configuration that can be changed dynamically.
+// This struct is used for:
+// - API responses (GET /api/settings)
+// - API requests (POST /api/settings)
+// - Persisting to runtime_settings.json
+// - Loading from runtime_settings.json on startup
+//
+// All fields are pointers to distinguish between "not set" and "set to zero/false value".
+type RuntimeSettings struct {
+	// Watchdog settings
+	WatchdogEnabled     *bool   `json:"watchdog_enabled,omitempty"`
+	WatchdogIdleEnabled *bool   `json:"watchdog_idle_enabled,omitempty"`
+	WatchdogBusyEnabled *bool   `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogIdleTimeout *string `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogBusyTimeout *string `json:"watchdog_busy_timeout,omitempty"`
+	WatchdogInterval    *string `json:"watchdog_interval,omitempty"` // Interval between watchdog checks (e.g., 2s, 30s)
+
+	// Backend management
+	SingleBackend             *bool `json:"single_backend,omitempty"`              // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends         *int  `json:"max_active_backends,omitempty"`         // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
+	OfficialLibraries         *bool `json:"official_libraries,omitempty"`          // Read the shipped default library sources of add-ons, backends and models
+	AutoUpgradeBackends       *bool `json:"auto_upgrade_backends,omitempty"`       // Automatically upgrade backends when new versions are detected
+	AutoUpgradeAddons         *bool `json:"auto_upgrade_addons,omitempty"`         // Automatically upgrade installed add-ons when their library lists a newer version
+	PreferDevelopmentBackends *bool `json:"prefer_development_backends,omitempty"` // Display/download preference; installed alias resolver changes require restart
+	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
+	MemoryReclaimerEnabled   *bool    `json:"memory_reclaimer_enabled,omitempty"`   // Enable memory threshold monitoring
+	MemoryReclaimerThreshold *float64 `json:"memory_reclaimer_threshold,omitempty"` // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
+	// Eviction settings
+	ForceEvictionWhenBusy    *bool   `json:"force_eviction_when_busy,omitempty"`    // Force eviction even when models have active API calls (default: false for safety)
+	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`         // Evict largest models first rather than least-recently-used (default: false)
+	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
+	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
+
+	// Performance settings
+	Threads                     *int `json:"threads,omitempty"`
+	ContextSize                 *int `json:"context_size,omitempty"`
+	ArtifactDownloadConcurrency *int `json:"artifact_download_concurrency,omitempty"`
+
+	MaxConcurrentBackendOperations *int `json:"max_concurrent_backend_operations,omitempty"`
+	MaxConcurrentModelOperations   *int `json:"max_concurrent_model_operations,omitempty"`
+
+	VRAMBudget           *string `json:"vram_budget,omitempty"` // Cap VRAM for allocation ("80%" or "12GB"; "" = no cap)
+	F16                  *bool   `json:"f16,omitempty"`
+	Debug                *bool   `json:"debug,omitempty"`
+	EnableTracing        *bool   `json:"enable_tracing,omitempty"`
+	TracingMaxItems      *int    `json:"tracing_max_items,omitempty"`
+	TracingMaxBodyBytes  *int    `json:"tracing_max_body_bytes,omitempty"` // Per-body cap in bytes; 0 disables the cap
+	EnableBackendLogging *bool   `json:"enable_backend_logging,omitempty"`
+
+	// Security/CORS settings
+	CORS             *bool   `json:"cors,omitempty"`
+	CSRF             *bool   `json:"csrf,omitempty"`
+	CORSAllowOrigins *string `json:"cors_allow_origins,omitempty"`
+
+	// P2P layer. A change of any of them restarts the P2P host.
+	P2PMode           *string     `json:"p2p_mode,omitempty"`             // off, connect or share (default: off)
+	P2PPublicDHT      *bool       `json:"p2p_public_dht,omitempty"`       // use the public DHT for discovery and hole punching (default: true)
+	P2PBootstrapPeers *[]string   `json:"p2p_bootstrap_peers,omitempty"`  // bootstrap peers, multiaddrs with /p2p/ (default: the public ones)
+	P2PRelays         *[]P2PRelay `json:"p2p_relays,omitempty"`           // relays the server knows: {id, addr, label}
+	P2PRelayPaired    *bool       `json:"p2p_relay_paired,omitempty"`     // relay for paired devices (default: true)
+	P2PRelayMode      *string     `json:"p2p_relay_mode,omitempty"`       // when to relay: auto (while publicly reachable), on or off (default: auto)
+	P2PRelayRateLimit *int64      `json:"p2p_relay_rate_limit,omitempty"` // bytes per second per relayed circuit, 0 for none (default: 0)
+	P2PMDNS           *bool       `json:"p2p_mdns,omitempty"`             // discover peers on the local network (default: true)
+
+	// Gallery settings
+	Galleries                *[]Gallery `json:"galleries,omitempty"`
+	BackendGalleries         *[]Gallery `json:"backend_galleries,omitempty"`
+	AutoloadGalleries        *bool      `json:"autoload_galleries,omitempty"`
+	AutoloadBackendGalleries *bool      `json:"autoload_backend_galleries,omitempty"`
+	VRAMPersistentCache      *bool      `json:"vram_persistent_cache,omitempty"`
+
+	// API keys - No omitempty as we need to save empty arrays to clear keys
+	ApiKeys *[]string `json:"api_keys"`
+
+	// Open Responses settings
+	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
+
+	// Collections settings
+	CollectionsEnabled         *bool   `json:"collections_enabled,omitempty"`
+	CollectionsDefaultModel    *string `json:"collections_default_model,omitempty"`
+	ChatsVisionModel           *string `json:"chats_vision_model,omitempty"`        // model that describes images for the chats
+	ChatsTranscriptionModel    *string `json:"chats_transcription_model,omitempty"` // model that transcribes audio for the chats
+	CollectionsEmbeddingModel  *string `json:"collections_embedding_model,omitempty"`
+	CollectionsMaxChunkingSize *int    `json:"collections_max_chunking_size,omitempty"`
+	CollectionsChunkOverlap    *int    `json:"collections_chunk_overlap,omitempty"`
+	CollectionsDBPath          *string `json:"collections_db_path,omitempty"`
+	CollectionsVectorEngine    *string `json:"collections_vector_engine,omitempty"` // chromem | postgres
+	CollectionsDatabaseURL     *string `json:"collections_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
+
+	// Distributed-mode settings. Read LIVE by the SmartRouter on each
+	// scheduling decision, so toggling takes effect on the next placement
+	// without a restart. Stored as the negation of
+	// DistributedConfig.DiskHeadroomDisabled for UI clarity.
+	DistributedDiskHeadroomCheck *bool `json:"distributed_disk_headroom_check,omitempty"` // Reject nodes without room to store the model (default: true)
+
+	// MCP connectors that users define in the chats. Read at each connection, so
+	// flipping it takes effect without a restart.
+	MCPConnectorsAllowPrivate *bool `json:"mcp_connectors_allow_private,omitempty"` // let them reach private network addresses (default: false)
+
+	// The built-in web tools of the chats. Read at each turn, so a change
+	// applies at the next turn.
+	ChatsWebSearch     *bool   `json:"chats_web_search,omitempty"`      // offer web_search (default: true)
+	ChatsWebFetch      *bool   `json:"chats_web_fetch,omitempty"`       // offer web_fetch (default: true)
+	ChatsWebSearXNGURL *string `json:"chats_web_searxng_url,omitempty"` // the address of a SearXNG instance; see ChatsWebSearchProviders
+	// ChatsWebSearchProviders is the order of the search providers, comma
+	// separated: searxng, duckduckgo, brave_html, bing_html. Empty: searxng
+	// alone when an instance is set, else duckduckgo,brave_html,bing_html.
+	ChatsWebSearchProviders *string `json:"chats_web_search_providers,omitempty"`
+	ChatsWebAllowPrivate    *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
+	ChatsWebPorts           *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	// The two built-in groups of LocalAI tools of the chats. Read at each turn.
+	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
+	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
+	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups and the deferred add-on tools on demand: auto, on or off (default: auto)
+	// Jobs that an add-on starts for a paired client. Read when a job
+	// runs. By default such a job may only use tools that read.
+	ClientJobsAllowAllTools *bool `json:"client_jobs_allow_all_tools,omitempty"` // let jobs from a paired client use the write and act tools that the task's agent is set up with, no more (default: false)
+	// The network of the commands the chats run in the Sandbox. Read at each
+	// check of the host proxy, so a change applies at once (a cached allow
+	// lives at most 30 seconds).
+	ChatsEgressCeiling         *string `json:"chats_egress_ceiling,omitempty"`          // widest preset a chat may use: off, registries, all (default: off)
+	ChatsEgressDefault         *string `json:"chats_egress_default,omitempty"`          // preset of a new chat, capped by the ceiling (default: off)
+	ChatsEgressAllowPrivate    *bool   `json:"chats_egress_allow_private,omitempty"`    // let an administrator's rule reach private addresses (default: false)
+	ChatsEgressPorts           *string `json:"chats_egress_ports,omitempty"`            // ports a command may reach, comma separated (default: 80,443)
+	ChatsEgressExtraRegistries *string `json:"chats_egress_extra_registries,omitempty"` // host names added to the package registries, comma separated
+	ChatsEgressAllowedHosts    *string `json:"chats_egress_allowed_hosts,omitempty"`    // exact hosts (host or host:port) always allowed with the network on, comma separated
+	ChatsEgressAuditDays       *int    `json:"chats_egress_audit_days,omitempty"`       // days the network and host-command audits keep a line, 1 to 365 (default: 30)
+	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
+	// 40). Read at each turn.
+	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most add-on tools one chat is offered, 16 to 256 (default: 64).
+	// Read at each discovery, so a change applies at once.
+	ChatsAddonToolLimit *int `json:"chats_addon_tool_limit,omitempty"`
+	// The most turns the server starts by itself for one goal of a chat, 1 to
+	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
+	// 10000 (default: 400). Read when a turn ends.
+	ChatsGoalMaxTurns *int `json:"chats_goal_max_turns,omitempty"`
+	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
+	// The loops of the chats: the shortest interval (a duration, 30s to 24h,
+	// default 1m), the runs after which a loop ends (default 100), the loops
+	// and waits one chat and one user may have (defaults 3 and 10), the loop
+	// runs one user may start in a UTC day (default 200), and the checks of
+	// waits on a command one user may spend in a UTC day (1 to 100000,
+	// default 1500). Read at each use.
+	ChatsLoopMinInterval       *string `json:"chats_loop_min_interval,omitempty"`
+	ChatsLoopMaxRuns           *int    `json:"chats_loop_max_runs,omitempty"`
+	ChatsLoopMaxPerChat        *int    `json:"chats_loop_max_per_chat,omitempty"`
+	ChatsLoopMaxPerUser        *int    `json:"chats_loop_max_per_user,omitempty"`
+	ChatsLoopDailyRuns         *int    `json:"chats_loop_daily_runs,omitempty"`
+	ChatsLoopDailyScriptChecks *int    `json:"chats_loop_daily_script_checks,omitempty"`
+	// The triggers of the chats: the longest one run may take (a duration,
+	// 1m to 24h, default 15m), the triggers one user may have (1 to 1000,
+	// default 50) and the highest daily limit one trigger may have (1 to 1000,
+	// default 1000). Read at each use.
+	ChatsTriggerRunLimit    *string `json:"chats_trigger_run_limit,omitempty"`
+	ChatsTriggerMaxPerUser  *int    `json:"chats_trigger_max_per_user,omitempty"`
+	ChatsTriggerMaxDailyCap *int    `json:"chats_trigger_max_daily_cap,omitempty"`
+	// Let a chat that switches it on call the user's saved agents as
+	// sub-agents (default: true). Read at each turn.
+	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
+	// Name each chat's work folder in its prompt, so scripts, logs and drafts
+	// go there and not next to the user's files (default: true). Read at
+	// each turn.
+	ChatsWorkFolder *bool `json:"chats_work_folder,omitempty"`
+	// Read the text of PDF and Office files in the chats' files so that
+	// search finds them by what they say (default: true), and the most text
+	// kept for one file, 65536 to 16777216 bytes (default: 2097152).
+	ChatsIndexFiles        *bool `json:"chats_index_files,omitempty"`
+	ChatsIndexMaxTextBytes *int  `json:"chats_index_max_text_bytes,omitempty"`
+
+	// Limits of "Extract here" on the Files page: the most bytes (default:
+	// 1 GiB) and entries (default: 20000) one archive may expand to, and
+	// whether 7z and RAR archives are read at all (default: false).
+	ChatsExtractMaxBytes    *int64 `json:"chats_extract_max_bytes,omitempty"`
+	ChatsExtractMaxEntries  *int   `json:"chats_extract_max_entries,omitempty"`
+	ChatsExtractSevenZipRar *bool  `json:"chats_extract_7z_rar,omitempty"`
+
+	// Offers from the assistant in the chats, for users who did not choose.
+	// Read at each turn, so a change applies at once.
+	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)
+
+	// Pages of shared folders — read live by the pages handlers on every
+	// request, so switching them off stops open pages at their next call.
+	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
+
+	// Pages that people share from their own homes — read live on every
+	// request, like the pages of shared folders. Off: nobody can share a
+	// page, the pages already shared do not open and their owners can still
+	// take them back.
+	UserPageSharesEnabled *bool `json:"user_page_shares_enabled,omitempty"` // negation of DisableUserPageShares
+
+	// The page area of Home: a page of the user's workspace that fills the
+	// area below the composer. Read live on every list of pages, so switching
+	// it off hides the area at the next read.
+	HomePageAreaEnabled *bool `json:"home_page_area_enabled,omitempty"` // negation of DisablePageArea
+
+	// Built-in chat tools (Settings > Tools) — read live at every turn.
+	// ChatsHostExec is who gets the built-in bash that runs commands on this
+	// machine with no isolation: off, ask or on; empty is the default (off
+	// with accounts, ask without). ChatsToolProviders pins, for a built-in tool
+	// or skill that several add-ons replace, the add-on that serves it.
+	ChatsHostExec      *string            `json:"chats_host_exec,omitempty"`
+	ChatsToolProviders *map[string]string `json:"chats_tool_providers,omitempty"`
+
+	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
+	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.
+	// All optional — empty values fall back to bundled LocalAI defaults.
+	InstanceName       *string `json:"instance_name,omitempty"`
+	InstanceTagline    *string `json:"instance_tagline,omitempty"`
+	LogoFile           *string `json:"logo_file,omitempty"`
+	LogoHorizontalFile *string `json:"logo_horizontal_file,omitempty"`
+	FaviconFile        *string `json:"favicon_file,omitempty"`
+
+	// Cloud-proxy MITM listener. MITMCADir is intentionally NOT
+	// exposed at runtime — the CA dir is a startup-only path and
+	// changing it after the CA has been generated would orphan
+	// trusted clients.
+	MITMListen *string `json:"mitm_listen,omitempty"`
+
+	// PIIDefaultDetectors are the token-classification detector models applied
+	// to any PII-enabled model that names no detectors of its own (so
+	// cloud-proxy/MITM redaction works without per-model config). No omitempty:
+	// an empty array must round-trip so the operator can clear it from the UI.
+	PIIDefaultDetectors *[]string `json:"pii_default_detectors"`
+}

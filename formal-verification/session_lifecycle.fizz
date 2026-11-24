@@ -1,0 +1,84 @@
+---
+# Authoritative formal design for the realtime session lifecycle HIERARCHY:
+# how the per-machine coordinators (M1-M5) relate as one statechart.
+#
+# The five machines (respcoord/turncoord/conncoord/compactcoord/ttscoord) are
+# implemented as separate single-writer coordinators, but they are not
+# independent: M1 (connection) is the PARENT region, and its children must
+# terminate when it does. This spec models that relationship — the property no
+# single per-machine spec can express — without merging the Go code.
+#
+# Companion to:
+#   - docs/design/realtime-state-machines.md  (the map + invariants #8/#10)
+#   - the per-machine specs (response_lifecycle / turn_lifecycle / conn_lifecycle
+#     / compaction / tts_pipeline) which check each machine in isolation.
+#
+# Regions modeled here are M1's DIRECT children — the ones the connection
+# goroutine owns and tears down:
+#   conn        M1: 0 live, 1 torn
+#   vad         M2: 0 stopped, 1 running, 2 terminated (handleVAD goroutine joined)
+#   resp        M3: 0 idle,   1 active,  2 terminated (respcoord Terminated)
+#   compaction  M4: 0 idle,   1 running, 2 terminated (compactcoord Terminated)
+# M5 (TTS) is nested UNDER a response (each response owns its TTS pipeline), so
+# "resp terminated => tts closed" is an M3-internal relationship, not a direct
+# child of conn; it is covered by tts_pipeline.fizz + the response path.
+#
+# NOTE: FizzBee is pre-1.0. Validate the exact syntax/CLI against the version
+# pinned in formal-verification/README.md before trusting the gate.
+deadlock_detection: false
+---
+
+role Session:
+    action Init:
+        self.conn = 0
+        self.vad = 0
+        self.resp = 0
+        self.compaction = 0
+
+    # Children may only START work while the connection is live: no goroutine is
+    # spawned after teardown (no resurrection / no send-after-close).
+    atomic action VadStart:
+        if self.conn == 0 and self.vad == 0:
+            self.vad = 1
+    atomic action VadStop:
+        if self.conn == 0 and self.vad == 1:
+            self.vad = 0
+    atomic action RespStart:
+        if self.conn == 0 and self.resp != 2:
+            self.resp = 1
+    atomic action RespFinish:
+        if self.resp == 1:
+            self.resp = 0
+    atomic action CompTrigger:
+        if self.conn == 0 and self.compaction == 0:
+            self.compaction = 1
+    atomic action CompFinish:
+        if self.compaction == 1:
+            self.compaction = 0
+
+    # Parent teardown drives EVERY child to its terminal state in one step: the
+    # connection goroutine stops + joins the VAD goroutine (vad->2), shuts down
+    # the response coordinator (resp->2), and cancels + joins the in-flight
+    # compaction (compaction->2). THE RELATIONSHIP: a torn parent implies all
+    # children terminal.
+    #
+    # To reproduce the real M4 gap (compaction left fire-and-forget, able to
+    # outlive the session), delete `self.compaction = 2` below: the checker then
+    # reports ChildrenDieWithParent violated (conn torn while compaction still
+    # running). Likewise dropping vad/resp reproduces a leaked VAD/response.
+    atomic action Teardown:
+        if self.conn == 0:
+            self.conn = 1
+            self.vad = 2
+            self.resp = 2
+            self.compaction = 2
+
+action Init:
+    s = Session()
+
+# SAFETY (the hierarchy invariant): once the connection is torn, every child is
+# terminal — no VAD goroutine, response, or compaction outlives the session
+# (Part 4, invariants #8/#10). The start guards above additionally make "no child
+# starts after teardown" unreachable.
+always assertion ChildrenDieWithParent:
+    return s.conn == 0 or (s.vad == 2 and s.resp == 2 and s.compaction == 2)

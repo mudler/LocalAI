@@ -1,0 +1,581 @@
+{
+  "schemaVersion": 1,
+  "id": "contacts",
+  "version": "0.1.0",
+  "executable": "contacts",
+  "os": "linux",
+  "arch": "amd64",
+  "host": {
+    "min": 1,
+    "max": 1
+  },
+  "api": {
+    "min": 2,
+    "max": 2
+  },
+  "protocol": {
+    "min": 1,
+    "max": 1
+  },
+  "dataFormat": {
+    "min": 1,
+    "max": 1
+  },
+  "featureLevel": 3,
+  "capabilities": {
+    "actions": true,
+    "ownerData": true,
+    "tools": [
+      "contacts-search",
+      "contact-get",
+      "contact-create",
+      "contact-update",
+      "contact-delete",
+      "ui-contacts-list",
+      "ui-contact-get",
+      "ui-contact-create",
+      "ui-contact-update",
+      "ui-contact-delete",
+      "contacts-export"
+    ],
+    "toolDefinitions": [
+      {
+        "name": "contacts-search",
+        "description": "Find contacts by words in the name, organisation, phone number, email address, address or notes. Every word must match; accents and case do not matter, and a phone number matches however it is spaced. Gives a short card for each match: use contact-get for the full contact.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Words to look for in a name, organisation, phone number, email address, address or notes. Every word must match. Empty lists everyone.",
+              "maxLength": 200
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "contact-get",
+        "description": "Read one contact in full: organisation, all phones and emails with their labels, birthday, address and notes.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "contact-create",
+        "description": "Add a contact to the address book at once. Needs a name. Give only what the person said; do not invent a phone number, an email or a birthday.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Full name as the person said it, for example Marco Rossi.",
+              "maxLength": 200
+            },
+            "organisation": {
+              "type": "string",
+              "description": "Company or group, free text.",
+              "maxLength": 200
+            },
+            "phones": {
+              "type": "array",
+              "description": "All phone numbers of the contact, each with an optional label. On an update the list replaces the old one, so send every number to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Phone number as written, for example +39 02 5550123.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "emails": {
+              "type": "array",
+              "description": "All email addresses of the contact, each with an optional label. On an update the list replaces the old one, so send every address to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Email address.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "birthday": {
+              "type": "string",
+              "description": "YYYY-MM-DD, or --MM-DD when the year is not known. An empty string takes it away.",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "description": "Postal address as free text. An empty string takes it away.",
+              "maxLength": 500
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "contact-update",
+        "description": "Change a contact at once. Give the id and only the fields that change. A phones or emails list replaces the whole list, so send the numbers or addresses to keep as well as the new one.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            },
+            "name": {
+              "type": "string",
+              "description": "Full name as the person said it, for example Marco Rossi.",
+              "maxLength": 200
+            },
+            "organisation": {
+              "type": "string",
+              "description": "Company or group, free text.",
+              "maxLength": 200
+            },
+            "phones": {
+              "type": "array",
+              "description": "All phone numbers of the contact, each with an optional label. On an update the list replaces the old one, so send every number to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Phone number as written, for example +39 02 5550123.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "emails": {
+              "type": "array",
+              "description": "All email addresses of the contact, each with an optional label. On an update the list replaces the old one, so send every address to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Email address.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "birthday": {
+              "type": "string",
+              "description": "YYYY-MM-DD, or --MM-DD when the year is not known. An empty string takes it away.",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "description": "Postal address as free text. An empty string takes it away.",
+              "maxLength": 500
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "contact-delete",
+        "description": "Delete a contact for good, at once. Look the contact up first and only delete what the person named.",
+        "kind": "action",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "ui-contacts-list",
+        "description": "List contacts for the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Words to look for in a name, organisation, phone number, email address, address or notes. Every word must match. Empty lists everyone.",
+              "maxLength": 200
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2000
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-contact-get",
+        "description": "Read one contact for the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-contact-create",
+        "description": "Add a contact. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Full name as the person said it, for example Marco Rossi.",
+              "maxLength": 200
+            },
+            "organisation": {
+              "type": "string",
+              "description": "Company or group, free text.",
+              "maxLength": 200
+            },
+            "phones": {
+              "type": "array",
+              "description": "All phone numbers of the contact, each with an optional label. On an update the list replaces the old one, so send every number to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Phone number as written, for example +39 02 5550123.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "emails": {
+              "type": "array",
+              "description": "All email addresses of the contact, each with an optional label. On an update the list replaces the old one, so send every address to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Email address.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "birthday": {
+              "type": "string",
+              "description": "YYYY-MM-DD, or --MM-DD when the year is not known. An empty string takes it away.",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "description": "Postal address as free text. An empty string takes it away.",
+              "maxLength": 500
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-contact-update",
+        "description": "Change a contact. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            },
+            "name": {
+              "type": "string",
+              "description": "Full name as the person said it, for example Marco Rossi.",
+              "maxLength": 200
+            },
+            "organisation": {
+              "type": "string",
+              "description": "Company or group, free text.",
+              "maxLength": 200
+            },
+            "phones": {
+              "type": "array",
+              "description": "All phone numbers of the contact, each with an optional label. On an update the list replaces the old one, so send every number to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Phone number as written, for example +39 02 5550123.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "emails": {
+              "type": "array",
+              "description": "All email addresses of the contact, each with an optional label. On an update the list replaces the old one, so send every address to keep.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Free label such as mobile, home or work.",
+                    "maxLength": 40
+                  },
+                  "value": {
+                    "type": "string",
+                    "description": "Email address.",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 10
+            },
+            "birthday": {
+              "type": "string",
+              "description": "YYYY-MM-DD, or --MM-DD when the year is not known. An empty string takes it away.",
+              "maxLength": 10
+            },
+            "address": {
+              "type": "string",
+              "description": "Postal address as free text. An empty string takes it away.",
+              "maxLength": 500
+            },
+            "notes": {
+              "type": "string",
+              "description": "Free text notes.",
+              "maxLength": 4000
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "ui-contact-delete",
+        "description": "Delete a contact. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "ID of the contact, as returned by contacts-search.",
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "contacts-export",
+        "description": "Export the whole address book as one vCard file. For the add-on page; no model calls it.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      }
+    ],
+    "skillDefinitions": [
+      {
+        "name": "contacts"
+      }
+    ],
+    "ui": {
+      "entry": "ui/contacts.js",
+      "css": [
+        "ui/contacts.css"
+      ],
+      "sdk": {
+        "min": 2,
+        "max": 2
+      },
+      "pages": [
+        "contacts"
+      ],
+      "mainPage": "contacts",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Contacts",
+        "it": "Contatti",
+        "de": "Kontakte",
+        "es": "Contactos",
+        "fr": "Contacts",
+        "pt-BR": "Contatos",
+        "zh-CN": "通讯录",
+        "ko": "연락처",
+        "id": "Kontak"
+      },
+      "description": {
+        "en": "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect.",
+        "it": "I tuoi agenti cercano e tengono la tua rubrica: il numero di Marco, l'email di Anna, un compleanno. Vive dentro LocalAI, senza nessun account da collegare.",
+        "de": "Ihre Agenten suchen und führen Ihr Adressbuch: Marcos Nummer, Annas E-Mail, ein Geburtstag. Es lebt in LocalAI, ohne Konto, das verbunden werden muss.",
+        "es": "Tus agentes buscan y llevan tu agenda de contactos: el número de Marco, el correo de Anna, un cumpleaños. Vive dentro de LocalAI, sin ninguna cuenta que conectar.",
+        "fr": "Vos agents cherchent et tiennent votre carnet d'adresses : le numéro de Marco, l'e-mail d'Anna, un anniversaire. Il vit dans LocalAI, sans compte à connecter.",
+        "pt-BR": "Seus agentes procuram e mantêm sua lista de contatos: o número do Marco, o e-mail da Anna, um aniversário. Ela vive dentro do LocalAI, sem nenhuma conta para conectar.",
+        "zh-CN": "你的智能体可以查找并维护你的通讯录：Marco 的电话、Anna 的邮箱、某人的生日。通讯录保存在 LocalAI 内部，无需连接任何账户。",
+        "ko": "에이전트가 주소록을 찾아보고 관리합니다. Marco의 전화번호, Anna의 이메일, 생일까지. 주소록은 LocalAI 안에 저장되며 연결할 계정이 필요 없습니다.",
+        "id": "Agen Anda mencari dan mengelola buku alamat Anda: nomor Marco, email Anna, hari ulang tahun. Buku alamat ini tersimpan di dalam LocalAI, tanpa akun yang perlu dihubungkan."
+      }
+    }
+  }
+}

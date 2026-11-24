@@ -1,0 +1,113 @@
+{
+  "title": "Wissen",
+  "subtitle": "Dokumentsammlungen, die Agenten durchsuchen können. Durchsuchen Sie sie hier oder fügen Sie eine einem Agenten hinzu, wenn er sie nutzen soll.",
+  "newPlaceholder": "Name der neuen Sammlung...",
+  "actions": {
+    "create": "Erstellen",
+    "details": "Details",
+    "reset": "Zurücksetzen",
+    "delete": "Löschen",
+    "viewDetails": "Details anzeigen",
+    "resetCollection": "Sammlung zurücksetzen",
+    "deleteCollection": "Sammlung löschen",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "sections": {
+    "yourCollections": "Ihre Sammlungen",
+    "otherUsersCollections": "Sammlungen anderer Benutzer",
+    "sharedWithYou": "Mit dir geteilt"
+  },
+  "empty": {
+    "title": "Noch keine Sammlungen",
+    "text": "Mit Sammlungen organisieren Sie Dokumente in Wissensdatenbanken, die Agenten mit RAG (Retrieval-Augmented Generation) durchsuchen können. Erstellen Sie oben eine Sammlung, um zu beginnen.",
+    "noPersonal": "Sie haben noch keine Sammlungen.",
+    "learn": "So funktioniert der Bereich Wissen"
+  },
+  "deleteDialog": {
+    "title": "Sammlung löschen",
+    "message": "Sammlung \"{{name}}\" löschen? Dies entfernt alle Einträge und kann nicht rückgängig gemacht werden.",
+    "confirm": "Löschen"
+  },
+  "resetDialog": {
+    "title": "Sammlung zurücksetzen",
+    "message": "Sammlung \"{{name}}\" zurücksetzen? Dies entfernt alle Einträge, behält aber die Sammlung.",
+    "confirm": "Zurücksetzen"
+  },
+  "toasts": {
+    "created": "Sammlung \"{{name}}\" erstellt",
+    "createFailed": "Erstellen der Sammlung fehlgeschlagen: {{message}}",
+    "deleted": "Sammlung \"{{name}}\" gelöscht",
+    "deleteFailed": "Löschen der Sammlung fehlgeschlagen: {{message}}",
+    "reset": "Sammlung \"{{name}}\" zurückgesetzt",
+    "resetFailed": "Zurücksetzen der Sammlung fehlgeschlagen: {{message}}"
+  },
+  "loadFailed": "Ihre Sammlungen konnten nicht geladen werden.",
+  "sources": {
+    "loadFailed": "Die Webquellen konnten nicht geladen werden.",
+    "noneShared": "Keine Webquellen."
+  },
+  "entries": {
+    "loadFailed": "Die Dateien konnten nicht geladen werden.",
+    "filter": "Dateien filtern",
+    "countAll_one": "{{count}} Datei",
+    "countAll_other": "{{count}} Dateien",
+    "countOf": "{{shown}} von {{total}} Dateien",
+    "noMatch": "Keine Datei passt."
+  },
+  "starting": {
+    "title": "Wissen startet.",
+    "text": "Der Server bereitet den Wissensdienst noch vor. Diese Seite fragt von selbst erneut."
+  },
+  "embedding": {
+    "missingTitle": "Kein Embedding-Modell installiert.",
+    "missingText": "Sammlungen nutzen {{model}}, um Dateien zu indexieren und zu durchsuchen. Bis es installiert ist, schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "noneSet": "Für Sammlungen ist kein Embedding-Modell festgelegt (collections_embedding_model), daher schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "install": "In Modelle suchen",
+    "askAdmin": "Bitte eine Administratorin oder einen Administrator, es zu installieren."
+  },
+  "searchMode": {
+    "label": "Suche: {{mode}}",
+    "semantic": "semantisch",
+    "hybrid": "hybrid",
+    "semanticHint": "Sie findet Textstellen nach Bedeutung, nicht nach genauen Wörtern oder Codes.",
+    "hybridHint": "Sie findet Textstellen nach Bedeutung und nach genauen Wörtern."
+  },
+  "pane": {
+    "addFile": "Datei hinzufügen"
+  },
+  "share": {
+    "label": "Teilen",
+    "button": "{{name}} teilen",
+    "intro": "Personen, die du hinzufügst, finden diese Sammlung in ihrer Liste, und ihre Agenten können sie über den Namen durchsuchen.",
+    "failed": "Die Sammlung konnte nicht geteilt werden: {{message}}",
+    "roles": {
+      "viewer": "Darf ansehen",
+      "viewerHelp": "Darf sie durchsuchen und ihre Dateien lesen.",
+      "editor": "Darf bearbeiten",
+      "editorHelp": "Darf außerdem Dateien hinzufügen und entfernen."
+    },
+    "noteViewer": "Du kannst sie durchsuchen und ihre Dateien lesen.",
+    "noteEditor": "Du kannst sie durchsuchen und Dateien hinzufügen oder entfernen."
+  },
+  "create": {
+    "title": "Neue Sammlung",
+    "hint": "Gib ihr einen Namen, den du wiedererkennst. Dateien und Webseiten fügst du hinzu, sobald sie existiert."
+  },
+  "sort": {
+    "label": "Sammlungen sortieren",
+    "name": "Name, A bis Z",
+    "name-desc": "Name, Z bis A",
+    "used": "Am meisten genutzt",
+    "unused": "Ungenutzte zuerst"
+  },
+  "list": {
+    "countAll_one": "{{count}} Sammlung",
+    "countAll_other": "{{count}} Sammlungen",
+    "countOf": "{{shown}} von {{total}} Sammlungen",
+    "menu": "Aktionen für {{name}}"
+  },
+  "menu": {
+    "try": "Eine Frage ausprobieren"
+  }
+}

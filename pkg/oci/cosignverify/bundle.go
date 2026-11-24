@@ -1,0 +1,188 @@
+// Sigstore-bundle discovery for cosign-signed OCI images.
+//
+// Cosign 2.2+ with `--new-bundle-format --registry-referrers-mode=oci-1-1`
+// stores the signature as a standalone OCI artifact discoverable via the
+// OCI 1.1 referrers API. The artifact payload is a Sigstore protobuf
+// bundle that sigstore-go consumes natively (no manual annotation parsing).
+//
+// go-containerregistry's remote.Referrers transparently falls back to the
+// referrers-tag scheme (`<algo>-<hex>` tag) for registries that don't yet
+// implement the referrers endpoint, so the same code path covers both.
+//
+// We deliberately do not support the legacy `:sha256-<hex>.sig` cosign
+// signature attachment with per-annotation cert/sig/Rekor fields. CI is
+// expected to sign with `--new-bundle-format`; this is a fresh integration
+// and LocalAI controls both the producer (CI) and the consumer (this
+// binary), so there is no reason to carry the legacy path.
+
+package cosignverify
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+
+	"github.com/sigstore/sigstore-go/pkg/bundle"
+)
+
+// sigstoreBundleMediaTypePrefix matches every published Sigstore bundle
+// version (0.1, 0.2, 0.3, ...). The artifactType lives on the referrer
+// descriptor in the OCI image index returned by the referrers API.
+const sigstoreBundleMediaTypePrefix = "application/vnd.dev.sigstore.bundle."
+
+// isSigstoreBundleArtifactType reports whether the given OCI artifactType
+// identifies a Sigstore bundle blob.
+func isSigstoreBundleArtifactType(mt string) bool {
+	return strings.HasPrefix(mt, sigstoreBundleMediaTypePrefix) && strings.HasSuffix(mt, "+json")
+}
+
+// bundleFromOCISignature locates a cosign-produced Sigstore bundle for the
+// image identified by ref+imageDigest by querying the OCI 1.1 referrers
+// API and returns the parsed bundle.
+//
+// Returns the first bundle whose JSON parses successfully — verification
+// of identity, transparency log inclusion, and artifact digest is the
+// caller's responsibility (driven by the Verifier).
+func bundleFromOCISignature(ref name.Reference, imageDigest v1.Hash, opts []remote.Option) (*bundle.Bundle, error) {
+	digestRef := ref.Context().Digest(imageDigest.String())
+
+	idx, err := remote.Referrers(digestRef, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("cosignverify: querying referrers for %s: %w", digestRef.Name(), err)
+	}
+	manifest, err := idx.IndexManifest()
+	if err != nil {
+		return nil, fmt.Errorf("cosignverify: reading referrers index: %w", err)
+	}
+
+	if len(manifest.Manifests) == 0 {
+		return nil, fmt.Errorf("cosignverify: no referrers found for %s: %w", digestRef.Name(), ErrPolicyRejected)
+	}
+
+	// outage remembers a referrer the registry failed to serve. That one may
+	// be the valid signature, so it decides the result whatever else failed
+	// and in whatever order the index lists them.
+	var lastErr, outage error
+	noteFailure := func(err error) {
+		lastErr = err
+		if !errors.Is(err, ErrPolicyRejected) {
+			outage = err
+		}
+	}
+	for _, desc := range manifest.Manifests {
+		if !isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
+			continue
+		}
+		b, err := fetchBundleFromReferrer(ref, desc, opts)
+		if err != nil {
+			noteFailure(err)
+			continue
+		}
+		return b, nil
+	}
+
+	// Nothing advertised itself as a bundle, which does not mean nothing is
+	// one. A registry without the referrers API leaves the index to the
+	// signing client, and cosign fills the entry's artifactType from the
+	// manifest's config media type rather than from its artifactType, so a
+	// correctly signed image arrives here looking unsigned. The manifest
+	// itself always carries the truth, so ask it.
+	for i, desc := range manifest.Manifests {
+		if i >= maxReferrersInspected {
+			break
+		}
+		if isSigstoreBundleArtifactType(string(desc.ArtifactType)) {
+			continue // already tried above
+		}
+		isBundle, err := isBundleManifest(ref, desc, opts)
+		if err != nil {
+			// Unread is not unsigned: a referrer the registry failed to
+			// serve may be the signature, so an outage here must not end
+			// up reported as "no signature".
+			noteFailure(err)
+			continue
+		}
+		if !isBundle {
+			continue
+		}
+		b, err := fetchBundleFromReferrer(ref, desc, opts)
+		if err != nil {
+			noteFailure(err)
+			continue
+		}
+		return b, nil
+	}
+
+	if outage != nil {
+		return nil, fmt.Errorf("cosignverify: could not read every referrer of %s: %w", digestRef.Name(), outage)
+	}
+	if lastErr != nil {
+		return nil, fmt.Errorf("cosignverify: no usable Sigstore bundle referrer for %s: %w", digestRef.Name(), lastErr)
+	}
+	return nil, fmt.Errorf("cosignverify: no Sigstore bundle referrer for %s (signed with --new-bundle-format?): %w", digestRef.Name(), ErrPolicyRejected)
+}
+
+// maxReferrersInspected bounds the second pass. Each step there is a manifest
+// fetch, and the descriptors come from a registry, so an image with many
+// referrers must not turn one verification into an unbounded walk.
+const maxReferrersInspected = 16
+
+// isBundleManifest reports whether a referrer manifest is a Sigstore bundle
+// by its own account, whatever the index entry claimed. Both the manifest's
+// artifactType and its first layer are checked: the layer is what actually
+// holds the bundle, and a manifest can reach a registry with neither field
+// copied onto the index.
+func isBundleManifest(ref name.Reference, desc v1.Descriptor, opts []remote.Option) (bool, error) {
+	artRef := ref.Context().Digest(desc.Digest.String())
+	img, err := remote.Image(artRef, opts...)
+	if err != nil {
+		return false, fmt.Errorf("fetching referrer image %s: %w", artRef.Name(), err)
+	}
+	m, err := img.Manifest()
+	if err != nil {
+		return false, fmt.Errorf("reading referrer manifest %s: %w", artRef.Name(), err)
+	}
+	if isSigstoreBundleArtifactType(m.ArtifactType) {
+		return true, nil
+	}
+	return len(m.Layers) > 0 && isSigstoreBundleArtifactType(string(m.Layers[0].MediaType)), nil
+}
+
+func fetchBundleFromReferrer(ref name.Reference, desc v1.Descriptor, opts []remote.Option) (*bundle.Bundle, error) {
+	artRef := ref.Context().Digest(desc.Digest.String())
+	img, err := remote.Image(artRef, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("fetching referrer image %s: %w", artRef.Name(), err)
+	}
+	layers, err := img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("reading referrer layers: %w", err)
+	}
+	if len(layers) == 0 {
+		return nil, fmt.Errorf("referrer artifact has no layers: %w", ErrPolicyRejected)
+	}
+
+	rc, err := layers[0].Uncompressed()
+	if err != nil {
+		return nil, fmt.Errorf("opening referrer blob: %w", err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("reading referrer blob: %w", err)
+	}
+
+	b := &bundle.Bundle{}
+	if err := b.UnmarshalJSON(data); err != nil {
+		// The registry served this referrer in full; what it holds is not
+		// a signature, which is an answer about the image.
+		return nil, fmt.Errorf("parsing bundle JSON: %w: %w", ErrPolicyRejected, err)
+	}
+	return b, nil
+}

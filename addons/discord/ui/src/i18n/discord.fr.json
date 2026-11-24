@@ -1,0 +1,81 @@
+{
+  "title": "Discord",
+  "intro": "Associez un bot Discord à l’un de vos agents enregistrés. On parle à l’agent en message privé avec le bot, ou en le mentionnant dans un canal ou un fil. Chaque personne, et chaque fil, a son propre chat.",
+  "new": "Nouveau bot Discord",
+  "edit": "Modifier le bot Discord",
+  "name": "Nom",
+  "token": "Jeton du bot",
+  "tokenHelp": "Se trouve sur la page Bot de votre application dans le portail développeur Discord (Reset Token). Il est conservé scellé et n’est plus jamais affiché.",
+  "tokenSaved": "Enregistré. Saisissez un nouveau jeton pour le remplacer.",
+  "tokenSpace": "Le jeton ne contient pas d’espace. Collez uniquement le jeton, sans le mot Bot.",
+  "tokenShape": "C’est trop court pour un jeton de bot.",
+  "agent": "Agent",
+  "agentNone": "Choisir un agent",
+  "agentNoModel": "{{name}} (a besoin d’un modèle)",
+  "anyoneWarning": "Ceci est pour les canaux publics et les agents qui ne font que lire. Toute personne pouvant joindre le bot peut parler à cet agent : en message privé si elle partage un serveur avec le bot, et dans chaque canal où le bot peut lire et où elle le mentionne. Les personnes absentes d’une liste n’ont aucune autorisation propre : l’agent ne peut pas enregistrer en mémoire, proposer des déclencheurs ni prendre leurs fichiers pour elles, et les actions sensibles restent fermées. Les autres outils de l’agent fonctionnent pour tout le monde. Ce que les gens écrivent dans un canal public est un texte non fiable, qui peut tenter de détourner l’agent (injection de prompt). Donnez à l’agent des outils en lecture seule pour cette connexion, et aucun qui envoie des messages, dépense de l’argent ou modifie des fichiers. Chaque personne a son propre chat, et le nombre de messages qu’une personne peut envoyer par minute est limité.",
+  "anyoneConfirm": "Je comprends que n’importe qui peut utiliser cet agent, et que ses outils doivent être en lecture seule",
+  "allowIdsHint": "Un ID d’utilisateur ou un ID de canal (des chiffres)",
+  "rules": "Les personnes de la liste peuvent écrire en message privé et mentionner le bot dans n’importe quel canal. Un canal de la liste permet à tous ses membres d’y mentionner le bot, mais ils n’ont aucune autorisation propre. Sur un serveur, le bot ne répond que lorsqu’on le mentionne ou qu’on lui répond, ou dans un fil où il a été mentionné. Il ne répond jamais aux bots ni aux webhooks, et ses messages ne notifient personne. Utilisez des ID de canal : un ID de serveur (guild) ne correspond à rien. Des ID uniquement, pas de noms : dans Discord, activez le mode développeur (Paramètres, Avancé), puis faites un clic droit sur une personne ou un canal et choisissez Copier l’ID.",
+  "badIds": "Ce ne sont pas des ID Discord : {{list}}. Utilisez le nombre obtenu avec Copier l’ID (17 à 20 chiffres). Les noms ne sont pas acceptés.",
+  "notifyHelp": "Facultatif. Un ID de canal, ou user: suivi de votre ID d’utilisateur pour les recevoir en messages privés.",
+  "test": "Tester",
+  "testOk": "Connecté à {{bot}}.",
+  "checkFailed": "Enregistré. La vérification du jeton a échoué : {{reason}}",
+  "senders": "Expéditeurs",
+  "noSenders": "Personne n’a encore écrit à ce bot.",
+  "allowButton": "Ajouter cette personne à la liste",
+  "ignored": "Ignoré",
+  "accepted": "Accepté",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "editButton": "Modifier",
+  "delete": "Supprimer",
+  "empty": "Aucun bot Discord pour le moment.",
+  "agentOf": "Agent : {{name}}",
+  "accepts": "Accepte : {{who}}",
+  "modes": {
+    "anyone": "tout le monde",
+    "nobody": "personne pour l’instant",
+    "listed_one": "1 entrée dans la liste",
+    "listed_other": "{{count}} entrées dans la liste"
+  },
+  "on": "Activé",
+  "onFor": "{{name}} activé",
+  "inactive": "À l’arrêt : {{reason}}.",
+  "confirmDelete": {
+    "title": "Supprimer {{name}} ?",
+    "message": "Le bot cesse de répondre, et le jeton enregistré avec lui est supprimé. Pour le reconfigurer, vous devrez saisir de nouveau le jeton.",
+    "confirm": "Supprimer"
+  },
+  "setup": {
+    "title": "Comment créer le bot Discord",
+    "step1": "Sur discord.com/developers/applications, choisissez New Application et donnez-lui un nom.",
+    "step2": "Sur la page Bot, choisissez Reset Token, copiez le jeton une seule fois et collez-le dans le champ Jeton du bot ici. Gardez-le secret.",
+    "step3": "Sur la même page, sous Privileged Gateway Intents, activez Message Content Intent. Sans lui, le bot ne peut pas lire ce que les gens écrivent sur un serveur. Laissez les deux autres intents désactivés.",
+    "step4": "Facultatif : désactivez Public Bot, pour que vous seul puissiez ajouter le bot à un serveur.",
+    "step5": "Saisissez ci-dessous l’Application ID (General Information), puis ouvrez le lien qu’il construit. Choisissez le serveur et laissez les autorisations telles quelles.",
+    "step6": "Sur le serveur, vérifiez que le rôle du bot peut voir les canaux où il doit répondre. Indiquez ensuite ici les ID de ces canaux, puis mentionnez le bot pour l’essayer.",
+    "appId": "Application ID",
+    "appIdHelp": "Le nombre indiqué dans General Information de votre application. Il n’est pas secret. Il sert seulement à construire le lien ; rien n’est enregistré.",
+    "appIdBad": "L’Application ID est un nombre de 17 à 20 chiffres.",
+    "invite": "Lien qui ajoute le bot à un serveur",
+    "copy": "Copier le lien",
+    "copied": "Copié",
+    "permissions": "Le lien demande ces autorisations (le nombre {{number}}) :",
+    "perm": {
+      "viewChannels": "View Channels : pour voir où il est mentionné",
+      "sendMessages": "Send Messages : pour répondre",
+      "sendInThreads": "Send Messages in Threads : pour répondre dans les fils",
+      "attachFiles": "Attach Files : pour envoyer les fichiers créés par l’agent",
+      "readHistory": "Read Message History : pour lire un fil et les fichiers d’un message"
+    },
+    "never": "Ne donnez jamais au bot Administrator, Manage Messages ni Mention Everyone. Il n’en a besoin d’aucune."
+  },
+  "answer": {
+    "reply": {
+      "off": "La réponse seulement (Discord n’a pas d’indicateur de saisie ici)"
+    },
+    "replyHelp": "Progression et En direct affichent un seul message de travail, que la réponse remplace. Discord limite les modifications, donc En direct se met à jour environ une fois par seconde. Une longue réponse continue dans de nouveaux messages de 2000 caractères au plus.",
+    "conversationHelp": "Envoyez !new dans Discord pour démarrer un nouveau chat. Un message qui commence par une barre oblique peut être pris par Discord pour l’une de ses propres commandes."
+  }
+}

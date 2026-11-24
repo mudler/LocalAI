@@ -1,0 +1,115 @@
+package worker
+
+import (
+	"os"
+	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Worker address resolution", func() {
+	Describe("effectiveBasePort", func() {
+		DescribeTable("returns the correct port",
+			func(addr, serve string, want int) {
+				cfg := &Config{Addr: addr, ServeAddr: serve}
+				Expect(cfg.effectiveBasePort()).To(Equal(want))
+			},
+			Entry("Addr takes priority", "worker1.example.com:60000", "0.0.0.0:50051", 60000),
+			Entry("falls back to ServeAddr", "", "0.0.0.0:50051", 50051),
+			Entry("returns 50051 when neither set", "", "", 50051),
+			Entry("Addr with custom port", "10.0.0.5:7000", "", 7000),
+			Entry("supports bracketed IPv6", "[2001:db8::1]:7001", "", 7001),
+			Entry("invalid port in Addr falls through to ServeAddr", "host:notanumber", "0.0.0.0:9999", 9999),
+			Entry("out-of-range port in Addr falls through to ServeAddr", "host:70000", "0.0.0.0:9998", 9998),
+		)
+	})
+
+	Describe("advertiseAddr", func() {
+		It("returns AdvertiseAddr when set", func() {
+			cfg := &Config{
+				AdvertiseAddr: "public.example.com:50051",
+				Addr:          "10.0.0.5:60000",
+			}
+			Expect(cfg.advertiseAddr()).To(Equal("public.example.com:50051"))
+		})
+
+		It("returns Addr when set", func() {
+			cfg := &Config{Addr: "worker1.example.com:60000"}
+			Expect(cfg.advertiseAddr()).To(Equal("worker1.example.com:60000"))
+		})
+
+		It("falls back to hostname:basePort", func() {
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			got := cfg.advertiseAddr()
+			_, port, _ := strings.Cut(got, ":")
+			Expect(port).To(Equal("50051"))
+
+			hostname, _ := os.Hostname()
+			if hostname != "" {
+				host, _, _ := strings.Cut(got, ":")
+				Expect(host).To(Equal(hostname))
+			}
+		})
+	})
+
+	Describe("resolveHTTPAddr", func() {
+		DescribeTable("returns the correct address",
+			func(httpAddr, addr, serve, want string) {
+				cfg := &Config{HTTPAddr: httpAddr, Addr: addr, ServeAddr: serve}
+				Expect(cfg.resolveHTTPAddr("0.0.0.0")).To(Equal(want))
+			},
+			Entry("HTTPAddr takes priority", "0.0.0.0:8080", "", "", "0.0.0.0:8080"),
+			Entry("derives from Addr port minus 1", "", "worker1:60000", "0.0.0.0:50051", "0.0.0.0:59999"),
+			Entry("derives from ServeAddr port minus 1", "", "", "0.0.0.0:50051", "0.0.0.0:50050"),
+			Entry("default when nothing set", "", "", "", "0.0.0.0:50050"),
+		)
+	})
+
+	Describe("the bind host", func() {
+		DescribeTable("is loopback only for a worker with no NATS route and no routable address",
+			func(holdsNATS bool, addr, advertise, want string) {
+				cfg := &Config{Addr: addr, AdvertiseAddr: advertise}
+				Expect(cfg.bindHost(holdsNATS)).To(Equal(want))
+			},
+			Entry("tunnel only, no address", false, "", "", "127.0.0.1"),
+			Entry("tunnel only, --addr", false, "worker1:50051", "", "0.0.0.0"),
+			Entry("tunnel only, --advertise-addr", false, "", "worker1:50051", "0.0.0.0"),
+			Entry("NATS, no address: binds as it always did", true, "", "", "0.0.0.0"),
+			Entry("NATS, --addr", true, "worker1:50051", "", "0.0.0.0"),
+		)
+
+		It("puts the host in front of the port of the file-transfer server", func() {
+			cfg := &Config{ServeAddr: "0.0.0.0:50051"}
+			Expect(cfg.resolveHTTPAddr("127.0.0.1")).To(Equal("127.0.0.1:50050"))
+		})
+
+		It("keeps an address that the operator set for the file-transfer server", func() {
+			cfg := &Config{HTTPAddr: "10.0.0.5:9000"}
+			Expect(cfg.resolveHTTPAddr("127.0.0.1")).To(Equal("10.0.0.5:9000"))
+		})
+
+		It("says in the registration if the address can be reached", func() {
+			Expect((&Config{}).registrationBody()["routable"]).To(BeFalse())
+			Expect((&Config{Addr: "w:50051"}).registrationBody()["routable"]).To(BeTrue())
+			Expect((&Config{AdvertiseAddr: "w:50051"}).registrationBody()["routable"]).To(BeTrue())
+		})
+	})
+
+	Describe("advertiseHTTPAddr", func() {
+		DescribeTable("returns the correct address",
+			func(advertiseHTTP, advertise, addr, serve, want string) {
+				cfg := &Config{
+					AdvertiseHTTPAddr: advertiseHTTP,
+					AdvertiseAddr:     advertise,
+					Addr:              addr,
+					ServeAddr:         serve,
+				}
+				Expect(cfg.advertiseHTTPAddr()).To(Equal(want))
+			},
+			Entry("AdvertiseHTTPAddr takes priority", "public.example.com:8080", "", "", "", "public.example.com:8080"),
+			Entry("derives from advertiseAddr host + basePort-1", "", "", "worker1.example.com:60000", "", "worker1.example.com:59999"),
+			Entry("uses AdvertiseAddr host with basePort-1", "", "public.example.com:60000", "10.0.0.5:60000", "", "public.example.com:59999"),
+		)
+	})
+})

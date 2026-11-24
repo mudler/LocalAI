@@ -1,0 +1,219 @@
+{
+  "cluster": {
+    "vram": "集群 VRAM",
+    "ram": "集群 RAM",
+    "nodesOnline": "{{healthy}}/{{total}} 节点在线"
+  },
+  "resourceGpu": "GPU",
+  "resourceRam": "RAM",
+  "greeting": {
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening",
+    "night": "Working late"
+  },
+  "statusLine": {
+    "modelsLoaded_one": "{{count}} model loaded",
+    "modelsLoaded_other": "{{count}} models loaded",
+    "noModelsLoaded": "No models loaded",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "loadedLabel": "Loaded",
+    "nodesLabel": "Nodes"
+  },
+  "assistant": {
+    "title": "通过聊天管理 LocalAI",
+    "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
+    "open": "打开助手",
+    "tooltip": "通过聊天管理 LocalAI",
+    "noModel": "请先选择一个聊天模型。",
+    "startFailed": "无法启动助手聊天：{{message}}",
+    "chatTitle": "LocalAI 助手"
+  },
+  "input": {
+    "placeholder": "消息...",
+    "attachFile": "附加文件",
+    "dropFiles": "松开以附加文件",
+    "dropFilesNote": "松开鼠标，将文件附加到消息。",
+    "enterToSend": "按回车发送",
+    "selectModelFirst": "请先选择一个模型",
+    "sendMessage": "发送消息",
+    "selectModelToast": "请先选择一个模型",
+    "dictate": "听写（语音转文字）",
+    "dictateStop": "停止录音",
+    "dictateBusy": "正在转写…",
+    "dictateEmpty": "未识别到语音。",
+    "dictateFailed": "转写失败：{{error}}",
+    "dictateNoMic": "麦克风不可用：{{error}}",
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
+  },
+  "quickLinks": {
+    "manageByChat": "通过聊天管理",
+    "installedModels": "已安装的模型",
+    "browseGallery": "浏览模型库",
+    "importModel": "导入模型",
+    "documentation": "文档"
+  },
+  "loadedModels": {
+    "heading": "活动模型",
+    "count_one": "已加载 {{count}} 个模型",
+    "count_other": "已加载 {{count}} 个模型",
+    "stop": "停止模型",
+    "stopAll": "全部停止",
+    "serving": "Serving"
+  },
+  "stopDialog": {
+    "title": "停止模型",
+    "message": "停止模型 {{model}}？",
+    "confirm": "停止 {{model}}",
+    "stopAllTitle": "停止所有模型",
+    "stopAllMessage": "停止所有 {{count}} 个已加载的模型？",
+    "stopAllConfirm": "全部停止",
+    "stoppedToast": "已停止 {{model}}",
+    "allStoppedToast": "所有模型已停止",
+    "stopFailed": "停止失败：{{message}}"
+  },
+  "wizard": {
+    "getStarted": "开始使用 {{name}}",
+    "intro": "安装您的第一个模型即可开始。浏览模型库或导入您自己的模型。",
+    "steps": {
+      "step1Title": "浏览模型库",
+      "step1Body": "从我们精选的集合中找到适合您需求的模型。",
+      "step2Title": "安装模型",
+      "step2Body": "点击安装即可自动下载并配置。",
+      "step3Title": "开始聊天",
+      "step3Body": "直接在浏览器中与模型聊天，或使用 API。",
+      "step4Title": "接入你的智能体",
+      "step4Body": "创建 API 密钥，然后连接编码智能体：{{agents}}。指南会为你填好地址和密钥。",
+      "step5Title": "用附加组件扩展 LocalAI",
+      "step5Body": "附加组件带来新能力。从库中安装即可。"
+    },
+    "browseGallery": "浏览模型库",
+    "importModel": "导入模型",
+    "docs": "文档",
+    "noModelsTitle": "暂无可用模型",
+    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。",
+    "connectAgents": "连接编码智能体",
+    "browseAddons": "浏览附加组件"
+  },
+  "connect": {
+    "title": "一个端点，所有 API",
+    "subtitle": "LocalAI 提供自己的完整 API——图像与视频生成、深度、目标检测、重排序、音频、人脸与声音识别，以及通过 WebRTC 和 WebSocket 的实时语音。在此之上，即插即用的兼容层让任何为 OpenAI、Anthropic、Ollama 或 OpenAI Responses 构建的应用无需改动即可使用。",
+    "nativeTitle": "原生 API",
+    "compatTitle": "即插即用兼容",
+    "apiReference": "完整 API 参考",
+    "copy": "复制",
+    "copied": "已复制",
+    "browse": "Browse the API",
+    "hide": "Hide endpoints",
+    "dismiss": "Dismiss",
+    "agentsLink": "连接编码智能体：创建 API 密钥并复制其配置"
+  },
+  "jump": {
+    "heading": "Jump back in",
+    "models": "Models",
+    "modelsSummary": "Explore, install, and manage models",
+    "create": "Create",
+    "createSummary": "Open a chat, image or voice session",
+    "operate": "管理",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "全部对话"
+  },
+  "slash": {
+    "commandDiagnostics": "应用命令诊断",
+    "apps": {
+      "label": "应用",
+      "desc": "浏览已安装的应用"
+    },
+    "group": {
+      "addons": "应用"
+    },
+    "agents": {
+      "label": "智能体",
+      "desc": "你保存的智能体、触发器和技能"
+    },
+    "mcp": {
+      "label": "MCP 连接器",
+      "desc": "你的对话可以使用的 MCP 服务器"
+    },
+    "memory": {
+      "label": "知识库",
+      "desc": "你的对话可以搜索的知识库"
+    },
+    "complete": "补全"
+  },
+  "notice": {
+    "appUnavailable": "应用已不可用。",
+    "addonsDownTitle": "插件暂时没有响应",
+    "addonsDownBody": "{{name}} 是一个插件。请稍后再试。",
+    "addonsRetry": "重试"
+  },
+  "picker": {
+    "aliasOf": "{{target}} 的别名",
+    "aliasBroken": "别名失效",
+    "disabled": "已停用",
+    "pinned": "已固定",
+    "useTyped": "使用 \"{{name}}\"",
+    "chooseModel": "请选择模型",
+    "defaultMissing": "您的默认模型 {{model}} 未安装。请选择模型。",
+    "empty": "没有可用模型",
+    "add": "添加模型",
+    "remove": "移除 {{name}}",
+    "clear": "清除"
+  },
+  "starters": {
+    "title": "为你的机器推荐",
+    "tier": {
+      "cpu": "仅 CPU",
+      "gpu-small": "小显存 GPU",
+      "gpu-mid": "中等 GPU",
+      "gpu-large": "大显存 GPU"
+    },
+    "undetected": "无法检测到你的硬件，因此显示的是适用于无 GPU 电脑的模型。",
+    "cluster": "按集群中最好的机器配置。",
+    "nothingFits": "推荐的模型都无法在这台机器上运行。这是最小的一个，可能运行缓慢或无法加载。",
+    "facts": {
+      "size": "下载 {{size}}",
+      "window": "{{window}} 上下文",
+      "memory": "约占用 {{memory}} 内存"
+    },
+    "fit": {
+      "tight": "勉强",
+      "does_not_fit": "放不下"
+    },
+    "reasons": {
+      "little_headroom": "可以放下，但剩余内存很少。",
+      "below_chat_minimum": "上下文窗口太小，无法用于聊天。",
+      "exceeds_memory": "所需内存超过这台机器的内存。",
+      "estimate_unavailable": "无法估算其内存占用。",
+      "hardware_unknown": "无法读取你的硬件，因此未检查是否适配。"
+    },
+    "more": "更多模型",
+    "fewer": "收起模型",
+    "askAdmin": "只有管理员可以安装模型。请让管理员安装其中一个。",
+    "installModel": "安装 {{model}}",
+    "cpuNote": "未检测到 GPU。这些模型在处理器上也能保持流畅。",
+    "gpuNote": "按你的显卡挑选，并为完整聊天留出空间。",
+    "install": "安装",
+    "installing": "安装中",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}"
+  },
+  "remoteSetup": {
+    "where": {
+      "title": "你的模型在哪里运行？",
+      "local": "在这台机器上",
+      "remote": "在其他服务器或服务上",
+      "remoteIntro": "连接已在别处运行的模型。以后也可以安装本地模型。",
+      "remoteNote": "远程模型会跳过推荐模型和上下文大小的检查。"
+    },
+    "step1Title": "连接远程",
+    "step1Body": "选择类型，然后检查 LocalAI 能否连上。",
+    "step2Title": "选择模型",
+    "step2Body": "你选的每个模型都会成为这里的一个模型。",
+    "done": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "done_other": "已连接 {{name}}，添加了 {{count}} 个模型。",
+    "skipped": "{{count}} 个模型未添加：",
+    "skipped_other": "{{count}} 个模型未添加："
+  }
+}

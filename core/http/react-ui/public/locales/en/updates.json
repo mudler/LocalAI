@@ -1,0 +1,501 @@
+{
+  "title": "Updates",
+  "supporting": "Backends, library backends, add-ons and gallery models that have a newer version.",
+  "loading": "Loading updates",
+  "adminOnly": {
+    "title": "Updates are for administrators",
+    "body": "Ask an administrator to look at what is out of date on this server."
+  },
+  "loadError": {
+    "title": "Could not load the list of updates."
+  },
+  "strip": {
+    "label": "Update summary",
+    "checking": "Checking for updates...",
+    "checkNow": "Check now",
+    "checkedJustNow": "Checked just now",
+    "ready": "{{count}} ready",
+    "updating": "{{count}} updating",
+    "needs_one": "{{count}} needs you",
+    "needs_other": "{{count}} need you",
+    "lastCheck": "Last check {{when}}",
+    "headline": {
+      "loading": "Loading updates",
+      "loadError": "Could not load the list of updates",
+      "updates_one": "{{count}} update available",
+      "updates_other": "{{count}} updates available",
+      "current": "Everything is up to date",
+      "never": "No check has run yet",
+      "couldNot": "Could not check for updates",
+      "noneButFailed": "No updates found, but the check failed for: {{sources}}",
+      "noneButNever": "No updates found, but not checked yet: {{sources}}",
+      "unavailable": "Updates cannot be checked on this server"
+    }
+  },
+  "when": {
+    "justNow": "just now"
+  },
+  "source": {
+    "label": "Where updates come from",
+    "name": {
+      "gallery": "Backend gallery",
+      "library": "Backend library",
+      "addons": "Add-ons",
+      "models": "Model gallery"
+    },
+    "checked": "checked {{when}}",
+    "ok": "checked",
+    "never": "not checked yet",
+    "loading": "reading",
+    "unavailable": "not available on this server",
+    "unavailableWhy": "not available: {{reason}}",
+    "failed": "check failed: {{error}}",
+    "addonsUnreadable": "the add-ons could not be read"
+  },
+  "auto": {
+    "backends": "Update backends automatically:",
+    "addons": "Update add-ons automatically:",
+    "on": "on",
+    "off": "off",
+    "settings": "Settings"
+  },
+  "disabled": {
+    "title": "Backend updates are turned off on this server.",
+    "body": "The backends below are listed, but nothing can update them here. The server configuration turned backend installs off."
+  },
+  "failedSource": {
+    "title": {
+      "gallery": "The backend gallery check failed, so backends may have updates that are not shown.",
+      "library": "The library check failed, so library backends may have updates that are not shown.",
+      "addons": "The add-on check failed, so add-ons may have updates that are not shown.",
+      "models": "The model gallery check failed, so models may have updates that are not shown."
+    },
+    "lastGood": "The list below is from the last good check, {{when}}. Reason: {{error}}.",
+    "noGood": "No check has worked yet. Reason: {{error}}.",
+    "again": "Check again"
+  },
+  "filter": {
+    "label": "Filter updates",
+    "all": "All",
+    "ready": "Ready",
+    "needs-you": "Needs you",
+    "updating": "Updating",
+    "current": "Up to date",
+    "none": "Nothing matches this filter."
+  },
+  "group": {
+    "needs": "Needs you",
+    "updating": "Updating",
+    "ready": "Ready to update",
+    "current_one": "{{count}} up to date",
+    "current_other": "{{count}} up to date",
+    "show": "Show",
+    "hide": "Hide",
+    "other": "Other models"
+  },
+  "row": {
+    "tag": {
+      "gallery": "Backend",
+      "library": "Library backend",
+      "addon": "Add-on",
+      "model": "Model"
+    },
+    "origin": {
+      "gallery": "Backend gallery",
+      "library": "Library: {{id}}",
+      "libraryUnnamed": "Library",
+      "model": "Gallery {{gallery}}",
+      "modelUnnamed": "Model gallery"
+    },
+    "signed": "signed",
+    "versions": "{{from}} to {{to}}",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "drift_one": "{{count}} differs",
+    "drift_other": "{{count}} differ",
+    "old": "from an earlier check",
+    "update": "Update",
+    "updateNamed": "Update {{name}}",
+    "check": "Check",
+    "checkNamed": "Check {{name}} for an update",
+    "retry": "Retry",
+    "retryNamed": "Retry {{name}}",
+    "review": "Review",
+    "reviewNamed": "Review the update of {{name}}",
+    "cancel": "Cancel",
+    "cancelNamed": "Cancel the update of {{name}}",
+    "progress": "Progress of the update of {{name}}",
+    "failed": "The update failed: {{message}}",
+    "failedWhy": "Update failed: {{message}}",
+    "noReason": "no reason given",
+    "startFailed": "The update could not start: {{message}}",
+    "unchanged": "The update ended but the version did not change.",
+    "unconfirmed": "The update ended, but no check could confirm it.",
+    "held": "Held for approval. {{version}} asks for access that you have not approved ({{count}} new).",
+    "blocked": {
+      "installsDisabled": "Backend updates are turned off on this server.",
+      "incompatible": "Version {{version}} cannot run on this host.",
+      "integrity": "The library lists the installed version with different contents. Nothing was changed."
+    },
+    "updatingPhase": "Updating: {{phase}}",
+    "updatingPlain": "Updating",
+    "queued": "Queued, waiting for a free slot",
+    "nodesAction": "Nodes",
+    "nodesNamed": "Show the nodes of {{name}}",
+    "heldBack": "Held back: this release did not start. Automatic updates skip it until a new release comes out. Update it here to try again."
+  },
+  "bulk": {
+    "start": "Update {{count}} ready",
+    "running": "Updating {{current}} of {{total}}",
+    "summary": "{{done}} updated, {{failed}} failed, {{skipped}} skipped",
+    "retryFailed": "Retry failed ({{count}})",
+    "review": "Review updates"
+  },
+  "check": {
+    "result_one": "Check finished: {{count}} update.",
+    "result_other": "Check finished: {{count}} updates.",
+    "failedSources_one": "{{count}} source failed.",
+    "failedSources_other": "{{count}} sources failed.",
+    "throttled": "A check ran moments ago. This is its result."
+  },
+  "empty": {
+    "title": "Nothing to update yet",
+    "body": "Install a backend or an add-on and its updates show here.",
+    "backends": "Open Backends",
+    "addons": "Open Apps"
+  },
+  "dialog": {
+    "close": "Close"
+  },
+  "item": {
+    "queued": "Queued",
+    "upgrading": "Updating",
+    "done": "Updated",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "node": {
+    "breadcrumb": "Breadcrumb",
+    "reload": "Try again",
+    "noneTitle": "{{name}} has no node to update",
+    "noneBody": "No update is listed for this backend on any node. It may be up to date everywhere, or it was just updated.",
+    "back": "Back to Updates",
+    "supporting_one": "Version {{version}} is available. {{nodes}} have it installed, and {{count}} of them needs the update.",
+    "supporting_other": "Version {{version}} is available. {{nodes}} have it installed, and {{count}} of them need the update.",
+    "supportingDrift_one": "The nodes do not all have the same build. {{count}} of {{nodes}} differs from the cluster.",
+    "supportingDrift_other": "The nodes do not all have the same build. {{count}} of {{nodes}} differ from the cluster.",
+    "warning": "Updating stops the models that use this backend on each node. A model starts again when a request needs it.",
+    "driftNote": "A node that differs from the cluster is not always behind: it can be newer. Updating puts it on the version the gallery offers.",
+    "tableLabel": "Nodes that have {{name}}",
+    "col": {
+      "node": "Node",
+      "installed": "Installed",
+      "models": "Running models using it",
+      "state": "State",
+      "action": "Action"
+    },
+    "noneRecorded": "None recorded",
+    "state": {
+      "current": "Up to date",
+      "unreachable": "Not reachable"
+    },
+    "updateN_one": "Update {{count}} node",
+    "updateN_other": "Update {{count}} nodes",
+    "updateNamed": "Update {{name}}",
+    "models_one": "{{count}} model",
+    "models_other": "{{count}} models",
+    "nodes_one": "{{count}} node",
+    "nodes_other": "{{count}} nodes",
+    "stops": "Stops {{models}}",
+    "title_one": "Update {{backend}} on {{count}} node?",
+    "title_other": "Update {{backend}} on {{count}} nodes?",
+    "titleMany_one": "Update {{count}} backend on {{nodes}}?",
+    "titleMany_other": "Update {{count}} backends on {{nodes}}?",
+    "runningTitle": "Updating nodes",
+    "doneTitle": "Update finished",
+    "intro": "Each node stops the models that use {{backend}}, installs the new version, and starts a model again when a request needs it. This cannot be undone from here.",
+    "introMany": "Each node stops the models that use these backends, installs the new versions, and starts a model again when a request needs it. This cannot be undone from here.",
+    "stopKnown_one": "{{count}} model stops.",
+    "stopKnown_other": "{{count}} models stop.",
+    "stopPartial_one": "{{count}} model is recorded as stopping. On other nodes no model is recorded, and the record can miss one, so more models can stop.",
+    "stopPartial_other": "{{count}} models are recorded as stopping. On other nodes no model is recorded, and the record can miss one, so more models can stop.",
+    "stopNone": "No loaded model is recorded on these nodes. The record is not complete, so a model that uses this backend can still stop.",
+    "sequence": "Nodes update one after another. This window shows each result when it ends.",
+    "confirmStop_one": "Update {{count}} node and stop {{models}}",
+    "confirmStop_other": "Update {{count}} nodes and stop {{models}}",
+    "confirmStopAtLeast_one": "Update {{count}} node and stop at least {{models}}",
+    "confirmStopAtLeast_other": "Update {{count}} nodes and stop at least {{models}}",
+    "confirmPlain_one": "Update {{count}} node",
+    "confirmPlain_other": "Update {{count}} nodes",
+    "cancel": "Cancel",
+    "stop": "Stop after this node",
+    "listLabel": "Nodes to update",
+    "titleAll_one": "Start {{count}} update?",
+    "titleAll_other": "Start {{count}} updates?",
+    "confirmPlus_one": "{{label}}, plus {{count}} more",
+    "confirmPlus_other": "{{label}}, plus {{count}} more",
+    "othersTitle": "Also starts when you confirm",
+    "othersLabel": "Other updates to start",
+    "othersIntro": "These do not run on nodes. They start one after another when you confirm. An add-on stops while its data is backed up and migrated. If the new version does not start, the current one keeps running.",
+    "otherKind": {
+      "addon": "Add-on",
+      "library": "Library backend",
+      "gallery": "Backend"
+    },
+    "otherOrigin": "Library {{library}}",
+    "otherOriginChannel": "Library {{library}}, channel {{channel}}",
+    "runningNote": "Stop keeps the nodes that have not started from starting."
+  },
+  "model": {
+    "chip": {
+      "edited": "Edited",
+      "held": "Held",
+      "unknown": "Not known",
+      "gone": "Not in the gallery",
+      "cleanup": "Old version kept"
+    },
+    "phase": {
+      "queued": "waiting to start",
+      "starting": "starting",
+      "preflight": "checking the disk, the backend and the files",
+      "staging": "downloading the new files",
+      "unloading": "stopping the model",
+      "committing": "switching to the new version",
+      "loading": "starting the new version",
+      "confirmed": "done",
+      "rolling-back": "putting the old version back",
+      "rolled-back": "old version put back",
+      "failed": "failed",
+      "resolving": "finding the files",
+      "downloading": "downloading",
+      "verifying": "checking the files",
+      "persisting": "saving"
+    },
+    "detail": {
+      "failed": "The upgrade failed: {{message}}. The old version keeps serving.",
+      "rolledBack": "The upgrade failed and the old version was put back: {{message}}. The old version keeps serving.",
+      "updating": "Upgrading: {{phase}}",
+      "edited_one": "You edited {{count}} key that this update also changes. Choose which value to keep.",
+      "edited_other": "You edited {{count}} keys that this update also changes. Choose which value to keep.",
+      "configOnly": "Only the config or the prompt templates change. Nothing downloads.",
+      "files_one": "{{count}} file changes.",
+      "files_other": "{{count}} files change.",
+      "held": "Held at this version.",
+      "heldNewer": "Held at this version. The gallery has a newer one.",
+      "legacy": "LocalAI did not record where this model came from. Adopt it to get updates. Your config is not changed.",
+      "notChecked": "Not checked yet.",
+      "checkFailed": "The check could not read the gallery entry: {{message}}",
+      "unreadable": "The model files could not be read: {{message}}",
+      "gone": "No gallery lists {{entry}} any more. The installed version keeps working.",
+      "cleanup_one": "Upgraded. The old version stays on disk ({{count}} file) until you remove it.",
+      "cleanup_other": "Upgraded. The old version stays on disk ({{count}} files) until you remove it."
+    },
+    "action": {
+      "upgrade": "Upgrade",
+      "upgradeNamed": "Upgrade {{name}}",
+      "removeOld": "Remove old version",
+      "removeOldNamed": "Remove the old version of {{name}}",
+      "hold": "Hold this version",
+      "release": "Release hold",
+      "releaseNamed": "Release the hold on {{name}}",
+      "more": "More actions for {{name}}",
+      "adopt": "Adopt",
+      "adoptNamed": "Adopt {{name}}"
+    },
+    "dialog": {
+      "title": "Upgrade {{name}}?",
+      "intro": "From {{from}} to {{to}}. Nothing changes until you confirm.",
+      "loadedTitle": "{{name}} is loaded now.",
+      "loadedBody": "The upgrade stops it, switches the files and the config, and starts it again. Requests to it wait or fail until it is back. If the new version does not start, the old one is put back.",
+      "notLoaded": "{{name}} is not loaded now. The upgrade starts the new version once to check that it works, and puts the old one back if it does not.",
+      "loadUnknown": "Could not tell whether {{name}} is loaded. If it is, the upgrade stops it and starts it again.",
+      "filesTitle": "Files",
+      "noFiles": "No file changes.",
+      "disk": "The new files download next to the old ones, so the disk needs room for both. The gallery does not give the file sizes, so the space needed is not known before the download.",
+      "diskNone": "Nothing downloads.",
+      "uncheckedTitle_one": "{{count}} file has no checksum in the gallery.",
+      "uncheckedTitle_other": "{{count}} files have no checksum in the gallery.",
+      "uncheckedBody": "The upgrade does not download weights without a checksum, so it stops at the first check.",
+      "configOnly": "Apply only the config and the prompt templates",
+      "configOnlyHint": "This update changes no model file, so nothing downloads.",
+      "keysTitle": "Keys you edited that the update also changes",
+      "keysIntro": "Choose the value to keep for each key. The upgrade cannot start until every key has a choice.",
+      "keepMine": "Keep mine",
+      "takeGallery": "Take the gallery's",
+      "notSet": "not set",
+      "kept_one": "Kept as you set it: {{keys}}. The update does not change it.",
+      "kept_other": "Kept as you set them: {{keys}}. The update does not change them.",
+      "after": "The old version stays on disk after the upgrade. Remove it with \"Remove old version\".",
+      "missing_one": "Choose a value for {{count}} key",
+      "missing_other": "Choose a value for {{count}} keys",
+      "confirm": "Upgrade",
+      "confirmStop": "Stop and upgrade",
+      "needChoices": "The server asks for a choice on more keys. Choose a value for each, then confirm again.",
+      "startFailed": "The upgrade could not start: {{message}}"
+    },
+    "change": {
+      "added": "new",
+      "changed": "changed",
+      "removed": "removed"
+    },
+    "role": {
+      "weights": "weights",
+      "mmproj": "vision projector",
+      "template": "prompt template",
+      "artifact": "artifact",
+      "config": "config"
+    },
+    "remove": {
+      "title": "Remove the old version of {{name}}?",
+      "body_one": "This deletes {{count}} old file that the upgrade kept. The model keeps running on the new version. This cannot be undone.",
+      "body_other": "This deletes {{count}} old files that the upgrade kept. The model keeps running on the new version. This cannot be undone.",
+      "confirm": "Remove old version",
+      "pending": "Removing…"
+    },
+    "live": {
+      "started": "The upgrade of {{name}} started.",
+      "failed": "{{name}}: {{message}}",
+      "removed_one": "{{name}}: {{count}} old file removed.",
+      "removed_other": "{{name}}: {{count}} old files removed.",
+      "held": "{{name}} is held at this version.",
+      "released": "{{name}} is no longer held.",
+      "adopted": "{{name}} adopted from gallery {{gallery}}. LocalAI now checks it for updates.",
+      "adoptedDiffers": "{{name}} adopted from gallery {{gallery}}. Its files differ from the gallery entry, so an update is offered.",
+      "adoptedNoCheck": "{{name}} adopted, but the update check failed: {{message}}",
+      "adoptFailed": "{{name}} could not be adopted: {{message}}"
+    },
+    "card": {
+      "title": "Updates",
+      "current": "Up to date",
+      "open": "Open Updates",
+      "holdHint": "Offer no update for this model until you turn this off."
+    },
+    "adopt": {
+      "title": "Adopt {{name}}",
+      "intro": "More than one gallery lists this model. Choose the entry it came from.",
+      "legend": "Gallery entries",
+      "gallery": "Gallery {{gallery}}",
+      "after": "LocalAI records the entry and checks it for updates. Your config is not changed.",
+      "failed": "Could not adopt: {{message}}"
+    }
+  },
+  "review": {
+    "title_one": "Review {{count}} update",
+    "title_other": "Review {{count}} updates",
+    "loadingTitle": "Review updates",
+    "intro": "Nothing changes until you start.",
+    "loading": "Reading the plan",
+    "loadError": "Could not read the plan of the updates.",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "selected_one": "{{count}} of {{total}} selected",
+    "selected_other": "{{count}} of {{total}} selected",
+    "order": "Backends go first, then models, then add-ons one at a time. Each update keeps the previous version until the new one is running. You can close this window and leave the page once it starts.",
+    "group": {
+      "backends": "Backends ({{count}})",
+      "addons": "Add-ons ({{count}})",
+      "models": "Models ({{count}})"
+    },
+    "item": "Update {{name}}",
+    "backsUp": "Backs up your data",
+    "modelNote": "Not selected by default: a model update reloads it. The old files stay until you confirm.",
+    "blocked": "Cannot start: {{reason}}",
+    "empty": "Nothing to update.",
+    "start_one": "Update {{count}} item",
+    "start_other": "Update {{count}} items",
+    "startOne": "Update",
+    "cancel": "Cancel",
+    "singleTitle": "Update {{name}}?",
+    "singleLoading": "Update",
+    "singleNote": "The old version stays until the new one is running.",
+    "risk": {
+      "stopsModels_one": "Stops {{count}} loaded model while it switches",
+      "stopsModels_other": "Stops {{count}} loaded models while it switches",
+      "stopsModelsNodes_one": "Stops {{count}} loaded model on {{nodes}} nodes while it switches",
+      "stopsModelsNodes_other": "Stops {{count}} loaded models on {{nodes}} nodes while it switches",
+      "migratesData": "Your data is migrated. A verified backup is taken first.",
+      "editedKeys_one": "You edited {{count}} setting of this model. Use {{action}} on its row to choose what to keep.",
+      "editedKeys_other": "You edited {{count}} settings of this model. Use {{action}} on its row to choose what to keep.",
+      "held": "This version waits for your approval.",
+      "cluster_one": "Updates on {{count}} node",
+      "cluster_other": "Updates on {{count}} nodes",
+      "drift_one": "{{count}} node runs a different build now. The update moves every node to the new one.",
+      "drift_other": "{{count}} nodes run a different build now. The update moves every node to the new one.",
+      "configOnly": "Changes only the model's settings. Nothing is downloaded."
+    },
+    "follow": "Show the run"
+  },
+  "run": {
+    "group": "This update run",
+    "title_one": "Updating {{count}} item",
+    "title_other": "Updating {{count}} items",
+    "count": {
+      "updated_one": "{{count}} updated",
+      "updated_other": "{{count}} updated",
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting",
+      "attention_one": "{{count}} needs attention",
+      "attention_other": "{{count}} need attention"
+    },
+    "started": "Started {{when}}",
+    "finished": "Finished {{when}}",
+    "result": {
+      "attention_one": "{{updated}} updated, {{count}} needs attention",
+      "attention_other": "{{updated}} updated, {{count}} need attention",
+      "done_one": "{{count}} updated",
+      "done_other": "{{count}} updated",
+      "cancelled_one": "Update run cancelled, {{count}} updated",
+      "cancelled_other": "Update run cancelled, {{count}} updated",
+      "clean": "Nothing was left half-updated",
+      "unknown_one": "{{count}} result is not confirmed yet",
+      "unknown_other": "{{count}} results are not confirmed yet"
+    },
+    "progress": "Progress of the update run",
+    "cancelRemaining": "Cancel remaining",
+    "retryFailed": "Retry failed",
+    "dismiss": "Dismiss",
+    "actionFailed": "The request failed: {{message}}",
+    "phase": {
+      "queued": "Queued",
+      "running": "Updating",
+      "updated": "Updated",
+      "failed": "Failed",
+      "rolled_back": "Rolled back",
+      "cancelled": "Cancelled",
+      "skipped": "Skipped",
+      "unconfirmed": "Not confirmed"
+    },
+    "queued": {
+      "afterBackends": "Waiting for the backends.",
+      "oneAddon": "Add-ons update one at a time.",
+      "waitingFor": "Waiting for {{name}}.",
+      "plain": "Waiting to start.",
+      "afterModels": "Waiting for the models.",
+      "backendLimit": "Waiting for a free backend slot.",
+      "sameBackend": "Waiting for another operation on this backend.",
+      "oneModel": "Models update one at a time."
+    },
+    "detail": {
+      "updating": "Updating",
+      "node": "Node {{index}} of {{count}}: {{message}}",
+      "failed": "{{reason}}. {{name}} is still on {{version}} and your data is unchanged.",
+      "rolledBack": "The new version did not start: {{reason}}. {{name}} is still on {{version}} and your data is unchanged.",
+      "unconfirmed": "Could not confirm. Check again to see which version {{name}} is on.",
+      "cancelled": "Cancelled. {{name}} is still on {{version}}.",
+      "skipped": "Skipped.",
+      "skippedWhy": "Skipped: {{reason}}.",
+      "checking": "Checking that the update applied."
+    },
+    "details": {
+      "toggle": "Details",
+      "code": "Code: {{code}}",
+      "node": "{{name}}: {{phase}}",
+      "none": "The server gave no more details."
+    },
+    "busy": "An update run is in progress.",
+    "unavailable": "Update runs are not available on this server.",
+    "auto": "Automatic update"
+  }
+}

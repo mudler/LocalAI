@@ -1,0 +1,183 @@
+# Attaches the Electron launcher and its update feed to the release of a tag.
+# release.yaml calls it on every version tag (release candidates too), after
+# GoReleaser has made the release. Every server release must carry the
+# launcher feed: the updater reads latest-linux.yml, latest-linux-arm64.yml,
+# latest-mac.yml and latest.yml (Windows) from the newest release, and a
+# release without them makes every installed launcher report an update error.
+#
+# Jobs: version (from the tag) -> build and smoke (read-only) -> upload (write,
+# downloads the tested files only, no checkout) -> check the feed (read-only).
+# This workflow never publishes a release. See launcher/README.md.
+#
+# The files it attaches: LocalAI-Launcher-x86_64.AppImage and
+# LocalAI-Launcher-arm64.AppImage, LocalAI.dmg, the Windows installer
+# LocalAI-Launcher-Setup-x64.exe and the portable LocalAI-Launcher-win-x64.zip
+# (each with a .sha256 file), the macOS zip the updater applies, blockmaps,
+# and the four feed files. The Windows files are signed when the
+# WINDOWS_CERTIFICATE secrets exist, and unsigned otherwise.
+name: Launcher (Electron) release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag, for example v4.2.1 or v4.2.1-rc.1
+        type: string
+        required: true
+    secrets:
+      MACOS_CERTIFICATE:
+        required: false
+      MACOS_CERTIFICATE_PWD:
+        required: false
+      MACOS_NOTARY_KEY:
+        required: false
+      MACOS_NOTARY_KEY_ID:
+        required: false
+      MACOS_NOTARY_ISSUER_ID:
+        required: false
+      WINDOWS_CERTIFICATE:
+        required: false
+      WINDOWS_CERTIFICATE_PWD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Launcher version from the tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: launcher/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          TAG: ${{ inputs.tag }}
+        # An unknown tag shape fails here, before anything is built.
+        run: |
+          v=$(node launcher/scripts/version.mjs tag "$TAG")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Launcher version $v from $TAG"
+
+  build:
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/launcher-electron-build.yaml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      artifact-prefix: localai-launcher-release
+      linux-arm64: true
+      macos: true
+      windows: true
+      sign-macos: true
+      # A release is always signed and notarized: a missing secret fails the build.
+      require-signing: true
+      feed: true
+      upload: true
+      retention-days: 7
+    secrets:
+      MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+      MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PWD: ${{ secrets.WINDOWS_CERTIFICATE_PWD }}
+
+  upload:
+    name: Attach to the release
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Download only: never run repository code with the write token.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: localai-launcher-release-*
+          path: dist
+          merge-multiple: true
+      - name: Check that every file is present
+        working-directory: dist
+        run: |
+          ls -l
+          for f in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
+            [ -f "$f" ] || { echo "::error::$f is missing"; exit 1; }
+          done
+          ls ./*.AppImage ./*.AppImage.sha256 ./*.dmg ./*.dmg.sha256 ./*-mac.zip ./*-mac.zip.sha256 \
+            ./*Setup*.exe ./*Setup*.exe.sha256 ./*-win-*.zip ./*-win-*.zip.sha256 > /dev/null
+          sha256sum --check ./*.AppImage.sha256 ./*.exe.sha256 ./*-win-*.zip.sha256
+          shasum -a 256 --check ./*.dmg.sha256 ./*-mac.zip.sha256
+      - name: Attach to the existing release
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        # The release is made by GoReleaser; never make or replace it here.
+        # --clobber: a re-run for the same tag replaces the files. The version
+        # always comes from the tag, so a re-run never changes it.
+        # The feed files go last, so a feed never names a file that is not
+        # attached yet.
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
+            --jq '"draft=\(.isDraft) prerelease=\(.isPrerelease)"'
+          # Regular files only: the download step can leave directories.
+          mapfile -t files < <(find . -maxdepth 1 -type f ! -name 'latest-*.yml' -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release files found in $PWD to attach"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml --clobber --repo "$GITHUB_REPOSITORY"
+
+  check-feed:
+    name: Check the attached feed
+    needs: [version, upload]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Fetch the feed files and check every file they name
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir feed && cd feed
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | "\(.name) \(.size)"' > assets.txt
+          cat assets.txt
+          status=0
+          for feed in latest-linux.yml latest-linux-arm64.yml latest-mac.yml latest.yml; do
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$feed" --clobber
+            grep -q "^version: $VERSION$" "$feed" || { echo "::error::$feed does not name version $VERSION"; status=1; }
+            # Each "url:" entry is a file with its "size:"; "path:" is the main file.
+            names=$(sed -n -E 's/^ *- url: *//p; s/^path: *//p' "$feed" | sort -u)
+            [ -n "$names" ] || { echo "::error::$feed names no file"; status=1; }
+            for name in $names; do
+              grep -q "^$name " assets.txt || { echo "::error::$feed names $name, which is not attached to $TAG"; status=1; continue; }
+            done
+            # Sizes in the feed must match the attached files.
+            sed -n -E '/^ *- url:/{s/^ *- url: *//;h;}; /^ *size:/{s/^ *size: *//;H;x;s/\n/ /p;}' "$feed" | while read -r name size; do
+              grep -q "^$name $size$" assets.txt || { echo "::error::$feed gives $name the size $size, which does not match the attached file"; exit 1; }
+            done || status=1
+            echo "$feed: $(echo "$names" | tr '\n' ' ')"
+          done
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$status" = 0 ]; then
+            echo "The launcher feed of $TAG is complete (draft: $draft)."
+            if [ "$draft" = true ]; then
+              echo "::notice::The release is still a draft. A maintainer publishes it; this workflow never does."
+            fi
+          fi
+          exit $status

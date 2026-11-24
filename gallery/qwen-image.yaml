@@ -1,0 +1,19 @@
+---
+name: "qwen-image"
+
+config_file: |
+    backend: diffusers
+    cfg_scale: 0
+    diffusers:
+      cuda: true
+      enable_parameters: num_inference_steps
+      pipeline_type: DiffusionPipeline
+    f16: true
+    low_vram: true
+    name: qwen-image
+    parameters:
+      model: Qwen/Qwen-Image
+    step: 50
+    options:
+      - true_cfg_scale:4.0
+      - torch_dtype:bf16

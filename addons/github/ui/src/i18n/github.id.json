@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "Biarkan agen Anda membaca kode, issue, dan pull request dari repositori yang Anda daftarkan. Jika Anda mengizinkan, mereka juga dapat berkomentar dan membuka issue di sana.",
+  "limits": "Koneksi ini belum menjawab @mention di GitHub. Agen bekerja di GitHub hanya saat Anda memintanya di chat.",
+  "new": "Koneksi GitHub baru",
+  "edit": "Ubah koneksi GitHub",
+  "name": "Nama",
+  "token": "Token akses fine-grained",
+  "tokenHelp": "Diawali github_pat_. Disimpan terenkripsi dan tidak pernah ditampilkan lagi.",
+  "tokenLink": "Buat token di GitHub",
+  "tokenSaved": "Tersimpan. Ketik token untuk menggantinya.",
+  "tokenShape": "Gunakan token fine-grained: diawali github_pat_.",
+  "tokenSpace": "Token tidak memiliki spasi. Salin lagi tanpa spasi di sekitarnya.",
+  "repos": "Repositori yang boleh dipakai agen",
+  "reposHelp": "Satu per baris: owner/nama, owner/* untuk semua repositori satu owner, atau * untuk repositori apa pun yang dapat dijangkau token. {{count}} terdaftar. Repositori lain ditolak.",
+  "reposShape": "\"{{entry}}\" tidak ditulis owner/nama (atau owner/*, atau *), misalnya mudler/LocalAI.",
+  "reposMany": "Paling banyak 50 repositori.",
+  "agent": "Agen",
+  "agentNone": "Pilih agen",
+  "agentCredentialsOnly": "Tanpa agen (hanya kredensial)",
+  "credentialsOnly": "Hanya kredensial",
+  "agentNoModel": "{{name}} (perlu model)",
+  "test": "Uji",
+  "testOk": "Terhubung sebagai {{bot}}.",
+  "checkFailed": "Tersimpan. Pemeriksaan token gagal: {{reason}}",
+  "checkSeveral": "Pemeriksaan repositori berjalan jika Anda hanya punya satu koneksi GitHub, karena pemeriksaan dari halaman ini tidak dapat tahu koneksi mana yang Anda maksud. Di chat, aktifkan koneksi lewat menu Alat.",
+  "check": {
+    "title": "Pemeriksaan {{name}}",
+    "running": "Memeriksa repositori...",
+    "at": "Diperiksa pada {{time}}",
+    "unreachable": "{{repo}}: token ini tidak dapat menjangkaunya. Tambahkan ke repositori token di GitHub.",
+    "readOnly": "{{repo}}: terjangkau, hanya baca.",
+    "readWrite": "{{repo}}: terjangkau, dan token dapat menulis.",
+    "refused": "{{repo}}: GitHub menolak token ini. Periksa bahwa token belum kedaluwarsa dan mencakup repositori ini.",
+    "failed": "{{repo}}: pemeriksaan tidak selesai. Coba lagi sebentar lagi.",
+    "owner": "{{repo}}: semua repositori owner ini. Token hanya menjangkau yang didaftarkan GitHub untuknya.",
+    "any": "Repositori apa pun: token menjangkau {{count}} repositori.",
+    "anyMore": "Repositori apa pun: token menjangkau setidaknya {{count}} repositori."
+  },
+  "save": "Simpan",
+  "cancel": "Batal",
+  "editButton": "Ubah",
+  "delete": "Hapus",
+  "empty": "Belum ada koneksi GitHub.",
+  "noRepos": "Tidak ada repositori terdaftar: agen tidak dapat membaca satu pun.",
+  "reposOf": "{{count}} repositori: {{list}}",
+  "agentOf": "Agen: {{name}}",
+  "inactive": "Tidak berjalan: {{reason}}.",
+  "confirmDelete": {
+    "title": "Hapus {{name}}?",
+    "message": "Agen tidak dapat lagi menjangkau repositori ini, dan token yang tersimpan bersamanya dihapus. Untuk menyiapkannya lagi, Anda harus memasukkan token lagi.",
+    "confirm": "Hapus"
+  },
+  "setup": {
+    "title": "Cara membuat token",
+    "link": "Buat token di GitHub",
+    "linkLabel": "Buat token di GitHub (dibuka di tab baru)",
+    "step1": "Buka GitHub dengan tombol di atas. Beri nama token, misalnya LocalAI, dan tetapkan masa berlaku. Sembilan puluh hari adalah awal yang baik.",
+    "step2": "Di bawah Repository access, pilih Only select repositories dan pilih yang Anda daftarkan di sini.",
+    "step3": "Di bawah Permissions, atur sesuai tabel untuk mode yang Anda inginkan. Biarkan yang lain nonaktif.",
+    "step4": "Buat token, salin, dan tempel di kolom token. GitHub hanya menampilkannya sekali.",
+    "table": {
+      "caption": "Izin repositori yang diberikan ke token",
+      "permission": "Izin",
+      "read": "Hanya baca",
+      "write": "Tanya dulu, atau bertindak tanpa bertanya",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "Baca",
+        "readwrite": "Baca dan tulis",
+        "auto": "Baca (diatur GitHub)"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "Apa yang boleh diubah agen di GitHub",
+    "hint": "Komentar, issue baru, label, dan menutup issue. Agen tidak pernah melakukan merge, menghapus, atau mendorong kode.",
+    "off": "Hanya baca",
+    "propose": "Tanya dulu",
+    "auto": "Langsung dijalankan",
+    "line": {
+      "off": "Agen tidak dapat mengubah apa pun di GitHub.",
+      "propose": "Setiap perubahan menunggu persetujuan Anda.",
+      "auto": "Chat Anda langsung memposting."
+    },
+    "note": {
+      "off": "Akses tulis nonaktif: koneksi ini hanya membaca.",
+      "propose": "Setiap perubahan menunggu di persetujuan Anda sampai Anda mengonfirmasinya. Apa pun yang ditulis agen bersifat publik bagi semua orang yang dapat melihat repositori.",
+      "auto": "Chat Anda langsung memposting perubahan, tanpa bertanya. Apa pun yang ditulis agen bersifat publik bagi semua orang yang dapat melihat repositori. Jalan tanpa kehadiran Anda tetap menunggu konfirmasi Anda."
+    },
+    "row": {
+      "off": "Hanya baca",
+      "propose": "Tanya dulu",
+      "auto": "Langsung dijalankan"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "Berkomentar di issue #{{number}}",
+      "comment-pr": "Berkomentar di pull request #{{number}}",
+      "create-issue": "Buka issue baru",
+      "edit-issue": "Ubah #{{number}}",
+      "add-labels": "Tambah label ke #{{number}}",
+      "review-comment-pr": "Berkomentar pada satu baris pull request #{{number}}"
+    },
+    "where": "Di mana",
+    "repo": "Di {{repo}}",
+    "open": "Buka #{{number}} di GitHub",
+    "as": "Sebagai",
+    "asOne": "Koneksi {{name}}",
+    "asFirst": "Koneksi pertama yang mencantumkan {{repo}}",
+    "asUnknown": "Koneksi GitHub yang mencantumkan {{repo}}",
+    "text": "Teks yang akan diposting",
+    "title": "Judul",
+    "newTitle": "Judul baru",
+    "labels": "Label",
+    "file": "File dan baris",
+    "fileLine": "{{path}}, baris {{line}} ({{side}})",
+    "sideRight": "file baru",
+    "sideLeft": "file lama",
+    "state": "Perubahan",
+    "close": "Tutup",
+    "closeReason": "Tutup, sebagai {{reason}}",
+    "reopen": "Buka kembali",
+    "completed": "selesai",
+    "not_planned": "tidak direncanakan",
+    "public": "Publik: semua orang yang dapat melihat {{repo}} akan melihat ini.",
+    "cut": "Teks yang ditampilkan di sini dipotong. Teks lengkap, {{bytes}} byte, yang diposting."
+  },
+  "tokenClassic": "Ini token classic (ghp_). Izinkan token classic di bawah untuk memakainya, atau buat token yang diawali github_pat_.",
+  "classic": {
+    "allow": "Izinkan token classic (ghp_) pada koneksi ini",
+    "warning": "Token classic tidak dibatasi pada repositori di daftar Anda. Cakupannya meliputi setiap repositori yang dapat dijangkau akun Anda. LocalAI tetap menolak repositori yang tidak ada di daftar dan tetap mengikuti mode tulis, tetapi GitHub sendiri akan membiarkan token ini berbuat lebih banyak jika bocor. Token fine-grained lebih aman.",
+    "confirm": "Saya paham bahwa token classic lebih luas daripada daftar repositori."
+  },
+  "reposAnyAlone": "* sudah mencakup semua repositori. Hapus baris lainnya.",
+  "any": {
+    "warning": "* membuat agen dapat memakai setiap repositori yang dijangkau token, termasuk yang dibuat kemudian. Mode tulis di bawah tetap menentukan apa yang boleh diubah: dengan Hanya baca, tidak ada yang diubah.",
+    "confirm": "Saya ingin agen dapat memakai repositori apa pun yang dijangkau token ini."
+  },
+  "anyRepos": "Repositori apa pun yang dijangkau token"
+}

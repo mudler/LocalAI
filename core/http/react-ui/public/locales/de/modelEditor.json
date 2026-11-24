@@ -1,0 +1,6 @@
+{
+    "proxyVision": {
+        "label": "Dieses Modell kann Bilder ansehen",
+        "hint": "Einschalten, wenn das Upstream-Modell Bilder annimmt. LocalAI kann das nicht prüfen. Angehängte Bilder gehen dann mit der Nachricht an das Modell."
+    }
+}

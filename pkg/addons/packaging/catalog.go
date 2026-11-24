@@ -1,0 +1,541 @@
+// SPDX-License-Identifier: MIT
+package packaging
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/google/go-containerregistry/pkg/v1"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"gopkg.in/yaml.v3"
+)
+
+var ownerRepoRE = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+
+// catalogRelease is the shape of one catalog entry the host reads. It repeats
+// the JSON names of catalog.Release on purpose: the generated file is checked
+// against the names, not against this program's idea of them.
+type catalogRelease struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Version     string `json:"version"`
+	Channel     string `json:"channel"`
+	Artifact    string `json:"artifact"`
+	Digest      string `json:"digest"`
+	Mutable     bool   `json:"mutable"`
+	OS          string `json:"os"`
+	Arch        string `json:"arch"`
+	Policy      struct {
+		RequireSignature bool   `json:"requireSignature"`
+		Issuer           string `json:"issuer"`
+		Identity         string `json:"identity"`
+	} `json:"policy"`
+	// ToolCount and Tools repeat the names of the installed view: the chat
+	// tools the package declares (capabilities.tools, never adminTools). Tools
+	// is capped at MaxEntryTools; ToolCount is the full number.
+	ToolCount int      `json:"toolCount,omitempty"`
+	Tools     []string `json:"tools,omitempty"`
+	// Shadows repeats catalog.Release.Shadows: the built-in chat tools the
+	// manifest's tool definitions replace.
+	Shadows []string `json:"shadows,omitempty"`
+	// SkillShadows repeats catalog.Release.SkillShadows: the built-in skills
+	// the manifest's skill definitions replace.
+	SkillShadows []string `json:"skillShadows,omitempty"`
+	// HostOperations repeats catalog.Release.HostOperations: the host
+	// operations the manifest requests. A pointer, so an empty declaration
+	// stays different from an index that has no hint.
+	HostOperations *contract.HostOperations `json:"hostOperations,omitempty"`
+	// Requires repeats catalog.Release.Requires for the one field the
+	// generator writes: the feature level of a package that needs more than
+	// the base level.
+	Requires struct {
+		FeatureLevel uint64 `json:"featureLevel,omitempty"`
+	} `json:"requires,omitzero"`
+	UI struct {
+		Title        string            `json:"title"`
+		Description  string            `json:"description"`
+		Titles       map[string]string `json:"titles,omitempty"`
+		Descriptions map[string]string `json:"descriptions,omitempty"`
+		MainPage     string            `json:"mainPage"`
+		Icon         string            `json:"icon"`
+	} `json:"ui"`
+}
+
+// signerIdentity is the exact certificate identity of the add-on package
+// workflow for one ref. It names this workflow file and no other, so a
+// signature of the backend workflows never satisfies an add-on policy.
+func signerIdentity(ownerRepo, ref string) (string, error) {
+	if !ownerRepoRE.MatchString(ownerRepo) {
+		return "", fmt.Errorf("owner/repository %q is invalid", ownerRepo)
+	}
+	if err := validRef(ref); err != nil || !(strings.HasPrefix(ref, "refs/heads/") || strings.HasPrefix(ref, "refs/tags/")) {
+		return "", fmt.Errorf("signer ref %q is invalid", ref)
+	}
+	return "https://github.com/" + ownerRepo + "/.github/workflows/" + SignerWorkflow + "@" + ref, nil
+}
+
+// MaxEntryTools bounds the tool names of one catalog entry. It is the bound
+// the installed view uses (apps.MaxTools); the count stays the full number.
+const MaxEntryTools = 32
+
+// toolFieldsYAML renders the toolCount and tools fields of a catalog entry
+// from the chat tools of a manifest. An add-on without chat tools has neither
+// field. Admin tools are not passed in: they are not chat tools.
+func toolFieldsYAML(tools []string, indent string, shadows ...string) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%stoolCount: %d\n%stools:\n", indent, len(tools), indent)
+	for _, t := range tools[:min(len(tools), MaxEntryTools)] {
+		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+	}
+	if len(shadows) > 0 {
+		b.WriteString(indent + "shadows:\n")
+		for _, t := range shadows {
+			b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+		}
+	}
+	return b.String()
+}
+
+// skillFieldsYAML returns the skillShadows field of a library entry: the
+// built-in skills the add-on replaces, so the install dialog can warn.
+func skillFieldsYAML(shadows []string, indent string) string {
+	if len(shadows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(indent + "skillShadows:\n")
+	for _, t := range shadows {
+		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+	}
+	return b.String()
+}
+
+// hostOperationsFieldsYAML renders the hostOperations field of a library
+// entry from the manifest. When it is written, every entry has it, so a reader can tell a manifest
+// that requests nothing from an index that predates the hint. Names are sorted
+// so the file does not change when a manifest reorders them.
+func hostOperationsFieldsYAML(ops *contract.HostOperations, indent string) string {
+	if ops == nil || len(ops.Required)+len(ops.Optional) == 0 {
+		return indent + "hostOperations: {}\n"
+	}
+	var b strings.Builder
+	b.WriteString(indent + "hostOperations:\n")
+	for _, list := range []struct {
+		key   string
+		names []string
+	}{{"required", ops.Required}, {"optional", ops.Optional}} {
+		if len(list.names) == 0 {
+			continue
+		}
+		b.WriteString(indent + "  " + list.key + ":\n")
+		for _, name := range slices.Sorted(slices.Values(list.names)) {
+			b.WriteString(indent + "    - \"" + jsonString(name) + "\"\n")
+		}
+	}
+	return b.String()
+}
+
+// translationFieldsYAML renders the titles and descriptions fields of the ui
+// block of a catalog entry: the languages of the manifest's ui.title and
+// ui.description other than English, sorted, so the file is stable. English is
+// the title and description of the entry itself.
+func translationFieldsYAML(ui *contract.UI, indent string) string {
+	if ui == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, f := range []struct {
+		key  string
+		text *contract.Localized
+	}{{"titles", ui.Title}, {"descriptions", ui.Description}} {
+		if f.text == nil {
+			continue
+		}
+		tags := f.text.Languages()
+		if len(tags) == 0 {
+			continue
+		}
+		b.WriteString(indent + f.key + ":\n")
+		for _, tag := range tags {
+			b.WriteString(indent + "  \"" + jsonString(tag) + "\": \"" + jsonString(f.text.ByLanguage[tag]) + "\"\n")
+		}
+	}
+	return b.String()
+}
+
+// requiresFieldsYAML renders the requires block of a library entry: the
+// feature level of a manifest that needs more than the base level. A manifest
+// at the base level has no block. The index reader of a host that predates
+// the field refuses the whole index when one entry has it (the reader is
+// strict), so the catalog command writes it only with
+// --feature-level-in-index.
+func requiresFieldsYAML(m contract.Manifest, indent string) string {
+	if m.RequiredFeatureLevel() <= contract.BaseFeatureLevel {
+		return ""
+	}
+	return fmt.Sprintf("%srequires:\n%s  featureLevel: %d\n", indent, indent, m.RequiredFeatureLevel())
+}
+
+// cmdCatalogTools adds the toolCount and tools fields to the entries of an
+// existing library index, reading each manifest from addons/<id>/manifest.json
+// of the repository. It touches no other field, so the digests and artifacts
+// stay as they are. Running it twice gives the same file.
+func cmdCatalogTools(args []string) error {
+	fs := flag.NewFlagSet("catalog-tools", flag.ContinueOnError)
+	index := fs.String("index", "gallery/addons/index.yaml", "library index to update")
+	addons := fs.String("addons", "addons", "directory that holds addons/<id>/manifest.json")
+	withHostOps := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on. A host that predates the field refuses the whole index")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(*index)
+	if err != nil {
+		return err
+	}
+	entries, err := readCatalogIndex(raw)
+	if err != nil {
+		return err
+	}
+	var blocks []string
+	for _, line := range strings.SplitAfter(string(raw), "\n") {
+		if strings.HasPrefix(line, "- ") || len(blocks) == 0 {
+			blocks = append(blocks, "")
+		}
+		blocks[len(blocks)-1] += line
+	}
+	// blocks[0] is the header comment when the file starts with one.
+	if len(blocks) == len(entries)+1 {
+		blocks = blocks[1:]
+		blocks[0] = string(raw[:len(raw)-len(strings.Join(blocks, ""))]) + blocks[0]
+	}
+	if len(blocks) != len(entries) {
+		return errors.New("index entries do not match their blocks")
+	}
+	for i, e := range entries {
+		data, err := os.ReadFile(filepath.Join(*addons, filepath.Base(e.ID), "manifest.json"))
+		if err != nil {
+			return err
+		}
+		m, err := contract.ParseManifest(data)
+		if err != nil {
+			return fmt.Errorf("manifest of %s: %w", e.ID, err)
+		}
+		var kept []string
+		skip := false
+		for _, line := range strings.SplitAfter(strings.TrimRight(blocks[i], "\n"), "\n") {
+			switch {
+			case strings.HasPrefix(line, "  toolCount:"):
+				continue
+			case strings.HasPrefix(line, "  tools:"), strings.HasPrefix(line, "  shadows:"), strings.HasPrefix(line, "  skillShadows:"), strings.HasPrefix(line, "  hostOperations:"):
+				skip = true
+				continue
+			case skip && (strings.HasPrefix(line, "    - ") || strings.HasPrefix(line, "    required:") || strings.HasPrefix(line, "    optional:") || strings.HasPrefix(line, "      - ")):
+				continue
+			}
+			skip = false
+			kept = append(kept, line)
+		}
+		text := strings.TrimRight(strings.Join(kept, ""), "\n") + "\n"
+		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ", contract.ShadowedTools(m.Capabilities.ToolDefinitions)...) +
+			skillFieldsYAML(contract.ShadowedSkills(m.Capabilities.SkillDefinitions), "  ")
+		if *withHostOps {
+			blocks[i] += hostOperationsFieldsYAML(m.Capabilities.HostOperations, "  ")
+		}
+	}
+	out := strings.Join(blocks, "")
+	if _, err := readCatalogIndex([]byte(out)); err != nil {
+		return fmt.Errorf("updated index: %w", err)
+	}
+	return os.WriteFile(*index, []byte(out), 0o600)
+}
+
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b[1 : len(b)-1])
+}
+
+// cmdCatalog renders the catalog entries of one merged layout from a
+// template. Every value comes from a verified layout or an explicit input;
+// nothing is looked up from a registry, so the entries pin the digests that
+// were built and verified.
+func cmdCatalog(args []string) error {
+	fs := flag.NewFlagSet("catalog", flag.ContinueOnError)
+	template := fs.String("template", "gallery/addons/tables.yaml.tmpl", "entry template")
+	dir := fs.String("merged", "", "merged layout")
+	config := fs.String("config", "", "platform matrix file")
+	repository := fs.String("repository", "", "registry and repository the package was published to")
+	tag := fs.String("tag", "", "immutable tag the artifact reference names, without the add-on id prefix: the version or sha-<commit>")
+	channel := fs.String("channel", "", "channel name the entries are current for: latest, development or a branch channel")
+	ownerRepo := fs.String("owner-repo", "", "GitHub owner/repository that ran the workflow")
+	signerRef := fs.String("signer-ref", "", "ref of the signing workflow run")
+	out := fs.String("out", "", "output file")
+	root := fs.String("root", ".", "with --from-manifest: repository root that the manifest path of the platform matrix is relative to")
+	fromManifest := fs.Bool("from-manifest", false, "development channel only: render from the manifest and the enabled platforms, without a built package")
+	featureLevelInIndex := fs.Bool("feature-level-in-index", false, "write requires.featureLevel for an add-on that needs more than level 1. A host that predates the field refuses the whole index, so leave it off while such hosts are in use")
+	hostOpsInIndex := fs.Bool("host-operations-in-index", false, "write the hostOperations hint of each add-on entry. A host that predates the field refuses the whole index")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	repo, err := parseRepository(*repository)
+	if err != nil {
+		return err
+	}
+	if *fromManifest && *tag == "" {
+		// The development entry names the moving tag; no immutable tag is used.
+		*tag = "sha-000000000000"
+	}
+	if !immutableTagRE.MatchString(*tag) {
+		return fmt.Errorf("--tag %q is not an immutable version or commit tag", *tag)
+	}
+	if (*dir == "" && !*fromManifest) || *out == "" || *channel == "" {
+		return errors.New("--merged (or --from-manifest), --channel and --out are required")
+	}
+	if *channel != aliasLatest && *channel != aliasDevelopment && !branchAliasRE.MatchString(*channel) {
+		return fmt.Errorf("channel %q is not a channel alias", *channel)
+	}
+	identity, err := signerIdentity(*ownerRepo, *signerRef)
+	if err != nil {
+		return err
+	}
+	tmpl, err := os.ReadFile(*template)
+	if err != nil {
+		return err
+	}
+	cfg, err := loadPlatforms(*config)
+	if err != nil {
+		return err
+	}
+	var releases []catalogRelease
+	var doc bytes.Buffer
+	// emit renders the entry of one platform from the manifest of the package.
+	emit := func(manifest *contract.Manifest, version, osName, arch, digest string) error {
+		ui := manifest.Capabilities.UI
+		title, description, mainPage, icon := manifest.ID, "", "", ""
+		if ui != nil {
+			mainPage, icon = ui.MainPage, ui.Icon
+			if ui.Title != nil {
+				title = ui.Title.Default()
+			}
+			if ui.Description != nil {
+				description = ui.Description.Default()
+			}
+		}
+		// The development channel is mutable, like a development backend: the
+		// entry names the moving tag <id>-development and has no digest.
+		mutable := *channel == aliasDevelopment
+		entryVersion, entryTag := version, *tag
+		if mutable {
+			entryVersion, entryTag = "0.0.0-development", aliasDevelopment
+		}
+		values := map[string]string{
+			"addon": manifest.ID, "version": entryVersion, "tag": addonTagOrEmpty(manifest.ID, entryTag), "channel": *channel,
+			"repository": repo.Name(), "digest": digest,
+			"os": osName, "arch": arch,
+			"issuer": OIDCIssuer, "identity": identity,
+			"title": title, "description": description, "main_page": mainPage, "icon": icon,
+		}
+		text := string(tmpl)
+		// The ui block is the last block of every template, so the translated
+		// text lands inside it.
+		text = strings.TrimRight(text, "\n") + "\n" + translationFieldsYAML(ui, "  ") + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...) +
+			skillFieldsYAML(contract.ShadowedSkills(manifest.Capabilities.SkillDefinitions), "")
+		if *hostOpsInIndex {
+			text += hostOperationsFieldsYAML(manifest.Capabilities.HostOperations, "")
+		}
+		if *featureLevelInIndex {
+			text += requiresFieldsYAML(*manifest, "")
+		}
+		if mutable {
+			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
+		}
+		for k, val := range values {
+			text = strings.ReplaceAll(text, "{{"+k+"}}", jsonString(val))
+		}
+		if strings.Contains(text, "{{") {
+			return fmt.Errorf("template has an unknown placeholder near %q", text[strings.Index(text, "{{"):min(len(text), strings.Index(text, "{{")+40)])
+		}
+		item := "- " + strings.ReplaceAll(strings.TrimRight(text, "\n"), "\n", "\n  ") + "\n"
+		parsed, err := readCatalogIndex([]byte(item))
+		if err != nil {
+			return fmt.Errorf("rendered entry: %v", err)
+		}
+		if len(parsed) != 1 {
+			return fmt.Errorf("rendered entry: %d entries, want 1", len(parsed))
+		}
+		r := parsed[0]
+		regTag, err := addonTag(manifest.ID, entryTag)
+		if err != nil {
+			return err
+		}
+		if mutable != r.Mutable {
+			return errors.New("the development channel renders a mutable entry and no other channel does")
+		}
+		if err := checkRelease(r, entryVersion, digest, repo.Name(), regTag); err != nil {
+			return err
+		}
+		releases = append(releases, r)
+		doc.WriteString(item)
+		return nil
+	}
+	if *fromManifest {
+		// A development entry carries no digest and nothing else that a built
+		// package would add: it is made from the manifest of the repository and
+		// the enabled platforms, so the committed index can be checked without
+		// building a package.
+		if *channel != aliasDevelopment || *dir != "" {
+			return errors.New("--from-manifest renders the development channel only and takes no --merged")
+		}
+		data, err := os.ReadFile(filepath.Join(*root, cfg.Manifest))
+		if err != nil {
+			return err
+		}
+		manifest, err := contract.ParseManifest(data)
+		if err != nil {
+			return fmt.Errorf("manifest of %s: %w", cfg.Addon, err)
+		}
+		if manifest.ID != cfg.Addon {
+			return fmt.Errorf("manifest id %q differs from add-on %q", manifest.ID, cfg.Addon)
+		}
+		enabled, err := cfg.enabled()
+		if err != nil {
+			return err
+		}
+		for _, e := range enabled {
+			osName, arch, _ := strings.Cut(e.Platform, "/")
+			if err := emit(&manifest, "", osName, arch, ""); err != nil {
+				return err
+			}
+		}
+	} else {
+		m, _, err := verifyMerged(*dir, cfg)
+		if err != nil {
+			return err
+		}
+		root, err := readRootIndex(*dir)
+		if err != nil {
+			return err
+		}
+		raw, err := readBlob(*dir, root.Manifests[0].Digest, root.Manifests[0].Size)
+		if err != nil {
+			return err
+		}
+		var im v1.IndexManifest
+		if err := json.Unmarshal(raw, &im); err != nil {
+			return err
+		}
+		for _, d := range im.Manifests {
+			l, err := loadLegByDescriptor(*dir, d)
+			if err != nil {
+				return err
+			}
+			platform := d.Platform.OS + "/" + d.Platform.Architecture
+			var rec Receipt
+			for _, r := range m.Legs {
+				if r.Platform == platform {
+					rec = r
+				}
+			}
+			v, err := verifyLoaded(l, &rec, platform, m.Version, cfg)
+			if err != nil {
+				return err
+			}
+			if err := emit(&v.Manifest, m.Version, d.Platform.OS, d.Platform.Architecture, d.Digest.String()); err != nil {
+				return err
+			}
+		}
+	}
+	if _, err := readCatalogIndex(doc.Bytes()); err != nil {
+		return fmt.Errorf("rendered index: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(*out), 0o750); err != nil {
+		return err
+	}
+	if err := os.WriteFile(*out, doc.Bytes(), 0o600); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(stdout, "entries=%d\nchannel=%s\n", len(releases), *channel)
+	return nil
+}
+
+// readCatalogIndex reads a generated library index: one YAML document that is
+// a block list of entries, with no unknown field. It is a second, independent
+// reader of the format on purpose; the host has its own, and the integration
+// test makes the host's reader judge the generated file.
+func readCatalogIndex(b []byte) ([]catalogRelease, error) {
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	var doc yaml.Node
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if err := dec.Decode(new(yaml.Node)); !errors.Is(err, io.EOF) {
+		return nil, errors.New("index holds more than one document")
+	}
+	if doc.Kind != yaml.DocumentNode || len(doc.Content) != 1 || doc.Content[0].Kind != yaml.SequenceNode || doc.Content[0].Style&yaml.FlowStyle != 0 {
+		return nil, errors.New("index must be a YAML block list of entries")
+	}
+	var plain any
+	if err := doc.Content[0].Decode(&plain); err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(plain)
+	if err != nil {
+		return nil, err
+	}
+	var out []catalogRelease
+	if err := strictJSON(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// checkRelease is the template contract: an entry pins the digest that was
+// built, names the package repository, and requires a signature of the
+// add-on workflow.
+func checkRelease(r catalogRelease, version, digest, repository, tag string) error {
+	switch {
+	case r.Mutable:
+		// A development entry names the moving tag and carries no digest; the
+		// install resolves the tag, as it does for a development backend.
+		if r.Digest != "" {
+			return errors.New("a mutable entry must not carry a digest")
+		}
+	case r.Digest != digest || !digestRE.MatchString(r.Digest):
+		return errors.New("entry digest differs from the verified image digest")
+	}
+	switch {
+	case !r.Mutable && r.Version != version:
+		return errors.New("entry version differs from the package version")
+	case r.Artifact != "oci://"+repository+":"+tag:
+		return fmt.Errorf("entry artifact %q must be oci://%s:%s", r.Artifact, repository, tag)
+	case !r.Policy.RequireSignature || r.Policy.Issuer != OIDCIssuer:
+		return errors.New("entry must require a signature of the GitHub Actions OIDC issuer")
+	case !strings.Contains(r.Policy.Identity, "/.github/workflows/"+SignerWorkflow+"@refs/"):
+		return errors.New("entry identity must name the add-on package workflow")
+	case r.OS == "" || r.Arch == "" || r.ID == "" || r.Channel == "":
+		return errors.New("entry needs addon id, os, arch and channel")
+	}
+	return nil
+}
+
+// addonTagOrEmpty is addonTag for the template values. An invalid id yields an
+// empty tag, which checkRelease then refuses.
+func addonTagOrEmpty(id, tag string) string {
+	t, err := addonTag(id, tag)
+	if err != nil {
+		return ""
+	}
+	return t
+}

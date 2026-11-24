@@ -1,0 +1,217 @@
+{
+  "unsaved": {
+    "title": "Scartare le modifiche non salvate?",
+    "message": "Hai modifiche non salvate che andranno perse se esci da questa pagina.",
+    "leave": "Esci"
+  },
+  "actions": {
+    "save": "Salva",
+    "saving": "Salvataggio...",
+    "cancel": "Annulla",
+    "close": "Chiudi",
+    "confirm": "Conferma",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "add": "Aggiungi",
+    "remove": "Rimuovi",
+    "create": "Crea",
+    "update": "Aggiorna",
+    "refresh": "Aggiorna",
+    "reload": "Ricarica",
+    "retry": "Riprova",
+    "search": "Cerca",
+    "filter": "Filtra",
+    "clear": "Pulisci",
+    "reset": "Reimposta",
+    "apply": "Applica",
+    "back": "Indietro",
+    "next": "Avanti",
+    "previous": "Precedente",
+    "open": "Apri",
+    "submit": "Invia",
+    "select": "Seleziona",
+    "selectAll": "Seleziona tutto",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "download": "Scarica",
+    "upload": "Carica",
+    "import": "Importa",
+    "export": "Esporta",
+    "view": "Visualizza",
+    "details": "Dettagli",
+    "settings": "Impostazioni",
+    "help": "Aiuto",
+    "yes": "Sì",
+    "no": "No",
+    "loading": "Caricamento..."
+  },
+  "status": {
+    "loading": "Caricamento...",
+    "saving": "Salvataggio...",
+    "saved": "Salvato",
+    "ready": "Pronto",
+    "running": "In esecuzione",
+    "stopped": "Fermo",
+    "starting": "Avvio in corso...",
+    "stopping": "Arresto in corso...",
+    "pending": "In attesa",
+    "active": "Attivo",
+    "inactive": "Inattivo",
+    "enabled": "Abilitato",
+    "disabled": "Disabilitato",
+    "online": "Online",
+    "offline": "Offline",
+    "error": "Errore",
+    "success": "Successo",
+    "warning": "Attenzione",
+    "info": "Info",
+    "empty": "Nessun elemento",
+    "none": "Nessuno",
+    "unknown": "Sconosciuto"
+  },
+  "dialogs": {
+    "confirmDelete": {
+      "title": "Conferma eliminazione",
+      "message": "Sei sicuro di volerlo eliminare? Questa azione non può essere annullata.",
+      "confirm": "Elimina",
+      "cancel": "Annulla"
+    },
+    "unsavedChanges": {
+      "title": "Modifiche non salvate",
+      "message": "Hai modifiche non salvate. Vuoi scartarle?",
+      "discard": "Scarta",
+      "keepEditing": "Continua a modificare"
+    }
+  },
+  "forms": {
+    "required": "Obbligatorio",
+    "optional": "Opzionale",
+    "name": "Nome",
+    "description": "Descrizione",
+    "type": "Tipo",
+    "value": "Valore",
+    "search": "Cerca...",
+    "selectPlaceholder": "Seleziona un'opzione..."
+  },
+  "time": {
+    "now": "ora",
+    "secondsAgo_one": "{{count}} secondo fa",
+    "secondsAgo_other": "{{count}} secondi fa",
+    "minutesAgo_one": "{{count}} minuto fa",
+    "minutesAgo_other": "{{count}} minuti fa",
+    "hoursAgo_one": "{{count}} ora fa",
+    "hoursAgo_other": "{{count}} ore fa",
+    "daysAgo_one": "{{count}} giorno fa",
+    "daysAgo_other": "{{count}} giorni fa"
+  },
+  "units": {
+    "bytes": "B",
+    "kilobytes": "KB",
+    "megabytes": "MB",
+    "gigabytes": "GB",
+    "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Riprova",
+    "undo": "Annulla",
+    "loadError": {
+      "title": "Impossibile caricare.",
+      "serverSaid": "Il server ha risposto «{{message}}».",
+      "nothingChanged": "Non è stato modificato nulla."
+    }
+  },
+  "chip": {
+    "running": "In esecuzione",
+    "starting": "Avvio",
+    "stopped": "Fermo",
+    "failed": "Non riuscito",
+    "updateAvailable": "Aggiornamento disponibile",
+    "ready": "Pronto",
+    "noRunsYet": "Nessuna esecuzione",
+    "updating": "In aggiornamento",
+    "heldForApproval": "In attesa di approvazione",
+    "cannotUpdate": "Impossibile aggiornare",
+    "differsFromCluster": "Differisce dal cluster"
+  },
+  "share": {
+    "title": "Condividi \"{{name}}\"",
+    "untitled": "Senza nome",
+    "intro": "Le persone che aggiungi lo vedono nel proprio elenco.",
+    "disabled": {
+      "title": "La condivisione non è disponibile",
+      "text": "Questo LocalAI è per un solo proprietario locale, quindi non ci sono altri account con cui condividere."
+    },
+    "add": "Aggiungi persone",
+    "search": "Cerca una persona per nome",
+    "searchHint": "Scrivi almeno tre lettere di un nome.",
+    "newRole": "Ruolo per le persone che aggiungi",
+    "searching": "Ricerca in corso",
+    "noResults": "Nessuna corrispondenza.",
+    "alreadyShared": "Tutte le persone trovate hanno già accesso.",
+    "results": "Persone trovate",
+    "addPerson": "Aggiungi {{name}} come {{role}}",
+    "granted": "{{name}} ora ha accesso.",
+    "changed": "{{name}} ora è {{role}}.",
+    "everyone": "Tutti",
+    "everyoneHelp": "Ogni account di questo LocalAI, compresi quelli nuovi.",
+    "everyoneAdd": "Condividi con tutti",
+    "people": "Persone con accesso",
+    "loading": "Caricamento delle persone con accesso",
+    "none": "Solo tu hai accesso.",
+    "unnamed": "Account senza nome",
+    "roleOf": "Ruolo di {{name}}",
+    "revoke": "Smetti di condividere",
+    "revokeAria": "Smetti di condividere con {{name}}",
+    "revokeConfirm": "Smettere di condividere con {{name}}? Il suo lavoro in corso si ferma.",
+    "revoked": "Condivisione con {{name}} interrotta.",
+    "refs": {
+      "title": "Prima di condividere",
+      "intro": "Usa altre risorse. Scegli cosa ricevono le persone che aggiungi per ognuna.",
+      "label": "Accesso a {{name}}",
+      "choose": "Scegli",
+      "pending": "Scegli un'opzione per ogni voce sopra per condividere.",
+      "option": {
+        "view": "Può vedere",
+        "use": "Può usare",
+        "none": "Non condividere"
+      },
+      "own": "Serve un accesso proprio"
+    },
+    "roles": {
+      "owner": "Proprietario",
+      "use": "Può usare",
+      "manage": "Può gestire",
+      "viewer": "Lettore",
+      "editor": "Editor"
+    },
+    "roleHelp": {
+      "use": "Può aprirlo ed eseguirlo.",
+      "manage": "Può anche modificarlo.",
+      "viewer": "Può leggerlo.",
+      "editor": "Può leggerlo e modificarlo."
+    },
+    "line": {
+      "sharedBy": "Condiviso da {{name}}",
+      "sharedEveryone": "Condiviso con tutti da {{name}}",
+      "sharedWith": "Condiviso con {{count}}",
+      "private": "Privato"
+    },
+    "error": {
+      "withdrawn": "Questa pagina è stata chiusa.",
+      "auth": "Accedi di nuovo per condividere.",
+      "denied": "Non puoi più condividere questa risorsa. Potrebbe essere stata eliminata.",
+      "unknown": "La modifica potrebbe non essere stata salvata. Riprova per esserne certo.",
+      "invalid": "Il server ha rifiutato questa modifica.",
+      "network": "Impossibile raggiungere il server.",
+      "unavailable": "La condivisione non ha risposto. Riprova tra poco.",
+      "generic": "Qualcosa è andato storto."
+    }
+  },
+  "picker": {
+    "filter": "Filtra",
+    "loading": "Caricamento",
+    "empty": "Ancora niente da scegliere",
+    "noMatch": "Nessun risultato",
+    "clear": "Cancella"
+  }
+}

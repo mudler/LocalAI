@@ -1,0 +1,416 @@
+// The rules of the Updates page and of the badges, as pure functions so the
+// node unit tests drive them without a browser.
+//
+// A row is one thing that can be updated: a gallery backend, a library backend,
+// an add-on or a gallery model. The kinds come from four sources (the backend
+// read model of GET /api/backends/updates, the installed records of the add-on
+// owner and its host-access overview, and the model read model of
+// GET /api/models/updates, see utils/modelUpdates.js), and this module puts
+// them in one shape:
+//
+//   { id, kind: 'gallery'|'library'|'addon'|'model', name, from, to, state, ... }
+//
+// state is one of ready, updating, failed, held, blocked, current, or for a
+// model one of the states that offer no update now (on-hold, unknown, gone,
+// cleanup). A row has exactly one state, and a group follows from it (groupOf).
+import { versionLabel, shortDigest, opForBackend } from './backendRows.js'
+import { updateView, upgradeAvailability } from '../components/addons/updateState.js'
+import { MODEL_OTHER_STATES } from './modelUpdates.js'
+import { countsAsAttention } from './upgradeRun.js'
+
+export const GROUPS = ['needs', 'updating', 'ready', 'current', 'other']
+export const FILTERS = ['all', 'ready', 'needs-you', 'updating', 'current']
+
+const NEEDS_ORDER = { failed: 0, held: 1, blocked: 2 }
+
+export function groupOf(row) {
+  switch (row.state) {
+    case 'failed':
+    case 'held':
+    case 'blocked': return 'needs'
+    case 'updating': return 'updating'
+    case 'ready': return 'ready'
+    default: return MODEL_OTHER_STATES.includes(row.state) ? 'other' : 'current'
+  }
+}
+
+// What a backend of the read model shows as "from" and "to": the version, or the
+// short digest when the registry names none.
+function backendVersions(it) {
+  return {
+    from: versionLabel(it.installedVersion) || shortDigest(it.installedDigest),
+    to: versionLabel(it.availableVersion) || shortDigest(it.availableDigest),
+  }
+}
+
+// The rows of the backend read model. `operations` is the live list of
+// /api/operations.
+export function backendRows(snapshot, { operations = [], auto = false } = {}) {
+  if (!snapshot || !Array.isArray(snapshot.items)) return []
+  return snapshot.items.map((it) => {
+    const { from, to } = backendVersions(it)
+    const source = snapshot.sources?.[it.kind]
+    const nodes = Array.isArray(it.nodes) ? it.nodes : []
+    const row = {
+      id: it.id,
+      kind: it.kind,
+      name: it.name,
+      from,
+      to,
+      subtype: it.state,
+      availableVersion: it.availableVersion || '',
+      installedVersion: it.installedVersion || '',
+      reason: it.reason || '',
+      sourceId: it.sourceId || '',
+      signed: Boolean(it.signed),
+      nodes,
+      nodeCount: nodes.length,
+      driftNodes: it.driftNodes || 0,
+      covered: Boolean(auto),
+      old: Boolean(source && source.stale),
+      startable: true,
+      state: 'ready',
+      // The automatic update does not take this release: it did not start
+      // before. A person can still update it.
+      heldBack: Boolean(it.heldBack),
+    }
+    const op = opForBackend(operations, it.name)
+    if (op && !op.error && !op.isDeletion) {
+      return { ...row, state: 'updating', progress: op.isQueued ? 0 : (op.progress > 0 ? Math.min(100, Math.round(op.progress)) : 0), queued: Boolean(op.isQueued), phase: op.isQueued ? 'queued' : (op.message || op.phase || ''), jobID: op.jobID, cancellable: Boolean(op.cancellable) }
+    }
+    if (op && op.error) {
+      // A new build that did not start and was replaced by the previous one
+      // reads "Rolled back", as the item of the run that ran it does. The
+      // error of the operation is then the bare cause.
+      const rolledBack = Boolean(op.rolledBack) && (!op.errorKey || op.errorKey === 'start')
+      return { ...row, state: 'failed', error: String(op.error), jobID: op.jobID, startable: false, rolledBack }
+    }
+    if (snapshot.installsDisabled) return { ...row, state: 'blocked', blocked: 'installsDisabled', startable: false }
+    return row
+  })
+}
+
+// The rows of the add-ons. `installed` are the owner's records (already
+// localized), `grants` the host-access overview (held upgrades), `live` the
+// upgrades the store of this browser follows.
+export function addonRows({ installed = [], grants = null, live = [], auto = false, isAdmin = true } = {}) {
+  const rows = []
+  const seen = new Set()
+  const held = new Map()
+  for (const a of (grants && grants.addons) || []) {
+    if (a.pendingUpgrade && a.pendingUpgrade.delta && a.pendingUpgrade.delta.length > 0) held.set(a.id, a)
+  }
+  const liveOf = (id) => live.find(op => op.addonId === id) || null
+  for (const rec of installed) {
+    const id = `addon:${rec.id}`
+    seen.add(rec.id)
+    const view = updateView(rec.update)
+    const av = upgradeAvailability(rec, { isAdmin })
+    const op = liveOf(rec.id)
+    const base = {
+      id,
+      kind: 'addon',
+      name: rec.title || rec.id,
+      addonId: rec.id,
+      from: rec.version ? versionLabel(rec.version) : '',
+      to: view.version ? versionLabel(view.version) : '',
+      sourceId: rec.sourceId || '',
+      covered: Boolean(auto),
+      startable: av.startable,
+      availability: av,
+      record: rec,
+      state: 'current',
+    }
+    const hold = held.get(rec.id)
+    if (op && (op.state === 'running' || op.state === 'cancelling')) {
+      rows.push({ ...base, state: 'updating', progress: op.progress || 0, queued: (op.stage || op.phase) === 'queued', phase: op.stage || op.phase || '', jobID: op.jobID, cancellable: Boolean(op.cancellable), startable: false })
+    } else if (op && op.state === 'failed') {
+      rows.push({ ...base, state: 'failed', error: op.errorKey || 'unavailable', errorKey: op.errorKey || 'unavailable', jobID: op.jobID, startable: false, ...(op.kind === 'approval' && hold ? { approval: true, grant: hold } : {}) })
+    } else if (hold) {
+      rows.push({ ...base, state: 'held', to: versionLabel(hold.pendingUpgrade.version), heldCount: hold.pendingUpgrade.delta.length, grant: hold, startable: false })
+    } else if (view.state === 'update-available') {
+      rows.push(base.startable ? { ...base, state: 'ready' } : { ...base, state: 'ready', needsCheck: av.reason })
+    } else if (view.state === 'incompatible' || view.state === 'integrity-error') {
+      rows.push({ ...base, state: 'blocked', blocked: view.state, reasons: view.reasons, startable: false })
+    } else if (view.state === 'up-to-date') {
+      rows.push({ ...base, state: 'current' })
+    }
+    // unknown and check-failed are not rows: nothing says the add-on is
+    // current, and the source line carries the check.
+  }
+  // A held upgrade or a running one of an add-on the records do not list.
+  for (const [id, hold] of held) {
+    if (seen.has(id)) continue
+    rows.push({ id: `addon:${id}`, kind: 'addon', name: hold.title || id, addonId: id, from: versionLabel(hold.version), to: versionLabel(hold.pendingUpgrade.version), sourceId: hold.sourceId || '', covered: Boolean(auto), startable: false, state: 'held', heldCount: hold.pendingUpgrade.delta.length, grant: hold })
+  }
+  return rows
+}
+
+// Backends that are installed, not listed as having an update and whose source
+// answered: those are current. A source that failed or was never checked says
+// nothing about them.
+export function currentBackendRows(installed, snapshot) {
+  if (!snapshot || !Array.isArray(installed)) return []
+  const listed = new Set((snapshot.items || []).map(i => i.name))
+  const out = []
+  for (const b of installed) {
+    const name = b.Name || b.name
+    if (!name || b.IsSystem || b.IsMeta || listed.has(name)) continue
+    const lib = b.Metadata && b.Metadata.library
+    const kind = lib ? 'library' : 'gallery'
+    const source = snapshot.sources && snapshot.sources[kind]
+    if (!source || source.state !== 'ok') continue
+    out.push({
+      id: `${kind}:${lib ? `${lib}/` : ''}${name}`,
+      kind,
+      name,
+      from: versionLabel(b.Metadata && b.Metadata.version) || shortDigest(b.Metadata && b.Metadata.digest),
+      to: '',
+      state: 'current',
+      startable: false,
+    })
+  }
+  return out
+}
+
+export function sortRows(rows) {
+  return [...rows].sort((a, b) => {
+    const ga = GROUPS.indexOf(groupOf(a))
+    const gb = GROUPS.indexOf(groupOf(b))
+    if (ga !== gb) return ga - gb
+    if (ga === 0 && NEEDS_ORDER[a.state] !== NEEDS_ORDER[b.state]) return NEEDS_ORDER[a.state] - NEEDS_ORDER[b.state]
+    return a.name.localeCompare(b.name)
+  })
+}
+
+export function groupRows(rows) {
+  const out = { needs: [], updating: [], ready: [], current: [], other: [] }
+  for (const row of sortRows(rows)) out[groupOf(row)].push(row)
+  return out
+}
+
+export function filterRows(rows, filter) {
+  switch (filter) {
+    case 'ready': return rows.filter(r => groupOf(r) === 'ready')
+    case 'needs-you': return rows.filter(r => groupOf(r) === 'needs')
+    case 'updating': return rows.filter(r => groupOf(r) === 'updating')
+    case 'current': return rows.filter(r => groupOf(r) === 'current')
+    default: return rows
+  }
+}
+
+export function filterCounts(rows) {
+  const g = groupRows(rows)
+  return { all: rows.length, ready: g.ready.length, 'needs-you': g.needs.length, updating: g.updating.length, current: g.current.length }
+}
+
+// The group of an item of the shown update run, in the groups of the filter.
+// While the run runs, an item that waits, runs or is being checked is
+// updating; an item that needs attention (failed, rolled back, unconfirmed
+// once the run ended, skipped for a reason) needs you; an updated one is up
+// to date. Anything else (cancelled, skipped with no reason) is in no group.
+export function runItemGroup(item, active) {
+  if (!item) return ''
+  if (active && (item.phase === 'queued' || item.phase === 'running' || item.phase === 'unconfirmed')) return 'updating'
+  if (countsAsAttention(item)) return 'needs'
+  if (item.phase === 'updated') return 'current'
+  return ''
+}
+
+const FILTER_GROUP = { ready: 'ready', 'needs-you': 'needs', updating: 'updating', current: 'current' }
+
+// The items of the run that a filter shows: all of them, or those of its group.
+export function filterRunItems(items, filter, active) {
+  if (!Array.isArray(items)) return []
+  const group = FILTER_GROUP[filter]
+  return group ? items.filter(i => runItemGroup(i, active) === group) : items
+}
+
+// The counts of the filter with the items of the shown run. The page lists an
+// item of the run once, in the run group, so it is counted there: a running
+// backend counts as updating, a rolled-back one as needing you.
+export function filterCountsWithRun(rows, items, active) {
+  const out = filterCounts(rows)
+  for (const item of Array.isArray(items) ? items : []) {
+    out.all += 1
+    const group = runItemGroup(item, active)
+    if (group === 'needs') out['needs-you'] += 1
+    else if (group === 'updating') out.updating += 1
+    else if (group === 'current') out.current += 1
+  }
+  return out
+}
+
+export function normalizeFilter(value) {
+  return FILTERS.includes(value) ? value : 'all'
+}
+
+// The gallery backends that have a newer build, by name, in the shape the
+// Backends page, the Operate overview and the Nodes page read: the versions and
+// the nodes that differ from the others. One place, so a page never keeps a
+// poll of the same fact.
+// The update row of the backend a failed load names, or null. The loader names
+// the backend it ran ("llama-cpp"), the gallery names the installed build
+// ("metal-llama-cpp"), so a build whose name ends in the backend name matches.
+export function updateForBackend(rows, backend) {
+  if (!backend) return null
+  const ready = (rows || []).filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
+  return ready.find(r => r.name === backend) || ready.find(r => r.name.endsWith(`-${backend}`)) || null
+}
+
+export function galleryUpdateMap(rows) {
+  return Object.fromEntries((rows || [])
+    .filter(r => r.kind === 'gallery' && (r.state === 'ready' || r.state === 'blocked'))
+    .map(r => [r.name, {
+      backend_name: r.name,
+      installed_version: r.installedVersion || r.from,
+      available_version: r.availableVersion || r.to,
+      node_drift: (r.nodes || []).filter(n => n.drift).map(n => ({ node_id: n.nodeId, node_name: n.nodeName, version: n.version })),
+    }]))
+}
+
+// The update of a meta backend is the update of the build it points at. The
+// updates are keyed by the installed build ("metal-llama-cpp"), while the
+// Backends list hides the builds of a meta backend and shows the meta backend
+// itself ("llama-cpp"), so without this the visible row of an outdated backend
+// shows no update. `installed` is the list of the installed backends.
+export function withMetaUpdates(upgrades, installed) {
+  const out = { ...upgrades }
+  for (const b of installed || []) {
+    const target = b && b.Metadata && b.Metadata.meta_backend_for
+    if (target && !out[b.Name] && upgrades[target]) out[b.Name] = upgrades[target]
+  }
+  return out
+}
+
+// The number on the tab and on the Operate item: what needs a person. A ready
+// update that an automatic setting will apply is not in it. A failed or held
+// update is, whatever the setting says. An update that this server refuses by
+// policy (installs off) is not: nobody can act on it.
+export function badgeOf(rows) {
+  const needing = needsPersonRows(rows)
+  return { count: needing.length, failed: needing.some(r => r.state === 'failed') }
+}
+
+// The rows behind that number: backends, add-ons and models alike. Every page
+// that shows the count and then lists what it counts reads this, so the number
+// and the list cannot disagree. A model has no automatic update, so the read
+// model's needsPerson decides (an update, an edited update, a failed upgrade);
+// a held model does not count.
+export function needsPersonRows(rows) {
+  return (rows || []).filter((row) => {
+    if (row.kind === 'model') return Boolean(row.needsPerson) && (row.state === 'ready' || row.state === 'failed')
+    switch (row.state) {
+      case 'failed':
+      case 'held': return true
+      case 'blocked': return row.blocked !== 'installsDisabled'
+      case 'ready': return !row.covered
+      default: return false
+    }
+  })
+}
+
+// ---- Sources ----------------------------------------------------------------
+
+// The state of the add-on source, from what the shell could read. `status` is
+// 'off' (the server has no add-ons for this person), 'loading', 'error' or
+// 'ready'.
+export function addonSource({ status, installed = [], error = '' } = {}) {
+  if (status === 'off') return { state: 'disabled', reason: 'off' }
+  if (status === 'loading') return { state: 'never', loading: true }
+  if (status === 'error') return { state: 'failed', error: error || 'unavailable', stale: installed.length > 0 }
+  if (installed.length === 0) return { state: 'ok', empty: true }
+  let at = ''
+  let failed = ''
+  let checked = 0
+  for (const rec of installed) {
+    const u = rec.update
+    if (!u || typeof u !== 'object') continue
+    const view = updateView(u)
+    if (view.checkedAt) {
+      checked += 1
+      if (!at || Date.parse(view.checkedAt) > Date.parse(at)) at = view.checkedAt
+    }
+    if (view.state === 'check-failed' && !failed) failed = view.error || 'internal'
+  }
+  if (failed) return { state: 'failed', error: failed, checkedAt: at, stale: checked > 0 }
+  if (checked === 0) return { state: 'never' }
+  return { state: 'ok', checkedAt: at }
+}
+
+// The sources in the order of the source line: gallery, library, add-ons,
+// model gallery. A server with no model gallery and no gallery model says
+// nothing about models.
+export function sourceViews(snapshot, addons, models = null) {
+  const out = []
+  if (snapshot && snapshot.sources) {
+    for (const id of ['gallery', 'library']) {
+      const s = snapshot.sources[id]
+      if (s) out.push({ id, ...s })
+    }
+  }
+  if (addons && !(addons.state === 'ok' && addons.empty)) out.push({ id: 'addons', ...addons })
+  if (models && models.state !== 'disabled') out.push({ id: 'models', ...models })
+  return out
+}
+
+// Whether a row is an update to act on or follow: what the headline counts.
+export function isPending(row) {
+  const g = groupOf(row)
+  return g === 'needs' || g === 'updating' || g === 'ready'
+}
+
+// The one sentence of the strip. A claim of "no updates" needs every source
+// that can be checked to have answered; otherwise the strip says what is
+// missing.
+export function headlineOf({ rows, sources, loading = false, loadError = false }) {
+  if (loading) return { kind: 'loading' }
+  if (loadError) return { kind: 'loadError' }
+  const live = sources.filter(s => s.state !== 'disabled')
+  const total = rows.filter(isPending).length
+  if (total > 0) return { kind: 'updates', count: total }
+  if (live.length === 0) return { kind: 'unavailable' }
+  const failed = live.filter(s => s.state === 'failed')
+  const never = live.filter(s => s.state === 'never')
+  if (failed.length === live.length) return { kind: 'couldNot' }
+  if (never.length === live.length) return { kind: 'never' }
+  if (failed.length > 0) return { kind: 'noneButFailed', sources: failed.map(s => s.id) }
+  if (never.length > 0) return { kind: 'noneButNever', sources: never.map(s => s.id) }
+  return { kind: 'current' }
+}
+
+// The counts of the line under the sentence: "2 ready, 1 updating, 2 need you".
+export function breakdownOf(rows) {
+  const g = groupRows(rows)
+  return { ready: g.ready.length, updating: g.updating.length, needs: g.needs.length }
+}
+
+// ---- Completion of a node update ---------------------------------------------
+
+// How an operation of /api/operations moves a followed job to its end. `track`
+// is { seen, since }, kept by the caller between calls. The list never says
+// "done": a finished operation leaves it, so leaving after it was seen, or
+// never showing in `graceMs`, is "ended". A listed operation with an error is
+// failed. Whether the update worked is not decided here (see verdictOf).
+export function trackJob(track, operations, jobID, now, graceMs = 4000) {
+  const op = (operations || []).find(o => o.jobID === jobID)
+  if (op && op.error) return { track: { ...track, seen: true }, verdict: 'failed', error: String(op.error) }
+  if (op) return { track: { ...track, seen: true }, verdict: 'wait' }
+  if (track.seen) return { track, verdict: 'ended' }
+  if (now - track.since >= graceMs) return { track, verdict: 'ended' }
+  return { track, verdict: 'wait' }
+}
+
+// How long ago a time was, as a whole number of the largest fitting unit, for
+// Intl.RelativeTimeFormat. Null for a time that is missing or does not parse.
+export function ageParts(iso, now = Date.now()) {
+  const at = Date.parse(iso || '')
+  if (!iso || Number.isNaN(at)) return null
+  const seconds = Math.max(0, Math.round((now - at) / 1000))
+  if (seconds < 60) return { value: seconds, unit: 'second', justNow: seconds < 20 }
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return { value: minutes, unit: 'minute' }
+  const hours = Math.round(minutes / 60)
+  if (hours < 48) return { value: hours, unit: 'hour' }
+  return { value: Math.round(hours / 24), unit: 'day' }
+}

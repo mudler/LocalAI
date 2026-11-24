@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "id": "discord",
+  "version": "0.1.0",
+  "executable": "discord",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "featureLevel": 4,
+  "capabilities": {
+    "hostOperations": {
+      "optional": ["connector.file.get", "connector.file.put"]
+    },
+    "connector": {
+      "kinds": [
+        {
+          "id": "discord",
+          "title": "Discord",
+          "description": "Talk to one of your saved agents from Discord, in direct messages and where the bot is mentioned in a channel or thread.",
+          "setup": "a Discord bot with its token, added to your server",
+          "senderHint": "A user ID or a channel ID (numbers, with Developer Mode on)",
+          "delivery": "pull",
+          "files": {
+            "receive": { "maxBytes": 10485760 },
+            "send": { "maxBytes": 10485760 }
+          },
+          "page": "bots",
+          "previewMs": 1000,
+          "history": { "thread": true, "maxMessages": 30 },
+          "options": [
+            {
+              "id": "followThreads",
+              "title": "Threads the bot follows",
+              "description": "Whether the bot answers messages in a thread without a new mention.",
+              "default": "mentioned",
+              "values": [
+                { "id": "mentioned", "title": "Threads where it was mentioned" },
+                { "id": "never", "title": "None: always ask with a mention" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "ui": {
+      "entry": "ui/discord.js",
+      "css": ["ui/discord.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["bots"],
+      "mainPage": "bots",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Discord",
+        "it": "Discord",
+        "de": "Discord",
+        "es": "Discord",
+        "fr": "Discord",
+        "pt-BR": "Discord",
+        "zh-CN": "Discord",
+        "ko": "Discord",
+        "id": "Discord"
+      },
+      "description": {
+        "en": "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord.",
+        "it": "Collega un bot Discord a uno dei tuoi agenti salvati, così le persone possono parlarci da Discord.",
+        "de": "Verbinden Sie einen Discord-Bot mit einem Ihrer gespeicherten Agenten, damit andere über Discord mit ihm sprechen können.",
+        "es": "Vincula un bot de Discord a uno de tus agentes guardados para que la gente pueda hablar con él desde Discord.",
+        "fr": "Associez un bot Discord à l'un de vos agents enregistrés pour que les gens puissent lui parler depuis Discord.",
+        "pt-BR": "Vincule um bot do Discord a um dos seus agentes salvos para que as pessoas possam conversar com ele pelo Discord.",
+        "zh-CN": "将 Discord 机器人绑定到你保存的某个智能体，让大家可以在 Discord 中与它对话。",
+        "ko": "저장한 에이전트 중 하나에 Discord 봇을 연결하여 사람들이 Discord에서 대화할 수 있게 합니다.",
+        "id": "Hubungkan bot Discord ke salah satu agen tersimpan Anda agar orang dapat mengobrol dengannya dari Discord."
+      }
+    }
+  },
+  "i18n": {
+    "it": {"kinds": {"discord": {"title": "Discord", "description": "Parla con uno dei tuoi agenti salvati da Discord, nei messaggi diretti e dove il bot viene menzionato in un canale o in un thread.", "setup": "un bot Discord con il suo token, aggiunto al tuo server"}}},
+    "de": {"kinds": {"discord": {"title": "Discord", "description": "Sprechen Sie über Discord mit einem Ihrer gespeicherten Agenten, in Direktnachrichten und dort, wo der Bot in einem Kanal oder Thread erwähnt wird.", "setup": "ein Discord-Bot mit Token, zu Ihrem Server hinzugefügt"}}},
+    "es": {"kinds": {"discord": {"title": "Discord", "description": "Habla con uno de tus agentes guardados desde Discord, en mensajes directos y donde se mencione al bot en un canal o hilo.", "setup": "un bot de Discord con su token, añadido a tu servidor"}}},
+    "fr": {"kinds": {"discord": {"title": "Discord", "description": "Parlez à l'un de vos agents enregistrés depuis Discord, en messages privés et là où le bot est mentionné dans un salon ou un fil.", "setup": "un bot Discord avec son jeton, ajouté à votre serveur"}}},
+    "pt-BR": {"kinds": {"discord": {"title": "Discord", "description": "Converse com um dos seus agentes salvos pelo Discord, em mensagens diretas e onde o bot for mencionado em um canal ou tópico.", "setup": "um bot do Discord com o token, adicionado ao seu servidor"}}},
+    "zh-CN": {"kinds": {"discord": {"title": "Discord", "description": "在 Discord 中与你保存的某个智能体对话，支持私信，也支持在频道或子区中提及机器人。", "setup": "一个已添加到你服务器的 Discord 机器人及其令牌"}}},
+    "ko": {"kinds": {"discord": {"title": "Discord", "description": "Discord에서 저장한 에이전트 중 하나와 대화합니다. 다이렉트 메시지와, 채널이나 스레드에서 봇이 멘션된 곳에서 사용할 수 있습니다.", "setup": "서버에 추가한 Discord 봇과 그 토큰"}}},
+    "id": {"kinds": {"discord": {"title": "Discord", "description": "Berbicara dengan salah satu agen tersimpan Anda dari Discord, lewat pesan langsung dan di tempat bot disebut dalam kanal atau utas.", "setup": "bot Discord dengan tokennya, ditambahkan ke server Anda"}}}
+  }
+}

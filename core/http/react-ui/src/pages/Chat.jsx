@@ -1,0 +1,1786 @@
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { fromState } from '../utils/editorNav'
+import { useServerChat } from '../hooks/useServerChat'
+import { useAutoReadAloud } from '../hooks/useAutoReadAloud'
+import { useChatComposer } from '../hooks/useChatComposer'
+import { useComposerArrival } from '../hooks/useComposerTransition'
+import { useChatEgress } from '../hooks/useChatEgress'
+import { useChatSandboxProfile } from '../hooks/useChatSandboxProfile'
+import { useLive } from '../hooks/useLive'
+import { useModels } from '../hooks/useModels'
+import { CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
+import { pickLiveModels } from '../utils/liveModels'
+import { cardsByTool } from '../utils/chatEgress'
+import { useInboxEntry } from '../contexts/InboxContext'
+import { useOriginContext } from '../hooks/useOriginContext'
+import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
+import { foldNotes, isConnectorChat } from '../utils/connectorChat'
+// eslint-disable-next-line no-unused-vars
+import { ConnectorHeader, HostNote, ThreadContext } from '../components/chat/ConnectorChat'
+import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
+import {
+  threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
+} from '../utils/chatThread'
+import { withOptimistic } from '../utils/optimisticSend'
+import { chatFootState, showHint } from '../utils/chatFoot'
+import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
+// eslint-disable-next-line no-unused-vars
+import ChatFilesPane from '../components/chat/ChatFilesPane'
+import { useChatFiles } from '../hooks/useChatFiles'
+import { useChatPreviewPane } from '../hooks/useChatPreviewPane'
+// eslint-disable-next-line no-unused-vars
+import { FileChipRow } from '../components/chat/FileChips'
+import { codeBlocksOf, extensionForLanguage, isPreviewableBlock, turnFiles } from '../utils/previewPane'
+import { chatsApi, modelsApi } from '../utils/api'
+import { apiUrl } from '../utils/basePath'
+// eslint-disable-next-line no-unused-vars
+import ChatComposer from '../components/chat/ChatComposer'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveButton from '../components/chat/LiveButton'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveSetupSheet from '../components/chat/LiveSetupSheet'
+// eslint-disable-next-line no-unused-vars -- used only inside JSX
+import LiveDock from '../components/chat/LiveDock'
+import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
+import { contextSinceClear, parseGoalCommand, parseInvocation } from '../utils/slashCommands'
+import { findLoop, parseLoopCommand } from '../utils/chatLoops'
+// eslint-disable-next-line no-unused-vars
+import { ChatAboutCard, ContextMarker, GoalCard, SlashHelpCard } from '../components/chat/CommandCards'
+import { isTyping } from '../components/chat/chatText'
+// eslint-disable-next-line no-unused-vars
+import ChatHeader from '../components/chat/ChatHeader'
+import WorkspaceSlot from '../components/slots/WorkspaceSlot'
+import PageDock from '../components/dock/PageDock'
+import DockButton from '../components/dock/DockButton'
+import FilesButton from '../components/chat/FilesButton'
+import { usePageDock } from '../hooks/useChatDock'
+import { setDockOpen } from '../utils/dock'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsDialog from '../components/chat/ShortcutsDialog'
+// eslint-disable-next-line no-unused-vars
+import ChatSettingsSheet from '../components/chat/ChatSettingsSheet'
+import { MoreChip, ProjectChip, PulledChip } from '../components/projects/ProjectChip'
+import PulledProjects from '../components/projects/PulledProjects'
+import { useProjectList } from '../hooks/useProjectList'
+import { homeProject, pulledProjects } from '../utils/projects'
+import ReasoningChips from '../components/chat/ReasoningChips'
+import { settingsWithEffort } from '../utils/chatSettings'
+// eslint-disable-next-line no-unused-vars
+import FindBar from '../components/chat/FindBar'
+// eslint-disable-next-line no-unused-vars
+import LoadCard from '../components/chat/LoadCard'
+// eslint-disable-next-line no-unused-vars
+import ChatFoot from '../components/chat/ChatFoot'
+import HarnessBanner from '../components/chat/HarnessBanner'
+import GoalBar from '../components/chat/GoalBar'
+import GoalMarker from '../components/chat/GoalMarker'
+// eslint-disable-next-line no-unused-vars
+import SubAgentsMenu from '../components/chat/SubAgentsMenu'
+// eslint-disable-next-line no-unused-vars
+import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
+// eslint-disable-next-line no-unused-vars
+import { AgentNeedsNotice } from '../components/agents/AgentShare'
+import { isSharedWithMe } from '../utils/agentShare'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+import { isStaleFailure, keptAbove } from '../utils/chatFailure'
+import { useAutoResume } from '../hooks/useAutoResume'
+import { isFolderMissingError } from '../utils/chatAgents'
+import { startRefusal } from '../utils/projectAgents'
+// eslint-disable-next-line no-unused-vars
+import CommandsConsentCard from '../components/chat/CommandsConsentCard'
+import NetworkConsentCard from '../components/chat/NetworkConsentCard'
+import LoopBar, { LoopList } from '../components/chat/LoopBar'
+import { EgressCardsContext } from '../components/chat/egressCardsContext'
+import MessageAttachments from '../components/chat/Attachments'
+import ChatMessage, { ActivityRow, ProposalsRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
+// eslint-disable-next-line no-unused-vars
+import { AppRow } from '../components/chat/ActivityFold'
+import { resumeItems } from '../utils/homeConversations'
+import { applyFind, clearFind } from '../components/chat/findInThread'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
+// eslint-disable-next-line no-unused-vars
+import ConfirmDialog from '../components/ConfirmDialog'
+// eslint-disable-next-line no-unused-vars
+import ChatsMenu from '../components/ChatsMenu'
+import { ChatSendContext } from '../components/chat/chatSendContext'
+import { useAuth } from '../context/AuthContext'
+import { useOperations } from '../hooks/useOperations'
+import { useLoadedModels } from '../hooks/useLoadedModels'
+import { copyToClipboard } from '../utils/clipboard'
+import { chatAddress, seqOfSearch } from '../utils/chatSearch'
+import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import BackgroundLayer from '../components/wellknown/BackgroundLayer'
+import { useIdentity, useUiString } from '../components/wellknown/Identity'
+// eslint-disable-next-line no-unused-vars
+import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
+import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
+import { usePages } from '../hooks/usePages'
+import { CHAT_UNDO_MS, useChatDelete } from '../hooks/useChatDelete'
+import { announceChats } from '../hooks/useRecentChats'
+import { readSidebarCollapsed } from '../utils/sidebarState'
+import './chat.css'
+import './chats.css'
+
+// The most pulled projects the header draws as chips; the rest are one "+N".
+const HEADER_PULLED = 2
+
+const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
+
+// The navigation state of the empty chat. /app/chats without state is an
+// address and goes to Home (see ChatsRoute in router.jsx); the page keeps a
+// state so that clearing a hand-off (a start message, a draft) does not.
+const NEW_CHAT = Object.freeze({ newChat: true })
+// The failure card of a turn that a restart interrupted (utils/chatFailure.js).
+const INTERRUPTED = Object.freeze({ code: 'interrupted', model: '', retry: 0, detail: '', text: '' })
+
+function browserStorage() {
+  try { return window.localStorage } catch { return null }
+}
+
+// One chat state per account: the chats belong to the signed-in user, so a
+// different account gets a fresh mount instead of the previous account's chats.
+export default function Chat() {
+  const { user } = useAuth()
+  return <ChatPage key={user?.id || ''} />
+}
+
+// The chat page. The server keeps every chat: its transcript, the messages that
+// wait for the model, its tools and its turn, which keeps running when the page
+// closes. /app/chats/<id> opens one; /app/chats is the empty chat that a
+// hand-off opens (Home's first message, an agent, a draft).
+// eslint-disable-next-line no-unused-vars -- used as JSX above
+function ChatPage() {
+  const { id: routeId } = useParams()
+  const { addToast } = useOutletContext()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const { t } = useTranslation('chat')
+  const { t: tc } = useTranslation('chats')
+  const { t: tw } = useTranslation('workspace')
+  const { t: tp } = useTranslation('pages')
+  const { t: tpj } = useTranslation('projects')
+  // How the assistant shows itself (persona.json) and the text overrides of
+  // ui.json: shared copies of the files, live through the change feed.
+  const identity = useIdentity()
+  const uiString = useUiString()
+  const { user, isAdmin, hasFeature } = useAuth()
+  const canAgents = hasFeature('agents')
+  const { operations } = useOperations()
+  const textareaRef = useRef(null)
+  const pageRef = useRef(null)
+  // A chat Home just started opens with its first message already drawn
+  // (useComposerTransition): no empty page while the transcript is read.
+  const arrival = useComposerArrival(routeId, { textareaRef, pageRef })
+  const chat = useServerChat({ seed: arrival.seed })
+  useAutoReadAloud({ running: chat.running, messages: chat.messages, activeId: chat.activeId, failed: chat.lastTurn === 'failed' })
+  // Opening a chat marks its notifications read on the server; the shell's inbox reads again.
+  const inbox = useInboxEntry()
+  const { select, activeId } = chat
+
+  // An old chat link or the Home page names a model with ?model=; it is a hint
+  // for a new chat. An agent chosen on the agents page arrives in the state.
+  const [assistantOn, setAssistantOn] = useState(false)
+  // The composer: the text and files belong to the open chat (useChatDrafts);
+  // a new chat has a model, an agent and drafted switches (useChatComposer).
+  const activeChat = activeId ? (chat.detail || chat.chats.find(c => c.id === activeId) || null) : null
+  const composer = useChatComposer({
+    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on, canAgents,
+    initialModel: searchParams.get('model') || '', initialAgent: location.state?.agentId || '',
+  })
+  const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer
+  const { models: chatModels, modelsLoading: chatModelsLoading } = composer
+  const { text: input, setText: setInput, files } = drafts
+
+  // The dock: pages beside the chat, kept with the chat (usePageDock). There
+  // is none until something opens it.
+  const dockOn = hasFeature('pages')
+  const pageDock = usePageDock({
+    chatId: activeId, server: chat.detail?.dock, serverFor: chat.detail?.id, enabled: dockOn,
+    onError: (e) => addToast?.(tp('dock.saveFailed', { message: e?.message || '' }), 'error'),
+  })
+  // A page the Pages list sent to the dock opens in this (new) chat.
+  const dockAsk = location.state?.dock
+  useEffect(() => {
+    if (!dockAsk || !dockOn) return
+    pageDock.open(dockAsk)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: { ...location.state, dock: undefined } })
+  }, [dockAsk, dockOn]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live: hands-free voice with the open chat. It needs a chat that has an id,
+  // so a new chat does not offer it; Home creates the chat first and opens it
+  // with state.live (below). useLive ends Live when the chat changes.
+  const { models: sttModels, loading: sttLoading, refetch: refetchStt } = useModels(CAP_TRANSCRIPT)
+  const { models: ttsModels, loading: ttsLoading, refetch: refetchTts } = useModels(CAP_TTS)
+  const refetchLiveModels = useCallback(() => { refetchStt(); refetchTts() }, [refetchStt, refetchTts])
+  const liveModel = useMemo(() => pickLiveModels({ stt: sttModels, tts: ttsModels }), [sttModels, ttsModels])
+  const liveVoice = useLive({
+    chatId: activeId,
+    running: chat.running,
+    failure: chat.failure,
+    send: (text) => chat.send(activeId, text),
+    stop: () => chat.stop(activeId),
+    model: liveModel,
+  })
+  const liveOn = liveVoice.state.name !== 'off'
+  // The setup sheet opens when the Live button finds a model missing.
+  const [liveSetupOpen, setLiveSetupOpen] = useState(false)
+  const openLiveSetup = useCallback(() => setLiveSetupOpen(true), [])
+  // Home's Live button opens this chat with state.live. The state is cleared
+  // first, so Back and a reload do not start Live again. Once the speech
+  // models are known, Live starts, or the setup sheet opens when one is
+  // missing. The browser lets the voice play because the click on Home and
+  // this navigation are one page session.
+  const [liveWanted, setLiveWanted] = useState(false)
+  const liveIntent = !!location.state?.live
+  useEffect(() => {
+    if (!liveIntent || !activeId || activeId !== routeId) return
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    setLiveWanted(true)
+  }, [liveIntent, activeId, routeId, navigate, location.pathname, location.search])
+  useEffect(() => {
+    if (!liveWanted || sttLoading || ttsLoading) return
+    setLiveWanted(false)
+    if (liveModel.stt && liveModel.tts) liveVoice.start()
+    else openLiveSetup()
+  }, [liveWanted, sttLoading, ttsLoading, liveModel, liveVoice, openLiveSetup])
+  // After Live ends, focus goes back: Type instead to the message box (back in
+  // place), End Live to the Live button.
+  const liveButtonRef = useRef(null)
+  const [focusAfterLive, setFocusAfterLive] = useState(null)
+  useEffect(() => {
+    if (!focusAfterLive || liveOn) return
+    setFocusAfterLive(null)
+    if (focusAfterLive === 'input') textareaRef.current?.focus()
+    else liveButtonRef.current?.focus()
+  }, [focusAfterLive, liveOn])
+  const typeInsteadOfLive = useCallback(() => {
+    liveVoice.end()
+    setFocusAfterLive('input')
+  }, [liveVoice])
+  const endLive = useCallback(() => {
+    liveVoice.end()
+    setFocusAfterLive('button')
+  }, [liveVoice])
+  // Stop and Esc during a voice turn go through Live, so the cut-off partial
+  // reply is not spoken. Any other turn is stopped as before.
+  const stopTurn = () => (liveVoice.state.name === 'thinking' ? liveVoice.stopVoice() : chat.stop(activeId))
+  const [busy, setBusy] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+  const [modelInfo, setModelInfo] = useState(null)
+  // Whether the composer has focus: the status line shows the keyboard hint
+  // only then.
+  const [composerFocused, setComposerFocused] = useState(false)
+  const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const [renaming, setRenaming] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [editingPending, setEditingPending] = useState(null) // { id, text }
+  // The goal that the last /goal of this chat replaced ({ id, text }): the goal
+  // bar says it once, until the goal changes again.
+  const [goalReplaced, setGoalReplaced] = useState(null)
+  // What /goal does, for the send path, which is set up before it.
+  const runGoalRef = useRef(null)
+  // The chat whose answer to /loop list is open over the message box.
+  const [loopListFor, setLoopListFor] = useState('')
+  // An error of this page (a send or a delete that failed); the hook has its own.
+  const [localError, setLocalError] = useState('')
+  // The agent whose folder is missing, when the last error said so: the
+  // error then offers to edit that agent.
+  const [folderAgent, setFolderAgent] = useState('')
+  const sayError = useCallback((e, fallback) => {
+    // The project of the agent is archived, deleted or has changed folders.
+    const paused = startRefusal(e)
+    if (paused) {
+      setFolderAgent('')
+      setLocalError(t(paused === 'changed' ? 'agentFolder.projectChanged' : 'agentFolder.projectPaused'))
+      return
+    }
+    if (isFolderMissingError(e)) {
+      setFolderAgent((activeId && activeChat?.agent_id) || agentId || '')
+      setLocalError(t('agentFolder.startError'))
+      return
+    }
+    setFolderAgent('')
+    setLocalError(e?.message || fallback)
+  }, [activeId, activeChat, agentId, t])
+  // The chats the old chat page left in this browser, offered for import once.
+  const [browserStores, setBrowserStores] = useState(() => {
+    const st = browserStorage()
+    try { if (st?.getItem(BROWSER_IMPORT_DISMISSED)) return [] } catch { return [] }
+    return browserChatStores(st)
+  })
+  const importInputRef = useRef(null)
+  const { ids: loadedIds, loaded: loadedModels } = useLoadedModels()
+  const messagesEndRef = useRef(null)
+  const messagesRef = useRef(null)
+  const stickToBottomRef = useRef(true)
+  const [scrolledUp, setScrolledUp] = useState(false)
+  const chatsMenuRef = useRef(null)
+  const pickerRef = useRef(null)
+  const effortRef = useRef(null)
+  // The reasoning effort picked before the chat exists. It is written to the
+  // chat's settings right after the chat is created.
+  const [draftEffort, setDraftEffort] = useState('')
+
+  // The address names the open chat. Opening one by id selects it, unless it is
+  // already open (creating a chat selects it before the address changes).
+  useEffect(() => {
+    const want = routeId || null
+    // Opening a chat marks its notifications read on the server: read the inbox again after.
+    if (want !== activeId) Promise.resolve(select(want)).finally(() => inbox.refresh())
+  // activeId is read, not a trigger: only a change of address selects.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeId])
+
+  // The assistant switch is best effort: a server without it leaves the
+  // /assistant action out.
+  useEffect(() => {
+    let live = true
+    fetch(apiUrl('/api/features')).then(r => r.json()).then(d => { if (live) setAssistantOn(!!d.localai_assistant) }).catch(() => {})
+    return () => { live = false }
+  }, [])
+
+  const model = activeChat ? activeChat.model : draftModel
+  // The network of the chat's isolated commands, read again on its events, and
+  // the sandbox profile of the commands, with the progress of its image.
+  // A new chat has the same two rows from the draft endpoints; its choices are
+  // saved with the chat when it is created (createWithDraft).
+  const sandboxProfile = useChatSandboxProfile(activeId, chat.ticks.egress)
+  const egress = useChatEgress(activeId, chat.ticks.egress, { model: draftModel, agentId, profilesApply: Boolean(sandboxProfile.applies) })
+  // Switching an add-on or a tool group on or off changes who runs the commands
+  // and whether the network controls apply, so the network view is read again.
+  const { refresh: refreshEgress } = egress
+  const commandsRev = switches.commandsRev
+  useEffect(() => { if (commandsRev) refreshEgress() }, [commandsRev, refreshEgress])
+  // The cards of the chat by their tool line; the ones that wait are drawn
+  // under the live fold until the call ends.
+  const egressCards = useMemo(() => ({
+    byTool: cardsByTool(egress.cards.filter(c => c.state !== 'pending' && c.tool_seq)), chatId: activeId, egress,
+  }), [egress, activeId])
+  const waitingCards = egress.cards.filter(c => c.state === 'pending' || (!c.tool_seq && c.state !== 'expired'))
+  const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
+  // The preview pane on the right: the chat's files and what its answers
+  // produced. It opens by itself on a new result (useChatPreviewPane).
+  const pane = useChatPreviewPane({
+    chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
+    messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
+    blocked: pageDock.dock.open, madeHere: chat.madeHere || arrival.handoff?.chat?.id || null, startedTurn: chat.startedTurn,
+  })
+  // The dock and the files pane share the right side, one at a time: the one
+  // the person opens last takes it, and the other hides without being closed
+  // for good. A result that arrives never takes the side from an open dock.
+  const dockIsOpen = pageDock.dock.open
+  const hidePane = pane.hide
+  // Only a change of the pane or of the dock acts, never a change of chat.
+  const dockUpdateRef = useRef(pageDock.update)
+  dockUpdateRef.current = pageDock.update
+  useEffect(() => { if (dockIsOpen) hidePane() }, [dockIsOpen, hidePane])
+  useEffect(() => {
+    if (pane.open) dockUpdateRef.current((d) => (d.open ? setDockOpen(d, false) : d))
+  }, [pane.open])
+  const withArrival = arrival.messages
+  const messages = useMemo(() => withOptimistic(withArrival(chat.messages, activeId), chat.sending, activeId), [withArrival, chat.messages, chat.sending, activeId])
+  const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
+  const modelWarm = !!model && loadedIds.has(model)
+  const title = activeChat?.title || tc('list.untitled')
+  // The project chips of the header: only a chat that has a project (or an open
+  // settings sheet) reads the list, so other chats cost no request.
+  const hasProjects = Boolean(activeChat?.project_id || activeChat?.pulled_projects?.length)
+  const projectList = useProjectList(Boolean(activeId) && (hasProjects || showSettings))
+  const homeProj = hasProjects ? homeProject(activeChat, projectList.projects) : null
+  const pulledProj = hasProjects ? pulledProjects(activeChat, projectList.projects, projectList.shared) : []
+
+  // What the slash menu needs from this page (see utils/slashCommands.js); the
+  // composer adds the skills, the agents, the models and the staged files.
+  const slashCtx = useMemo(() => ({
+    assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId, running: chat.running,
+    hasContext: contextSinceClear(messages), loops: chat.loops,
+    // A goal belongs to a chat a person started; /goal lists clear and resume
+    // for the goal the chat has.
+    canGoal: !chat.detail?.origin && chat.detail?.kind !== 'subagent', goalState: chat.goal?.state || '',
+  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages, chat.detail, chat.goal, chat.loops])
+  // The card a command drew under the thread (/help, /about): never stored.
+  const [cmdCard, setCmdCard] = useState(null)
+  // The context command on its way to the server: 'compacting' or 'clearing'.
+  const [contextBusy, setContextBusy] = useState('')
+  useEffect(() => { setCmdCard(null); setContextBusy('') }, [activeId])
+
+  // What the model is waiting for while it comes up: a byte transfer this
+  // frontend is doing for it. A model that is simply not loaded yet has no
+  // phases, so the card says only that.
+  const loadProgress = useMemo(() => {
+    if (!chat.running || !model) return null
+    const op = operations.find(o => o.taskType === 'staging' && o.name === model)
+    if (!op) return null
+    return {
+      label: op.nodeName ? t('streaming.transferringTo', { node: op.nodeName }) : t('streaming.transferring'),
+      progress: op.progress || 0,
+      detail: op.message || '',
+    }
+  }, [operations, chat.running, model, t])
+
+  // Focus mode: once a conversation has a message we slim the surrounding
+  // chrome (collapse the global app rail). Esc gives the user back the full
+  // chrome for the rest of this chat. The settings sheet offers an opt-out.
+  const [focusOverride, setFocusOverride] = useState(false)
+  const [focusModeEnabled, setFocusModeEnabled] = useState(() => {
+    try { return localStorage.getItem(FOCUS_MODE_KEY) !== 'false' } catch { return true }
+  })
+  const focusActive = focusModeEnabled && hasThread && !focusOverride
+  const prevAppCollapseRef = useRef(null)
+  const toggleFocusMode = (next) => {
+    setFocusModeEnabled(next)
+    try { localStorage.setItem(FOCUS_MODE_KEY, String(next)) } catch { /* private mode */ }
+  }
+
+  // What the composer slot of add-ons is told: the conversation and whether
+  // sending is blocked. Never the draft or the history.
+  const composerSlotContext = useMemo(() => ({ conversationId: activeId || undefined, disabled: chat.running }), [activeId, chat.running])
+
+  useEffect(() => {
+    const on = (e) => { if (e.target === textareaRef.current) setComposerFocused(e.type === 'focusin') }
+    document.addEventListener('focusin', on)
+    document.addEventListener('focusout', on)
+    return () => {
+      document.removeEventListener('focusin', on)
+      document.removeEventListener('focusout', on)
+    }
+  }, [])
+
+  // Admins read the model config for the model info of the settings sheet.
+  useEffect(() => {
+    if (!isAdmin || !model) { setModelInfo(null); return undefined }
+    let cancelled = false
+    modelsApi.getConfigJson(model).then(cfg => { if (!cancelled) setModelInfo(cfg) }).catch(() => { if (!cancelled) setModelInfo(null) })
+    return () => { cancelled = true }
+  }, [model, isAdmin])
+
+  // Track whether the user is pinned to the bottom. If they scroll up while a
+  // reply streams, stop forcing them back down.
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return undefined
+    let last = el.scrollTop
+    const onScroll = () => {
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      // Only a move up unpins the thread. Our own smooth scroll to the bottom
+      // moves down and reports a distance above the threshold on its way, which
+      // must not unpin it: the send and the streamed answer would stop following.
+      const up = el.scrollTop < last
+      last = el.scrollTop
+      if (distanceFromBottom < 80) stickToBottomRef.current = true
+      else if (up) stickToBottomRef.current = false
+      setScrolledUp(distanceFromBottom > 160)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // A new message scrolls down smoothly. What grows under a pinned thread (the
+  // card of a model that loads and its progress, the streamed answer, a message
+  // that settles) is followed at once, from the size of the thread itself, so
+  // nothing waits for a change of data to scroll.
+  useEffect(() => {
+    if (!stickToBottomRef.current) return
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, chat.pending.length])
+  useEffect(() => {
+    const el = messagesRef.current
+    const thread = el?.querySelector('.cx-thread')
+    if (!el || !thread || typeof ResizeObserver === 'undefined') return undefined
+    const follow = () => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight
+    }
+    const ro = new ResizeObserver(follow)
+    ro.observe(thread)
+    return () => ro.disconnect()
+  }, [])
+
+  // Switching chats snaps to the bottom and resets the focus-mode override.
+  useEffect(() => {
+    stickToBottomRef.current = true
+    setScrolledUp(false)
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+    setFocusOverride(false)
+    setRenaming(false)
+    setEditingPending(null)
+  }, [activeId])
+
+  // Collapse the global app rail when a conversation begins, and restore it
+  // when the user goes back to an empty chat or overrides focus with Esc.
+  // A layout effect: the rail folds in the frame the conversation appears,
+  // not one frame later under it (a chat opened from Home starts with one).
+  useLayoutEffect(() => {
+    if (focusActive) {
+      if (prevAppCollapseRef.current === null) {
+        prevAppCollapseRef.current = readSidebarCollapsed()
+      }
+      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: true } }))
+    } else if (prevAppCollapseRef.current !== null) {
+      window.dispatchEvent(new CustomEvent('sidebar-collapse', { detail: { collapsed: prevAppCollapseRef.current } }))
+      prevAppCollapseRef.current = null
+    }
+  }, [focusActive])
+
+  // Global keys: Cmd/Ctrl+K opens the chats menu and Cmd/Ctrl+Shift+F searches
+  // this chat. Esc stops a running turn, else closes the search, else closes
+  // the preview pane; it also exits focus mode. None of that fires while a menu or
+  // dialog is open: those take their own Esc first.
+  const escapeRef = useRef({})
+  escapeRef.current = { running: chat.running, stop: stopTurn, findOpen: find.open, paneOpen: pane.open, closePane: pane.close }
+  useEffect(() => {
+    const onKey = (e) => {
+      const isMod = e.metaKey || e.ctrlKey
+      if (isMod && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        chatsMenuRef.current?.toggle()
+        return
+      }
+      if (isMod && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+        return
+      }
+      // "/" from anywhere that is not a text field starts a command, as on Home.
+      if (e.key === '/' && !isMod && !e.altKey && !isTyping(document.activeElement) && !document.querySelector('[role="dialog"], [role="alertdialog"]')) {
+        const el = textareaRef.current
+        if (el) {
+          e.preventDefault()
+          setInput('/')
+          el.focus()
+        }
+        return
+      }
+      const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, [role="dialog"], [role="alertdialog"]')
+      // An Escape that a popover or a sheet already used to close itself must
+      // not also stop the turn.
+      if (e.key === 'Escape' && !overlay && !e.defaultPrevented) {
+        const cur = escapeRef.current
+        if (cur.running) cur.stop()
+        else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+        else if (cur.paneOpen) cur.closePane()
+      }
+      if (e.key === 'Escape' && focusActive) setFocusOverride(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [focusActive, setInput])
+
+  // Find in chat: mark the matches in the thread, then show the current one.
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    if (!find.open || !find.query) {
+      clearFind(root)
+      setFind(f => (f.count === 0 ? f : { ...f, count: 0 }))
+      return
+    }
+    const marks = applyFind(root, find.query)
+    setFind(f => (f.count === marks.length ? f : { ...f, count: marks.length, index: Math.min(f.index, Math.max(0, marks.length - 1)) }))
+  }, [find.open, find.query, messages, chat.running])
+
+  useEffect(() => {
+    const root = messagesRef.current
+    if (!root) return
+    root.querySelectorAll('mark.cx-hit').forEach((mark, i) => {
+      if (i === find.index) {
+        mark.setAttribute('data-cur', '')
+        // The reader chose where to look: the thread stops following the bottom.
+        stickToBottomRef.current = false
+        mark.scrollIntoView({ block: 'center' })
+      } else {
+        mark.removeAttribute('data-cur')
+      }
+    })
+  }, [find.index, find.count, find.query])
+
+  // A link from the chat search names a message (?seq=14): scroll to it once
+  // the transcript has it, and flash it so the eye finds it. location.key
+  // makes a second click on the same hit jump again.
+  const wantSeq = seqOfSearch(location.search)
+  const jumpedRef = useRef('')
+  useEffect(() => {
+    if (!wantSeq || !activeId || routeId !== activeId) return undefined
+    const mark = `${location.key}:${activeId}:${wantSeq}`
+    if (jumpedRef.current === mark) return undefined
+    const el = messagesRef.current?.querySelector(`[data-testid="chat-message"][data-index="${wantSeq}"]`)
+    if (!el) return undefined
+    jumpedRef.current = mark
+    stickToBottomRef.current = false
+    el.scrollIntoView({ block: 'center' })
+    el.focus({ preventScroll: true })
+    // on, then off (the colour fades by a transition), then gone. Not cleared
+    // by the cleanup: a new message in the transcript re-runs this effect and
+    // must not cut the flash short.
+    el.setAttribute('data-flash', 'on')
+    setTimeout(() => el.setAttribute('data-flash', 'off'), 1400)
+    setTimeout(() => el.removeAttribute('data-flash'), 2800)
+    return undefined
+  }, [wantSeq, activeId, routeId, messages, location.key])
+
+  // Highlight code blocks and add per-block Copy and Download buttons, and
+  // Open preview on a block that is a result (a page, an SVG, a long block, a
+  // block the answer names as a file). The observer is disconnected while we
+  // mutate so our own edits don't retrigger it.
+  const blockOfRef = useRef(() => null)
+  blockOfRef.current = (pre) => {
+    const seq = Number(pre.closest('[data-index]')?.dataset.index)
+    const msg = messages.find(m => m.seq === seq && m.role === 'assistant')
+    if (!msg) return null
+    const text = (pre.querySelector('code')?.textContent || '').trim()
+    const block = codeBlocksOf(msg.text).find(b => b.code.trim() === text)
+    return block ? { msg, block } : null
+  }
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return undefined
+    let obs
+    const labels = {
+      copyLabel: t('actions.copy'),
+      downloadLabel: t('preview.downloadCode'),
+      previewLabel: t('preview.open'),
+      canPreview: (pre) => {
+        const found = blockOfRef.current(pre)
+        return !!found && isPreviewableBlock(found.block)
+      },
+      selector: '.cx-prose pre:not([data-enhanced])',
+    }
+    const run = () => {
+      obs?.disconnect()
+      highlightAll(el)
+      enhanceCodeBlocks(el, labels)
+      obs?.observe(el, { childList: true, subtree: true })
+    }
+    obs = new MutationObserver(run)
+    run()
+    return () => obs.disconnect()
+  }, [activeId, t])
+
+  // The Download and Open preview buttons of a code block.
+  const openBlock = pane.openBlock
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return undefined
+    const handler = (e) => {
+      const btn = e.target.closest('.code-preview-btn, .code-download-btn')
+      if (!btn) return
+      const pre = btn.closest('.code-block')?.querySelector('pre')
+      const found = pre && blockOfRef.current(pre)
+      if (btn.classList.contains('code-preview-btn')) {
+        if (found) openBlock(`${found.msg.seq}-${found.block.index}`)
+        return
+      }
+      const code = pre?.querySelector('code')?.textContent || ''
+      const lang = found?.block.lang || ''
+      const url = URL.createObjectURL(new Blob([code], { type: 'text/plain' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `code.${extensionForLanguage(lang)}`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    }
+    el.addEventListener('click', handler)
+    return () => el.removeEventListener('click', handler)
+  }, [openBlock])
+
+  // Sends the composer. The message that starts a chat creates it first. In a
+  // chat that exists a message always goes: while a turn runs it waits and
+  // reaches the model at its next step.
+  const handleSend = useCallback(async (override) => {
+    let text = (typeof override === 'string' ? override : input).trim()
+    const sending = typeof override === 'string' ? [] : files
+    if ((!text && sending.length === 0) || (!activeId && busy)) return
+    // /goal is not a message: it shows, sets, clears or resumes the goal.
+    const goalCmd = typeof override === 'string' ? null : parseGoalCommand(text)
+    if (goalCmd) {
+      drafts.clear(activeId)
+      runGoalRef.current(goalCmd)
+      return
+    }
+    if (typeof override !== 'string' && /^\/loop(\s|$)/.test(text)) {
+      runLoopCommand(text.slice(5))
+      return
+    }
+    // A message typed as a command (/review fix this, /agent Name task) goes
+    // with its skill or agent; the transcript shows the words and a chip.
+    const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
+    const subOff = !!switches.builtins.find(b => b.group === 'subagents')?.off
+    const inv = typeof override === 'string' ? null : parseInvocation(text, {
+      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff,
+    })
+    if (inv?.error) {
+      setLocalError(t(`slash.errors.${inv.error}`, { name: inv.name }))
+      return
+    }
+    const command = inv ? { skill: inv.skill, agent: inv.agent } : undefined
+    if (inv) text = inv.text
+    if (!activeId && !effectiveModel) {
+      addToast(t('toasts.selectModel'), 'warning')
+      return
+    }
+    if (typeof override !== 'string') drafts.clear(activeId)
+    setLocalError('')
+    let target = activeId
+    // The message shows now; the chat that a first message needs is created
+    // behind it (a message of an open chat is drawn by chat.send).
+    if (!target) chat.showSending(null, text, sending)
+    try {
+      if (!target) {
+        setBusy(true)
+        // The chat is created with the switches drafted in its menus.
+        target = await createWithDraft()
+        switches.resetDraft()
+        await select(target)
+        navigate(`/app/chats/${target}`)
+      }
+      stickToBottomRef.current = true
+      await chat.send(target, text, sending, command)
+    } catch (e) {
+      // Give the text and files back to the chat they were written in, unless
+      // the user typed something else there. Another chat may be open by now.
+      chat.dropSending()
+      if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
+      if (drafts.isOpen(target)) sayError(e, tc('errors.send'))
+      else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : startRefusal(e) ? t(startRefusal(e) === 'changed' ? 'agentFolder.projectChanged' : 'agentFolder.projectPaused') : (e.message || tc('errors.send')), 'error')
+    } finally {
+      setBusy(false)
+    }
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, chat, select, navigate, addToast, t, tc, drafts, sayError])
+
+  // The Home page hands over the first message in the location state. It goes
+  // once, when a model is known; without one the text waits in the box. A
+  // draft only fills the box.
+  const startRef = useRef(location.state?.start || '')
+  const draftRef = useRef(location.state?.draft || '')
+  useEffect(() => {
+    if (startRef.current) setInput(startRef.current)
+    else if (draftRef.current) { setInput(draftRef.current); textareaRef.current?.focus() }
+  }, [setInput])
+  // A draft (for example "Ask the assistant to change this" on a page) only
+  // fills the box: the person finishes the sentence and sends it.
+  useEffect(() => {
+    const draft = location.state?.draft
+    if (typeof draft !== 'string' || !draft) return
+    setInput(d => d || draft)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: NEW_CHAT })
+  }, [location.state?.draft]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const start = startRef.current
+    if (!start || input !== start || activeId || busy || !effectiveModel) return
+    startRef.current = ''
+    // Clear the state first: Back must not send the message again.
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: NEW_CHAT })
+    handleSend()
+  }, [input, activeId, busy, effectiveModel, handleSend, navigate, location.pathname, location.search])
+
+  // A command item of a slot fills the composer with the command's text, as
+  // choosing it in the slash menu does; the person sends it.
+  const fillComposer = useCallback((text) => {
+    setInput(text)
+    textareaRef.current?.focus()
+  }, [setInput])
+
+  // A shortcut fills the composer, as the starters did; one marked send goes
+  // at once when the chat can take a message.
+  const pickShortcut = useCallback((s) => {
+    if (s.send && effectiveModel && !(!activeId && busy)) {
+      handleSend(s.prompt)
+      return
+    }
+    setInput(s.prompt)
+    textareaRef.current?.focus()
+  }, [effectiveModel, activeId, busy, handleSend, setInput])
+
+  // Regenerate answers the last message again: the server removes what the
+  // model said after it and starts a new turn.
+  const handleRegenerate = useCallback(() => {
+    if (activeId) chat.regenerate(activeId)
+  }, [activeId, chat])
+
+  // Retry of the failure card goes on from where the turn stopped: the
+  // messages, tool calls and results stay.
+  const handleRetry = useCallback(() => {
+    if (activeId) chat.resume(activeId)
+  }, [activeId, chat])
+
+  // Branch copies the chat up to and including the line into a new chat, which opens.
+  const handleFork = useCallback(async (seq) => {
+    if (!activeId) return
+    try {
+      const forked = await chatsApi.fork(activeId, seq)
+      await chat.refreshList()
+      navigate(`/app/chats/${encodeURIComponent(forked.id)}`)
+      addToast(t('toasts.branched'), 'success', 2500)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }, [activeId, chat, navigate, addToast, t])
+
+  // Up in an empty box edits the last waiting message, or puts your last
+  // message back in the box to send again.
+  const onComposerKey = (e) => {
+    if (e.key !== 'ArrowUp' || input || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) return false
+    if (!activeId) return false
+    const last = chat.pending[chat.pending.length - 1]
+    if (last) {
+      e.preventDefault()
+      setEditingPending({ id: last.id, text: last.text })
+      return true
+    }
+    const text = lastUserText(messages)
+    if (!text) return false
+    e.preventDefault()
+    setInput(text)
+    return true
+  }
+
+  const copyText = async (text) => {
+    const ok = await copyToClipboard(text || '')
+    addToast(ok ? t('toasts.copied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
+  }
+
+  // The transcript of another chat is read when it is exported from the menu.
+  const transcriptOf = async (id) => (id === activeId ? messages : (await chatsApi.messages(id)).messages || [])
+  const serverChat = (id) => (id === activeId && chat.detail) || chat.chats.find(c => c.id === id) || { id, title: '' }
+  const exportChat = (id, format = 'markdown') => downloadFrom(chatsApi.exportUrl(id, format))
+  // A JSON export (GET .../export?format=json) becomes a new chat. The file
+  // keeps its model unless this server does not have it: then the chat gets
+  // the model picked here.
+  const importChatFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const exported = chatFromExport(await file.text())
+      if (!exported) throw new Error(t('toasts.notAChat'))
+      const known = chatModels.some(m => m.id === exported.model)
+      const conv = await chatsApi.importChat(exported, known ? '' : effectiveModel)
+      await chat.refreshList()
+      navigate(`/app/chats/${encodeURIComponent(conv.id)}`)
+      addToast(t('toasts.imported', { title: conv.title || tc('list.untitled') }), 'success', 2500)
+    } catch (err) {
+      addToast(t('toasts.importFailed', { message: err.message }), 'error')
+    }
+  }
+  const runBrowserImport = async () => {
+    const st = browserStorage()
+    try {
+      const total = await importBrowserChats(st, browserStores, (raw) => chatsApi.importBrowser(raw))
+      addToast(t('browserImport.done', total), total.failed > 0 ? 'warning' : 'success', 4000)
+      await chat.refreshList()
+    } catch (err) {
+      addToast(t('browserImport.failed', { message: err.message }), 'error')
+    }
+    setBrowserStores(browserChatStores(st))
+  }
+  const dismissBrowserImport = () => {
+    try { browserStorage()?.setItem(BROWSER_IMPORT_DISMISSED, '1') } catch { /* private mode: asked again next time */ }
+    setBrowserStores([])
+  }
+  const copyChat = async (id) => {
+    try {
+      const ok = await copyToClipboard(chatMarkdown(serverChat(id), await transcriptOf(id)))
+      addToast(ok ? t('toasts.chatCopied') : t('toasts.copyFailed'), ok ? 'success' : 'error', ok ? 2000 : 3000)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
+  // Deleting a chat is final when its undo time ends. Until then only its row
+  // is hidden; if it was the open one, the empty chat opens in its place, so
+  // the offer stays on screen (leaving the page would end it at once).
+  const deletes = useChatDelete({
+    remove: async (id) => { await chat.remove(id); drafts.clear(id); pane.forget(id) },
+    // A chat the server would not delete comes back, with the reason.
+    onFailed: (e) => {
+      setLocalError(e.message || tc('errors.delete'))
+      chat.refreshList()
+    },
+  })
+  const pendingDelete = deletes.pending
+  const commitDelete = deletes.commit
+
+  const requestDelete = (c) => {
+    const wasActive = c.id === activeId
+    deletes.request({ id: c.id, name: c.name || c.title || tc('list.untitled'), wasActive })
+    if (wasActive) navigate('/app/chats', { state: NEW_CHAT })
+  }
+  const undoDelete = () => {
+    const pending = deletes.undo()
+    if (pending?.wasActive) navigate(`/app/chats/${pending.id}`)
+  }
+
+  const visibleChats = useMemo(
+    () => menuChats(chat.chats).filter(c => c.id !== pendingDelete?.id),
+    [chat.chats, pendingDelete],
+  )
+  // The sidebar's recent chats follow this list, without the chats that no
+  // person started: they have their own area (All chats, second tab).
+  useEffect(() => { announceChats(visibleChats.filter(c => !c.origin)) }, [visibleChats])
+  // What started a chat is named by the connector and trigger lists. They are
+  // read only when this page shows a chat that something else started.
+  const hasAutomated = visibleChats.some(c => c.origin) || Boolean(activeChat?.origin)
+  const originCtx = useOriginContext(hasAutomated)
+  const originTitle = (c) => resolveOrigin({ origin: c.origin, originId: c.originId }, originCtx).title
+
+  const promptDeleteAll = () => setConfirmDialog({
+    title: t('deleteAllDialog.title'),
+    message: t('deleteAllDialog.message'),
+    confirmLabel: t('deleteAllDialog.confirm'),
+    danger: true,
+    onConfirm: async () => {
+      setConfirmDialog(null)
+      // Clear all removes the person's own chats. The ones that something else started stay.
+      for (const c of visibleChats.filter(x => !x.origin)) {
+        try { await chat.remove(c.id); drafts.clear(c.id); pane.forget(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
+      }
+      navigate('/app')
+    },
+  })
+
+  // The window of the chat's model is too small for the chat agent (the
+  // server's harness block). An administrator raises the window of the model;
+  // anyone else moves the chat to another model, or resets the chat's own
+  // context size setting.
+  const harnessModel = activeChat?.model || ''
+  const setModelWindow = async (value) => {
+    try {
+      await modelsApi.patchConfig(harnessModel, { context_size: value })
+      addToast(t('toasts.windowSet', { model: harnessModel, window: value }), 'success', 3000)
+      await chat.refreshChat(activeId)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+  const resetChatWindow = async () => {
+    const rest = { ...(activeChat?.settings || {}) }
+    delete rest.context_size
+    try {
+      await chat.update(activeId, { settings: rest })
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
+  const promptDelete = () => activeChat && requestDelete({ id: activeChat.id, name: title })
+
+  // Picking another model in a chat moves the chat to it from the next turn.
+  // The server refuses while a turn runs (409) and says why.
+  const pickModel = async (next) => {
+    if (!next || next === activeChat?.model) return
+    try {
+      await chat.update(activeId, { model: next })
+      addToast(t('toasts.modelChanged', { model: next }), 'success', 2500)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
+  const openAssistant = async () => {
+    const m = effectiveModel || chatModels[0]?.id
+    if (!m) { addToast(t('toasts.selectModel'), 'warning'); return }
+    try {
+      const conv = await chatsApi.create(m, t('assistant.chatTitle'), '', true)
+      navigate(`/app/chats/${encodeURIComponent(conv.id)}`)
+    } catch (e) {
+      addToast(e.message, 'error')
+    }
+  }
+
+  // The message component is memoised, so it gets one stable set of actions
+  // that always call the latest handlers.
+  const actionsRef = useRef(null)
+  actionsRef.current = { copyText, handleRegenerate, handleFork, edit: (seq, text) => chat.editMessage(activeId, seq, text) }
+  const messageActions = useMemo(() => ({
+    copy: (text) => actionsRef.current.copyText(text),
+    edit: (seq, text) => actionsRef.current.edit(seq, text),
+    fork: (seq) => actionsRef.current.handleFork(seq),
+    regenerate: (seq) => actionsRef.current.handleRegenerate(seq),
+    focusRelative: (index, delta) => {
+      const els = Array.from(messagesRef.current?.querySelectorAll('[data-testid="chat-message"]') || [])
+      const at = els.findIndex(el => Number(el.dataset.index) === index)
+      const next = els[at + delta]
+      if (next) { next.focus(); next.scrollIntoView({ block: 'nearest' }) }
+    },
+  }), [])
+
+  const rows = useMemo(() => foldNotes(placeProposals(threadRows(messages, chat.live), { streaming: chat.running })), [messages, chat.live, chat.running])
+  // The cards of a turn that is still running go after the streaming text.
+  const tailProposals = rows.length > 0 && rows[rows.length - 1].kind === 'proposals' ? rows[rows.length - 1] : null
+  // Only the last answer can be answered again (the server cuts after the last
+  // message you sent).
+  const lastAnswerKey = useMemo(() => {
+    for (let i = rows.length - 1; i >= 0; i--) if (rows[i].kind === 'msg' && rows[i].msg.role === 'assistant') return rows[i].key
+    return ''
+  }, [rows])
+  // What each turn changed in the well-known files and the pages: a note under
+  // the last answer of the turn. Turns that end while this tab watches are
+  // live and may raise a toast; a reload or a reopened chat shows the notes only.
+  const { pages: pageList } = usePages(true)
+  const pageTitle = useCallback((name) => pageList.find(p => p.name === name)?.title || name, [pageList])
+  const changeByTurn = useMemo(() => {
+    const out = new Map()
+    const pagesSeen = new Set()
+    for (const [turn, changes] of [...turnChanges(messages)].sort((a, b) => a[0] - b[0])) out.set(turn, describeChanges(changes, pagesSeen))
+    return out
+  }, [messages])
+  const noteKeyByTurn = useMemo(() => {
+    const out = new Map()
+    for (const r of rows) if (r.kind === 'msg' && r.msg.role === 'assistant') out.set(r.msg.turn, r.key)
+    return out
+  }, [rows])
+  const [baseTurn, setBaseTurn] = useState({ id: null, turn: null })
+  useEffect(() => {
+    if (!activeId || chat.loading || chat.detail?.id !== activeId || baseTurn.id === activeId) return
+    const last = messages.reduce((n, m) => Math.max(n, m.turn || 0), 0)
+    setBaseTurn({ id: activeId, turn: chat.running ? Math.max(0, last - 1) : last })
+  }, [activeId, chat.loading, chat.detail, chat.running, messages, baseTurn.id])
+  const live = useMemo(() => liveTurns(baseTurn.id === activeId ? baseTurn.turn : null, messages), [baseTurn, activeId, messages])
+  const changeNoteFor = (row) => {
+    if (row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
+    const desc = changeByTurn.get(row.msg.turn)
+    if (!desc) return null
+    return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
+  }
+  // A file chip of a step, or of an answer, opens the preview pane at its file.
+  const filesOn = chat.files.on
+  const openFile = pane.openFile
+  useEffect(() => {
+    if (!filesOn) return undefined
+    const on = (e) => openFile(e.detail?.path)
+    window.addEventListener(OPEN_CHAT_FILE_EVENT, on)
+    return () => window.removeEventListener(OPEN_CHAT_FILE_EVENT, on)
+  }, [filesOn, openFile])
+  // The files an answer's turn created or changed: chips under its last answer.
+  const fileChipsFor = (row) => {
+    if (!filesOn || row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
+    const list = turnFiles(chatFiles.files, row.msg.turn)
+    if (list.length === 0) return null
+    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} text={row.msg.text} />
+  }
+
+  const streaming = streamingParts(chat.live)
+  const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
+
+  const openFind = () => setFind(f => ({ ...f, open: true, token: f.token + 1 }))
+  const closeFind = () => {
+    clearFind(messagesRef.current)
+    setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
+    textareaRef.current?.focus()
+  }
+  const stepFind = (delta) => setFind(f => (f.count === 0 ? f : { ...f, index: (f.index + delta + f.count) % f.count }))
+
+  // The first message of a new chat is drawn before the chat exists.
+  const isEmpty = messages.length === 0 && (!activeId || (!chat.running && !chat.loading))
+  // An agent shared with you runs with your own access: before the first
+  // message the chat says what of it you lack.
+  const emptyAgentId = isEmpty ? ((activeId ? activeChat?.agent_id : agentId) || '') : ''
+  const emptyAgent = emptyAgentId ? (composer.agents || []).find(a => a.id === emptyAgentId) : null
+  const needsAgent = emptyAgent && isSharedWithMe(emptyAgent) ? emptyAgent.id : ''
+  const noModel = !activeId && !chatModelsLoading && chatModels.length === 0 && !pickedAgent?.model
+  const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
+  const manage = Boolean(activeChat?.assistant)
+  // The identity of persona.json is the user's own assistant. An agent and
+  // the LocalAI assistant of Manage keep their own name.
+  const ownAssistant = !manage && !(activeId ? activeChat?.agent_id : pickedAgent)
+  const shownIdentity = useMemo(
+    () => (ownAssistant && (identity.name || identity.avatar) ? { name: identity.name, avatar: identity.avatar } : null),
+    [ownAssistant, identity.name, identity.avatar],
+  )
+
+  // The sub-agents of a chat: a chip after Skills.
+  const subAgents = activeId && <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
+
+  // Creates the chat with the drafted switches, then gives it the reasoning
+  // effort picked before it existed.
+  const createWithDraft = async () => {
+    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches(), composer.projectId)
+    // The shared projects picked in the composer are pulled into the new chat.
+    if (composer.pulledDraft?.length) {
+      try { await chat.setPulled(id, composer.pulledDraft) } catch (e) { addToast(tpj('toasts.pullFailed', { message: e.message }), 'warning') }
+      composer.setPulledDraft([])
+    }
+    // The sandbox profile and the network picked before the chat existed.
+    const profileError = await sandboxProfile.saveDraft(id)
+    if (profileError) addToast(tc(`sandboxProfile.${profileError}`), 'error')
+    const networkError = await egress.saveDraft(id)
+    if (networkError) addToast(networkError, 'error')
+    if (draftEffort) {
+      try { await chat.update(id, { settings: settingsWithEffort(null, draftEffort) }) } catch (e) { addToast(e.message || t('settings.saveFailed'), 'error') }
+      setDraftEffort('')
+    }
+    return id
+  }
+  const effortNow = activeId ? (activeChat?.settings?.reasoning_effort || '') : draftEffort
+  const setEffort = async (value) => {
+    if (!activeId) { setDraftEffort(value); return }
+    try {
+      await chat.update(activeId, { settings: settingsWithEffort(activeChat?.settings, value) })
+    } catch (e) {
+      addToast(e.message || t('settings.saveFailed'), 'error')
+    }
+  }
+
+  const composerChips = (
+    <>
+      {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
+    </>
+  )
+
+  const moreItems = [
+    { key: 'new', icon: 'plus', label: uiString('nav.newChat', t('menu.newChat')), onClick: () => navigate('/app') },
+    { key: 'rename', icon: 'pencil', label: t('menu.rename'), hidden: !activeId, onClick: () => setRenaming(true) },
+    { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChat(activeId) },
+    { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => exportChat(activeId) },
+    { key: 'export-json', icon: 'download', label: t('menu.exportJson'), hidden: !hasThread, onClick: () => exportChat(activeId, 'json') },
+    { key: 'import', icon: 'import', label: t('menu.importChat'), onClick: () => importInputRef.current?.click() },
+    { key: 'info', icon: 'info', label: t('header.modelInfo'), hidden: !(model && isAdmin), onClick: () => setShowSettings(true) },
+    { key: 'keys', icon: 'keyboard', label: t('shortcuts.title'), onClick: () => setShowShortcuts(true) },
+    { divider: true },
+    { key: 'delete', icon: 'trash', label: t('menu.deleteChat'), danger: true, hidden: !activeId, onClick: promptDelete },
+  ]
+
+  // The context commands: the status line says what runs, the marker lands in
+  // the thread, and an error shows like a failed send.
+  const runContext = async (kind) => {
+    if (!activeId || contextBusy) return
+    setCmdCard(null)
+    setLocalError('')
+    setContextBusy(kind === 'compact' ? 'compacting' : 'clearing')
+    try {
+      if (kind === 'compact') await chat.compact(activeId)
+      else await chat.clear(activeId)
+      stickToBottomRef.current = true
+    } catch (e) {
+      setLocalError(e.message || tc('errors.send'))
+    } finally {
+      setContextBusy('')
+    }
+  }
+
+  // /goal: the card shows the goal; a new goal replaces the one the chat had,
+  // with no question, and the bar says what it replaced. In a new chat the
+  // chat is created first.
+  const runGoal = async (cmd) => {
+    setCmdCard(null)
+    setLocalError('')
+    if (cmd.action === 'show' || (!activeId && cmd.action !== 'set')) {
+      setCmdCard({ kind: 'goal' })
+      stickToBottomRef.current = true
+      return
+    }
+    let target = activeId
+    try {
+      if (!target) {
+        if (!effectiveModel) { addToast(t('toasts.selectModel'), 'warning'); return }
+        setBusy(true)
+        target = await createWithDraft()
+        switches.resetDraft()
+        await select(target)
+        navigate(`/app/chats/${target}`)
+      }
+      stickToBottomRef.current = true
+      if (cmd.action === 'set') {
+        const res = await chat.setGoal(target, cmd.text)
+        setGoalReplaced(res?.replaced?.text ? { id: target, text: res.replaced.text } : null)
+      } else if (cmd.action === 'clear') {
+        setGoalReplaced(null)
+        await chat.clearGoal(target)
+      } else if (cmd.action === 'resume') {
+        await chat.resumeGoal(target)
+      }
+    } catch (e) {
+      sayError(e, tc('errors.send'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  runGoalRef.current = runGoal
+
+  // /loop typed in full: list, stop or start a loop of this chat. The prompt
+  // of a loop is plain text or a skill (/review the diff, or /skill review the
+  // diff); the server refuses other commands.
+  const runLoopCommand = async (rest) => {
+    if (!activeId) { setLocalError(tc('loops.slash.noChat')); return }
+    const c = parseLoopCommand(rest)
+    if (c.kind === 'usage') { setLocalError(tc('loops.slash.usage')); return }
+    const done = () => { drafts.clear(activeId); setLocalError('') }
+    if (c.kind === 'list') { done(); setLoopListFor(activeId); return }
+    if (c.kind === 'stop') {
+      if (!c.id) {
+        done()
+        const n = chat.loops.length
+        await chat.stopLoops(activeId)
+        addToast(tc('loops.slash.stopped', { count: n }), 'success')
+        return
+      }
+      const l = findLoop(chat.loops, c.id)
+      if (!l) { setLocalError(tc('loops.slash.notFound', { id: c.id })); return }
+      done()
+      await chat.stopLoop(activeId, l.id)
+      return
+    }
+    let prompt = c.prompt
+    const inv = parseInvocation(prompt, { skills: switches.skills, agents: [], savedAgentsOn: false })
+    if (inv?.skill) prompt = `/${inv.skill}${inv.text ? ` ${inv.text}` : ''}`
+    try {
+      await chat.startLoop(activeId, c.interval, prompt)
+      done()
+    } catch (e) {
+      setLocalError(e.message || tc('errors.send'))
+    }
+  }
+
+  const runSlash = (id, item) => {
+    switch (id) {
+      case 'goal':
+        runGoal({ action: item?.action === 'goalClear' ? 'clear' : item?.action === 'goalResume' ? 'resume' : 'show' })
+        break
+      case 'loop':
+        if (item?.action === 'loopList') setLoopListFor(activeId)
+        else if (item?.action === 'loopStop') chat.stopLoop(activeId, item.loopId)
+        else if (item?.action === 'loopStopAll') chat.stopLoops(activeId)
+        break
+      case 'compact': runContext('compact'); break
+      case 'clear': runContext('clear'); break
+      case 'help': setCmdCard({ kind: 'help', ...item }); stickToBottomRef.current = true; break
+      case 'about':
+        setCmdCard({
+          kind: 'about',
+          about: { ...item?.about, model: footModel, warm: modelWarm, backend: footBackend, used: chat.usage?.used || 0, limit: chat.usage?.limit || activeChat?.settings?.context_size || 0 },
+        })
+        stickToBottomRef.current = true
+        break
+      case 'model': pickerRef.current?.open(); break
+      case 'new': navigate('/app'); break
+      case 'chats': chatsMenuRef.current?.open(); break
+      case 'assistant': openAssistant(); break
+      case 'settings': setShowSettings(true); break
+      case 'effort': effortRef.current?.open(); break
+      case 'find': openFind(); break
+      case 'skills': navigate('/app/skills'); break
+      case 'export': if (activeId) exportChat(activeId); break
+      case 'delete': promptDelete(); break
+      default: break
+    }
+  }
+
+  const status = chat.running ? tc('status.working')
+    : activeId && chat.lastTurn === 'interrupted' ? tc('status.interrupted')
+      : activeId && chat.lastTurn === 'paused'
+        ? (chat.pausedSteps > 0 ? t('foot.paused.after', { count: chat.pausedSteps }) : t('foot.paused.atLimit'))
+        : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
+  // The failed turn shows as the one banner in the thread, and the footer says
+  // only the state word. A failure the server reports without a reason (the
+  // page was reloaded) fades after a day, so an old failure does not look new.
+  const showFailure = Boolean(activeId) && !chat.running && chat.lastTurn === 'failed'
+    && (Boolean(chat.failure) || !isStaleFailure(chat.detail?.updated))
+  // A turn a restart interrupted shows the same card. The page resumes it by
+  // itself a few times; the person can stop that or retry at once.
+  const showInterrupted = Boolean(activeId) && !chat.running && chat.lastTurn === 'interrupted'
+    && !isStaleFailure(chat.detail?.updated)
+  const autoResume = useAutoResume({
+    id: activeId, lastTurn: chat.lastTurn, running: chat.running, resuming: chat.resuming,
+    updated: chat.detail?.updated, resume: chat.resume,
+    willResume: chat.willResume, resumeAttempts: chat.resumeAttempts, refresh: chat.refreshChat,
+  })
+  // Once the page has given up resuming, the card says what to do; the notice
+  // that the stream reconnects would only repeat a problem the card covers.
+  const gaveUp = showInterrupted && autoResume.phase === 'exhausted'
+  const failureShown = showInterrupted ? INTERRUPTED : (chat.failure || chat.failureSaved)
+  // The one state of the status line, and whether the keyboard hint shows:
+  // only while the composer has focus, is empty and the chat is idle.
+  const footState = chatFootState({
+    activeId, noModel, running: chat.running, sending: busy, lastTurn: chat.lastTurn,
+    pending: chat.pending, live: chat.live, warm: modelWarm, command: contextBusy,
+  })
+  const footHint = showHint({ focused: composerFocused, empty: !input.trim() && files.length === 0, state: footState })
+  const footModel = chat.usage?.model || model
+  const footBackend = loadedModels.find(m => m.id === footModel)?.backend || ''
+  const placeholder = effectiveModel
+    ? (chat.running ? t('input.placeholderQueue') : uiString('composer.placeholder', t('input.placeholderModel', { model: effectiveModel }), { model: effectiveModel }))
+    : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))
+
+  return (
+    <div className="cx-page" data-testid="chats-page" ref={pageRef}>
+      <div className="cx-conv" data-empty={isEmpty || undefined}>
+        <BackgroundLayer bgKey="chatBackground" testId="chat-bg" />
+        <ChatHeader
+          historyMenu={(
+            <ChatsMenu
+              ref={chatsMenuRef}
+              chats={visibleChats}
+              activeChatId={activeId}
+              onSelect={(id, opts) => navigate(chatAddress(id, opts))}
+              onNew={() => navigate('/app')}
+              onDelete={requestDelete}
+              onDeleteAll={promptDeleteAll}
+              onRename={(id, name) => chat.rename(id, name)}
+              onExport={(c) => exportChat(c.id)}
+              onCopyChat={(c) => copyChat(c.id)}
+              onSearch={(text, params) => chatsApi.search(text, 50, params)}
+              originTitle={originTitle}
+            />
+          )}
+          manageMode={manage}
+          name={activeId ? title : t('menu.newChat')}
+          canRename={!!activeId}
+          onRename={(name) => chat.rename(activeId, name)}
+          renaming={renaming}
+          setRenaming={setRenaming}
+          onFind={hasThread ? openFind : undefined}
+          findOpen={find.open}
+          onSettings={() => setShowSettings(v => !v)}
+          settingsOpen={showSettings}
+          moreItems={moreItems}
+          chips={(homeProj || pulledProj.length > 0) && (
+            <div className="pjc-chips pjc-chips--head" data-testid="chat-project-chips">
+              {homeProj && <ProjectChip project={homeProj} />}
+              {pulledProj.slice(0, HEADER_PULLED).map(p => <PulledChip key={p.id} project={p} />)}
+              {pulledProj.length > HEADER_PULLED && <MoreChip count={pulledProj.length - HEADER_PULLED} onClick={() => setShowSettings(true)} />}
+            </div>
+          )}
+          extra={(
+            <>
+              {activeId && chat.files.on && <FilesButton open={pane.open} count={chatFiles.files.length} onToggle={pane.toggle} />}
+              {dockOn && <DockButton open={pageDock.dock.open} onToggle={pageDock.toggle} />}
+              <WorkspaceSlot name="chatHeader" onTool={handleSend} onCommand={fillComposer} />
+            </>
+          )}
+        />
+
+        {(homeProj || pulledProj.length > 0) && (
+          <div className="pjc-chips pjc-strip">
+            {homeProj && <ProjectChip project={homeProj} testId={undefined} />}
+            {pulledProj.map(p => <PulledChip key={p.id} project={p} testId={undefined} />)}
+          </div>
+        )}
+        {pulledProj.length > 0 && <PulledProjects projects={pulledProj} onManage={() => setShowSettings(true)} onRetry={() => projectList.reload()} onRemove={(ids) => chat.setPulled(activeId, (activeChat.pulled_projects || []).filter(x => !ids.includes(x))).then(() => projectList.reload()).catch((e) => addToast(e.message, 'error'))} />}
+
+        {find.open && (
+          <FindBar
+            query={find.query}
+            index={find.index}
+            count={find.count}
+            focusToken={find.token}
+            onQuery={(query) => setFind(f => ({ ...f, query, index: 0 }))}
+            onStep={stepFind}
+            onClose={closeFind}
+          />
+        )}
+
+        {activeId && isAutomated(activeChat) && (() => {
+          const o = resolveOrigin({ origin: activeChat.origin, originId: activeChat.origin_id }, originCtx)
+          const kind = knownKind(o.kind)
+          const name = o.title || t(`origin.kindFallback.${kind}`)
+          if (isConnectorChat(activeChat)) {
+            const kindTitle = (originCtx.connectorKinds || []).find((k) => k.kind === (originCtx.connectors || []).find((x) => x.id === o.id)?.kind)?.title || ''
+            return (
+              <ConnectorHeader
+                title={name}
+                kindTitle={kindTitle}
+                place={chat.detail?.id === activeId ? chat.detail?.place : null}
+                messages={messages}
+                href={o.href}
+                hrefLabel={t('origin.open', { title: name })}
+              />
+            )
+          }
+          return (
+            <p className="cx-notice cx-origin-banner" role="note" data-testid="chat-origin-banner">
+              <span>{t('origin.banner', { title: name })}</span>
+              {o.href && <Link className="cx-link" to={o.href} data-testid="chat-origin-link">{t('origin.open', { title: name })}</Link>}
+            </p>
+          )
+        })()}
+
+        <div className="cx-stage">
+          <div className="cx-body" ref={messagesRef}>
+            {isEmpty && (
+              <EmptyHead
+                name={activeId ? title : (pickedAgent?.name || '')}
+                manage={manage}
+                identity={ownAssistant ? identity : null}
+                fallbackTitle={uiString('chat.empty.title', '')}
+              />
+            )}
+            {needsAgent && <div className="cx-agent-needs"><AgentNeedsNotice agentId={needsAgent} /></div>}
+            <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
+              <EgressCardsContext.Provider value={egressCards}>
+              <ChatSendContext.Provider value={sendLive}>
+              {rows.map((row, i) => {
+                if (row.kind === 'proposals') return row === tailProposals ? null : <ProposalsRow key={row.key} items={row.items} proposalTick={chat.ticks.proposals} />
+                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} withProposals={false} />
+                if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
+                if (row.kind === 'marker') return <ContextMarker key={row.key} marker={row.marker} before={row.before} after={row.after} />
+                if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
+                if (row.kind === 'thread') return <ThreadContext key={row.key} msg={row.msg} />
+                if (row.kind === 'hostnote') return <HostNote key={row.key} msg={row.msg} count={row.count} />
+                return [
+                  <ChatMessage
+                    key={row.key}
+                    msg={row.msg}
+                    isLast={i === rows.length - 1}
+                    model={model}
+                    warm={modelWarm}
+                    busy={chat.running}
+                    activityItems={row.activity}
+                    proposalItems={row.proposals}
+                    actions={messageActions}
+                    files={chatFiles.files}
+                    onOpenFile={filesOn ? openFile : undefined}
+                    conversationId={activeId}
+                    canRegenerate={!chat.running && row.key === lastAnswerKey}
+                    proposalTick={chat.ticks.proposals}
+                    identity={shownIdentity}
+                  />,
+                  changeNoteFor(row),
+                  fileChipsFor(row),
+                ]
+              })}
+              </ChatSendContext.Provider>
+              </EgressCardsContext.Provider>
+
+              {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
+                <StreamingTurn
+                  files={chatFiles.files}
+                  onOpenFile={filesOn ? openFile : undefined}
+                  identity={shownIdentity}
+                  model={model}
+                  warm={modelWarm}
+                  content={streaming.text}
+                  reasoning={streaming.reasoning}
+                  toolCalls={streaming.tools}
+                  waiting={(loadProgress || !modelWarm) ? (
+                    <LoadCard model={model} progress={loadProgress} />
+                  ) : (
+                    <span className="cx-dots" aria-label={t('streaming.waiting')}><span /><span /><span /></span>
+                  )}
+                />
+              )}
+              {tailProposals && <ProposalsRow key={tailProposals.key} items={tailProposals.items} proposalTick={chat.ticks.proposals} />}
+              {chat.hostConsent && !streaming.tools.some(tc => tc.consent?.id === chat.hostConsent.id) && (
+                <CommandsConsentCard consent={chat.hostConsent} />
+              )}
+              {waitingCards.map(c => <NetworkConsentCard key={c.id} card={c} chatId={activeId} egress={egress} />)}
+
+              {(showFailure || showInterrupted) && (
+                <ErrorCard
+                  failure={failureShown}
+                  isAdmin={isAdmin}
+                  kept={keptAbove(messages)}
+                  canRetry={!chat.resuming}
+                  onRetry={() => { autoResume.reset(); handleRetry() }}
+                  auto={autoResume}
+                  onStopTrying={autoResume.stop}
+                />
+              )}
+
+              {cmdCard?.kind === 'help' && <SlashHelpCard entries={cmdCard.entries} skills={cmdCard.skills} onClose={() => setCmdCard(null)} />}
+              {cmdCard?.kind === 'about' && <ChatAboutCard about={cmdCard.about} onClose={() => setCmdCard(null)} />}
+              {cmdCard?.kind === 'goal' && <GoalCard goal={chat.goal} onClose={() => setCmdCard(null)} />}
+              {chat.notes.map((n, i) => (
+                <p key={i} className="cx-note" data-testid="chat-note">
+                  {n.kind === 'compacted' ? tc('notes.compacted', { before: n.before, after: n.after }) : tc('notes.subAgentDone', { title: n.title })}
+                </p>
+              ))}
+            </div>
+            <div ref={messagesEndRef} />
+          </div>
+          {scrolledUp && (
+            <button
+              type="button"
+              className="cx-jump"
+              data-testid="chat-jump-latest"
+              onClick={() => {
+                stickToBottomRef.current = true
+                setScrolledUp(false)
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+              }}
+            >
+              <Icon name="arrow-down" /> {t('actions.jumpToLatest')}
+            </button>
+          )}
+        </div>
+
+        {/* Dock: the Home command bar under the thread, with the waiting messages over it. */}
+        <div className="cx-dock">
+          {/* The toast stack stays above the whole dock, so a toast never
+              covers the shortcut row it talks about. */}
+          <div className="cx-dock__in" data-toast-anchor="">
+            {activeId && (
+              <HarnessBanner
+                harness={chat.detail?.harness}
+                model={harnessModel}
+                models={chatModels}
+                onSetModelWindow={setModelWindow}
+                onSwitchModel={pickModel}
+                onResetChatWindow={resetChatWindow}
+              />
+            )}
+            {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
+            {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
+            {browserStores.length > 0 && (
+              <p className="cx-notice" role="note" data-testid="browser-import">
+                <span>{t('browserImport.found', { count: browserStores.reduce((n, s) => n + s.count, 0) })}</span>
+                <span className="cx-pending__acts">
+                  <button type="button" className="cx-link" onClick={runBrowserImport}>{t('browserImport.import')}</button>
+                  <button type="button" className="cx-link" onClick={dismissBrowserImport}>{t('browserImport.dismiss')}</button>
+                </span>
+              </p>
+            )}
+            {(localError || (chat.error && !(chat.lastTurn === 'failed' && !chat.running))) && (
+              <p className="cx-notice cx-notice--error" role="alert">
+                <span data-testid={localError && folderAgent ? 'chat-folder-missing' : undefined}>{localError || chat.error}</span>
+                {localError && folderAgent && (
+                  <button type="button" className="cx-link" onClick={() => navigate(`/app/agents/${encodeURIComponent(folderAgent)}/edit`)} data-testid="chat-folder-edit">{t('agentFolder.editAgent')}</button>
+                )}
+                <button type="button" className="cx-link" onClick={() => { setLocalError(''); setFolderAgent(''); chat.clearError() }}>{tc('errors.dismiss')}</button>
+              </p>
+            )}
+            {activeId && chat.pending.length > 0 && (
+              <PendingList
+                chat={chat}
+                editing={editingPending}
+                setEditing={setEditingPending}
+                t={tc}
+              />
+            )}
+            {activeId && (
+              <GoalBar
+                goal={chat.goal}
+                replaced={goalReplaced?.id === activeId ? goalReplaced.text : ''}
+                onPause={() => chat.pauseGoal(activeId)}
+                onResume={() => chat.resumeGoal(activeId)}
+                onClear={() => { setGoalReplaced(null); chat.clearGoal(activeId) }}
+              />
+            )}
+            {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
+            <LoopBar loops={chat.loops} jobs={chat.jobs} chatId={activeId} chat={chat} />
+            {activeId && chat.reconnecting && !gaveUp && (
+              <p className="cx-reconnect" role="status" data-testid="chat-reconnecting">
+                <Icon name="alert-circle" /> {t('connection.lost')}
+              </p>
+            )}
+            {!noModel && !(isEmpty && ownAssistant && !identity.showShortcuts) && (
+              <ShortcutsRow
+                starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}
+                filesOn={chat.files.on && !manage}
+                onPick={pickShortcut}
+                onEditWithAssistant={manage ? undefined : () => { setInput(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
+              />
+            )}
+            <ChatComposer
+              composer={composer}
+              chatId={activeId}
+              activeChat={activeChat}
+              filesOn={chat.files.on}
+              loadedIds={loadedIds}
+              imageModel={chat.imageModel}
+              onPickModel={pickModel}
+              pickerRef={pickerRef}
+              egress={egress}
+              sandboxProfile={sandboxProfile}
+              toolsExtra={subAgents}
+              chips={composerChips}
+              slotContext={composerSlotContext}
+              toolbarSlot={<WorkspaceSlot name="composerToolbar" onTool={handleSend} onCommand={fillComposer} />}
+              onDictateError={(m) => addToast(m, 'error')}
+              live={activeId && !liveOn ? <LiveButton live={liveVoice} onNeedSetup={openLiveSetup} buttonRef={liveButtonRef} /> : null}
+              dock={activeId && liveOn ? <LiveDock live={liveVoice} waiting={chat.running} onTypeInstead={typeInsteadOfLive} onEnd={endLive} /> : null}
+              onSubmit={handleSend}
+              canSend={!!effectiveModel && !(!activeId && busy) && (input.trim().length > 0 || files.length > 0)}
+              sending={busy}
+              sendTitle={effectiveModel ? t('input.send') : t('input.selectModelFirst')}
+              textareaRef={textareaRef}
+              attachTitle={chat.running ? tc('attach.queued') : undefined}
+              placeholder={placeholder}
+              slashSurface="chat"
+              slashContext={slashCtx}
+              onRunAction={runSlash}
+              streaming={chat.running}
+              queueWhileStreaming
+              onStop={stopTurn}
+              stopTitle={t('input.stopGenerating')}
+              onKeyDownExtra={onComposerKey}
+              rows={1}
+              strictEnter
+              testId="chat-composer"
+              textareaTestId="chat-input"
+              sendId="chat-submit-btn"
+              sendTestId="chat-send"
+            />
+            <ChatFoot
+              state={footState}
+              status={status}
+              model={footModel}
+              backend={footBackend}
+              hint={footHint}
+              chat={chat}
+              showMeter={!!activeId}
+              quiet={!activeId}
+              onContinue={footState.key === 'paused' && chat.goal?.state !== 'active' ? () => handleSend(t('foot.paused.message')) : undefined}
+              goal={activeId ? chat.goal : null}
+            />
+          </div>
+        </div>
+        {isEmpty && (
+          <div className="cx-under" data-testid="chat-under">
+            <EmptyUnder
+              noModel={noModel}
+              isAdmin={isAdmin}
+              addToast={addToast}
+              onInstallStarted={() => {}}
+              manage={manage}
+              model={effectiveModel}
+              warm={modelWarm}
+              conversations={conversations}
+              onResume={(conv) => navigate(`/app/chats/${conv.id}`)}
+            />
+          </div>
+        )}
+      </div>
+      {dockOn && (
+        <PageDock
+          dock={pageDock.dock}
+          update={pageDock.update}
+          onOpen={pageDock.open}
+          chatId={activeId}
+          fresh={pageDock.fresh}
+          phone={pageDock.phone}
+          onAsk={fillComposer}
+        />
+      )}
+      {pane.open && activeId && (
+        <ChatFilesPane
+          state={chatFiles}
+          chatId={activeId}
+          focus={pane.focus}
+          blocks={pane.blocks}
+          onClose={pane.close}
+          onDropFiles={(list) => composer.attach('file', list)}
+          addToast={addToast}
+        />
+      )}
+      <p className="sr-only" role="status" data-testid="chat-preview-status">
+        {pane.announcement ? t('preview.opened', { name: pane.announcement }) : ''}
+      </p>
+      {liveSetupOpen && activeId && (
+        <LiveSetupSheet
+          models={liveModel}
+          onClose={() => setLiveSetupOpen(false)}
+          onInstalled={refetchLiveModels}
+          onStart={() => { setLiveSetupOpen(false); liveVoice.start() }}
+        />
+      )}
+      {showSettings && (
+        <ChatSettingsSheet
+          chat={activeChat ? { ...activeChat, model } : { model }}
+          agent={pickedAgent}
+          isAdmin={isAdmin}
+          focusMode={focusModeEnabled}
+          onFocusMode={toggleFocusMode}
+          modelInfo={modelInfo}
+          onEditConfig={() => navigate(`/app/model-editor/${encodeURIComponent(model)}`, { state: fromState(location, 'Chat') })}
+          onEditAgent={() => navigate(`/app/agents/${encodeURIComponent(pickedAgent.id)}/edit`)}
+          onDelete={activeId ? () => { setShowSettings(false); promptDelete() } : undefined}
+          onSaveSettings={activeId && activeChat?.kind !== 'subagent' ? (settings) => chat.update(activeId, { settings }) : undefined}
+          onEffort={activeId && activeChat?.kind !== 'subagent' ? setEffort : undefined}
+          projectList={activeId && activeChat?.kind !== 'subagent' ? projectList : undefined}
+          running={chat.running}
+          onProject={async (projectId) => { const out = await chat.setProject(activeId, projectId); projectList.reload(); return out }}
+          onPulled={async (ids) => { const out = await chat.setPulled(activeId, ids); projectList.reload(); return out }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+      {showShortcuts && <ShortcutsDialog onClose={() => setShowShortcuts(false)} canFind />}
+      <input ref={importInputRef} type="file" accept=".json,application/json" hidden onChange={importChatFile} data-testid="chat-import-input" />
+      {pendingDelete && (
+        <HomeUndoToast
+          key={pendingDelete.id}
+          message={t('menu.deleted', { title: pendingDelete.name })}
+          onUndo={undoDelete}
+          onExpire={commitDelete}
+          duration={CHAT_UNDO_MS}
+          undoLabel={t('menu.undo')}
+          dismissLabel={t('menu.dismiss')}
+          testId="chat-undo-toast"
+        />
+      )}
+      <ConfirmDialog
+        open={!!confirmDialog}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        danger={confirmDialog?.danger}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={() => setConfirmDialog(null)}
+      />
+    </div>
+  )
+}
+
+// The messages that wait for the model, over the composer. While a turn runs
+// they reach the model together at its next step; after a Stop or a failed
+// turn they wait for Send now. Each can be changed or cancelled until then.
+// eslint-disable-next-line no-unused-vars -- used as JSX above
+function PendingList({ chat, editing, setEditing, t }) {
+  const { pending, running, lastTurn, activeId } = chat
+  const waiting = !running
+  const save = () => { chat.editPending(activeId, editing.id, editing.text); setEditing(null) }
+  return (
+    <div className="cx-pending" data-testid="pending-list">
+      <div className="cx-pending__head">
+        <span>{t('pending.header', { count: pending.length })}{running ? ` · ${t('pending.note')}` : ''}</span>
+        {waiting && (
+          <button type="button" className="cx-btn cx-btn--primary" onClick={() => chat.sendNow(activeId)}>
+            {t('composer.sendNow')}
+          </button>
+        )}
+      </div>
+      {waiting && lastTurn !== 'done' && lastTurn !== '' && (
+        <p className="cx-pending__why">{lastTurn === 'stopped' ? t('pending.afterStop') : t('pending.afterFailure')}</p>
+      )}
+      {pending.map((p) => (
+        <div key={p.id} className="cx-pending__row" data-testid="pending-row">
+          {editing?.id === p.id ? (
+            <>
+              <input
+                className="cx-pending__edit"
+                aria-label={t('pending.edit')}
+                value={editing.text}
+                onChange={(e) => setEditing({ id: p.id, text: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); save() }
+                  if (e.key === 'Escape') { e.stopPropagation(); setEditing(null) }
+                }}
+                autoFocus
+              />
+              <span className="cx-pending__acts">
+                <button type="button" className="cx-link" onClick={save}>{t('pending.save')}</button>
+                <button type="button" className="cx-link" onClick={() => setEditing(null)}>{t('pending.discard')}</button>
+              </span>
+            </>
+          ) : (
+            <>
+              <div className="cx-pending__body">
+                {p.text && <div className="cx-pending__text">{p.text}</div>}
+                <MessageAttachments attachments={p.attachments} />
+              </div>
+              <span className="cx-pending__acts">
+                <button type="button" className="cx-link" onClick={() => setEditing({ id: p.id, text: p.text })}>{t('pending.edit')}</button>
+                <button type="button" className="cx-link cx-link--danger" onClick={() => chat.cancelPending(activeId, p.id)}>{t('pending.cancel')}</button>
+              </span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}

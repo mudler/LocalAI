@@ -1,0 +1,17 @@
+{
+  "generic": "Something went wrong",
+  "network": "Network error. Check your connection and try again.",
+  "unauthorized": "You are not authorized to perform this action.",
+  "forbidden": "Access denied.",
+  "notFound": "The requested resource was not found.",
+  "serverError": "Server error. Please try again later.",
+  "loadFailed": "Failed to load: {{message}}",
+  "saveFailed": "Save failed: {{message}}",
+  "deleteFailed": "Delete failed: {{message}}",
+  "updateFailed": "Update failed: {{message}}",
+  "createFailed": "Create failed: {{message}}",
+  "operationFailed": "Operation failed: {{message}}",
+  "invalidInput": "Invalid input. Please check the form and try again.",
+  "tryAgain": "Please try again.",
+  "contactAdmin": "If the problem persists, contact your administrator."
+}

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Function calling across backends</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Function calling</p>
+<h1>Same request, <span class="hl">any</span> backend</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <div style="width:380px"><div class="lab">Request</div><div class="node"><b>OpenAI-shaped chat</b><span class="code" style="margin-top:10px">tools: [ ... ]<br>tool_choice: auto</span></div></div>
+    <div class="ar" style="width:56px"></div>
+    <div style="width:260px"><div class="lab">&nbsp;</div><div class="node core cen"><b>LocalAI</b><span>picks the parser of the backend</span></div></div>
+    <div class="ar" style="width:56px"></div>
+    <div style="width:560px"><div class="lab">Native parsers</div><div class="col">
+      <div class="node"><b>llama.cpp</b><span>autoparser, from the chat template</span></div>
+      <div class="node"><b>vLLM</b><span>ToolParserManager, set in the options</span></div>
+      <div class="node"><b>MLX</b><span>parser found from the chat template</span></div></div></div>
+  </div>
+  <div class="node soft" style="margin-top:34px"><div class="lab acc" style="margin-bottom:6px">Response, the same for every backend</div><b class="code" style="font-size:30px">tool_calls: [ ... ]</b></div>
+</div>
+<div class="foot">Your client code does not change when the backend changes.</div>
+</body></html>

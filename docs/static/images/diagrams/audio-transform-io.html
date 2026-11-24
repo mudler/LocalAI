@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Audio transform</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Audio transform</p>
+<h1>Near and far in, <span class="hl">clean</span> out</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:center">
+ <div class="col" style="width:420px;gap:22px"><div class="node "><b>Audio</b><span>primary signal, the mic</span></div><div class="node dash"><b>Reference</b><span>optional, the far signal</span></div></div>
+ <div class="ar" style="width:60px"></div>
+ <div style="width:330px" class="node core cen"><b>Transform</b><span>denoise and enhance</span></div>
+ <div class="ar" style="width:60px"></div>
+ <div style="width:420px"><div class="node soft"><b>Audio out</b><span>one cleaned mono signal</span></div></div></div>
+<div class="panel" style="margin-top:34px;padding:20px 26px"><h3>On the wire</h3><div class="row" style="gap:20px;font-size:26px"><span><b>In:</b> interleaved stereo PCM, L is the mic, R is the reference</span><span class="fl"></span><span><b>Out:</b> mono PCM</span></div></div>
+
+</div>
+<div class="foot">Two inputs go in. <b>One cleaned signal</b> comes out.</div>
+</body></html>

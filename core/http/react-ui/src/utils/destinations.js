@@ -1,0 +1,54 @@
+// The places the sidebar lists, as data, so the sidebar and the 404 page agree
+// on what exists and who may see it. Each hub is one destination, opening on
+// its overview; it is listed only when the viewer can see a tab in it.
+import { hubs, hubEntryPath } from '../components/hub/hubConfig'
+import { allChatsDestination, homeDestination, primaryDestinations, visiblePrimary } from './navigationModel.js'
+
+// Studio and Talk are add-ons: they are listed in the Add-ons drawer when they
+// are installed, not here.
+// The legacy layout has no Build hub any more, so its list carries the pages
+// that hub used to hold: agents, connections, memory and skills. The add-ons drawer
+// is the legacy Add-ons hub (hubConfig.js).
+export const topDestinations = [
+  homeDestination,
+  { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
+  allChatsDestination,
+  { path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents' },
+  { path: '/app/chats/connectors', icon: 'plug', labelKey: 'items.connections', feature: 'chats' },
+  { path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections' },
+  { path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
+]
+
+function visible(item, { isAdmin, authEnabled, hasFeature, features }) {
+  if (item.adminOnly && !isAdmin) return false
+  if (item.authOnly && !authEnabled) return false
+  if (item.feature && features[item.feature] === false) return false
+  if (item.feature && !hasFeature(item.feature)) return false
+  return true
+}
+
+// Home, Models, Chat and the hubs, in the sidebar's order.
+export function destinationsFor(auth) {
+  const hubItems = hubs.flatMap(hub => {
+    const path = hubEntryPath(hub, auth)
+    return path ? [{ path, icon: hub.icon, labelKey: hub.titleKey }] : []
+  })
+  return [
+    ...topDestinations.filter(i => visible(i, auth)),
+    ...hubItems,
+  ]
+}
+
+// The primary layout: Home, All chats, the primary items, then the hubs.
+export function destinationsForNavigation(auth) {
+  const hubItems = hubs.flatMap(hub => {
+    const path = hubEntryPath(hub, auth)
+    return path ? [{ path, icon: hub.icon, labelKey: hub.titleKey }] : []
+  })
+  return [
+    ...topDestinations.filter(i => i.path === '/app'),
+    ...visiblePrimary([allChatsDestination], auth),
+    ...visiblePrimary(primaryDestinations, auth),
+    ...hubItems,
+  ]
+}
