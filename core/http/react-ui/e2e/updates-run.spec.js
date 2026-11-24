@@ -181,6 +181,16 @@ test.describe('Updates: the review', () => {
     expect(runs.starts).toHaveLength(0)
   })
 
+  test('a review that cannot load says so once', async ({ page }) => {
+    await fleet(page)
+    await mockUpdateRuns(page, { preview: items => plan(items) })
+    await page.route('**/api/updates/runs/preview', route => route.fulfill({ status: 409, json: { code: 'source_unchecked', message: 'the check did not answer' } }))
+    await page.goto('/app/updates')
+    await page.getByTestId('updates-update-ready').click()
+    await expect(page.getByTestId('update-review-error')).toBeVisible()
+    await expect(page.getByTestId('update-review-refused')).toHaveCount(0)
+  })
+
   test('a start the server refuses keeps the review open with its words', async ({ page }) => {
     await fleet(page)
     await mockUpdateRuns(page, { preview: items => plan(items), startReply: () => ({ status: 409, json: { code: 'stale', error: 'stale' } }) })
