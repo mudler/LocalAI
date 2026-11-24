@@ -8,6 +8,7 @@ import {
   diffPaths, unflatten, TENSOR_ITEM,
 } from '../../src/utils/llamaCppRuntime.js'
 // The answers of the real handlers (pkg/llamacppsettings), saved for the specs.
+import { isAllLayers } from '../../src/utils/placement.js'
 import SCHEMA from '../../e2e/fixtures/llamacpp-settings-schema.json' with { type: 'json' }
 import INKLING from '../../e2e/fixtures/llamacpp-parse-inkling.json' with { type: 'json' }
 import MIXED from '../../e2e/fixtures/llamacpp-parse-mixed.json' with { type: 'json' }
@@ -161,6 +162,11 @@ test('llama.cpp runtime: a preset fills settings, lists them and undoes them', (
   const draft = structuredClone(before)
   applyPreset(draft, items, SETUP_PRESETS.find(p => p.id === 'bigMoe'), '-ot:\\.ffn_.*_exps.*=CPU')
   assert.equal(draft.flash_attention, 'on')
+  // "All layers" is stored as the short value, not the 99999999 sentinel, and still reads as all layers.
+  assert.equal(draft.gpu_layers, 999)
+  assert.equal(isAllLayers(draft.gpu_layers), true)
+  assert.equal(isAllLayers(99999999), true)
+  assert.equal(isAllLayers(998), false)
   assert.equal(readEntry(draft.options, '-ot'), '-ot:\\.ffn_.*_exps.*=CPU')
   assert.ok(draft.options.includes('context_shift:true'))
   const changes = describeChanges(items, before, draft)

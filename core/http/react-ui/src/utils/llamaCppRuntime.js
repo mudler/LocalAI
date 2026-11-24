@@ -11,7 +11,7 @@
 // settings: the load mode (mmap, mlock, direct I/O) and the tensor placement
 // (llama-server's `-ot`, kept as the passthrough entry "-ot:pattern=buffer").
 
-import { ALL_LAYERS } from './placement.js'
+import { ALL_LAYERS_SHORT } from './placement.js'
 
 // --- values --------------------------------------------------------------------
 
@@ -476,7 +476,7 @@ export const SETUP_PRESETS = [
   {
     id: 'bigMoe',
     settings: {
-      gpu_layers: ALL_LAYERS,
+      gpu_layers: ALL_LAYERS_SHORT,
       flash_attention: 'on',
       cache_type_k: 'q8_0',
       cache_type_v: 'q8_0',
