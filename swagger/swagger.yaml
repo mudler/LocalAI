@@ -1703,6 +1703,353 @@ definitions:
       min:
         type: integer
     type: object
+  enginesettings.BackendMatch:
+    properties:
+      empty:
+        description: 'Empty: a model with no backend (auto-detect) resolves to this
+          engine.'
+        type: boolean
+      excluded:
+        description: |-
+          Excluded names never match, also as the last part of a variant. They
+          are other engines whose names end like a family.
+        items:
+          type: string
+        type: array
+      families:
+        description: |-
+          Families match exactly and as the last part of a hardware variant:
+          family "llama-cpp" matches "llama-cpp" and "cuda12-llama-cpp".
+        items:
+          type: string
+        type: array
+      names:
+        description: Names match exactly.
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.BuildResult:
+    properties:
+      command:
+        type: string
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Capability:
+    enum:
+    - command-line
+    - tensor-placement
+    type: string
+    x-enum-varnames:
+    - CapabilityCommandLine
+    - CapabilityTensorPlacement
+  enginesettings.Choice:
+    properties:
+      label:
+        type: string
+      set:
+        additionalProperties: {}
+        type: object
+      value:
+        type: string
+    type: object
+  enginesettings.Combined:
+    properties:
+      choices:
+        description: |-
+          Choices are the values of the control. A choice sets each key to a
+          value, or unsets it with null. To read the current choice, a client
+          takes the choice that sets nothing when every key is unset; else it
+          tries the choices from the last to the first and takes the first one
+          whose non-null values all equal the values in the config (Unset for a
+          missing key).
+        items:
+          $ref: '#/definitions/enginesettings.Choice'
+        type: array
+      doc:
+        type: string
+      flag:
+        description: Flag is the command-line flag that sets the same values, if any.
+        type: string
+      group:
+        type: string
+      id:
+        type: string
+      keys:
+        description: Keys are the flag keys the control writes.
+        items:
+          type: string
+        type: array
+      unset:
+        additionalProperties: {}
+        description: Unset is the value that applies to a key that is not set.
+        type: object
+    type: object
+  enginesettings.Config:
+    additionalProperties: {}
+    type: object
+  enginesettings.Flag:
+    properties:
+      cli:
+        description: |-
+          CLI lists the accepted command-line spellings. The first one is used
+          when a command is built. Empty for an engine with no command line.
+        items:
+          type: string
+        type: array
+      cli_negated:
+        description: CLINegated lists spellings that set a bool flag to false.
+        items:
+          type: string
+        type: array
+      default:
+        description: Default describes what applies when the setting is not set.
+        type: string
+      doc:
+        type: string
+      enum:
+        items:
+          type: string
+        type: array
+      group:
+        type: string
+      key:
+        description: Key is a stable identifier, unique in the table.
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      option:
+        description: |-
+          Option is the option name for TargetOption flags. For raw passthrough
+          flags it is the flag itself (for example "-ot").
+        type: string
+      option_aliases:
+        description: |-
+          OptionAliases are other option names the backend reads for the same
+          setting. The editor reads them and writes Option.
+        items:
+          type: string
+        type: array
+      path:
+        description: |-
+          Path is the YAML path of the setting, for example "context_size",
+          "parameters.temperature" or "options".
+        type: string
+      repeatable:
+        description: Repeatable marks flags that may appear more than once.
+        type: boolean
+      target:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Target'
+        description: Target says where the value lands in the model config.
+      type:
+        $ref: '#/definitions/enginesettings.ValueType'
+    type: object
+  enginesettings.Info:
+    properties:
+      backends:
+        $ref: '#/definitions/enginesettings.BackendMatch'
+      binary:
+        type: string
+      capabilities:
+        items:
+          $ref: '#/definitions/enginesettings.Capability'
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  enginesettings.LayerRange:
+    properties:
+      from:
+        type: integer
+      to:
+        type: integer
+    type: object
+  enginesettings.ParseResult:
+    properties:
+      fields:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Config'
+        description: |-
+          Fields holds the model config keys the command maps to. It never has
+          an "options" key: see Options.
+      options:
+        description: |-
+          Options is the "options" list: known entries in table order, then raw
+          passthrough entries in the order they appeared.
+        items:
+          type: string
+        type: array
+      placements:
+        description: |-
+          Placements describes every placement entry of Options. Only for
+          engines with the tensor-placement capability.
+        items:
+          $ref: '#/definitions/enginesettings.PlacementInfo'
+        type: array
+      unmapped:
+        description: |-
+          Unmapped lists flags that were not turned into a first-class key.
+          Unknown flags are in Options as raw entries too, so nothing is lost.
+        items:
+          $ref: '#/definitions/enginesettings.Unmapped'
+        type: array
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Placement:
+    properties:
+      first_gpu_layers:
+        description: FirstGPULayers is used by first_layers_gpu.
+        type: integer
+      layers:
+        description: Layers is used by experts_cpu_layers.
+        items:
+          $ref: '#/definitions/enginesettings.LayerRange'
+        type: array
+      mode:
+        $ref: '#/definitions/enginesettings.PlacementMode'
+      total_layers:
+        description: |-
+          TotalLayers is optional for first_layers_gpu. When set, the entry
+          lists the remaining layers as one range; when 0, it matches every
+          layer from FirstGPULayers up.
+        type: integer
+    type: object
+  enginesettings.PlacementInfo:
+    properties:
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.Placement'
+    type: object
+  enginesettings.PlacementMode:
+    enum:
+    - experts_cpu_all
+    - experts_cpu_layers
+    - first_layers_gpu
+    type: string
+    x-enum-varnames:
+    - ExpertsCPUAll
+    - ExpertsCPULayers
+    - FirstLayersGPU
+  enginesettings.PlacementSchema:
+    properties:
+      aliases:
+        items:
+          type: string
+        type: array
+      group:
+        type: string
+      modes:
+        items:
+          $ref: '#/definitions/enginesettings.PlacementMode'
+        type: array
+      option:
+        description: |-
+          Option is the options name of a placement entry; Aliases are other
+          names the backend reads for the same entry.
+        type: string
+    type: object
+  enginesettings.Preset:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      placement:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Placement'
+        description: |-
+          Placement is an optional tensor placement. Only for engines with the
+          tensor-placement capability.
+      settings:
+        additionalProperties: {}
+        description: Settings maps flag keys to values.
+        type: object
+    type: object
+  enginesettings.Schema:
+    properties:
+      backends:
+        $ref: '#/definitions/enginesettings.BackendMatch'
+      binary:
+        type: string
+      capabilities:
+        items:
+          $ref: '#/definitions/enginesettings.Capability'
+        type: array
+      combined:
+        items:
+          $ref: '#/definitions/enginesettings.Combined'
+        type: array
+      example:
+        description: Example is a sample command for the paste box (command-line only).
+        type: string
+      flags:
+        items:
+          $ref: '#/definitions/enginesettings.Flag'
+        type: array
+      groups:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.PlacementSchema'
+      presets:
+        items:
+          $ref: '#/definitions/enginesettings.Preset'
+        type: array
+      reserved_options:
+        items:
+          type: string
+        type: array
+    type: object
+  enginesettings.Target:
+    enum:
+    - config
+    - option
+    type: string
+    x-enum-varnames:
+    - TargetConfig
+    - TargetOption
+  enginesettings.Unmapped:
+    properties:
+      flag:
+        type: string
+      reason:
+        type: string
+      value:
+        type: string
+    type: object
+  enginesettings.ValueType:
+    enum:
+    - int
+    - float
+    - bool
+    - enum
+    - string
+    type: string
+    x-enum-varnames:
+    - TypeInt
+    - TypeFloat
+    - TypeBool
+    - TypeEnum
+    - TypeString
   failover.ChainState:
     enum:
     - primary
@@ -3455,6 +3802,50 @@ definitions:
         items:
           $ref: '#/definitions/localai.ReplicaView'
         type: array
+    type: object
+  localai.EngineCommandPreviewRequest:
+    properties:
+      config:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Config'
+        description: |-
+          Config is a partial model config: YAML keys, nested blocks and the
+          options list.
+    type: object
+  localai.EngineListResponse:
+    properties:
+      engines:
+        items:
+          $ref: '#/definitions/enginesettings.Info'
+        type: array
+    type: object
+  localai.EngineParseCommandRequest:
+    properties:
+      command:
+        description: Command is a command line of the engine. It is tokenised, never
+          run.
+        type: string
+    type: object
+  localai.EnginePlacementRequest:
+    properties:
+      layers:
+        description: Layers is an optional "0-6,18-23" string. It replaces placement.layers.
+        type: string
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/enginesettings.Placement'
+    type: object
+  localai.EnginePlacementResponse:
+    properties:
+      option:
+        type: string
+      placement:
+        allOf:
+        - $ref: '#/definitions/enginesettings.Placement'
+        description: Placement is null when the entry is not one this server builds.
+      raw:
+        type: boolean
     type: object
   localai.FailoverChainsResponse:
     properties:
@@ -9493,6 +9884,9 @@ definitions:
     properties:
       after:
         type: integer
+      backend:
+        description: Backend names the backend of a model_backend_outdated failure.
+        type: string
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
@@ -9646,6 +10040,11 @@ definitions:
     type: object
   schema.ChatsFailure:
     properties:
+      backend:
+        description: |-
+          Backend is the backend the cause is about, when it is known (code
+          model_backend_outdated).
+        type: string
       code:
         description: Code names the cause, such as model_not_found, upstream, timeout
           or agent.
@@ -28285,6 +28684,177 @@ paths:
       summary: Add a file to a collection.
       tags:
       - collections
+  /api/engines:
+    get:
+      description: Lists the engines whose runtime settings LocalAI maps to model
+        config keys, with the backend names each serves and its capabilities. With
+        the backend query parameter, lists only the engine that serves that backend
+        name (an empty value is a model with no backend).
+      parameters:
+      - description: A model backend name
+        in: query
+        name: backend
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Engines
+          schema:
+            $ref: '#/definitions/localai.EngineListResponse'
+      summary: List the engines with runtime settings
+      tags:
+      - config
+  /api/engines/{engine}/command-preview:
+    post:
+      consumes:
+      - application/json
+      description: Builds the command line of the engine that matches a partial model
+        config. The text is for display; nothing is run. Needs the command-line capability.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: Partial model config
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EngineCommandPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Command
+          schema:
+            $ref: '#/definitions/enginesettings.BuildResult'
+        "400":
+          description: Invalid body, or no command-line capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview the command line of a model config
+      tags:
+      - config
+  /api/engines/{engine}/parse-command:
+    post:
+      consumes:
+      - application/json
+      description: Reads a command line of the engine and returns the model config
+        keys and options it maps to. The command is only tokenised; it is never run.
+        Flags without a first-class key are listed as unmapped and kept as raw passthrough
+        options. Needs the command-line capability.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: The command line
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EngineParseCommandRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Parsed settings
+          schema:
+            $ref: '#/definitions/enginesettings.ParseResult'
+        "400":
+          description: Invalid body or command, or no command-line capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Command too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Parse a command line of an engine
+      tags:
+      - config
+  /api/engines/{engine}/placement:
+    post:
+      consumes:
+      - application/json
+      description: 'With a placement, returns the options entry that keeps the expert
+        tensors of the chosen layers on the CPU. With an option, returns its structured
+        form, or null when the entry is not one this server builds. Placement is always
+        opt-in: nothing applies it by default. Needs the tensor-placement capability.'
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      - description: A placement or an option
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.EnginePlacementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Placement
+          schema:
+            $ref: '#/definitions/localai.EnginePlacementResponse'
+        "400":
+          description: Invalid input, or no tensor-placement capability
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Build or recognise a tensor placement
+      tags:
+      - config
+  /api/engines/{engine}/settings-schema:
+    get:
+      description: Returns the settings of an engine with their model config keys,
+        types, limits, defaults and a doc line, the editor groups, the combined controls,
+        the presets and the capabilities, so a client can render the fields from one
+        source.
+      parameters:
+      - description: Engine id, for example llama-cpp
+        in: path
+        name: engine
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings schema
+          schema:
+            $ref: '#/definitions/enginesettings.Schema'
+        "404":
+          description: Unknown engine
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get the runtime settings schema of an engine
+      tags:
+      - config
   /api/failover:
     get:
       produces:

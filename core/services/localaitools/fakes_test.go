@@ -3,6 +3,7 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
@@ -376,6 +377,16 @@ func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string)
 		return f.setNodeVRAMBudget(nodeID, budget)
 	}
 	return nil
+}
+
+func (f *fakeClient) ParseEngineCommand(_ context.Context, engine, command string) (*enginesettings.ParseResult, error) {
+	f.record("ParseEngineCommand", engine+" "+command)
+	return &enginesettings.ParseResult{}, nil
+}
+
+func (f *fakeClient) PreviewEngineCommand(_ context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error) {
+	f.record("PreviewEngineCommand", config)
+	return &enginesettings.BuildResult{Command: engine}, nil
 }
 
 func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {

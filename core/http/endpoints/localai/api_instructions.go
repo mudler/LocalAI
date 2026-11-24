@@ -75,7 +75,7 @@ var instructionDefs = []instructionDef{
 		Name:        "config-management",
 		Description: "Discover, read, and modify model configuration fields with VRAM estimation",
 		Tags:        []string{"config"},
-		Intro:       "Fields with static options include an \"options\" array in metadata. Fields with dynamic values have an \"autocomplete_provider\" for runtime lookup.",
+		Intro:       "Fields with static options include an \"options\" array in metadata. Fields with dynamic values have an \"autocomplete_provider\" for runtime lookup. GET /api/engines lists the engines whose runtime settings LocalAI maps (add ?backend=NAME to find the engine of a model backend); GET /api/engines/{engine}/settings-schema returns the settings and the capabilities of one. With the command-line capability, POST /api/engines/{engine}/parse-command turns a pasted command into model config keys (the text is never run) and POST /api/engines/{engine}/command-preview writes the command of a config. With the tensor-placement capability, POST /api/engines/{engine}/placement builds or recognises an expert placement entry. Placement is opt-in.",
 	},
 	{
 		Name:        "monitoring",

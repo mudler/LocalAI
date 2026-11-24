@@ -44,6 +44,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolListScheduling:            "GET /api/nodes/scheduling",
 	ToolGetScheduling:             "GET /api/nodes/scheduling/:model",
 	ToolVRAMEstimate:              "POST /api/models/vram-estimate",
+	ToolParseEngineCommand:        "POST /api/engines/:engine/parse-command",
+	ToolPreviewEngineCommand:      "POST /api/engines/:engine/command-preview",
 	ToolGetBranding:               "GET /api/branding",
 	ToolGetUsageStats:             "GET /api/usage (or /api/usage/all when all=true)",
 	ToolGetPIIEvents:              "GET /api/pii/events",

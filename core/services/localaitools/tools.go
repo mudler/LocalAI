@@ -26,6 +26,8 @@ const (
 	ToolListScheduling            = "list_scheduling"
 	ToolGetScheduling             = "get_scheduling"
 	ToolVRAMEstimate              = "vram_estimate"
+	ToolParseEngineCommand        = "parse_engine_command"
+	ToolPreviewEngineCommand      = "preview_engine_command"
 	ToolGetBranding               = "get_branding"
 	ToolGetUsageStats             = "get_usage_stats"
 	ToolGetPIIEvents              = "get_pii_events"

@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
+	"github.com/mudler/LocalAI/pkg/enginesettings/builtin"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -1299,6 +1300,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
+
+	// Engine runtime settings: the engines and the flag tables the model
+	// editor renders from, paste-a-command parsing and the command preview.
+	// Pure text handling over a static registry, so every frontend answers the
+	// same.
+	engines := builtin.Registry()
+	app.GET("/api/engines", localai.EngineListEndpoint(engines), adminMiddleware)
+	app.GET("/api/engines/:engine/settings-schema", localai.EngineSettingsSchemaEndpoint(engines), adminMiddleware)
+	app.POST("/api/engines/:engine/parse-command", localai.EngineParseCommandEndpoint(engines), adminMiddleware)
+	app.POST("/api/engines/:engine/command-preview", localai.EngineCommandPreviewEndpoint(engines), adminMiddleware)
+	app.POST("/api/engines/:engine/placement", localai.EnginePlacementEndpoint(engines), adminMiddleware)
 
 	// On-disk storage report: per-model sizes, shared files, missing refs
 	app.GET("/api/models/storage", localai.ModelStorageEndpoint(appConfig), adminMiddleware)

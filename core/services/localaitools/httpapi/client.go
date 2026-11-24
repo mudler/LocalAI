@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 	"io"
 	"net/http"
 	"net/url"
@@ -873,6 +874,25 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	// pre-formatted display strings, identical to REST.
 	var out vram.EstimateResult
 	if err := c.do(ctx, http.MethodPost, routeVRAMEstimate, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ParseEngineCommand(ctx context.Context, engine, command string) (*enginesettings.ParseResult, error) {
+	var out enginesettings.ParseResult
+	if err := c.do(ctx, http.MethodPost, engineRoute(engine, "parse-command"), map[string]any{"command": command}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) PreviewEngineCommand(ctx context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error) {
+	var out enginesettings.BuildResult
+	if config == nil {
+		config = enginesettings.Config{}
+	}
+	if err := c.do(ctx, http.MethodPost, engineRoute(engine, "command-preview"), map[string]any{"config": config}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

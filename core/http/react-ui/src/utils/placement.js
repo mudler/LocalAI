@@ -20,6 +20,11 @@ import { FIT_LIMIT } from './modelLedger.js'
 // The value LocalAI itself writes for "all layers" (config.DefaultNGPULayers).
 export const ALL_LAYERS = 99999999
 
+// A short value that also means every layer: llama.cpp clamps -ngl to the
+// model's layer count, and no shipped model has 999 layers. Presets store this
+// one so the field reads as a plain number.
+export const ALL_LAYERS_SHORT = 999
+
 // How many layers to search through when the model's own layer count is not
 // known. Past the real count the estimate stops changing, so a bound above any
 // shipped model costs only a few more requests in the search.
@@ -45,7 +50,7 @@ export function placementMode(value) {
 // A value that means every layer, however it was written.
 export function isAllLayers(value) {
   const n = Number(value)
-  return Number.isFinite(n) && (n < 0 || n >= ALL_LAYERS)
+  return Number.isFinite(n) && (n < 0 || n >= ALL_LAYERS_SHORT)
 }
 
 // The layer count to send to the estimate: null asks for all layers.

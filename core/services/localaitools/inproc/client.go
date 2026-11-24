@@ -10,6 +10,8 @@ import (
 	"errors"
 	"fmt"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
+	"github.com/mudler/LocalAI/pkg/enginesettings/builtin"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1071,6 +1073,30 @@ func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	// empty node list from ListNodes). Report it as unavailable rather than
 	// silently succeeding so the assistant tells the admin the truth.
 	return errors.New("per-node VRAM budgets are only available in distributed mode")
+}
+
+func (c *Client) ParseEngineCommand(_ context.Context, engine, command string) (*enginesettings.ParseResult, error) {
+	e, ok := builtin.Registry().Get(engine)
+	if !ok {
+		return nil, fmt.Errorf("unknown engine %q", engine)
+	}
+	res, err := e.ParseCommand(command)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (c *Client) PreviewEngineCommand(_ context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error) {
+	e, ok := builtin.Registry().Get(engine)
+	if !ok {
+		return nil, fmt.Errorf("unknown engine %q", engine)
+	}
+	res, err := e.BuildCommand(config)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimateRequest) (*vram.EstimateResult, error) {

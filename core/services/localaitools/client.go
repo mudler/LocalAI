@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/modeladmin"
 	"github.com/mudler/LocalAI/core/services/modelupdates"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 	"github.com/mudler/LocalAI/pkg/vram"
 )
 
@@ -133,6 +134,13 @@ type LocalAIClient interface {
 	// in distributed mode; single-process clients report it as unavailable.
 	SetNodeVRAMBudget(ctx context.Context, nodeID, budget string) error
 	VRAMEstimate(ctx context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error)
+	// ParseEngineCommand reads a pasted command line of an engine (for
+	// example llama-cpp) into model config keys. It only tokenises the text;
+	// nothing is run.
+	ParseEngineCommand(ctx context.Context, engine, command string) (*enginesettings.ParseResult, error)
+	// PreviewEngineCommand writes the command line of an engine for a
+	// partial model config. The text is for display only.
+	PreviewEngineCommand(ctx context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error)
 
 	// ---- State ----
 	// ToggleModelState accepts modeladmin.ActionEnable / ActionDisable.

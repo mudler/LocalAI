@@ -36,6 +36,7 @@ const (
 	routeNodes                  = "/api/nodes"
 	routeScheduling             = "/api/nodes/scheduling"
 	routeVRAMEstimate           = "/api/models/vram-estimate"
+	routeEngines                = "/api/engines"
 	routeBranding               = "/api/branding"
 	routeSettings               = "/api/settings"
 	routeUsage                  = "/api/usage"
@@ -125,4 +126,9 @@ func routeUpgradeRun(id string, rest ...string) string {
 		p += "/" + r
 	}
 	return p
+}
+
+// engineRoute is the path of an operation of one engine's settings.
+func engineRoute(engine, op string) string {
+	return routeEngines + "/" + url.PathEscape(engine) + "/" + op
 }
