@@ -55,7 +55,7 @@ type TriggerInput struct {
 	// names one. SourceChatID is the chat the trigger was made from.
 	AgentID, Model, SourceChatID string
 	Enabled                      bool
-	// MinGap is the shortest time between two runs of a file trigger; zero
+	// MinGap is the shortest time between two runs of a file or event trigger; zero
 	// is the default of one minute.
 	MinGap time.Duration
 	// The plan of a run (see triggers.Trigger): what it reads, the file it

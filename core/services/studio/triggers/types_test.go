@@ -46,6 +46,8 @@ var _ = Describe("Trigger types", func() {
 			"empty segment":   {func(t *Trigger) { t.Matches = []string{"a..b=x"} }, "dot path"},
 			"leading dot":     {func(t *Trigger) { t.Matches = []string{".a=x"} }, "dot path"},
 			"trailing dot":    {func(t *Trigger) { t.Matches = []string{"a.=x"} }, "dot path"},
+			"proto segment":   {func(t *Trigger) { t.Matches = []string{"a.__proto__.b=x"} }, "dot path"},
+			"ctor segment":    {func(t *Trigger) { t.Matches = []string{"constructor.prototype=x"} }, "dot path"},
 			"long match":      {func(t *Trigger) { t.Matches = []string{"a=" + long} }, "match"},
 			"control in type": {func(t *Trigger) { t.EventType = "a\nb" }, "event type"},
 		} {

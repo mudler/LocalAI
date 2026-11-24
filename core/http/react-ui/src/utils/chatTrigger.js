@@ -222,9 +222,13 @@ export function hookUrl(path, origin, base = '') {
   return path ? `${origin}${base}${path}` : ''
 }
 
+/** Path segments that would reach the prototype of an object. */
+const UNSAFE_SEGMENTS = ['__proto__', 'constructor', 'prototype']
+
 /** Sets a value at a dot path, with objects, and arrays for a numeric segment. */
 function setPath(root, path, value) {
   const segs = path.split('.')
+  if (segs.some((seg) => UNSAFE_SEGMENTS.includes(seg))) return
   let cur = root
   segs.forEach((seg, n) => {
     const last = n === segs.length - 1
@@ -233,7 +237,7 @@ function setPath(root, path, value) {
       cur[key] = value
       return
     }
-    if (cur[key] === undefined || typeof cur[key] !== 'object' || cur[key] === null) {
+    if (!Object.hasOwn(cur, key) || typeof cur[key] !== 'object' || cur[key] === null) {
       cur[key] = /^\d+$/.test(segs[n + 1]) ? [] : {}
     }
     cur = cur[key]

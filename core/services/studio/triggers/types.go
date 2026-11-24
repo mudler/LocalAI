@@ -145,7 +145,7 @@ type Trigger struct {
 	// Since is when the trigger began to watch. Times and changes before it
 	// start no run. Arm sets it.
 	Since time.Time
-	// MinGap is the shortest time between two runs of a file trigger (zero
+	// MinGap is the shortest time between two runs of a file or event trigger (zero
 	// means DefaultFileGap). A file that settles sooner waits for it.
 	MinGap time.Duration
 	// The plan of a run, shown to the person before they confirm and on the
@@ -604,7 +604,8 @@ func (t Trigger) validateEvent() error {
 		if !ok || field == "" {
 			return errors.New("a match is field=value, such as action=opened")
 		}
-		if slices.Contains(strings.Split(field, "."), "") {
+		segs := strings.Split(field, ".")
+		if slices.Contains(segs, "") || slices.Contains(segs, "__proto__") || slices.Contains(segs, "constructor") || slices.Contains(segs, "prototype") {
 			return errors.New("a match field is a dot path, such as pull_request.state")
 		}
 		if len(m) > MaxEventField || hasControl(m, false) {
