@@ -19,3 +19,6 @@ branches:
   - name: fix/addon-refresh-error-cause
     description: "Name the cause when an add-on library refresh fails."
     upstream_pr: 13439
+  - name: feat/chat-message-timestamps
+    description: "Show when each chat message was written."
+    upstream_pr: null
