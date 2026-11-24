@@ -31,12 +31,14 @@ const trimStop = (s) => String(s || '').trim().replace(/[.\s]+$/, '')
 export function failureText(item, name, t, ta) {
   const version = item.from || '?'
   if (item.phase === 'unconfirmed') return t('run.detail.unconfirmed', { name })
-  // A rolled-back item did not start; the server's words say why, when it has them.
-  if (item.phase === 'rolled_back' && item.error) {
+  // A rolled-back item whose new build did not start: the server's error is
+  // the bare cause, after the one sentence that says what happened. Another
+  // key (a build that could not be put in place) is said with its own words.
+  if (item.phase === 'rolled_back' && item.error && (!item.error_key || item.error_key === 'start')) {
     return t('run.detail.rolledBack', { reason: trimStop(item.error), name, version })
   }
   if (item.phase === 'rolled_back') {
-    return t('run.detail.failed', { reason: trimStop(upgradeFailureWords(item.error_key || 'start', ta, '', 'run')), name, version })
+    return t('run.detail.failed', { reason: trimStop(upgradeFailureWords(item.error_key || 'start', ta, item.error_key === 'start' ? '' : item.error, 'run')), name, version })
   }
   const reason = trimStop(upgradeFailureWords(item.error_key || 'unknown', ta, item.error, 'run'))
   return t('run.detail.failed', { reason, name, version })

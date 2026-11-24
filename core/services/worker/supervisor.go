@@ -682,7 +682,12 @@ type workerStartError struct {
 	output string
 }
 
+// Error is the reason, then the output when the process wrote any: an empty
+// "Last stderr:" label read as a cause that was lost.
 func (e *workerStartError) Error() string {
+	if strings.TrimSpace(e.output) == "" {
+		return e.reason
+	}
 	return e.reason + ". Last stderr:\n" + e.output
 }
 

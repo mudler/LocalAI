@@ -149,7 +149,11 @@ failed add-on keeps the failure code of the add-on owner, for example
 A backend item takes the error key and the rollback from its operation (see
 [Starting an upgrade]({{% relref "/models/backends#checking-for-backend-updates" %}})):
 a new build that did not start and was replaced by the previous one ends the
-item `rolled_back` with the key `start`. An operation whose worker reply never
+item `rolled_back` with the key `start`. The error of such an item is the
+cause alone (for example "the backend process exited before it answered a
+health check (exit code 3): ..."): the key already says that the new build did
+not start, and the Updates page and the inbox put that sentence before the
+cause. An operation whose worker reply never
 came ends the item `unconfirmed`, and a fresh check decides as above. In a
 cluster, `nodes` lists the result of each node: `id`, `name`, `phase`
 (`success`, `error`, `rolled_back`, `unconfirmed`, or a phase of a node that

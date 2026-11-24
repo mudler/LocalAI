@@ -308,6 +308,13 @@ var _ = Describe("Worker control verbs over HTTP", func() {
 			Expect(reply.RestartedProcessKeys).To(Equal([]string{"m#0"}))
 		})
 
+		It("words a start failure with no output without an empty stderr label", func() {
+			cause := &workerStartError{reason: "backend process vllm#upgrade-check died during startup", output: " \n"}
+			Expect(cause.Error()).To(Equal("backend process vllm#upgrade-check died during startup"))
+			withOutput := &workerStartError{reason: "backend process vllm#upgrade-check died during startup", output: "fatal: libcuda.so.1 missing"}
+			Expect(withOutput.Error()).To(Equal("backend process vllm#upgrade-check died during startup. Last stderr:\nfatal: libcuda.so.1 missing"))
+		})
+
 		It("does not hold up a second request while an install runs", func() {
 			release := make(chan struct{})
 			started := make(chan struct{})
