@@ -333,6 +333,19 @@ by default.
   actor never goes through the add-on gateway, which refuses it. Runs that a
   person starts keep their path as that person. A process that is not the
   owner can start the run of the backends, and never has add-on items.
+- **A release that did not start is held back.** An automatic run leaves out
+  an item whose target (the version or digest in `expected_to`) already ended
+  `rolled_back`, or `failed` with the key `start`, `verify` or `swap`, in the
+  newest attempt of that release in one of the last 20 runs, dismissed runs
+  included. A new try of the same release ends the same way, so without the
+  hold every pass ran its start check again and added an item to the inbox.
+  Other failures (`download`, `unavailable`, `unknown`, `interrupted`, ...) are
+  tried again. The hold ends when the gallery lists another release. A run
+  that a person starts is never held back: start the item from its row to try
+  the release again. When every item of a pass is held back, no run starts and
+  nothing is written. The Updates page shows a held-back backend as
+  "Held back: this release did not start", and `GET /api/backends/updates`
+  marks it with `heldBack: true`.
 - **One run at a time.** When a run is already running, the pass does not
   start another and does not write anything. It tries again every minute,
   and at the latest at the next scheduled pass, which lists the same items
@@ -424,6 +437,7 @@ All routes need an administrator. Their definitions are in the API reference
 | `stale` | `409` | The update no longer goes to `expected_to`. Preview again. |
 | `source_unchecked` | `409` | The check of the kind of the item did not answer. Check again. |
 | `run_active` | `409` | Another run is running. |
+| `held_back` | `409` | Only an automatic run: every item is a release that did not start before (see [Automatic updates are runs](#automatic-updates-are-runs)). |
 | `not_cancellable` | `409` | The item cannot stop now. |
 | `run_finished` | `409` | The run is over. |
 | `run_not_finished` | `409` | The run still runs (retry and dismiss). |

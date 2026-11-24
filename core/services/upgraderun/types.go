@@ -293,6 +293,10 @@ const (
 	CodeRunNotFinished  = "run_not_finished"
 	CodeNothingToRetry  = "nothing_to_retry"
 	CodeSourceUnchecked = "source_unchecked"
+	// CodeHeldBack refuses an automatic run whose every item is a release
+	// that already failed to start here (see HeldBack). A manual run never
+	// gets it.
+	CodeHeldBack = "held_back"
 )
 
 // Error is a typed refusal of the service API.

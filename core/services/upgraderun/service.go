@@ -620,6 +620,23 @@ func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Ru
 	if err != nil {
 		return Run{}, err
 	}
+	if req.Source == SourceAuto {
+		// A release that did not start is not tried again at each pass: the
+		// pass would run its start check, roll it back and write a new item
+		// in the inbox every time.
+		held, err := s.HeldBack(ctx)
+		if err != nil {
+			return Run{}, err
+		}
+		var dropped []string
+		items, dropped = dropHeldBack(items, held)
+		if len(dropped) > 0 {
+			xlog.Info("upgrade run: the automatic update leaves out releases that did not start before", "items", dropped)
+		}
+		if len(items) == 0 {
+			return Run{}, refuse(CodeHeldBack, "", "every item is a release that did not start before; start it by hand to try again")
+		}
+	}
 	return s.create(ctx, actor, req.Source, items)
 }
 

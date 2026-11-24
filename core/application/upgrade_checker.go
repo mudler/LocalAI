@@ -453,7 +453,13 @@ func (uc *UpgradeChecker) snapshotWith(ctx context.Context, throttled, withModel
 			xlog.Debug("Could not list the loaded models for the update view", "error", err)
 		}
 	}
-	return backendupdates.Build(in)
+	snap := backendupdates.Build(in)
+	// The automatic update leaves out a release that did not start before;
+	// the Updates page says so on its row.
+	if in.AutoBackends && len(snap.Items) > 0 {
+		upgraderun.MarkHeldBack(&snap, uc.autoRuns.heldBack(ctx))
+	}
+	return snap
 }
 
 // CheckNow runs a check and waits for it: the gallery backends, and the

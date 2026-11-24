@@ -29,6 +29,14 @@ type fakeRunService struct {
 	// refuse is the error of the next calls; each call takes one entry, and
 	// an empty list accepts.
 	refuse []error
+	// held is what HeldBack answers.
+	held upgraderun.HeldBack
+}
+
+func (f *fakeRunService) HeldBack(context.Context) (upgraderun.HeldBack, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.held, nil
 }
 
 func (f *fakeRunService) Start(ctx context.Context, actor string, req upgraderun.StartRequest) (upgraderun.Run, error) {
@@ -387,6 +395,32 @@ var _ = Describe("the automatic passes as upgrade runs", func() {
 			Expect(bm.upgrade.Load()).To(BeZero())
 			Eventually(svc.count, "2s").Should(Equal(2))
 			Expect(svc.requests[1].Items).To(HaveLen(2))
+		})
+
+		It("neither waits nor retries when every release is held back", func() {
+			svc := &fakeRunService{refuse: []error{&upgraderun.Error{Code: upgraderun.CodeHeldBack, Message: "held back"}}}
+			uc, bm := gate(true, svc, nil)
+			uc.runCheck(ctx, true)
+			Consistently(svc.count, "100ms").Should(Equal(1))
+			Expect(bm.upgrade.Load()).To(BeZero(), "no inline install either")
+		})
+
+		It("marks the held-back release in the read model while the automatic update is on", func() {
+			svc := &fakeRunService{held: upgraderun.HeldBack{"gallery:llama-cpp": {"2": true}, "gallery:whisper": {"1.5": true}}}
+			uc, _ := gate(true, svc, nil)
+			uc.runCheck(ctx, false)
+			byID := map[string]bool{}
+			for _, it := range uc.UpdatesSnapshot(ctx).Items {
+				byID[it.ID] = it.HeldBack
+			}
+			Expect(byID).To(HaveKeyWithValue("gallery:llama-cpp", true))
+			Expect(byID).To(HaveKeyWithValue("gallery:whisper", false), "another release of whisper is listed now")
+
+			off, _ := gate(false, svc, nil)
+			off.runCheck(ctx, false)
+			for _, it := range off.UpdatesSnapshot(ctx).Items {
+				Expect(it.HeldBack).To(BeFalse(), "without the automatic update nothing is held back")
+			}
 		})
 
 		It("starts nothing with the setting off", func() {
