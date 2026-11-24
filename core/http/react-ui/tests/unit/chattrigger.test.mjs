@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   emptyForm, formOf, joinTimes, presetOf, scheduleText, triggerPayload, urlBase64ToBytes, runTone,
+  eventSentence, hookUrl, curlExample, matchList, emptyTrigger, triggerForm, presetOrder,
 } from '../../src/utils/chatTrigger.js'
 
 const form = (over) => ({ ...emptyForm(), ...over })
@@ -93,4 +94,55 @@ test('chat triggers: a stored trigger fills the form and the form writes it back
   assert.equal(body.schedule, 'weekdays 09:00')
   assert.equal(body.enabled, false)
   assert.equal(body.agent_id, 'a1')
+})
+
+test('event triggers: the plain sentence names the sender, the type and the matches', () => {
+  assert.equal(
+    eventSentence({ source: 'github', event_type: 'pull_request', matches: ['action=opened'] }),
+    'When `github` sends `pull_request` where `action=opened`',
+  )
+  assert.equal(
+    eventSentence({ source: 'github', event_type: 'push', matches: ['ref=main', 'repo=app'] }),
+    'When `github` sends `push` where `ref=main` and `repo=app`',
+  )
+  assert.equal(eventSentence({ source: 'billing', event_type: 'invoice.paid' }), 'When `billing` sends `invoice.paid`')
+  assert.equal(eventSentence({ source: 'billing', matches: ['plan=pro'] }), 'When `billing` sends any event where `plan=pro`')
+})
+
+test('event triggers: a translated piece replaces the English one', () => {
+  const tr = (key, vars) => ({ typed: `Quando ${vars?.source} invia ${vars?.type}`, where: ` dove ${vars?.matches}`, and: ' e ' })[key]
+  assert.equal(
+    eventSentence({ source: 'github', event_type: 'push', matches: ['a=b', 'c=d'] }, tr),
+    'Quando `github` invia `push` dove `a=b` e `c=d`',
+  )
+})
+
+test('event triggers: the hook address is the server origin, the base path and the hook path', () => {
+  assert.equal(hookUrl('/api/chats/triggers/t1/hook', 'https://ai.example.com'), 'https://ai.example.com/api/chats/triggers/t1/hook')
+  assert.equal(hookUrl('/api/chats/triggers/t1/hook', 'https://example.com', '/localai'), 'https://example.com/localai/api/chats/triggers/t1/hook')
+  assert.equal(hookUrl('', 'https://example.com'), '')
+})
+
+test('event triggers: the curl example carries the secret, the sender and a matching body', () => {
+  const out = curlExample('https://example.com/api/chats/triggers/t1/hook', 's3cret', { source: 'github', event_type: 'pull_request', matches: ['action=opened'] })
+  assert.match(out, /^curl -X POST 'https:\/\/example\.com\/api\/chats\/triggers\/t1\/hook\?source=github'/)
+  assert.ok(out.includes("-H 'Authorization: Bearer s3cret'"))
+  assert.ok(out.includes(`-d '{"type":"pull_request","action":"opened"}'`))
+})
+
+test('event triggers: the form of an event trigger writes kind, source, type and matches', () => {
+  assert.ok(presetOrder.includes('event'))
+  const tr = { id: 't1', name: 'PRs', prompt: 'Review it.', kind: 'event', enabled: true, source: 'github', event_type: 'pull_request', matches: ['action=opened', 'draft=false'] }
+  const f = triggerForm(tr)
+  assert.equal(presetOf(tr).preset, 'event')
+  assert.equal(f.matches, 'action=opened\ndraft=false')
+  const body = triggerPayload({ ...f, matches: ' action=opened \n\n draft=false\n' })
+  assert.equal(body.kind, 'event')
+  assert.equal(body.source, 'github')
+  assert.equal(body.event_type, 'pull_request')
+  assert.deepEqual(body.matches, ['action=opened', 'draft=false'])
+  assert.equal(body.schedule, undefined)
+  assert.equal(body.time_zone, undefined)
+  assert.deepEqual(matchList('a=b\n\n c=d '), ['a=b', 'c=d'])
+  assert.equal(triggerPayload(emptyTrigger()).kind, 'schedule')
 })

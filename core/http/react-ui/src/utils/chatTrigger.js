@@ -2,7 +2,7 @@
 // example "weekdays 08:00". These functions turn the fields of the form into
 // that text and back. No React, so a node test drives them.
 
-export const presetOrder = ['daily', 'weekdays', 'weekly', 'monthly', 'hourly', 'everyHours', 'everyMinutes', 'once', 'cron', 'file']
+export const presetOrder = ['daily', 'weekdays', 'weekly', 'monthly', 'hourly', 'everyHours', 'everyMinutes', 'once', 'cron', 'file', 'event']
 
 /** The minutes past the hour that "Every hour at minute" offers. */
 export const HOURLY_MINUTES = [0, 5, 10, 15, 20, 30, 45]
@@ -77,7 +77,9 @@ export function formOf(text) {
 
 /** The fields of a stored trigger: a file trigger is the preset "file"; a schedule is read as formOf does. */
 export function presetOf(t) {
-  return t.kind === 'file' ? { ...emptyForm(), preset: 'file' } : formOf(t.schedule || '')
+  if (t.kind === 'file') return { ...emptyForm(), preset: 'file' }
+  if (t.kind === 'event') return { ...emptyForm(), preset: 'event' }
+  return formOf(t.schedule || '')
 }
 
 /** The IANA name of the time zone of the browser; UTC when the browser does not say. */
@@ -127,6 +129,7 @@ export function emptyTrigger() {
     id: '', name: '', prompt: '', enabled: true, schedule: emptyForm(), zone: browserZone(),
     folder: '', quiet: '', dailyCap: '', runLimit: '', agentId: '', model: '', sourceChatId: '',
     acts: [], writes: '', lock: '',
+    source: '', eventType: '', matches: '',
   }
 }
 
@@ -140,14 +143,16 @@ export function triggerForm(tr) {
     // run is read only whatever is ticked) come from the server and are not sent.
     acts: Array.isArray(tr.acts) ? tr.acts : [], writes: tr.plan?.writes || '',
     lock: tr.read_only && (tr.read_only_why === 'declared' || tr.read_only_why === 'binding') ? tr.read_only_why : '',
+    source: tr.source || '', eventType: tr.event_type || '', matches: (tr.matches || []).join('\n'),
   }
 }
 
 /** The body of a create or replace request from the fields of the form. */
 export function triggerPayload(v) {
   const file = v.schedule.preset === 'file'
+  const event = v.schedule.preset === 'event'
   const body = {
-    name: v.name.trim(), prompt: v.prompt, kind: file ? 'file' : 'schedule', enabled: v.enabled,
+    name: v.name.trim(), prompt: v.prompt, kind: file ? 'file' : event ? 'event' : 'schedule', enabled: v.enabled,
     daily_cap: v.dailyCap ? Number(v.dailyCap) : 0,
     // Empty is the administrator's default; the server checks the bounds.
     run_limit: (v.runLimit || '').trim(),
@@ -158,6 +163,10 @@ export function triggerPayload(v) {
   if (file) {
     body.folder = v.folder.trim()
     body.quiet_seconds = v.quiet ? Number(v.quiet) : 0
+  } else if (event) {
+    body.source = (v.source || '').trim()
+    body.event_type = (v.eventType || '').trim()
+    body.matches = matchList(v.matches)
   } else {
     body.schedule = scheduleText(v.schedule)
     body.time_zone = v.zone
@@ -178,4 +187,58 @@ export function urlBase64ToBytes(b64) {
   const pad = '='.repeat((4 - (b64.length % 4)) % 4)
   const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'))
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
+}
+
+/** The "field=value" lines of the matches box: one per line, blanks left out. */
+export function matchList(text) {
+  return String(text || '').split('\n').map((l) => l.trim()).filter((l) => l !== '')
+}
+
+const EVENT_WORDS = {
+  typed: 'When {{source}} sends {{type}}',
+  any: 'When {{source}} sends any event',
+  where: ' where {{matches}}',
+  and: ' and ',
+}
+
+/**
+ * An event trigger in plain words: "When `github` sends `pull_request` where
+ * `action=opened`". The values are in backticks so the card can set them as
+ * code. tr(key, vars) gives the text of one piece (the card passes its
+ * translations); without it the pieces are English.
+ */
+export function eventSentence(t, tr) {
+  const say = (key, vars) => (tr ? tr(key, vars) : EVENT_WORDS[key].replace(/\{\{(\w+)\}\}/g, (_, k) => vars?.[k] ?? ''))
+  const code = (v) => `\`${v}\``
+  const head = t.event_type
+    ? say('typed', { source: code(t.source || ''), type: code(t.event_type) })
+    : say('any', { source: code(t.source || '') })
+  const m = t.matches || []
+  return m.length ? head + say('where', { matches: m.map(code).join(say('and')) }) : head
+}
+
+/** The address the sender calls: the hook path of the trigger on this server. */
+export function hookUrl(path, origin, base = '') {
+  return path ? `${origin}${base}${path}` : ''
+}
+
+/**
+ * A call that makes a matching event, with the secret filled in. The sender
+ * name goes in the query because a plain call has no header that names it; the
+ * body has a type and the fields the matches look for.
+ */
+export function curlExample(url, secret, t) {
+  const body = {}
+  if (t.event_type) body.type = t.event_type
+  for (const m of t.matches || []) {
+    const i = m.indexOf('=')
+    if (i > 0) body[m.slice(0, i)] = m.slice(i + 1)
+  }
+  const q = t.source ? `?source=${encodeURIComponent(t.source)}` : ''
+  return [
+    `curl -X POST '${url}${q}'`,
+    `  -H 'Authorization: Bearer ${secret}'`,
+    "  -H 'Content-Type: application/json'",
+    `  -d '${JSON.stringify(body)}'`,
+  ].join(' \\\n')
 }

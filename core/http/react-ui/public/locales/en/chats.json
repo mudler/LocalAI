@@ -242,7 +242,8 @@
       "everyMinutes": "Every few minutes",
       "once": "Once",
       "cron": "Advanced (cron)",
-      "file": "When a file arrives"
+      "file": "When a file arrives",
+      "event": "When an event arrives"
     },
     "day": {
       "mon": "Mon",
@@ -1944,6 +1945,46 @@
       "title": "The context size of this chat is too small",
       "reason": "The setting of this chat is {{window}} tokens and the chat needs at least {{minimum}}.",
       "fix": "Use the window of the model"
+    }
+  },
+  "event": {
+    "listening": "Listening:",
+    "announceAccepted": "Created {{name}}. Copy its secret now: it is shown once.",
+    "sentence": {
+      "typed": "When {{source}} sends {{type}}",
+      "any": "When {{source}} sends any event",
+      "where": " where {{matches}}",
+      "and": " and "
+    },
+    "hook": {
+      "title": "Hook address and secret",
+      "urlLabel": "Hook URL",
+      "secretLabel": "Secret (shown once)",
+      "curlLabel": "Example call",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyUrl": "Copy the hook URL",
+      "copySecret": "Copy the secret",
+      "copyCurl": "Copy the example call",
+      "paste": "Paste the URL and the secret into the sender's webhook settings. The secret is not shown again.",
+      "noSecret": "The secret is not shown again. Rotate it to get a new one.",
+      "rotate": "Rotate secret",
+      "rotateTitle": "Rotate the secret of {{name}}?",
+      "rotateBody": "The old secret stops working at once. Put the new one into the sender before its next event.",
+      "rotateConfirm": "Rotate",
+      "rotated": "New secret made.",
+      "rotateFailed": "The secret could not be rotated: {{message}}"
+    },
+    "form": {
+      "source": "Sender",
+      "sourceHint": "The name of the sender, for example github.",
+      "sourceEmpty": "Name the sender of the events.",
+      "type": "Event type",
+      "typeHint": "Leave empty to take any type of event.",
+      "matches": "Only when (one field=value per line)",
+      "matchesHint": "Up to 8 lines, for example action=opened.",
+      "createdTitle": "{{name}} is ready",
+      "done": "Done"
     }
   }
 }

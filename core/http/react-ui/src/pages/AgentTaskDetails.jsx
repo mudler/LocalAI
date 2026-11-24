@@ -29,12 +29,14 @@ import { formatDuration, firstLine } from '../utils/agentRuns'
 import { jobDurationMs } from '../utils/agentJobs'
 import { actsStatus } from '../utils/triggerActs'
 import {
-  EVERY_HOURS, EVERY_MINUTES, HOURLY_MINUTES, dayCodes, emptyTrigger, formatNext, joinTimes, presetOrder,
+  EVERY_HOURS, EVERY_MINUTES, HOURLY_MINUTES, dayCodes, emptyTrigger, eventSentence, formatNext, joinTimes, matchList, presetOrder,
   scheduleText, triggerForm, triggerPayload,
 } from '../utils/chatTrigger'
 import { ActsEditor, ActsSummary } from '../components/TriggerActs'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import ReportsTo from '../components/agents/ReportsTo'
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+import EventHook, { EventSentence } from '../components/chat/EventHook'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
@@ -72,6 +74,8 @@ function TaskView({ id }) {
   const [missing, setMissing] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [shownRuns, setShownRuns] = useState(RUNS_PAGE)
+  // The secret of an event trigger after a rotate. Held here only: a reload drops it.
+  const [secret, setSecret] = useState('')
 
   const load = async () => {
     try {
@@ -195,7 +199,7 @@ function TaskView({ id }) {
           <dd className="ag-facts__model">{task.model || agent?.model || <span className="ag-muted">{t('jobs.tasks.noModel')}</span>}</dd>
           <dt>{t('jobs.task.schedule')}</dt>
           <dd>
-            {task.kind === 'file' ? t('jobs.task.watches', { folder: task.folder }) : task.summary}
+            {task.kind === 'file' ? t('jobs.task.watches', { folder: task.folder }) : task.kind === 'event' ? <EventSentence trigger={task} /> : task.summary}
             {task.next_run && !off ? <span className="ag-muted"> · {t('chats:triggersPage.next', { time: formatNext(task.next_run, task.time_zone) })}</span> : null}
           </dd>
           <dt>{t('jobs.reports.label')}</dt>
@@ -212,6 +216,12 @@ function TaskView({ id }) {
           </dd>
         </dl>
 
+        {task.kind === 'event' && task.hook_path && (
+          <section className="ag-sec" aria-labelledby="aj-hook-h">
+            <div className="ag-section-head"><h2 className="ag-h2" id="aj-hook-h">{t('chats:event.hook.title')}</h2></div>
+            <EventHook trigger={task} secret={secret} onSecret={setSecret} />
+          </section>
+        )}
         <section className="ag-sec" aria-labelledby="aj-prompt-h">
           <div className="ag-section-head"><h2 className="ag-h2" id="aj-prompt-h">{t('jobs.task.prompt')}</h2></div>
           {task.prompt ? <p className="aj-preview aj-preview--doc" data-testid="task-prompt">{task.prompt}</p> : <p className="ag-note">{t('jobs.edit.summary.promptEmpty')}</p>}
@@ -268,7 +278,7 @@ function TaskView({ id }) {
 const SECTIONS = [
   { id: 'basics', keys: ['name', 'agent_id', 'model', 'enabled'] },
   { id: 'prompt', keys: ['prompt'] },
-  { id: 'schedule', keys: ['kind', 'schedule', 'time_zone', 'folder', 'quiet_seconds'] },
+  { id: 'schedule', keys: ['kind', 'schedule', 'time_zone', 'folder', 'quiet_seconds', 'source', 'event_type', 'matches'] },
   { id: 'acts', keys: ['acts'] },
   { id: 'limits', keys: ['daily_cap', 'run_limit'] },
 ]
@@ -345,7 +355,7 @@ function ScheduleFields({ form, setForm, folders, noFiles, allowed, problem, t }
             <input id="aj-cron" className="dk-input dk-input--mono" value={s.cron} spellCheck={false} onChange={(e) => set({ cron: e.target.value })} />
           </div>
         )}
-        {s.preset !== 'file' && (
+        {s.preset !== 'file' && s.preset !== 'event' && (
           <div className="dk-field">
             <label className="dk-label" htmlFor="aj-zone">{t('chats:triggersPage.zone')}</label>
             <input id="aj-zone" className="dk-input" value={form.zone} onChange={(e) => setForm({ ...form, zone: e.target.value })} />
@@ -369,6 +379,30 @@ function ScheduleFields({ form, setForm, folders, noFiles, allowed, problem, t }
             ))}
           </div>
         </fieldset>
+      )}
+      {s.preset === 'event' && (
+        <div className="aj-form" data-testid="aj-event-fields">
+          <div className="aj-row2">
+            <div className="dk-field">
+              <label className="dk-label" htmlFor="aj-source">{t('chats:event.form.source')}</label>
+              <input id="aj-source" className="dk-input" value={form.source} required placeholder="github" autoComplete="off" spellCheck={false}
+                aria-describedby="aj-source-h" onChange={(e) => setForm({ ...form, source: e.target.value })} />
+              <p className="dk-hint" id="aj-source-h">{t('chats:event.form.sourceHint')}</p>
+            </div>
+            <div className="dk-field">
+              <label className="dk-label" htmlFor="aj-etype">{t('chats:event.form.type')}</label>
+              <input id="aj-etype" className="dk-input" value={form.eventType} placeholder="pull_request" autoComplete="off" spellCheck={false}
+                aria-describedby="aj-etype-h" onChange={(e) => setForm({ ...form, eventType: e.target.value })} />
+              <p className="dk-hint" id="aj-etype-h">{t('chats:event.form.typeHint')}</p>
+            </div>
+          </div>
+          <div className="dk-field">
+            <label className="dk-label" htmlFor="aj-matches">{t('chats:event.form.matches')}</label>
+            <textarea id="aj-matches" className="dk-textarea dk-input--mono" rows={3} value={form.matches} placeholder="action=opened" spellCheck={false}
+              aria-describedby="aj-matches-h" onChange={(e) => setForm({ ...form, matches: e.target.value })} />
+            <p className="dk-hint" id="aj-matches-h">{t('chats:event.form.matchesHint')}</p>
+          </div>
+        </div>
       )}
       {s.preset === 'file' && noFiles && <p className="dk-hint" role="note" data-testid="aj-folder-nofiles">{t('jobs.edit.watchNoFiles')}</p>}
       {s.preset === 'file' && (
@@ -535,6 +569,8 @@ function TaskForm({ id, isNew }) {
   const allowed = useMemo(() => allowedFolders(picked), [picked])
   const fileKind = task.schedule.preset === 'file'
   const [tried, setTried] = useState(false)
+  // A trigger just made, with the secret of an event trigger. The secret is shown here once and kept only in this state.
+  const [created, setCreated] = useState(null)
   const rawProblem = fileKind ? folderProblem(task.folder, allowed) : ''
   // An empty folder is told after a try to save; a folder outside the fence at once.
   const folderIssue = rawProblem === 'empty' && !tried ? '' : rawProblem
@@ -564,6 +600,11 @@ function TaskForm({ id, isNew }) {
         if (rawProblem && rawProblem !== 'empty') return { state: 'needs', text: t(`jobs.edit.folder.${rawProblem}`, { folders: (allowed || []).join(', ') }) }
         return { state: task.folder.trim() ? 'ready' : 'needs', text: task.folder.trim() ? t('jobs.task.watches', { folder: task.folder }) : t('jobs.edit.summary.folderEmpty') }
       }
+      if (task.schedule.preset === 'event') {
+        return task.source.trim()
+          ? { state: 'ready', text: eventSentence({ source: task.source.trim(), event_type: task.eventType.trim(), matches: matchList(task.matches) }).replaceAll('`', '') }
+          : { state: 'needs', text: t('chats:event.form.sourceEmpty') }
+      }
       return { state: 'ready', text: scheduleText(task.schedule) }
     }
     if (sid === 'acts') {
@@ -586,11 +627,22 @@ function TaskForm({ id, isNew }) {
       setOpen(prev => new Set([...prev, 'schedule']))
       return
     }
+    if (payload.kind === 'event' && !payload.source) {
+      addToast(t('chats:event.form.sourceEmpty'), 'warning')
+      setOpen(prev => new Set([...prev, 'schedule']))
+      return
+    }
     setSaving(true)
     try {
       if (isNew) {
-        await chatTriggersApi.create(payload)
+        const made = await chatTriggersApi.create(payload)
         addToast(t('jobs.edit.created'), 'success')
+        if (made?.secret) {
+          // An event trigger: show its secret before leaving the page.
+          initial.current = payload
+          setCreated({ trigger: made, secret: made.secret })
+          return
+        }
       } else {
         await chatTriggersApi.update(id, payload)
         addToast(t('jobs.edit.updated'), 'success')
@@ -612,6 +664,20 @@ function TaskForm({ id, isNew }) {
           {loadError
             ? <LoadError title={t('load.trigger')} error={loadError} onRetry={() => { setLoadError(null); setLoading(true); setAttempt(n => n + 1) }} />
             : <SkeletonRows count={4} />}
+        </div>
+      </Page>
+    )
+  }
+
+  if (created) {
+    return (
+      <Page className="ag-page aj-page" data-testid="task-created">
+        <div className="ag-home">
+          <PageHeader title={t('chats:event.form.createdTitle', { name: created.trigger.name })} supporting={<EventSentence trigger={created.trigger} />} />
+          <EventHook trigger={created.trigger} secret={created.secret} onSecret={(v) => setCreated({ ...created, secret: v })} />
+          <div className="ag-foot">
+            <Button variant="primary" onClick={() => navigate(`/app/triggers/${encodeURIComponent(created.trigger.id)}`)} data-testid="task-created-done">{t('chats:event.form.done')}</Button>
+          </div>
         </div>
       </Page>
     )

@@ -1552,7 +1552,10 @@
     "mcp": "Server MCP"
   },
   "triggersPage": {
-    "runLimit": "Batas waktu satu proses"
+    "runLimit": "Batas waktu satu proses",
+    "presets": {
+      "event": "Saat ada peristiwa masuk"
+    }
   },
   "sandboxProfile": {
     "label": "Profil sandbox",
@@ -1627,6 +1630,46 @@
       "title": "Ukuran konteks chat ini terlalu kecil",
       "reason": "Pengaturan chat ini adalah {{window}} token dan chat membutuhkan minimal {{minimum}}.",
       "fix": "Pakai jendela model"
+    }
+  },
+  "event": {
+    "listening": "Mendengarkan:",
+    "announceAccepted": "{{name}} dibuat. Salin rahasianya sekarang: hanya ditampilkan sekali.",
+    "sentence": {
+      "typed": "Saat {{source}} mengirim {{type}}",
+      "any": "Saat {{source}} mengirim peristiwa apa pun",
+      "where": " dengan {{matches}}",
+      "and": " dan "
+    },
+    "hook": {
+      "title": "Alamat hook dan rahasia",
+      "urlLabel": "URL hook",
+      "secretLabel": "Rahasia (ditampilkan sekali)",
+      "curlLabel": "Contoh panggilan",
+      "copy": "Salin",
+      "copied": "Tersalin",
+      "copyUrl": "Salin URL hook",
+      "copySecret": "Salin rahasia",
+      "copyCurl": "Salin contoh panggilan",
+      "paste": "Tempel URL dan rahasia ke pengaturan webhook pengirim. Rahasia tidak ditampilkan lagi.",
+      "noSecret": "Rahasia tidak ditampilkan lagi. Putar rahasia untuk mendapatkan yang baru.",
+      "rotate": "Putar rahasia",
+      "rotateTitle": "Putar rahasia {{name}}?",
+      "rotateBody": "Rahasia lama langsung berhenti berfungsi. Pasang yang baru di pengirim sebelum peristiwa berikutnya.",
+      "rotateConfirm": "Putar",
+      "rotated": "Rahasia baru dibuat.",
+      "rotateFailed": "Rahasia tidak dapat diputar: {{message}}"
+    },
+    "form": {
+      "source": "Pengirim",
+      "sourceHint": "Nama pengirim, misalnya github.",
+      "sourceEmpty": "Sebutkan pengirim peristiwa.",
+      "type": "Jenis peristiwa",
+      "typeHint": "Kosongkan untuk menerima semua jenis peristiwa.",
+      "matches": "Hanya jika (satu field=nilai per baris)",
+      "matchesHint": "Hingga 8 baris, misalnya action=opened.",
+      "createdTitle": "{{name}} siap",
+      "done": "Selesai"
     }
   }
 }

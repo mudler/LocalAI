@@ -1552,7 +1552,10 @@
     "mcp": "MCP 서버"
   },
   "triggersPage": {
-    "runLimit": "실행 시간 제한"
+    "runLimit": "실행 시간 제한",
+    "presets": {
+      "event": "이벤트가 도착할 때"
+    }
   },
   "sandboxProfile": {
     "label": "샌드박스 프로필",
@@ -1627,6 +1630,46 @@
       "title": "이 채팅의 컨텍스트 크기가 너무 작습니다",
       "reason": "이 채팅의 설정은 {{window}}토큰이며 채팅에는 최소 {{minimum}}토큰이 필요합니다.",
       "fix": "모델의 창 사용"
+    }
+  },
+  "event": {
+    "listening": "수신 대기 중:",
+    "announceAccepted": "{{name}}을(를) 만들었습니다. 지금 비밀 키를 복사하세요. 한 번만 표시됩니다.",
+    "sentence": {
+      "typed": "{{source}}이(가) {{type}}을(를) 보낼 때",
+      "any": "{{source}}이(가) 어떤 이벤트든 보낼 때",
+      "where": " 조건: {{matches}}",
+      "and": ", "
+    },
+    "hook": {
+      "title": "훅 주소와 비밀 키",
+      "urlLabel": "훅 URL",
+      "secretLabel": "비밀 키 (한 번만 표시)",
+      "curlLabel": "호출 예시",
+      "copy": "복사",
+      "copied": "복사됨",
+      "copyUrl": "훅 URL 복사",
+      "copySecret": "비밀 키 복사",
+      "copyCurl": "호출 예시 복사",
+      "paste": "URL과 비밀 키를 보내는 쪽의 웹훅 설정에 붙여 넣으세요. 비밀 키는 다시 표시되지 않습니다.",
+      "noSecret": "비밀 키는 다시 표시되지 않습니다. 새 키가 필요하면 교체하세요.",
+      "rotate": "비밀 키 교체",
+      "rotateTitle": "{{name}}의 비밀 키를 교체할까요?",
+      "rotateBody": "이전 비밀 키는 즉시 작동하지 않습니다. 다음 이벤트가 오기 전에 새 키를 보내는 쪽에 넣으세요.",
+      "rotateConfirm": "교체",
+      "rotated": "새 비밀 키를 만들었습니다.",
+      "rotateFailed": "비밀 키를 교체하지 못했습니다: {{message}}"
+    },
+    "form": {
+      "source": "보내는 쪽",
+      "sourceHint": "보내는 쪽의 이름입니다. 예: github.",
+      "sourceEmpty": "이벤트를 보내는 쪽의 이름을 입력하세요.",
+      "type": "이벤트 유형",
+      "typeHint": "비워 두면 모든 유형을 받습니다.",
+      "matches": "다음 조건일 때만 (줄마다 필드=값 하나)",
+      "matchesHint": "최대 8줄. 예: action=opened.",
+      "createdTitle": "{{name}} 준비됨",
+      "done": "완료"
     }
   }
 }

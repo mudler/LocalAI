@@ -746,6 +746,8 @@ export const chatTriggersApi = {
   enable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/disable`, {}),
   run: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/run`, {}),
+  // A new secret for an event trigger: { secret }. The old one stops working at once; the new one is shown once.
+  rotateSecret: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/secret`, {}),
   runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
   preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
   proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
