@@ -13,9 +13,9 @@ overlay: develop-ci
 
 # Each entry: name = local branch to merge (or origin/<name> if no local branch).
 branches:
-  - name: fix/addon-library-sources
-    description: "Add-on library listing fix (Find add-ons)."
-    upstream_pr: null
   - name: feat/otlp-trace-export-rebase
     description: "OTLP request and inference tracing, plus tool-schema fixes."
     upstream_pr: 13270
+  - name: fix/addon-refresh-error-cause
+    description: "Name the cause when an add-on library refresh fails."
+    upstream_pr: 13439
