@@ -61,9 +61,10 @@ TEST_DIR=/tmp/test
 
 TEST_FLAKES?=5
 
-## Total deadline for `ginkgo -r` in `make test`. Ginkgo counts it across all
-## suites, not per suite, and its default is 1h. The suites on a macOS runner
-## need about an hour, so the default cuts the run short.
+## Total deadline for `ginkgo -r` in `make test` and for each root of
+## `make test-coverage`. Ginkgo counts it across all suites, not per suite,
+## and its default is 1h. The suites on a macOS runner and the ./core root of
+## the coverage run need about an hour, so the default cuts the run short.
 TEST_TIMEOUT?=2h
 
 RANDOM := $(shell bash -c 'echo $$RANDOM')
@@ -308,6 +309,7 @@ test-coverage: prepare-test
 	COVERAGE_E2E_ROOTS="$(COVERAGE_E2E_ROOTS)" \
 	COVERAGE_E2E_LABELS="$(COVERAGE_E2E_LABELS)" \
 	COVERAGE_EXCLUDE_RE='$(COVERAGE_EXCLUDE_RE)' \
+	COVERAGE_TIMEOUT="$(TEST_TIMEOUT)" \
 	OPUS_SHIM_LIBRARY=$(abspath ./pkg/opus/shim/libopusshim.so) \
 	scripts/run-coverage.sh $(COVERAGE_DIR) $(COVERAGE_PROFILE) $(TEST_FLAKES) $(COVERAGE_ROOTS)
 	@$(GOCMD) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_DIR)/coverage.html
