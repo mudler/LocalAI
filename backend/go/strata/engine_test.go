@@ -41,6 +41,19 @@ var _ = Describe("engine", func() {
 		}
 	})
 
+	It("keeps the reason of a failed start every time", func() {
+		// The engine says why it failed on stdout (ERR) and on stderr, then
+		// exits. Both reasons must be in the error, on every start: the output
+		// pumps must be drained before the error is built.
+		for i := 0; i < 300; i++ {
+			_, err := startEngine(stubConfig("errexit"))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, errEngineDied)).To(BeTrue(), "start %d: %v", i, err)
+			Expect(err.Error()).To(ContainSubstring("stub-stderr-reason"), "start %d", i)
+			Expect(err.Error()).To(ContainSubstring("stub-stdout-reason"), "start %d", i)
+		}
+	})
+
 	It("missing executable", func() {
 		cfg := stubConfig("ok")
 		cfg.Path = filepath.Join(GinkgoT().TempDir(), "nope")

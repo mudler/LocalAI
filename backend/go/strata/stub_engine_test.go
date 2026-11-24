@@ -8,6 +8,8 @@ package main
 //	ok          READY, then answer each GEN with the tokens in STRATA_STUB_TOKENS
 //	noready     never prints READY
 //	exitearly   exits before READY
+//	errexit     prints "ERR <reason>" on stdout and the same reason on stderr,
+//	            then exits with status 1, before READY
 //	crash       prints two tokens of a request, then exits
 //	err         answers every GEN with an ERR line
 //	hangstop    like ok, but ignores STOP and never ends a request
@@ -64,6 +66,10 @@ func runStub(mode string) {
 	case "exitearly":
 		fmt.Fprintln(os.Stderr, "stub: cannot load model")
 		os.Exit(2)
+	case "errexit":
+		say("ERR stub-stdout-reason")
+		fmt.Fprintln(os.Stderr, "stub-stderr-reason")
+		os.Exit(1)
 	}
 	ready := "READY 4096 stop"
 	if os.Getenv("STRATA_STUB_NOSTOP") != "" {

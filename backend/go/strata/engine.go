@@ -60,8 +60,11 @@ type engine struct {
 
 	busy atomicBool
 
+	pumps sync.WaitGroup // the stdout and stderr readers
+
 	tailMu sync.Mutex
 	tail   []string // last stderr lines, for error messages
+	errs   []string // ERR lines seen on stdout before READY
 }
 
 var (
@@ -90,13 +93,24 @@ func startEngine(cfg engineConfig) (*engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	stdout, err := cmd.StdoutPipe()
+	// Own pipes instead of StdoutPipe and StderrPipe: Wait closes those as
+	// soon as the process has exited, which can cut off output still unread.
+	// With plain files, Wait only reaps the process and the pumps read to EOF.
+	outR, outW, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
-	stderr, err := cmd.StderrPipe()
+	errR, errW, err := os.Pipe()
 	if err != nil {
+		_ = outR.Close()
+		_ = outW.Close()
 		return nil, err
+	}
+	cmd.Stdout, cmd.Stderr = outW, errW
+	closeAll := func(fs ...*os.File) {
+		for _, f := range fs {
+			_ = f.Close()
+		}
 	}
 
 	e := &engine{
@@ -110,10 +124,14 @@ func startEngine(cfg engineConfig) (*engine, error) {
 	started := make(chan error, 1)
 	go e.supervise(started)
 	if err := <-started; err != nil {
+		closeAll(outR, outW, errR, errW)
 		return nil, fmt.Errorf("start %s: %w", cfg.Path, err)
 	}
-	go e.pumpStdout(stdout)
-	go e.pumpStderr(stderr)
+	// The child has its own copies. Drop ours so the pumps see EOF when it exits.
+	closeAll(outW, errW)
+	e.pumps.Add(2)
+	go e.pumpStdout(outR)
+	go e.pumpStderr(errR)
 
 	if err := e.waitReady(); err != nil {
 		e.kill()
@@ -137,8 +155,10 @@ func (e *engine) supervise(started chan<- error) {
 	close(e.exited)
 }
 
-func (e *engine) pumpStdout(r io.Reader) {
+func (e *engine) pumpStdout(r io.ReadCloser) {
+	defer e.pumps.Done()
 	defer close(e.lines)
+	defer func() { _ = r.Close() }()
 	br := bufio.NewReaderSize(r, 64*1024)
 	for {
 		s, err := br.ReadString('\n')
@@ -151,7 +171,9 @@ func (e *engine) pumpStdout(r io.Reader) {
 	}
 }
 
-func (e *engine) pumpStderr(r io.Reader) {
+func (e *engine) pumpStderr(r io.ReadCloser) {
+	defer e.pumps.Done()
+	defer func() { _ = r.Close() }()
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
 	for sc.Scan() {
@@ -163,6 +185,22 @@ func (e *engine) pumpStderr(r io.Reader) {
 			e.tail = e.tail[1:]
 		}
 		e.tailMu.Unlock()
+	}
+}
+
+// drainTimeout bounds the wait for the output readers after the engine has
+// exited. They end at once unless a grandchild still holds the pipes open.
+const drainTimeout = 5 * time.Second
+
+// drained waits until both output readers have seen EOF, so that the stderr
+// tail and the ERR lines are complete.
+func (e *engine) drained() {
+	done := make(chan struct{})
+	go func() { e.pumps.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(drainTimeout):
+		xlog.Warn("strata: engine output did not close after the engine exited")
 	}
 }
 
@@ -182,7 +220,13 @@ func (e *engine) waitReady() error {
 		case l, ok := <-e.lines:
 			if !ok {
 				<-e.exited
-				return fmt.Errorf("%w before READY (%v)%s", errEngineDied, e.waitErr, e.tailSuffix())
+				e.drained()
+				return fmt.Errorf("%w before READY (%v)%s", errEngineDied, e.waitErr, e.startReasons())
+			}
+			if strings.HasPrefix(l, "ERR") {
+				// The engine may say why it cannot start before it exits.
+				e.errs = append(e.errs, strings.TrimSpace(strings.TrimPrefix(l, "ERR")))
+				continue
 			}
 			if !strings.HasPrefix(l, "READY") {
 				continue
@@ -204,6 +248,22 @@ func (e *engine) waitReady() error {
 			return nil
 		}
 	}
+}
+
+// startReasons is the engine's own account of a failed start: its ERR lines
+// on stdout, then the tail of stderr.
+func (e *engine) startReasons() string {
+	var parts []string
+	if len(e.errs) > 0 {
+		parts = append(parts, strings.Join(e.errs, "; "))
+	}
+	if t := e.stderrTail(); t != "" {
+		parts = append(parts, t)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(parts, "\n")
 }
 
 func (e *engine) tailSuffix() string {
@@ -369,6 +429,7 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genT
 	defer e.busy.Set(false)
 
 	if !e.alive() {
+		e.drained()
 		return genResult{}, fmt.Errorf("%w%s", errEngineDied, e.tailSuffix())
 	}
 	// A previous request that was read to its end leaves nothing behind but
@@ -433,6 +494,7 @@ func (e *engine) generate(ctx context.Context, req genRequest, onToken func(genT
 		case l, ok := <-e.lines:
 			if !ok {
 				<-e.exited
+				e.drained()
 				return genResult{}, fmt.Errorf("%w mid-request (%v)%s", errEngineDied, e.waitErr, e.tailSuffix())
 			}
 			switch {
