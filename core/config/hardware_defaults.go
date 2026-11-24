@@ -329,6 +329,7 @@ func ApplyHardwareDefaults(cfg *ModelConfig, gpu GPU) {
 	if cfg.Batch == 0 {
 		if PhysicalBatchForContext(gpu, ctx) == BlackwellPhysicalBatch {
 			cfg.Batch = BlackwellPhysicalBatch
+			cfg.batchFromHardware = true
 			xlog.Debug("[hardware_defaults] Blackwell GPU: defaulting physical batch",
 				"batch", cfg.Batch, "compute_cap", gpu.ComputeCapability, "context", ctx, "vram_gib", gpu.VRAM>>30)
 		}

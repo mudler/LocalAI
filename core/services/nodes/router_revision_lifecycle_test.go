@@ -219,7 +219,7 @@ var _ = Describe("revision-bound load publication", func() {
 		Expect(registry.Register(ctx, secondNode, true)).To(Succeed())
 		router := NewSmartRouter(registry, SmartRouterOptions{Unloader: unloader, ClientFactory: &stubClientFactory{client: backend}})
 
-		first, err := router.Route(ctx, modelName, "models/heterogeneous.gguf", "llama-cpp", "rev-one", &pb.ModelOptions{ContextSize: 8192, NBatch: 512}, false)
+		first, err := router.Route(ctx, modelName, "models/heterogeneous.gguf", "llama-cpp", "rev-one", &pb.ModelOptions{ContextSize: 8192, NBatch: 512, BatchManaged: true}, false)
 		Expect(err).NotTo(HaveOccurred())
 		first.Release()
 		_, err = router.ScheduleAndLoadModel(ctx, modelName, nil)

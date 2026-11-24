@@ -509,6 +509,7 @@ func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 		ContextSize:          int32(ctxSize),
 		Seed:                 getSeed(c),
 		NBatch:               int32(b),
+		BatchManaged:         c.BatchIsManaged(),
 		NoMulMatQ:            c.NoMulMatQ,
 		DraftModel:           c.DraftModel,
 		AudioPath:            c.AudioPath,
