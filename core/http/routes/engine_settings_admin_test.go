@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// The model editor calls the llama.cpp settings routes, but the server must
+// The model editor calls the engine settings routes, but the server must
 // refuse everyone who is not an administrator.
-var _ = Describe("llama.cpp settings routes are admin-only", func() {
+var _ = Describe("engine settings routes are admin-only", func() {
 	const adminHeader = "X-Test-Admin"
 
 	setup := func() *echo.Echo {
@@ -60,9 +60,11 @@ var _ = Describe("llama.cpp settings routes are admin-only", func() {
 			Expect(call(e, method, target, body, false).Code).To(Equal(http.StatusForbidden))
 			Expect(call(e, method, target, body, true).Code).To(Equal(http.StatusOK))
 		},
-		Entry("parse-command", http.MethodPost, "/api/llama-cpp/parse-command", `{"command":"llama-server -c 1"}`),
-		Entry("command-preview", http.MethodPost, "/api/llama-cpp/command-preview", `{"config":{}}`),
-		Entry("settings-schema", http.MethodGet, "/api/llama-cpp/settings-schema", ``),
-		Entry("tensor-placement", http.MethodPost, "/api/llama-cpp/tensor-placement", `{"option":"-ot:x=CPU"}`),
+		Entry("engines", http.MethodGet, "/api/engines", ``),
+		Entry("engine of a backend", http.MethodGet, "/api/engines?backend=llama-cpp", ``),
+		Entry("parse-command", http.MethodPost, "/api/engines/llama-cpp/parse-command", `{"command":"llama-server -c 1"}`),
+		Entry("command-preview", http.MethodPost, "/api/engines/llama-cpp/command-preview", `{"config":{}}`),
+		Entry("settings-schema", http.MethodGet, "/api/engines/llama-cpp/settings-schema", ``),
+		Entry("placement", http.MethodPost, "/api/engines/llama-cpp/placement", `{"option":"-ot:x=CPU"}`),
 	)
 })

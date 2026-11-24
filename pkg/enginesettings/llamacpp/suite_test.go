@@ -1,4 +1,4 @@
-package llamacppsettings_test
+package llamacpp_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestLlamaCppSettings(t *testing.T) {
+func TestLlamaCppEngine(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "llama.cpp settings suite")
+	RunSpecs(t, "llama.cpp engine settings suite")
 }

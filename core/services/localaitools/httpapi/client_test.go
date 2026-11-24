@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	localaitools "github.com/mudler/LocalAI/core/services/localaitools"
 	"github.com/mudler/LocalAI/core/services/upgraderun"
-	"github.com/mudler/LocalAI/pkg/llamacppsettings"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 )
 
 // fakeLocalAI is a minimal HTTP server that mimics the relevant LocalAI
@@ -186,29 +186,31 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
-	Describe("llama.cpp settings", func() {
+	Describe("engine settings", func() {
 		It("posts the command and decodes the parse result", func() {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.Path).To(Equal("/api/llama-cpp/parse-command"))
+				Expect(r.URL.Path).To(Equal("/api/engines/llama-cpp/parse-command"))
 				var body map[string]string
 				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
 				Expect(body["command"]).To(Equal("llama-server -c 4096"))
 				_, _ = w.Write([]byte(`{"fields":{"context_size":4096},"options":[],"unmapped":[],"warnings":[],"placements":[]}`))
 			}))
 			defer srv.Close()
-			out, err := New(srv.URL, "").ParseLlamaCppCommand(ctx, "llama-server -c 4096")
+			out, err := New(srv.URL, "").ParseEngineCommand(ctx, "llama-cpp", "llama-server -c 4096")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*out.Fields.ContextSize).To(Equal(4096))
+			Expect(out.Fields["context_size"]).To(BeEquivalentTo(4096))
 		})
 
 		It("posts the config and decodes the command", func() {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				Expect(r.URL.Path).To(Equal("/api/llama-cpp/command-preview"))
+				Expect(r.URL.Path).To(Equal("/api/engines/llama-cpp/command-preview"))
+				var body map[string]map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body["config"]["context_size"]).To(BeEquivalentTo(4096))
 				_, _ = w.Write([]byte(`{"command":"llama-server -c 4096","warnings":[]}`))
 			}))
 			defer srv.Close()
-			n := 4096
-			out, err := New(srv.URL, "").PreviewLlamaCppCommand(ctx, llamacppsettings.Settings{ContextSize: &n})
+			out, err := New(srv.URL, "").PreviewEngineCommand(ctx, "llama-cpp", enginesettings.Config{"context_size": 4096})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(out.Command).To(Equal("llama-server -c 4096"))
 		})

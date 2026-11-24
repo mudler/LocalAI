@@ -1,4 +1,4 @@
-package llamacppsettings
+package enginesettings
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 // backslash before $ ` " \ and newline, an unquoted backslash escapes the
 // next character, and a backslash before a newline joins lines. Nothing is
 // expanded or executed. The second result lists tokens that contain unquoted
-// shell operators, which this package treats as plain text.
+// shell operators, which this package treats as plain text. It is the default tokenizer of a CommandLine.
 func Tokenize(s string) (tokens []string, operators []string, err error) {
 	if strings.ContainsRune(s, 0) {
 		return nil, nil, errors.New("the command contains a NUL byte")
@@ -98,8 +98,8 @@ func Tokenize(s string) (tokens []string, operators []string, err error) {
 	return tokens, operators, nil
 }
 
-// quote writes a word so that Tokenize returns it unchanged.
-func quote(w string) string {
+// Quote writes a word so that Tokenize returns it unchanged.
+func Quote(w string) string {
 	if w == "" {
 		return `""`
 	}

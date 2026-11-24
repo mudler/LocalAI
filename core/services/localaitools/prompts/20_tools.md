@@ -17,8 +17,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `get_job_status` — Poll the status of an install/delete/upgrade job by id.
 - `get_model_config` — Read the YAML/JSON config of an installed model.
 - `vram_estimate` — Estimate VRAM use for a model under a given config.
-- `parse_llama_cpp_command` — Read a llama-server command into config keys. Never runs it.
-- `preview_llama_cpp_command` — Write the llama-server command for a model config.
+- `parse_engine_command` — Read an engine command line into config keys. Never runs it.
+- `preview_engine_command` — Write the engine command line for a model config.
 - `system_info` — LocalAI version, paths, distributed flag, loaded models, installed backends.
 - `list_nodes` — List federated worker nodes (only useful in distributed mode).
 - `list_scheduling` — List distributed per-model scheduling configs.

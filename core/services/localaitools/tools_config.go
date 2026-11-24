@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/mudler/LocalAI/pkg/llamacppsettings"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
 )
 
 func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
@@ -39,15 +39,16 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        ToolParseLlamaCppCommand,
-		Description: "Read a pasted llama-server command line and return the model config keys and options it maps to, plus the flags that have no first-class key (unmapped) and any warnings. Read-only: the command is only tokenised, never run. To apply the result, use edit_model_config after the user confirms.",
+		Name:        ToolParseEngineCommand,
+		Description: "Read a pasted command line of an engine (engine llama-cpp for llama-server) and return the model config keys and options it maps to, plus the flags that have no first-class key (unmapped) and any warnings. Read-only: the command is only tokenised, never run. To apply the result, use edit_model_config after the user confirms.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
-		Command string `json:"command" jsonschema:"The llama-server command line."`
+		Engine  string `json:"engine" jsonschema:"The engine id, for example llama-cpp."`
+		Command string `json:"command" jsonschema:"The command line."`
 	}) (*mcp.CallToolResult, any, error) {
-		if args.Command == "" {
-			return errorResultf("command is required"), nil, nil
+		if args.Engine == "" || args.Command == "" {
+			return errorResultf("engine and command are required"), nil, nil
 		}
-		res, err := client.ParseLlamaCppCommand(ctx, args.Command)
+		res, err := client.ParseEngineCommand(ctx, args.Engine, args.Command)
 		if err != nil {
 			return errorResult(err), nil, nil
 		}
@@ -55,12 +56,16 @@ func registerConfigTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        ToolPreviewLlamaCppCommand,
-		Description: "Write the llama-server command line that matches a partial model config (context_size, gpu_layers, parameters, options and so on). Read-only; the text is for display.",
+		Name:        ToolPreviewEngineCommand,
+		Description: "Write the command line of an engine (engine llama-cpp for llama-server) that matches a partial model config (context_size, gpu_layers, parameters, options and so on). Read-only; the text is for display.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, args struct {
-		Config llamacppsettings.Settings `json:"config" jsonschema:"A partial model config."`
+		Engine string                `json:"engine" jsonschema:"The engine id, for example llama-cpp."`
+		Config enginesettings.Config `json:"config" jsonschema:"A partial model config."`
 	}) (*mcp.CallToolResult, any, error) {
-		res, err := client.PreviewLlamaCppCommand(ctx, args.Config)
+		if args.Engine == "" {
+			return errorResultf("engine is required"), nil, nil
+		}
+		res, err := client.PreviewEngineCommand(ctx, args.Engine, args.Config)
 		if err != nil {
 			return errorResult(err), nil, nil
 		}

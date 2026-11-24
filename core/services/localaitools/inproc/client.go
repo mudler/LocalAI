@@ -10,7 +10,8 @@ import (
 	"errors"
 	"fmt"
 	p2papi "github.com/mudler/LocalAI/core/http/endpoints/p2p"
-	"github.com/mudler/LocalAI/pkg/llamacppsettings"
+	"github.com/mudler/LocalAI/pkg/enginesettings"
+	"github.com/mudler/LocalAI/pkg/enginesettings/builtin"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1074,16 +1075,27 @@ func (c *Client) SetNodeVRAMBudget(_ context.Context, _, _ string) error {
 	return errors.New("per-node VRAM budgets are only available in distributed mode")
 }
 
-func (c *Client) ParseLlamaCppCommand(_ context.Context, command string) (*llamacppsettings.ParseResult, error) {
-	res, err := llamacppsettings.ParseCommand(command)
+func (c *Client) ParseEngineCommand(_ context.Context, engine, command string) (*enginesettings.ParseResult, error) {
+	e, ok := builtin.Registry().Get(engine)
+	if !ok {
+		return nil, fmt.Errorf("unknown engine %q", engine)
+	}
+	res, err := e.ParseCommand(command)
 	if err != nil {
 		return nil, err
 	}
 	return &res, nil
 }
 
-func (c *Client) PreviewLlamaCppCommand(_ context.Context, config llamacppsettings.Settings) (*llamacppsettings.BuildResult, error) {
-	res := llamacppsettings.BuildCommand(config)
+func (c *Client) PreviewEngineCommand(_ context.Context, engine string, config enginesettings.Config) (*enginesettings.BuildResult, error) {
+	e, ok := builtin.Registry().Get(engine)
+	if !ok {
+		return nil, fmt.Errorf("unknown engine %q", engine)
+	}
+	res, err := e.BuildCommand(config)
+	if err != nil {
+		return nil, err
+	}
 	return &res, nil
 }
 
