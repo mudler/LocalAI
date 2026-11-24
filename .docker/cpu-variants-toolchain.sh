@@ -11,11 +11,18 @@ export DEBIAN_FRONTEND=noninteractive
 sh "$here/apt-mirror" || true
 sh "$here/apt-mirror" apt-get update -qq
 sh "$here/apt-mirror" apt-get install -y --no-install-recommends \
-  ca-certificates git cmake make ccache binutils software-properties-common
+  ca-certificates curl gpg git cmake make ccache binutils
 
 if [ "${TARGETARCH}" = "arm64" ]; then
   gcc_version=14
-  add-apt-repository -y ppa:ubuntu-toolchain-r/test
+  # add-apt-repository is not used: it starts gpg-agent, which cannot run inside a
+  # BuildKit RUN. Fetch the signing key of the PPA and register it by hand.
+  key_fingerprint=C8EC952E2A0E1FBDC5090F6A2C277A0A352154E5
+  curl -fsSL --retry 3 "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${key_fingerprint}" \
+    | gpg --dearmor -o /usr/share/keyrings/ubuntu-toolchain-r-test.gpg
+  . /etc/os-release
+  echo "deb [signed-by=/usr/share/keyrings/ubuntu-toolchain-r-test.gpg] https://ppa.launchpadcontent.net/ubuntu-toolchain-r/test/ubuntu ${VERSION_CODENAME} main" \
+    > /etc/apt/sources.list.d/ubuntu-toolchain-r-test.list
   sh "$here/apt-mirror" apt-get update -qq
 else
   gcc_version=12
