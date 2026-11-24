@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -66,5 +67,22 @@ var _ = Describe("The start check of a backend build", func() {
 		Eventually(done, 5*time.Second).Should(Receive(HaveOccurred()))
 		Eventually(func() []int { return backendtest.LivePIDs(pidDir) }, "10s", "100ms").Should(BeEmpty())
 		Eventually(hooks, "5s", "50ms").Should(BeZero(), "the handler of the check process is removed when it exits")
+	})
+})
+
+var _ = Describe("The error of a failed start check", func() {
+	It("carries no path and no credential of the process output or of the start error", func() {
+		dir := GinkgoT().TempDir()
+		out := filepath.Join(dir, "stderr")
+		Expect(os.WriteFile(out, []byte("loading\nHF_TOKEN=fakeTokenValue000 rejected\nopen /srv/backends/demo/lib/libfake.so: no such file\n"), 0o600)).To(Succeed())
+		tail := tailOfFile(out, startCheckOutputBytes)
+		Expect(tail).NotTo(ContainSubstring("fakeTokenValue000"))
+		Expect(tail).NotTo(ContainSubstring("/srv/backends"))
+		Expect(tail).To(ContainSubstring("libfake.so"))
+
+		err := &StartCheckError{Reason: "the backend process could not be started: fork/exec /srv/backends/demo/run.sh: permission denied", Output: "api_key=fakeKey000"}
+		Expect(err.Error()).NotTo(ContainSubstring("/srv/backends"))
+		Expect(err.Error()).To(ContainSubstring("run.sh"))
+		Expect(err.Error()).NotTo(ContainSubstring("fakeKey000"))
 	})
 })
