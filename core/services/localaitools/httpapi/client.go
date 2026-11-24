@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/pkg/llamacppsettings"
 	"io"
 	"net/http"
 	"net/url"
@@ -798,6 +799,22 @@ func (c *Client) VRAMEstimate(ctx context.Context, req localaitools.VRAMEstimate
 	// pre-formatted display strings, identical to REST.
 	var out vram.EstimateResult
 	if err := c.do(ctx, http.MethodPost, routeVRAMEstimate, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ParseLlamaCppCommand(ctx context.Context, command string) (*llamacppsettings.ParseResult, error) {
+	var out llamacppsettings.ParseResult
+	if err := c.do(ctx, http.MethodPost, routeLlamaCppParseCommand, map[string]any{"command": command}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) PreviewLlamaCppCommand(ctx context.Context, config llamacppsettings.Settings) (*llamacppsettings.BuildResult, error) {
+	var out llamacppsettings.BuildResult
+	if err := c.do(ctx, http.MethodPost, routeLlamaCppCommandPreview, map[string]any{"config": config}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

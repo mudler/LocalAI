@@ -35,6 +35,8 @@ const (
 	routeNodes                  = "/api/nodes"
 	routeScheduling             = "/api/nodes/scheduling"
 	routeVRAMEstimate           = "/api/models/vram-estimate"
+	routeLlamaCppParseCommand   = "/api/llama-cpp/parse-command"
+	routeLlamaCppCommandPreview = "/api/llama-cpp/command-preview"
 	routeBranding               = "/api/branding"
 	routeSettings               = "/api/settings"
 	routeUsage                  = "/api/usage"

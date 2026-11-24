@@ -25,6 +25,8 @@ const (
 	ToolListScheduling            = "list_scheduling"
 	ToolGetScheduling             = "get_scheduling"
 	ToolVRAMEstimate              = "vram_estimate"
+	ToolParseLlamaCppCommand      = "parse_llama_cpp_command"
+	ToolPreviewLlamaCppCommand    = "preview_llama_cpp_command"
 	ToolGetBranding               = "get_branding"
 	ToolGetUsageStats             = "get_usage_stats"
 	ToolGetPIIEvents              = "get_pii_events"
