@@ -160,7 +160,8 @@ var _ = Describe("BoundCause", func() {
 		long += "\x1b[31mfatal: the end\x1b[0m\n"
 		got := workerctl.BoundCause(long)
 		Expect(len(got)).To(BeNumerically("<=", workerctl.CauseLimit))
-		Expect(got).To(HaveSuffix("[31mfatal: the end[0m"))
+		Expect(got).To(HaveSuffix("fatal: the end"))
+		Expect(got).NotTo(ContainSubstring("[31m"), "the terminal escape is removed whole")
 		Expect(got).NotTo(ContainSubstring("\n"))
 		Expect(got).NotTo(ContainSubstring("\x1b"))
 	})
