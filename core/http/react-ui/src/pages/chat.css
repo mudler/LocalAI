@@ -2101,6 +2101,9 @@ html[data-handoff='fade']::view-transition-new(root) {
    its picture, headline and greeting in an empty chat. */
 .cx-who b.cx-who__name { font-family: var(--font-sans); }
 .cx-who__model { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); }
+.cx-who__time { margin-left: auto; font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+/* The time under a message of the person, on the same side as its bubble. */
+.cx-msg__time { align-self: flex-end; margin: var(--sp-1) 0 0; font-size: var(--fs-meta); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 .cx-empty--identity { align-items: center; }
 .cx-empty__sub { flex-basis: 100%; margin: 0; color: var(--color-text-secondary); font-size: var(--fs-body); line-height: var(--lh-body); }
 .cx-greeting { flex-basis: 100%; display: flex; align-items: flex-start; gap: var(--sp-3); margin-top: var(--sp-2); }
