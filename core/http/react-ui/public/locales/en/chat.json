@@ -632,7 +632,15 @@
     "alsoSavedWorking_other": "Also saved {{count}} working files",
     "savedWorking_one": "Saved {{count}} working file",
     "savedWorking_other": "Saved {{count}} working files",
-    "workingTitle": "Working file (a script, a log or a draft): open {{path}}"
+    "workingTitle": "Working file (a script, a log or a draft): open {{path}}",
+    "group": {
+      "used_one": "Used {{count}} tool",
+      "used_other": "Used {{count}} tools",
+      "calls_one": "{{count}} call",
+      "calls_other": "{{count}} calls",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed"
+    }
   },
   "allChats": {
     "title": "All chats",

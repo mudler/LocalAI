@@ -424,7 +424,15 @@
     "alsoSavedWorking_other": "작업 파일 {{count}}개도 저장함",
     "savedWorking_one": "작업 파일 {{count}}개 저장함",
     "savedWorking_other": "작업 파일 {{count}}개 저장함",
-    "workingTitle": "작업 파일(스크립트, 로그 또는 초안): {{path}} 열기"
+    "workingTitle": "작업 파일(스크립트, 로그 또는 초안): {{path}} 열기",
+    "group": {
+      "used_one": "도구 {{count}}개 사용",
+      "used_other": "도구 {{count}}개 사용",
+      "calls_one": "호출 {{count}}회",
+      "calls_other": "호출 {{count}}회",
+      "failed_one": "{{count}}개 실패",
+      "failed_other": "{{count}}개 실패"
+    }
   },
   "error": {
     "title": "답변에 실패했습니다",

@@ -1450,16 +1450,14 @@ function ChatPage() {
               </ChatSendContext.Provider>
               </EgressCardsContext.Provider>
 
-              {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
+              {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0 || streaming.steps.length > 0) && (
                 <StreamingTurn
                   files={chatFiles.files}
                   onOpenFile={filesOn ? openFile : undefined}
                   identity={shownIdentity}
                   model={model}
                   warm={modelWarm}
-                  content={streaming.text}
-                  reasoning={streaming.reasoning}
-                  toolCalls={streaming.tools}
+                  live={chat.live}
                   waiting={(loadProgress || !modelWarm) ? (
                     <LoadCard model={model} progress={loadProgress} />
                   ) : (

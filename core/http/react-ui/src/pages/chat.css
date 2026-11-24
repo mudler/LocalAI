@@ -56,6 +56,7 @@
 .cx-msg--user + .cx-msg--model,
 .cx-row + .cx-msg--model { margin-top: 6px; }
 .cx-msg--model + .cx-msg--user { margin-top: 10px; }
+.cx-msg[data-settled] { animation: none; }
 /* A message that arrives (the one you just sent, the answer that replaces the
    live turn) rises 6 px and fades in. */
 @media (prefers-reduced-motion: no-preference) {
@@ -478,6 +479,112 @@ button.cx-step__head:hover,
 .cx-think > * { margin: 0; }
 .cx-think > * + * { margin-top: var(--sp-2); }
 .cx-think--live { max-height: 220px; overflow: auto; }
+
+/* A thought is up to two lines of its words. The text is cut at a word or a
+   sentence by the page (thoughtGist); the clamp is only the safety net. */
+.cx-step--thought .cx-step__line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.cx-step--thought .cx-step__verb { margin-right: var(--sp-2); }
+.cx-step--thought .cx-step__gist { display: inline; overflow: visible; }
+
+/* The running step: its label shimmers. One at a time. Under reduced motion it
+   is plain text; the spinner and the dots still say that it runs. */
+.cx-shimmer {
+  background: linear-gradient(90deg, var(--dk-muted) 0%, var(--dk-muted) 40%, var(--dk-text) 50%, var(--dk-muted) 60%, var(--dk-muted) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) { .cx-shimmer { animation: shimmer 3s ease-in-out infinite; } }
+@media (prefers-reduced-motion: reduce) {
+  .cx-shimmer { background: none; -webkit-text-fill-color: currentColor; }
+}
+
+/* The turn as it happened: thoughts, notes, calls, then the answer. No rail:
+   every line has its own icon, and the answer is the text after the last call.
+   What the model says before a call is a quiet note; the text that is the
+   answer so far is the same element and changes style when a call follows it
+   (padding, size and colour move with one short ease). */
+.cx-flow { margin: var(--sp-1) 0 var(--sp-3); padding: 0; border-left: 0; }
+.cx-note {
+  list-style: none;
+  min-width: 0;
+  padding: 2px 0 2px 36px;
+  color: var(--dk-muted);
+  transition: padding var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+.cx-note .cx-prose {
+  color: inherit;
+  transition: font-size var(--dur-base) var(--ease-out), line-height var(--dur-base) var(--ease-out);
+}
+.cx-note:not(.cx-note--answer) .cx-prose { font-size: var(--fs-small); line-height: 1.55; }
+.cx-note:not(.cx-note--answer) .cx-prose > * + * { margin-top: 6px; }
+.cx-note--answer { padding: var(--sp-2) 0 0; color: var(--dk-text); }
+@media (prefers-reduced-motion: reduce) {
+  .cx-note, .cx-note .cx-prose { transition: none; }
+}
+.cx-flow__wait { list-style: none; padding: 4px 0 2px 36px; color: var(--dk-muted); }
+
+/* The end of the turn: the steps fold to no height and the line of the turn
+   (Worked for 5.6 s) grows from none, both with one ease, so the answer under
+   them moves once. Where height cannot animate to auto, the change is at once.
+   The answer is never folded. */
+.cx-flow { interpolate-size: allow-keywords; }
+.cx-flow > li {
+  height: auto;
+  transition: height var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out), padding var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), visibility 0s;
+}
+.cx-flow > .cx-flow__fold { list-style: none; }
+.cx-flow:not([data-ended]) > .cx-flow__fold { height: 0; opacity: 0; overflow: hidden; visibility: hidden; }
+.cx-flow[data-folded] > li:not(.cx-flow__fold):not(.cx-note--answer) {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding-block: 0;
+  visibility: hidden;
+  transition: height var(--dur-slow) var(--ease-out), opacity var(--dur-base) var(--ease-out), padding var(--dur-base) var(--ease-out), visibility 0s linear var(--dur-slow);
+}
+/* The finished turn leaves no space of its own: its line and the answer sit as
+   the stored turn draws them, so the record that replaces it changes nothing. */
+.cx-flow { transition: margin var(--dur-slow) var(--ease-out), gap var(--dur-slow) var(--ease-out); }
+.cx-flow[data-ended] { margin-block: 0; gap: 0; }
+.cx-flow[data-ended] > .cx-note--answer { padding-top: calc(var(--sp-1) * 1.5); }
+@media (prefers-reduced-motion: reduce) { .cx-flow, .cx-flow > li, .cx-flow[data-folded] > li { transition: none; } }
+
+/* A run of calls as one line. It opens into the calls, one rail down. */
+.cx-group__steps {
+  list-style: none;
+  margin: 0 0 var(--sp-1) 18px;
+  padding: 0 0 0 var(--sp-1);
+  border-left: 1px solid var(--dk-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+@starting-style { .cx-group__steps { opacity: 0; transform: translateY(-4px); } }
+.cx-group[data-state="failed"] .cx-step[data-state="done"] .cx-step__icon { color: var(--dk-ok-text); }
+.cx-group[data-state="running"] .cx-step[data-state="done"] .cx-step__icon { color: var(--dk-ok-text); }
+.cx-group[data-open] > .cx-step__head .cx-step__chev { transform: rotate(90deg); }
+.cx-group[data-state="done"] .cx-step__verb,
+.cx-group[data-state="failed"] .cx-step__verb { color: var(--color-text-secondary); font-weight: 500; }
+.cx-badge {
+  flex: none;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--dk-error-wash);
+  color: var(--dk-error-text);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+}
 .cx-out {
   margin: 0;
   max-height: 240px;

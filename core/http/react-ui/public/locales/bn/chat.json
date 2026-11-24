@@ -632,7 +632,15 @@
     "alsoSavedWorking_other": "এছাড়াও {{count}} কাজের ফাইলগুলি সংরক্ষণ করা হয়েছে।",
     "savedWorking_one": "{{count}} কাজের ফাইল সংরক্ষিত হয়েছে",
     "savedWorking_other": "সংরক্ষিত {{count}} কাজের ফাইলসমূহ",
-    "workingTitle": "কর্মরত ফাইল (একটি স্ক্রিপ্ট, একটি লগ বা একটি খসড়া): খুলুন {{path}}"
+    "workingTitle": "কর্মরত ফাইল (একটি স্ক্রিপ্ট, একটি লগ বা একটি খসড়া): খুলুন {{path}}",
+    "group": {
+      "used_one": "{{count}}টি টুল ব্যবহার করা হয়েছে",
+      "used_other": "{{count}}টি টুল ব্যবহার করা হয়েছে",
+      "calls_one": "{{count}}টি কল",
+      "calls_other": "{{count}}টি কল",
+      "failed_one": "{{count}}টি ব্যর্থ",
+      "failed_other": "{{count}}টি ব্যর্থ"
+    }
   },
   "allChats": {
     "title": "সমস্ত চ্যাট",

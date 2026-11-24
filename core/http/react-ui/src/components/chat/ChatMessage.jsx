@@ -16,7 +16,8 @@ import { InvokedChip } from './CommandCards'
 // eslint-disable-next-line no-unused-vars
 import MessageAttachments from './Attachments'
 // eslint-disable-next-line no-unused-vars
-import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
+import { ActivityGroup, ActivityProposals, StreamingFlow } from './ActivityFold'
+import { liveSteps } from '../../utils/chatLive'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import { SenderLine } from './ConnectorChat'
@@ -285,6 +286,7 @@ function ChatMessage({
       data-index={index}
       data-last={isLast || undefined}
       data-handoff={msg.handoff || undefined}
+      data-settled={msg.settled || undefined}
       data-sending={msg.sending || undefined}
       data-failed={msg.failed || undefined}
       tabIndex={0}
@@ -292,7 +294,7 @@ function ChatMessage({
       aria-label={isUser ? t('message.you') : (identity?.name || model || t('message.assistant'))}
     >
       {isAssistant && <Who model={model} warm={warm} identity={identity} />}
-      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} />}
+      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} failedHint={msg.failedCalls} />}
 
       {isUser && draft !== null ? (
         <div className="cx-bubble cx-bubble--edit" data-testid="message-edit">
@@ -383,17 +385,29 @@ export function ProposalsRow({ items, proposalTick }) {
   )
 }
 
-// The reply while it is still coming: the activity line, the prose so far with a
-// caret at its end, and, before anything has arrived, whatever the page says
+// A piece of the live turn's prose. Before a tool call follows it, it is the
+// answer; once one does, it is a note, and the same element changes its style.
+// eslint-disable-next-line no-unused-vars
+function LiveText({ text, note, files, onOpenFile }) {
+  const html = useMemo(() => renderMarkdown(spaceSafeLinks(text)), [text])
+  return (
+    <li className={`cx-note${note ? '' : ' cx-note--answer'}`} data-testid={note ? 'chat-note' : 'chat-answer'}>
+      <Prose html={html} className={note ? '' : 'cx-prose--live'} files={files} onOpenFile={onOpenFile} />
+    </li>
+  )
+}
+
+// The reply while it is still coming, in the order it happened (see
+// StreamingFlow): thoughts, the notes the model said before its calls, the
+// calls, and the answer. Before anything has arrived, whatever the page says
 // the model is waiting for (a load card, or quiet dots).
-export function StreamingTurn({ model, warm, content, reasoning, toolCalls, waiting, identity, files, onOpenFile }) {
-  const html = useMemo(() => (content ? renderMarkdown(spaceSafeLinks(content)) : ''), [content])
-  const idle = !content && !reasoning && toolCalls.length === 0
+export function StreamingTurn({ model, warm, live, waiting, identity, files, onOpenFile }) {
+  const idle = liveSteps(live).steps.length === 0 && !live.text
+  const renderText = ({ key, text, note }) => <LiveText key={key} text={text} note={note} files={files} onOpenFile={onOpenFile} />
   return (
     <article className="cx-msg cx-msg--model" data-testid="chat-streaming" aria-busy="true">
       <Who model={model} warm={warm} identity={identity} />
-      <StreamingActivity reasoning={reasoning} toolCalls={toolCalls} hasResponse={!!content} />
-      {content && <Prose html={html} className="cx-prose--live" files={files} onOpenFile={onOpenFile} />}
+      <StreamingFlow live={live} renderText={renderText} />
       {idle && waiting}
     </article>
   )

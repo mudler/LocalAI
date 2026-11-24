@@ -424,7 +424,15 @@
     "alsoSavedWorking_other": "另外保存了 {{count}} 个工作文件",
     "savedWorking_one": "保存了 {{count}} 个工作文件",
     "savedWorking_other": "保存了 {{count}} 个工作文件",
-    "workingTitle": "工作文件（脚本、日志或草稿）：打开 {{path}}"
+    "workingTitle": "工作文件（脚本、日志或草稿）：打开 {{path}}",
+    "group": {
+      "used_one": "使用了 {{count}} 个工具",
+      "used_other": "使用了 {{count}} 个工具",
+      "calls_one": "{{count}} 次调用",
+      "calls_other": "{{count}} 次调用",
+      "failed_one": "{{count}} 个失败",
+      "failed_other": "{{count}} 个失败"
+    }
   },
   "error": {
     "title": "回复失败",

@@ -16,7 +16,7 @@
 // transcript and in the live turn, so its frame is not reloaded when the turn
 // ends and the transcript takes the call over.
 
-import { conversationItems, toolKey } from './chatLive.js'
+import { conversationItems, toolKey, liveSteps } from './chatLive.js'
 import { messageParts } from './chatAttachments.js'
 import { fileSize } from './fileInfo.js'
 import { PROPOSAL_CARD, CHANGE_CARD } from './chatProposal.js'
@@ -30,11 +30,24 @@ const isActivity = (role) => role === 'reasoning' || role === 'tool'
 export function threadRows(messages, live) {
   const rows = []
   let buf = []
+  const items = conversationItems(messages || [], live)
+  // A message of the model that a call follows in the same turn is what the
+  // model said before the call, not the answer: it goes into the activity, in
+  // its place, as a note. The answer is the text after the last call.
+  const note = new Set()
+  let calls = false
+  for (let i = items.length - 1; i >= 0; i--) {
+    const m = items[i].type === 'message' ? items[i].m : null
+    if (!m) continue
+    if (m.role === 'tool') calls = true
+    else if (m.role === 'assistant') { if (calls && m.text?.trim()) note.add(m) }
+    else if (!isActivity(m.role) && m.role !== 'checkpoint') calls = false
+  }
   const flush = (key) => {
     if (buf.length > 0) rows.push({ kind: 'activity', key: `a-${key}`, items: buf })
     buf = []
   }
-  for (const item of conversationItems(messages || [], live)) {
+  for (const item of items) {
     if (item.type === 'app') {
       flush(item.key)
       rows.push({ kind: 'app', key: item.key, live: true, tool: item.tool })
@@ -49,6 +62,10 @@ export function threadRows(messages, live) {
     }
     if (isActivity(m.role)) {
       buf.push(m)
+      continue
+    }
+    if (m.role === 'assistant' && note.has(m)) {
+      buf.push({ ...m, role: 'note' })
       continue
     }
     if (m.role === 'assistant') {
@@ -133,8 +150,9 @@ export function placeProposals(rows, { streaming = false } = {}) {
   return out
 }
 
-// What the streaming turn shows: the reasoning and text so far and the tool
-// calls of the turn that have no app (an app is a row, see threadRows). A call
+// What the streaming turn shows: the reasoning and text of the open round, the
+// tool calls of the turn that have no app (an app is a row, see threadRows) and
+// the steps in order (liveSteps). A call
 // is a tool_call while it runs and a tool_result once it ended.
 export function streamingParts(live) {
   const tools = (live?.tools || [])
@@ -147,7 +165,7 @@ export function streamingParts(live) {
       failed: tool.state === 'failed',
       consent: tool.consent,
     }))
-  return { reasoning: live?.reasoning || '', text: live?.text || '', tools }
+  return { reasoning: live?.reasoning || '', text: live?.text || '', tools, steps: liveSteps(live).steps }
 }
 
 // The name and the rest of the first line of a tool entry ("name: summary").

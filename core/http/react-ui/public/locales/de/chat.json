@@ -424,7 +424,15 @@
     "alsoSavedWorking_other": "Außerdem {{count}} Arbeitsdateien gespeichert",
     "savedWorking_one": "{{count}} Arbeitsdatei gespeichert",
     "savedWorking_other": "{{count}} Arbeitsdateien gespeichert",
-    "workingTitle": "Arbeitsdatei (ein Skript, ein Protokoll oder ein Entwurf): {{path}} öffnen"
+    "workingTitle": "Arbeitsdatei (ein Skript, ein Protokoll oder ein Entwurf): {{path}} öffnen",
+    "group": {
+      "used_one": "{{count}} Werkzeug verwendet",
+      "used_other": "{{count}} Werkzeuge verwendet",
+      "calls_one": "{{count}} Aufruf",
+      "calls_other": "{{count}} Aufrufe",
+      "failed_one": "{{count}} fehlgeschlagen",
+      "failed_other": "{{count}} fehlgeschlagen"
+    }
   },
   "error": {
     "title": "Die Antwort ist fehlgeschlagen",

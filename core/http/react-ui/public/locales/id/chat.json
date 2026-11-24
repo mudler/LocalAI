@@ -506,7 +506,15 @@
     "alsoSavedWorking_other": "Juga menyimpan {{count}} file kerja",
     "savedWorking_one": "Menyimpan {{count}} file kerja",
     "savedWorking_other": "Menyimpan {{count}} file kerja",
-    "workingTitle": "File kerja (skrip, log, atau draf): buka {{path}}"
+    "workingTitle": "File kerja (skrip, log, atau draf): buka {{path}}",
+    "group": {
+      "used_one": "Memakai {{count}} alat",
+      "used_other": "Memakai {{count}} alat",
+      "calls_one": "{{count}} panggilan",
+      "calls_other": "{{count}} panggilan",
+      "failed_one": "{{count}} gagal",
+      "failed_other": "{{count}} gagal"
+    }
   },
   "error": {
     "title": "Balasan gagal",

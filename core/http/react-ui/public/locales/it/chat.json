@@ -424,7 +424,15 @@
     "alsoSavedWorking_other": "Ha salvato anche {{count}} file di lavoro",
     "savedWorking_one": "Ha salvato {{count}} file di lavoro",
     "savedWorking_other": "Ha salvato {{count}} file di lavoro",
-    "workingTitle": "File di lavoro (uno script, un log o una bozza): apri {{path}}"
+    "workingTitle": "File di lavoro (uno script, un log o una bozza): apri {{path}}",
+    "group": {
+      "used_one": "Usato {{count}} strumento",
+      "used_other": "Usati {{count}} strumenti",
+      "calls_one": "{{count}} chiamata",
+      "calls_other": "{{count}} chiamate",
+      "failed_one": "{{count}} non riuscita",
+      "failed_other": "{{count}} non riuscite"
+    }
   },
   "error": {
     "title": "La risposta non è riuscita",

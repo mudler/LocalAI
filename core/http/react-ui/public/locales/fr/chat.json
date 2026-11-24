@@ -422,7 +422,15 @@
     "alsoSavedWorking_other": "A aussi enregistré {{count}} fichiers de travail",
     "savedWorking_one": "A enregistré {{count}} fichier de travail",
     "savedWorking_other": "A enregistré {{count}} fichiers de travail",
-    "workingTitle": "Fichier de travail (un script, un journal ou un brouillon) : ouvrir {{path}}"
+    "workingTitle": "Fichier de travail (un script, un journal ou un brouillon) : ouvrir {{path}}",
+    "group": {
+      "used_one": "{{count}} outil utilisé",
+      "used_other": "{{count}} outils utilisés",
+      "calls_one": "{{count}} appel",
+      "calls_other": "{{count}} appels",
+      "failed_one": "{{count}} échec",
+      "failed_other": "{{count}} échecs"
+    }
   },
   "error": {
     "title": "La réponse a échoué",

@@ -69,7 +69,9 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
       await page.screenshot({ path: `test-results/card-order-${name}-persisted.png` })
       const b = await boxes(page)
       expect(b.cards).toBe(1)
-      expect(b.texts).toHaveLength(2)
+      // The first message came before a call: it is a note under the fold of the
+      // turn, which starts folded, so the final text is the one prose on the page.
+      expect(b.texts).toHaveLength(1)
       expect(b.card.top).toBeGreaterThanOrEqual(b.lastText.bottom - 1)
     })
 

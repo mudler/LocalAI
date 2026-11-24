@@ -427,7 +427,15 @@
     "alsoSavedWorking_other": "Também salvou {{count}} arquivos de trabalho",
     "savedWorking_one": "Salvou {{count}} arquivo de trabalho",
     "savedWorking_other": "Salvou {{count}} arquivos de trabalho",
-    "workingTitle": "Arquivo de trabalho (um script, um log ou um rascunho): abrir {{path}}"
+    "workingTitle": "Arquivo de trabalho (um script, um log ou um rascunho): abrir {{path}}",
+    "group": {
+      "used_one": "Usou {{count}} ferramenta",
+      "used_other": "Usou {{count}} ferramentas",
+      "calls_one": "{{count}} chamada",
+      "calls_other": "{{count}} chamadas",
+      "failed_one": "{{count}} falhou",
+      "failed_other": "{{count}} falharam"
+    }
   },
   "error": {
     "title": "A resposta falhou",
