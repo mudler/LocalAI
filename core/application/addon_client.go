@@ -1,0 +1,163 @@
+package application
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"time"
+
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
+	"github.com/mudler/LocalAI/pkg/utils"
+)
+
+// RegisterAddonClientJobs registers the job operations of paired clients
+// (client.jobs.*) over the job host of the chats service. It registers nothing
+// when this process has no host operation channel. The service is looked up at
+// each call: it is built after the broker.
+func (a *Application) RegisterAddonClientJobs() error {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	return hostops.RegisterClientJobs(a.addonHostOps.Broker, addonClientJobs{a: a})
+}
+
+// RegisterAddonClientList registers client.list over the client keys of the
+// auth store. It registers nothing without a host operation channel.
+func (a *Application) RegisterAddonClientList() error {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	return hostops.RegisterClientList(a.addonHostOps.Broker, addonClientList{a: a})
+}
+
+// addonClientList answers client.list: the clients of the owner that stand now
+// and may reach the add-on. The add-on and the owner come from the live call.
+type addonClientList struct{ a *Application }
+
+func (d addonClientList) List(ctx context.Context, ownerID, addonID string) ([]hostops.ClientEntry, error) {
+	if d.a.authDB == nil || !slices.Contains(d.a.installedAddonIDs(), addonID) {
+		return nil, fmt.Errorf("%w: no clients", hostops.ErrForbidden)
+	}
+	keys, err := auth.ActiveClientKeysForAddon(d.a.authDB.WithContext(ctx), ownerID, addonID, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]hostops.ClientEntry, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, hostops.ClientEntry{ID: k.ID, Name: auth.ClientDisplayName(k.Name)})
+	}
+	return out, nil
+}
+
+// RegisterAddonClientFolders registers the folder operations of paired clients
+// (client.workspace.*) over the files of the chats and the folder grant of the
+// client key. It registers nothing without a host operation channel or while
+// the files are off.
+func (a *Application) RegisterAddonClientFolders(f *files.Service) error {
+	if a.addonHostOps == nil || !f.Available() {
+		return nil
+	}
+	return hostops.RegisterClientFolders(a.addonHostOps.Broker, &hostops.ClientFolderHost{Files: f, Grants: clientFolderGrants{a: a}})
+}
+
+// clientFolderGrants reads the folder grant of a client key from the auth
+// store at each call.
+type clientFolderGrants struct{ a *Application }
+
+func (g clientFolderGrants) Grant(ctx context.Context, c hostops.ClientCall, addonID string) ([]string, string, error) {
+	read, write, err := auth.ClientFolderGrant(ctx, g.a.authDB, c.ClientID, c.OwnerID, addonID, time.Now())
+	if errors.Is(err, auth.ErrClientFolderDenied) {
+		return nil, "", fmt.Errorf("%w: %v", hostops.ErrForbidden, err)
+	}
+	return read, write, err
+}
+
+// addonClientJobs adapts the job host to the client operations.
+type addonClientJobs struct{ a *Application }
+
+// host finds the job host and checks that the client is still paired. Every
+// operation passes here first.
+func (d addonClientJobs) host(c hostops.ClientCall) (*studio.Jobs, error) {
+	if !auth.ClientKeyActive(d.a.authDB, c.ClientID, c.OwnerID) {
+		return nil, fmt.Errorf("%w: the client is not paired", hostops.ErrForbidden)
+	}
+	svc := d.a.StudioService()
+	if svc == nil || svc.Jobs() == nil {
+		return nil, fmt.Errorf("%w: agent jobs are off", hostops.ErrNotFound)
+	}
+	return svc.Jobs(), nil
+}
+
+func clientJobError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, jobs.ErrNotFound):
+		return fmt.Errorf("%w: job or task", hostops.ErrNotFound)
+	case errors.Is(err, studio.ErrTooManyClientJobs), errors.Is(err, studio.ErrTooManyJobs), errors.Is(err, studio.ErrJobEnded):
+		return fmt.Errorf("%w: %w", hostops.ErrConflict, err)
+	case errors.Is(err, studio.ErrTaskDisabled), errors.Is(err, studio.ErrBadJobInput), errors.Is(err, jobs.ErrInvalid):
+		return fmt.Errorf("%w: the task refused the parameters", hostops.ErrBadRequest)
+	}
+	return err
+}
+
+func clientJobView(j studio.JobInfo) hostops.ClientJob {
+	out := hostops.ClientJob{ID: j.ID, Task: j.TaskName, Status: string(j.Status), Error: j.Error}
+	out.Result = j.Result
+	if len(out.Result) > hostops.MaxClientJobResult {
+		// Cut on a character boundary, so the JSON never holds half a rune.
+		out.Result, out.Truncated = utils.TruncateUTF8(out.Result, hostops.MaxClientJobResult), true
+	}
+	if !j.Created.IsZero() {
+		out.CreatedAt = j.Created.UTC().Format(time.RFC3339)
+	}
+	if !j.CompletedAt.IsZero() {
+		out.CompletedAt = j.CompletedAt.UTC().Format(time.RFC3339)
+	}
+	return out
+}
+
+func (d addonClientJobs) Start(ctx context.Context, c hostops.ClientCall, task string, params map[string]string) (hostops.ClientJob, error) {
+	h, err := d.host(c)
+	if err != nil {
+		return hostops.ClientJob{}, err
+	}
+	t, err := h.FindTask(ctx, c.OwnerID, task)
+	if err != nil {
+		return hostops.ClientJob{}, clientJobError(err)
+	}
+	j, err := h.ExecuteForClient(ctx, c.OwnerID, c.ClientID, t.ID, studio.RunRequest{Params: params})
+	if err != nil {
+		return hostops.ClientJob{}, clientJobError(err)
+	}
+	return clientJobView(j), nil
+}
+
+func (d addonClientJobs) Get(ctx context.Context, c hostops.ClientCall, id string) (hostops.ClientJob, error) {
+	h, err := d.host(c)
+	if err != nil {
+		return hostops.ClientJob{}, err
+	}
+	j, err := h.GetClientJob(ctx, c.OwnerID, c.ClientID, id)
+	if err != nil {
+		return hostops.ClientJob{}, clientJobError(err)
+	}
+	return clientJobView(j), nil
+}
+
+func (d addonClientJobs) Cancel(ctx context.Context, c hostops.ClientCall, id string) (hostops.ClientJob, error) {
+	h, err := d.host(c)
+	if err != nil {
+		return hostops.ClientJob{}, err
+	}
+	if err := h.CancelClientJob(ctx, c.OwnerID, c.ClientID, id); err != nil {
+		return hostops.ClientJob{}, clientJobError(err)
+	}
+	return d.Get(ctx, c, id)
+}

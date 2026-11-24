@@ -1,0 +1,194 @@
+/* "View as": the bar, the scope marks and the guarded controls. Tokens only:
+   the bar takes one pair of solid roles per mode (accent and on-accent while
+   read-only, error and on-error while acting), so its contrast is the kit's
+   and follows the theme. */
+
+/* The bar's height is measured at run time (it wraps on a phone) and set on
+   the document as --viewas-h; the sidebar and the full-height pages start under
+   it. */
+.has-viewas .sidebar {
+  top: var(--viewas-h);
+  height: calc(100dvh - var(--viewas-h));
+}
+.has-viewas .app-layout,
+.has-viewas .main-content {
+  min-height: calc(100dvh - var(--viewas-h));
+}
+.has-viewas .app-layout-chat,
+.has-viewas .app-layout-chat .main-content,
+.has-viewas .app-layout:has(.page--app),
+.has-viewas .app-layout:has(.page--app) .main-content {
+  height: calc(100dvh - var(--viewas-h));
+}
+
+.viewas-bar {
+  --bar-bg: var(--dk-accent);
+  --bar-fg: var(--dk-on-accent);
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: calc(var(--ctl-h) + var(--sp-2));
+  padding: var(--sp-1) var(--sp-4) var(--sp-1) var(--sp-5);
+  background: var(--bar-bg);
+  color: var(--bar-fg);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+.viewas-bar[data-mode="actas"] {
+  --bar-bg: var(--dk-error);
+  --bar-fg: var(--dk-on-error);
+}
+.viewas-bar__msg {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+.viewas-bar__icon { flex: none; }
+.viewas-bar__tag {
+  flex: none;
+  padding: 0 var(--sp-2);
+  border: 1px solid currentColor;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.viewas-bar__text { min-width: 0; }
+.viewas-bar__text strong { font-weight: var(--font-weight-semibold); }
+.viewas-bar__acts {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-left: auto;
+}
+.viewas-bar__switch {
+  /* The kit switch reads accent and on-accent; on the bar they are the bar's
+     own pair, so the on state is light on the solid colour in both modes. */
+  --dk-accent: var(--bar-fg);
+  --dk-on-accent: var(--bar-bg);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: var(--font-weight-medium);
+}
+
+/* On a phone the message takes its own row, then the switch and Exit. */
+@media (max-width: 639px) {
+  .viewas-bar { padding: var(--sp-2) var(--sp-4); }
+  .viewas-bar__msg { flex-basis: 100%; align-items: flex-start; }
+  .viewas-bar__acts { width: 100%; justify-content: space-between; margin-left: 0; }
+}
+
+/* The confirmation's three lines. */
+.viewas-list {
+  list-style: none;
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+.viewas-list li { display: flex; gap: var(--sp-3); align-items: flex-start; }
+.viewas-list .lai-icon { flex: none; color: var(--dk-error-text); }
+
+/* Scope marks: a round marker on a nav item whose page follows the mode, the
+   legend that explains it, the chip beside a title and the notice on the
+   others. The marker is an icon in a disc, so it reads without its colour. */
+.viewas-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--sp-5);
+  height: var(--sp-5);
+  margin-left: auto;
+  border-radius: var(--radius-full);
+  background: var(--dk-accent);
+  color: var(--dk-on-accent);
+  font-size: var(--fs-meta);
+}
+.viewas-mark[data-mode="actas"] { background: var(--dk-error); color: var(--dk-on-error); }
+.viewas-mark--static { margin-left: 0; }
+.viewas-legend {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  margin: var(--sp-3) var(--sp-2) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+}
+.page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+.viewas-notice-page { padding-bottom: 0; }
+/* The page under the notice starts a step below it, not a whole page gutter
+   on top of the notice's own. */
+.viewas-notice-page + .page-transition { margin-top: calc(-1 * var(--sp-6)); }
+
+/* A write control in read-only mode: aria-disabled, with a hint that shows on
+   hover and on keyboard focus. The control keeps its place in the tab order. */
+.viewas-guard { position: relative; display: inline-flex; cursor: not-allowed; }
+.viewas-guard__hint {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + var(--sp-2));
+  transform: translateY(-50%);
+  z-index: 20;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--dk-text);
+  color: var(--dk-canvas);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+}
+.viewas-guard:hover .viewas-guard__hint,
+.viewas-guard:focus-within .viewas-guard__hint { opacity: 1; }
+@media (max-width: 639px) {
+  .viewas-guard__hint { right: auto; left: 0; top: calc(100% + var(--sp-1)); transform: none; }
+}
+
+/* In the icon rail there is no room beside the icon: the marker becomes a dot
+   on its corner, and the legend is not drawn (the rail has no words). */
+.sidebar.collapsed .nav-item { position: relative; }
+.sidebar.collapsed .viewas-mark {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  width: var(--sp-3);
+  height: var(--sp-3);
+  margin: 0;
+}
+.sidebar.collapsed .viewas-mark .lai-icon { display: none; }
+@media (min-width: 640px) and (max-width: 1023px) {
+  .sidebar:not(.open) .nav-item { position: relative; }
+  .sidebar:not(.open) .viewas-mark {
+    position: absolute;
+    top: var(--sp-1);
+    right: var(--sp-1);
+    width: var(--sp-3);
+    height: var(--sp-3);
+    margin: 0;
+  }
+  .sidebar:not(.open) .viewas-mark .lai-icon { display: none; }
+  .sidebar:not(.open) .viewas-legend { display: none; }
+}

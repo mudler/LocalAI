@@ -1,0 +1,49 @@
+{{ define "main" }}
+<main id="main">
+<article>
+  <header class="pagehead"><div class="shell">
+    <p class="crumb"><a href="{{ "blog/" | relURL }}">Blog</a>{{ with .Params.category }} / {{ . }}{{ end }}</p>
+    <h1 class="bp-h1">{{ .Title }}</h1>
+    {{ with .Params.summary }}<p class="lede">{{ . }}</p>{{ end }}
+    <p class="bp-meta">
+      {{ with .Params.author }}<span>{{ . }}</span>{{ end }}
+      <span><time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2 January 2006" }}</time></span>
+      <span>{{ .ReadingTime }} min read</span>
+    </p>
+  </div></header>
+
+  <div class="shell bp-wrap">
+    <div class="bp-body">
+      {{ .Content }}
+    </div>
+
+    {{ with .Params.tags }}
+    <ul class="bp-tags" aria-label="Tags">
+      {{ range . }}<li><a href="{{ printf "tags/%s/" (. | urlize) | relURL }}">{{ . }}</a></li>{{ end }}
+    </ul>
+    {{ end }}
+
+    <div class="bp-end">
+      <p class="kicker">Try it</p>
+      <h2>Run this on the machine you are reading it on.</h2>
+      <p>LocalAI installs as a container, a binary, a macOS app or a Helm chart. It pulls an engine the first time a model asks for one.</p>
+      <div class="acts">
+        <a class="btn" href="{{ "get-started/" | relURL }}">Get started</a>
+        <a class="btn btn--o" href="{{ .Site.Params.docsURL }}">Read the documentation</a>
+      </div>
+    </div>
+
+    {{ if or .PrevInSection .NextInSection }}
+    <nav class="bp-pn" aria-label="More posts">
+      {{ with .NextInSection }}
+      <a class="bp-pn__i" href="{{ .RelPermalink }}"><span class="bp-pn__k">&larr; Newer</span><span class="bp-pn__t">{{ .Title }}</span></a>
+      {{ else }}<span></span>{{ end }}
+      {{ with .PrevInSection }}
+      <a class="bp-pn__i bp-pn__i--r" href="{{ .RelPermalink }}"><span class="bp-pn__k">Older &rarr;</span><span class="bp-pn__t">{{ .Title }}</span></a>
+      {{ end }}
+    </nav>
+    {{ end }}
+  </div>
+</article>
+</main>
+{{ end }}

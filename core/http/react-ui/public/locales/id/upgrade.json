@@ -1,0 +1,10 @@
+{
+  "badge": {
+    "available": "Pembaruan tersedia",
+    "availableVersion": "Pembaruan tersedia: {{version}}"
+  },
+  "reason": {
+    "checkAgain": "Periksa lagi",
+    "checking": "Memeriksa..."
+  }
+}

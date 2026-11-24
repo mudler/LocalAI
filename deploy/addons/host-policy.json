@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "grants": {
+    "fine-tuning": ["finetune."],
+    "quantization": ["quantize."],
+    "sandbox": ["workspace.", "egress."],
+    "office": ["workspace."],
+    "web": ["workspace."],
+    "home-assistant": ["workspace."],
+    "pikvm": ["workspace."],
+    "telegram": ["connector."],
+    "slack": ["connector."],
+    "discord": ["connector."]
+  }
+}

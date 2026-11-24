@@ -1,0 +1,83 @@
+{
+  "title": "Gmail",
+  "intro": "Deixe seus agentes lerem os e-mails da sua conta Google. Se você permitir, eles também podem salvar rascunhos e enviá-los, depois que você aprovar cada um, a menos que você escolha Permitir tudo.",
+  "limits": "Selecione Conectar com o Google para adicionar uma conexão e entrar na sua conta do Google. Esta página define os marcadores e o modo de escrita de cada conexão. Um agente só trabalha na sua caixa de entrada quando você pede a ele em um chat.",
+  "edit": "Editar conexão do Gmail",
+  "name": "Nome",
+  "labels": "Marcadores que o agente pode usar",
+  "labelsHelp": "Um nome ou ID de marcador por linha. Escreva com hifens um nome que tenha espaços. {{count}} listados. O agente só alcança e-mails que tenham um destes marcadores. Escreva ALL para dar a caixa inteira.",
+  "labelsShape": "\"{{entry}}\" não é um marcador. Use o nome ou o ID de um marcador, ou ALL.",
+  "labelsMany": "No máximo 50 marcadores.",
+  "allNote": "ALL dá ao agente todos os e-mails que esta conta pode ler, em todos os marcadores, inclusive e-mails que você nunca quis que um modelo visse. Use um marcador se puder.",
+  "agent": "Agente",
+  "agentNone": "Escolha um agente",
+  "agentCredentialsOnly": "Sem agente (só credenciais)",
+  "agentOptionalHint": "Opcional. Sem um agente, esta conexão guarda só o login, a lista de marcadores e o modo de escrita para seus chats. Ela não responde a mensagens nem escuta nada.",
+  "credentialsOnly": "Só credenciais",
+  "agentNoModel": "{{name}} (precisa de um modelo)",
+  "test": "Testar",
+  "testOk": "Conectado como {{bot}}.",
+  "checkFailed": "Salvo. A verificação falhou: {{reason}}",
+  "save": "Salvar",
+  "cancel": "Cancelar",
+  "editButton": "Editar",
+  "delete": "Excluir",
+  "empty": "Ainda não há conexões do Gmail. Selecione Conectar com o Google para adicionar uma.",
+  "connect": "Conectar com o Google",
+  "defaultName": "Gmail",
+  "noLabels": "Nenhum marcador listado: o agente não pode ler nada.",
+  "labelsOf": "{{count}} marcadores: {{list}}",
+  "allMailbox": "A caixa inteira",
+  "agentOf": "Agente: {{name}}",
+  "inactive": "Não está rodando: {{reason}}.",
+  "confirmDelete": {
+    "title": "Excluir {{name}}?",
+    "message": "O agente não alcança mais esta caixa. O LocalAI pede ao Google que revogue o login e depois o esquece.",
+    "confirm": "Excluir"
+  },
+  "setup": {
+    "title": "Como escolher marcadores",
+    "step1": "Escreva o nome de um marcador do Gmail, por exemplo Trabalho, ou de um marcador do sistema como INBOX ou STARRED. Um nome com espaços é escrito com hifens.",
+    "step2": "O agente só alcança e-mails com o marcador. Spam e lixeira nunca são pesquisados. Escreva ALL só se o agente puder ler a caixa inteira.",
+    "step3": "O modo de escrita abaixo também precisa do acesso opcional que você permite ao conectar. Sem ele, o agente só pode ler."
+  },
+  "writeMode": {
+    "label": "O que o agente pode fazer com seus e-mails",
+    "hint": "Salvar um rascunho e enviar um rascunho que já existe. Ele nunca exclui, envia para a lixeira, marca nem encaminha e-mails, e nunca muda suas configurações.",
+    "off": "Somente leitura",
+    "propose": "Pergunta antes",
+    "auto": "Permitir tudo",
+    "line": {
+      "off": "Ele não pode salvar nem enviar nada.",
+      "propose": "Cada rascunho e cada envio esperam o seu OK.",
+      "auto": "Seus chats salvam rascunhos e enviam na hora."
+    },
+    "note": {
+      "off": "O acesso de escrita está desligado: esta conexão só lê.",
+      "propose": "Cada rascunho e cada envio esperam nas suas aprovações até você confirmar. Antes, você vê os destinatários e o texto. Também precisa do acesso de escrita opcional que você permite ao conectar.",
+      "auto": "Um chat seu salva rascunhos e envia e-mails na hora, sem perguntar. Um e-mail enviado não pode ser desfeito. Execuções sem você presente ainda esperam a sua confirmação."
+    },
+    "row": {
+      "off": "Somente leitura",
+      "propose": "Pergunta antes",
+      "auto": "Permitir tudo"
+    }
+  },
+  "approval": {
+    "action": {
+      "create-draft": "Salvar um rascunho",
+      "send-draft": "Enviar um e-mail"
+    },
+    "to": "Para",
+    "cc": "Cc",
+    "bcc": "Cco",
+    "subject": "Assunto",
+    "none": "(nenhum)",
+    "replyTo": "Resposta a",
+    "attachments": "Anexos",
+    "text": "Texto ({{bytes}} bytes)",
+    "cut": "O texto mostrado aqui está cortado. O texto completo, de {{bytes}} bytes, é salvo.",
+    "draftNote": "Isto salva um rascunho no seu Gmail. Não o envia.",
+    "sendNote": "Isto envia um e-mail do seu Gmail para as pessoas acima. Um e-mail enviado não pode ser desfeito."
+  }
+}

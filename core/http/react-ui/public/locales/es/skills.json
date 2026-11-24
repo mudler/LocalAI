@@ -1,0 +1,122 @@
+{
+  "title": "Habilidades",
+  "subtitle": "Instrucciones que todos tus chats pueden usar cuando una tarea coincide. Los agentes usan las que les añades.",
+  "unavailable": {
+    "subtitle": "Las habilidades necesitan Archivos, y Archivos está desactivado en este servidor."
+  },
+  "actions": {
+    "newSkill": "Nueva habilidad",
+    "createSkill": "Crear habilidad",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "import": "Importar",
+    "export": "Exportar"
+  },
+  "search": {
+    "placeholder": "Buscar habilidades..."
+  },
+  "card": {
+    "noDescription": "Sin descripción",
+    "readOnly": "Solo lectura",
+    "editTitle": "Editar habilidad",
+    "deleteTitle": "Eliminar habilidad",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Esta habilidad se omitió: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Proporcionada por {{name}}",
+    "replacedBy": "Reemplazada por {{name}}",
+    "notActive": "No activa: se usa la habilidad integrada",
+    "notActiveBy": "No activa: la proporciona {{name}}",
+    "fallback": "En uso porque la habilidad del complemento {{name}} está desactivada o no se ejecuta",
+    "proposedBy": "Propuesto por {{name}} y confirmado por ti. Solo ese agente lo usa.",
+    "new": "Nueva",
+    "newTitle": "Importada y aún sin usar",
+    "newLong": "Importada y aún sin usar. Léela antes de añadirla a un agente. El primer uso en un chat quita esta marca.",
+    "exportTitle": "Descargar esta skill como archivo zip"
+  },
+  "empty": {
+    "title": "No se encontraron habilidades",
+    "text": "Crea una habilidad o importa una para empezar.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Error al cargar habilidades",
+    "deleted": "Habilidad \"{{name}}\" eliminada",
+    "deleteFailed": "Error al eliminar habilidad",
+    "exportFailed": "Error al exportar: {{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Complemento",
+    "agent": "Agente",
+    "project": "Proyecto"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Esta habilidad es de solo lectura aquí. Una habilidad integrada viene con el servidor, y una de tus archivos se cambia en Archivos.",
+    "counter": "{{count}} de {{max}}",
+    "nameInvalid": "Usa minúsculas, dígitos y guiones sencillos.",
+    "bodyHelp": "Escrita en markdown. Un chat la lee cuando una tarea coincide con la descripción."
+  },
+  "load": {
+    "title": "No se pudieron cargar tus habilidades."
+  },
+  "import": {
+    "failedTitle": "No se pudieron importar las skills",
+    "failed": "La importación falló.",
+    "dismiss": "Descartar",
+    "done_one": "Se importó {{count}} skill",
+    "done_other": "Se importaron {{count}} skills",
+    "scriptsStored": "Los scripts y otros archivos se guardan tal cual. Los scripts se guardan, nunca los ejecuta la importación.",
+    "newNote": "Se marca como nueva hasta que un chat la use."
+  },
+  "sort": {
+    "label": "Ordenar habilidades",
+    "name": "Nombre, de A a Z",
+    "name-desc": "Nombre, de Z a A",
+    "used": "Más usadas",
+    "source": "Agrupar por origen"
+  },
+  "source": {
+    "label": "Mostrar habilidades de",
+    "all": "Todos los orígenes ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} habilidad",
+    "countAll_other": "{{count}} habilidades",
+    "countOf": "{{shown}} de {{total}} habilidades",
+    "menu": "Acciones de {{name}}"
+  }
+}

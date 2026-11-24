@@ -1,0 +1,105 @@
+package connectors_test
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/connectors/connectorstest"
+	"github.com/mudler/LocalAI/pkg/fsperm"
+)
+
+var _ = Describe("the JSON store", func() {
+	Describe("in memory", func() {
+		connectorstest.Run(func() connectors.Store {
+			s, err := connectors.NewJSON("")
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
+	})
+
+	Describe("on disk", func() {
+		connectorstest.Run(func() connectors.Store {
+			s, err := connectors.NewJSON(GinkgoT().TempDir())
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
+	})
+
+	It("survives a reopen and keeps its files private", func() {
+		dir := GinkgoT().TempDir()
+		first, _ := connectors.NewJSON(dir)
+		connectorstest.Seed(first)
+		second, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		connectorstest.CheckSeed(second)
+		for _, f := range []string{"connectors.json", "connectors.key"} {
+			st, err := os.Stat(filepath.Join(dir, f))
+			Expect(err).NotTo(HaveOccurred(), f)
+			if runtime.GOOS != "windows" {
+				Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), f)
+			}
+			Expect(fsperm.Check(filepath.Join(dir, f))).To(Succeed(), f)
+		}
+	})
+
+	It("does not rewrite its file for a login it refuses", func() {
+		dir := GinkgoT().TempDir()
+		s, _ := connectors.NewJSON(dir)
+		ctx := context.Background()
+		now := time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC)
+		for i := range connectors.MaxLoginsPerBinding {
+			Expect(s.PutLoginState(ctx, connectors.LoginState{Hash: fmt.Sprint(i), Binding: "b1", Owner: "u1", Expires: now.Add(time.Minute)}, now)).To(Succeed())
+		}
+		p := filepath.Join(dir, "connectors.json")
+		before, err := os.Stat(p)
+		Expect(err).NotTo(HaveOccurred())
+		raw, _ := os.ReadFile(p)
+		for range 3 {
+			err := s.PutLoginState(ctx, connectors.LoginState{Hash: "over", Binding: "b1", Owner: "u1", Expires: now.Add(time.Minute)}, now)
+			Expect(err).To(MatchError(connectors.ErrTooManyLogins))
+		}
+		after, err := os.Stat(p)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(os.SameFile(before, after)).To(BeTrue(), "the file was replaced")
+		again, _ := os.ReadFile(p)
+		Expect(again).To(Equal(raw))
+	})
+
+	It("loads a file that an earlier build wrote with the ThreadContextOff field", func() {
+		dir := GinkgoT().TempDir()
+		first, _ := connectors.NewJSON(dir)
+		connectorstest.Seed(first)
+		p := filepath.Join(dir, "connectors.json")
+		raw, err := os.ReadFile(p)
+		Expect(err).NotTo(HaveOccurred())
+		patched := strings.Replace(string(raw), `"Name":`, `"ThreadContextOff":true,"Name":`, -1)
+		Expect(patched).NotTo(Equal(string(raw)))
+		Expect(os.WriteFile(p, []byte(patched), 0o600)).To(Succeed())
+		second, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		connectorstest.CheckSeed(second)
+	})
+
+	It("refuses a key file that others can read", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no mode bits; pkg/fsperm tests the access control list")
+		}
+		dir := GinkgoT().TempDir()
+		first, _ := connectors.NewJSON(dir)
+		connectorstest.Seed(first)
+		Expect(os.Chmod(filepath.Join(dir, "connectors.key"), 0o644)).To(Succeed())
+		second, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = second.EnsureKey(context.Background(), connectors.NewKey)
+		Expect(err).To(HaveOccurred(), "a key file with wider permissions was used")
+	})
+})

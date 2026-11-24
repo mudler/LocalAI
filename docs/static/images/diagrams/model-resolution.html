@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Model resolution</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+<style>
+.steps { display: grid; gap: 0; }
+.steps > div { display: grid; grid-template-columns: 56px 1fr; gap: 14px; align-items: center; padding: 12px 0; }
+.steps i { font-style: normal; width: 48px; height: 48px; border-radius: 50%; background: var(--accent-wash); color: var(--accent-text); font-weight: 700; font-size: 26px; display: grid; place-items: center; }
+.steps b { font-size: 32px; } .steps span { font-size: 24px; color: var(--muted); }
+</style></head>
+<body>
+<p class="k">Models</p>
+<h1>Many sources, <span class="hl">one</span> load path</h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+  <div class="row" style="align-items:stretch;justify-content:space-between">
+    <div style="width:640px"><div class="lab">Where the model is</div><div class="col">
+      <div class="node rowline"><b>Gallery name</b><span class="code">gemma-4-e2b-it-qat-q4_0</span></div>
+      <div class="node rowline"><b>Hugging Face</b><span class="code">huggingface://</span></div>
+      <div class="node rowline"><b>Registry</b><span class="code">oci://  ollama://</span></div>
+      <div class="node rowline"><b>Your own config</b><span>YAML file or URL</span></div></div></div>
+    <div class="ar" style="width:90px"></div>
+    <div style="width:640px"><div class="lab acc">One load path</div>
+      <div class="node steps">
+        <div><i>1</i><div><b>Locate</b><span>download the files</span></div></div>
+        <div><i>2</i><div><b>Match</b><span>pick the backend by file format</span></div></div>
+        <div><i>3</i><div><b>Start</b><span>run the backend process</span></div></div>
+      </div>
+      <div class="node core" style="margin-top:14px"><b>Ready on the API</b><span>chat, speech, images and more</span></div></div>
+  </div>
+</div>
+<div class="foot">However you point at a model, it ends on <b>the same path</b>.</div>
+</body></html>

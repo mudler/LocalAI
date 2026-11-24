@@ -1,0 +1,122 @@
+{
+  "title": "Compétences",
+  "subtitle": "Des instructions que tous vos chats peuvent utiliser quand une tâche correspond. Les agents utilisent celles que vous leur ajoutez.",
+  "unavailable": {
+    "subtitle": "Les compétences ont besoin de Fichiers, et Fichiers est désactivé sur ce serveur."
+  },
+  "actions": {
+    "newSkill": "Nouvelle compétence",
+    "createSkill": "Créer une compétence",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "import": "Importer",
+    "export": "Exporter"
+  },
+  "search": {
+    "placeholder": "Rechercher des compétences..."
+  },
+  "card": {
+    "noDescription": "Aucune description",
+    "readOnly": "Lecture seule",
+    "editTitle": "Modifier la compétence",
+    "deleteTitle": "Supprimer la compétence",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Cette compétence a été ignorée : {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fournie par {{name}}",
+    "replacedBy": "Remplacée par {{name}}",
+    "notActive": "Inactive : la compétence intégrée est utilisée",
+    "notActiveBy": "Inactive : {{name}} la fournit",
+    "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas",
+    "proposedBy": "Proposé par {{name}} et confirmé par vous. Seul cet agent l'utilise.",
+    "new": "Nouvelle",
+    "newTitle": "Importée et pas encore utilisée",
+    "newLong": "Importée et pas encore utilisée. Lisez-la avant de l'ajouter à un agent. La première utilisation dans un chat retire cette marque.",
+    "exportTitle": "Télécharger cette skill en fichier zip"
+  },
+  "empty": {
+    "title": "Aucune compétence trouvée",
+    "text": "Créez une compétence ou importez-en une pour commencer.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Échec du chargement des compétences",
+    "deleted": "Compétence « {{name}} » supprimée",
+    "deleteFailed": "Échec de la suppression de la compétence",
+    "exportFailed": "Échec de l'export : {{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Module",
+    "agent": "Agent",
+    "project": "Projet"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Cette compétence est en lecture seule ici. Une compétence intégrée est fournie avec le serveur, et une compétence de vos fichiers se modifie dans Fichiers.",
+    "counter": "{{count}} sur {{max}}",
+    "nameInvalid": "Utilisez des minuscules, des chiffres et des tirets simples.",
+    "bodyHelp": "Rédigée en markdown. Un chat la lit lorsqu’une tâche correspond à la description."
+  },
+  "load": {
+    "title": "Impossible de charger vos compétences."
+  },
+  "import": {
+    "failedTitle": "Impossible d'importer les skills",
+    "failed": "L'import a échoué.",
+    "dismiss": "Fermer",
+    "done_one": "{{count}} skill importée",
+    "done_other": "{{count}} skills importées",
+    "scriptsStored": "Les scripts et les autres fichiers sont enregistrés tels quels. Les scripts sont enregistrés, jamais exécutés par l'import.",
+    "newNote": "Elle reste marquée Nouvelle jusqu'à ce qu'un chat l'utilise."
+  },
+  "sort": {
+    "label": "Trier les compétences",
+    "name": "Nom, de A à Z",
+    "name-desc": "Nom, de Z à A",
+    "used": "Les plus utilisées",
+    "source": "Grouper par source"
+  },
+  "source": {
+    "label": "Afficher les compétences de",
+    "all": "Toutes les sources ({{count}})"
+  },
+  "list": {
+    "countAll_one": "{{count}} compétence",
+    "countAll_other": "{{count}} compétences",
+    "countOf": "{{shown}} compétences sur {{total}}",
+    "menu": "Actions pour {{name}}"
+  }
+}

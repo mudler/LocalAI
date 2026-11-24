@@ -1,0 +1,145 @@
+{
+  "title": "GitHub",
+  "intro": "让你的智能体读取你列出的仓库中的代码、issue 和拉取请求。如果你允许，它们还可以在那里评论和创建 issue。",
+  "limits": "此连接暂时不会回应 GitHub 上的 @提及。只有当你在聊天中要求时，智能体才会在 GitHub 上工作。",
+  "new": "新建 GitHub 连接",
+  "edit": "编辑 GitHub 连接",
+  "name": "名称",
+  "token": "细粒度访问 token",
+  "tokenHelp": "以 github_pat_ 开头。它会被加密保存，之后不再显示。",
+  "tokenLink": "在 GitHub 上创建 token",
+  "tokenSaved": "已保存。输入 token 可替换它。",
+  "tokenShape": "请使用细粒度 token：它以 github_pat_ 开头。",
+  "tokenSpace": "token 不含空格。请重新复制，不要带前后的空格。",
+  "repos": "智能体可以使用的仓库",
+  "reposHelp": "每行一个：owner/name；owner/* 表示某个 owner 的所有仓库；* 表示令牌可访问的任意仓库。已列出 {{count}} 个。其他仓库会被拒绝。",
+  "reposShape": "“{{entry}}”的写法不是 owner/name（或 owner/*、*），例如 mudler/LocalAI。",
+  "reposMany": "最多 50 个仓库。",
+  "agent": "智能体",
+  "agentNone": "选择智能体",
+  "agentCredentialsOnly": "没有智能体（仅凭据）",
+  "credentialsOnly": "仅凭据",
+  "agentNoModel": "{{name}}（需要模型）",
+  "test": "测试",
+  "testOk": "已作为 {{bot}} 连接。",
+  "checkFailed": "已保存。token 检查失败：{{reason}}",
+  "checkSeveral": "仓库检查只在你有一个 GitHub 连接时运行，因为从此页面发起的检查无法判断你指的是哪一个。在聊天中，请通过“工具”菜单启用这些连接。",
+  "check": {
+    "title": "{{name}} 的检查结果",
+    "running": "正在检查仓库...",
+    "at": "检查时间：{{time}}",
+    "unreachable": "{{repo}}：此 token 无法访问它。请在 GitHub 上把它加入该 token 的仓库范围。",
+    "readOnly": "{{repo}}：可访问，只读。",
+    "readWrite": "{{repo}}：可访问，且该 token 可以写入。",
+    "refused": "{{repo}}：GitHub 拒绝了此 token。请检查它是否已过期，以及是否涵盖此仓库。",
+    "failed": "{{repo}}：检查未完成。请稍后再试。",
+    "owner": "{{repo}}：此 owner 的所有仓库。令牌只能访问 GitHub 为它列出的仓库。",
+    "any": "任意仓库：令牌可访问 {{count}} 个仓库。",
+    "anyMore": "任意仓库：令牌至少可访问 {{count}} 个仓库。"
+  },
+  "save": "保存",
+  "cancel": "取消",
+  "editButton": "编辑",
+  "delete": "删除",
+  "empty": "还没有 GitHub 连接。",
+  "noRepos": "没有列出仓库：智能体什么都读不了。",
+  "reposOf": "{{count}} 个仓库：{{list}}",
+  "agentOf": "智能体：{{name}}",
+  "inactive": "未运行：{{reason}}。",
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "message": "智能体将无法再访问这些仓库，随之保存的 token 也会被删除。若要重新设置，你必须再次输入 token。",
+    "confirm": "删除"
+  },
+  "setup": {
+    "title": "如何创建 token",
+    "link": "在 GitHub 上创建 token",
+    "linkLabel": "在 GitHub 上创建 token（在新标签页中打开）",
+    "step1": "用上面的按钮打开 GitHub。给 token 起个名字，例如 LocalAI，并设置有效期。九十天是个不错的起点。",
+    "step2": "在 Repository access 下选择 Only select repositories，并选中你在这里列出的仓库。",
+    "step3": "在 Permissions 下，按你想要的模式，设置表格中所列的权限。其余全部保持关闭。",
+    "step4": "创建 token，复制它并粘贴到 token 字段中。GitHub 只显示一次。",
+    "table": {
+      "caption": "要授予 token 的仓库权限",
+      "permission": "权限",
+      "read": "只读",
+      "write": "先询问，或不经询问直接执行",
+      "contents": "Contents",
+      "issues": "Issues",
+      "pulls": "Pull requests",
+      "metadata": "Metadata",
+      "levels": {
+        "read": "读取",
+        "readwrite": "读取和写入",
+        "auto": "读取（由 GitHub 设置）"
+      }
+    }
+  },
+  "writeMode": {
+    "label": "智能体可以在 GitHub 上更改什么",
+    "hint": "评论、新建 issue、标签和关闭 issue。它绝不会合并、删除或推送代码。",
+    "off": "只读",
+    "propose": "先询问",
+    "auto": "立即执行",
+    "line": {
+      "off": "它不能在 GitHub 上更改任何内容。",
+      "propose": "每项更改都等待你的确认。",
+      "auto": "你的聊天会立即发布。"
+    },
+    "note": {
+      "off": "写入权限已关闭：此连接只读取。",
+      "propose": "每项更改都在你的审批中等待，直到你确认。智能体写的任何内容，对所有能看到该仓库的人都是公开的。",
+      "auto": "你的聊天会立即发布更改，不会询问。智能体写的任何内容，对所有能看到该仓库的人都是公开的。你不在场时的运行仍然要等待你的确认。"
+    },
+    "row": {
+      "off": "只读",
+      "propose": "先询问",
+      "auto": "立即执行"
+    }
+  },
+  "approval": {
+    "action": {
+      "comment-issue": "评论 issue #{{number}}",
+      "comment-pr": "评论拉取请求 #{{number}}",
+      "create-issue": "新建 issue",
+      "edit-issue": "修改 #{{number}}",
+      "add-labels": "为 #{{number}} 添加标签",
+      "review-comment-pr": "评论拉取请求 #{{number}} 的某一行"
+    },
+    "where": "位置",
+    "repo": "在 {{repo}} 中",
+    "open": "在 GitHub 上打开 #{{number}}",
+    "as": "身份",
+    "asOne": "连接 {{name}}",
+    "asFirst": "第一个列出 {{repo}} 的连接",
+    "asUnknown": "列出 {{repo}} 的某个 GitHub 连接",
+    "text": "将发布的文字",
+    "title": "标题",
+    "newTitle": "新标题",
+    "labels": "标签",
+    "file": "文件和行",
+    "fileLine": "{{path}}，第 {{line}} 行（{{side}}）",
+    "sideRight": "新文件",
+    "sideLeft": "旧文件",
+    "state": "更改",
+    "close": "关闭它",
+    "closeReason": "关闭它，原因：{{reason}}",
+    "reopen": "重新打开它",
+    "completed": "已完成",
+    "not_planned": "不计划处理",
+    "public": "公开：所有能看到 {{repo}} 的人都会看到这些内容。",
+    "cut": "这里显示的文字已被截断。会发布完整的 {{bytes}} 字节文字。"
+  },
+  "tokenClassic": "这是经典令牌（ghp_）。请在下方允许经典令牌后再使用，或创建以 github_pat_ 开头的令牌。",
+  "classic": {
+    "allow": "在此连接上允许经典令牌（ghp_）",
+    "warning": "经典令牌不受你所列仓库的限制，其权限范围覆盖你的账户可访问的所有仓库。LocalAI 仍会拒绝不在列表中的仓库并遵守写入模式，但如果令牌泄露，GitHub 本身会允许它做更多事。细粒度令牌更安全。",
+    "confirm": "我明白经典令牌的范围比仓库列表更宽。"
+  },
+  "reposAnyAlone": "* 已涵盖所有仓库。请删除其他行。",
+  "any": {
+    "warning": "* 让智能体可以使用令牌可访问的所有仓库，包括之后创建的。下方的写入模式仍决定它能更改什么：只读时它不会更改任何内容。",
+    "confirm": "我希望智能体可以使用此令牌可访问的任意仓库。"
+  },
+  "anyRepos": "令牌可访问的任意仓库"
+}

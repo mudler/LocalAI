@@ -1,0 +1,239 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import Icon from '../Icon'
+import Button from '../ui/Button'
+import Dialog from '../Dialog'
+import { EntryAdds, UnknownNotice, UntrustedNotice } from './AddonBits'
+import { shortDigest, signedBy, skillShadowNotes, untrustedSource } from './addonState'
+import { skillInstallNoticeKey } from '../../utils/chatSkills'
+import { describeOutcome } from './errors'
+import Callout from '../ui/Callout'
+import HostAccessList from './HostAccessList'
+import { useHostPreview } from './useHostPreview'
+import { approvalBody, hostErrorKey, installBlock, needsStep } from './hostGrantsState'
+import { fileAction, fileGate } from './fileInstall'
+import { batchPosition } from '../../utils/addonQueue'
+import { newOperationId } from '../catalog/catalogState'
+
+// The built-in chat tools that the entry replaces and that an installed add-on
+// already replaces: only one of them can serve the tool, so the dialog says so
+// before the install (which is still allowed).
+export function shadowConflicts(entry, installed) {
+  const want = Array.isArray(entry?.shadows) ? entry.shadows : []
+  const out = []
+  for (const tool of want) {
+    const other = Object.values(installed || {}).find(a => a && a.id !== entry.id && Array.isArray(a.shadows) && a.shadows.includes(tool))
+    if (other) out.push({ tool, name: other.title || other.id })
+  }
+  return out
+}
+
+// The dialog of an install. For a library entry it is the review of the host
+// access: the person ticks what the add-on may do and accepts, and the install
+// is queued and runs in the background (`onAccept`). With `batch` it is one
+// step of several add-ons reviewed one after another, each with its own ticks.
+// For a file (a package nothing lists) there is no queue: it asks once, then
+// stays open and shows the two steps while they run, the install and the turn
+// on, and ends on the result or on the reason a step failed with a way to try
+// again.
+export default function InstallDialog({ entry, flow, actions, onClose, installed = {}, batch, onAccept, onSkip, review = false, sending = false }) {
+  const { t } = useTranslation('addons')
+  const ref = useRef(null)
+  const queued = typeof onAccept === 'function'
+  const step = flow ? flow.step : 'ask'
+  const running = step === 'install' || step === 'turn-on'
+  // What the verified package asks of this server. Read while the dialog asks;
+  // the approval it builds is checked again by the owner against the package it
+  // really stages.
+  const host = useHostPreview(entry, { enabled: Boolean(entry) && step === 'ask' })
+  const approval = useRef(null)
+  // An install from a file: a package nothing signs. The person sees the file's
+  // own facts and, for an older version, ticks a box first.
+  const local = entry ? entry.local : undefined
+  const [downgrade, setDowngrade] = useState(false)
+
+  // A new add-on of a batch is a new question: the person lands on the dialog
+  // again, not on a button that is gone. The first question keeps the focus
+  // that Dialog gives it (Cancel).
+  const stepKey = entry ? entry.key : ''
+  const shownKey = useRef('')
+  useEffect(() => {
+    const before = shownKey.current
+    shownKey.current = stepKey
+    if (stepKey && before) ref.current?.focus()
+  }, [stepKey])
+
+  if (!entry) return null
+  const showHost = host.status === 'ready' && needsStep(host.preview)
+  const block = showHost ? installBlock(host.preview) : null
+  const gate = local ? fileGate(local, { downgradeTicked: downgrade, locked: Boolean(host.preview && host.preview.locked) }) : { allowed: true }
+  const start = () => {
+    if (queued) {
+      // Every library install carries the approval of its own preview, with or
+      // without host operations: the queue refuses an install without one.
+      return onAccept(approvalBody(host.preview, host.ticked, { operationId: newOperationId(), action: 'install', sourceId: entry.sourceId, addonId: entry.id, version: entry.version }))
+    }
+    if (local) {
+      // A file installs only with the approval of this dialog, with or without
+      // host operations: the owner refuses a file install that has none.
+      approval.current = approvalBody(host.preview, host.ticked, { action: fileAction(local), sourceId: entry.sourceId, addonId: entry.id, version: entry.version, downgrade: local.relation === 'downgrade' && downgrade })
+      return actions.installAndTurnOn(entry, { approval: approval.current, turnOn: !local.installed })
+    }
+    approval.current = showHost
+      ? approvalBody(host.preview, host.ticked, { action: 'install', sourceId: entry.sourceId, addonId: entry.id, version: entry.version })
+      : null
+    return actions.installAndTurnOn(entry, approval.current ? { approval: approval.current } : {})
+  }
+  const retry = () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on', approval: approval.current, turnOn: !(local && local.installed) })
+  const stepState = (id) => {
+    if (step === 'ask') return 'pending'
+    if (step === 'done') return 'done'
+    if (id === 'install') return step === 'install' ? 'active' : step === 'failed' && flow.failedStep === 'install' ? 'failed' : 'done'
+    return step === 'turn-on' ? 'active' : step === 'failed' && flow.failedStep === 'turn-on' ? 'failed' : 'pending'
+  }
+  const place = batchPosition(batch)
+  const several = queued && place.total > 1
+  const reason = step === 'failed' ? describeOutcome(flow.outcome, t, flow.error) : ''
+  return (
+    <Dialog
+      role="alertdialog"
+      className="ad-dialog"
+      bodyClass="ad-confirm"
+      labelId="install-dialog-title"
+      testId="install-dialog"
+      panelRef={ref}
+      panelProps={{ 'data-running': running ? 'true' : 'false', 'data-step': step }}
+      closable={false}
+      onClose={onClose}
+      title={local ? t(local.installed ? 'file.upgradeTitle' : 'file.installTitle', { name: entry.title }) : queued ? t('browse.confirmTitle', { name: entry.title }) : t('flow.confirmTitle', { name: entry.title })}
+      foot={(
+        <>
+          {step === 'ask' && <Button onClick={onClose} data-autofocus="true">{t('catalog.cancel')}</Button>}
+          {step === 'ask' && several && <Button variant="ghost" onClick={onSkip} disabled={sending} data-testid="install-skip">{t('queue.skip')}</Button>}
+          {step === 'ask' && <Button variant="primary" onClick={start} busy={sending} disabled={sending || host.status === 'loading' || ((Boolean(local) || queued) && host.status !== 'ready') || Boolean(block) || !gate.allowed} data-testid="install-confirm">{local && local.installed ? t('file.upgradeAction', { version: local.version }) : queued ? t(several && !place.last ? 'queue.acceptNext' : several ? 'queue.acceptLast' : 'queue.add') : t('flow.installAndTurnOn')}</Button>}
+          {running && <Button onClick={onClose} data-testid="install-dismiss">{t('catalog.close')}</Button>}
+          {running && <Button variant="primary" icon="download" busy disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</Button>}
+          {step === 'failed' && <Button onClick={onClose}>{t('catalog.close')}</Button>}
+          {step === 'failed' && !actions.unknown[entry.id] && <Button variant="primary" icon="refresh" onClick={retry}>{t('catalog.retry')}</Button>}
+          {step === 'done' && <Button variant="primary" onClick={onClose}>{t('catalog.close')}</Button>}
+        </>
+      )}
+    >
+      {step === 'ask' && (
+        <>
+          {several && <p className="ad-quiet" data-testid="install-position">{t('queue.position', { number: place.number, total: place.total })} {t('queue.batchNote')}</p>}
+          {queued && review && (
+            <Callout tone="warn" testId="install-review-again" title={t('queue.reviewTitle')}>{t('queue.reviewBody')}</Callout>
+          )}
+          {local
+            ? <p>{t(local.installed ? 'file.confirmBodyUpgrade' : 'file.confirmBody', { version: local.version, name: local.name })}</p>
+            : <p>{t(queued ? 'queue.confirmBody' : 'flow.confirmBody', { version: entry.version, library: entry.sourceId })}</p>}
+          {local && (
+            <Callout tone="warn" testId="install-unsigned" title={t('file.unsignedTitle')}>
+              {t('file.unsignedNotice')}
+            </Callout>
+          )}
+          {local && host.preview && host.preview.locked && (
+            <Callout tone="error" role="alert" testId="install-file-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>
+          )}
+          {local && local.relation === 'upgrade' && (
+            <p className="ad-quiet" data-testid="install-file-upgrade">{t('file.relation.upgrade', { installed: local.installedVersion, version: local.version })}</p>
+          )}
+          {local && local.relation === 'same' && (
+            <Callout tone="error" role="alert" testId="install-file-same">{t('file.relation.same', { version: local.version })}</Callout>
+          )}
+          {local && local.relation === 'downgrade' && (
+            <Callout tone="warn" testId="install-file-downgrade" title={t('file.relation.downgradeTitle')}>
+              <p>{t('file.relation.downgrade', { installed: local.installedVersion, version: local.version })}</p>
+              <label>
+                <input type="checkbox" className="dk-check" checked={downgrade} onChange={(e) => setDowngrade(e.target.checked)} data-testid="install-file-downgrade-confirm" />
+                {' '}{t('file.relation.downgradeConfirm')}
+              </label>
+            </Callout>
+          )}
+          {!local && <EntryAdds entry={entry} />}
+          {!local && untrustedSource(entry, host.preview) && <UntrustedNotice library={entry.sourceId} signer={signedBy(entry, host.preview)} />}
+          {shadowConflicts(entry, installed).map(c => (
+            <Callout key={c.tool} tone="warn" testId="install-shadow-warning" data-tool={c.tool}>
+              {t('flow.shadowWarning', { tool: c.tool, name: c.name })}
+            </Callout>
+          ))}
+          {skillShadowNotes(entry, installed).map(c => (
+            <Callout key={c.skill} tone={c.name ? 'warn' : 'info'} testId="install-skill-warning" data-skill={c.skill}>
+              {t(skillInstallNoticeKey(c), { skill: c.skill, name: c.name })}
+            </Callout>
+          ))}
+          {host.status === 'loading' && <p className="ad-quiet" role="status" data-testid="hostaccess-loading">{t(host.slow ? 'hostAccess.loadingSlow' : 'hostAccess.loading')}</p>}
+          {host.status === 'error' && (
+            <Callout tone="warn" testId="hostaccess-error" actions={<Button size="sm" icon="refresh" onClick={host.retry}>{t('catalog.retry')}</Button>}>
+              {t('hostAccess.previewFailed')}
+            </Callout>
+          )}
+          {queued && host.status === 'ready' && host.preview.digest === 'unpinned' && (
+            <Callout tone="warn" testId="install-unpinned">{t('queue.unpinned')}</Callout>
+          )}
+          {queued && host.status === 'ready' && !needsStep(host.preview) && <p className="ad-quiet" data-testid="install-asks-nothing">{t('hostAccess.asksNothing')}</p>}
+          {showHost && (
+            <section className="ad-hostaccess" aria-labelledby="install-host-title" data-testid="install-host-access">
+              <h3 id="install-host-title" className="ad-hostaccess__title">{t('hostAccess.stepTitle')}</h3>
+              <p>{t('hostAccess.stepIntro', { name: entry.title })}</p>
+              <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} locked={host.preview.locked} />
+              {host.preview.locked && <Callout tone="info" testId="hostaccess-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
+              {block && (
+                <Callout tone="error" role="alert" testId="hostaccess-blocked">
+                  {t(block.kind === 'blocked' ? 'hostAccess.cannotInstallBlocked' : 'hostAccess.cannotInstallUnsupported', { ops: block.ops.join(', ') })}
+                </Callout>
+              )}
+              <p className="ad-quiet">{t('hostAccess.stepFooter')}</p>
+            </section>
+          )}
+          {local ? (
+            <dl className="dk-kv" data-testid="install-file-facts">
+              <dt>{t('file.facts.file')}</dt><dd className="ad-wrap">{local.name}</dd>
+              <dt>{t('file.facts.sha256')}</dt><dd className="dk-mono ad-wrap" data-testid="install-file-sha">{local.sha256}</dd>
+              <dt>{t('file.facts.addon')}</dt><dd>{local.addonId} {local.version}</dd>
+              <dt>{t('file.facts.platform')}</dt><dd>{local.platform}</dd>
+              <dt>{t('file.facts.api')}</dt><dd>{local.api.min === local.api.max ? local.api.min : `${local.api.min} - ${local.api.max}`}</dd>
+              <dt>{t('trust.verification')}</dt><dd>{t('file.unsignedShort')}</dd>
+            </dl>
+          ) : (
+            <dl className="dk-kv">
+              <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(host.preview && host.preview.digest === 'unpinned' ? 'unpinned' : entry.digest)}</dd>
+              <dt>{t('trust.verification')}</dt><dd>{entry.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
+            </dl>
+          )}
+        </>
+      )}
+      {step !== 'ask' && (
+        <ol className="ad-steps ad-steps--stack" data-testid="flow-steps" aria-label={t('install.stepsLabel')}>
+          {['install', 'turn-on'].map(id => {
+            const state = stepState(id)
+            return (
+              <li key={id} className="ad-steps__item" data-step={id} data-state={state}>
+                <Icon name={state === 'done' ? 'check-circle' : state === 'failed' ? 'alert-circle' : state === 'active' ? 'spinner' : 'circle'} spin={state === 'active'} />
+                <span>{t(`flow.step.${id}`)}</span>
+                <span className="dk-sr-only">{t(`install.state.${state}`)}</span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+      {step === 'done' && (
+        <p className="ad-entry__note" data-tone="ok" role="status">
+          {local && local.installed ? t('file.upgraded', { name: entry.title, version: local.version }) : t('browse.installedOn', { name: entry.title })}
+          {entry.ui && entry.ui.mainPage && <> <Link to="/app/addons">{t('flow.seeInList')}</Link></>}
+        </p>
+      )}
+      {step === 'failed' && (
+        <p className="ad-entry__note" data-tone="error" role="alert" data-testid="install-dialog-failed">
+          {flow.failedStep === 'install' ? t('flow.installFailed', { name: entry.title }) : t('flow.turnOnFailed', { name: entry.title })}
+          {reason ? ` ${reason}` : ''}
+        </p>
+      )}
+      {running && <p className="ad-quiet" role="status" data-testid="install-background">{t('flow.background')}</p>}
+      {step === 'failed' && actions.unknown[entry.id] && <UnknownNotice addonId={entry.id} actions={actions} />}
+    </Dialog>
+  )
+}

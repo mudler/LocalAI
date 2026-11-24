@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Visualizza come",
+    "readonlyTag": "Sola lettura",
+    "actingTag": "Operativo",
+    "readonlyLead": "Stai visualizzando come {{name}}.",
+    "readonlyRest": "Sola lettura.",
+    "actingLead": "Stai operando come {{name}}.",
+    "actingRest": "Le modifiche vengono fatte sull'account di {{name}} e vengono registrate.",
+    "allow": "Consenti modifiche",
+    "exit": "Esci",
+    "exitLabel": "Esci da Visualizza come {{name}}"
+  },
+  "confirm": {
+    "title": "Consentire modifiche sull'account di {{name}}?",
+    "intro": "Stai per operare come {{name}}. Ha effetto subito, su ogni pagina che segue Visualizza come.",
+    "can": "Puoi creare, modificare ed eliminare i progetti di {{name}}.",
+    "logged": "Ogni modifica viene registrata con te come autore e {{name}} come account.",
+    "back": "Puoi tornare alla sola lettura dalla barra in qualsiasi momento.",
+    "stay": "Resta in sola lettura",
+    "allow": "Consenti modifiche",
+    "close": "Chiudi"
+  },
+  "scope": {
+    "chip": "Dati di {{name}}",
+    "navMark": "Mostra i dati di {{name}}",
+    "legend": "Le pagine con questo segno mostrano i dati di {{name}}. Le altre mostrano i tuoi.",
+    "notice": "Questa pagina mostra i tuoi dati, non quelli di {{name}}."
+  },
+  "write": {
+    "hint": "Consenti modifiche per modificare",
+    "blocked": "Sola lettura. Attiva Consenti modifiche nella barra per modificare i dati di {{name}}."
+  },
+  "notice": {
+    "idle": "Le modifiche sono state disattivate dopo {{minutes}} minuti di inattività. Si torna alla sola lettura.",
+    "ended": "{{name}} non è più disponibile, quindi Visualizza come è terminato."
+  },
+  "users": {
+    "action": "Visualizza come",
+    "actionFor": "Visualizza come {{name}}",
+    "hint": "Guarda ciò che vede {{name}}. Prima in sola lettura."
+  },
+  "palette": {
+    "kind": "Visualizza come",
+    "title": "Visualizza come {{name}}",
+    "where": "{{email}} · prima in sola lettura"
+  }
+}

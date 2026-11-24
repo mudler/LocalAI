@@ -1,0 +1,15 @@
+/* Where the runs of a trigger report (ReportsTo.jsx). */
+.rt { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-2); min-width: 0; max-width: 100%; }
+.rt__main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.rt__main .lai-icon { width: 14px; height: 14px; flex: none; }
+.rt__text { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); min-width: 0; }
+.rt__where { color: var(--dk-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+.rt__app, .rt__mode, .rt__note { color: var(--dk-muted); }
+.rt__warn { display: inline-flex; align-items: center; gap: 4px; color: var(--dk-warn-text); font-weight: 500; }
+.rt__warn .lai-icon { width: 13px; height: 13px; flex: none; }
+.rt__note, .rt__mode { font-size: var(--fs-small); }
+.rt__link { font-size: var(--fs-small); }
+.rt:not(.rt--compact) { gap: var(--sp-1) var(--sp-3); }
+/* The icon of the app is a small mark beside the text, not a tile. */
+.rt .ad-icon[data-size] { width: 18px; height: 18px; font-size: var(--fs-meta); border-radius: var(--radius-sm); }
+.rt:not(.rt--compact) .ad-icon[data-size] { width: 24px; height: 24px; font-size: var(--fs-small); border-radius: var(--radius-sm); }

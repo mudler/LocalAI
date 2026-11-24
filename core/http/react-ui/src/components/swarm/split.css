@@ -1,0 +1,25 @@
+/* Model-split workers: the Nodes group and the Add a node way. */
+.sw-split-workers { margin-top: var(--dk-space-4); }
+.sw-split-table td { vertical-align: middle; }
+.sw-split-path { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); }
+.sw-split-node { width: auto; min-width: 112px; max-width: 150px; font-size: var(--dk-text-13); }
+.sw-split-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); }
+.sw-split-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--dk-space-3); }
+.sw-hint.sw-split-phone, .sw-split-phone--chip { display: none; }
+.sw-split-phone--chip { margin-top: var(--dk-space-1); }
+@media (max-width: 900px) {
+  .sw-hint.sw-split-phone, .sw-split-phone--chip { display: block; }
+  .sw-split-actions { justify-content: flex-start; }
+}
+.sw-split-invite { display: flex; flex-direction: column; gap: var(--dk-space-3); max-width: 720px; }
+.sw-split-invite__row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--dk-space-3); }
+.sw-split-invite__field { display: flex; flex-direction: column; gap: var(--dk-space-1); flex: 1 1 240px; min-width: 0; }
+.sw-split-node-field { display: flex; flex-direction: column; gap: var(--dk-space-1); max-width: 360px; }
+.sw-split-invite__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-12); color: var(--dk-muted); }
+.sw-split-found { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.sw-split-relay { display: flex; align-items: flex-start; flex-direction: column; gap: var(--dk-space-1); margin-top: var(--dk-space-1); }
+.sw-split-setup { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.sw-split-setup__list { margin: 0; padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--dk-text-13); color: var(--dk-text); }
+.sw-split-setup__changes { padding: var(--dk-space-3); border-radius: var(--dk-radius-2); background: var(--dk-inset); }
+.sw-split-setup__helpers { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; }
+.sw-split-setup__helper { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); font-size: var(--dk-text-13); }

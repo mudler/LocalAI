@@ -1,0 +1,81 @@
+{
+  "title": "Discord",
+  "intro": "Discord 봇을 저장된 에이전트 중 하나에 연결하세요. 사람들은 봇과의 다이렉트 메시지로 대화하거나 채널 또는 스레드에서 봇을 멘션해 에이전트와 대화합니다. 사람마다, 스레드마다 별개의 채팅이 생깁니다.",
+  "new": "새 Discord 봇",
+  "edit": "Discord 봇 편집",
+  "name": "이름",
+  "token": "봇 토큰",
+  "tokenHelp": "Discord 개발자 포털에서 애플리케이션의 Bot 페이지(Reset Token)에서 받습니다. 봉인되어 보관되며 다시 표시되지 않습니다.",
+  "tokenSaved": "저장됨. 교체하려면 새 토큰을 입력하세요.",
+  "tokenSpace": "토큰에는 공백이 없습니다. Bot이라는 단어 없이 토큰만 붙여 넣으세요.",
+  "tokenShape": "봇 토큰으로 보기에는 너무 짧습니다.",
+  "agent": "에이전트",
+  "agentNone": "에이전트 고르기",
+  "agentNoModel": "{{name}}(모델 필요)",
+  "anyoneWarning": "공개 채널과 읽기만 하는 에이전트용입니다. 봇에 닿을 수 있는 사람은 누구나 이 에이전트와 대화할 수 있습니다. 봇과 같은 서버에 있으면 다이렉트 메시지로, 봇이 읽을 수 있는 모든 채널에서는 멘션해서 대화합니다. 목록에 없는 사람은 자신만의 권한이 없습니다. 에이전트는 그들을 위해 메모리를 저장하거나, 트리거를 제안하거나, 파일을 받을 수 없고, 민감한 동작은 계속 막혀 있습니다. 에이전트의 다른 도구는 모두에게 그대로 작동합니다. 공개 채널에 사람들이 쓰는 내용은 신뢰할 수 없는 텍스트이며 에이전트를 조종하려 할 수 있습니다(프롬프트 인젝션). 이 연결에는 읽기 전용 도구만 주고, 메시지를 보내거나 비용을 쓰거나 파일을 바꾸는 도구는 주지 마세요. 사람마다 자신만의 채팅이 생기며, 한 사람이 1분에 보낼 수 있는 메시지 수는 제한됩니다.",
+  "anyoneConfirm": "누구나 이 에이전트를 사용할 수 있으며 도구는 읽기 전용이어야 한다는 것을 이해했습니다",
+  "allowIdsHint": "사용자 ID 또는 채널 ID(숫자)",
+  "rules": "나열된 사람은 다이렉트 메시지로 쓰거나 아무 채널에서나 봇을 멘션할 수 있습니다. 나열된 채널은 그 채널의 모든 사람이 거기서 봇을 멘션할 수 있게 하지만 자신만의 권한은 없습니다. 서버에서 봇은 멘션되거나 답글을 받았을 때, 또는 멘션된 스레드 안에서만 답변합니다. 봇이나 웹훅에는 답변하지 않으며 메시지가 누구에게도 알림을 보내지 않습니다. 채널 ID를 사용하세요. 서버(길드) ID는 아무것도 일치하지 않습니다. 이름은 안 되고 ID만 가능합니다. Discord에서 개발자 모드(설정, 고급)를 켠 다음 사람이나 채널을 마우스 오른쪽 버튼으로 눌러 ID 복사를 고르세요.",
+  "badIds": "Discord ID가 아닙니다: {{list}}. ID 복사로 얻은 숫자(17~20자리)를 사용하세요. 이름은 사용할 수 없습니다.",
+  "notifyHelp": "선택 사항입니다. 채널 ID 또는 user: 뒤에 내 사용자 ID를 붙이면 다이렉트 메시지로 받습니다.",
+  "test": "테스트",
+  "testOk": "{{bot}}에 연결되었습니다.",
+  "checkFailed": "저장했습니다. 토큰 확인에 실패했습니다: {{reason}}",
+  "senders": "보낸 사람",
+  "noSenders": "아직 이 봇에 메시지를 보낸 사람이 없습니다.",
+  "allowButton": "이 사람을 목록에 추가",
+  "ignored": "무시됨",
+  "accepted": "수락됨",
+  "save": "저장",
+  "cancel": "취소",
+  "editButton": "편집",
+  "delete": "삭제",
+  "empty": "아직 Discord 봇이 없습니다.",
+  "agentOf": "에이전트: {{name}}",
+  "accepts": "수락: {{who}}",
+  "modes": {
+    "anyone": "모든 사람",
+    "nobody": "아직 없음",
+    "listed_one": "나열된 항목 1개",
+    "listed_other": "나열된 항목 {{count}}개"
+  },
+  "on": "켜짐",
+  "onFor": "{{name}} 켜짐",
+  "inactive": "실행 중이 아님: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}}을(를) 삭제할까요?",
+    "message": "봇이 답변을 멈추고 함께 저장된 토큰이 삭제됩니다. 다시 설정하려면 토큰을 다시 입력해야 합니다.",
+    "confirm": "삭제"
+  },
+  "setup": {
+    "title": "Discord 봇 만드는 방법",
+    "step1": "discord.com/developers/applications에서 New Application을 고르고 이름을 지정하세요.",
+    "step2": "Bot 페이지에서 Reset Token을 고르고 토큰을 한 번만 복사해 여기 봇 토큰 필드에 붙여 넣으세요. 비밀로 유지하세요.",
+    "step3": "같은 페이지의 Privileged Gateway Intents에서 Message Content Intent를 켜세요. 켜지 않으면 봇이 서버에서 사람들이 쓰는 내용을 읽을 수 없습니다. 나머지 두 intent는 꺼 두세요.",
+    "step4": "선택 사항: Public Bot을 꺼서 나만 봇을 서버에 추가할 수 있게 하세요.",
+    "step5": "아래에 Application ID(General Information)를 입력하고 만들어진 링크를 여세요. 서버를 고르고 권한은 그대로 두세요.",
+    "step6": "서버에서 봇의 역할이 답변해야 할 채널을 볼 수 있는지 확인하세요. 그런 다음 여기에 채널 ID를 나열하고 봇을 멘션해 시험해 보세요.",
+    "appId": "Application ID",
+    "appIdHelp": "애플리케이션의 General Information에 있는 숫자입니다. 비밀이 아닙니다. 링크를 만드는 데만 쓰이며 저장되지 않습니다.",
+    "appIdBad": "Application ID는 17~20자리 숫자입니다.",
+    "invite": "봇을 서버에 추가하는 링크",
+    "copy": "링크 복사",
+    "copied": "복사됨",
+    "permissions": "이 링크는 다음 권한을 요청합니다(번호 {{number}}):",
+    "perm": {
+      "viewChannels": "View Channels: 멘션된 곳을 보기 위해",
+      "sendMessages": "Send Messages: 답변하기 위해",
+      "sendInThreads": "Send Messages in Threads: 스레드에서 답변하기 위해",
+      "attachFiles": "Attach Files: 에이전트가 만든 파일을 보내기 위해",
+      "readHistory": "Read Message History: 스레드와 메시지의 파일을 읽기 위해"
+    },
+    "never": "봇에 Administrator, Manage Messages, Mention Everyone 권한은 절대 주지 마세요. 어느 것도 필요하지 않습니다."
+  },
+  "answer": {
+    "reply": {
+      "off": "답변만(여기서 Discord는 입력 중 표시가 없습니다)"
+    },
+    "replyHelp": "진행 상황과 실시간은 작업 중 메시지 하나를 보여 주고, 답변이 나오면 그 메시지를 대체합니다. Discord가 편집 횟수를 제한하므로 실시간은 약 1초에 한 번 갱신됩니다. 긴 답변은 최대 2000자의 새 메시지로 이어집니다.",
+    "conversationHelp": "Discord에서 !new를 보내면 새 채팅이 시작됩니다. 슬래시로 시작하는 메시지는 Discord가 자체 명령으로 처리할 수 있습니다."
+  }
+}

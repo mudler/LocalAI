@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Quantization flow</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Quantization</p>
+<h1>From Hugging Face to a small <span class="hl">GGUF</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="flow big"><div class="node cen" style=""><b>HF model</b><span>safetensors</span></div><div class="ar"></div><div class="node cen" style=""><b>Convert</b><span>to an f16 GGUF</span></div><div class="ar"></div><div class="node core cen" style=""><b>Quantize</b><span>fewer bits per weight</span></div><div class="ar"></div><div class="node soft cen" style=""><b>GGUF file</b><span>q4_k_m, q5_k_m, q6_k, q8_0 and more</span></div></div>
+<div class="panel" style="margin-top:26px;padding:20px 24px 22px"><h3>Job status</h3>
+ <div class="row" style="gap:6px;flex-wrap:wrap"><span class="status">queued</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">downloading</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">converting</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status">quantizing</span><div class="ar" style="width:26px;margin:0 6px"></div><span class="status end">completed</span></div>
+ <div class="row" style="margin-top:14px;gap:12px"><span class="status bad">stopped</span><span class="status bad">failed</span><span style="font-size:24px;color:var(--muted)">can end a running job</span></div></div>
+
+</div>
+<div class="foot">Convert first, then quantize. <b>Follow the job with SSE progress.</b></div>
+</body></html>

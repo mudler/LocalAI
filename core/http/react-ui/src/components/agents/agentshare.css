@@ -1,0 +1,18 @@
+/* Sharing of a saved agent: what it needs, the owner line. Tokens only. */
+
+.ag-share__status { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+
+.ag-needs { margin: 0; padding: 0; list-style: none; }
+.ag-needs__row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  min-height: var(--ctl-h); padding: var(--sp-2) var(--sp-3);
+}
+.ag-needs__row + .ag-needs__row { border-top: 1px solid var(--dk-edge); }
+.ag-needs__main { display: flex; flex-direction: column; min-width: 0; }
+.ag-needs__label { overflow: hidden; font-size: var(--fs-small); font-weight: 500; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.ag-needs__kind { font-size: var(--fs-meta); color: var(--dk-muted); }
+
+.ag-shared-line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* The notice of a chat with a shared agent, in the column of the thread. */
+.cx-agent-needs { width: 100%; max-width: 760px; margin: 0 auto; padding: var(--sp-2) 0 var(--sp-3); }

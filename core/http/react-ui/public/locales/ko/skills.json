@@ -1,0 +1,122 @@
+{
+  "title": "스킬",
+  "subtitle": "작업에 맞을 때 모든 채팅이 쓸 수 있는 지침입니다. 에이전트는 추가한 스킬만 사용합니다.",
+  "unavailable": {
+    "subtitle": "스킬에는 파일 기능이 필요한데, 이 서버에서는 파일 기능이 꺼져 있습니다."
+  },
+  "actions": {
+    "newSkill": "새 스킬",
+    "createSkill": "스킬 만들기",
+    "edit": "편집",
+    "delete": "삭제",
+    "import": "가져오기",
+    "export": "내보내기"
+  },
+  "search": {
+    "placeholder": "스킬 검색..."
+  },
+  "card": {
+    "noDescription": "설명 없음",
+    "readOnly": "읽기 전용",
+    "editTitle": "스킬 편집",
+    "deleteTitle": "스킬 삭제",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "이 스킬은 건너뛰었습니다: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "{{name}} 제공",
+    "replacedBy": "{{name}}(으)로 대체됨",
+    "notActive": "비활성: 기본 제공 스킬이 사용됩니다",
+    "notActiveBy": "비활성: {{name}}에서 제공합니다",
+    "fallback": "{{name}} 애드온의 스킬이 꺼져 있거나 실행 중이 아니어서 사용 중",
+    "proposedBy": "{{name}}이(가) 제안하고 사용자가 확인했습니다. 해당 에이전트만 사용합니다.",
+    "new": "새 스킬",
+    "newTitle": "가져왔고 아직 사용하지 않음",
+    "newLong": "가져왔고 아직 사용하지 않았습니다. 에이전트에 추가하기 전에 내용을 읽어 보세요. 채팅에서 처음 사용하면 이 표시가 사라집니다.",
+    "exportTitle": "이 스킬을 zip 파일로 내려받기"
+  },
+  "empty": {
+    "title": "스킬을 찾을 수 없습니다",
+    "text": "스킬을 만들거나 가져와서 시작하세요.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "스킬을 불러오지 못했습니다",
+    "deleted": "스킬 \"{{name}}\"이(가) 삭제되었습니다",
+    "deleteFailed": "스킬 삭제 실패",
+    "exportFailed": "내보내기 실패: {{message}}"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "애드온",
+    "agent": "에이전트",
+    "project": "프로젝트"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "이 스킬은 여기서 읽기 전용입니다. 기본 제공 스킬은 서버에 포함되어 있고, 내 파일의 스킬은 파일에서 바꿉니다.",
+    "counter": "{{max}}자 중 {{count}}자",
+    "nameInvalid": "소문자, 숫자, 하이픈 하나만 사용하세요.",
+    "bodyHelp": "마크다운으로 작성합니다. 작업이 설명과 맞을 때 채팅이 읽습니다."
+  },
+  "load": {
+    "title": "스킬을 불러올 수 없습니다."
+  },
+  "import": {
+    "failedTitle": "스킬을 가져오지 못했습니다",
+    "failed": "가져오기에 실패했습니다.",
+    "dismiss": "닫기",
+    "done_one": "스킬 {{count}}개를 가져왔습니다",
+    "done_other": "스킬 {{count}}개를 가져왔습니다",
+    "scriptsStored": "스크립트와 다른 파일은 그대로 저장됩니다. 스크립트는 저장만 되며 가져오기에서 실행되지 않습니다.",
+    "newNote": "채팅에서 사용할 때까지 새 스킬로 표시됩니다."
+  },
+  "sort": {
+    "label": "스킬 정렬",
+    "name": "이름, 가나다순",
+    "name-desc": "이름, 가나다 역순",
+    "used": "많이 사용한 순",
+    "source": "출처별 그룹"
+  },
+  "source": {
+    "label": "스킬 출처",
+    "all": "모든 출처 ({{count}})"
+  },
+  "list": {
+    "countAll_one": "스킬 {{count}}개",
+    "countAll_other": "스킬 {{count}}개",
+    "countOf": "스킬 {{total}}개 중 {{shown}}개",
+    "menu": "{{name}} 작업"
+  }
+}

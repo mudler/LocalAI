@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "voice",
+  "version": "0.1.0",
+  "executable": "voice",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "ui": {
+      "entry": "ui/voice.js",
+      "css": ["ui/voice.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["voice", "recognition", "library", "create", "speech"],
+      "navigation": ["voice"],
+      "modelActions": [{"capability": "FLAG_SPEAKER_RECOGNITION", "page": "recognition"}],
+      "mainPage": "voice",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Voice",
+        "it": "Voce",
+        "de": "Stimme",
+        "es": "Voz",
+        "fr": "Voix",
+        "pt-BR": "Voz",
+        "zh-CN": "声音",
+        "ko": "음성",
+        "id": "Suara"
+      },
+      "description": {
+        "en": "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them.",
+        "it": "Riconosci chi sta parlando, conserva le voci che la sintesi vocale può usare e leggi testi con quelle voci.",
+        "de": "Erkennen Sie, wer spricht, verwalten Sie die Stimmen, die die Sprachausgabe verwenden kann, und sprechen Sie Text mit ihnen.",
+        "es": "Reconoce quién está hablando, guarda las voces que puede usar la síntesis de voz y di textos con ellas.",
+        "fr": "Reconnaissez qui parle, gardez les voix que la synthèse vocale peut utiliser et prononcez du texte avec elles.",
+        "pt-BR": "Reconheça quem está falando, guarde as vozes que a síntese de fala pode usar e fale textos com elas.",
+        "zh-CN": "识别说话的人，管理语音合成可用的声音，并用这些声音朗读文本。",
+        "ko": "말하는 사람을 인식하고, 음성 합성에서 사용할 수 있는 목소리를 보관하며, 그 목소리로 텍스트를 읽습니다.",
+        "id": "Kenali siapa yang berbicara, simpan suara yang dapat digunakan text-to-speech, dan ucapkan teks dengan suara tersebut."
+      }
+    }
+  }
+}

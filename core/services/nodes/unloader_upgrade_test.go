@@ -1,0 +1,125 @@
+package nodes
+
+import (
+	"strings"
+	"sync"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/workerctl"
+)
+
+var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
+	It("fires a NATS request to the backend.upgrade subject and returns the reply", func() {
+		mc := newScriptedMessagingClient()
+		nodeID := "node-x"
+
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade(nodeID),
+			workerctl.BackendUpgradeReply{Success: true})
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
+		reply, err := adapter.UpgradeBackend(nodeID, "llama-cpp", `[{"name":"x"}]`, "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reply.Success).To(BeTrue())
+	})
+
+	It("returns the underlying error when the subject has no responders", func() {
+		mc := newScriptedMessagingClient() // unscripted subject => fakeNoRespondersErr by harness convention
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
+		_, err := adapter.UpgradeBackend("missing-node", "llama-cpp", "", "", "", "", 0, "", nil)
+		Expect(err).To(HaveOccurred())
+	})
+
+	// Reproducer for "upgrade reports progress:0 the whole time" (Bug B). The
+	// install path streamed per-node download ticks; the upgrade path did a bare
+	// request→single-reply with no progress subscription, so a long force-reinstall
+	// blocked opaque. The adapter must subscribe to the per-op progress subject
+	// (reused from install) BEFORE the request and deliver each tick to onProgress.
+	It("streams per-node progress ticks during the upgrade", func() {
+		mc := newScriptedMessagingClient()
+		nodeID := "node-slow"
+		opID := "op-upgrade-1"
+
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade(nodeID),
+			workerctl.BackendUpgradeReply{Success: true})
+		// The worker would publish these while force-reinstalling. The harness
+		// replays them as soon as the adapter subscribes to the per-op subject.
+		mc.scheduleProgressPublish(nodeID, opID, []workerctl.BackendInstallProgressEvent{
+			{NodeID: nodeID, FileName: "llama-cpp.tar", Current: "10 MB", Total: "100 MB", Percentage: 10},
+			{NodeID: nodeID, FileName: "llama-cpp.tar", Current: "100 MB", Total: "100 MB", Percentage: 100},
+		})
+
+		var mu sync.Mutex
+		var got []workerctl.BackendInstallProgressEvent
+		onProgress := func(ev workerctl.BackendInstallProgressEvent) {
+			mu.Lock()
+			got = append(got, ev)
+			mu.Unlock()
+		}
+
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
+		reply, err := adapter.UpgradeBackend(nodeID, "llama-cpp", `[{"name":"x"}]`, "", "", "", 0, opID, onProgress)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(reply.Success).To(BeTrue())
+
+		// Confirm it subscribed to the (reused) install-progress subject for this op.
+		Expect(mc.subscribeCalls()).To(ContainElement(messaging.SubjectNodeBackendInstallProgress(nodeID, opID)))
+
+		// Progress events are delivered asynchronously (goroutine-per-event), so
+		// poll for both and assert on the set — ordering is best-effort by design.
+		Eventually(func() []float64 {
+			mu.Lock()
+			defer mu.Unlock()
+			pcts := make([]float64, 0, len(got))
+			for _, e := range got {
+				pcts = append(pcts, e.Percentage)
+			}
+			return pcts
+		}, 2*time.Second, 20*time.Millisecond).Should(ConsistOf(float64(10), float64(100)))
+	})
+})
+
+// hostileUpgradeReply is the answer of a compromised or old worker: fields of
+// megabytes, markup, terminal escapes, credentials and paths, and a code the
+// frontend does not know.
+func hostileUpgradeReply() workerctl.BackendUpgradeReply {
+	junk := "<script>alert(1)</script>\x1b[31m https://user:pass@host/x Bearer abc /home/alice/.config/k.pem\n"
+	big := strings.Repeat(junk, 40000)
+	return workerctl.BackendUpgradeReply{Success: false, Code: "<b>pwn</b>", Error: big, Cause: big, RestartError: big}
+}
+
+func expectBoundedReplyText(s string) {
+	GinkgoHelper()
+	Expect(len(s)).To(BeNumerically("<=", workerctl.CauseLimit+len("…")))
+	for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+		Expect(s).NotTo(ContainSubstring(bad))
+	}
+}
+
+var _ = Describe("The reply of a worker to backend.upgrade on receipt", func() {
+	It("bounds and cleans the error, the cause and the restart error", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("node-x"), hostileUpgradeReply())
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
+		reply, err := adapter.UpgradeBackend("node-x", "llama-cpp", "", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+		expectBoundedReplyText(reply.Error)
+		expectBoundedReplyText(reply.Cause)
+		expectBoundedReplyText(reply.RestartError)
+	})
+
+	It("maps an unbounded reply to a bounded error with the unknown code", func() {
+		reply := hostileUpgradeReply()
+		err := UpgradeReplyError(&reply)
+		Expect(gallery.UpgradeCodeOf(err)).To(Equal(gallery.UpgradeFailureUnknown))
+		Expect(len(err.Error())).To(BeNumerically("<=", 2*workerctl.CauseLimit+64))
+		for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+			Expect(err.Error()).NotTo(ContainSubstring(bad))
+		}
+	})
+})

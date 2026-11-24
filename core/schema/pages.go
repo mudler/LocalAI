@@ -1,0 +1,253 @@
+package schema
+
+import "time"
+
+// PagesPage is one page of the user's workspace: the folder pages/<name>/ of
+// the home, with an index.html.
+type PagesPage struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"` // inside the home: /pages/<name>
+	Title       string `json:"title"`
+	Icon        string `json:"icon,omitempty"`
+	Description string `json:"description,omitempty"`
+	// Widget is the widget block of page.json: the page can be a tile on Home
+	// (a widget of type page in LocalAI/home.json). Absent when the page has
+	// none.
+	Widget *PagesWidget `json:"widget,omitempty"`
+	// Source is "own" for a page in the user's home and "shared" for a page of
+	// a shared folder.
+	Source string `json:"source"`
+	// Author is who wrote the current index.html: "you" or "assistant" for an
+	// own page, "other" for a shared page another account wrote. A shared page
+	// also has AuthorID and AuthorName, the account that last wrote its
+	// index.html.
+	Author     string `json:"author"`
+	AuthorID   string `json:"author_id,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	// A shared page has its shared folder (Folder, a workspace path, and
+	// FolderID, the id the shared-pages routes take), whether you may write in
+	// it, the hash of its code (index.html, page.json and the files of
+	// code_files; a consent is kept against it) and your consent: none,
+	// allowed or changed. code_files are the scripts, style sheets and modules
+	// of the page's folder that the page names: the UI puts no other text
+	// file into a shared page.
+	CodeFiles []string `json:"code_files,omitempty"`
+	// A page that a person shared from their own home (not an administrator's
+	// shared folder) has user_shared set: no administrator checked it, and the
+	// trust sheet says who wrote it. role is what you may do with it: view
+	// (run it and read its data), use (also save data through it) or edit
+	// (also change its code). owner_name is the person whose home
+	// holds it; author_name is who last wrote its index.html. turned_off is set
+	// when an administrator turned such pages off: the page is listed and does
+	// not open. Such a page has no folder and no path, which would name the
+	// owner's account.
+	UserShared bool   `json:"user_shared,omitempty"`
+	Role       string `json:"role,omitempty"`
+	OwnerName  string `json:"owner_name,omitempty"`
+	TurnedOff  bool   `json:"turned_off,omitempty"`
+	// OthersCanEdit is set on one of your own pages that another account may
+	// edit (an edit grant). Its code can change without you, so it runs for you
+	// only after you allow its version, as a shared page does: hash, code_files,
+	// meta_size and consent (none, allowed, changed) are set, the bridge calls
+	// carry X-LocalAI-Page-Hash, PUT and DELETE /api/chats/pages/{name}/consent
+	// allow and revoke, and the page never runs on Home, in a slot or in the
+	// dock by itself (embed is refused with 400).
+	OthersCanEdit bool `json:"others_can_edit,omitempty"`
+	// SharedAllowed is, on the page you read with GET /api/chats/pages/{name},
+	// how many of the named accounts it is shared with allowed its current
+	// version, so that the page can say how many will be asked again. The page
+	// then also has hash, the version they allowed or not.
+	SharedAllowed int `json:"shared_allowed,omitempty"`
+	// SharedWith is, on one of your own pages, how many accounts you shared it
+	// with (everyone counts as one).
+	SharedWith int    `json:"shared_with,omitempty"`
+	Folder     string `json:"folder,omitempty"`
+	FolderID   int64  `json:"folder_id,omitempty"`
+	Writable   bool   `json:"writable,omitempty"`
+	Hash       string `json:"hash,omitempty"`
+	Consent    string `json:"consent,omitempty"`
+	MetaSize   int64  `json:"meta_size,omitempty"`
+	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
+	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedBy string    `json:"updated_by"`
+	Rev       int64     `json:"rev"`
+	Size      int64     `json:"size"`
+}
+
+// PagesWidget is the widget block of a page.json: the page's tile on Home.
+type PagesWidget struct {
+	// Size is the height of the tile: small, medium or large.
+	Size string `json:"size"`
+	// Title is the tile's title when it should differ from the page's.
+	Title string `json:"title,omitempty"`
+	// Compact is set when the page has a layout for a slot, a strip about
+	// 40 px high (ui.json slots). Without it a slot shows a button that opens
+	// the page.
+	Compact *PagesCompact `json:"compact,omitempty"`
+}
+
+// PagesCompact is the compact tile of a page in a slot.
+type PagesCompact struct {
+	// Width is the width of the tile in CSS pixels, 72 to 220.
+	Width int `json:"width"`
+}
+
+// PagesList is the user's pages, sorted by name.
+type PagesList struct {
+	Pages []PagesPage `json:"pages"`
+	// PageAreaEnabled is false when an administrator turned the page area of
+	// Home off: a pageArea of home.json is then ignored.
+	PageAreaEnabled bool `json:"page_area_enabled"`
+}
+
+// PagesSource is a page with the text of its index.html.
+type PagesSource struct {
+	Page PagesPage `json:"page"`
+	HTML string    `json:"html"`
+	// Lines and Consent are set when others_can_edit is true: your consent to
+	// the version of this page, in the shape of the shared pages.
+	Lines   int           `json:"lines,omitempty"`
+	Consent *PagesConsent `json:"consent,omitempty"`
+}
+
+// PagesFile is an entry of a page's folder. Path is relative to the folder.
+type PagesFile struct {
+	Path       string `json:"path"`
+	Kind       string `json:"kind"` // file or dir
+	Size       int64  `json:"size"`
+	Version    int64  `json:"version"`
+	ConflictOf string `json:"conflict_of,omitempty"`
+}
+
+// PagesFileList is a folder of a page.
+type PagesFileList struct {
+	Entries []PagesFile `json:"entries"`
+}
+
+// PagesFileContent is a text file of a page's folder. Read with
+// encoding=base64, it is an image: Content is the bytes in base64, Encoding is
+// "base64" and MediaType the image type of the file's extension.
+type PagesFileContent struct {
+	PagesFile
+	Content   string `json:"content"`
+	Encoding  string `json:"encoding,omitempty"`
+	MediaType string `json:"media_type,omitempty"`
+}
+
+// PagesWriteRequest writes a text file of a page's folder.
+type PagesWriteRequest struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	// Base is the version the page read. A file that changed since is kept and
+	// the content goes to a conflict copy. Zero replaces the file.
+	Base int64 `json:"base,omitempty"`
+}
+
+// PagesChatRequest sends a message from a page to a chat.
+type PagesChatRequest struct {
+	Text string `json:"text"`
+	// ChatID is a chat of the user. Empty means the page's own chat, which is
+	// created on first use.
+	ChatID string `json:"chat_id,omitempty"`
+	// Model is the model of a new page chat. Empty takes the model of the
+	// user's most recent chat.
+	Model string `json:"model,omitempty"`
+}
+
+// PagesChatResponse says where the message went.
+type PagesChatResponse struct {
+	ChatID    string `json:"chat_id"`
+	Title     string `json:"title"`
+	Started   bool   `json:"started"`
+	PendingID string `json:"pending_id,omitempty"`
+}
+
+// PagesStarter is a page that ships with the server.
+type PagesStarter struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Icon        string `json:"icon,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// PagesStarterList lists the starter pages.
+type PagesStarterList struct {
+	Starters []PagesStarter `json:"starters"`
+}
+
+// PagesSharedList is the pages of your shared folders. Enabled is false when an
+// administrator switched shared pages off: the pages are listed, but none
+// opens.
+type PagesSharedList struct {
+	Enabled bool `json:"enabled"`
+	// UserSharesEnabled is false when an administrator turned off the pages
+	// that people share from their own homes: those pages have turned_off
+	// set, are listed and do not open.
+	UserSharesEnabled bool        `json:"user_shares_enabled"`
+	Pages             []PagesPage `json:"pages"`
+}
+
+// PagesConsent is your consent to a shared page.
+type PagesConsent struct {
+	// State is none, allowed (this version) or changed (an earlier version).
+	State string `json:"state"`
+	// The version you allowed: when, and the size of its index.html and
+	// page.json and the lines of its index.html, to say what changed.
+	AllowedAt *time.Time `json:"allowed_at,omitempty"`
+	Size      int64      `json:"size,omitempty"`
+	MetaSize  int64      `json:"meta_size,omitempty"`
+	Lines     int        `json:"lines,omitempty"`
+	// Embed is true when you also allowed this version to run on Home and in
+	// the slots of the app (ui.json slots), where it starts without a click.
+	Embed bool `json:"embed,omitempty"`
+}
+
+// PagesSharedSource is a shared page with the text of its index.html, its
+// lines, and your consent. The UI runs the HTML only after a consent to Hash.
+type PagesSharedSource struct {
+	Page    PagesPage    `json:"page"`
+	HTML    string       `json:"html"`
+	Lines   int          `json:"lines"`
+	Consent PagesConsent `json:"consent"`
+}
+
+// PagesConsentRequest allows the version Hash of a shared page, for good or
+// for one visit (Once).
+type PagesConsentRequest struct {
+	Hash string `json:"hash"`
+	Once bool   `json:"once,omitempty"`
+	// Embed also allows the version on Home and in the slots of the app. It
+	// is a lasting consent: it cannot go with once.
+	Embed bool `json:"embed,omitempty"`
+}
+
+// PagesConsentResponse is the consent you gave. A visit (kind once) has a
+// token that the bridge calls of that visit send in X-LocalAI-Page-Visit.
+type PagesConsentResponse struct {
+	State   string     `json:"state"`
+	Kind    string     `json:"kind"`
+	Hash    string     `json:"hash"`
+	Token   string     `json:"token,omitempty"`
+	Expires *time.Time `json:"expires,omitempty"`
+	Embed   bool       `json:"embed,omitempty"`
+}
+
+// PagesErrorRequest is a runtime error that the frame of a page caught, which
+// the UI of the page's owner reports. The server cuts the texts, drops the
+// browser's own noise and counts repeats of the same error.
+type PagesErrorRequest struct {
+	Message string `json:"message"`
+	Stack   string `json:"stack,omitempty"`
+	// File is the script file of the page that threw; empty for index.html.
+	File string `json:"file,omitempty"`
+	// Line and Column are 0 when the browser gave none.
+	Line   int `json:"line,omitempty"`
+	Column int `json:"column,omitempty"`
+	// Count is how many times the frame saw this error since its last report.
+	Count int `json:"count,omitempty"`
+}
+
+// PagesErrorResponse says whether the error was kept.
+type PagesErrorResponse struct {
+	Recorded bool `json:"recorded"`
+}

@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "region": "Lihat sebagai",
+    "readonlyTag": "Hanya baca",
+    "actingTag": "Bertindak",
+    "readonlyLead": "Melihat sebagai {{name}}.",
+    "readonlyRest": "Hanya baca.",
+    "actingLead": "Bertindak sebagai {{name}}.",
+    "actingRest": "Perubahan dibuat pada akun {{name}} dan dicatat.",
+    "allow": "Izinkan perubahan",
+    "exit": "Keluar",
+    "exitLabel": "Keluar dari Lihat sebagai {{name}}"
+  },
+  "confirm": {
+    "title": "Izinkan perubahan pada akun {{name}}?",
+    "intro": "Anda akan bertindak sebagai {{name}}. Berlaku sekarang, untuk setiap halaman yang mengikuti Lihat sebagai.",
+    "can": "Anda dapat membuat, mengubah, dan menghapus proyek milik {{name}}.",
+    "logged": "Setiap perubahan dicatat dengan Anda sebagai pelaku dan {{name}} sebagai akun.",
+    "back": "Anda dapat kembali ke hanya baca dari bilah kapan saja.",
+    "stay": "Tetap hanya baca",
+    "allow": "Izinkan perubahan",
+    "close": "Tutup"
+  },
+  "scope": {
+    "chip": "Data {{name}}",
+    "navMark": "Menampilkan data {{name}}",
+    "legend": "Halaman dengan tanda ini menampilkan data {{name}}. Halaman lain menampilkan data Anda.",
+    "notice": "Halaman ini menampilkan data Anda sendiri, bukan data {{name}}."
+  },
+  "write": {
+    "hint": "Izinkan perubahan untuk mengedit",
+    "blocked": "Hanya baca. Aktifkan Izinkan perubahan di bilah untuk mengedit data {{name}}."
+  },
+  "notice": {
+    "idle": "Perubahan dimatikan setelah {{minutes}} menit tanpa aktivitas. Kembali ke hanya baca.",
+    "ended": "{{name}} tidak tersedia lagi, sehingga Lihat sebagai berakhir."
+  },
+  "users": {
+    "action": "Lihat sebagai",
+    "actionFor": "Lihat sebagai {{name}}",
+    "hint": "Lihat apa yang dilihat {{name}}. Hanya baca dulu."
+  },
+  "palette": {
+    "kind": "Lihat sebagai",
+    "title": "Lihat sebagai {{name}}",
+    "where": "{{email}} · hanya baca dulu"
+  }
+}

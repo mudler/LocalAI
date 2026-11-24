@@ -1,0 +1,113 @@
+{
+  "title": "Connaissances",
+  "subtitle": "Collections de documents que les agents peuvent consulter. Cherchez dans chacune ici, ou ajoutez-en une à un agent pour qu'il l'utilise.",
+  "newPlaceholder": "Nom de la nouvelle collection...",
+  "actions": {
+    "create": "Créer",
+    "details": "Détails",
+    "reset": "Réinitialiser",
+    "delete": "Supprimer",
+    "viewDetails": "Voir les détails",
+    "resetCollection": "Réinitialiser la collection",
+    "deleteCollection": "Supprimer la collection",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "sections": {
+    "yourCollections": "Vos collections",
+    "otherUsersCollections": "Collections des autres utilisateurs",
+    "sharedWithYou": "Partagées avec vous"
+  },
+  "empty": {
+    "title": "Aucune collection pour l'instant",
+    "text": "Les collections permettent d'organiser des documents en bases de connaissances que les agents peuvent interroger via RAG (génération augmentée par recherche). Créez une collection ci-dessus pour commencer.",
+    "noPersonal": "Vous n'avez encore aucune collection.",
+    "learn": "Fonctionnement des connaissances"
+  },
+  "deleteDialog": {
+    "title": "Supprimer la collection",
+    "message": "Supprimer la collection « {{name}} » ? Toutes les entrées seront supprimées et l'action est irréversible.",
+    "confirm": "Supprimer"
+  },
+  "resetDialog": {
+    "title": "Réinitialiser la collection",
+    "message": "Réinitialiser la collection « {{name}} » ? Toutes les entrées seront supprimées, mais la collection sera conservée.",
+    "confirm": "Réinitialiser"
+  },
+  "toasts": {
+    "created": "Collection « {{name}} » créée",
+    "createFailed": "Échec de la création de la collection : {{message}}",
+    "deleted": "Collection « {{name}} » supprimée",
+    "deleteFailed": "Échec de la suppression de la collection : {{message}}",
+    "reset": "Collection « {{name}} » réinitialisée",
+    "resetFailed": "Échec de la réinitialisation de la collection : {{message}}"
+  },
+  "loadFailed": "Impossible de charger vos collections.",
+  "sources": {
+    "loadFailed": "Impossible de charger les sources web.",
+    "noneShared": "Aucune source web."
+  },
+  "entries": {
+    "loadFailed": "Impossible de charger les fichiers.",
+    "filter": "Filtrer les fichiers",
+    "countAll_one": "{{count}} fichier",
+    "countAll_other": "{{count}} fichiers",
+    "countOf": "{{shown}} fichiers sur {{total}}",
+    "noMatch": "Aucun fichier ne correspond."
+  },
+  "starting": {
+    "title": "Les connaissances démarrent.",
+    "text": "Le serveur prépare encore le service de connaissances. Cette page réessaie toute seule."
+  },
+  "embedding": {
+    "missingTitle": "Aucun modèle d'embedding installé.",
+    "missingText": "Les collections utilisent {{model}} pour indexer les fichiers et y chercher. Tant qu'il n'est pas installé, l'ajout de fichiers et la recherche échouent.",
+    "noneSet": "Aucun modèle d'embedding n'est défini pour les collections (collections_embedding_model) : l'ajout de fichiers et la recherche échouent.",
+    "install": "Le trouver dans Modèles",
+    "askAdmin": "Demandez à un administrateur de l'installer."
+  },
+  "searchMode": {
+    "label": "Recherche : {{mode}}",
+    "semantic": "sémantique",
+    "hybrid": "hybride",
+    "semanticHint": "Elle trouve des passages par le sens, pas par des mots ou des codes exacts.",
+    "hybridHint": "Elle trouve des passages par le sens et par des mots exacts."
+  },
+  "pane": {
+    "addFile": "Ajouter un fichier"
+  },
+  "share": {
+    "label": "Partager",
+    "button": "Partager {{name}}",
+    "intro": "Les personnes que vous ajoutez trouvent cette collection dans leur liste, et leurs agents peuvent la rechercher par son nom.",
+    "failed": "Impossible de partager la collection : {{message}}",
+    "roles": {
+      "viewer": "Peut voir",
+      "viewerHelp": "Peut la rechercher et lire ses fichiers.",
+      "editor": "Peut modifier",
+      "editorHelp": "Peut aussi ajouter et retirer des fichiers."
+    },
+    "noteViewer": "Vous pouvez la rechercher et lire ses fichiers.",
+    "noteEditor": "Vous pouvez la rechercher et ajouter ou retirer des fichiers."
+  },
+  "create": {
+    "title": "Nouvelle collection",
+    "hint": "Donnez-lui un nom que vous reconnaîtrez. Vous ajouterez des fichiers et des pages web une fois qu’elle existe."
+  },
+  "sort": {
+    "label": "Trier les collections",
+    "name": "Nom, de A à Z",
+    "name-desc": "Nom, de Z à A",
+    "used": "Les plus utilisées",
+    "unused": "Inutilisées d’abord"
+  },
+  "list": {
+    "countAll_one": "{{count}} collection",
+    "countAll_other": "{{count}} collections",
+    "countOf": "{{shown}} collections sur {{total}}",
+    "menu": "Actions pour {{name}}"
+  },
+  "menu": {
+    "try": "Essayer une question"
+  }
+}

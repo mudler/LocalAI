@@ -1,0 +1,646 @@
+# UI primitives
+
+The shared components every page uses for buttons, page frames, empty and error
+states, status, toasts, loading and detail panes. Import them from one place:
+
+```jsx
+import { Button, EmptyState, LoadError, Page, PageHeader, StatusChip, Tabs, Tag } from '../components/ui'
+```
+
+Most of them live in the UI kit package, `packages/ui-kit` (see its
+`README.md`), so another React app can use them too. The package depends
+only on React. The files in this folder keep the import paths of the web UI:
+
+- `Button` and `Notice` pass react-router's `Link` to the kit component.
+- `LoadError` and `StatusChip` pass the translated words (`common:ui.*`,
+  `common:chip.*`).
+- The others re-export the kit file.
+- `SidePane`, `toastModel` and `usePresence` live here, with `PageHeader`,
+  `Skeleton`, `LoadingSpinner`, `RouteFallback` and `useLoad` one level up.
+
+All of them read the tokens in `src/theme.css` (type, space, radius, control
+height, motion). Their rules are in `packages/ui-kit/css/kit.css`, with the
+icon rules and the `.page` frame. `main.jsx` loads `kit.css` after `theme.css`
+and before `App.css`, so a page class on the same element still wins over a
+primitive's base rule. Icons (`components/Icon.jsx`) are the kit's `Icon`,
+drawn inline.
+
+To see every component in every state, open `/app/ui-catalog` (admin only, not
+in the navigation). `e2e/ui-primitives.spec.js` checks the catalog.
+
+## Which control
+
+| Need | Use | When |
+|---|---|---|
+| An action | `Button` | `primary` for the one main action of a region; `secondary`, `ghost`, `danger` and `danger-ghost` for the rest. |
+| Text | `dk-input` | One line of text. |
+| A choice from a short, fixed list | `dk-select` in `dk-select-wrap` | A native list of options (see "Native select or ListPicker"). |
+| A choice from a long list, rich rows, several picks, or a chip in a toolbar | `ListPicker` | A trigger and a menu with a filter box, groups and keyboard. |
+| A number in a range (a sampling value) | `Slider` | A range with a number box and a reset; "not set" is its own state. Applies when the form is saved. |
+| A setting that applies at once | `Switch` | On or off, no Save. |
+| A choice that applies on Save | `dk-check` | A yes or no inside a form. |
+| One choice of a few that filters | `Segmented` | A list filter with counts. |
+| One choice of 2-4 that sets a value | `Segmented mode="radio"` | A value, such as where models run or a kind. Not a filter and not a view switch. |
+| Views of one region | `Tabs` + `TabPanel` | One view shown at a time: Overview, Files, Settings. Not a filter. |
+| A state | `StatusChip` | The state of one item. |
+| A label that is not a state | `Tag` | A kind, a format, a capability, "alias", "Built-in". |
+| Something that needs attention | `Callout` | A warning, news or a result on this page. |
+| The detail of an item beside a list | `SidePane` | Read, act, close. |
+| A create or edit form | `SideSheet` | Blocks the page until saved or closed. |
+| A question that blocks the page | `Dialog` | A short choice or a small form, centred. |
+| A yes or no before an action | `ConfirmDialog` | Destructive or hard to undo. Prefer an Undo toast when it can be undone. |
+| Actions of a row | `ActionMenu` | A kebab that opens a menu. |
+
+`npm run lint:ui-kit` (`scripts/ui-kit-gate.mjs`) fails on a new raw checkbox,
+an import of the legacy `Toggle`, `dk-sheet` markup in JSX, a CSS width on a
+sheet or pane, and a `btn` class. `ui-kit-baseline.txt` lists the old ones;
+it can only shrink (`npm run lint:ui-kit:write` after you fix some).
+
+## Rules for every slice
+
+- Do not write a new button, empty state, error state, status label or toast.
+  Use the component. If it cannot do what you need, extend it here.
+- No raw `font-size`, `border-radius` or `@keyframes` in page CSS. Use the
+  tokens. `tests/unit/designtokens.test.mjs` counts them, and the counts may only
+  go down.
+- A page load that fails shows `<LoadError>` in the region that failed. It never
+  shows the empty state, and it is never only a toast.
+- Toasts are only for the result of an action the person just took.
+- Motion uses the S0 tokens (`--dur-*`, `--ease-*`) and moves only `transform`
+  and `opacity`. Under reduced motion everything finishes at once (the global
+  rule in `index.css`).
+
+## Button
+
+`<Button variant size icon iconEnd busy disabled to href>`
+
+| Prop | Values | Notes |
+|---|---|---|
+| `variant` | `primary`, `secondary` (default), `ghost`, `danger`, `danger-ghost` | |
+| `size` | `md` (default, `--ctl-h`, 36 px), `sm` (`--ctl-h-sm`, 28 px), `lg` (48 px) | 40 px and 32 px on a touch screen |
+| `icon`, `iconEnd` | a kit icon id | 16 px (14 px in `sm`), 6 px gap |
+| `busy` | boolean | keeps the width, shows a spinner, sets `aria-busy` |
+| `to` / `href` | a router path / an address | renders `<Link>` / `<a>` (the kit component takes the link as `linkComponent`; this wrapper passes it) |
+
+An `icon` with no children is a square icon button. Give it an `aria-label`.
+
+Do:
+- One `primary` per region. Write the label as a verb first, in sentence case:
+  "Add MCP server", not "New MCP Server".
+- `danger` (a solid error fill) only for the confirm button of a dialog.
+- `danger-ghost` for "Remove…" in a pane or a menu.
+- `sm` in rows, toolbars and panes.
+
+Don't:
+- Put a destructive action next to a primary at the same weight.
+- Style a button with a page class to change its height, font or radius.
+
+Markup that cannot use the component (an add-on page, a library slot) uses
+`buttonClass({ variant, size, iconOnly })` from `buttonClass.js`.
+
+### Legacy classes
+
+The legacy classes look the same as the kit button, so old markup converges
+with no edit. Move to `<Button>` when you edit the file.
+
+| Legacy class | Same as |
+|---|---|
+| `btn` | `dk-btn` (secondary look) |
+| `btn btn-primary` | `<Button variant="primary">` / `dk-btn dk-btn--primary` |
+| `btn btn-secondary` | `<Button>` / `dk-btn dk-btn--secondary` |
+| `btn btn-ghost` | `<Button variant="ghost">` |
+| `btn btn-danger` | `<Button variant="danger">` |
+| `btn btn-danger-ghost` | `<Button variant="danger-ghost">` |
+| `btn-sm` | `size="sm"` / `dk-btn--sm` |
+| `dk-btn` with no variant | `<Button>` (secondary) |
+
+`btn-full` is unchanged.
+
+## Page and PageHeader
+
+```jsx
+<Page>                       {/* width="content" (1120 px) or "full" */}
+  <PageHeader
+    title="Agents"
+    supporting="Saved agents: instructions, a model, and what a chat with them may use."
+    actions={<Button variant="primary" icon="plus">New agent</Button>}
+  />
+  …
+</Page>
+```
+
+- One title style: 28/34 semibold (24/30 on a phone). One left edge: the
+  `.page` gutter (32 px, 16 px on a phone). Two widths: `content`
+  (`--page-max-content`) and `full`.
+- The supporting line is one sentence, up to 64 characters a line.
+- The actions sit at the bottom right. On an empty page the empty state carries
+  the primary action, so the header leaves it out.
+- No eyebrow or breadcrumb above the title.
+- `Page` renders `.page page--content` (or `page--full`). A page that already
+  has `.page` can add `page--content` instead.
+
+Legacy: `.page-title` and `.page-header*` already have the new style. A bespoke
+`h1` class (`tf-title`, `sw-title`, `ag-title` and others) moves to `PageHeader`
+in the page's slice.
+
+## EmptyState
+
+`<EmptyState variant title body actions facts steps icon level />`
+
+| Variant | Use |
+|---|---|
+| `first-run` (default) | nothing here yet: a dashed outline, the primary action and one ghost "learn" link on the right, 2-3 `facts` |
+| `no-results` | a search or a filter found nothing: one line and a ghost "Clear filters" |
+| `unavailable` | the feature is off or not allowed: muted, one sentence, a link to the setting |
+
+- `facts`: `[{ text }, { text, ok: false }]` (a check or a cross).
+- `steps`: numbered steps, only where order matters (Memory, Triggers).
+- The title is a statement ("No MCP servers yet"), the body says what it is for
+  and how to start.
+
+Legacy: `.empty-state*` now uses the same type (a 17 px title, body text, 56ch).
+`.dk-empty-title` and `.dk-empty-text` too. Replace them with `<EmptyState>` in
+the page's slice.
+
+## LoadError and useLoad
+
+```jsx
+const servers = useLoad(() => mcpApi.list(), [])
+if (servers.status === 'loading') return <SkeletonRows />
+if (servers.status === 'error') return (
+  <LoadError title="Could not load your MCP servers." error={servers.error} onRetry={servers.retry} />
+)
+if (servers.data.length === 0) return <EmptyState … />
+```
+
+- `LoadError` is an error `Callout` with `role="alert"`: the bold `title` says
+  what failed, then "The server answered “…”." and "Nothing was changed."
+  (`nothingChanged={false}` drops it), and a **Try again** button. If
+  `onRetry` returns a promise, the button stays busy until it settles.
+- `useLoad(loader, deps)` returns `{ status, data, error, retry, reload }`.
+  `status` is `loading`, `ready` or `error`. An answer to an older request is
+  ignored. `reload()` keeps the data on screen while it loads again.
+
+## Callout
+
+`<Callout tone title actions icon role>` children `</Callout>`
+
+`tone` is `info` (default), `ok`, `warn` or `error`. The `title` is the first
+sentence in bold. `actions` hold `sm` buttons on the right; on a phone they wrap
+under the text. Use it for something on this page that needs attention ("Tables
+1.0.0 is available"). Amber (`warn`) is only for something that needs a
+decision.
+
+## Notice
+
+`<Notice severity title reason who fix secondary icon>` children `</Notice>`
+
+The one notice for "this is off or not available, why, and the fix". It draws
+a Callout, always in the same order: what (`title`), why (`reason`), who can fix
+it (`who`), then one fix button. Do not write a new "off" banner; use this.
+
+| Prop | Notes |
+|---|---|
+| `severity` | `info` off by design, `warn` degraded or an action is recommended, `error` something the person asked for does not work. Sets colour, icon and live role: `error` is `role="alert"`, `warn` is `role="status"`, `info` is `role="note"`. |
+| `title` | What is off, short, no trailing period. |
+| `reason` | Why, one plain sentence. Show the server's own words, not a status code. |
+| `who` | Who can fix it. Admin and non-admin copy differ here. |
+| `fix` | The one primary action: `{ label, onClick or to or href, busy, disabled, testId, ariaLabel }`. The label is a verb that names the result. |
+| `secondary` | An optional second action of the same shape (a dismiss such as "Hide" goes here). |
+
+An action with no label or nothing to do is not drawn. The add-on UIs draw
+the same markup with `FixNotice` in `addons/internal/connector-ui/src/controls.jsx`;
+the rules for both are in `packages/ui-kit/css/kit.css`.
+
+## StatusChip
+
+`<StatusChip status tone label dot />`
+
+One status vocabulary (`status.js` in the kit). Each word has a tone, an icon
+and its words, so a state never depends on colour alone. The web UI says the
+words through `common:chip.*`; the kit's English defaults are `STATUS_WORDS`:
+
+| `status` | Tone | Words |
+|---|---|---|
+| `running` | ok | Running |
+| `ready` | ok | Ready |
+| `starting` | accent (spinning icon) | Starting |
+| `stopped` | idle | Stopped |
+| `failed` | error | Failed |
+| `update-available` | warn | Update available |
+| `no-runs` | idle | No runs yet |
+
+Aliases: `healthy`, `online`, `primary` → running; `loading`, `installing` →
+starting; `idle`, `offline`, `missing` → stopped; `error`, `unhealthy`,
+`degraded`, `down` → failed; `warning`, `draining`, `fallback`, `recovering` →
+warn. An unknown word is idle.
+
+For a chip outside the vocabulary pass `tone` and the words:
+`<StatusChip tone="warn">Low disk</StatusChip>`. `dot` draws a 6 px dot in
+place of the icon, for dense rows.
+
+Do: one state per chip ("Starting", not "Off, starting"). Don't: use tone
+colours for decoration.
+
+`StatusPill` is the old name. It draws a `StatusChip` and keeps its classes
+(`status-pill status-pill--success|warning|error|info|muted`) for existing
+selectors. Use `StatusChip` in new code.
+
+## Tag
+
+`<Tag tone icon mono title as>` children `</Tag>`
+
+A short label on an item that is not a state: a kind ("Meta", "Dev"), a
+format ("GGUF"), a capability, a version, "alias". The look of the tags in the
+home model picker: 20 px, `--r-sm`, `--fs-meta`, muted text on `--dk-hover`.
+
+| Prop | Values | Notes |
+|---|---|---|
+| `tone` | `neutral` (default), `accent`, `ok`, `warn`, `error` | The words still say what the tag means; colour is never the only signal. |
+| `icon` | a kit icon id | 12 px, before the words |
+| `mono` | boolean | the mono font, for ids and versions a person copies |
+| `as` | `span` (default), `button`, a link component | a tag that opens something |
+
+Put several in a `ui-tags` row. Do: use `StatusChip` for a state ("Running",
+"Failed", "Update available") and `Tag` for everything else. Don't: colour a
+`span` to look like a tag. The legacy `badge` and `badge-*` classes are gone;
+new code never writes a badge class.
+
+## Tabs and TabPanel
+
+```jsx
+<Tabs label="Model" idPrefix="model" value={tab} onChange={setTab}
+  items={[{ id: 'overview', label: 'Overview' }, { id: 'files', label: 'Files', count: 4 }]} />
+<TabPanel idPrefix="model" value={tab}>…</TabPanel>
+```
+
+Views of one region, one shown at a time. The kit's underline tabs
+(`dk-tabs`, `dk-tab`); the panel is `dk-tabpanel`.
+
+- `items`: `{ id, label, icon, count, countTone, countLabel, countHidden,
+  countTestId, after, disabled, testId, keyshortcuts }`. `count` draws a count
+  badge after the label (leave it out for none); `countTone` is `accent`,
+  `warn` or `error`; `countLabel` is what a screen reader says for it, and
+  `countHidden` hides it when the label already says it. `after` is a node
+  drawn after the count, for a second badge.
+- Ids: tab `<idPrefix>-tab-<id>`, panel `<idPrefix>-panel-<id>`. A list with
+  one panel for every tab passes `panelId` to both.
+- Keyboard: the list is one tab stop (the selected tab). ArrowLeft and
+  ArrowRight (ArrowUp and ArrowDown with `orientation="vertical"`) move the
+  focus and the selection, skip disabled tabs and wrap; Home and End go to the
+  ends.
+- `variant="pill"` draws the segmented tray: for a view switch in a header or
+  a small card ("Upload" / "Record", "Source" / "YAML"). The default underline
+  is for the views of a page or a pane.
+- `label` (or `labelledBy`) names the list. `listRef`, `onScroll` and `data-*`
+  go to the tablist element; `testId` and `itemTestId` set test ids.
+- `TabPanel` takes `idPrefix`, `value` (the selected id) or `panelId`. Give it
+  `tabIndex={0}` when it starts with text and no control.
+
+Do: use tabs to switch views. Don't: use tabs to filter a list (that is
+`Segmented`) or to set a value (`Segmented mode="radio"`), and do not write
+`role="tab"` markup in a page.
+
+## Switch
+
+`<Switch checked onChange label labelledBy describedBy disabled />`
+
+The kit switch (`dk-switch`, 44 x 26 px) as a controlled button with
+`role="switch"` and `aria-checked`. Space and Enter toggle it. `onChange`
+receives the new value. Give it a name with `label`, or with `labelledBy` when
+a visible label is on screen. A switch applies at once; do not pair it with a
+Save button. For a choice that needs Save, use a checkbox.
+
+Do: put it at the end of a 36 px row, name on the left. Don't: use it to run an
+action ("Disable all" is a button).
+
+## Slider
+
+`<Slider id range value onChange label placeholder resetLabel invalid describedBy disabled testId />`
+
+A number in a range: the kit's `dk-range` with a number box (`dk-input`) beside
+it and a reset button. `range` is `{ min, max, step, integer, exclusiveMin }`.
+`value` is a string and `''` means "not set": the box is empty and shows
+`placeholder`, the thumb rests at the start of the track, dimmed. The reset
+button returns to that state. `onChange` receives the new text, from the
+range or the box.
+
+- The range is a native input: arrow keys move one step, Page Up and Page Down
+  move more, Home and End go to the ends. Name it with `label`; the box and the
+  range share that name. Give the box an `id` and put a visible `<label
+  htmlFor>` in the field.
+- A value typed in the box may lie outside the range when the setting allows it
+  (the box is the source of truth). Mark it with `invalid` when it does not.
+- It applies with the form's Save, like a checkbox. The pure rules (snap to the
+  step, clamp, fill) are in `sliderModel.js`.
+
+Do: use it for a sampling value or a threshold with a known range. Don't: use it
+for a count with no upper bound or for a value a person must read exactly (a
+size in tokens or bytes); use an input.
+
+## Toast
+
+Pages get `addToast` from the outlet context:
+
+```jsx
+const { addToast } = useOutletContext()
+addToast(`Deleted “${name}”.`, 'success', undefined, {
+  action: { label: t('common:ui.undo'), onClick: restore },
+})
+```
+
+`addToast(message, type, duration, options)`:
+
+- `type`: `info`, `success`, `warning`, `error`. The surface is always the
+  inverse surface; the type sets the icon and its colour.
+- `duration`: leave it out. The defaults are 4 s for news, 8 s with an action
+  or for a warning, and never for an error (it stays until closed). Hover and
+  focus pause the timer.
+- `options.action`: `{ label, onClick }`, an Undo button. A 2 px line shows the
+  time left. A click runs the action and closes the toast.
+- `options.link`: `{ href, text }`. `options.testId` for specs.
+
+At most 3 show at once; a new one pushes the oldest out. On a chat page the
+stack rises above the composer. Any other bar fixed at the bottom of the window
+can register with `useToastAnchor(ref)` (from `components/Toast`).
+
+Do: say what happened and offer Undo instead of a confirm dialog for anything
+reversible. Don't: report a page load failure in a toast.
+
+## Skeleton, SkeletonRows and LoadingSpinner
+
+- `<SkeletonRows count={3} />`: rows in the shape of a list row. They appear
+  after 200 ms, so a fast answer never flashes them. Use for a first load only;
+  a refresh keeps the old content.
+- `<Skeleton variant="line|title|block|circle" count width height />`: single
+  blocks, for a custom shape.
+- `<LoadingSpinner size="sm|md|lg" />`: a short wait with no shape to show.
+- The sweep is a transform on a pseudo-element. Under reduced motion the blocks
+  stand still.
+
+## RouteFallback and ShellFallback
+
+- `RouteFallback` is the Suspense fallback of lazy routes: a title, a line and
+  three rows in the page frame, after 200 ms. The sidebar and header stay.
+- `ShellFallback` is the boot screen (`main.jsx`): the sidebar column (collapsed
+  if the person left it so), the phone header and the content placeholder. A
+  cold start never shows a blank window with a centred spinner.
+
+## SearchField and Segmented
+
+The list toolbar: a search box that fills the row, and one choice of a few.
+
+```jsx
+<div className="my-toolbar">
+  <SearchField value={q} onChange={setQ} label="Search tasks" />
+  <Segmented label="Show tasks" value={filter} onChange={setFilter}
+    options={[{ id: 'all', label: 'All', count: 4 }, { id: 'off', label: 'Off', count: 1 }]} />
+</div>
+```
+
+- `SearchField` needs a `label`; it is the accessible name and the placeholder.
+- `Segmented` has two modes. Both draw the same tray and the same buttons, and
+  each button has `data-filter={id}`.
+  - `mode="filter"` (default): a filter, not navigation. Pressed buttons
+    (`aria-pressed`) in a `role="group"`, with an optional count after each
+    label. Use it to filter a list on the page.
+  - `mode="radio"`: a choice of one among 2-4 options that sets a value, for
+    example where models run or a kind selector. Do not use it to filter a
+    list; to switch views use tabs.
+- Props: `options` (`{ id, label, count, disabled }`), `value`, `onChange(id)`,
+  `label` (the accessible name), `labelledBy` (radio mode: the id of an element
+  that names the group, used instead of `label`), `mode`, `className`,
+  `testId`, `itemTestId`.
+- Radio contract: the container is `role="radiogroup"` with `aria-label` (or
+  `aria-labelledby`); each item is `role="radio"` with `aria-checked` and no
+  `aria-pressed`. The group is one tab stop: the checked item has `tabIndex` 0
+  and the others -1; when `value` matches no option, the first enabled item has
+  it. ArrowRight and ArrowDown choose the next enabled option, ArrowLeft and
+  ArrowUp the previous one (both wrap), Home the first and End the last. The
+  choice follows the focus: the key calls `onChange(id)` and moves focus to that
+  item. Disabled options are skipped. Space and Enter choose the focused item.
+  The arrow keys are not mirrored in right-to-left layouts; the kit has no
+  right-to-left handling.
+- On a phone the page can let the tray fill the row and scroll sideways.
+
+## SidePane
+
+```jsx
+<PaneLayout>
+  <div>…the list…</div>
+  <SidePane open={!!selected} title={selected?.name} meta={…} footer={…} onClose={() => setSelected(null)}>
+    …
+  </SidePane>
+</PaneLayout>
+```
+
+- 360 px, or 400 px with `wide`. The header (17/600 title, a meta row, close)
+  stays; the body scrolls; the `footer` stays at the bottom.
+- From 1280 px it docks and pushes the content. Below that it is an overlay
+  with a scrim (a dialog, rendered under `<body>`). Below 640 px it is a bottom
+  sheet at 90 % of the height.
+- Escape and a click on the scrim close it, and focus returns to the control
+  that opened it.
+- It slides in with transform and opacity; the content width changes in one
+  step.
+- For a modal form (create, edit), use `SideSheet` (see below).
+
+## Input, select and checkbox
+
+These are classes of the vendored kit, not React components. Put them in a
+`dk-field` with a `dk-label` (and a `dk-hint` or `dk-field-error`):
+
+```jsx
+<div className="dk-field">
+  <label className="dk-label" htmlFor="name">Name</label>
+  <input id="name" className="dk-input" />
+  <p className="dk-hint">Shown in lists.</p>
+</div>
+<div className="dk-select-wrap">
+  <select className="dk-select" aria-label="Model">…</select>
+</div>
+<label><input type="checkbox" className="dk-check" /> Keep the run history</label>
+```
+
+- Inputs and selects have the height of a `md` button (`--ctl-h`, 36 px). Do not
+  set another height or a width on one; the field decides the width.
+- A checkbox applies when the person presses Save. For a choice that applies at
+  once, use `Switch`.
+- A raw `<input type="checkbox">` with no `dk-check` is a violation of
+  `lint:ui-kit`.
+- A select inside a list row (the access of one member, the mode of one
+  resource) uses the compact size: `dk-select-wrap dk-select-wrap--sm`. It has
+  the height of a `sm` button and the width of its longest option.
+
+## Native select or ListPicker
+
+One rule for a choice from a list:
+
+- Use a native `dk-select` in `dk-select-wrap` when the options are a short
+  list that the person reads at a glance (about 8 or fewer, such as an access
+  mode, a time range, or a project of a form), every option is one line of
+  plain text, and one value is chosen. The browser gives the keyboard, the
+  phone picker and the form behaviour for free.
+- Use `ListPicker` when one of these is true: the list can be long or comes
+  from data that grows (models, backends, agents in a toolbar), so a filter box
+  helps; a row needs more than plain text (a mono id, tags, a dot, a second
+  line); several values can be chosen; or the trigger is a chip in a toolbar or
+  the composer, not a form field.
+- Never style a native `select` with a page class or `dk-input`, and never
+  write a new dropdown. `SearchableSelect` is ListPicker with the old props;
+  new code uses `ListPicker`.
+
+## ListPicker
+
+```jsx
+import { ListPicker } from '../components/ui'
+
+<ListPicker
+  ariaLabel="Backend" variant="field" icon="server"
+  items={[
+    { id: 'llama-cpp', label: 'llama-cpp', mono: true, group: 'Text', tags: ['GPU'] },
+    { id: 'whisper', label: 'whisper', mono: true, group: 'Audio', description: 'Speech to text' },
+  ]}
+  noneLabel="Auto" value={backend} onChange={setBackend}
+/>
+```
+
+A trigger and a menu: the menu has a filter box, the rows and an optional
+footer. It is the picker of the Home composer (`ModelPicker` draws it), and the
+look of every menu of a chip.
+
+| Prop | Notes |
+|---|---|
+| `items` | The rows (shape below). |
+| `value`, `onChange(value)` | An id; with `multiple`, an array of ids. A pick in a single choice closes the menu and returns focus to the trigger. |
+| `multiple` | Several picks: the menu stays open, a chosen row shows a check, the trigger shows the picked labels and a count. `showCount={false}` hides the count. |
+| `variant` | `chip` (default): the compact chip (`--ctl-h-sm`) for a toolbar. `field`: a form control with `--ctl-h` that fills its field. |
+| `icon`, `placeholder` | The trigger's icon and its text when nothing is chosen. |
+| `ariaLabel`, `labelledBy`, `id` | The trigger's name. With `ariaLabel`, the chosen text is its description. With a visible `<label htmlFor={id}>`, pass `id`. `label` names the listbox when it differs. |
+| `noneLabel` | A first row that empties the value (`''`, or `[]`). It stays on top while filtering. |
+| `clearable`, `clearLabel` | A button beside the trigger that empties a single choice. |
+| `filter`, `filterFrom` | `true` always shows the filter box, `false` never; left out, it shows from `filterFrom` rows (8). |
+| `filterLabel`, `filterPlaceholder` | The words of the filter box. |
+| `filterItems(items, query)` | Your own filter; it can add rows (a "use what I typed" row). The default matches the label, the secondary text, the description, the id and `keywords`. |
+| `groups` | `{ [group]: heading }`. A row with `group` starts a block with its heading when the row before has another group. Without an entry, the group itself is the heading. |
+| `heading` | One heading over the whole list. |
+| `loading`, `loadingText` | A loading row. |
+| `empty`, `emptyText`, `noMatchText` | The row when nothing is shown: `emptyText` when the list is empty (`empty` overrides that test), `noMatchText` when the filter matches nothing. |
+| `disabled`, `invalid`, `openable` | `openable={false}` keeps a trigger enabled but the menu closed. |
+| `renderRow(row, { selected, active, index })` | Your own row content inside the `option`. |
+| `onPick(row)` | Replaces the default pick: you call `onChange`. A row with `closes` closes a multiple menu. |
+| `before`, `footer` | Content over the trigger (chips of the picks) and under the list. |
+| `triggerContent`, `triggerClassName`, `triggerProps` | Your own trigger content (the caret is always drawn), an extra class, and attributes for the button. |
+| `className`, `menuClassName`, `style` | Extra classes on the root and the menu. |
+| `testId` | `data-testid` of the trigger; the menu is `<testId>-menu` and the count `<testId>-count`. |
+| `onOpen` | Called when the menu opens. |
+
+The ref has `open()`, `close()` and `focus()`.
+
+A row: `{ id, label, key, mono, secondary, description, icon, dot, tags,
+group, keywords, disabled, title, selected, closes, rich }`.
+
+- `mono` draws the label in mono (an id). `secondary` is short text at the end
+  (a size, "warm"). `description` is a second line.
+- `dot`: `true` a green dot (loaded, running), `false` the empty dot (cold).
+  Leave it out for no dot.
+- `tags`: strings or `{ label, kind, title }`. `kind="alias"` is the accent tag.
+- `disabled` keeps the row but it cannot be chosen (`aria-disabled`).
+- `selected` overrides the check that `value` gives.
+
+Keyboard: ArrowDown on the trigger opens the menu. In the menu the focus is in
+the filter box (or the list); ArrowUp and ArrowDown move the active row and
+wrap, Home and End go to the ends when the filter is empty, Enter picks the
+active row, Escape closes and returns focus to the trigger, and Tab moves to a
+button of the footer or, when the focus leaves the menu, closes it. A click
+outside closes. The pure rules are in `listPickerModel.js`
+(`tests/unit/listpicker.test.mjs`); `e2e/list-picker.spec.js` drives the
+catalog example.
+
+The CSS is `picker.css` in this folder, loaded by `main.jsx` before
+`App.css`. The class names (`.home-chip`, `.home-menu*`, `.home-pick*`,
+`.home-dot`) keep the prefix of the page they started on, and pickers that do
+not use the component yet draw the same classes.
+
+## SideSheet
+
+```jsx
+{open && (
+  <SideSheet title="Create agent" description="Name it and pick a model."
+    footer={<><Button onClick={close}>Cancel</Button><Button variant="primary" onClick={save}>Create agent</Button></>}
+    onClose={close}>
+    …the form…
+  </SideSheet>
+)}
+```
+
+- `import SideSheet from '../components/SideSheet'` (it is not exported from
+  `components/ui`). 480 px, or 720 px with `wide`; a bottom sheet on a phone.
+- It draws the portal, the head, the scrolling body and the footer, moves focus
+  in, keeps Tab inside, and closes on Escape or a click on the veil.
+- Use it for a create or edit form. For a detail beside a list, use `SidePane`.
+- Never write `dk-sheet` markup in a page and never set a width on a sheet.
+- A form with more than about eight fields becomes steps or a disclosure, with
+  the required fields first.
+- Props for a page that lays out its own content: `className`, `veilClass`,
+  `bodyClass`, `footClass` (never a width), `bodyProps` and `footProps`
+  (`aria-busy`, `data-*`), `initialFocus` (`'close'` to start on the close
+  button, or a selector), `pending` (cannot be closed while an action runs)
+  and `describedBy`.
+- It is a modal layer (`utils/modalLayers.js`): a dialog opened over it takes
+  Escape and Tab, and the sheet stays open under it.
+
+## Dialog and ConfirmDialog
+
+```jsx
+<Dialog title="Move 2 files" description="To a folder of this workspace." onClose={close}
+  foot={<><Button variant="ghost" onClick={close}>Cancel</Button><Button variant="primary" onClick={move}>Move here</Button></>}>
+  …the body…
+</Dialog>
+
+<ConfirmDialog open={!!target} danger title={`Delete ${target?.name}?`} message="The files stay on disk."
+  confirmLabel="Delete" pending={busy} onConfirm={remove} onCancel={() => setTarget(null)} />
+```
+
+- `import Dialog from '../components/Dialog'` and
+  `import ConfirmDialog from '../components/ConfirmDialog'` (not exported from
+  `components/ui`). 480 px, or 720 px with `wide`.
+- `Dialog` draws the portal, the veil, the head (title, description, close),
+  the scrolling body and the foot. It moves focus in (to an element with
+  `data-autofocus`, else the first field, else the primary button), keeps Tab
+  inside, closes on Escape or a click on the veil, and gives focus back. While
+  `pending` it cannot be closed. Like `SideSheet` it is a modal layer.
+- `ConfirmDialog` is a `Dialog` with `role="alertdialog"`, no close button,
+  Cancel and one confirm button (`danger` for a destructive action, with a
+  warning icon in the title). Focus starts on the confirm button, or on the
+  first field of the message while `confirmDisabled` is set.
+- `Modal` (`components/Modal.jsx`) is a `Dialog` with no head. It stays only
+  for add-ons (`sdk.ui.Modal`); core pages use `Dialog`.
+
+## ActionMenu and Popover
+
+- `ActionMenu` is a kebab button and a `role="menu"` list in a `Popover`:
+  arrow keys, Home, End, Enter and Escape, and focus back on the kebab.
+- `Popover` is a panel under `<body>` placed by its trigger. It closes on a
+  click outside and on Escape.
+- Both draw the kit's floating surface (`.popover` and `.action-menu*` in
+  `packages/ui-kit/css/kit.css`): the 12 px radius, the float shadow and the
+  6 px rise of the home model menu, with rows of a 6 px radius and the hover
+  wash. A page may place or size the kebab (`.action-menu__trigger`), never
+  restyle the surface.
+
+## Administration pages
+
+The pages of Administration (components/admin) share a template and a filter
+bar, both built on `Page` and `PageHeader`:
+
+- `AdminPage` (`components/admin/AdminPage.jsx`): the breadcrumb, a title with
+  the page's one primary action, an optional `SummaryStrip`, the content and the
+  page's side sheet. The breadcrumb comes from the Administration layout; a page
+  never writes its own. Use it for every new Administration page.
+- `AdminFilterBar` (`components/admin/AdminFilterBar.jsx`): a search field,
+  filter chips (`Segmented`), a Filters popover for the rest, and a sort at the
+  right. Name only the parts the page has.
+
+The Administration sidebar lists the pages from `components/hub/hubConfig.js`
+(`operateHub.groups`); a new page is an item there, with the gates it needs.

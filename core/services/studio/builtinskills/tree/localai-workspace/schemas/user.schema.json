@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/user.json",
+  "title": "LocalAI/user.json",
+  "description": "Who the assistant talks to. A short block of it reaches the model in every chat.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "description": "How the assistant addresses you.",
+      "maxLength": 80
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "A language tag such as en, it or pt-BR.",
+      "maxLength": 35,
+      "pattern": "^$|^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "x-ui": { "widget": "language" }
+    },
+    "bio": {
+      "type": "string",
+      "title": "About you",
+      "description": "A few lines the assistant reads in every chat.",
+      "maxLength": 1000,
+      "x-ui": { "widget": "textarea" }
+    },
+    "timezone": {
+      "type": "string",
+      "title": "Time zone",
+      "description": "An IANA time zone such as Europe/Rome.",
+      "maxLength": 64,
+      "pattern": "^$|^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$",
+      "x-ui": { "widget": "timezone" }
+    },
+    "seen": {
+      "type": "object",
+      "description": "What LocalAI and the assistant showed or offered you, and your answers. The Account page resets it; it is not sent to the model.",
+      "maxProperties": 50,
+      "properties": {
+        "home_examples": {
+          "type": "object",
+          "description": "The \"Make LocalAI yours\" cards on Home: hidden is the date you hid them.",
+          "properties": { "hidden": { "type": "string", "maxLength": 40 } }
+        },
+        "offers_off": { "type": "boolean", "description": "true: the assistant offers nothing. Absent: the server's default." },
+        "new_off": { "type": "boolean", "description": "true: no \"New\" label in the sidebar." },
+        "since": { "type": "string", "maxLength": 40, "description": "When LocalAI first saw you, for the quiet start." },
+        "last_offer": { "type": "string", "maxLength": 40, "description": "When the server last allowed an offer." },
+        "offer_turn": { "type": "string", "maxLength": 160, "description": "The chat and turn of the last offer allowed." },
+        "offer_chats": {
+          "type": "array",
+          "description": "The last chats where an offer was allowed.",
+          "maxItems": 30,
+          "items": { "type": "string", "maxLength": 128 }
+        },
+        "offers": {
+          "type": "object",
+          "description": "Your answer to each kind of offer: profile, shortcut, schedule.",
+          "maxProperties": 20,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "state": { "enum": ["offered", "declined", "later", "accepted"] },
+              "at": { "type": "string", "maxLength": 40 },
+              "count": { "type": "integer", "minimum": 0, "maximum": 10 }
+            },
+            "required": ["state"]
+          }
+        },
+        "new": {
+          "type": "object",
+          "description": "When each new area (pages) was first labelled New.",
+          "maxProperties": 20,
+          "additionalProperties": { "type": "string", "maxLength": 40 }
+        }
+      },
+      "x-ui": { "hidden": true }
+    }
+  }
+}

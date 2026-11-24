@@ -1,0 +1,31 @@
+- arch: arm64
+  artifact: oci://quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx
+  capabilities:
+    default: cpu-mlx
+    metal: metal-mlx
+    nvidia: cuda12-mlx
+    nvidia-cuda-12: cuda12-mlx
+    nvidia-cuda-13: cuda13-mlx
+    nvidia-l4t: nvidia-l4t-mlx
+    nvidia-l4t-cuda-12: nvidia-l4t-mlx
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-mlx
+  channel: latest
+  description: |
+    Run LLMs with MLX
+  digest: sha256:79efa3f8b96d1df41efbc75fbaa7f1e496b811ff4025a164307e0da185b46b90
+  icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
+  id: metal-mlx
+  kind: backend
+  license: MIT
+  mirrors:
+    - oci://localai/localai-backends:latest-metal-darwin-arm64-mlx
+  name: metal-mlx
+  os: darwin
+  schemaVersion: 1
+  tags:
+    - text-to-text
+    - LLM
+    - MLX
+  urls:
+    - https://github.com/ml-explore/mlx-lm
+  version: 0.0.0-latest.79efa3f8b96d

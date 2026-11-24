@@ -1,0 +1,2030 @@
+// Package studio runs the chats of the new conversation API: one loop for the
+// web chat, for saved agents and for connectors. It holds no state of its own
+// that another frontend would need; pending messages and the turn claim live in
+// the store.
+package studio
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"github.com/mudler/LocalAI/pkg/sandboxpolicy"
+	"log/slog"
+	"maps"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mudler/LocalAI/core/http/auth"
+	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	"github.com/mudler/LocalAI/core/services/notify"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/bgjob"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
+	"github.com/mudler/LocalAI/core/services/studio/media"
+	"github.com/mudler/LocalAI/core/services/studio/nibharness"
+	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/projects"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/wsfeed"
+)
+
+// AnonymousPrincipal is the owner of conversations when auth is off. The loop
+// needs a non-empty owner, so the empty user becomes this one.
+const AnonymousPrincipal = notify.AnonymousPrincipal
+
+// ErrConnectorsOff means the service has no connector manager.
+var ErrConnectorsOff = errors.New("studio: " + msgConnectorsOff)
+
+const msgConnectorsOff = "connectors are not available"
+
+// ErrNoModel means a conversation was created without a model.
+var ErrNoModel = errors.New("studio: a conversation needs a model")
+
+// ErrAgentsOff means a chat named a saved agent but the service has no agent store.
+var ErrAgentsOff = errors.New("studio: saved agents are not available")
+
+// ErrSubAgentReadOnly means a user tried to send to a sub-agent conversation.
+// It runs with the tools its parent chose, so only the parent starts it.
+var ErrSubAgentReadOnly = errors.New("studio: a sub-agent conversation takes no messages from the user")
+
+// UserLookup returns the active user with this ID. It is nil when auth is off.
+type UserLookup func(ctx context.Context, id string) (*auth.User, error)
+
+// Deps is what the service needs.
+type Deps struct {
+	Store    store.Store
+	Provider *provider.Provider
+	Users    UserLookup
+	// StateDir holds the harness's private files, one folder per chat.
+	StateDir string
+	// HostTools supplies the tools a chat gets besides the ones the service adds
+	// itself (for example the tools of MCP servers). A sub-agent gets all of
+	// them, or the subset its parent names. Nil: none.
+	HostTools func(ctx context.Context, a workspace.Actor) ([]session.Tool, error)
+	// MCP returns the MCP tool executor for a user's chat with a model, or nil
+	// when the model has none. Its tools become the chat's tools. Nil: no MCP.
+	// With limited set, only the servers named in only are used, whether or not
+	// the model picks them by itself; missing returns the named servers the user
+	// cannot use. Without limited, only is nil and missing is empty.
+	MCP func(ctx context.Context, user, model string, only []string, limited bool) (exec mcpendpoint.ToolExecutor, missing []string)
+	// MCPServers lists the MCP servers the model's own configuration has, for a
+	// user: Auto says whether a chat with no agent uses it by itself. Empty when
+	// the user may not use MCP. It feeds the per-chat switches; nil: a switch of
+	// a model server has no effect on a chat with no agent.
+	MCPServers func(ctx context.Context, user, model string) []ModelMCPServer
+	// MCPContent reads the prompts and resources of the model's own MCP
+	// servers. Nil: they offer none.
+	MCPContent MCPContent
+	// Allowed says whether a user may use a feature (auth.FeatureTriggers,
+	// auth.FeatureConnectors) right now. The unattended parts ask it before each
+	// run, so an owner whose permission was taken away stops running, not only
+	// stops creating. Nil: everyone may.
+	Allowed func(user *auth.User, feature string) bool
+	// Connectors holds the MCP servers the users defined. Nil: none.
+	Connectors ConnectorTools
+	// MCPConnectors is the same service with its management calls, for the
+	// connectors API. When set and Connectors is not, it is used for both.
+	MCPConnectors *mcpconns.Service
+	// Projects keeps the users' projects. Nil: the chats have none.
+	Projects *projects.Service
+	// Agents holds the saved agents. Nil: a chat cannot name an agent.
+	Agents agents.Store
+	// AgentShares is the sharing policy of saved agents (share kind
+	// "agent"). Nil, or not Available: agents are not shared, and a chat
+	// names only its owner's agents.
+	AgentShares AgentShares
+	// ReferenceShares maps the collections and connections an agent names
+	// to their IDs in the sharing API, so the owner can share them with the
+	// agent. Nil: they cannot be shared from the agent's Share dialog.
+	ReferenceShares ReferenceShareResolver
+	// Notify stores and delivers notifications. Nil: there is no inbox.
+	Notify *notify.Service
+	// Push sends notifications to browsers. Nil: browser push is off.
+	Push *notify.Pusher
+	// AddonTools supplies the tools of the installed add-ons the user may use.
+	// Nil: a chat has none.
+	AddonTools AddonTools
+	// Assistant gives a chat the tools that manage this instance. Nil: no
+	// assistant chat can start.
+	Assistant Assistant
+	// Collections is the knowledge base a chat can search. Nil: no collection
+	// tools.
+	Collections Collections
+	// ContextTokens returns the context window of a model in tokens, or zero
+	// when it is not known (the harness then uses its default). Nil: zero.
+	ContextTokens func(model string) int
+	// AgentOptions returns the tool-loop options of a model (its agent: block).
+	// Nil: nib's defaults.
+	AgentOptions func(model string) nibharness.AgentOptions
+	// PreserveThinking says whether the chat asks the model's template to keep
+	// the reasoning of earlier turns (see provider.Params.PreserveThinking).
+	// Nil: it asks.
+	PreserveThinking func(model string) bool
+	// Bus carries live events and control messages between the frontends that
+	// serve a chat. Nil: a bus for this process only.
+	Bus Bus
+	// Workers runs the turns of unattended runs (triggers, jobs, connector
+	// messages) on chat workers; see SendBackground. Nil: they run here.
+	Workers ChatWorkers
+	// RunLimit is, on a chat worker, the longest a turn that a frontend sent may
+	// run, by the chat's origin (session.OriginJob, ...). Zero or nil: no bound
+	// on the worker; the frontend that watches the run bounds it.
+	RunLimit func(origin string) time.Duration
+	// MaxWorkerTurns is, on a chat worker, the most turns this process runs at
+	// once when it takes a start (ServeStart). A start that would begin one
+	// more is refused with ErrWorkerFull; a start for a chat whose turn runs
+	// is taken, because its message only waits. Zero: no cap.
+	MaxWorkerTurns int
+	// AutoResume makes the server go on by itself with a turn that a restart
+	// interrupted (see resume.go). Off: the person, or the page, resumes it.
+	AutoResume bool
+	// CloseTimeout bounds Close: how long it waits for the running turns to
+	// stop and be stored. Past it, every turn that still runs is marked
+	// interrupted in the store, so that it can resume, and Close returns
+	// ErrCloseTimedOut. Zero means 25 seconds, under the usual 30 seconds that a
+	// platform gives a process to stop. Negative: no bound.
+	CloseTimeout time.Duration
+	// HeartbeatEvery is how often a running turn tells the store it is alive.
+	// Zero means 15 seconds.
+	HeartbeatEvery time.Duration
+	// Instance names this process among the frontends and workers of a
+	// cluster. A turn records it as its owner, so a client that reconnects to
+	// another frontend can be given the events it missed (eventremote.go).
+	// Empty: no owner is recorded and no replay is asked of another process.
+	Instance string
+	// Replay carries those asks between processes. Nil in one process.
+	Replay ReplayCarrier
+	// JobCarrier carries the asks about a background job to the node that
+	// runs it (chats.jobs.<instance>). Nil in one process: every job is here.
+	JobCarrier bgjob.Carrier
+	// Files is the workspace of the chats. Nil or disabled: the chats have no
+	// files, and everything else works.
+	Files *files.Service
+	// Media runs the image and audio helper tools and transcribes voice notes.
+	// Nil: neither.
+	Media *media.Service
+	// Web serves the built-in web_search and web_fetch tools. Nil: neither.
+	Web WebTools
+	// Modalities says which inputs a model takes natively: with Vision an
+	// attached image goes to the chat model as an image part, with Video a
+	// video does. A model without them gets the file and the describe_image
+	// tool. Nil: no model takes either.
+	Modalities func(model string) Modalities
+	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
+	// in-memory store, for a single process and tests.
+	PageConsents pages.ConsentStore
+	// PageErrors keeps the runtime errors of the pages, which the UI records
+	// and the page_errors tool reads. Nil: an in-memory store, for a single
+	// process and tests.
+	PageErrors pages.ErrorStore
+	// SharedFolderAudit keeps the audit of the shared folders. Nil: an
+	// in-memory audit, for a single process and tests.
+	SharedFolderAudit sharedfolders.AuditStore
+	// FindUser returns the user that ref names (an ID, an email or a name),
+	// whatever their status, for the members of a shared folder. Nil: Users
+	// looks members up by ID, and with no Users any principal is a member.
+	FindUser func(ctx context.Context, ref string) (*auth.User, error)
+	// FolderDirectory is the account directory people pick from when they
+	// share a folder of their own home. Nil (no accounts): they cannot.
+	FolderDirectory sharedfolders.Directory
+	// Builtins is the registry of the built-in chat tools an add-on may
+	// replace. Nil: the service makes one. The service registers bash in it
+	// when HostExec is set.
+	Builtins *builtins.Registry
+	// HostExec runs the built-in bash on this machine. Nil: there is none.
+	HostExec HostExec
+	// Jobs reads the background jobs for wait_for with a job. It routes a read
+	// to the node that runs the job. Nil: this server has no background jobs,
+	// and a wait on a job is refused.
+	Jobs bgjob.Observer
+	// SandboxJobs runs the job tool of a chat whose bash an add-on serves,
+	// through the add-on's jobs tool. Nil: such a chat is told the add-on
+	// cannot run background jobs, and never gets the built-in instead.
+	SandboxJobs *SandboxJobs
+	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
+	// or on. Nil: off.
+	HostExecMode func() string
+	// SavedAgentsOn is the setting chats_saved_agents: whether a chat that
+	// switched it on may call the user's saved agents as sub-agents. Read at
+	// each turn. Nil: on.
+	SavedAgentsOn func() bool
+	// LocalAIClientOn and LocalAIAdminOn are the settings chats_localai_client
+	// and chats_localai_admin: whether the chats may offer the LocalAI client
+	// tools and the LocalAI admin tools. Read at each turn. Nil: on.
+	LocalAIClientOn, LocalAIAdminOn func() bool
+	// ToolSearchMode is the setting chats_tool_search: auto, on or off. It
+	// decides whether the LocalAI tool groups, and the tools that add-ons mark
+	// deferred, are sent to the model as typed tools or hidden behind
+	// tool_search, tool_describe and tool_call. Each source is decided on its
+	// own tools. Read
+	// at each turn. Nil: auto.
+	ToolSearchMode func() string
+	// ExtractLimits gives the limits of the Extract action of the Files page
+	// (the settings chats_extract_max_bytes, chats_extract_max_entries and
+	// chats_extract_7z_rar). Read at each request. Nil: the defaults.
+	ExtractLimits func() files.ExtractLimits
+	// ClientTools serves the LocalAI client tools. Nil: the client group is
+	// not registered.
+	ClientTools ClientAssistant
+	// WorkFolderOn is the setting chats_work_folder: whether the prompt of a
+	// chat names its work folder for scripts and other working files, and a
+	// helper file saved elsewhere gets a nudge. Read at each turn. Nil: on.
+	WorkFolderOn func() bool
+	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
+	// server without accounts).
+	IsAdmin func(ctx context.Context, user string) bool
+	// SandboxPolicy is the administrator's policy for sandbox profiles (the
+	// owner's host setting sandbox_profiles): the default profile, who may use
+	// each, the memory and disk quota and the pins to the previous image. Nil:
+	// the open default, everyone may use every profile.
+	SandboxPolicy func(context.Context) (sandboxpolicy.Policy, error)
+	// ToolPins names, for a built-in tool that several add-ons replace, the
+	// add-on an administrator chose to serve it (runtime setting
+	// chats_tool_providers). Nil: no pins.
+	ToolPins func(context.Context) (map[string]string, error)
+	// SharedPagesOn says whether the pages of shared folders are on; an
+	// administrator switches them at run time. Nil: on.
+	SharedPagesOn func() bool
+	// UserPageSharesOn says whether the pages that people share from their
+	// own homes are on; an administrator switches them at run time. Nil: on.
+	UserPageSharesOn func() bool
+	// PageAreaOn says whether the page area of Home is on; an administrator
+	// switches it at run time. Nil: on.
+	PageAreaOn func() bool
+	// RemoteModel says whether a model runs on a remote service (a cloud
+	// proxy), so a cost shown to the person can say that the tokens leave the
+	// server. Nil: no model is remote.
+	RemoteModel func(model string) bool
+	// Persistent is true when the store keeps conversations across a restart.
+	Persistent bool
+	// SuggestionsDefault says whether the assistant may offer things (to save a
+	// name, a shortcut, a schedule) to a user who did not choose. Read at each
+	// turn, so a change applies at once. Nil: on.
+	SuggestionsDefault func() bool
+	// EgressSettings returns the administrator's limits of the Sandbox
+	// network (chats_egress_*), read at each check. Nil: the ceiling is off and
+	// no command reaches the network.
+	EgressSettings func(context.Context) (egress.Settings, error)
+	// EgressAudit keeps the audit of the Sandbox network requests. Nil: an
+	// in-memory audit, for a single process and tests.
+	EgressAudit audit.Store
+	// EgressAuditDays is chats_egress_audit_days. Nil or out of range: 30.
+	EgressAuditDays func() int
+	// EgressCardWait is how long a connection waits for the answer of a
+	// network card. Zero: 60 seconds. Tests set it shorter.
+	EgressCardWait time.Duration
+	// GoalLimits returns chats_goal_max_turns and chats_goal_max_steps: the
+	// most turns the server starts by itself for one goal, and the most model
+	// requests the goal's turns make, before the goal pauses. Read when a turn
+	// ends. Nil or a value below 1: DefaultGoalMaxTurns, DefaultGoalMaxSteps.
+	GoalLimits func() (turns, steps int)
+	// Proposals keeps the change proposals (propose_change) and their audit.
+	// Nil: a store in memory, for a single process and tests.
+	Proposals proposals.Store
+	// ProposalGate decides whether a chat may propose or revert a change. Nil:
+	// proposals.DefaultGate, which refuses a chat that runs a saved agent.
+	ProposalGate proposals.Gate
+	// UserSetting reads one per-person add-on setting that the host keeps
+	// (the answer a person gave on the page of the add-on). It returns the
+	// stored value and whether there is one. Nil, a missing value or an error
+	// means the add-on's default; a rule that reads a setting never treats a
+	// failure as a looser choice.
+	UserSetting func(ctx context.Context, user, addonID, key string) (string, bool, error)
+	// SetUserSetting stores one per-person setting in the same store, for the
+	// host's own settings (the memory switch and save level, under
+	// HostSettingsID). Nil: the settings cannot be changed.
+	SetUserSetting func(ctx context.Context, user, addonID, key, value string) error
+	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
+	Clock func() time.Time
+	// Harness replaces the nib harness. It is for tests.
+	Harness session.Harness
+	Logger  *slog.Logger
+}
+
+// Modalities are the inputs a chat model takes besides text.
+type Modalities struct{ Vision, Video bool }
+
+// CreateInput describes a new conversation.
+type CreateInput struct {
+	Title string
+	Model string
+	// AgentID is a saved agent of the user. The agent narrows the chat's tools
+	// and adds its instructions; its model, when it has one, replaces Model.
+	AgentID string
+	// Assistant starts a chat with the LocalAI management tools. Only an
+	// administrator may, and only while the assistant is on. It cannot be
+	// combined with AgentID.
+	Assistant bool
+	// Switches are the switches the chat starts with. They are checked as
+	// the Set*Off calls check them and stored with the new record, so the
+	// chat never exists without them.
+	Switches Switches
+	// ProjectID puts the chat in a project of the user. The project's
+	// defaults for skills, add-ons and MCP servers set the switches the
+	// request leaves unset. An unknown project, another person's, or an
+	// archived one is refused.
+	ProjectID string
+	// Collections restricts the chat's collection tools to these names; empty
+	// means all of the user's collections. A request that names some wins over
+	// the project's default. The list is checked (at most 100 names, none
+	// empty, each at most 200 characters) but the names are kept as given: a
+	// name that is no collection of the user just matches nothing.
+	Collections []string
+}
+
+// Switches are the lists of a chat's switches: the add-ons, MCP servers and
+// connectors, groups of built-in tools and skills that are off, and the
+// opt-in groups of built-in tools that are on.
+type Switches struct {
+	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
+	// Connections is the set of connections (connector binding IDs) the chat
+	// may use for each add-on whose tools run with a credential, by add-on ID.
+	Connections connsets.Sets
+}
+
+// cleanSwitches checks every list of sw and returns them cleaned.
+func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
+	var out Switches
+	var err error
+	if out.AddonsOff, err = cleanAddonSwitches(sw.AddonsOff); err != nil {
+		return out, err
+	}
+	if out.McpOff, err = cleanMcpSwitches(sw.McpOff); err != nil {
+		return out, err
+	}
+	if out.BuiltinsOff, err = s.cleanGroups(sw.BuiltinsOff, false); err != nil {
+		return out, err
+	}
+	if out.BuiltinsOn, err = s.cleanGroups(sw.BuiltinsOn, true); err != nil {
+		return out, err
+	}
+	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
+		return out, err
+	}
+	out.Connections = connsets.Clone(sw.Connections)
+	return out, nil
+}
+
+// nilIfEmpty keeps an empty map nil, as a chat that chose nothing has it.
+func nilIfEmpty(m connsets.Sets) connsets.Sets {
+	if len(m) == 0 {
+		return nil
+	}
+	return maps.Clone(m)
+}
+
+// orNil keeps an empty list nil, as a chat that never switched anything has it.
+func orNil(l []string) []string {
+	if len(l) == 0 {
+		return nil
+	}
+	return l
+}
+
+// Origin says what started a conversation when a person did not.
+type Origin struct{ Kind, ID string }
+
+// SendResult says what Send did with a message.
+type SendResult struct {
+	// Started is true when the message began a turn. Otherwise a turn was
+	// running, and the message is pending under PendingID.
+	Started   bool
+	PendingID string
+}
+
+// Service runs conversations.
+type Service struct {
+	// scopeChecks, when set, is called each time chatProjectScopeOpen runs. Specs
+	// use it to count the checks; it is nil in production.
+	scopeChecks func()
+	d           Deps
+	mgr         *session.Manager
+	// attached keeps the attached tools of the projects read for a chat for a
+	// few seconds (see projectattached.go). Per instance by design: it is a
+	// cache, and the manifest is the record.
+	attached attachedCache
+	// builtins holds the built-in chat tools an add-on may replace.
+	builtins *builtins.Registry
+	// access holds the grants of the running connector turns and the recent
+	// permission decisions (see connectoraccess.go).
+	access accessState
+	// outcomes limits the log lines of the add-on tool outcomes (see
+	// addonoutcome.go).
+	outcomes outcomeLimiter
+	bus      Bus
+	log      *slog.Logger
+	// stopFolderWatch ends the listener of folderAccessKey.
+	stopFolderWatch func()
+	// beforeNext runs before the next turn is started from the waiting
+	// messages, after the end of the last one is announced. Only the specs set
+	// it.
+	beforeNext func()
+
+	mu    sync.Mutex
+	runs  map[string]*run                 // the turn this process runs, by conversation
+	pumps map[string]<-chan session.Event // the event channel read for each conversation
+	// rings holds the live tail of the chats this process runs a turn for (see
+	// eventRing). Per instance on purpose: it is a cache of the tail, and the
+	// transcript is the record.
+	rings map[string]*eventRing
+	// streams counts the open event streams of each chat (see openStream).
+	streams map[string]int
+	// stopServing ends the answers to replay asks (Deps.Replay); nil without.
+	stopServing func()
+	// bgJobs reaches the background jobs of this process and, over Deps.JobCarrier,
+	// of the others; hostJobs is the job backend of the built-in bash; stopJobs
+	// ends the answers to the asks of other nodes. Per instance by design: a job
+	// is a process in the memory of one node, and the stubs on the chat record
+	// say which.
+	bgJobs   *bgjob.Router
+	hostJobs *hostJobBackend
+	stopJobs func()
+	// jobListeners are told of each job that starts or ends here (OnJobChange).
+	jobMu        sync.Mutex
+	jobListeners []func(bgjob.Info)
+	// sandboxWatch polls the live Sandbox jobs that a wait watches (jobobserver.go).
+	sandboxWatch sandboxWatch
+	locks        map[string]*keyLock
+
+	// heldNotes is the last held-back line this process noted in each connector
+	// chat (see noteHeldBack). State mode: per-instance on purpose. It only
+	// keeps a process from noting the same line at every turn; another
+	// process that serves the chat may note it once more, and the interface
+	// folds equal neighbours.
+	heldNotes sync.Map
+	// guardRuns holds, per chat, the run id of the turn that the promise guard
+	// started, so that the turn is not guarded again (see promiseguard.go).
+	guardRuns sync.Map
+
+	// admit makes the check of MaxWorkerTurns and the start it admits one step,
+	// so two starts cannot both take the last place.
+	admit sync.Mutex
+
+	// Sub-agents; see subagent.go.
+	changes    *Changes       // the change proposals
+	triggers   *Triggers      // set once by SetTriggers
+	loops      *Loops         // set once by SetLoops
+	jobs       *Jobs          // set once by SetJobs
+	connectors *Connectors    // set once by SetConnectors
+	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
+	ctxfiles   *contextfiles.Loader
+	memory     MemoryProvider // the notes of the chats; see memory.go
+	// slotWirings is what each provider slot brings to providerslots.go.
+	slotWirings map[string]slotWiring
+	// providerHealth is the circuit breaker of the providers and
+	// providerTimings the limits of the host's own calls to them (see
+	// providercalls.go). Per instance, by design.
+	providerHealth  *providerHealth
+	providerTimings providerTimings
+	conversion      ConversionSource // set once by SetConversion
+
+	videos   map[string][]string                // videos for the next model request of a turn, by conversation
+	children map[string]map[string]*child       // running sub-agents, by parent conversation
+	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
+	waiters  map[string][]chan store.TurnStatus // callers waiting for a turn to end
+	closed   chan struct{}
+
+	feed *wsfeed.Feed // changes of the home folders; nil without files
+
+	// admin is the administrator's actor of the hosts that watch every
+	// home's changes (the change feed and the trigger watcher). It matches
+	// paths and reads no file for a model.
+	admin workspace.Actor
+
+	nudged nudges // the turns whose results said where helper files go
+	// refusedActs holds, for each chat of an unattended run, the first grant a
+	// refused action lacked, until the run ends and its status is set.
+	refusedActs sync.Map
+
+	shared *sharedfolders.Service // the folders an administrator shares
+
+	egressAuditStore audit.Store // see egress.go
+	egressChats      egressChats // see egresscheck.go
+}
+
+type run struct {
+	id      string
+	started time.Time
+	stopped bool
+	failed  bool
+	// paused is set when the tool loop reached its step limit: the turn ends
+	// as paused, so the person sees that the work is not finished.
+	paused bool
+	// steps counts the model requests of the turn (see inputs), for the
+	// chat's goal.
+	steps int
+	// final is the text the model wrote since its last tool call (see
+	// noteFinalText).
+	final string
+	// chat is the chat the turn runs on. Stop goes through it and never opens
+	// the chat again: a turn that ended has closed it, and a chat left open by
+	// a late Stop would hold stale state while another frontend runs the next turn.
+	chat *session.Chat
+	// end stops what the turn started besides the loop itself: the heartbeat and
+	// the listener for control messages.
+	end func()
+}
+
+const defaultHeartbeat = 15 * time.Second
+
+type keyLock struct {
+	mu sync.Mutex
+	n  int
+}
+
+// New returns a Service.
+func New(d Deps) (*Service, error) {
+	if d.Store == nil || d.StateDir == "" {
+		return nil, errors.New("studio: a store and a state folder are required")
+	}
+	if d.Connectors == nil && d.MCPConnectors != nil {
+		d.Connectors = d.MCPConnectors
+	}
+	if d.PageConsents == nil {
+		// One store for the endpoints and for the sharing service: a share
+		// that is taken back drops the consents in the same store.
+		d.PageConsents, _ = pages.NewJSONConsents("")
+	}
+	log := d.Logger
+	if log == nil {
+		log = slog.Default()
+	}
+	bus := d.Bus
+	if bus == nil {
+		bus = NewLocalBus()
+	}
+	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, rings: map[string]*eventRing{}, streams: map[string]int{}, locks: map[string]*keyLock{},
+		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
+	s.egressAuditStore = d.EgressAudit
+	if s.egressAuditStore == nil {
+		s.egressAuditStore, _ = audit.NewJSON("")
+	}
+	s.builtins = d.Builtins
+	if s.builtins == nil {
+		s.builtins = builtins.NewRegistry()
+	}
+	s.describeGroups()
+	if err := s.registerHostBash(); err != nil {
+		return nil, err
+	}
+	if err := s.registerJobTool(); err != nil {
+		return nil, err
+	}
+	if err := s.registerWebTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerSavedAgents(); err != nil {
+		return nil, err
+	}
+	if err := s.registerSandboxTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerLocalAIGroups(); err != nil {
+		return nil, err
+	}
+	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerProjectTools(); err != nil {
+		return nil, err
+	}
+	if d.PageErrors == nil {
+		d.PageErrors, _ = pages.NewJSONErrors("")
+		s.d.PageErrors = d.PageErrors
+	}
+	if err := s.registerPageErrors(); err != nil {
+		return nil, err
+	}
+	if err := s.registerOpenPage(); err != nil {
+		return nil, err
+	}
+	if err := s.registerTriggerTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerTalkbackTool(); err != nil {
+		return nil, err
+	}
+	changes, err := newChanges(s)
+	if err != nil {
+		return nil, err
+	}
+	s.changes = changes
+	if err := s.registerChangeTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerLoadSkill(); err != nil {
+		return nil, err
+	}
+	if err := s.registerGoalTools(); err != nil {
+		return nil, err
+	}
+	h := d.Harness
+	if h == nil {
+		if d.Provider == nil {
+			return nil, errors.New("studio: a provider is required without a test harness")
+		}
+		h = nibharness.New(nibharness.Config{LLM: s.llmFor})
+	}
+	if d.Files == nil {
+		d.Files = files.Disabled("")
+		s.d.Files = d.Files
+	}
+	// After the files: whether the file and media groups exist follows them.
+	if err := s.registerToolGroups(); err != nil {
+		return nil, err
+	}
+	if err := s.registerMemoryGroup(); err != nil {
+		return nil, err
+	}
+	s.memory = builtinMemory{}
+	s.providerHealth, s.providerTimings = newProviderHealth(), defaultProviderTimings()
+	s.registerMemorySlot()
+	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
+	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers(),
+		Directory: d.FolderDirectory, AccessLost: s.folderAccessLost, PageShares: s.UserPageSharesOn})
+	s.stopFolderWatch = s.bus.OnControl(folderAccessKey, s.onFolderAccess)
+	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
+	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
+		Shared: s.shared.Roots, Resolve: s.resolveAccess, ProductScope: s.productScope, Logger: log})
+	if err != nil {
+		return nil, err
+	}
+	s.mgr = mgr
+	s.admin = workspace.Actor{Principal: files.AdminPrincipal}
+	if d.Files.Available() {
+		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
+	}
+	if err := s.serveReplay(); err != nil {
+		return nil, err
+	}
+	s.setupJobs()
+	if err := s.serveJobs(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// SharedFolders returns the service of the shared folders.
+func (s *Service) SharedFolders() *sharedfolders.Service { return s.shared }
+
+// folderUsers finds the members of a shared folder in the user database.
+func (s *Service) folderUsers() sharedfolders.Users {
+	find := s.d.FindUser
+	if find == nil && s.d.Users != nil {
+		find = func(ctx context.Context, ref string) (*auth.User, error) { return s.d.Users(ctx, ref) }
+	}
+	if find == nil {
+		return nil
+	}
+	return folderUsers(find)
+}
+
+type folderUsers func(ctx context.Context, ref string) (*auth.User, error)
+
+func (f folderUsers) Find(ctx context.Context, ref string) (sharedfolders.User, error) {
+	u, err := f(ctx, ref)
+	if errors.Is(err, ErrNoUser) || (err == nil && u == nil) {
+		return sharedfolders.User{}, sharedfolders.ErrUnknownUser
+	}
+	if err != nil {
+		return sharedfolders.User{}, err
+	}
+	name := u.Name
+	if name == "" {
+		name = u.Email
+	}
+	return sharedfolders.User{ID: u.ID, Name: name}, nil
+}
+
+// isClosed says whether Close has been called.
+func (s *Service) isClosed() bool {
+	select {
+	case <-s.closed:
+		return true
+	default:
+		return false
+	}
+}
+
+// defaultCloseTimeout is Deps.CloseTimeout when it is zero.
+const defaultCloseTimeout = 25 * time.Second
+
+// ErrCloseTimedOut means Close did not finish in Deps.CloseTimeout. The turns
+// that still ran were marked interrupted in the store, as far as the store
+// answered.
+var ErrCloseTimedOut = errors.New("studio: closing took longer than the limit; the running turns were marked interrupted")
+
+// Close stops every chat. A turn that it cuts short is recorded as interrupted,
+// and resumes after the restart when the server resumes by itself (see
+// Deps.AutoResume). It returns within Deps.CloseTimeout: a turn that does not
+// stop in time (a tool that ignores its context, a slow store) is marked
+// interrupted by Close itself, and the stuck work is left behind for the
+// process to exit.
+func (s *Service) Close(ctx context.Context) error {
+	select {
+	case <-s.closed:
+	default:
+		close(s.closed)
+	}
+	if s.feed != nil {
+		s.feed.Close()
+	}
+	if s.stopFolderWatch != nil {
+		s.stopFolderWatch()
+	}
+	if s.stopServing != nil {
+		s.stopServing()
+	}
+	if s.stopJobs != nil {
+		s.stopJobs()
+	}
+	limit := s.d.CloseTimeout
+	if limit < 0 {
+		return s.mgr.Close(ctx)
+	}
+	if limit == 0 {
+		limit = defaultCloseTimeout
+	}
+	bounded, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- s.mgr.Close(bounded) }()
+	select {
+	case err := <-done:
+		return err
+	case <-bounded.Done():
+	}
+	n := s.markCutTurns(context.WithoutCancel(ctx))
+	s.log.Warn("studio: closing took longer than the limit", "limit", limit, "turns_marked_interrupted", n)
+	return ErrCloseTimedOut
+}
+
+// markCutTurns records as interrupted, in the store, each turn that this
+// process still runs, with the resume scheduled as a death would have it. It
+// returns how many it marked. The turn that is stuck may still end later; its
+// release then finds the claim gone and only logs.
+func (s *Service) markCutTurns(ctx context.Context) int {
+	type cut struct{ p, conv, runID string }
+	s.mu.Lock()
+	var cuts []cut
+	for k, r := range s.runs {
+		if p, conv, ok := strings.Cut(k, "\x00"); ok {
+			cuts = append(cuts, cut{p, conv, r.id})
+		}
+	}
+	s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	n := 0
+	for _, c := range cuts {
+		err := s.d.Store.ReleaseTurn(ctx, c.p, c.conv, c.runID, store.TurnInterrupted)
+		if err != nil {
+			if !errors.Is(err, store.ErrNotClaimed) {
+				s.log.Warn("studio: could not mark a turn interrupted at close", "chat", c.conv, "error", err)
+			}
+			continue
+		}
+		n++
+		if !s.keepResume(ctx, c.p, c.conv) {
+			s.pauseGoal(ctx, c.p, c.conv, session.GoalPausedByInterrupted)
+		}
+	}
+	return n
+}
+
+// List returns the user's conversations, newest first. Sub-agent runs are
+// included; they have Kind session.KindSubAgent and a ParentID.
+func (s *Service) List(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	return s.d.Store.ListChats(ctx, principal(user), session.ChatCursor{}, limit)
+}
+
+// ListChats returns the user's chats, newest first, without sub-agent runs. The
+// limit applies to chats, so a burst of newer runs cannot push older chats out
+// of the page: the store is read page by page until enough chats are found.
+func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	return s.ListChatsWhere(ctx, user, limit, nil)
+}
+
+// ListChatsWhere is ListChats for the chats that keep returns true for (nil
+// keeps all). The limit counts the chats kept, so a flood of chats that a
+// connector or a trigger started cannot push a person's chats out of a page of
+// person-started chats, and the other way round.
+func (s *Service) ListChatsWhere(ctx context.Context, user string, limit int, keep func(session.ChatRecord) bool) ([]session.ChatRecord, error) {
+	var out []session.ChatRecord
+	var cur session.ChatCursor
+	for {
+		page, err := s.d.Store.ListChats(ctx, principal(user), cur, 200)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range page {
+			if r.Kind == session.KindSubAgent || (keep != nil && !keep(r)) {
+				continue
+			}
+			out = append(out, r)
+			if limit > 0 && len(out) >= limit {
+				return out, nil
+			}
+		}
+		if len(page) < 200 {
+			return out, nil
+		}
+		last := page[len(page)-1]
+		cur = session.ChatCursor{Updated: last.Updated, ID: last.ID}
+	}
+}
+
+func principal(user string) string {
+	if user == "" {
+		return AnonymousPrincipal
+	}
+	return user
+}
+
+func key(p, conv string) string { return p + "\x00" + conv }
+
+func newID() string {
+	var b [12]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}
+
+func (s *Service) lock(k string) func() {
+	s.mu.Lock()
+	l := s.locks[k]
+	if l == nil {
+		l = &keyLock{}
+		s.locks[k] = l
+	}
+	l.n++
+	s.mu.Unlock()
+	l.mu.Lock()
+	return func() {
+		l.mu.Unlock()
+		s.mu.Lock()
+		if l.n--; l.n == 0 {
+			delete(s.locks, k)
+		}
+		s.mu.Unlock()
+	}
+}
+
+// Create starts a new conversation for user.
+func (s *Service) Create(ctx context.Context, user string, in CreateInput) (session.ChatRecord, error) {
+	return s.CreateAs(ctx, user, in, Origin{})
+}
+
+// CreateAs creates a conversation of user that was started by origin: a person
+// (the zero Origin), a trigger or a connector. The agent, when named, must be
+// the user's own, or, for a chat a person starts, an agent shared with them:
+// the chat then runs as the user with the agent's definition. A trigger or a
+// connector runs only its owner's agents.
+func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
+	model := in.Model
+	scoped := false
+	// shared says the agent is another person's, shared with user.
+	shared := false
+	var agentOn []string
+	// agentProject is the project of a project agent: the chat belongs to it
+	// through the agent, never through the request.
+	agentProject := ""
+	if in.Assistant {
+		if in.AgentID != "" {
+			return session.ChatRecord{}, ErrAssistantAgent
+		}
+		if origin.Kind != "" {
+			return session.ChatRecord{}, ErrAssistantForbidden
+		}
+		if err := s.assistantAllowed(ctx, user); err != nil {
+			return session.ChatRecord{}, err
+		}
+	}
+	if in.AgentID != "" {
+		if s.d.Agents == nil {
+			return session.ChatRecord{}, ErrAgentsOff
+		}
+		var ag agents.Agent
+		var err error
+		if origin.Kind == "" {
+			ag, err = s.chatAgent(ctx, principal(user), in.AgentID)
+		} else {
+			ag, err = s.ownAgent(ctx, user, in.AgentID)
+		}
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		if ag.Model != "" {
+			model = ag.Model
+		}
+		shared = ag.Principal != principal(user)
+		agentOn = grantedOn(ag, shared)
+		if ag.ProjectID != "" {
+			if in.ProjectID != "" && in.ProjectID != ag.ProjectID {
+				return session.ChatRecord{}, fmt.Errorf("%w: a chat of a project agent belongs to the project of the agent", session.ErrInvalid)
+			}
+			agentProject = ag.ProjectID
+		}
+		if fencedAgent(ag) {
+			// A chat never starts on the whole home in place of a folder
+			// that is missing or not chosen.
+			sc, err := s.liveFolder(ctx, principal(user), ag)
+			if err != nil {
+				return session.ChatRecord{}, err
+			}
+			if _, _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []*folderScope{sc}); err != nil {
+				return session.ChatRecord{}, err
+			}
+			scoped = true
+		}
+	}
+	if strings.TrimSpace(model) == "" {
+		return session.ChatRecord{}, ErrNoModel
+	}
+	sw, err := s.cleanSwitches(in.Switches)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	collections, err := cleanCollections(in.Collections)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	if in.ProjectID != "" && agentProject == "" {
+		if scoped {
+			return session.ChatRecord{}, fmt.Errorf("%w: a chat of an agent that has a folder cannot be in a project or read one", session.ErrInvalid)
+		}
+		proj, err := s.usableProject(ctx, user, in.ProjectID)
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		avail := s.available(ctx, user, model, proj.Manifest.Defaults)
+		requestedSkills := len(sw.SkillsOff) > 0
+		sw = projectSwitches(proj.Manifest.Defaults, sw, avail)
+		if !requestedSkills {
+			// The skills limit does not reach the project's own skills.
+			sw.SkillsOff = s.withoutProjectSkills(ctx, user, proj, sw.SkillsOff)
+		}
+		collections = projectCollections(proj.Manifest.Defaults, collections, avail)
+	}
+	if err := s.checkConnections(ctx, user, sw.Connections); err != nil {
+		return session.ChatRecord{}, err
+	}
+	// The opt-in groups the agent starts with (saved agents) are on in its
+	// chats from the first turn; the chat may still switch them off.
+	sw.BuiltinsOn = mergeGroups(sw.BuiltinsOn, agentOn)
+	projectID := in.ProjectID
+	if agentProject != "" {
+		projectID = agentProject
+	}
+	title := in.Title
+	if title == "" {
+		title = session.DefaultTitle
+	}
+	now := time.Now().UTC()
+	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
+		AgentID: in.AgentID, ScopedAgent: scoped, ProjectID: projectID, Collections: collections, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
+		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
+		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), Connections: nilIfEmpty(sw.Connections)}
+	if origin.Kind == "" {
+		// A chat a person starts gets the instance default, or the network
+		// of its saved agent when the agent sets one, under the ceiling. An
+		// unattended run follows its agent's network field at each check.
+		// An agent of another person never widens the person's own default:
+		// its owner's choice runs with the person's authority.
+		set, err := s.egressSettings(ctx)
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		rec.Egress = egress.ChatState{Preset: set.DefaultPreset()}
+		if in.AgentID != "" {
+			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
+				rec.Egress.Preset = egress.Min(n, startLimit(set, shared))
+			}
+		}
+	}
+	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
+		return session.ChatRecord{}, err
+	}
+	return rec, nil
+}
+
+// startLimit is the widest network a chat a person starts may get from its
+// saved agent: the ceiling for the person's own agent, the person's own
+// default for an agent shared with them.
+func startLimit(set egress.Settings, shared bool) egress.Preset {
+	if shared {
+		return set.DefaultPreset()
+	}
+	return set.Ceiling
+}
+
+// grantedOn are the opt-in groups of built-in tools that a new chat of the
+// agent starts with. A chat of the person's own starts with none of them, so
+// an agent shared with the person turns none on: the person turns them on.
+func grantedOn(ag agents.Agent, shared bool) []string {
+	if shared {
+		return nil
+	}
+	return ag.BuiltinsOn
+}
+
+// Get returns a conversation the user owns.
+func (s *Service) Get(ctx context.Context, user, conv string) (session.ChatRecord, error) {
+	return s.getChatEffective(ctx, principal(user), conv)
+}
+
+// Messages returns transcript entries after seq.
+func (s *Service) Messages(ctx context.Context, user, conv string, after int64, limit int) ([]session.Entry, error) {
+	if _, err := s.Get(ctx, user, conv); err != nil {
+		return nil, err
+	}
+	return s.visibleEntries(ctx, conv, after, limit)
+}
+
+// visibleEntries is Store.Entries without the lines that are for the server
+// only (RoleToolIntent). A page still holds limit lines when the transcript has
+// them, so that a client that reads page by page does not stop early.
+func (s *Service) visibleEntries(ctx context.Context, conv string, after int64, limit int) ([]session.Entry, error) {
+	var out []session.Entry
+	for {
+		want := limit
+		if limit > 0 {
+			want = limit - len(out)
+		}
+		page, err := s.d.Store.Entries(ctx, conv, after, want)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range page {
+			if e.Role != session.RoleToolIntent {
+				out = append(out, e)
+			}
+		}
+		if len(page) > 0 {
+			after = page[len(page)-1].Seq
+		}
+		if limit <= 0 || len(out) >= limit || len(page) < want {
+			return out, nil
+		}
+	}
+}
+
+// Turn returns the turn state of a conversation.
+//
+// WillResume is true only when this server resumes the turn by itself, that
+// is when Deps.AutoResume is on and the chat may resume (see resume.go).
+func (s *Service) Turn(ctx context.Context, user, conv string) (store.TurnInfo, error) {
+	p := principal(user)
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil || !info.WillResume {
+		return info, err
+	}
+	if rec, gerr := s.getChatEffective(ctx, p, conv); gerr != nil || !s.resumeEligible(rec) {
+		info.WillResume = false
+	}
+	return info, nil
+}
+
+// Principal returns the owner ID the service uses for a user: the user's ID,
+// or the anonymous owner when authentication is off.
+func (s *Service) Principal(user string) string { return principal(user) }
+
+// Files returns the workspace of the chats. It is never nil.
+func (s *Service) Files() *files.Service { return s.d.Files }
+
+// ExtractLimits returns the limits of the next extraction.
+func (s *Service) ExtractLimits() files.ExtractLimits {
+	if s.d.ExtractLimits == nil {
+		return files.ExtractLimits{}
+	}
+	return s.d.ExtractLimits()
+}
+
+// PageConsents returns the store of the consents to shared pages, or nil.
+func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
+
+// PageErrors returns the store of the runtime errors of the pages, shared by
+// the pages endpoints and the page_errors tool.
+func (s *Service) PageErrors() pages.ErrorStore { return s.d.PageErrors }
+
+// SharedPagesOn says whether the pages of shared folders are on now.
+func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
+
+// UserPageSharesOn says whether the pages that people share from their own
+// homes are on now.
+func (s *Service) UserPageSharesOn() bool {
+	return s.d.UserPageSharesOn == nil || s.d.UserPageSharesOn()
+}
+
+// PageAreaOn says whether the page area of Home is on now.
+func (s *Service) PageAreaOn() bool { return s.d.PageAreaOn == nil || s.d.PageAreaOn() }
+
+// UserName returns the name of an account to show to another user: its
+// display name when the server has accounts, the principal otherwise.
+func (s *Service) UserName(ctx context.Context, id string) string {
+	if s.d.Users == nil || id == "" {
+		return id
+	}
+	if u, err := s.d.Users(ctx, id); err == nil && u != nil && u.Name != "" {
+		return u.Name
+	}
+	return id
+}
+
+// RemoteModel says whether model runs on a remote service.
+func (s *Service) RemoteModel(model string) bool {
+	return s.d.RemoteModel != nil && model != "" && s.d.RemoteModel(model)
+}
+
+// Persistent reports whether conversations survive a restart of the server.
+func (s *Service) Persistent() bool { return s.d.Persistent }
+
+// ImageModel names the model that describes images for a chat whose own model
+// cannot look at them, or "" when there is none.
+func (s *Service) ImageModel() string { return s.d.Media.VisionModel("") }
+
+// Pending lists the messages waiting for the model.
+func (s *Service) Pending(ctx context.Context, user, conv string) ([]store.Pending, error) {
+	return s.d.Store.Pending(ctx, principal(user), conv)
+}
+
+// EditPending changes a waiting message.
+func (s *Service) EditPending(ctx context.Context, user, conv, id, text string) error {
+	p := principal(user)
+	// The person edits the words; the files of the message stay with it.
+	waiting, err := s.d.Store.Pending(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	for _, w := range waiting {
+		if w.ID == id {
+			_, note, atts := session.SplitMessage(w.Text)
+			text = session.ComposeMessage(text, note, atts)
+			break
+		}
+	}
+	return s.d.Store.EditPending(ctx, p, conv, id, text)
+}
+
+// CancelPending removes a waiting message.
+func (s *Service) CancelPending(ctx context.Context, user, conv, id string) error {
+	return s.d.Store.CancelPending(ctx, principal(user), conv, id)
+}
+
+// Events subscribes to the live events of a conversation. Call cancel when done.
+func (s *Service) Events(ctx context.Context, user, conv string) (<-chan session.Event, func(), error) {
+	p := principal(user)
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
+		return nil, nil, err
+	}
+	ch, cancel := s.bus.Subscribe(key(p, conv))
+	return ch, cancel, nil
+}
+
+// Send gives the conversation a message. With no turn running it starts one.
+// With a turn running the message waits and reaches the model, together with
+// any others, at the loop's next model request.
+func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult, error) {
+	return s.SendWithFiles(ctx, user, conv, text, nil)
+}
+
+// SendWithFiles is Send with files attached. The files are saved in the chat's
+// folder of the user's workspace and the model gets their paths. With a turn
+// running they are saved at once and the message waits like any other, with
+// the paths in its text. With files off it is files.ErrUnavailable.
+func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
+	return s.sendWithFiles(ctx, user, conv, text, up, "", nil)
+}
+
+// sendWithFiles is SendWithFiles with the directive and the invocation of a
+// slash command (see SendCommand).
+func (s *Service) sendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload, directive string, inv *session.Invocation) (SendResult, error) {
+	rec, err := s.getChatEffective(ctx, principal(user), conv)
+	if err != nil {
+		return SendResult{}, err
+	}
+	if rec.Kind == session.KindSubAgent {
+		return SendResult{}, ErrSubAgentReadOnly
+	}
+	if len(up) > 0 && !s.d.Files.Available() {
+		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	note := ""
+	if len(up) > 0 && s.d.Media != nil {
+		// Voice notes are transcribed and documents are read before the turn
+		// starts, and the text goes to the model with the message; the files
+		// are kept as they are. The transcript keeps that text apart from the
+		// user's words.
+		var perr error
+		if note, up, perr = s.d.Media.PrepareUploads(ctx, principal(user), "", up); perr != nil {
+			return SendResult{}, perr
+		}
+		if note, up, perr = s.d.Media.ExtractDocuments(ctx, note, up); perr != nil {
+			return SendResult{}, perr
+		}
+	}
+	up, parts, err := s.nativeMedia(rec.Model, up)
+	if err != nil {
+		return SendResult{}, err
+	}
+	msg := session.Message{Text: text, Note: note, Files: up, Media: parts, Directive: directive, Invoked: inv}
+	if w, ok := turnWhoFrom(ctx); ok {
+		msg.Sender = w.Sender
+		if directive != "" && directive == w.Thread {
+			msg.Thread, msg.ThreadLines, msg.ThreadCut = w.Thread, w.ThreadLines, w.ThreadCut
+		}
+	}
+	return s.send(ctx, user, conv, msg)
+}
+
+// joinPending puts waiting messages and msg, in that order, into one message:
+// the words are joined by blank lines, the files and the text read from them
+// follow. A waiting message holds the text the model gets (see
+// session.ComposeMessage), so its files are split out of it.
+func joinPending(taken []store.Pending, msg session.Message) session.Message {
+	if len(taken) == 0 {
+		return msg
+	}
+	var (
+		texts, notes []string
+		atts         []session.Attachment
+		senders      []*session.Sender
+	)
+	for _, t := range taken {
+		senders = append(senders, t.Sender)
+		body, note, a := session.SplitMessage(t.Text)
+		if body != "" {
+			texts = append(texts, body)
+		}
+		notes, atts = append(notes, note), append(atts, a...)
+	}
+	if strings.TrimSpace(msg.Text) != "" {
+		texts = append(texts, msg.Text)
+		senders = append(senders, msg.Sender)
+	}
+	msg.Text = strings.Join(texts, "\n\n")
+	msg.Note = strings.Join(notes, "") + msg.Note
+	msg.Attachments = append(atts, msg.Attachments...)
+	msg.Sender = mergeSender(senders)
+	return msg
+}
+
+// send is SendWithFiles without the check on the kind: the service itself
+// starts sub-agent conversations through it.
+func (s *Service) send(ctx context.Context, user, conv string, msg session.Message) (SendResult, error) {
+	p := principal(user)
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
+		return SendResult{}, err
+	}
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	runID := newID()
+	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
+	case err == nil:
+		s.nameAfter(ctx, p, conv, msg.Text)
+		if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
+			return SendResult{}, err
+		}
+		return SendResult{Started: true}, nil
+	case errors.Is(err, store.ErrTurnRunning):
+		if msg.Directive != "" {
+			// A waiting message is plain text: the directive would reach the
+			// transcript as words the person did not write.
+			return SendResult{}, ErrCommandBusy
+		}
+		atts := msg.Attachments
+		if len(msg.Files) > 0 {
+			// The files are saved now, so the waiting message can carry their paths.
+			saved, aerr := s.attachWhileRunning(ctx, p, conv, msg.Files)
+			if aerr != nil {
+				return SendResult{}, aerr
+			}
+			atts = append(slices.Clip(atts), saved...)
+		}
+		// A waiting message holds the text the model gets; the transcript and
+		// the list of waiting messages split the files out of it again.
+		waiting := session.ComposeMessage(msg.Text, msg.Note, atts)
+		var (
+			pend store.Pending
+			err  error
+		)
+		if msg.Sender != nil {
+			pend, err = s.d.Store.AddPendingFrom(ctx, p, conv, waiting, msg.Sender)
+		} else {
+			pend, err = s.d.Store.AddPending(ctx, p, conv, waiting)
+		}
+		if err != nil {
+			return SendResult{}, err
+		}
+		// The turn may have ended on another frontend between the claim and the
+		// queue. Nothing would start for this message then, so look again; the
+		// claim decides who starts it.
+		if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && !info.Running && info.Last.Finished() {
+			if _, err := s.startFromPending(ctx, p, conv); err != nil {
+				s.log.Warn("studio: could not start a turn for a message that arrived late", "chat", conv, "error", err)
+			}
+		}
+		return SendResult{PendingID: pend.ID}, nil
+	default:
+		return SendResult{}, err
+	}
+}
+
+// startClaimed runs msg as the turn that the claim runID holds, after the
+// messages that wait: the new one must not overtake them. The caller holds the
+// lock of the chat.
+func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	taken, err := s.d.Store.TakePending(ctx, p, conv)
+	if err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
+	ids := make([]string, len(taken))
+	for i, t := range taken {
+		ids[i] = t.ID
+	}
+	if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, msg)); err != nil {
+		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
+		return err
+	}
+	if len(ids) > 0 {
+		s.confirm(p, conv, ids)
+		s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+	}
+	return nil
+}
+
+// startIdle starts a turn with msg only when the chat is idle: unlike send, it
+// never queues the message behind a running turn. It reports whether the turn
+// started. A loop uses it, so that a busy chat skips the run instead of
+// piling runs up.
+func (s *Service) startIdle(ctx context.Context, p, conv string, msg session.Message) (bool, error) {
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	runID := newID()
+	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
+	case errors.Is(err, store.ErrTurnRunning):
+		return false, nil
+	case err != nil:
+		return false, err
+	}
+	if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// attachWhileRunning saves the files of a message that waits for a running
+// turn and returns them. The turn may run on another frontend; the files go to
+// the shared workspace either way.
+func (s *Service) attachWhileRunning(ctx context.Context, p, conv string, up []session.Upload) ([]session.Attachment, error) {
+	s.mu.Lock()
+	r := s.runs[key(p, conv)]
+	s.mu.Unlock()
+	if r != nil {
+		return r.chat.Attach(ctx, up)
+	}
+	chat, err := s.chat(ctx, p, conv)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cerr := chat.Close(); cerr != nil {
+			s.log.Warn("studio: could not close the chat after saving attachments", "chat", conv, "error", cerr)
+		}
+	}()
+	return chat.Attach(ctx, up)
+}
+
+// nameAfter gives a chat that still has the default title one made from its
+// first message. The caller holds the claim of the turn and the chat is not
+// open, so nothing writes the old title back. A failure only leaves the default.
+func (s *Service) nameAfter(ctx context.Context, p, conv, text string) {
+	rec, err := s.getChatEffective(ctx, p, conv)
+	if err != nil || rec.Title != session.DefaultTitle || rec.Turns > 0 {
+		return
+	}
+	title := session.TitleFrom(text)
+	if title == "" {
+		return
+	}
+	rec.Title = title
+	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
+		s.log.Warn("studio: could not name a chat after its first message", "chat", conv, "error", err)
+	}
+}
+
+// SendNow starts a turn from the waiting messages. It is what the user chooses
+// after a Stop or a failure; nothing else starts them then.
+func (s *Service) SendNow(ctx context.Context, user, conv string) error {
+	p := principal(user)
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
+		return err
+	}
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	_, err := s.startFromPending(ctx, p, conv)
+	return err
+}
+
+// Stop ends the running turn. Waiting messages stay. The turn may run on another
+// frontend, which then hears the request over the bus.
+func (s *Service) Stop(ctx context.Context, user, conv string) error {
+	p := principal(user)
+	rec, err := s.getChatEffective(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	if rec.Kind == session.KindSubAgent {
+		// A sub-agent that waits for its loop is stopped for good: its loop
+		// ends, and the parent hears that the run was stopped.
+		s.endChildLoops(ctx, p, conv)
+	}
+	return s.stopTurn(ctx, user, conv)
+}
+
+// stopTurn is Stop without the end of the loops of a sub-agent chat.
+func (s *Service) stopTurn(ctx context.Context, user, conv string) error {
+	p := principal(user)
+	if _, err := s.getChatEffective(ctx, p, conv); err != nil {
+		return err
+	}
+	// The sub-agents of the chat stop with it, also when its own turn has
+	// ended and they run on in the background.
+	s.stopChildren(p, conv)
+	k := key(p, conv)
+	s.mu.Lock()
+	local := s.runs[k] != nil
+	s.mu.Unlock()
+	// The sub-agents of a conversation stop with it, even when the parent has
+	// no turn left to stop: a background sub-agent can outlive the turn.
+	s.stopChildren(p, conv)
+	// Stop pauses the chat's goal, also between two of its turns: nothing
+	// goes on by itself after a Stop.
+	s.pauseGoal(ctx, p, conv, session.GoalPausedByUser)
+	if !local {
+		s.bus.Control(k, ControlMsg{Stop: true})
+		return nil
+	}
+	return s.stopLocal(ctx, p, conv)
+}
+
+// stopLocal stops a turn that runs in this process.
+func (s *Service) stopLocal(ctx context.Context, p, conv string) error {
+	k := key(p, conv)
+	s.mu.Lock()
+	r := s.runs[k]
+	if r != nil {
+		r.stopped = true
+	}
+	s.mu.Unlock()
+	if r == nil {
+		return nil
+	}
+	return r.chat.Stop(ctx)
+}
+
+// startFromPending starts a turn whose message is the waiting messages joined
+// in order. It reports whether it started one. The caller holds the lock.
+func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, error) {
+	runID := newID()
+	// A claim that finds nothing to run gives the chat back as it was: a
+	// paused turn must still read as paused.
+	last := store.TurnDone
+	if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && info.Last != "" {
+		last = info.Last
+	}
+	if last == store.TurnInterrupted {
+		// The chat waits for its resume. A claim that is only given back would
+		// restart the count of resumes and move the time of the next one, so
+		// with no message waiting the chat is left as it is.
+		if waiting, perr := s.d.Store.Pending(ctx, p, conv); perr == nil && len(waiting) == 0 {
+			return false, nil
+		}
+	}
+	if err := s.d.Store.ClaimTurn(ctx, p, conv, runID); err != nil {
+		if errors.Is(err, store.ErrTurnRunning) {
+			return false, nil // a turn is running; it takes them at its next request
+		}
+		return false, err
+	}
+	taken, err := s.d.Store.TakePending(ctx, p, conv)
+	if err != nil || len(taken) == 0 {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, last)
+		if err == nil {
+			// A message may have been queued on another frontend while this claim
+			// was held: it saw a running turn and did not start one. Look again
+			// now that the claim is free.
+			if left, perr := s.d.Store.Pending(ctx, p, conv); perr == nil && len(left) > 0 {
+				return s.startFromPending(ctx, p, conv)
+			}
+		}
+		return false, err
+	}
+	ids := make([]string, len(taken))
+	for i, t := range taken {
+		ids[i] = t.ID
+	}
+	if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, session.Message{})); err != nil {
+		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
+		return false, err
+	}
+	s.confirm(p, conv, ids)
+	s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+	return true, nil
+}
+
+// startTurn runs msg as a turn the claim runID already covers.
+func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	// A chat with an agent shared with its owner runs as admitted work of
+	// the agent's sharing record: a lowering or a revocation stops it.
+	release, recheck, err := s.admitAgentTurn(ctx, p, conv)
+	if err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
+	chat, err := s.chat(ctx, p, conv)
+	if err != nil {
+		release()
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
+	k := key(p, conv)
+	// While the turn runs, tell the store it is alive and listen for a stop
+	// requested on another frontend.
+	hbCtx, stopBeat := context.WithCancel(context.Background())
+	go s.heartbeat(hbCtx, p, conv, runID) // #nosec G118 -- the heartbeat outlives the request and stops with the turn
+	stopListening := s.bus.OnControl(k, func(m ControlMsg) {
+		if m.Stop {
+			if err := s.stopLocal(context.Background(), p, conv); err != nil {
+				s.log.Warn("studio: could not stop a turn on request", "chat", conv, "error", err)
+			}
+		}
+	})
+	end := func() { stopBeat(); stopListening(); release() }
+	// The cards still pending in the record belong to an earlier turn, whose
+	// frontend may have died: nobody waits on them any more.
+	s.expireConsents(ctx, p, conv, "")
+	s.mu.Lock()
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.rings[k] = newEventRing(runID, ringMaxEvents, ringMaxBytes)
+	s.mu.Unlock()
+	recheck()
+	s.recordOwner(ctx, p, conv, runID)
+	msg.Media = s.keepVideos(k, msg.Media)
+	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
+		s.mu.Lock()
+		delete(s.runs, k)
+		delete(s.rings, k)
+		s.mu.Unlock()
+		end()
+		// s.chat opened the chat; with no turn running nothing else will close it.
+		if cerr := chat.Close(); cerr != nil {
+			s.log.Warn("studio: could not close the chat after a failed start", "chat", conv, "error", cerr)
+		}
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
+	return nil
+}
+
+// heartbeat tells the store that a turn is alive until ctx ends.
+func (s *Service) heartbeat(ctx context.Context, p, conv, runID string) {
+	every := s.d.HeartbeatEvery
+	if every <= 0 {
+		every = defaultHeartbeat
+	}
+	tick := time.NewTicker(every)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			err := s.d.Store.TouchTurn(ctx, p, conv, runID)
+			if err == nil || ctx.Err() != nil {
+				continue
+			}
+			if errors.Is(err, store.ErrNotClaimed) {
+				// Another frontend reaped this turn as dead and may have started a
+				// new one. Two turns on one chat must not run: stop this one.
+				s.log.Warn("studio: a turn lost its claim and is stopping", "chat", conv)
+				if serr := s.stopLocal(context.Background(), p, conv); serr != nil {
+					s.log.Warn("studio: could not stop a turn that lost its claim", "chat", conv, "error", serr)
+				}
+				return
+			}
+			s.log.Warn("studio: could not record a turn's heartbeat", "chat", conv, "error", err)
+		}
+	}
+}
+
+// ReapStale ends the turns that have not beaten for olderThan and tells the
+// watchers of each. A frontend that died leaves such turns behind. In a cluster
+// one frontend runs this on a timer; a standalone process runs it once at
+// startup with a zero duration, because every claim then belongs to a process
+// that no longer exists.
+func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, error) {
+	reaped, err := s.d.Store.ReapTurns(ctx, olderThan)
+	for _, r := range reaped {
+		k := key(r.Principal, r.ChatID)
+		// The frontend that ran the turn is gone; so are the waiters of its
+		// cards.
+		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
+		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
+		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		if s.keepResume(ctx, r.Principal, r.ChatID) {
+			// The sweep goes on with the turn: what waits for its end (a run
+			// record, a goal, a parent) waits for the end of the whole chain.
+			continue
+		}
+		// A parent waits for a sub-agent whose turn ended this way too.
+		if !s.loopHolds(ctx, r.Principal, r.ChatID) {
+			s.notifyWaiters(k, store.TurnInterrupted)
+		}
+		// The goal of a turn that died does not go on by itself: the frontend
+		// that would have continued it is gone, and the person resumes it.
+		s.pauseGoal(ctx, r.Principal, r.ChatID, session.GoalPausedByInterrupted)
+	}
+	return len(reaped), err
+}
+
+// chat opens the conversation in the loop and makes sure its events are read.
+func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, error) {
+	if s.d.Files.Available() {
+		// The loop needs the user's home before it opens a chat.
+		if err := s.d.Files.EnsureHome(ctx, p); err != nil {
+			return nil, err
+		}
+	}
+	// The access is resolved at every open, which every turn does: an edit
+	// of the chat's agent applies from the next turn.
+	rec, err := s.getChatEffective(ctx, p, conv)
+	if err != nil {
+		return nil, err
+	}
+	x, err := s.chatAccess(ctx, rec)
+	if err != nil {
+		return nil, err
+	}
+	chat, err := s.mgr.Open(ctx, x, conv)
+	if err != nil {
+		return nil, err
+	}
+	k := key(p, conv)
+	// A chat that was closed after its last turn has a new event channel when
+	// it reopens, so the pump is told apart by its channel, not by the chat:
+	// the pump of the old channel may not have noticed that it ended yet.
+	evs := chat.Events()
+	s.mu.Lock()
+	start := s.pumps[k] != evs
+	s.pumps[k] = evs
+	s.mu.Unlock()
+	if start {
+		go s.pump(chat, evs, p, conv)
+	}
+	return chat, nil
+}
+
+// pump reads the events of one chat for its lifetime, publishes them, and
+// settles the turn when it ends.
+func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv string) {
+	k := key(p, conv)
+	defer func() {
+		s.mu.Lock()
+		if s.pumps[k] == evs { // a newer pump may have taken the place
+			delete(s.pumps, k)
+		}
+		s.mu.Unlock()
+	}()
+	for ev := range evs {
+		if ev.Kind == session.KindTurnEnd {
+			// The end is recorded before it is announced: a client that reads
+			// the chat when it sees turn_end must not find it still running.
+			next := s.finishTurn(chat, p, conv)
+			s.bus.Publish(k, s.stamp(k, ev))
+			s.expireRing(k)
+			next()
+			continue
+		}
+		ev = s.stamp(k, ev)
+		s.bus.Publish(k, ev)
+		if ev.Kind == session.KindText || ev.Kind == session.KindToolStart {
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.noteFinalText(ev)
+			}
+			s.mu.Unlock()
+		}
+		switch ev.Kind {
+		case session.KindError:
+			// Only the error that ended the turn fails it. A failed save or a
+			// recovered tool panic leaves a turn that finished normally.
+			if !ev.Fatal {
+				break
+			}
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.failed = true
+			}
+			s.mu.Unlock()
+		case session.KindPaused:
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.paused = true
+			}
+			s.mu.Unlock()
+		}
+	}
+}
+
+// finishTurn records how the turn ended. It returns what to run once the end
+// is announced: after a normal end only, it starts the next turn from messages
+// that arrived too late for the last request.
+func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
+	next = func() {}
+	ctx := context.Background()
+	k := key(p, conv)
+	unlock := s.lock(k)
+	defer unlock()
+	s.mu.Lock()
+	r := s.runs[k]
+	delete(s.runs, k)
+	s.mu.Unlock()
+	if r == nil {
+		return next
+	}
+	if r.end != nil {
+		r.end()
+	}
+	// Another frontend may run the next turn, so nothing of this chat is kept in
+	// memory past its turn, and is saved before the claim is given up: the next turn here loads the record again.
+	if err := chat.Close(); err != nil {
+		s.log.Warn("studio: could not close the chat after its turn", "chat", conv, "error", err)
+	}
+	// The network cards of the turn: unanswered ones expire, each is tied to
+	// its tool line.
+	s.settleEgressCards(ctx, p, conv, r.started)
+	status := store.TurnDone
+	switch {
+	case r.stopped:
+		status = store.TurnStopped
+	case r.failed:
+		status = store.TurnFailed
+	case s.isClosed():
+		// The server is going down: the turn was cut short, its text is partial,
+		// and nothing starts after it. The owner of a run is told.
+		status = store.TurnInterrupted
+	case r.paused:
+		status = store.TurnPaused
+	}
+	if err := s.releaseTurn(ctx, p, conv, r.id, status); err != nil {
+		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
+		// The turn is over all the same, and a parent may wait for it. If the
+		// claim was reaped, whoever holds the chat now decides what runs next;
+		// if the store is failing, the reaper frees the chat later. Either way
+		// this one only cleans up after itself and reports a terminal status.
+		status = store.TurnInterrupted
+	}
+	final, guarded := r.final, false
+	if v, ok := s.guardRuns.Load(k); ok && v == r.id {
+		// This turn answered the note of the guard: it is not guarded again.
+		s.guardRuns.Delete(k)
+		guarded = true
+	}
+	// A turn that Close cut short may be resumed by the server after the
+	// restart. Then the goal, a parent and the run record wait for the end of
+	// the chain, not for this turn.
+	resumes := status == store.TurnInterrupted && s.keepResume(ctx, p, conv)
+	if resumes {
+		s.settleGoal(ctx, p, conv, store.TurnDone, r.steps) // counts the steps, pauses nothing
+	} else {
+		s.settleGoal(ctx, p, conv, status, r.steps)
+	}
+	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
+	if !resumes && !s.holdForLoop(ctx, p, conv, status) {
+		s.notifyWaiters(k, status)
+	}
+	if !status.Finished() {
+		// A stopped or failed turn takes its running sub-agents with it, and the
+		// waiting messages stay for the user to decide.
+		s.stopChildren(p, conv)
+		return next
+	}
+	// The next turn is started from another goroutine: this one reads the events
+	// that the new turn will produce.
+	return func() {
+		go func() {
+			if s.beforeNext != nil {
+				s.beforeNext()
+			}
+			unlock := s.lock(k)
+			defer unlock()
+			// The person's waiting messages go first; with none, an active
+			// goal goes on by itself.
+			started, err := s.startFromPending(ctx, p, conv)
+			if err == nil && !started {
+				started, err = s.continueGoal(ctx, p, conv, goalContinue)
+			}
+			if err == nil && !started && !guarded {
+				started, err = s.promiseGuard(ctx, p, conv, final)
+			}
+			if err != nil {
+				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
+				return
+			}
+			if started {
+				// On a chat worker the next turn gets the same bound as the
+				// turn that a frontend started: nothing else watches it when
+				// that frontend is gone.
+				s.limitWorkerRun(ctx, p, conv)
+			}
+		}()
+	}
+}
+
+// releaseTurn ends the claim. A store can fail for a moment (a locked SQLite
+// database), and a chat left claimed stays "running" until the reaper finds
+// it, so the release is tried a few times first.
+func (s *Service) releaseTurn(ctx context.Context, p, conv, runID string, status store.TurnStatus) error {
+	const attempts = 5
+	wait := 25 * time.Millisecond
+	var err error
+	for i := range attempts {
+		if err = s.d.Store.ReleaseTurn(ctx, p, conv, runID, status); err == nil || errors.Is(err, store.ErrNotClaimed) {
+			return err
+		}
+		if i == attempts-1 {
+			break
+		}
+		select {
+		case <-time.After(wait):
+		case <-s.closed:
+			return err
+		}
+		wait *= 2
+	}
+	return err
+}
+
+// inputs is the source of pending messages for one chat's harness. It runs
+// before each model request: it takes what is waiting, and if the request
+// fails, puts it back.
+func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
+	return func() ([]string, func(error)) {
+		ctx := context.Background()
+		// The harness asks before each model request: that is one step of the
+		// turn, which the chat's goal counts.
+		s.mu.Lock()
+		if r := s.runs[key(a.Principal, a.ChatID)]; r != nil {
+			r.steps++
+		}
+		s.mu.Unlock()
+		taken, err := s.d.Store.TakePending(ctx, a.Principal, a.ChatID)
+		if err != nil || len(taken) == 0 {
+			return nil, nil
+		}
+		texts := make([]string, len(taken))
+		ids := make([]string, len(taken))
+		for i, t := range taken {
+			texts[i], ids[i] = t.Text, t.ID
+		}
+		// The loop counts a turn in the record only when it ends, so the turn
+		// that runs now is the next one.
+		turn := 0
+		if rec, gerr := s.getChatEffective(ctx, a.Principal, a.ChatID); gerr == nil {
+			turn = rec.Turns + 1
+		}
+		return texts, func(err error) {
+			if err != nil {
+				if rerr := s.d.Store.RestorePending(ctx, a.Principal, a.ChatID, ids); rerr != nil {
+					s.log.Warn("studio: could not put pending messages back", "chat", a.ChatID, "error", rerr)
+				}
+				return
+			}
+			for _, t := range texts {
+				// The transcript keeps the words apart from the files.
+				body, note, atts := session.SplitMessage(t)
+				e := session.Entry{Turn: turn, Role: session.RoleUser, Text: body, Note: note, Attachments: atts}
+				if _, aerr := s.d.Store.AppendEntry(ctx, a.ChatID, e); aerr != nil {
+					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
+				}
+			}
+			s.confirm(a.Principal, a.ChatID, ids)
+			s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+		}
+	}
+}
+
+// confirm tells the store that the messages are in the transcript, so a turn
+// that is reaped later does not give them back.
+func (s *Service) confirm(p, conv string, ids []string) {
+	if err := s.d.Store.ConfirmPending(context.Background(), p, conv, ids); err != nil {
+		s.log.Warn("studio: could not confirm delivered messages", "chat", conv, "error", err)
+	}
+}
+
+// llmFor gives the harness of a chat its model client, acting as the chat's owner.
+func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
+	ctx := context.Background()
+	rec, err := s.getChatEffective(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return nibharness.Model{}, err
+	}
+	var user *auth.User
+	if s.d.Users != nil && a.Principal != AnonymousPrincipal {
+		if user, err = s.d.Users(ctx, a.Principal); err != nil {
+			return nibharness.Model{}, fmt.Errorf("studio: load the chat's user: %w", err)
+		}
+	}
+	set := rec.Settings
+	limit := set.ContextSize
+	if limit == 0 && s.d.ContextTokens != nil {
+		limit = s.d.ContextTokens(rec.Model)
+	}
+	params := provider.Params{
+		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
+		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) },
+		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
+		// An image goes to the model with its message, not with every later one.
+		OnlyLastImages: true,
+		// The prompt of a new turn must start with the prompt of the turn
+		// before, so that the server reads only what is new.
+		PreserveThinking: s.d.PreserveThinking == nil || s.d.PreserveThinking(rec.Model),
+	}
+	m := nibharness.Model{
+		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
+		ContextTokens: limit, ReasoningEffort: set.ReasoningEffort,
+	}
+	if s.d.AgentOptions != nil {
+		m.Agent = s.d.AgentOptions(rec.Model)
+	}
+	return m, nil
+}
+
+// reportUsage tells the watchers of the chat what one model request used.
+func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string, limit int) {
+	s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindUsage, Usage: &session.UsageEvent{
+		Used: u.PromptTokens, Limit: limit, Completion: u.CompletionTokens, TokensPerSecond: u.TokensPerSecond,
+		Model: model, Node: u.Node, PromptMillis: u.PromptMillis,
+	}})
+}
+
+// Delete removes a conversation and its transcript. A running turn is stopped
+// first, and so are its running sub-agents. Another user's conversation is
+// session.ErrNotFound.
+func (s *Service) Delete(ctx context.Context, user, conv string) error {
+	p := principal(user)
+	rec, err := s.getChatEffective(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	if err := s.Stop(ctx, p, conv); err != nil {
+		return err
+	}
+	s.stopChildren(p, conv)
+	// The jobs end at once, on the nodes the stubs name; the sweep of each
+	// node is the backstop for one that cannot be reached.
+	s.endChatJobs(ctx, rec)
+	// A delete is the person's action: it needs no access of the chat, so a
+	// chat whose agent folder is missing can still be deleted.
+	if err := s.mgr.Delete(ctx, userChatActor(p, conv), conv); err != nil {
+		return err
+	}
+	if s.loops != nil {
+		s.loops.forgetChat(ctx, p, conv)
+	}
+	return nil
+}
+
+// MCPConnectors returns the service that keeps the users' MCP connectors, or
+// nil when the chats have none.
+func (s *Service) MCPConnectors() *mcpconns.Service { return s.d.MCPConnectors }
+
+// Projects returns the service that keeps the users' projects, or nil when
+// the chats have none.
+func (s *Service) Projects() *projects.Service { return s.d.Projects }
+
+// mergeGroups returns a with the entries of b it lacks, in order.
+func mergeGroups(a, b []string) []string {
+	for _, g := range b {
+		if !slices.Contains(a, g) {
+			a = append(a, g)
+		}
+	}
+	return a
+}

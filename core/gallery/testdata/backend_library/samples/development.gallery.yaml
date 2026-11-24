@@ -1,0 +1,32 @@
+- name: cpu-locate-anything-cpp-development
+  alias: locate-anything
+  license: apache-2.0
+  description: |
+    Open-vocabulary object detection and visual grounding (NVIDIA
+    LocateAnything-3B) in C/C++ using GGML. Loads pre-built GGUF weights
+    and, given an image and a free-form text prompt, returns bounding
+    boxes, class labels, and confidence scores for the referred objects.
+  urls:
+    - https://github.com/mudler/locate-anything.cpp
+    - https://huggingface.co/nvidia/LocateAnything-3B
+  tags:
+    - object-detection
+    - visual-grounding
+    - open-vocabulary
+    - locate-anything
+    - gpu
+    - cpu
+  capabilities:
+    default: cpu-locate-anything-cpp
+    intel: intel-sycl-f32-locate-anything-cpp
+    metal: metal-locate-anything-cpp
+    nvidia: cuda12-locate-anything-cpp
+    nvidia-cuda-12: cuda12-locate-anything-cpp
+    nvidia-cuda-13: cuda13-locate-anything-cpp
+    nvidia-l4t: nvidia-l4t-arm64-locate-anything-cpp
+    nvidia-l4t-cuda-12: nvidia-l4t-arm64-locate-anything-cpp
+    nvidia-l4t-cuda-13: cuda13-nvidia-l4t-arm64-locate-anything-cpp
+    vulkan: vulkan-locate-anything-cpp
+  uri: quay.io/go-skynet/local-ai-backends:master-cpu-locate-anything-cpp
+  mirrors:
+    - localai/localai-backends:master-cpu-locate-anything-cpp

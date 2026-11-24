@@ -1,0 +1,81 @@
+{
+  "title": "Discord",
+  "intro": "把 Discord 机器人绑定到你已保存的某个智能体。人们可以在与机器人的私信中与智能体交谈，也可以在频道或讨论串中提及它。每个人和每个讨论串都有自己的对话。",
+  "new": "新建 Discord 机器人",
+  "edit": "编辑 Discord 机器人",
+  "name": "名称",
+  "token": "机器人 token",
+  "tokenHelp": "来自 Discord 开发者门户中你的应用的 Bot 页面（Reset Token）。它会被加密保存，之后不再显示。",
+  "tokenSaved": "已保存。输入新的 token 可替换它。",
+  "tokenSpace": "token 不含空格。请只粘贴 token，不要带 Bot 这个词。",
+  "tokenShape": "对于机器人 token 来说，这太短了。",
+  "agent": "智能体",
+  "agentNone": "选择智能体",
+  "agentNoModel": "{{name}}（需要模型）",
+  "anyoneWarning": "这适用于公开频道和只读取的智能体。任何能联系到机器人的人都可以与此智能体交谈：与机器人共处同一服务器的人可以私信，在机器人能读取的每个频道中也可以提及它。不在名单上的人没有自己的权限：智能体不会替他们保存记忆、提议触发器或接收文件，敏感操作保持关闭。智能体的其他工具对所有人仍然可用。人们在公开频道中写的内容是不可信的文本，可能试图操控智能体（提示词注入）。请只给这个连接配备只读工具，不要配备会发送消息、花钱或修改文件的工具。每个人有自己的对话，每人每分钟可发送的消息数有限制。",
+  "anyoneConfirm": "我了解任何人都可以使用此智能体，其工具应当是只读的",
+  "allowIdsHint": "用户 ID 或频道 ID（数字）",
+  "rules": "名单中的人可以私信，也可以在任何频道中提及机器人。名单中的频道允许其中所有人在那里提及机器人，但他们没有自己的权限。在服务器中，机器人只在被提及、被回复，或位于它被提及过的讨论串内时才回答。它从不回应机器人或 webhook，它的消息也从不 @ 任何人。请使用频道 ID：服务器（guild）ID 不会匹配任何内容。只能用 ID，不能用名称：在 Discord 中开启开发者模式（设置，高级），然后右键点击人员或频道并选择 Copy ID。",
+  "badIds": "这些不是 Discord ID：{{list}}。请使用 Copy ID 得到的数字（17 到 20 位）。不接受名称。",
+  "notifyHelp": "可选。填频道 ID，或填 user: 加上你的用户 ID，以私信形式接收。",
+  "test": "测试",
+  "testOk": "已连接到 {{bot}}。",
+  "checkFailed": "已保存。token 检查失败：{{reason}}",
+  "senders": "发送者",
+  "noSenders": "还没有人给此机器人发过消息。",
+  "allowButton": "将此人加入名单",
+  "ignored": "已忽略",
+  "accepted": "已接受",
+  "save": "保存",
+  "cancel": "取消",
+  "editButton": "编辑",
+  "delete": "删除",
+  "empty": "还没有 Discord 机器人。",
+  "agentOf": "智能体：{{name}}",
+  "accepts": "接受：{{who}}",
+  "modes": {
+    "anyone": "任何人",
+    "nobody": "暂无",
+    "listed_one": "1 个已列出的条目",
+    "listed_other": "{{count}} 个已列出的条目"
+  },
+  "on": "已开启",
+  "onFor": "{{name}} 已开启",
+  "inactive": "未运行：{{reason}}。",
+  "confirmDelete": {
+    "title": "删除 {{name}}？",
+    "message": "机器人将停止回答，随之保存的 token 也会被删除。若要重新设置，你必须再次输入 token。",
+    "confirm": "删除"
+  },
+  "setup": {
+    "title": "如何创建 Discord 机器人",
+    "step1": "在 discord.com/developers/applications 选择 New Application 并为它命名。",
+    "step2": "在 Bot 页面选择 Reset Token，复制一次 token，并粘贴到这里的“机器人 token”字段。请保密。",
+    "step3": "在同一页面的 Privileged Gateway Intents 下，开启 Message Content Intent。没有它，机器人无法读取人们在服务器中写的内容。另外两个 intent 保持关闭。",
+    "step4": "可选：关闭 Public Bot，这样只有你能把机器人添加到服务器。",
+    "step5": "在下面输入 Application ID（General Information），然后打开它生成的链接。选择服务器，并保持权限不变。",
+    "step6": "在服务器中，检查机器人的角色能看到它应该回答的频道。然后在这里列出这些频道 ID，并提及机器人来试用。",
+    "appId": "Application ID",
+    "appIdHelp": "你的应用 General Information 中的数字。它不是机密，只用来生成链接，不会保存任何内容。",
+    "appIdBad": "Application ID 是 17 到 20 位的数字。",
+    "invite": "把机器人添加到服务器的链接",
+    "copy": "复制链接",
+    "copied": "已复制",
+    "permissions": "该链接请求以下权限（数值 {{number}}）：",
+    "perm": {
+      "viewChannels": "View Channels：查看它在哪里被提及",
+      "sendMessages": "Send Messages：用于回答",
+      "sendInThreads": "Send Messages in Threads：用于在讨论串中回答",
+      "attachFiles": "Attach Files：用于发送智能体生成的文件",
+      "readHistory": "Read Message History：用于读取讨论串和消息中的文件"
+    },
+    "never": "绝不要给机器人 Administrator、Manage Messages 或 Mention Everyone 权限。它不需要其中任何一项。"
+  },
+  "answer": {
+    "reply": {
+      "off": "只显示回答（这里 Discord 没有正在输入的提示）"
+    },
+    "replyHelp": "“进度”和“实时”会显示一条处理中的消息，回答出来后替换它。Discord 限制编辑频率，因此“实时”大约每秒更新一次。较长的回答会继续发成新消息，每条最多 2000 个字符。",
+    "conversationHelp": "在 Discord 中发送 !new 即可开始新的对话。以斜杠开头的消息可能被 Discord 当作它自己的命令。"
+  }
+}

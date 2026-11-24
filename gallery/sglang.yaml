@@ -1,0 +1,43 @@
+---
+name: "sglang"
+
+config_file: |
+    backend: sglang
+    context_size: 8192
+    parameters:
+      max_tokens: 8192
+    function:
+      disable_no_action: true
+      grammar:
+        disable: true
+        parallel_calls: true
+        expect_strings_after_json: true
+    template:
+      use_tokenizer_template: true
+    # Uncomment to specify a quantization method (optional)
+    # quantization: "fp8"
+    # Uncomment to set dtype: "auto", "half", "float16", "bfloat16", "float", "float32"
+    # dtype: "bfloat16"
+    # Uncomment to limit static GPU memory (sglang's mem_fraction_static — analogous to vLLM gpu_memory_utilization)
+    # gpu_memory_utilization: 0.75
+    # Uncomment to trust remote code from huggingface
+    # trust_remote_code: true
+    # Uncomment to disable CUDA graph capture (sglang's disable_cuda_graph)
+    # enforce_eager: true
+    # Uncomment to specify the maximum length of a sequence (sglang's context_length)
+    # max_model_len: 32768
+    # Uncomment and specify the number of Tensor divisions
+    # tensor_parallel_size: 2
+    #
+    # Anything ServerArgs exposes (~380 fields including speculative
+    # decoding, attention backend, MoE/EP, hierarchical cache, …) can be
+    # passed verbatim under engine_args:. See
+    # https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/server_args.py
+    # for the canonical list. Unknown keys fail at load time with a
+    # close-match suggestion.
+    # engine_args:
+    #   speculative_algorithm: EAGLE3
+    #   speculative_draft_model_path: lmsys/SGLang-EAGLE3-Llama-3.1-8B-Instruct-SpecForge
+    #   speculative_num_steps: 3
+    #   speculative_eagle_topk: 4
+    #   speculative_num_draft_tokens: 16

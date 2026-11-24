@@ -1,0 +1,253 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import Icon from '../Icon'
+import { Button, StatusChip, Switch } from '../ui'
+import './switchlist.css'
+
+// The parts of the composer's switch lists, the Tools menu and the Skills
+// picker: the chip that opens the list, a fixed header (title, "3 of 5 on",
+// Select all and Disable all), groups with their own count and actions, one
+// row per switch, and a status line at the bottom that always takes its room,
+// so a refused change never moves the rows. On a phone the list is a sheet over
+// the bottom of the screen.
+
+// The chip and its menu. The chip is the composer chip of ListPicker
+// (`.home-chip`, components/ui/picker.css) and the menu has the surface of its
+// menu (`.home-menu`), so the Tools, Skills and Setup chips read as one family
+// with the model picker. The rows stay switches: a switch list applies each
+// change at once and has bulk actions, reasons and controls under a row, which
+// a listbox cannot hold. The menu closes on a click outside and on Escape,
+// which gives the focus back to the chip.
+//
+//   icon, label, title   the chip
+//   count                the number on the chip (nothing at 0)
+//   dot                  true draws the green dot before the label (running)
+//   describedBy          the id of a note of the open menu, for the chip
+//   openRef              a ref that gets { open() }, for a slash command
+//   onOpen(menu)         called with the menu element once it is open
+//   disabled             the chip cannot open the menu (title says why)
+//   children(close)      the menu content
+export function SwitchPopover({ icon, label, title, count, dot, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, children }) {
+  const [open, setOpen] = useState(false)
+  const [alignEnd, setAlignEnd] = useState(false)
+  const ref = useRef(null)
+  const buttonRef = useRef(null)
+  const menuRef = useRef(null)
+  const onOpenRef = useRef(onOpen)
+  onOpenRef.current = onOpen
+
+  useEffect(() => {
+    if (!openRef) return undefined
+    openRef.current = { open: () => setOpen(true) }
+    return () => { openRef.current = null }
+  }, [openRef])
+
+  useEffect(() => {
+    if (open && menuRef.current) onOpenRef.current?.(menuRef.current)
+  }, [open])
+
+  // As in ListPicker: a menu wider than the room to the right of its chip
+  // hangs from the chip's right edge instead.
+  useLayoutEffect(() => {
+    if (!open) { setAlignEnd(false); return }
+    const menu = menuRef.current
+    const root = ref.current
+    if (!menu || !root || typeof window === 'undefined') return
+    const box = root.getBoundingClientRect()
+    setAlignEnd(box.left + menu.offsetWidth > window.innerWidth - 8 && box.right - menu.offsetWidth >= 8)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="list-picker swl-pop" ref={ref} data-testid={testId}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className="home-chip"
+        title={title}
+        aria-haspopup="true"
+        aria-expanded={open}
+        aria-describedby={open || disabled ? describedBy : undefined}
+        data-testid={`${testId}-button`}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {icon && <Icon name={icon} />}
+        {dot && <span className="home-dot" aria-hidden="true" />}
+        <span className="home-chip__text">{label}</span>
+        {count > 0 && <span className="home-chip__count" data-testid={`${testId}-count`}>{count}</span>}
+        <Icon name="chevron-down" className="home-chip__caret" />
+      </button>
+      {open && !disabled && (
+        <div
+          ref={menuRef}
+          className={`home-menu swl-menu ${menuClassName}`.trim()}
+          data-align={alignEnd ? 'end' : undefined}
+          role="group"
+          aria-label={title}
+          data-testid={`${testId}-menu`}
+        >
+          {typeof children === 'function' ? children(() => { setOpen(false); buttonRef.current?.focus() }) : children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// The fixed header: title, summary and the actions; children go under them
+// (a search field, notes).
+export function SwitchHead({ title, summary, summaryTestId, actions, children }) {
+  return (
+    <div className="swl-head">
+      <div className="swl-head__line">
+        <span className="swl-head__title">{title}</span>
+        {summary && <span className="swl-head__count" aria-live="polite" data-testid={summaryTestId}>{summary}</span>}
+      </div>
+      {actions}
+      {children}
+    </div>
+  )
+}
+
+// Select all and Disable all. An action with nothing to change is disabled.
+// `compact` is the pair of a group heading, named for the group.
+export function BulkActions({ onAll, onNone, allDisabled, noneDisabled, allLabel, noneLabel, allAria, noneAria, testId, compact = false }) {
+  return (
+    <div className={compact ? 'swl-bulk swl-bulk--compact' : 'swl-head__actions'}>
+      <Button size="sm" variant="ghost" disabled={allDisabled} onClick={onAll} aria-label={allAria} data-testid={`${testId}-all`}>{allLabel}</Button>
+      <Button size="sm" variant="ghost" disabled={noneDisabled} onClick={onNone} aria-label={noneAria} data-testid={`${testId}-none`}>{noneLabel}</Button>
+    </div>
+  )
+}
+
+// A group of rows under a heading with its icon, its count and, when it has
+// more than one switch, its own actions.
+export function SwitchGroup({ title, icon, count, actions, intro, testId, children }) {
+  const headId = useId()
+  return (
+    <section className="swl-group" aria-labelledby={headId} data-testid={testId}>
+      <div className="swl-group__head">
+        {icon && <Icon name={icon} className="swl-group__icon" />}
+        <span className="swl-group__title" id={headId}>{title}</span>
+        {count && <span className="swl-group__count">{count}</span>}
+        {actions}
+      </div>
+      {intro && <p className="swl-group__intro">{intro}</p>}
+      {children}
+    </section>
+  )
+}
+
+// One row: the name (a click on it toggles the switch), a line of text, a
+// chip, a meta text on the right and the switch. A row that cannot be used
+// has a disabled switch and says why; the reason describes the switch.
+//
+//   name          the visible name; it names the switch
+//   blurb         what the switch does, in a sentence, under the name; every
+//                 switch of the Tools list has one
+//   desc          a line of text (the state: who serves it, why it is off);
+//                 on the name's line unless `stacked`
+//   tone          warn draws the line as a warning
+//   chip          a short label next to the name ("Served by add-on searx")
+//   meta          a muted text before the switch ("4 tools")
+//   reason        why the switch is disabled (drawn under the name)
+//   title         the tooltip of the row; else the name and the text
+//   data          data-* attributes of the row
+//   extra         a control under the row (the connection of an add-on); it
+//                 sits outside the label, so using it never toggles the switch
+export function SwitchRow({
+  name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
+  stacked = false, testId, descTestId, blurbTestId, data = {}, extra, extraId, nested = false,
+}) {
+  const nameId = useId()
+  const descId = useId()
+  const switchId = useId()
+  const line = reason || desc
+  const tip = title || (desc ? `${name}: ${desc}` : name)
+  const attrs = Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v]))
+  const row = (
+    <div
+      className={`swl-row${nested ? ' swl-row--option' : ''}${stacked || blurb ? ' swl-row--stacked' : ''}${extra ? ' swl-row--extended' : ''}`}
+      data-on={checked ? 'true' : 'false'}
+      data-disabled={disabled ? 'true' : undefined}
+      title={title}
+      data-testid={testId}
+      {...attrs}
+    >
+      <label className="swl-row__text" htmlFor={switchId} title={title ? undefined : tip}>
+        <span className="swl-row__top">
+          <span className="swl-row__name" id={nameId} title={title ? name : undefined}>{name}</span>
+          {chip && <StatusChip tone="idle" icon="puzzle" className="swl-row__chip" testId={chipTestId}>{chip}</StatusChip>}
+        </span>
+        {blurb && <span className="swl-row__blurb" data-testid={blurbTestId}>{blurb}</span>}
+        {line && (
+          <span className={`swl-row__desc${reason ? ' swl-row__desc--reason' : ''}${tone === 'warn' ? ' swl-row__desc--warn' : ''}`} id={descId} data-testid={reason ? undefined : descTestId}>
+            {reason && <Icon name="info" className="swl-row__why" />}
+            {line}
+          </span>
+        )}
+        {reason && desc && <span className="swl-row__desc" data-testid={descTestId}>{desc}</span>}
+      </label>
+      {meta && <span className="swl-row__src" data-testid={metaTestId} data-kind={metaKind}>{meta}</span>}
+      <Switch
+        id={switchId}
+        checked={checked}
+        disabled={disabled}
+        labelledBy={nameId}
+        describedBy={[line ? descId : '', extraId || ''].filter(Boolean).join(' ') || undefined}
+        onChange={onChange}
+      />
+    </div>
+  )
+  if (!extra) return row
+  return <div className="swl-rowbox" data-testid={testId ? `${testId}-box` : undefined}>{row}<div className="swl-row__extra">{extra}</div></div>
+}
+
+// A row with no switch: a built-in skill that an add-on replaces.
+export function SwitchRowStatic({ name, desc, title, testId }) {
+  return (
+    <div className="swl-row" data-replaced="true" data-testid={testId} title={title}>
+      <span className="swl-row__text">
+        <span className="swl-row__name">{name}</span>
+        {desc && <span className="swl-row__desc">{desc}</span>}
+      </span>
+    </div>
+  )
+}
+
+// The bottom line: a refused change, said in a few words with the server's
+// message in the tooltip, and what goes after it (a link to manage). With
+// `reserve` the line keeps its height when it is empty, so a message that
+// appears does not move the rows above it.
+export function SwitchStatus({ error, failed, testId, reserve = false, children }) {
+  const { t } = useTranslation('chat')
+  return (
+    <div className={`swl-foot${reserve ? ' swl-foot--reserve' : ''}`}>
+      <div className="swl-status" role="alert" data-testid={testId}>
+        {error && (
+          <>
+            <Icon name="warning" />
+            <span title={error}>{failed || t('skills.failed')}</span>
+          </>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}

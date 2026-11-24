@@ -1,0 +1,132 @@
+{
+  "title": "Mail",
+  "intro": "Lass deine Agenten ein Postfach über IMAP lesen und, wenn du es erlaubst, Mails über SMTP schreiben. Es funktioniert mit jedem Anbieter, der IMAP und SMTP anbietet.",
+  "limits": "Diese Verbindung beantwortet eingehende Mails nicht von selbst. Ein Agent arbeitet nur mit deinen Mails, wenn du ihn in einem Chat darum bittest. Das ganze Postfach ist erreichbar, verbinde also nur ein Postfach, das der Agent lesen darf.",
+  "new": "Neue Mail-Verbindung",
+  "edit": "Mail-Verbindung bearbeiten",
+  "name": "Name",
+  "agent": "Agent",
+  "agentNone": "Agent wählen",
+  "agentCredentialsOnly": "Kein Agent (nur Zugangsdaten)",
+  "credentialsOnly": "Nur Zugangsdaten",
+  "agentNoModel": "{{name}} (braucht ein Modell)",
+  "test": "Testen",
+  "testOk": "Verbunden als {{bot}}.",
+  "checkFailed": "Gespeichert. Die Prüfung der Anmeldung ist fehlgeschlagen: {{reason}}",
+  "checkSeveral": "Die Anmeldeprüfungen laufen, wenn du eine Mail-Verbindung hast, weil eine Prüfung von dieser Seite nicht wissen kann, welche du meinst. Aktiviere in einem Chat die Verbindungen im Menü Werkzeuge.",
+  "check": {
+    "title": "Prüfung von {{name}}",
+    "running": "Beide Anmeldungen werden geprüft...",
+    "at": "Geprüft um {{time}}",
+    "imapOk": "Mails lesen (IMAP): Die Anmeldung funktioniert.",
+    "smtpOk": "Mails senden (SMTP): Die Anmeldung funktioniert.",
+    "imapFailed": "Mails lesen (IMAP) ist fehlgeschlagen. {{reason}}",
+    "smtpFailed": "Mails senden (SMTP) ist fehlgeschlagen. {{reason}}"
+  },
+  "save": "Speichern",
+  "cancel": "Abbrechen",
+  "editButton": "Bearbeiten",
+  "delete": "Löschen",
+  "empty": "Noch keine Mail-Verbindungen.",
+  "noAddress": "Keine Adresse",
+  "agentOf": "Agent: {{name}}",
+  "inactive": "Läuft nicht: {{reason}}.",
+  "confirmDelete": {
+    "title": "{{name}} löschen?",
+    "message": "Der Agent kann dieses Postfach nicht mehr erreichen, und das dazu gespeicherte Passwort wird gelöscht. Um es erneut einzurichten, musst du alles noch einmal eingeben.",
+    "confirm": "Löschen"
+  },
+  "replace": "Server- oder Anmeldedaten ändern",
+  "savedAs": "Gespeichert für {{address}}. Die Server und das Passwort werden versiegelt aufbewahrt und können nicht angezeigt werden. Um etwas davon zu ändern, gib alles noch einmal ein.",
+  "address": "Postfach-Adresse",
+  "addressHelp": "Die Adresse des Postfachs. Sie ist auch die Absenderadresse der Mails, die der Agent sendet.",
+  "addressShape": "Schreibe eine einfache Adresse, zum Beispiel name@example.com.",
+  "display": "Absendername",
+  "displayHelp": "Wird auf Mails, die der Agent sendet, neben der Adresse angezeigt.",
+  "displayShape": "Nutze bis zu 100 Zeichen in einer Zeile.",
+  "username": "Benutzername",
+  "usernameHelp": "Die Anmeldung beider Server. Oft die vollständige Adresse.",
+  "userShape": "Gib den Benutzernamen des Postfachs ein.",
+  "password": "Passwort",
+  "passwordHelp": "Viele Anbieter verlangen hier ein App-Passwort, nicht das normale. Es wird versiegelt gespeichert und nie wieder angezeigt.",
+  "passMissing": "Gib das Passwort ein.",
+  "passShape": "Das Passwort hat bis zu 512 Zeichen und keinen Zeilenumbruch.",
+  "host": "Server",
+  "port": "Port",
+  "imap": {
+    "title": "Mails lesen (IMAP)",
+    "hostExample": "imap.example.com"
+  },
+  "smtp": {
+    "title": "Mails senden (SMTP)",
+    "hostExample": "smtp.example.com"
+  },
+  "imapHostShape": "Schreibe nur den Namen des IMAP-Servers, wie imap.example.com: ohne https://, Port oder Pfad.",
+  "smtpHostShape": "Schreibe nur den Namen des SMTP-Servers, wie smtp.example.com: ohne https://, Port oder Pfad.",
+  "imapPortShape": "Der IMAP-Port ist 993 oder 143.",
+  "smtpPortShape": "Der SMTP-Port ist 465 oder 587.",
+  "imapPortSecurityMismatch": "Port 993 nutzt TLS, Port 143 nutzt STARTTLS. Lass Port und Schutz zusammenpassen.",
+  "smtpPortSecurityMismatch": "Port 465 nutzt TLS, Port 587 nutzt STARTTLS. Lass Port und Schutz zusammenpassen.",
+  "plainNotConfirmed": "Bestätige, dass du das Passwort ohne Schutz sendest, oder wähle TLS oder STARTTLS.",
+  "security": {
+    "label": "Schutz",
+    "tls": "TLS",
+    "starttls": "STARTTLS",
+    "none": "Keiner (nicht sicher)",
+    "plainWarning": "Ohne Schutz werden das Passwort und alle Mails als Klartext übertragen. Jeder auf dem Netzwerkweg kann sie lesen. Nutze das nur in einem Netzwerk, dem du vertraust.",
+    "plainConfirm": "Ich akzeptiere, dass das Passwort und die Mails ohne Schutz gesendet werden."
+  },
+  "folders": "Ordner, die der Agent nutzen darf",
+  "foldersHelp": "Einer pro Zeile. Leer lassen, um alle Ordner zu erlauben. Ein Ordner, der nicht aufgeführt ist, wird abgelehnt; der INBOX wird ohne Beachtung der Groß- und Kleinschreibung verglichen.",
+  "foldersMany": "Höchstens 20 Ordner.",
+  "foldersShape": "Ein Ordnername hat bis zu 200 Zeichen in einer Zeile.",
+  "drafts": "Entwurfsordner",
+  "draftsHelp": "Nur nötig, wenn der Server seinen Entwurfsordner nicht kennzeichnet. Entwürfe gehen zuerst in den Ordner, den der Server als Entwürfe kennzeichnet.",
+  "tooLong": "Die Verbindung ist zu lang zum Speichern. Kürze die Ordnerliste.",
+  "setup": {
+    "title": "So verbindest du ein Postfach",
+    "step1": "Suche die IMAP- und SMTP-Servernamen deines Anbieters in dessen Hilfeseiten. Beide nutzen TLS oder STARTTLS.",
+    "step2": "Wenn der Anbieter es unterstützt, erstelle ein App-Passwort für LocalAI und nutze es als Passwort. Ein normales Passwort funktioniert mit IMAP oft nicht.",
+    "step3": "Gib die Adresse, den Benutzernamen, das Passwort und die zwei Server ein und speichere. Beim Speichern erfolgt eine Anmeldung an beiden Servern.",
+    "step4": "Wähle, ob der Agent auch Mails senden und als Entwurf speichern darf und ob er vorher fragt. Mit Alles erlauben handelt er ohne Rückfrage, und eine gesendete Mail lässt sich nicht zurückholen.",
+    "private": "Die Mail-Server müssen im öffentlichen Internet stehen: Adressen in einem privaten Netzwerk werden abgelehnt."
+  },
+  "writeMode": {
+    "label": "Was der Agent mit Mails tun darf",
+    "hint": "Senden und Entwürfe speichern. Er löscht, verschiebt, markiert oder leitet nie Mails weiter.",
+    "off": "Nur lesen",
+    "propose": "Fragt dich zuerst",
+    "line": {
+      "off": "Er kann nur lesen.",
+      "propose": "Jedes Senden und jeder Entwurf wartet auf dein OK.",
+      "auto": "Deine Chats senden und speichern sofort."
+    },
+    "note": {
+      "off": "Schreibzugriff ist aus: Diese Verbindung liest nur.",
+      "propose": "Jedes Senden und jeder Entwurf wartet in deinen Freigaben, bis du ihn bestätigst. Eine gesendete Mail lässt sich nicht zurückholen, und alle bei An und Cc lesen sie.",
+      "auto": "Ein Chat von dir sendet und speichert Mails sofort, ohne Rückfrage. Eine gesendete Mail lässt sich nicht zurückholen, und alle bei An und Cc lesen sie. Läufe ohne dich warten weiterhin auf deine Bestätigung."
+    },
+    "row": {
+      "off": "Nur lesen",
+      "propose": "Fragt dich zuerst",
+      "auto": "Alles erlauben"
+    },
+    "auto": "Alles erlauben"
+  },
+  "approval": {
+    "action": {
+      "send-message": "Eine E-Mail senden",
+      "save-draft": "Einen E-Mail-Entwurf speichern"
+    },
+    "from": "Von",
+    "to": "An",
+    "cc": "Cc",
+    "subject": "Betreff",
+    "reply": "Antwort",
+    "replyYes": "Teil einer bestehenden Unterhaltung",
+    "text": "Text der Mail",
+    "cut": "Der hier gezeigte Text ist gekürzt. Es wird der ganze Text mit {{bytes}} Bytes verwendet.",
+    "noteSend": "Das Senden lässt sich nicht zurücknehmen. Alle bei An und Cc lesen dies von deiner Adresse.",
+    "noteDraft": "Dies wird in deinem Entwurfsordner gespeichert. Es wird nichts gesendet."
+  }
+}

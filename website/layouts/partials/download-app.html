@@ -1,0 +1,15 @@
+{{- /* The desktop app block of the download section: the buttons (see download-buttons.html),
+       the longer note and a screenshot. */ -}}
+<div class="dl">
+  <p class="dl__h">Desktop app</p>
+  {{ partial "download-buttons.html" (dict "site" . "cls" "btn" "id" "app") }}
+  {{- if hugo.Data.home.download.released }}
+  <p class="fine">Each file has a <code>.sha256</code> file on the <a href="{{ .Site.Params.github }}/releases/latest">latest release</a>. There is no build for Intel Macs. <a href="{{ .Site.Params.docsURL }}start/install/desktop/">Desktop app guide</a></p>
+  {{- else }}
+  <p class="fine">macOS: a DMG for Apple silicon. Linux: an AppImage for x86-64. For ARM64 Linux, take <code>LocalAI-Launcher-{{ if not hugo.Data.home.download.released }}dev-{{ end }}arm64.AppImage</code> from the <a href="{{ .Site.Params.github }}/releases/{{ if hugo.Data.home.download.released }}latest{{ else }}tag/dev-master{{ end }}">{{ if hugo.Data.home.download.released }}latest release{{ else }}development release{{ end }}</a>. Each file has a <code>.sha256</code> file. <a href="{{ .Site.Params.docsURL }}start/install/desktop/">Desktop app guide</a></p>
+  {{- end }}
+  <figure class="dl__shot">
+    <img class="shot shot--lt" src="{{ "media/launcher-home-light.webp" | relURL }}" width="1400" height="900" loading="lazy" alt="The LocalAI desktop app on first start. It shows the model that it recommends for this machine, with an Install button.">
+    <img class="shot shot--dk" src="{{ "media/launcher-home-dark.webp" | relURL }}" width="1400" height="900" loading="lazy" alt="" aria-hidden="true">
+  </figure>
+</div>

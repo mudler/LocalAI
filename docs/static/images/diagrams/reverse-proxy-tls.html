@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>TLS at the edge</title>
+<link rel="stylesheet" href="diagram.css"><script src="diagram.js"></script>
+</head>
+<body>
+<p class="k">Deployment</p>
+<h1>TLS ends at the <span class="hl">edge</span></h1>
+<img class="mark" src="tile.svg" alt="">
+<div class="stage c">
+
+<div class="row" style="align-items:stretch">
+ <div class="col" style="justify-content:center;width:290px"><div class="node " style=""><b>Browser</b><span>requests https://host/</span></div></div>
+ <div class="ar" data-l="HTTPS" style="width:110px;margin:0 6px"></div>
+ <div class="node fl" style="padding:22px 26px"><div class="lab acc" style="margin-bottom:6px">Reverse proxy, TLS ends here</div><b>nginx, Caddy or Traefik</b><span>adds the headers</span>
+  <div style="margin-top:12px;display:grid;gap:8px"><span class="code">X-Forwarded-Proto: https</span><span class="code">X-Forwarded-Host</span><span class="code">X-Forwarded-Prefix</span></div></div>
+ <div class="ar" data-l="HTTP" style="width:110px;margin:0 6px"></div>
+ <div class="node core fl" style="padding:22px 26px"><b>LocalAI</b><span>The BaseURL middleware reads the headers</span><span style="margin-top:10px">Asset links get the right scheme, host and prefix</span></div></div>
+
+</div>
+<div class="foot">LocalAI speaks plain HTTP inside. <b>The headers tell it what the browser sees.</b></div>
+</body></html>
