@@ -1,20 +1,20 @@
 #!/bin/bash
 # Regression test for the cuDNN packaging in scripts/build/package-gpu-libs.sh.
 #
-# cuDNN 9 is a dispatcher (libcudnn.so.9) plus seven sublibraries the dispatcher
+# cuDNN 9 is a dispatcher (libcudnn.so.9) plus eight sublibraries the dispatcher
 # dlopen()s by bare soname at runtime. Only the dispatcher is ever a DT_NEEDED,
-# so ldd finds it but never the seven - they have to be completed explicitly.
+# so ldd finds it but never the eight - they have to be completed explicitly.
 #
 # Three end states are correct, and which one applies is a property of the
 # backend, not of the Dockerfile that built it:
 #
 #   venv has a complete pip cuDNN   -> bundle nothing  (longcat-video)
-#   venv has no pip cuDNN           -> bundle all 8    (vllm: Jetson-index torch
+#   venv has no pip cuDNN           -> bundle all 9    (vllm: Jetson-index torch
 #                                                       links cuDNN, no wheel)
 #   no venv, nothing links cuDNN    -> bundle nothing  (llama-cpp, whisper,
 #                                                       rfdetr-cpp, sam3-cpp,
 #                                                       stablediffusion-ggml)
-#   no venv, something links cuDNN  -> bundle all 8    (face-detect, voice-detect)
+#   no venv, something links cuDNN  -> bundle all 9    (face-detect, voice-detect)
 #
 # Everything else is a bug this file exists to catch. Historically the allowlist
 # force-copied three cuDNN libs into every CUDA backend, which produced the two
@@ -43,6 +43,7 @@ CUDNN_FAMILY=(
     libcudnn_cnn
     libcudnn_engines_precompiled
     libcudnn_engines_runtime_compiled
+    libcudnn_engines_tensor_ir
     libcudnn_graph
     libcudnn_heuristic
     libcudnn_ops
