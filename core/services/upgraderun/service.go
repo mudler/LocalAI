@@ -663,7 +663,9 @@ func (s *Service) Start(ctx context.Context, actor string, req StartRequest) (Ru
 }
 
 // create stores and starts a run, under the admission lock so two frontends
-// never start two runs at once.
+// never start two runs at once. The lock of the run is taken before its row
+// is written: the sweep of another frontend, which does not take the
+// admission lock, can then never take over a run while it is created.
 func (s *Service) create(ctx context.Context, actor string, source Source, items []Item) (Run, error) {
 	var out Run
 	err := advisorylock.WithLockCtx(ctx, s.opts.DB, advisorylock.KeyUpgradeRuns, func() error {
@@ -678,21 +680,24 @@ func (s *Service) create(ctx context.Context, actor string, source Source, items
 		if res.Err != nil {
 			return res.Err
 		}
+		lock := advisorylock.NewHeldLock(s.opts.DB, runLockKey(res.Run.ID))
+		if ok, err := lock.TryAcquire(ctx); err != nil || !ok {
+			lock.Close()
+			if err == nil {
+				err = errors.New("the lock of a new run is taken")
+			}
+			return fmt.Errorf("upgrade run: could not take the lock of a new run: %w", err)
+		}
 		rec, recItems, err := toRecords(res.Run, s.opts.Instance)
 		if err != nil {
+			lock.Close()
 			return err
 		}
 		if err := s.opts.Store.Create(rec, recItems); err != nil {
+			lock.Close()
 			return err
 		}
-		lock := advisorylock.NewHeldLock(s.opts.DB, runLockKey(res.Run.ID))
-		if ok, err := lock.TryAcquire(ctx); err != nil || !ok {
-			// The run is stored; the sweep of some frontend takes it over.
-			lock.Close()
-			xlog.Warn("upgrade run: could not take the lock of a new run; the sweep takes it over", "run", res.Run.ID, "error", err)
-		} else {
-			s.startRunner(res.Run, lock, nil, res.Effects)
-		}
+		s.startRunner(res.Run, lock, nil, res.Effects)
 		out = res.Run
 		return nil
 	})

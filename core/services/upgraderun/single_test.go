@@ -8,6 +8,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/distributed"
 	. "github.com/mudler/LocalAI/core/services/upgraderun"
 )
 
@@ -81,5 +85,29 @@ var _ = Describe("The outcome of a run of one item", func() {
 		Expect(rows).To(HaveLen(1))
 		Expect(rows[0].Extra).To(ContainSubstring(`"operation_id":"op-1"`))
 		Expect(rows[0].Extra).To(ContainSubstring(`"candidate_digest":"sha256:b"`))
+	})
+
+	It("holds the lock of a new run before its row exists, so no sweep can take it over", func() {
+		db := openSQLite()
+		h := newHarness(harnessOpts{db: db})
+		h.backends.add(Candidate{Kind: KindGallery, Name: "kokoro"})
+		var probed []bool
+		Expect(db.Callback().Create().After("gorm:create").Register("test:probe-run-lock", func(tx *gorm.DB) {
+			rec, ok := tx.Statement.Dest.(*distributed.UpgradeRunRecord)
+			if !ok {
+				return
+			}
+			// Another frontend's sweep tries the lock of the run as soon as
+			// its row is written.
+			other := advisorylock.NewHeldLock(db, advisorylock.KeyFromString("upgrade-run:"+rec.ID))
+			got, err := other.TryAcquire(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			if got {
+				other.Close()
+			}
+			probed = append(probed, got)
+		})).To(Succeed())
+		h.start(si(KindGallery, "kokoro"))
+		Expect(probed).To(Equal([]bool{false}), "the creating frontend holds the lock before the row is written")
 	})
 })
