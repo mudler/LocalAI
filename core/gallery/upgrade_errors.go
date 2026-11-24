@@ -75,6 +75,11 @@ var (
 	ErrUpgradeStale        = &UpgradeError{Code: UpgradeFailureStale}
 )
 
+// ErrUpgradeRestore marks a failed upgrade whose previous build could not be
+// put back. It wins over a cancel: the backend is not at the version it ran
+// before, so the operation failed whatever stopped it.
+var ErrUpgradeRestore = errors.New("the previous build could not be restored")
+
 // WithUpgradeCode tags err with a code. An error that already carries a code
 // keeps it (the inner step knows best), and nil stays nil.
 func WithUpgradeCode(code UpgradeFailureCode, err error) error {

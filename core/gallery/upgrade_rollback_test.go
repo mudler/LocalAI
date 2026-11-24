@@ -240,9 +240,26 @@ var _ = Describe("Rollback of a backend upgrade whose new build fails", func() {
 		Expect(UpgradeCodeOf(err)).To(Equal(UpgradeFailureStart))
 		Expect(UpgradeRolledBack(err)).To(BeFalse())
 		Expect(err.Error()).To(ContainSubstring("could not be restored"))
+		Expect(errors.Is(err, ErrUpgradeRestore)).To(BeTrue())
+		Expect(err.Error()).NotTo(ContainSubstring(backends), "the message names no server path")
 		Expect(filepath.Join(backends, name+".backup", "version")).To(BeAnExistingFile(), "the previous build is kept")
 		Expect(installedVersion()).To(Equal("v2"), "the failed build stays in place for diagnosis")
 		expectNoProcess()
+	})
+
+	It("reports a restore that failed after a cancel as a failure, and keeps the cancel in the chain", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		err := rollbackError(ctx, UpgradeFailureStart, ctx.Err(), errors.New("rename refused"), filepath.Join(backends, name))
+		Expect(errors.Is(err, ErrUpgradeRestore)).To(BeTrue())
+		Expect(errors.Is(err, context.Canceled)).To(BeTrue(), "the cancel stays in the chain")
+		Expect(UpgradeCodeOf(err)).To(Equal(UpgradeFailureStart))
+		Expect(UpgradeRolledBack(err)).To(BeFalse())
+		Expect(err.Error()).To(ContainSubstring("rename refused"))
+		Expect(err.Error()).NotTo(ContainSubstring(backends))
+
+		// A cancel whose restore succeeded is still the plain cancel.
+		Expect(rollbackError(ctx, UpgradeFailureStart, ctx.Err(), nil, filepath.Join(backends, name))).To(MatchError(context.Canceled))
 	})
 
 	It("does not list the directories of a swap as backends", func() {
