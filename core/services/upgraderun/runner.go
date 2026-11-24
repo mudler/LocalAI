@@ -197,6 +197,17 @@ func signature(rec any, items any) string {
 	return string(b)
 }
 
+// spawn runs fn on its own goroutine, counted by the service so Close waits
+// for it. It is only called from the goroutine of the runner, which the
+// service counts too, so the count is never zero while it adds.
+func (r *runner) spawn(fn func()) {
+	r.svc.wg.Add(1)
+	go func() {
+		defer r.svc.wg.Done()
+		fn()
+	}()
+}
+
 func (r *runner) execute(fx []Effect) {
 	for _, f := range fx {
 		switch e := f.(type) {
@@ -205,15 +216,17 @@ func (r *runner) execute(fx []Effect) {
 			if it == nil {
 				continue
 			}
-			go r.startJob(*it)
+			item := *it
+			r.spawn(func() { r.startJob(item) })
 		case CancelJob:
-			go r.cancelJob(e)
+			r.spawn(func() { r.cancelJob(e) })
 		case VerifyItem:
 			it := r.snapshot().Item(e.Key)
 			if it == nil {
 				continue
 			}
-			go r.verify(*it)
+			item := *it
+			r.spawn(func() { r.verify(item) })
 		case RunEnded:
 			xlog.Info("upgrade run ended", "run", r.id, "state", e.State)
 		}

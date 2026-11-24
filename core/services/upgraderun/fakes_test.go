@@ -94,6 +94,15 @@ type fakeStarter struct {
 	err    error
 	// gate, when set, holds every start until it is closed.
 	gate chan struct{}
+	// returned, when set, runs as a start returns.
+	returned func()
+}
+
+// onReturn runs fn as each later start returns.
+func (s *fakeStarter) onReturn(fn func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.returned = fn
 }
 
 // block holds every later start until gate is closed.
@@ -111,6 +120,14 @@ func (s *fakeStarter) Start(ctx context.Context, actor string, it Item) (string,
 	s.mu.Lock()
 	gate := s.gate
 	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		fn := s.returned
+		s.mu.Unlock()
+		if fn != nil {
+			fn()
+		}
+	}()
 	if gate != nil {
 		select {
 		case <-gate:

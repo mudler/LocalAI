@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -119,5 +120,23 @@ var _ = Describe("The outcome of a run of one item", func() {
 		raw, err = json.Marshal(Item{Key: "gallery:a", Phase: PhaseUnconfirmed})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(raw)).NotTo(ContainSubstring(`verifying`))
+	})
+
+	It("waits in Close for the start of an operation it began", func() {
+		h := newHarness(harnessOpts{})
+		h.backends.add(Candidate{Kind: KindGallery, Name: "slow"})
+		gate := make(chan struct{})
+		DeferCleanup(func() { close(gate) })
+		h.starter.block(gate)
+		var returned atomic.Bool
+		h.starter.onReturn(func() {
+			time.Sleep(100 * time.Millisecond)
+			returned.Store(true)
+		})
+		r := h.start(si(KindGallery, "slow"))
+		Eventually(func() Phase { return h.phase(r.ID, "gallery:slow") }).Should(Equal(PhaseRunning))
+		time.Sleep(50 * time.Millisecond)
+		h.svc.Close()
+		Expect(returned.Load()).To(BeTrue(), "Close returned before the start goroutine ended")
 	})
 })
