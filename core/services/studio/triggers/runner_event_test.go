@@ -231,3 +231,77 @@ func (s *startAfterSnapshot) QueuedRuns(ctx context.Context) ([]triggers.Run, er
 	}
 	return runs, err
 }
+
+var _ = Describe("Runner.FireQueued", func() {
+	var rg *rig
+	queue := func(id string, e triggers.Event) triggers.Run {
+		run, err := rg.runner.FireQueued(ctx, id, e)
+		Expect(err).NotTo(HaveOccurred())
+		return run
+	}
+	BeforeEach(func() {
+		rg = newRig(func(o *triggers.Options) { o.MaxRunning = 5 })
+		rg.put(eventTrigger("e"))
+	})
+
+	It("claims a queued run and starts nothing; a pass of the leader starts it", func() {
+		a := queue("e", ev("k1", `{"n":1}`))
+		Expect(a.Status).To(Equal(triggers.StatusQueued))
+		Expect(rg.host.startCount()).To(Equal(0))
+		Expect(queue("e", ev("k1", `{"n":1}`)).ID).To(Equal(a.ID), "one run for one dedupe key")
+		rg.sync()
+		Expect(rg.host.startCount()).To(Equal(1))
+		got, _ := rg.store.GetRun(ctx, a.ID)
+		Expect(got.Status).To(Equal(triggers.StatusRunning))
+	})
+
+	It("merges a burst into one queued run with a marker for each event", func() {
+		q := queue("e", ev("k0", `{"n":0}`))
+		for i := 1; i <= 10; i++ {
+			Expect(queue("e", ev(fmt.Sprintf("k%d", i), fmt.Sprintf(`{"n":%d}`, i))).ID).To(Equal(q.ID))
+		}
+		merged, _ := rg.store.GetRun(ctx, q.ID)
+		var items []json.RawMessage
+		Expect(json.Unmarshal([]byte(merged.Payload), &items)).To(Succeed())
+		Expect(string(items[0])).To(Equal(`{"dropped":3}`))
+		Expect(string(items[len(items)-1])).To(Equal(`{"n":10}`))
+		markers := 0
+		for _, r := range rg.runs("e") {
+			if r.Reason == triggers.ReasonMerged {
+				markers++
+			}
+		}
+		Expect(markers).To(Equal(10))
+		Expect(rg.host.startCount()).To(Equal(0))
+	})
+
+	It("applies the daily limit and the sentinels", func() {
+		tr := eventTrigger("c")
+		tr.DailyCap = 1
+		tr.MinGap = time.Second
+		rg.put(tr)
+		r, err := rg.runner.Fire(ctx, "c", ev("k0", `{}`))
+		Expect(err).NotTo(HaveOccurred())
+		rg.finish(r, triggers.StatusDone, "")
+		over := queue("c", ev("k1", `{}`))
+		Expect(over.Status).To(Equal(triggers.StatusSkipped))
+		Expect(over.Reason).To(ContainSubstring("limit"))
+		_, err = rg.runner.FireQueued(ctx, "nope", ev("k", `{}`))
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+		_, err = rg.runner.FireQueued(ctx, "e", triggers.Event{Source: "other", Type: "ping", DedupeKey: "k"})
+		Expect(err).To(MatchError(triggers.ErrNoMatch))
+		rg.put(schedule("s", "daily 08:00"))
+		_, err = rg.runner.FireQueued(ctx, "s", ev("k", `{}`))
+		Expect(err).To(MatchError(triggers.ErrNotEnabled))
+	})
+
+	It("does not mark the runs that are going as interrupted", func() {
+		a, err := rg.runner.Fire(ctx, "e", ev("first", `{}`))
+		Expect(err).NotTo(HaveOccurred())
+		other := rg.newRunner() // a replica that did not start the run
+		_, err = other.FireQueued(ctx, "e", ev("second", `{}`))
+		Expect(err).NotTo(HaveOccurred())
+		got, _ := rg.store.GetRun(ctx, a.ID)
+		Expect(got.Status).To(Equal(triggers.StatusRunning))
+	})
+})

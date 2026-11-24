@@ -794,6 +794,18 @@ const ReasonMerged = "merged into a waiting run"
 // a trigger that is off or of another kind, and ErrNoMatch, with nothing
 // claimed, for an event that the trigger does not take.
 func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, error) {
+	return r.fire(ctx, triggerID, ev, true)
+}
+
+// FireQueued does what Fire does (the same checks, merge and admission) but
+// starts no run on this host: a run it claims stays queued, and the leader's
+// pass starts it. A frontend that does not lead calls it. It does not run the
+// recovery of the runs that were going (see Sync), which belongs to the leader.
+func (r *Runner) FireQueued(ctx context.Context, triggerID string, ev Event) (Run, error) {
+	return r.fire(ctx, triggerID, ev, false)
+}
+
+func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start bool) (Run, error) {
 	if ev.DedupeKey == "" {
 		return Run{}, errors.New("triggers: an event needs a dedupe key")
 	}
@@ -803,8 +815,13 @@ func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, err
 		return Run{}, ErrStopped
 	}
 	now := r.o.Clock()
-	if err := r.ensureRecovered(ctx, now); err != nil {
-		return Run{}, err
+	// Recovery marks the runs that are not live on this host as interrupted;
+	// only the host that starts runs may do that. A queue-only call must not,
+	// or a replica that does not lead would fail the leader's runs.
+	if start {
+		if err := r.ensureRecovered(ctx, now); err != nil {
+			return Run{}, err
+		}
 	}
 	t, err := r.o.Store.GetTrigger(ctx, triggerID)
 	if err != nil {
@@ -860,8 +877,10 @@ func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, err
 	if run.Status.Final() {
 		r.prune(ctx, t.ID, now)
 	}
-	if err := r.startQueued(ctx, now); err != nil {
-		return Run{}, err
+	if start {
+		if err := r.startQueued(ctx, now); err != nil {
+			return Run{}, err
+		}
 	}
 	return r.o.Store.GetRun(ctx, run.ID)
 }

@@ -27,6 +27,12 @@ var _ = Describe("the event block of a run message", func() {
 		Expect(msg).To(ContainSubstring("<<<EVENT DATA\n"))
 	})
 
+	It("treats a negative dropped count as none", func() {
+		msg := renderEventPayload(`[{"dropped":-5},{"n":1}]`)
+		Expect(msg).NotTo(ContainSubstring("dropped"))
+		Expect(msg).To(ContainSubstring("[1] "))
+	})
+
 	It("keeps a single payload as it is, even when it looks like a list", func() {
 		Expect(renderEventPayload(`[1,2]`)).To(Equal(`[1,2]`))
 		Expect(renderEventPayload("plain")).To(Equal("plain"))

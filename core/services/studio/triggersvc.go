@@ -266,6 +266,16 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	if h.runner != nil {
 		return h.runner, nil
 	}
+	r, err := h.newRunner()
+	if err != nil {
+		return nil, err
+	}
+	h.runner = r
+	return r, nil
+}
+
+// newRunner builds a Runner on the host's options.
+func (h *Triggers) newRunner() (*triggers.Runner, error) {
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: h.svc.admin,
 		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff,
@@ -275,12 +285,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	if h.svc.d.Files.Available() {
 		opts.Workspace = h.svc.d.Files.Store()
 	}
-	r, err := triggers.NewRunner(opts)
-	if err != nil {
-		return nil, err
-	}
-	h.runner = r
-	return r, nil
+	return triggers.NewRunner(opts)
 }
 
 // Pass makes one pass as the leader: the Runner claims due runs and starts the
@@ -679,6 +684,7 @@ func renderEventPayload(payload string) string {
 	if json.Unmarshal(items[0], &head) != nil || head.Dropped == nil {
 		return payload
 	}
+	*head.Dropped = max(*head.Dropped, 0)
 	var b strings.Builder
 	events := items[1:]
 	fmt.Fprintf(&b, "%d events arrived before this run started, oldest first.", len(events)+*head.Dropped)
@@ -698,19 +704,31 @@ func renderEventPayload(payload string) string {
 
 // Publish hands an event to the trigger that should take it. On the frontend
 // that runs the triggers the Runner fires it (see Runner.Fire) and starts the
-// run at once, as RunTrigger does. On a frontend that does not lead, the
-// event is queued, with the same checks, and the leader starts it at its next
-// pass; no Runner is made there. The sentinel errors of the Runner (ErrNotFound,
+// run at once. On a frontend that does not lead, the Runner only queues it
+// (Runner.FireQueued: same checks, merge and limits) and the leader starts it
+// at its next pass. The sentinel errors of the Runner (ErrNotFound,
 // ErrNotEnabled, ErrNoMatch) come back as they are.
 func (h *Triggers) Publish(ctx context.Context, triggerID string, ev triggers.Event) error {
+	var err error
 	if h.o.Lead != nil && !h.o.Lead(ctx) {
-		return h.queueEvent(ctx, triggerID, ev)
+		// Not the leader: claim the run queued, and the leader starts it. A
+		// Runner made here is not kept: a kept one would make RunTrigger start
+		// runs on this frontend.
+		var r *triggers.Runner
+		if h.closed() {
+			return ErrTriggersClosed
+		}
+		if r, err = h.newRunner(); err != nil {
+			return err
+		}
+		_, err = r.FireQueued(ctx, triggerID, ev)
+	} else {
+		var r *triggers.Runner
+		if r, err = h.ensureRunner(); err != nil {
+			return err
+		}
+		_, err = r.Fire(ctx, triggerID, ev)
 	}
-	r, err := h.ensureRunner()
-	if err != nil {
-		return err
-	}
-	_, err = r.Fire(ctx, triggerID, ev)
 	if errors.Is(err, triggers.ErrStopped) {
 		return ErrTriggersClosed
 	}
@@ -718,35 +736,6 @@ func (h *Triggers) Publish(ctx context.Context, triggerID string, ev triggers.Ev
 		h.Notify()
 	}
 	return err
-}
-
-// queueEvent claims a queued run for an event on a frontend that does not
-// lead. It does not merge: each event is its own run, and a repeated dedupe
-// key claims nothing.
-func (h *Triggers) queueEvent(ctx context.Context, triggerID string, ev triggers.Event) error {
-	if ev.DedupeKey == "" {
-		return errors.New("triggers: an event needs a dedupe key")
-	}
-	if h.closed() {
-		return ErrTriggersClosed
-	}
-	t, err := h.o.Store.GetTrigger(ctx, triggerID)
-	if err != nil {
-		return err
-	}
-	if t.Kind != triggers.KindEvent || !t.Enabled {
-		return triggers.ErrNotEnabled
-	}
-	if !t.MatchesEvent(ev) {
-		return triggers.ErrNoMatch
-	}
-	run := triggers.Run{ID: newID(), TriggerID: t.ID, DueKey: triggers.EventPrefix + ev.DedupeKey,
-		Due: h.o.Clock().UTC(), Payload: triggers.TrimPayload(ev.Payload, triggers.MaxPayloadBytes)}
-	if _, err := h.o.Store.Claim(ctx, run); err != nil {
-		return err
-	}
-	h.Notify()
-	return nil
 }
 
 // switchOff turns a trigger off and tells the owner. It reads the trigger again
