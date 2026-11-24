@@ -13,8 +13,12 @@
 # are the same.
 # STRATA_ENGINE_FAMILY=inkling (Thinking Machines Inkling 2 Mini) does the same with engines-inkling/ and strata-inkling.
 #
+# STRATA_KFD_NODES names another folder of kernel driver nodes (tests use it).
 # STRATA_ENGINES_DIR and STRATA_ENGINE_BIN select another folder and program. Unsupported hardware stops here with
 # a one-line reason on stderr, which the backend shows in its load error.
+#
+# With --print-engine-dir as the only argument the launcher prints the folder of the chosen package and exits. run.sh
+# uses it to find the programs that ship beside the engine, such as strata-vision.
 set -eu
 
 HERE=$(dirname "$(realpath "$0")")
@@ -43,7 +47,7 @@ die() {
 # gfx name of every AMD GPU the amdgpu driver lists (gfx_target_version is
 # MMmmss, for example 120001 for gfx1201, 110501 for gfx1151).
 amd_gfx_list() {
-	for props in /sys/class/kfd/kfd/topology/nodes/*/properties; do
+	for props in "${STRATA_KFD_NODES:-/sys/class/kfd/kfd/topology/nodes}"/*/properties; do
 		[ -r "$props" ] || continue
 		v=$(sed -n 's/^gfx_target_version[[:space:]]*//p' "$props")
 		case "$v" in '' | *[!0-9]*) continue ;; esac
@@ -52,14 +56,24 @@ amd_gfx_list() {
 	done
 }
 
-hip_variant_for() {
+# The GPU targets each AMD package has code for (upstream tools/packaging/build_hip_linux.sh).
+hip_targets_for() {
 	case "$1" in
-	gfx1200 | gfx1201) echo hip-rx9070 ;;
-	gfx1100 | gfx1101 | gfx1102) echo hip-rx7900 ;;
-	gfx1030 | gfx1031) echo hip-rx6000 ;;
-	gfx1151) echo hip-halo ;;
+	hip-rx9070) echo "gfx1200 gfx1201" ;;
+	hip-rx7900) echo "gfx1100 gfx1101 gfx1102" ;;
+	hip-rx6000) echo "gfx1030 gfx1031 gfx1032" ;;
+	hip-halo) echo "gfx1151" ;;
 	*) return 1 ;;
 	esac
+}
+
+hip_variant_for() {
+	for v in hip-rx9070 hip-rx7900 hip-rx6000 hip-halo; do
+		for t in $(hip_targets_for "$v"); do
+			[ "$t" = "$1" ] && { echo "$v"; return; }
+		done
+	done
+	return 1
 }
 
 choose() {
@@ -80,7 +94,7 @@ choose() {
 			for g in $gfx; do
 				[ "$(hip_variant_for "$g" 2>/dev/null)" = "$only" ] && { echo "$only"; return; }
 			done
-			die "this engine has code for gfx1200 and gfx1201 only; this machine has: $(echo "$gfx" | tr "\n" " ")"
+			die "this engine has code for $(hip_targets_for "$only" || echo unknown) only; this machine has: $(echo "$gfx" | tr "\n" " ")"
 			;;
 		esac
 		echo "$only"
@@ -94,8 +108,12 @@ choose() {
 			return
 		fi
 	done
-	die "Strata has no engine for this AMD GPU ($(echo "$gfx" | tr "\n" " ")); supported: gfx1200 gfx1201 gfx1100 gfx1101 gfx1102 gfx1030 gfx1031 gfx1151"
+	die "Strata has no engine for this AMD GPU ($(echo "$gfx" | tr "\n" " ")); supported:$(for v in hip-rx9070 hip-rx7900 hip-rx6000 hip-halo; do printf ' %s' "$(hip_targets_for "$v")"; done)"
 }
 
 variant=$(choose)
+if [ "$#" -eq 1 ] && [ "$1" = "--print-engine-dir" ]; then
+	echo "$ENGINES/$variant"
+	exit 0
+fi
 exec "$ENGINES/$variant/$BIN" "$@"

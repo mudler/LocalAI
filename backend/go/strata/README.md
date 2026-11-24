@@ -45,7 +45,7 @@ renders the prompt with the model's own chat template.
 | `ple_io`, `mmap_experts` | no | `--ple-io <mode>` and `--mmap-experts` (`true`). |
 | `engine_args` | no | Extra engine arguments, split on spaces. Placed last, so they can override the options above. |
 | `env` | no | `KEY=VALUE` for the engine process. Repeat the option for more. LocalAI's `environment` map is passed too. |
-| `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to `strata-vision` next to the engine, or env `STRATA_VISION_PATH`. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
+| `mmproj`, `vision_exe` | no | Image support: the mmproj file and the `strata-vision` program. `vision_exe` defaults to env `STRATA_VISION_PATH`, which the image's `run.sh` sets to the `strata-vision` of the engine package that fits the machine, or to `strata-vision` next to the engine. A package without the program gives no image support; `vision: on` then fails at load. Images also need `native`, because the encoder reads the text model's vocabulary. `vision: off` disables it. |
 | `vision_gpu`, `vision_threads`, `vision_max_tokens` | no | Encoder settings: run on the GPU (`true`), CPU threads (default: the model's `threads`), and the most image tokens per image. |
 | `media_marker` | no | The placeholder LocalAI puts in message text for each image. Default `<__media__>`. |
 | `ready_timeout` | no | Go duration. How long to wait for `READY`. Default `15m`. |
