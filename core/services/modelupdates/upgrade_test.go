@@ -821,6 +821,21 @@ var _ = Describe("A model upgrade", func() {
 		}
 	})
 
+	It("marks the result of an upgrade of an upgrade run, so the run alone tells it", func() {
+		n := &upgradeNotifier{}
+		u := upgrader(nil)
+		u.Notifier = n
+		f.publish(tinyEntry(f, f.weights("tiny.gguf", "v2")))
+		Expect(u.Upgrade(ctx, modelupdates.Request{OpID: "op-run", Name: "tiny", InRun: true})).To(Succeed())
+		Expect(n.results).To(HaveLen(1))
+		Expect(n.results[0].InRun).To(BeTrue())
+
+		By("marking a refusal of an upgrade of a run too")
+		Expect(u.Upgrade(ctx, modelupdates.Request{OpID: "op-run-2", Name: "tiny", InRun: true})).To(MatchError(modelupdates.ErrUpToDate))
+		Expect(n.results).To(HaveLen(2))
+		Expect(n.results[1].InRun).To(BeTrue())
+	})
+
 	It("tells a refusal before the journal as a failed upgrade, once, from the upgrader", func() {
 		n := &upgradeNotifier{}
 		u := upgrader(nil)

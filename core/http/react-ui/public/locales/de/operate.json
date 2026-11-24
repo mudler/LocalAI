@@ -33,6 +33,15 @@
     "diskChip": "Datenträger fast voll"
   },
   "activity": {
+    "node": {
+      "done": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "queued": "In der Warteschlange",
+      "workerBusy": "Worker ausgelastet",
+      "downloading": "Wird heruntergeladen",
+      "rolledBack": "Zurückgesetzt",
+      "unconfirmed": "Nicht bestätigt"
+    },
     "kind": {
       "addon": "Add-on"
     },

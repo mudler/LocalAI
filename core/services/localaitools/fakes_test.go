@@ -272,6 +272,21 @@ func (f *fakeClient) UpgradeBackend(_ context.Context, name string) (string, err
 	return "", errNotConfigured
 }
 
+func (f *fakeClient) StartUpgradeRun(_ context.Context, req UpgradeRunStartRequest) (*UpgradeRun, error) {
+	f.record("StartUpgradeRun", req)
+	return &UpgradeRun{ID: "run-1", State: "running", Items: []UpgradeRunItem{}}, nil
+}
+
+func (f *fakeClient) UpgradeRuns(_ context.Context, id string) ([]UpgradeRun, error) {
+	f.record("UpgradeRuns", id)
+	return []UpgradeRun{}, nil
+}
+
+func (f *fakeClient) CancelUpgradeRun(_ context.Context, id, key string) (*UpgradeRun, error) {
+	f.record("CancelUpgradeRun", map[string]string{"id": id, "key": key})
+	return &UpgradeRun{ID: id, State: "running", Items: []UpgradeRunItem{}}, nil
+}
+
 func (f *fakeClient) ModelUpdates(_ context.Context) (*modelupdates.Snapshot, error) {
 	f.record("ModelUpdates", nil)
 	return &modelupdates.Snapshot{Items: []modelupdates.Item{}}, nil

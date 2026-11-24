@@ -273,6 +273,13 @@ type ApplicationConfig struct {
 	AutoUpgradeAddons                           bool
 	PreferDevelopmentBackends                   bool
 
+	// UpgradeRunKeep is the most finished upgrade runs kept. Zero means 200
+	// (upgraderun.DefaultRetention), a negative value keeps any number.
+	UpgradeRunKeep int
+	// UpgradeRunRetentionDays is how long finished upgrade runs are kept.
+	// Zero means 30 days, a negative value keeps them forever.
+	UpgradeRunRetentionDays int
+
 	// RequireBackendIntegrity promotes a missing SHA256 (tarball/HTTP URIs)
 	// or missing verification policy (OCI URIs) from a warning to a hard
 	// failure during backend install/upgrade. Off by default to keep
@@ -1564,6 +1571,12 @@ func WithMCPCIJobTimeout(d time.Duration) AppOption {
 // trigger, and for how many days.
 func WithTriggerRunRetention(keep, days int) AppOption {
 	return func(o *ApplicationConfig) { o.TriggerRunKeep, o.TriggerRunRetentionDays = keep, days }
+}
+
+// WithUpgradeRunRetention sets how many finished upgrade runs are kept, and
+// for how many days.
+func WithUpgradeRunRetention(keep, days int) AppOption {
+	return func(o *ApplicationConfig) { o.UpgradeRunKeep, o.UpgradeRunRetentionDays = keep, days }
 }
 
 // Defaults of the agent jobs.

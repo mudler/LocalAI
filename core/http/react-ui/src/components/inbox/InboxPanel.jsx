@@ -7,9 +7,12 @@ import { useActivitySummary } from '../../hooks/useActivityFeed'
 import { usePendingChanges } from '../../hooks/usePendingChanges'
 import { disablePush, enablePush, pushState } from '../../utils/chatPush'
 import { relativeDate } from '../../utils/fileBrowser'
+import { cssVars } from '../../utils/modelLedger'
 import {
-  failed, filterItems, groupByDay, iconOf, linkDisabled, reasonText, sourceOf, targetOf, textOf, toneOf,
+  bodyOf, failed, filterItems, groupByDay, iconOf, linkDisabled, runItemKind, runProgressOf, sourceOf, targetOf, textOf, toneOf,
 } from '../../utils/inbox'
+import { isPending } from '../../utils/updates'
+import { useUpdates } from '../../contexts/UpdatesContext'
 import { openingTab } from '../../utils/opsActivity'
 import ActionMenu from '../ActionMenu'
 import ActivityTab from './ActivityTab'
@@ -50,6 +53,20 @@ function PushSwitch({ t }) {
   )
 }
 
+// The way to the Updates page, for an administrator, with the number of
+// updates there: the same count as the page's own sentence.
+function UpdatesJump({ updates, t, onGo }) {
+  const pending = (updates.rows || []).filter(isPending).length
+  return (
+    <div className="nx-jump" data-testid="inbox-open-updates">
+      <Button variant="ghost" size="sm" iconEnd="arrow-right" to="/app/updates" onClick={onGo} data-testid="inbox-open-updates-link">{t('inbox.openUpdates')}</Button>
+      <span className="nx-foot__note" data-testid="inbox-updates-count">
+        {pending > 0 ? t('inbox.updatesPending', { count: pending }) : t('inbox.updatesNone')}
+      </span>
+    </div>
+  )
+}
+
 // When, as the list says it: under Today how long ago, under Yesterday the
 // time, under Earlier the date and time. The exact date is the tooltip.
 function whenText(iso, day, locale) {
@@ -74,9 +91,12 @@ function InboxItem({ n, day, t, locale, fresh, busy, chatsOn, onOpen, onRead, on
   const noChats = linkDisabled(n, chatsOn)
   const source = sourceOf(n)
   const text = textOf(n, t)
-  const body = isFailed ? reasonText(text.body) : text.body
+  const body = bodyOf(n, text)
   const name = n.read ? text.title : t('inbox.itemUnread', { title: text.title })
   const cls = ['nx-item', !n.read && 'is-unread', isFailed && 'is-failed', fresh && 'is-fresh'].filter(Boolean).join(' ')
+  // An update run: the live item has a bar, and both say where they lead.
+  const run = runItemKind(n)
+  const progress = runProgressOf(n)
   return (
     <li className={cls} data-testid="inbox-item" data-id={n.id} data-read={n.read ? 'true' : 'false'}>
       <button
@@ -96,10 +116,25 @@ function InboxItem({ n, day, t, locale, fresh, busy, chatsOn, onOpen, onRead, on
               <span className="nx-item__clamp">{body}</span>
             </span>
           )}
+          {progress != null && (
+            <span
+              className="nx-op__track nx-item__bar"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={t('inbox.runProgress', { title: text.title })}
+              data-testid="inbox-run-progress"
+            >
+              <span className="nx-op__fill" style={cssVars({ '--op-w': `${progress}%` })} />
+            </span>
+          )}
           <span id={`${id}-meta`} className="nx-item__meta">
-            <time dateTime={n.created} title={when.exact}>{when.label}</time>
+            <time dateTime={n.created} title={when.exact}>{run === 'live' ? t('inbox.runStarted', { when: when.label }) : when.label}</time>
             <span aria-hidden="true">·</span>
-            <span>{t(`inbox.source.${source}`)}</span>
+            {run
+              ? <strong className="nx-item__run" data-testid="inbox-run-link">{run === 'live' ? t('inbox.viewProgress') : t('inbox.seeRun')}</strong>
+              : <span>{t(`inbox.source.${source}`)}</span>}
             {target && <Icon name="arrow-right" className="nx-item__go" />}
             {noChats && <><span aria-hidden="true">·</span><span data-testid="inbox-chats-off">{t('inbox.chatsOff')}</span></>}
           </span>
@@ -152,6 +187,7 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
   // on Notifications otherwise; a tab picked by hand holds while it stays open.
   const { isAdmin } = useAuth()
   const ops = useActivitySummary()
+  const updates = useUpdates()
   const [tab, setTab] = useState(() => (isAdmin ? openingTab(ops) : 'notifications'))
   const tabs = isAdmin && !opsOnly
   const onNotifications = !opsOnly && (!tabs || tab === 'notifications')
@@ -434,11 +470,10 @@ export default function InboxPanel({ inbox, anchorEl, onClose, opsOnly = false, 
             </div>
           )}
         </div>}
-        {onNotifications && (
-          <footer className="nx-foot">
-            <PushSwitch t={t} />
-          </footer>
-        )}
+        <footer className="nx-foot">
+          {isAdmin && updates && updates.enabled && <UpdatesJump updates={updates} t={t} onGo={() => onClose(false)} />}
+          {onNotifications && <PushSwitch t={t} />}
+        </footer>
       </div>
     </>
   )

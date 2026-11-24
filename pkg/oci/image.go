@@ -357,11 +357,49 @@ func createDownloadDirIn(stagingDir string) (string, error) {
 	if err := os.MkdirAll(stagingDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create staging directory: %w", err)
 	}
-	dir, err := os.MkdirTemp(stagingDir, "localai-oci-*")
+	dir, err := os.MkdirTemp(stagingDir, downloadDirPrefix+"*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create download directory: %w", err)
 	}
 	return dir, nil
+}
+
+// downloadDirPrefix starts the name of the working directory of each
+// download in the staging directory.
+const downloadDirPrefix = "localai-oci-"
+
+// SweepStagingDir removes the working directories of downloads that a crash
+// left in stagingDir: a partial image tar and its layers. Each download makes
+// its own directory with a random name and removes it when it ends, so none
+// can be resumed after a restart. Call it once at start, before any download
+// can run, and only on a staging directory that no other process uses. It
+// returns the names it removed. The OS temp directory is never swept.
+func SweepStagingDir(stagingDir string) []string {
+	if stagingDir == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(stagingDir)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			xlog.Warn("Could not read the download staging directory to clean interrupted downloads", "error", err)
+		}
+		return nil
+	}
+	var removed []string
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), downloadDirPrefix) {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(stagingDir, e.Name())); err != nil {
+			xlog.Warn("Could not remove an interrupted download", "path", e.Name(), "error", err)
+			continue
+		}
+		removed = append(removed, e.Name())
+	}
+	if len(removed) > 0 {
+		xlog.Info("Removed the files of interrupted downloads from the staging directory", "dirs", len(removed))
+	}
+	return removed
 }
 
 // isUnwritableDirError reports whether err means the directory exists or

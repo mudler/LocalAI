@@ -521,6 +521,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	var opcache *galleryop.OpCache
 	if !application.ApplicationConfig().DisableWebUI {
 		opcache = galleryop.NewOpCache(application.GalleryService())
+		application.SetOperationCache(opcache)
 		// In distributed mode, wire the NATS client + gallery store so this
 		// replica's OpCache stays in sync with peers — without this the
 		// /api/operations endpoint returns whatever this single replica
@@ -711,7 +712,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	} else {
 		routes.RegisterJoinScriptRoutes(e, nil, nil)
 	}
-	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, registerOpts...)
+	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.WorkerAuthToken(), natsCfg, workerHTTPDial, application.UpgradeChecker(), registerOpts...)
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)

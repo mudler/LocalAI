@@ -42,6 +42,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
+	"github.com/mudler/LocalAI/core/services/upgraderun"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
@@ -78,6 +79,13 @@ type Client struct {
 	// They are read at each call: both start after the client is built.
 	ModelUpdatesService func() *modelupdates.Service
 	ModelUpgrader       func() *modelupdates.Upgrader
+	// UpgradeRunService returns the service of the upgrade runs, or nil when the
+	// server keeps none. Read at each call: it starts after the client.
+	UpgradeRunService func() *upgraderun.Service
+	// BackendUpgradeGuard returns the early refusal of a backend upgrade that
+	// the REST routes use (not installed, no update), or nil for none. Read at
+	// each call: the update checker starts after the client.
+	BackendUpgradeGuard func() *backendupdates.UpgradeGuard
 
 	// FallbackUser is the identity of a call whose context carries no user
 	// (see localaitools.WithUser), and only when SingleUser is set. With
@@ -712,6 +720,13 @@ func (c *Client) UpgradeBackend(ctx context.Context, name string) (string, error
 	if c.AppConfig.DisableBackendInstall {
 		return "", fmt.Errorf("%w: %s", gallery.ErrBackendInstallDisabled, name)
 	}
+	// The same early refusal as the REST routes, before a run is admitted.
+	if refusal := c.backendGuard().Check(ctx, name, "", ""); refusal != nil {
+		return "", refusal
+	}
+	if jobID, handled, err := c.upgradeOneViaRun(ctx, upgraderun.KindGallery, name); handled {
+		return jobID, err
+	}
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return "", fmt.Errorf("generate job id: %w", err)
@@ -780,11 +795,31 @@ func (c *Client) queueModelUpgrade(name string, opts galleryop.ModelUpgradeOptio
 	return c.Gallery.EnqueueModelUpgrade(name, opts)
 }
 
-func (c *Client) UpgradeModel(_ context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+func (c *Client) UpgradeModel(ctx context.Context, name string, configOnly bool, choices map[string]string) (string, error) {
+	// An upgrade with options stays direct: a run makes no such choice. The
+	// checks of the route run first, so a refusal reads as before.
+	if name != "" && !configOnly && len(choices) == 0 && c.upgradeRuns() != nil {
+		up := c.modelUpgrader()
+		if up == nil || c.Gallery == nil {
+			return "", errModelUpgradesOff
+		}
+		if err := modelupdates.CheckRequest(up, c.modelUpdates(), name, false, nil); err != nil {
+			return "", err
+		}
+		if jobID, handled, err := c.upgradeOneViaRun(ctx, upgraderun.KindModel, name); handled {
+			return jobID, err
+		}
+	}
+	if err := c.refuseIfRunActive(); err != nil {
+		return "", err
+	}
 	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{ConfigOnly: configOnly, Choices: choices})
 }
 
 func (c *Client) RetryModelUpgrade(_ context.Context, name string) (string, error) {
+	if err := c.refuseIfRunActive(); err != nil {
+		return "", err
+	}
 	return c.queueModelUpgrade(name, galleryop.ModelUpgradeOptions{Retry: true})
 }
 

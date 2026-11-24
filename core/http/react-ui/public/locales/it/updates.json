@@ -89,8 +89,6 @@
     "ready": "Pronti da aggiornare",
     "current_one": "{{count}} aggiornato",
     "current_other": "{{count}} aggiornati",
-    "selectAll": "Seleziona tutti i pronti",
-    "selectNone": "Non selezionare nulla",
     "show": "Mostra",
     "hide": "Nascondi",
     "other": "Altri modelli"
@@ -116,7 +114,6 @@
     "drift_one": "{{count}} differisce",
     "drift_other": "{{count}} differiscono",
     "old": "da un controllo precedente",
-    "select": "Seleziona {{name}}",
     "update": "Aggiorna",
     "updateNamed": "Aggiorna {{name}}",
     "check": "Controlla",
@@ -143,19 +140,16 @@
     "updatingPhase": "In aggiornamento: {{phase}}",
     "updatingPlain": "In aggiornamento",
     "queued": "In coda, in attesa di uno slot libero",
-    "addonConfirm": "Richiede la tua conferma in questo browser",
     "nodesAction": "Nodi",
     "nodesNamed": "Mostra i nodi di {{name}}",
-    "needsConfirm": "{{name}} gira su dei nodi e richiede prima la tua conferma. Usa Aggiorna sulla sua riga."
+    "heldBack": "Trattenuta: questa versione non si è avviata. Gli aggiornamenti automatici la saltano finché non esce una nuova versione. Aggiornala da qui per riprovare."
   },
   "bulk": {
     "start": "Aggiorna {{count}} pronti",
     "running": "Aggiornamento {{current}} di {{total}}",
     "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
-    "details": "Dettagli",
-    "cancelAll": "Annulla tutto",
     "retryFailed": "Riprova i falliti ({{count}})",
-    "dismiss": "Chiudi"
+    "review": "Rivedi gli aggiornamenti"
   },
   "check": {
     "result_one": "Controllo terminato: {{count}} aggiornamento.",
@@ -164,10 +158,6 @@
     "failedSources_other": "{{count}} fonti sono fallite.",
     "throttled": "Un controllo è stato eseguito un momento fa. Questo è il suo risultato."
   },
-  "live": {
-    "updated": "{{name}} è stato aggiornato.",
-    "failed": "{{name}} non è stato aggiornato."
-  },
   "empty": {
     "title": "Ancora nulla da aggiornare",
     "body": "Installa un backend o un add-on e i suoi aggiornamenti compariranno qui.",
@@ -175,26 +165,7 @@
     "addons": "Apri le app"
   },
   "dialog": {
-    "title": "Aggiorna i pronti",
-    "intro": "Scegli cosa aggiornare. Ognuno viene aggiornato per conto suo, uno dopo l'altro, e conta come finito solo quando un nuovo controllo non lo elenca più. Un errore non ferma gli altri.",
-    "selection": "Scegli cosa aggiornare",
-    "selectAll": "Seleziona tutto",
-    "selectNone": "Non selezionare nulla",
-    "item": "Aggiorna {{name}}",
-    "versions": "da {{from}} a {{to}}",
-    "blocked": "Non può partire",
-    "start": "Aggiorna selezione",
-    "starting": "Aggiornamento...",
-    "retry": "Riprova i falliti ({{count}})",
-    "again": "Nuova selezione",
-    "close": "Chiudi",
-    "closeRunning": "Chiudi (continua in background)",
-    "runningNote": "Chiudere questa finestra non ferma gli aggiornamenti.",
-    "progress": "Aggiornamento {{current}} di {{total}}",
-    "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
-    "empty": "Nulla da aggiornare.",
-    "selectedCount_one": "{{count}} selezionato",
-    "selectedCount_other": "{{count}} selezionati"
+    "close": "Chiudi"
   },
   "item": {
     "queued": "In coda",
@@ -407,5 +378,124 @@
       "after": "LocalAI registra la voce e ne controlla gli aggiornamenti. La tua configurazione non cambia.",
       "failed": "Impossibile adottare: {{message}}"
     }
+  },
+  "review": {
+    "title_one": "Rivedi {{count}} aggiornamento",
+    "title_other": "Rivedi {{count}} aggiornamenti",
+    "loadingTitle": "Rivedi gli aggiornamenti",
+    "intro": "Non cambia nulla finché non avvii.",
+    "loading": "Lettura del piano",
+    "loadError": "Impossibile leggere il piano degli aggiornamenti.",
+    "selectAll": "Seleziona tutto",
+    "selectNone": "Deseleziona tutto",
+    "selected_one": "{{count}} di {{total}} selezionato",
+    "selected_other": "{{count}} di {{total}} selezionati",
+    "order": "Prima i backend, poi i modelli, poi i componenti aggiuntivi uno alla volta. Ogni aggiornamento mantiene la versione precedente finché la nuova non è in funzione. Una volta avviato, puoi chiudere questa finestra e lasciare la pagina.",
+    "group": {
+      "backends": "Backend ({{count}})",
+      "addons": "Componenti aggiuntivi ({{count}})",
+      "models": "Modelli ({{count}})"
+    },
+    "item": "Aggiorna {{name}}",
+    "backsUp": "Fa il backup dei tuoi dati",
+    "modelNote": "Non selezionato per impostazione predefinita: aggiornare un modello lo ricarica. I vecchi file restano finché non confermi.",
+    "blocked": "Impossibile avviare: {{reason}}",
+    "empty": "Niente da aggiornare.",
+    "start_one": "Aggiorna {{count}} elemento",
+    "start_other": "Aggiorna {{count}} elementi",
+    "startOne": "Aggiorna",
+    "cancel": "Annulla",
+    "singleTitle": "Aggiornare {{name}}?",
+    "singleLoading": "Aggiorna",
+    "singleNote": "La vecchia versione resta finché la nuova non è in funzione.",
+    "risk": {
+      "stopsModels_one": "Ferma {{count}} modello caricato durante il passaggio",
+      "stopsModels_other": "Ferma {{count}} modelli caricati durante il passaggio",
+      "stopsModelsNodes_one": "Ferma {{count}} modello caricato su {{nodes}} nodi durante il passaggio",
+      "stopsModelsNodes_other": "Ferma {{count}} modelli caricati su {{nodes}} nodi durante il passaggio",
+      "migratesData": "I tuoi dati vengono migrati. Prima viene fatto un backup verificato.",
+      "editedKeys_one": "Hai modificato {{count}} impostazione di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
+      "editedKeys_other": "Hai modificato {{count}} impostazioni di questo modello. Usa {{action}} sulla sua riga per scegliere cosa tenere.",
+      "held": "Questa versione attende la tua approvazione.",
+      "cluster_one": "Si aggiorna su {{count}} nodo",
+      "cluster_other": "Si aggiorna su {{count}} nodi",
+      "drift_one": "{{count}} nodo ha ora una build diversa. L’aggiornamento porta ogni nodo alla nuova.",
+      "drift_other": "{{count}} nodi hanno ora una build diversa. L’aggiornamento porta ogni nodo alla nuova.",
+      "configOnly": "Cambia solo le impostazioni del modello. Non viene scaricato nulla."
+    },
+    "follow": "Mostra la serie"
+  },
+  "run": {
+    "group": "Questa serie di aggiornamenti",
+    "title_one": "Aggiornamento di {{count}} elemento",
+    "title_other": "Aggiornamento di {{count}} elementi",
+    "count": {
+      "updated_one": "{{count}} aggiornato",
+      "updated_other": "{{count}} aggiornati",
+      "running_one": "{{count}} in corso",
+      "running_other": "{{count}} in corso",
+      "waiting_one": "{{count}} in attesa",
+      "waiting_other": "{{count}} in attesa",
+      "attention_one": "{{count}} richiede attenzione",
+      "attention_other": "{{count}} richiedono attenzione"
+    },
+    "started": "Avviata {{when}}",
+    "finished": "Terminata {{when}}",
+    "result": {
+      "attention_one": "{{updated}} aggiornati, {{count}} richiede attenzione",
+      "attention_other": "{{updated}} aggiornati, {{count}} richiedono attenzione",
+      "done_one": "{{count}} aggiornato",
+      "done_other": "{{count}} aggiornati",
+      "cancelled_one": "Serie annullata, {{count}} aggiornato",
+      "cancelled_other": "Serie annullata, {{count}} aggiornati",
+      "clean": "Niente è rimasto aggiornato a metà",
+      "unknown_one": "{{count}} risultato non è ancora confermato",
+      "unknown_other": "{{count}} risultati non sono ancora confermati"
+    },
+    "progress": "Avanzamento della serie di aggiornamenti",
+    "cancelRemaining": "Annulla i rimanenti",
+    "retryFailed": "Riprova i non riusciti",
+    "dismiss": "Chiudi",
+    "actionFailed": "La richiesta non è riuscita: {{message}}",
+    "phase": {
+      "queued": "In coda",
+      "running": "In aggiornamento",
+      "updated": "Aggiornato",
+      "failed": "Non riuscito",
+      "rolled_back": "Ripristinato",
+      "cancelled": "Annullato",
+      "skipped": "Saltato",
+      "unconfirmed": "Non confermato"
+    },
+    "queued": {
+      "afterBackends": "In attesa dei backend.",
+      "oneAddon": "I componenti aggiuntivi si aggiornano uno alla volta.",
+      "waitingFor": "In attesa di {{name}}.",
+      "plain": "In attesa di iniziare.",
+      "afterModels": "In attesa dei modelli.",
+      "backendLimit": "In attesa di un posto libero per i backend.",
+      "sameBackend": "In attesa di un’altra operazione su questo backend.",
+      "oneModel": "I modelli si aggiornano uno alla volta."
+    },
+    "detail": {
+      "updating": "Aggiornamento in corso",
+      "node": "Nodo {{index}} di {{count}}: {{message}}",
+      "failed": "{{reason}}. {{name}} è ancora alla {{version}} e i tuoi dati non sono cambiati.",
+      "rolledBack": "La nuova versione non si è avviata: {{reason}}. {{name}} è ancora alla {{version}} e i tuoi dati non sono cambiati.",
+      "unconfirmed": "Impossibile confermare. Controlla di nuovo quale versione ha {{name}}.",
+      "cancelled": "Annullato. {{name}} è ancora alla {{version}}.",
+      "skipped": "Saltato.",
+      "skippedWhy": "Saltato: {{reason}}.",
+      "checking": "Verifica che l’aggiornamento sia stato applicato."
+    },
+    "details": {
+      "toggle": "Dettagli",
+      "code": "Codice: {{code}}",
+      "node": "{{name}}: {{phase}}",
+      "none": "Il server non ha fornito altri dettagli."
+    },
+    "busy": "È in corso una serie di aggiornamenti.",
+    "unavailable": "Le serie di aggiornamenti non sono disponibili su questo server.",
+    "auto": "Aggiornamento automatico"
   }
 }

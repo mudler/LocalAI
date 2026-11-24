@@ -73,6 +73,11 @@ type ManagementOp[T any, E any] struct {
 	// its ModelUpgrader.
 	Upgrade bool
 
+	// InRun is true for an operation that an upgrade run started. The run
+	// writes its own rows in the inbox, so OnOpFinished reports the end of
+	// such an operation with OpResult.InRun set.
+	InRun bool
+
 	// ModelUpgrade are the options of a model upgrade. Nil means the
 	// defaults.
 	ModelUpgrade *ModelUpgradeOptions
@@ -93,6 +98,8 @@ type ModelUpgradeOptions struct {
 	Choices map[string]string `json:"choices,omitempty"`
 	// Retry runs a failed upgrade again.
 	Retry bool `json:"retry,omitempty"`
+	// InRun marks the upgrade as one of an upgrade run (ManagementOp.InRun).
+	InRun bool `json:"-"`
 }
 
 // MessageCompleted is the Message of the final status of an operation that
@@ -105,9 +112,24 @@ type OpStatus struct {
 	// Upgrade is true if the operation re-installs a backend to move it to a
 	// newer build. Without it an upgrade reads as an install: the UI needs the
 	// difference for its wording and for what Retry has to call.
-	Upgrade            bool    `json:"upgrade,omitempty"`
-	FileName           string  `json:"file_name"`
-	Error              error   `json:"-"` // see MarshalJSON: serialized to "error" as a string
+	Upgrade  bool   `json:"upgrade,omitempty"`
+	FileName string `json:"file_name"`
+	Error    error  `json:"-"` // see MarshalJSON: serialized to "error" as a string
+	// ErrorKey is the stable code of a failed backend upgrade (the string
+	// of a gallery.UpgradeFailureCode), next to the text of the failure. It
+	// is empty for every other outcome. Readers branch on it, never on the
+	// message.
+	ErrorKey string `json:"error_key,omitempty"`
+	// RolledBack is true for a failed backend upgrade (or forced install)
+	// whose new build did not start and whose previous build was put back:
+	// the backend still runs the version it ran before. On a cluster it is
+	// true when every node that failed rolled back.
+	RolledBack bool `json:"rolled_back,omitempty"`
+	// Unconfirmed is true for a backend upgrade whose outcome is not known:
+	// a worker did not reply (a timeout, or a link that broke after it took
+	// the request). It is neither a failure nor a success; a later check of
+	// the node decides.
+	Unconfirmed        bool    `json:"unconfirmed,omitempty"`
 	Processed          bool    `json:"processed"`
 	Message            string  `json:"message"`
 	Progress           float64 `json:"progress"`
@@ -140,6 +162,9 @@ type opStatusWire struct {
 	Upgrade            bool           `json:"upgrade,omitempty"`
 	FileName           string         `json:"file_name"`
 	ErrorMessage       string         `json:"error,omitempty"`
+	ErrorKey           string         `json:"error_key,omitempty"`
+	RolledBack         bool           `json:"rolled_back,omitempty"`
+	Unconfirmed        bool           `json:"unconfirmed,omitempty"`
 	Processed          bool           `json:"processed"`
 	Message            string         `json:"message"`
 	Progress           float64        `json:"progress"`
@@ -172,6 +197,9 @@ func (o OpStatus) MarshalJSON() ([]byte, error) {
 		Cancellable:        o.Cancellable,
 		Nodes:              o.Nodes,
 	}
+	w.ErrorKey = o.ErrorKey
+	w.RolledBack = o.RolledBack
+	w.Unconfirmed = o.Unconfirmed
 	if o.Error != nil {
 		w.ErrorMessage = o.Error.Error()
 	}
@@ -198,6 +226,9 @@ func (o *OpStatus) UnmarshalJSON(data []byte) error {
 	o.Cancelled = w.Cancelled
 	o.Cancellable = w.Cancellable
 	o.Nodes = w.Nodes
+	o.ErrorKey = w.ErrorKey
+	o.RolledBack = w.RolledBack
+	o.Unconfirmed = w.Unconfirmed
 	if w.ErrorMessage != "" {
 		o.Error = errors.New(w.ErrorMessage)
 	} else {
@@ -245,6 +276,9 @@ const (
 	NodeStatusRunningOnWorker = "running_on_worker" // NATS round-trip timed out but worker is still installing
 	NodeStatusSuccess         = "success"           // install completed on this node
 	NodeStatusError           = "error"             // install failed on this node
+	// The two below are used by backend upgrades only.
+	NodeStatusRolledBack  = "rolled_back" // the new build did not start; the previous build is back
+	NodeStatusUnconfirmed = "unconfirmed" // the reply never arrived; the outcome is not known
 )
 
 // NodeProgress is a single node's contribution to a backend install
@@ -264,6 +298,9 @@ type NodeProgress struct {
 	Percentage float64 `json:"percentage"`
 	Phase      string  `json:"phase,omitempty"`
 	Error      string  `json:"error,omitempty"`
+	// ErrorKey is the gallery.UpgradeFailureCode of a failed backend upgrade
+	// on this node (status error or rolled_back).
+	ErrorKey string `json:"error_key,omitempty"`
 }
 
 type OpCache struct {
@@ -576,6 +613,7 @@ func (m *OpCache) recordTerminal(jobID string, src terminalSource) {
 		} else if status.Upgrade {
 			rec.TaskType = TaskUpgrade
 		}
+		rec.ErrorKey, rec.RolledBack, rec.Unconfirmed = status.ErrorKey, status.RolledBack, status.Unconfirmed
 		switch {
 		case status.Error != nil:
 			rec.Outcome = OutcomeFailed

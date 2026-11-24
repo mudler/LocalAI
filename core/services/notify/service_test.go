@@ -208,6 +208,23 @@ var _ = Describe("the notification service", func() {
 			Expect(hooked).To(HaveLen(2))
 		})
 
+		It("announces nothing in the quiet mode, and tells the clients to read again", func() {
+			svc := newService(nil, nil)
+			var hooked []string
+			svc.OnAdd(func(n notify.Notification) { hooked = append(hooked, n.Title) })
+			ch, cancel := svc.Subscribe("u1")
+			defer cancel()
+
+			_, res, err := svc.Upsert(ctx, set("run: 0 of 2 done", "run-1"), notify.ModeSetQuiet)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(res).To(Equal(notify.ResultCreated))
+			Expect(recv(ch).Op).To(Equal(notify.OpChanged), "a quiet row is read, not heard as an arrival")
+			_, res, _ = svc.Upsert(ctx, set("run: 1 of 2 done", "run-1"), notify.ModeSetQuiet)
+			Expect(res).To(Equal(notify.ResultUpdated))
+			Expect(recv(ch).Op).To(Equal(notify.OpChanged))
+			Expect(hooked).To(BeEmpty(), "no push and no Telegram message for a row of work in progress")
+		})
+
 		It("does not tell the clients about an edit of a hidden row", func() {
 			svc := newService(nil, nil)
 			a, _, _ := svc.Upsert(ctx, set("2 updates", "a", "b"), notify.ModeSet)

@@ -280,6 +280,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 					// The install waits for a new review of its host access.
 					opData["needsApproval"] = true
 				}
+				// A backend upgrade that put the previous build back, with
+				// its code: the Updates page says "Rolled back", as the row
+				// of the run that ran it does.
+				if status.RolledBack {
+					opData["rolledBack"] = true
+				}
+				if status.ErrorKey != "" {
+					opData["errorKey"] = status.ErrorKey
+				}
 			}
 			// Expose the per-node breakdown when the Phase 4 progress sink
 			// has populated OpStatus.Nodes (distributed backend installs).
@@ -1824,13 +1833,29 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	app.GET("/api/backends/updates", localai.BackendUpdatesEndpoint(updates), adminMiddleware)
 	app.POST("/api/backends/updates/check", localai.CheckBackendUpdatesEndpoint(updates), adminMiddleware)
 
-	app.POST("/api/backends/upgrade/:name", func(c echo.Context) error {
+	// Refuses an upgrade that cannot run before it is queued. A nil checker
+	// (no application) leaves only the installed check.
+	var upgradeChecker localai.UpgradeInfoProvider
+	if applicationInstance != nil {
+		upgradeChecker = applicationInstance.UpgradeChecker()
+	}
+	upgradeGuard := localai.NewBackendUpgradeGuard(galleryService, upgradeChecker)
+
+	app.POST("/api/backends/upgrade/:name", localai.BackendUpgradeViaRun(UpgradeRunDepsFor(applicationInstance), upgradeGuard, func(c echo.Context) error {
 		backendName := c.Param("name")
 		backendName, err := url.QueryUnescape(backendName)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]any{
 				"error": "invalid backend name",
 			})
+		}
+
+		expectedTo, err := localai.ExpectedToOf(c)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})
+		}
+		if refusal := upgradeGuard.Check(c.Request().Context(), backendName, "", expectedTo); refusal != nil {
+			return refusal.Write(c)
 		}
 
 		id, err := uuid.NewUUID()
@@ -1864,7 +1889,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"statusUrl": fmt.Sprintf("/api/backends/job/%s", uid),
 			"message":   "Backend upgrade started",
 		})
-	}, adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+	}, localai.UIBackendUpgradeAnswer), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 
 	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
 	app.GET("/api/resources", func(c echo.Context) error {

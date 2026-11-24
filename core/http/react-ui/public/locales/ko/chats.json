@@ -814,6 +814,33 @@
           "body_one": "이전 파일 {{count}}개를 삭제했습니다.",
           "body_other": "이전 파일 {{count}}개를 삭제했습니다."
         }
+      },
+      "run": {
+        "title_one": "{{count}}개 업데이트 중",
+        "title_other": "{{count}}개 업데이트 중",
+        "titleAuto_one": "자동 업데이트: {{count}}개",
+        "titleAuto_other": "자동 업데이트: {{count}}개",
+        "updated_one": "{{count}}개 업데이트됨",
+        "updated_other": "{{count}}개 업데이트됨",
+        "running_one": "{{count}}개 진행 중",
+        "running_other": "{{count}}개 진행 중",
+        "waiting_one": "{{count}}개 대기 중",
+        "waiting_other": "{{count}}개 대기 중",
+        "done": "{{total}}개 중 {{done}}개 완료",
+        "end": {
+          "attention_one": "{{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "attention_other": "{{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "done_one": "{{count}}개 업데이트됨",
+          "done_other": "{{count}}개 업데이트됨",
+          "auto": "자동: {{text}}",
+          "first": "{{name}}은(는) 여전히 {{version}}입니다.",
+          "firstWhy": "{{name}}은(는) 여전히 {{version}}입니다: {{reason}}.",
+          "cancelled_one": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelled_other": "업데이트 실행 취소됨: {{count}}개 업데이트됨",
+          "cancelledAttention_one": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "cancelledAttention_other": "업데이트 실행 취소됨: {{updated}}개 업데이트됨, {{count}}개 확인 필요",
+          "firstStart": "{{name}}은(는) 여전히 {{version}}입니다: 새 버전이 시작되지 않았습니다: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "채팅 세션이 꺼져 있음",
-    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다."
+    "emptyBodyNoChats": "업데이트와 완료된 작업이 여기에 표시됩니다.",
+    "runProgress": "진행률: {{title}}",
+    "runStarted": "{{when}} 시작됨",
+    "viewProgress": "진행 상황 보기",
+    "seeRun": "실행 보기",
+    "openUpdates": "업데이트 열기",
+    "updatesPending_one": "업데이트 {{count}}개 있음",
+    "updatesPending_other": "업데이트 {{count}}개 있음",
+    "updatesNone": "모두 최신입니다"
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",

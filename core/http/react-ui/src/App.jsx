@@ -123,10 +123,12 @@ export default function App() {
   const accountLabel = user?.name || user?.email || t('account')
   const themeToggleLabel = theme === 'dark' ? t('switchToLightMode') : t('switchToDarkMode')
 
+  // Updates sits above the inbox: the panel's footer shows the number of
+  // updates and the way to the Updates page.
   return (
     <ViewAsProvider>
-    <InboxProvider features={features}>
     <UpdatesProvider features={features}>
+    <InboxProvider features={features}>
     {/* The Administration sidebar draws its counts from the summary, so the
         provider sits above it; it asks for nothing off an Administration page. */}
     <OperateSummaryProvider enabled={isAdmin && hubOwnsPath(operateHub, location.pathname)}>
@@ -225,8 +227,8 @@ export default function App() {
         <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
       </div>
     </OperateSummaryProvider>
-    </UpdatesProvider>
     </InboxProvider>
+    </UpdatesProvider>
     </ViewAsProvider>
   )
 }

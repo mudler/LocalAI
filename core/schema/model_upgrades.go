@@ -25,7 +25,11 @@ type ModelUpgradeResponse struct {
 // the edited keys that need a choice, for a 409. Candidates lists the gallery
 // entries an adoption can take ("gallery@entry"), for a refused adoption.
 type ModelUpgradeError struct {
-	Error      string   `json:"error"`
+	Error string `json:"error"`
+	// Code is a stable code when the refusal has one, such as run_active
+	// (another upgrade run is running) or the error key of an upgrade run
+	// item that could not start.
+	Code       string   `json:"code,omitempty"`
 	Keys       []string `json:"keys,omitempty"`
 	Candidates []string `json:"candidates,omitempty"`
 }

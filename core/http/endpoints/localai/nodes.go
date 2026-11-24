@@ -1087,20 +1087,28 @@ func InstallBackendOnNodeEndpoint(_ nodes.NodeCommandSender, galleryService *gal
 // Only gallery-name upgrades are supported: the distributed upgrade path
 // resolves galleries from server config, so unlike install there is no
 // URI/name/alias or galleries-override surface.
-func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+func UpgradeBackendOnNodeEndpoint(galleryService *galleryop.GalleryService, opcache *galleryop.OpCache, appConfig *config.ApplicationConfig, guard *BackendUpgradeGuard) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if galleryService == nil {
 			return c.JSON(http.StatusServiceUnavailable, nodeError(http.StatusServiceUnavailable, "gallery service not configured"))
 		}
 		nodeID := c.Param("id")
 		var req struct {
-			Backend string `json:"backend"`
+			Backend    string `json:"backend"`
+			ExpectedTo string `json:"expected_to"`
 		}
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "invalid request body"))
 		}
 		if req.Backend == "" {
 			return c.JSON(http.StatusBadRequest, nodeError(http.StatusBadRequest, "backend name required"))
+		}
+		expectedTo := req.ExpectedTo
+		if expectedTo == "" {
+			expectedTo = c.QueryParam("expected_to")
+		}
+		if refusal := guard.Check(c.Request().Context(), req.Backend, nodeID, expectedTo); refusal != nil {
+			return refusal.Write(c)
 		}
 
 		jobUUID, err := uuid.NewUUID()

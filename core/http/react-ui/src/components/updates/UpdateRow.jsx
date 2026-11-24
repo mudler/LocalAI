@@ -12,6 +12,10 @@ import { modelChip, useModelDetail } from './modelWords'
 const TILE_ICON = { gallery: 'server', library: 'server', addon: 'puzzle', model: 'brain' }
 const STATE_ICON = { failed: 'alert-circle', held: 'lock', blocked: 'warning', 'on-hold': 'lock', gone: 'warning', cleanup: 'trash' }
 
+// The chip of a backend whose new build did not start and was replaced by the
+// previous one: the word and the look of the item of an update run.
+const ROLLED_BACK_CHIP = { tone: 'warn', icon: 'history' }
+
 // The chip word of a row. One word, never two states.
 function chipOf(row) {
   if (row.state === 'ready') return row.subtype === 'drift' ? 'differs' : 'update-ready'
@@ -19,13 +23,19 @@ function chipOf(row) {
   return row.state
 }
 
+const trimStop = (s) => String(s || '').trim().replace(/[.\s]+$/, '')
+
 // The origin line: where the new version comes from.
-function useOrigin(row) {
-  const { t } = useTranslation('updates')
+export function originText(row, t) {
   if (row.kind === 'model') return row.gallery ? t('row.origin.model', { gallery: row.gallery }) : t('row.origin.modelUnnamed')
   if (row.kind === 'gallery') return t('row.origin.gallery')
   const source = row.sourceId ? t('row.origin.library', { id: row.sourceId }) : t('row.origin.libraryUnnamed')
   return row.signed ? `${source} · ${t('row.signed')}` : source
+}
+
+function useOrigin(row) {
+  const { t } = useTranslation('updates')
+  return originText(row, t)
 }
 
 // The words under the name: why the row is where it is. Empty when the row says
@@ -35,6 +45,11 @@ function useDetail(row) {
   const { t: ta } = useTranslation('addons')
   switch (row.state) {
     case 'failed': {
+      // The same sentence as the rolled-back item of a run: the error of the
+      // operation is the bare cause.
+      if (row.rolledBack && row.error) {
+        return { tone: 'error', text: t('run.detail.rolledBack', { reason: trimStop(row.error), name: row.name, version: row.from || '?' }) }
+      }
       const why = row.errorKey ? upgradeFailureWords(row.errorKey, ta) : (row.error || t('row.noReason'))
       return { tone: 'error', text: t('row.failedWhy', { message: why }) }
     }
@@ -48,9 +63,9 @@ function useDetail(row) {
       if (row.queued) return { tone: 'muted', text: t('row.queued') }
       return { tone: 'accent', text: row.phase ? t('row.updatingPhase', { phase: row.phase }) : t('row.updatingPlain') }
     case 'ready':
+      if (row.heldBack) return { tone: 'warn', text: t('row.heldBack') }
       if (row.needsCheck) return { tone: 'muted', text: reasonText(row.availability, ta) }
       if (row.reason) return { tone: 'muted', text: row.reason }
-      if (row.kind === 'addon') return { tone: 'muted', text: t('row.addonConfirm') }
       return null
     default:
       return null
@@ -60,18 +75,20 @@ function useDetail(row) {
 // One thing that can be updated. The same markup for a backend, a library
 // backend and an add-on: the kind only changes the tag, the origin and the
 // words under the name. The row is one list item with one chip and at most one
-// button to act on it. A backend on several nodes adds a link to its
-// per-node page, which is a place to look, not a second question.
-export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, model = null }) {
+// button to act on it; Update opens the review of that row. The first column
+// stays empty so the rows line up with the items of an update run. A backend
+// on several nodes adds a link to its per-node page, where each node can be
+// updated on its own.
+export default function UpdateRow({ row, onUpdate, onRetry, onReview, onCancel, onCheck, checking = false, locked = false, lockedReason = '', model = null }) {
   const { t } = useTranslation('updates')
   const origin = useOrigin(row)
   const otherDetail = useDetail(row)
   const modelDetail = useModelDetail(row)
   const isModel = row.kind === 'model'
   const detail = isModel ? modelDetail : otherDetail
-  const chip = isModel ? null : chipOf(row)
-  const ownChip = isModel ? modelChip(row, t) : null
-  const canSelect = row.state === 'ready' && row.startable
+  const rolledBack = !isModel && row.state === 'failed' && row.rolledBack
+  const chip = isModel || rolledBack ? null : chipOf(row)
+  const ownChip = isModel ? modelChip(row, t) : rolledBack ? { ...ROLLED_BACK_CHIP, label: t('run.phase.rolled_back') } : null
   const tone = row.state === 'ready' ? 'accent' : row.state === 'updating' ? 'accent' : row.state === 'current' ? 'ok' : row.state === 'failed' ? 'error' : (row.state === 'on-hold' || row.state === 'unknown') ? 'idle' : row.state === 'cleanup' ? 'accent' : 'warn'
   const icon = STATE_ICON[row.state] || TILE_ICON[row.kind]
   const nodes = row.nodeCount > 1 ? t('row.nodes', { count: row.nodeCount }) : ''
@@ -88,18 +105,7 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
       data-state={row.state}
       data-name={row.name}
     >
-      <span className="uc-row__check">
-        {canSelect && (
-          <input
-            type="checkbox"
-            className="dk-check"
-            checked={Boolean(selected)}
-            disabled={locked}
-            onChange={() => onToggle(row.id)}
-            aria-label={t('row.select', { name: row.name })}
-          />
-        )}
-      </span>
+      <span className="uc-row__check" />
       <span className="uc-row__tile" data-tone={tone}><Icon name={icon} /></span>
       <div className="uc-row__main">
         <div className="uc-row__name">
@@ -137,13 +143,13 @@ export default function UpdateRow({ row, selected, onToggle, onUpdate, onRetry, 
           <Button size="sm" variant="ghost" to={`/app/updates/backend/${encodeURIComponent(row.name)}`} aria-label={t('row.nodesNamed', { name: row.name })} data-testid="update-row-nodes">{t('row.nodesAction')}</Button>
         )}
         {row.state === 'ready' && row.startable && (
-          <Button size="sm" disabled={locked} onClick={() => onUpdate(row)} aria-label={t('row.updateNamed', { name: row.name })}>{t('row.update')}</Button>
+          <Button size="sm" disabled={locked} title={lockedReason || undefined} onClick={() => onUpdate(row)} aria-label={t('row.updateNamed', { name: row.name })}>{t('row.update')}</Button>
         )}
         {row.state === 'ready' && !row.startable && row.needsCheck && row.kind === 'addon' && (
           <Button size="sm" icon="refresh" busy={checking} disabled={locked || checking} onClick={() => onCheck(row)} aria-label={t('row.checkNamed', { name: row.name })}>{t('row.check')}</Button>
         )}
         {row.state === 'failed' && (
-          <Button size="sm" icon="refresh" disabled={locked} onClick={() => onRetry(row)} aria-label={t('row.retryNamed', { name: row.name })}>{t('row.retry')}</Button>
+          <Button size="sm" icon="refresh" disabled={locked} title={lockedReason || undefined} onClick={() => onRetry(row)} aria-label={t('row.retryNamed', { name: row.name })}>{t('row.retry')}</Button>
         )}
         {row.state === 'held' && row.grant && (
           <Button size="sm" onClick={() => onReview(row)} aria-label={t('row.reviewNamed', { name: row.name })}>{t('row.review')}</Button>

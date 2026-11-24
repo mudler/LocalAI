@@ -210,7 +210,9 @@
       "failed": "ব্যর্থ",
       "queued": "সারিबद्ध",
       "workerBusy": "কর্মী ব্যস্ত",
-      "downloading": "ডাউনলোড করা"
+      "downloading": "ডাউনলোড করা",
+      "rolledBack": "আগের অবস্থায় ফেরানো হয়েছে",
+      "unconfirmed": "নিশ্চিত নয়"
     },
     "kind": {
       "model": "মডেল",

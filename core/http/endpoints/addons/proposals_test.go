@@ -213,6 +213,13 @@ func (s *ownerStack) frontend(g *gateway.Gateway) *echo.Echo {
 // forwardingFrontends serves the same routes as two other frontends that reach
 // the owner gateway only through the signed, pinned carrier.
 func (s *ownerStack) forwardingFrontends(owner *gateway.Gateway) (*echo.Echo, *echo.Echo) {
+	a, b, _ := s.forwardingGateways(owner)
+	return s.frontend(a), s.frontend(b)
+}
+
+// forwardingGateways are the gateways of two frontends that forward to owner,
+// and the owner's carrier server, which a spec closes to cut the owner off.
+func (s *ownerStack) forwardingGateways(owner *gateway.Gateway) (*gateway.Gateway, *gateway.Gateway, *httptest.Server) {
 	certs, roots := certificates()
 	pins := map[string][32]byte{}
 	keys := map[string]ed25519.PublicKey{}
@@ -237,9 +244,8 @@ func (s *ownerStack) forwardingFrontends(owner *gateway.Gateway) (*echo.Echo, *e
 	server.StartTLS()
 	DeferCleanup(server.Close)
 	revalidate := auth.AddonRevalidate(s.db, s.mode)
-	a := s.frontend(&gateway.Gateway{Forward: carriers["front-a"], Revalidate: revalidate})
-	b := s.frontend(&gateway.Gateway{Forward: carriers["front-b"], Revalidate: revalidate})
-	return a, b
+	return &gateway.Gateway{Forward: carriers["front-a"], Revalidate: revalidate},
+		&gateway.Gateway{Forward: carriers["front-b"], Revalidate: revalidate}, server
 }
 
 // stubBroker answers every proposal call with a fixed error, as an owner

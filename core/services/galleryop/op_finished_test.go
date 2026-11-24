@@ -42,6 +42,12 @@ var _ = Describe("GalleryService OnOpFinished", func() {
 		Eventually(seen).Should(Receive(Equal(galleryop.OpResult{ID: "op", Name: "whisper", Backend: true, Upgrade: true, Outcome: galleryop.OpFailed, Err: "download interrupted"})))
 	})
 
+	It("marks an operation of an upgrade run", func() {
+		svc.UpdateStatus("op", &galleryop.OpStatus{Processed: true, Message: "completed", Progress: 100})
+		svc.AnnounceRunOpForTest("op", "whisper", true, true, nil)
+		Eventually(seen).Should(Receive(Equal(galleryop.OpResult{ID: "op", Name: "whisper", Backend: true, Upgrade: true, InRun: true, Outcome: galleryop.OpCompleted})))
+	})
+
 	It("reports a cancel as cancelled, whatever error the handler returned", func() {
 		svc.StoreCancellation("op", func() {})
 		svc.UpdateStatus("op", &galleryop.OpStatus{Message: "downloading", Cancellable: true})

@@ -814,6 +814,33 @@
           "body_one": "Se borró {{count}} archivo anterior.",
           "body_other": "Se borraron {{count}} archivos anteriores."
         }
+      },
+      "run": {
+        "title_one": "Actualizando {{count}} elemento",
+        "title_other": "Actualizando {{count}} elementos",
+        "titleAuto_one": "Actualización automática: {{count}} elemento",
+        "titleAuto_other": "Actualización automática: {{count}} elementos",
+        "updated_one": "{{count}} actualizado",
+        "updated_other": "{{count}} actualizados",
+        "running_one": "{{count}} en curso",
+        "running_other": "{{count}} en curso",
+        "waiting_one": "{{count}} en espera",
+        "waiting_other": "{{count}} en espera",
+        "done": "{{done}} de {{total}} hechas",
+        "end": {
+          "attention_one": "{{updated}} actualizados, {{count}} necesita atención",
+          "attention_other": "{{updated}} actualizados, {{count}} necesitan atención",
+          "done_one": "{{count}} actualizado",
+          "done_other": "{{count}} actualizados",
+          "auto": "Automática: {{text}}",
+          "first": "{{name}} sigue en {{version}}.",
+          "firstWhy": "{{name}} sigue en {{version}}: {{reason}}.",
+          "cancelled_one": "Tanda cancelada: {{count}} actualizados",
+          "cancelled_other": "Tanda cancelada: {{count}} actualizados",
+          "cancelledAttention_one": "Tanda cancelada: {{updated}} actualizados, {{count}} necesita atención",
+          "cancelledAttention_other": "Tanda cancelada: {{updated}} actualizados, {{count}} necesitan atención",
+          "firstStart": "{{name}} sigue en {{version}}: la nueva versión no arrancó: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "Los chats están desactivados",
-    "emptyBodyNoChats": "Aquí aparecen las actualizaciones y las operaciones terminadas."
+    "emptyBodyNoChats": "Aquí aparecen las actualizaciones y las operaciones terminadas.",
+    "runProgress": "Progreso: {{title}}",
+    "runStarted": "Iniciada {{when}}",
+    "viewProgress": "Ver el progreso",
+    "seeRun": "Ver la tanda",
+    "openUpdates": "Abrir Actualizaciones",
+    "updatesPending_one": "{{count}} actualización disponible",
+    "updatesPending_other": "{{count}} actualizaciones disponibles",
+    "updatesNone": "Todo está al día"
   },
   "change": {
     "loading": "Leyendo el cambio del disparador...",

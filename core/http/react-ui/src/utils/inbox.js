@@ -20,9 +20,39 @@ export function failed(n) {
   return n?.status === 'failed'
 }
 
+// An update run has two items: the live one (`updates.run`, one keyed row per
+// run, changed in place while it runs) and the summary once it ended
+// (`updates.run.end`). Their params:
+//   live  { run, progress, done, total, source, updated?, running?, queued? }
+//   end   { run, total, updated, failed, source, first_name?, first_from?, first_error? }
+// where failed counts every item that needs attention.
+export const RUN_LIVE = 'updates.run'
+export const RUN_END = 'updates.run.end'
+
+const nonNeg = (v) => (Number.isInteger(v) && v >= 0 ? v : 0)
+const runAttention = (p) => nonNeg(p && p.failed)
+
+// The live progress of a run item, 0 to 100, or null for any other item.
+export function runProgressOf(n) {
+  if (n?.code !== RUN_LIVE || !n.params || typeof n.params !== 'object') return null
+  const v = Number(n.params.progress)
+  return Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : 0
+}
+
+// Whether an item is the live or the ended item of an update run.
+export const runItemKind = (n) => (n?.code === RUN_LIVE ? 'live' : n?.code === RUN_END ? 'end' : '')
+
+// The page of a run: the Updates page with the run named in the address.
+function runTarget(n) {
+  const id = n?.params && (typeof n.params.run === 'string' || Number.isInteger(n.params.run)) ? String(n.params.run) : ''
+  return id ? `/app/updates?run=${encodeURIComponent(id)}` : '/app/updates'
+}
+
 // The tone of the leading tile: error for a failure, ok for a run that
 // finished, accent for news that needs a look.
 export function toneOf(n) {
+  if (n?.code === RUN_LIVE) return 'accent'
+  if (n?.code === RUN_END) return runAttention(n?.params) > 0 ? 'warn' : 'ok'
   if (failed(n)) return 'error'
   if (n?.kind === 'run_ended') return 'ok'
   return 'accent'
@@ -31,6 +61,8 @@ export function toneOf(n) {
 const SOURCE_ICON = { trigger: 'bolt', connector: 'plug', system: 'info' }
 
 export function iconOf(n) {
+  if (n?.code === RUN_LIVE) return 'refresh'
+  if (n?.code === RUN_END) return runAttention(n?.params) > 0 ? 'alert-circle' : 'check-circle'
   if (n?.code === 'models.upgradeDone') return 'check-circle'
   if (n?.code === 'models.upgradeFailed') return 'alert-circle'
   if (n?.code === 'models.removedOld') return 'trash'
@@ -52,7 +84,9 @@ const CHATS_PATH = /^\/app\/chats(?:[/?#]|$)/
 // nowhere (chatsOn false): the row stays in the list, read-only.
 export function targetOf(n, chatsOn = true) {
   const link = n?.link || ''
-  const target = link.startsWith('/app/') ? link : sourceOf(n) === 'connector' ? '/app/chats/connectors' : ''
+  let target = link.startsWith('/app/') ? link : sourceOf(n) === 'connector' ? '/app/chats/connectors' : ''
+  // An update run always leads to its page, also when the server stored no link.
+  if (!target && runItemKind(n)) target = runTarget(n)
   if (!chatsOn && CHATS_PATH.test(target)) return ''
   return target
 }
@@ -169,6 +203,51 @@ function modelText(t, n, p) {
   }
 }
 
+// The words of the live and the ended item of an update run.
+function runText(t, n, p) {
+  const total = nonNeg(p.total)
+  if (!total) return null
+  const auto = p.source === 'auto'
+  if (n.code === RUN_LIVE) {
+    const parts = []
+    if (Number.isInteger(p.updated) || Number.isInteger(p.running) || Number.isInteger(p.queued)) {
+      if (nonNeg(p.updated)) parts.push(t('inbox.codes.run.updated', { count: p.updated }))
+      if (nonNeg(p.running)) parts.push(t('inbox.codes.run.running', { count: p.running }))
+      if (nonNeg(p.queued)) parts.push(t('inbox.codes.run.waiting', { count: p.queued }))
+    }
+    return {
+      title: t(auto ? 'inbox.codes.run.titleAuto' : 'inbox.codes.run.title', { count: total }),
+      body: parts.length ? parts.join(t('inbox.codes.result.join')) : t('inbox.codes.run.done', { done: nonNeg(p.done), total }),
+    }
+  }
+  const updated = nonNeg(p.updated)
+  const attention = runAttention(p)
+  // A cancelled run says so, in the words of the Updates page.
+  const cancelled = p.state === 'cancelled'
+  let title
+  if (cancelled) {
+    title = attention > 0
+      ? t('inbox.codes.run.end.cancelledAttention', { updated, count: attention })
+      : t('inbox.codes.run.end.cancelled', { count: updated })
+  } else {
+    title = attention > 0
+      ? t('inbox.codes.run.end.attention', { updated, count: attention })
+      : t('inbox.codes.run.end.done', { count: updated })
+  }
+  if (auto) title = t('inbox.codes.run.end.auto', { text: title })
+  const name = typeof p.first_name === 'string' ? p.first_name : ''
+  const version = typeof p.first_from === 'string' ? p.first_from : ''
+  const reason = typeof p.first_error === 'string' ? p.first_error.trim().replace(/[.\s]+$/, '') : ''
+  let body = n.body || ''
+  if (attention > 0 && name && version) {
+    // The error of a new build that did not start is its bare cause: the
+    // key says what happened, and the words go first.
+    const why = reason && p.first_key === 'start' ? 'inbox.codes.run.end.firstStart' : 'inbox.codes.run.end.firstWhy'
+    body = reason ? t(why, { name, version, reason }) : t('inbox.codes.run.end.first', { name, version })
+  }
+  return { title, body }
+}
+
 // The title and body of a notification as the list shows them. Items without a
 // code, and codes or params that are not understood, show what the server stored.
 export function textOf(n, t) {
@@ -182,6 +261,8 @@ export function textOf(n, t) {
       title: t('inbox.codes.digest.title', { count: p.count }),
       body: names.length ? listWithMore(t, 'inbox.codes.digest', names, p.count) : n.body,
     }
+  } else if (n.code === RUN_LIVE || n.code === RUN_END) {
+    out = runText(t, n, p)
   } else if (n.code === 'updates.result') {
     out = resultText(t, p, n)
   } else if (n.code === 'updates.opDone' || n.code === 'updates.opFailed') {
@@ -205,6 +286,14 @@ export function textOf(n, t) {
 export function reasonText(body) {
   const s = (body || '').trim()
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''
+}
+
+// The body of an item as the list shows it. The end item of an update run is
+// a sentence that starts with the name of an item ("e2e-bad is still on
+// 1.0.0"): a name keeps its case, so it is shown as it is.
+export function bodyOf(n, text) {
+  const body = text ? text.body : ''
+  return failed(n) && runItemKind(n) !== 'end' ? reasonText(body) : body
 }
 
 function dayStart(ms) {

@@ -2,6 +2,7 @@ package routes_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -83,5 +84,37 @@ var _ = Describe("/api/operations backend classification", func() {
 		}
 		Expect(found).ToNot(BeNil(), "operation should appear in /api/operations")
 		Expect(found["isBackend"]).To(Equal(true))
+	})
+
+	It("says that a failed backend upgrade put the previous build back, with its code", func() {
+		tmpDir := GinkgoT().TempDir()
+		appCfg := &config.ApplicationConfig{
+			SystemState: system.NewCapabilityState("default", system.WithBackendPath(tmpDir), system.WithBackendSystemPath(tmpDir)),
+		}
+		galleryService := galleryop.NewGalleryService(appCfg, nil)
+		opcache := galleryop.NewOpCache(galleryService)
+		opcache.SetBackend("e2e-bad", "job-bad")
+		galleryService.UpdateStatus("job-bad", &galleryop.OpStatus{
+			Processed: true, Upgrade: true, Error: errors.New("the backend process exited (exit code 3)"), ErrorKey: "start", RolledBack: true,
+		})
+
+		e := echo.New()
+		routes.RegisterUIAPIRoutes(e, nil, nil, appCfg, galleryService, opcache, &application.Application{}, noopMw)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/operations", nil))
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		var envelope struct {
+			Operations []map[string]any `json:"operations"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &envelope)).To(Succeed())
+		var found map[string]any
+		for _, op := range envelope.Operations {
+			if op["jobID"] == "job-bad" {
+				found = op
+			}
+		}
+		Expect(found).NotTo(BeNil())
+		Expect(found).To(HaveKeyWithValue("rolledBack", true))
+		Expect(found).To(HaveKeyWithValue("errorKey", "start"))
 	})
 })

@@ -2,7 +2,11 @@ package testutil
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+	"os"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -58,4 +62,36 @@ func SetupTestDBWithDSN() (*gorm.DB, string) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 	return db, connStr
+}
+
+var schemaSeq atomic.Int64
+
+// OpenPostgresSchema opens the PostgreSQL database at dsn (a URL, such as
+// LOCALAI_TEST_POSTGRES_URL) in a schema of its own, named after prefix, the
+// process and a counter, and drops the schema when the spec ends. Packages
+// that run at the same time on one database then never see each other's
+// rows: a spec that lists every running row, or deletes every row of a
+// table, stays inside its own schema.
+func OpenPostgresSchema(dsn, prefix string) *gorm.DB {
+	schema := fmt.Sprintf("%s_%d_%d_%d", prefix, os.Getpid(), time.Now().UnixNano()%1_000_000, schemaSeq.Add(1))
+	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(admin.Exec(`CREATE SCHEMA ` + schema).Error).To(Succeed())
+	u, err := url.Parse(dsn)
+	Expect(err).ToNot(HaveOccurred())
+	q := u.Query()
+	q.Set("search_path", schema)
+	u.RawQuery = q.Encode()
+	db, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() {
+		if raw, err := db.DB(); err == nil {
+			_ = raw.Close()
+		}
+		_ = admin.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`).Error
+		if raw, err := admin.DB(); err == nil {
+			_ = raw.Close()
+		}
+	})
+	return db
 }

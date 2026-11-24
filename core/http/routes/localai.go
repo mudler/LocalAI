@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery/remotemodel"
+	addonendpoints "github.com/mudler/LocalAI/core/http/endpoints/addons"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -140,7 +141,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		// server without one answers with disabled sources.
 		router.GET("/backends/updates", localai.BackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
 		router.POST("/backends/updates/check", localai.CheckBackendUpdatesEndpoint(app.UpgradeChecker()), adminMiddleware)
-		router.POST("/backends/upgrade/:name", backendGalleryEndpointService.UpgradeBackendEndpoint(), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
+		runDeps := UpgradeRunDepsFor(app)
+		// The single upgrade routes start an upgrade run of one item, and
+		// keep their answer for existing clients (see BackendUpgradeViaRun).
+		router.POST("/backends/upgrade/:name", localai.BackendUpgradeViaRun(runDeps, backendGalleryEndpointService.UpgradeGuard(), backendGalleryEndpointService.UpgradeBackendEndpoint(), localai.APIBackendUpgradeAnswer), adminMiddleware, middleware.RequireBackendInstallEnabled(appConfig))
 		// Model updates: the read model and a check that waits. Models never
 		// update automatically; the check installs nothing.
 		modelUpdates := func() localai.ModelUpdatesProvider {
@@ -151,11 +155,21 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}
 		router.GET("/api/models/updates", localai.ModelUpdatesEndpoint(modelUpdates), adminMiddleware)
 		router.POST("/api/models/updates/check", localai.CheckModelUpdatesEndpoint(modelUpdates), adminMiddleware)
-		upgradeDeps := localai.ModelUpgradeDeps{Gallery: galleryService, Upgrader: app.ModelUpgrader, Updates: app.ModelUpdates}
+		upgradeDeps := localai.ModelUpgradeDeps{Gallery: galleryService, Upgrader: app.ModelUpgrader, Updates: app.ModelUpdates, Runs: runDeps}
 		router.POST("/api/models/upgrade/:name", localai.UpgradeModelEndpoint(upgradeDeps), adminMiddleware)
 		router.POST("/api/models/:name/upgrade/retry", localai.RetryModelUpgradeEndpoint(upgradeDeps), adminMiddleware)
 		router.POST("/api/models/:name/remove-old", localai.RemoveOldModelVersionEndpoint(upgradeDeps), adminMiddleware)
 		router.PUT("/api/models/:name/hold", localai.SetModelHoldEndpoint(upgradeDeps), adminMiddleware)
+		// Upgrade runs: the server-owned update of several backends, models
+		// and add-ons as one run. Administrators only.
+		router.POST("/api/updates/runs/preview", localai.PreviewUpgradeRunEndpoint(runDeps), adminMiddleware)
+		router.POST("/api/updates/runs", localai.StartUpgradeRunEndpoint(runDeps), adminMiddleware)
+		router.GET("/api/updates/runs", localai.ListUpgradeRunsEndpoint(runDeps), adminMiddleware)
+		router.GET("/api/updates/runs/:id", localai.GetUpgradeRunEndpoint(runDeps), adminMiddleware)
+		router.POST("/api/updates/runs/:id/cancel", localai.CancelUpgradeRunEndpoint(runDeps), adminMiddleware)
+		router.POST("/api/updates/runs/:id/items/:key/cancel", localai.CancelUpgradeRunItemEndpoint(runDeps), adminMiddleware)
+		router.POST("/api/updates/runs/:id/retry", localai.RetryUpgradeRunEndpoint(runDeps), adminMiddleware)
+		router.DELETE("/api/updates/runs/:id", localai.DismissUpgradeRunEndpoint(runDeps), adminMiddleware)
 		router.POST("/api/models/:name/adopt", localai.AdoptModelEndpoint(upgradeDeps), adminMiddleware)
 		// Custom model import endpoint
 		router.POST("/models/import", localai.ImportModelEndpoint(cl, galleryService, appConfig, opcache), adminMiddleware)
@@ -680,4 +694,19 @@ func registerFederationRoutes(router *echo.Echo, get localai.FederationProvider,
 	router.PATCH("/api/federation/groups/:name", localai.UpdateFederationGroupEndpoint(get), adminMiddleware)
 	router.DELETE("/api/federation/groups/:name", localai.DeleteFederationGroupEndpoint(get), adminMiddleware)
 	router.POST("/api/federation/groups/:name/drain", localai.DrainFederationMemberEndpoint(get), adminMiddleware)
+}
+
+// UpgradeRunDepsFor wires the upgrade run routes to the service of app. The
+// service is read at each request; a nil app or service answers unavailable
+// (and the single upgrade routes keep their direct path).
+func UpgradeRunDepsFor(app *application.Application) localai.UpgradeRunDeps {
+	if app == nil {
+		return localai.UpgradeRunDeps{}
+	}
+	return localai.UpgradeRunDeps{
+		Runs: app.UpgradeRuns,
+		Principal: func(c echo.Context) string {
+			return addonendpoints.RunPrincipal(c, app.AuthDB(), app.AddonOwnershipMode())
+		},
+	}
 }

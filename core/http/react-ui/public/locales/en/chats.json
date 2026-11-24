@@ -389,6 +389,33 @@
           "body_one": "{{count}} old file deleted.",
           "body_other": "{{count}} old files deleted."
         }
+      },
+      "run": {
+        "title_one": "Updating {{count}} item",
+        "title_other": "Updating {{count}} items",
+        "titleAuto_one": "Automatic update: {{count}} item",
+        "titleAuto_other": "Automatic update: {{count}} items",
+        "updated_one": "{{count}} updated",
+        "updated_other": "{{count}} updated",
+        "running_one": "{{count}} running",
+        "running_other": "{{count}} running",
+        "waiting_one": "{{count}} waiting",
+        "waiting_other": "{{count}} waiting",
+        "done": "{{done}} of {{total}} done",
+        "end": {
+          "attention_one": "{{updated}} updated, {{count}} needs attention",
+          "attention_other": "{{updated}} updated, {{count}} need attention",
+          "done_one": "{{count}} updated",
+          "done_other": "{{count}} updated",
+          "auto": "Automatic: {{text}}",
+          "first": "{{name}} is still on {{version}}.",
+          "firstWhy": "{{name}} is still on {{version}}: {{reason}}.",
+          "cancelled_one": "Update run cancelled: {{count}} updated",
+          "cancelled_other": "Update run cancelled: {{count}} updated",
+          "cancelledAttention_one": "Update run cancelled: {{updated}} updated, {{count}} needs attention",
+          "cancelledAttention_other": "Update run cancelled: {{updated}} updated, {{count}} need attention",
+          "firstStart": "{{name}} is still on {{version}}: the new version did not start: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -425,7 +452,15 @@
       }
     },
     "chatsOff": "Chats are off",
-    "emptyBodyNoChats": "Updates and finished operations appear here."
+    "emptyBodyNoChats": "Updates and finished operations appear here.",
+    "runProgress": "Progress: {{title}}",
+    "runStarted": "Started {{when}}",
+    "viewProgress": "View progress",
+    "seeRun": "See the run",
+    "openUpdates": "Open Updates",
+    "updatesPending_one": "{{count}} update available",
+    "updatesPending_other": "{{count}} updates available",
+    "updatesNone": "Everything is up to date"
   },
   "connectorsPage": {
     "title": "Connections",

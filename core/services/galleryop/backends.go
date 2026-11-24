@@ -120,12 +120,20 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 			// next pass will reconcile the actual outcome via backend.list.
 			xlog.Info("worker still installing in background", "backend", op.GalleryElementName, "error", err)
 			g.UpdateStatus(op.ID, &OpStatus{
-				Processed:          true,
+				Processed: true,
+				// An upgrade whose reply is lost has no known outcome: the
+				// run must not count it as updated or failed.
+				Unconfirmed:        op.Upgrade,
 				GalleryElementName: op.GalleryElementName,
 				Message:            fmt.Sprintf("backend %s: worker still installing in background; reconciler will confirm completion (%v)", op.GalleryElementName, err),
 				Cancellable:        false,
 			})
 			return nil
+		}
+		if op.Upgrade {
+			// Every failed upgrade leaves with a code, so a reader never has
+			// to parse the text. The step that failed has already set its own.
+			err = gallery.WithUpgradeCode(gallery.UpgradeFailureUnknown, err)
 		}
 		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		// A refused op wrote nothing, so there is nothing to clean up — and
@@ -135,7 +143,10 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 		// when its own swap fails, and a failure before the swap leaves it
 		// untouched. Removing it here would turn a failed upgrade into a
 		// lost backend.
-		if !op.Delete && !op.Upgrade && !errors.Is(err, gallery.ErrBackendInstallDisabled) {
+		// A forced install whose new build failed its start check replaced a
+		// build that existed: the error carries a code, and the previous build
+		// is back in place (or kept aside). Removing the name would delete it.
+		if !op.Delete && !op.Upgrade && !errors.Is(err, gallery.ErrBackendInstallDisabled) && gallery.UpgradeCodeOf(err) == "" {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
 			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
 		}
@@ -177,7 +188,9 @@ func (g *GalleryService) backendHandler(op *ManagementOp[gallery.GalleryBackend,
 // always writes, but a bare gallery name is an "ensure installed" — the
 // LOCALAI_EXTERNAL_BACKENDS boot loop runs it on every start and must not
 // re-download an installed, runnable backend.
-func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string, force, requireIntegrity bool) error {
+//
+// opts change how an installed build is replaced (gallery.WithStartCheck).
+func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), backend, name, alias string, force, requireIntegrity bool, opts ...gallery.BackendInstallOption) error {
 	uri := downloader.URI(backend)
 	switch {
 	case uri.LooksLikeDir():
@@ -191,7 +204,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus, requireIntegrity); err != nil {
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCI() && !uri.LooksLikeOCIFile():
@@ -205,7 +218,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus, requireIntegrity); err != nil {
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	case uri.LooksLikeOCIFile():
@@ -227,7 +240,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			},
 			Alias: alias,
 			URI:   backend,
-		}, downloadStatus, requireIntegrity); err != nil {
+		}, downloadStatus, requireIntegrity, opts...); err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	default:
@@ -235,7 +248,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 		if name != "" || alias != "" {
 			return fmt.Errorf("specifying a name or alias is not supported for gallery backends")
 		}
-		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, force, requireIntegrity)
+		err := gallery.InstallBackendFromGallery(ctx, galleries, systemState, modelLoader, backend, downloadStatus, force, requireIntegrity, opts...)
 		if err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}

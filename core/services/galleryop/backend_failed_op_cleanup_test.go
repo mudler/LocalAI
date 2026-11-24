@@ -3,6 +3,7 @@ package galleryop_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -28,6 +29,20 @@ func (failingBackendManager) InstallBackend(context.Context, *galleryop.Manageme
 
 func (failingBackendManager) UpgradeBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
 	return errDownload
+}
+
+// erroringBackendManager fails every install and upgrade with err.
+type erroringBackendManager struct {
+	blockingBackendManager
+	err error
+}
+
+func (m erroringBackendManager) InstallBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
+	return m.err
+}
+
+func (m erroringBackendManager) UpgradeBackend(context.Context, *galleryop.ManagementOp[gallery.GalleryBackend, any], galleryop.ProgressCallback) error {
+	return m.err
 }
 
 // A failed operation must not take an installed backend with it. The handler
@@ -72,6 +87,36 @@ var _ = Describe("backend op failure cleanup", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		Expect(svc.Start(ctx, nil, systemState)).To(Succeed())
+	})
+
+	rolledBack := &gallery.UpgradeError{Code: gallery.UpgradeFailureStart, RolledBack: true, Err: errors.New("the new build did not start")}
+
+	It("keeps the installed backend when a forced reinstall rolled back, and says so", func() {
+		svc.SetBackendManager(erroringBackendManager{err: rolledBack})
+		st := runOp("reinstall-rolled-back", false)
+
+		Expect(runShPath()).To(BeARegularFile(), "the restored build must not be cleaned up as a leftover")
+		Expect(st.ErrorKey).To(Equal(string(gallery.UpgradeFailureStart)))
+		Expect(st.RolledBack).To(BeTrue())
+	})
+
+	It("reports a rolled back upgrade with its code", func() {
+		svc.SetBackendManager(erroringBackendManager{err: rolledBack})
+		st := runOp("upgrade-rolled-back", true)
+
+		Expect(st.ErrorKey).To(Equal(string(gallery.UpgradeFailureStart)))
+		Expect(st.RolledBack).To(BeTrue())
+		Expect(st.Unconfirmed).To(BeFalse())
+	})
+
+	It("reports an upgrade whose reply was lost as unconfirmed, not failed", func() {
+		svc.SetBackendManager(erroringBackendManager{err: fmt.Errorf("%w: node-a", galleryop.ErrWorkerStillInstalling)})
+		st := runOp("upgrade-lost", true)
+
+		Expect(st.Error).To(BeNil())
+		Expect(st.ErrorKey).To(BeEmpty())
+		Expect(st.Unconfirmed).To(BeTrue())
+		Expect(st.Message).NotTo(Equal(galleryop.MessageCompleted))
 	})
 
 	It("keeps the installed backend when its upgrade fails", func() {

@@ -814,6 +814,33 @@
           "body_one": "{{count}} alte Datei gelöscht.",
           "body_other": "{{count}} alte Dateien gelöscht."
         }
+      },
+      "run": {
+        "title_one": "{{count}} Element wird aktualisiert",
+        "title_other": "{{count}} Elemente werden aktualisiert",
+        "titleAuto_one": "Automatische Aktualisierung: {{count}} Element",
+        "titleAuto_other": "Automatische Aktualisierung: {{count}} Elemente",
+        "updated_one": "{{count}} aktualisiert",
+        "updated_other": "{{count}} aktualisiert",
+        "running_one": "{{count}} läuft",
+        "running_other": "{{count}} laufen",
+        "waiting_one": "{{count}} wartet",
+        "waiting_other": "{{count}} warten",
+        "done": "{{done}} von {{total}} erledigt",
+        "end": {
+          "attention_one": "{{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "attention_other": "{{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "done_one": "{{count}} aktualisiert",
+          "done_other": "{{count}} aktualisiert",
+          "auto": "Automatisch: {{text}}",
+          "first": "{{name}} ist weiter auf {{version}}.",
+          "firstWhy": "{{name}} ist weiter auf {{version}}: {{reason}}.",
+          "cancelled_one": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelled_other": "Aktualisierungslauf abgebrochen: {{count}} aktualisiert",
+          "cancelledAttention_one": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} braucht Aufmerksamkeit",
+          "cancelledAttention_other": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
+          "firstStart": "{{name}} ist weiter auf {{version}}: Die neue Version ist nicht gestartet: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "Chats sind ausgeschaltet",
-    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge."
+    "emptyBodyNoChats": "Hier erscheinen Updates und abgeschlossene Vorgänge.",
+    "runProgress": "Fortschritt: {{title}}",
+    "runStarted": "Gestartet {{when}}",
+    "viewProgress": "Fortschritt ansehen",
+    "seeRun": "Lauf ansehen",
+    "openUpdates": "Aktualisierungen öffnen",
+    "updatesPending_one": "{{count}} Aktualisierung verfügbar",
+    "updatesPending_other": "{{count}} Aktualisierungen verfügbar",
+    "updatesNone": "Alles ist aktuell"
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",

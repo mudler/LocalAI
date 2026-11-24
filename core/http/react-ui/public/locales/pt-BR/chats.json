@@ -814,6 +814,33 @@
           "body_one": "{{count}} arquivo antigo apagado.",
           "body_other": "{{count}} arquivos antigos apagados."
         }
+      },
+      "run": {
+        "title_one": "Atualizando {{count}} item",
+        "title_other": "Atualizando {{count}} itens",
+        "titleAuto_one": "Atualização automática: {{count}} item",
+        "titleAuto_other": "Atualização automática: {{count}} itens",
+        "updated_one": "{{count}} atualizado",
+        "updated_other": "{{count}} atualizados",
+        "running_one": "{{count}} em andamento",
+        "running_other": "{{count}} em andamento",
+        "waiting_one": "{{count}} aguardando",
+        "waiting_other": "{{count}} aguardando",
+        "done": "{{done}} de {{total}} concluídas",
+        "end": {
+          "attention_one": "{{updated}} atualizados, {{count}} precisa de atenção",
+          "attention_other": "{{updated}} atualizados, {{count}} precisam de atenção",
+          "done_one": "{{count}} atualizado",
+          "done_other": "{{count}} atualizados",
+          "auto": "Automática: {{text}}",
+          "first": "{{name}} continua na {{version}}.",
+          "firstWhy": "{{name}} continua na {{version}}: {{reason}}.",
+          "cancelled_one": "Rodada cancelada: {{count}} atualizados",
+          "cancelled_other": "Rodada cancelada: {{count}} atualizados",
+          "cancelledAttention_one": "Rodada cancelada: {{updated}} atualizados, {{count}} precisa de atenção",
+          "cancelledAttention_other": "Rodada cancelada: {{updated}} atualizados, {{count}} precisam de atenção",
+          "firstStart": "{{name}} continua na {{version}}: a nova versão não iniciou: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "Os chats estão desativados",
-    "emptyBodyNoChats": "As atualizações e as operações concluídas aparecem aqui."
+    "emptyBodyNoChats": "As atualizações e as operações concluídas aparecem aqui.",
+    "runProgress": "Progresso: {{title}}",
+    "runStarted": "Iniciada {{when}}",
+    "viewProgress": "Ver o progresso",
+    "seeRun": "Ver a rodada",
+    "openUpdates": "Abrir Atualizações",
+    "updatesPending_one": "{{count}} atualização disponível",
+    "updatesPending_other": "{{count}} atualizações disponíveis",
+    "updatesNone": "Tudo está atualizado"
   },
   "change": {
     "loading": "Lendo a alteração do gatilho...",

@@ -30,6 +30,28 @@ var _ = Describe("GalleryStore terminal operations", func() {
 		time.Sleep(5 * time.Millisecond)
 	}
 
+	Describe("the error key of a failed upgrade", func() {
+		It("is stored with the failure and dropped by a corrected outcome", func() {
+			Expect(store.Create(&distributed.GalleryOperationRecord{
+				ID: "upg", GalleryElementName: "b", OpType: "backend_upgrade", Status: "pending",
+			})).To(Succeed())
+
+			Expect(store.UpdateStatusWithOutcome("upg", "failed", "boom", distributed.OperationOutcome{ErrorKey: "start", RolledBack: true, Unconfirmed: true})).To(Succeed())
+			op, err := store.Get("upg")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.ErrorKey).To(Equal("start"))
+			Expect(op.RolledBack).To(BeTrue())
+			Expect(op.Unconfirmed).To(BeTrue())
+
+			Expect(store.UpdateStatus("upg", "completed", "")).To(Succeed())
+			op, err = store.Get("upg")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(op.ErrorKey).To(BeEmpty())
+			Expect(op.RolledBack).To(BeFalse())
+			Expect(op.Unconfirmed).To(BeFalse())
+		})
+	})
+
 	Describe("ListTerminal", func() {
 		It("returns only finished operations", func() {
 			Expect(store.Create(&distributed.GalleryOperationRecord{

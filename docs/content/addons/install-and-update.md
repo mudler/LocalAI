@@ -73,6 +73,13 @@ rows show on every frontend. The download progress in bytes shows only when the
 frontend and the add-on owner are the same process; otherwise the row shows the
 step only.
 
+An upgrade through `POST /api/addons/{id}/upgrade`, and an add-on item of an
+[upgrade run]({{% relref "/models/upgrade-runs#add-on-items" %}}), is an upgrade
+run of one item or part of a larger run: while another run runs it is refused
+(the route answers `409` with type `run_active`), and its answer adds the run. A run
+upgrades an add-on for the administrator who started it, with the same checks
+and the same browser session rule as the explicit upgrade.
+
 An install from a file (see [Install from a file](#install-from-a-file)) does not
 use the queue. It runs at once, and you can close its dialog while it runs: the
 page then shows the install in progress, on the row of the add-on when it is an

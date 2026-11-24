@@ -814,6 +814,33 @@
           "body_one": "{{count}} berkas lama dihapus.",
           "body_other": "{{count}} berkas lama dihapus."
         }
+      },
+      "run": {
+        "title_one": "Memperbarui {{count}} item",
+        "title_other": "Memperbarui {{count}} item",
+        "titleAuto_one": "Pembaruan otomatis: {{count}} item",
+        "titleAuto_other": "Pembaruan otomatis: {{count}} item",
+        "updated_one": "{{count}} diperbarui",
+        "updated_other": "{{count}} diperbarui",
+        "running_one": "{{count}} berjalan",
+        "running_other": "{{count}} berjalan",
+        "waiting_one": "{{count}} menunggu",
+        "waiting_other": "{{count}} menunggu",
+        "done": "{{done}} dari {{total}} selesai",
+        "end": {
+          "attention_one": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "attention_other": "{{updated}} diperbarui, {{count}} perlu perhatian",
+          "done_one": "{{count}} diperbarui",
+          "done_other": "{{count}} diperbarui",
+          "auto": "Otomatis: {{text}}",
+          "first": "{{name}} masih di {{version}}.",
+          "firstWhy": "{{name}} masih di {{version}}: {{reason}}.",
+          "cancelled_one": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelled_other": "Rangkaian dibatalkan: {{count}} diperbarui",
+          "cancelledAttention_one": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "cancelledAttention_other": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
+          "firstStart": "{{name}} masih di {{version}}: versi baru tidak berjalan: {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "Chats nonaktif",
-    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini."
+    "emptyBodyNoChats": "Pembaruan dan operasi yang selesai muncul di sini.",
+    "runProgress": "Kemajuan: {{title}}",
+    "runStarted": "Dimulai {{when}}",
+    "viewProgress": "Lihat kemajuan",
+    "seeRun": "Lihat rangkaian",
+    "openUpdates": "Buka Pembaruan",
+    "updatesPending_one": "{{count}} pembaruan tersedia",
+    "updatesPending_other": "{{count}} pembaruan tersedia",
+    "updatesNone": "Semuanya sudah terbaru"
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

@@ -814,6 +814,33 @@
           "body_one": "已删除 {{count}} 个旧文件。",
           "body_other": "已删除 {{count}} 个旧文件。"
         }
+      },
+      "run": {
+        "title_one": "正在更新 {{count}} 项",
+        "title_other": "正在更新 {{count}} 项",
+        "titleAuto_one": "自动更新:{{count}} 项",
+        "titleAuto_other": "自动更新:{{count}} 项",
+        "updated_one": "{{count}} 项已更新",
+        "updated_other": "{{count}} 项已更新",
+        "running_one": "{{count}} 项进行中",
+        "running_other": "{{count}} 项进行中",
+        "waiting_one": "{{count}} 项等待中",
+        "waiting_other": "{{count}} 项等待中",
+        "done": "已完成 {{done}}/{{total}}",
+        "end": {
+          "attention_one": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "attention_other": "{{updated}} 项已更新,{{count}} 项需要处理",
+          "done_one": "{{count}} 项已更新",
+          "done_other": "{{count}} 项已更新",
+          "auto": "自动:{{text}}",
+          "first": "{{name}} 仍是 {{version}}。",
+          "firstWhy": "{{name}} 仍是 {{version}}:{{reason}}。",
+          "cancelled_one": "本次更新已取消:{{count}} 项已更新",
+          "cancelled_other": "本次更新已取消:{{count}} 项已更新",
+          "cancelledAttention_one": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "cancelledAttention_other": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
+          "firstStart": "{{name}} 仍是 {{version}}:新版本未能启动:{{reason}}。"
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "聊天会话已关闭",
-    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。"
+    "emptyBodyNoChats": "更新和已完成的操作会显示在这里。",
+    "runProgress": "进度:{{title}}",
+    "runStarted": "开始于{{when}}",
+    "viewProgress": "查看进度",
+    "seeRun": "查看本次更新",
+    "openUpdates": "打开更新",
+    "updatesPending_one": "有 {{count}} 项可用更新",
+    "updatesPending_other": "有 {{count}} 项可用更新",
+    "updatesNone": "全部已是最新"
   },
   "change": {
     "loading": "正在读取触发器更改...",

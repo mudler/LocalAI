@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -270,8 +271,8 @@ var _ = Describe("Worker control verbs over HTTP", func() {
 		})
 
 		It("streams the answer of an upgrade the same way", func() {
-			s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, _ func(string, string, string, float64)) ([]string, error) {
-				return []string{"m#0"}, nil
+			s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, _ func(string, string, string, float64)) (upgradeOutcome, error) {
+				return upgradeOutcome{stopped: []string{"m#0"}}, nil
 			}
 			body, _ := json.Marshal(workerctl.BackendUpgradeRequest{Backend: "vllm"})
 			resp, err := http.Post(srv.URL+workerctl.PathOf(workerctl.VerbBackendUpgrade), "application/json", bytes.NewReader(body))
@@ -283,6 +284,35 @@ var _ = Describe("Worker control verbs over HTTP", func() {
 			Expect(json.Unmarshal(lines[len(lines)-1].Reply, &reply)).To(Succeed())
 			Expect(reply.Success).To(BeTrue())
 			Expect(reply.StoppedProcessKeys).To(Equal([]string{"m#0"}))
+		})
+
+		It("streams a rolled back upgrade with its code, the cause and the restarted processes", func() {
+			s.upgradeFn = func(_ workerctl.BackendUpgradeRequest, _ func(string, string, string, float64)) (upgradeOutcome, error) {
+				cause := &workerStartError{reason: "backend vllm#upgrade-check died during startup", output: "fatal: libcuda.so.1 missing"}
+				return upgradeOutcome{stopped: []string{"m#0"}, restarted: []string{"m#0"}},
+					&gallery.UpgradeError{Code: gallery.UpgradeFailureStart, RolledBack: true, Err: cause}
+			}
+			body, _ := json.Marshal(workerctl.BackendUpgradeRequest{Backend: "vllm"})
+			resp, err := http.Post(srv.URL+workerctl.PathOf(workerctl.VerbBackendUpgrade), "application/json", bytes.NewReader(body))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = resp.Body.Close() }()
+			lines := readLines(resp)
+			Expect(lines).ToNot(BeEmpty())
+			var reply workerctl.BackendUpgradeReply
+			Expect(json.Unmarshal(lines[len(lines)-1].Reply, &reply)).To(Succeed())
+			Expect(reply.Success).To(BeFalse())
+			Expect(reply.Code).To(Equal("start"))
+			Expect(reply.RolledBack).To(BeTrue())
+			Expect(reply.Cause).To(Equal("fatal: libcuda.so.1 missing"))
+			Expect(reply.StoppedProcessKeys).To(Equal([]string{"m#0"}))
+			Expect(reply.RestartedProcessKeys).To(Equal([]string{"m#0"}))
+		})
+
+		It("words a start failure with no output without an empty stderr label", func() {
+			cause := &workerStartError{reason: "backend process vllm#upgrade-check died during startup", output: " \n"}
+			Expect(cause.Error()).To(Equal("backend process vllm#upgrade-check died during startup"))
+			withOutput := &workerStartError{reason: "backend process vllm#upgrade-check died during startup", output: "fatal: libcuda.so.1 missing"}
+			Expect(withOutput.Error()).To(Equal("backend process vllm#upgrade-check died during startup. Last stderr:\nfatal: libcuda.so.1 missing"))
 		})
 
 		It("does not hold up a second request while an install runs", func() {

@@ -1,12 +1,14 @@
 package nodes
 
 import (
+	"strings"
 	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/workerctl"
 )
@@ -79,5 +81,45 @@ var _ = Describe("RemoteUnloaderAdapter.UpgradeBackend", func() {
 			}
 			return pcts
 		}, 2*time.Second, 20*time.Millisecond).Should(ConsistOf(float64(10), float64(100)))
+	})
+})
+
+// hostileUpgradeReply is the answer of a compromised or old worker: fields of
+// megabytes, markup, terminal escapes, credentials and paths, and a code the
+// frontend does not know.
+func hostileUpgradeReply() workerctl.BackendUpgradeReply {
+	junk := "<script>alert(1)</script>\x1b[31m https://user:pass@host/x Bearer abc /home/alice/.config/k.pem\n"
+	big := strings.Repeat(junk, 40000)
+	return workerctl.BackendUpgradeReply{Success: false, Code: "<b>pwn</b>", Error: big, Cause: big, RestartError: big}
+}
+
+func expectBoundedReplyText(s string) {
+	GinkgoHelper()
+	Expect(len(s)).To(BeNumerically("<=", workerctl.CauseLimit+len("…")))
+	for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+		Expect(s).NotTo(ContainSubstring(bad))
+	}
+}
+
+var _ = Describe("The reply of a worker to backend.upgrade on receipt", func() {
+	It("bounds and cleans the error, the cause and the restart error", func() {
+		mc := newScriptedMessagingClient()
+		mc.scriptReply(messaging.SubjectNodeBackendUpgrade("node-x"), hostileUpgradeReply())
+		adapter := NewRemoteUnloaderAdapter(nil, mc, 3*time.Minute, 15*time.Minute)
+		reply, err := adapter.UpgradeBackend("node-x", "llama-cpp", "", "", "", "", 0, "", nil)
+		Expect(err).ToNot(HaveOccurred())
+		expectBoundedReplyText(reply.Error)
+		expectBoundedReplyText(reply.Cause)
+		expectBoundedReplyText(reply.RestartError)
+	})
+
+	It("maps an unbounded reply to a bounded error with the unknown code", func() {
+		reply := hostileUpgradeReply()
+		err := UpgradeReplyError(&reply)
+		Expect(gallery.UpgradeCodeOf(err)).To(Equal(gallery.UpgradeFailureUnknown))
+		Expect(len(err.Error())).To(BeNumerically("<=", 2*workerctl.CauseLimit+64))
+		for _, bad := range []string{"<script", "\x1b", "\n", "user:pass", "Bearer abc", "/home/alice"} {
+			Expect(err.Error()).NotTo(ContainSubstring(bad))
+		}
 	})
 })

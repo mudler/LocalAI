@@ -389,6 +389,33 @@
           "body_one": "{{count}}টি পুরোনো ফাইল মোছা হয়েছে।",
           "body_other": "{{count}}টি পুরোনো ফাইল মোছা হয়েছে।"
         }
+      },
+      "run": {
+        "title_one": "{{count}}টি আইটেম আপডেট হচ্ছে",
+        "title_other": "{{count}}টি আইটেম আপডেট হচ্ছে",
+        "titleAuto_one": "স্বয়ংক্রিয় আপডেট: {{count}}টি আইটেম",
+        "titleAuto_other": "স্বয়ংক্রিয় আপডেট: {{count}}টি আইটেম",
+        "updated_one": "{{count}}টি আপডেট হয়েছে",
+        "updated_other": "{{count}}টি আপডেট হয়েছে",
+        "running_one": "{{count}}টি চলছে",
+        "running_other": "{{count}}টি চলছে",
+        "waiting_one": "{{count}}টি অপেক্ষায়",
+        "waiting_other": "{{count}}টি অপেক্ষায়",
+        "done": "{{total}}টির মধ্যে {{done}}টি শেষ",
+        "end": {
+          "attention_one": "{{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "attention_other": "{{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "done_one": "{{count}}টি আপডেট হয়েছে",
+          "done_other": "{{count}}টি আপডেট হয়েছে",
+          "auto": "স্বয়ংক্রিয়: {{text}}",
+          "first": "{{name}} এখনও {{version}}-এ আছে।",
+          "firstWhy": "{{name}} এখনও {{version}}-এ আছে: {{reason}}।",
+          "cancelled_one": "আপডেট রান বাতিল: {{count}}টি আপডেট হয়েছে",
+          "cancelled_other": "আপডেট রান বাতিল: {{count}}টি আপডেট হয়েছে",
+          "cancelledAttention_one": "আপডেট রান বাতিল: {{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "cancelledAttention_other": "আপডেট রান বাতিল: {{updated}}টি আপডেট হয়েছে, {{count}}টিতে মনোযোগ দরকার",
+          "firstStart": "{{name}} এখনও {{version}}-এ আছে: নতুন সংস্করণ চালু হয়নি: {{reason}}।"
+        }
       }
     },
     "tabs": {
@@ -425,7 +452,15 @@
       }
     },
     "chatsOff": "চ্যাটস বন্ধ আছে",
-    "emptyBodyNoChats": "আপডেট এবং সম্পন্ন অপারেশন এখানে দেখা যাবে।"
+    "emptyBodyNoChats": "আপডেট এবং সম্পন্ন অপারেশন এখানে দেখা যাবে।",
+    "runProgress": "অগ্রগতি: {{title}}",
+    "runStarted": "{{when}} শুরু হয়েছে",
+    "viewProgress": "অগ্রগতি দেখুন",
+    "seeRun": "রানটি দেখুন",
+    "openUpdates": "আপডেট খুলুন",
+    "updatesPending_one": "{{count}}টি আপডেট উপলব্ধ",
+    "updatesPending_other": "{{count}}টি আপডেট উপলব্ধ",
+    "updatesNone": "সবকিছুই হালনাগাদ"
   },
   "connectorsPage": {
     "title": "সংযোগসমূহ",

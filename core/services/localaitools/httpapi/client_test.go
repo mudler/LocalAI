@@ -239,6 +239,56 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 		})
 	})
 
+	Describe("upgrade runs", func() {
+		It("starts, reads and cancels runs on the run routes", func() {
+			var seen []string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				seen = append(seen, r.Method+" "+r.URL.EscapedPath())
+				switch {
+				case r.Method == http.MethodPost && r.URL.Path == "/api/updates/runs":
+					var body map[string]any
+					Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+					Expect(body).To(HaveKeyWithValue("source", "manual"))
+					w.WriteHeader(http.StatusAccepted)
+					_, _ = w.Write([]byte(`{"id":"r1","source":"manual","state":"running","created_at":"2026-11-23T10:00:00Z","items":[{"key":"gallery:kokoro","kind":"gallery","name":"kokoro","phase":"queued","progress":0,"retryable":false,"cancellable":false}]}`))
+				case r.Method == http.MethodGet && r.URL.Path == "/api/updates/runs":
+					_, _ = w.Write([]byte(`{"runs":[{"id":"r1","state":"running","items":[]}]}`))
+				default:
+					_, _ = w.Write([]byte(`{"id":"r1","state":"cancelled","items":[]}`))
+				}
+			}))
+			defer srv.Close()
+			c := New(srv.URL, "")
+			run, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "gallery", Name: "kokoro"}}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(run.ID).To(Equal("r1"))
+			Expect(run.CreatedAt).To(Equal("2026-11-23T10:00:00Z"))
+			Expect(run.Items[0].Key).To(Equal("gallery:kokoro"))
+			runs, err := c.UpgradeRuns(ctx, "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runs).To(HaveLen(1))
+			_, err = c.UpgradeRuns(ctx, "r1")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = c.CancelUpgradeRun(ctx, "r1", "")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = c.CancelUpgradeRun(ctx, "r1", "model:a/b")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(seen).To(Equal([]string{
+				"POST /api/updates/runs",
+				"GET /api/updates/runs",
+				"GET /api/updates/runs/r1",
+				"POST /api/updates/runs/r1/cancel",
+				"POST /api/updates/runs/r1/items/model:a%2Fb/cancel",
+			}))
+		})
+
+		It("refuses an add-on item before it calls the server", func() {
+			c := New("http://127.0.0.1:1", "")
+			_, err := c.StartUpgradeRun(ctx, localaitools.UpgradeRunStartRequest{Items: []localaitools.UpgradeRunItemRef{{Kind: "addon", Name: "notes"}}})
+			Expect(err).To(MatchError(ContainSubstring("add-ons are not updated by the assistant")))
+		})
+	})
+
 	Describe("SearchModels with no query", func() {
 		It("sends sort=latest and an empty q", func() {
 			var got url.Values

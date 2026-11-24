@@ -33,6 +33,15 @@
     "diskChip": "Disque presque plein"
   },
   "activity": {
+    "node": {
+      "done": "Terminé",
+      "failed": "Échec",
+      "queued": "En file d’attente",
+      "workerBusy": "Worker occupé",
+      "downloading": "Téléchargement",
+      "rolledBack": "Rétabli",
+      "unconfirmed": "Non confirmé"
+    },
     "kind": {
       "addon": "module"
     },

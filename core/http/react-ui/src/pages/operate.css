@@ -187,6 +187,8 @@
 .operation-card .operation-node-status-error { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .operation-card .operation-node-status-running_on_worker { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .operation-card .operation-node-status-downloading { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.operation-card .operation-node-status-rolled_back,
+.operation-card .operation-node-status-unconfirmed { background: var(--dk-warn-wash); color: var(--dk-warn-text); }
 .operation-card .operation-node-name { color: var(--dk-text); font-weight: var(--dk-weight-semibold); }
 .operation-card .operation-node-file { max-width: 30ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--dk-font-mono); }
 .operation-card .operation-node-error { color: var(--dk-error-text); }

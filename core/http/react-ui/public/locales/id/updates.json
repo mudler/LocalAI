@@ -89,8 +89,6 @@
     "ready": "Siap diperbarui",
     "current_one": "{{count}} terbaru",
     "current_other": "{{count}} terbaru",
-    "selectAll": "Pilih semua yang siap",
-    "selectNone": "Jangan pilih apa pun",
     "show": "Tampilkan",
     "hide": "Sembunyikan",
     "other": "Model lain"
@@ -116,7 +114,6 @@
     "drift_one": "{{count}} berbeda",
     "drift_other": "{{count}} berbeda",
     "old": "dari pemeriksaan sebelumnya",
-    "select": "Pilih {{name}}",
     "update": "Perbarui",
     "updateNamed": "Perbarui {{name}}",
     "check": "Periksa",
@@ -143,19 +140,16 @@
     "updatingPhase": "Memperbarui: {{phase}}",
     "updatingPlain": "Memperbarui",
     "queued": "Dalam antrean, menunggu slot kosong",
-    "addonConfirm": "Perlu konfirmasi Anda di peramban ini",
     "nodesAction": "Node",
     "nodesNamed": "Tampilkan node {{name}}",
-    "needsConfirm": "{{name}} berjalan di node dan perlu konfirmasi Anda lebih dulu. Gunakan Perbarui pada barisnya."
+    "heldBack": "Ditahan: rilis ini tidak berjalan. Pembaruan otomatis melewatinya sampai ada rilis baru. Perbarui di sini untuk mencoba lagi."
   },
   "bulk": {
     "start": "Perbarui {{count}} yang siap",
     "running": "Memperbarui {{current}} dari {{total}}",
     "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
-    "details": "Detail",
-    "cancelAll": "Batalkan semua",
     "retryFailed": "Coba lagi yang gagal ({{count}})",
-    "dismiss": "Tutup"
+    "review": "Tinjau pembaruan"
   },
   "check": {
     "result_one": "Pemeriksaan selesai: {{count}} pembaruan.",
@@ -164,10 +158,6 @@
     "failedSources_other": "{{count}} sumber gagal.",
     "throttled": "Sebuah pemeriksaan berjalan beberapa saat lalu. Ini hasilnya."
   },
-  "live": {
-    "updated": "{{name}} telah diperbarui.",
-    "failed": "{{name}} tidak diperbarui."
-  },
   "empty": {
     "title": "Belum ada yang perlu diperbarui",
     "body": "Pasang backend atau add-on dan pembaruannya muncul di sini.",
@@ -175,26 +165,7 @@
     "addons": "Buka Aplikasi"
   },
   "dialog": {
-    "title": "Perbarui yang siap",
-    "intro": "Pilih apa yang diperbarui. Masing-masing diperbarui sendiri, satu per satu, dan dianggap selesai hanya jika pemeriksaan baru tidak lagi mencantumkannya. Satu kegagalan tidak menghentikan yang lain.",
-    "selection": "Pilih apa yang diperbarui",
-    "selectAll": "Pilih semua",
-    "selectNone": "Jangan pilih apa pun",
-    "item": "Perbarui {{name}}",
-    "versions": "{{from}} ke {{to}}",
-    "blocked": "Tidak dapat dimulai",
-    "start": "Perbarui yang dipilih",
-    "starting": "Memperbarui...",
-    "retry": "Coba lagi yang gagal ({{count}})",
-    "again": "Pilihan baru",
-    "close": "Tutup",
-    "closeRunning": "Tutup (tetap berjalan)",
-    "runningNote": "Menutup jendela ini tidak menghentikan pembaruan.",
-    "progress": "Memperbarui {{current}} dari {{total}}",
-    "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
-    "empty": "Tidak ada yang perlu diperbarui.",
-    "selectedCount_one": "{{count}} dipilih",
-    "selectedCount_other": "{{count}} dipilih"
+    "close": "Tutup"
   },
   "item": {
     "queued": "Mengantre",
@@ -407,5 +378,124 @@
       "after": "LocalAI mencatat entri itu dan memeriksa pembaruannya. Konfigurasi Anda tidak berubah.",
       "failed": "Tidak dapat mengadopsi: {{message}}"
     }
+  },
+  "review": {
+    "title_one": "Tinjau {{count}} pembaruan",
+    "title_other": "Tinjau {{count}} pembaruan",
+    "loadingTitle": "Tinjau pembaruan",
+    "intro": "Tidak ada yang berubah sampai Anda memulai.",
+    "loading": "Membaca rencana",
+    "loadError": "Rencana pembaruan tidak dapat dibaca.",
+    "selectAll": "Pilih semua",
+    "selectNone": "Batalkan semua pilihan",
+    "selected_one": "{{count}} dari {{total}} dipilih",
+    "selected_other": "{{count}} dari {{total}} dipilih",
+    "order": "Backend lebih dulu, lalu model, lalu add-on satu per satu. Setiap pembaruan mempertahankan versi sebelumnya sampai versi baru berjalan. Setelah dimulai, Anda dapat menutup jendela ini dan meninggalkan halaman.",
+    "group": {
+      "backends": "Backend ({{count}})",
+      "addons": "Add-on ({{count}})",
+      "models": "Model ({{count}})"
+    },
+    "item": "Perbarui {{name}}",
+    "backsUp": "Mencadangkan data Anda",
+    "modelNote": "Tidak dipilih secara bawaan: pembaruan model memuat ulang model itu. File lama tetap ada sampai Anda mengonfirmasi.",
+    "blocked": "Tidak dapat dimulai: {{reason}}",
+    "empty": "Tidak ada yang perlu diperbarui.",
+    "start_one": "Perbarui {{count}} item",
+    "start_other": "Perbarui {{count}} item",
+    "startOne": "Perbarui",
+    "cancel": "Batal",
+    "singleTitle": "Perbarui {{name}}?",
+    "singleLoading": "Perbarui",
+    "singleNote": "Versi lama tetap ada sampai versi baru berjalan.",
+    "risk": {
+      "stopsModels_one": "Menghentikan {{count}} model yang dimuat selama peralihan",
+      "stopsModels_other": "Menghentikan {{count}} model yang dimuat selama peralihan",
+      "stopsModelsNodes_one": "Menghentikan {{count}} model yang dimuat di {{nodes}} node selama peralihan",
+      "stopsModelsNodes_other": "Menghentikan {{count}} model yang dimuat di {{nodes}} node selama peralihan",
+      "migratesData": "Data Anda dimigrasikan. Cadangan yang terverifikasi dibuat lebih dulu.",
+      "editedKeys_one": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
+      "editedKeys_other": "Anda mengubah {{count}} pengaturan model ini. Gunakan {{action}} di barisnya untuk memilih yang dipertahankan.",
+      "held": "Versi ini menunggu persetujuan Anda.",
+      "cluster_one": "Diperbarui di {{count}} node",
+      "cluster_other": "Diperbarui di {{count}} node",
+      "drift_one": "{{count}} node menjalankan build yang berbeda saat ini. Pembaruan membawa setiap node ke build yang baru.",
+      "drift_other": "{{count}} node menjalankan build yang berbeda saat ini. Pembaruan membawa setiap node ke build yang baru.",
+      "configOnly": "Hanya mengubah pengaturan model. Tidak ada yang diunduh."
+    },
+    "follow": "Tampilkan rangkaian"
+  },
+  "run": {
+    "group": "Rangkaian pembaruan ini",
+    "title_one": "Memperbarui {{count}} item",
+    "title_other": "Memperbarui {{count}} item",
+    "count": {
+      "updated_one": "{{count}} diperbarui",
+      "updated_other": "{{count}} diperbarui",
+      "running_one": "{{count}} berjalan",
+      "running_other": "{{count}} berjalan",
+      "waiting_one": "{{count}} menunggu",
+      "waiting_other": "{{count}} menunggu",
+      "attention_one": "{{count}} perlu perhatian",
+      "attention_other": "{{count}} perlu perhatian"
+    },
+    "started": "Dimulai {{when}}",
+    "finished": "Selesai {{when}}",
+    "result": {
+      "attention_one": "{{updated}} diperbarui, {{count}} perlu perhatian",
+      "attention_other": "{{updated}} diperbarui, {{count}} perlu perhatian",
+      "done_one": "{{count}} diperbarui",
+      "done_other": "{{count}} diperbarui",
+      "cancelled_one": "Rangkaian dibatalkan, {{count}} diperbarui",
+      "cancelled_other": "Rangkaian dibatalkan, {{count}} diperbarui",
+      "clean": "Tidak ada yang tertinggal setengah diperbarui",
+      "unknown_one": "{{count}} hasil belum dikonfirmasi",
+      "unknown_other": "{{count}} hasil belum dikonfirmasi"
+    },
+    "progress": "Kemajuan rangkaian pembaruan",
+    "cancelRemaining": "Batalkan sisanya",
+    "retryFailed": "Coba lagi yang gagal",
+    "dismiss": "Tutup",
+    "actionFailed": "Permintaan gagal: {{message}}",
+    "phase": {
+      "queued": "Dalam antrean",
+      "running": "Memperbarui",
+      "updated": "Diperbarui",
+      "failed": "Gagal",
+      "rolled_back": "Dikembalikan",
+      "cancelled": "Dibatalkan",
+      "skipped": "Dilewati",
+      "unconfirmed": "Belum dikonfirmasi"
+    },
+    "queued": {
+      "afterBackends": "Menunggu backend.",
+      "oneAddon": "Add-on diperbarui satu per satu.",
+      "waitingFor": "Menunggu {{name}}.",
+      "plain": "Menunggu untuk dimulai.",
+      "afterModels": "Menunggu model.",
+      "backendLimit": "Menunggu slot backend yang kosong.",
+      "sameBackend": "Menunggu operasi lain pada backend ini.",
+      "oneModel": "Model diperbarui satu per satu."
+    },
+    "detail": {
+      "updating": "Memperbarui",
+      "node": "Node {{index}} dari {{count}}: {{message}}",
+      "failed": "{{reason}}. {{name}} masih di {{version}} dan data Anda tidak berubah.",
+      "rolledBack": "Versi baru tidak berjalan: {{reason}}. {{name}} masih di {{version}} dan data Anda tidak berubah.",
+      "unconfirmed": "Tidak dapat dikonfirmasi. Periksa lagi versi {{name}}.",
+      "cancelled": "Dibatalkan. {{name}} masih di {{version}}.",
+      "skipped": "Dilewati.",
+      "skippedWhy": "Dilewati: {{reason}}.",
+      "checking": "Memeriksa apakah pembaruan sudah diterapkan."
+    },
+    "details": {
+      "toggle": "Detail",
+      "code": "Kode: {{code}}",
+      "node": "{{name}}: {{phase}}",
+      "none": "Server tidak memberikan detail lain."
+    },
+    "busy": "Rangkaian pembaruan sedang berjalan.",
+    "unavailable": "Rangkaian pembaruan tidak tersedia di server ini.",
+    "auto": "Pembaruan otomatis"
   }
 }

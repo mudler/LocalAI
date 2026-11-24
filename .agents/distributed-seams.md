@@ -93,8 +93,8 @@ frontend runs. A new NATS address is read at the next start.
 
 `NodeControl` is the whole control surface a route gives the frontend:
 `NodeCommandSender`, the process lister, the three unload interfaces the model
-loader reads by type assertion, and the install timeout, model file deletion and
-forced install that the managers and the reconciler call. Take it, not a
+loader reads by type assertion, and the install timeout and model file deletion
+that the managers and the reconciler call. Take it, not a
 concrete sender. The `Files` holder implements `RequestFileReleaser` because
 `FileStagingClient` looks for it, and `carrier.FileCarrier` makes every route
 provide it.
@@ -433,8 +433,9 @@ installing (`waitExpired`), whether a missing acknowledgement of `backend.stop`
 may be read as an older worker (`acknowledgementMissing`: true only for NATS), and
 how the carrier is named in a log line. An HTTP link never reads silence as a
 stop that was done. A 404 is a worker that does not serve the verb. It becomes
-`ErrNoRoute` only for `backend.upgrade`, which keeps the fallback to the older
-install, and it is a plain error for every other verb.
+`ErrNoRoute` only for `backend.upgrade`: the worker is older than the verb, and
+the upgrade fails on it. There is no fallback to a forced install; an old worker
+must be upgraded with the frontend. A 404 is a plain error for every other verb.
 
 ## Agent RPC
 

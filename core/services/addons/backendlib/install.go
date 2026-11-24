@@ -209,7 +209,9 @@ func (i *Installer) installPlan(ctx context.Context, p Plan, progress Progress) 
 	}
 	install := i.install
 	if install == nil {
-		install = gallery.InstallBackend
+		install = func(ctx context.Context, st *system.SystemState, ml *model.ModelLoader, gb *gallery.GalleryBackend, status func(string, string, string, float64), requireIntegrity bool) error {
+			return gallery.InstallBackend(ctx, st, ml, gb, status, requireIntegrity)
+		}
 	}
 	gb := &gallery.GalleryBackend{URI: p.URI, Version: p.Version, Alias: p.Alias, Library: p.Library, MaxBytes: i.limit(), Mirrors: p.Mirrors}
 	gb.Name = p.Name

@@ -814,6 +814,33 @@
           "body_one": "{{count}} ancien fichier supprimé.",
           "body_other": "{{count}} anciens fichiers supprimés."
         }
+      },
+      "run": {
+        "title_one": "Mise à jour de {{count}} élément",
+        "title_other": "Mise à jour de {{count}} éléments",
+        "titleAuto_one": "Mise à jour automatique : {{count}} élément",
+        "titleAuto_other": "Mise à jour automatique : {{count}} éléments",
+        "updated_one": "{{count}} mis à jour",
+        "updated_other": "{{count}} mis à jour",
+        "running_one": "{{count}} en cours",
+        "running_other": "{{count}} en cours",
+        "waiting_one": "{{count}} en attente",
+        "waiting_other": "{{count}} en attente",
+        "done": "{{done}} sur {{total}} terminées",
+        "end": {
+          "attention_one": "{{updated}} mis à jour, {{count}} demande votre attention",
+          "attention_other": "{{updated}} mis à jour, {{count}} demandent votre attention",
+          "done_one": "{{count}} mis à jour",
+          "done_other": "{{count}} mis à jour",
+          "auto": "Automatique : {{text}}",
+          "first": "{{name}} reste en {{version}}.",
+          "firstWhy": "{{name}} reste en {{version}} : {{reason}}.",
+          "cancelled_one": "Série annulée : {{count}} mis à jour",
+          "cancelled_other": "Série annulée : {{count}} mis à jour",
+          "cancelledAttention_one": "Série annulée : {{updated}} mis à jour, {{count}} demande votre attention",
+          "cancelledAttention_other": "Série annulée : {{updated}} mis à jour, {{count}} demandent votre attention",
+          "firstStart": "{{name}} reste en {{version}} : la nouvelle version n’a pas démarré : {{reason}}."
+        }
       }
     },
     "tabs": {
@@ -850,7 +877,15 @@
       }
     },
     "chatsOff": "Les chats sont désactivés",
-    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici."
+    "emptyBodyNoChats": "Les mises à jour et les opérations terminées apparaissent ici.",
+    "runProgress": "Progression : {{title}}",
+    "runStarted": "Lancée {{when}}",
+    "viewProgress": "Voir la progression",
+    "seeRun": "Voir la série",
+    "openUpdates": "Ouvrir Mises à jour",
+    "updatesPending_one": "{{count}} mise à jour disponible",
+    "updatesPending_other": "{{count}} mises à jour disponibles",
+    "updatesNone": "Tout est à jour"
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",

@@ -2,6 +2,7 @@ import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
 import { chatsListPath } from './chatsQuery'
 import { addonsApi } from './addonsClient'
+import { confirmedPost } from './upgradeRun'
 import { createSharesApi } from './sharesApi'
 import { createFolderSharesApi } from './folderSharesApi'
 import { createPageSharesApi } from './pageSharesApi'
@@ -193,6 +194,22 @@ export const backendsApi = {
   // checkUpdatesNow runs a real check and waits for it (at most 45 s).
   updates: () => fetchJSON(API_CONFIG.endpoints.backendUpdates),
   checkUpdatesNow: () => postJSON(API_CONFIG.endpoints.backendUpdatesCheck, {}),
+}
+
+// Update runs. The server orders the items, runs them and keeps the state, so
+// a run goes on when the page is closed and a reload finds it again.
+export const updateRunsApi = {
+  preview: (items) => postJSON(API_CONFIG.endpoints.updateRunsPreview, { items }),
+  // A start and a retry carry the confirmation of the administrator's browser.
+  start: (items) => fetchJSON(API_CONFIG.endpoints.updateRuns, confirmedPost({ items, source: 'manual' })),
+  active: () => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { active: 1 })),
+  // The newest runs that are not dismissed, the running one first.
+  list: (limit = 1) => fetchJSON(buildUrl(API_CONFIG.endpoints.updateRuns, { limit })),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id)),
+  cancel: (id) => postJSON(API_CONFIG.endpoints.updateRunCancel(id), {}),
+  cancelItem: (id, key) => postJSON(API_CONFIG.endpoints.updateRunItemCancel(id, key), {}),
+  retry: (id) => fetchJSON(API_CONFIG.endpoints.updateRunRetry(id), confirmedPost({})),
+  dismiss: (id) => fetchJSON(API_CONFIG.endpoints.updateRun(id), { method: 'DELETE' }),
 }
 
 // Chats API: conversations the server keeps. A message sent while a turn runs

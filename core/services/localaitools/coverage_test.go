@@ -38,6 +38,7 @@ var toolToHTTPRoute = map[string]string{
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
 	ToolBackendUpdates:            "GET /backends/updates (action list), POST /backends/updates/check (action check)",
 	ToolModelUpdates:              "GET /api/models/updates (action list), POST /api/models/updates/check (action check)",
+	ToolUpgradeRunStatus:          "GET /api/updates/runs/:id (id), GET /api/updates/runs (no id)",
 	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",
@@ -78,6 +79,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolInstallLibraryBackend:    "POST /backends/library/install",
 	ToolUpgradeBackend:           "POST /backends/upgrade/:name",
 	ToolUpgradeModel:             "POST /api/models/upgrade/:name (upgrade, config_only), POST /api/models/:name/upgrade/retry (retry), POST /api/models/:name/remove-old (remove_old), PUT /api/models/:name/hold (hold, unhold), POST /api/models/:name/adopt (adopt)",
+	ToolUpgradeRunStart:          "POST /api/updates/runs",
+	ToolUpgradeRunCancel:         "POST /api/updates/runs/:id/cancel (no key), POST /api/updates/runs/:id/items/:key/cancel (key)",
 	ToolToggleModelState:         "PUT /models/toggle-state/:name/:action",
 	ToolToggleModelPinned:        "PUT /models/toggle-pinned/:name/:action",
 	ToolSetBranding:              "POST /api/settings (instance_name, instance_tagline)",
@@ -134,6 +137,13 @@ func init() {
 // must not be wrapped by a tool too (the spec below checks it); to add a tool
 // for one, move it to toolToHTTPRoute.
 var adminRoutesWithoutTool = map[string]string{
+	// Upgrade runs: the assistant starts, reads and cancels runs of backends
+	// and models. The preview is the Updates page's list (backend_updates and
+	// model_updates give the same facts), and retry and dismiss are clicks on
+	// a finished run there; add-on items need the browser session anyway.
+	"POST /api/updates/runs/preview":   "backend_updates and model_updates give the assistant the same list",
+	"POST /api/updates/runs/:id/retry": "a retry may include add-on items, which need the administrator's own browser session",
+	"DELETE /api/updates/runs/:id":     "hiding a finished run is a click on the Updates page",
 	// Remotes hold the address and API key of another server. The
 	// key is write-only and credential handling for a remote does
 	// not belong in the always-sent assistant tool budget: a person manages

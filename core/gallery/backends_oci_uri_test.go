@@ -92,6 +92,7 @@ var _ = Describe("backends installed from an oci:// URI", func() {
 	)
 
 	It("records the new image digest after an upgrade", func() {
+		passStartCheck()
 		host, oldDigest := pushBackendImage(registryURL, "acme/backend", "v1", "#!/bin/sh\necho v1\n")
 		_, newDigest := pushBackendImage(registryURL, "acme/backend", "v2", "#!/bin/sh\necho v2\n")
 		Expect(newDigest).ToNot(Equal(oldDigest))

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/workerctl"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc/codes"
@@ -208,28 +210,59 @@ func (s *backendSupervisor) serveUpgrade(_ context.Context, req workerctl.Backen
 	downloadCb, flush := s.downloadProgress(req.OpID, req.Backend, progress)
 	defer flush()
 
-	// stopped is meaningful even on the error paths: it lists processes
-	// already terminated (and ports already recycled) before the failure, so
-	// the controller must drop those rows regardless of the outcome.
 	upgrade := s.upgradeFn
 	if upgrade == nil {
 		upgrade = s.upgradeBackend
 	}
-	stopped, err := upgrade(req, downloadCb)
+	out, err := upgrade(req, downloadCb)
+	reply := upgradeReply(out, err)
 	if err != nil {
-		xlog.Error("Failed to upgrade backend via NATS", "error", err)
-		return workerctl.BackendUpgradeReply{
-			Success:                 false,
-			Error:                   err.Error(),
-			StoppedProcessKeys:      stopped,
-			ReportsStoppedProcesses: true,
-		}
+		xlog.Error("Failed to upgrade backend", "backend", req.Backend, "code", reply.Code, "rolledBack", reply.RolledBack, "error", err)
 	}
-	return workerctl.BackendUpgradeReply{
-		Success:                 true,
-		StoppedProcessKeys:      stopped,
+	return reply
+}
+
+// upgradeReply builds the answer of backend.upgrade from what the upgrade did
+// and its error. The stopped keys are reported on every outcome: their ports
+// are recycled whatever happened, so the controller drops those rows.
+func upgradeReply(out upgradeOutcome, err error) workerctl.BackendUpgradeReply {
+	reply := workerctl.BackendUpgradeReply{
+		Success:                 err == nil,
+		Verified:                out.verified,
+		StoppedProcessKeys:      out.stopped,
 		ReportsStoppedProcesses: true,
+		RestartedProcessKeys:    out.restarted,
 	}
+	if out.restartErr != nil {
+		reply.RestartError = workerctl.BoundCause(out.restartErr.Error())
+	}
+	if err == nil {
+		return reply
+	}
+	reply.Error = err.Error()
+	reply.Code = string(upgradeFailureCode(err))
+	reply.RolledBack = gallery.UpgradeRolledBack(err)
+	var startErr *workerStartError
+	if errors.As(err, &startErr) {
+		reply.Cause = workerctl.BoundCause(startErr.output)
+	}
+	return reply
+}
+
+// upgradeFailureCode is the code of a failed worker upgrade. A step that
+// tagged its error keeps its code; a refused checksum or signature is verify;
+// anything else is unknown, so the frontend never has to parse the text.
+func upgradeFailureCode(err error) gallery.UpgradeFailureCode {
+	if code := gallery.UpgradeCodeOf(err); code != "" {
+		return code
+	}
+	if errors.Is(err, downloader.ErrIntegrity) {
+		return gallery.UpgradeFailureVerify
+	}
+	if errors.Is(err, gallery.ErrBackendNotFound) {
+		return gallery.UpgradeFailureNotInstalled
+	}
+	return gallery.UpgradeFailureUnknown
 }
 
 // downloadProgress returns the gallery download callback for one install or

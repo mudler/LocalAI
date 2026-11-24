@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -173,69 +175,166 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 	return s.startBackend(processKey, req.Backend, backendPath, req.EnvVars)
 }
 
+// upgradeOutcome is what an upgrade did besides its error: the processes it
+// stopped and started again, and whether the new build passed the candidate
+// start.
+type upgradeOutcome struct {
+	// stopped lists the process keys the upgrade terminated. It is
+	// meaningful on the error paths too: those ports are recycled whatever
+	// the outcome, so the controller drops the rows addressing them.
+	stopped []string
+	// restarted lists the stopped processes that run again after the upgrade.
+	restarted []string
+	// restartErr says why some stopped processes could not be started again.
+	restartErr error
+	// verified is true when the new build passed the candidate start.
+	verified bool
+}
+
+// stoppedProcess is what is needed to start a stopped process again.
+type stoppedProcess struct {
+	key         string
+	backendName string
+	env         map[string]string
+}
+
+// upgradeCheckKeySuffix names the process of a candidate start. It never
+// collides with a model process key (`model#<replica index>`).
+const upgradeCheckKeySuffix = "#upgrade-check"
+
 // upgradeBackend stops every running process for `backend`, force-reinstalls
-// from gallery (overwriting the on-disk artifact), and re-registers backends.
-// It does NOT start any new gRPC process — the next routine model load via
-// backend.install will spawn a fresh process picking up the new binary.
+// it from the gallery and starts the stopped processes again.
+//
+// The installed build is kept until the new build starts from its final path:
+// the install moves it aside, the candidate start (startBackend, with the
+// readiness check of a model load, on a process key of its own) runs the new
+// build, and only when it answers is the old build removed. When it does not,
+// the old build and its metadata are put back and registered, and the error
+// has the code start and says the build was rolled back. No step of the check
+// or the restore talks to NATS, so it works the same on a worker that holds
+// only a tunnel (websocket or P2P).
 //
 // The caller is responsible for holding s.lockBackend(req.Backend).
 //
-// It returns the process keys it terminated so the controller can drop the
-// NodeModel rows addressing them: an upgrade stops every process using the
-// binary and starts none back up, recycling their gRPC ports while the rows
-// still point at those addresses. downloadCb is as for installBackend.
-func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error) {
+// The stopped processes are started again on the build in place at the end,
+// on new ports and with no model loaded (only the frontend can load a model).
+// Their keys are still reported as stopped so the controller drops the rows
+// that address the old ports; the next load reuses the running process.
+// downloadCb is as for installBackend.
+func (s *backendSupervisor) upgradeBackend(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) (out upgradeOutcome, err error) {
 	// Stop every live process for this backend (peer replicas + the bare
 	// processKey). Same logic as the force branch in installBackend.
 	toStop := s.resolveProcessKeysForBackend(s.backendIdentity(req.Backend))
 	toStop = append(toStop, buildProcessKey("", req.Backend, int(req.ReplicaIndex)))
-	stopped := make([]string, 0, len(toStop))
+	var restart []stoppedProcess
 	for _, key := range toStop {
 		// The bare-backend key appended above is speculative — it exists only
 		// on legacy entries. Reporting a key we never had would ask the
 		// controller to drop a row that a different, still-running replica may
 		// own, so only keys backed by a tracked process are reported.
-		tracked := s.getAddr(key) != ""
+		snapshot, tracked := s.stoppedSnapshot(key, req.Backend)
 		xlog.Info("Upgrade: stopping running backend before reinstall",
 			"backend", req.Backend, "processKey", key)
 		if err := s.stopBackendExact(key, true); err != nil {
-			return stopped, fmt.Errorf("stopping running backend before upgrade: %w", err)
+			return out, fmt.Errorf("stopping running backend before upgrade: %w", err)
 		}
 		if tracked {
-			stopped = append(stopped, key)
+			out.stopped = append(out.stopped, key)
+			restart = append(restart, snapshot)
 		}
 	}
+	// Whatever happens below, the processes that ran before run again. out
+	// is a named result so the restart is part of what the caller gets.
+	defer func() { out.restarted, out.restartErr = s.restartStopped(restart) }()
 
 	galleries := s.galleries
 	if req.BackendGalleries != "" {
 		var reqGalleries []config.Gallery
 		if err := json.Unmarshal([]byte(req.BackendGalleries), &reqGalleries); err != nil {
-			return stopped, fmt.Errorf("decoding backend galleries: %w", err)
+			return out, fmt.Errorf("decoding backend galleries: %w", err)
 		}
 		galleries = reqGalleries
 	}
 
+	check := gallery.WithStartCheck(s.candidateStartCheck(req.Backend, &out.verified))
 	if req.URI != "" {
 		xlog.Info("Upgrading backend from external URI", "backend", req.Backend, "uri", req.URI)
 		if err := galleryop.InstallExternalBackend(
-			context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity,
+			context.Background(), galleries, s.systemState, s.ml, downloadCb, req.URI, req.Name, req.Alias, true, s.cfg.RequireBackendIntegrity, check,
 		); err != nil {
-			return stopped, fmt.Errorf("upgrading backend from external URI: %w", err)
+			return out, fmt.Errorf("upgrading backend from external URI: %w", err)
 		}
 	} else {
 		xlog.Info("Upgrading backend from gallery", "backend", req.Backend)
 		if err := gallery.InstallBackendFromGallery(
 			context.Background(), galleries, s.systemState, s.ml, req.Backend, downloadCb, true, /* force */
-			s.cfg.RequireBackendIntegrity,
+			s.cfg.RequireBackendIntegrity, check,
 		); err != nil {
-			return stopped, fmt.Errorf("upgrading backend from gallery: %w", err)
+			return out, fmt.Errorf("upgrading backend from gallery: %w", err)
 		}
 	}
 
 	if err := gallery.RegisterBackends(s.systemState, s.ml); err != nil {
-		return stopped, fmt.Errorf("refreshing registered backends after upgrade: %w", err)
+		return out, gallery.WithUpgradeCode(gallery.UpgradeFailureSwap, fmt.Errorf("refreshing registered backends after upgrade: %w", err))
 	}
-	return stopped, nil
+	return out, nil
+}
+
+// stoppedSnapshot records what restarting the process under key needs, and
+// whether the supervisor tracks a process there at all.
+func (s *backendSupervisor) stoppedSnapshot(key, backend string) (stoppedProcess, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	bp, ok := s.processes[key]
+	if !ok || bp.addr == "" {
+		return stoppedProcess{}, false
+	}
+	name := bp.backendName
+	if name == "" {
+		name = backend
+	}
+	return stoppedProcess{key: key, backendName: name, env: maps.Clone(bp.envVars)}, true
+}
+
+// candidateStartCheck is the start check of a worker upgrade: it starts the
+// new build under a process key of its own with startBackend, so it gets the
+// worker's port range, bind host, data token and readiness check, and stops it
+// again whatever the result. verified is set when the build answered.
+func (s *backendSupervisor) candidateStartCheck(backend string, verified *bool) gallery.StartCheck {
+	return func(_ context.Context, runFile string) error {
+		key := backend + upgradeCheckKeySuffix
+		_, err := s.startBackend(key, backend, runFile)
+		if stopErr := s.stopBackendExact(key, true); stopErr != nil {
+			xlog.Warn("Could not stop the candidate start of an upgrade", "backend", backend, "error", stopErr)
+		}
+		if err != nil {
+			return err
+		}
+		*verified = true
+		return nil
+	}
+}
+
+// restartStopped starts the processes an upgrade stopped again, on the build
+// that is in place now. A process that cannot start is reported, not fatal:
+// the next load of its model starts it.
+func (s *backendSupervisor) restartStopped(stopped []stoppedProcess) ([]string, error) {
+	var restarted []string
+	var errs []error
+	for _, p := range stopped {
+		path := s.findBackend(p.backendName)
+		if path == "" {
+			errs = append(errs, fmt.Errorf("%s: backend %q not found", p.key, p.backendName))
+			continue
+		}
+		if _, err := s.startBackend(p.key, p.backendName, path, p.env); err != nil {
+			xlog.Warn("Could not start a stopped backend process again after the upgrade", "processKey", p.key, "error", err)
+			errs = append(errs, fmt.Errorf("%s: %w", p.key, err))
+			continue
+		}
+		restarted = append(restarted, p.key)
+	}
+	return restarted, errors.Join(errs...)
 }
 
 // findBackend looks for the backend binary in the backends path and system path.

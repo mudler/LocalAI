@@ -134,7 +134,7 @@ type backendSupervisor struct {
 	// run. nil means installBackend and upgradeBackend; specs set them to drive
 	// the verbs without a gallery.
 	installFn func(req workerctl.BackendInstallRequest, force bool, downloadCb func(file, current, total string, percentage float64)) (string, error)
-	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) ([]string, error)
+	upgradeFn func(req workerctl.BackendUpgradeRequest, downloadCb func(file, current, total string, percentage float64)) (upgradeOutcome, error)
 
 	mu        sync.Mutex
 	processes map[string]*backendProcess // key: backend name
@@ -180,7 +180,15 @@ type backendSupervisor struct {
 	opKillTTL time.Duration
 	opTick    time.Duration
 	readyFn   func(addr string) bool
+	// startTimeout bounds the readiness wait of startBackend. Overridden only
+	// by tests; zero means defaultStartTimeout.
+	startTimeout time.Duration
 }
+
+// defaultStartTimeout is how long startBackend waits for a new process to
+// answer a health check. Slow nodes (Jetson Orin doing first-boot CUDA init,
+// large CGO libs) can take 10-15 s before the gRPC port accepts connections.
+const defaultStartTimeout = 30 * time.Second
 
 // defaultPortQuarantine is how long a released gRPC port waits before it can be
 // re-bound by another backend.
@@ -610,10 +618,11 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 	// which manifested upstream as "connect: connection refused" on the
 	// frontend's first LoadModel dial.
 	client := grpc.NewClientWithToken(clientAddr, false, nil, false, s.cfg.dataToken)
-	const (
-		readinessPollInterval = 200 * time.Millisecond
-		readinessTimeout      = 30 * time.Second
-	)
+	const readinessPollInterval = 200 * time.Millisecond
+	readinessTimeout := s.startTimeout
+	if readinessTimeout <= 0 {
+		readinessTimeout = defaultStartTimeout
+	}
 	deadline := time.Now().Add(readinessTimeout)
 	var lastHealthErr error
 	for time.Now().Before(deadline) {
@@ -647,7 +656,7 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 			stderrTail := readLastLinesFromFile(proc.StderrPath(), 20)
 			xlog.Warn("Backend process died during startup", "backend", backend, "healthError", lastHealthErr, "stderr", stderrTail)
 			s.releaseBackendStart(backend, bp)
-			return "", fmt.Errorf("backend process %s died during startup. Last stderr:\n%s", backend, stderrTail)
+			return "", &workerStartError{reason: fmt.Sprintf("backend process %s died during startup", backend), output: stderrTail}
 		}
 	}
 
@@ -662,7 +671,24 @@ func (s *backendSupervisor) startBackend(backend, backendName, backendPath strin
 		xlog.Warn("Failed to stop unready backend process", "backend", backend, "error", killErr)
 	}
 	s.releaseBackendStart(backend, bp)
-	return "", fmt.Errorf("backend %s did not become ready within %s. Last stderr:\n%s", backend, readinessTimeout, stderrTail)
+	return "", &workerStartError{reason: fmt.Sprintf("backend %s did not become ready within %s", backend, readinessTimeout), output: stderrTail}
+}
+
+// workerStartError is a backend process that did not become ready: it died,
+// or it did not answer a health check in time. output is the end of its
+// stderr, kept apart so an upgrade can report it as the cause.
+type workerStartError struct {
+	reason string
+	output string
+}
+
+// Error is the reason, then the output when the process wrote any: an empty
+// "Last stderr:" label read as a cause that was lost.
+func (e *workerStartError) Error() string {
+	if strings.TrimSpace(e.output) == "" {
+		return e.reason
+	}
+	return e.reason + ". Last stderr:\n" + e.output
 }
 
 // markBackendServing verifies that a successful readiness probe still belongs
