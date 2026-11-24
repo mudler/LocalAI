@@ -357,7 +357,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
-	signals.RegisterGracefulTerminationHandler(func() {
+	unregisterTermination := registerTermination(func() {
 		// StopAllGRPC (the deleteProcess path) is registered earlier and runs
 		// first for store-tracked backends, stopping this process and removing
 		// its pidfile. Calling Stop again then fails with "failed to read PID".
@@ -406,6 +406,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// whether the child is alive.
 	go func() {
 		<-grpcControlProcess.Done()
+		// The process is gone: nothing to stop at termination any more.
+		unregisterTermination()
 		ml.untrackProcess(grpcControlProcess)
 		// LoadAndDelete both reads the intentional-stop marker and frees the
 		// map entry so it doesn't accumulate across the process's lifetime.
@@ -500,6 +502,10 @@ func (ml *ModelLoader) untrackProcess(p *process.Process) {
 		wd.untrackProcess(p)
 	}
 }
+
+// registerTermination registers the stop of a backend process at
+// termination; a test replaces it to count the live registrations.
+var registerTermination = signals.RegisterGracefulTerminationHandler
 
 // CleanupProcessRuntime releases state and scratch owned by a process started
 // through StartProcess. Callers that supervise processes outside ModelLoader's

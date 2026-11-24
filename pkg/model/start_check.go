@@ -74,6 +74,9 @@ func (ml *ModelLoader) CheckBackendStart(ctx context.Context, id, runFile string
 		}
 		return &StartCheckError{Reason: fmt.Sprintf("the backend process could not be started: %v", err)}
 	}
+	// A start check is not a loaded backend: the watchdog must not count it
+	// for the LRU limit or pick it for an eviction.
+	ml.untrackProcess(proc)
 	defer ml.stopStartCheck(proc, id)
 
 	return waitBackendHealthy(ctx, proc, grpc.NewClient(address, false, nil, false), timeout)

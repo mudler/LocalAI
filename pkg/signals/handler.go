@@ -35,7 +35,7 @@ func WorstCase(drain time.Duration) time.Duration {
 }
 
 var (
-	signalHandlers      []func()
+	signalHandlers      []*func()
 	drainHandlers       []func(context.Context)
 	drainTimeout        time.Duration
 	signalHandlersMutex sync.Mutex
@@ -49,10 +49,25 @@ var setupSignalHandler = sync.OnceFunc(func() {
 
 // RegisterGracefulTerminationHandler registers a hook that runs on SIGINT or
 // SIGTERM, after the drain handlers have finished or timed out.
-func RegisterGracefulTerminationHandler(fn func()) {
+// RegisterGracefulTerminationHandler runs fn when the process is told to
+// stop. The returned function removes fn again, for a handler whose job ended
+// before the process (a backend process that exited); calling it more than
+// once is harmless.
+func RegisterGracefulTerminationHandler(fn func()) func() {
+	entry := &fn
 	signalHandlersMutex.Lock()
-	defer signalHandlersMutex.Unlock()
-	signalHandlers = append(signalHandlers, fn)
+	signalHandlers = append(signalHandlers, entry)
+	signalHandlersMutex.Unlock()
+	return func() {
+		signalHandlersMutex.Lock()
+		defer signalHandlersMutex.Unlock()
+		for i, h := range signalHandlers {
+			if h == entry {
+				signalHandlers = append(signalHandlers[:i:i], signalHandlers[i+1:]...)
+				return
+			}
+		}
+	}
 }
 
 // RegisterDrainHandler registers a function that runs first on SIGINT or
@@ -81,7 +96,10 @@ func signalHandler(c chan os.Signal) {
 
 	signalHandlersMutex.Lock()
 	drains := append([]func(context.Context){}, drainHandlers...)
-	hooks := append([]func(){}, signalHandlers...)
+	hooks := make([]func(), 0, len(signalHandlers))
+	for _, h := range signalHandlers {
+		hooks = append(hooks, *h)
+	}
 	timeout := drainTimeout
 	signalHandlersMutex.Unlock()
 
