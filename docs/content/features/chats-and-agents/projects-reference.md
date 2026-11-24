@@ -536,8 +536,9 @@ needs `chats` only, because a loop is part of a chat.
   that are bound to an agent of the project: id, kind, name, the agent and
   whether the connection is on. A token or a list of senders never appears.
 - `GET /api/chats/projects/{id}/triggers` lists your triggers that run an agent
-  of the project: name, kind, schedule or folder (a path in your files, such as
-  `/Projects/acme/files/inbox`), the agent, whether it is on, and `next`, the
+  of the project: name, kind (`schedule`, `file` or `event`), schedule or folder (a path in your files, such as
+  `/Projects/acme/files/inbox`; an event trigger has neither, and its sender, type and matches are
+  not in this list), the agent, whether it is on, and `next`, the
   next run of an enabled schedule trigger. The list shows your
   triggers of the agents of the project; `proposed` is always false for now.
 - `GET /api/chats/projects/{id}/loops` lists your loops in chats that use an
@@ -566,7 +567,7 @@ The project page has a **Connections** tab and an **Automations** tab.
   asks which one answers. A project with no agent shows **New agent** instead,
   because a project agent must answer the messages. An archived project cannot
   add connections: **Connect** is off until you restore it.
-- **Automations** lists the triggers (schedule or folder, the agent, the next
+- **Automations** lists the triggers (schedule, folder or event, the agent, the next
   run) and the loops of the project. Each trigger opens its own page and each
   loop opens its chat. **New trigger** opens the trigger form with the first
   agent of the project that can work already chosen, and, for a file trigger,

@@ -16,7 +16,7 @@ For the other kinds of trigger (schedule and file), the run, the plan card and t
 There are two ways.
 
 - **Ask in a Studio chat.** Say what should start the run, for example "When someone opens a pull request on my repository, read it and tell me if it changes the docs." The model proposes an event trigger. It shows a card with the sender, the event type, the matches, and what the run may do. Nothing exists until you confirm. When you confirm, the card shows the hook URL, the secret and a `curl` example once.
-- **Use the form.** On the Triggers page, create a trigger and choose **Event**. Fill in the sender (`source`), the event type, the matches, the prompt and the model. After you create it, the page shows the secret once.
+- **Use the form.** On the Triggers page, create a trigger and choose **When an event arrives**. Fill in **Sender** (the `source`), **Event type**, **Only when (one field=value per line)**, the prompt and the model. After you create it, the page shows the secret once.
 
 A chat in a messaging app cannot propose an event trigger. Create it in Studio.
 
@@ -115,7 +115,7 @@ An event run has only the tools that the trigger names, its `acts`, and only wit
 
 A run waits until the gap since the previous start has passed. Events that arrive while a run waits are not lost and do not make more runs. They join the waiting run: it keeps up to 8 payloads, oldest first, and says how many older ones were dropped. Each joined event shows as a skipped row in the run list, with the reason "merged into a waiting run". The run then starts once and sees all of them.
 
-An event that arrives while a run is going makes a new waiting run.
+An event that arrives while a run is going makes a new waiting run, unless a run of the trigger is already waiting: then it joins that one.
 
 ### Repeats
 

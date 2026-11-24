@@ -312,7 +312,7 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(runs("t1")).To(BeZero())
 	})
 
-	It("follows the documented scenario: create, send, refuse, repeat, rotate and cap", func() {
+	It("follows the documented scenario: create, send, refuse, repeat, rotate and the body limit", func() {
 		rec := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{
 			"name": "Docs scenario", "prompt": "Say what happened.", "kind": "event", "source": "webhook", "enabled": true, "model": "test-model"})
 		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
@@ -339,21 +339,32 @@ var _ = Describe("the public hook of an event trigger", func() {
 		Expect(wrong.Code).To(Equal(http.StatusNotFound))
 		Expect(strings.TrimSpace(wrong.Body.String())).To(Equal(notFound))
 
-		withID := func(r *http.Request) { r.Header.Set("X-Webhook-Id", "a") }
-		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
-		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
-		// The first call made the run, the second event waits for the gap and
-		// is merged or queued once: the same id twice adds one row, not two.
-		afterRepeat := runs(id)
-		Expect(send(first, `{"action":"closed"}`, withID).Code).To(Equal(http.StatusAccepted))
-		Expect(runs(id)).To(Equal(afterRepeat))
+		// The first call started the run above and the gap holds the next one,
+		// so an event with a new id waits as a queued run (the first call with
+		// id "a"), and a repeat of that id adds nothing.
+		withID := func(id string) func(*http.Request) {
+			return func(r *http.Request) { r.Header.Set("X-Webhook-Id", id) }
+		}
+		Expect(send(first, `{"action":"closed"}`, withID("a")).Code).To(Equal(http.StatusAccepted))
+		afterFirstID := runs(id)
+		Expect(afterFirstID).To(Equal(2), "the event waits as one queued run")
+		Expect(send(first, `{"action":"closed"}`, withID("a")).Code).To(Equal(http.StatusAccepted))
+		Expect(runs(id)).To(Equal(afterFirstID), "the same id adds no run")
+		// A different id while a run waits merges into it; the merged event
+		// leaves one skipped marker row that holds its key.
+		Expect(send(first, `{"action":"closed"}`, withID("c")).Code).To(Equal(http.StatusAccepted))
+		Expect(runs(id)).To(Equal(afterFirstID+1), "a new id merges into the waiting run and adds a marker row")
 
 		rot := s.do("alice", http.MethodPost, "/api/chats/triggers/"+id+"/secret", nil)
 		Expect(rot.Code).To(Equal(http.StatusOK), rot.Body.String())
 		second := decodeJSON(rot)["secret"].(string)
 		Expect(second).NotTo(Equal(first))
 		Expect(send(first, `{"action":"x"}`, nil).Code).To(Equal(http.StatusNotFound))
-		Expect(send(second, `{"action":"x"}`, func(r *http.Request) { r.Header.Set("X-Webhook-Id", "b") }).Code).To(Equal(http.StatusAccepted))
+		// A run is still waiting, so the event with the new secret merges into
+		// it and adds a marker row.
+		beforeB := runs(id)
+		Expect(send(second, `{"action":"x"}`, withID("b")).Code).To(Equal(http.StatusAccepted))
+		Expect(runs(id)).To(Equal(beforeB + 1))
 
 		Expect(send(second, strings.Repeat("a", 300*1024), nil).Code).To(Equal(http.StatusRequestEntityTooLarge))
 	})
