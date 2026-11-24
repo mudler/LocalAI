@@ -15403,6 +15403,164 @@
                 }
             }
         },
+        "/api/llama-cpp/command-preview": {
+            "post": {
+                "description": "Builds the llama-server command line that matches a partial model config. The text is for display; nothing is run.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Preview the llama-server command of a model config",
+                "parameters": [
+                    {
+                        "description": "Partial model config",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.LlamaCppCommandPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Command",
+                        "schema": {
+                            "$ref": "#/definitions/llamacppsettings.BuildResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Body too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/llama-cpp/parse-command": {
+            "post": {
+                "description": "Reads a llama-server command and returns the model config keys and options it maps to. The command is only tokenised; it is never run. Flags without a first-class key are listed as unmapped and kept as raw passthrough options.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Parse a llama-server command line",
+                "parameters": [
+                    {
+                        "description": "The command line",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.LlamaCppParseCommandRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Parsed settings",
+                        "schema": {
+                            "$ref": "#/definitions/llamacppsettings.ParseResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid body or command",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Command too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/llama-cpp/settings-schema": {
+            "get": {
+                "description": "Returns the table of llama-server flags LocalAI maps to model config keys, with types, limits, defaults and a doc line, so a client can render the fields from one source.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "List the llama.cpp runtime settings",
+                "responses": {
+                    "200": {
+                        "description": "Settings schema",
+                        "schema": {
+                            "$ref": "#/definitions/localai.LlamaCppSettingsSchemaResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/llama-cpp/tensor-placement": {
+            "post": {
+                "description": "With a placement, returns the \"-ot\" option that keeps the expert tensors of the chosen layers on the CPU. With an option, returns its structured form, or null when the pattern is not one this server generates. Placement is always opt-in: nothing applies it by default.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Build or recognise a llama.cpp tensor placement",
+                "parameters": [
+                    {
+                        "description": "A placement or an option",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.LlamaCppPlacementRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Placement",
+                        "schema": {
+                            "$ref": "#/definitions/localai.LlamaCppPlacementResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid input",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "Body too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/models/config-json/{name}": {
             "patch": {
                 "description": "Deep-merges the JSON patch body into the existing model config",
@@ -26444,6 +26602,308 @@
                 }
             }
         },
+        "llamacppsettings.BuildResult": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "llamacppsettings.Flag": {
+            "type": "object",
+            "properties": {
+                "cli": {
+                    "description": "CLI lists the accepted command-line spellings. The first one is used\nwhen a command is built.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "cli_negated": {
+                    "description": "CLINegated lists spellings that set a bool flag to false.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "default": {
+                    "description": "Default describes what applies when the setting is not set.",
+                    "type": "string"
+                },
+                "doc": {
+                    "type": "string"
+                },
+                "enum": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "group": {
+                    "$ref": "#/definitions/llamacppsettings.Group"
+                },
+                "key": {
+                    "description": "Key is a stable identifier, unique in the table.",
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "option": {
+                    "description": "Option is the option name for TargetOption flags. For raw passthrough\nflags it is the flag itself (for example \"-ot\").",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the YAML path of the setting, for example \"context_size\",\n\"parameters.temperature\" or \"options\".",
+                    "type": "string"
+                },
+                "repeatable": {
+                    "description": "Repeatable marks flags that may appear more than once.",
+                    "type": "boolean"
+                },
+                "target": {
+                    "description": "Target says where the value lands in the model config.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llamacppsettings.Target"
+                        }
+                    ]
+                },
+                "type": {
+                    "$ref": "#/definitions/llamacppsettings.ValueType"
+                }
+            }
+        },
+        "llamacppsettings.Group": {
+            "type": "string",
+            "enum": [
+                "memory",
+                "speed",
+                "sampling",
+                "template",
+                "placement"
+            ],
+            "x-enum-varnames": [
+                "GroupMemory",
+                "GroupSpeed",
+                "GroupSampling",
+                "GroupTemplate",
+                "GroupPlacement"
+            ]
+        },
+        "llamacppsettings.LayerRange": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "integer"
+                }
+            }
+        },
+        "llamacppsettings.Parameters": {
+            "type": "object",
+            "properties": {
+                "batch": {
+                    "type": "integer"
+                },
+                "min_p": {
+                    "type": "number"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "top_p": {
+                    "type": "number"
+                }
+            }
+        },
+        "llamacppsettings.ParseResult": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "description": "Fields holds the model config keys the command maps to. Its Options\nlist is always empty: see Options.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llamacppsettings.Settings"
+                        }
+                    ]
+                },
+                "options": {
+                    "description": "Options is the \"options\" list: known entries in table order, then raw\npassthrough entries in the order they appeared.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "placements": {
+                    "description": "Placements describes every \"-ot\" entry of Options.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llamacppsettings.PlacementInfo"
+                    }
+                },
+                "unmapped": {
+                    "description": "Unmapped lists flags that were not turned into a first-class key.\nUnknown flags are in Options as raw entries too, so nothing is lost.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llamacppsettings.Unmapped"
+                    }
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "llamacppsettings.Placement": {
+            "type": "object",
+            "properties": {
+                "first_gpu_layers": {
+                    "description": "FirstGPULayers is used by first_layers_gpu.",
+                    "type": "integer"
+                },
+                "layers": {
+                    "description": "Layers is used by experts_cpu_layers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llamacppsettings.LayerRange"
+                    }
+                },
+                "mode": {
+                    "$ref": "#/definitions/llamacppsettings.PlacementMode"
+                },
+                "total_layers": {
+                    "description": "TotalLayers is optional for first_layers_gpu. When set, the pattern\nlists the remaining layers one range; when 0, it matches every layer\nfrom FirstGPULayers up.",
+                    "type": "integer"
+                }
+            }
+        },
+        "llamacppsettings.PlacementInfo": {
+            "type": "object",
+            "properties": {
+                "option": {
+                    "type": "string"
+                },
+                "placement": {
+                    "$ref": "#/definitions/llamacppsettings.Placement"
+                }
+            }
+        },
+        "llamacppsettings.PlacementMode": {
+            "type": "string",
+            "enum": [
+                "experts_cpu_all",
+                "experts_cpu_layers",
+                "first_layers_gpu"
+            ],
+            "x-enum-varnames": [
+                "ExpertsCPUAll",
+                "ExpertsCPULayers",
+                "FirstLayersGPU"
+            ]
+        },
+        "llamacppsettings.Settings": {
+            "type": "object",
+            "properties": {
+                "cache_type_k": {
+                    "type": "string"
+                },
+                "cache_type_v": {
+                    "type": "string"
+                },
+                "context_size": {
+                    "type": "integer"
+                },
+                "flash_attention": {
+                    "type": "string"
+                },
+                "gpu_layers": {
+                    "type": "integer"
+                },
+                "mmap": {
+                    "type": "boolean"
+                },
+                "mmlock": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parameters": {
+                    "$ref": "#/definitions/llamacppsettings.Parameters"
+                },
+                "threads": {
+                    "type": "integer"
+                }
+            }
+        },
+        "llamacppsettings.Target": {
+            "type": "string",
+            "enum": [
+                "field",
+                "parameter",
+                "option"
+            ],
+            "x-enum-varnames": [
+                "TargetField",
+                "TargetParameter",
+                "TargetOption"
+            ]
+        },
+        "llamacppsettings.Unmapped": {
+            "type": "object",
+            "properties": {
+                "flag": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "llamacppsettings.ValueType": {
+            "type": "string",
+            "enum": [
+                "int",
+                "float",
+                "bool",
+                "enum",
+                "string"
+            ],
+            "x-enum-varnames": [
+                "TypeInt",
+                "TypeFloat",
+                "TypeBool",
+                "TypeEnum",
+                "TypeString"
+            ]
+        },
         "localai.APIInstructionResponse": {
             "type": "object",
             "properties": {
@@ -26835,6 +27295,85 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/library.Info"
+                    }
+                }
+            }
+        },
+        "localai.LlamaCppCommandPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "description": "Config is a partial model config: the keys of the settings schema.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llamacppsettings.Settings"
+                        }
+                    ]
+                }
+            }
+        },
+        "localai.LlamaCppParseCommandRequest": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "description": "Command is a llama-server command line. It is tokenised, never run.",
+                    "type": "string"
+                }
+            }
+        },
+        "localai.LlamaCppPlacementRequest": {
+            "type": "object",
+            "properties": {
+                "layers": {
+                    "description": "Layers is an optional \"0-6,18-23\" string. It replaces placement.layers.",
+                    "type": "string"
+                },
+                "option": {
+                    "type": "string"
+                },
+                "placement": {
+                    "$ref": "#/definitions/llamacppsettings.Placement"
+                }
+            }
+        },
+        "localai.LlamaCppPlacementResponse": {
+            "type": "object",
+            "properties": {
+                "option": {
+                    "type": "string"
+                },
+                "placement": {
+                    "description": "Placement is null when the option is not one this server generates.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/llamacppsettings.Placement"
+                        }
+                    ]
+                },
+                "raw": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "localai.LlamaCppSettingsSchemaResponse": {
+            "type": "object",
+            "properties": {
+                "flags": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llamacppsettings.Flag"
+                    }
+                },
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/llamacppsettings.Group"
+                    }
+                },
+                "load_modes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
@@ -34054,6 +34593,10 @@
                 "after": {
                     "type": "integer"
                 },
+                "backend": {
+                    "description": "Backend names the backend of a model_backend_outdated failure.",
+                    "type": "string"
+                },
                 "before": {
                     "description": "Before and After are context sizes in tokens, for compacted.",
                     "type": "integer"
@@ -34261,6 +34804,10 @@
         "schema.ChatsFailure": {
             "type": "object",
             "properties": {
+                "backend": {
+                    "description": "Backend is the backend the cause is about, when it is known (code\nmodel_backend_outdated).",
+                    "type": "string"
+                },
                 "code": {
                     "description": "Code names the cause, such as model_not_found, upstream, timeout or agent.",
                     "type": "string"

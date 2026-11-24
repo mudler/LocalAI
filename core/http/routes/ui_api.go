@@ -1300,6 +1300,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// VRAM estimation endpoint
 	app.POST("/api/models/vram-estimate", localai.VRAMEstimateEndpoint(cl, appConfig), adminMiddleware)
 
+	// llama.cpp runtime settings: paste-a-command parsing, command preview
+	// and the flag table the model editor renders from. Pure text handling.
+	app.POST("/api/llama-cpp/parse-command", localai.LlamaCppParseCommandEndpoint(), adminMiddleware)
+	app.POST("/api/llama-cpp/command-preview", localai.LlamaCppCommandPreviewEndpoint(), adminMiddleware)
+	app.GET("/api/llama-cpp/settings-schema", localai.LlamaCppSettingsSchemaEndpoint(), adminMiddleware)
+	app.POST("/api/llama-cpp/tensor-placement", localai.LlamaCppTensorPlacementEndpoint(), adminMiddleware)
+
 	// On-disk storage report: per-model sizes, shared files, missing refs
 	app.GET("/api/models/storage", localai.ModelStorageEndpoint(appConfig), adminMiddleware)
 

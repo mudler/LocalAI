@@ -3,6 +3,7 @@ package localaitools
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/llamacppsettings"
 	"github.com/mudler/LocalAI/pkg/modelsearch"
 	"sync"
 
@@ -376,6 +377,16 @@ func (f *fakeClient) SetNodeVRAMBudget(_ context.Context, nodeID, budget string)
 		return f.setNodeVRAMBudget(nodeID, budget)
 	}
 	return nil
+}
+
+func (f *fakeClient) ParseLlamaCppCommand(_ context.Context, command string) (*llamacppsettings.ParseResult, error) {
+	f.record("ParseLlamaCppCommand", command)
+	return &llamacppsettings.ParseResult{}, nil
+}
+
+func (f *fakeClient) PreviewLlamaCppCommand(_ context.Context, config llamacppsettings.Settings) (*llamacppsettings.BuildResult, error) {
+	f.record("PreviewLlamaCppCommand", config)
+	return &llamacppsettings.BuildResult{Command: "llama-server"}, nil
 }
 
 func (f *fakeClient) VRAMEstimate(_ context.Context, req VRAMEstimateRequest) (*vram.EstimateResult, error) {

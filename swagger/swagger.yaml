@@ -3351,6 +3351,229 @@ definitions:
       url:
         type: string
     type: object
+  llamacppsettings.BuildResult:
+    properties:
+      command:
+        type: string
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  llamacppsettings.Flag:
+    properties:
+      cli:
+        description: |-
+          CLI lists the accepted command-line spellings. The first one is used
+          when a command is built.
+        items:
+          type: string
+        type: array
+      cli_negated:
+        description: CLINegated lists spellings that set a bool flag to false.
+        items:
+          type: string
+        type: array
+      default:
+        description: Default describes what applies when the setting is not set.
+        type: string
+      doc:
+        type: string
+      enum:
+        items:
+          type: string
+        type: array
+      group:
+        $ref: '#/definitions/llamacppsettings.Group'
+      key:
+        description: Key is a stable identifier, unique in the table.
+        type: string
+      max:
+        type: number
+      min:
+        type: number
+      option:
+        description: |-
+          Option is the option name for TargetOption flags. For raw passthrough
+          flags it is the flag itself (for example "-ot").
+        type: string
+      path:
+        description: |-
+          Path is the YAML path of the setting, for example "context_size",
+          "parameters.temperature" or "options".
+        type: string
+      repeatable:
+        description: Repeatable marks flags that may appear more than once.
+        type: boolean
+      target:
+        allOf:
+        - $ref: '#/definitions/llamacppsettings.Target'
+        description: Target says where the value lands in the model config.
+      type:
+        $ref: '#/definitions/llamacppsettings.ValueType'
+    type: object
+  llamacppsettings.Group:
+    enum:
+    - memory
+    - speed
+    - sampling
+    - template
+    - placement
+    type: string
+    x-enum-varnames:
+    - GroupMemory
+    - GroupSpeed
+    - GroupSampling
+    - GroupTemplate
+    - GroupPlacement
+  llamacppsettings.LayerRange:
+    properties:
+      from:
+        type: integer
+      to:
+        type: integer
+    type: object
+  llamacppsettings.Parameters:
+    properties:
+      batch:
+        type: integer
+      min_p:
+        type: number
+      model:
+        type: string
+      temperature:
+        type: number
+      top_k:
+        type: integer
+      top_p:
+        type: number
+    type: object
+  llamacppsettings.ParseResult:
+    properties:
+      fields:
+        allOf:
+        - $ref: '#/definitions/llamacppsettings.Settings'
+        description: |-
+          Fields holds the model config keys the command maps to. Its Options
+          list is always empty: see Options.
+      options:
+        description: |-
+          Options is the "options" list: known entries in table order, then raw
+          passthrough entries in the order they appeared.
+        items:
+          type: string
+        type: array
+      placements:
+        description: Placements describes every "-ot" entry of Options.
+        items:
+          $ref: '#/definitions/llamacppsettings.PlacementInfo'
+        type: array
+      unmapped:
+        description: |-
+          Unmapped lists flags that were not turned into a first-class key.
+          Unknown flags are in Options as raw entries too, so nothing is lost.
+        items:
+          $ref: '#/definitions/llamacppsettings.Unmapped'
+        type: array
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  llamacppsettings.Placement:
+    properties:
+      first_gpu_layers:
+        description: FirstGPULayers is used by first_layers_gpu.
+        type: integer
+      layers:
+        description: Layers is used by experts_cpu_layers.
+        items:
+          $ref: '#/definitions/llamacppsettings.LayerRange'
+        type: array
+      mode:
+        $ref: '#/definitions/llamacppsettings.PlacementMode'
+      total_layers:
+        description: |-
+          TotalLayers is optional for first_layers_gpu. When set, the pattern
+          lists the remaining layers one range; when 0, it matches every layer
+          from FirstGPULayers up.
+        type: integer
+    type: object
+  llamacppsettings.PlacementInfo:
+    properties:
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/llamacppsettings.Placement'
+    type: object
+  llamacppsettings.PlacementMode:
+    enum:
+    - experts_cpu_all
+    - experts_cpu_layers
+    - first_layers_gpu
+    type: string
+    x-enum-varnames:
+    - ExpertsCPUAll
+    - ExpertsCPULayers
+    - FirstLayersGPU
+  llamacppsettings.Settings:
+    properties:
+      cache_type_k:
+        type: string
+      cache_type_v:
+        type: string
+      context_size:
+        type: integer
+      flash_attention:
+        type: string
+      gpu_layers:
+        type: integer
+      mmap:
+        type: boolean
+      mmlock:
+        type: boolean
+      options:
+        items:
+          type: string
+        type: array
+      parameters:
+        $ref: '#/definitions/llamacppsettings.Parameters'
+      threads:
+        type: integer
+    type: object
+  llamacppsettings.Target:
+    enum:
+    - field
+    - parameter
+    - option
+    type: string
+    x-enum-varnames:
+    - TargetField
+    - TargetParameter
+    - TargetOption
+  llamacppsettings.Unmapped:
+    properties:
+      flag:
+        type: string
+      reason:
+        type: string
+      value:
+        type: string
+    type: object
+  llamacppsettings.ValueType:
+    enum:
+    - int
+    - float
+    - bool
+    - enum
+    - string
+    type: string
+    x-enum-varnames:
+    - TypeInt
+    - TypeFloat
+    - TypeBool
+    - TypeEnum
+    - TypeString
   localai.APIInstructionResponse:
     properties:
       description:
@@ -3652,6 +3875,56 @@ definitions:
       sources:
         items:
           $ref: '#/definitions/library.Info'
+        type: array
+    type: object
+  localai.LlamaCppCommandPreviewRequest:
+    properties:
+      config:
+        allOf:
+        - $ref: '#/definitions/llamacppsettings.Settings'
+        description: 'Config is a partial model config: the keys of the settings schema.'
+    type: object
+  localai.LlamaCppParseCommandRequest:
+    properties:
+      command:
+        description: Command is a llama-server command line. It is tokenised, never
+          run.
+        type: string
+    type: object
+  localai.LlamaCppPlacementRequest:
+    properties:
+      layers:
+        description: Layers is an optional "0-6,18-23" string. It replaces placement.layers.
+        type: string
+      option:
+        type: string
+      placement:
+        $ref: '#/definitions/llamacppsettings.Placement'
+    type: object
+  localai.LlamaCppPlacementResponse:
+    properties:
+      option:
+        type: string
+      placement:
+        allOf:
+        - $ref: '#/definitions/llamacppsettings.Placement'
+        description: Placement is null when the option is not one this server generates.
+      raw:
+        type: boolean
+    type: object
+  localai.LlamaCppSettingsSchemaResponse:
+    properties:
+      flags:
+        items:
+          $ref: '#/definitions/llamacppsettings.Flag'
+        type: array
+      groups:
+        items:
+          $ref: '#/definitions/llamacppsettings.Group'
+        type: array
+      load_modes:
+        items:
+          type: string
         type: array
     type: object
   localai.MintJoinTokenRequest:
@@ -9493,6 +9766,9 @@ definitions:
     properties:
       after:
         type: integer
+      backend:
+        description: Backend names the backend of a model_backend_outdated failure.
+        type: string
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
@@ -9646,6 +9922,11 @@ definitions:
     type: object
   schema.ChatsFailure:
     properties:
+      backend:
+        description: |-
+          Backend is the backend the cause is about, when it is known (code
+          model_backend_outdated).
+        type: string
       code:
         description: Code names the cause, such as model_not_found, upstream, timeout
           or agent.
@@ -28811,6 +29092,118 @@ paths:
       summary: Turn a library source on or off
       tags:
       - library
+  /api/llama-cpp/command-preview:
+    post:
+      consumes:
+      - application/json
+      description: Builds the llama-server command line that matches a partial model
+        config. The text is for display; nothing is run.
+      parameters:
+      - description: Partial model config
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.LlamaCppCommandPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Command
+          schema:
+            $ref: '#/definitions/llamacppsettings.BuildResult'
+        "400":
+          description: Invalid body
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview the llama-server command of a model config
+      tags:
+      - config
+  /api/llama-cpp/parse-command:
+    post:
+      consumes:
+      - application/json
+      description: Reads a llama-server command and returns the model config keys
+        and options it maps to. The command is only tokenised; it is never run. Flags
+        without a first-class key are listed as unmapped and kept as raw passthrough
+        options.
+      parameters:
+      - description: The command line
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.LlamaCppParseCommandRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Parsed settings
+          schema:
+            $ref: '#/definitions/llamacppsettings.ParseResult'
+        "400":
+          description: Invalid body or command
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Command too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Parse a llama-server command line
+      tags:
+      - config
+  /api/llama-cpp/settings-schema:
+    get:
+      description: Returns the table of llama-server flags LocalAI maps to model config
+        keys, with types, limits, defaults and a doc line, so a client can render
+        the fields from one source.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Settings schema
+          schema:
+            $ref: '#/definitions/localai.LlamaCppSettingsSchemaResponse'
+      summary: List the llama.cpp runtime settings
+      tags:
+      - config
+  /api/llama-cpp/tensor-placement:
+    post:
+      consumes:
+      - application/json
+      description: 'With a placement, returns the "-ot" option that keeps the expert
+        tensors of the chosen layers on the CPU. With an option, returns its structured
+        form, or null when the pattern is not one this server generates. Placement
+        is always opt-in: nothing applies it by default.'
+      parameters:
+      - description: A placement or an option
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.LlamaCppPlacementRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Placement
+          schema:
+            $ref: '#/definitions/localai.LlamaCppPlacementResponse'
+        "400":
+          description: Invalid input
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: Body too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Build or recognise a llama.cpp tensor placement
+      tags:
+      - config
   /api/models/{id}/load-cancel:
     post:
       consumes:
