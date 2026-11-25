@@ -60,7 +60,9 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
-  hostOperations: {}
+  hostOperations:
+    optional:
+      - "events.emit"
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -111,7 +113,9 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
-  hostOperations: {}
+  hostOperations:
+    optional:
+      - "events.emit"
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -162,7 +166,9 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
-  hostOperations: {}
+  hostOperations:
+    optional:
+      - "events.emit"
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -213,7 +219,9 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
-  hostOperations: {}
+  hostOperations:
+    optional:
+      - "events.emit"
 - id: "calendar"
   name: Calendar
   description: "Your agents read and keep your calendar: what is on Thursday, dinner at 8, a weekly repeat. It lives inside LocalAI, with no account to connect."
@@ -264,7 +272,9 @@
     - "ui-event-update"
     - "ui-event-delete"
     - "events-export"
-  hostOperations: {}
+  hostOperations:
+    optional:
+      - "events.emit"
 - id: "contacts"
   name: Contacts
   description: "Your agents look up and keep your address book: Marco's number, Anna's email, a birthday. It lives inside LocalAI, with no account to connect."

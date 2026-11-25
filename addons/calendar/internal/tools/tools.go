@@ -40,6 +40,8 @@ const (
 // Runtime is the add-on runtime over a store.
 type Runtime struct {
 	Store *store.Store
+	// Events reports the changes to the host; nil reports nothing.
+	Events Emitter
 }
 
 // New returns the runtime of the executable.
@@ -105,6 +107,7 @@ const maxExport = 900 << 10
 
 func (r *Runtime) run(ctx context.Context, env contract.Envelope, tool string) (contract.Result, error) {
 	owner := env.Authority.Actor.UserID
+	op := env.Request.OperationID
 	raw := env.Request.Arguments
 	var out any
 	var err error
@@ -116,11 +119,11 @@ func (r *Runtime) run(ctx context.Context, env contract.Envelope, tool string) (
 	case ToolEventGet:
 		out, err = r.get(ctx, owner, raw)
 	case ToolEventCreate, ToolUIEventCreate:
-		out, err = r.create(ctx, owner, raw)
+		out, err = r.create(ctx, op, owner, raw)
 	case ToolEventUpdate, ToolUIEventUpdate:
-		out, err = r.update(ctx, owner, raw)
+		out, err = r.update(ctx, op, owner, raw)
 	case ToolEventDelete, ToolUIEventDelete:
-		out, err = r.remove(ctx, owner, raw)
+		out, err = r.remove(ctx, op, owner, raw)
 	case ToolSettingsGet:
 		out, err = r.settingsGet(ctx, owner, raw)
 	case ToolSettingsSet:
@@ -274,7 +277,7 @@ func (a eventArgs) input() store.Input {
 	return store.Input{Title: a.Title, Start: a.Start, End: a.End, AllDay: a.AllDay, Zone: a.Zone, Notes: a.Notes, Place: a.Place, Attendees: a.Attendees, Repeat: a.Repeat}
 }
 
-func (r *Runtime) create(ctx context.Context, owner string, raw []byte) (any, error) {
+func (r *Runtime) create(ctx context.Context, op, owner string, raw []byte) (any, error) {
 	var a eventArgs
 	if err := args(raw, &a); err != nil {
 		return nil, err
@@ -283,10 +286,11 @@ func (r *Runtime) create(ctx context.Context, owner string, raw []byte) (any, er
 	if err != nil {
 		return nil, err
 	}
+	r.emit(ctx, op, owner, EventCreated, e)
 	return map[string]any{"ok": true, "event": e}, nil
 }
 
-func (r *Runtime) update(ctx context.Context, owner string, raw []byte) (any, error) {
+func (r *Runtime) update(ctx context.Context, op, owner string, raw []byte) (any, error) {
 	var a eventArgs
 	if err := args(raw, &a); err != nil {
 		return nil, err
@@ -295,24 +299,40 @@ func (r *Runtime) update(ctx context.Context, owner string, raw []byte) (any, er
 	if err != nil {
 		return nil, err
 	}
+	r.emit(ctx, op, owner, EventUpdated, e)
 	return map[string]any{"ok": true, "event": e}, nil
 }
 
 // remove deletes an event, or with an occurrence date takes that one
 // occurrence out of a repeating event.
-func (r *Runtime) remove(ctx context.Context, owner string, raw []byte) (any, error) {
+func (r *Runtime) remove(ctx context.Context, op, owner string, raw []byte) (any, error) {
 	var a idArgs
 	if err := args(raw, &a); err != nil {
 		return nil, err
 	}
+	// Read first: a removed event has no title to report.
+	before, getErr := r.Store.Get(ctx, owner, a.ID)
 	if a.Occurrence != "" {
 		if err := r.Store.SkipOccurrence(ctx, owner, a.ID, a.Occurrence); err != nil {
 			return nil, err
+		}
+		if getErr == nil {
+			// A skipped day moves the event to its next occurrence; with none
+			// left, the event is over for a watch.
+			if _, ok, err := r.Store.NextStart(ctx, owner, before); err == nil && ok {
+				before.Updated += "+skip:" + a.Occurrence
+				r.emit(ctx, op, owner, EventUpdated, before)
+			} else {
+				r.emit(ctx, op, owner, EventDeleted, before)
+			}
 		}
 		return map[string]any{"ok": true, "skipped": a.Occurrence}, nil
 	}
 	if err := r.Store.Delete(ctx, owner, a.ID); err != nil {
 		return nil, err
+	}
+	if getErr == nil {
+		r.emit(ctx, op, owner, EventDeleted, before)
 	}
 	return map[string]any{"ok": true, "deleted": a.ID}, nil
 }

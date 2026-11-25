@@ -522,3 +522,36 @@ type SearchHit struct {
 	Event Event  `json:"event"`
 	Next  string `json:"next,omitempty"`
 }
+
+// NextStart is the start of the next occurrence of an event that has not
+// begun at the time of the store's clock, as an instant: the event's local
+// start in its zone, or midnight of its day for an all-day event. ok is false
+// for an event with no occurrence left.
+func (s *Store) NextStart(ctx context.Context, owner string, e Event) (time.Time, bool, error) {
+	sk, err := s.skips(ctx, owner)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	loc, err := LoadZone(e.Zone)
+	if err != nil {
+		return time.Time{}, false, nil
+	}
+	now := s.Now()
+	for _, o := range Expand(e, now, now.AddDate(5, 0, 0), loc, sk[e.ID], 8) {
+		wall, err := parseLocal(o.Start, o.AllDay)
+		if err != nil {
+			continue
+		}
+		at := instant(wall, loc)
+		if o.AllDay {
+			at = time.Date(wall.Year(), wall.Month(), wall.Day(), 0, 0, 0, 0, loc)
+			if !now.Before(at.AddDate(0, 0, 1)) {
+				continue
+			}
+		} else if !at.After(now) {
+			continue // begun: the reminder is for the next one
+		}
+		return at, true, nil
+	}
+	return time.Time{}, false, nil
+}
