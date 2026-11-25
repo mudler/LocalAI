@@ -190,5 +190,10 @@
   "reminder.snoozed": "Snoozed. I'll remind you at {when}.",
   "reminder.skipped": "Skipped. I won't remind you of this one.",
   "reminder.noted": "OK.",
-  "reminder.gone": "This reminder is no longer there."
+  "reminder.gone": "This reminder is no longer there.",
+  "reminder.earlier": "Remind 1 h before",
+  "reminder.none": "No reminder",
+  "reminder.headsup_hint": "Reply \"earlier\" or \"no reminder\".",
+  "reminder.retimed": "Moved. I'll remind you at {when}.",
+  "reminder.cancelled": "Cancelled. There is no reminder for this one."
 }

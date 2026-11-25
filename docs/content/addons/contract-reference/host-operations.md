@@ -182,7 +182,7 @@ it calls `events.emit` from the tool that made the change.
     "type": "calendar.event.created",
     "lifecycle": "created",
     "key": "event.id",
-    "anchor": { "time": "event.start", "zone": "event.zone", "allDay": "event.allDay" },
+    "anchor": { "time": "event.next", "zone": "event.zone", "allDay": "event.allDay", "moves": ["event.start", "event.end"] },
     "title": "event.title",
     "link": "calendar?event={key}",
     "label": { "en": "An event is added", "it": "Si aggiunge un evento" }
@@ -195,7 +195,7 @@ it calls `events.emit` from the tool that made the change.
 | `type` | The name of the event. It starts with the add-on ID and a dot. |
 | `lifecycle` | `created`, `updated` or `deleted`: what happened to the thing. |
 | `key` | A dot path to the ID of the thing in the payload. The host makes the key `<add-on ID>:<id>`, and keeps one reminder per key per watch. |
-| `anchor` | Optional. `time` is a dot path to an RFC 3339 time of the thing (for a repeating thing, the next occurrence). `zone` is a path to its IANA zone, `allDay` a path to a boolean. A thing with no time can still get reminders at a set time or after a delay. |
+| `anchor` | Optional. `time` is a dot path to an RFC 3339 time of the thing (for a repeating thing, the next occurrence). `zone` is a path to its IANA zone, `allDay` a path to a boolean. `moves` lists the other paths that change when the thing moves (its end, its local start), so the host tells a move from any other change. A thing with no time can still get reminders at a set time or after a delay. |
 | `title` | A dot path to a short title that the owner reads. |
 | `link` | Optional. A route of the add-on's page that opens the thing; `{key}` stands for the ID. |
 | `label` | The name of the event on the watch form, plain text or one entry per language. |

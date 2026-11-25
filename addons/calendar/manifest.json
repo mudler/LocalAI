@@ -554,7 +554,11 @@
         "anchor": {
           "time": "event.next",
           "zone": "event.zone",
-          "allDay": "event.allDay"
+          "allDay": "event.allDay",
+          "moves": [
+            "event.start",
+            "event.end"
+          ]
         },
         "title": "event.title",
         "link": "calendar?event={key}",
@@ -577,7 +581,11 @@
         "anchor": {
           "time": "event.next",
           "zone": "event.zone",
-          "allDay": "event.allDay"
+          "allDay": "event.allDay",
+          "moves": [
+            "event.start",
+            "event.end"
+          ]
         },
         "title": "event.title",
         "link": "calendar?event={key}",

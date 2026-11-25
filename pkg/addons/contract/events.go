@@ -70,7 +70,14 @@ type EventAnchor struct {
 	Time   string `json:"time"`
 	Zone   string `json:"zone,omitempty"`
 	AllDay string `json:"allDay,omitempty"`
+	// Moves are the other paths that change when the thing moves, such as
+	// its end or its local start. The host leaves them, and the paths above,
+	// out of the fingerprint that tells a move from any other change.
+	Moves []string `json:"moves,omitempty"`
 }
+
+// MaxAnchorMoves bounds EventAnchor.Moves.
+const MaxAnchorMoves = 8
 
 var eventTypeRE = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z][a-z0-9_-]*)+$`)
 
@@ -145,6 +152,14 @@ func validateEvents(id string, c Capabilities) error {
 			}
 			if a.AllDay != "" && !ValidEventPath(a.AllDay) {
 				return bad("anchor.allDay must be a dot path into the payload")
+			}
+			if len(a.Moves) > MaxAnchorMoves {
+				return bad("anchor.moves lists at most %d paths", MaxAnchorMoves)
+			}
+			for _, m := range a.Moves {
+				if !ValidEventPath(m) {
+					return bad("anchor.moves must be dot paths into the payload")
+				}
 			}
 		}
 		if d.Link != "" && (len(d.Link) > MaxEventLinkLen || !relativeRoute(d.Link)) {

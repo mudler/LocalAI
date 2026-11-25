@@ -190,5 +190,10 @@
   "reminder.snoozed": "Verschoben. Ich erinnere dich um {when}.",
   "reminder.skipped": "Übersprungen. Daran erinnere ich dich nicht.",
   "reminder.noted": "Ok.",
-  "reminder.gone": "Diese Erinnerung gibt es nicht mehr."
+  "reminder.gone": "Diese Erinnerung gibt es nicht mehr.",
+  "reminder.earlier": "1 Std. vorher",
+  "reminder.none": "Keine Erinnerung",
+  "reminder.headsup_hint": "Antworte \"earlier\" oder \"no reminder\".",
+  "reminder.retimed": "Verlegt. Ich erinnere dich um {when}.",
+  "reminder.cancelled": "Abgesagt. Dafür gibt es keine Erinnerung."
 }

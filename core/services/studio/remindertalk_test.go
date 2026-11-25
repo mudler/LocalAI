@@ -76,3 +76,40 @@ var _ = Describe("the buttons of a reminder in a messaging app", func() {
 		Expect(bot.answers()[1]).To(Equal("Hello from the agent."))
 	})
 })
+
+var _ = Describe("the buttons of a heads-up in a messaging app", func() {
+	ctx := context.Background()
+
+	It("moves the reminder the watch's run set to an hour before, or removes it", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("Hello from the agent."), nil)
+		b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		route := triggers.Route{Connection: b.ID, Target: triggers.TargetChannel, Channel: "11"}
+		w := triggers.Trigger{ID: "w1", Owner: alice, Name: "My notes", Prompt: "Watch.", Enabled: true, Kind: triggers.KindEvent, Source: "notes", TZ: "UTC",
+			Model: "m", Watch: &triggers.WatchRule{Offset: -15 * time.Minute}, Route: route}
+		Expect(sh.trg.PutTrigger(ctx, w)).To(Succeed())
+		now := sh.clock.Now()
+		due := now.Add(5 * time.Hour)
+		rem := triggers.Trigger{ID: "rem1", Owner: alice, Name: "Call", Prompt: "remind me", Enabled: true, Kind: triggers.KindReminder, TZ: "UTC",
+			Model: "m", Route: route, Since: now, Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:1", Title: "Call", Anchor: due, Offset: -15 * time.Minute, Task: "remind me"}}
+		Expect(sh.trg.PutTrigger(ctx, rem)).To(Succeed())
+		_, err := sh.trg.Claim(ctx, triggers.Run{ID: "wr", TriggerID: "w1", DueKey: "event@x", Due: now, Status: triggers.StatusDone, ChatID: "c1", Started: now, Ended: now})
+		Expect(err).NotTo(HaveOccurred())
+
+		bot.say(1, 11, "Ada", "ada", "earlier")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(HavePrefix("Moved. I'll remind you at"))
+		got, _ := sh.trg.GetTrigger(ctx, "rem1")
+		Expect(got.Reminder.Offset).To(Equal(-time.Hour))
+
+		bot.mu.Lock()
+		bot.updates = append(bot.updates, map[string]any{"update_id": 2, "callback_query": map[string]any{
+			"id": "cb", "from": map[string]any{"id": 11, "first_name": "Ada"}, "data": "reminder:rem1:none",
+			"message": map[string]any{"message_id": 5, "chat": map[string]any{"id": 11, "type": "private"}}}})
+		bot.mu.Unlock()
+		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
+		Expect(bot.answers()[1]).To(Equal("Cancelled. There is no reminder for this one."))
+		_, err = sh.trg.GetTrigger(ctx, "rem1")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+	})
+})

@@ -137,6 +137,7 @@ var _ = Describe("the calendar's reports of changes", func() {
 		Expect(d.Anchor.Time).To(Equal("event.next"))
 		Expect(d.Anchor.Zone).To(Equal("event.zone"))
 		Expect(d.Anchor.AllDay).To(Equal("event.allDay"))
+		Expect(d.Anchor.Moves).To(ConsistOf("event.start", "event.end"), "a move must not count as a change beyond the time")
 		Expect(m.Capabilities.HostOperations.Optional).To(ContainElement(contract.EventsEmitOp))
 	})
 })

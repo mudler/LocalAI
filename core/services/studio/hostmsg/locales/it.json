@@ -190,5 +190,10 @@
   "reminder.snoozed": "Rimandato. Te lo ricordo alle {when}.",
   "reminder.skipped": "Saltato. Non te lo ricorderò.",
   "reminder.noted": "Ok.",
-  "reminder.gone": "Questo promemoria non c'è più."
+  "reminder.gone": "Questo promemoria non c'è più.",
+  "reminder.earlier": "Avvisa 1 h prima",
+  "reminder.none": "Nessun promemoria",
+  "reminder.headsup_hint": "Rispondi \"earlier\" o \"no reminder\".",
+  "reminder.retimed": "Spostato. Te lo ricordo alle {when}.",
+  "reminder.cancelled": "Annullato. Nessun promemoria per questo."
 }

@@ -23,6 +23,8 @@ const (
 	verbSnooze30         = "snooze30"
 	verbSkip             = "skip"
 	verbOK               = "ok"
+	verbEarlier          = "early60"
+	verbNone             = "none"
 	// replyWindow is how long after a reminder a bare word still answers it.
 	replyWindow = 2 * time.Hour
 )
@@ -30,7 +32,10 @@ const (
 // reminderActions are the buttons of the report of a reminder run, and the
 // hint that replaces them on a connection that shows none. Any other trigger
 // gets neither.
-func (h *Triggers) reminderActions(ctx context.Context, t triggers.Trigger) ([]contract.MessageAction, string) {
+func (h *Triggers) reminderActions(ctx context.Context, t triggers.Trigger, run triggers.Run) ([]contract.MessageAction, string) {
+	if t.IsWatch() {
+		return h.headsUpActions(ctx, t, run)
+	}
 	if !t.IsReminder() {
 		return nil, ""
 	}
@@ -44,6 +49,43 @@ func (h *Triggers) reminderActions(ctx context.Context, t triggers.Trigger) ([]c
 	}, v.T("reminder.hint")
 }
 
+// headsUpActions are the buttons of a heads-up of a watch run that set one
+// reminder: an earlier time, or no reminder (decision B and the message
+// actions of the spec). A run that set none, or several, gets none.
+func (h *Triggers) headsUpActions(ctx context.Context, w triggers.Trigger, run triggers.Run) ([]contract.MessageAction, string) {
+	r, ok := h.setInRun(ctx, w, run)
+	if !ok {
+		return nil, ""
+	}
+	v := h.voiceOf(ctx, w)
+	id := func(verb string) string { return reminderActionPrefix + r.ID + ":" + verb }
+	return []contract.MessageAction{
+		{ID: id(verbEarlier), Label: v.T("reminder.earlier")},
+		{ID: id(verbNone), Label: v.T("reminder.none")},
+	}, v.T("reminder.headsup_hint")
+}
+
+// setInRun is the one reminder of the watch that the run set or changed.
+func (h *Triggers) setInRun(ctx context.Context, w triggers.Trigger, run triggers.Run) (triggers.Trigger, bool) {
+	if run.Started.IsZero() {
+		return triggers.Trigger{}, false
+	}
+	list, err := h.o.Store.Reminders(ctx, w.ID)
+	if err != nil {
+		return triggers.Trigger{}, false
+	}
+	var found []triggers.Trigger
+	for _, r := range list {
+		if !r.Since.Before(run.Started) {
+			found = append(found, r)
+		}
+	}
+	if len(found) != 1 {
+		return triggers.Trigger{}, false
+	}
+	return found[0], true
+}
+
 var minutesRE = regexp.MustCompile(`^(\d{1,4})\s*(m|min|mins|minute|minutes|minuti|minuten|minutos)$`)
 
 // reminderWord reads a reply that stands for a button: snooze, a number of
@@ -55,6 +97,10 @@ func reminderWord(text string) (verb string, minutes int, ok bool) {
 		return verbSnooze5, 5, true
 	case "skip":
 		return verbSkip, 0, true
+	case "earlier":
+		return verbEarlier, 0, true
+	case "no reminder", "none":
+		return verbNone, 0, true
 	}
 	if m := minutesRE.FindStringSubmatch(t); m != nil {
 		n, err := strconv.Atoi(m[1])
@@ -98,12 +144,27 @@ func (c *Connectors) answerReminder(ctx context.Context, b connectors.Binding, m
 			return "", false
 		}
 		got, found := h.lastReminderIn(ctx, b, m.Chat)
+		if vb == verbEarlier || vb == verbNone {
+			got, found = h.lastHeadsUpIn(ctx, b, m.Chat)
+		}
 		if !found {
 			return "", false // the word is for the agent
 		}
 		r, verb, minutes = got, vb, n
 	}
 	switch {
+	case verb == verbEarlier:
+		view, err := h.PatchReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID, ReminderPatch{Offset: "-60m"})
+		if err != nil {
+			return v.T("reminder.gone"), true
+		}
+		w, _ := h.o.Store.GetTrigger(ctx, r.Reminder.ParentID)
+		return v.T("reminder.retimed", "when", whenText(w, view.Due, h.o.Clock())), true
+	case verb == verbNone:
+		if err := h.DeleteReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID); err != nil {
+			return v.T("reminder.gone"), true
+		}
+		return v.T("reminder.cancelled"), true
 	case verb == verbOK:
 		return v.T("reminder.noted"), true
 	case verb == verbSkip:
@@ -146,4 +207,36 @@ func (h *Triggers) lastReminderIn(ctx context.Context, b connectors.Binding, cha
 		}
 	}
 	return best, !at.IsZero()
+}
+
+// lastHeadsUpIn is the reminder that the last run of a watch of the owner set,
+// when that run reported in this chat of the binding within replyWindow.
+func (h *Triggers) lastHeadsUpIn(ctx context.Context, b connectors.Binding, chat string) (triggers.Trigger, bool) {
+	all, err := h.o.Store.ListTriggers(ctx, principal(b.Owner))
+	if err != nil {
+		return triggers.Trigger{}, false
+	}
+	now := h.o.Clock()
+	for _, w := range all {
+		if !w.IsWatch() || w.Route.ChannelBinding() != b.ID || (w.Route.Channel != chat && w.Route.Chat != chat) {
+			continue
+		}
+		runs, err := h.o.Store.ListRuns(ctx, w.ID, 20)
+		if err != nil {
+			continue
+		}
+		for _, run := range runs {
+			if run.Status == triggers.StatusHandled || run.ChatID == "" {
+				continue
+			}
+			if run.Ended.IsZero() || now.Sub(run.Ended) > replyWindow {
+				break
+			}
+			if r, ok := h.setInRun(ctx, w, run); ok {
+				return r, true
+			}
+			break
+		}
+	}
+	return triggers.Trigger{}, false
 }

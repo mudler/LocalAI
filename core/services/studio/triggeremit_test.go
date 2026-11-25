@@ -245,3 +245,22 @@ var _ = Describe("events of an add-on", func() {
 		Expect(ns[0].Title).To(Equal("My notes"))
 	})
 })
+
+var _ = Describe("the stamp of a calendar-shaped item", func() {
+	decl := contract.EventDeclaration{Type: "notes.item.updated", Lifecycle: "updated", Key: "event.id", Title: "event.title",
+		Anchor: &contract.EventAnchor{Time: "event.next", Zone: "event.zone", AllDay: "event.allDay", Moves: []string{"event.start", "event.end"}},
+		Label:  contract.Localized{Text: "x"}}
+	payload := func(start, end, next, attendees string) []byte {
+		return []byte(fmt.Sprintf(`{"event":{"id":"1","title":"Standup","start":%q,"end":%q,"next":%q,"zone":"Europe/Rome","allDay":false,"attendees":%q}}`, start, end, next, attendees))
+	}
+
+	It("is the same after a move of the start, the end and the next time, and differs for new attendees", func() {
+		a, err := studio.ThingOf("notes", decl, payload("2026-11-26T09:30", "2026-11-26T10:00", "2026-11-26T09:30:00+01:00", "Sam"))
+		Expect(err).NotTo(HaveOccurred())
+		b, _ := studio.ThingOf("notes", decl, payload("2026-11-26T11:30", "2026-11-26T12:00", "2026-11-26T11:30:00+01:00", "Sam"))
+		c, _ := studio.ThingOf("notes", decl, payload("2026-11-26T11:30", "2026-11-26T12:00", "2026-11-26T11:30:00+01:00", "Sam, Lea"))
+		Expect(a.Stamp).To(Equal(b.Stamp), "a move is not a change beyond the time")
+		Expect(c.Stamp).NotTo(Equal(b.Stamp))
+		Expect(b.Anchor).To(Equal(time.Date(2026, 11, 26, 10, 30, 0, 0, time.UTC)))
+	})
+})

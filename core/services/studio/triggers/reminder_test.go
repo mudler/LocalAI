@@ -56,6 +56,21 @@ var _ = Describe("PlanReminder", func() {
 		Expect(tm.Skip).To(BeFalse())
 	})
 
+	It("fires a reminder due at or after the thing's start, and one snoozed past it", func() {
+		at := now.Add(-time.Minute) // the thing began a minute ago
+		for _, r := range []triggers.Reminder{
+			{Anchor: at},                           // at the time
+			{Anchor: at, Offset: 10 * time.Minute}, // after it
+			{Anchor: at, Offset: -15 * time.Minute, SnoozedTo: now.Add(30 * time.Minute)},
+		} {
+			tm := triggers.PlanReminder(r, nil, time.UTC, now)
+			Expect(tm.Skip).To(BeFalse(), "%+v", r)
+		}
+		tm := triggers.PlanReminder(triggers.Reminder{Anchor: at}, nil, time.UTC, now)
+		Expect(tm.Due).To(Equal(at))
+		Expect(tm.Now).To(BeTrue(), "due now: it starts at once")
+	})
+
 	It("skips a thing that has already started", func() {
 		tm := triggers.PlanReminder(triggers.Reminder{Anchor: now.Add(-time.Minute), Offset: -15 * time.Minute}, nil, time.UTC, now)
 		Expect(tm.Skip).To(BeTrue())

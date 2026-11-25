@@ -190,5 +190,10 @@
   "reminder.snoozed": "Adiado. Eu te lembro às {when}.",
   "reminder.skipped": "Pulado. Não vou te lembrar deste.",
   "reminder.noted": "Ok.",
-  "reminder.gone": "Este lembrete não existe mais."
+  "reminder.gone": "Este lembrete não existe mais.",
+  "reminder.earlier": "Lembrar 1 h antes",
+  "reminder.none": "Sem lembrete",
+  "reminder.headsup_hint": "Responda \"earlier\" ou \"no reminder\".",
+  "reminder.retimed": "Movido. Eu te lembro às {when}.",
+  "reminder.cancelled": "Cancelado. Sem lembrete para este."
 }

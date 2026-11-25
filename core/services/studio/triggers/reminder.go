@@ -77,7 +77,10 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 		}
 	}
 	tm.Due = tm.Due.UTC()
-	if started(r, now) {
+	// A reminder due before the thing begins is missed once the thing has
+	// begun. One due at or after its start (at the time, after it, or
+	// snoozed past it) still fires at its time.
+	if limit, ok := startOf(r); ok && !now.Before(limit) && tm.Due.Before(limit) {
 		return Timing{Due: tm.Due, Skip: true}
 	}
 	if !r.Skipped.IsZero() && r.Skipped.Equal(tm.Due) {
@@ -90,17 +93,17 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 	return tm
 }
 
-// started says whether the thing of r has begun at now. A thing that lasts
-// whole days has begun only once its day is over, so its morning reminder
-// still fires during the day.
-func started(r Reminder, now time.Time) bool {
+// startOf is the time from which the thing of r counts as begun: its time,
+// or the end of its day for a thing that lasts whole days, so the morning
+// reminder still fires during the day. false for a thing with no time.
+func startOf(r Reminder) (time.Time, bool) {
 	if r.Anchor.IsZero() {
-		return false
+		return time.Time{}, false
 	}
 	if r.AllDay {
-		return !now.Before(r.Anchor.Add(24 * time.Hour))
+		return r.Anchor.Add(24 * time.Hour), true
 	}
-	return !now.Before(r.Anchor)
+	return r.Anchor, true
 }
 
 func thingZone(r Reminder, fallback *time.Location) *time.Location {

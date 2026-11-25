@@ -190,5 +190,10 @@
   "reminder.snoozed": "Reporté. Je vous le rappelle à {when}.",
   "reminder.skipped": "Ignoré. Je ne vous le rappellerai pas.",
   "reminder.noted": "D'accord.",
-  "reminder.gone": "Ce rappel n'existe plus."
+  "reminder.gone": "Ce rappel n'existe plus.",
+  "reminder.earlier": "Rappeler 1 h avant",
+  "reminder.none": "Pas de rappel",
+  "reminder.headsup_hint": "Répondez \"earlier\" ou \"no reminder\".",
+  "reminder.retimed": "Déplacé. Je vous le rappelle à {when}.",
+  "reminder.cancelled": "Annulé. Pas de rappel pour celui-ci."
 }

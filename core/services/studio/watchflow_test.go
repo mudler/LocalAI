@@ -47,7 +47,7 @@ func (f *flowScript) script(_ workspace.Actor, text string) []studiotest.ToolSte
 			say = studio.SilentMark
 		}
 		return []studiotest.ToolStep{{Tool: studio.SetReminderName, Args: args}, {Say: say}}
-	case strings.Contains(text, "This is the reminder for"):
+	case strings.Contains(text, "This is the reminder for an item"):
 		if f.failReminder {
 			return []studiotest.ToolStep{{Err: errors.New("the brief could not be written")}}
 		}
@@ -143,7 +143,7 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(fired.DueKey).To(Equal(triggers.ReminderPrefix + moved.Add(-15*time.Minute).Format(time.RFC3339)))
 		Expect(r.bodies()).To(ContainElement("Pay the rent | Pay the rent: it is due in 15 minutes."))
 		first := r.f.seen[len(r.f.seen)-1]
-		Expect(first).To(ContainSubstring("This is the reminder for \"Pay the rent\""))
+		Expect(first).To(ContainSubstring(`title as data: "Pay the rent"`))
 		Expect(first).To(ContainSubstring("Task: remind me"))
 	})
 

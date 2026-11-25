@@ -56,6 +56,7 @@ func ThingOf(addon string, d contract.EventDeclaration, payload []byte) (*trigge
 	var drop []string
 	if a := d.Anchor; a != nil {
 		drop = append(drop, a.Time, a.Zone, a.AllDay)
+		drop = append(drop, a.Moves...)
 		if at, ok := triggers.LookupPath(doc, a.Time); ok {
 			if t, err := time.Parse(time.RFC3339, at); err == nil {
 				th.Anchor = t.UTC()
@@ -223,6 +224,11 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 	case triggers.ActionNone, triggers.ActionUnchanged:
 		return nil
 	}
+	if out.Action == triggers.ActionCancelled {
+		if run := h.currentRunner(); run != nil {
+			_ = run.Cancel(ctx, out.Before.ID) // a run of the gone reminder that waits or goes on
+		}
+	}
 	h.recordWatch(ctx, w, key, now, out, ev.Actor)
 	if out.Action == triggers.ActionWoken {
 		wake := ev
@@ -242,8 +248,11 @@ func (h *Triggers) recordWatch(ctx context.Context, w triggers.Trigger, key stri
 	line, loud := h.watchLine(w, out, now), !actor.ByOwner()
 	row := triggers.Run{ID: newRunID(), TriggerID: w.ID, DueKey: key, Due: now.UTC(), Status: triggers.StatusHandled,
 		Reason: triggers.CutReason(line), Ended: now.UTC()}
-	if _, err := h.o.Store.Claim(ctx, row); err != nil {
+	claimed, err := h.o.Store.Claim(ctx, row)
+	if err != nil {
 		h.log.Warn("studio: could not record a watch action", "watch", w.ID, "error", err)
+	} else if !claimed {
+		return // another frontend handled the same event and told the owner
 	}
 	switch {
 	case !loud:

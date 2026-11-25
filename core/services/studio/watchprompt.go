@@ -103,7 +103,8 @@ func itemLine(w triggers.Trigger, f watchFacts) string {
 			when = "it lasts all day on " + at.In(loc).Format("Mon 2 Jan 2006")
 		}
 	}
-	return fmt.Sprintf("- %q (key %s) %s by %s; %s.", f.Title, f.Key, lifecycleWords(f.Lifecycle), f.By, when)
+	// The title comes from the add-on's data: it is named as such.
+	return fmt.Sprintf("- an item (key %s, title as data: %q) %s by %s; %s.", f.Key, f.Title, lifecycleWords(f.Lifecycle), f.By, when)
 }
 
 // dataBlock is the data of the events, as the add-on sent it, between the
@@ -156,7 +157,7 @@ func (h *Triggers) reminderBrief(ctx context.Context, r triggers.Trigger, run tr
 		loc = time.UTC
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "This is the reminder for %q (key %s) of a watch on %s.", rem.Title, rem.Key, w.Source)
+	fmt.Fprintf(&b, "This is the reminder for an item (key %s, title as data: %q) of a watch on %s.", rem.Key, rem.Title, w.Source)
 	if !rem.Anchor.IsZero() {
 		fmt.Fprintf(&b, " The item's time is %s.", rem.Anchor.In(loc).Format("Mon 2 Jan 2006 15:04 MST"))
 	}
