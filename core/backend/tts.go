@@ -57,6 +57,7 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
+	defer hideOutputFor(ctx, loader, modelConfig)()
 	// model.WithContext(ctx) overrides the app-context default set in
 	// ModelOptions so distributed routing decisions reach the request's
 	// X-LocalAI-Node holder via distributedhdr.Stamp.
@@ -169,6 +170,7 @@ func ModelTTSStream(
 	modelConfig config.ModelConfig,
 	audioCallback func([]byte) error,
 ) error {
+	defer hideOutputFor(ctx, loader, modelConfig)()
 	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {

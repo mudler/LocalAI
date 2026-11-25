@@ -379,9 +379,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			return
 		}
 		for line := range t.Lines {
-			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+			text := ml.outputLine(id, line.Text)
+			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", text)
 			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
-				ml.backendLogs.AppendLine(id, "stderr", line.Text)
+				ml.backendLogs.AppendLine(id, "stderr", text)
 			}
 		}
 	}()
@@ -392,9 +393,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 			return
 		}
 		for line := range t.Lines {
-			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
+			text := ml.outputLine(id, line.Text)
+			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", text)
 			if ml.backendLogs != nil && ml.backendLoggingEnabled.Load() {
-				ml.backendLogs.AppendLine(id, "stdout", line.Text)
+				ml.backendLogs.AppendLine(id, "stdout", text)
 			}
 		}
 	}()

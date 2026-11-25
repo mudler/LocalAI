@@ -743,6 +743,9 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	}
 
 	xlog.Debug("input.Input", "input", privacy.Redact(input.Context, fmt.Sprintf("%+v", input.Input)))
+	// The parsers of the model output log what they read; a request that may
+	// not keep content gets a mark in those lines instead.
+	config.FunctionsConfig.RedactLogs = !privacy.Allows(input.Context, privacy.StoreContent)
 
 	switch inputs := input.Input.(type) {
 	case string:

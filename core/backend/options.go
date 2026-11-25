@@ -652,6 +652,17 @@ func LoadOptionsFinalizer(configs ModelConfigGetter) func(ctx context.Context, m
 	}
 }
 
+// hideOutputFor hides the output of the model's backend from the server's
+// log and the backend logs while a request that may not keep content runs
+// (see model.ModelLoader.HideBackendOutput). The release is a no-op for any
+// other request.
+func hideOutputFor(ctx context.Context, loader *model.ModelLoader, c config.ModelConfig) (release func()) {
+	if loader == nil || privacy.Allows(ctx, privacy.StoreContent) {
+		return func() {}
+	}
+	return loader.HideBackendOutput(c.ModelID())
+}
+
 // withRequestPrivacy drops every cache that would outlive a request that may
 // not keep content: the prompt cache file of the model goes, and the backend
 // is told with NoPromptCache (see backend.proto).

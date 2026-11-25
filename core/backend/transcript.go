@@ -77,6 +77,7 @@ func ModelTranscription(ctx context.Context, audio, language string, translate, 
 }
 
 func ModelTranscriptionWithOptions(ctx context.Context, req TranscriptionRequest, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
+	defer hideOutputFor(ctx, ml, modelConfig)()
 	transcriptionModel, err := loadTranscriptionModel(ctx, ml, modelConfig, appConfig)
 	if err != nil {
 		return nil, err

@@ -190,6 +190,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported
 	var capturedPredictOpts *proto.PredictOptions
 	fn := func() (LLMResponse, error) {
+		defer hideOutputFor(ctx, loader, *c)()
 		opts := gRPCPredictOpts(*c, loader.ModelPath)
 		withRequestPrivacy(ctx, opts)
 		// Merge request-level metadata (overrides config defaults)
