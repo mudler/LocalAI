@@ -29,6 +29,14 @@ Created by [Ettore Di Giacinto](https://github.com/mudler) and maintained by the
 
 ## Quick start
 
+<p align="center">
+<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg"><img src="https://img.shields.io/badge/Download%20for%20macOS-DMG%2C%20Apple%20silicon-111111?style=flat-square&logo=apple" alt="Download for macOS (DMG, Apple silicon)"></a>
+<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-x86_64.AppImage"><img src="https://img.shields.io/badge/Download%20for%20Linux-AppImage%2C%20x86--64-1f6feb?style=flat-square&logo=linux&logoColor=white" alt="Download for Linux (AppImage, x86-64)"></a>
+<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI-Launcher-arm64.AppImage"><img src="https://img.shields.io/badge/Download%20for%20Linux-AppImage%2C%20ARM64-1f6feb?style=flat-square&logo=linux&logoColor=white" alt="Download for Linux (AppImage, ARM64)"></a>
+</p>
+
+The buttons download the desktop app from the latest release. For other ways to install, see [Install LocalAI](https://localai.io/docs/start/install/).
+
 **Script** (Linux, and macOS on Apple Silicon): it downloads the release binary for your machine and checks it against the release checksums.
 
 ```bash
