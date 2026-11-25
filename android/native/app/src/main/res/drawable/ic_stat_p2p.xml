@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Status bar icon of the P2P notification: two linked nodes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,9a3,3 0,1 1,0 6a3,3 0,1 1,0 -6zM18,9a3,3 0,1 1,0 6a3,3 0,1 1,0 -6zM8.5,11h7v2h-7z" />
+</vector>
