@@ -62,7 +62,7 @@ You can give the invite to the app in four ways:
 - **Open the link.** Select a `localai://pair` link in another app, for example in a message. The link opens the LocalAI app.
 - **Share it.** Share the text of the invite from another app, and choose **LocalAI** in the share menu.
 
-In every case, the app first shows a preview of the invite: the server name, the kind of invite, the routes and the time left. The app never pairs before you select **Connect**. If the text is not an invite, the app shows **This is not a LocalAI invite link** and does nothing else.
+In every case, the app first shows a preview of the invite: the server name, the kind of invite, the routes and the time left. The app never pairs before you select **Pair**. If the text is not an invite, the app shows **This is not a LocalAI invite link** and does nothing else.
 
 When the app pairs, it shows a four-word **confirmation phrase**. The server shows the same words. Make sure that the words match. If they do not match, someone else used the invite: tell the server owner.
 
@@ -161,7 +161,7 @@ The app keeps the list of servers and its settings in its private storage. Andro
 
 After you restore a backup on a new phone, sign in to each server again. P2P servers do not connect, because the new phone has a new P2P identity. Remove each P2P server and pair it again with a new invite.
 
-To remove the app and all its data, uninstall it in the Android settings. Files that you downloaded from a server page stay in the **Downloads** folder.
+To remove the app and all its data, uninstall it in the Android settings. On Android 10 and later, files that you downloaded from a server page stay in the **Downloads** folder. On Android 8 and 9, the app saves downloads in its own folder (`Android/data/<app ID>/files/Download`), and Android deletes that folder when you uninstall the app: move the files that you want to keep first.
 
 ## Troubleshooting
 
