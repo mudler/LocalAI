@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { CONFIG_FILE } from '../src/core/configIO'
 import { ClientCore, profileFor, type ClientEvent } from '../src/core/clientCore'
+import { MOBILE_BAR_HEIGHT } from '../src/mobileShell'
 import { fakePlatform, flush, type FakePlatform } from './fakes/plugins'
 
 const AI = 'https://ai.example.com'
@@ -72,6 +73,28 @@ describe('ClientCore', () => {
     // The layout follows the state: the view is placed and visible.
     const layout = named(p, 'setLayout').at(-1)?.args[0]
     expect(layout).toMatchObject({ visible: true, shellAbove: false })
+  })
+
+  it('sends the shell sizes without system insets, the phone bar, and no bar while the keyboard is open', async () => {
+    const p = fakePlatform({ answers: { [AI]: 'ok' } })
+    const core = await start(p)
+    await core.servers.addServer({ name: 'GPU box', address: AI, makeDefault: true })
+    core.webuiDispatch({ type: 'insets', insets: { top: 36, bottom: 0 } })
+    await flush()
+    const last = () => named(p, 'setLayout').at(-1)?.args[0]
+    // The native side adds the status bar and navigation bar insets itself.
+    expect(last()).toEqual({ visible: true, shellAbove: false, top: 36, bottom: 0, barHeight: MOBILE_BAR_HEIGHT })
+    expect(MOBILE_BAR_HEIGHT).toBe(48)
+    const before = named(p, 'setLayout').length
+    core.setKeyboardOpen(true)
+    await flush()
+    expect(last()).toEqual({ visible: true, shellAbove: false, top: 36, bottom: 0, barHeight: 0 })
+    core.setKeyboardOpen(true)
+    await flush()
+    expect(named(p, 'setLayout')).toHaveLength(before + 1)
+    core.setKeyboardOpen(false)
+    await flush()
+    expect(last()).toMatchObject({ barHeight: MOBILE_BAR_HEIGHT })
   })
 
   it('keeps one profile per origin across switches', async () => {

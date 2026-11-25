@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
-import { IME_CLASS, MOBILE_CLASS, installMobileShell } from '../src/mobileShell'
+import { IME_CLASS, MOBILE_CLASS, installMobileShell, onKeyboardChange } from '../src/mobileShell'
 
 /** A visual viewport the test resizes by hand (jsdom has none). */
 class FakeViewport extends EventTarget {
@@ -83,5 +83,27 @@ describe('installMobileShell', () => {
     undo = installMobileShell(window)
     expect(root().contains(MOBILE_CLASS)).toBe(true)
     expect(root().contains(IME_CLASS)).toBe(false)
+  })
+})
+
+describe('onKeyboardChange', () => {
+  const tick = () => new Promise((r) => setTimeout(r, 0))
+
+  it('reports the keyboard opening and closing once each, and stops on undo', async () => {
+    const vv = withViewport(360, 800)
+    undo = installMobileShell(window)
+    const seen: boolean[] = []
+    const stop = onKeyboardChange(window, (open) => seen.push(open))
+    vv.resize(360, 480)
+    await tick()
+    vv.resize(360, 470)
+    await tick()
+    vv.resize(360, 800)
+    await tick()
+    expect(seen).toEqual([true, false])
+    stop()
+    vv.resize(360, 480)
+    await tick()
+    expect(seen).toEqual([true, false])
   })
 })

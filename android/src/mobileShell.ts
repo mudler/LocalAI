@@ -15,6 +15,24 @@ export const MOBILE_BAR_HEIGHT = 48
 const IME_MIN_HEIGHT = 150
 
 /**
+ * Calls `cb` with true when installMobileShell marks the keyboard as open
+ * and false when it clears the mark. The native WebUI view must know too:
+ * while the keyboard hides the bar, it keeps no room for it.
+ */
+export function onKeyboardChange(win: Window, cb: (open: boolean) => void): () => void {
+  const root = win.document.documentElement
+  let open = root.classList.contains(IME_CLASS)
+  const mo = new MutationObserver(() => {
+    const now = root.classList.contains(IME_CLASS)
+    if (now === open) return
+    open = now
+    cb(now)
+  })
+  mo.observe(root, { attributes: true, attributeFilter: ['class'] })
+  return () => mo.disconnect()
+}
+
+/**
  * Marks the document for the phone layout and follows the soft keyboard.
  * Returns a function that undoes both.
  */

@@ -12,8 +12,8 @@ import { remotes } from '@launcher/core/serversConfig'
 import { runServerTest, type HttpGet, type TestResult } from '@launcher/core/testClassify'
 import { remember, resetPermissions, type PermissionChoice } from '@launcher/core/webuiPolicy'
 import { WebuiModel, type WebuiEffect, type WebuiEvent } from '@launcher/core/webuiState'
-import { STATUS_BAR_HEIGHT } from '@launcher/shared/layout'
 import type { ServersView, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
+import { MOBILE_BAR_HEIGHT } from '../mobileShell'
 import type { WebuiViewPlugin } from '../plugins/definitions'
 import { clientConfigIO, type FileApi } from './configIO'
 import type { ClientEvent } from './events'
@@ -74,6 +74,7 @@ export class ClientCore {
   private queue: Promise<void> = Promise.resolve()
   private lastState = ''
   private paused = false
+  private keyboardOpen = false
 
   private constructor(
     private readonly p: ClientPlatform,
@@ -222,11 +223,34 @@ export class ClientCore {
     const json = JSON.stringify(s)
     if (force || json !== this.lastState) {
       this.lastState = json
-      const layout = { visible: s.layout === 'webui', shellAbove: s.shellAbove, top: s.insets.top, bottom: s.insets.bottom, barHeight: STATUS_BAR_HEIGHT }
-      this.call('setLayout', () => this.p.webui.setLayout(layout))
+      this.sendLayout(s)
       this.emit({ kind: 'webui', state: s })
     }
     return s
+  }
+
+  /**
+   * Places the native view. The contract with WebuiHost (Kotlin):
+   * `top`, `bottom` and `barHeight` are the shell's own sizes in dp, without
+   * the system insets, which the native side adds. The bar is the phone bar
+   * (MOBILE_BAR_HEIGHT), and 0 while the keyboard hides it.
+   */
+  private sendLayout(s: WebuiViewState): void {
+    const layout = {
+      visible: s.layout === 'webui',
+      shellAbove: s.shellAbove,
+      top: s.insets.top,
+      bottom: s.insets.bottom,
+      barHeight: this.keyboardOpen ? 0 : MOBILE_BAR_HEIGHT,
+    }
+    this.call('setLayout', () => this.p.webui.setLayout(layout))
+  }
+
+  /** The soft keyboard opened or closed (html.lnr-ime): the bar steps aside while it is open. */
+  setKeyboardOpen(open: boolean): void {
+    if (open === this.keyboardOpen) return
+    this.keyboardOpen = open
+    this.sendLayout(this.model.state())
   }
 
   webuiState(): WebuiViewState {

@@ -7,7 +7,7 @@ import { webRandomBytes } from '@launcher/core/serversConfig'
 import { App } from '@launcher/renderer/App'
 import '@launcher/renderer/styles'
 import './mobile.css'
-import { installMobileShell } from './mobileShell'
+import { IME_CLASS, installMobileShell, onKeyboardChange } from './mobileShell'
 import { createAndroidBridge, idleUpdater } from './bridge/androidBridge'
 import { ClientCore, NO_P2P } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
@@ -42,6 +42,8 @@ async function main(): Promise<void> {
     log: (m, level) => (level === 'warn' ? console.warn(m) : console.info(m)),
   })
   startLifecycle(core)
+  core.setKeyboardOpen(document.documentElement.classList.contains(IME_CLASS))
+  onKeyboardChange(window, (open) => core.setKeyboardOpen(open))
   const bridge = createAndroidBridge(core, {
     clipboard: (text) => Clipboard.write({ string: text }),
     updater: idleUpdater(),
