@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, within } from '@testing-library/react'
+import { cleanup, fireEvent, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { called, NOW, renderShell, screen, settle } from './render'
 
@@ -65,6 +65,24 @@ describe('first run (mock 17 and 18)', () => {
     expect(screen.queryByRole('button', { name: 'Save without testing' })).toBeNull()
     expect(called(b, 'addServer')[0]?.args[0]).not.toHaveProperty('skipTest')
     expect(screen.getByRole('heading', { name: 'Connect to a LocalAI server' })).toBeTruthy()
+  })
+
+  it('on the desktop, a self-signed or untrusted certificate gives no Android CA hint', async () => {
+    for (const reason of ['self-signed', 'untrusted'] as const) {
+      const b = await renderShell('first-choose', { edit: (s) => void (s.testResult = { status: 'tls', reason }) })
+      fireEvent.click(screen.getByRole('button', { name: 'Connect to a server' }))
+      type('Server address', 'https://office-gpu.example.com')
+      fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+      await settle()
+      const r = screen.getByTestId('test-result')
+      expect(r.textContent).toContain('The certificate is not trusted')
+      expect(r.textContent).toContain('Ask the server owner to fix it. Then test again.')
+      expect(within(r).queryByTestId('ca-hint')).toBeNull()
+      expect(r.textContent).not.toContain('Android')
+      expect(within(r).queryByRole('button', { name: 'How to install a CA' })).toBeNull()
+      expect(called(b, 'openCertificateHelp')).toHaveLength(0)
+      cleanup()
+    }
   })
 
   it('treats "needs sign-in" as reachable, in amber, and still connects', async () => {

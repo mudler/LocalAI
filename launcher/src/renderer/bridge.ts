@@ -70,6 +70,14 @@ export interface BridgeExtras {
   openInstallSettings(): Promise<void>
   /** Opens the download of the development app (a separate app) in the browser. */
   getDevApp(): Promise<void>
+  // "Keep P2P connection in the background" (the Android app). The native side
+  // owns the value: the notification's Disconnect turns it off.
+  getP2PKeepInBackground(): Promise<boolean>
+  /** Answers the value the native side has after the change. */
+  setP2PKeepInBackground(on: boolean): Promise<boolean>
+  onP2PKeepInBackground(cb: (on: boolean) => void): () => void
+  /** Opens the help page about installing a private CA (the Android app). The URL is fixed on the other side. */
+  openCertificateHelp(): Promise<void>
 }
 
 /**
@@ -108,5 +116,6 @@ export function missingExtras(b: Bridge): (keyof BridgeExtras)[] {
 /** Optional methods that no main-process channel answers yet. */
 export const EXTRA_NAMES: (keyof BridgeExtras)[] = [
   'getWorker', 'onWorker', 'setRunMode', 'testWorker', 'startWorker', 'stopWorker', 'scanInvite', 'onInviteLink',
-  'getApkUpdate', 'openInstallSettings', 'getDevApp',
+  'getApkUpdate', 'openInstallSettings', 'getDevApp', 'getP2PKeepInBackground', 'setP2PKeepInBackground',
+  'onP2PKeepInBackground', 'openCertificateHelp',
 ]

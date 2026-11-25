@@ -80,6 +80,8 @@ export interface FakeState {
   scan?: string
   /** What the APK update sheet reads. Default: no offer, installs allowed. */
   apkUpdate?: ApkUpdateView
+  /** "Keep P2P connection in the background" as the native side has it. Default: off. */
+  p2pKeep?: boolean
 }
 
 export const ENDPOINT = 'http://127.0.0.1:8080'
@@ -200,6 +202,8 @@ export interface FakeBridge extends Bridge {
   emitInviteLink(text: string): void
   /** The updater state changed. */
   emitUpdater(s: UpdaterStatus): void
+  /** The native side changed "Keep P2P connection in the background" (the notification's Disconnect). */
+  emitP2PKeep(on: boolean): void
 }
 
 type Listener<T> = Set<(v: T) => void>
@@ -225,6 +229,7 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     servers: new Set() as Listener<ServersView>,
     switcher: new Set() as Listener<void>,
     invite: new Set() as Listener<string>,
+    p2pKeep: new Set() as Listener<boolean>,
   }
   const rec = <T>(name: string, value: T, ...args: unknown[]): Promise<T> => {
     calls.push({ name, args })
@@ -479,6 +484,14 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     getApkUpdate: () => rec('getApkUpdate', s.apkUpdate ?? { canInstall: true }),
     openInstallSettings: () => rec('openInstallSettings', undefined),
     getDevApp: () => rec('getDevApp', undefined),
+    getP2PKeepInBackground: () => rec('getP2PKeepInBackground', s.p2pKeep ?? false),
+    setP2PKeepInBackground: (on) => {
+      s.p2pKeep = on
+      ls.p2pKeep.forEach((cb) => cb(on))
+      return rec('setP2PKeepInBackground', on, on)
+    },
+    onP2PKeepInBackground: (cb) => sub(ls.p2pKeep, cb),
+    openCertificateHelp: () => rec('openCertificateHelp', undefined),
   }
 
   const pick = opts.extras ?? true
@@ -510,6 +523,10 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     emitUpdater: (v: UpdaterStatus) => {
       s.updater = v
       ls.updater.forEach((cb) => cb(v))
+    },
+    emitP2PKeep: (on: boolean) => {
+      s.p2pKeep = on
+      ls.p2pKeep.forEach((cb) => cb(on))
     },
   }) as FakeBridge
 }

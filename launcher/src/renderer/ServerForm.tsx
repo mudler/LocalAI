@@ -32,7 +32,12 @@ export interface ServerFormProps {
   onScan?: () => Promise<string | undefined>
   /** A fixed clock for the invite countdown (tests). */
   now?: number
+  /** The app has no local server (the Android app): a certificate card explains private CAs. Default false. */
+  client?: boolean
 }
+
+/** The certificate problems that a private CA installed on the phone fixes. */
+const CA_FIXES = new Set(['self-signed', 'untrusted'])
 
 const hostOf = (text: string) => {
   try {
@@ -212,6 +217,16 @@ export function ServerForm(p: ServerFormProps) {
             <strong>{card.title}</strong>
             <p className="lnr-result__p">{card.body}</p>
             {card.next && <p className="lnr-result__p"><strong>{S.testResult.next}</strong> {card.next}</p>}
+            {p.client && phase.result.status === 'tls' && CA_FIXES.has(phase.result.reason) && (
+              <p className="lnr-result__p" data-testid="ca-hint">
+                {S.androidSettings.caHint}{' '}
+                {b.openCertificateHelp && (
+                  <button type="button" className="lnr-link" onClick={() => void b.openCertificateHelp?.().catch(() => undefined)}>
+                    {S.androidSettings.caHelp}
+                  </button>
+                )}
+              </p>
+            )}
             {phase.result.status === 'ok' && <p className="lnr-result__p dk-muted">{S.testResult.testedNow}</p>}
             <div className="lnr-row lnr-row--tight lnr-result__actions">
               {card.actions.includes('edit') && (

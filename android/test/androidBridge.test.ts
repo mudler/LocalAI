@@ -3,8 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { capabilitiesOf, CORE_METHODS, LOCAL_SERVER_METHODS, SERVERS_METHODS } from '@launcher/shared/apiGroups'
 import { hasLocal } from '@launcher/renderer/bridge'
 import type { UpdaterStatus, WebuiViewState } from '@launcher/shared/types'
-import { ANDROID_CAPABILITIES, createAndroidBridge, idleUpdater } from '../src/bridge/androidBridge'
+import { ANDROID_CAPABILITIES, CERTIFICATE_HELP_URL, createAndroidBridge, idleUpdater } from '../src/bridge/androidBridge'
 import { ClientCore } from '../src/core/clientCore'
+import { P2P_LIBRARY_VERSION } from '../src/core/p2pTunnels'
 import { CONFIG_FILE } from '../src/core/configIO'
 import { fakePlatform, flush, type FakePlatform } from './fakes/plugins'
 
@@ -130,6 +131,32 @@ describe('createAndroidBridge', () => {
     await bridge.installLauncherUpdate()
     expect(calls).toEqual(['openInstallSettings', 'getDevApp', 'install'])
     expect(p.opened).toEqual([])
+  })
+
+  it('reads, sets and follows "Keep P2P connection in the background"', async () => {
+    const p = fakePlatform({ p2pVersion: P2P_LIBRARY_VERSION })
+    p.p2p.keep = true
+    const { bridge } = await rig(p)
+    expect(await bridge.getP2PKeepInBackground()).toBe(true)
+    const seen: boolean[] = []
+    const off = bridge.onP2PKeepInBackground((on) => seen.push(on))
+    // Disconnect in the notification.
+    p.p2p.emit('keepInBackground', { on: false })
+    expect(seen).toEqual([false])
+    expect(await bridge.getP2PKeepInBackground()).toBe(false)
+    expect(await bridge.setP2PKeepInBackground(true)).toBe(true)
+    expect(p.p2p.calls.filter((c) => c.name === 'setKeepInBackground').at(-1)?.args[0]).toEqual({ on: true })
+    expect(seen).toEqual([false, true])
+    off()
+    p.p2p.emit('keepInBackground', { on: false })
+    expect(seen).toEqual([false, true])
+  })
+
+  it('opens the docs about private CAs, and nothing else, for the certificate help', async () => {
+    const { bridge, p } = await rig()
+    await bridge.openCertificateHelp()
+    expect(p.opened).toEqual([CERTIFICATE_HELP_URL])
+    expect(CERTIFICATE_HELP_URL).toBe('https://localai.io/docs/start/install/android/#certificates-and-private-cas')
   })
 
   it('opens release notes for a version on GitHub', async () => {
