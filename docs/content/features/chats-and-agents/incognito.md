@@ -79,4 +79,6 @@ LOCALAI_INCOGNITO=allow LOCALAI_INCOGNITO_MAX_LEVEL=memory-off local-ai run
 
 Incognito is a feature of the web page only. The page marks its requests with an internal header, and the server honours it only for a web session (a session cookie, the key of the login page, or a server without accounts). A client that calls the API with an API key gets normal behaviour, whatever it sends. There is no per-key or per-user rule.
 
+In distributed mode the model requests of an incognito chat carry the level to the worker nodes: the prompt cache path is cleared and the backend gets `NoPromptCache`. The logs and the temporary files of the worker nodes are outside the reach of the frontend.
+
 With several frontends, an incognito chat lives in the memory of the frontend that created it. Route the requests of one browser session to the same frontend (sticky sessions); a request that reaches another frontend gets "not found", and the chat is lost.
