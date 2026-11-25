@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Strings of the invite link and QR scan plugins. -->
+<resources>
+    <string name="scanner_prompt">Point the camera at a LocalAI invite QR code</string>
+</resources>
