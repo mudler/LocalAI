@@ -124,7 +124,7 @@ Pass them with `-P<name>=<value>`. All are optional.
 | `localaiVersionName` | `0.0.0-local` | The `versionName`. |
 | `localaiVersionCode` | `1` | The `versionCode`, from 1 to 2100000000. |
 | `localaiAbis` | `arm64-v8a` | ABIs, comma-separated. Allowed: `arm64-v8a`, `x86_64`. CI test builds add `x86_64` for the emulator. Published APKs are `arm64-v8a` only. |
-| `localaiUpdateBase` | `https://github.com/mudler/LocalAI/releases` | The base URL of the update feed. Must be `https://`. |
+| `localaiUpdateBase` | `https://github.com/mudler/LocalAI/releases` | The base URL of the update feed. Must be `https://`. An `http://` feed is accepted only together with `localaiSignWithDebug=true` (see [Test the self-update](#test-the-self-update)). |
 | `localaiRequireSigning` | `false` | `true`: a missing release signing value fails the build. |
 | `localaiSignWithDebug` | `false` | `true`: release builds use the debug key. For test APKs only. Cannot be used with `localaiRequireSigning`. |
 
@@ -249,6 +249,51 @@ other than the channel's fixed asset name. It builds the APK URL from the
 feed base and the fixed name, never from the manifest. The `.sha256` file
 must agree with the manifest. The downloaded APK must match the size, the
 SHA-256 and the signing certificate of the installed app.
+
+### Test the self-update
+
+Two test APKs signed with the debug key read a local feed over HTTP. Gradle
+refuses an `http://` feed for any other build. `192.0.2.10` below stands for
+the LAN address of the test machine; the phone must reach it.
+
+1. Build the installed version and the update, with a higher version code:
+
+   ```sh
+   cd android/native
+   ./gradlew assembleStableRelease -PlocalaiSignWithDebug=true \
+     -PlocalaiUpdateBase=http://192.0.2.10:8090 \
+     -PlocalaiVersionName=5.0.0 -PlocalaiVersionCode=500000099
+   cp app/build/outputs/apk/stable/release/app-stable-release.apk /path/to/old.apk
+   ./gradlew assembleStableRelease -PlocalaiSignWithDebug=true \
+     -PlocalaiUpdateBase=http://192.0.2.10:8090 \
+     -PlocalaiVersionName=5.0.1 -PlocalaiVersionCode=500000199
+   ```
+
+2. Make the feed. The stable channel reads `latest/download/`, the dev
+   channel `download/dev-master/` (with `android-update-dev.json` and
+   `LocalAI-Android-dev.apk`):
+
+   ```sh
+   mkdir -p feed/latest/download
+   cp app/build/outputs/apk/stable/release/app-stable-release.apk feed/latest/download/LocalAI-Android.apk
+   (cd feed/latest/download && sha256sum LocalAI-Android.apk > LocalAI-Android.apk.sha256)
+   node ../scripts/write-manifest.mjs --app-id io.localai.client \
+     --version-name 5.0.1 --version-code 500000199 \
+     --apk feed/latest/download/LocalAI-Android.apk --name LocalAI-Android.apk \
+     --commit 0000000000000000000000000000000000000000 \
+     --notes-url https://github.com/mudler/LocalAI/releases \
+     --out feed/latest/download/android-update.json
+   ```
+
+3. Serve it on the LAN address, install `old.apk` on the phone, and select
+   **Check now** in **Settings > Updates**:
+
+   ```sh
+   node ../../launcher/scripts/fake-release-server.mjs 8090 "$PWD/feed" feed.log 192.0.2.10
+   ```
+
+`test/fakeFeed.test.ts` checks that the server answers at the paths the app
+reads.
 
 ## Security rules
 

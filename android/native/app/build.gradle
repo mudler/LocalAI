@@ -6,7 +6,8 @@ apply plugin: 'org.jetbrains.kotlin.android'
 //   localaiVersionName     versionName (default 0.0.0-local)
 //   localaiVersionCode     versionCode (default 1)
 //   localaiAbis            comma-separated ABIs (default arm64-v8a; CI test builds add x86_64)
-//   localaiUpdateBase      base URL of the update feed (default the GitHub releases of LocalAI)
+//   localaiUpdateBase      base URL of the update feed (default the GitHub releases of LocalAI;
+//                          https only, http:// only together with localaiSignWithDebug=true)
 //   localaiRequireSigning  true: a missing release signing value fails the build
 //   localaiSignWithDebug   true: release builds use the debug key (test APKs only)
 // Release signing reads ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD,
@@ -25,14 +26,16 @@ def knownAbis = ['arm64-v8a', 'x86_64']
 if (localaiAbis.isEmpty() || !knownAbis.containsAll(localaiAbis)) {
     throw new GradleException("localaiAbis must name ABIs from ${knownAbis}, got '${prop('localaiAbis', '')}'")
 }
-def localaiUpdateBase = prop('localaiUpdateBase', 'https://github.com/mudler/LocalAI/releases')
-// The updater trusts what this feed names, so it is never plain HTTP.
-if (!localaiUpdateBase.startsWith('https://') || localaiUpdateBase.contains('"')) {
-    throw new GradleException("localaiUpdateBase must be an https:// URL, got '${localaiUpdateBase}'")
-}
-
 def requireSigning = prop('localaiRequireSigning', 'false') == 'true'
 def signWithDebug = prop('localaiSignWithDebug', 'false') == 'true'
+def localaiUpdateBase = prop('localaiUpdateBase', 'https://github.com/mudler/LocalAI/releases')
+// The updater trusts what this feed names, so it is never plain HTTP. The one
+// exception is a test APK signed with the debug key (localaiSignWithDebug),
+// which may read a local test feed (launcher/scripts/fake-release-server.mjs).
+def feedSchemeOk = localaiUpdateBase.startsWith('https://') || (signWithDebug && localaiUpdateBase.startsWith('http://'))
+if (!feedSchemeOk || localaiUpdateBase.contains('"')) {
+    throw new GradleException("localaiUpdateBase must be an https:// URL (http:// only with localaiSignWithDebug=true), got '${localaiUpdateBase}'")
+}
 def signingEnv = ['ANDROID_KEYSTORE_FILE', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
         .collectEntries { [(it): System.getenv(it) ?: ''] }
 def missingSigning = signingEnv.findAll { it.value.isEmpty() }.keySet()
