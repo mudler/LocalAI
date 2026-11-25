@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +42,9 @@ func (t Trigger) MatchesEvent(ev Event) bool {
 		return false
 	}
 	if t.EventType != "" && !strings.EqualFold(t.EventType, ev.Type) {
+		return false
+	}
+	if t.Watch != nil && len(t.Watch.Types) > 0 && !slices.ContainsFunc(t.Watch.Types, func(ty string) bool { return strings.EqualFold(ty, ev.Type) }) {
 		return false
 	}
 	if len(t.Matches) == 0 {

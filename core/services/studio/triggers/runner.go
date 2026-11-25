@@ -107,7 +107,11 @@ type Options struct {
 	// an hour was skipped CapSkipsToPause times in a row because it reached its
 	// daily limit. The host switches the trigger off and tells its owner.
 	Pause func(t Trigger, why string)
-	Logf  func(format string, args ...any)
+	// Missed is called once for a reminder whose thing began while no pass
+	// ran (the host was down past it): the reminder did not fire, and the
+	// host tells the owner in one line.
+	Missed func(t Trigger, r Run)
+	Logf   func(format string, args ...any)
 }
 
 // Runner starts the runs of the triggers in a Store.
@@ -215,6 +219,9 @@ func (r *Runner) Sync(ctx context.Context) error {
 		errs = append(errs, err)
 	}
 	if err := r.filePass(ctx, trs, now); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.reminderPass(ctx, trs, now); err != nil {
 		errs = append(errs, err)
 	}
 	if err := r.startQueued(ctx, now); err != nil {
@@ -499,6 +506,9 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 			err = r.end(ctx, run, StatusSkipped, ReasonDropped, now)
 		case err == nil && !t.Enabled && !manual:
 			err = r.end(ctx, run, StatusSkipped, ReasonSwitchedOff, now)
+		case err == nil && t.IsReminder() && !r.parentOn(ctx, t):
+			// The watch is paused: its reminders wait with it.
+			continue
 		case err == nil && (n >= r.o.MaxRunning || busy[run.TriggerID]):
 			continue
 		case err == nil:
@@ -794,7 +804,20 @@ const ReasonMerged = "merged into a waiting run"
 // a trigger that is off or of another kind, and ErrNoMatch, with nothing
 // claimed, for an event that the trigger does not take.
 func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, error) {
-	return r.fire(ctx, triggerID, ev, true)
+	return r.fire(ctx, triggerID, ev, true, false)
+}
+
+// Wake starts an early run of a reminder because its thing changed. It is
+// Fire for a reminder: the same dedupe, merge, gap and limits, and no match,
+// since the watch already matched the event. The reminder keeps its due
+// time: the early run does not use it up.
+func (r *Runner) Wake(ctx context.Context, reminderID string, ev Event) (Run, error) {
+	return r.fire(ctx, reminderID, ev, true, true)
+}
+
+// WakeQueued is Wake for a frontend that does not lead (see FireQueued).
+func (r *Runner) WakeQueued(ctx context.Context, reminderID string, ev Event) (Run, error) {
+	return r.fire(ctx, reminderID, ev, false, true)
 }
 
 // FireQueued does what Fire does (the same checks, merge and admission) but
@@ -802,10 +825,10 @@ func (r *Runner) Fire(ctx context.Context, triggerID string, ev Event) (Run, err
 // pass starts it. A frontend that does not lead calls it. It does not run the
 // recovery of the runs that were going (see Sync), which belongs to the leader.
 func (r *Runner) FireQueued(ctx context.Context, triggerID string, ev Event) (Run, error) {
-	return r.fire(ctx, triggerID, ev, false)
+	return r.fire(ctx, triggerID, ev, false, false)
 }
 
-func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start bool) (Run, error) {
+func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start, wake bool) (Run, error) {
 	if ev.DedupeKey == "" {
 		return Run{}, errors.New("triggers: an event needs a dedupe key")
 	}
@@ -827,11 +850,17 @@ func (r *Runner) fire(ctx context.Context, triggerID string, ev Event, start boo
 	if err != nil {
 		return Run{}, err
 	}
-	if t.Kind != KindEvent || !t.Enabled {
-		return Run{}, ErrNotEnabled
-	}
-	if !t.MatchesEvent(ev) {
-		return Run{}, ErrNoMatch
+	if wake {
+		if !t.IsReminder() || !t.Enabled {
+			return Run{}, ErrNotEnabled
+		}
+	} else {
+		if t.Kind != KindEvent || !t.Enabled {
+			return Run{}, ErrNotEnabled
+		}
+		if !t.MatchesEvent(ev) {
+			return Run{}, ErrNoMatch
+		}
 	}
 	key := EventPrefix + ev.DedupeKey
 	payload := TrimPayload(ev.Payload, MaxPayloadBytes)

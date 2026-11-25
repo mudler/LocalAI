@@ -63,6 +63,9 @@ type WatchRule struct {
 	// Tasks are the task defaults in the owner's own words, such as "for
 	// calls with other people, prepare a brief 30 min ahead".
 	Tasks string `json:",omitempty"`
+	// Types are the event types of the source that the watch takes, such as
+	// calendar.event.created. Empty: every type the source declares.
+	Types []string `json:",omitempty"`
 }
 
 var clockRE = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
@@ -80,6 +83,13 @@ func (w WatchRule) Validate() error {
 		return errors.New("quiet hours are times such as 22:00")
 	case utf8.RuneCountInString(w.Tasks) > MaxWatchTasks || hasControl(w.Tasks, true):
 		return fmt.Errorf("the task defaults are text of at most %d characters", MaxWatchTasks)
+	case len(w.Types) > MaxMatches:
+		return fmt.Errorf("a watch takes at most %d event types", MaxMatches)
+	}
+	for _, ty := range w.Types {
+		if ty == "" || len(ty) > MaxEventField || hasControl(ty, false) {
+			return fmt.Errorf("an event type is one line of at most %d bytes", MaxEventField)
+		}
 	}
 	return nil
 }
