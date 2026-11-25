@@ -235,6 +235,8 @@ A client `session.update` still overrides `type` and `eagerness` per session.
 
 **Live captions**: while the user speaks, `semantic_vad` streams `conversation.item.input_audio_transcription.delta` events under the item id the commit will later reuse, so clients can render the words as they are recognized. The `completed` event at commit carries the authoritative transcript and replaces the partial text (with `retranscribe: true` it may differ from the captions); a turn discarded before commit emits `conversation.item.input_audio_transcription.failed` so clients can retract its captions. If the live decode cannot finish the turn (for example, on a busy CPU it falls behind real time and does not flush its backlog within 10 s of the commit), LocalAI does not use the partial captions as the transcript. It transcribes the committed audio of the turn again and sends that result in the `completed` event.
 
+**Failed transcriptions**: when the transcription of a committed turn fails, LocalAI sends `conversation.item.input_audio_transcription.failed` for that item, followed by an `error` event with the code `transcription_failed`. A turn in which the model recognizes no words still gets a `completed` event with an empty transcript, and LocalAI logs a warning with the item id and the audio duration.
+
 **`retranscribe`** (server-side only, semantic_vad only) cross-checks the streaming decode against a batch decode at commit time:
 
 - `false` (default): the transcript accumulated from the live stream is used as-is - the model runs once per utterance and the LLM starts immediately at commit.

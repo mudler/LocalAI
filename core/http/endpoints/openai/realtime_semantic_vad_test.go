@@ -428,6 +428,38 @@ var _ = Describe("commitUtteranceWithTranscript", func() {
 		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
 	})
 
+	It("reports a transcription stream that ended without a final result as failed, not as an empty turn", func() {
+		// transcribeFinal nil: the backend stream closed without its final
+		// result. Before, the client got completed with an empty transcript.
+		m := &fakeModel{}
+		session := newTranscriptionOnlySession(m, true)
+		tr := &fakeTransport{}
+
+		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, nil, nil, "item_turn", session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(0))
+		var failed []types.ConversationItemInputAudioTranscriptionFailedEvent
+		for _, e := range tr.events() {
+			if f, ok := e.(types.ConversationItemInputAudioTranscriptionFailedEvent); ok {
+				failed = append(failed, f)
+			}
+		}
+		Expect(failed).To(HaveLen(1))
+		Expect(failed[0].ItemID).To(Equal("item_turn"))
+		Expect(failed[0].Error.Code).To(Equal("transcription_failed"))
+	})
+
+	It("still completes a turn whose final result is empty (the model heard no words)", func() {
+		m := &fakeModel{transcribeFinal: &schema.TranscriptionResult{}}
+		session := newTranscriptionOnlySession(m, true)
+		tr := &fakeTransport{}
+
+		commitUtteranceWithTranscript(context.Background(), []byte{1, 2}, nil, nil, "item_turn", session, &Conversation{}, tr, session.nextCommitSlot())
+
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(Equal(1))
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionFailed)).To(Equal(0))
+	})
+
 	It("does not generate a response for a blank transcript", func() {
 		session, model := itSession(nil)
 		model.transcribeFinal = &schema.TranscriptionResult{Text: " \t\n"}
