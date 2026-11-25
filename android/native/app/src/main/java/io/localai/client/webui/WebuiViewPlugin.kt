@@ -146,6 +146,11 @@ class WebuiViewPlugin : Plugin() {
         host?.onPause()
     }
 
+    override fun handleOnResume() {
+        super.handleOnResume()
+        host?.onResume()
+    }
+
     override fun handleOnDestroy() {
         host?.onDestroy()
         host = null

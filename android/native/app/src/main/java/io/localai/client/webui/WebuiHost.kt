@@ -41,6 +41,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewCompat
 import io.localai.client.R
+import io.localai.client.p2p.P2PRuntime
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -76,6 +77,20 @@ class WebuiHost(
     private val downloadResolver = DownloadResolver()
 
     private var webView: WebView? = null
+
+    /** The view was paused when the app left the screen (a P2P server, "keep in background" off). */
+    private var pausedForP2P = false
+
+    // A forwarder state changed. P2PRuntime.stop() sends "closed" on the main
+    // thread before the service releases the ports, so the check runs
+    // synchronously there, before another app can take the address.
+    private val p2pListener: (String, String) -> Unit = { _, _ ->
+        if (Looper.myLooper() == Looper.getMainLooper()) enforceP2P() else main.post { enforceP2P() }
+    }
+
+    init {
+        P2PRuntime.addListener(p2pListener)
+    }
 
     /** The origin the view is locked to; read from WebView threads too. */
     @Volatile
@@ -126,6 +141,15 @@ class WebuiHost(
         Profiles.validate(profile)
         require(WebuiPolicy.httpOrigin(origin) == origin) { "origin is not an http(s) origin" }
         require(WebuiPolicy.httpOrigin(url) == origin) { "url is not on origin" }
+        if (p2pBlocked(origin)) {
+            // The client core waits for the forwarder; this is the native backstop.
+            destroyWebView()
+            serverOrigin = origin
+            this.profile = profile
+            lastUrl = url
+            events.loadFailed(-1, P2P_NOT_LISTENING)
+            return
+        }
         val current = webView
         if (current != null && origin == serverOrigin && profile == this.profile) {
             lastUrl = url
@@ -158,6 +182,10 @@ class WebuiHost(
         val origin = serverOrigin ?: return
         when (val d = WebuiPolicy.decideNavigation(url, origin, subframe = false)) {
             WebuiPolicy.Navigation.Allow -> {
+                if (p2pBlocked(origin)) {
+                    suspendForP2P()
+                    return
+                }
                 lastUrl = url
                 val wv = webView
                 if (wv != null) wv.loadUrl(url) else reload()
@@ -176,6 +204,10 @@ class WebuiHost(
 
     /** Reloads the page, or brings the view back after its renderer was gone. */
     fun reload() {
+        if (p2pBlocked(serverOrigin)) {
+            suspendForP2P()
+            return
+        }
         val wv = webView
         if (wv != null) {
             wv.reload()
@@ -212,9 +244,47 @@ class WebuiHost(
     fun onPause() {
         webView?.let { Profiles.cookieManager(it).flush() }
         CookieManager.getInstance().flush()
+        // Without "keep in background" the forwarder of a P2P server stops
+        // after a grace time; the page should not keep working on its own
+        // until the app is back and the forwarder listens again.
+        val wv = webView ?: return
+        if (P2PGuard.listening(serverOrigin, P2PRuntime.forwards, P2PRuntime.lastStates()) != null && !P2PRuntime.keepInBackground()) {
+            wv.onPause()
+            pausedForP2P = true
+        }
+    }
+
+    /** The activity is on screen again: resume a paused view only while its forwarder listens. */
+    fun onResume() {
+        if (!pausedForP2P) return
+        pausedForP2P = false
+        val wv = webView ?: return
+        if (p2pBlocked(serverOrigin)) suspendForP2P() else wv.onResume()
+    }
+
+    /** True when `origin` is a P2P server of this app whose forwarder does not listen now. */
+    private fun p2pBlocked(origin: String?): Boolean =
+        P2PGuard.listening(origin, P2PRuntime.forwards, P2PRuntime.lastStates()) == false
+
+    private fun enforceP2P() {
+        if (webView != null && p2pBlocked(serverOrigin)) suspendForP2P()
+    }
+
+    /**
+     * Removes the page of a P2P server whose forwarder stopped listening, so
+     * it sends nothing to an app that may take the address. Origin, profile
+     * and URL stay, like after a renderer crash; the client core loads the
+     * page again once the forwarder listens.
+     */
+    private fun suspendForP2P() {
+        pausedForP2P = false
+        if (webView == null) return
+        destroyWebView()
+        events.loadFailed(-1, P2P_NOT_LISTENING)
     }
 
     fun onDestroy() {
+        P2PRuntime.removeListener(p2pListener)
         downloads.shutdownNow()
         close()
         runtimeLauncher?.unregister()
@@ -627,5 +697,8 @@ class WebuiHost(
         const val MIN_CHROMIUM_MAJOR = 111
 
         const val CATCHER_TIMEOUT_MS = 10_000L
+
+        /** The load failure the view reports when it refuses a P2P origin whose forwarder does not listen. */
+        const val P2P_NOT_LISTENING = "p2p-not-listening"
     }
 }

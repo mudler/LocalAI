@@ -100,7 +100,7 @@ Android stops the network connections of an app in the background. To keep a P2P
 
 - The service runs while at least one P2P server is saved and the app is on the screen.
 - When the app leaves the screen, the service runs for 10 more minutes, then stops.
-- When you open the app again, the app connects again before it reloads the server page.
+- When you open the app again, the app connects again. If the connection stopped while the app was away, the app loads the server page again, but only after the connection is open.
 - To keep the connection open in the background, turn on **Keep P2P connection in the background** in Settings. It is off by default.
 - **Disconnect** in the notification stops the service and turns that setting off.
 
@@ -109,6 +109,8 @@ On Android 13 and later, the app asks for the permission to show notifications t
 When the phone changes network, for example from Wi-Fi to mobile data or when a VPN starts, the app restarts the P2P connections. The local address of each server stays the same, so the page and the sign-in stay too.
 
 Other apps on the phone can connect to the local address of a P2P server, as on a computer. They still need a sign-in to the server.
+
+While the app's own P2P connection to a server is not open, another app can take the local address of that server. For this reason the app shows the page of a P2P server, and sends it your sign-in, only while its own connection listens on that address. At other times the server shows as not reachable. If another app holds the address, the P2P connection fails with "address already in use": close that app, or restart the phone. The app tries to connect again by itself.
 
 ## Updates
 
