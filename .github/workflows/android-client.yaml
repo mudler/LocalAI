@@ -1,0 +1,179 @@
+# Builds and tests the Android client app (android/).
+#
+# - pull request: lint, type check, unit tests and the web bundle, then a
+#   debug APK of the dev flavor (arm64-v8a and x86_64, so emulators can run
+#   it), uploaded as the workflow artifact localai-android-pr for 7 days.
+# - push to master: the same build, kept 14 days as localai-android-dev.
+# - manual run: the same build as a pull request.
+#
+# Nothing here is signed with a release key and nothing is published. The
+# version is the launcher's development version (<newest vX.Y.Z tag, patch
+# + 1>-dev.<run number>); the versionCode is whole minutes since
+# 2026-01-01T00:00:00Z (android/scripts/version-code.mjs).
+name: Android client
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'android/**'
+      - 'launcher/src/renderer/**'
+      - 'launcher/src/shared/**'
+      - 'launcher/src/core/**'
+      - 'launcher/scripts/version.mjs'
+      - 'launcher/test/fixtures/webui-policy.json'
+      - 'core/http/react-ui/packages/ui-kit/**'
+      - 'core/http/react-ui/src/index.css'
+      - 'core/http/react-ui/src/theme.css'
+      - 'core/services/p2pnet/**'
+      - 'core/services/p2ppair/**'
+      - 'pkg/httpclient/**'
+      - 'pkg/atomicfile/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/android-client.yaml'
+      - '.github/workflows/android-client-release.yaml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'launcher/src/renderer/**'
+      - 'launcher/src/shared/**'
+      - 'launcher/src/core/**'
+      - 'launcher/scripts/version.mjs'
+      - 'launcher/test/fixtures/webui-policy.json'
+      - 'core/http/react-ui/packages/ui-kit/**'
+      - 'core/http/react-ui/src/index.css'
+      - 'core/http/react-ui/src/theme.css'
+      - 'core/services/p2pnet/**'
+      - 'core/services/p2ppair/**'
+      - 'pkg/httpclient/**'
+      - 'pkg/atomicfile/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/android-client.yaml'
+      - '.github/workflows/android-client-release.yaml'
+  workflow_dispatch:
+
+# A newer pull request push supersedes the older build of that pull request.
+# Master builds and manual runs are never cancelled.
+concurrency:
+  group: android-client-${{ github.event_name }}-${{ github.event.pull_request.number || (github.event_name == 'workflow_dispatch' && github.run_id) || github.ref }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Development version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            launcher/scripts
+            android/scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - id: version
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          # The tags of the main repository, without a full clone.
+          v=$(git ls-remote --tags --refs "$REPO_URL" 'refs/tags/v*' | node launcher/scripts/version.mjs dev "$RUN_NUMBER")
+          code=$(node android/scripts/version-code.mjs dev)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "version_code=$code" >> "$GITHUB_OUTPUT"
+          echo "Android client version $v, versionCode $code"
+
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-web
+          path: android/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  apk:
+    name: Debug APK
+    needs: [version, web]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android/package-lock.json
+      # The Gradle projects of Capacitor and its plugins live in node_modules.
+      - run: npm ci
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-web
+          path: android/dist
+      - run: npx cap sync android
+      - name: Lint, unit tests and the dev debug APK
+        working-directory: android/native
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          VERSION_CODE: ${{ needs.version.outputs.version_code }}
+        run: |
+          ./gradlew lintDevDebug testDevDebugUnitTest assembleDevDebug \
+            "-PlocalaiVersionName=$VERSION" \
+            "-PlocalaiVersionCode=$VERSION_CODE" \
+            -PlocalaiAbis=arm64-v8a,x86_64
+      - name: Name the APK and write its checksum
+        run: |
+          mkdir -p out
+          cp native/app/build/outputs/apk/dev/debug/app-dev-debug.apk out/LocalAI-Android-dev.apk
+          (cd out && sha256sum LocalAI-Android-dev.apk > LocalAI-Android-dev.apk.sha256 && cat LocalAI-Android-dev.apk.sha256)
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ github.event_name == 'push' && 'localai-android-dev' || 'localai-android-pr' }}
+          path: |
+            android/out/LocalAI-Android-dev.apk
+            android/out/LocalAI-Android-dev.apk.sha256
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'push' && 14 || 7 }}

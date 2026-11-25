@@ -1,5 +1,6 @@
 node_modules/
 dist/
+out/
 native/**/build/
 native/.gradle/
 native/local.properties
