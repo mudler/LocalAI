@@ -89,6 +89,75 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 	for _, o := range opts {
 		o(&res)
 	}
+	It("keeps the rule of a watch and the fields of a reminder", func() {
+		s := newStore()
+		w := eventTrigger("w1", "1")
+		w.Source, w.EventType, w.Secret, w.Matches = "notes", "", "", nil
+		w.Watch = &triggers.WatchRule{Offset: -15 * time.Minute, AllDay: triggers.AllDayNone, QuietFrom: "22:00", QuietTo: "07:00", Tasks: "prep calls"}
+		Expect(s.PutTrigger(ctx, w)).To(Succeed())
+		got, err := s.GetTrigger(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.IsWatch()).To(BeTrue())
+		Expect(*got.Watch).To(Equal(*w.Watch))
+		anchor := base.Add(48 * time.Hour).Truncate(res)
+		r := triggers.Trigger{ID: "r1", Owner: "1", Name: "Standup", Prompt: "Remind me.", Enabled: true, Kind: triggers.KindReminder, Since: base,
+			Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:42", Title: "Standup", Link: "notes?item=42", Anchor: anchor, Zone: "Europe/Rome",
+				Offset: -15 * time.Minute, Task: "remind me", Lead: 5 * time.Minute, WakeOnChange: true, Stamp: "s1"}}
+		Expect(s.PutTrigger(ctx, r)).To(Succeed())
+		got, err = s.ReminderByKey(ctx, "w1", "notes:42")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("r1"))
+		Expect(got.Reminder.Anchor.Equal(anchor)).To(BeTrue())
+		got.Reminder.Anchor = anchor
+		Expect(*got.Reminder).To(Equal(*r.Reminder))
+		got.Reminder.Title = "changed by the caller"
+		again, _ := s.GetTrigger(ctx, "r1")
+		Expect(again.Reminder.Title).To(Equal("Standup"), "a read shares nothing with the store")
+		_, err = s.ReminderByKey(ctx, "w1", "notes:43")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+		_, err = s.ReminderByKey(ctx, "w2", "notes:42")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+	})
+
+	It("keeps one reminder per thing per watch", func() {
+		s := newStore()
+		mk := func(id, parent, key string) triggers.Trigger {
+			return triggers.Trigger{ID: id, Owner: "1", Name: "R", Prompt: "Remind me.", Enabled: true, Kind: triggers.KindReminder, Since: base,
+				Reminder: &triggers.Reminder{ParentID: parent, Key: key, At: base.Add(time.Hour)}}
+		}
+		Expect(s.PutTrigger(ctx, mk("r1", "w1", "notes:1"))).To(Succeed())
+		Expect(s.PutTrigger(ctx, mk("r2", "w1", "notes:1"))).To(MatchError(triggers.ErrDuplicate))
+		Expect(s.PutTrigger(ctx, mk("r1", "w1", "notes:1"))).To(Succeed(), "the same reminder may be written again")
+		Expect(s.PutTrigger(ctx, mk("r3", "w2", "notes:1"))).To(Succeed(), "another watch may remind of the same thing")
+		Expect(s.PutTrigger(ctx, mk("r4", "w1", "notes:2"))).To(Succeed())
+		Expect(s.PutTrigger(ctx, sample("t1", "1", "Plain"))).To(Succeed(), "triggers that are not reminders never collide")
+		Expect(s.PutTrigger(ctx, sample("t2", "1", "Plain"))).To(Succeed())
+		list, err := s.Reminders(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(2))
+		Expect(list[0].ID).To(Equal("r1"))
+		Expect(list[1].ID).To(Equal("r4"))
+		Expect(s.DeleteTrigger(ctx, "r1")).To(Succeed())
+		Expect(s.PutTrigger(ctx, mk("r2", "w1", "notes:1"))).To(Succeed(), "the key is free once the reminder is gone")
+	})
+
+	It("does not count a handled row against the daily limit", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, sample("t1", "1", "Watch"))).To(Succeed())
+		h := run("h1", "t1", "event@a", triggers.StatusHandled)
+		h.Ended = base
+		claimed, err := s.Claim(ctx, h)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+		claimed, err = s.Claim(ctx, run("d1", "t1", "event@b", triggers.StatusDone))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+		n, err := s.CountRunsSince(ctx, "t1", base)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		Expect(triggers.StatusHandled.Final()).To(BeTrue())
+	})
+
 	It("stores a trigger with every field", func() {
 		s := newStore()
 		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1"), eventTrigger("t3", "1")} {

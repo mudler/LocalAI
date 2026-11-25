@@ -24,6 +24,12 @@ type Event struct {
 	Type      string
 	DedupeKey string
 	Payload   []byte
+	// Actor is who caused the event, as the host set it. The hook of an event
+	// trigger leaves it zero.
+	Actor Actor
+	// Thing is what an add-on event is about, read with the add-on's
+	// declaration; nil for an event of the hook.
+	Thing *Thing
 }
 
 // MatchesEvent tells whether the event starts this trigger. Source and

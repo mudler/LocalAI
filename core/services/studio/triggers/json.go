@@ -77,6 +77,15 @@ func utc(t time.Time) time.Time {
 
 func normTrigger(t Trigger) Trigger {
 	t.Since, t.OutcomeAt = utc(t.Since), utc(t.OutcomeAt)
+	if t.Watch != nil {
+		w := *t.Watch
+		t.Watch = &w
+	}
+	if t.Reminder != nil {
+		r := *t.Reminder
+		r.Anchor, r.At, r.SnoozedTo = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo)
+		t.Reminder = &r
+	}
 	t.Route.ProposedAt, t.Route.Expires, t.Route.Until = utc(t.Route.ProposedAt), utc(t.Route.Expires), utc(t.Route.Until)
 	return t
 }
@@ -89,6 +98,13 @@ func normRun(r Run) Run {
 func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if t.Reminder != nil {
+		for id, o := range s.d.Triggers {
+			if id != t.ID && o.Reminder != nil && o.Reminder.ParentID == t.Reminder.ParentID && o.Reminder.Key == t.Reminder.Key {
+				return ErrDuplicate
+			}
+		}
+	}
 	old, had := s.d.Triggers[t.ID]
 	s.d.Triggers[t.ID] = normTrigger(t)
 	if err := s.save(); err != nil {
@@ -149,7 +165,7 @@ func (s *jsonStore) GetTrigger(_ context.Context, id string) (Trigger, error) {
 	if !ok {
 		return Trigger{}, ErrNotFound
 	}
-	return t, nil
+	return copyTrigger(t), nil
 }
 
 func (s *jsonStore) triggersWhere(keep func(Trigger) bool, less func(a, b Trigger) bool) []Trigger {
@@ -158,7 +174,7 @@ func (s *jsonStore) triggersWhere(keep func(Trigger) bool, less func(a, b Trigge
 	var out []Trigger
 	for _, t := range s.d.Triggers {
 		if keep(t) {
-			out = append(out, t)
+			out = append(out, copyTrigger(t))
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return less(out[i], out[j]) })
@@ -365,7 +381,7 @@ func (s *jsonStore) CountRunsSince(_ context.Context, triggerID string, since ti
 	defer s.mu.Unlock()
 	n := 0
 	for _, r := range s.d.Runs {
-		if r.TriggerID == triggerID && r.Status != StatusSkipped && !r.Due.Before(since) {
+		if r.TriggerID == triggerID && r.Status != StatusSkipped && r.Status != StatusHandled && !r.Due.Before(since) {
 			n++
 		}
 	}
@@ -411,3 +427,31 @@ func (s *jsonStore) SetLastDue(_ context.Context, id string, t time.Time) error 
 	}
 	return nil
 }
+
+func (s *jsonStore) ReminderByKey(_ context.Context, parentID, key string) (Trigger, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.d.Triggers {
+		if t.Reminder != nil && t.Reminder.ParentID == parentID && t.Reminder.Key == key {
+			return copyTrigger(t), nil
+		}
+	}
+	return Trigger{}, ErrNotFound
+}
+
+func (s *jsonStore) Reminders(_ context.Context, parentID string) ([]Trigger, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Trigger
+	for _, t := range s.d.Triggers {
+		if t.Reminder != nil && t.Reminder.ParentID == parentID {
+			out = append(out, copyTrigger(t))
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+// copyTrigger gives a trigger that shares no pointer with the stored one, so
+// a caller that changes the rule or the reminder does not change the store.
+func copyTrigger(t Trigger) Trigger { return normTrigger(t) }

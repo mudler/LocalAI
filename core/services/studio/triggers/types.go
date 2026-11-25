@@ -43,7 +43,7 @@ const (
 
 // Final tells whether the status is an end state.
 func (s Status) Final() bool {
-	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked
+	return s == StatusDone || s == StatusFailed || s == StatusSkipped || s == StatusBlocked || s == StatusHandled
 }
 
 // Defaults and limits.
@@ -181,6 +181,12 @@ type Trigger struct {
 	EventType string
 	Matches   []string
 	Secret    string
+	// Watch is the reminder rule of an event trigger that is a watch; nil on
+	// every other trigger.
+	Watch *WatchRule
+	// Reminder holds the fields of a reminder (KindReminder); nil on every
+	// other trigger.
+	Reminder *Reminder
 }
 
 // String describes the trigger without its prompt and without its Secret, so
@@ -574,9 +580,25 @@ func (t Trigger) Validate() error {
 			return fmt.Errorf("quiet period must be 0 to %s", MaxQuiet)
 		}
 	case KindEvent:
+		if t.Reminder != nil {
+			return errors.New("an event trigger is not a reminder")
+		}
+		if t.Watch != nil {
+			if err := t.Watch.Validate(); err != nil {
+				return err
+			}
+		}
 		return t.validateEvent()
+	case KindReminder:
+		if _, err := t.Location(); err != nil {
+			return err
+		}
+		return t.validateReminder()
 	default:
 		return fmt.Errorf("kind must be %q, %q or %q", KindSchedule, KindFile, KindEvent)
+	}
+	if t.Watch != nil || t.Reminder != nil {
+		return errors.New("a reminder rule belongs to a watch")
 	}
 	if t.Source != "" || t.EventType != "" || len(t.Matches) > 0 || t.Secret != "" {
 		return errors.New("source, event type, matches and secret belong to an event trigger")

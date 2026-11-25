@@ -53,6 +53,16 @@ type triggerRow struct {
 	EventType string `gorm:"size:255"`
 	Matches   string // unsized text: JSON escaping can grow a match several times
 	Secret    string `gorm:"size:255"` // MaxEventSecret
+	// Watch is the JSON of Trigger.Watch, empty on a trigger that is not a
+	// watch.
+	Watch string `gorm:"size:2048"`
+	// Reminder is the JSON of Trigger.Reminder. ParentID and ThingKey repeat
+	// its watch and key as columns: the unique index on them keeps one
+	// reminder per thing per watch across frontends. Both are NULL on any
+	// other trigger, and NULLs never collide in a unique index.
+	Reminder string
+	ParentID *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:1;size:128"`
+	ThingKey *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:2;size:255"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -111,7 +121,36 @@ func (r triggerRow) trigger() Trigger {
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
 		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts),
-		Source: r.Source, EventType: r.EventType, Matches: matchesOf(r.Matches), Secret: r.Secret}
+		Source: r.Source, EventType: r.EventType, Matches: matchesOf(r.Matches), Secret: r.Secret,
+		Watch: watchOf(r.Watch), Reminder: reminderOf(r.Reminder)}
+}
+
+func watchOf(raw string) *WatchRule {
+	if raw == "" {
+		return nil
+	}
+	var w WatchRule
+	if json.Unmarshal([]byte(raw), &w) != nil {
+		return nil // a broken value reads as a plain event trigger
+	}
+	return &w
+}
+
+func reminderOf(raw string) *Reminder {
+	if raw == "" {
+		return nil
+	}
+	var r Reminder
+	if json.Unmarshal([]byte(raw), &r) != nil {
+		return nil
+	}
+	r.Anchor, r.At, r.SnoozedTo = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo)
+	return &r
+}
+
+func jsonText(v any) string {
+	raw, _ := json.Marshal(v)
+	return string(raw)
 }
 
 func changeOf(raw string) Change {
@@ -176,7 +215,35 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
 		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ","),
 		Source: t.Source, EventType: t.EventType, Matches: matchesText(t.Matches), Secret: t.Secret}
-	return s.db.WithContext(ctx).Save(&row).Error
+	if t.Watch != nil {
+		row.Watch = jsonText(t.Watch)
+	}
+	if t.Reminder != nil {
+		row.Reminder = jsonText(t.Reminder)
+		parent, key := t.Reminder.ParentID, t.Reminder.Key
+		row.ParentID, row.ThingKey = &parent, &key
+	}
+	err := s.db.WithContext(ctx).Save(&row).Error
+	if err != nil && t.Reminder != nil && dberr.IsUniqueViolation(err) {
+		return ErrDuplicate
+	}
+	return err
+}
+
+func (s *gormStore) ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error) {
+	var r triggerRow
+	err := s.db.WithContext(ctx).Where("parent_id = ? AND thing_key = ?", parentID, key).Take(&r).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Trigger{}, ErrNotFound
+	}
+	if err != nil {
+		return Trigger{}, err
+	}
+	return r.trigger(), nil
+}
+
+func (s *gormStore) Reminders(ctx context.Context, parentID string) ([]Trigger, error) {
+	return s.listTriggers(s.db.WithContext(ctx).Where("parent_id = ?", parentID).Order("id"))
 }
 
 func (s *gormStore) SetOutcome(ctx context.Context, id, from, to string, at time.Time) (bool, error) {
@@ -428,7 +495,7 @@ func (s *gormStore) RunByChat(ctx context.Context, chatID string) (Run, error) {
 func (s *gormStore) CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error) {
 	var n int64
 	err := s.db.WithContext(ctx).Model(&runRow{}).
-		Where("trigger_id = ? AND status <> ? AND due >= ?", triggerID, string(StatusSkipped), utc(since)).Count(&n).Error
+		Where("trigger_id = ? AND status NOT IN ? AND due >= ?", triggerID, []string{string(StatusSkipped), string(StatusHandled)}, utc(since)).Count(&n).Error
 	return int(n), err
 }
 

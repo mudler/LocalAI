@@ -9,6 +9,10 @@ import (
 // ErrNotFound is returned by a Store for a trigger or run that does not exist.
 var ErrNotFound = errors.New("triggers: not found")
 
+// ErrDuplicate is returned by PutTrigger for a reminder whose watch already
+// has another reminder for the same thing.
+var ErrDuplicate = errors.New("triggers: the watch has a reminder for this thing")
+
 // Retention says which finished runs Store.PruneRuns removes. A run that is
 // queued or running is never removed.
 type Retention struct {
@@ -56,6 +60,12 @@ type Store interface {
 	// AllTriggers returns every trigger of every owner, sorted by owner, name
 	// and ID. It is for the administrator's view and for migrations.
 	AllTriggers(ctx context.Context) ([]Trigger, error)
+	// ReminderByKey returns the reminder of a watch for a thing, or
+	// ErrNotFound. PutTrigger refuses a second reminder of the same watch and
+	// key with ErrDuplicate.
+	ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error)
+	// Reminders returns the reminders of a watch, sorted by ID.
+	Reminders(ctx context.Context, parentID string) ([]Trigger, error)
 
 	// Claim stores a new run. It returns false, and stores nothing, when a run
 	// with the same TriggerID and DueKey exists, whatever its ID. It returns an
@@ -92,7 +102,7 @@ type Store interface {
 	// the zero time when none started.
 	LastStarted(ctx context.Context, triggerID string) (time.Time, error)
 	// CountRunsSince counts the runs of a trigger whose Due is not before since
-	// and whose status is not skipped.
+	// and whose status is not skipped or handled.
 	CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error)
 
 	// Cursor returns the revision of the workspace change feed that the Runner
