@@ -450,7 +450,10 @@ jobs:
     # A release event waits here for the tag push run (see the push step).
     timeout-minutes: ${{ github.event_name == 'release' && 280 || 60 }}
     concurrency:
-      group: addons-publish-${{ matrix.addon }}-${{ needs.plan.outputs.immutable }}
+      # The event name keeps the two runs of a release apart: the release
+      # event waits in its leg for the tag push to publish, so sharing one
+      # group would leave the tag push pending behind it until the wait ran out.
+      group: addons-publish-${{ matrix.addon }}-${{ needs.plan.outputs.immutable }}-${{ github.event_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -699,7 +702,10 @@ jobs:
     needs: [plan]
     if: github.event_name == 'release' && !github.event.release.draft
     runs-on: ubuntu-24.04
-    timeout-minutes: 240
+    # The tag push run takes hours, mostly in the queue, so wait as long as the
+    # job limit of a hosted runner allows. If it still times out, re-run this
+    # job after the tag push run has finished.
+    timeout-minutes: 355
     permissions:
       contents: write
       actions: read
@@ -716,7 +722,7 @@ jobs:
           # The tag-push run builds and signs the packages. This run can start
           # before it ends, and the push run can be re-run after a failure, so
           # wait for it instead of failing at once.
-          deadline=$(( $(date +%s) + 220 * 60 ))
+          deadline=$(( $(date +%s) + 340 * 60 ))
           grace=900
           failed_at=
           while :; do
@@ -764,14 +770,29 @@ jobs:
             refs="$refs
           $(cat index/sandbox-guest-images.txt)"
           fi
+          # check returns 0 when the registry serves ref, 1 when it answers
+          # that ref is unknown, and 2 when three tries end in another error.
+          check() {
+            for try in 1 2 3; do
+              if docker buildx imagetools inspect --raw "$1" > /dev/null 2> inspect.err; then
+                return 0
+              fi
+              if grep -qiE 'not found|manifest unknown' inspect.err; then
+                return 1
+              fi
+              [ "$try" -eq 3 ] || sleep 5
+            done
+            return 2
+          }
           missing=0
           for ref in $refs; do
-            if docker buildx imagetools inspect --raw "$ref" > /dev/null 2> inspect.err; then
-              echo "ok $ref"
-            else
-              echo "the registry does not serve $ref: $(cat inspect.err)" >&2
-              missing=1
-            fi
+            rc=0
+            check "$ref" || rc=$?
+            case "$rc" in
+            0) echo "ok $ref" ;;
+            1) echo "the registry does not serve $ref: $(cat inspect.err)" >&2; missing=1 ;;
+            *) echo "cannot check $ref: $(cat inspect.err)" >&2; missing=1 ;;
+            esac
           done
           [ "$missing" -eq 0 ]
       - name: Attach the catalog

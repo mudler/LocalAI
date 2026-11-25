@@ -175,12 +175,37 @@ func adoptExisting(ctx context.Context, repo name.Repository, tag name.Tag, m *m
 	return d, err
 }
 
+// registryRetryDelay is the pause before the second try of a registry read;
+// the third waits twice as long. Tests shorten it.
+var registryRetryDelay = 2 * time.Second
+
+// getWithRetry reads ref, and tries twice more after an error that is not a
+// "not found" answer: the catalog job reads one index for each add-on
+// anonymously, and one dropped connection must not fail the release.
+func getWithRetry(ctx context.Context, ref name.Reference) (*remote.Descriptor, error) {
+	var err error
+	for try := 0; try < 3; try++ {
+		if try > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(try) * registryRetryDelay):
+			}
+		}
+		var d *remote.Descriptor
+		if d, err = remote.Get(ref, remoteOptions(ctx)...); err == nil || isNotFound(err) {
+			return d, err
+		}
+	}
+	return nil, err
+}
+
 // readPublishedIndex reads the index that an immutable tag names and checks
 // that it is a complete package index of the same add-on, version and commit
 // as the merged layout m. It returns the digest of the index and the index.
 func readPublishedIndex(ctx context.Context, tag name.Tag, m *merged, cfg *PlatformsFile) (v1.Hash, *v1.IndexManifest, error) {
 	var zero v1.Hash
-	d, err := remote.Get(tag, remoteOptions(ctx)...)
+	d, err := getWithRetry(ctx, tag)
 	if err != nil {
 		return zero, nil, err
 	}

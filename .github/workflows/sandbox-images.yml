@@ -20,7 +20,7 @@ name: 'sandbox guest image'
 # Event policy:
 #   pull_request          build both architectures, push nothing, no secrets
 #   push to master        build and push, tag sha-<sha>
-#   workflow_dispatch     build and push, tag sha-<sha>
+#   workflow_dispatch     build and push, tag sha-<sha>; refused on a tag ref
 #   workflow_call         as the event of the caller: build and push, tag
 #                         sha-<sha>, except for a pull request and for a
 #                         push to a branch other than master, which push nothing,
@@ -89,7 +89,11 @@ permissions:
 # caller, so the run of this file and the run that add-on packages calls for
 # the same pull request do not cancel each other.
 concurrency:
-  group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  # The event name keeps the runs of one commit apart: the release event waits
+  # in this workflow for the images of the tag push, so it must not hold the
+  # group of the tag push (or of a master run) while it waits. The job group
+  # below serializes the runs that push sha-<sha> tags.
+  group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -157,6 +161,12 @@ jobs:
             return 1
           }
           release=
+          if [ "$EVENT" = workflow_dispatch ] && [ "${REF#refs/tags/}" != "$REF" ]; then
+            # The tag push run of a release owns its release tags; a manual run
+            # on the tag would race it.
+            echo "run this workflow by hand on a branch, not on the tag ${REF#refs/tags/}" >&2
+            exit 1
+          fi
           case "$REF" in
           refs/tags/v*)
             release=${REF#refs/tags/}
@@ -307,12 +317,25 @@ jobs:
           PAIRS: ${{ steps.plan.outputs.tag_base }}=${{ steps.plan.outputs.from_base }} ${{ steps.plan.outputs.tag_media }}=${{ steps.plan.outputs.from_media }} ${{ steps.plan.outputs.tag_office }}=${{ steps.plan.outputs.from_office }}
         run: |
           set -eu
+          # As in the plan step: a tag that cannot be read is never missing.
+          lookup() {
+            if out=$(docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>"$RUNNER_TEMP/lookup.err"); then
+              printf '%s' "$out"
+              return 0
+            fi
+            if grep -qiE 'not found|manifest unknown' "$RUNNER_TEMP/lookup.err"; then
+              return 0
+            fi
+            cat "$RUNNER_TEMP/lookup.err" >&2
+            return 1
+          }
           for pair in $PAIRS; do
             tag=${pair%%=*} from=${pair#*=}
             [ -n "$from" ] || continue
             # Look again just before the write: a release tag is never moved.
-            if docker buildx imagetools inspect "${REPOSITORY}:${tag}" > /dev/null 2>&1; then
-              echo "${REPOSITORY}:${tag} exists now; keeping it"
+            have=$(lookup "${REPOSITORY}:${tag}")
+            if [ -n "$have" ]; then
+              echo "${REPOSITORY}:${tag} exists now (${have}); keeping it"
               continue
             fi
             docker buildx imagetools create --tag "${REPOSITORY}:${tag}" "${REPOSITORY}@${from}"

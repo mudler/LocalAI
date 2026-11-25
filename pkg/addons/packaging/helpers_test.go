@@ -291,8 +291,11 @@ func (l *layerSpec) get(name string) *tfile {
 type countingRegistry struct {
 	mu     sync.Mutex
 	writes int
-	server *httptest.Server
-	host   string
+	// failReads makes the next manifest reads answer 503, one per read.
+	failReads     int
+	manifestReads int
+	server        *httptest.Server
+	host          string
 }
 
 func newRegistry() *countingRegistry {
@@ -304,6 +307,19 @@ func newRegistry() *countingRegistry {
 			r.mu.Lock()
 			r.writes++
 			r.mu.Unlock()
+		}
+		if (req.Method == http.MethodGet || req.Method == http.MethodHead) && strings.Contains(req.URL.Path, "/manifests/") {
+			r.mu.Lock()
+			r.manifestReads++
+			fail := r.failReads > 0
+			if fail {
+				r.failReads--
+			}
+			r.mu.Unlock()
+			if fail {
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+				return
+			}
 		}
 		handler.ServeHTTP(w, req)
 	}))

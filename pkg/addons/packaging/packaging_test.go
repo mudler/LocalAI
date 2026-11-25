@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -944,6 +945,21 @@ var _ = Describe("catalog template", func() {
 		pinned, err := render(rebuilt, "--pin-registry")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(digests(pinned)).To(Equal(digests(pushed)))
+
+		// A registry that drops reads for a while is tried again; the
+		// transport retries too, so fail more reads than it alone would.
+		previous := registryRetryDelay
+		registryRetryDelay = 10 * time.Millisecond
+		DeferCleanup(func() { registryRetryDelay = previous })
+		reg.mu.Lock()
+		reg.failReads, reg.manifestReads = 4, 0
+		reg.mu.Unlock()
+		pinned, err = render(rebuilt, "--pin-registry")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(digests(pinned)).To(Equal(digests(pushed)))
+		reg.mu.Lock()
+		Expect(reg.manifestReads).To(BeNumerically(">=", 5))
+		reg.mu.Unlock()
 
 		// The published index of another commit is never pinned.
 		other := p.merged("1.2.3", "fedcba9876543210fedcba9876543210fedcba98", nil)

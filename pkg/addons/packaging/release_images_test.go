@@ -76,6 +76,16 @@ var _ = Describe("the sandbox guest image workflow", func() {
 		Expect(job.Concurrency["cancel-in-progress"]).To(BeFalse())
 	})
 
+	It("keeps the runs of one commit in groups of their own event", func() {
+		var doc struct {
+			Concurrency map[string]any `yaml:"concurrency"`
+		}
+		Expect(yaml.Unmarshal([]byte(workflow), &doc)).To(Succeed())
+		// The release event waits in this workflow for the tag push; in one
+		// group with it, the tag push would queue behind the wait.
+		Expect(doc.Concurrency["group"]).To(ContainSubstring("github.event_name"))
+	})
+
 	Describe("the plan step", func() {
 		type result struct {
 			out map[string]string
@@ -187,6 +197,13 @@ var _ = Describe("the sandbox guest image workflow", func() {
 			Expect(workflow).To(ContainSubstring("if: steps.plan.outputs.mode == 'wait'"))
 		})
 
+		It("refuses a manual run on a tag", func() {
+			r := plan("true", "workflow_dispatch", "refs/tags/v1.2.3", sha, shaTags, repo)
+			Expect(r.err).To(HaveOccurred())
+			Expect(r.log).To(ContainSubstring("not on the tag"))
+			Expect(r.out).NotTo(HaveKey("mode"))
+		})
+
 		It("refuses a release tag that is not a valid image tag", func() {
 			r := plan("true", "push", "refs/tags/v1.2.3+build", sha, shaTags, repo)
 			Expect(r.err).To(HaveOccurred())
@@ -212,6 +229,18 @@ var _ = Describe("the release runs of the add-on package workflow", func() {
 		Expect(inspect).To(BeNumerically(">", wait))
 		Expect(publish).To(BeNumerically(">", inspect), "the release event must wait before it publishes")
 		Expect(script).To(ContainSubstring("--adopt-existing"))
+	})
+
+	It("keeps the publish legs of the two runs of a release in separate groups", func() {
+		var doc struct {
+			Jobs map[string]struct {
+				Concurrency map[string]any `yaml:"concurrency"`
+			} `yaml:"jobs"`
+		}
+		Expect(yaml.Unmarshal([]byte(workflow), &doc)).To(Succeed())
+		// The release leg waits for the tag push leg to publish; in one group
+		// the tag push leg would be pending behind that wait.
+		Expect(doc.Jobs["publish"].Concurrency["group"]).To(ContainSubstring("github.event_name"))
 	})
 
 	It("pins the release catalog to the digests in the registry", func() {
@@ -245,5 +274,64 @@ var _ = Describe("the release runs of the add-on package workflow", func() {
 		Expect(gate).To(BeNumerically(">=", 0), "release-index has no registry check")
 		Expect(upload).To(BeNumerically(">", gate), "the catalog is attached before the registry check")
 		Expect(workflowStepScript(workflow, "catalog", "List the guest images of the Sandbox package")).To(ContainSubstring("sandbox-guest-images.txt"))
+	})
+
+	Describe("the registry check of the release catalog", func() {
+		// gateDocker answers `docker buildx imagetools inspect --raw <ref>`:
+		// a ref that contains "flaky" fails twice with a network error and
+		// then succeeds, "down" always fails that way, "gone" is not found.
+		const gateDocker = `#!/bin/sh
+ref=$5
+case "$ref" in
+*gone*) echo "ERROR: $ref: not found" >&2; exit 1 ;;
+*down*) echo "ERROR: dial tcp: i/o timeout" >&2; exit 1 ;;
+*flaky*)
+  n=$(cat "$STATE" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$STATE"
+  [ "$n" -ge 3 ] && exit 0
+  echo "ERROR: dial tcp: connection reset" >&2; exit 1 ;;
+esac
+exit 0
+`
+		gate := func(index, guests string) (string, error) {
+			GinkgoHelper()
+			dir := GinkgoT().TempDir()
+			bin := filepath.Join(dir, "bin")
+			Expect(os.MkdirAll(filepath.Join(dir, "index"), 0o755)).To(Succeed())
+			Expect(os.MkdirAll(bin, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(bin, "docker"), []byte(gateDocker), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(bin, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "index", "addons-index.yaml"), []byte(index), 0o644)).To(Succeed())
+			if guests != "" {
+				Expect(os.WriteFile(filepath.Join(dir, "index", "sandbox-guest-images.txt"), []byte(guests), 0o644)).To(Succeed())
+			}
+			cmd := exec.Command("sh", "-c", workflowStepScript(workflow, "release-index", "Check that the registry serves every pinned digest"))
+			cmd.Dir = dir
+			cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "STATE="+filepath.Join(dir, "state"))
+			out, err := cmd.CombinedOutput()
+			return string(out), err
+		}
+		const digest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+		entry := func(repo string) string {
+			return "- id: \"x\"\n  artifact: \"oci://" + repo + ":x-1.2.3\"\n  digest: \"" + digest + "\"\n"
+		}
+
+		It("passes when every digest is served, after retrying a dropped connection", func() {
+			out, err := gate(entry("registry.example/addons")+entry("registry.example/flaky"), "registry.example/guest@"+digest+"\n")
+			Expect(err).NotTo(HaveOccurred(), out)
+			Expect(out).To(ContainSubstring("ok registry.example/flaky@" + digest))
+			Expect(out).To(ContainSubstring("ok registry.example/guest@" + digest))
+		})
+
+		It("fails on a guest image the registry does not serve", func() {
+			out, err := gate(entry("registry.example/addons"), "registry.example/gone@"+digest+"\n")
+			Expect(err).To(HaveOccurred())
+			Expect(out).To(ContainSubstring("does not serve registry.example/gone@"))
+		})
+
+		It("fails when a digest cannot be checked", func() {
+			out, err := gate(entry("registry.example/down"), "")
+			Expect(err).To(HaveOccurred())
+			Expect(out).To(ContainSubstring("cannot check registry.example/down@"))
+		})
 	})
 })
