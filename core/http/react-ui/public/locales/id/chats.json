@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Rangkaian dibatalkan: {{updated}} diperbarui, {{count}} perlu perhatian",
           "firstStart": "{{name}} masih di {{version}}: versi baru tidak berjalan: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Pengingat untuk \"{{title}}\" dipasang: {{when}}.",
+        "changed": "Pengingat untuk \"{{title}}\" diubah: {{when}}.",
+        "cancelled": "Pengingat untuk \"{{title}}\" dibatalkan.",
+        "snoozed": "Pengingat untuk \"{{title}}\" ditunda ke {{when}}.",
+        "snoozeUndone": "Penundaan pengingat untuk \"{{title}}\" ditarik.",
+        "skipped": "Pengingat untuk \"{{title}}\" dilewati.",
+        "skipUndone": "Lewati pengingat untuk \"{{title}}\" ditarik.",
+        "taskChanged": "Tugas pengingat untuk \"{{title}}\" diubah.",
+        "restored": "Pengingat untuk \"{{title}}\" dikembalikan: {{when}}.",
+        "next": "Pengingat untuk \"{{title}}\" berikutnya dipasang: {{when}}.",
+        "moved": "Pengingat untuk \"{{title}}\" dipindah ke {{when}}.",
+        "movedStarted": "\"{{title}}\" dipindah dan sudah dimulai, jadi tidak ada pengingat.",
+        "removed": "Pengingat untuk \"{{title}}\" dibatalkan: sudah dihapus.",
+        "woken": "\"{{title}}\" berubah. Memeriksa pengingatnya sekarang.",
+        "movedBy": "\"{{title}}\" dipindah. Saya akan mengingatkan Anda pukul {{when}}.",
+        "movedByStarted": "\"{{title}}\" dipindah dan sudah dimulai.",
+        "removedBy": "\"{{title}}\" dihapus, jadi saya membatalkan pengingatnya.",
+        "wokenBy": "\"{{title}}\" berubah. Saya memeriksa apakah pengingatnya masih cocok.",
+        "missed": "Terlewat: {{title}}. Server mati pada waktu pengingat.",
+        "onHold": "Pengingat untuk \"{{title}}\" menunggu selama pantauan ini dijeda.",
+        "dropped": "Pengingat untuk \"{{title}}\" dihapus bersama pantauannya."
       }
     },
     "tabs": {

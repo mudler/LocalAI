@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Rodada cancelada: {{updated}} atualizados, {{count}} precisam de atenção",
           "firstStart": "{{name}} continua na {{version}}: a nova versão não iniciou: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Lembrete de \"{{title}}\" definido: {{when}}.",
+        "changed": "Lembrete de \"{{title}}\" alterado: {{when}}.",
+        "cancelled": "Lembrete de \"{{title}}\" cancelado.",
+        "snoozed": "Lembrete de \"{{title}}\" adiado para {{when}}.",
+        "snoozeUndone": "Adiamento do lembrete de \"{{title}}\" desfeito.",
+        "skipped": "Lembrete de \"{{title}}\" pulado.",
+        "skipUndone": "Pulo do lembrete de \"{{title}}\" desfeito.",
+        "taskChanged": "Tarefa do lembrete de \"{{title}}\" alterada.",
+        "restored": "Lembrete de \"{{title}}\" restaurado: {{when}}.",
+        "next": "Lembrete do próximo \"{{title}}\" definido: {{when}}.",
+        "moved": "Lembrete de \"{{title}}\" movido para {{when}}.",
+        "movedStarted": "\"{{title}}\" foi movido e já começou, então não há lembrete.",
+        "removed": "Lembrete de \"{{title}}\" cancelado: foi removido.",
+        "woken": "\"{{title}}\" mudou. Verificando o lembrete agora.",
+        "movedBy": "\"{{title}}\" foi movido. Vou lembrar você às {{when}}.",
+        "movedByStarted": "\"{{title}}\" foi movido e já começou.",
+        "removedBy": "\"{{title}}\" foi removido, então cancelei o lembrete.",
+        "wokenBy": "\"{{title}}\" mudou. Estou vendo se o lembrete ainda serve.",
+        "missed": "Perdido: {{title}}. O servidor estava desligado na hora do lembrete.",
+        "onHold": "O lembrete de \"{{title}}\" está em espera enquanto esta vigia está pausada.",
+        "dropped": "O lembrete de \"{{title}}\" foi removido com a vigia."
       }
     },
     "tabs": {

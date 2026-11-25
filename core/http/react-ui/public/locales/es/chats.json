@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Tanda cancelada: {{updated}} actualizados, {{count}} necesitan atención",
           "firstStart": "{{name}} sigue en {{version}}: la nueva versión no arrancó: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Recordatorio de \"{{title}}\" puesto: {{when}}.",
+        "changed": "Recordatorio de \"{{title}}\" cambiado: {{when}}.",
+        "cancelled": "Recordatorio de \"{{title}}\" cancelado.",
+        "snoozed": "Recordatorio de \"{{title}}\" pospuesto a {{when}}.",
+        "snoozeUndone": "Se retiró el aplazamiento del recordatorio de \"{{title}}\".",
+        "skipped": "Recordatorio de \"{{title}}\" omitido.",
+        "skipUndone": "Se retiró la omisión del recordatorio de \"{{title}}\".",
+        "taskChanged": "Tarea del recordatorio de \"{{title}}\" cambiada.",
+        "restored": "Recordatorio de \"{{title}}\" restaurado: {{when}}.",
+        "next": "Recordatorio del próximo \"{{title}}\" puesto: {{when}}.",
+        "moved": "Recordatorio de \"{{title}}\" movido a {{when}}.",
+        "movedStarted": "\"{{title}}\" se movió y ya empezó, así que no hay recordatorio.",
+        "removed": "Recordatorio de \"{{title}}\" cancelado: se eliminó.",
+        "woken": "\"{{title}}\" cambió. Reviso ahora su recordatorio.",
+        "movedBy": "\"{{title}}\" se movió. Te lo recordaré a las {{when}}.",
+        "movedByStarted": "\"{{title}}\" se movió y ya empezó.",
+        "removedBy": "\"{{title}}\" se eliminó, así que cancelé su recordatorio.",
+        "wokenBy": "\"{{title}}\" cambió. Reviso si su recordatorio todavía encaja.",
+        "missed": "Perdido: {{title}}. El servidor estaba apagado a la hora del recordatorio.",
+        "onHold": "El recordatorio de \"{{title}}\" espera mientras esta vigilancia está en pausa.",
+        "dropped": "El recordatorio de \"{{title}}\" se eliminó con su vigilancia."
       }
     },
     "tabs": {

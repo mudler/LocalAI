@@ -417,6 +417,29 @@
           "cancelledAttention_other": "Update run cancelled: {{updated}} updated, {{count}} need attention",
           "firstStart": "{{name}} is still on {{version}}: the new version did not start: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Set the reminder for \"{{title}}\": {{when}}.",
+        "changed": "Changed the reminder for \"{{title}}\": {{when}}.",
+        "cancelled": "Cancelled the reminder for \"{{title}}\".",
+        "snoozed": "Snoozed the reminder for \"{{title}}\" to {{when}}.",
+        "snoozeUndone": "Took back the snooze of the reminder for \"{{title}}\".",
+        "skipped": "Skipped the reminder for \"{{title}}\".",
+        "skipUndone": "Took back the skip of the reminder for \"{{title}}\".",
+        "taskChanged": "Changed the task of the reminder for \"{{title}}\".",
+        "restored": "Put back the reminder for \"{{title}}\": {{when}}.",
+        "next": "Set the reminder for the next \"{{title}}\": {{when}}.",
+        "moved": "Moved the reminder for \"{{title}}\" to {{when}}.",
+        "movedStarted": "\"{{title}}\" moved; it has already started, so there is no reminder.",
+        "removed": "Cancelled the reminder for \"{{title}}\": it was removed.",
+        "woken": "\"{{title}}\" changed. Checking its reminder now.",
+        "movedBy": "\"{{title}}\" was moved. I'll remind you at {{when}}.",
+        "movedByStarted": "\"{{title}}\" was moved and has already started.",
+        "removedBy": "\"{{title}}\" was removed, so I cancelled its reminder.",
+        "wokenBy": "\"{{title}}\" changed. I'm checking whether its reminder still fits.",
+        "missed": "Missed: {{title}}. The server was down at the reminder time.",
+        "onHold": "The reminder for \"{{title}}\" is on hold while this watch is paused.",
+        "dropped": "The reminder for \"{{title}}\" was removed with its watch."
       }
     },
     "tabs": {

@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Aktualisierungslauf abgebrochen: {{updated}} aktualisiert, {{count}} brauchen Aufmerksamkeit",
           "firstStart": "{{name}} ist weiter auf {{version}}: Die neue Version ist nicht gestartet: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Erinnerung für „{{title}}\" gesetzt: {{when}}.",
+        "changed": "Erinnerung für „{{title}}\" geändert: {{when}}.",
+        "cancelled": "Erinnerung für „{{title}}\" abgesagt.",
+        "snoozed": "Erinnerung für „{{title}}\" auf {{when}} verschoben.",
+        "snoozeUndone": "Verschieben der Erinnerung für „{{title}}\" zurückgenommen.",
+        "skipped": "Erinnerung für „{{title}}\" übersprungen.",
+        "skipUndone": "Überspringen der Erinnerung für „{{title}}\" zurückgenommen.",
+        "taskChanged": "Aufgabe der Erinnerung für „{{title}}\" geändert.",
+        "restored": "Erinnerung für „{{title}}\" wiederhergestellt: {{when}}.",
+        "next": "Erinnerung für das nächste „{{title}}\" gesetzt: {{when}}.",
+        "moved": "Erinnerung für „{{title}}\" auf {{when}} verschoben.",
+        "movedStarted": "„{{title}}\" wurde verschoben und hat schon begonnen, daher gibt es keine Erinnerung.",
+        "removed": "Erinnerung für „{{title}}\" abgesagt: es wurde entfernt.",
+        "woken": "„{{title}}\" hat sich geändert. Ich prüfe jetzt die Erinnerung.",
+        "movedBy": "„{{title}}\" wurde verschoben. Ich erinnere dich um {{when}}.",
+        "movedByStarted": "„{{title}}\" wurde verschoben und hat schon begonnen.",
+        "removedBy": "„{{title}}\" wurde entfernt, daher habe ich die Erinnerung abgesagt.",
+        "wokenBy": "„{{title}}\" hat sich geändert. Ich prüfe, ob die Erinnerung noch passt.",
+        "missed": "Verpasst: {{title}}. Der Server war zur Erinnerungszeit aus.",
+        "onHold": "Die Erinnerung für „{{title}}\" wartet, solange diese Beobachtung pausiert ist.",
+        "dropped": "Die Erinnerung für „{{title}}\" wurde mit ihrer Beobachtung entfernt."
       }
     },
     "tabs": {

@@ -131,6 +131,11 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(rem.Reminder.SetBy).To(Equal(run.ID), "the reminder records the run that set it, for a reply to that run's message")
 		Expect(r.bodies()).To(ConsistOf("My notes | Set the reminder for \"Pay the rent\": Wed 08:45."),
 			"the owner made the item and the model set the usual reminder: no heads-up, one line")
+		n := r.notes()[0]
+		Expect(n.Code).To(Equal("watch.set"), "the interface words the line in the owner's language")
+		Expect(n.Params).To(HaveKeyWithValue("title", "Pay the rent"))
+		Expect(n.Params).To(HaveKeyWithValue("at", due.Add(-15*time.Minute).Format(time.RFC3339)))
+		Expect(n.Params).To(HaveKeyWithValue("zone", "UTC"))
 
 		moved := due.Add(time.Hour)
 		r.emit("updated", "1", moved, "", "")

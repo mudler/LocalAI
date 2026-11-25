@@ -170,7 +170,7 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 			h.wmu.Unlock()
 		}
 	}()
-	var line string
+	var line watchText
 	for attempt := 0; ; attempt++ {
 		if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
 			return ReminderView{}, triggers.ErrNotFound
@@ -178,7 +178,7 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		if line, err = applyReminderPatch(&r, w, p, loc, now); err != nil {
 			return ReminderView{}, err
 		}
-		if line == "" {
+		if line.Code == "" {
 			break
 		}
 		err = h.o.Store.PutTrigger(ctx, r)
@@ -189,7 +189,7 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 			return ReminderView{}, err
 		}
 	}
-	if line != "" {
+	if line.Code != "" {
 		h.wmu.Unlock() // recordAction may pause the watch, which takes the lock
 		locked = false
 		h.recordAction(ctx, w, now, line)
@@ -200,37 +200,37 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 
 // applyReminderPatch applies the owner's change p to the reminder r and gives
 // the line of the watch's history, "" when nothing changes.
-func applyReminderPatch(r *triggers.Trigger, w triggers.Trigger, p ReminderPatch, loc *time.Location, now time.Time) (string, error) {
+func applyReminderPatch(r *triggers.Trigger, w triggers.Trigger, p ReminderPatch, loc *time.Location, now time.Time) (watchText, error) {
 	rem := *r.Reminder
-	var line string
+	var line watchText
 	switch {
 	case p.SnoozeFor > 0:
 		if p.SnoozeFor > 24*time.Hour {
-			return "", bad("snooze for at most a day")
+			return watchText{}, bad("snooze for at most a day")
 		}
 		rem.SnoozedTo = now.Add(p.SnoozeFor).UTC()
-		line = fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, rem.SnoozedTo, now))
+		line = watchSay(w, "snoozed", rem.Title, rem.SnoozedTo, fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, rem.SnoozedTo, now)))
 	case p.SnoozedTo != nil:
 		if *p.SnoozedTo == "" {
 			rem.SnoozedTo = time.Time{}
-			line = fmt.Sprintf("Took back the snooze of the reminder for %q.", rem.Title)
+			line = watchSay(w, "snoozeUndone", rem.Title, time.Time{}, fmt.Sprintf("Took back the snooze of the reminder for %q.", rem.Title))
 		} else {
 			at, err := parseWhen(*p.SnoozedTo, loc)
 			if err != nil {
-				return "", bad("%v", err)
+				return watchText{}, bad("%v", err)
 			}
 			rem.SnoozedTo = at
-			line = fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, at, now))
+			line = watchSay(w, "snoozed", rem.Title, at, fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, at, now)))
 		}
 	}
 	if p.Skip != nil {
 		if *p.Skip {
 			tm := triggers.PlanReminder(rem, w.Watch, loc, now)
 			rem.Skipped = tm.Due
-			line = fmt.Sprintf("Skipped the reminder for %q.", rem.Title)
+			line = watchSay(w, "skipped", rem.Title, time.Time{}, fmt.Sprintf("Skipped the reminder for %q.", rem.Title))
 		} else {
 			rem.Skipped = time.Time{}
-			line = fmt.Sprintf("Took back the skip of the reminder for %q.", rem.Title)
+			line = watchSay(w, "skipUndone", rem.Title, time.Time{}, fmt.Sprintf("Took back the skip of the reminder for %q.", rem.Title))
 		}
 	}
 	if p.Task != nil {
@@ -239,14 +239,14 @@ func applyReminderPatch(r *triggers.Trigger, w triggers.Trigger, p ReminderPatch
 			task = "remind me"
 		}
 		rem.Task, r.Prompt = task, task
-		line = fmt.Sprintf("Changed the task of the reminder for %q.", rem.Title)
+		line = watchSay(w, "taskChanged", rem.Title, time.Time{}, fmt.Sprintf("Changed the task of the reminder for %q.", rem.Title))
 	}
-	if line == "" {
-		return "", nil
+	if line.Code == "" {
+		return watchText{}, nil
 	}
 	r.Reminder = &rem
 	if err := r.Validate(); err != nil {
-		return "", bad("%v", err)
+		return watchText{}, bad("%v", err)
 	}
 	return line, nil
 }
@@ -276,7 +276,7 @@ func (h *Triggers) holdReminders(ctx context.Context, w triggers.Trigger) {
 		if h.dueText(w, r, now) == "" {
 			continue // nothing left to hold
 		}
-		h.watchNote(ctx, w, fmt.Sprintf("The reminder for %q is on hold while this watch is paused.", r.Reminder.Title))
+		h.watchNote(ctx, w, watchSay(w, "onHold", r.Reminder.Title, time.Time{}, fmt.Sprintf("The reminder for %q is on hold while this watch is paused.", r.Reminder.Title)))
 	}
 }
 
@@ -297,7 +297,7 @@ func (h *Triggers) dropReminders(ctx context.Context, w triggers.Trigger) {
 			h.log.Warn("studio: could not remove a reminder of a deleted watch", "reminder", r.ID, "error", err)
 			continue
 		}
-		h.watchNote(ctx, w, fmt.Sprintf("The reminder for %q was removed with its watch.", r.Reminder.Title))
+		h.watchNote(ctx, w, watchSay(w, "dropped", r.Reminder.Title, time.Time{}, fmt.Sprintf("The reminder for %q was removed with its watch.", r.Reminder.Title)))
 	}
 }
 

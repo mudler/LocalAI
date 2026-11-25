@@ -141,9 +141,9 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 		loc = time.UTC
 	}
 	var next triggers.Trigger
-	var line string
+	var line watchText
 	if rec.Change.Op == triggers.ChangeDelete {
-		line = fmt.Sprintf("Cancelled the reminder for %q.", live.Reminder.Title)
+		line = reminderCancelledLine(w, live.Reminder.Title)
 	} else {
 		base := live
 		if rec.Change.Op == triggers.ChangeCreate {
@@ -166,11 +166,7 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 		if err := next.Validate(); err != nil {
 			return triggers.Trigger{}, bad("%v", err)
 		}
-		verb := "Changed"
-		if rec.Change.Op == triggers.ChangeCreate {
-			verb = "Set"
-		}
-		line = fmt.Sprintf("%s the reminder for %q: %s.", verb, rem.Title, whenText(w, tm.Due, now))
+		line = reminderSetLine(w, rec.Change.Op == triggers.ChangeCreate, rem.Title, tm.Due, now)
 	}
 	at := now.UTC()
 	if err := h.claimChange(ctx, rec, "", triggers.OutcomeAccepted, at); err != nil {
@@ -275,7 +271,7 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 		return triggers.Trigger{}, err
 	}
 	var t triggers.Trigger
-	var line string
+	var line watchText
 	switch rec.Change.Op {
 	case triggers.ChangeCreate:
 		live, gerr := h.o.Store.GetTrigger(ctx, rec.Change.Target)
@@ -287,7 +283,7 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 				_ = run.Cancel(ctx, rec.Change.Target)
 			}
 		}
-		t, line = live, fmt.Sprintf("Cancelled the reminder for %q.", rec.Reminder.Title)
+		t, line = live, reminderCancelledLine(w, rec.Reminder.Title)
 	default:
 		base := triggers.Trigger{ID: rec.Change.Target, Owner: w.Owner}
 		rem := *rec.Reminder
@@ -307,7 +303,8 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 		if lerr != nil {
 			loc = time.UTC
 		}
-		line = fmt.Sprintf("Put back the reminder for %q: %s.", rem.Title, whenText(w, triggers.PlanReminder(rem, w.Watch, loc, now).Due, now))
+		due := triggers.PlanReminder(rem, w.Watch, loc, now).Due
+		line = watchSay(w, "restored", rem.Title, due, fmt.Sprintf("Put back the reminder for %q: %s.", rem.Title, whenText(w, due, now)))
 	}
 	if err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeUndone)

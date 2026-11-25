@@ -70,7 +70,7 @@ test('the words of the watch and the proposal card hold no internal term', () =>
   }
   for (const lang of readdirSync(root)) {
     const chats = JSON.parse(readFileSync(join(root, lang, 'chats.json'), 'utf8'))
-    const texts = walk({ watch: chats.watch, proposal: chats.proposal }, lang, [])
+    const texts = walk({ watch: chats.watch, proposal: chats.proposal, inboxWatch: chats.inbox?.codes?.watch }, lang, [])
     for (const [path, text] of texts) {
       assert.deepEqual(deniedWords(text), [], `${path}: ${text}`)
       if (path.includes('.watch.')) assert.ok(!/\btrigger/i.test(text) || lang !== 'en', `${path} calls a watch a trigger: ${text}`)

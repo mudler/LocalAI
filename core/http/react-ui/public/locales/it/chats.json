@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Serie annullata: {{updated}} aggiornati, {{count}} richiedono attenzione",
           "firstStart": "{{name}} è ancora alla {{version}}: la nuova versione non si è avviata: {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Promemoria per \"{{title}}\" impostato: {{when}}.",
+        "changed": "Promemoria per \"{{title}}\" cambiato: {{when}}.",
+        "cancelled": "Promemoria per \"{{title}}\" annullato.",
+        "snoozed": "Promemoria per \"{{title}}\" rimandato a {{when}}.",
+        "snoozeUndone": "Rinvio del promemoria per \"{{title}}\" ritirato.",
+        "skipped": "Promemoria per \"{{title}}\" saltato.",
+        "skipUndone": "Salto del promemoria per \"{{title}}\" ritirato.",
+        "taskChanged": "Compito del promemoria per \"{{title}}\" cambiato.",
+        "restored": "Promemoria per \"{{title}}\" ripristinato: {{when}}.",
+        "next": "Promemoria per il prossimo \"{{title}}\" impostato: {{when}}.",
+        "moved": "Promemoria per \"{{title}}\" spostato a {{when}}.",
+        "movedStarted": "\"{{title}}\" è stato spostato ed è già iniziato, quindi non c'è promemoria.",
+        "removed": "Promemoria per \"{{title}}\" annullato: è stato rimosso.",
+        "woken": "\"{{title}}\" è cambiato. Controllo ora il suo promemoria.",
+        "movedBy": "\"{{title}}\" è stato spostato. Te lo ricordo alle {{when}}.",
+        "movedByStarted": "\"{{title}}\" è stato spostato ed è già iniziato.",
+        "removedBy": "\"{{title}}\" è stato rimosso, quindi ho annullato il suo promemoria.",
+        "wokenBy": "\"{{title}}\" è cambiato. Controllo se il promemoria va ancora bene.",
+        "missed": "Perso: {{title}}. Il server era spento all'ora del promemoria.",
+        "onHold": "Il promemoria per \"{{title}}\" è in attesa finché questa sorveglianza è in pausa.",
+        "dropped": "Il promemoria per \"{{title}}\" è stato rimosso con la sua sorveglianza."
       }
     },
     "tabs": {

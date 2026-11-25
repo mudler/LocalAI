@@ -411,12 +411,21 @@ type reminderPlan struct {
 }
 
 // line is the history and Inbox line of the plan once it is stored.
-func (p reminderPlan) line(w triggers.Trigger, now time.Time) string {
-	verb := "Changed"
-	if p.isNew {
-		verb = "Set"
+func (p reminderPlan) line(w triggers.Trigger, now time.Time) watchText {
+	return reminderSetLine(w, p.isNew, p.next.Reminder.Title, p.due, now)
+}
+
+// reminderSetLine is the line of a reminder that was set (isNew) or changed.
+func reminderSetLine(w triggers.Trigger, isNew bool, title string, due, now time.Time) watchText {
+	if isNew {
+		return watchSay(w, "set", title, due, fmt.Sprintf("Set the reminder for %q: %s.", title, whenText(w, due, now)))
 	}
-	return fmt.Sprintf("%s the reminder for %q: %s.", verb, p.next.Reminder.Title, whenText(w, p.due, now))
+	return watchSay(w, "changed", title, due, fmt.Sprintf("Changed the reminder for %q: %s.", title, whenText(w, due, now)))
+}
+
+// reminderCancelledLine is the line of a reminder that was cancelled.
+func reminderCancelledLine(w triggers.Trigger, title string) watchText {
+	return watchSay(w, "cancelled", title, time.Time{}, fmt.Sprintf("Cancelled the reminder for %q.", title))
 }
 
 // planReminder works out the reminder of the watch w for one item as in
@@ -538,10 +547,10 @@ func reminderTrigger(cur, w triggers.Trigger, rem triggers.Reminder) triggers.Tr
 
 // recordAction writes one row of the watch's history and one Inbox line for
 // an action on its reminders, and applies the per-minute limit.
-func (h *Triggers) recordAction(ctx context.Context, w triggers.Trigger, now time.Time, line string) {
+func (h *Triggers) recordAction(ctx context.Context, w triggers.Trigger, now time.Time, line watchText) {
 	id := newRunID()
 	row := triggers.Run{ID: id, TriggerID: w.ID, DueKey: "action@" + id, Due: now.UTC(), Status: triggers.StatusHandled,
-		Reason: triggers.CutReason(line), Ended: now.UTC()}
+		Reason: triggers.CutReason(line.Text), Ended: now.UTC()}
 	if _, err := h.o.Store.Claim(ctx, row); err != nil {
 		h.log.Warn("studio: could not record a watch action", "watch", w.ID, "error", err)
 	}
@@ -599,7 +608,7 @@ func (h *Triggers) CancelReminder(ctx context.Context, w triggers.Trigger, key s
 	if run := h.currentRunner(); run != nil {
 		_ = run.Cancel(ctx, r.ID)
 	}
-	h.recordAction(ctx, w, h.o.Clock(), fmt.Sprintf("Cancelled the reminder for %q.", r.Reminder.Title))
+	h.recordAction(ctx, w, h.o.Clock(), reminderCancelledLine(w, r.Reminder.Title))
 	return nil
 }
 

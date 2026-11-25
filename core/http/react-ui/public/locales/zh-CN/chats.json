@@ -848,6 +848,29 @@
           "cancelledAttention_other": "本次更新已取消:{{updated}} 项已更新,{{count}} 项需要处理",
           "firstStart": "{{name}} 仍是 {{version}}:新版本未能启动:{{reason}}。"
         }
+      },
+      "watch": {
+        "set": "已为“{{title}}”设置提醒：{{when}}。",
+        "changed": "已更改“{{title}}”的提醒：{{when}}。",
+        "cancelled": "已取消“{{title}}”的提醒。",
+        "snoozed": "已将“{{title}}”的提醒推迟到 {{when}}。",
+        "snoozeUndone": "已撤回“{{title}}”提醒的推迟。",
+        "skipped": "已跳过“{{title}}”的提醒。",
+        "skipUndone": "已撤回“{{title}}”提醒的跳过。",
+        "taskChanged": "已更改“{{title}}”提醒的任务。",
+        "restored": "已恢复“{{title}}”的提醒：{{when}}。",
+        "next": "已为下一次“{{title}}”设置提醒：{{when}}。",
+        "moved": "已将“{{title}}”的提醒移到 {{when}}。",
+        "movedStarted": "“{{title}}”已移动且已开始，因此没有提醒。",
+        "removed": "已取消“{{title}}”的提醒：它已被删除。",
+        "woken": "“{{title}}”有变化，正在检查它的提醒。",
+        "movedBy": "“{{title}}”已移动。我会在 {{when}} 提醒你。",
+        "movedByStarted": "“{{title}}”已移动且已开始。",
+        "removedBy": "“{{title}}”已被删除，所以我取消了它的提醒。",
+        "wokenBy": "“{{title}}”有变化。我正在确认提醒是否仍然合适。",
+        "missed": "错过：{{title}}。提醒时服务器未运行。",
+        "onHold": "此监视暂停期间，“{{title}}”的提醒会等待。",
+        "dropped": "“{{title}}”的提醒已随监视一起删除。"
       }
     },
     "tabs": {

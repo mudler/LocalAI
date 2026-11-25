@@ -848,6 +848,29 @@
           "cancelledAttention_other": "Série annulée : {{updated}} mis à jour, {{count}} demandent votre attention",
           "firstStart": "{{name}} reste en {{version}} : la nouvelle version n’a pas démarré : {{reason}}."
         }
+      },
+      "watch": {
+        "set": "Rappel de « {{title}} » mis : {{when}}.",
+        "changed": "Rappel de « {{title}} » changé : {{when}}.",
+        "cancelled": "Rappel de « {{title}} » annulé.",
+        "snoozed": "Rappel de « {{title}} » reporté à {{when}}.",
+        "snoozeUndone": "Report du rappel de « {{title}} » retiré.",
+        "skipped": "Rappel de « {{title}} » sauté.",
+        "skipUndone": "Saut du rappel de « {{title}} » retiré.",
+        "taskChanged": "Tâche du rappel de « {{title}} » changée.",
+        "restored": "Rappel de « {{title}} » rétabli : {{when}}.",
+        "next": "Rappel du prochain « {{title}} » mis : {{when}}.",
+        "moved": "Rappel de « {{title}} » déplacé à {{when}}.",
+        "movedStarted": "« {{title}} » a été déplacé et a déjà commencé, donc pas de rappel.",
+        "removed": "Rappel de « {{title}} » annulé : il a été supprimé.",
+        "woken": "« {{title}} » a changé. Je vérifie son rappel.",
+        "movedBy": "« {{title}} » a été déplacé. Je vous le rappelle à {{when}}.",
+        "movedByStarted": "« {{title}} » a été déplacé et a déjà commencé.",
+        "removedBy": "« {{title}} » a été supprimé, donc j'ai annulé son rappel.",
+        "wokenBy": "« {{title}} » a changé. Je vérifie si son rappel convient encore.",
+        "missed": "Manqué : {{title}}. Le serveur était arrêté à l'heure du rappel.",
+        "onHold": "Le rappel de « {{title}} » attend tant que cette veille est en pause.",
+        "dropped": "Le rappel de « {{title}} » a été supprimé avec sa veille."
       }
     },
     "tabs": {
