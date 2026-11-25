@@ -274,6 +274,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/triggers/preview", h.PreviewTrigger)
 	e.GET(base+"/triggers/destinations", h.TriggerDestinations)
 	e.GET(base+"/triggers/sources", h.WatchSources)
+	e.GET(base+"/triggers/reminders", h.SourceReminders)
 	e.GET(base+"/triggers/proposals", h.ListTriggerProposals)
 	e.GET(base+"/triggers/proposals/:id", h.GetTriggerProposal)
 	e.POST(base+"/triggers/proposals/:id/undo", h.UndoTriggerProposal)

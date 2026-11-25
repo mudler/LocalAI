@@ -198,6 +198,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/triggers/preview", FeatureTriggers},
 	{"GET", "/api/chats/triggers/destinations", FeatureTriggers},
 	{"GET", "/api/chats/triggers/sources", FeatureTriggers},
+	{"GET", "/api/chats/triggers/reminders", FeatureTriggers},
 	{"GET", "/api/chats/triggers/proposals", FeatureTriggers},
 	{"GET", "/api/chats/triggers/proposals/:id", FeatureTriggers},
 	{"POST", "/api/chats/triggers/proposals/:id/undo", FeatureTriggers},

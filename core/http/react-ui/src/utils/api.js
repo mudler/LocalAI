@@ -797,6 +797,8 @@ export const chatTriggersApi = {
   reminders: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders`),
   // Snooze, skip, re-time or change the task of a reminder; send the old values back to undo.
   patchReminder: (id, rid, body) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  // The reminders of your watches for the items of one add-on: { reminders: [{ item_id, watch_id, id, due, ... }] }.
+  sourceReminders: (source) => fetchJSON(`/api/chats/triggers/reminders${q({ source })}`),
   removeReminder: (id, rid) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}`, { method: 'DELETE' }),
 }
 

@@ -70,6 +70,19 @@ type ChatsReminder struct {
 	Snoozable bool   `json:"snoozable,omitempty"`
 }
 
+// ChatsSourceReminder is a reminder of one of your watches for an item of an
+// add-on: the id of the item in that add-on and the watch it belongs to.
+type ChatsSourceReminder struct {
+	ItemID  string `json:"item_id"`
+	WatchID string `json:"watch_id"`
+	ChatsReminder
+}
+
+// ChatsSourceReminders lists the reminders for the items of one add-on.
+type ChatsSourceReminders struct {
+	Reminders []ChatsSourceReminder `json:"reminders"`
+}
+
 // ChatsReminderList lists the reminders of a watch, soonest first.
 type ChatsReminderList struct {
 	Reminders []ChatsReminder `json:"reminders"`

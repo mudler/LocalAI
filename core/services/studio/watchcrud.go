@@ -262,3 +262,40 @@ func (h *Triggers) dropReminders(ctx context.Context, w triggers.Trigger) {
 		h.watchNote(ctx, w, fmt.Sprintf("The reminder for %q was removed with its watch.", r.Reminder.Title))
 	}
 }
+
+// SourceReminder is a reminder of one of the owner's watches, for the page of
+// the add-on whose item it is: the id of the item in the add-on, the watch and
+// when the reminder fires.
+type SourceReminder struct {
+	ItemID, WatchID string
+	View            ReminderView
+}
+
+// SourceReminders lists the reminders of the user's watches for the items of
+// one add-on, so its page can mark them (the bell of the calendar).
+func (h *Triggers) SourceReminders(ctx context.Context, user, source string) ([]SourceReminder, error) {
+	all, err := h.o.Store.ListTriggers(ctx, principal(user))
+	if err != nil {
+		return nil, err
+	}
+	watches := map[string]triggers.Trigger{}
+	for _, t := range all {
+		if t.IsWatch() && t.Source == source {
+			watches[t.ID] = t
+		}
+	}
+	now := h.o.Clock()
+	var out []SourceReminder
+	for _, r := range all {
+		if !r.IsReminder() {
+			continue
+		}
+		w, ok := watches[r.Reminder.ParentID]
+		item, found := strings.CutPrefix(r.Reminder.Key, source+":")
+		if !ok || !found {
+			continue
+		}
+		out = append(out, SourceReminder{ItemID: item, WatchID: w.ID, View: h.reminderView(w, r, now)})
+	}
+	return out, nil
+}

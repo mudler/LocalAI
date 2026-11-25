@@ -40,6 +40,8 @@ A change made by a watch's own run never wakes that watch. More than 30 reminder
 
 The page of a watch shows whether it is on, what it watches, where it reports and its upcoming reminders. Each reminder has **Snooze** (when it is due soon), **Skip**, **Change time…** and **Open**, which opens the thing in its add-on. Each action can be undone. The history lists every action, the quiet ones too. Pausing a watch holds its reminders; deleting it removes them. Both are listed in the Inbox.
 
+The Calendar add-on marks an event that has a reminder with a bell and the reminder time, in the agenda and in the event's details. From the details you can skip the reminder or open the watch to change its time.
+
 In a messaging app that shows buttons (Telegram), a reminder comes with **Snooze 5 min**, **In 30 min**, **Skip** and **Got it**. In other apps, reply "snooze", "30 min" or "skip" to the reminder.
 
 ## When the server was down
@@ -55,5 +57,6 @@ A reminder whose time passed while the server was down fires late, with a note, 
 | `GET /api/chats/triggers/{id}/reminders` | The reminders of a watch, soonest first. |
 | `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). |
 | `DELETE /api/chats/triggers/{id}/reminders/{rid}` | Cancels a reminder. |
+| `GET /api/chats/triggers/reminders?source=<add-on>` | The reminders of your watches for the items of one add-on, with the item ID and the watch. An add-on page reads them with `sdk.reminders.list()`. |
 
 For add-on authors: an add-on declares its event types and reports its changes with the `events.emit` host operation. See [Events]({{% relref "/addons/contract-reference/host-operations#events" %}}).

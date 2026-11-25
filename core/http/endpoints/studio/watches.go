@@ -148,3 +148,27 @@ func (h *Handlers) DeleteWatchReminder(c echo.Context) error {
 	}
 	return c.NoContent(http.StatusNoContent)
 }
+
+// SourceReminders lists the reminders of your watches for the items of one
+// add-on.
+// @Summary List the reminders for the items of an add-on.
+// @Description The page of an add-on marks its items that have a reminder (the bell of the calendar). source is the add-on ID.
+// @Tags chats
+// @Param source query string true "the add-on ID"
+// @Success 200 {object} schema.ChatsSourceReminders "The reminders"
+// @Router /api/chats/triggers/reminders [get]
+func (h *Handlers) SourceReminders(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	list, err := host.SourceReminders(c.Request().Context(), userID(c), c.QueryParam("source"))
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	out := schema.ChatsSourceReminders{Reminders: make([]schema.ChatsSourceReminder, 0, len(list))}
+	for _, r := range list {
+		out.Reminders = append(out.Reminders, schema.ChatsSourceReminder{ItemID: r.ItemID, WatchID: r.WatchID, ChatsReminder: reminderOut(r.View)})
+	}
+	return c.JSON(http.StatusOK, out)
+}

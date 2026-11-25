@@ -274,6 +274,22 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(err).To(MatchError(triggers.ErrNotFound), "another user's watch is a missing one")
 	})
 
+	It("lists the reminders of an add-on's items for its page, and only for that add-on", func() {
+		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
+		r.emit("created", "1", r.sh.clock.Now().Add(26*time.Hour), "", "")
+		r.modelRun()
+		list, err := r.host.SourceReminders(ctx, alice, "notes")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].ItemID).To(Equal("1"))
+		Expect(list[0].WatchID).To(Equal(r.watch.ID))
+		Expect(list[0].View.Due.IsZero()).To(BeFalse())
+		other, _ := r.host.SourceReminders(ctx, alice, "calendar")
+		Expect(other).To(BeEmpty())
+		bobs, _ := r.host.SourceReminders(ctx, "bob", "notes")
+		Expect(bobs).To(BeEmpty())
+	})
+
 	It("keeps reminders out of the trigger list and the trigger limit", func() {
 		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
 		r.emit("created", "1", r.sh.clock.Now().Add(26*time.Hour), "", "")

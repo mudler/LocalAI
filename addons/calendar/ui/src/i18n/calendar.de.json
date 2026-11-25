@@ -58,5 +58,8 @@
   "calendar.view": "View",
   "calendar.view.agenda": "Agenda",
   "calendar.view.month": "Month",
-  "calendar.yes": "Yes"
+  "calendar.yes": "Yes",
+  "calendar.reminder.at": "Erinnerung {{when}}",
+  "calendar.reminder.skip": "Erinnerung überspringen",
+  "calendar.reminder.change": "Zeit ändern…"
 }
