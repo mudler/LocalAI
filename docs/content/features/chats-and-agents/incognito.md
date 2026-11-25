@@ -49,7 +49,7 @@ Everything of **Memory off**, and also:
 | Open Responses | The response is not stored. `previous_response_id` is refused: send the whole conversation instead. |
 | Prompt cache | The `prompt_cache_path` of the model is not read or written for this request, and the backend is told not to keep any prompt cache on disk. |
 | Generated media | Speech from Live voice is deleted from the generated-content directory after it is sent. Images are returned inline. |
-| Tools | The chat gets only the tools that keep nothing: web search, web fetch, the search of past chats and the reading of context and skills. It cannot write files, run commands, start sub-agents, set triggers, save memory or search collections (a collection search sends the query through the embeddings route, which would trace it). |
+| Tools | The chat gets only the tools that keep nothing: web search, web fetch, collection search, the search of past chats and the reading of context and skills. It cannot write files, run commands, start sub-agents, set triggers or save memory. The embedding call of a collection search keeps no trace either. When an administrator gives the collections their own API key (`LOCALAI_COLLECTIONS_API_KEY`), the search calls the API over the network and is refused in a zero-retention chat. |
 | Attachments | Not accepted: an attachment is saved in your files. |
 
 ## What incognito does not cover

@@ -33,13 +33,11 @@ var ErrIncognito = errors.New("studio: not available in an incognito chat")
 
 // zeroRetentionTools are the only tools a zero-retention chat gets. They read
 // and keep nothing on the server. The list is explicit on purpose: a tool
-// added later is left out until someone checks what it keeps.
-//
-// The collection tools are not on it: their search embeds the query through
-// the server's own embeddings route on a context of the collections library,
-// which does not carry the level, so the query could reach the traces.
+// added later is left out until someone checks what it keeps. The collection
+// search carries the level into its embedding calls (collections/privacy.go).
 var zeroRetentionTools = []string{
 	webSearchName, webFetchName,
+	"list_collections", "search_collection",
 	"search_chats", "read_chat",
 	contextfiles.ToolName, loadSkillName,
 }
