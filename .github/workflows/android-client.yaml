@@ -1,10 +1,16 @@
 # Builds and tests the Android client app (android/).
 #
-# - pull request: lint, type check, unit tests and the web bundle, then a
+# - pull request: lint, type check, unit tests and the web bundle; the P2P
+#   library (android/p2pmobile, gomobile AAR for arm64 and amd64); then a
 #   debug APK of the dev flavor (arm64-v8a and x86_64, so emulators can run
-#   it), uploaded as the workflow artifact localai-android-pr for 7 days.
+#   it), uploaded as the workflow artifact localai-android-pr for 7 days; and
+#   a small smoke test on an x86_64 emulator against a fake server
+#   (android/test/fixtures/fake-localai.mjs).
 # - push to master: the same build, kept 14 days as localai-android-dev.
 # - manual run: the same build as a pull request.
+#
+# Every APK, debug or signed, includes the P2P library: the apk job fails
+# when the APK has no lib/arm64-v8a/libgojni.so.
 #
 # Publishing is switched off until the repository variable ANDROID_PUBLISH is
 # 'true' (Settings > Variables). The owner sets it after the signing keys,
@@ -47,6 +53,8 @@ on:
       - 'core/services/p2ppair/**'
       - 'pkg/httpclient/**'
       - 'pkg/atomicfile/**'
+      - 'pkg/fsperm/**'
+      - 'core/services/p2prelay/relayproto/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/android-client.yaml'
@@ -67,6 +75,8 @@ on:
       - 'core/services/p2ppair/**'
       - 'pkg/httpclient/**'
       - 'pkg/atomicfile/**'
+      - 'pkg/fsperm/**'
+      - 'core/services/p2prelay/relayproto/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/android-client.yaml'
@@ -138,9 +148,74 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # The P2P library. One AAR with arm64 and amd64 serves every APK: Gradle
+  # packages only the ABIs of -PlocalaiAbis, so the published (arm64-v8a)
+  # APK carries no x86_64 code. The cache key covers every input of the bind:
+  # the LocalAI packages the module imports (go list -deps), both go.mod and
+  # go.sum (Go and golang.org/x/mobile versions) and the NDK version. A hit
+  # skips the Go steps; those inputs passed them when the entry was saved.
+  p2p-aar:
+    name: P2P library (AAR)
+    runs-on: ubuntu-latest
+    env:
+      NDK_VERSION: 30.0.16248370
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: cache
+        uses: actions/cache@v6
+        with:
+          path: android/p2pmobile/build/p2pmobile.aar
+          key: p2pmobile-aar-v1-ndk${{ env.NDK_VERSION }}-arm64-amd64-${{ hashFiles('core/services/p2pnet/**', 'core/services/p2ppair/**', 'core/services/p2prelay/relayproto/**', 'pkg/httpclient/**', 'pkg/atomicfile/**', 'pkg/fsperm/**', 'go.mod', 'go.sum', 'android/p2pmobile/**') }}
+      - uses: actions/setup-go@v6
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          go-version-file: android/p2pmobile/go.mod
+          cache-dependency-path: |
+            go.sum
+            android/p2pmobile/go.sum
+      # gomobile needs a JDK; build.sh builds gomobile and gobind at the
+      # version android/p2pmobile/go.mod pins.
+      - uses: actions/setup-java@v6
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          packages: 'platforms;android-35 ndk;30.0.16248370'
+          log-accepted-android-sdk-licenses: false
+      - name: Vet, test and build the P2P library
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: android/p2pmobile
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/$NDK_VERSION"
+          go vet ./...
+          go test ./...
+          bash build.sh arm64,amd64
+      - name: Check the native libraries in the AAR
+        working-directory: android/p2pmobile
+        run: |
+          set -euo pipefail
+          listing=$(unzip -Z1 build/p2pmobile.aar)
+          for abi in arm64-v8a x86_64; do
+            grep -Fxq "jni/$abi/libgojni.so" <<<"$listing" ||
+              { echo "::error::the AAR has no jni/$abi/libgojni.so"; exit 1; }
+          done
+          ls -l build/p2pmobile.aar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: p2pmobile-aar
+          path: android/p2pmobile/build/p2pmobile.aar
+          if-no-files-found: error
+          retention-days: 1
+
   apk:
     name: ${{ (github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true') && 'Signed dev APK' || 'Debug APK' }}
-    needs: [version, web]
+    needs: [version, web, p2p-aar]
     runs-on: ubuntu-latest
     env:
       # True only for a master push in the main repository with publishing on.
@@ -176,6 +251,12 @@ jobs:
         with:
           name: android-web
           path: android/dist
+      # Gradle links the P2P library when this file exists (BuildConfig.P2P_LIBRARY).
+      - uses: actions/download-artifact@v8
+        with:
+          name: p2pmobile-aar
+          path: android/p2pmobile/build
+      - run: test -s p2pmobile/build/p2pmobile.aar
       - run: npx cap sync android
 
       # Publishing off (pull requests, manual runs, and master while
@@ -188,6 +269,17 @@ jobs:
             "-PlocalaiVersionName=$VERSION" \
             "-PlocalaiVersionCode=$VERSION_CODE" \
             -PlocalaiAbis=arm64-v8a,x86_64
+      - name: Check the P2P library in the debug APK
+        if: env.PUBLISH != 'true'
+        env:
+          APK: native/app/build/outputs/apk/dev/debug/app-dev-debug.apk
+        run: |
+          set -euo pipefail
+          listing=$(unzip -Z1 "$APK")
+          for abi in arm64-v8a x86_64; do
+            grep -Fxq "lib/$abi/libgojni.so" <<<"$listing" ||
+              { echo "::error::the APK has no lib/$abi/libgojni.so (P2P library)"; exit 1; }
+          done
       - name: Name the debug APK and write its checksum
         if: env.PUBLISH != 'true'
         run: |
@@ -244,6 +336,11 @@ jobs:
           echo "$badging"
           [[ "$badging" == "package: name='io.localai.client.dev' versionCode='$VERSION_CODE' versionName='$VERSION'"* ]] ||
             { echo "::error::unexpected package, versionCode or versionName"; exit 1; }
+          # Published APKs carry the P2P library, for arm64-v8a only.
+          unzip -Z1 "$APK" | grep -Fxq "lib/arm64-v8a/libgojni.so" ||
+            { echo "::error::the APK has no lib/arm64-v8a/libgojni.so (P2P library)"; exit 1; }
+          "$tools/aapt2" dump badging "$APK" | grep -Fxq "native-code: 'arm64-v8a'" ||
+            { echo "::error::the APK must carry arm64-v8a native code only"; exit 1; }
           certs=$("$tools/apksigner" verify --print-certs "$APK")
           echo "$certs"
           mapfile -t digests < <(printf '%s\n' "$certs" | sed -n -E 's/^Signer #[0-9]+ certificate SHA-256 digest: *([0-9a-fA-F]+)$/\1/p' | tr 'A-F' 'a-f')
@@ -278,6 +375,101 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ github.event_name == 'push' && 14 || 7 }}
 
+  # Small smoke tests on an x86_64 emulator (GitHub-hosted runner with KVM):
+  # the app starts, a server added by address against a fake server passes
+  # its test and is saved, its WebUI view loads, and the P2P library loads.
+  # Tests: android/native/app/src/androidTest/java/io/localai/client/SmokeTest.kt.
+  # No secrets; a debug build of its own.
+  emulator-smoke:
+    name: Emulator smoke test
+    needs: [web, p2p-aar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android/package-lock.json
+      - run: npm ci
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-web
+          path: android/dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: p2pmobile-aar
+          path: android/p2pmobile/build
+      - run: npx cap sync android
+      # Before the emulator starts, so the build does not compete with it.
+      - name: Build the app and the instrumented tests
+        working-directory: android/native
+        run: ./gradlew assembleDevDebug assembleDevDebugAndroidTest -PlocalaiAbis=arm64-v8a,x86_64
+      # The udev rule from the android-emulator-runner README.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # A background process of a step lives until the job ends.
+      - name: Start the fake server
+        run: |
+          set -euo pipefail
+          nohup node test/fixtures/fake-localai.mjs 18080 > "$RUNNER_TEMP/fake-localai.log" 2>&1 &
+          for _ in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:18080/.well-known/localai.json; then
+              echo
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat "$RUNNER_TEMP/fake-localai.log"
+          exit 1
+      # The emulator's 127.0.0.1:18080 is the fake server on the runner.
+      - name: Run the smoke tests on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          working-directory: android/native
+          script: |
+            adb reverse tcp:18080 tcp:18080
+            ./gradlew connectedDevDebugAndroidTest -PlocalaiAbis=arm64-v8a,x86_64
+      - name: Collect the test reports
+        if: failure()
+        run: |
+          mkdir -p smoke-reports
+          cp "$RUNNER_TEMP/fake-localai.log" smoke-reports/ || true
+          cp -r native/app/build/reports/androidTests smoke-reports/ 2>/dev/null || true
+          cp -r native/app/build/outputs/androidTest-results smoke-reports/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: android-emulator-smoke-reports
+          path: android/smoke-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # The only job with write access, and only when publishing is on. It checks
   # out no code and runs nothing from the repository: it downloads the
   # artifact of the signed build, verifies it and talks to the GitHub API.
@@ -288,7 +480,8 @@ jobs:
   publish:
     name: Attach to the dev-master pre-release
     if: github.event_name == 'push' && github.repository == 'mudler/LocalAI' && vars.ANDROID_PUBLISH == 'true'
-    needs: apk
+    # Nothing is published unless the app also passed the emulator smoke test.
+    needs: [apk, emulator-smoke]
     runs-on: ubuntu-latest
     concurrency:
       group: android-dev-release-${{ github.repository }}
