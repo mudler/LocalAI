@@ -12,7 +12,7 @@ import { createAndroidBridge, idleUpdater } from './bridge/androidBridge'
 import { ClientCore, NO_P2P } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
 import { startLifecycle } from './lifecycle'
-import { NativeHttp, P2P, WebuiView } from './plugins'
+import { AppLinks, NativeHttp, P2P, Scanner, WebuiView } from './plugins'
 import { nativeServerChecks } from './plugins/nativeTransport'
 
 // The phone layout classes go on before anything renders.
@@ -48,6 +48,7 @@ async function main(): Promise<void> {
     clipboard: (text) => Clipboard.write({ string: text }),
     updater: idleUpdater(),
     info: { version },
+    invites: { appLinks: AppLinks, scanner: Scanner },
   })
   createRoot(document.getElementById('root')!).render(<App bridge={bridge} />)
 }

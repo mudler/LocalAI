@@ -75,6 +75,8 @@ export interface FakeState {
   testResult?: TestResultView
   /** What the folder picker returns: a folder (saved as the main process would), a refusal, or cancel (default). */
   pickedFolder?: string | { refused: FolderRefusal }
+  /** What a QR scan reads. Undefined: the scan was cancelled. */
+  scan?: string
 }
 
 export const ENDPOINT = 'http://127.0.0.1:8080'
@@ -191,6 +193,8 @@ export interface FakeBridge extends Bridge {
   emitServers(v: ServersView): void
   /** The menu accelerator was pressed. */
   emitOpenSwitcher(): void
+  /** A link or shared text reached the app. */
+  emitInviteLink(text: string): void
 }
 
 type Listener<T> = Set<(v: T) => void>
@@ -215,6 +219,7 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     webui: new Set() as Listener<WebuiViewState>,
     servers: new Set() as Listener<ServersView>,
     switcher: new Set() as Listener<void>,
+    invite: new Set() as Listener<string>,
   }
   const rec = <T>(name: string, value: T, ...args: unknown[]): Promise<T> => {
     calls.push({ name, args })
@@ -464,6 +469,8 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     testWorker: (c) => rec('testWorker', { ...(s.worker as WorkerView), status: 'reachable' as const }, c),
     startWorker: (c) => rec('startWorker', { ...(s.worker as WorkerView), running: true, status: 'connected' as const }, c),
     stopWorker: () => rec('stopWorker', { ...(s.worker as WorkerView), running: false, status: 'idle' as const }),
+    scanInvite: () => rec('scanInvite', s.scan),
+    onInviteLink: (cb) => sub(ls.invite, cb),
   }
 
   const pick = opts.extras ?? true
@@ -491,6 +498,7 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
       pushServers()
     },
     emitOpenSwitcher: () => ls.switcher.forEach((cb) => cb()),
+    emitInviteLink: (text: string) => ls.invite.forEach((cb) => cb(text)),
   }) as FakeBridge
 }
 

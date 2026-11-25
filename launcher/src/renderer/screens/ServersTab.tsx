@@ -11,7 +11,9 @@ import { statusTone } from '../serversUi'
 import { S } from '../strings'
 import { Card } from '../parts'
 
-type Sheet = { kind: 'add' } | { kind: 'edit'; id: string } | null
+/** What Settings > Servers opens at once: the add sheet, the edit sheet, or the invite sheet with a link from outside. */
+export type ServersOpen = { kind: 'add' } | { kind: 'edit'; id: string } | { kind: 'invite'; link: string }
+type Sheet = ServersOpen | null
 const DOT: Record<string, string> = { ok: 'dk-dot--ok', warn: 'dk-dot--warn', error: 'dk-dot--error', idle: '', accent: '' }
 
 export function ServerDot({ row }: { row: ServerRowView }) {
@@ -92,11 +94,20 @@ export function ServersTab({
   onSwitch,
   open,
   localServer = true,
+  p2p = true,
+  onScan,
+  now,
 }: {
   view: ServersView
   onSwitch: (id: string) => void
-  open?: { kind: 'add' } | { kind: 'edit'; id: string }
+  open?: ServersOpen
   localServer?: boolean
+  /** The app can pair over P2P (the invite link in the add sheet). */
+  p2p?: boolean
+  /** Scans an invite QR code. */
+  onScan?: () => Promise<string | undefined>
+  /** A fixed clock for the invite countdown (tests). */
+  now?: number
 }) {
   const b = useBridge()
   const ids = useId()
@@ -169,7 +180,7 @@ export function ServersTab({
         {remotes.length === 0 && (
           <div className="lnr-empty">
             <strong>{S.servers.emptyTitle}</strong>
-            <p className="dk-small dk-muted">{S.servers.emptyBody}</p>
+            <p className="dk-small dk-muted">{localServer ? S.servers.emptyBody : S.invitePreview.serversEmptyClient}</p>
             <Button onClick={() => setSheet({ kind: 'add' })}>{S.servers.addServer}</Button>
           </div>
         )}
@@ -195,12 +206,16 @@ export function ServersTab({
       )}
       {remotes.length > 0 && <p className="dk-small dk-muted">{localServer ? S.servers.removeNote : S.servers.removeNoteClient}</p>}
 
-      {sheet && (sheet.kind === 'add' || editing) && (
+      {sheet && (sheet.kind !== 'edit' || editing) && (
         <ServerForm
-          key={sheet.kind === 'edit' ? sheet.id : 'add'}
+          key={sheet.kind === 'edit' ? sheet.id : sheet.kind}
           variant="sheet"
           servers={view.rows}
           editing={editing}
+          p2p={p2p}
+          onScan={onScan}
+          now={now}
+          initialInvite={sheet.kind === 'invite' ? sheet.link : undefined}
           onDone={() => setSheet(null)}
           onCancel={() => setSheet(null)}
           onRemove={editing ? () => (setRemoving(editing.id), setSheet(null)) : undefined}

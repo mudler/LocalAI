@@ -3,6 +3,7 @@ import type { ShellInsets, ShellScreen } from '../shared/types'
 import { Button, Callout, Icon } from '@localai/ui-kit'
 import { FirstChooseScreen, FirstConnectScreen, RemoteUnreachableScreen, SwitchFailedCard, SwitchingCard } from './screens/ServerScreens'
 import { InviteForm } from './InviteForm'
+import { inviteScanner, isInviteText } from './invitePreview'
 import { ServerForm } from './ServerForm'
 import type { ShellScreenId } from './bridge'
 import { useBridge } from './bridge'
@@ -10,6 +11,7 @@ import type { MenuAction } from './BarMenu'
 import { ConnectScreen } from './screens/ConnectScreen'
 import { LogsScreen } from './screens/LogsScreen'
 import { SettingsScreen, type SettingsTab } from './screens/SettingsScreen'
+import type { ServersOpen } from './screens/ServersTab'
 import {
   BrowserModeScreen,
   FirstRunScreen,
@@ -55,11 +57,18 @@ export function Shell({ now }: { now?: number }) {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('general')
   const [popover, setPopover] = useState<BarPopover>(null)
   const [hiddenUpdate, setHiddenUpdate] = useState<string>()
-  const [serversOpen, setServersOpen] = useState<{ kind: 'add' } | { kind: 'edit'; id: string }>()
+  const [serversOpen, setServersOpen] = useState<ServersOpen>()
   const [firstStep, setFirstStep] = useState<'choose' | 'connect' | 'computer'>('choose')
   // The first-connect screen (no local server): the choices, or the address or invite form.
   const [connectStep, setConnectStep] = useState<'choose' | 'address' | 'invite'>('choose')
   const [switchFailed, setSwitchFailed] = useState<{ name: string; id: string }>()
+  // An invite text from outside (link, share sheet, QR scan), waiting until the shell knows its screen.
+  const [incoming, setIncoming] = useState<{ text: string; seq: number }>()
+  const incomingSeq = useRef(0)
+  // The link that the first-connect invite step opened with, and the one that reopened Settings > Servers.
+  const [firstInvite, setFirstInvite] = useState<{ link: string; seq: number }>()
+  const [settingsSeq, setSettingsSeq] = useState(0)
+  const [notice, setNotice] = useState<string>()
   const [tick, setTick] = useState(() => now ?? Date.now())
   const startAfterInstall = useRef(false)
   const guideOpened = useRef(false)
@@ -89,6 +98,30 @@ export function Shell({ now }: { now?: number }) {
     const t = setInterval(() => setTick(Date.now()), 1000)
     return () => clearInterval(t)
   }, [ticking])
+
+  // A link or shared text that reaches the app. It only opens the invite form:
+  // pairing always waits for a tap on Pair.
+  useEffect(() => b.onInviteLink?.((text) => setIncoming({ text, seq: ++incomingSeq.current })), [b])
+  useEffect(() => {
+    if (!incoming || !base) return
+    setIncoming(undefined)
+    if (!isInviteText(incoming.text, now ?? Date.now())) {
+      setNotice(S.invitePreview.notInvite)
+      return
+    }
+    const link = incoming.text.trim()
+    setNotice(undefined)
+    setPopover(null)
+    if (base === 'first-connect') {
+      setScreen(null)
+      setConnectStep('invite')
+      setFirstInvite({ link, seq: incoming.seq })
+    } else {
+      open('settings', 'servers')
+      setServersOpen({ kind: 'invite', link })
+      setSettingsSeq(incoming.seq)
+    }
+  }, [incoming, base, now, open])
 
   // The menu accelerator (Ctrl+Shift+S, Cmd+Shift+S on macOS) works while the WebUI has the focus.
   useEffect(() => b.onOpenSwitcher?.(() => setPopover('switcher')), [b])
@@ -174,6 +207,33 @@ export function Shell({ now }: { now?: number }) {
   const local = !isRemote(data)
   // The app runs no LocalAI server on this device (the mobile client).
   const clientOnly = !data.capabilities.localServer
+  const scanner = inviteScanner(b, data.capabilities)
+  // A scan from the first-connect screen goes the same way as a link from outside.
+  const scanFirst = async () => {
+    if (!scanner) return
+    setNotice(undefined)
+    try {
+      const text = await scanner()
+      if (text !== undefined) setIncoming({ text, seq: ++incomingSeq.current })
+    } catch {
+      setNotice(S.invitePreview.scanFailed)
+    }
+  }
+  const leaveInvite = () => {
+    setFirstInvite(undefined)
+    setConnectStep('choose')
+  }
+  const noticeStrip = notice ? (
+    <div className="lnr-strip">
+      <Callout
+        tone="warn"
+        role="status"
+        title={notice}
+        testId="invite-notice"
+        actions={<Button size="sm" variant="ghost" icon="close" aria-label={S.invitePreview.close} onClick={() => setNotice(undefined)} />}
+      />
+    </div>
+  ) : null
   const version = serverVersion(data.install, data.installedVersion)
   const showUpdateBanner = web && offer?.kind === 'server' && hiddenUpdate !== offer.version
   // The main process says which banner the kept page needs; without it, a stopped server is enough.
@@ -226,7 +286,7 @@ export function Shell({ now }: { now?: number }) {
       case 'settings':
         return (
           <SettingsScreen
-            key={settingsTab}
+            key={`${settingsTab}-${settingsSeq}`}
             data={data}
             controls={controls}
             initialTab={settingsTab}
@@ -288,7 +348,7 @@ export function Shell({ now }: { now?: number }) {
       case 'first-choose':
         return firstStep === 'connect' ? (
           <div className="lnr-center lnr-center--connectfirst">
-            <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault onDone={() => setFirstStep('choose')} onCancel={() => setFirstStep('choose')} />
+            <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} now={now} onDone={() => setFirstStep('choose')} onCancel={() => setFirstStep('choose')} />
           </div>
         ) : (
           <FirstChooseScreen onComputer={() => setFirstStep('computer')} onServer={() => setFirstStep('connect')} sizeNote={data.installDetails?.size ? S.first.computerNote.replace('1.1 GB', formatBytes(data.installDetails.size)) : undefined} />
@@ -297,7 +357,7 @@ export function Shell({ now }: { now?: number }) {
         if (connectStep === 'address') {
           return (
             <div className="lnr-center lnr-center--connectfirst">
-              <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} />
+              <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} onScan={scanner} now={now} onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} />
             </div>
           )
         }
@@ -305,18 +365,37 @@ export function Shell({ now }: { now?: number }) {
           return (
             <div className="lnr-center lnr-center--connectfirst">
               <div className="lnr-form lnr-form--page">
-                <button type="button" className="lnr-backlink" onClick={() => setConnectStep('choose')}>
+                <button type="button" className="lnr-backlink" onClick={leaveInvite}>
                   <Icon name="arrow-left" /> <span>{S.servers.back}</span>
                 </button>
                 <h1 className="lnr-h">{S.invite.title}</h1>
                 <section className="dk-card lnr-card lnr-form__card" aria-label={S.invite.title}>
-                  <InviteForm makeDefault onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} onUseAddress={() => setConnectStep('address')} />
+                  <InviteForm
+                    key={firstInvite?.seq ?? 0}
+                    makeDefault
+                    initialLink={firstInvite?.link}
+                    onScan={scanner}
+                    now={now}
+                    onDone={leaveInvite}
+                    onCancel={leaveInvite}
+                    onUseAddress={() => {
+                      setFirstInvite(undefined)
+                      setConnectStep('address')
+                    }}
+                  />
                 </section>
               </div>
             </div>
           )
         }
-        return <FirstConnectScreen p2p={data.capabilities.p2p} onAddress={() => setConnectStep('address')} onInvite={() => setConnectStep('invite')} />
+        return (
+          <FirstConnectScreen
+            p2p={data.capabilities.p2p}
+            onAddress={() => setConnectStep('address')}
+            onInvite={() => setConnectStep('invite')}
+            onScan={scanner ? () => void scanFirst() : undefined}
+          />
+        )
       case 'remote-unreachable': {
         const cur = currentRow(data)
         return data.webui?.remote ? (
@@ -324,7 +403,7 @@ export function Shell({ now }: { now?: number }) {
             server={cur}
             status={data.webui.remote}
             now={tick}
-            onSwitchLocal={() => void switchTo('local')}
+            onSwitchLocal={clientOnly ? undefined : () => void switchTo('local')}
             onChooseOther={clientOnly ? () => setPopover('switcher') : undefined}
             onEdit={() => {
               open('settings', 'servers')
@@ -348,6 +427,7 @@ export function Shell({ now }: { now?: number }) {
 
       {web && (
         <div ref={topRef} className="lnr-strips">
+          {noticeStrip}
           {showUpdateBanner && offer?.kind === 'server' && (
             <div className="lnr-strip">
               <Callout
@@ -373,6 +453,7 @@ export function Shell({ now }: { now?: number }) {
 
       {screen !== null ? (
         <main className="lnr-area">
+          {noticeStrip}
           <div className="lnr-back">
             <Button size="sm" icon="arrow-left" onClick={() => open(null)} data-testid="back">
               {base === 'web' ? S.back.toLocalAI : S.back.plain}
@@ -385,6 +466,7 @@ export function Shell({ now }: { now?: number }) {
         <div className="lnr-webslot" data-testid="webui-slot" />
       ) : (
         <main className="lnr-area">
+          {noticeStrip}
           {data.info?.configNotice && (
             <div className="lnr-strip">
               <Callout tone="warn" title={S.banner.configTitle} testId="config-notice">

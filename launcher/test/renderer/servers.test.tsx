@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { called, renderShell, screen, settle } from './render'
+import { called, NOW, renderShell, screen, settle } from './render'
 
 const bar = () => within(screen.getByRole('contentinfo', { name: 'LocalAI status bar' }))
 const openSettingsTab = async (tab: string) => {
@@ -504,5 +504,116 @@ describe('Settings > Updates, the channel (mock 30 to 34)', () => {
     expect((screen.getAllByRole('button', { name: 'Check now' })[0] as HTMLButtonElement).disabled).toBe(true)
     // The choices stay usable: the user may prepare This computer.
     expect((screen.getByRole('radio', { name: /Release candidates/ }) as HTMLInputElement).disabled).toBe(false)
+  })
+})
+
+const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+/** An invite link relative to the fixed test clock. */
+function invite(o: { secs?: number; open?: boolean } = {}): string {
+  const q = new URLSearchParams({ v: '1', k: 'device', p: PEER, c: 'ABCDEFGHJK', e: String(Math.floor(NOW / 1000) + (o.secs ?? 581)), n: 'Home GPU box' })
+  q.append('a', '/ip4/192.0.2.10/tcp/4001')
+  q.append('a', '/ip4/192.0.2.11/udp/4001/quic-v1')
+  q.append('r', '/dns4/relay.example.com/tcp/4001')
+  if (o.open) q.set('o', '/dns4/open.example.com/tcp/4001')
+  return `localai://pair?${q.toString()}`
+}
+
+describe('invite preview (mock 03)', () => {
+  const openInviteSheet = async () => {
+    await openSettingsTab('Servers')
+    fireEvent.click(screen.getByTestId('add-server'))
+    await settle()
+    fireEvent.click(screen.getByTestId('use-invite'))
+    await settle()
+  }
+
+  it('shows the label, kind, time left, server peer, routes and expiry of a valid link', async () => {
+    await renderShell('ready')
+    await openInviteSheet()
+    type('Invite link', invite())
+    const card = within(screen.getByTestId('invite-preview'))
+    expect(card.getByText('Home GPU box')).toBeTruthy()
+    expect(card.getByText('Device invite · works once')).toBeTruthy()
+    expect(card.getByText('9:41 left')).toBeTruthy()
+    expect(card.getByText('12D3KooWQ6…JGm')).toBeTruthy()
+    expect(card.getByText('2 direct addresses · 1 relay')).toBeTruthy()
+    expect(card.getByText('today at 14:39')).toBeTruthy()
+    expect(screen.queryByTestId('invite-open-relay')).toBeNull()
+    expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('an open relay needs the opt-in before Pair', async () => {
+    await renderShell('ready')
+    await openInviteSheet()
+    type('Invite link', invite({ open: true }))
+    expect(within(screen.getByTestId('invite-open-relay')).getByText('The link names an open relay')).toBeTruthy()
+    expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Connect through the open relay that the link names' }))
+    expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('an expired link shows the problem, no card, and Pair stays off', async () => {
+    await renderShell('ready')
+    await openInviteSheet()
+    type('Invite link', invite({ secs: -5 }))
+    expect(screen.queryByTestId('invite-preview')).toBeNull()
+    expect(screen.getByTestId('invite-problem').textContent).toBe('The invite has expired. Ask the server owner for a new one.')
+    expect((screen.getByTestId('invite-submit') as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('an incoming link opens the form filled in, and pairs only on a tap of Pair', async () => {
+    const b = await renderShell('ready')
+    const link = invite()
+    b.emitInviteLink(link)
+    await settle()
+    expect(screen.getByTestId('invite-sheet')).toBeTruthy()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(link)
+    expect(screen.getByTestId('invite-preview')).toBeTruthy()
+    await settle()
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+    fireEvent.click(screen.getByTestId('invite-submit'))
+    await settle()
+    expect(called(b, 'addServerByInvite')).toHaveLength(1)
+    expect(called(b, 'addServerByInvite')[0]?.args[0]).toMatchObject({ link })
+  })
+
+  it('an incoming text that is not an invite says so and opens nothing', async () => {
+    const b = await renderShell('ready')
+    b.emitInviteLink('hello')
+    await settle()
+    expect(screen.getByTestId('invite-notice').textContent).toContain('This is not a LocalAI invite link.')
+    expect(screen.queryByTestId('invite-sheet')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Settings' })).toBeNull()
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+    fireEvent.click(within(screen.getByTestId('invite-notice')).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByTestId('invite-notice')).toBeNull()
+  })
+
+  it('Scan QR code fills the field with a scanned invite, and refuses other text', async () => {
+    const b = await renderShell('ready', {
+      edit: (s) => {
+        s.info = { ...s.info, capabilities: { localServer: true, p2p: true, selfUpdate: 'electron', qrScan: true } }
+        s.scan = 'hello'
+      },
+    })
+    await openInviteSheet()
+    fireEvent.click(screen.getByRole('button', { name: 'Scan QR code' }))
+    await settle()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe('')
+    expect(screen.getByTestId('invite-error').textContent).toBe('This is not a LocalAI invite link.')
+    b.state.scan = invite()
+    fireEvent.click(screen.getByRole('button', { name: 'Scan QR code' }))
+    await settle()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(invite())
+    expect(screen.queryByTestId('invite-error')).toBeNull()
+    expect(screen.getByTestId('invite-preview')).toBeTruthy()
+    expect(called(b, 'scanInvite')).toHaveLength(2)
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+  })
+
+  it('has no Scan button on the desktop (no QR capability)', async () => {
+    await renderShell('ready')
+    await openInviteSheet()
+    expect(screen.queryByRole('button', { name: 'Scan QR code' })).toBeNull()
   })
 })
