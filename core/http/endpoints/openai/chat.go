@@ -1349,9 +1349,9 @@ func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCall
 		switch message := m.(type) {
 		case string:
 			if message != "" {
-				xlog.Debug("Reply received from LLM", "message", message)
+				xlog.Debug("Reply received from LLM", "message", config.FunctionsConfig.LogText(message))
 				message = backend.Finetune(*config, prompt, message)
-				xlog.Debug("Reply received from LLM(finetuned)", "message", message)
+				xlog.Debug("Reply received from LLM(finetuned)", "message", config.FunctionsConfig.LogText(message))
 
 				return message, nil
 			}

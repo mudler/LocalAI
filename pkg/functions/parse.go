@@ -278,8 +278,8 @@ func truncForLog(s string) string {
 // when the request may not keep content (see FunctionsConfig.RedactLogs).
 const redactedOutput = "[redacted: zero-retention]"
 
-// logText is s as a debug line may print it for this request.
-func (c FunctionsConfig) logText(s string) string {
+// LogText is s as a debug line may print it for this request.
+func (c FunctionsConfig) LogText(s string) string {
 	if c.RedactLogs {
 		return redactedOutput
 	}
@@ -287,7 +287,7 @@ func (c FunctionsConfig) logText(s string) string {
 }
 
 func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
-	xlog.Debug("LLM result", "len", len(llmresult), "head", functionConfig.logText(truncForLog(llmresult)))
+	xlog.Debug("LLM result", "len", len(llmresult), "head", functionConfig.LogText(truncForLog(llmresult)))
 
 	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
@@ -295,13 +295,13 @@ func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(processed)", "len", len(llmresult), "head", functionConfig.logText(truncForLog(llmresult)))
+	xlog.Debug("LLM result(processed)", "len", len(llmresult), "head", functionConfig.LogText(truncForLog(llmresult)))
 
 	return llmresult
 }
 
 func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
-	xlog.Debug("ParseTextContent", "result", functionConfig.logText(llmresult))
+	xlog.Debug("ParseTextContent", "result", functionConfig.LogText(llmresult))
 	xlog.Debug("CaptureLLMResult", "config", functionConfig.CaptureLLMResult)
 
 	for _, r := range functionConfig.CaptureLLMResult {
@@ -799,7 +799,9 @@ func parseFunctionaryFormat(s string, format *XMLToolCallFormat) ([]FuncCallResu
 			// Parse JSON content as arguments
 			var args map[string]any
 			if err := json.Unmarshal([]byte(jsonContent), &args); err != nil {
-				xlog.Debug("error parsing Functionary JSON", "error", err, "content", jsonContent)
+				// The parser does not know the request, so the content is never
+				// logged: it can be the output of a zero-retention request.
+				xlog.Debug("error parsing Functionary JSON", "error", err, "content_len", len(jsonContent))
 				continue
 			}
 
@@ -964,7 +966,7 @@ func parseParameterValue(paramValue string, format *XMLToolCallFormat) any {
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
-	xlog.Debug("LLM result", "len", len(llmresult), "head", functionConfig.logText(truncForLog(llmresult)))
+	xlog.Debug("LLM result", "len", len(llmresult), "head", functionConfig.LogText(truncForLog(llmresult)))
 
 	for _, item := range functionConfig.ReplaceFunctionResults {
 		k, v := item.Key, item.Value
@@ -972,7 +974,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	xlog.Debug("LLM result(function cleanup)", "len", len(llmresult), "head", functionConfig.logText(truncForLog(llmresult)))
+	xlog.Debug("LLM result(function cleanup)", "len", len(llmresult), "head", functionConfig.LogText(truncForLog(llmresult)))
 
 	functionNameKey := defaultFunctionNameKey
 	functionArgumentsKey := defaultFunctionArgumentsKey
@@ -997,10 +999,10 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			ss, err := ParseJSON(s)
 			//err := json.Unmarshal([]byte(s), &ss)
 			if err != nil {
-				xlog.Debug("unable to unmarshal llm result in a single object or an array of JSON objects", "error", err, "escapedLLMResult", functionConfig.logText(s))
+				xlog.Debug("unable to unmarshal llm result in a single object or an array of JSON objects", "error", err, "escapedLLMResult", functionConfig.LogText(s))
 			}
 
-			xlog.Debug("Function return", "result", functionConfig.logText(s), "parsed", len(ss))
+			xlog.Debug("Function return", "result", functionConfig.LogText(s), "parsed", len(ss))
 
 			for _, s := range ss {
 				// The grammar defines the function name as "function", while OpenAI returns "name"
@@ -1026,7 +1028,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 					} else if functionConfig.AutomaticToolParsingFallback {
 						healed := map[string]string{"query": argsStr}
 						d, _ = json.Marshal(healed)
-						xlog.Debug("Automatic tool parsing fallback: wrapped raw string arguments", "raw", functionConfig.logText(argsStr))
+						xlog.Debug("Automatic tool parsing fallback: wrapped raw string arguments", "raw", functionConfig.LogText(argsStr))
 					} else {
 						d = []byte(argsStr)
 					}
