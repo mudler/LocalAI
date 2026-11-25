@@ -63,7 +63,7 @@ describe('electron-builder files list', () => {
 
   it('includes every module under src/main, src/preload and src/shared, imported or not yet', () => {
     // A module added now and imported later must not break only the packaged build.
-    const all = ['main', 'preload', 'shared'].flatMap((dir) =>
+    const all = ['core', 'main', 'preload', 'shared'].flatMap((dir) =>
       fs
         .readdirSync(path.join(root, 'src', dir))
         .filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'))
