@@ -108,6 +108,11 @@ android {
     lint {
         abortOnError = true
     }
+    sourceSets {
+        // The WebUI policy fixture the desktop tests use; the Kotlin port of the
+        // policy is checked against the same file (classpath resource webui-policy.json).
+        test.resources.srcDirs += ['../../../launcher/test/fixtures']
+    }
 }
 
 kotlin {
@@ -131,9 +136,20 @@ dependencies {
     if (p2pAar.exists()) {
         implementation files(p2pAar)
     }
+    // Every library the app's plugins use is declared here, once.
+    implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "com.journeyapps:zxing-android-embedded:$zxingEmbeddedVersion"
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "com.squareup.okhttp3:mockwebserver:$okhttpVersion"
+    testImplementation "com.squareup.okhttp3:okhttp-tls:$okhttpVersion"
+    // android.jar's org.json is a stub in JVM unit tests; this is the real one.
+    testImplementation "org.json:json:$orgJsonVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-web:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.test:runner:$androidxTestRunnerVersion"
+    androidTestImplementation "androidx.test:rules:$androidxTestRulesVersion"
     implementation project(':capacitor-cordova-android-plugins')
 }
 
