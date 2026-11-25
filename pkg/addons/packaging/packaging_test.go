@@ -1254,21 +1254,22 @@ var _ = Describe("workflow policy", func() {
 		anchor := "    name: validate package rules\n"
 		expect(mutate(anchor, anchor+"    continue-on-error: true\n"), "P_VALIDATE_GATE")
 		expect(mutate(anchor, anchor+"    continue-on-error: ${{ github.event_name != 'push' }}\n"), "P_VALIDATE_GATE")
-		expect(mutate(anchor, anchor+"    if: always()\n"), "P_VALIDATE_GATE")
-		expect(mutate(anchor, anchor+"    if: failure() || success()\n"), "P_VALIDATE_GATE")
+		cond := "    if: github.event_name != 'release'\n    runs-on: ubuntu-24.04\n    timeout-minutes: 20\n"
+		expect(mutate(cond, "    if: always()\n    runs-on: ubuntu-24.04\n    timeout-minutes: 20\n"), "P_VALIDATE_GATE")
+		expect(mutate(cond, "    if: failure() || success()\n    runs-on: ubuntu-24.04\n    timeout-minutes: 20\n"), "P_VALIDATE_GATE")
 		expect(mutate("        run: sh scripts/addons/package_test.sh", "        continue-on-error: true\n        run: sh scripts/addons/package_test.sh"), "P_VALIDATE_GATE")
 	})
 	It("rejects a package or promote job that runs after a failed validate", func() {
 		expect(mutate("    if: needs.plan.outputs.has_platforms == 'true'", "    if: always() && needs.plan.outputs.has_platforms == 'true'"), "P_VALIDATE_GATE")
 		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''"), "P_VALIDATE_GATE")
 	})
-	It("keeps validate unprivileged on every event", func() {
+	It("keeps validate unprivileged, and skips it only on the release event, which builds nothing", func() {
 		var doc struct {
 			Jobs map[string]map[string]any `yaml:"jobs"`
 		}
 		Expect(yaml.Unmarshal([]byte(base), &doc)).To(Succeed())
 		v := doc.Jobs["validate"]
-		Expect(v).NotTo(HaveKey("if"))
+		Expect(v["if"]).To(Equal("github.event_name != 'release'"))
 		Expect(v).NotTo(HaveKey("environment"))
 		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("secrets."))
 		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("id-token"))
@@ -1352,6 +1353,26 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a publishing job without an environment or a gate", func() {
 		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
+	})
+	It("rejects a build or publish job that runs on the release event", func() {
+		expect(mutate("    if: needs.plan.outputs.has_platforms == 'true' && github.event_name != 'release'", "    if: needs.plan.outputs.has_platforms == 'true'"), "P_RELEASE_BUILD")
+		expect(mutate("    if: needs.plan.outputs.publish == 'true' && github.event_name != 'release'\n    runs-on: ubuntu-24.04\n    timeout-minutes: 60", "    if: needs.plan.outputs.publish == 'true'\n    runs-on: ubuntu-24.04\n    timeout-minutes: 60"), "P_RELEASE_BUILD")
+		expect(mutate("    # The release event stamps no package, so it needs no guest image.\n    if: github.event_name != 'release'\n", ""), "P_RELEASE_BUILD")
+	})
+	It("rejects a release promotion that does not wait for a green tag push run of the same commit", func() {
+		expect(mutate("    needs: [plan, tag-run]\n    if: github.event_name == 'release' && needs.plan.outputs.publish", "    needs: [plan]\n    if: github.event_name == 'release' && needs.plan.outputs.publish"), "P_RELEASE_GATE")
+		expect(mutate(`select(.status == "completed" and .conclusion == "success")`, `select(.status == "completed")`), "P_RELEASE_GATE")
+		expect(mutate(`select(.headSha == \"$SHA\")`, `select(.headSha != \"\")`), "P_RELEASE_GATE")
+		expect(mutate("    if: github.event_name == 'release' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && github.event_name == 'release' && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
+		expect(mutate("    needs: [plan, tag-run]\n    if: github.event_name == 'release' && !github.event.release.draft", "    needs: [plan]\n    if: github.event_name == 'release' && !github.event.release.draft"), "P_RELEASE_GATE")
+	})
+	It("rejects a release promotion that does not verify the published index first", func() {
+		expect(mutate("          go run ./scripts/addons/cmd/addonpkg verify-published", "          go run ./scripts/addons/cmd/addonpkg target"), "P_SIGNER")
+		expect(mutate("            --owner-repo \"$OWNER_REPO\" | tee published.txt", "            | tee published.txt"), "P_SIGNER")
+		expect(mutate("      - name: Verify the index of the tag push\n", "      - uses: actions/download-artifact@v8\n        with:\n          name: digest-${{ matrix.addon }}\n      - name: Verify the index of the tag push\n"), "P_ARTIFACTS")
+		perms := "    permissions:\n      contents: read\n    strategy:\n      fail-fast: false\n      matrix:\n        addon: ${{ fromJSON(needs.plan.outputs.addons) }}\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n      ADDON: ${{ matrix.addon }}\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          persist-credentials: false"
+		Expect(strings.Count(base, perms)).To(Equal(1))
+		expect(mutate(perms, strings.Replace(perms, "      contents: read\n", "      contents: read\n      id-token: write\n", 1)), "P_SIGNER")
 	})
 	It("does not trust the backend workflow identity in the documented verification", func() {
 		Expect(strings.Contains(base, "backend_merge")).To(BeFalse())

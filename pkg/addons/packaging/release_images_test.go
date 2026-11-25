@@ -81,8 +81,6 @@ var _ = Describe("the sandbox guest image workflow", func() {
 			Concurrency map[string]any `yaml:"concurrency"`
 		}
 		Expect(yaml.Unmarshal([]byte(workflow), &doc)).To(Succeed())
-		// The release event waits in this workflow for the tag push; in one
-		// group with it, the tag push would queue behind the wait.
 		Expect(doc.Concurrency["group"]).To(ContainSubstring("github.event_name"))
 	})
 
@@ -186,15 +184,14 @@ var _ = Describe("the sandbox guest image workflow", func() {
 			Expect(r.out).To(HaveKeyWithValue("from_base", ""))
 		})
 
-		It("builds nothing for the release event and waits for the release tags", func() {
-			r := plan("true", "release", "refs/tags/v1.2.3", sha, nil, repo)
-			Expect(r.err).NotTo(HaveOccurred(), r.log)
-			Expect(r.out).To(HaveKeyWithValue("mode", "wait"))
-			for _, t := range []string{"base", "media", "office"} {
-				Expect(r.out).To(HaveKeyWithValue("build_"+t, "false"))
-			}
-			Expect(r.out).To(HaveKeyWithValue("tag_base", "v1.2.3"))
-			Expect(workflow).To(ContainSubstring("if: steps.plan.outputs.mode == 'wait'"))
+		It("refuses the release event, which builds no guest image", func() {
+			r := plan("true", "release", "refs/tags/v1.2.3", sha, shaTags, repo)
+			Expect(r.err).To(HaveOccurred())
+			Expect(r.log).To(ContainSubstring("the release event builds no guest image"))
+			Expect(r.out).NotTo(HaveKey("mode"))
+			// No step waits for the images of the tag push any more.
+			Expect(workflow).NotTo(ContainSubstring("mode == 'wait'"))
+			Expect(workflow).NotTo(ContainSubstring("Wait for the images of the tag push"))
 		})
 
 		It("refuses a manual run on a tag", func() {
@@ -220,27 +217,114 @@ var _ = Describe("the release runs of the add-on package workflow", func() {
 		workflow = string(b)
 	})
 
-	It("lets the release event adopt the index of the tag push and never publish first", func() {
+	type step struct {
+		Name string            `yaml:"name"`
+		ID   string            `yaml:"id"`
+		Uses string            `yaml:"uses"`
+		Run  string            `yaml:"run"`
+		With map[string]string `yaml:"with"`
+	}
+	type job struct {
+		If          string         `yaml:"if"`
+		Needs       []string       `yaml:"needs"`
+		Timeout     any            `yaml:"timeout-minutes"`
+		Concurrency map[string]any `yaml:"concurrency"`
+		Outputs     map[string]any `yaml:"outputs"`
+		Steps       []step         `yaml:"steps"`
+	}
+	parse := func() (doc struct {
+		Concurrency map[string]any `yaml:"concurrency"`
+		Jobs        map[string]job `yaml:"jobs"`
+	}) {
+		GinkgoHelper()
+		Expect(yaml.Unmarshal([]byte(workflow), &doc)).To(Succeed())
+		return doc
+	}
+
+	It("builds, checks and publishes nothing on the release event", func() {
+		doc := parse()
+		for _, n := range []string{"validate", "sandbox-image", "package", "publish"} {
+			Expect(doc.Jobs[n].If).To(ContainSubstring("github.event_name != 'release'"), "job %s runs on the release event", n)
+		}
+		// The publish leg no longer waits for another run: only a tag push
+		// or a master push publishes, and a re-run adopts its own first push.
 		script := workflowStepScript(workflow, "publish", "push")
-		wait := strings.Index(script, `if [ "$EVENT" = release ]; then`)
-		inspect := strings.Index(script, `imagetools inspect --raw "$target"`)
-		publish := strings.Index(script, "addonpkg publish")
-		Expect(wait).To(BeNumerically(">=", 0), "the push step does not wait on a release event")
-		Expect(inspect).To(BeNumerically(">", wait))
-		Expect(publish).To(BeNumerically(">", inspect), "the release event must wait before it publishes")
+		Expect(script).NotTo(ContainSubstring("EVENT"))
+		Expect(script).NotTo(ContainSubstring("waiting for the tag push"))
 		Expect(script).To(ContainSubstring("--adopt-existing"))
+		Expect(doc.Jobs["publish"].Timeout).To(Equal(60))
+		Expect(doc.Jobs["publish"].Concurrency["group"]).NotTo(ContainSubstring("github.event_name"))
+		// The release event waits for the tag push run, so the two runs of a
+		// release must not share the group of the workflow.
+		Expect(doc.Concurrency["group"]).To(ContainSubstring("github.event_name"))
 	})
 
-	It("keeps the publish legs of the two runs of a release in separate groups", func() {
-		var doc struct {
-			Jobs map[string]struct {
-				Concurrency map[string]any `yaml:"concurrency"`
-			} `yaml:"jobs"`
+	It("promotes on the release event the index the tag push published, after checking it in the registry", func() {
+		doc := parse()
+		pr := doc.Jobs["promote-release"]
+		Expect(pr.If).To(ContainSubstring("github.event_name == 'release'"))
+		Expect(pr.Needs).To(ConsistOf("plan", "tag-run"))
+		Expect(doc.Jobs["promote"].If).To(ContainSubstring("github.event_name != 'release'"))
+		verified, promoted := -1, -1
+		for i, st := range pr.Steps {
+			Expect(st.Uses).NotTo(HavePrefix("actions/download-artifact"), "the digest must come from the registry")
+			if strings.Contains(st.Run, "addonpkg verify-published") {
+				verified = i
+				Expect(st.Run).To(ContainSubstring(`--revision "$SHA"`))
+				Expect(st.Run).To(ContainSubstring(`--owner-repo "$OWNER_REPO"`))
+			}
+			if strings.Contains(st.Run, "addonpkg promote") {
+				promoted = i
+			}
 		}
-		Expect(yaml.Unmarshal([]byte(workflow), &doc)).To(Succeed())
-		// The release leg waits for the tag push leg to publish; in one group
-		// the tag push leg would be pending behind that wait.
-		Expect(doc.Jobs["publish"].Concurrency["group"]).To(ContainSubstring("github.event_name"))
+		Expect(verified).To(BeNumerically(">=", 0))
+		Expect(promoted).To(BeNumerically(">", verified))
+		Expect(workflowStepScript(workflow, "promote-release", "Move the aliases")).To(ContainSubstring("--digest \"$DIGEST\""))
+		// The catalog comes from the same green tag push run.
+		ri := doc.Jobs["release-index"]
+		Expect(ri.Needs).To(ContainElement("tag-run"))
+		Expect(workflowStepScript(workflow, "release-index", "Download the release index of the tag push run")).To(ContainSubstring(`gh run download "$RUN"`))
+		Expect(doc.Jobs["tag-run"].Outputs).To(HaveKey("run"))
+	})
+
+	Describe("the wait for the tag push run", func() {
+		const sha = "0123456789abcdef0123456789abcdef01234567"
+		// fakeGh answers `gh run list ... --jq <expr>` from FAKE_RUNS.
+		const fakeGh = `#!/bin/sh
+expr=
+while [ $# -gt 0 ]; do
+  [ "$1" = --jq ] && expr=$2
+  shift
+done
+printf '%s' "$FAKE_RUNS" | jq -c "$expr"
+`
+		find := func(runs string) (string, string, error) {
+			GinkgoHelper()
+			dir := GinkgoT().TempDir()
+			bin := filepath.Join(dir, "bin")
+			Expect(os.MkdirAll(bin, 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(bin, "gh"), []byte(fakeGh), 0o755)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(bin, "sleep"), []byte("#!/bin/sh\nexit 0\n"), 0o755)).To(Succeed())
+			output := filepath.Join(dir, "out")
+			Expect(os.WriteFile(output, nil, 0o644)).To(Succeed())
+			cmd := exec.Command("sh", "-c", workflowStepScript(workflow, "tag-run", "find"))
+			cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+				"TAG=v1.2.3", "SHA="+sha, "GITHUB_OUTPUT="+output, "FAKE_RUNS="+runs)
+			log, err := cmd.CombinedOutput()
+			b, rerr := os.ReadFile(output)
+			Expect(rerr).NotTo(HaveOccurred())
+			return string(b), string(log), err
+		}
+		It("takes only a successful run of the same commit", func() {
+			if _, err := exec.LookPath("jq"); err != nil {
+				Skip("jq is not installed")
+			}
+			out, log, err := find(`[{"databaseId":1,"headSha":"ffffffffffffffffffffffffffffffffffffffff","status":"completed","conclusion":"success"},` +
+				`{"databaseId":2,"headSha":"` + sha + `","status":"completed","conclusion":"failure"},` +
+				`{"databaseId":3,"headSha":"` + sha + `","status":"completed","conclusion":"success"}]`)
+			Expect(err).NotTo(HaveOccurred(), log)
+			Expect(out).To(Equal("run=3\n"))
+		})
 	})
 
 	It("pins the release catalog to the digests in the registry", func() {

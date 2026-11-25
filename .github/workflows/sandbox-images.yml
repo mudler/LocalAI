@@ -24,7 +24,9 @@ name: 'sandbox guest image'
 #   workflow_call         as the event of the caller: build and push, tag
 #                         sha-<sha>, except for a pull request and for a
 #                         push to a branch other than master, which push nothing,
-#                         and for a v<semver> tag and its release (below)
+#                         and for a v<semver> tag (below); a caller's release
+#                         event is refused: the release event of a release
+#                         builds nothing and needs no guest image
 #
 # The repository of the base image is quay.io/go-skynet/sandbox-guest unless
 # the repository variable SANDBOX_GUEST_REPOSITORY names another one. The media
@@ -52,9 +54,8 @@ name: 'sandbox guest image'
 #     a release tag that exists; else it gives the release tag to the image
 #     of sha-<sha> when that exists (no build); else it builds and pushes the
 #     release tag only. A release tag is written once and never pushed again.
-#   - The release event of that tag builds and pushes nothing. It waits for
-#     the three release tags of the tag push and outputs their digests, so the
-#     two runs of a release stamp the same images.
+#   - The release event of that tag does not call this workflow. A run for a
+#     release event fails, so it can never build a second set of images.
 
 on:
   workflow_call:
@@ -89,10 +90,8 @@ permissions:
 # caller, so the run of this file and the run that add-on packages calls for
 # the same pull request do not cancel each other.
 concurrency:
-  # The event name keeps the runs of one commit apart: the release event waits
-  # in this workflow for the images of the tag push, so it must not hold the
-  # group of the tag push (or of a master run) while it waits. The job group
-  # below serializes the runs that push sha-<sha> tags.
+  # The event name keeps the runs of different events of one commit apart. The
+  # job group below serializes the runs that push sha-<sha> tags.
   group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
@@ -167,6 +166,12 @@ jobs:
             echo "run this workflow by hand on a branch, not on the tag ${REF#refs/tags/}" >&2
             exit 1
           fi
+          if [ "$EVENT" = release ]; then
+            # The tag push run of a release builds and names its images; the
+            # release event stamps no package and must not build them again.
+            echo "the release event builds no guest image; the tag push run of ${REF#refs/tags/} does" >&2
+            exit 1
+          fi
           case "$REF" in
           refs/tags/v*)
             release=${REF#refs/tags/}
@@ -177,8 +182,6 @@ jobs:
           esac
           if [ "$PUSH" != true ]; then
             mode=local
-          elif [ -n "$release" ] && [ "$EVENT" = release ]; then
-            mode=wait
           elif [ -n "$release" ]; then
             mode=release
           else
@@ -220,35 +223,12 @@ jobs:
                 fi
               fi
               ;;
-            wait)
-              # The tag push of this release pushes the release tags.
-              tag="${prefix}${release}"
-              ;;
             esac
             {
               echo "tag_${t}=${tag}"
               echo "build_${t}=${build}"
               echo "from_${t}=${from}"
             } >> "$GITHUB_OUTPUT"
-          done
-      - name: Wait for the images of the tag push
-        if: steps.plan.outputs.mode == 'wait'
-        env:
-          TAG: ${{ steps.plan.outputs.tag_base }}
-          TAG_MEDIA: ${{ steps.plan.outputs.tag_media }}
-          TAG_OFFICE: ${{ steps.plan.outputs.tag_office }}
-        run: |
-          set -eu
-          # The release event starts with the tag push, often before the tag
-          # push has pushed its images. It never builds them itself: a second
-          # build would differ and the two runs would stamp different images.
-          deadline=$(( $(date +%s) + 240 * 60 ))
-          for tag in "$TAG" "$TAG_MEDIA" "$TAG_OFFICE"; do
-            until docker buildx imagetools inspect "${REPOSITORY}:${tag}" > /dev/null 2>&1; do
-              [ "$(date +%s)" -lt "$deadline" ] || { echo "timed out waiting for ${REPOSITORY}:${tag} from the tag push run" >&2; exit 1; }
-              echo "waiting for ${REPOSITORY}:${tag}"
-              sleep 60
-            done
           done
       - name: Free disk space
         if: steps.plan.outputs.build_base == 'true' || steps.plan.outputs.build_media == 'true' || steps.plan.outputs.build_office == 'true'
