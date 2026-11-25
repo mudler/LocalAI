@@ -3,6 +3,7 @@ dist/
 out/
 native/**/build/
 native/.gradle/
+native/.kotlin/
 native/local.properties
 native/app/src/main/assets/public/
 native/app/src/main/assets/capacitor.config.json
