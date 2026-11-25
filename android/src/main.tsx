@@ -9,7 +9,7 @@ import '@launcher/renderer/styles'
 import './mobile.css'
 import { IME_CLASS, installMobileShell, onKeyboardChange } from './mobileShell'
 import { createAndroidBridge, idleUpdater } from './bridge/androidBridge'
-import { ClientCore, NO_P2P } from './core/clientCore'
+import { ClientCore } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
 import { startLifecycle } from './lifecycle'
 import { AppLinks, NativeHttp, P2P, Scanner, WebuiView } from './plugins'
@@ -33,7 +33,7 @@ async function main(): Promise<void> {
     // A WebView fetch cannot read a cross-origin answer or a TLS error.
     ...nativeServerChecks(NativeHttp),
     webui: WebuiView,
-    p2p: NO_P2P,
+    p2p: P2P,
     openExternal: (url) => Browser.open({ url }),
     now: () => Date.now(),
     randomBytes: webRandomBytes,

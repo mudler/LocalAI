@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
 package io.localai.client.p2p
 
+import android.Manifest
+import android.content.Context
 import android.os.Build
 import android.os.SystemClock
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
+import com.getcapacitor.PermissionState
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import io.localai.client.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
@@ -18,7 +23,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /** P2P pairing and forwarders over the gomobile library (contract: P2PPlugin in src/plugins/definitions.ts). */
-@CapacitorPlugin(name = "P2P")
+@CapacitorPlugin(
+    name = "P2P",
+    permissions = [Permission(alias = P2PPlugin.NOTIFICATIONS, strings = [Manifest.permission.POST_NOTIFICATIONS])],
+)
 class P2PPlugin : Plugin() {
     // Pairing blocks for up to two minutes; it must not hold up other calls.
     private val work: ExecutorService = Executors.newCachedThreadPool()
@@ -28,13 +36,20 @@ class P2PPlugin : Plugin() {
         notifyListeners("forwardState", JSObject().put("id", id).put("line", line), true)
     }
 
+    private val keepListener: (Boolean) -> Unit = { on ->
+        // Retained too: Disconnect is often tapped while the app is in the background.
+        notifyListeners("keepInBackground", JSObject().put("on", on), true)
+    }
+
     override fun load() {
         P2PRuntime.init(context)
         P2PRuntime.addListener(stateListener)
+        P2PRuntime.addKeepListener(keepListener)
     }
 
     override fun handleOnDestroy() {
         P2PRuntime.removeListener(stateListener)
+        P2PRuntime.removeKeepListener(keepListener)
         work.shutdown()
     }
 
@@ -129,6 +144,35 @@ class P2PPlugin : Plugin() {
         call.resolve()
     }
 
+    @PluginMethod
+    fun keepInBackground(call: PluginCall) {
+        call.resolve(JSObject().put("on", P2PRuntime.keepInBackground()))
+    }
+
+    /**
+     * The service notification (with its Disconnect action) needs
+     * POST_NOTIFICATIONS on Android 13+. Called when a P2P server is added;
+     * the system dialog comes at most once per install.
+     */
+    @PluginMethod
+    fun requestNotifications(call: PluginCall) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val granted = Build.VERSION.SDK_INT < NOTIFICATIONS_RUNTIME_SDK || getPermissionState(NOTIFICATIONS) == PermissionState.GRANTED
+        when (notificationAsk(Build.VERSION.SDK_INT, granted, prefs.getBoolean(KEY_ASKED, false))) {
+            NotificationAsk.GRANTED -> call.resolve(JSObject().put("granted", true))
+            NotificationAsk.DENIED -> call.resolve(JSObject().put("granted", false))
+            NotificationAsk.ASK -> {
+                prefs.edit().putBoolean(KEY_ASKED, true).apply()
+                requestPermissionForAlias(NOTIFICATIONS, call, "notificationsPermission")
+            }
+        }
+    }
+
+    @PermissionCallback
+    private fun notificationsPermission(call: PluginCall) {
+        call.resolve(JSObject().put("granted", getPermissionState(NOTIFICATIONS) == PermissionState.GRANTED))
+    }
+
     private fun statesObject(states: Map<String, String>): JSObject {
         val arr = JSArray()
         for ((id, line) in states) arr.put(JSObject().put("id", id).put("line", line))
@@ -156,8 +200,11 @@ class P2PPlugin : Plugin() {
 
     private fun defaultDeviceName() = "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(60)
 
-    private companion object {
-        const val RESTART_WAIT_MS = 3_000L
+    companion object {
+        const val NOTIFICATIONS = "notifications"
+        private const val RESTART_WAIT_MS = 3_000L
+        private const val PREFS = "p2p_plugin"
+        private const val KEY_ASKED = "notifications_asked"
     }
 }
 

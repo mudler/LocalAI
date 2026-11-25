@@ -47,8 +47,21 @@ export interface P2PPlugin {
   setForwards(o: { forwards: P2PForwardInput[] }): Promise<void>
   statuses(): Promise<{ states: { id: string; line: string }[] }>
   setKeepInBackground(o: { on: boolean }): Promise<void>
-  /** `line` is the facade's raw JSON line; map it with `parseForwardState`. */
+  /** The saved "keep P2P in the background" setting. The notification's Disconnect turns it off. */
+  keepInBackground(): Promise<{ on: boolean }>
+  /**
+   * Asks for POST_NOTIFICATIONS (Android 13+) so the service notification
+   * and its Disconnect action show. The system dialog comes at most once per
+   * install; later calls only answer the current state.
+   */
+  requestNotifications(): Promise<{ granted: boolean }>
+  /**
+   * `line` is the raw JSON line: the facade's `ready`, `up`, `down`,
+   * `closed`, and the supervisor's `starting` and `failed` (with `error`).
+   */
   addListener(e: 'forwardState', cb: (x: { id: string; line: string }) => void): Promise<PluginListenerHandle>
+  /** The setting changed natively (the notification's Disconnect). */
+  addListener(e: 'keepInBackground', cb: (x: { on: boolean }) => void): Promise<PluginListenerHandle>
 }
 
 export interface UpdaterPlugin {

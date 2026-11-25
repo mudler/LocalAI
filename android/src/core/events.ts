@@ -9,3 +9,5 @@ export type ClientEvent =
   | { kind: 'updater'; status: UpdaterStatus }
   | { kind: 'statusBar'; visible: boolean }
   | { kind: 'openSwitcher' }
+  /** "Keep P2P connection in the background" changed, for example by the notification's Disconnect. */
+  | { kind: 'p2pKeep'; on: boolean }
