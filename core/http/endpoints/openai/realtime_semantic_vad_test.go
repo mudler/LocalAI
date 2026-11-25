@@ -233,6 +233,20 @@ var _ = Describe("liveTurnState", func() {
 		It("is a no-op without an open stream", func() {
 			Expect(lts.finishTurn(1.0)).To(BeNil())
 		})
+
+		It("returns nil when the stream ended before its final transcript", func() {
+			// The live decode fell behind real time: only the first words
+			// of the turn were decoded when Close gave up on the backlog.
+			m.liveCloseErr = backend.ErrLiveTranscriptIncomplete
+			Expect(lts.openTurn(context.Background(), "item1")).To(BeTrue())
+			m.liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "the start of"})
+			lts.drainEvents(1.0)
+
+			Expect(lts.finishTurn(8.0)).To(BeNil(),
+				"a partial live transcript must not stand in for the whole turn")
+			Expect(lts.open()).To(BeFalse())
+			Expect(lts.parts).To(BeEmpty())
+		})
 	})
 
 	Describe("discardTurn", func() {
