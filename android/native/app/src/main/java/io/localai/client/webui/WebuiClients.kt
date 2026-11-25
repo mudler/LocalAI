@@ -142,12 +142,34 @@ internal class WebuiChromeClient(private val host: WebuiHost) : WebChromeClient(
         host.showFileChooser(callback, params)
 }
 
-/** The client of a window catcher: takes the first URL, loads nothing. */
-internal class WindowCatcherClient(private val onUrl: (String) -> Unit) : WebViewClient() {
+/**
+ * The life of one window catcher: the first URL goes to `onUrl`, and the
+ * catcher is released exactly once, after its URL or when it expires.
+ * `release` must not use View.post: the catcher is never attached to a
+ * window, so a runnable posted on it would never run.
+ */
+internal class CatcherOnce(private val onUrl: (String) -> Unit, private val release: () -> Unit) {
     private var done = false
 
+    fun take(url: String) {
+        if (done) return
+        done = true
+        onUrl(url)
+        release()
+    }
+
+    /** A catcher that never saw a URL (window.open() with none). */
+    fun expire() {
+        if (done) return
+        done = true
+        release()
+    }
+}
+
+/** The client of a window catcher: takes the first URL, loads nothing. */
+internal class WindowCatcherClient(private val once: CatcherOnce) : WebViewClient() {
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-        take(view, request.url.toString())
+        once.take(request.url.toString())
         return true
     }
 
@@ -157,20 +179,6 @@ internal class WindowCatcherClient(private val onUrl: (String) -> Unit) : WebVie
         // A navigation shouldOverrideUrlLoading did not see (a form post): read
         // its URL and stop; shouldInterceptRequest refuses the request itself.
         view.stopLoading()
-        if (url != null && url != "about:blank") take(view, url)
-    }
-
-    /** Destroys a catcher that never saw a URL (window.open() with none). */
-    fun expire(view: WebView) {
-        if (done) return
-        done = true
-        view.destroy()
-    }
-
-    private fun take(view: WebView, url: String) {
-        if (done) return
-        done = true
-        onUrl(url)
-        view.post { view.destroy() }
+        if (url != null && url != "about:blank") once.take(url)
     }
 }

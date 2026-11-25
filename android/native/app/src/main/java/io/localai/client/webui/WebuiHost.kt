@@ -13,6 +13,8 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
@@ -67,6 +69,7 @@ class WebuiHost(
     private val shell: View? = null,
 ) {
     private val permissions = PermissionStoreHolder()
+    private val main = Handler(Looper.getMainLooper())
 
     private var webView: WebView? = null
 
@@ -371,9 +374,15 @@ class WebuiHost(
             // A popup must live in the profile of its opener.
             Profiles.apply(catcher, p)
             lockSettings(catcher.settings, javaScript = false)
-            val client = WindowCatcherClient { url -> routeWindowOpen(url) }
-            catcher.webViewClient = client
-            catcher.postDelayed({ client.expire(catcher) }, CATCHER_TIMEOUT_MS)
+            // The main looper, not catcher.post: a view never attached to a
+            // window keeps its posted runnables until it is attached, so they
+            // would never run and every catcher would leak.
+            val once = CatcherOnce(
+                onUrl = { url -> routeWindowOpen(url) },
+                release = { main.post { catcher.destroy() } },
+            )
+            catcher.webViewClient = WindowCatcherClient(once)
+            main.postDelayed({ once.expire() }, CATCHER_TIMEOUT_MS)
             catcher
         } catch (e: RuntimeException) {
             Log.w(TAG, "cannot create a window catcher", e)
