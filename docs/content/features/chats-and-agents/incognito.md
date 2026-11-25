@@ -44,7 +44,7 @@ Everything of **Memory off**, and also:
 | Chat store | The transcript is kept only in the memory of the server, until the chat ends. |
 | Traces | No API trace and no backend trace is recorded. |
 | Usage | The usage row keeps user, model, token counts and time, with the `incognito` flag. It has no response metadata. Quotas and usage reports keep working. |
-| Logs | The lines that print prompts, messages, tool arguments and answers show `[redacted: zero-retention]`, at every log level. |
+| Logs | The lines that print prompts, messages, tool arguments and answers show `[redacted: zero-retention]`, at every log level. While the request runs on a backend, the server writes `[redacted: zero-retention request in progress]` in place of each line of that backend's output, in its log and in the backend logs page. |
 | Router cache | The embedding cache of a router model is read but gets no new entry. |
 | Open Responses | The response is not stored. `previous_response_id` is refused: send the whole conversation instead. |
 | Prompt cache | The `prompt_cache_path` of the model is not read or written for this request, and the backend is told not to keep any prompt cache on disk. |
@@ -55,7 +55,7 @@ Everything of **Memory off**, and also:
 ## What incognito does not cover
 
 - **The model's memory in RAM.** A loaded model keeps a cache of recent prompts in RAM (the KV cache) to answer faster. It is not written to disk and it ends with the backend process, but until then it holds the prompt. Incognito does not clear it.
-- **The output of a backend process.** A backend can print what it receives to its own output, for example with a verbose or debug setting. LocalAI keeps the last lines of that output in memory for the backend logs page, and prints them in debug mode. Do not run backends in verbose mode if zero retention matters to you.
+- **The output file of a backend process.** A backend can print what it receives, for example with a verbose or debug setting. The server hides those lines from its log and from the backend logs page while the request runs, but the backend writes them to an output file in its own temporary folder first, and that file is deleted only when the backend stops. In distributed mode the backends run on the worker nodes, whose logs the frontend does not control. Do not run backends in verbose mode if zero retention matters to you.
 - **External services.** Web search and web fetch send your query to the search provider or the site. A remote model (a cloud proxy) sends the conversation to its provider. What they keep is up to them.
 - **Your browser and your network.** Incognito does not hide the chat from someone who can see your screen or your network.
 - **Explicit saves.** Enrolling a voice or a face, uploading to a collection or saving an agent happen on their own pages, which are not incognito.
