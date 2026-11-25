@@ -78,7 +78,14 @@ export interface RemoteServersDeps {
   localRow(c: LauncherConfig): ServerRowView | undefined
   /** Desktop: today's first-run rule. */
   firstRun(c: LauncherConfig): boolean
-  /** The default became LOCAL_TARGET (remove, cancel, switch). Desktop: openLocal. */
+  /**
+   * The default became LOCAL_TARGET. Before this call, RemoteServers has
+   * already stopped the remote monitor and dispatched `back-to-local`. The
+   * callback only does the caller's own part (desktop: prepare and start the
+   * local server). It runs when the default server is removed, on a switch to
+   * LOCAL_TARGET, and when a cancelled switch goes back to local. A
+   * client-only app must cope with `back-to-local` and no local origin.
+   */
   onLocalDefault(): Promise<void>
   /** A switch to a remote finished (page loaded, or no page). Desktop: stop the local server when it is not managed. */
   onSwitchFinished(): Promise<void>
@@ -315,8 +322,10 @@ export class RemoteServers {
 
   private startTunnel(r: RemoteServer): boolean {
     if (!r.p2p) return false
-    this.d.p2p.start(r.id, r.name, r.p2p)
+    // Record the id first: a start that throws may still have left a
+    // forwarder behind, and stopAll must stop it.
     this.tunnelIds.add(r.id)
+    this.d.p2p.start(r.id, r.name, r.p2p)
     return true
   }
 

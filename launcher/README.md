@@ -211,9 +211,10 @@ build, for the server and for the launcher itself:
 
 - Where it comes from: the `dev-master` pre-release of the LocalAI
   repository, with `local-ai-master-<os>-<arch>` and a `.sha256` file for each
-  platform. All names are in `src/main/devFeed.ts` and `src/core/devFeed.ts`
-(the release tag and the build id in the release text); the fake release server in
-  `scripts/fake-release-server.mjs` serves the same names for tests.
+  platform. The file names and the feed URL are in `src/main/devFeed.ts`.
+  The release tag and the build id parser are in `src/core/devFeed.ts`. The
+  fake release server in `scripts/fake-release-server.mjs` serves the same
+  names for tests.
 - The same fail-closed checksum check and atomic swap as a release. "Newer"
   means a different build id (the short commit sha from the release text),
   not a higher version. The previous binary stays as `local-ai.previous`,

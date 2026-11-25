@@ -162,6 +162,39 @@ describe('RemoteServers with no local server', () => {
     expect(r.p2p.starts).toHaveLength(1)
   })
 
+  it('removing a server over P2P stops its forwarder', async () => {
+    const r = await rig()
+    const res = await r.servers.addServerByInvite({ link: invite() })
+    if (!res.ok) throw new Error('add failed')
+    await r.servers.removeServer(res.id)
+    expect(r.p2p.stops).toEqual([res.id])
+  })
+
+  it('stopAll stops every started forwarder once', async () => {
+    const r = await rig()
+    const res = await r.servers.addServerByInvite({ link: invite() })
+    if (!res.ok) throw new Error('add failed')
+    r.servers.stopAll()
+    const started = [...new Set(r.p2p.starts.map((s) => s.id))]
+    expect(started).toEqual([res.id])
+    expect([...r.p2p.stops].sort()).toEqual([...started].sort())
+    r.servers.stopAll()
+    expect(r.p2p.stops).toEqual([res.id])
+  })
+
+  it('stopAll stops a forwarder whose start threw', async () => {
+    const r = await rig()
+    r.p2p.start = (id, name, target) => {
+      r.p2p.starts.push({ id, name, target })
+      throw new Error('spawn failed')
+    }
+    await expect(r.servers.addServerByInvite({ link: invite() })).rejects.toThrow('spawn failed')
+    const saved = remotes(r.store.get())[0]
+    expect(r.p2p.starts.map((s) => s.id)).toEqual([saved.id])
+    r.servers.stopAll()
+    expect(r.p2p.stops).toEqual([saved.id])
+  })
+
   it('a failed check keeps the default', async () => {
     let fail = false
     const r = await rig({ check: async () => (fail ? { status: 'unreachable', reason: 'refused' } : { status: 'ok', secure: true }) })

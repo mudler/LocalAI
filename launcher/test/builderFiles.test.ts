@@ -61,7 +61,7 @@ describe('electron-builder files list', () => {
     expect(missingFrom(narrowed)).toContain('dist/node/main/supervisor.js')
   })
 
-  it('includes every module under src/main, src/preload and src/shared, imported or not yet', () => {
+  it('includes every module under src/core, src/main, src/preload and src/shared, imported or not yet', () => {
     // A module added now and imported later must not break only the packaged build.
     const all = ['core', 'main', 'preload', 'shared'].flatMap((dir) =>
       fs
