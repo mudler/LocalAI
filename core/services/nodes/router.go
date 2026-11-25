@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -394,8 +395,11 @@ func applyNodeHardwareDefaults(opts *pb.ModelOptions, node *BackendNode, backend
 //
 // scheduleNewModel allocates the replica index internally so the worker's
 // processKey, port, and the registry row all agree.
+//
+// restrictTo, when non-empty, limits the nodes the replica may go to (see
+// scheduleNewModel).
 func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, trackingKey, modelName string,
-	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int) (*scheduleLoadResult, error) {
+	configRevision string, modelOpts *pb.ModelOptions, parallel bool, initialInFlight int, restrictTo []string) (*scheduleLoadResult, error) {
 
 	// With a database every cold load runs under a job row. Mark the path so a
 	// registry write that lost its ownership value is refused, not waved through.
@@ -403,7 +407,7 @@ func (r *SmartRouter) scheduleAndLoad(ctx context.Context, backendType, tracking
 		ctx = withLoadPath(ctx)
 	}
 
-	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts)
+	node, backendAddr, replicaIndex, err := r.scheduleNewModel(ctx, backendType, trackingKey, modelOpts, restrictTo)
 	if err != nil {
 		return nil, fmt.Errorf("no available nodes: %w", err)
 	}
@@ -668,6 +672,11 @@ func (r *SmartRouter) reapAbandonedLoad(node *BackendNode, trackingKey string, r
 // ScheduleAndLoadModel implements ModelScheduler for the reconciler.
 // It retrieves stored model options from an existing replica and performs the
 // full load sequence (stage files, LoadModel, SetNodeModel) on a new node.
+//
+// A non-empty candidateNodeIDs restricts the new replica to those nodes, on
+// top of the model's own selector. The reconciler counts replicas only on the
+// nodes it passes here, so a replica placed anywhere else would not count and
+// the floor would never be met.
 func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string, candidateNodeIDs []string) (*BackendNode, error) {
 	// Get load info from an existing replica (stored when Route() first loaded the model)
 	backendType, revision, optsBlob, err := r.registry.GetModelLoadInfoRevision(ctx, modelName)
@@ -703,7 +712,7 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 	err = r.runLoadOwner(ctx, job.Ref(), func(ownerCtx context.Context) error {
 		// initialInFlight=0: reconciler is pre-loading, not serving a request.
 		// scheduleAndLoad picks both the node and the replica slot internally.
-		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0)
+		result, err := r.scheduleAndLoad(ownerCtx, backendType, modelName, modelName, revision, &modelOpts, false, 0, candidateNodeIDs)
 		if err != nil {
 			return err
 		}
@@ -925,7 +934,7 @@ func (r *SmartRouter) tryWarmPath(ctx context.Context, att *routeAttempt) *Route
 // the replica it landed on. initialInFlight reserves the slot for the calling
 // request; the job runner passes 0 because it is loading on nobody's behalf.
 func (r *SmartRouter) coldLoad(ctx context.Context, att *routeAttempt, initialInFlight int) (*RouteResult, error) {
-	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.configRevision, att.modelOpts, att.parallel, initialInFlight)
+	result, err := r.scheduleAndLoad(ctx, att.backendType, att.trackingKey, att.modelName, att.configRevision, att.modelOpts, att.parallel, initialInFlight, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1113,6 +1122,21 @@ func (r *SmartRouter) resolveSelectorCandidates(ctx context.Context, modelID str
 	return extractNodeIDs(candidates), nil
 }
 
+// restrictCandidates narrows a candidate set to the nodes in allowed. A nil
+// candidates means "any healthy node", so the result is allowed itself.
+func restrictCandidates(candidates, allowed []string) []string {
+	if candidates == nil {
+		return slices.Clone(allowed)
+	}
+	out := []string{}
+	for _, id := range candidates {
+		if slices.Contains(allowed, id) {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // narrowByGroupAntiAffinity removes candidate nodes that already host a model
 // declared as concurrent-conflicting with modelID via concurrency_groups
 // (#9659). This is a soft filter: when *every* candidate would be excluded,
@@ -1207,7 +1231,10 @@ func (r *SmartRouter) nodeMatchesScheduling(ctx context.Context, node *BackendNo
 // Returns (node, gRPC address, replicaIndex, err). replicaIndex is the slot
 // the worker has been told to use; the caller must pass the same index into
 // SetNodeModel so the registry row matches the live process.
-func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions) (*BackendNode, string, int, error) {
+//
+// restrictTo, when non-empty, narrows the candidates to those nodes. When no
+// node is left after that, it fails instead of falling back to any node.
+func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID string, modelOpts *pb.ModelOptions, restrictTo []string) (*BackendNode, string, int, error) {
 	// Estimate VRAM required for the model
 	var estimatedVRAM uint64
 	if modelOpts != nil {
@@ -1221,6 +1248,12 @@ func (r *SmartRouter) scheduleNewModel(ctx context.Context, backendType, modelID
 	candidateNodeIDs, err := r.resolveSelectorCandidates(ctx, modelID, sched)
 	if err != nil {
 		return nil, "", 0, err
+	}
+	if len(restrictTo) > 0 {
+		candidateNodeIDs = restrictCandidates(candidateNodeIDs, restrictTo)
+		if len(candidateNodeIDs) == 0 {
+			return nil, "", 0, fmt.Errorf("none of the requested nodes match the scheduling rule of %s: %w", modelID, ErrNoAvailableNodes)
+		}
 	}
 	if candidateNodeIDs, err = r.narrowByRoutable(ctx, modelID, candidateNodeIDs); err != nil {
 		return nil, "", 0, err

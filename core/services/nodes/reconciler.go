@@ -980,7 +980,12 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 		return
 	}
 
-	current, err := rc.registry.CountLoadedReplicas(ctx, target)
+	// Only replicas on nodes the rule selects count. The router places and
+	// routes the model by the same selector, so a replica elsewhere serves no
+	// request of this rule and must not hold its floor. Such a replica is left
+	// alone here: it is neither counted, trimmed nor moved.
+	selector := parseSelector(cfg.NodeSelector)
+	current, err := rc.registry.CountLoadedReplicasMatching(ctx, target, selector)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to count replicas", "model", target, "error", err)
 		return
@@ -1041,7 +1046,7 @@ func (rc *ReplicaReconciler) reconcileModel(ctx context.Context, cfg ModelSchedu
 
 	// 2. Auto-scale up if all replicas are busy
 	if current > 0 && (cfg.MaxReplicas == 0 || int(current) < cfg.MaxReplicas) {
-		if rc.allReplicasBusy(ctx, target) {
+		if rc.allReplicasBusy(ctx, target, selector) {
 			candidateNodeIDs, selectorMatched := rc.candidateNodeIDsForSelector(ctx, cfg)
 			if !selectorMatched {
 				return
@@ -1206,6 +1211,9 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 // exempt entirely: `pinned: true` promises the operator the model stays
 // resident, and trimming to a floor of one still means every request beyond
 // the survivor's capacity pays a cold reload (#11101).
+//
+// Only replicas on nodes that match the rule's selector are considered: that
+// is the set reconcileModel counted.
 func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedulingConfig, current, floor int) {
 	if rc.unloader == nil {
 		return
@@ -1220,9 +1228,11 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// highest-indexed replicas first so subsequent scale-ups can reuse the
 	// low indexes via NextFreeReplicaIndex, keeping slot allocation compact
 	// and matching the worker supervisor's port-recycling behavior.
+	selector := parseSelector(cfg.NodeSelector)
 	cutoff := time.Now().Add(-rc.scaleDownDelay)
 	var idleModels []NodeModel
 	currentModelRevision(rc.registry.db.WithContext(ctx)).
+		Scopes(onNodesMatching(selector)).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0 AND node_models.last_used < ?",
 			cfg.Target(), "loaded", cutoff).
 		Order("replica_index DESC, last_used ASC").
@@ -1236,6 +1246,7 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	// remains.
 	var idleLoaded int64
 	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+		Scopes(onNodesMatching(selector)).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", cfg.Target(), "loaded").
 		Count(&idleLoaded)
 
@@ -1261,10 +1272,13 @@ func (rc *ReplicaReconciler) scaleDownIdle(ctx context.Context, cfg ModelSchedul
 	}
 }
 
-// allReplicasBusy returns true if all loaded replicas of a model have in-flight requests.
-func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName string) bool {
+// allReplicasBusy returns true if all loaded replicas of a model on nodes that
+// match selector have in-flight requests. An idle replica on another node gets
+// no traffic from the router, so it does not make the model less busy.
+func (rc *ReplicaReconciler) allReplicasBusy(ctx context.Context, modelName string, selector map[string]string) bool {
 	var idleCount int64
 	currentModelRevision(rc.registry.db.WithContext(ctx).Model(&NodeModel{})).
+		Scopes(onNodesMatching(selector)).
 		Where("node_models.model_name = ? AND node_models.state = ? AND node_models.in_flight = 0", modelName, "loaded").
 		Count(&idleCount)
 	return idleCount == 0

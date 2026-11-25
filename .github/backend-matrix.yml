@@ -1251,6 +1251,11 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-cuda-13-arm64-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-cuda-13-arm64'
+    # llama.cpp's default CUDA 13 list has no Thor (sm_110) kernels, so the
+    # driver JIT-compiles the compute_90 PTX on the first request after every
+    # start and runs slower afterwards. This is that default list plus 110-real;
+    # 121a-real stays for DGX Spark (GB10), which uses the same image.
+    cuda-docker-arch: '75-virtual;80-virtual;86-real;89-real;90-virtual;103-real;110-real;120a-real;121a-real'
     base-image: "ubuntu:24.04"
     runs-on: 'ubuntu-24.04-arm'
     ubuntu-version: '2404'
@@ -3442,6 +3447,10 @@ include:
     tag-latest: 'auto'
     tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
     builder-base-image: 'quay.io/go-skynet/ci-cache:base-grpc-l4t-cuda-12-arm64'
+    # llama.cpp's default CUDA 12 list has no Orin (sm_87) kernels; the sm_86
+    # code runs there but is not built for it. This is that default list for
+    # CUDA 12.6 (JetPack 6) plus 87-real.
+    cuda-docker-arch: '50-virtual;61-virtual;70-virtual;75-virtual;80-virtual;86-real;87-real;89-real;90-virtual'
     base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
     runs-on: 'ubuntu-24.04-arm'
     backend: "llama-cpp"
