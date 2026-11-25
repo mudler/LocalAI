@@ -5,6 +5,9 @@ import type { Bridge } from '@launcher/renderer/bridge'
 import { App } from '@launcher/renderer/App'
 import '@launcher/renderer/styles'
 import './mobile.css'
+import { installMobileShell } from './mobileShell'
+
+installMobileShell(window)
 
 // Placeholder until the client bridge exists: every core method fails loudly.
 const unwired = Object.fromEntries(
