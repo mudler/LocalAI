@@ -42,7 +42,7 @@ function build(): WebuiPolicyFixture {
 
 /** 2-space JSON with every character outside printable ASCII escaped, so bidi and control characters stay visible in a diff. */
 function serialize(f: WebuiPolicyFixture): string {
-  const json = JSON.stringify(f, null, 2).replace(/[\u007f-￿]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  const json = JSON.stringify(f, null, 2).replace(/[\u007f-\uffff]/g, (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`)
   return `${json}\n`
 }
 
