@@ -33,7 +33,7 @@ import { useChatPreviewPane } from '../hooks/useChatPreviewPane'
 // eslint-disable-next-line no-unused-vars
 import { FileChipRow } from '../components/chat/FileChips'
 import { codeBlocksOf, extensionForLanguage, isPreviewableBlock, turnFiles } from '../utils/previewPane'
-import { chatsApi, modelsApi } from '../utils/api'
+import { chatsApi, discardIncognitoChat, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
@@ -104,6 +104,8 @@ import { applyFind, clearFind } from '../components/chat/findInThread'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
+import IncognitoBar from '../components/chat/IncognitoBar'
+import { incognitoBlocks, incognitoChatLevel, incognitoLevels, offeredLevel, rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
 import { ChatSendContext } from '../components/chat/chatSendContext'
@@ -190,13 +192,51 @@ function ChatPage() {
   // The composer: the text and files belong to the open chat (useChatDrafts);
   // a new chat has a model, an agent and drafted switches (useChatComposer).
   const activeChat = activeId ? (chat.detail || chat.chats.find(c => c.id === activeId) || null) : null
+  // Incognito: the level of the open chat (the server says it), or the one
+  // picked for the next chat. It lives in this component only.
+  const [incognitoDraft, setIncognitoDraft] = useState(() => location.state?.incognito || '')
+  const incognitoLevel = activeId ? (activeChat?.incognito || incognitoChatLevel(activeId)) : incognitoDraft
+  const incognitoBlocked = incognitoBlocks(incognitoLevel)
   const composer = useChatComposer({
-    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on, canAgents,
+    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on && !incognitoBlocked.attach, canAgents,
     initialModel: searchParams.get('model') || '', initialAgent: location.state?.agentId || '',
   })
   const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer
   const { models: chatModels, modelsLoading: chatModelsLoading } = composer
   const { text: input, setText: setInput, files } = drafts
+
+  // Every request of the page carries the level while an incognito chat is
+  // open or being started (utils/incognito.js).
+  useEffect(() => {
+    setIncognitoMarker(incognitoLevel)
+    return () => setIncognitoMarker('')
+  }, [incognitoLevel])
+  // An incognito chat ends when the page leaves it: another chat, Home, a
+  // closed tab. The server would drop it after an idle hour anyway.
+  const incognitoOpen = activeId && incognitoLevel ? activeId : ''
+  // A chat opened by its address is known from the server's answer.
+  if (incognitoOpen) rememberIncognitoChat(incognitoOpen, incognitoLevel)
+  // The discard of a cleanup waits a tick: React runs an effect twice on
+  // mount in development (StrictMode), and the second run takes the discard
+  // back instead of losing a chat that just opened.
+  const pendingDiscardRef = useRef(null)
+  useEffect(() => {
+    if (!incognitoOpen) return undefined
+    const pending = pendingDiscardRef.current
+    if (pending?.id === incognitoOpen) {
+      clearTimeout(pending.timer)
+      pendingDiscardRef.current = null
+    }
+    const warn = (e) => { e.preventDefault(); e.returnValue = '' }
+    const discardNow = () => discardIncognitoChat(incognitoOpen, { keepalive: true })
+    window.addEventListener('beforeunload', warn)
+    window.addEventListener('pagehide', discardNow)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      window.removeEventListener('pagehide', discardNow)
+      pendingDiscardRef.current = { id: incognitoOpen, timer: setTimeout(() => discardIncognitoChat(incognitoOpen), 0) }
+    }
+  }, [incognitoOpen])
 
   // The dock: pages beside the chat, kept with the chat (usePageDock). There
   // is none until something opens it.
@@ -815,6 +855,7 @@ function ChatPage() {
   // Branch copies the chat up to and including the line into a new chat, which opens.
   const handleFork = useCallback(async (seq) => {
     if (!activeId) return
+    if (incognitoBlocked.fork) { addToast(tc('incognito.blocked'), 'warning'); return }
     try {
       const forked = await chatsApi.fork(activeId, seq)
       await chat.refreshList()
@@ -823,7 +864,7 @@ function ChatPage() {
     } catch (e) {
       addToast(e.message, 'error')
     }
-  }, [activeId, chat, navigate, addToast, t])
+  }, [activeId, chat, navigate, addToast, t, tc, incognitoBlocked.fork])
 
   // Up in an empty box edits the last waiting message, or puts your last
   // message back in the box to send again.
@@ -1004,6 +1045,7 @@ function ChatPage() {
     copy: (text) => actionsRef.current.copyText(text),
     edit: (seq, text) => actionsRef.current.edit(seq, text),
     fork: (seq) => actionsRef.current.handleFork(seq),
+    forkBlocked: incognitoBlocked.fork ? tc('incognito.blocked') : '',
     regenerate: (seq) => actionsRef.current.handleRegenerate(seq),
     focusRelative: (index, delta) => {
       const els = Array.from(messagesRef.current?.querySelectorAll('[data-testid="chat-message"]') || [])
@@ -1011,7 +1053,7 @@ function ChatPage() {
       const next = els[at + delta]
       if (next) { next.focus(); next.scrollIntoView({ block: 'nearest' }) }
     },
-  }), [])
+  }), [incognitoBlocked.fork, tc])
 
   const rows = useMemo(() => foldNotes(placeProposals(threadRows(messages, chat.live), { streaming: chat.running })), [messages, chat.live, chat.running])
   // The cards of a turn that is still running go after the streaming text.
@@ -1103,9 +1145,10 @@ function ChatPage() {
   // Creates the chat with the drafted switches, then gives it the reasoning
   // effort picked before it existed.
   const createWithDraft = async () => {
-    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches(), composer.projectId)
-    // The shared projects picked in the composer are pulled into the new chat.
-    if (composer.pulledDraft?.length) {
+    const id = await chat.createChat(draftModel, agentId, switches.draftSwitches(), composer.projectId, incognitoDraft)
+    // The shared projects picked in the composer are pulled into the new chat
+    // (not into an incognito one: it belongs to no project).
+    if (composer.pulledDraft?.length && !incognitoDraft) {
       try { await chat.setPulled(id, composer.pulledDraft) } catch (e) { addToast(tpj('toasts.pullFailed', { message: e.message }), 'warning') }
       composer.setPulledDraft([])
     }
@@ -1403,6 +1446,23 @@ function ChatPage() {
           )
         })()}
 
+        <IncognitoBar
+          levels={activeId ? [] : incognitoLevels(chat.incognitoSetting)}
+          level={incognitoLevel}
+          locked={Boolean(activeId)}
+          onChange={(l) => setIncognitoDraft(l ? offeredLevel(chat.incognitoSetting, l) : '')}
+          onTurnOff={() => setConfirmDialog({
+            title: tc('incognito.discardTitle'),
+            message: tc('incognito.discardMessage'),
+            confirmLabel: tc('incognito.discardConfirm'),
+            danger: true,
+            onConfirm: () => {
+              setConfirmDialog(null)
+              setIncognitoDraft('')
+              navigate('/app')
+            },
+          })}
+        />
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && (

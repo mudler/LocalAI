@@ -133,7 +133,7 @@ func SoundGeneration(
 		if summary == "" && caption != "" {
 			summary = trace.TruncateString(caption, 200)
 		}
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceSoundGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: summary})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceSoundGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: summary})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -167,7 +167,7 @@ func SoundGeneration(
 			traceData["temperature"] = *temperature
 		}
 
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

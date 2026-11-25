@@ -63,6 +63,8 @@ type Handlers struct {
 	hooks hookLimiter
 	// clock is the time of the trigger hook; nil is the wall clock.
 	clock func() time.Time
+	// incognito reads the incognito setting (see WithIncognito).
+	incognito func() schema.ChatsIncognito
 }
 
 // New returns the handlers. A nil models skips the model check.
@@ -84,6 +86,13 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 // without it every such user is unknown.
 func WithUserLookup(exists func(ctx context.Context, id string) (bool, error)) HandlerOption {
 	return func(h *Handlers) { h.userExists = exists }
+}
+
+// WithIncognito tells the list endpoint the server's incognito setting, read
+// at each request: the policy (allow or forbid) and the highest level. Without
+// it the list says nothing and the page offers no incognito chat.
+func WithIncognito(setting func() schema.ChatsIncognito) HandlerOption {
+	return func(h *Handlers) { h.incognito = setting }
 }
 
 // WithClock sets the clock that the trigger hook reads, for a spec that moves
@@ -149,6 +158,7 @@ var chatRules = []errRule{
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
 	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
+	verbatim(http.StatusConflict, "incognito", "studio: ", studiosvc.ErrIncognito),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrNoModel),
 	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadCommand),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
@@ -223,6 +233,15 @@ func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConve
 	}
 }
 
+// incognitoOf is the level of an incognito chat as the API writes it, empty
+// for any other chat.
+func (h *Handlers) incognitoOf(id string) string {
+	if l := h.svc.ChatPrivacy(id); l.Incognito() {
+		return l.String()
+	}
+	return ""
+}
+
 // harnessJSON is the window check of a chat as the API reports it.
 func harnessJSON(v studiosvc.Harness) *schema.ChatsHarness {
 	return &schema.ChatsHarness{OK: v.OK, Window: v.Window, Minimum: v.Minimum, Recommended: v.Recommended,
@@ -236,6 +255,7 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	conv.Incognito = h.incognitoOf(rec.ID)
 	if rec.Origin == session.OriginConnector {
 		if conns := h.svc.Connectors(); conns != nil {
 			if p, ok := conns.InfoOf(c.Request().Context(), rec.OriginID, rec.ID); ok {
@@ -339,6 +359,10 @@ func (h *Handlers) List(c echo.Context) error {
 		return failFor(c, err)
 	}
 	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent(), Files: h.svc.Files().Available(), FilesReason: h.svc.Files().Unavailable(), ImageModel: h.svc.ImageModel()}
+	if h.incognito != nil {
+		set := h.incognito()
+		out.Incognito = &set
+	}
 	for _, rec := range recs {
 		conv, err := h.describe(c, user, rec)
 		if err != nil {
@@ -368,6 +392,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	}
 	conv := conversation(rec, info)
 	conv.Goal = h.goalJSON(rec.Goal)
+	conv.Incognito = h.incognitoOf(rec.ID)
 	conv.Harness = harnessJSON(h.svc.Harness(c.Request().Context(), user, rec))
 	pend, err := h.svc.Pending(c.Request().Context(), user, id)
 	if err != nil {

@@ -338,7 +338,7 @@ var _ = Describe("EmbeddingCache", func() {
 
 var _ = Describe("EmbeddingCache WithTokenTrim", func() {
 	ctx := context.Background()
-	wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+	wordCount := func(_ context.Context, s string) (int, error) { return len(strings.Fields(s)), nil }
 
 	It("embeds the most recent turns that fit the embedder context, not the full prompt", func() {
 		emb := &capturingEmbedder{}

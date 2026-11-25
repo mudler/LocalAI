@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { draftsKey, readDrafts, writeDraft } from '../utils/chatDrafts'
+import { incognitoMarker, isIncognitoChat } from '../utils/incognito'
 
 // How long after the last key the open chat's draft is written to the storage.
 const SAVE_MS = 300
@@ -33,7 +34,9 @@ export function useChatDrafts(chatId, userId) {
   const entry = entryOf(byChat, key)
 
   const persist = useCallback((id, text) => {
-    if (!id) return
+    // An incognito chat keeps its draft in memory only, and so does the box
+    // of a new chat while incognito is on for it.
+    if (!id || isIncognitoChat(id) || incognitoMarker()) return
     if (text && text.trim()) storedRef.current[id] = { text, at: Date.now() }
     else delete storedRef.current[id]
     writeDraft(browserStorage(), storageKey, id, text)

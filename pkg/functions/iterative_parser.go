@@ -1058,11 +1058,9 @@ func (p *ChatMsgParser) tryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 									} else {
 										// Marker should always be found if it was returned from parseJSONWithStack
 										// Log warning but continue with fallback
-										jsonPreview := toolStr
-										if len(jsonPreview) > 100 {
-											jsonPreview = jsonPreview[:100]
-										}
-										xlog.Debug("jsonDumpMarker not found in JSON string, using fallback", "marker", jsonHealingMarker, "json", jsonPreview)
+										// The parser does not know the request, so only the size is
+										// logged: the text can be the output of a zero-retention request.
+										xlog.Debug("jsonDumpMarker not found in JSON string, using fallback", "marker", jsonHealingMarker, "json_len", len(toolStr))
 										// Fallback: remove trailing } if present
 										if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
 											toolStr = toolStr[:len(toolStr)-1]

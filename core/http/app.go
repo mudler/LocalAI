@@ -466,6 +466,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// the role of the exempt-path logic inside the middleware.
 	e.Use(authMiddleware)
 
+	// The incognito level of a web UI request: after auth, which it reads, and
+	// before every route middleware that keeps something (traces, usage).
+	e.Use(httpMiddleware.Incognito(application.ApplicationConfig(), application.AuthDB() != nil))
+
 	// Feature and model access control (after auth middleware, before routes)
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
@@ -870,7 +874,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		xlog.Info("LocalAI API server shutting down")
 	})
 
-	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application))
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware, routes.NewStudioOAuth(application), routes.NewStudioUserLookup(application), routes.NewStudioIncognito(application))
 	// The notification center works with the chats on or off.
 	routes.RegisterNotificationRoutes(e, application.Notifier(), application.NotifyPusher(), application.StudioService() != nil)
 

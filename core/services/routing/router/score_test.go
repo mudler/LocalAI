@@ -14,9 +14,9 @@ import (
 )
 
 type stubScorer struct {
-	results []backend.CandidateScore
-	err     error
-	calls   int
+	results    []backend.CandidateScore
+	err        error
+	calls      int
 	lastP      string
 	lastC      []string
 	lastStable int
@@ -361,7 +361,7 @@ Reply: {"route": "<name>"}`
 })
 
 var _ = Describe("ScoreClassifier conversation trimming", func() {
-	wordCount := func(s string) (int, error) { return len(strings.Fields(s)), nil }
+	wordCount := func(_ context.Context, s string) (int, error) { return len(strings.Fields(s)), nil }
 	threeScores := []backend.CandidateScore{
 		{LogProb: -0.05, NumTokens: 3},
 		{LogProb: -3.0, NumTokens: 3},
@@ -428,7 +428,7 @@ var _ = Describe("ScoreClassifier conversation trimming", func() {
 		// smaller than the full transcript.
 		calls := 0
 		maxRunes := 0
-		counting := func(s string) (int, error) {
+		counting := func(_ context.Context, s string) (int, error) {
 			calls++
 			if r := utf8.RuneCountInString(s); r > maxRunes {
 				maxRunes = r
@@ -474,7 +474,7 @@ var _ = Describe("ScoreClassifier conversation trimming", func() {
 
 	It("disables trimming (budget 0) when the tokenizer errors", func() {
 		s := &stubScorer{results: threeScores}
-		boom := func(string) (int, error) { return 0, errors.New("tokenizer down") }
+		boom := func(context.Context, string) (int, error) { return 0, errors.New("tokenizer down") }
 		c := NewScoreClassifier(testPolicies(), s, ScoreClassifierOptions{
 			TokenCounter:     boom,
 			MaxContextTokens: 10000,
@@ -492,7 +492,7 @@ var _ = Describe("ScoreClassifier conversation trimming", func() {
 		// call must succeed and yield a real budget.
 		s := &stubScorer{results: threeScores}
 		calls := 0
-		flaky := func(text string) (int, error) {
+		flaky := func(_ context.Context, text string) (int, error) {
 			calls++
 			if calls == 1 {
 				return 0, errors.New("model still loading")

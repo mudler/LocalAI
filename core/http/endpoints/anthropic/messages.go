@@ -14,6 +14,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
 	"github.com/mudler/LocalAI/core/templates"
@@ -148,7 +149,7 @@ func MessagesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evalu
 
 		// Template the prompt with tools if available
 		predInput := evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
-		xlog.Debug("Anthropic Messages - Prompt (after templating)", "prompt", predInput)
+		xlog.Debug("Anthropic Messages - Prompt (after templating)", "prompt", privacy.Redact(c.Request().Context(), predInput))
 
 		if input.Stream {
 			return handleAnthropicStream(c, id, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn, mcpExecutor, evaluator)
@@ -326,7 +327,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		}
 
 		if respData, err := json.Marshal(resp); err == nil {
-			xlog.Debug("Anthropic Response", "response", string(respData))
+			xlog.Debug("Anthropic Response", "response", privacy.Redact(c.Request().Context(), string(respData)))
 		}
 
 		middleware.StampUsage(c, input.Model, tokenUsage.Prompt, tokenUsage.Completion)

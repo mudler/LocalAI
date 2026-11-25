@@ -396,6 +396,16 @@ message PredictOptions {
   // compares is always what the controller sent.
   string ModelIdentity = 54;
 
+  // NoPromptCache is set for a request of a zero-retention incognito
+  // conversation: the backend must not read or write any prompt cache that
+  // outlives the request (a file, a slot saved to disk). A cache in RAM that
+  // dies with the process is allowed. The frontend also clears
+  // PromptCachePath, PromptCacheAll and PromptCacheRO for such a request, so
+  // a backend that takes its cache path from these fields persists nothing.
+  // A backend that keeps a persistent cache of its own must honour this field
+  // or refuse the request; it must never persist silently.
+  bool NoPromptCache = 55;
+
   // 24 was never assigned; reserve it so it is not silently reused.
   reserved 24;
 }

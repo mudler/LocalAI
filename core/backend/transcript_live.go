@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/trace"
@@ -167,8 +168,8 @@ type liveTraceState struct {
 	finalText   string
 }
 
-func newLiveTraceState(modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, language string) *liveTraceState {
-	if !appConfig.EnableTracing {
+func newLiveTraceState(ctx context.Context, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, language string) *liveTraceState {
+	if !appConfig.EnableTracing || !privacy.Allows(ctx, privacy.StoreTrace) {
 		return nil
 	}
 	trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
@@ -342,7 +343,7 @@ func ModelTranscriptionLive(ctx context.Context, language string,
 		stream:   stream,
 		cancel:   cancel,
 		recvDone: make(chan struct{}),
-		trace:    newLiveTraceState(modelConfig, appConfig, language),
+		trace:    newLiveTraceState(ctx, modelConfig, appConfig, language),
 		release:  release,
 	}
 

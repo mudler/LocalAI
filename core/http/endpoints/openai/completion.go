@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
@@ -138,7 +139,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			})
 			if err == nil {
 				predInput = templatedInput
-				xlog.Debug("Template found, input modified", "input", predInput)
+				xlog.Debug("Template found, input modified", "input", privacy.Redact(c.Request().Context(), predInput))
 			}
 
 			responses := make(chan schema.OpenAIResponse)
@@ -175,7 +176,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 						continue
 					}
 
-					xlog.Debug("Sending chunk", "chunk", string(respData))
+					xlog.Debug("Sending chunk", "chunk", privacy.Redact(c.Request().Context(), string(respData)))
 					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
 					if err != nil {
 						return err
@@ -300,7 +301,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		xlog.Debug("Response", "response", string(jsonResult))
+		xlog.Debug("Response", "response", privacy.Redact(c.Request().Context(), string(jsonResult)))
 
 		middleware.StampUsage(c, input.Model, totalTokenUsage.Prompt, totalTokenUsage.Completion)
 

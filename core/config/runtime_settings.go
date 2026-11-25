@@ -115,6 +115,9 @@ type RuntimeSettings struct {
 	ChatsLocalAIClient *bool   `json:"chats_localai_client,omitempty"` // offer the LocalAI client (inference) tools (default: true)
 	ChatsLocalAIAdmin  *bool   `json:"chats_localai_admin,omitempty"`  // offer the LocalAI admin tools to administrators (default: true)
 	ChatsToolSearch    *string `json:"chats_tool_search,omitempty"`    // load the large LocalAI tool groups and the deferred add-on tools on demand: auto, on or off (default: auto)
+	// Incognito conversations of the web UI. Read at each request.
+	Incognito         *string `json:"incognito,omitempty"`           // allow or forbid incognito conversations (default: allow)
+	IncognitoMaxLevel *string `json:"incognito_max_level,omitempty"` // highest incognito level: memory-off or zero-retention (default: zero-retention)
 	// Jobs that an add-on starts for a paired client. Read when a job
 	// runs. By default such a job may only use tools that read.
 	ClientJobsAllowAllTools *bool `json:"client_jobs_allow_all_tools,omitempty"` // let jobs from a paired client use the write and act tools that the task's agent is set up with, no more (default: false)

@@ -42,7 +42,7 @@ func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, load
 		entry = &trace.BackendTrace{Timestamp: time.Now(), Type: trace.BackendTrace3DAnimation,
 			ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(summary, 200),
 			Data: map[string]any{"inputs": inputs, "params": params, "model_file": modelConfig.Model, "stage": "loading_model"}}
-		entry.ID = trace.BeginBackendTrace(*entry)
+		entry.ID = trace.BeginBackendTraceFor(ctx, *entry)
 		defer trace.CancelBackendTrace(entry.ID)
 		defer func() {
 			entry.Duration = time.Since(entry.Timestamp)
@@ -58,7 +58,7 @@ func Model3DAnimation(ctx context.Context, request *proto.Animate3DRequest, load
 					entry.Data["metadata"] = metadata
 				}
 			}
-			trace.RecordBackendTrace(*entry)
+			trace.RecordBackendTraceFor(ctx, *entry)
 		}()
 	}
 	phaseStart := time.Now()

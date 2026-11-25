@@ -1671,5 +1671,21 @@
       "createdTitle": "{{name}} 已就绪",
       "done": "完成"
     }
+  },
+  "incognito": {
+    "label": "无痕",
+    "levelLabel": "无痕级别",
+    "levels": {
+      "memory-off": "关闭记忆",
+      "zero-retention": "零保留"
+    },
+    "describe": {
+      "memory-off": "此对话不读取也不保存记忆。它不会出现在列表中，离开后即结束。日志和追踪照常保留。",
+      "zero-retention": "服务器不保留此对话的任何内容，只记录用量。它不读取也不保存记忆，不接受附件，离开后即结束。"
+    },
+    "blocked": "无痕对话中不可用",
+    "discardTitle": "结束无痕对话？",
+    "discardMessage": "对话将被删除，且无法再次打开。",
+    "discardConfirm": "结束对话"
   }
 }

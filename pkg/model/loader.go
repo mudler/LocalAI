@@ -121,6 +121,10 @@ type ModelLoader struct {
 	// blockedLoads are the models whose loads are refused while their files
 	// change (a model upgrade). Guarded by mu.
 	blockedLoads map[string]bool
+
+	// hiddenOutput hides the backend output of zero-retention requests
+	// (see HideBackendOutput).
+	hiddenOutput hiddenOutput
 }
 
 // loadFailureState tracks consecutive load failures for a single modelID and

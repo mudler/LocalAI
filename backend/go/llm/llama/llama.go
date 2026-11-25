@@ -153,7 +153,8 @@ func buildPredictOptions(opts *pb.PredictOptions) []llama.PredictOption {
 	}
 
 	// Expected absolute path
-	if opts.PromptCachePath != "" {
+	// A zero-retention request keeps no prompt cache on disk.
+	if opts.PromptCachePath != "" && !opts.NoPromptCache {
 		predictOptions = append(predictOptions, llama.SetPathPromptCache(opts.PromptCachePath))
 	}
 

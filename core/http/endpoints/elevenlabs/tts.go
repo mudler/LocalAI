@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/pkg/audio"
@@ -50,7 +51,10 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 		if err != nil {
 			return err
 		}
+		original := filePath
 		filePath, contentType := audio.NormalizeAudioFile(filePath)
+		// An incognito request keeps no copy of the speech it was sent.
+		defer privacy.Discard(c.Request().Context(), original, filePath)
 		if contentType != "" {
 			c.Response().Header().Set("Content-Type", contentType)
 		}

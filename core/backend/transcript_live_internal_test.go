@@ -1,6 +1,8 @@
 package backend
 
 import (
+	"context"
+
 	"errors"
 	"time"
 
@@ -127,7 +129,7 @@ var _ = Describe("liveTraceState", func() {
 
 	It("is disabled (nil) when tracing is off, and nil receivers are no-ops", func() {
 		appConfig.EnableTracing = false
-		ts := newLiveTraceState(modelCfg(), appConfig, "en")
+		ts := newLiveTraceState(context.Background(), modelCfg(), appConfig, "en")
 		Expect(ts).To(BeNil())
 
 		// The session calls these unconditionally; nil must be safe.
@@ -138,7 +140,7 @@ var _ = Describe("liveTraceState", func() {
 	})
 
 	It("records one transcription trace with text, eou event counts and audio snippet at Close", func() {
-		ts := newLiveTraceState(modelCfg(), appConfig, "en")
+		ts := newLiveTraceState(context.Background(), modelCfg(), appConfig, "en")
 		Expect(ts).NotTo(BeNil())
 
 		// One second of a loud-ish constant tone so the snippet has signal.
@@ -172,7 +174,7 @@ var _ = Describe("liveTraceState", func() {
 	})
 
 	It("caps the stored snippet but keeps counting the full fed duration", func() {
-		ts := newLiveTraceState(modelCfg(), appConfig, "")
+		ts := newLiveTraceState(context.Background(), modelCfg(), appConfig, "")
 
 		// Feed past the snippet cap in two chunks (cap + one extra second).
 		ts.addPCM(make([]float32, trace.MaxSnippetSeconds*liveSampleRate))
@@ -189,14 +191,14 @@ var _ = Describe("liveTraceState", func() {
 	})
 
 	It("clamps out-of-range float samples instead of wrapping", func() {
-		ts := newLiveTraceState(modelCfg(), appConfig, "")
+		ts := newLiveTraceState(context.Background(), modelCfg(), appConfig, "")
 		defer trace.CancelBackendTrace(ts.traceID)
 		ts.addPCM([]float32{2.0, -2.0})
 		Expect(ts.pcm).To(Equal([]byte{0xff, 0x7f, 0x00, 0x80})) // 32767, -32768
 	})
 
 	It("stamps the close error on the trace", func() {
-		ts := newLiveTraceState(modelCfg(), appConfig, "")
+		ts := newLiveTraceState(context.Background(), modelCfg(), appConfig, "")
 		ts.record(errors.New("stream torn down"))
 
 		Eventually(trace.GetBackendTraces).Should(HaveLen(1))
