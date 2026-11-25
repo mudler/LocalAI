@@ -42,6 +42,11 @@ export function nativeHttpGet(plugin: NativeHttpPlugin): HttpGet {
   }
 }
 
+/** The server checks of the client core: requests and their error classes, both from the plugin. */
+export function nativeServerChecks(plugin: NativeHttpPlugin): { http: HttpGet; classifyError(e: unknown): TestResult } {
+  return { http: nativeHttpGet(plugin), classifyError: classifyNativeError }
+}
+
 export function classifyNativeError(e: unknown): TestResult {
   if (e instanceof NativeHttpError) {
     const r = e.result

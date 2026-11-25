@@ -4,7 +4,6 @@ import { App as CapApp } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import { Clipboard } from '@capacitor/clipboard'
 import { webRandomBytes } from '@launcher/core/serversConfig'
-import type { HttpGet, TestResult } from '@launcher/core/testClassify'
 import { App } from '@launcher/renderer/App'
 import '@launcher/renderer/styles'
 import './mobile.css'
@@ -13,17 +12,11 @@ import { createAndroidBridge, idleUpdater } from './bridge/androidBridge'
 import { ClientCore, NO_P2P } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
 import { startLifecycle } from './lifecycle'
-import { P2P, WebuiView } from './plugins'
+import { NativeHttp, P2P, WebuiView } from './plugins'
+import { nativeServerChecks } from './plugins/nativeTransport'
 
 // The phone layout classes go on before anything renders.
 installMobileShell(window)
-
-// Placeholders until the native HTTP transport lands: every server check
-// answers "the network does not answer".
-const http: HttpGet = async () => {
-  throw new Error('not wired: native HTTP')
-}
-const classifyError = (): TestResult => ({ status: 'unreachable', reason: 'network' })
 
 async function appVersion(): Promise<string> {
   try {
@@ -37,8 +30,8 @@ async function main(): Promise<void> {
   const version = await appVersion()
   const core = await ClientCore.open({
     files: capacitorFileApi(),
-    http,
-    classifyError,
+    // A WebView fetch cannot read a cross-origin answer or a TLS error.
+    ...nativeServerChecks(NativeHttp),
     webui: WebuiView,
     p2p: NO_P2P,
     openExternal: (url) => Browser.open({ url }),
