@@ -101,11 +101,16 @@ internal fun stateOfLine(line: String): String? = STATE.find(line)?.groupValues?
  * "down" lines do not restart anything: the library dials again for each
  * connection. Each server is independent, so one that fails does not stop
  * the others.
+ *
+ * [beforeRelease] runs on the scheduler thread after a "starting" or
+ * "closed" line and before a running forwarder is stopped. The service
+ * uses it to wait until the main thread has handled that line.
  */
 class ForwarderSupervisor(
     private val engine: P2PEngine,
     private val identityPath: String,
     private val scheduler: Scheduler,
+    private val beforeRelease: () -> Unit = {},
     private val onState: (id: String, line: String) -> Unit,
 ) {
     private class Slot(var forward: Forward) {
@@ -132,8 +137,11 @@ class ForwarderSupervisor(
 
     fun stopAll() = scheduler.execute {
         for ((id, slot) in snapshot()) {
-            drop(id, slot)
+            // "closed" before the port is released, as in restart().
+            val running = synchronized(lock) { slot.handle != null }
             record(id, CLOSED_LINE)
+            if (running) beforeRelease()
+            drop(id, slot)
         }
     }
 
@@ -187,7 +195,14 @@ class ForwarderSupervisor(
             slot.generation = ++generations
             slot.handle.also { slot.handle = null }
         }
-        h?.let { stopQuietly(it) }
+        if (h != null) {
+            // Any app can bind the loopback address once the old forwarder
+            // lets it go: report "starting" and let the WebUI view drop the
+            // page first (security review I1).
+            record(id, STARTING_LINE)
+            beforeRelease()
+            stopQuietly(h)
+        }
         start(id, slot)
     }
 

@@ -187,6 +187,38 @@ class ForwarderSupervisorTest {
     }
 
     @Test
+    fun restartSaysStartingAndWaitsForTheWebuiBeforeItReleasesThePort() {
+        // Another app can bind the loopback address once the old forwarder
+        // stops: "starting" must be out, and handled, before that.
+        val order = mutableListOf<String>()
+        val s = ForwarderSupervisor(
+            engine, "/data/p2p/identity.key", sched,
+            beforeRelease = { order += "release:stops=${engine.starts.sumOf { it.stops }}" },
+        ) { id, line -> order += "$id:${stateOfLine(line)}" }
+        s.setForwards(listOf(a))
+        order.clear()
+        s.restartAll()
+        assertEquals(listOf("a:starting", "release:stops=0", "a:starting", "a:ready"), order)
+        assertEquals(1, engine.starts[0].stops)
+
+        // stopAll: "closed" first, then the port goes.
+        order.clear()
+        s.stopAll()
+        assertEquals(listOf("a:closed", "release:stops=1"), order)
+        assertEquals(1, engine.starts[1].stops)
+    }
+
+    @Test
+    fun restartWithoutARunningForwarderDoesNotWait() {
+        engine.failures = 1
+        var waits = 0
+        val s = ForwarderSupervisor(engine, "/data/p2p/identity.key", sched, beforeRelease = { waits++ }) { _, _ -> }
+        s.setForwards(listOf(a))
+        s.restartAll()
+        assertEquals(0, waits)
+    }
+
+    @Test
     fun restartAllCancelsAPendingRetryAndStartsAtOnce() {
         engine.failures = 1
         sup.setForwards(listOf(a))

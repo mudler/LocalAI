@@ -23,7 +23,9 @@ import androidx.core.content.ContextCompat
 import io.localai.client.R
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 
 /**
  * Process-wide P2P state shared by the plugin (which lives with the
@@ -221,7 +223,13 @@ class ForwardService : Service() {
         super.onCreate()
         P2PRuntime.init(this)
         scheduler = ExecutorScheduler("p2p-forwarders")
-        supervisor = ForwarderSupervisor(P2PRuntime.engine, P2PRuntime.identityPath, scheduler, P2PRuntime::onLine)
+        supervisor = ForwarderSupervisor(
+            P2PRuntime.engine,
+            P2PRuntime.identityPath,
+            scheduler,
+            beforeRelease = ::awaitMainThread,
+            onState = P2PRuntime::onLine,
+        )
         // The library cannot follow a network change on Android, so every
         // forwarder restarts on the same loopback address instead.
         watcher = NetworkWatcher(this) { supervisor.restartAll() }
@@ -257,6 +265,23 @@ class ForwardService : Service() {
         supervisor.stopAll()
         scheduler.shutdown()
         super.onDestroy()
+    }
+
+    /**
+     * Called on the supervisor thread before a forwarder lets its loopback
+     * address go: waits (at most 1 s) until the main thread has run what was
+     * posted before, which includes the WebUI view dropping the page of that
+     * server. The main thread never waits for the supervisor thread.
+     */
+    private fun awaitMainThread() {
+        if (Looper.myLooper() == Looper.getMainLooper()) return
+        val done = CountDownLatch(1)
+        if (!Handler(Looper.getMainLooper()).post { done.countDown() }) return
+        try {
+            done.await(1, TimeUnit.SECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
     }
 
     private fun goForeground(list: List<Forward>): Boolean = try {
