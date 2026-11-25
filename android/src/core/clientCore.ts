@@ -7,16 +7,17 @@
 // ClientPlatform, so the tests run it with fakes.
 import type { PluginListenerHandle } from '@capacitor/core'
 import { ConfigStore, openWebuiInBrowser, webuiPermissions, withOpenWebuiInBrowser, withWebuiPermissions } from '@launcher/core/configStore'
-import { RemoteServers, type P2PTunnels } from '@launcher/core/remoteServers'
+import { RemoteServers } from '@launcher/core/remoteServers'
 import { remotes } from '@launcher/core/serversConfig'
 import { runServerTest, type HttpGet, type TestResult } from '@launcher/core/testClassify'
 import { remember, resetPermissions, type PermissionChoice } from '@launcher/core/webuiPolicy'
 import { WebuiModel, type WebuiEffect, type WebuiEvent } from '@launcher/core/webuiState'
 import type { ServersView, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
 import { MOBILE_BAR_HEIGHT } from '../mobileShell'
-import type { WebuiViewPlugin } from '../plugins/definitions'
+import type { P2PPlugin, WebuiViewPlugin } from '../plugins/definitions'
 import { clientConfigIO, type FileApi } from './configIO'
 import type { ClientEvent } from './events'
+import { androidP2PTunnels, type AndroidTunnels } from './p2pTunnels'
 
 export type { ClientEvent } from './events'
 
@@ -26,8 +27,8 @@ export interface ClientPlatform {
   http: HttpGet
   classifyError(e: unknown): TestResult
   webui: WebuiViewPlugin
-  /** The forwarders of servers over P2P. A build without P2P answers `available()` false. */
-  p2p: P2PTunnels
+  /** The P2P plugin. In a build without the library its `version()` rejects, and pairing answers `no-binary`. */
+  p2p: P2PPlugin
   openExternal(url: string): Promise<void>
   now(): number
   randomBytes(n: number): Uint8Array
@@ -35,19 +36,6 @@ export interface ClientPlatform {
   /** The name this device gives a server when it pairs. Read once at open. */
   deviceName?(): Promise<string>
   log?(message: string, level?: 'info' | 'warn'): void
-}
-
-/** A build without the P2P library: pairing answers `no-binary`. */
-export const NO_P2P: P2PTunnels = {
-  available: () => false,
-  pair: async () => ({ ok: false, reason: 'no-binary', detail: '' }),
-  allocatePort: async () => {
-    throw new Error('P2P is not available')
-  },
-  start: () => undefined,
-  stop: () => undefined,
-  status: () => undefined,
-  whenReady: async () => false,
 }
 
 const FALLBACK_DEVICE_NAME = 'Android device'
@@ -66,6 +54,7 @@ export async function profileFor(origin: string): Promise<string> {
 
 export class ClientCore {
   readonly servers: RemoteServers
+  private readonly tunnels: AndroidTunnels
   private readonly model: WebuiModel
   private readonly listeners = new Set<(e: ClientEvent) => void>()
   private readonly profiles = new Map<string, string>()
@@ -96,12 +85,21 @@ export class ClientCore {
       serverUpdate: false,
       startedHidden: false,
     })
+    this.tunnels = androidP2PTunnels({
+      plugin: p.p2p,
+      store: () => store.get(),
+      // RemoteServers has no hook for a tunnel state: publish the view here.
+      // Lines arrive only from plugin events, after the constructor.
+      onChange: () => this.publishServers(this.servers.serversView()),
+      onKeepChange: (on) => this.emit({ kind: 'p2pKeep', on }),
+      log: (m, level) => this.log(m, level),
+    })
     this.servers = new RemoteServers({
       store,
       now: () => p.now(),
       randomBytes: (n) => p.randomBytes(n),
       checkOrigin: (origin, signal) => runServerTest(origin, p.http, (e) => p.classifyError(e), { signal }),
-      p2p: p.p2p,
+      p2p: this.tunnels,
       deviceName: () => deviceName,
       webuiDispatch: (e) => this.webuiDispatch(e),
       webuiViewOrigin: () => this.model.viewOrigin,
@@ -144,6 +142,8 @@ export class ClientCore {
     // Every saved origin has its profile before the first `show`.
     await Promise.all(remotes(this.store.get()).map((r) => this.profileOf(r.url)))
     this.call('setPermissionStore', () => w.setPermissionStore({ json: JSON.stringify(webuiPermissions(this.store.get())) }))
+    // The forwarders listen before the default server opens.
+    await this.tunnels.init()
     this.servers.startTunnels()
     this.servers.openDefaultRemote()
     this.syncState(true)
@@ -360,11 +360,30 @@ export class ClientCore {
     }
     if (!this.paused) return
     this.paused = false
-    this.servers.resumeMonitor()
+    // The service restarts the forwarders on return; the states are read
+    // (the plugin waits while they restart) before the default is checked
+    // and its page reloads.
+    void this.tunnels
+      .refresh()
+      .catch((e) => this.log(`servers: P2P refresh failed: ${e instanceof Error ? e.message : String(e)}`, 'warn'))
+      .then(() => {
+        if (!this.paused) this.servers.resumeMonitor()
+      })
+  }
+
+  /** "Keep P2P connection in the background", as the native side has it. */
+  p2pKeepInBackground(): boolean {
+    return this.tunnels.keepInBackground()
+  }
+
+  async setP2PKeepInBackground(on: boolean): Promise<boolean> {
+    await this.tunnels.setKeepInBackground(on)
+    return this.tunnels.keepInBackground()
   }
 
   async shutdown(): Promise<void> {
     this.servers.stopAll()
+    await this.tunnels.close()
     for (const h of this.handles) {
       try {
         await (await h).remove()

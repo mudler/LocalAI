@@ -46,6 +46,12 @@ export interface P2PTarget {
   port: number
   addrs: string[]
   relays: string[]
+  /**
+   * The loopback address the forwarder listens on, `127.x.y.z`. Missing
+   * means 127.0.0.1 (the desktop). The Android app gives each server its own
+   * host, so two servers never share an origin, and so never a sign-in cookie.
+   */
+  host?: string
 }
 
 /** The result of `local-ai p2p pair --json`. */

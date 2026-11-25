@@ -51,12 +51,15 @@ internal object P2PRuntime {
     private var service: ForwardService? = null
     private var startRequested = false
     private var userStopped = false
+    // Written on the main thread, read by the plugin's threads too.
+    @Volatile
     private var keep = false
     private val policy = ServicePolicy()
     private val visibility = AppVisibility { fg -> onVisibility(fg) }
     private val stopTimer = Runnable { act(policy.onTimer(input(), now(), running())) }
     private val states = ConcurrentHashMap<String, String>()
     private val listeners = CopyOnWriteArrayList<(String, String) -> Unit>()
+    private val keepListeners = CopyOnWriteArrayList<(Boolean) -> Unit>()
 
     private const val PREFS = "p2p_service"
     private const val KEY_KEEP = "keep_in_background"
@@ -84,6 +87,12 @@ internal object P2PRuntime {
 
     fun addListener(l: (String, String) -> Unit) = listeners.add(l)
     fun removeListener(l: (String, String) -> Unit) = listeners.remove(l)
+
+    fun addKeepListener(l: (Boolean) -> Unit) = keepListeners.add(l)
+    fun removeKeepListener(l: (Boolean) -> Unit) = keepListeners.remove(l)
+
+    /** The saved "keep P2P in the background" setting. */
+    fun keepInBackground(): Boolean = keep
 
     fun lastStates(): Map<String, String> = HashMap(states)
 
@@ -142,8 +151,11 @@ internal object P2PRuntime {
     }
 
     private fun saveKeep(on: Boolean) {
+        val changed = keep != on
         keep = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_KEEP, on).apply()
+        // The web side shows the setting: tell it when the notification changed it.
+        if (changed) for (l in keepListeners) l(on)
     }
 
     private fun now() = SystemClock.elapsedRealtime()

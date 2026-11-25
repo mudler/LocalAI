@@ -188,11 +188,72 @@ describe('RemoteServers with no local server', () => {
       r.p2p.starts.push({ id, name, target })
       throw new Error('spawn failed')
     }
-    await expect(r.servers.addServerByInvite({ link: invite() })).rejects.toThrow('spawn failed')
+    // The server is saved before its forwarder starts: the add succeeds and
+    // the row carries the tunnel error.
+    const res = await r.servers.addServerByInvite({ link: invite(), makeDefault: true })
+    expect(res).toMatchObject({ ok: true, opened: false })
     const saved = remotes(r.store.get())[0]
+    expect(res.ok && res.id).toBe(saved.id)
+    expect(r.servers.serversView().rows[0].p2p).toEqual({ state: 'failed', error: 'spawn failed' })
     expect(r.p2p.starts.map((s) => s.id)).toEqual([saved.id])
     r.servers.stopAll()
     expect(r.p2p.stops).toEqual([saved.id])
+  })
+
+  it('a forwarder whose start throws does not keep the others from starting', async () => {
+    const PEER2 = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGn'
+    const t = (peer: string, port: number) => ({ peer, port, addrs: [], relays: [] })
+    const r = await rig({
+      config: (c) => ({
+        ...c,
+        extra: {
+          ...c.extra,
+          remotes: [
+            { id: 'srv_00000001', name: 'A', url: 'http://127.0.0.1:41001', p2p: t(PEER, 41001) },
+            { id: 'srv_00000002', name: 'B', url: 'http://127.0.0.1:41002', p2p: t(PEER2, 41002) },
+          ],
+        },
+      }),
+    })
+    r.p2p.start = (id, name, target) => {
+      r.p2p.starts.push({ id, name, target })
+      if (id === 'srv_00000001') throw new Error('no forwarder')
+    }
+    r.servers.startTunnels()
+    expect(r.p2p.starts.map((s) => s.id)).toEqual(['srv_00000001', 'srv_00000002'])
+    const rows = r.servers.serversView().rows
+    expect(rows[0].p2p).toEqual({ state: 'failed', error: 'no forwarder' })
+    expect(rows[1].p2p).toEqual({ state: 'stopped' })
+    // A later start that works clears the error.
+    r.p2p.start = (id, name, target) => void r.p2p.starts.push({ id, name, target })
+    r.servers.startTunnels()
+    expect(r.servers.serversView().rows[0].p2p).toEqual({ state: 'stopped' })
+  })
+
+  it('takes the port and the loopback host from allocate when the tunnels have it', async () => {
+    const r = await rig()
+    let ports = 0
+    r.p2p.allocatePort = async () => {
+      ports++
+      return 1
+    }
+    r.p2p.allocate = async () => ({ port: 41005, host: '127.0.0.4' })
+    const res = await r.servers.addServerByInvite({ link: invite() })
+    expect(res.ok).toBe(true)
+    expect(ports).toBe(0)
+    const saved = remotes(r.store.get())[0]
+    expect(saved.url).toBe('http://127.0.0.4:41005')
+    expect(saved.p2p).toMatchObject({ host: '127.0.0.4', port: 41005 })
+    expect(r.p2p.starts[0].target).toEqual(saved.p2p)
+  })
+
+  it('refuses a non-loopback host from allocate and saves nothing', async () => {
+    const r = await rig()
+    r.p2p.allocate = async () => ({ port: 41005, host: '192.0.2.4' })
+    const res = await r.servers.addServerByInvite({ link: invite() })
+    expect(res).toEqual({ ok: false, reason: 'invalid-url' })
+    expect(remotes(r.store.get())).toEqual([])
+    expect(r.p2p.starts).toEqual([])
   })
 
   it('a failed check keeps the default', async () => {
