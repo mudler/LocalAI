@@ -89,7 +89,8 @@ export function RemoteUnreachableScreen({
   server?: ServerRowView
   status: RemoteStatusView
   now: number
-  onSwitchLocal: () => void
+  /** Switch to This computer; absent without a local server, where `onChooseOther` takes its place. */
+  onSwitchLocal?: () => void
   onChooseOther?: () => void
   onEdit: () => void
 }) {
@@ -137,7 +138,7 @@ export function RemoteUnreachableScreen({
             <div className="lnr-grow"><strong>{S.unreach.chooseOther}</strong><p className="lnr-path__p dk-muted">{S.unreach.chooseOtherNote(name)}</p></div>
             <Button onClick={onChooseOther} data-testid="choose-other-button">{S.unreach.chooseOther}</Button>
           </div>
-        ) : (
+        ) : onSwitchLocal && (
           <div className="lnr-path">
             <div className="lnr-grow"><strong>{S.unreach.computerTitle}</strong><p className="lnr-path__p dk-muted">{S.unreach.computerNote(name)}</p></div>
             <Button onClick={onSwitchLocal} data-testid="switch-local-button">{S.unreach.computer}</Button>

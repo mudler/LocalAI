@@ -13,6 +13,8 @@ import { called, NOW, screen, settle } from './render'
 
 const GPU = remoteRow('srv_00000001', 'GPU box', 'https://gpu.example.com', { isDefault: true, isCurrent: true, status: 'connected' })
 const OTHER = remoteRow('srv_00000002', 'Office', 'https://office.example.com', { status: 'connected' })
+const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
+const INVITE = `localai://pair?v=1&k=device&p=${PEER}&c=ABCDEFGHJK&e=${Math.floor(NOW / 1000) + 600}&n=GPU%20box`
 const remoteWebui = webuiView({ target: { kind: 'remote', origin: GPU.origin!, host: GPU.host } })
 
 let errors: unknown[][] = []
@@ -67,10 +69,83 @@ describe('first connect', () => {
     expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
     expect(screen.getByTestId('first-connect-address')).toBeTruthy()
     expect(screen.getByTestId('first-connect-invite')).toBeTruthy()
-    expect(screen.queryByTestId('first-connect-scan')).toBeNull()
+    expect(screen.getByTestId('first-connect-scan')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Set up this computer' })).toBeNull()
     expect(called(b, 'getServers')).toHaveLength(1)
     expect(called(b, 'info')).toHaveLength(1)
+  })
+
+  it('offers no scan without the QR capability or without a scanner', async () => {
+    const noQr = fakeClientBridge(baseState())
+    noQr.state.info = { ...noQr.state.info, capabilities: { localServer: false, p2p: true, selfUpdate: 'apk', qrScan: false } }
+    const { unmount } = render(<App bridge={noQr} now={NOW} />)
+    await settle()
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
+    expect(screen.queryByTestId('first-connect-scan')).toBeNull()
+    unmount()
+    const noScanner = fakeClientBridge(baseState())
+    delete noScanner.scanInvite
+    render(<App bridge={noScanner} now={NOW} />)
+    await settle()
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
+    expect(screen.queryByTestId('first-connect-scan')).toBeNull()
+  })
+
+  it('a scanned invite opens the invite step filled in; Pair is still a tap away', async () => {
+    const b = await renderClient((s) => void (s.scan = INVITE))
+    fireEvent.click(screen.getByTestId('first-connect-scan'))
+    await settle()
+    expect(screen.getByRole('heading', { level: 1, name: 'Add server by invite link' })).toBeTruthy()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(INVITE)
+    expect(screen.getByTestId('invite-preview')).toBeTruthy()
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+    fireEvent.click(screen.getByTestId('invite-submit'))
+    await settle()
+    expect(called(b, 'addServerByInvite')[0]?.args[0]).toMatchObject({ link: INVITE, makeDefault: true })
+  })
+
+  it('a scanned text that is not an invite says so and stays on the choices', async () => {
+    const b = await renderClient((s) => void (s.scan = 'WIFI:S:home;T:WPA;P:secret;;'))
+    fireEvent.click(screen.getByTestId('first-connect-scan'))
+    await settle()
+    expect(screen.getByTestId('invite-notice').textContent).toContain('This is not a LocalAI invite link.')
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
+    expect(screen.queryByLabelText('Invite link')).toBeNull()
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+  })
+
+  it('a cancelled scan does nothing', async () => {
+    await renderClient()
+    fireEvent.click(screen.getByTestId('first-connect-scan'))
+    await settle()
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
+    expect(screen.queryByTestId('invite-notice')).toBeNull()
+  })
+
+  it('a link that arrives before the server list is read still opens the invite step', async () => {
+    const state = baseState()
+    const b = fakeClientBridge(state)
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const getServers = b.getServers!
+    b.getServers = async () => (await gate, getServers())
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    b.emitInviteLink(INVITE)
+    await settle()
+    release()
+    await settle()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(INVITE)
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+  })
+
+  it('with a saved server, a link opens Settings > Servers with the invite sheet', async () => {
+    const b = await renderClient((s) => void (s.servers = serversView({ rows: [{ ...GPU }], defaultId: GPU.id })))
+    b.emitInviteLink(`  ${INVITE}\n`)
+    await settle()
+    expect(screen.getByTestId('invite-sheet')).toBeTruthy()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(INVITE)
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
   })
 
   it('adds a server by address as the default and shows it', async () => {
@@ -93,10 +168,10 @@ describe('first connect', () => {
     fireEvent.click(screen.getByTestId('first-connect-invite'))
     await settle()
     expect(screen.getByRole('heading', { level: 1, name: 'Add server by invite link' })).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: 'localai://pair?t=example' } })
+    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: INVITE } })
     fireEvent.click(screen.getByTestId('invite-submit'))
     await settle()
-    expect(called(b, 'addServerByInvite')[0]?.args[0]).toMatchObject({ link: 'localai://pair?t=example', makeDefault: true })
+    expect(called(b, 'addServerByInvite')[0]?.args[0]).toMatchObject({ link: INVITE, makeDefault: true })
   })
 
   it('shows first-connect, not a blank area, when the saved default names no server', async () => {
@@ -131,7 +206,7 @@ describe('first connect', () => {
     await settle()
     fireEvent.click(screen.getByTestId('first-connect-invite'))
     await settle()
-    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: 'localai://pair?t=example' } })
+    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: INVITE } })
     fireEvent.click(screen.getByTestId('invite-submit'))
     await settle()
     expect(screen.getByText('P2P is not available in this build of the app.')).toBeTruthy()
@@ -194,6 +269,29 @@ describe('settings', () => {
     fireEvent.click(screen.getByTestId('remove-confirm'))
     await settle()
     expect(called(b, 'removeServer')[0]?.args).toEqual([GPU.id])
+  })
+})
+
+describe('client leftovers', () => {
+  it('Settings > Servers with no server does not talk about this computer', async () => {
+    await renderClient()
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Servers' }))
+    await settle()
+    expect(screen.getByText('Add a LocalAI server to use its models in this app.')).toBeTruthy()
+    expect(screen.queryByText(/this computer/i)).toBeNull()
+  })
+
+  it('without P2P, the address form offers no invite link', async () => {
+    const b = fakeClientBridge(baseState())
+    b.state.info = { ...b.state.info, capabilities: { localServer: false, p2p: false, selfUpdate: 'apk', qrScan: false } }
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    expect(screen.queryByTestId('first-connect-invite')).toBeNull()
+    fireEvent.click(screen.getByTestId('first-connect-address'))
+    await settle()
+    expect(screen.getByLabelText('Server address')).toBeTruthy()
+    expect(screen.queryByTestId('use-invite')).toBeNull()
   })
 })
 

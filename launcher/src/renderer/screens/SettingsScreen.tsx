@@ -5,7 +5,8 @@ import { hasLocal, useBridge, type NetworkView } from '../bridge'
 import { Card, Field, fieldIds } from '../parts'
 import { EnvVarsField } from './EnvVarsField'
 import { RegistryCredentialsField } from './RegistryCredentialsField'
-import { ServersTab } from './ServersTab'
+import { ServersTab, type ServersOpen } from './ServersTab'
+import { inviteScanner } from '../invitePreview'
 import { UpdatesTab } from './UpdatesTab'
 import { S } from '../strings'
 import type { ShellControls, ShellData } from '../useLauncher'
@@ -26,7 +27,7 @@ export function SettingsScreen({
   onSwitch,
   serversOpen,
   initialTab = 'general',
-  now = Date.now(),
+  now: fixedNow,
 }: {
   data: ShellData
   controls: ShellControls
@@ -36,12 +37,13 @@ export function SettingsScreen({
   /** Makes a saved server (or `local`) the default and opens it. */
   onSwitch: (id: string) => void
   /** Open the add or edit sheet of Settings > Servers at once (from the switcher or the recovery screen). */
-  serversOpen?: { kind: 'add' } | { kind: 'edit'; id: string }
+  serversOpen?: ServersOpen
   initialTab?: SettingsTab
   now?: number
 }) {
   const b = useBridge()
   const ids = useId()
+  const now = fixedNow ?? Date.now()
   const clientOnly = !data.capabilities.localServer
   const tabs = clientOnly ? TABS.filter((t) => CLIENT_TABS.includes(t)) : TABS
   const [tab, setTab] = useState<SettingsTab>(tabs.includes(initialTab) ? initialTab : 'general')
@@ -288,7 +290,17 @@ export function SettingsScreen({
     </Card>
   )
 
-  const servers = data.servers ? <ServersTab view={data.servers} onSwitch={onSwitch} open={serversOpen} localServer={!clientOnly} /> : null
+  const servers = data.servers ? (
+    <ServersTab
+      view={data.servers}
+      onSwitch={onSwitch}
+      open={serversOpen}
+      localServer={!clientOnly}
+      p2p={data.capabilities.p2p}
+      onScan={inviteScanner(b, data.capabilities)}
+      now={fixedNow}
+    />
+  ) : null
   const updates = <UpdatesTab data={data} controls={controls} now={now} />
   const panels: Record<SettingsTab, React.ReactNode> = { general, servers, updates, network, performance, advanced }
 

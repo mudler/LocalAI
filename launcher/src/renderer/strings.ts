@@ -843,6 +843,30 @@ export const S = {
     noP2P: 'P2P is not available in this build of the app.',
   },
 
+  // What the invite form shows about a link before pairing (mock 03), and
+  // invites that reach the app from a link, the share sheet or a QR code.
+  invitePreview: {
+    notInvite: 'This is not a LocalAI invite link.',
+    close: 'Close',
+    scan: 'Scan QR code',
+    scanFailed: 'The QR code could not be scanned. Check that the app may use the camera, then try again.',
+    unnamed: 'LocalAI server',
+    kind: { device: 'Device invite · works once', remote: 'Remote invite' } as Record<string, string>,
+    left: (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`,
+    peer: 'Server peer',
+    routes: 'Routes',
+    routeCounts: (addrs: number, relays: number) =>
+      `${addrs} direct ${addrs === 1 ? 'address' : 'addresses'} · ${relays} ${relays === 1 ? 'relay' : 'relays'}`,
+    expires: 'Expires',
+    today: (clock: string) => `today at ${clock}`,
+    onDay: (day: string, clock: string) => `${day} at ${clock}`,
+    openRelayTitle: 'The link names an open relay',
+    /** The name field when it is empty: the name the invite gives. */
+    namePlaceholder: (label: string) => `${label} (from the invite)`,
+    /** Settings > Servers with no saved server, in an app with no local server. */
+    serversEmptyClient: 'Add a LocalAI server to use its models in this app.',
+  },
+
   time: {
     justNow: 'just now',
     minutes: (n: number) => (n === 1 ? '1 minute ago' : `${n} minutes ago`),

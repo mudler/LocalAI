@@ -49,6 +49,11 @@ export interface BridgeExtras {
   testWorker(config: WorkerConfig): Promise<WorkerView>
   startWorker(config: WorkerConfig): Promise<WorkerView>
   stopWorker(): Promise<WorkerView>
+  // invites from outside the form (the Android app)
+  /** Scans a QR code with the camera: its text, or undefined when the person cancels. */
+  scanInvite(): Promise<string | undefined>
+  /** Texts that reach the app from a `localai://pair` link or the share sheet, including the one it was opened with. */
+  onInviteLink(cb: (text: string) => void): () => void
 }
 
 /**
@@ -86,5 +91,5 @@ export function missingExtras(b: Bridge): (keyof BridgeExtras)[] {
 
 /** Optional methods that no main-process channel answers yet. */
 export const EXTRA_NAMES: (keyof BridgeExtras)[] = [
-  'getWorker', 'onWorker', 'setRunMode', 'testWorker', 'startWorker', 'stopWorker',
+  'getWorker', 'onWorker', 'setRunMode', 'testWorker', 'startWorker', 'stopWorker', 'scanInvite', 'onInviteLink',
 ]
