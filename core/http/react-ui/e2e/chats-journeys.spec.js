@@ -83,12 +83,14 @@ test.describe('Chat journeys', () => {
   test('a tool the model calls shows as a line in the transcript and its result reaches the answer', async ({ page }) => {
     const args = b64({ path: '/' })
     await startChat(page, `list my files ADDON_TOOL_CALL:list_files:${args}`)
-    // The tool line, not the tool's name: the user's own message names
-    // list_files too, and so does the model's call once it streams, so a text
-    // match passes before any tool ran or fails on two matches.
-    const line = transcript(page).getByTestId('chat-activity').filter({ hasText: 'Listed /' })
-    await expect(line.first()).toBeVisible({ timeout: 20_000 })
     await expect(working(page)).toBeHidden({ timeout: 20_000 })
+    // A stored turn starts folded: its steps show under the one line above the
+    // answer. The tool line, not the tool's name: the user's own message names
+    // list_files too, and so does the model's call, so a text match passes
+    // before any tool ran or fails on two matches.
+    const fold = transcript(page).getByTestId('chat-activity').first()
+    await fold.getByRole('button', { expanded: false }).first().click()
+    await expect(fold.getByRole('button', { name: /^Listed \// }).first()).toBeVisible()
   })
 
   test('a file the model writes lands in Files, in the history, and Undo removes it', async ({ page }) => {
