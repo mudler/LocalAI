@@ -33,6 +33,9 @@ const (
 	// SendLoopReport is the report that a loop sends when it ends or has a
 	// problem, as its start_loop report asked.
 	SendLoopReport = "loop_report"
+	// SendTriggerRun is a message that a run of a trigger wrote with
+	// send_message, under act.send, in an approved channel of the owner.
+	SendTriggerRun = "trigger_run"
 )
 
 // ErrMessageEmpty and ErrMessageTooLong are the refusals of the text rules.

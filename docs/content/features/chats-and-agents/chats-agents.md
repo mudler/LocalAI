@@ -764,7 +764,7 @@ that cannot be read at that moment gives a read only run.
 | Files | `act.files` | `write_file`, `edit_file`, `move_file`, `delete_file`, and the built-in `bash` of this machine. |
 | Add-on actions | `act.addons`, or `act.addons:<add-on id>` for one add-on | Every add-on tool whose kind is not `read` (`action`, `write`, `schema`, `create`), including an add-on that serves `bash`. |
 | Outside | `act.spend` | MCP tools (of a server or a connector), and an add-on action tool that the add-on declares with a permission, which means it acts outside LocalAI with a credential. The last one needs `act.addons` as well. |
-| Send | `act.send` | Reserved for messages beyond the delivery target. No tool of this class exists yet. |
+| Send | `act.send` | `send_message` in a trigger run: a message to an approved channel of one of the owner's connections, in addition to the delivery target. See [Write to a messaging connection]({{% relref "/features/chats-and-agents/chats-tools#from-a-trigger-run" %}}). |
 
 What a run holds:
 

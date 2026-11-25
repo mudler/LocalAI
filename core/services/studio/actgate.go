@@ -247,6 +247,10 @@ func (s *Service) gateBuiltinActs(ctx context.Context, rec session.ChatRecord, t
 		case clientToolNames[t.Name]:
 			// The LocalAI client tools run models: they spend compute.
 			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassSpend})
+		case t.Name == SendMessageName && t.Provider == BuiltinProvider:
+			// Offered to a run only when it may send; checked again at each
+			// call, as a binding's approval can change during the run.
+			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassSend})
 		case fileWriteTools[t.Name]:
 			out[i] = s.gateAct(rec, pol, t, builtins.ActTool{Name: t.Name, Class: builtins.ClassFiles})
 		case t.Name == commandTool && t.Provider == BuiltinProvider:

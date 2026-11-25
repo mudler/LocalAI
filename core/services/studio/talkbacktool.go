@@ -34,7 +34,9 @@ const sendMessageSchema = `{"type":"object","properties":{` +
 // started it is offered when the sender holds talkback.channels, and the call
 // checks the capability that its target needs again. In a chat in Studio, and
 // so in the runs of its loops, it is offered when the owner has a connection
-// that can receive messages (see studioSendTool).
+// that can receive messages (see studioSendTool). In a run of a trigger it is
+// offered when the trigger holds act.send (see triggerSendTool). A sub-agent,
+// an agent job and any other origin never get it.
 func (s *Service) registerTalkbackTool() error {
 	return s.builtins.Register(builtins.Tool{
 		ID: SendMessageName, Label: "Send a message", Description: sendMessageDescription, Unlisted: true,
@@ -49,6 +51,8 @@ func (s *Service) registerTalkbackTool() error {
 				return session.Tool{}, false, "only the agent of a messaging app connection writes there"
 			case c.Origin == "":
 				return s.studioSendTool(ctx, c)
+			case c.Origin == session.OriginTrigger:
+				return s.triggerSendTool(ctx, c)
 			case c.Origin != session.OriginConnector:
 				return session.Tool{}, false, "only the agent of a messaging app connection writes there"
 			}

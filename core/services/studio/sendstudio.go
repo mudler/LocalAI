@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -37,13 +36,7 @@ func (s *Service) studioSendTool(ctx context.Context, c builtins.Chat) (session.
 	if len(dests) == 0 {
 		return session.Tool{}, false, "the person has no connection that can receive a message"
 	}
-	var sb strings.Builder
-	sb.WriteString(studioSendDescription)
-	sb.WriteString(" Connections you may write to:")
-	for _, d := range dests {
-		fmt.Fprintf(&sb, " [id %s, %s, named %q, channels: %s]", d.Binding.ID, d.Title, d.Binding.Name, strings.Join(approvedChannelNames(d.Binding), ", "))
-	}
-	return session.Tool{Description: sb.String(), Schema: json.RawMessage(studioSendSchema),
+	return session.Tool{Description: studioSendDescription + destinationsNote(dests), Schema: json.RawMessage(studioSendSchema),
 		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
 			return conns.studioSendMessage(ctx, c, raw)
 		}}, true, ""
