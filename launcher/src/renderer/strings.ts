@@ -52,6 +52,9 @@ export const S = {
   about: {
     title: 'About LocalAI',
     launcher: 'Launcher',
+    /** The version line of a client-only app (the Android app). */
+    app: 'App',
+    applicationId: 'Application ID',
     server: 'LocalAI server',
     notInstalled: 'Not installed',
     unknown: 'Unknown',
@@ -580,6 +583,7 @@ export const S = {
       stopped: 'P2P stopped',
       failed: 'P2P connection failed',
     } as Record<string, string>,
+    portInUse: 'Another app on this device uses the local address of this server. Close that app or restart the device; the app tries again by itself.',
     path: {
       direct: 'direct',
       hole_punched: 'hole punched',

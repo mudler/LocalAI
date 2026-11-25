@@ -303,6 +303,18 @@ describe('settings', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull()
   })
 
+  it('the development app shows the Development chip in the bar, the stable app does not', async () => {
+    const { unmount } = render(<App bridge={fakeClientBridge({ ...baseState(), servers: serversView({ rows: [GPU], defaultId: GPU.id }), updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true, remoteDefault: true } })} now={NOW} />)
+    await settle()
+    expect(bar().getByTestId('dev-chip').textContent).toBe('Development')
+    unmount()
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+      s.updateInfo = { autoCheck: true, channel: 'stable', devConfirmed: false, remoteDefault: true }
+    })
+    expect(bar().queryByTestId('dev-chip')).toBeNull()
+  })
+
   it('removing the default server says the app asks for a server', async () => {
     const b = await renderClient((s) => {
       s.servers = serversView({ rows: [GPU, OTHER], defaultId: GPU.id })
@@ -454,6 +466,19 @@ describe('about', () => {
     const about = await openAbout()
     expect(about.getByText('LocalAI server')).toBeTruthy()
     expect(about.getByText('4.0.2')).toBeTruthy()
+  })
+
+  it('labels the version "App" and shows the application ID', async () => {
+    await renderClient((s) => {
+      s.info = { ...s.info, version: '5.0.2', applicationId: 'io.localai.client.dev' }
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    })
+    const about = await openAbout()
+    expect(about.queryByText('Launcher')).toBeNull()
+    expect(about.getByText('App')).toBeTruthy()
+    expect(about.getByText('5.0.2')).toBeTruthy()
+    expect(about.getByText('Application ID')).toBeTruthy()
+    expect(about.getByText('io.localai.client.dev')).toBeTruthy()
   })
 
   it('leaves the server line out while the version is not known', async () => {
@@ -631,5 +656,40 @@ describe('unreachable default', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Choose another server' }))
     await settle()
     expect(screen.getByRole('menu', { name: 'Servers' })).toBeTruthy()
+  })
+
+  const STUDIO = remoteRow('srv_00000003', 'Studio', 'http://127.0.0.2:41001', {
+    isDefault: true,
+    isCurrent: true,
+    status: 'unreachable',
+    p2p: { state: 'failed', error: 'listen tcp 127.0.0.2:41001: bind: address already in use' },
+  })
+
+  it('shows why a P2P server fails, as text, on the screen and in its row (no tooltip only)', async () => {
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [STUDIO], defaultId: STUDIO.id })
+      s.webui = {
+        ...webuiView({ target: { kind: 'remote', origin: STUDIO.origin!, host: STUDIO.host } }),
+        remote: { kind: 'unreachable', reason: "this app's P2P connection to it is not open", at: NOW - 1_000, nextAt: NOW + 29_000 },
+      }
+    })
+    const tunnel = screen.getByTestId('unreach-tunnel')
+    expect(tunnel.textContent).toContain('P2P connection failed')
+    expect(tunnel.textContent).toContain('Another app on this device uses the local address of this server')
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Servers' }))
+    await settle()
+    const detail = screen.getByTestId(`server-p2p-detail-${STUDIO.id}`)
+    expect(detail.textContent).toContain('P2P connection failed')
+    expect(detail.textContent).toContain('Another app on this device uses the local address of this server')
+  })
+
+  it('shows any other P2P error as it is', async () => {
+    const row = { ...STUDIO, p2p: { state: 'failed' as const, error: 'no route to peer' } }
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [row], defaultId: row.id })
+      s.webui = { ...webuiView({ target: { kind: 'remote', origin: row.origin!, host: row.host } }), remote: { kind: 'unreachable', reason: 'timed out', at: NOW - 1_000, nextAt: NOW + 29_000 } }
+    })
+    expect(screen.getByTestId('unreach-tunnel').textContent).toBe('P2P connection failed: no route to peer')
   })
 })

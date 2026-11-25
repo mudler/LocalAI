@@ -96,6 +96,9 @@ describe('P2P in the client core', () => {
     // Each opens in its own profile.
     p.fakeHttp.answers.set('http://127.0.0.2:41001', 'ok')
     p.fakeHttp.answers.set('http://127.0.0.3:41001', 'ok')
+    // Each origin loads only once its own forwarder listens.
+    p.p2p.emit('forwardState', { id: a.id, line: '{"state":"ready"}' })
+    p.p2p.emit('forwardState', { id: b.id, line: '{"state":"ready"}' })
     await core.servers.setDefaultServer(a.id)
     p.webui.emit('loaded')
     await flush()
@@ -279,5 +282,115 @@ describe('P2P in the client core', () => {
       { kind: 'p2pKeep', on: true },
       { kind: 'p2pKeep', on: false },
     ])
+  })
+})
+
+// Security review I1: another app can bind the loopback address of a P2P
+// server while this app's forwarder does not listen. The WebUI view (which
+// sends the sign-in cookie) must load that origin only while this app's own
+// forwarder listens on it.
+describe('the WebUI view of a server over P2P (loopback squatting)', () => {
+  const url = 'http://127.0.0.2:41001'
+  const files = {
+    [CONFIG_FILE]: JSON.stringify({
+      remotes: [{ id: 'srv_00000001', name: 'Studio', url, p2p: { peer: PEER, port: 41001, addrs: [], relays: [], host: '127.0.0.2' } }],
+      default_target: 'srv_00000001',
+    }),
+  }
+  const ID = 'srv_00000001'
+  const webuiCalls = (p: FakePlatform, name: string) => p.webui.calls.filter((c) => c.name === name)
+  const line = (p: FakePlatform, l: string) => p.p2p.emit('forwardState', { id: ID, line: l })
+  // Something answers on the address: this app's forwarder or another app.
+  const answering = () => withP2P({ files, answers: { [url]: 'ok' } })
+
+  it('does not load the origin at start before the forwarder listens, then loads it once it is ready', async () => {
+    const p = answering()
+    const { core } = await start(p)
+    expect(webuiCalls(p, 'show')).toEqual([])
+    // Nothing is sent to the address while another app may hold it.
+    expect(p.fakeHttp.checks(url)).toBe(0)
+    expect(core.webuiState().layout).not.toBe('webui')
+    expect(core.webuiState().remote).toMatchObject({ kind: 'unreachable' })
+    line(p, '{"state":"ready"}')
+    await flush()
+    expect(webuiCalls(p, 'show').map((c) => (c.args[0] as { origin: string }).origin)).toEqual([url])
+    expect(core.webuiState().remote).toBeNull()
+  })
+
+  it('a forwarder that cannot bind (port in use) never opens the view, whatever answers the probe', async () => {
+    const p = answering()
+    const { core } = await start(p)
+    line(p, '{"state":"failed","error":"listen tcp 127.0.0.2:41001: bind: address already in use"}')
+    await flush()
+    expect(core.servers.serversView().rows[0].p2p).toMatchObject({ state: 'failed' })
+    await core.servers.retryRemote()
+    core.webuiDispatch({ type: 'reload' })
+    await flush()
+    expect(webuiCalls(p, 'show')).toEqual([])
+    expect(webuiCalls(p, 'reload')).toEqual([])
+    expect(p.fakeHttp.checks(url)).toBe(0)
+    expect(core.webuiState().remote).toMatchObject({ kind: 'unreachable' })
+    // A test of the server does not reach the address either.
+    const t = await core.servers.testServer({ id: ID })
+    expect(t).toMatchObject({ ok: true, result: { status: 'unreachable' } })
+    expect(p.fakeHttp.checks(url)).toBe(0)
+  })
+
+  it('a switch to a P2P server whose forwarder does not listen fails and loads nothing', async () => {
+    const p = withP2P({ answers: { [url]: 'ok' } })
+    const { core } = await start(p)
+    p.p2p.pairAnswers = [{ ok: true, json: pairJson(PEER) }]
+    p.p2p.ports = [41001]
+    const r = await core.servers.addServerByInvite({ link: invite(PEER) })
+    if (!r.ok) throw new Error('pairing failed')
+    line(p, '{"state":"failed","error":"listen tcp 127.0.0.2:41001: bind: address already in use"}')
+    const sw = await core.servers.setDefaultServer(r.id)
+    await flush()
+    expect(sw).toMatchObject({ ok: false, reason: 'test-failed' })
+    expect(webuiCalls(p, 'show')).toEqual([])
+  })
+
+  it('closes the view when the forwarder stops, and loads the origin again only once it listens', async () => {
+    const p = answering()
+    p.p2p.lines = [{ id: ID, line: '{"state":"up","path":"direct"}' }]
+    const { core } = await start(p)
+    expect(webuiCalls(p, 'show')).toHaveLength(1)
+    p.webui.emit('loaded')
+    await flush()
+    const closes = webuiCalls(p, 'close').length
+    line(p, '{"state":"closed"}')
+    await flush()
+    expect(webuiCalls(p, 'close').length).toBeGreaterThan(closes)
+    expect(core.webuiState().layout).not.toBe('webui')
+    expect(core.webuiState().remote).toMatchObject({ kind: 'unreachable' })
+    // Reload and a starting forwarder load nothing.
+    core.webuiDispatch({ type: 'reload' })
+    line(p, '{"state":"starting"}')
+    line(p, '{"state":"failed","error":"listen tcp 127.0.0.2:41001: bind: address already in use"}')
+    await core.servers.retryRemote()
+    await flush()
+    expect(webuiCalls(p, 'show')).toHaveLength(1)
+    expect(webuiCalls(p, 'reload')).toEqual([])
+    line(p, '{"state":"ready"}')
+    await flush()
+    expect(webuiCalls(p, 'show')).toHaveLength(2)
+    expect(core.webuiState().remote).toBeNull()
+  })
+
+  it('on resume, loads nothing until the forwarder listens again', async () => {
+    const p = answering()
+    p.p2p.lines = [{ id: ID, line: '{"state":"up"}' }]
+    const { core } = await start(p)
+    expect(webuiCalls(p, 'show')).toHaveLength(1)
+    core.setForeground(false)
+    // The service stopped the forwarders in the background; the line came while the page slept.
+    p.p2p.lines = [{ id: ID, line: '{"state":"closed"}' }]
+    core.setForeground(true)
+    await flush()
+    expect(webuiCalls(p, 'show')).toHaveLength(1)
+    expect(core.webuiState().layout).not.toBe('webui')
+    line(p, '{"state":"ready"}')
+    await flush()
+    expect(webuiCalls(p, 'show')).toHaveLength(2)
   })
 })

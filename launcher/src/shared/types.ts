@@ -38,6 +38,8 @@ export interface LauncherInfo {
   sandboxed: boolean
   /** Set when launcher.json could not be used at start and defaults were loaded. Never holds file content. */
   configNotice?: { status: 'recovered'; reason: string }
+  /** The application ID of an app that has one (the Android app). The desktop sends none. */
+  applicationId?: string
   /** What this app can do. Missing (an older main process) means the desktop set. */
   capabilities?: Capabilities
 }

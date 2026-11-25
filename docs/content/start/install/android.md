@@ -62,7 +62,7 @@ You can give the invite to the app in four ways:
 - **Open the link.** Select a `localai://pair` link in another app, for example in a message. The link opens the LocalAI app.
 - **Share it.** Share the text of the invite from another app, and choose **LocalAI** in the share menu.
 
-In every case, the app first shows a preview of the invite: the server name, the kind of invite, the routes and the time left. The app never pairs before you select **Connect**. If the text is not an invite, the app shows **This is not a LocalAI invite link** and does nothing else.
+In every case, the app first shows a preview of the invite: the server name, the kind of invite, the routes and the time left. The app never pairs before you select **Pair**. If the text is not an invite, the app shows **This is not a LocalAI invite link** and does nothing else.
 
 When the app pairs, it shows a four-word **confirmation phrase**. The server shows the same words. Make sure that the words match. If they do not match, someone else used the invite: tell the server owner.
 
@@ -100,7 +100,7 @@ Android stops the network connections of an app in the background. To keep a P2P
 
 - The service runs while at least one P2P server is saved and the app is on the screen.
 - When the app leaves the screen, the service runs for 10 more minutes, then stops.
-- When you open the app again, the app connects again before it reloads the server page.
+- When you open the app again, the app connects again. If the connection stopped while the app was away, the app loads the server page again, but only after the connection is open.
 - To keep the connection open in the background, turn on **Keep P2P connection in the background** in Settings. It is off by default.
 - **Disconnect** in the notification stops the service and turns that setting off.
 
@@ -109,6 +109,8 @@ On Android 13 and later, the app asks for the permission to show notifications t
 When the phone changes network, for example from Wi-Fi to mobile data or when a VPN starts, the app restarts the P2P connections. The local address of each server stays the same, so the page and the sign-in stay too.
 
 Other apps on the phone can connect to the local address of a P2P server, as on a computer. They still need a sign-in to the server.
+
+While the app's own P2P connection to a server is not open, another app can take the local address of that server. For this reason the app shows the page of a P2P server, and sends it your sign-in, only while its own connection listens on that address. At other times the server shows as not reachable. If another app holds the address, the P2P connection fails with "address already in use": close that app, or restart the phone. The app tries to connect again by itself.
 
 ## Updates
 
@@ -134,7 +136,7 @@ Android can show its dialog on Android 12 and later too. For example, it does so
 
 The development app follows the rolling [`dev-master` pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master), made from the `master` branch. It is not supported. It can have bugs and change without notice.
 
-The development app is a separate app (`io.localai.client.dev`), with its own icon, servers and sign-ins. It installs next to the stable app (`io.localai.client`). The two apps never update each other. The development app updates itself only from `dev-master`, and its version looks like `5.0.2-dev.42`.
+The development app is a separate app (`io.localai.client.dev`), with its own name (**LocalAI Dev**), servers and sign-ins. It has the same icon as the stable app, and its status bar shows a **Development** chip. It installs next to the stable app (`io.localai.client`). The two apps never update each other. The development app updates itself only from `dev-master`, and its version looks like `5.0.2-dev.42`.
 
 To get it, open **Settings > Updates** in the stable app and select **Get the development app**. The browser downloads `LocalAI-Android-dev.apk`, and you install it as in [Install the app](#install-the-app). You can also download it from the `dev-master` release.
 
@@ -159,7 +161,7 @@ The app keeps the list of servers and its settings in its private storage. Andro
 
 After you restore a backup on a new phone, sign in to each server again. P2P servers do not connect, because the new phone has a new P2P identity. Remove each P2P server and pair it again with a new invite.
 
-To remove the app and all its data, uninstall it in the Android settings. Files that you downloaded from a server page stay in the **Downloads** folder.
+To remove the app and all its data, uninstall it in the Android settings. On Android 10 and later, files that you downloaded from a server page stay in the **Downloads** folder. On Android 8 and 9, the app saves downloads in its own folder (`Android/data/<app ID>/files/Download`), and Android deletes that folder when you uninstall the app: move the files that you want to keep first.
 
 ## Troubleshooting
 

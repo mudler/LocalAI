@@ -191,6 +191,10 @@ internal object P2PRuntime {
     private fun stop() {
         main.removeCallbacks(stopTimer)
         startRequested = false
+        // Say "closed" before the ports are released: the WebUI view drops the
+        // page of a stopped server here, on the main thread, before another
+        // app can bind the loopback address (security review I1).
+        for (f in forwards) onLine(f.id, CLOSED_LINE)
         app.stopService(Intent(app, ForwardService::class.java))
     }
 }

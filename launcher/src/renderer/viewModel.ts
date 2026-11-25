@@ -276,9 +276,14 @@ export function currentRow(i: ShellInput) {
   return i.servers?.rows.find((r) => r.isCurrent)
 }
 
-/** The Development channel is on and the window shows This computer: the chip stays in the bar. */
+/**
+ * The Development channel is on and the window shows This computer: the chip
+ * stays in the bar. A client-only app has no This computer; there the channel
+ * is the app's own (the development app), so the chip always shows with it.
+ */
 export function devChipShown(i: ShellInput): boolean {
-  return localServer(i) && i.updateInfo?.channel === 'dev' && !isRemote(i) && !i.worker?.running
+  if (!localServer(i)) return i.updateInfo?.channel === 'dev'
+  return i.updateInfo?.channel === 'dev' && !isRemote(i) && !i.worker?.running
 }
 
 /** "This computer: running" next to a remote, when the user keeps the local server on. */

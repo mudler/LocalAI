@@ -7,12 +7,13 @@
 // ClientPlatform, so the tests run it with fakes.
 import type { PluginListenerHandle } from '@capacitor/core'
 import { ConfigStore, openWebuiInBrowser, webuiPermissions, withOpenWebuiInBrowser, withWebuiPermissions } from '@launcher/core/configStore'
+import { REMOTE_RETRY_MS } from '@launcher/core/remoteMonitor'
 import { RemoteServers } from '@launcher/core/remoteServers'
 import { remotes } from '@launcher/core/serversConfig'
 import { runServerTest, type HttpGet, type TestResult } from '@launcher/core/testClassify'
 import { remember, resetPermissions, type PermissionChoice } from '@launcher/core/webuiPolicy'
 import { WebuiModel, type WebuiEffect, type WebuiEvent } from '@launcher/core/webuiState'
-import type { ServersView, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
+import type { RemoteStatusView, ServersView, UpdaterStatus, WebuiViewState, WindowSettingsView } from '@launcher/shared/types'
 import { MOBILE_BAR_HEIGHT } from '../mobileShell'
 import type { P2PPlugin, WebuiViewPlugin } from '../plugins/definitions'
 import { clientConfigIO, type FileApi } from './configIO'
@@ -40,6 +41,12 @@ export interface ClientPlatform {
 
 const FALLBACK_DEVICE_NAME = 'Android device'
 
+/** The reason on the unreachable screen while this app's forwarder of the server does not listen. */
+export const P2P_NOT_LISTENING = "this app's P2P connection to it is not open"
+
+/** The forwarder states in which this app's forwarder holds the loopback address. */
+const LISTENING = new Set(['ready', 'up', 'down'])
+
 /**
  * The WebView profile of an origin: `webui-` and the first 24 hex digits of
  * the SHA-256 of the origin. One profile per origin keeps the cookies (the
@@ -64,6 +71,8 @@ export class ClientCore {
   private lastState = ''
   private paused = false
   private keyboardOpen = false
+  /** The last listening verdict of the P2P server on show, to act on its changes only. */
+  private gate: { origin: string; listening: boolean } | undefined
 
   private constructor(
     private readonly p: ClientPlatform,
@@ -90,7 +99,10 @@ export class ClientCore {
       store: () => store.get(),
       // RemoteServers has no hook for a tunnel state: publish the view here.
       // Lines arrive only from plugin events, after the constructor.
-      onChange: () => this.publishServers(this.servers.serversView()),
+      onChange: () => {
+        this.publishServers(this.servers.serversView())
+        this.regate()
+      },
       onKeepChange: (on) => this.emit({ kind: 'p2pKeep', on }),
       log: (m, level) => this.log(m, level),
     })
@@ -98,7 +110,12 @@ export class ClientCore {
       store,
       now: () => p.now(),
       randomBytes: (n) => p.randomBytes(n),
-      checkOrigin: (origin, signal) => runServerTest(origin, p.http, (e) => p.classifyError(e), { signal }),
+      // Nothing is sent to the address of a P2P server while this app's
+      // forwarder does not hold it: another app may (security review I1).
+      checkOrigin: (origin, signal) =>
+        this.p2pListening(origin) === false
+          ? Promise.resolve({ status: 'unreachable', reason: 'refused' })
+          : runServerTest(origin, p.http, (e) => p.classifyError(e), { signal }),
       p2p: this.tunnels,
       deviceName: () => deviceName,
       webuiDispatch: (e) => this.webuiDispatch(e),
@@ -210,12 +227,84 @@ export class ClientCore {
     this.emit({ kind: 'servers', view })
   }
 
-  /** Feeds one event to the model, applies its effects and places the view when the state changed. */
+  /**
+   * Feeds one event to the model, applies its effects and places the view when the state changed.
+   *
+   * Any app on the phone can bind a loopback address, so a P2P server's
+   * origin is loaded (and gets its sign-in cookie) only while this app's own
+   * forwarder listens on it. Otherwise a show, reload or navigate is dropped
+   * and the model learns that the server is unreachable, whatever the
+   * monitor's probe said.
+   */
   webuiDispatch(e: WebuiEvent): WebuiViewState {
-    const fx = this.model.dispatch(e)
-    for (const f of fx) this.apply(f)
+    const fx = this.model.dispatch(this.gated(e))
+    let blocked = false
+    for (const f of fx) {
+      if (this.blocks(f)) blocked = true
+      else this.apply(f)
+    }
     this.servers?.afterWebuiEvent(e)
+    if (blocked) {
+      for (const f of this.model.dispatch({ type: 'remote-status', status: this.notListening() })) if (!this.blocks(f)) this.apply(f)
+    }
     return this.syncState(false)
+  }
+
+  /**
+   * True when `origin` is a saved P2P server whose forwarder (this app's)
+   * listens: ready, up or down. False when it is a P2P server whose
+   * forwarder is starting, failed, stopped or unknown. undefined for any
+   * other origin.
+   */
+  private p2pListening(origin: string): boolean | undefined {
+    const r = remotes(this.store.get()).find((x) => x.url === origin && x.p2p)
+    if (!r) return undefined
+    const s = this.tunnels.status(r.id)
+    return s !== undefined && LISTENING.has(s.state)
+  }
+
+  private notListening(): RemoteStatusView {
+    const at = this.p.now()
+    return { kind: 'unreachable', reason: P2P_NOT_LISTENING, at, nextAt: at + REMOTE_RETRY_MS }
+  }
+
+  /** A monitor result for a P2P server whose forwarder does not listen says so instead. */
+  private gated(e: WebuiEvent): WebuiEvent {
+    if (e.type !== 'remote-status') return e
+    const t = this.model.target
+    if (t.kind === 'remote' && this.p2pListening(t.origin) === false) return { type: 'remote-status', status: this.notListening() }
+    return e
+  }
+
+  private blocks(f: WebuiEffect): boolean {
+    if (f.kind === 'show') return this.p2pListening(f.origin) === false
+    if (f.kind === 'reload' || f.kind === 'navigate') {
+      const o = this.model.viewOrigin
+      return o !== undefined && this.p2pListening(o) === false
+    }
+    return false
+  }
+
+  /**
+   * A forwarder state changed. When the P2P server on show stops listening,
+   * the view closes; when it listens again, the monitor checks it at once
+   * and the view loads on its answer.
+   */
+  private regate(): void {
+    const t = this.model.target
+    const listening = t.kind === 'remote' ? this.p2pListening(t.origin) : undefined
+    if (listening === undefined) {
+      this.gate = undefined
+      return
+    }
+    const before = this.gate?.origin === t.origin ? this.gate.listening : undefined
+    this.gate = { origin: t.origin, listening }
+    if (listening === before) return
+    if (!listening) {
+      this.webuiDispatch({ type: 'remote-status', status: this.notListening() })
+      return
+    }
+    if (!this.paused) void this.servers.retryRemote()
   }
 
   private syncState(force: boolean): WebuiViewState {

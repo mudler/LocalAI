@@ -7,7 +7,7 @@ import { useBridge } from '../bridge'
 import { Dialog } from '../Dialog'
 import { Popover } from '../Popover'
 import { ServerForm } from '../ServerForm'
-import { statusTone } from '../serversUi'
+import { statusTone, tunnelLine } from '../serversUi'
 import { S } from '../strings'
 import { Card } from '../parts'
 
@@ -149,6 +149,10 @@ export function ServersTab({
         <div className="lnr-srow__host dk-mono dk-small">
           {r.kind === 'local' ? `${r.host}${r.version ? ` · LocalAI ${r.version}` : ''}` : r.insecure ? `${r.origin}` : r.host}
         </div>
+        {/* A phone has no hover: the error is text under the host, not only the badge's tooltip. */}
+        {!localServer && r.p2p?.error && (
+          <div className="lnr-srow__host dk-small" data-testid={`server-p2p-detail-${r.id}`}>{tunnelLine(r.p2p)}</div>
+        )}
       </div>
       <span className="lnr-srow__status dk-small dk-muted">{S.servers.status[r.status]}</span>
       {!r.isDefault && <Button size="sm" onClick={() => onSwitch(r.id)} aria-label={`${S.servers.makeDefault}: ${r.name}`}>{S.servers.makeDefault}</Button>}

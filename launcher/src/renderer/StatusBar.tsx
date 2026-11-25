@@ -23,6 +23,10 @@ export interface StatusBarProps {
   popover: BarPopover
   setPopover: (p: BarPopover) => void
   launcherVersion?: string
+  /** About names the version line "App", not "Launcher" (a client-only app). */
+  appLabel?: boolean
+  /** About shows this application ID (a client-only app that has one). */
+  applicationId?: string
   serverVersion?: string
   /** About leaves out the server line while its version is not known (a client app). Default: shows "Unknown". */
   hideUnknownServerVersion?: boolean
@@ -180,8 +184,14 @@ export function StatusBar(p: StatusBarProps) {
                 <dd className="dk-mono">{p.serverVersion ?? S.about.unknown}</dd>
               </>
             )}
-            <dt className="dk-muted">{S.about.launcher}</dt>
+            <dt className="dk-muted">{p.appLabel ? S.about.app : S.about.launcher}</dt>
             <dd className="dk-mono">{p.launcherVersion ?? S.about.unknown}</dd>
+            {p.applicationId && (
+              <>
+                <dt className="dk-muted">{S.about.applicationId}</dt>
+                <dd className="dk-mono">{p.applicationId}</dd>
+              </>
+            )}
             {p.channel && (
               <>
                 <dt className="dk-muted">{S.about.channel}</dt>

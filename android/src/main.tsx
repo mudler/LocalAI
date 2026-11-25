@@ -10,6 +10,7 @@ import './mobile.css'
 import { IME_CLASS, installMobileShell, onKeyboardChange } from './mobileShell'
 import { createAndroidBridge } from './bridge/androidBridge'
 import { appSelf, createAndroidUpdater, idleUpdater, type AndroidUpdater } from './core/androidUpdater'
+import type { AppSelf } from './core/apkUpdate'
 import { ClientCore } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
 import { startLifecycle } from './lifecycle'
@@ -45,11 +46,12 @@ async function main(): Promise<void> {
   startLifecycle(core)
   core.setKeyboardOpen(document.documentElement.classList.contains(IME_CLASS))
   onKeyboardChange(window, (open) => core.setKeyboardOpen(open))
-  const updater = await appUpdater(core)
+  const self = await appInfo()
+  const updater = appUpdater(core, self)
   const bridge = createAndroidBridge(core, {
     clipboard: (text) => Clipboard.write({ string: text }),
     updater,
-    info: { version },
+    info: { version, ...(self ? { applicationId: self.applicationId } : {}) },
     invites: { appLinks: AppLinks, scanner: Scanner },
   })
   createRoot(document.getElementById('root')!).render(<App bridge={bridge} />)
@@ -64,14 +66,19 @@ async function main(): Promise<void> {
   }).catch(() => undefined)
 }
 
-/** The APK updater over the Updater plugin; without the plugin (a web preview) nothing is offered. */
-async function appUpdater(core: ClientCore): Promise<AndroidUpdater> {
+/** The running app from the Updater plugin; undefined without the plugin (a web preview). */
+async function appInfo(): Promise<AppSelf | undefined> {
   try {
-    const self = appSelf(await Updater.appInfo())
-    return createAndroidUpdater({ plugin: Updater, store: core.configStore(), self, openExternal: (url) => core.openExternal(url) })
+    return appSelf(await Updater.appInfo())
   } catch {
-    return idleUpdater()
+    return undefined
   }
+}
+
+/** The APK updater over the Updater plugin; without the plugin nothing is offered. */
+function appUpdater(core: ClientCore, self: AppSelf | undefined): AndroidUpdater {
+  if (!self) return idleUpdater()
+  return createAndroidUpdater({ plugin: Updater, store: core.configStore(), self, openExternal: (url) => core.openExternal(url) })
 }
 
 void main().catch((e) => {

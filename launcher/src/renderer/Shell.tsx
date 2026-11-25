@@ -410,6 +410,7 @@ export function Shell({ now }: { now?: number }) {
             server={cur}
             status={data.webui.remote}
             now={tick}
+            showTunnel={clientOnly}
             onSwitchLocal={clientOnly ? undefined : () => void switchTo('local')}
             onChooseOther={clientOnly ? () => setPopover('switcher') : undefined}
             onEdit={() => {
@@ -529,6 +530,8 @@ export function Shell({ now }: { now?: number }) {
             popover={popover}
             setPopover={setPopover}
             launcherVersion={data.info?.version}
+            appLabel={clientOnly}
+            applicationId={clientOnly ? data.info?.applicationId : undefined}
             serverVersion={clientOnly ? aboutServerVersion : version}
             hideUnknownServerVersion={clientOnly}
             appUpdate={apk}
