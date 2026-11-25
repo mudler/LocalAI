@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
 import android.os.Message
+import android.os.SystemClock
 import android.webkit.ClientCertRequest
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
@@ -46,10 +47,21 @@ internal class WebuiViewClient(private val host: WebuiHost) : WebViewClient() {
     // One load-failed event per page load.
     private var failed = false
 
+    // Server redirects come here too, with isRedirect set (Android 7 and later):
+    // the redirect of a login route to the identity provider is what starts a
+    // sign-in (OAuthSignInFlow), so it must be told apart from a link.
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val origin = host.serverOrigin ?: return true
         val url = request.url.toString()
-        return when (val d = WebuiPolicy.decideNavigation(url, origin, subframe = !request.isForMainFrame)) {
+        val subframe = !request.isForMainFrame
+        val flow = host.oauthFlow
+        val now = SystemClock.elapsedRealtime()
+        val d = when {
+            flow == null -> WebuiPolicy.decideNavigation(url, origin, subframe)
+            request.isRedirect -> flow.onRedirect(url, subframe, now)
+            else -> flow.onNavigate(url, subframe, now)
+        }
+        return when (d) {
             WebuiPolicy.Navigation.Allow -> false
             is WebuiPolicy.Navigation.External -> {
                 host.openExternal(d.url)
@@ -66,7 +78,12 @@ internal class WebuiViewClient(private val host: WebuiHost) : WebViewClient() {
         if (request.isForMainFrame) {
             // shouldOverrideUrlLoading already routed link and redirect
             // navigations; form posts do not pass through it, so check again.
-            return if (WebuiPolicy.decideNavigation(url, origin, subframe = false) == WebuiPolicy.Navigation.Allow) null else refusedResponse()
+            // An active sign-in lets its identity provider origins through
+            // (the sign-in form of the provider is a post), and adds none.
+            val flow = host.oauthFlow
+            val d = flow?.onBeforeRequest(url, subframe = false, nowMs = SystemClock.elapsedRealtime())
+                ?: WebuiPolicy.decideNavigation(url, origin, subframe = false)
+            return if (d == WebuiPolicy.Navigation.Allow) null else refusedResponse()
         }
         if (!isDocumentRequest(request.requestHeaders ?: emptyMap())) return null
         return if (WebuiPolicy.decideNavigation(url, origin, subframe = true) == WebuiPolicy.Navigation.Allow) null else refusedResponse()
@@ -78,7 +95,7 @@ internal class WebuiViewClient(private val host: WebuiHost) : WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
-        if (!failed) host.pageLoaded(view)
+        if (!failed) host.pageLoaded(view, url)
     }
 
     override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

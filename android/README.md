@@ -315,5 +315,10 @@ Keep these rules when you change the app:
   (`app_webview/`) and `webui_profiles.xml` are excluded from backup and
   device transfer (`res/xml/backup_rules.xml` and
   `res/xml/data_extraction_rules.xml`; keep the two files in step).
-- OAuth-only sign-in (GitHub, OIDC) does not work inside the app in this
-  version. Password and API-key sign-in work.
+- OAuth and OIDC sign-in (GitHub, OIDC) completes inside the WebUI WebView:
+  `OAuthSignInFlow.kt` (a port of the launcher's `OAuthSignInFlow`) lets the
+  identity provider origins of one sign-in load in the main frame, from the
+  server's login route to the return to the server, for at most 10 minutes
+  and 5 origins. Subframes, windows, permissions and other schemes keep the
+  rules above. `WebuiPolicyParityTest` runs the sign-in cases of the shared
+  fixture; change the two ports together.
