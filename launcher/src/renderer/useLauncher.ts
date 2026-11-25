@@ -17,11 +17,12 @@ import type { Bridge, InstallDetailsView, UpdateInfoView, WindowSettingsView, Wo
 import { hardwareLine, INITIAL_TRACK, trackInstall, type InstallTrack, type ShellInput } from './viewModel'
 
 /** A value read once and then pushed by the main process. `get` and `on` may be missing (optional channel). */
-function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => void) => () => void) | undefined): [T | undefined, (v: T) => void] {
+function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => void) => () => void) | undefined): [T | undefined, (v: T) => void, boolean] {
   const [v, setV] = useState<T>()
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
-    if (get) void get().then((x) => live && setV(x)).catch(() => undefined)
+    if (get) void get().then((x) => live && setV(x)).catch(() => live && setFailed(true))
     const off = on?.((x) => setV(x))
     return () => {
       live = false
@@ -30,7 +31,7 @@ function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => voi
     // The bridge does not change while the shell runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  return [v, setV]
+  return [v, setV, failed]
 }
 
 /** The launcher info, read once, and whether the read failed. */
@@ -90,7 +91,7 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   const [settings, setSettings] = useLive<LauncherSettings>(b.getSettings, undefined)
   const [statusBarSaved, setStatusBarSaved] = useLive<boolean>(b.getStatusBarVisible, b.onStatusBar)
   const [webui] = useLive<WebuiViewState>(b.getWebui, b.onWebui)
-  const [servers] = useLive<ServersView>(b.getServers, b.onServers)
+  const [servers, , serversFailed] = useLive<ServersView>(b.getServers, b.onServers)
   const [worker, setWorker] = useLive<WorkerView>(b.getWorker, b.onWorker)
   const [windowSettings, setWindowSettings] = useLive<WindowSettingsView>(b.getWindowSettings, undefined)
   const [updateInfo, setUpdateInfo] = useLive<UpdateInfoView>(b.getUpdateInfo, undefined)
@@ -147,6 +148,9 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   if (!info && !infoFailed) return [undefined, controls]
   const capabilities = capabilitiesOf(info)
   if (capabilities.localServer && !server) return [undefined, controls]
+  // Without a local server the screen depends on the saved servers: before the
+  // list answers, a client with a saved default would show first-connect.
+  if (!capabilities.localServer && b.getServers && !servers && !serversFailed) return [undefined, controls]
   return [
     {
       server,

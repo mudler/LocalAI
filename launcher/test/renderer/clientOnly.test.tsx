@@ -104,6 +104,39 @@ describe('first connect', () => {
     expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
     expect(document.querySelector('.lnr-shell')?.getAttribute('aria-busy')).toBeNull()
   })
+
+  it('waits for the server list, so a saved default never shows first-connect', async () => {
+    const state = baseState()
+    state.servers = serversView({ rows: [{ ...GPU }], defaultId: GPU.id })
+    const b = fakeClientBridge(state)
+    let release!: () => void
+    const gate = new Promise<void>((r) => (release = r))
+    const getServers = b.getServers!
+    const getWebui = b.getWebui!
+    b.getServers = async () => (await gate, getServers())
+    b.getWebui = async () => (await gate, getWebui())
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeNull()
+    release()
+    await settle()
+    expect(document.querySelector('[data-screen="first-connect"]')).toBeNull()
+    expect(document.querySelector('.lnr-shell')?.getAttribute('data-base')).toBe('web')
+  })
+
+  it('says P2P is missing from the app, not that LocalAI must be installed', async () => {
+    const b = fakeClientBridge(baseState())
+    b.addServerByInvite = async () => ({ ok: false, reason: 'no-binary', detail: '' })
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    fireEvent.click(screen.getByTestId('first-connect-invite'))
+    await settle()
+    fireEvent.change(screen.getByLabelText('Invite link'), { target: { value: 'localai://pair?t=example' } })
+    fireEvent.click(screen.getByTestId('invite-submit'))
+    await settle()
+    expect(screen.getByText('P2P is not available in this build of the app.')).toBeTruthy()
+    expect(screen.queryByText(/Install it first/)).toBeNull()
+  })
 })
 
 describe('the bar', () => {

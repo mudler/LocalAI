@@ -27,7 +27,11 @@ import { isServerOrigin } from './webuiPolicy'
 
 export interface WebuiInputs {
   server: ServerState
-  /** Origin of the local server, from the configured address. */
+  /**
+   * Origin of the local server, from the configured address. Empty when the
+   * app runs no local server (a client-only app): with no remote target there
+   * is then nothing to show or to open.
+   */
   localOrigin: string
   installActive: boolean
   /** The saved "Show status bar" choice. */
@@ -187,6 +191,7 @@ export class WebuiModel {
       }
       case 'open-in-browser': {
         const origin = this.target.origin
+        if (origin === '') return fx
         const cur = e.currentUrl
         let url = appUrl(origin)
         if (cur) {

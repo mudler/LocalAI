@@ -489,6 +489,19 @@ export class RemoteServers {
     await this.monitor.retryNow()
   }
 
+  /** The app left the screen (a phone): stop watching the remote default until resumeMonitor. */
+  pauseMonitor(): void {
+    this.monitor.stop()
+  }
+
+  /** The app is back on screen: check the remote default once, then watch it as before. */
+  resumeMonitor(): void {
+    if (this.switching) return
+    const c = this.d.store.get()
+    const r = remotes(c).find((x) => x.id === defaultTarget(c))
+    if (r) void this.monitor.start(r.url)
+  }
+
   /** Stops the monitor and every forwarder and aborts open tests. */
   stopAll(): void {
     this.monitor.stop()
