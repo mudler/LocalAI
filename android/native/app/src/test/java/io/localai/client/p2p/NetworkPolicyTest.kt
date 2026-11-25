@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// Review Focus 1: Wi-Fi to mobile data (or VPN on/off) restarts every forwarder.
+// A switch from Wi-Fi to mobile data (or VPN on/off) restarts every forwarder.
 class NetworkPolicyTest {
     private val wifi = setOf("wifi")
     private val cell = setOf("cellular")

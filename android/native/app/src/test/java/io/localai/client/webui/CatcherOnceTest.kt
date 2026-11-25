@@ -4,7 +4,7 @@ package io.localai.client.webui
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** Security review M2: every window catcher must be destroyed (released) once. */
+/** Every window catcher must be destroyed (released) once. */
 class CatcherOnceTest {
     private val urls = ArrayList<String>()
     private var released = 0

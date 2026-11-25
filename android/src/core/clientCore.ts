@@ -111,7 +111,7 @@ export class ClientCore {
       now: () => p.now(),
       randomBytes: (n) => p.randomBytes(n),
       // Nothing is sent to the address of a P2P server while this app's
-      // forwarder does not hold it: another app may (security review I1).
+      // forwarder does not hold it: another app may listen there instead.
       checkOrigin: (origin, signal) =>
         this.p2pListening(origin) === false
           ? Promise.resolve({ status: 'unreachable', reason: 'refused' })

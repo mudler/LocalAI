@@ -198,7 +198,7 @@ class ForwarderSupervisor(
         if (h != null) {
             // Any app can bind the loopback address once the old forwarder
             // lets it go: report "starting" and let the WebUI view drop the
-            // page first (security review I1).
+            // page first, so no request reaches another app's listener.
             record(id, STARTING_LINE)
             beforeRelease()
             stopQuietly(h)

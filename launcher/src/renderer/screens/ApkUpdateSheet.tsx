@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// The update sheet of the Android app (mock 08): the new version, the
+// The update sheet of the Android app: the new version, the
 // one-time "install unknown apps" consent when Android still needs it, and
 // "Update now". The install starts only from that tap.
 import { useEffect, useId, useState } from 'react'

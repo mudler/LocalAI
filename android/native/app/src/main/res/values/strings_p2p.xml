@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: MIT -->
-<!-- P2P foreground service (lane L4b). -->
+<!-- Strings of the P2P foreground service. -->
 <resources>
     <string name="p2p_channel_name">P2P connection</string>
     <string name="p2p_channel_description">Shown while the app keeps a P2P connection to your servers open.</string>

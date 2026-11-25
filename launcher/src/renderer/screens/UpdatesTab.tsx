@@ -19,7 +19,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
 }
 
 /**
- * The Android app (mock 07, without the release-candidate row): the app
+ * The Android app (no release-candidate row): the app
  * version, its channel, the checks, and for the stable app the way to the
  * development app. One channel per app: the development app has its own
  * application ID, so there is nothing to switch.
@@ -53,7 +53,7 @@ function ApkUpdatesTab({ data, controls, now }: { data: ShellData; controls: She
     return typeof t === 'function' ? (phase === 'downloading' ? (t as (p?: number) => string)(up?.percent) : (t as (v?: string) => string)(up?.version)) : t
   })()
   const checked = info?.checkedAt ? S.settings.checkedAgo(timeAgo(info.checkedAt, now)) : undefined
-  // "Checked 2 hours ago · up to date" (mock 07); otherwise the updater's own words.
+  // "Checked 2 hours ago · up to date" when the check succeeded; otherwise the updater's own words.
   const note =
     phase === 'error' && up?.message
       ? up.message

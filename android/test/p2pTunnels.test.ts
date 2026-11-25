@@ -75,7 +75,7 @@ describe('mapForwardLine', () => {
 })
 
 describe('P2P in the client core', () => {
-  it('gives two P2P servers distinct loopback hosts, origins and WebView profiles (Review Focus 4)', async () => {
+  it('gives two P2P servers distinct loopback hosts, origins and WebView profiles',async () => {
     const p = withP2P()
     const { core } = await start(p)
     const { a, b } = await pairTwo(p, core)
@@ -285,7 +285,7 @@ describe('P2P in the client core', () => {
   })
 })
 
-// Security review I1: another app can bind the loopback address of a P2P
+// Another app can bind the loopback address of a P2P
 // server while this app's forwarder does not listen. The WebUI view (which
 // sends the sign-in cookie) must load that origin only while this app's own
 // forwarder listens on it.

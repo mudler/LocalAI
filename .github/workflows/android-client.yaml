@@ -13,7 +13,7 @@
 # when the APK has no lib/arm64-v8a/libgojni.so.
 #
 # Publishing is switched off until the repository variable ANDROID_PUBLISH is
-# 'true' (Settings > Variables). The owner sets it after the signing keys,
+# 'true' (Settings > Variables). A maintainer sets it after the signing keys,
 # the secrets, the certificate digest variables and the Android developer
 # verification are in place. When it is 'true', a push to master in
 # mudler/LocalAI builds the dev flavor as a release APK (arm64-v8a only)

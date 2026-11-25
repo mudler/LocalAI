@@ -547,7 +547,7 @@ function invite(o: { secs?: number; open?: boolean } = {}): string {
   return `localai://pair?${q.toString()}`
 }
 
-describe('invite preview (mock 03)', () => {
+describe('invite preview', () => {
   const openInviteSheet = async () => {
     await openSettingsTab('Servers')
     fireEvent.click(screen.getByTestId('add-server'))

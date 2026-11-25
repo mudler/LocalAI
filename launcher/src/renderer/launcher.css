@@ -322,7 +322,7 @@ body {
 .lnr-result__p { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
 .lnr-result__actions { margin-top: var(--sp-2); }
 
-/* The invite preview (mock 03): what the link says, before Pair. */
+/* The invite preview: what the link says, before Pair. */
 .lnr-ipreview__tools { margin-top: var(--sp-2); }
 .lnr-ipreview { margin-top: var(--sp-2); padding: var(--sp-3); background: var(--dk-card); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); }
 .lnr-ipreview__head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }

@@ -39,7 +39,7 @@ html.lnr-mobile .lnr-bar {
   font-size: var(--fs-small);
 }
 html.lnr-mobile .lnr-bar__logo { width: var(--sp-5); height: var(--sp-5); margin-right: 0; }
-/* The switcher button is the main control of the bar (mock 04): a pill. */
+/* The switcher button is the main control of the bar: a pill. */
 html.lnr-mobile .lnr-switch {
   height: calc(var(--sp-8) + var(--sp-1) / 2);
   min-width: 0;
@@ -79,7 +79,7 @@ html.lnr-mobile .lnr-menu { min-width: min(260px, calc(100vw - 2 * var(--sp-4)))
 html.lnr-mobile .lnr-switcher__head .lnr-kbd,
 html.lnr-mobile .lnr-switcher__keys { display: none; }
 
-/* ---- the switcher as a bottom sheet (mock 05) --------------------------------- */
+/* ---- the switcher as a bottom sheet ------------------------------------------ */
 html.lnr-mobile .lnr-anchor:has(> .lnr-popover--sheet)::before {
   /* The scrim: a tap on it lands outside the sheet, which closes it. */
   content: "";

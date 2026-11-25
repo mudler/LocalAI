@@ -51,7 +51,7 @@ class ServicePolicyTest {
         assertEquals(PolicyAction.None, p.onTimer(fg, t + 600_000, running = true))
     }
 
-    // Review Focus 2: in the background when the timer ends, then back.
+    // The app is in the background when the timer ends, then comes back.
     @Test
     fun timerStopsInTheBackgroundAndTheAppStartsItAgainOnReturn() {
         val p = ServicePolicy()

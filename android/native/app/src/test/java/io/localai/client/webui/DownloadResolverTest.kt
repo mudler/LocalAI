@@ -11,7 +11,7 @@ import org.junit.Test
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
 
-/** Security review M1: the sign-in cookie of a download never follows a redirect to another host. */
+/** The sign-in cookie of a download never follows a redirect to another host. */
 class DownloadResolverTest {
     private val server = MockWebServer()
     private val other = MockWebServer()

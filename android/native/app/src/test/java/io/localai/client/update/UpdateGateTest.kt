@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 
-/** Review Focus 3: an APK signed by another certificate is refused, deleted and never installed. */
+/** An APK signed by another certificate is refused, deleted and never installed. */
 class UpdateGateTest {
     @get:Rule
     val tmp = TemporaryFolder()

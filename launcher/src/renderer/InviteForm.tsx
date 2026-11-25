@@ -1,7 +1,7 @@
 // Add a server with an invite link. The main process pairs this computer with
 // the server over P2P and saves it at a local address; the form only sends
 // the link and shows the confirmation phrase the server shows too. Before
-// that, it shows what the link says (mock 03), and it never pairs by itself:
+// that, it shows what the link says, and it never pairs by itself:
 // a link that arrives from outside or from a scan only fills the field.
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, Icon } from '@localai/ui-kit'

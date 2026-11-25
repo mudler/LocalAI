@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// The owner's self-update test (android/README.md, "Test the self-update")
+// The manual self-update test (android/README.md, "Test the self-update")
 // serves a feed with the launcher's fake release server, at the paths the app
 // reads, on an address the phone can reach.
 import { spawn, type ChildProcess } from 'node:child_process'

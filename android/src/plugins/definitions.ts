@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-// The contracts of the app's native plugins (Kotlin, android/native). Each
-// lane implements one side of them; change a signature only together with the
-// Kotlin plugin of the same name.
+// The contracts of the app's native plugins (Kotlin, android/native). The web
+// side and the Kotlin side each implement one half of them; change a signature
+// only together with the Kotlin plugin of the same name.
 import type { PluginListenerHandle } from '@capacitor/core'
 import type { TlsReason, UnreachableReason } from '@launcher/core/testClassify'
 

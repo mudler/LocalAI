@@ -847,7 +847,7 @@ export const S = {
     noP2P: 'P2P is not available in this build of the app.',
   },
 
-  // What the invite form shows about a link before pairing (mock 03), and
+  // What the invite form shows about a link before pairing, and
   // invites that reach the app from a link, the share sheet or a QR code.
   invitePreview: {
     notInvite: 'This is not a LocalAI invite link.',
@@ -884,7 +884,7 @@ export const S = {
     caHelp: 'How to install a CA',
   },
 
-  /** App updates of the Android app (selfUpdate 'apk'): Settings > Updates and the update sheet (mock 08). */
+  /** App updates of the Android app (selfUpdate 'apk'): Settings > Updates and the update sheet. */
   apkUpdate: {
     appVersion: (v: string) => `LocalAI for Android ${v}`,
     phase: {
@@ -908,7 +908,7 @@ export const S = {
     devApp: 'Development app',
     devAppNote: 'A separate app, newest master build. Not supported. It installs next to this app, with its own servers and sign-ins.',
     getDevApp: 'Get the development app',
-    // The sheet (mock 08)
+    // The update sheet
     sheetTitle: (v: string) => `LocalAI ${v} is available`,
     sheetSub: (installed: string, size: string, channel: string) => `You have ${installed} · ${size} · ${channel}`,
     downloaded: 'Downloaded. SHA-256 and signature match this app.',

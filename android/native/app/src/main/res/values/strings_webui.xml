@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: MIT -->
-<!-- Strings of the WebUI view (lane L3). -->
+<!-- Strings of the WebUI view. -->
 <resources>
     <string name="webui_permission_title">Allow access?</string>
     <string name="webui_permission_microphone">%1$s wants to use your microphone.</string>
