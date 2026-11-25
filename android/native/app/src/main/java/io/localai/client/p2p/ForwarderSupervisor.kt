@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 package io.localai.client.p2p
 
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
@@ -31,13 +32,21 @@ class ExecutorScheduler(name: String) : Scheduler {
         removeOnCancelPolicy = true
     }
 
-    override fun post(delayMs: Long, block: () -> Unit): Cancellable {
+    // After shutdown (the service is gone) new work is dropped, not thrown:
+    // execute is also called from the library's callback threads.
+    override fun post(delayMs: Long, block: () -> Unit): Cancellable = try {
         val f = pool.schedule(block, delayMs, TimeUnit.MILLISECONDS)
-        return Cancellable { f.cancel(false) }
+        Cancellable { f.cancel(false) }
+    } catch (_: RejectedExecutionException) {
+        Cancellable { }
     }
 
     override fun execute(block: () -> Unit) {
-        if (!pool.isShutdown) pool.execute(block)
+        try {
+            pool.execute(block)
+        } catch (_: RejectedExecutionException) {
+            // Shut down.
+        }
     }
 
     /** Lets queued steps (the final stop) run, drops delayed retries. */

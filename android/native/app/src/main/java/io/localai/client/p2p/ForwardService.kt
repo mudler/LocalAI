@@ -2,6 +2,7 @@
 package io.localai.client.p2p
 
 import android.annotation.SuppressLint
+import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.system.Os
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -40,6 +42,8 @@ internal object P2PRuntime {
     lateinit var identityPath: String
         private set
 
+    // Read by the plugin's threads too.
+    @Volatile
     var forwards: List<Forward> = emptyList()
         private set
     // Set in the service's onCreate and cleared in its onDestroy.
@@ -47,14 +51,23 @@ internal object P2PRuntime {
     private var service: ForwardService? = null
     private var startRequested = false
     private var userStopped = false
+    private var keep = false
+    private val policy = ServicePolicy()
+    private val visibility = AppVisibility { fg -> onVisibility(fg) }
+    private val stopTimer = Runnable { act(policy.onTimer(input(), now(), running())) }
     private val states = ConcurrentHashMap<String, String>()
     private val listeners = CopyOnWriteArrayList<(String, String) -> Unit>()
+
+    private const val PREFS = "p2p_service"
+    private const val KEY_KEEP = "keep_in_background"
 
     @Synchronized
     fun init(context: Context) {
         if (::app.isInitialized) return
         app = context.applicationContext
         identityPath = identityFile(app).path
+        keep = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_KEEP, false)
+        (app as Application).registerActivityLifecycleCallbacks(visibility)
     }
 
     /** noBackupFilesDir/p2p/identity.key: never backed up, so a restored phone pairs again. */
@@ -89,6 +102,21 @@ internal object P2PRuntime {
         evaluate()
     }
 
+    fun setKeepInBackground(on: Boolean) = main.post {
+        saveKeep(on)
+        evaluate()
+    }
+
+    /**
+     * True while a forwarder of a saved server is (re)starting after the
+     * service was asked to run. The web side waits for this to end (or 3 s)
+     * on resume, so the WebUI view reloads only once the ports listen again.
+     */
+    fun starting(): Boolean {
+        val list = forwards
+        return list.any { stateOfLine(states[it.id].orEmpty()) == "starting" }
+    }
+
     fun attach(s: ForwardService) {
         service = s
         startRequested = false
@@ -98,17 +126,42 @@ internal object P2PRuntime {
         if (service === s) service = null
     }
 
-    /** The notification's Disconnect action: stop until the app hands over a list again. */
+    /**
+     * The notification's Disconnect action: stop now, turn "keep in the
+     * background" off, and stay stopped until the app is on screen again.
+     */
     fun disconnect() {
         userStopped = true
+        saveKeep(false)
         stop()
     }
 
-    private fun evaluate() {
-        if (forwards.isEmpty()) {
-            if (service != null || startRequested) stop()
-        } else if (service == null && !startRequested && !userStopped) {
-            start()
+    private fun onVisibility(foreground: Boolean) {
+        if (foreground) userStopped = false
+        evaluate()
+    }
+
+    private fun saveKeep(on: Boolean) {
+        keep = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_KEEP, on).apply()
+    }
+
+    private fun now() = SystemClock.elapsedRealtime()
+    private fun running() = service != null || startRequested
+    private fun input() = PolicyInput(forwards.size, visibility.foreground, keep)
+
+    private fun evaluate() = act(policy.onChange(input(), now(), running()))
+
+    private fun act(action: PolicyAction) {
+        when (action) {
+            PolicyAction.Start -> if (!userStopped) start()
+            PolicyAction.Stop -> stop()
+            is PolicyAction.StopAt -> {
+                main.removeCallbacks(stopTimer)
+                main.postDelayed(stopTimer, maxOf(0L, action.atMs - now()))
+            }
+            PolicyAction.CancelStop -> main.removeCallbacks(stopTimer)
+            PolicyAction.None -> Unit
         }
     }
 
@@ -116,6 +169,7 @@ internal object P2PRuntime {
         try {
             ContextCompat.startForegroundService(app, Intent(app, ForwardService::class.java))
             startRequested = true
+            for (f in forwards) onLine(f.id, STARTING_LINE)
         } catch (e: IllegalStateException) {
             // Android 12+ refuses a foreground service started from the background.
             Log.w(TAG, "cannot start the P2P service now", e)
@@ -123,6 +177,7 @@ internal object P2PRuntime {
     }
 
     private fun stop() {
+        main.removeCallbacks(stopTimer)
         startRequested = false
         app.stopService(Intent(app, ForwardService::class.java))
     }
@@ -142,6 +197,7 @@ class ForwardService : Service() {
 
     private lateinit var scheduler: ExecutorScheduler
     private lateinit var supervisor: ForwarderSupervisor
+    private lateinit var watcher: NetworkWatcher
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -150,6 +206,10 @@ class ForwardService : Service() {
         P2PRuntime.init(this)
         scheduler = ExecutorScheduler("p2p-forwarders")
         supervisor = ForwarderSupervisor(P2PRuntime.engine, P2PRuntime.identityPath, scheduler, P2PRuntime::onLine)
+        // The library cannot follow a network change on Android, so every
+        // forwarder restarts on the same loopback address instead.
+        watcher = NetworkWatcher(this) { supervisor.restartAll() }
+        watcher.start()
         P2PRuntime.attach(this)
     }
 
@@ -175,9 +235,8 @@ class ForwardService : Service() {
         if (list.isNotEmpty()) getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(list))
     }
 
-    fun restartAll() = supervisor.restartAll()
-
     override fun onDestroy() {
+        watcher.stop()
         P2PRuntime.detach(this)
         supervisor.stopAll()
         scheduler.shutdown()

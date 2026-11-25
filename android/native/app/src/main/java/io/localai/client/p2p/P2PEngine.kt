@@ -73,7 +73,15 @@ class GoP2PEngine : P2PEngine {
     ): P2PEngine.Handle {
         val cb = Proxy.newProxyInstance(api.callback.classLoader, arrayOf(api.callback)) { proxy, m, args ->
             when (m.name) {
-                "onState" -> onState(args?.getOrNull(0) as? String ?: "").let { null }
+                "onState" -> {
+                    // A Java exception must not travel back into the Go callback.
+                    try {
+                        onState(args?.getOrNull(0) as? String ?: "")
+                    } catch (e: Exception) {
+                        android.util.Log.w("P2P", "state callback failed", e)
+                    }
+                    null
+                }
                 "hashCode" -> System.identityHashCode(proxy)
                 "equals" -> proxy === args?.getOrNull(0)
                 "toString" -> "P2PStateCallback"

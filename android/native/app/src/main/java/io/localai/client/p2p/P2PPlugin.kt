@@ -2,6 +2,7 @@
 package io.localai.client.p2p
 
 import android.os.Build
+import android.os.SystemClock
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -107,14 +108,25 @@ class P2PPlugin : Plugin() {
         call.resolve()
     }
 
+    /**
+     * When the service is (re)starting, for example because the app came
+     * back after the background stop, this answers once the forwarders
+     * listen again or after 3 s, so the web side reloads the WebUI view only
+     * then.
+     */
     @PluginMethod
     fun statuses(call: PluginCall) {
-        call.resolve(statesObject(P2PRuntime.lastStates()))
+        background(call) {
+            val until = SystemClock.elapsedRealtime() + RESTART_WAIT_MS
+            while (P2PRuntime.starting() && SystemClock.elapsedRealtime() < until) Thread.sleep(50)
+            call.resolve(statesObject(P2PRuntime.lastStates()))
+        }
     }
 
     @PluginMethod
     fun setKeepInBackground(call: PluginCall) {
-        call.reject("not implemented")
+        P2PRuntime.setKeepInBackground(call.getBoolean("on", false) == true)
+        call.resolve()
     }
 
     private fun statesObject(states: Map<String, String>): JSObject {
@@ -143,6 +155,10 @@ class P2PPlugin : Plugin() {
     }
 
     private fun defaultDeviceName() = "${Build.MANUFACTURER} ${Build.MODEL}".trim().take(60)
+
+    private companion object {
+        const val RESTART_WAIT_MS = 3_000L
+    }
 }
 
 /** Reads the forwards of setForwards. Entries without an id are skipped; the supervisor checks the address. */
