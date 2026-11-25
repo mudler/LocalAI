@@ -511,6 +511,14 @@ func (t Trigger) Location() (*time.Location, error) {
 	return loc, nil
 }
 
+// LocationOrUTC is Location, or UTC for a zone that is not known.
+func (t Trigger) LocationOrUTC() *time.Location {
+	if loc, err := t.Location(); err == nil {
+		return loc
+	}
+	return time.UTC
+}
+
 // Validate checks the fields of a trigger. The error text is meant for a
 // person: it names the field.
 func (t Trigger) Validate() error {
@@ -598,7 +606,7 @@ func (t Trigger) Validate() error {
 		}
 		return t.validateReminder()
 	default:
-		return fmt.Errorf("kind must be %q, %q or %q", KindSchedule, KindFile, KindEvent)
+		return fmt.Errorf("kind must be %q, %q, %q or %q", KindSchedule, KindFile, KindEvent, KindReminder)
 	}
 	if t.Watch != nil || t.Reminder != nil {
 		return errors.New("a reminder rule belongs to a watch")
@@ -715,11 +723,7 @@ const (
 // CutReason cuts s to ReasonLen characters.
 func CutReason(s string) string {
 	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) <= ReasonLen {
-		return s
-	}
-	r := []rune(s)
-	return string(r[:ReasonLen])
+	return CutText(s, ReasonLen)
 }
 
 // SkipError is an error from Options.Start that makes the run skipped, not

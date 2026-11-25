@@ -857,7 +857,9 @@ func (h *Triggers) DeleteTrigger(ctx context.Context, user, id string) error {
 	}
 	h.wmu.Unlock()
 	if t.IsWatch() {
-		h.dropReminders(ctx, t)
+		if err := h.dropReminders(ctx, t); err != nil {
+			return fmt.Errorf("studio: remove the reminders of the watch: %w", err)
+		}
 	}
 
 	runs, err := h.o.Store.ListRuns(ctx, id, 0)

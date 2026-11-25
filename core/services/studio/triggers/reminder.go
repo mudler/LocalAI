@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"unicode/utf8"
 )
 
 // The reasons a due time differs from the watch's rule. They are codes: the
@@ -60,9 +61,8 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 		if rule != nil && rule.AllDayOrDefault() == AllDayNone {
 			return Timing{None: true}
 		}
-		loc := thingZone(r, owner)
-		a := r.Anchor.In(loc)
-		tm.Due = time.Date(a.Year(), a.Month(), a.Day(), allDayHour, 0, 0, 0, loc)
+		y, m, d, loc := allDayOf(r, owner)
+		tm.Due = time.Date(y, m, d, allDayHour, 0, 0, 0, loc)
 		tm.Adjusted = AdjustedAllDay
 	case r.Anchor.IsZero():
 		// A thing with no time left (an event with no occurrence ahead) and
@@ -80,7 +80,7 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 	// A reminder due before the thing begins is missed once the thing has
 	// begun. One due at or after its start (at the time, after it, or
 	// snoozed past it) still fires at its time.
-	if limit, ok := startOf(r); ok && !now.Before(limit) && tm.Due.Before(limit) {
+	if limit, ok := startOf(r, owner); ok && !now.Before(limit) && tm.Due.Before(limit) {
 		return Timing{Due: tm.Due, Skip: true}
 	}
 	if !r.Skipped.IsZero() && r.Skipped.Equal(tm.Due) {
@@ -93,26 +93,42 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 	return tm
 }
 
+// PlanFor is PlanReminder for a reminder of the watch w: the watch's rule,
+// with the quiet hours in the watch's zone.
+func PlanFor(w Trigger, r Reminder, now time.Time) Timing {
+	return PlanReminder(r, w.Watch, w.LocationOrUTC(), now)
+}
+
 // startOf is the time from which the thing of r counts as begun: its time,
 // or the end of its day for a thing that lasts whole days, so the morning
 // reminder still fires during the day. false for a thing with no time.
-func startOf(r Reminder) (time.Time, bool) {
+func startOf(r Reminder, owner *time.Location) (time.Time, bool) {
 	if r.Anchor.IsZero() {
 		return time.Time{}, false
 	}
 	if r.AllDay {
-		return r.Anchor.Add(24 * time.Hour), true
+		// The next midnight on the clock, not 24 hours: a day with a change
+		// of daylight saving time is 23 or 25 hours long.
+		y, m, d, loc := allDayOf(r, owner)
+		return time.Date(y, m, d+1, 0, 0, 0, 0, loc), true
 	}
 	return r.Anchor, true
 }
 
-func thingZone(r Reminder, fallback *time.Location) *time.Location {
+// allDayOf gives the day of a thing that lasts whole days and the zone of its
+// clock. A thing with a zone has both in that zone. A thing with no zone has
+// the date of its anchor as written (UTC, the midnight an add-on gives for a
+// date) and the owner's clock: reading the date in the owner's zone would put
+// it on the day before west of UTC.
+func allDayOf(r Reminder, owner *time.Location) (int, time.Month, int, *time.Location) {
 	if r.Zone != "" {
 		if loc, err := time.LoadLocation(r.Zone); err == nil {
-			return loc
+			y, m, d := r.Anchor.In(loc).Date()
+			return y, m, d, loc
 		}
 	}
-	return fallback
+	y, m, d := r.Anchor.UTC().Date()
+	return y, m, d, owner
 }
 
 // outOfQuiet moves t out of the quiet hours of rule: a time inside them moves
@@ -186,17 +202,31 @@ func Reconcile(ctx context.Context, st Store, watch Trigger, ev Event, now time.
 	// Another frontend, or the owner, may write the reminder between the read
 	// and the write: the store refuses the stale write and the event is
 	// applied again on top of the new version.
-	for attempt := 0; ; attempt++ {
-		out, err := reconcileOnce(ctx, st, watch, ev, now)
-		if !errors.Is(err, ErrConflict) || attempt == maxConflictRetries {
-			return out, err
-		}
-	}
+	var out Outcome
+	err := RetryOnConflict(func() error {
+		var err error
+		out, err = reconcileOnce(ctx, st, watch, ev, now)
+		return err
+	})
+	return out, err
 }
 
 // maxConflictRetries is how many times a writer of a reminder reads it again
 // after ErrConflict before it gives up.
 const maxConflictRetries = 3
+
+// RetryOnConflict calls write, which reads a reminder, changes it and writes
+// it, again while the store refuses the write with ErrConflict: another
+// writer changed the reminder since the read. It gives up after a few tries
+// and returns the last error.
+func RetryOnConflict(write func() error) error {
+	for attempt := 0; ; attempt++ {
+		err := write()
+		if !errors.Is(err, ErrConflict) || attempt == maxConflictRetries {
+			return err
+		}
+	}
+}
 
 func reconcileOnce(ctx context.Context, st Store, watch Trigger, ev Event, now time.Time) (Outcome, error) {
 	th := ev.Thing
@@ -224,7 +254,7 @@ func reconcileOnce(ctx context.Context, st Store, watch Trigger, ev Event, now t
 	next := cur
 	rem := *cur.Reminder
 	if th.Title != "" {
-		rem.Title, next.Name = cutTitle(th.Title), cutName(th.Title)
+		rem.Title, next.Name = CutText(th.Title, MaxThingTitle), CutText(th.Title, MaxNameLen)
 	}
 	if th.Link != "" {
 		rem.Link = th.Link
@@ -257,20 +287,12 @@ func reconcileOnce(ctx context.Context, st Store, watch Trigger, ev Event, now t
 	return out, nil
 }
 
-func cutTitle(s string) string {
-	r := []rune(s)
-	if len(r) > MaxThingTitle {
-		r = r[:MaxThingTitle]
+// CutText keeps at most n characters of s.
+func CutText(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
 	}
-	return string(r)
-}
-
-func cutName(s string) string {
-	r := []rune(s)
-	if len(r) > MaxNameLen {
-		r = r[:MaxNameLen]
-	}
-	return string(r)
+	return string([]rune(s)[:n])
 }
 
 // Guarded says whether an event must not wake the watch w: the event was
@@ -285,21 +307,4 @@ func Guarded(w Trigger, a Actor, parentOf func(id string) string) bool {
 		return true
 	}
 	return parentOf != nil && parentOf(a.TriggerID) == w.ID
-}
-
-// CountChangesSince counts the rows of the watch that record a reminder
-// change (StatusHandled) due at or after since. It reads at most limit+1
-// rows, so a caller asks "more than limit?" cheaply.
-func CountChangesSince(ctx context.Context, st Store, watchID string, since time.Time, limit int) (int, error) {
-	runs, err := st.ListRuns(ctx, watchID, limit+1)
-	if err != nil {
-		return 0, err
-	}
-	n := 0
-	for _, r := range runs {
-		if r.Status == StatusHandled && !r.Due.Before(since) {
-			n++
-		}
-	}
-	return n, nil
 }

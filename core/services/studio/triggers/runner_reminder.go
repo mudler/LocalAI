@@ -26,8 +26,15 @@ const (
 // stop of the host.
 const lateGrace = 2 * time.Minute
 
-// reminderPass claims the run of each reminder whose start has come. A
-// reminder of a watch that is off waits. trs are the enabled triggers.
+// spentAfter is how long a reminder that does not repeat is kept once its
+// time and the start of its thing have passed: a reply to it ("snooze")
+// still finds it, and a late change of its thing is still reconciled. Then
+// the pass removes it, so the reminders of a watch do not pile up.
+const spentAfter = 24 * time.Hour
+
+// reminderPass claims the run of each reminder whose start has come, and
+// removes the reminders that are spent. A reminder of a watch that is off
+// waits. trs are the enabled triggers.
 func (r *Runner) reminderPass(ctx context.Context, trs []Trigger, now time.Time) error {
 	on := make(map[string]Trigger, len(trs))
 	for _, t := range trs {
@@ -48,16 +55,45 @@ func (r *Runner) reminderPass(ctx context.Context, trs []Trigger, now time.Time)
 		if err := r.advance(ctx, t, parent, now); err != nil {
 			errs = append(errs, err)
 		}
+		if r.spent(ctx, t, parent, now) {
+			if err := r.o.Store.DeleteTrigger(ctx, t.ID); err != nil {
+				errs = append(errs, err)
+			}
+		}
 	}
 	return errors.Join(errs...)
 }
 
-func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Time) error {
-	loc, err := parent.Location()
-	if err != nil {
-		loc = time.UTC
+// spent says whether the reminder t is used up: it does not repeat, its due
+// time and the start of its thing passed more than spentAfter ago, no run of
+// it is queued or running, and its last run ended more than spentAfter ago
+// (a reminder missed during a long outage is kept as long as one that fired).
+func (r *Runner) spent(ctx context.Context, t, parent Trigger, now time.Time) bool {
+	rem := *t.Reminder
+	if len(rem.Following) > 0 || rem.Repeats {
+		return false
 	}
-	tm := PlanReminder(*t.Reminder, parent.Watch, loc, now)
+	end := PlanFor(parent, rem, now).Due
+	if limit, ok := startOf(rem, parent.LocationOrUTC()); ok && limit.After(end) {
+		end = limit
+	}
+	if end.IsZero() || now.Sub(end) <= spentAfter {
+		return false
+	}
+	runs, err := r.o.Store.ListRuns(ctx, t.ID, 3)
+	if err != nil {
+		return false
+	}
+	for _, run := range runs {
+		if !run.Status.Final() || now.Sub(run.Ended) <= spentAfter {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Time) error {
+	tm := PlanFor(parent, *t.Reminder, now)
 	if tm.None || tm.Skipped || tm.Due.IsZero() {
 		return nil
 	}
@@ -67,6 +103,14 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 	} else if !errors.Is(err, ErrNotFound) {
 		return err
 	}
+	// armed is when the reminder last had a chance to fire on time: when it
+	// was set or moved, or when its watch was switched back on. A due time
+	// before it passed while nothing could fire it on purpose (the watch was
+	// paused), so it is neither late nor missed.
+	armed := t.Since
+	if parent.Since.After(armed) {
+		armed = parent.Since
+	}
 	planned := tm.Due.Add(-t.Reminder.Lead)
 	run := Run{ID: newID(), TriggerID: t.ID, DueKey: key, Due: tm.Due}
 	switch {
@@ -74,37 +118,19 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 		// The thing began. When the reminder was armed in time, a pass
 		// should have fired it: the host was down. Otherwise the thing had
 		// begun before the reminder existed and there is nothing to say.
-		if !planned.After(t.Since) && !t.Since.IsZero() {
+		if !planned.After(armed) && !armed.IsZero() {
 			return nil
 		}
-		run.Status, run.Reason, run.Ended = StatusSkipped, ReasonMissed, now.UTC()
-		claimed, err := r.o.Store.Claim(ctx, run)
-		if err != nil || !claimed {
-			return err
-		}
-		r.prune(ctx, t.ID, now)
-		if r.o.Missed != nil {
-			r.o.Missed(t, run)
-		}
-		return nil
+		return r.miss(ctx, t, run, now)
 	case now.Before(tm.Start):
 		return nil
 	}
-	if planned.After(t.Since) && now.Sub(planned) > lateGrace {
+	if planned.After(armed) && now.Sub(planned) > lateGrace {
 		// A reminder due at or after the start of its thing has nothing left
 		// to prepare for once the thing has begun: after an outage it is
 		// missed, not sent late.
-		if limit, ok := startOf(*t.Reminder); ok && !tm.Due.Before(limit) && !now.Before(limit) {
-			run.Status, run.Reason, run.Ended = StatusSkipped, ReasonMissed, now.UTC()
-			claimed, err := r.o.Store.Claim(ctx, run)
-			if err != nil || !claimed {
-				return err
-			}
-			r.prune(ctx, t.ID, now)
-			if r.o.Missed != nil {
-				r.o.Missed(t, run)
-			}
-			return nil
+		if limit, ok := startOf(*t.Reminder, parent.LocationOrUTC()); ok && !tm.Due.Before(limit) && !now.Before(limit) {
+			return r.miss(ctx, t, run, now)
 		}
 		run.Reason = ReasonLate
 	}
@@ -114,10 +140,32 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 	return r.claim(ctx, run)
 }
 
-// parentOn says whether the watch of reminder t is on.
-func (r *Runner) parentOn(ctx context.Context, t Trigger) bool {
+// miss records the run of a reminder that did not fire because its thing
+// began while no pass ran, and tells the host once.
+func (r *Runner) miss(ctx context.Context, t Trigger, run Run, now time.Time) error {
+	run.Status, run.Reason, run.Ended = StatusSkipped, ReasonMissed, now.UTC()
+	claimed, err := r.o.Store.Claim(ctx, run)
+	if err != nil || !claimed {
+		return err
+	}
+	r.prune(ctx, t.ID, now)
+	if r.o.Missed != nil {
+		r.o.Missed(ctx, t, run)
+	}
+	return nil
+}
+
+// parentState says whether the watch of reminder t is on, and whether it is
+// gone: a reminder whose watch was deleted has nothing to wait for.
+func (r *Runner) parentState(ctx context.Context, t Trigger) (on, gone bool, err error) {
 	p, err := r.o.Store.GetTrigger(ctx, t.Reminder.ParentID)
-	return err == nil && p.Enabled
+	if errors.Is(err, ErrNotFound) {
+		return false, true, nil
+	}
+	if err != nil {
+		return false, false, err
+	}
+	return p.Enabled, false, nil
 }
 
 // advance moves the reminder of a thing that repeats to its next occurrence
@@ -132,11 +180,7 @@ func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) 
 	if (len(rem.Following) == 0 && !rem.Repeats) || rem.Anchor.IsZero() || !rem.At.IsZero() || now.Before(rem.Anchor) {
 		return nil
 	}
-	loc, err := parent.Location()
-	if err != nil {
-		loc = time.UTC
-	}
-	if tm := PlanReminder(*rem, parent.Watch, loc, now); !tm.Due.IsZero() && now.Before(tm.Due) {
+	if tm := PlanFor(parent, *rem, now); !tm.Due.IsZero() && now.Before(tm.Due) {
 		return nil // a reminder after the start of the thing has not come yet
 	}
 	if runs, err := r.o.Store.ListRuns(ctx, t.ID, 1); err != nil {
@@ -159,7 +203,7 @@ func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) 
 	} else {
 		next.Anchor, next.Following = next.Following[i], next.Following[i+1:]
 		next.SnoozedTo, next.Skipped = time.Time{}, time.Time{}
-		next.Repeats = true // it had later occurrences: say so when they run out
+		next.Repeats = true
 		cur.Since = now.UTC()
 	}
 	moved := !next.Anchor.Equal(rem.Anchor)
@@ -171,7 +215,7 @@ func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) 
 		return err
 	}
 	if r.o.Advanced != nil {
-		r.o.Advanced(cur, moved, len(next.Following) == 0)
+		r.o.Advanced(ctx, cur, moved, len(next.Following) == 0)
 	}
 	return nil
 }

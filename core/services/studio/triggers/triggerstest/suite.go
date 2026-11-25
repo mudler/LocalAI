@@ -121,6 +121,74 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(err).To(MatchError(triggers.ErrNotFound))
 	})
 
+	It("keeps a watch rule of the largest valid size", func() {
+		s := newStore()
+		w := eventTrigger("w1", "1")
+		w.Source, w.EventType, w.Secret, w.Matches = "notes", "", "", nil
+		// '<' and '"' grow several times in JSON: the stored text is far
+		// larger than the rule's limits in characters.
+		rule := triggers.WatchRule{Offset: -15 * time.Minute, QuietFrom: "22:00", QuietTo: "07:00",
+			Tasks: strings.Repeat(`<"`, triggers.MaxWatchTasks/2)}
+		for i := range triggers.MaxMatches {
+			rule.Types = append(rule.Types, fmt.Sprintf("%d", i)+strings.Repeat("<", triggers.MaxEventField-1))
+		}
+		Expect(rule.Validate()).To(Succeed())
+		w.Watch = &rule
+		Expect(s.PutTrigger(ctx, w)).To(Succeed())
+		got, err := s.GetTrigger(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Watch).NotTo(BeNil())
+		Expect(*got.Watch).To(Equal(rule))
+	})
+
+	It("shares no list of a trigger with the caller", func() {
+		s := newStore()
+		w := eventTrigger("w1", "1")
+		w.Source, w.EventType, w.Secret, w.Matches = "notes", "", "", []string{"a"}
+		w.Acts = []string{"act.spend"}
+		w.Watch = &triggers.WatchRule{Types: []string{"notes.item.created"}}
+		Expect(s.PutTrigger(ctx, w)).To(Succeed())
+		w.Matches[0], w.Acts[0], w.Watch.Types[0] = "changed", "changed", "changed"
+		got, err := s.GetTrigger(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		got.Matches[0], got.Acts[0], got.Watch.Types[0] = "changed too", "changed too", "changed too"
+		again, err := s.GetTrigger(ctx, "w1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again.Matches).To(Equal([]string{"a"}))
+		Expect(again.Acts).To(Equal([]string{"act.spend"}))
+		Expect(again.Watch.Types).To(Equal([]string{"notes.item.created"}))
+		r := triggers.Trigger{ID: "r1", Owner: "1", Name: "R", Prompt: "Remind me.", Enabled: true, Kind: triggers.KindReminder, Since: base,
+			Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:1", Anchor: base.Add(time.Hour).Truncate(res),
+				Following: []time.Time{base.Add(48 * time.Hour).Truncate(res)}}}
+		Expect(s.PutTrigger(ctx, r)).To(Succeed())
+		gotR, err := s.GetTrigger(ctx, "r1")
+		Expect(err).NotTo(HaveOccurred())
+		gotR.Reminder.Following[0] = time.Time{}
+		againR, err := s.GetTrigger(ctx, "r1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(againR.Reminder.Following[0].Equal(base.Add(48 * time.Hour).Truncate(res))).To(BeTrue())
+	})
+
+	It("counts the handled rows of a trigger, whatever runs came after them", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, sample("t1", "1", "Watch"))).To(Succeed())
+		for i, due := range []time.Time{base.Add(-2 * time.Minute), base.Add(-30 * time.Second), base} {
+			h := run(fmt.Sprintf("h%d", i), "t1", fmt.Sprintf("action@%d", i), triggers.StatusHandled)
+			h.Due = due
+			_, err := s.Claim(ctx, h)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		for i := range 40 {
+			m := run(fmt.Sprintf("m%d", i), "t1", fmt.Sprintf("event@%d", i), triggers.StatusDone)
+			m.Due = base
+			_, err := s.Claim(ctx, m)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		n, err := s.CountHandledSince(ctx, "t1", base.Add(-time.Minute))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(2))
+	})
+
 	It("keeps one reminder per thing per watch", func() {
 		s := newStore()
 		mk := func(id, parent, key string) triggers.Trigger {

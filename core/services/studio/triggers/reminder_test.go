@@ -2,6 +2,7 @@ package triggers_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -87,6 +88,28 @@ var _ = Describe("PlanReminder", func() {
 		during := time.Date(2026, 11, 27, 10, 0, 0, 0, rome())
 		Expect(triggers.PlanReminder(r, &triggers.WatchRule{}, time.UTC, during).Skip).To(BeFalse(), "the day is not over")
 		Expect(triggers.PlanReminder(r, &triggers.WatchRule{}, time.UTC, day.Add(25*time.Hour)).Skip).To(BeTrue())
+	})
+
+	It("reads the day of an all-day thing with no zone as given, west of UTC too", func() {
+		ny, err := time.LoadLocation("America/New_York")
+		Expect(err).NotTo(HaveOccurred())
+		r := triggers.Reminder{Anchor: time.Date(2026, 11, 27, 0, 0, 0, 0, time.UTC), AllDay: true}
+		tm := triggers.PlanReminder(r, &triggers.WatchRule{}, ny, now)
+		Expect(tm.Due).To(Equal(time.Date(2026, 11, 27, 8, 0, 0, 0, ny).UTC()), "the morning of the 27th, not of the 26th")
+		evening := time.Date(2026, 11, 27, 23, 0, 0, 0, ny)
+		Expect(triggers.PlanReminder(r, &triggers.WatchRule{}, ny, evening).Skip).To(BeFalse(), "the day is not over on the owner's clock")
+	})
+
+	It("ends the day of an all-day thing at midnight on a day of 25 hours", func() {
+		// 2026-10-25 lasts 25 hours in Rome: at 23:30 the day is not over,
+		// though 24 hours from its midnight have passed.
+		day := time.Date(2026, 10, 25, 0, 0, 0, 0, rome())
+		r := triggers.Reminder{Anchor: day.UTC(), Zone: "Europe/Rome", AllDay: true}
+		late := time.Date(2026, 10, 25, 23, 30, 0, 0, rome())
+		Expect(late.Sub(day)).To(BeNumerically(">", 24*time.Hour))
+		tm := triggers.PlanReminder(r, &triggers.WatchRule{}, rome(), late)
+		Expect(tm.Skip).To(BeFalse())
+		Expect(triggers.PlanReminder(r, &triggers.WatchRule{}, rome(), late.Add(time.Hour)).Skip).To(BeTrue())
 	})
 
 	It("moves a reminder out of the quiet hours to the evening before, in the owner's zone", func() {
@@ -251,7 +274,7 @@ var _ = Describe("the loop guard", func() {
 	})
 })
 
-var _ = Describe("CountChangesSince", func() {
+var _ = Describe("CountHandledSince", func() {
 	It("counts the handled rows of the last minute only", func() {
 		ctx := context.Background()
 		st, _ := triggers.NewJSON("")
@@ -260,8 +283,13 @@ var _ = Describe("CountChangesSince", func() {
 			_, err := st.Claim(ctx, triggers.Run{ID: string(rune('a' + i)), TriggerID: "w", DueKey: string(rune('a' + i)), Due: due, Status: triggers.StatusHandled})
 			Expect(err).NotTo(HaveOccurred())
 		}
-		_, _ = st.Claim(ctx, triggers.Run{ID: "m", TriggerID: "w", DueKey: "m", Due: now, Status: triggers.StatusDone})
-		n, err := triggers.CountChangesSince(ctx, st, "w", now.Add(-time.Minute), 30)
+		// The newest rows are model runs: they do not hide the changes
+		// before them.
+		for i := range 40 {
+			id := fmt.Sprintf("m%d", i)
+			_, _ = st.Claim(ctx, triggers.Run{ID: id, TriggerID: "w", DueKey: id, Due: now, Status: triggers.StatusDone})
+		}
+		n, err := st.CountHandledSince(ctx, "w", now.Add(-time.Minute))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(2))
 	})

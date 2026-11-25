@@ -548,7 +548,7 @@ func reminderTrigger(cur, w triggers.Trigger, rem triggers.Reminder) triggers.Tr
 // recordAction writes one row of the watch's history and one Inbox line for
 // an action on its reminders, and applies the per-minute limit.
 func (h *Triggers) recordAction(ctx context.Context, w triggers.Trigger, now time.Time, line watchText) {
-	id := newRunID()
+	id := newID()
 	row := triggers.Run{ID: id, TriggerID: w.ID, DueKey: "action@" + id, Due: now.UTC(), Status: triggers.StatusHandled,
 		Reason: triggers.CutReason(line.Text), Ended: now.UTC()}
 	if _, err := h.o.Store.Claim(ctx, row); err != nil {

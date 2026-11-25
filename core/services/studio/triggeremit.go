@@ -2,7 +2,6 @@ package studio
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -265,7 +264,7 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 // watch's channel (decision C); the owner's own change is not.
 func (h *Triggers) recordWatch(ctx context.Context, w triggers.Trigger, key string, now time.Time, out triggers.Outcome, actor triggers.Actor) {
 	line, loud := h.watchLine(w, out, now), !actor.ByOwner()
-	row := triggers.Run{ID: newRunID(), TriggerID: w.ID, DueKey: key, Due: now.UTC(), Status: triggers.StatusHandled,
+	row := triggers.Run{ID: newID(), TriggerID: w.ID, DueKey: key, Due: now.UTC(), Status: triggers.StatusHandled,
 		Reason: triggers.CutReason(line.Text), Ended: now.UTC()}
 	claimed, err := h.o.Store.Claim(ctx, row)
 	if err != nil {
@@ -420,7 +419,7 @@ func thingTitle(out triggers.Outcome) string {
 // reminders in the last minute, and tells the owner: a source that sends
 // changes in a loop must not keep the host busy.
 func (h *Triggers) limitChanges(ctx context.Context, w triggers.Trigger, now time.Time) {
-	n, err := triggers.CountChangesSince(ctx, h.o.Store, w.ID, now.Add(-time.Minute), triggers.MaxChangesPerMinute)
+	n, err := h.o.Store.CountHandledSince(ctx, w.ID, now.Add(-time.Minute))
 	if err != nil || n <= triggers.MaxChangesPerMinute {
 		return
 	}
@@ -431,8 +430,7 @@ func (h *Triggers) limitChanges(ctx context.Context, w triggers.Trigger, now tim
 // Inbox when the reminder of a repeating item moved to its next occurrence,
 // and when the occurrences the add-on gave run out, so a series never stops
 // without a word (the failure rules of the spec).
-func (h *Triggers) tellAdvanced(t triggers.Trigger, moved, last bool) {
-	ctx := context.Background()
+func (h *Triggers) tellAdvanced(ctx context.Context, t triggers.Trigger, moved, last bool) {
 	w, err := h.o.Store.GetTrigger(ctx, t.Reminder.ParentID)
 	if err != nil {
 		return
@@ -459,8 +457,7 @@ func (h *Triggers) tellAdvanced(t triggers.Trigger, moved, last bool) {
 
 // tellMissed is Options.Missed: one Inbox line under the watch for a reminder
 // whose thing began while the server was down. No late reminder is sent.
-func (h *Triggers) tellMissed(t triggers.Trigger, _ triggers.Run) {
-	ctx := context.Background()
+func (h *Triggers) tellMissed(ctx context.Context, t triggers.Trigger, _ triggers.Run) {
 	if t.Reminder == nil {
 		return
 	}
@@ -528,12 +525,4 @@ func actorWords(a triggers.Actor) string {
 		return "an agent"
 	}
 	return "someone else"
-}
-
-func newRunID() string {
-	b := make([]byte, 12)
-	if _, err := rand.Read(b); err != nil {
-		panic(err)
-	}
-	return hex.EncodeToString(b)
 }

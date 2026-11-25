@@ -110,6 +110,9 @@ type Store interface {
 	// CountRunsSince counts the runs of a trigger whose Due is not before since
 	// and whose status is not skipped or handled.
 	CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error)
+	// CountHandledSince counts the rows of a trigger with status handled (the
+	// reminder changes of a watch) whose Due is not before since.
+	CountHandledSince(ctx context.Context, triggerID string, since time.Time) (int, error)
 
 	// Cursor returns the revision of the workspace change feed that the Runner
 	// has handled, and false when none was saved.

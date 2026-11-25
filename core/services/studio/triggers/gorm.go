@@ -54,8 +54,9 @@ type triggerRow struct {
 	Matches   string // unsized text: JSON escaping can grow a match several times
 	Secret    string `gorm:"size:255"` // MaxEventSecret
 	// Watch is the JSON of Trigger.Watch, empty on a trigger that is not a
-	// watch.
-	Watch string `gorm:"size:2048"`
+	// watch. Unsized like Matches: the task defaults and the types of a valid
+	// rule, with JSON escaping, can exceed any small size.
+	Watch string
 	// Reminder is the JSON of Trigger.Reminder. ParentID and ThingKey repeat
 	// its watch and key as columns: the unique index on them keeps one
 	// reminder per thing per watch across frontends. Both are NULL on any
@@ -534,6 +535,13 @@ func (s *gormStore) RunByChat(ctx context.Context, chatID string) (Run, error) {
 		return Run{}, err
 	}
 	return r.run(), nil
+}
+
+func (s *gormStore) CountHandledSince(ctx context.Context, triggerID string, since time.Time) (int, error) {
+	var n int64
+	err := s.db.WithContext(ctx).Model(&runRow{}).
+		Where("trigger_id = ? AND status = ? AND due >= ?", triggerID, string(StatusHandled), utc(since)).Count(&n).Error
+	return int(n), err
 }
 
 func (s *gormStore) CountRunsSince(ctx context.Context, triggerID string, since time.Time) (int, error) {

@@ -1,6 +1,7 @@
 package triggers_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -73,7 +74,7 @@ var _ = Describe("the reminder pass", func() {
 		var advanced []time.Time
 		var ends [][2]bool
 		r := newRig(func(o *triggers.Options) {
-			o.Advanced = func(t triggers.Trigger, moved, last bool) {
+			o.Advanced = func(_ context.Context, t triggers.Trigger, moved, last bool) {
 				mu.Lock()
 				advanced = append(advanced, t.Reminder.Anchor)
 				ends = append(ends, [2]bool{moved, last})
@@ -146,6 +147,96 @@ var _ = Describe("the reminder pass", func() {
 		Expect(r.runs("r")).To(HaveLen(1))
 	})
 
+	It("starts a held reminder with no late note when its watch is resumed long after its time", func() {
+		r := newRig()
+		anchor := t0.Add(5 * time.Hour)
+		w := watchOf("w")
+		w.Enabled = false
+		r.put(w)
+		r.put(reminderOf("r", "w", anchor))
+		r.at(anchor.Add(-15 * time.Minute))
+		r.at(anchor.Add(-5 * time.Minute)) // ten minutes after the due time
+		Expect(r.runs("r")).To(BeEmpty())
+		on := w
+		on.Enabled = true
+		r.put(triggers.Arm(&w, on, r.clock.Now()))
+		r.after(time.Second)
+		run := r.latest("r")
+		Expect(run.Status).To(Equal(triggers.StatusRunning))
+		Expect(run.Reason).To(BeEmpty(), "the watch was paused, the server was not down")
+	})
+
+	It("says nothing for a held reminder whose thing began before its watch was resumed", func() {
+		var missed []string
+		var mu sync.Mutex
+		r := newRig(func(o *triggers.Options) {
+			o.Missed = func(_ context.Context, t triggers.Trigger, _ triggers.Run) {
+				mu.Lock()
+				missed = append(missed, t.ID)
+				mu.Unlock()
+			}
+		})
+		anchor := t0.Add(time.Hour)
+		w := watchOf("w")
+		w.Enabled = false
+		r.put(w)
+		r.put(reminderOf("r", "w", anchor))
+		r.clock.Set(anchor.Add(time.Hour))
+		on := w
+		on.Enabled = true
+		r.put(triggers.Arm(&w, on, r.clock.Now()))
+		r.after(time.Second)
+		Expect(r.runs("r")).To(BeEmpty())
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(missed).To(BeEmpty())
+	})
+
+	It("removes a reminder a day after its thing began, and keeps one that repeats", func() {
+		r := newRig()
+		anchor := t0.Add(time.Hour)
+		r.put(watchOf("w"))
+		r.put(reminderOf("r", "w", anchor))
+		rep := reminderOf("s", "w", anchor)
+		rep.Reminder.Following = []time.Time{anchor.Add(10 * 24 * time.Hour)}
+		r.put(rep)
+		r.at(anchor.Add(-15 * time.Minute))
+		r.finish(r.latest("r"), triggers.StatusDone, "")
+		r.finish(r.latest("s"), triggers.StatusDone, "")
+		r.at(anchor.Add(23 * time.Hour))
+		_, err := r.store.GetTrigger(ctx, "r")
+		Expect(err).NotTo(HaveOccurred(), "kept for a while: a reply still finds it")
+		r.at(anchor.Add(25 * time.Hour))
+		_, err = r.store.GetTrigger(ctx, "r")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+		_, err = r.store.GetTrigger(ctx, "s")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("keeps a spent reminder while a run of it is going", func() {
+		r := newRig()
+		anchor := t0.Add(time.Hour)
+		r.put(watchOf("w"))
+		r.put(reminderOf("r", "w", anchor))
+		r.at(anchor.Add(-15 * time.Minute))
+		r.at(anchor.Add(25 * time.Hour))
+		_, err := r.store.GetTrigger(ctx, "r")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("drops a queued run of a reminder whose watch is gone", func() {
+		r := newRig()
+		r.put(reminderOf("r", "gone", t0.Add(time.Hour)))
+		claimed, err := r.store.Claim(ctx, triggers.Run{ID: "q1", TriggerID: "r", DueKey: "event@x", Due: t0, Status: triggers.StatusQueued})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+		r.sync()
+		run, err := r.store.GetRun(ctx, "q1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(run.Status).To(Equal(triggers.StatusSkipped))
+		Expect(run.Reason).To(Equal(triggers.ReasonDropped))
+	})
+
 	It("starts late with a note when the host was down past the due time but not past the thing", func() {
 		r := newRig()
 		anchor := t0.Add(time.Hour)
@@ -161,7 +252,11 @@ var _ = Describe("the reminder pass", func() {
 		var mu sync.Mutex
 		var missed []string
 		r := newRig(func(o *triggers.Options) {
-			o.Missed = func(t triggers.Trigger, _ triggers.Run) { mu.Lock(); missed = append(missed, t.ID); mu.Unlock() }
+			o.Missed = func(_ context.Context, t triggers.Trigger, _ triggers.Run) {
+				mu.Lock()
+				missed = append(missed, t.ID)
+				mu.Unlock()
+			}
 		})
 		anchor := t0.Add(time.Hour)
 		r.put(watchOf("w"))
@@ -182,7 +277,11 @@ var _ = Describe("the reminder pass", func() {
 		var missed []string
 		var mu sync.Mutex
 		r := newRig(func(o *triggers.Options) {
-			o.Missed = func(t triggers.Trigger, _ triggers.Run) { mu.Lock(); missed = append(missed, t.ID); mu.Unlock() }
+			o.Missed = func(_ context.Context, t triggers.Trigger, _ triggers.Run) {
+				mu.Lock()
+				missed = append(missed, t.ID)
+				mu.Unlock()
+			}
 		})
 		anchor := t0.Add(time.Hour)
 		r.put(watchOf("w"))

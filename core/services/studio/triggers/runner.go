@@ -110,15 +110,15 @@ type Options struct {
 	// Missed is called once for a reminder whose thing began while no pass
 	// ran (the host was down past it): the reminder did not fire, and the
 	// host tells the owner in one line.
-	Missed func(t Trigger, r Run)
+	Missed func(ctx context.Context, t Trigger, r Run)
 	// Advanced is called when a pass moved the reminder of a repeating thing
 	// to its next occurrence (moved), or found that none of the occurrences
 	// it knows is ahead (moved false); t is the reminder as it is now. last
 	// says that no occurrence after t's is known: the add-on sends more with
 	// the next change of the thing, so the owner must hear that the series
 	// stops here unless that happens.
-	Advanced func(t Trigger, moved, last bool)
-	Logf   func(format string, args ...any)
+	Advanced func(ctx context.Context, t Trigger, moved, last bool)
+	Logf     func(format string, args ...any)
 }
 
 // Runner starts the runs of the triggers in a Store.
@@ -508,12 +508,17 @@ func (r *Runner) startQueued(ctx context.Context, now time.Time) error {
 		}
 		t, err := r.o.Store.GetTrigger(ctx, run.TriggerID)
 		manual := strings.HasPrefix(run.DueKey, ManualPrefix)
+		parentOn, parentGone := true, false
+		if err == nil && t.IsReminder() {
+			parentOn, parentGone, err = r.parentState(ctx, t)
+		}
 		switch {
-		case errors.Is(err, ErrNotFound):
+		case errors.Is(err, ErrNotFound) || parentGone:
+			// A reminder whose watch was deleted has nothing to wait for.
 			err = r.end(ctx, run, StatusSkipped, ReasonDropped, now)
 		case err == nil && !t.Enabled && !manual:
 			err = r.end(ctx, run, StatusSkipped, ReasonSwitchedOff, now)
-		case err == nil && t.IsReminder() && !r.parentOn(ctx, t):
+		case err == nil && !parentOn:
 			// The watch is paused: its reminders wait with it.
 			continue
 		case err == nil && (n >= r.o.MaxRunning || busy[run.TriggerID]):

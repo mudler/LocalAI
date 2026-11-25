@@ -288,24 +288,26 @@ func (h *Triggers) holdReminders(ctx context.Context, w triggers.Trigger) {
 }
 
 // dropReminders removes the reminders of a watch that is being deleted, and
-// lists each in the Inbox.
-func (h *Triggers) dropReminders(ctx context.Context, w triggers.Trigger) {
+// lists each in the Inbox. It fails when a reminder stays, so the watch is
+// not deleted before its reminders: a delete that is tried again finishes.
+func (h *Triggers) dropReminders(ctx context.Context, w triggers.Trigger) error {
 	list, err := h.o.Store.Reminders(ctx, w.ID)
 	if err != nil {
-		h.log.Warn("studio: could not list the reminders of a deleted watch", "watch", w.ID, "error", err)
-		return
+		return err
 	}
 	run := h.currentRunner()
+	var errs []error
 	for _, r := range list {
 		if run != nil {
 			_ = run.Cancel(ctx, r.ID)
 		}
 		if err := h.o.Store.DeleteTrigger(ctx, r.ID); err != nil {
-			h.log.Warn("studio: could not remove a reminder of a deleted watch", "reminder", r.ID, "error", err)
+			errs = append(errs, err)
 			continue
 		}
 		h.watchNote(ctx, w, watchSay(w, "dropped", r.Reminder.Title, time.Time{}, fmt.Sprintf("The reminder for %q was removed with its watch.", r.Reminder.Title)))
 	}
+	return errors.Join(errs...)
 }
 
 // SourceReminder is a reminder of one of the owner's watches, for the page of

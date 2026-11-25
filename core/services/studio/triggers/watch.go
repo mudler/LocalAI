@@ -35,11 +35,14 @@ const (
 	// MaxChangesPerMinute is how many reminder changes one watch may make
 	// in a minute before it is paused.
 	MaxChangesPerMinute = 30
+	// maxTriggerID is the longest ID of a trigger, the size of its column in
+	// the database store: a reminder's watch is never longer.
+	maxTriggerID = 128
 )
 
 // The all-day rules of a watch: what a reminder for a thing that lasts whole
-// days does. Morning reminds at 08:00 of the owner's zone on that day; none
-// sets no reminder.
+// days does. Morning reminds at 08:00 of the thing's zone on that day (the
+// owner's zone for a thing with no zone); none sets no reminder.
 const (
 	AllDayMorning = "morning"
 	AllDayNone    = "none"
@@ -132,9 +135,9 @@ type Reminder struct {
 	// Stamp is a fingerprint of the thing without its time: a different stamp
 	// on an update is a change beyond a move.
 	Stamp string `json:",omitempty"`
-	// Adjusted says why the due time differs from the rule, in the owner's
-	// words, such as "the evening before, outside your quiet hours". Empty:
-	// the rule as it is.
+	// Adjusted says why the due time differs from the rule: AdjustedQuiet or
+	// AdjustedAllDay, a code that the host words for the owner. Empty: the
+	// rule as it is.
 	Adjusted string `json:",omitempty"`
 	// SnoozedTo, when set, is a due time the owner chose that wins over the
 	// computed one until the thing moves.
@@ -165,7 +168,7 @@ type Reminder struct {
 // Validate checks a reminder's own fields.
 func (r Reminder) Validate() error {
 	switch {
-	case r.ParentID == "" || len(r.ParentID) > MaxRefLen:
+	case r.ParentID == "" || len(r.ParentID) > maxTriggerID:
 		return errors.New("a reminder belongs to a watch")
 	case r.Key == "" || len(r.Key) > MaxThingKey || hasControl(r.Key, false) || !strings.Contains(r.Key, ":"):
 		return errors.New("a reminder names the thing it is for")
@@ -243,7 +246,9 @@ func (t Trigger) IsWatch() bool { return t.Kind == KindEvent && t.Watch != nil }
 // IsReminder says whether t is a reminder of a watch. A change record that
 // holds a reminder a chat proposed is not one: it never fires and is not
 // counted as the watch's reminder for its thing.
-func (t Trigger) IsReminder() bool { return t.Kind == KindReminder && t.Reminder != nil && !t.IsChange() }
+func (t Trigger) IsReminder() bool {
+	return t.Kind == KindReminder && t.Reminder != nil && !t.IsChange()
+}
 
 // validateReminder checks a reminder trigger.
 func (t Trigger) validateReminder() error {

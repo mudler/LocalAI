@@ -7,7 +7,9 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -117,7 +119,7 @@ func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 		t.Reminder = &rem
 	}
 	old, had := s.d.Triggers[t.ID]
-	s.d.Triggers[t.ID] = normTrigger(t)
+	s.d.Triggers[t.ID] = copyTrigger(t)
 	if err := s.save(); err != nil {
 		if had {
 			s.d.Triggers[t.ID] = old
@@ -387,6 +389,18 @@ func (s *jsonStore) RunByChat(_ context.Context, chatID string) (Run, error) {
 	return Run{}, ErrNotFound
 }
 
+func (s *jsonStore) CountHandledSince(_ context.Context, triggerID string, since time.Time) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, r := range s.d.Runs {
+		if r.TriggerID == triggerID && r.Status == StatusHandled && !r.Due.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
+
 func (s *jsonStore) CountRunsSince(_ context.Context, triggerID string, since time.Time) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -459,10 +473,20 @@ func (s *jsonStore) Reminders(_ context.Context, parentID string) ([]Trigger, er
 			out = append(out, copyTrigger(t))
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	slices.SortFunc(out, func(a, b Trigger) int { return strings.Compare(a.ID, b.ID) })
 	return out, nil
 }
 
-// copyTrigger gives a trigger that shares no pointer with the stored one, so
-// a caller that changes the rule or the reminder does not change the store.
-func copyTrigger(t Trigger) Trigger { return normTrigger(t) }
+// copyTrigger gives a trigger that shares no pointer and no slice with t, so
+// a caller that changes a trigger it read or wrote does not change the store.
+func copyTrigger(t Trigger) Trigger {
+	t = normTrigger(t)
+	t.Matches, t.Acts = slices.Clone(t.Matches), slices.Clone(t.Acts)
+	if t.Watch != nil {
+		t.Watch.Types = slices.Clone(t.Watch.Types)
+	}
+	if t.Reminder != nil {
+		t.Reminder.Following = slices.Clone(t.Reminder.Following)
+	}
+	return t
+}
