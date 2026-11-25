@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Android 12 and later. noBackupFilesDir (the P2P identity) is never backed up.
+     webui_profiles names the WebUI view profiles of this device only. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="webui_profiles.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="webui_profiles.xml" />
+    </device-transfer>
+</data-extraction-rules>
