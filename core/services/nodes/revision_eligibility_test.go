@@ -168,7 +168,7 @@ var _ = Describe("revision eligibility consumers", func() {
 		Expect(db.Model(&NodeModel{}).Where("id = ?", "current").Update("in_flight", 1).Error).To(Succeed())
 		Expect(db.Model(&NodeModel{}).Where("id IN ?", []string{"empty", "mismatch"}).Update("node_id", nodes["current"].ID).Error).To(Succeed())
 		rc := NewReplicaReconciler(ReplicaReconcilerOptions{Registry: registry, DB: db})
-		Expect(rc.allReplicasBusy(ctx, modelName)).To(BeTrue())
+		Expect(rc.allReplicasBusy(ctx, modelName, nil)).To(BeTrue())
 	})
 
 	DescribeTable("limits reconciler state queries to eligible rows",
