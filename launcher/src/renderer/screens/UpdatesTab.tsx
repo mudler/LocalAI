@@ -1,6 +1,6 @@
 // Settings > Updates (mock screens 30 to 33): the server and launcher updates,
 // and the update channel of This computer.
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Button, Callout, Icon, Switch } from '@localai/ui-kit'
 import type { UpdateChannelName } from '../../shared/types'
 import { useBridge } from '../bridge'
@@ -32,6 +32,21 @@ function ApkUpdatesTab({ data, controls, now }: { data: ShellData; controls: She
   const up = data.updater
   const phase = up?.phase ?? 'idle'
   const channel = info?.channel ?? 'stable'
+  // A check (Check now, or the daily one on resume) saves its time: read it again when the phase settles.
+  const { setUpdateInfo } = controls
+  useEffect(() => {
+    if (phase === 'checking') return
+    let live = true
+    void b.getUpdateInfo?.().then(
+      (i) => {
+        if (live && i) setUpdateInfo(i)
+      },
+      () => undefined,
+    )
+    return () => {
+      live = false
+    }
+  }, [b, phase, setUpdateInfo])
   const offerVersion = phase === 'available' || phase === 'downloaded' || phase === 'downloading' ? up?.version : undefined
   const phaseText = (() => {
     const t = S.apkUpdate.phase[phase]

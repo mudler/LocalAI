@@ -332,6 +332,20 @@ describe('settings', () => {
     await settle()
     expect(screen.getByText('Checked 2 hours ago · up to date')).toBeTruthy()
   })
+
+  it('a finished check shows its own time, not the one from before', async () => {
+    const b = await renderClient((s) => {
+      s.updateInfo = { autoCheck: true, channel: 'stable', devConfirmed: true, remoteDefault: false, checkedAt: NOW - 2 * 3_600_000 }
+      s.updater = { phase: 'checking' }
+    })
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+    await settle()
+    b.state.updateInfo = { ...b.state.updateInfo!, checkedAt: NOW }
+    b.emitUpdater({ phase: 'not-available' })
+    await settle()
+    expect(screen.getByText('Checked just now · up to date')).toBeTruthy()
+  })
 })
 
 describe('app update (APK)', () => {
