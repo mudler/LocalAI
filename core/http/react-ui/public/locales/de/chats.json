@@ -1750,6 +1750,36 @@
     "nameRequired": "Eine Beobachtung braucht einen Namen.",
     "promptRequired": "Schreib, was die Beobachtung tun soll.",
     "promptHint": "Dieser Text startet jeden Lauf der Beobachtung.",
-    "enabledHint": "Eine ausgeschaltete Beobachtung behält ihre Erinnerungen; sie warten, bis sie wieder an ist."
+    "enabledHint": "Eine ausgeschaltete Beobachtung behält ihre Erinnerungen; sie warten, bis sie wieder an ist.",
+    "change": {
+      "title": {
+        "create": "Erinnerung für {{title}} setzen",
+        "update": "Erinnerung für {{title}} ändern",
+        "delete": "Erinnerung für {{title}} absagen"
+      },
+      "help": "Nichts ändert sich, bis du zustimmst.",
+      "stale": "Die Erinnerung hat sich seit der Anfrage geändert. Frag erneut.",
+      "watch": "Beobachtung",
+      "when": "Wann",
+      "task": "Aufgabe",
+      "none": "keine",
+      "receipt": {
+        "create": "Erinnerung gesetzt:",
+        "update": "Erinnerung geändert:",
+        "delete": "Erinnerung abgesagt:",
+        "dismissed": "Nicht geändert:",
+        "undone": "Rückgängig gemacht:"
+      },
+      "blocked": {
+        "expired": "Die Zeit zum Rückgängigmachen ist vorbei; ändere die Erinnerung auf der Seite der Beobachtung.",
+        "edited": "Die Erinnerung wurde seitdem geändert; ändere sie auf der Seite der Beobachtung.",
+        "removed": "Die Erinnerung oder ihre Beobachtung wurde seitdem entfernt."
+      },
+      "announce": {
+        "applied": "Änderung der Erinnerung für {{title}} angenommen.",
+        "dismissed": "Die Erinnerung für {{title}} bleibt, wie sie war.",
+        "undone": "Änderung der Erinnerung für {{title}} rückgängig gemacht."
+      }
+    }
   }
 }

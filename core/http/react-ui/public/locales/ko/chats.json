@@ -1750,6 +1750,36 @@
     "nameRequired": "감시에는 이름이 필요합니다.",
     "promptRequired": "감시가 할 일을 적어 주세요.",
     "promptHint": "감시가 실행될 때마다 이 글로 시작합니다.",
-    "enabledHint": "꺼진 감시는 알림을 유지하며, 다시 켜질 때까지 기다립니다."
+    "enabledHint": "꺼진 감시는 알림을 유지하며, 다시 켜질 때까지 기다립니다.",
+    "change": {
+      "title": {
+        "create": "{{title}} 알림 설정",
+        "update": "{{title}} 알림 변경",
+        "delete": "{{title}} 알림 취소"
+      },
+      "help": "승인하기 전까지는 아무것도 바뀌지 않습니다.",
+      "stale": "요청 후 알림이 바뀌었습니다. 다시 요청하세요.",
+      "watch": "감시",
+      "when": "시간",
+      "task": "할 일",
+      "none": "없음",
+      "receipt": {
+        "create": "알림 설정됨:",
+        "update": "알림 변경됨:",
+        "delete": "알림 취소됨:",
+        "dismissed": "변경 안 함:",
+        "undone": "되돌림:"
+      },
+      "blocked": {
+        "expired": "되돌릴 수 있는 시간이 지났습니다. 감시 페이지에서 알림을 바꾸세요.",
+        "edited": "그 뒤로 알림이 바뀌었습니다. 감시 페이지에서 바꾸세요.",
+        "removed": "그 뒤로 알림이나 감시가 삭제되었습니다."
+      },
+      "announce": {
+        "applied": "{{title}} 알림 변경을 승인했습니다.",
+        "dismissed": "{{title}} 알림을 그대로 두었습니다.",
+        "undone": "{{title}} 알림 변경을 되돌렸습니다."
+      }
+    }
   }
 }

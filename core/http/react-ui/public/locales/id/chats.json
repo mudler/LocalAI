@@ -1750,6 +1750,36 @@
     "nameRequired": "Pantauan perlu nama.",
     "promptRequired": "Tulis apa yang harus dilakukan pantauan.",
     "promptHint": "Teks ini memulai setiap jalannya pantauan.",
-    "enabledHint": "Pantauan yang mati menyimpan pengingatnya; pengingat menunggu sampai pantauan aktif lagi."
+    "enabledHint": "Pantauan yang mati menyimpan pengingatnya; pengingat menunggu sampai pantauan aktif lagi.",
+    "change": {
+      "title": {
+        "create": "Pasang pengingat untuk {{title}}",
+        "update": "Ubah pengingat untuk {{title}}",
+        "delete": "Batalkan pengingat untuk {{title}}"
+      },
+      "help": "Tidak ada yang berubah sampai Anda menyetujuinya.",
+      "stale": "Pengingat berubah sejak diminta. Minta lagi.",
+      "watch": "Pantauan",
+      "when": "Kapan",
+      "task": "Tugas",
+      "none": "tidak ada",
+      "receipt": {
+        "create": "Pengingat dipasang:",
+        "update": "Pengingat diubah:",
+        "delete": "Pengingat dibatalkan:",
+        "dismissed": "Tidak diubah:",
+        "undone": "Dibatalkan:"
+      },
+      "blocked": {
+        "expired": "Waktu untuk membatalkan sudah lewat; ubah pengingat di halaman pantauan.",
+        "edited": "Pengingat sudah berubah sejak itu; ubah di halaman pantauan.",
+        "removed": "Pengingat atau pantauannya sudah dihapus sejak itu."
+      },
+      "announce": {
+        "applied": "Perubahan pengingat untuk {{title}} disetujui.",
+        "dismissed": "Pengingat untuk {{title}} tetap seperti semula.",
+        "undone": "Perubahan pengingat untuk {{title}} dibatalkan."
+      }
+    }
   }
 }

@@ -1750,6 +1750,36 @@
     "nameRequired": "监视需要一个名称。",
     "promptRequired": "写下监视要做什么。",
     "promptHint": "每次监视运行都从这段文字开始。",
-    "enabledHint": "关闭的监视会保留提醒，等它重新开启后再提醒。"
+    "enabledHint": "关闭的监视会保留提醒，等它重新开启后再提醒。",
+    "change": {
+      "title": {
+        "create": "为 {{title}} 设置提醒",
+        "update": "更改 {{title}} 的提醒",
+        "delete": "取消 {{title}} 的提醒"
+      },
+      "help": "在你批准之前，什么都不会改变。",
+      "stale": "提出请求后提醒已变化，请重新提出。",
+      "watch": "监视",
+      "when": "时间",
+      "task": "任务",
+      "none": "无",
+      "receipt": {
+        "create": "已设置提醒：",
+        "update": "已更改提醒：",
+        "delete": "已取消提醒：",
+        "dismissed": "未更改：",
+        "undone": "已撤销："
+      },
+      "blocked": {
+        "expired": "撤销时间已过；请在监视页面更改提醒。",
+        "edited": "提醒此后已被更改；请在监视页面更改。",
+        "removed": "提醒或其监视此后已被删除。"
+      },
+      "announce": {
+        "applied": "已批准 {{title}} 的提醒更改。",
+        "dismissed": "{{title}} 的提醒保持原样。",
+        "undone": "已撤销 {{title}} 的提醒更改。"
+      }
+    }
   }
 }

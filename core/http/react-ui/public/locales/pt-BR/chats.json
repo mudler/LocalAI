@@ -1750,6 +1750,36 @@
     "nameRequired": "Uma vigia precisa de um nome.",
     "promptRequired": "Escreva o que a vigia deve fazer.",
     "promptHint": "Este texto inicia cada execução da vigia.",
-    "enabledHint": "Uma vigia desligada mantém seus lembretes; eles esperam até ela voltar."
+    "enabledHint": "Uma vigia desligada mantém seus lembretes; eles esperam até ela voltar.",
+    "change": {
+      "title": {
+        "create": "Definir um lembrete para {{title}}",
+        "update": "Alterar o lembrete de {{title}}",
+        "delete": "Cancelar o lembrete de {{title}}"
+      },
+      "help": "Nada muda até você aprovar.",
+      "stale": "O lembrete mudou desde o pedido. Peça de novo.",
+      "watch": "Vigia",
+      "when": "Quando",
+      "task": "Tarefa",
+      "none": "nenhum",
+      "receipt": {
+        "create": "Lembrete definido:",
+        "update": "Lembrete alterado:",
+        "delete": "Lembrete cancelado:",
+        "dismissed": "Sem alteração:",
+        "undone": "Desfeito:"
+      },
+      "blocked": {
+        "expired": "O prazo para desfazer acabou; altere o lembrete na página da vigia.",
+        "edited": "O lembrete mudou desde então; altere-o na página da vigia.",
+        "removed": "O lembrete ou sua vigia foi removido desde então."
+      },
+      "announce": {
+        "applied": "Alteração do lembrete de {{title}} aprovada.",
+        "dismissed": "O lembrete de {{title}} ficou como estava.",
+        "undone": "Alteração do lembrete de {{title}} desfeita."
+      }
+    }
   }
 }

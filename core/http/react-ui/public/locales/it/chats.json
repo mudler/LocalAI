@@ -1750,6 +1750,36 @@
     "nameRequired": "Una sorveglianza ha bisogno di un nome.",
     "promptRequired": "Scrivi cosa deve fare la sorveglianza.",
     "promptHint": "Questo testo avvia ogni esecuzione della sorveglianza.",
-    "enabledHint": "Una sorveglianza spenta tiene i suoi promemoria; aspettano che torni attiva."
+    "enabledHint": "Una sorveglianza spenta tiene i suoi promemoria; aspettano che torni attiva.",
+    "change": {
+      "title": {
+        "create": "Imposta un promemoria per {{title}}",
+        "update": "Cambia il promemoria per {{title}}",
+        "delete": "Annulla il promemoria per {{title}}"
+      },
+      "help": "Non cambia nulla finché non approvi.",
+      "stale": "Il promemoria è cambiato da quando è stato chiesto. Chiedi di nuovo.",
+      "watch": "Sorveglianza",
+      "when": "Quando",
+      "task": "Compito",
+      "none": "nessuno",
+      "receipt": {
+        "create": "Promemoria impostato:",
+        "update": "Promemoria cambiato:",
+        "delete": "Promemoria annullato:",
+        "dismissed": "Non cambiato:",
+        "undone": "Annullato:"
+      },
+      "blocked": {
+        "expired": "Il tempo per annullare è scaduto; cambia il promemoria nella pagina della sorveglianza.",
+        "edited": "Il promemoria è cambiato nel frattempo; cambialo nella pagina della sorveglianza.",
+        "removed": "Il promemoria o la sua sorveglianza sono stati rimossi nel frattempo."
+      },
+      "announce": {
+        "applied": "Approvata la modifica del promemoria per {{title}}.",
+        "dismissed": "Il promemoria per {{title}} resta com'era.",
+        "undone": "Annullata la modifica del promemoria per {{title}}."
+      }
+    }
   }
 }

@@ -43,6 +43,17 @@ type ChatsWatchSources struct {
 	Sources []ChatsWatchSource `json:"sources"`
 }
 
+// ChatsReminderChange is a change of a reminder that a chat proposed: the
+// watch, the item and the reminder before and after the change. before is
+// absent for a new reminder, after for a cancel.
+type ChatsReminderChange struct {
+	WatchID   string         `json:"watch_id"`
+	WatchName string         `json:"watch_name,omitempty"`
+	Title     string         `json:"title"`
+	Before    *ChatsReminder `json:"before,omitempty"`
+	After     *ChatsReminder `json:"after,omitempty"`
+}
+
 // ChatsReminder is one reminder of a watch.
 type ChatsReminder struct {
 	ID    string `json:"id"`

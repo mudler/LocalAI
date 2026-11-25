@@ -219,8 +219,10 @@ const (
 // IsWatch says whether t is a watch: an event trigger with a reminder rule.
 func (t Trigger) IsWatch() bool { return t.Kind == KindEvent && t.Watch != nil }
 
-// IsReminder says whether t is a reminder of a watch.
-func (t Trigger) IsReminder() bool { return t.Kind == KindReminder && t.Reminder != nil }
+// IsReminder says whether t is a reminder of a watch. A change record that
+// holds a reminder a chat proposed is not one: it never fires and is not
+// counted as the watch's reminder for its thing.
+func (t Trigger) IsReminder() bool { return t.Kind == KindReminder && t.Reminder != nil && !t.IsChange() }
 
 // validateReminder checks a reminder trigger.
 func (t Trigger) validateReminder() error {

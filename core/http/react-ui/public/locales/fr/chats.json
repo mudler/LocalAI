@@ -1750,6 +1750,36 @@
     "nameRequired": "Une veille a besoin d'un nom.",
     "promptRequired": "Écrivez ce que la veille doit faire.",
     "promptHint": "Ce texte démarre chaque exécution de la veille.",
-    "enabledHint": "Une veille désactivée garde ses rappels ; ils attendent qu'elle soit réactivée."
+    "enabledHint": "Une veille désactivée garde ses rappels ; ils attendent qu'elle soit réactivée.",
+    "change": {
+      "title": {
+        "create": "Mettre un rappel pour {{title}}",
+        "update": "Changer le rappel de {{title}}",
+        "delete": "Annuler le rappel de {{title}}"
+      },
+      "help": "Rien ne change tant que vous n'approuvez pas.",
+      "stale": "Le rappel a changé depuis la demande. Demandez à nouveau.",
+      "watch": "Veille",
+      "when": "Quand",
+      "task": "Tâche",
+      "none": "aucun",
+      "receipt": {
+        "create": "Rappel mis :",
+        "update": "Rappel changé :",
+        "delete": "Rappel annulé :",
+        "dismissed": "Inchangé :",
+        "undone": "Annulé :"
+      },
+      "blocked": {
+        "expired": "Le délai pour annuler est passé ; changez le rappel sur la page de la veille.",
+        "edited": "Le rappel a changé depuis ; changez-le sur la page de la veille.",
+        "removed": "Le rappel ou sa veille a été supprimé depuis."
+      },
+      "announce": {
+        "applied": "Changement du rappel de {{title}} approuvé.",
+        "dismissed": "Le rappel de {{title}} reste tel quel.",
+        "undone": "Changement du rappel de {{title}} annulé."
+      }
+    }
   }
 }

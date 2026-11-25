@@ -1750,6 +1750,36 @@
     "nameRequired": "Una vigilancia necesita un nombre.",
     "promptRequired": "Escribe qué debe hacer la vigilancia.",
     "promptHint": "Este texto inicia cada ejecución de la vigilancia.",
-    "enabledHint": "Una vigilancia apagada conserva sus recordatorios; esperan hasta que vuelva a estar activa."
+    "enabledHint": "Una vigilancia apagada conserva sus recordatorios; esperan hasta que vuelva a estar activa.",
+    "change": {
+      "title": {
+        "create": "Poner un recordatorio para {{title}}",
+        "update": "Cambiar el recordatorio de {{title}}",
+        "delete": "Cancelar el recordatorio de {{title}}"
+      },
+      "help": "No cambia nada hasta que lo apruebes.",
+      "stale": "El recordatorio cambió desde que se pidió. Pídelo de nuevo.",
+      "watch": "Vigilancia",
+      "when": "Cuándo",
+      "task": "Tarea",
+      "none": "ninguno",
+      "receipt": {
+        "create": "Recordatorio puesto:",
+        "update": "Recordatorio cambiado:",
+        "delete": "Recordatorio cancelado:",
+        "dismissed": "Sin cambios:",
+        "undone": "Deshecho:"
+      },
+      "blocked": {
+        "expired": "Ya no se puede deshacer; cambia el recordatorio en la página de la vigilancia.",
+        "edited": "El recordatorio cambió desde entonces; cámbialo en la página de la vigilancia.",
+        "removed": "El recordatorio o su vigilancia se eliminaron desde entonces."
+      },
+      "announce": {
+        "applied": "Aprobado el cambio del recordatorio de {{title}}.",
+        "dismissed": "El recordatorio de {{title}} queda como estaba.",
+        "undone": "Deshecho el cambio del recordatorio de {{title}}."
+      }
+    }
   }
 }

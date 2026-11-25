@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,29 +51,59 @@ const listRemindersDescription = "List the reminders of this watch: the item, it
 
 const listRemindersSchema = `{"type":"object","properties":{}}`
 
+// In a chat in Studio the same tools serve the person, who may change the
+// reminders of their watches by asking: there they take the watch, and a set
+// or a cancel only proposes the change, which the person approves on its card
+// (see reminderchange.go).
+const chatWatchArg = `"watch":{"type":"string","maxLength":255,"description":"The watch: its ref from list_reminders, or its name. Leave it out when you have one watch."},`
+
+const setReminderChatDescription = "Propose to set or change the reminder of one of the user's watches for one item. " +
+	"watch is the watch (its ref from list_reminders); key is the item's key as list_reminders shows it, or <source>:<id> for an item that has no reminder yet. " +
+	"Time it with offset (relative to the item's time, such as -15m), at (a time, 2026-11-26 14:45 in the watch's zone, or RFC 3339), or in (a delay from now, such as 20m). " +
+	"task is what the reminder does, in plain words; lead is how long before the reminder time its run starts. " +
+	"For an item with no reminder yet, give title and anchor (the item's time, RFC 3339) as you read them from the item. " +
+	"Nothing changes until the user presses Approve on the card in the chat: say that, and do not say it changed until they do."
+
+const cancelReminderChatDescription = "Propose to cancel the reminder of one of the user's watches for one item. watch is the watch (its ref from list_reminders); key is the item's key. " +
+	"Nothing changes until the user presses Approve on the card in the chat."
+
+const listRemindersChatDescription = "List the reminders of the user's watches: each watch with its ref, and for each reminder the item, its key, when it fires and its task. watch narrows the list to one watch."
+
 // registerReminderTools registers set_reminder, cancel_reminder and
-// list_reminders. Each is offered only in the run of a watch or of one of its
-// reminders.
+// list_reminders. They are offered in the run of a watch or of one of its
+// reminders, where they act at once, and in a chat in Studio of a person who
+// has a watch, where a set or a cancel waits for the person's approval.
 func (s *Service) registerReminderTools() error {
+	type runFn func(context.Context, builtins.Chat, triggers.Trigger, json.RawMessage) (string, error)
+	type chatFn func(context.Context, builtins.Chat, []triggers.Trigger, json.RawMessage) (string, error)
 	for _, tool := range []struct {
 		id, label, desc, schema string
+		chatDesc, chatSchema    string
 		readOnly                bool
-		run                     func(context.Context, builtins.Chat, triggers.Trigger, json.RawMessage) (string, error)
+		run                     runFn
+		chat                    chatFn
 	}{
-		{SetReminderName, "Set a reminder", setReminderDescription, setReminderSchema, false, s.setReminderTool},
-		{CancelReminderName, "Cancel a reminder", cancelReminderDescription, cancelReminderSchema, false, s.cancelReminderTool},
-		{ListRemindersName, "List reminders", listRemindersDescription, listRemindersSchema, true, s.listRemindersTool},
+		{SetReminderName, "Set a reminder", setReminderDescription, setReminderSchema, setReminderChatDescription,
+			strings.Replace(setReminderSchema, `"properties":{`, `"properties":{`+chatWatchArg, 1), false, s.setReminderTool, s.setReminderChatTool},
+		{CancelReminderName, "Cancel a reminder", cancelReminderDescription, cancelReminderSchema, cancelReminderChatDescription,
+			strings.Replace(cancelReminderSchema, `"properties":{`, `"properties":{`+chatWatchArg, 1), false, s.cancelReminderTool, s.cancelReminderChatTool},
+		{ListRemindersName, "List reminders", listRemindersDescription, listRemindersSchema, listRemindersChatDescription,
+			`{"type":"object","properties":{` + strings.TrimSuffix(chatWatchArg, ",") + `}}`, true, s.listRemindersTool, s.listRemindersChatTool},
 	} {
 		err := s.builtins.Register(builtins.Tool{
 			ID: tool.id, Label: tool.label, Description: tool.desc, Unlisted: true, ReadOnly: tool.readOnly,
 			Enabled: func() bool { return s.triggers != nil },
 			Build: func(ctx context.Context, c builtins.Chat) (session.Tool, bool, string) {
-				w, why := s.watchOfRun(ctx, c)
+				if w, why := s.watchOfRun(ctx, c); why == "" {
+					return session.Tool{Description: tool.desc, Schema: json.RawMessage(tool.schema),
+						Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return tool.run(ctx, c, w, raw) }}, true, ""
+				}
+				watches, why := s.watchesOfChat(ctx, c)
 				if why != "" {
 					return session.Tool{}, false, why
 				}
-				return session.Tool{Description: tool.desc, Schema: json.RawMessage(tool.schema),
-					Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return tool.run(ctx, c, w, raw) }}, true, ""
+				return session.Tool{Description: tool.chatDesc, Schema: json.RawMessage(tool.chatSchema),
+					Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return tool.chat(ctx, c, watches, raw) }}, true, ""
 			},
 		})
 		if err != nil {
@@ -80,6 +111,132 @@ func (s *Service) registerReminderTools() error {
 		}
 	}
 	return nil
+}
+
+// watchesOfChat gives the watches of the person of a chat in Studio, for the
+// reminder tools of that chat. A chat that is not one a person watches, a
+// sub-agent, a chat that switched the triggers off and a person with no watch
+// get no reminder tools: they would cost tokens at each turn for nothing.
+func (s *Service) watchesOfChat(ctx context.Context, c builtins.Chat) ([]triggers.Trigger, string) {
+	const notHere = "reminders are kept by the run of their watch, or changed in a chat in Studio"
+	h := s.triggers
+	switch {
+	case h == nil || c.Origin != "" || c.SubAgent:
+		return nil, notHere
+	case slices.Contains(c.GroupsOff, builtins.GroupTriggers):
+		return nil, "this chat switched the triggers off"
+	}
+	if err := s.mayUseTriggers(ctx, c.Actor.Principal); err != nil {
+		return nil, err.Error()
+	}
+	all, err := h.o.Store.ListTriggers(ctx, principal(c.Actor.Principal))
+	if err != nil {
+		return nil, notHere
+	}
+	var out []triggers.Trigger
+	for _, t := range all {
+		if t.IsWatch() && !t.Proposed {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return nil, "the user has no watch"
+	}
+	return out, ""
+}
+
+// chatWatch picks the watch a tool call in a chat names.
+func chatWatch(watches []triggers.Trigger, ref string) (triggers.Trigger, error) {
+	if strings.TrimSpace(ref) == "" {
+		if len(watches) == 1 {
+			return watches[0], nil
+		}
+		names := make([]string, 0, len(watches))
+		for _, w := range watches {
+			names = append(names, fmt.Sprintf("%s (%s)", w.Name, TriggerRef(w.ID)))
+		}
+		return triggers.Trigger{}, fmt.Errorf("give watch, one of: %s", strings.Join(names, ", "))
+	}
+	return resolveTriggerIn(watches, ref)
+}
+
+func (s *Service) setReminderChatTool(ctx context.Context, c builtins.Chat, watches []triggers.Trigger, raw json.RawMessage) (string, error) {
+	in, err := session.DecodeArgs[struct {
+		Watch, Key, Offset, At, In, Task, Lead, Anchor, Title string
+	}](raw)
+	if err != nil {
+		return "", err
+	}
+	w, err := chatWatch(watches, in.Watch)
+	if err != nil {
+		return "", toolErr(err)
+	}
+	h := s.triggers
+	rec, err := h.ProposeReminder(ctx, c.Actor.Principal, c.Actor.ChatID, w, ReminderInput{Key: in.Key, Offset: in.Offset, At: in.At, In: in.In,
+		Task: in.Task, Lead: in.Lead, Anchor: in.Anchor, Title: in.Title})
+	if err != nil {
+		if errors.Is(err, errReminder) {
+			return "Not proposed: " + strings.TrimPrefix(err.Error(), errReminder.Error()+": "), nil
+		}
+		return "", toolErr(err)
+	}
+	h.changeCard(ctx, c.Actor, rec)
+	loc, lerr := w.Location()
+	if lerr != nil {
+		loc = time.UTC
+	}
+	due := triggers.PlanReminder(*rec.Reminder, w.Watch, loc, h.o.Clock()).Due
+	return fmt.Sprintf("Asked to set the reminder for %q at %s. Nothing changes until the user presses Approve on the card in the chat; do not say it is set until they do.",
+		rec.Reminder.Title, whenText(w, due, h.o.Clock())), nil
+}
+
+func (s *Service) cancelReminderChatTool(ctx context.Context, c builtins.Chat, watches []triggers.Trigger, raw json.RawMessage) (string, error) {
+	in, err := session.DecodeArgs[struct{ Watch, Key string }](raw)
+	if err != nil {
+		return "", err
+	}
+	w, err := chatWatch(watches, in.Watch)
+	if err != nil {
+		return "", toolErr(err)
+	}
+	h := s.triggers
+	rec, err := h.ProposeCancelReminder(ctx, c.Actor.Principal, c.Actor.ChatID, w, strings.TrimSpace(in.Key))
+	if errors.Is(err, triggers.ErrNotFound) {
+		return "This watch has no reminder for that item.", nil
+	}
+	if err != nil {
+		return "", toolErr(err)
+	}
+	h.changeCard(ctx, c.Actor, rec)
+	return fmt.Sprintf("Asked to cancel the reminder for %q. Nothing changes until the user presses Approve on the card in the chat; do not say it is cancelled until they do.",
+		rec.Reminder.Title), nil
+}
+
+func (s *Service) listRemindersChatTool(ctx context.Context, c builtins.Chat, watches []triggers.Trigger, raw json.RawMessage) (string, error) {
+	in, err := session.DecodeArgs[struct{ Watch string }](raw)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(in.Watch) != "" {
+		w, err := chatWatch(watches, in.Watch)
+		if err != nil {
+			return "", toolErr(err)
+		}
+		watches = []triggers.Trigger{w}
+	}
+	var b strings.Builder
+	for _, w := range watches {
+		fmt.Fprintf(&b, "Watch %q (ref %s) on %s:\n", w.Name, TriggerRef(w.ID), w.Source)
+		list, err := s.listRemindersTool(ctx, c, w, nil)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString(list)
+		if !strings.HasSuffix(list, "\n") {
+			b.WriteString("\n")
+		}
+	}
+	return b.String(), nil
 }
 
 // watchOfRun gives the watch of the run of a chat: the watch itself, or the
@@ -200,8 +357,62 @@ var errReminder = errors.New("studio: reminder")
 
 // SetReminder creates or replaces the reminder of the watch w for one item.
 func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in ReminderInput) (triggers.Trigger, error) {
-	bad := func(format string, a ...any) (triggers.Trigger, error) {
-		return triggers.Trigger{}, fmt.Errorf("%w: %s", errReminder, fmt.Sprintf(format, a...))
+	now := h.o.Clock()
+	h.wmu.Lock()
+	locked := true
+	defer func() {
+		if locked {
+			h.wmu.Unlock()
+		}
+	}()
+	p, err := h.planReminder(ctx, w, in, now)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	if err := h.o.Store.PutTrigger(ctx, p.next); err != nil {
+		if errors.Is(err, triggers.ErrDuplicate) {
+			return reminderErr("this watch already has a reminder for the item")
+		}
+		return triggers.Trigger{}, err
+	}
+	// The record below may pause the watch, which takes the write lock.
+	h.wmu.Unlock()
+	locked = false
+	h.recordAction(ctx, w, now, p.line(w, now))
+	h.Notify()
+	return p.next, nil
+}
+
+// reminderErr is a refusal of a reminder that its asker can fix.
+func reminderErr(format string, a ...any) (triggers.Trigger, error) {
+	return triggers.Trigger{}, fmt.Errorf("%w: %s", errReminder, fmt.Sprintf(format, a...))
+}
+
+// reminderPlan is the reminder of a watch for one item as a request leaves
+// it, before it is stored.
+type reminderPlan struct {
+	// cur is the reminder as it is; zero when isNew.
+	cur   triggers.Trigger
+	next  triggers.Trigger
+	isNew bool
+	due   time.Time
+}
+
+// line is the history and Inbox line of the plan once it is stored.
+func (p reminderPlan) line(w triggers.Trigger, now time.Time) string {
+	verb := "Changed"
+	if p.isNew {
+		verb = "Set"
+	}
+	return fmt.Sprintf("%s the reminder for %q: %s.", verb, p.next.Reminder.Title, whenText(w, p.due, now))
+}
+
+// planReminder works out the reminder of the watch w for one item as in
+// leaves it, from the reminder that is stored now. It stores nothing.
+func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in ReminderInput, now time.Time) (reminderPlan, error) {
+	bad := func(format string, a ...any) (reminderPlan, error) {
+		_, err := reminderErr(format, a...)
+		return reminderPlan{}, err
 	}
 	key := strings.TrimSpace(in.Key)
 	if !strings.HasPrefix(key, w.Source+":") || len(key) <= len(w.Source)+1 {
@@ -211,18 +422,10 @@ func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in Remin
 	if err != nil {
 		loc = time.UTC
 	}
-	now := h.o.Clock()
-	h.wmu.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			h.wmu.Unlock()
-		}
-	}()
 	cur, err := h.o.Store.ReminderByKey(ctx, w.ID, key)
 	isNew := errors.Is(err, triggers.ErrNotFound)
 	if err != nil && !isNew {
-		return triggers.Trigger{}, err
+		return reminderPlan{}, err
 	}
 	var rem triggers.Reminder
 	if isNew {
@@ -289,34 +492,30 @@ func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in Remin
 		return bad("the watch's all-day rule sets no reminder for an item that lasts all day")
 	}
 	rem.Adjusted = tm.Adjusted
+	next := reminderTrigger(cur, w, rem)
+	next.Since = now.UTC()
+	if err := next.Validate(); err != nil {
+		return bad("%v", err)
+	}
+	p := reminderPlan{next: next, isNew: isNew, due: tm.Due}
+	if !isNew {
+		p.cur = cur
+	}
+	return p, nil
+}
+
+// reminderTrigger is the trigger of the reminder rem of the watch w, on the
+// base of the stored reminder cur: what a run does, and where it reports, come
+// from the watch.
+func reminderTrigger(cur, w triggers.Trigger, rem triggers.Reminder) triggers.Trigger {
 	next := cur
 	next.Owner, next.Kind, next.Enabled = w.Owner, triggers.KindReminder, true
 	next.Name = thingLine(firstNonEmpty(rem.Title, "Reminder"), triggers.MaxNameLen)
 	next.Prompt = rem.Task
 	next.TZ, next.AgentID, next.Model, next.Acts, next.Route = w.TZ, w.AgentID, w.Model, w.Acts, w.Route
 	next.Route.Code, next.Route.Expires, next.Route.ProposedAt = "", time.Time{}, time.Time{}
-	next.Since = now.UTC()
 	next.Reminder = &rem
-	if err := next.Validate(); err != nil {
-		return bad("%v", err)
-	}
-	if err := h.o.Store.PutTrigger(ctx, next); err != nil {
-		if errors.Is(err, triggers.ErrDuplicate) {
-			return bad("this watch already has a reminder for the item")
-		}
-		return triggers.Trigger{}, err
-	}
-	// The record below may pause the watch, which takes the write lock.
-	h.wmu.Unlock()
-	locked = false
-	verb := "Changed"
-	if isNew {
-		verb = "Set"
-	}
-	line := fmt.Sprintf("%s the reminder for %q: %s.", verb, rem.Title, whenText(w, tm.Due, now))
-	h.recordAction(ctx, w, now, line)
-	h.Notify()
-	return next, nil
+	return next
 }
 
 // recordAction writes one row of the watch's history and one Inbox line for

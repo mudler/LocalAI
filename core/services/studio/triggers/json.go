@@ -98,9 +98,9 @@ func normRun(r Run) Run {
 func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if t.Reminder != nil {
+	if t.IsReminder() {
 		for id, o := range s.d.Triggers {
-			if id != t.ID && o.Reminder != nil && o.Reminder.ParentID == t.Reminder.ParentID && o.Reminder.Key == t.Reminder.Key {
+			if id != t.ID && o.IsReminder() && o.Reminder.ParentID == t.Reminder.ParentID && o.Reminder.Key == t.Reminder.Key {
 				return ErrDuplicate
 			}
 		}
@@ -432,7 +432,7 @@ func (s *jsonStore) ReminderByKey(_ context.Context, parentID, key string) (Trig
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, t := range s.d.Triggers {
-		if t.Reminder != nil && t.Reminder.ParentID == parentID && t.Reminder.Key == key {
+		if t.IsReminder() && t.Reminder.ParentID == parentID && t.Reminder.Key == key {
 			return copyTrigger(t), nil
 		}
 	}
@@ -444,7 +444,7 @@ func (s *jsonStore) Reminders(_ context.Context, parentID string) ([]Trigger, er
 	defer s.mu.Unlock()
 	var out []Trigger
 	for _, t := range s.d.Triggers {
-		if t.Reminder != nil && t.Reminder.ParentID == parentID {
+		if t.IsReminder() && t.Reminder.ParentID == parentID {
 			out = append(out, copyTrigger(t))
 		}
 	}

@@ -568,6 +568,17 @@ func changeOut(ctx context.Context, host *studiosvc.Triggers, v studiosvc.Change
 		r := runOut(host, v.Before.Owner, *v.LastRun)
 		out.LastRun = &r
 	}
+	if rc := v.Reminder; rc != nil {
+		out.Reminder = &schema.ChatsReminderChange{WatchID: rc.WatchID, WatchName: rc.WatchName, Title: rc.Title}
+		if rc.Before != nil {
+			b := reminderOut(*rc.Before)
+			out.Reminder.Before = &b
+		}
+		if rc.After != nil {
+			a := reminderOut(*rc.After)
+			out.Reminder.After = &a
+		}
+	}
 	return out
 }
 

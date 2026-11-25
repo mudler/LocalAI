@@ -220,8 +220,12 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	}
 	if t.Reminder != nil {
 		row.Reminder = jsonText(t.Reminder)
-		parent, key := t.Reminder.ParentID, t.Reminder.Key
-		row.ParentID, row.ThingKey = &parent, &key
+		// A change record holds the reminder a chat proposed; it stays out of
+		// the index, so it never stands in for the watch's reminder.
+		if !t.IsChange() {
+			parent, key := t.Reminder.ParentID, t.Reminder.Key
+			row.ParentID, row.ThingKey = &parent, &key
+		}
 	}
 	err := s.db.WithContext(ctx).Save(&row).Error
 	if err != nil && t.Reminder != nil && dberr.IsUniqueViolation(err) {

@@ -2065,6 +2065,36 @@
     "nameRequired": "A watch needs a name.",
     "promptRequired": "Write what the watch should do.",
     "promptHint": "This text starts each run of the watch.",
-    "enabledHint": "A watch that is off keeps its reminders; they wait until it is back on."
+    "enabledHint": "A watch that is off keeps its reminders; they wait until it is back on.",
+    "change": {
+      "title": {
+        "create": "Set a reminder for {{title}}",
+        "update": "Change the reminder for {{title}}",
+        "delete": "Cancel the reminder for {{title}}"
+      },
+      "help": "Nothing changes until you approve.",
+      "stale": "The reminder changed since this was asked for. Ask again.",
+      "watch": "Watch",
+      "when": "When",
+      "task": "Task",
+      "none": "none",
+      "receipt": {
+        "create": "Reminder set:",
+        "update": "Reminder changed:",
+        "delete": "Reminder cancelled:",
+        "dismissed": "Not changed:",
+        "undone": "Undone:"
+      },
+      "blocked": {
+        "expired": "The time to undo it is over; change the reminder on the watch's page.",
+        "edited": "The reminder changed since; change it on the watch's page.",
+        "removed": "The reminder or its watch was removed since."
+      },
+      "announce": {
+        "applied": "Approved the reminder change for {{title}}.",
+        "dismissed": "Left the reminder for {{title}} as it was.",
+        "undone": "Undid the reminder change for {{title}}."
+      }
+    }
   }
 }

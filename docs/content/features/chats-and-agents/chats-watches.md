@@ -42,6 +42,8 @@ The page of a watch shows whether it is on, what it watches, where it reports an
 
 The Calendar add-on marks an event that has a reminder with a bell and the reminder time, in the agenda and in the event's details. From the details you can skip the reminder or open the watch to change its time.
 
+You can also change a reminder by asking in a chat in Studio, for example "remind me 30 minutes before the dentist instead" or "cancel the reminder for the standup". The agent proposes the change and the chat shows a card with the reminder before and after, with **Approve**, **Edit** (opens the watch's page) and **Not now**. Nothing changes until you approve. Once applied, the card has **Undo** for a day. A chat gets these reminder tools only when you have at least one watch, and not when the chat has the triggers switched off.
+
 In a messaging app that shows buttons (Telegram), a reminder comes with **Snooze 5 min**, **In 30 min**, **Skip** and **Got it**. In other apps, reply "snooze", "30 min" or "skip" to the reminder.
 
 ## When the server was down

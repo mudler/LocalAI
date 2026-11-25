@@ -1769,6 +1769,9 @@ type ChatsTriggerChange struct {
 	CanUndo     bool             `json:"can_undo"`
 	UndoBlocked string           `json:"undo_blocked,omitempty"`
 	LastRun     *ChatsTriggerRun `json:"last_run,omitempty"`
+	// Reminder is set on a change of a reminder of a watch, which a chat
+	// proposed; before is then the watch.
+	Reminder *ChatsReminderChange `json:"reminder,omitempty"`
 }
 
 // ChatsTriggerPlan is what a run of a trigger does, as the model that proposed

@@ -406,6 +406,9 @@ const (
 	ChangeDelete = "delete"
 	ChangePause  = "pause"
 	ChangeResume = "resume"
+	// ChangeCreate is a change that adds a reminder to a watch; only a
+	// change record of kind reminder has it.
+	ChangeCreate = "create"
 )
 
 // IsChange says whether t is a change record, not a trigger or a proposal.
