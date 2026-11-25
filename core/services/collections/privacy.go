@@ -103,14 +103,28 @@ func (t privateTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return t.next.RoundTrip(req)
 	}
 	raw, err := io.ReadAll(io.LimitReader(req.Body, maxPrivateBody+1))
-	_ = req.Body.Close()
 	if err != nil {
+		_ = req.Body.Close()
 		return nil, err
 	}
 	ctx := req.Context()
 	if l := t.queries.levelOf(raw); l.Incognito() {
 		ctx = privacy.WithLevel(ctx, l)
 	}
+	if len(raw) > maxPrivateBody {
+		// A body over the limit (a large ingest, say) is no search call. It
+		// goes on whole: the part already read, then the rest of the stream.
+		// The level of a held query in that part still applies.
+		orig := req.Body
+		req = req.Clone(ctx)
+		req.Body = struct {
+			io.Reader
+			io.Closer
+		}{io.MultiReader(bytes.NewReader(raw), orig), orig}
+		req.GetBody = nil
+		return t.next.RoundTrip(req)
+	}
+	_ = req.Body.Close()
 	req = req.Clone(ctx)
 	req.Body = io.NopCloser(bytes.NewReader(raw))
 	req.ContentLength = int64(len(raw))

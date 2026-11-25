@@ -51,6 +51,24 @@ var _ = Describe("the search of a zero-retention request", func() {
 		Expect(level).To(Equal(privacy.Normal), "the query is no longer held")
 	})
 
+	It("forwards a body over the limit whole while a zero-retention search is held", func() {
+		s := &Service{inProcess: true}
+		t := privateTransport{next: &levelSeen{}, queries: &s.private}
+		release, err := s.privateSearch(privacy.WithLevel(context.Background(), privacy.ZeroRetention), "held query")
+		Expect(err).NotTo(HaveOccurred())
+		defer release()
+
+		big := strings.Repeat("0123456789abcdef", maxPrivateBody/16+4096) + "END-OF-BODY"
+		Expect(len(big)).To(BeNumerically(">", maxPrivateBody))
+		req, _ := http.NewRequest(http.MethodPost, "http://in.process/v1/embeddings", strings.NewReader(big))
+		resp, err := t.RoundTrip(req)
+		Expect(err).NotTo(HaveOccurred())
+		echoed, _ := io.ReadAll(resp.Body)
+		Expect(len(echoed)).To(Equal(len(big)), "nothing of the body is cut")
+		Expect(string(echoed) == big).To(BeTrue())
+		Expect(t.next.(*levelSeen).level).To(Equal(privacy.Normal), "a body without the held query keeps its level")
+	})
+
 	It("holds nothing for a request that keeps its traces", func() {
 		s := &Service{inProcess: true}
 		release, err := s.privateSearch(privacy.WithLevel(context.Background(), privacy.MemoryOff), "q")
