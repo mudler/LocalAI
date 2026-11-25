@@ -9,6 +9,16 @@
 
 export const DEV_RELEASE_TAG = 'dev-master'
 
+// The Android app's release assets. The stable ones are attached to every
+// stable release (read through `releases/latest/download/`), the dev ones to
+// the `dev-master` pre-release. The names carry no version, so the feed URL
+// never changes; the version is in the manifest and in the APK. The Android
+// CI workflows own these names.
+export const APK_STABLE = 'LocalAI-Android.apk'
+export const APK_DEV = 'LocalAI-Android-dev.apk'
+export const APK_MANIFEST_STABLE = 'android-update.json'
+export const APK_MANIFEST_DEV = 'android-update-dev.json'
+
 export interface DevBuild {
   /** What "newer" compares: the short commit sha, or the publish time when the text has no sha. */
   id: string

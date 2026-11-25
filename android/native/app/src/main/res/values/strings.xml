@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LocalAI</string>
+    <string name="title_activity_main">LocalAI</string>
+    <string name="package_name">io.localai.client</string>
+    <string name="custom_url_scheme">io.localai.client</string>
+</resources>

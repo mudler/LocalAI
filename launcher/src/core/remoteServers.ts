@@ -54,6 +54,12 @@ export interface P2PTunnels {
   pair(input: { link: string; name: string; allowOpenRelay: boolean }): Promise<PairOutcome>
   /** A loopback port for a new server. */
   allocatePort(): Promise<number>
+  /**
+   * A loopback port and host (127.x.y.z) for a new server. Preferred over
+   * allocatePort when present (the Android app gives each server its own
+   * host, so each has its own origin). No host means 127.0.0.1.
+   */
+  allocate?(): Promise<{ port: number; host?: string }>
   start(id: string, name: string, target: P2PTarget): void
   stop(id: string): void
   status(id: string): TunnelStatusView | undefined
@@ -116,6 +122,8 @@ export class RemoteServers {
   private openTests = new Set<AbortController>()
   /** The ids whose forwarder was started and not stopped since. */
   private tunnelIds = new Set<string>()
+  /** Why the last start of a forwarder threw, until it starts or stops. */
+  private tunnelErrors = new Map<string, string>()
 
   constructor(private readonly d: RemoteServersDeps) {
     this.monitor = new RemoteMonitor({
@@ -164,7 +172,7 @@ export class RemoteServers {
           insecure: isInsecureRemote(r.url),
           status: k?.status ?? (current ? 'connected' : 'not-tested'),
           checkedAt: k?.at,
-          p2p: r.p2p ? (this.d.p2p.status(r.id) ?? { state: 'stopped' }) : undefined,
+          p2p: r.p2p ? this.tunnelStatus(r.id) : undefined,
         }
       }),
     ]
@@ -175,6 +183,12 @@ export class RemoteServers {
       firstRun: this.d.firstRun(c),
       switching: this.switching,
     }
+  }
+
+  private tunnelStatus(id: string): TunnelStatusView {
+    const err = this.tunnelErrors.get(id)
+    if (err !== undefined) return { state: 'failed', error: err }
+    return this.d.p2p.status(id) ?? { state: 'stopped' }
   }
 
   private emit(): void {
@@ -314,22 +328,36 @@ export class RemoteServers {
     return { ok: true, view: this.serversView(), id: after.id, test }
   }
 
-  /** Starts the forwarders of every saved server over P2P. */
+  /**
+   * Starts the forwarders of every saved server over P2P. A start that
+   * throws marks only its own server as failed; the others still start.
+   */
   startTunnels(): void {
     if (!this.d.p2p.available()) return
-    for (const r of remotes(this.d.store.get())) this.startTunnel(r)
+    let failed = false
+    for (const r of remotes(this.d.store.get())) if (this.startTunnel(r) === 'failed') failed = true
+    if (failed) this.emit()
   }
 
-  private startTunnel(r: RemoteServer): boolean {
-    if (!r.p2p) return false
+  private startTunnel(r: RemoteServer): 'started' | 'failed' | 'none' {
+    if (!r.p2p) return 'none'
     // Record the id first: a start that throws may still have left a
     // forwarder behind, and stopAll must stop it.
     this.tunnelIds.add(r.id)
-    this.d.p2p.start(r.id, r.name, r.p2p)
-    return true
+    try {
+      this.d.p2p.start(r.id, r.name, r.p2p)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      this.tunnelErrors.set(r.id, msg)
+      this.d.log(`servers: the P2P forwarder of a server did not start: ${msg}`, 'warn')
+      return 'failed'
+    }
+    this.tunnelErrors.delete(r.id)
+    return 'started'
   }
 
   private stopTunnel(id: string): void {
+    this.tunnelErrors.delete(id)
     if (!this.tunnelIds.delete(id)) return
     this.d.p2p.stop(id)
   }
@@ -355,9 +383,9 @@ export class RemoteServers {
       this.d.log(`servers: pairing failed: ${paired.detail}`, 'warn')
       return { ok: false, reason: paired.reason, detail: paired.detail }
     }
-    const port = await this.d.p2p.allocatePort()
+    const at = this.d.p2p.allocate ? await this.d.p2p.allocate() : { port: await this.d.p2p.allocatePort() }
     const name = [input.name, paired.result.serverName, inv.info.label, 'LocalAI'].map((x) => (x ?? '').trim()).find((x) => x !== '') ?? 'LocalAI'
-    const target = { peer: paired.result.peer, port, ...linkRoutes(input.link) }
+    const target: P2PTarget = { peer: paired.result.peer, port: at.port, ...linkRoutes(input.link), ...(at.host !== undefined ? { host: at.host } : {}) }
     const idGen = () => this.newId()
     let added: RemoteServer | undefined
     let failure: AddServerByInviteResult | undefined
@@ -372,7 +400,8 @@ export class RemoteServers {
     })
     if (failure || !added) return failure ?? { ok: false, reason: 'limit' }
     this.d.log('servers: server over P2P saved')
-    const started = this.startTunnel(added)
+    // A forwarder that does not start leaves the server saved, with the error on its row.
+    const started = this.startTunnel(added) === 'started'
     const phrase = paired.result.phrase
     if (input.makeDefault && started && (await this.d.p2p.whenReady(added.id, TUNNEL_READY_MS))) {
       const r = await this.switchTo(added.id, false)
@@ -487,6 +516,19 @@ export class RemoteServers {
 
   async retryRemote(): Promise<void> {
     await this.monitor.retryNow()
+  }
+
+  /** The app left the screen (a phone): stop watching the remote default until resumeMonitor. */
+  pauseMonitor(): void {
+    this.monitor.stop()
+  }
+
+  /** The app is back on screen: check the remote default once, then watch it as before. */
+  resumeMonitor(): void {
+    if (this.switching) return
+    const c = this.d.store.get()
+    const r = remotes(c).find((x) => x.id === defaultTarget(c))
+    if (r) void this.monitor.start(r.url)
   }
 
   /** Stops the monitor and every forwarder and aborts open tests. */

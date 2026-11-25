@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@launcher/renderer/*": ["../launcher/src/renderer/*"],
+      "@launcher/shared/*": ["../launcher/src/shared/*"],
+      "@launcher/core/*": ["../launcher/src/core/*"],
+      "@localai/ui-kit/*": ["../core/http/react-ui/packages/ui-kit/*"],
+      "@webui/*": ["../core/http/react-ui/src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "scripts/**/*.mjs",
+    "aliases.mjs",
+    "vite.config.mts",
+    "capacitor.config.ts",
+    "../launcher/src/renderer/kit.d.ts",
+    "../launcher/src/renderer/webui.d.ts",
+    "../launcher/src/renderer/globals.d.ts"
+  ]
+}

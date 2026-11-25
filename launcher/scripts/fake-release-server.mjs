@@ -1,5 +1,8 @@
 // Serves a feed directory over HTTP and logs every request line to a file.
-// usage: node fake-release-server.mjs <port> <dir> <logfile>
+// usage: node fake-release-server.mjs <port> <dir> <logfile> [host]
+// `host` is the address to listen on (default 127.0.0.1). The Android app's
+// self-update test gives the LAN address of the test machine, so a phone can
+// read the APK feed (`latest/download/...` and `download/dev-master/...`).
 // A file `<path>.redirect` makes `<path>` answer 302 with the file's text as
 // Location, the way github.com answers `releases/latest`.
 // Files under `repos/` are the API answers (`repos/<owner>/<repo>/releases/tags/dev-master`
@@ -7,7 +10,7 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
-const [port, dir, log] = [Number(process.argv[2]), process.argv[3], process.argv[4]]
+const [port, dir, log, host] = [Number(process.argv[2]), process.argv[3], process.argv[4], process.argv[5] || '127.0.0.1']
 http.createServer((req, res) => {
   fs.appendFileSync(log, `${req.method} ${req.url} ua=${req.headers['user-agent']} auth=${req.headers.authorization ? 'yes' : 'no'}\n`)
   const url0 = req.url.split('?')[0]
@@ -21,4 +24,4 @@ http.createServer((req, res) => {
   if (url0.startsWith('/repos/')) res.setHeader('content-type', 'application/json')
   res.setHeader('content-length', fs.statSync(f).size)
   fs.createReadStream(f).pipe(res)
-}).listen(port, '127.0.0.1')
+}).listen(port, host)

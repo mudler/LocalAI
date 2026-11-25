@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+native/**/build/
+native/.gradle/
+native/.kotlin/
+native/local.properties
+native/app/src/main/assets/public/
+native/app/src/main/assets/capacitor.config.json
+native/app/src/main/assets/capacitor.plugins.json
+native/capacitor-cordova-android-plugins/
+p2pmobile/*.aar
+p2pmobile/*-sources.jar
+p2pmobile/build/

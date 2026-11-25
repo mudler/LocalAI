@@ -263,7 +263,7 @@ export function sanitizeFileName(name: string, fallback = 'download'): string {
   // Keep only the last path part, whatever separator the page used.
   s = s.split(/[/\\]/).pop() ?? ''
   // Control characters, bidirectional overrides and isolates, zero-width characters.
-  s = s.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩﻿]/g, '')
+  s = s.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
   // Characters that are not allowed in file names on some platform.
   s = s.replace(/[<>:"|?*]/g, '_')
   s = s.replace(/^[.\s]+/, '').replace(/[.\s]+$/, '')

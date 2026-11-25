@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Icon } from '@localai/ui-kit'
 import type { RemoteStatusView, ServerRowView, SwitchingView } from '../../shared/types'
 import { useBridge } from '../bridge'
+import { tunnelLine } from '../serversUi'
 import { S } from '../strings'
 import { clockTime } from '../viewModel'
 import logo from '../../../build/icon.png'
@@ -85,11 +86,15 @@ export function RemoteUnreachableScreen({
   onSwitchLocal,
   onChooseOther,
   onEdit,
+  showTunnel = false,
 }: {
   server?: ServerRowView
   status: RemoteStatusView
   now: number
-  onSwitchLocal: () => void
+  /** Show the P2P forwarder state and error of the server as text (a client-only app). */
+  showTunnel?: boolean
+  /** Switch to This computer; absent without a local server, where `onChooseOther` takes its place. */
+  onSwitchLocal?: () => void
   onChooseOther?: () => void
   onEdit: () => void
 }) {
@@ -108,6 +113,7 @@ export function RemoteUnreachableScreen({
         <div>
           <strong>{S.unreach.title(name)}</strong>
           <p className="lnr-banner__p">{why === 'timed out' ? S.unreach.body(host, at, why) : S.unreach.bodyOther(host, at, why)}</p>
+          {showTunnel && server?.p2p && <p className="lnr-banner__p" data-testid="unreach-tunnel">{tunnelLine(server.p2p)}</p>}
         </div>
       </div>
       <h1 className="lnr-h lnr-h--mid">{S.unreach.heading}</h1>
@@ -137,7 +143,7 @@ export function RemoteUnreachableScreen({
             <div className="lnr-grow"><strong>{S.unreach.chooseOther}</strong><p className="lnr-path__p dk-muted">{S.unreach.chooseOtherNote(name)}</p></div>
             <Button onClick={onChooseOther} data-testid="choose-other-button">{S.unreach.chooseOther}</Button>
           </div>
-        ) : (
+        ) : onSwitchLocal && (
           <div className="lnr-path">
             <div className="lnr-grow"><strong>{S.unreach.computerTitle}</strong><p className="lnr-path__p dk-muted">{S.unreach.computerNote(name)}</p></div>
             <Button onClick={onSwitchLocal} data-testid="switch-local-button">{S.unreach.computer}</Button>

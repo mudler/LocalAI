@@ -276,9 +276,14 @@ export function currentRow(i: ShellInput) {
   return i.servers?.rows.find((r) => r.isCurrent)
 }
 
-/** The Development channel is on and the window shows This computer: the chip stays in the bar. */
+/**
+ * The Development channel is on and the window shows This computer: the chip
+ * stays in the bar. A client-only app has no This computer; there the channel
+ * is the app's own (the development app), so the chip always shows with it.
+ */
 export function devChipShown(i: ShellInput): boolean {
-  return localServer(i) && i.updateInfo?.channel === 'dev' && !isRemote(i) && !i.worker?.running
+  if (!localServer(i)) return i.updateInfo?.channel === 'dev'
+  return i.updateInfo?.channel === 'dev' && !isRemote(i) && !i.worker?.running
 }
 
 /** "This computer: running" next to a remote, when the user keeps the local server on. */
@@ -327,7 +332,12 @@ export type UpdateOffer =
 
 /** The update the bar pill offers. A server update comes first: it is what the person runs. */
 export function updateOffer(i: ShellInput): UpdateOffer {
-  if (!localServer(i)) return i.updater?.phase === 'downloaded' ? { kind: 'launcher', version: i.updater.version } : null
+  if (!localServer(i)) {
+    // An APK app opens its update sheet from the pill, which downloads first when needed.
+    const apk = (i.capabilities ?? capabilitiesOf(i.info)).selfUpdate === 'apk'
+    const ready = i.updater?.phase === 'downloaded' || (apk && i.updater?.phase === 'available')
+    return ready ? { kind: 'launcher', version: i.updater?.version } : null
+  }
   if (installBusy(i.install)) return null
   if (i.install?.kind === 'update-available' && i.server?.state !== 'not-installed') {
     return { kind: 'server', version: i.install.version, installed: i.install.installed ?? i.installedVersion }

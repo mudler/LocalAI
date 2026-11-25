@@ -14,6 +14,9 @@ import { clockTime } from './viewModel'
 
 const isMac = () => typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent || '')
 
+/** A phone-sized window: the switcher opens as a bottom sheet. Never on the desktop, whose window is wider. */
+const narrow = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 599px)').matches
+
 export function ServerSwitcher({
   rows,
   current,
@@ -80,7 +83,7 @@ export function ServerSwitcher({
         <span className="lnr-switch__name">{current.name}</span>
         <Icon name="chevron-down" />
       </button>
-      <Popover open={open} onClose={close} trigger={buttonRef} kind="menu" className="lnr-switcher" role="menu" label={S.switcher.title} onKeyDown={move}>
+      <Popover open={open} onClose={close} trigger={buttonRef} kind="menu" className="lnr-switcher" role="menu" label={S.switcher.title} onKeyDown={move} sheet={open && narrow()}>
         <div id={menuId}>
           <div className="lnr-switcher__head" role="none">
             <strong>{S.switcher.title}</strong>

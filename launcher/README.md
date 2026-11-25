@@ -131,6 +131,14 @@ and with no saved server it shows the first-connect screen. A missing
 (`DESKTOP_CAPABILITIES`), never client-only. The desktop launcher always
 reports the desktop set.
 
+The Android client app (`android/`) reuses `src/renderer`, `src/shared` and
+`src/core` through import aliases, with a client-only bridge
+(`localServer: false`, `selfUpdate: 'apk'`). A change in these folders
+therefore also changes the Android app, and its CI runs on them. The WebUI
+policy fixture `test/fixtures/webui-policy.json` has a Kotlin consumer too:
+the parity test of the Android app's port of `webuiPolicy.ts`. See
+`android/README.md`.
+
 ## Config
 
 The launcher reads and writes `~/.localai/launcher.json` (on Windows

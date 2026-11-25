@@ -1,0 +1,181 @@
+/* SPDX-License-Identifier: MIT */
+/* The phone layout of the launcher shell (design 1.1 and 1.2, mocks 01 to 08).
+   The renderer is shared with the desktop launcher, so every rule here sits
+   under html.lnr-mobile, which only the app's entry sets (src/mobileShell.ts):
+   a narrow desktop window never gets a rule from this file. Colours, radii and
+   spacing come from the kit tokens only; test/mobileCss.test.ts checks both. */
+
+html.lnr-mobile {
+  /* 48 dp, as MOBILE_BAR_HEIGHT in src/mobileShell.ts. */
+  --lnr-bar-h: calc(var(--sp-10) + var(--sp-2));
+  /* The smallest touch target. */
+  --lnr-tap: calc(var(--sp-10) + var(--sp-1));
+  /* Capacitor's SystemBars plugin sets --safe-area-inset-* where the WebView's
+     own env() values are wrong; env() is the fallback. */
+  --lnr-inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --lnr-inset-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --lnr-inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --lnr-inset-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --lnr-field-name: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---- frame: keep clear of the system bars (edge to edge) --------------------- */
+html.lnr-mobile .lnr-shell {
+  padding: var(--lnr-inset-top) var(--lnr-inset-right) 0 var(--lnr-inset-left);
+  box-sizing: border-box;
+}
+/* Without the bar (or while the keyboard hides it) the screens keep clear of the
+   navigation bar themselves. */
+html.lnr-mobile .lnr-shell:not(:has(.lnr-bar)),
+html.lnr-mobile.lnr-ime .lnr-shell { padding-bottom: var(--lnr-inset-bottom); }
+
+/* ---- status bar: 48 dp, above the navigation bar ----------------------------- */
+html.lnr-mobile .lnr-bar {
+  height: calc(var(--lnr-bar-h) + var(--lnr-inset-bottom));
+  padding: 0 var(--sp-2) var(--lnr-inset-bottom) var(--sp-3);
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  font-size: var(--fs-small);
+}
+html.lnr-mobile .lnr-bar__logo { width: var(--sp-5); height: var(--sp-5); margin-right: 0; }
+/* The switcher button is the main control of the bar: a pill. */
+html.lnr-mobile .lnr-switch {
+  height: calc(var(--sp-8) + var(--sp-1) / 2);
+  min-width: 0;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 1px solid var(--dk-control-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-accent-wash);
+  font-weight: var(--font-weight-semibold);
+}
+html.lnr-mobile .lnr-switch__name { max-width: 30vw; }
+/* The bar's controls keep their drawn size; an invisible layer that takes no
+   space makes each target at least 44 px both ways. */
+html.lnr-mobile .lnr-bar .dk-btn,
+html.lnr-mobile .lnr-bar .lnr-switch,
+html.lnr-mobile .lnr-bar .lnr-chipbtn { position: relative; }
+html.lnr-mobile .lnr-bar .dk-btn::after,
+html.lnr-mobile .lnr-bar .lnr-switch::after,
+html.lnr-mobile .lnr-bar .lnr-chipbtn::after {
+  content: "";
+  position: absolute;
+  top: min(0px, calc((100% - var(--lnr-tap)) / 2));
+  bottom: min(0px, calc((100% - var(--lnr-tap)) / 2));
+  left: min(0px, calc((100% - var(--lnr-tap)) / 2));
+  right: min(0px, calc((100% - var(--lnr-tap)) / 2));
+}
+/* The keyboard is open: the bar would sit on it. */
+html.lnr-mobile.lnr-ime .lnr-bar { display: none; }
+/* No room for the address on a small phone; the chip and the switcher say enough. */
+@media (max-width: 399px) {
+  html.lnr-mobile .lnr-bar__addr { display: none; }
+}
+
+/* ---- menus: finger-sized rows ------------------------------------------------- */
+html.lnr-mobile .dk-menu-item { height: auto; min-height: var(--lnr-tap); }
+html.lnr-mobile .lnr-menu { min-width: min(260px, calc(100vw - 2 * var(--sp-4))); }
+/* A phone has no keyboard shortcuts to show. */
+html.lnr-mobile .lnr-switcher__head .lnr-kbd,
+html.lnr-mobile .lnr-switcher__keys { display: none; }
+
+/* ---- the switcher as a bottom sheet ------------------------------------------ */
+html.lnr-mobile .lnr-anchor:has(> .lnr-popover--sheet)::before {
+  /* The scrim: a tap on it lands outside the sheet, which closes it. */
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: var(--dk-scrim);
+}
+html.lnr-mobile .lnr-popover--sheet {
+  position: fixed;
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  padding: var(--sp-2) calc(var(--sp-3) + var(--lnr-inset-right)) calc(var(--sp-3) + var(--lnr-inset-bottom)) calc(var(--sp-3) + var(--lnr-inset-left));
+  border: 0;
+  border-top: 1px solid var(--dk-edge);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  box-shadow: var(--dk-shadow-float);
+}
+/* The grip. */
+html.lnr-mobile .lnr-popover--sheet::before {
+  content: "";
+  display: block;
+  width: calc(var(--sp-8) + var(--sp-1));
+  height: var(--sp-1);
+  margin: 0 auto var(--sp-2);
+  border-radius: var(--radius-full);
+  background: var(--dk-edge);
+}
+html.lnr-mobile .lnr-popover--sheet .lnr-switcher__head { padding: var(--sp-1) var(--sp-2) var(--sp-2); font-size: var(--fs-lead, var(--fs-body)); }
+html.lnr-mobile .lnr-popover--sheet .lnr-switcher__row { padding-block: var(--sp-2); border-radius: var(--r-lg); }
+html.lnr-mobile .lnr-popover--sheet .lnr-switcher__row[aria-checked="true"] { background: var(--dk-accent-wash); }
+html.lnr-mobile .lnr-popover--sheet .lnr-switcher__text { flex: 1; }
+html.lnr-mobile .lnr-popover--sheet .lnr-switcher__line { overflow-wrap: anywhere; }
+
+/* ---- screens: a narrower gutter, one column ----------------------------------- */
+html.lnr-mobile .lnr-screen { padding: var(--sp-4) var(--sp-4) var(--sp-8); }
+html.lnr-mobile .lnr-back { padding: var(--sp-1) var(--sp-3); }
+html.lnr-mobile .lnr-back .dk-btn,
+html.lnr-mobile .lnr-backlink { min-height: var(--lnr-tap); }
+html.lnr-mobile .lnr-center { padding: var(--sp-6) var(--sp-4) var(--sp-8); }
+html.lnr-mobile .lnr-center--hero,
+html.lnr-mobile .lnr-center--progress,
+html.lnr-mobile .lnr-center--firstrun,
+html.lnr-mobile .lnr-center--firstchoose,
+html.lnr-mobile .lnr-center--connectfirst,
+html.lnr-mobile .lnr-center--unreach { padding-top: var(--sp-6); }
+html.lnr-mobile .lnr-choice,
+html.lnr-mobile .lnr-picks { grid-template-columns: 1fr; }
+html.lnr-mobile button.lnr-choice__card { min-height: var(--lnr-tap); padding: var(--sp-4); }
+html.lnr-mobile .lnr-first__foot { flex-wrap: wrap; }
+/* Settings rows: a switch stays beside its name; a text field or a list goes
+   under it, at full width. */
+html.lnr-mobile .lnr-field { flex-wrap: wrap; }
+html.lnr-mobile .lnr-field__name { flex: 1 1 calc(4 * var(--sp-10)); min-width: 0; }
+html.lnr-mobile .lnr-field__input,
+html.lnr-mobile .lnr-field__select,
+html.lnr-mobile .lnr-field .lnr-value,
+html.lnr-mobile .lnr-env,
+html.lnr-mobile .lnr-cred { flex: 1 1 100%; width: 100%; }
+html.lnr-mobile .lnr-srow { flex-wrap: wrap; }
+html.lnr-mobile .lnr-path { flex-wrap: wrap; }
+html.lnr-mobile .lnr-path > .dk-btn { margin-left: auto; }
+html.lnr-mobile .lnr-form__foot,
+html.lnr-mobile .lnr-dialog__actions,
+html.lnr-mobile .lnr-actions { flex-wrap: wrap; }
+html.lnr-mobile .lnr-form__foot .lnr-form__lock { flex-basis: 100%; }
+html.lnr-mobile .lnr-radio { min-height: var(--lnr-tap); box-sizing: border-box; }
+
+/* ---- dialogs: clear of the system bars; centred cards stay cards --------------- */
+html.lnr-mobile .lnr-scrim {
+  padding: calc(var(--sp-4) + var(--lnr-inset-top)) calc(var(--sp-3) + var(--lnr-inset-right)) calc(var(--sp-4) + var(--lnr-inset-bottom)) calc(var(--sp-3) + var(--lnr-inset-left));
+}
+html.lnr-mobile .lnr-dialog { padding: var(--sp-4); max-height: 100%; box-sizing: border-box; }
+
+/* The add and edit server sheet (and the invite sheet) take the whole screen
+   on a phone (design row 16). */
+@media (max-width: 599px) {
+  html.lnr-mobile .lnr-scrim:has(> .lnr-dialog--form) { padding: 0; place-items: stretch; }
+  html.lnr-mobile .lnr-dialog--form {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: calc(var(--sp-4) + var(--lnr-inset-top)) calc(var(--sp-4) + var(--lnr-inset-right)) calc(var(--sp-4) + var(--lnr-inset-bottom)) calc(var(--sp-4) + var(--lnr-inset-left));
+  }
+  html.lnr-mobile .lnr-dialog--form .lnr-dialog__actions { margin-top: auto; }
+}
