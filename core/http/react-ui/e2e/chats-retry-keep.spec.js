@@ -97,7 +97,10 @@ test.describe('Retry of a failed turn', () => {
 
     await expect(page.getByText('The report is ready: revenue is up 12 percent.')).toBeVisible()
     await expect(page.getByTestId('chat-error')).toHaveCount(0)
-    // Everything the failed turn did is still on the page, once.
+    // Everything the failed turn did is still on the page, once. The turn has
+    // its answer now, so what the model said before its calls are notes in the
+    // folded steps above the answer.
+    await page.getByTestId('chat-activity').getByRole('button', { expanded: false }).first().click()
     await expect(page.getByText('I will read the three source files first.')).toHaveCount(1)
     await expect(page.getByText('The sales file has 240 rows. Now the costs.')).toHaveCount(1)
     await expect(page.getByText('build the quarterly report')).toHaveCount(1)

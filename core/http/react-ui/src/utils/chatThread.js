@@ -34,14 +34,25 @@ export function threadRows(messages, live) {
   // A message of the model that a call follows in the same turn is what the
   // model said before the call, not the answer: it goes into the activity, in
   // its place, as a note. The answer is the text after the last call.
+  // A turn that stopped after a call (it failed or was interrupted) has no
+  // answer: its fold would hide all that the model wrote, so its messages stay
+  // messages. The last turn's answer can still be on its way in the live turn.
   const note = new Set()
+  const streaming = Boolean(live && (live.text || live.reasoning || live.tools?.length || live.beats?.length))
   let calls = false
+  let answered = streaming
   for (let i = items.length - 1; i >= 0; i--) {
     const m = items[i].type === 'message' ? items[i].m : null
     if (!m) continue
     if (m.role === 'tool') calls = true
-    else if (m.role === 'assistant') { if (calls && m.text?.trim()) note.add(m) }
-    else if (!isActivity(m.role) && m.role !== 'checkpoint') calls = false
+    else if (m.role === 'assistant') {
+      if (!m.text?.trim()) continue
+      if (!calls) answered = true
+      else if (answered) note.add(m)
+    } else if (!isActivity(m.role) && m.role !== 'checkpoint' && m.role !== 'failure') {
+      calls = false
+      answered = false
+    }
   }
   const flush = (key) => {
     if (buf.length > 0) rows.push({ kind: 'activity', key: `a-${key}`, items: buf })

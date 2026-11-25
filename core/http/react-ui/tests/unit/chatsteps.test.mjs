@@ -172,6 +172,26 @@ test('chat steps: the stored turn draws the same order, with the narration as a 
   assert.deepEqual(rows[1].activity.map((i) => i.role), ['reasoning', 'note', 'tool', 'reasoning', 'note', 'tool'])
 })
 
+test('chat steps: a turn that stopped after a call has no answer, so its messages stay messages', () => {
+  // A failed or interrupted turn: folding its notes would hide all it wrote.
+  const stopped = [
+    { seq: 1, role: 'user', text: 'go' },
+    { seq: 2, role: 'assistant', text: 'I will look.' }, { seq: 3, role: 'tool', text: 'bash: ls\nout' },
+    { seq: 4, role: 'assistant', text: 'Now the file.' }, { seq: 5, role: 'tool', text: 'read_file: a\nbody' },
+  ]
+  const failed = threadRows([...stopped, { seq: 6, role: 'failure', text: 'x' }, { seq: 7, role: 'checkpoint', text: '' }], emptyLive())
+  assert.deepEqual(failed.map((r) => r.kind), ['msg', 'msg', 'msg', 'activity'])
+  assert.deepEqual(failed.slice(1, 3).map((r) => r.msg.text), ['I will look.', 'Now the file.'])
+  // Resumed, the turn gets its answer after the failure line: the earlier
+  // messages become notes of its fold.
+  const resumed = threadRows([...stopped, { seq: 6, role: 'failure', text: 'x' }, { seq: 8, role: 'assistant', text: 'Done.' }], emptyLive())
+  assert.deepEqual(resumed.map((r) => r.kind), ['msg', 'msg'])
+  assert.deepEqual(resumed[1].activity.map((i) => i.role), ['note', 'tool', 'note', 'tool'])
+  // While the turn streams, its answer is on its way: the stored messages are notes.
+  const live = { ...emptyLive(), text: 'Almost' }
+  assert.deepEqual(threadRows(stopped, live).map((r) => r.kind), ['msg', 'activity'])
+})
+
 test('chat steps: an assistant message with no call after it stays a message', () => {
   const rows = threadRows([
     { seq: 1, role: 'user', text: 'a' }, { seq: 2, role: 'assistant', text: 'plain answer' },
