@@ -66,6 +66,10 @@ type TriggerInput struct {
 	// Route is the connector place a proposal came from and where its runs
 	// report. A person's form leaves it empty and an edit keeps the old one.
 	Route triggers.Route
+	// Delivery is where the runs report, as the owner chose it on the trigger
+	// form. It is checked as a change that update_trigger asks for, and
+	// applies at once: the owner saw it before saving. Nil keeps the route.
+	Delivery *DeliveryPatch
 	// Acts are the action classes an unattended run of the trigger may use
 	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Nil keeps
 	// what the trigger has; an empty list takes everything away. Only a
@@ -126,6 +130,51 @@ var errEventFromChat = fmt.Errorf("%w: an event trigger has a secret that is sho
 
 func bad(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrBadTrigger, fmt.Sprintf(format, args...))
+}
+
+// badDelivery makes a refused delivery a bad trigger, so the API answers 400
+// with the reason.
+func badDelivery(err error) error {
+	if errors.Is(err, ErrBadTrigger) {
+		return err
+	}
+	return bad("%s", err.Error())
+}
+
+// asksSamePlace says whether d asks for the place that r reports to
+// already. A form sends back the delivery it was shown, and a save that does
+// not move it must not fail because its connection is now off: the place was
+// checked when it was set and is checked again at each delivery.
+func asksSamePlace(r triggers.Route, d DeliveryPatch) bool {
+	return (d.Target == "" || d.Target == r.TargetOrDefault()) &&
+		(d.Channel == "" || d.Channel == r.Channel) &&
+		(d.Connection == "" || d.Connection == r.Connection)
+}
+
+// changeDelivery sets on t, the trigger old after an edit by its owner, the
+// delivery d of the trigger form. The place is checked as update_trigger
+// checks it, but only when it moves; a change of the mode alone keeps it.
+func (h *Triggers) changeDelivery(ctx context.Context, old triggers.Trigger, t *triggers.Trigger, d DeliveryPatch) error {
+	if asksSamePlace(old.Route, d) {
+		if d.Mode == "" || d.Mode == old.Route.ModeOrDefault() {
+			return nil
+		}
+		d = DeliveryPatch{Mode: d.Mode}
+	}
+	// The capability check names the agent the trigger runs as after this
+	// save, which may be a new one.
+	target := old
+	target.AgentID = t.AgentID
+	p, err := h.checkDeliveryChange(ctx, ownerAsker(old.Owner, t.AgentID), target, d.Target, d.Mode, d.Channel, d.Connection)
+	if err != nil {
+		return badDelivery(err)
+	}
+	r := p.applyTo(old.Route)
+	if err := r.Validate(); err != nil {
+		return badDelivery(err)
+	}
+	t.Route = r
+	return nil
 }
 
 // Triggers returns the trigger host, or nil.
@@ -294,6 +343,13 @@ func (h *Triggers) checkTriggerFolder(ctx context.Context, owner, abs string, sc
 // for the time before.
 func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, error) {
 	owner := principal(user)
+	if d := in.Delivery; d != nil {
+		r, err := h.checkStudioDelivery(ctx, ownerAsker(owner, in.AgentID), studioDeliveryArgs{Target: d.Target, Connection: d.Connection, Channel: d.Channel, Mode: d.Mode})
+		if err != nil {
+			return triggers.Trigger{}, badDelivery(err)
+		}
+		in.Route = r
+	}
 	t, err := h.build(ctx, owner, in)
 	if err != nil {
 		return triggers.Trigger{}, err
@@ -348,6 +404,11 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 		}
 	}
 	t.ID, t.Route = old.ID, old.Route
+	if d := in.Delivery; d != nil {
+		if err := h.changeDelivery(ctx, old, &t, *d); err != nil {
+			return triggers.Trigger{}, err
+		}
+	}
 	// The client never sends the secret: an event trigger keeps its own, and
 	// one that becomes an event trigger gets a new one (see RotateSecret).
 	if t.Kind == triggers.KindEvent {
@@ -703,6 +764,9 @@ func (h *Triggers) linkWidget(ctx context.Context, t triggers.Trigger) {
 // EditProposal replaces the fields of a proposal that waits for an answer. It
 // stays a proposal: it is not enabled and runs nothing until it is confirmed.
 func (h *Triggers) EditProposal(ctx context.Context, user, id string, in TriggerInput) (triggers.Trigger, error) {
+	if in.Delivery != nil {
+		return triggers.Trigger{}, bad("the delivery of a proposal cannot be edited; confirm it, then change the delivery of the trigger")
+	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	old, err := h.pendingProposal(ctx, user, id)

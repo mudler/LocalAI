@@ -272,6 +272,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// Public: the secret of the trigger is the credential (see auth.isEventHookPath).
 	e.POST(base+"/triggers/:id/hook", h.TriggerHook)
 	e.GET(base+"/triggers/preview", h.PreviewTrigger)
+	e.GET(base+"/triggers/destinations", h.TriggerDestinations)
 	e.GET(base+"/triggers/proposals", h.ListTriggerProposals)
 	e.GET(base+"/triggers/proposals/:id", h.GetTriggerProposal)
 	e.POST(base+"/triggers/proposals/:id/undo", h.UndoTriggerProposal)

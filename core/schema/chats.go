@@ -1835,6 +1835,66 @@ type ChatsTriggerWrite struct {
 	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
 	// out to keep the trigger's value; an empty list takes all of them away.
 	Acts []string `json:"acts,omitempty"`
+	// Delivery is where the runs report. Leave it out to keep where the
+	// trigger reports now (the Inbox for a new trigger); {"target": "inbox"}
+	// sends the reports back to the Inbox. It is refused on a proposal.
+	Delivery *ChatsTriggerDeliveryWrite `json:"delivery,omitempty"`
+}
+
+// ChatsTriggerDeliveryWrite is where the runs of a trigger report, as the owner
+// sets it. target is inbox, channel (connection and channel name one of your
+// connections and a channel you approved for it, see GET
+// /api/chats/triggers/destinations) or origin (the chat of a messaging app
+// that proposed the trigger; only for such a trigger, which also keeps its
+// connection: leave connection out). channel is the id or the label of the
+// channel. mode is always (the default), on_change or on_problem. The place
+// is checked only when it changes; a connection that is off, not yours, of a
+// service that cannot receive reports, not allowed to write in channels, or a
+// channel you did not approve is refused with 400.
+type ChatsTriggerDeliveryWrite struct {
+	Target     string `json:"target,omitempty" enums:"inbox,channel,origin"`
+	Connection string `json:"connection,omitempty"`
+	Channel    string `json:"channel,omitempty"`
+	Mode       string `json:"mode,omitempty" enums:"always,on_change,on_problem"`
+}
+
+// ChatsTriggerDestinations lists where a trigger can report: your connections,
+// with the channels you approved for each one that can receive a report now.
+// from_chat is set when the trigger asked about was proposed in a chat of a
+// messaging app: it can report to that chat (target origin), to a channel of
+// the same connection (the only one listed), or to the Inbox.
+// connectors_off is set when this server runs no connections: only the Inbox
+// is possible.
+type ChatsTriggerDestinations struct {
+	Connections   []ChatsTriggerDestination `json:"connections"`
+	FromChat      bool                      `json:"from_chat,omitempty"`
+	ConnectorsOff bool                      `json:"connectors_off,omitempty"`
+}
+
+// ChatsTriggerDestination is one of your connections as a place for reports.
+// channels is empty unless the connection can receive a report, you let it
+// write in channels and you approved a channel; reason then says why not:
+// off (you switched it off), addon_off (its add-on does not run), tool_only (a service that agents only
+// use as a tool), talkback_off (it may not write in channels) or no_channel.
+type ChatsTriggerDestination struct {
+	ID                string                           `json:"id"`
+	Kind              string                           `json:"kind"`
+	KindTitle         string                           `json:"kind_title,omitempty"`
+	Addon             string                           `json:"addon,omitempty"`
+	Name              string                           `json:"name"`
+	Enabled           bool                             `json:"enabled"`
+	CanReceiveReports bool                             `json:"can_receive_reports"`
+	TalkbackAllowed   bool                             `json:"talkback_allowed"`
+	Channels          []ChatsTriggerDestinationChannel `json:"channels"`
+	Reason            string                           `json:"reason,omitempty" enums:"off,addon_off,tool_only,talkback_off,no_channel"`
+}
+
+// ChatsTriggerDestinationChannel is a channel you approved. current marks the
+// channel the trigger asked about reports to now.
+type ChatsTriggerDestinationChannel struct {
+	ID      string `json:"id"`
+	Label   string `json:"label,omitempty"`
+	Current bool   `json:"current,omitempty"`
 }
 
 // ChatsTriggerCreated is the response of creating a trigger. Secret is set for

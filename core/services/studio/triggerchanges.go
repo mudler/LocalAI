@@ -308,24 +308,30 @@ func (p TriggerPatch) apply(in TriggerInput, oldKind triggers.Kind) TriggerInput
 			in.Acts = []string{}
 		}
 	}
-	if d := p.Delivery; d != nil {
-		if d.Target != "" {
-			in.Route.Target = d.Target
-			if d.Target != triggers.TargetChannel {
-				in.Route.Channel, in.Route.Connection = "", ""
-			}
-		}
-		if d.Mode != "" {
-			in.Route.Mode = d.Mode
-		}
-		if d.Channel != "" {
-			in.Route.Channel = d.Channel
-		}
-		if d.Connection != "" {
-			in.Route.Connection = d.Connection
-		}
+	if p.Delivery != nil {
+		in.Route = p.Delivery.applyTo(in.Route)
 	}
 	return in
+}
+
+// applyTo gives the route r with the delivery changed as d says.
+func (d DeliveryPatch) applyTo(r triggers.Route) triggers.Route {
+	if d.Target != "" {
+		r.Target = d.Target
+		if d.Target != triggers.TargetChannel {
+			r.Channel, r.Connection = "", ""
+		}
+	}
+	if d.Mode != "" {
+		r.Mode = d.Mode
+	}
+	if d.Channel != "" {
+		r.Channel = d.Channel
+	}
+	if d.Connection != "" {
+		r.Connection = d.Connection
+	}
+	return r
 }
 
 // ProposeChange asks for a change of the trigger target of the user, from the
