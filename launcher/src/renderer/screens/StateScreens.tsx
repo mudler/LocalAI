@@ -2,9 +2,9 @@
 // failed, first run, starting, stopped, and "open in browser" mode.
 import { useEffect, useState } from 'react'
 import { Button, Callout, Page, StatusChip } from '@localai/ui-kit'
-import type { InstallStateView } from '../../shared/types'
+import type { InstallStateView, ServerSnapshot } from '../../shared/types'
 import type { InstallDetailsView } from '../bridge'
-import { useBridge } from '../bridge'
+import { hasLocal, useBridge } from '../bridge'
 import { Card, Code, CopyButton, StepList } from '../parts'
 import { S } from '../strings'
 import {
@@ -28,7 +28,7 @@ export function InstallScreen({ install, details, onInstall }: { install?: Insta
   const check = async () => {
     setChecking(true)
     try {
-      await b.checkServerUpdate()
+      await b.checkServerUpdate?.()
     } finally {
       setChecking(false)
     }
@@ -138,7 +138,7 @@ export function ProgressScreen({
                 onClick={async () => {
                   setCancelling(true)
                   try {
-                    await b.cancelInstall()
+                    await b.cancelInstall?.()
                   } finally {
                     setCancelling(false)
                   }
@@ -157,7 +157,7 @@ export function ProgressScreen({
 
 // ---- Start failed -------------------------------------------------------------
 
-export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings }: { input: ShellInput; failedAt?: number; version?: string; onLogs: () => void; onSettings: () => void }) {
+export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings }: { input: ShellInput & { server: ServerSnapshot }; failedAt?: number; version?: string; onLogs: () => void; onSettings: () => void }) {
   const b = useBridge()
   const f = startFailure(input.server, input.settings)
   const address = input.settings?.address ?? addressOf(input.server.endpoint)
@@ -183,7 +183,7 @@ export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings
     }
   }
   const usePort = run('port', async () => {
-    if (!freePort) return
+    if (!freePort || !hasLocal(b)) return
     await b.saveSettings({ address: withPort(address, freePort) })
     await b.start()
   })
@@ -199,7 +199,7 @@ export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings
           <h1 className="lnr-h">{S.failed.title}</h1>
           <div className="dk-muted">{failedAt ? S.failed.failedAt(clockTime(failedAt)) : S.failed.failedNoTime}</div>
         </div>
-        <Button variant={portFix && freePort ? 'secondary' : 'primary'} busy={busy === 'retry'} onClick={run('retry', () => b.start())}>
+        <Button variant={portFix && freePort ? 'secondary' : 'primary'} busy={busy === 'retry'} onClick={run('retry', async () => b.start?.())}>
           {S.failed.tryAgain}
         </Button>
       </div>
@@ -233,7 +233,7 @@ export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings
             <strong>{S.failed.reinstall(version)}</strong>
             <div className="dk-small dk-muted">{S.failed.reinstallNote}</div>
           </div>
-          <Button size="sm" busy={busy === 'reinstall'} onClick={run('reinstall', () => b.installServer())}>{S.failed.reinstallButton}</Button>
+          <Button size="sm" busy={busy === 'reinstall'} onClick={run('reinstall', async () => b.installServer?.())}>{S.failed.reinstallButton}</Button>
         </div>
       </Card>
       <Card>
@@ -325,7 +325,7 @@ export function StoppedScreen() {
         onClick={async () => {
           setBusy(true)
           try {
-            await b.start()
+            await b.start?.()
           } finally {
             setBusy(false)
           }

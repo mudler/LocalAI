@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { capabilitiesOf } from '../shared/apiGroups'
 import type {
+  Capabilities,
   HardwareSummaryView,
   InstallStateView,
   LauncherInfo,
@@ -31,7 +33,25 @@ function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => voi
   return [v, setV]
 }
 
+/** The launcher info, read once, and whether the read failed. */
+function useInfo(b: Bridge): [LauncherInfo | undefined, boolean] {
+  const [info, setInfo] = useState<LauncherInfo>()
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let live = true
+    b.info().then(
+      (x) => live && setInfo(x),
+      () => live && setFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [b])
+  return [info, failed]
+}
+
 export interface ShellData extends ShellInput {
+  capabilities: Capabilities
   updateInfo?: UpdateInfoView
   installDetails?: InstallDetailsView
   hardware?: string
@@ -57,10 +77,14 @@ export interface ShellControls {
   reloadSettings(): Promise<void>
 }
 
-/** Everything the shell shows, read from the bridge and kept current. Undefined until the server state is known. */
+/**
+ * Everything the shell shows, read from the bridge and kept current. Undefined
+ * until `info` is known and, on a bridge with a local server, its state too.
+ * The local reads are optional: a client-only bridge has none of them.
+ */
 export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] {
   const [server] = useLive<ServerSnapshot>(b.getServer, b.onServer)
-  const [info] = useLive<LauncherInfo>(b.info, undefined)
+  const [info, infoFailed] = useInfo(b)
   const [updater] = useLive<UpdaterStatus>(b.getUpdater, b.onUpdater)
   const [sandbox, setSandbox] = useLive<SandboxView>(b.getSandboxState, b.onSandbox)
   const [settings, setSettings] = useLive<LauncherSettings>(b.getSettings, undefined)
@@ -92,16 +116,16 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   }, [])
   useEffect(() => {
     let live = true
-    void b.getInstallState().then((v) => live && setInstall(v)).catch(() => undefined)
-    const off = b.onInstall(setInstall)
+    void b.getInstallState?.().then((v) => live && setInstall(v)).catch(() => undefined)
+    const off = b.onInstall?.(setInstall)
     return () => {
       live = false
-      off()
+      off?.()
     }
   }, [b, setInstall])
 
   const reloadSettings = useCallback(async () => {
-    setSettings(await b.getSettings())
+    if (b.getSettings) setSettings(await b.getSettings())
   }, [b, setSettings])
 
   const controls: ShellControls = {
@@ -116,10 +140,17 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
     reloadSettings,
   }
 
-  if (!server) return [undefined, controls]
+  // Client-only mode is picked from `info` only: before it answers the
+  // capabilities read as the desktop set, so the shell waits for it. A failed
+  // `info()` means the desktop set, as a missing value does. A local server
+  // also needs its state first (as before).
+  if (!info && !infoFailed) return [undefined, controls]
+  const capabilities = capabilitiesOf(info)
+  if (capabilities.localServer && !server) return [undefined, controls]
   return [
     {
       server,
+      capabilities,
       info,
       updater,
       install,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WebuiModel, type WebuiInputs } from '../src/main/webuiState'
+import { WebuiModel, type WebuiInputs } from '../src/core/webuiState'
 
 const LOCAL = 'http://127.0.0.1:8080'
 const REMOTE = 'https://remote.example.test'

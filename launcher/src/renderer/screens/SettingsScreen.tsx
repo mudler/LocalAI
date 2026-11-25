@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, EmptyState, Page, StatusChip, Switch } from '@localai/ui-kit'
 import type { FolderKind, LauncherSettings, LoginItemView, ServerLogLevel } from '../../shared/types'
-import { useBridge, type NetworkView } from '../bridge'
+import { hasLocal, useBridge, type NetworkView } from '../bridge'
 import { Card, Field, fieldIds } from '../parts'
 import { EnvVarsField } from './EnvVarsField'
 import { RegistryCredentialsField } from './RegistryCredentialsField'
@@ -9,10 +9,12 @@ import { ServersTab } from './ServersTab'
 import { UpdatesTab } from './UpdatesTab'
 import { S } from '../strings'
 import type { ShellControls, ShellData } from '../useLauncher'
-import { addressOf, draftOf, draftPatch, sandboxRow, serverVersion, timeAgo, type SettingsDraft } from '../viewModel'
+import { addressOf, currentRow, draftOf, draftPatch, sandboxRow, serverVersion, timeAgo, type SettingsDraft } from '../viewModel'
 
 export type SettingsTab = 'general' | 'servers' | 'updates' | 'network' | 'performance' | 'advanced'
 const TABS: SettingsTab[] = ['general', 'servers', 'updates', 'network', 'performance', 'advanced']
+/** The tabs of an app with no local server: the others set up the local server. */
+const CLIENT_TABS: SettingsTab[] = ['general', 'servers', 'updates']
 const LOG_LEVELS: ServerLogLevel[] = ['error', 'warn', 'info', 'debug', 'trace']
 
 export function SettingsScreen({
@@ -40,7 +42,9 @@ export function SettingsScreen({
 }) {
   const b = useBridge()
   const ids = useId()
-  const [tab, setTab] = useState<SettingsTab>(initialTab)
+  const clientOnly = !data.capabilities.localServer
+  const tabs = clientOnly ? TABS.filter((t) => CLIENT_TABS.includes(t)) : TABS
+  const [tab, setTab] = useState<SettingsTab>(tabs.includes(initialTab) ? initialTab : 'general')
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   const settings = data.settings
   const [edits, setEdits] = useState<Partial<SettingsDraft>>({})
@@ -61,14 +65,17 @@ export function SettingsScreen({
     }
   }, [b, netKey])
 
-  if (!settings) return <Page className="lnr-screen" aria-busy="true" data-screen="settings" />
+  // Without a local server there are no launcher settings to wait for.
+  if (!settings && !clientOnly) return <Page className="lnr-screen" aria-busy="true" data-screen="settings" />
 
-  const draft: SettingsDraft = { ...draftOf(settings), ...edits }
-  const patch = draftPatch(settings, draft)
+  const draft: SettingsDraft | undefined = settings && { ...draftOf(settings), ...edits }
+  const patch = settings && draft ? draftPatch(settings, draft) : {}
   const changes = Object.keys(patch).length
-  const running = data.server.state === 'ready' || data.server.state === 'starting'
+  const running = data.server?.state === 'ready' || data.server?.state === 'starting'
 
+  // Only the local-server controls save settings; they are not shown without a local server.
   const saveNow = async (p: Partial<LauncherSettings>) => {
+    if (!hasLocal(b)) return undefined
     setError(undefined)
     try {
       const r = await b.saveSettings(p)
@@ -88,7 +95,7 @@ export function SettingsScreen({
       if (!r) return
       setEdits({})
       if (running && r.restartRequired) {
-        await b.restart()
+        await b.restart?.()
         setRestartNote(false)
       }
     } finally {
@@ -130,16 +137,17 @@ export function SettingsScreen({
   )
 
   const onTabKey = (e: React.KeyboardEvent, i: number) => {
-    const n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : null
+    const n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : null
     if (n === null) return
     e.preventDefault()
-    const to = (n + TABS.length) % TABS.length
-    setTab(TABS[to])
+    const to = (n + tabs.length) % tabs.length
+    setTab(tabs[to])
     tabRefs.current[to]?.focus()
   }
 
   const sb = sandboxRow(data)
-  const origin = addressOf(data.server.endpoint)
+  // The permissions belong to the page on show: without a local server, the current server's.
+  const origin = clientOnly ? (currentRow(data)?.host ?? '') : addressOf(data.server?.endpoint ?? '')
 
   const sw = (id: string, checked: boolean, onChange: (v: boolean) => void) => (
     <Switch checked={checked} onChange={onChange} {...fieldIds(id)} />
@@ -148,10 +156,12 @@ export function SettingsScreen({
   const general = (
     <>
       <Card title={S.settings.window}>
-        <Field id={`${ids}-bar`} name={S.settings.showBar} note={S.settings.showBarNote}>
-          <span className="lnr-grow" />
-          {sw(`${ids}-bar`, data.statusBarSaved ?? true, async (v) => controls.setStatusBarSaved(await b.setStatusBarVisible(v)))}
-        </Field>
+        {!clientOnly && (
+          <Field id={`${ids}-bar`} name={S.settings.showBar} note={S.settings.showBarNote}>
+            <span className="lnr-grow" />
+            {sw(`${ids}-bar`, data.statusBarSaved ?? true, async (v) => controls.setStatusBarSaved(await b.setStatusBarVisible(v)))}
+          </Field>
+        )}
         {b.setOpenInBrowser && data.windowSettings && (
           <Field id={`${ids}-browser`} name={S.settings.browser} note={S.settings.browserNote}>
             <span className="lnr-grow" />
@@ -186,32 +196,36 @@ export function SettingsScreen({
             </Button>
           </Field>
         )}
-        <Field name={S.settings.sandbox} note={S.settings.sandboxNote}>
-          <span className="lnr-grow lnr-row lnr-row--tight">
-            <StatusChip tone={sb.tone} dot>{sb.label}</StatusChip>
-            <span className="dk-small dk-muted">{sb.note}</span>
-          </span>
-          {sb.action && <Button size="sm" onClick={onOpenGuide}>{S.settings.setUpSandbox}</Button>}
-        </Field>
+        {!clientOnly && (
+          <Field name={S.settings.sandbox} note={S.settings.sandboxNote}>
+            <span className="lnr-grow lnr-row lnr-row--tight">
+              <StatusChip tone={sb.tone} dot>{sb.label}</StatusChip>
+              <span className="dk-small dk-muted">{sb.note}</span>
+            </span>
+            {sb.action && <Button size="sm" onClick={onOpenGuide}>{S.settings.setUpSandbox}</Button>}
+          </Field>
+        )}
       </Card>
 
-      <Card title={S.settings.startup}>
-        <Field id={`${ids}-autostart`} name={S.settings.autoStart} note={S.settings.autoStartNote}>
-          <span className="lnr-grow" />
-          {sw(`${ids}-autostart`, settings.autoStartServer, (v) => void saveNow({ autoStartServer: v }))}
-        </Field>
-        <Field id={`${ids}-login`} name={S.settings.login} note={loginNote ?? S.settings.loginNote}>
-          <span className="lnr-grow" />
-          {sw(`${ids}-login`, settings.startOnBoot, (v) => void saveNow({ startOnBoot: v }))}
-        </Field>
-        <Field id={`${ids}-models`} name={S.settings.models} note={S.settings.modelsNote}>
-          {folder(`${ids}-models`, settings.modelsPath, 'models')}
-        </Field>
-      </Card>
+      {settings && !clientOnly && (
+        <Card title={S.settings.startup}>
+          <Field id={`${ids}-autostart`} name={S.settings.autoStart} note={S.settings.autoStartNote}>
+            <span className="lnr-grow" />
+            {sw(`${ids}-autostart`, settings.autoStartServer, (v) => void saveNow({ autoStartServer: v }))}
+          </Field>
+          <Field id={`${ids}-login`} name={S.settings.login} note={loginNote ?? S.settings.loginNote}>
+            <span className="lnr-grow" />
+            {sw(`${ids}-login`, settings.startOnBoot, (v) => void saveNow({ startOnBoot: v }))}
+          </Field>
+          <Field id={`${ids}-models`} name={S.settings.models} note={S.settings.modelsNote}>
+            {folder(`${ids}-models`, settings.modelsPath, 'models')}
+          </Field>
+        </Card>
+      )}
     </>
   )
 
-  const network = (
+  const network = draft && (
     <Card title={S.settings.network}>
       <Field id={`${ids}-addr`} name={S.settings.address} note={S.settings.addressNote}>
         <input
@@ -238,7 +252,7 @@ export function SettingsScreen({
 
   const performance = <EmptyState variant="unavailable" icon="gauge" title={S.settings.perfTitle} body={S.settings.perfBody} level={3} />
 
-  const advanced = (
+  const advanced = settings && draft && (
     <Card title={S.settings.advanced}>
       <Field id={`${ids}-level`} name={S.settings.logLevel} note={S.settings.logLevelNote}>
         <span className="lnr-grow" />
@@ -274,7 +288,7 @@ export function SettingsScreen({
     </Card>
   )
 
-  const servers = data.servers ? <ServersTab view={data.servers} onSwitch={onSwitch} open={serversOpen} /> : null
+  const servers = data.servers ? <ServersTab view={data.servers} onSwitch={onSwitch} open={serversOpen} localServer={!clientOnly} /> : null
   const updates = <UpdatesTab data={data} controls={controls} now={now} />
   const panels: Record<SettingsTab, React.ReactNode> = { general, servers, updates, network, performance, advanced }
 
@@ -287,7 +301,7 @@ export function SettingsScreen({
         </Callout>
       )}
       <div className="dk-tabs lnr-tabs" role="tablist" aria-label={S.settings.tabsLabel}>
-        {TABS.map((t, i) => (
+        {tabs.map((t, i) => (
           <button
             key={t}
             ref={(el) => {
@@ -314,7 +328,7 @@ export function SettingsScreen({
             tone="info"
             role="status"
             title={S.settings.savedRestart}
-            actions={running && <Button size="sm" onClick={async () => { await b.restart(); setRestartNote(false) }}>{S.settings.restartNow}</Button>}
+            actions={running && <Button size="sm" onClick={async () => { await b.restart?.(); setRestartNote(false) }}>{S.settings.restartNow}</Button>}
           />
         )}
         {panels[tab]}

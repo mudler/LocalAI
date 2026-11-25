@@ -1,6 +1,6 @@
 // The screens of the server model: the first question, the recovery screen for
 // a remote that does not answer, and the card that shows a switch under way.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Icon } from '@localai/ui-kit'
 import type { RemoteStatusView, ServerRowView, SwitchingView } from '../../shared/types'
 import { useBridge } from '../bridge'
@@ -36,18 +36,61 @@ export function FirstChooseScreen({ onComputer, onServer, sizeNote }: { onComput
   )
 }
 
-/** Screen 27: the remote default does not answer. Three equal paths; the launcher retries by itself. */
+/**
+ * The first screen of an app with no local server: add a server to use. The
+ * invite choice needs P2P; the scan choice needs a camera (the caller passes
+ * `onScan` only where the platform can scan).
+ */
+export function FirstConnectScreen({ p2p, onAddress, onInvite, onScan }: { p2p: boolean; onAddress(): void; onInvite(): void; onScan?: () => void }) {
+  const ids = useId()
+  const choice = (key: string, icon: string, title: string, note: string, run: () => void, first = false) => (
+    <button
+      type="button"
+      className={`lnr-choice__card${first ? ' lnr-choice__card--primary' : ''}`}
+      aria-labelledby={`${ids}-${key}`}
+      aria-describedby={`${ids}-${key}-note`}
+      autoFocus={first}
+      onClick={run}
+      data-testid={`first-connect-${key}`}
+    >
+      <span className="lnr-choice__icon"><Icon name={icon} /></span>
+      <span id={`${ids}-${key}`} className="lnr-choice__title">{title}</span>
+      <span id={`${ids}-${key}-note`} className="lnr-choice__p">{note}</span>
+    </button>
+  )
+  return (
+    <div className="lnr-center lnr-center--firstchoose" data-screen="first-connect">
+      <img className="lnr-hero" src={logo} alt="" />
+      <h1 className="lnr-h">{S.firstConnect.title}</h1>
+      <p className="lnr-sub lnr-sub--narrow">{S.firstConnect.sub}</p>
+      <div className="lnr-choice lnr-choice--list" role="group" aria-label={S.firstConnect.title}>
+        {choice('address', 'globe', S.firstConnect.addressTitle, S.firstConnect.addressNote, onAddress, true)}
+        {p2p && choice('invite', 'link', S.firstConnect.inviteTitle, S.firstConnect.inviteNote, onInvite)}
+        {onScan && choice('scan', 'camera', S.firstConnect.scanTitle, S.firstConnect.scanNote, onScan)}
+      </div>
+      <p className="lnr-first__foot dk-small dk-muted"><Icon name="lock" /> <span>{S.firstConnect.foot}</span></p>
+    </div>
+  )
+}
+
+/**
+ * Screen 27: the remote default does not answer. Three equal paths; the
+ * launcher retries by itself. Without a local server (`onChooseOther` set) the
+ * second path opens the server switcher instead of switching to This computer.
+ */
 export function RemoteUnreachableScreen({
   server,
   status,
   now,
   onSwitchLocal,
+  onChooseOther,
   onEdit,
 }: {
   server?: ServerRowView
   status: RemoteStatusView
   now: number
   onSwitchLocal: () => void
+  onChooseOther?: () => void
   onEdit: () => void
 }) {
   const b = useBridge()
@@ -89,10 +132,17 @@ export function RemoteUnreachableScreen({
             {S.unreach.retry}
           </Button>
         </div>
-        <div className="lnr-path">
-          <div className="lnr-grow"><strong>{S.unreach.computerTitle}</strong><p className="lnr-path__p dk-muted">{S.unreach.computerNote(name)}</p></div>
-          <Button onClick={onSwitchLocal} data-testid="switch-local-button">{S.unreach.computer}</Button>
-        </div>
+        {onChooseOther ? (
+          <div className="lnr-path">
+            <div className="lnr-grow"><strong>{S.unreach.chooseOther}</strong><p className="lnr-path__p dk-muted">{S.unreach.chooseOtherNote(name)}</p></div>
+            <Button onClick={onChooseOther} data-testid="choose-other-button">{S.unreach.chooseOther}</Button>
+          </div>
+        ) : (
+          <div className="lnr-path">
+            <div className="lnr-grow"><strong>{S.unreach.computerTitle}</strong><p className="lnr-path__p dk-muted">{S.unreach.computerNote(name)}</p></div>
+            <Button onClick={onSwitchLocal} data-testid="switch-local-button">{S.unreach.computer}</Button>
+          </div>
+        )}
         <div className="lnr-path">
           <div className="lnr-grow"><strong>{S.unreach.editTitle}</strong><p className="lnr-path__p dk-muted">{S.unreach.editNote}</p></div>
           <Button onClick={onEdit} data-testid="edit-server-button">{S.unreach.edit}</Button>

@@ -22,6 +22,7 @@ export const S = {
     remoteInsecure: 'Remote, not encrypted',
     unreachable: 'Unreachable',
     opening: 'Opening',
+    noServer: 'No server',
   },
 
   bar: {
@@ -465,6 +466,19 @@ export const S = {
     foot: 'Not sure? Choose this computer. You can add servers at any time in Settings. The launcher does not save passwords or API keys for servers.',
   },
 
+  // The first screen of an app with no local server: add a server to use.
+  firstConnect: {
+    title: 'Connect to a LocalAI server',
+    sub: 'This app shows a LocalAI that runs on another computer: at home, at work or in the cloud. Nothing runs on this device.',
+    addressTitle: 'Add by address',
+    addressNote: 'You need the server address, for example https://gpu.example.com',
+    inviteTitle: 'Paste an invite link',
+    inviteNote: 'Starts with localai://pair. The server owner sends it to you.',
+    scanTitle: 'Scan an invite QR code',
+    scanNote: 'Open “Share this instance” on the server and scan the code.',
+    foot: 'The app does not save passwords or API keys. If the server asks you to sign in, you do it on its own page.',
+  },
+
   servers: {
     connectTitle: 'Connect to a LocalAI server',
     connectSub: 'Enter the address of a LocalAI server that you can reach. Ask the server owner if you do not know it.',
@@ -508,6 +522,7 @@ export const S = {
     keepTitle: "Keep this computer's server running too",
     keepBody: 'While another server is the default, the launcher does not install, start, update or check LocalAI on this computer. Turn this on to keep it running in the background.',
     removeNote: 'If you remove the default server, This computer becomes the default.',
+    removeNoteClient: 'If you remove the default server, the app asks you to choose or add a server.',
     status: {
       running: 'Running',
       'not-running': 'Not running',
@@ -521,6 +536,7 @@ export const S = {
     removeTitle: (n: string) => `Remove ${n}?`,
     removeDefaultLead: 'This is your default server. If you remove it:',
     removeDefault1: 'This computer becomes the default server.',
+    removeDefault1Client: 'No server is the default until you choose one.',
     removeDefault2: 'LocalAI starts on this computer. Install comes first if it is missing.',
     removeOther: 'It is removed from the list.',
     removeFoot: 'The server itself is not changed. You can add it again at any time.',
@@ -686,6 +702,8 @@ export const S = {
     computerTitle: 'Use LocalAI on this computer',
     computerNote: (n: string) => `Starts it here. ${n} stays saved.`,
     computer: 'Switch to This computer',
+    chooseOther: 'Choose another server',
+    chooseOtherNote: (name: string) => `${name} stays saved.`,
     editTitle: 'Check the address',
     editNote: 'Use this if the server moved.',
     edit: 'Edit server',

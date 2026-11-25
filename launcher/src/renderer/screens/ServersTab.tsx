@@ -86,7 +86,18 @@ function RowMenu({ row, onEdit, onTest, onDefault, onRemove }: { row: ServerRowV
   )
 }
 
-export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwitch: (id: string) => void; open?: { kind: 'add' } | { kind: 'edit'; id: string } }) {
+/** `localServer` false: the app runs no LocalAI here, so there is nothing to keep running and no fallback to This computer. */
+export function ServersTab({
+  view,
+  onSwitch,
+  open,
+  localServer = true,
+}: {
+  view: ServersView
+  onSwitch: (id: string) => void
+  open?: { kind: 'add' } | { kind: 'edit'; id: string }
+  localServer?: boolean
+}) {
   const b = useBridge()
   const ids = useId()
   const [sheet, setSheet] = useState<Sheet>(open ?? null)
@@ -165,7 +176,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
         <div className="dk-small dk-muted lnr-srow__note" role="status" aria-live="polite" data-testid="server-note">{note?.text ?? ''}</div>
       </Card>
 
-      {defaultRemote && (
+      {defaultRemote && localServer && (
         <Card>
           <div className="lnr-keep">
             <div className="lnr-keep__text">
@@ -182,7 +193,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
           </div>
         </Card>
       )}
-      {remotes.length > 0 && <p className="dk-small dk-muted">{S.servers.removeNote}</p>}
+      {remotes.length > 0 && <p className="dk-small dk-muted">{localServer ? S.servers.removeNote : S.servers.removeNoteClient}</p>}
 
       {sheet && (sheet.kind === 'add' || editing) && (
         <ServerForm
@@ -201,7 +212,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
             <>
               <p className="lnr-dialog__p">{S.servers.removeDefaultLead}</p>
               <ol className="lnr-steps lnr-dialog__steps">
-                {[S.servers.removeDefault1, S.servers.removeDefault2].map((t, i) => (
+                {(localServer ? [S.servers.removeDefault1, S.servers.removeDefault2] : [S.servers.removeDefault1Client]).map((t, i) => (
                   <li key={t} className="lnr-step"><div className="lnr-step__row"><span className="lnr-step__mark lnr-step__mark--active" aria-hidden="true">{i + 1}</span><span>{t}</span></div></li>
                 ))}
               </ol>
@@ -222,7 +233,7 @@ export function ServersTab({ view, onSwitch, open }: { view: ServersView; onSwit
               }}
               data-testid="remove-confirm"
             >
-              {removeRow.isDefault ? S.servers.removeDefaultAction : S.servers.removeAction}
+              {removeRow.isDefault && localServer ? S.servers.removeDefaultAction : S.servers.removeAction}
             </Button>
           </div>
         </Dialog>

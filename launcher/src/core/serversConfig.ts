@@ -1,10 +1,10 @@
 // The servers of launcher.json: saved remote servers, the default target, the
 // opt-in to keep the local server running, and the update channel. Pure, no
-// Electron import. Keys that only this launcher writes live in `extra`.
-import crypto from 'node:crypto'
-import type { LauncherConfig } from './config'
+// Electron import and no Node. Keys that only this launcher writes live in
+// `extra`.
+import type { LauncherConfig } from './configTypes'
 import { validateRemoteOrigin } from './webuiPolicy'
-import type { P2PTarget } from './p2pRemote'
+import type { P2PTarget } from './p2pInvite'
 
 export interface RemoteServer {
   id: string
@@ -60,8 +60,16 @@ const ID_RE = /^[A-Za-z0-9_-]{1,40}$/
 export type UpdateChannel = 'stable' | 'rc' | 'dev'
 export const UPDATE_CHANNELS: readonly UpdateChannel[] = ['stable', 'rc', 'dev']
 
-export function newRemoteId(randomBytes: (n: number) => Buffer = crypto.randomBytes): string {
-  return `srv_${randomBytes(4).toString('hex')}`
+/** Random bytes from Web Crypto, present in browsers and in Node. */
+export function webRandomBytes(n: number): Uint8Array {
+  return globalThis.crypto.getRandomValues(new Uint8Array(n))
+}
+
+/** `srv_` and 8 hex digits. The same bytes give the same id on every platform. */
+export function newRemoteId(randomBytes: (n: number) => Uint8Array = webRandomBytes): string {
+  let hex = ''
+  for (const b of randomBytes(4)) hex += b.toString(16).padStart(2, '0')
+  return `srv_${hex}`
 }
 
 export function validName(name: unknown): name is string {

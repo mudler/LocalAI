@@ -14,7 +14,7 @@ import {
   withKeepLocalRunning,
   withUpdateChannel,
   MAX_REMOTES,
-} from '../src/main/serversConfig'
+} from '../src/core/serversConfig'
 
 const cfg = (raw: Record<string, unknown> = {}) => migrate(raw, { home: '/h' }).config
 
