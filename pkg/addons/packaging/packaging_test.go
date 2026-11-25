@@ -902,6 +902,54 @@ var _ = Describe("alias promotion", func() {
 })
 
 var _ = Describe("catalog template", func() {
+	It("pins the digests that the registry holds, not the ones of a rebuilt layout", func() {
+		reg := newRegistry()
+		p := newProject(both)
+		repoName := reg.repo("addons/tables")
+		render := func(layout string, extra ...string) ([]catalogRelease, error) {
+			out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+			args := append([]string{"catalog", "--config", p.config, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--merged", layout, "--repository", repoName, "--tag", "1.2.3", "--channel", "latest", "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--out", out}, extra...)
+			if _, err := run(args...); err != nil {
+				return nil, err
+			}
+			b, err := os.ReadFile(out)
+			Expect(err).NotTo(HaveOccurred())
+			return readCatalogIndex(b)
+		}
+		digests := func(entries []catalogRelease) map[string]string {
+			out := map[string]string{}
+			for _, e := range entries {
+				out[e.OS+"/"+e.Arch] = e.Digest
+			}
+			return out
+		}
+		a := p.merged("1.2.3", rev, nil)
+		// Nothing is published yet: there is nothing to pin.
+		_, err := render(a, "--pin-registry")
+		Expect(err).To(HaveOccurred())
+
+		_, err = run("publish", "--config", p.config, "--layout", a, "--repository", repoName, "--tag", "1.2.3")
+		Expect(err).NotTo(HaveOccurred())
+		pushed, err := render(a)
+		Expect(err).NotTo(HaveOccurred())
+
+		// A rebuild of the same version and commit adopts the published index,
+		// so the catalog must pin that index, not the rebuilt layout.
+		rebuilt := p.merged("1.2.3", rev, map[string]string{amd: "rebuilt bytes"})
+		_, err = run("publish", "--config", p.config, "--layout", rebuilt, "--repository", repoName, "--tag", "1.2.3", "--adopt-existing")
+		Expect(err).NotTo(HaveOccurred())
+		local, err := render(rebuilt)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(digests(local)[amd]).NotTo(Equal(digests(pushed)[amd]))
+		pinned, err := render(rebuilt, "--pin-registry")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(digests(pinned)).To(Equal(digests(pushed)))
+
+		// The published index of another commit is never pinned.
+		other := p.merged("1.2.3", "fedcba9876543210fedcba9876543210fedcba98", nil)
+		_, err = render(other, "--pin-registry")
+		Expect(err).To(MatchError(ContainSubstring("not built from the same add-on, version and commit")))
+	})
 	It("renders digest-pinned entries with an explicit add-on signer identity", func() {
 		reg := newRegistry()
 		p := newProject(both)
