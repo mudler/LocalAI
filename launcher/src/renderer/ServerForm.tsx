@@ -217,14 +217,13 @@ export function ServerForm(p: ServerFormProps) {
             <strong>{card.title}</strong>
             <p className="lnr-result__p">{card.body}</p>
             {card.next && <p className="lnr-result__p"><strong>{S.testResult.next}</strong> {card.next}</p>}
-            {p.client && phase.result.status === 'tls' && CA_FIXES.has(phase.result.reason) && (
+            {/* Only the Android bridge has the CA help, and the hint names the Android settings. */}
+            {p.client && b.openCertificateHelp && phase.result.status === 'tls' && CA_FIXES.has(phase.result.reason) && (
               <p className="lnr-result__p" data-testid="ca-hint">
                 {S.androidSettings.caHint}{' '}
-                {b.openCertificateHelp && (
-                  <button type="button" className="lnr-link" onClick={() => void b.openCertificateHelp?.().catch(() => undefined)}>
-                    {S.androidSettings.caHelp}
-                  </button>
-                )}
+                <button type="button" className="lnr-link" onClick={() => void b.openCertificateHelp?.().catch(() => undefined)}>
+                  {S.androidSettings.caHelp}
+                </button>
               </p>
             )}
             {phase.result.status === 'ok' && <p className="lnr-result__p dk-muted">{S.testResult.testedNow}</p>}

@@ -587,6 +587,19 @@ describe('certificate test card', () => {
     expect(card.queryByTestId('ca-hint')).toBeNull()
   })
 
+  it('gives no CA hint in a client app without the CA help (not the Android app)', async () => {
+    const state = baseState()
+    state.testResult = { status: 'tls', reason: 'self-signed' }
+    const b = fakeClientBridge(state)
+    delete b.openCertificateHelp
+    render(<App bridge={b} now={NOW} />)
+    await settle()
+    const card = await testAddress(b)
+    expect(card.getByText('The certificate is not trusted')).toBeTruthy()
+    expect(card.queryByTestId('ca-hint')).toBeNull()
+    expect(card.queryByText(/Android/)).toBeNull()
+  })
+
   it('also shows the hint in the add sheet of Settings > Servers', async () => {
     const b = await renderClient((s) => {
       s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
