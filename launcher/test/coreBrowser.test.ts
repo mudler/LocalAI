@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 // The shared core under a browser environment: no Node, no Electron. A
 // client-only shell runs these modules with injected I/O.
-import { describe, expect, it } from 'vitest'
+//
+// This file is a composition smoke test. Under vitest's jsdom environment the
+// Node built-ins are still reachable, so it cannot prove that the core is
+// Node-free: that guarantee comes from coreBoundary.test.ts (the import
+// guard) and tsconfig.core.json (a type-check with no Node types).
+import fs from 'node:fs'
+import path from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { migrateConfig, type LauncherConfig, type LoadResult } from '../src/core/configTypes'
 import { ConfigStore, showStatusBar, withShowStatusBar, type ConfigIO } from '../src/core/configStore'
-import { newRemoteId } from '../src/core/serversConfig'
+import { newRemoteId, remotes } from '../src/core/serversConfig'
 import { parseForwardState, parsePairJson } from '../src/core/p2pInvite'
 import { parseChecksums } from '../src/core/checksums'
 import { DEV_RELEASE_TAG, devBuildLabel, parseDevBuild } from '../src/core/devFeed'
+import { runServerTest, type HttpGet } from '../src/core/testClassify'
+import { WebuiModel } from '../src/core/webuiState'
+import { RemoteServers, type P2PTunnels } from '../src/core/remoteServers'
 
 const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
 
@@ -105,5 +115,84 @@ describe('checksums and the development feed names', () => {
     expect(b).toEqual({ id: '0a1b2c3', date: '2026-10-02', subject: 'Development build' })
     expect(devBuildLabel(b!)).toBe('2026-10-02 (0a1b2c3)')
     expect(DEV_RELEASE_TAG).toBe('dev-master')
+  })
+})
+
+// Every module of the core, loaded at once. The count check below stops a
+// wrong glob from passing on zero modules.
+const coreModules = import.meta.glob('../src/core/*.ts', { eager: true }) as Record<string, Record<string, unknown>>
+const coreFiles = fs.readdirSync(path.resolve(__dirname, '../src/core')).filter((f) => f.endsWith('.ts'))
+
+describe('the whole core in a browser environment', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('loads every core module and each one exports something', () => {
+    expect(coreFiles.length).toBeGreaterThan(0)
+    expect(Object.keys(coreModules)).toHaveLength(coreFiles.length)
+    for (const [file, mod] of Object.entries(coreModules)) {
+      expect(Object.keys(mod).length, file).toBeGreaterThan(0)
+    }
+  })
+
+  it('adds a server through a client-only RemoteServers with no Buffer', async () => {
+    // A stray Buffer use in the flow fails here instead of passing on Node.
+    vi.stubGlobal('Buffer', undefined)
+    const io: ConfigIO = { load: async () => fresh(), save: async () => undefined }
+    const store = await ConfigStore.open(io)
+    const fakeGet: HttpGet = async (url) =>
+      url.endsWith('/.well-known/localai.json')
+        ? { status: 200, contentType: 'application/json', body: '{"version":"v4.0.0","endpoints":{"chat_completions":"/v1/chat/completions"}}' }
+        : { status: 404, contentType: 'text/plain', body: '' }
+    const p2p: P2PTunnels = {
+      available: () => false,
+      pair: async () => ({ ok: false, reason: 'no-binary', detail: '' }),
+      allocatePort: async () => 41234,
+      start: () => undefined,
+      stop: () => undefined,
+      status: () => undefined,
+      whenReady: async () => false,
+    }
+    const webui = new WebuiModel({
+      server: 'not-installed',
+      localOrigin: '',
+      installActive: false,
+      statusBar: true,
+      updateReady: false,
+      sandboxOff: false,
+      sandboxNoticeShown: false,
+      openInBrowser: false,
+      workerMode: false,
+      serverUpdate: false,
+      startedHidden: false,
+    })
+    const servers: RemoteServers = new RemoteServers({
+      store,
+      now: () => 1_000_000,
+      randomBytes: (n) => crypto.getRandomValues(new Uint8Array(n)),
+      checkOrigin: (o) => runServerTest(o, fakeGet, () => ({ status: 'unreachable', reason: 'network' })),
+      p2p,
+      deviceName: () => 'Phone',
+      webuiDispatch: (e) => {
+        webui.dispatch(e)
+        servers.afterWebuiEvent(e)
+        return webui.state()
+      },
+      webuiViewOrigin: () => webui.viewOrigin,
+      emitServers: () => undefined,
+      log: () => undefined,
+      localRow: () => undefined,
+      firstRun: (c) => remotes(c).length === 0 && c.show_welcome,
+      onLocalDefault: async () => undefined,
+      onSwitchFinished: async () => undefined,
+    })
+    const res = await servers.addServer({ address: 'https://ai.example.com', name: 'Office', makeDefault: true })
+    expect(res.ok).toBe(true)
+    const v = servers.serversView()
+    expect(v.rows.length).toBe(1)
+    expect(v.rows[0]).toMatchObject({ kind: 'remote', host: 'ai.example.com', status: 'connected' })
+    expect(v.rows[0].id).toMatch(/^srv_[0-9a-f]{8}$/)
+    servers.stopAll()
   })
 })
