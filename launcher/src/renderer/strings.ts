@@ -583,6 +583,7 @@ export const S = {
       stopped: 'P2P stopped',
       failed: 'P2P connection failed',
     } as Record<string, string>,
+    portInUse: 'Another app on this device uses the local address of this server. Close that app or restart the device; the app tries again by itself.',
     path: {
       direct: 'direct',
       hole_punched: 'hole punched',

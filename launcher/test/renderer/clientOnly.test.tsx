@@ -657,4 +657,39 @@ describe('unreachable default', () => {
     await settle()
     expect(screen.getByRole('menu', { name: 'Servers' })).toBeTruthy()
   })
+
+  const STUDIO = remoteRow('srv_00000003', 'Studio', 'http://127.0.0.2:41001', {
+    isDefault: true,
+    isCurrent: true,
+    status: 'unreachable',
+    p2p: { state: 'failed', error: 'listen tcp 127.0.0.2:41001: bind: address already in use' },
+  })
+
+  it('shows why a P2P server fails, as text, on the screen and in its row (no tooltip only)', async () => {
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [STUDIO], defaultId: STUDIO.id })
+      s.webui = {
+        ...webuiView({ target: { kind: 'remote', origin: STUDIO.origin!, host: STUDIO.host } }),
+        remote: { kind: 'unreachable', reason: "this app's P2P connection to it is not open", at: NOW - 1_000, nextAt: NOW + 29_000 },
+      }
+    })
+    const tunnel = screen.getByTestId('unreach-tunnel')
+    expect(tunnel.textContent).toContain('P2P connection failed')
+    expect(tunnel.textContent).toContain('Another app on this device uses the local address of this server')
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Servers' }))
+    await settle()
+    const detail = screen.getByTestId(`server-p2p-detail-${STUDIO.id}`)
+    expect(detail.textContent).toContain('P2P connection failed')
+    expect(detail.textContent).toContain('Another app on this device uses the local address of this server')
+  })
+
+  it('shows any other P2P error as it is', async () => {
+    const row = { ...STUDIO, p2p: { state: 'failed' as const, error: 'no route to peer' } }
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [row], defaultId: row.id })
+      s.webui = { ...webuiView({ target: { kind: 'remote', origin: row.origin!, host: row.host } }), remote: { kind: 'unreachable', reason: 'timed out', at: NOW - 1_000, nextAt: NOW + 29_000 } }
+    })
+    expect(screen.getByTestId('unreach-tunnel').textContent).toBe('P2P connection failed: no route to peer')
+  })
 })

@@ -410,6 +410,7 @@ export function Shell({ now }: { now?: number }) {
             server={cur}
             status={data.webui.remote}
             now={tick}
+            showTunnel={clientOnly}
             onSwitchLocal={clientOnly ? undefined : () => void switchTo('local')}
             onChooseOther={clientOnly ? () => setPopover('switcher') : undefined}
             onEdit={() => {

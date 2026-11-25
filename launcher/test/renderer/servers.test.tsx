@@ -257,6 +257,17 @@ describe('Settings > Servers (mock 20 to 23)', () => {
     expect(called(b, 'removeServer')[0]?.args).toEqual(['srv_00000001'])
   })
 
+  it('on the desktop, a failing P2P server keeps its error in the badge tooltip only', async () => {
+    const p2p = { state: 'failed' as const, error: 'listen tcp 127.0.0.1:41001: bind: address already in use' }
+    await renderShell('remote-unreachable', {
+      edit: (s) => void (s.servers = s.servers && { ...s.servers, rows: s.servers.rows.map((r) => (r.isCurrent ? { ...r, p2p } : r)) }),
+    })
+    expect(screen.queryByTestId('unreach-tunnel')).toBeNull()
+    await openSettingsTab('Servers')
+    expect(screen.queryByTestId('server-p2p-detail-srv_00000001')).toBeNull()
+    expect(screen.getByTestId('server-p2p-srv_00000001').getAttribute('title')).toBe(p2p.error)
+  })
+
   it('edits a server from the recovery screen path: the edit sheet opens at once', async () => {
     await renderShell('remote-unreachable')
     fireEvent.click(screen.getByRole('button', { name: 'Edit server' }))
