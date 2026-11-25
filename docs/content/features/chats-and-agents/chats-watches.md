@@ -34,13 +34,15 @@ A chat can propose a watch too. The proposal card lists what the watch does and 
 - **A thing is removed.** The reminder is cancelled, with one Inbox line.
 - **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, LocalAI then moves the reminder to the next occurrence by itself, with one Inbox line, also when the task failed. Occurrences that passed while the server was down are not sent. LocalAI knows the next 64 occurrences from the add-on and learns more with each change of the event; when it reaches the last one it knows, the Inbox says so.
 
-The Inbox lines of a watch are in the language you chose for the interface. The short message that LocalAI itself sends to a channel of a messaging app when someone else changed an item is in English for now; what the agent writes is in the language of the conversation.
+The Inbox lines of a watch are in the language you chose for the interface. The short messages that LocalAI itself sends to a channel of a messaging app (a change by someone else, the plain reminder after a failed task) are in the language of that chat; what the agent writes is in the language of the conversation.
+
+A reminder that has fired is removed a day after its thing began, and its history goes with it.
 
 A change made by a watch's own run never wakes that watch. More than 30 reminder changes in a minute pause the watch and tell you.
 
 ## The watch's page
 
-The page of a watch shows whether it is on, what it watches, where it reports and its upcoming reminders. Each reminder has **Snooze** (when it is due soon), **Skip**, **Change time…** and **Open**, which opens the thing in its add-on. Each action can be undone. The history lists every action, the quiet ones too. Pausing a watch holds its reminders; deleting it removes them. Both are listed in the Inbox.
+The page of a watch shows whether it is on, what it watches, where it reports and its upcoming reminders. Each reminder has **Snooze** (when it is due soon), **Skip**, **Change time…** and **Open**, which opens the thing in its add-on. Each action can be undone. The history lists every action, the quiet ones too. Pausing a watch holds its reminders; deleting it removes them. Both are listed in the Inbox. While a watch is paused, its reminders still move and are cancelled with their things, but no run starts and nothing is sent to its channel. When you resume it, a reminder whose time passed during the pause fires at once if its thing has not begun, without a note that the server was down.
 
 The Calendar add-on marks an event that has a reminder with a bell and the reminder time, in the agenda and in the event's details. From the details you can skip the reminder or open the watch to change its time.
 
