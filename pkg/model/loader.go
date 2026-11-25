@@ -827,6 +827,7 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 	ml.mu.Lock()
 	store := ml.store
 	wd := ml.wd
+	remoteUnloader := ml.remoteUnloader
 	ml.mu.Unlock()
 
 	m, ok := store.Get(s)
@@ -873,6 +874,13 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 			}
 			if isConnectionError(err) {
 				xlog.Warn("Remote model unreachable (connection error), removing from cache", "model", s, "error", err)
+				if remoteUnloader != nil {
+					// The stub points at one replica. deleteProcess would
+					// stop the model on every node and take the healthy
+					// replicas down with this one.
+					ml.evictRemoteStub(s)
+					return nil
+				}
 				if delErr := ml.deleteProcess(cTimeout, s, false); delErr != nil {
 					xlog.Error("error cleaning up remote model", "error", delErr, "model", s)
 				}
