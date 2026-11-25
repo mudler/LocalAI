@@ -133,6 +133,9 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 			rule.Types = append(rule.Types, fmt.Sprintf("%d", i)+strings.Repeat("<", triggers.MaxEventField-1))
 		}
 		Expect(rule.Validate()).To(Succeed())
+		raw, err := json.Marshal(rule)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(raw)).To(BeNumerically(">", 2048), "larger than the size the column had")
 		w.Watch = &rule
 		Expect(s.PutTrigger(ctx, w)).To(Succeed())
 		got, err := s.GetTrigger(ctx, "w1")

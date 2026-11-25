@@ -217,6 +217,13 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 		return err
 	}
 	now := h.o.Clock()
+	if !w.Enabled {
+		// The limit on changes may be what paused the watch: a source that
+		// sends changes in a loop must not keep a paused watch busy either.
+		if n, err := h.o.Store.CountHandledSince(ctx, w.ID, now.Add(-time.Minute)); err != nil || n > triggers.MaxChangesPerMinute {
+			return err
+		}
+	}
 	// The write lock keeps an owner's change on the watch page and this
 	// event from overwriting each other's reminder on this frontend.
 	h.wmu.Lock()
@@ -240,6 +247,12 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 	}
 	switch out.Action {
 	case triggers.ActionModel:
+		if long := ev.Thing; long != nil && long.Lifecycle == triggers.LifecycleUpdated && len(long.Following) == 0 &&
+			!long.Anchor.IsZero() && now.Sub(long.Anchor) > 24*time.Hour {
+			// A change of an item that began over a day ago, whose spent
+			// reminder the pass removed: there is nothing to remind of.
+			return nil
+		}
 		_, err := h.PublishRun(ctx, w.ID, watchRunEvent(ev))
 		return err
 	case triggers.ActionNone, triggers.ActionUnchanged:

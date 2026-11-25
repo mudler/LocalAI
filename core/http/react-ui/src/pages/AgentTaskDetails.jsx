@@ -864,7 +864,7 @@ function TaskForm({ id, isNew }) {
       return (
         <>
           {sourcesError
-            ? <LoadError title={t('chats:watch.sourcesFailed')} error={sourcesError} onRetry={() => setSourcesAttempt((n) => n + 1)} />
+            ? <LoadError title={t('chats:watch.sourcesFailed', { message: sourcesError.message })} error={sourcesError} onRetry={() => setSourcesAttempt((n) => n + 1)} />
             : <WatchFields watch={task.watch} zone={task.zone} sources={sources} onChange={(w) => set('watch', w)} problem={tried ? watchIssue : ''} />}
           <div className="dk-field">
             <label className="dk-label" htmlFor="aj-zone-w">{t('chats:triggersPage.zone')}</label>

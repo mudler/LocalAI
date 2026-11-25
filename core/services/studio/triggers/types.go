@@ -11,6 +11,8 @@ import (
 	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Kind is the kind of a trigger.
@@ -81,8 +83,9 @@ const (
 	// MaxEventSecret is the longest secret of an event trigger, in bytes. The
 	// size tag of the Secret column in gorm.go is the same number.
 	MaxEventSecret = 255
-	// MaxEventBody is the largest request body the hook reads, in bytes.
-	MaxEventBody = 262144
+	// MaxEventBody is the largest request body the hook reads, in bytes: the
+	// payload limit of events.emit too.
+	MaxEventBody = contract.MaxEventPayload
 	// MaxMatches is the most matches an event trigger has.
 	MaxMatches = 8
 	// MaxEventField is the longest Source, EventType or match, in bytes.

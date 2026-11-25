@@ -210,17 +210,10 @@ func (h *Triggers) reminderFailed(v hostmsg.Voice, err error) string {
 // lastReminderIn is the reminder of the owner that reported last in a chat of
 // the binding, within replyWindow.
 func (h *Triggers) lastReminderIn(ctx context.Context, b connectors.Binding, chat string) (triggers.Trigger, bool) {
-	all, err := h.o.Store.ListTriggers(ctx, principal(b.Owner))
-	if err != nil {
-		return triggers.Trigger{}, false
-	}
 	now := h.o.Clock()
 	var best triggers.Trigger
 	var at time.Time
-	for _, t := range all {
-		if !t.IsReminder() || t.Route.ChannelBinding() != b.ID || (t.Route.Channel != chat && t.Route.Chat != chat) {
-			continue
-		}
+	for _, t := range h.reportingTo(ctx, b, chat, triggers.Trigger.IsReminder) {
 		runs, err := h.o.Store.ListRuns(ctx, t.ID, 1)
 		if err != nil || len(runs) == 0 || runs[0].Ended.IsZero() || now.Sub(runs[0].Ended) > replyWindow {
 			continue
@@ -238,17 +231,10 @@ func (h *Triggers) lastReminderIn(ctx context.Context, b connectors.Binding, cha
 // watches on one chat the reply goes to the heads-up the owner got last, and
 // a run that is still going does not hide an earlier one that ended.
 func (h *Triggers) lastHeadsUpIn(ctx context.Context, b connectors.Binding, chat string) (triggers.Trigger, bool) {
-	all, err := h.o.Store.ListTriggers(ctx, principal(b.Owner))
-	if err != nil {
-		return triggers.Trigger{}, false
-	}
 	now := h.o.Clock()
 	var best triggers.Trigger
 	var at time.Time
-	for _, w := range all {
-		if !w.IsWatch() || w.Route.ChannelBinding() != b.ID || (w.Route.Channel != chat && w.Route.Chat != chat) {
-			continue
-		}
+	for _, w := range h.reportingTo(ctx, b, chat, triggers.Trigger.IsWatch) {
 		runs, err := h.o.Store.ListRuns(ctx, w.ID, 20)
 		if err != nil {
 			continue
@@ -267,4 +253,20 @@ func (h *Triggers) lastHeadsUpIn(ctx context.Context, b connectors.Binding, chat
 		}
 	}
 	return best, !at.IsZero()
+}
+
+// reportingTo lists the owner's triggers of a kind (is) that report to a
+// chat of the binding.
+func (h *Triggers) reportingTo(ctx context.Context, b connectors.Binding, chat string, is func(triggers.Trigger) bool) []triggers.Trigger {
+	all, err := h.o.Store.ListTriggers(ctx, principal(b.Owner))
+	if err != nil {
+		return nil
+	}
+	var out []triggers.Trigger
+	for _, t := range all {
+		if is(t) && t.Route.ChannelBinding() == b.ID && (t.Route.Channel == chat || t.Route.Chat == chat) {
+			out = append(out, t)
+		}
+	}
+	return out
 }

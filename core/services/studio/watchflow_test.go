@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -193,7 +194,7 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		r.pass()
 		run := r.waitEnded(rem.ID)
 		Expect(run.Status).To(Equal(triggers.StatusFailed))
-		Eventually(r.bodies).Should(ContainElement(ContainSubstring("Pay the rent | Reminder: Pay the rent at Wed 09:00. (The task \"prepare a brief from my mail\" did not finish.)")))
+		Eventually(r.bodies).Should(ContainElement(MatchRegexp(`Pay the rent \| Reminder: Pay the rent at \d{4}-\d{2}-\d{2} 09:00\. \(The task "prepare a brief from my mail" did not finish\.\)`)))
 	})
 
 	It("starts late with a note when the server was down at the reminder time", func() {
@@ -282,6 +283,24 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(r.f.seen).To(HaveLen(seen), "no model run while paused")
 		runs, _ := r.sh.trg.ListRuns(ctx, rem.ID, 10)
 		Expect(runs).To(BeEmpty(), "no early run of a reminder on hold")
+
+		// The limit on changes holds for a paused watch too.
+		for i := range triggers.MaxChangesPerMinute + 1 {
+			id := fmt.Sprintf("h%d", i)
+			_, err := r.sh.trg.Claim(ctx, triggers.Run{ID: id, TriggerID: r.watch.ID, DueKey: "action@" + id, Due: r.sh.clock.Now(), Status: triggers.StatusHandled})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		r.emit("updated", "1", due.Add(3*time.Hour), "", contract.ClientCredentialPrefix+"phone")
+		rem, _ = r.reminder("1")
+		Expect(rem.Reminder.Anchor).To(Equal(due.Add(time.Hour)), "a paused watch over the limit takes no change")
+	})
+
+	It("starts no model run for a change of an item that began over a day ago", func() {
+		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
+		r.emit("updated", "9", r.sh.clock.Now().Add(-48*time.Hour), "", "")
+		Consistently(func() []string { return r.f.seen }, 300*time.Millisecond).Should(BeEmpty())
+		_, err := r.reminder("9")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
 	})
 
 	It("lets the owner snooze, skip and re-time a reminder, and undo each", func() {

@@ -46,7 +46,17 @@ func (r *Runner) reminderPass(ctx context.Context, trs []Trigger, now time.Time)
 			continue
 		}
 		parent, ok := on[t.Reminder.ParentID]
-		if !ok || !parent.IsWatch() {
+		if !ok {
+			// A reminder left behind by a watch that is gone is removed; one
+			// of a paused watch waits.
+			if _, err := r.o.Store.GetTrigger(ctx, t.Reminder.ParentID); errors.Is(err, ErrNotFound) {
+				if err := r.o.Store.DeleteTrigger(ctx, t.ID); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			continue
+		}
+		if !parent.IsWatch() {
 			continue
 		}
 		if err := r.reminderOne(ctx, t, parent, now); err != nil {
@@ -56,7 +66,7 @@ func (r *Runner) reminderPass(ctx context.Context, trs []Trigger, now time.Time)
 			errs = append(errs, err)
 		}
 		if r.spent(ctx, t, parent, now) {
-			if err := r.o.Store.DeleteTrigger(ctx, t.ID); err != nil {
+			if err := r.dropSpent(ctx, t); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -138,6 +148,22 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 		return err
 	}
 	return r.claim(ctx, run)
+}
+
+// dropSpent removes the spent reminder t unless it changed since the pass
+// read it: a reconcile on another frontend may have just moved its item ahead.
+func (r *Runner) dropSpent(ctx context.Context, t Trigger) error {
+	cur, err := r.o.Store.GetTrigger(ctx, t.ID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !cur.IsReminder() || cur.Reminder.Rev != t.Reminder.Rev {
+		return nil // changed: the next pass looks again
+	}
+	return r.o.Store.DeleteTrigger(ctx, t.ID)
 }
 
 // miss records the run of a reminder that did not fire because its thing

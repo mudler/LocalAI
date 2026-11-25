@@ -224,17 +224,28 @@ var _ = Describe("the reminder pass", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("drops a queued run of a reminder whose watch is gone", func() {
+	It("removes a reminder whose watch is gone, with its queued run", func() {
 		r := newRig()
 		r.put(reminderOf("r", "gone", t0.Add(time.Hour)))
 		claimed, err := r.store.Claim(ctx, triggers.Run{ID: "q1", TriggerID: "r", DueKey: "event@x", Due: t0, Status: triggers.StatusQueued})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(claimed).To(BeTrue())
 		r.sync()
-		run, err := r.store.GetRun(ctx, "q1")
+		_, err = r.store.GetTrigger(ctx, "r")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+		_, err = r.store.GetRun(ctx, "q1")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "no run waits for good")
+	})
+
+	It("keeps the reminders of a paused watch", func() {
+		r := newRig()
+		w := watchOf("w")
+		w.Enabled = false
+		r.put(w)
+		r.put(reminderOf("r", "w", t0.Add(time.Hour)))
+		r.sync()
+		_, err := r.store.GetTrigger(ctx, "r")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(run.Status).To(Equal(triggers.StatusSkipped))
-		Expect(run.Reason).To(Equal(triggers.ReasonDropped))
 	})
 
 	It("starts late with a note when the host was down past the due time but not past the thing", func() {

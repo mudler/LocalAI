@@ -207,5 +207,5 @@ func (h *Triggers) plainReminder(ctx context.Context, r triggers.Trigger) string
 	if err != nil {
 		w = r
 	}
-	return v.T("reminder.failed_at", "title", rem.Title, "when", rem.Anchor.In(w.LocationOrUTC()).Format("Mon 15:04"), "task", task)
+	return v.T("reminder.failed_at", "title", rem.Title, "when", rem.Anchor.In(w.LocationOrUTC()).Format("2006-01-02 15:04"), "task", task)
 }
