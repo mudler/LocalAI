@@ -216,8 +216,17 @@ function ChatPage() {
   const incognitoOpen = activeId && incognitoLevel ? activeId : ''
   // A chat opened by its address is known from the server's answer.
   if (incognitoOpen) rememberIncognitoChat(incognitoOpen, incognitoLevel)
+  // The discard of a cleanup waits a tick: React runs an effect twice on
+  // mount in development (StrictMode), and the second run takes the discard
+  // back instead of losing a chat that just opened.
+  const pendingDiscardRef = useRef(null)
   useEffect(() => {
     if (!incognitoOpen) return undefined
+    const pending = pendingDiscardRef.current
+    if (pending?.id === incognitoOpen) {
+      clearTimeout(pending.timer)
+      pendingDiscardRef.current = null
+    }
     const warn = (e) => { e.preventDefault(); e.returnValue = '' }
     const discardNow = () => discardIncognitoChat(incognitoOpen, { keepalive: true })
     window.addEventListener('beforeunload', warn)
@@ -225,7 +234,7 @@ function ChatPage() {
     return () => {
       window.removeEventListener('beforeunload', warn)
       window.removeEventListener('pagehide', discardNow)
-      discardIncognitoChat(incognitoOpen)
+      pendingDiscardRef.current = { id: incognitoOpen, timer: setTimeout(() => discardIncognitoChat(incognitoOpen), 0) }
     }
   }, [incognitoOpen])
 
