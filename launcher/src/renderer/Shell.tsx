@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ShellInsets, ShellScreen } from '../shared/types'
-import { Button, Callout } from '@localai/ui-kit'
-import { FirstChooseScreen, RemoteUnreachableScreen, SwitchFailedCard, SwitchingCard } from './screens/ServerScreens'
+import { Button, Callout, Icon } from '@localai/ui-kit'
+import { FirstChooseScreen, FirstConnectScreen, RemoteUnreachableScreen, SwitchFailedCard, SwitchingCard } from './screens/ServerScreens'
+import { InviteForm } from './InviteForm'
 import { ServerForm } from './ServerForm'
 import type { ShellScreenId } from './bridge'
 import { useBridge } from './bridge'
@@ -56,6 +57,8 @@ export function Shell({ now }: { now?: number }) {
   const [hiddenUpdate, setHiddenUpdate] = useState<string>()
   const [serversOpen, setServersOpen] = useState<{ kind: 'add' } | { kind: 'edit'; id: string }>()
   const [firstStep, setFirstStep] = useState<'choose' | 'connect' | 'computer'>('choose')
+  // The first-connect screen (no local server): the choices, or the address or invite form.
+  const [connectStep, setConnectStep] = useState<'choose' | 'address' | 'invite'>('choose')
   const [switchFailed, setSwitchFailed] = useState<{ name: string; id: string }>()
   const [tick, setTick] = useState(() => now ?? Date.now())
   const startAfterInstall = useRef(false)
@@ -119,21 +122,21 @@ export function Shell({ now }: { now?: number }) {
 
   // First run ends when LocalAI is on show; the welcome steps do not come back.
   useEffect(() => {
-    if (base === 'web' && data?.settings?.showWelcome && data.server.state === 'ready') {
+    if (base === 'web' && data?.settings?.showWelcome && data.server?.state === 'ready') {
       void b.saveSettings?.({ showWelcome: false }).then((r) => controls.setSettings(r.settings))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [b, base, data?.settings?.showWelcome, data?.server.state])
+  }, [b, base, data?.settings?.showWelcome, data?.server?.state])
 
   // The sandbox guide opens by itself once, over the WebUI, when the server is
   // first ready and the notice is not answered. "Not now" stores the launcher
   // version in the main process, and the notice (and this) stays quiet for it.
   useEffect(() => {
-    if (!guideOpened.current && data?.sandbox?.notice.kind === 'shown' && data.server.state === 'ready' && base === 'web' && screen === null) {
+    if (!guideOpened.current && data?.sandbox?.notice.kind === 'shown' && data.server?.state === 'ready' && base === 'web' && screen === null) {
       guideOpened.current = true
       setPopover('guide')
     }
-  }, [data?.sandbox?.notice.kind, data?.server.state, base, screen])
+  }, [data?.sandbox?.notice.kind, data?.server?.state, base, screen])
 
   // Smoke test hook: the first real state is on screen.
   useEffect(() => {
@@ -169,10 +172,12 @@ export function Shell({ now }: { now?: number }) {
 
   const actions = barActions(data)
   const local = !isRemote(data)
+  // The app runs no LocalAI server on this device (the mobile client).
+  const clientOnly = !data.capabilities.localServer
   const version = serverVersion(data.install, data.installedVersion)
   const showUpdateBanner = web && offer?.kind === 'server' && hiddenUpdate !== offer.version
   // The main process says which banner the kept page needs; without it, a stopped server is enough.
-  const banner = !web || !local ? null : data.webui ? data.webui.banner : data.server.state === 'stopped' ? 'stopped' : null
+  const banner = !web || !local || clientOnly ? null : data.webui ? data.webui.banner : data.server?.state === 'stopped' ? 'stopped' : null
   // The main process also places the WebUI view around the bar, so its answer
   // counts; both apply the same rule, and either one asking shows the bar.
   const barShown = (visibility.visible || !!data.webui?.barVisible) && base !== 'first-choose'
@@ -234,7 +239,7 @@ export function Shell({ now }: { now?: number }) {
           />
         )
       case 'connect':
-        return <ConnectScreen endpoint={data.server.endpoint} />
+        return <ConnectScreen endpoint={data.server?.endpoint ?? ''} />
       case 'worker-settings':
         return data.worker ? <WorkerSettingsScreen worker={data.worker} onWorker={controls.setWorker} /> : null
       default:
@@ -264,22 +269,22 @@ export function Shell({ now }: { now?: number }) {
             previous={data.installedVersion}
             rate={data.downloadRate}
             onSeen={controls.markInstallFailureSeen}
-            onRetry={() => void b.installServer?.({ stopFirst: data.server.state !== 'not-installed' })}
+            onRetry={() => void b.installServer?.({ stopFirst: data.server?.state !== 'not-installed' })}
             onLogs={() => open('logs')}
           />
         )
       case 'start-failed':
-        return <StartFailedScreen input={data} failedAt={data.failedAt} version={version} onLogs={() => open('logs')} onSettings={() => open('settings', 'network')} />
+        return data.server ? <StartFailedScreen input={{ ...data, server: data.server }} failedAt={data.failedAt} version={version} onLogs={() => open('logs')} onSettings={() => open('settings', 'network')} /> : null
       case 'first-run':
         return <FirstRunScreen input={data} hardware={data.hardware} />
       case 'starting':
-        return <StartingScreen address={addressOf(data.server.endpoint)} />
+        return <StartingScreen address={addressOf(data.server?.endpoint ?? '')} />
       case 'stopping':
-        return <StartingScreen stopping address={addressOf(data.server.endpoint)} />
+        return <StartingScreen stopping address={addressOf(data.server?.endpoint ?? '')} />
       case 'stopped':
         return <StoppedScreen />
       case 'browser':
-        return <BrowserModeScreen address={addressOf(data.server.endpoint)} />
+        return <BrowserModeScreen address={addressOf(data.server?.endpoint ?? '')} />
       case 'first-choose':
         return firstStep === 'connect' ? (
           <div className="lnr-center lnr-center--connectfirst">
@@ -288,6 +293,30 @@ export function Shell({ now }: { now?: number }) {
         ) : (
           <FirstChooseScreen onComputer={() => setFirstStep('computer')} onServer={() => setFirstStep('connect')} sizeNote={data.installDetails?.size ? S.first.computerNote.replace('1.1 GB', formatBytes(data.installDetails.size)) : undefined} />
         )
+      case 'first-connect':
+        if (connectStep === 'address') {
+          return (
+            <div className="lnr-center lnr-center--connectfirst">
+              <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} />
+            </div>
+          )
+        }
+        if (connectStep === 'invite') {
+          return (
+            <div className="lnr-center lnr-center--connectfirst">
+              <div className="lnr-form lnr-form--page">
+                <button type="button" className="lnr-backlink" onClick={() => setConnectStep('choose')}>
+                  <Icon name="arrow-left" /> <span>{S.servers.back}</span>
+                </button>
+                <h1 className="lnr-h">{S.invite.title}</h1>
+                <section className="dk-card lnr-card lnr-form__card" aria-label={S.invite.title}>
+                  <InviteForm makeDefault onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} onUseAddress={() => setConnectStep('address')} />
+                </section>
+              </div>
+            </div>
+          )
+        }
+        return <FirstConnectScreen p2p={data.capabilities.p2p} onAddress={() => setConnectStep('address')} onInvite={() => setConnectStep('invite')} />
       case 'remote-unreachable': {
         const cur = currentRow(data)
         return data.webui?.remote ? (
@@ -296,6 +325,7 @@ export function Shell({ now }: { now?: number }) {
             status={data.webui.remote}
             now={tick}
             onSwitchLocal={() => void switchTo('local')}
+            onChooseOther={clientOnly ? () => setPopover('switcher') : undefined}
             onEdit={() => {
               open('settings', 'servers')
               if (cur) setServersOpen({ kind: 'edit', id: cur.id })
@@ -411,7 +441,8 @@ export function Shell({ now }: { now?: number }) {
             setPopover={setPopover}
             launcherVersion={data.info?.version}
             serverVersion={version}
-            canOpenInBrowser={!!b.openWebuiInBrowser && (data.server.state === 'ready' || !local)}
+            canOpenInBrowser={!!b.openWebuiInBrowser && (data.server?.state === 'ready' || !local)}
+            canConnect={!clientOnly}
             onStop={() => void b.stop?.()}
             onRestart={() => void b.restart?.()}
             onLogs={() => open(screen === 'logs' ? null : 'logs')}

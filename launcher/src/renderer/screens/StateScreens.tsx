@@ -2,7 +2,7 @@
 // failed, first run, starting, stopped, and "open in browser" mode.
 import { useEffect, useState } from 'react'
 import { Button, Callout, Page, StatusChip } from '@localai/ui-kit'
-import type { InstallStateView } from '../../shared/types'
+import type { InstallStateView, ServerSnapshot } from '../../shared/types'
 import type { InstallDetailsView } from '../bridge'
 import { hasLocal, useBridge } from '../bridge'
 import { Card, Code, CopyButton, StepList } from '../parts'
@@ -157,7 +157,7 @@ export function ProgressScreen({
 
 // ---- Start failed -------------------------------------------------------------
 
-export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings }: { input: ShellInput; failedAt?: number; version?: string; onLogs: () => void; onSettings: () => void }) {
+export function StartFailedScreen({ input, failedAt, version, onLogs, onSettings }: { input: ShellInput & { server: ServerSnapshot }; failedAt?: number; version?: string; onLogs: () => void; onSettings: () => void }) {
   const b = useBridge()
   const f = startFailure(input.server, input.settings)
   const address = input.settings?.address ?? addressOf(input.server.endpoint)

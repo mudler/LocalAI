@@ -19,6 +19,8 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
   const [dialog, setDialog] = useState<'confirm-dev' | 'back-to-stable' | null>(null)
   const [understood, setUnderstood] = useState(false)
   const info = data.updateInfo
+  // The server rows and the channels update a local server through the desktop updater; other apps show the launcher row only.
+  const serverRows = data.capabilities.localServer && data.capabilities.selfUpdate === 'electron'
   const channel: UpdateChannelName = info?.channel ?? 'stable'
   const dev = channel === 'dev'
   // The live server list decides; the flag in the update info can be stale after the default changes.
@@ -72,42 +74,44 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
 
   return (
     <>
-      {remote && (
+      {serverRows && remote && (
         <Callout tone="info" icon="info" title={S.channel.remoteTitle(defaultName)} testId="channel-remote-strip">
           <span className="lnr-block">{S.channel.remoteBody}</span>
         </Callout>
       )}
-      {dev && !remote && (
+      {serverRows && dev && !remote && (
         <Callout tone="warn" icon="flask" title={S.channel.onDevTitle} testId="channel-dev-strip">
           <span className="lnr-block">{S.channel.onDevBody}</span>
         </Callout>
       )}
 
       <Card title={S.settings.updates}>
-        <Field name={dev && info?.devBuild ? S.channel.devBuild(info.devBuild) : S.settings.serverVersion(version)} note={serverNote || undefined}>
-          <span className="lnr-grow" />
-          <Button
-            size="sm"
-            busy={checking}
-            disabled={remote}
-            onClick={async () => {
-              setChecking(true)
-              try {
-                if (b.checkServerUpdate) controls.setInstall(await b.checkServerUpdate())
-                if (b.getUpdateInfo) controls.setUpdateInfo(await b.getUpdateInfo())
-              } finally {
-                setChecking(false)
-              }
-            }}
-          >
-            {S.settings.checkNow}
-          </Button>
-          {offer && !remote && (
-            <Button size="sm" variant="primary" onClick={() => void b.installServer?.({ stopFirst: true })}>
-              {S.settings.updateTo(offer)}
+        {serverRows && (
+          <Field name={dev && info?.devBuild ? S.channel.devBuild(info.devBuild) : S.settings.serverVersion(version)} note={serverNote || undefined}>
+            <span className="lnr-grow" />
+            <Button
+              size="sm"
+              busy={checking}
+              disabled={remote}
+              onClick={async () => {
+                setChecking(true)
+                try {
+                  if (b.checkServerUpdate) controls.setInstall(await b.checkServerUpdate())
+                  if (b.getUpdateInfo) controls.setUpdateInfo(await b.getUpdateInfo())
+                } finally {
+                  setChecking(false)
+                }
+              }}
+            >
+              {S.settings.checkNow}
             </Button>
-          )}
-        </Field>
+            {offer && !remote && (
+              <Button size="sm" variant="primary" onClick={() => void b.installServer?.({ stopFirst: true })}>
+                {S.settings.updateTo(offer)}
+              </Button>
+            )}
+          </Field>
+        )}
         {b.setAutoCheck && info && (
           <Field id={`${ids}-auto`} name={S.settings.autoCheck} note={S.settings.autoCheckNote}>
             <span className="lnr-grow" />
@@ -121,10 +125,12 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
             />
           </Field>
         )}
-        <Field name={S.settings.previous} note={S.settings.previousNote(info?.previousVersion)}>
-          <span className="lnr-grow" />
-          <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer?.({ stopFirst: true })}>{S.settings.rollBack}</Button>
-        </Field>
+        {serverRows && (
+          <Field name={S.settings.previous} note={S.settings.previousNote(info?.previousVersion)}>
+            <span className="lnr-grow" />
+            <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer?.({ stopFirst: true })}>{S.settings.rollBack}</Button>
+          </Field>
+        )}
         {data.info && (
           <Field name={S.settings.launcherVersion(data.info.version)} note={launcherNote}>
             <span className="lnr-grow" />
@@ -139,7 +145,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
         )}
       </Card>
 
-      {b.setUpdateChannel && info && (
+      {serverRows && b.setUpdateChannel && info && (
         <Card title={S.channel.title}>
           <p className="dk-small dk-muted lnr-card__lead">{S.channel.sub}</p>
           <div role="radiogroup" aria-label={S.channel.groupLabel} className="lnr-radios">

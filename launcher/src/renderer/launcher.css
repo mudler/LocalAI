@@ -330,6 +330,11 @@ body {
 .lnr-choice__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 .lnr-choice__title { margin: var(--sp-2) 0 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
 .lnr-choice__p { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+/* First connect (no local server): one column of choices, each card is the button. */
+.lnr-choice--list { grid-template-columns: 1fr; width: 480px; }
+button.lnr-choice__card { font: inherit; color: inherit; text-align: start; cursor: pointer; }
+button.lnr-choice__card:hover { border-color: var(--dk-accent-text); }
+button.lnr-choice__card:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .lnr-first__foot { display: flex; gap: var(--sp-2); max-width: 520px; margin-top: var(--sp-4); }
 .lnr-center--connectfirst { padding-top: var(--sp-6); justify-content: flex-start; }
 

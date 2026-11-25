@@ -25,6 +25,8 @@ export interface StatusBarProps {
   launcherVersion?: string
   serverVersion?: string
   canOpenInBrowser: boolean
+  /** The menu offers Connect (sharing the local server). Default: true. */
+  canConnect?: boolean
   onStop: () => void
   onRestart: () => void
   onLogs: () => void
@@ -155,7 +157,7 @@ export function StatusBar(p: StatusBarProps) {
           open={p.popover === 'menu'}
           onClose={close}
           trigger={menuBtn}
-          items={menuItems({ remote: false, canOpenInBrowser: p.canOpenInBrowser, serverVersion: p.serverVersion })}
+          items={menuItems({ remote: false, canOpenInBrowser: p.canOpenInBrowser, serverVersion: p.serverVersion, connect: p.canConnect })}
           onPick={(a) => {
             if (a === 'about') {
               p.setPopover('about')

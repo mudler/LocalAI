@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { capabilitiesOf } from '../shared/apiGroups'
 import type {
+  Capabilities,
   HardwareSummaryView,
   InstallStateView,
   LauncherInfo,
@@ -32,6 +34,7 @@ function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => voi
 }
 
 export interface ShellData extends ShellInput {
+  capabilities: Capabilities
   updateInfo?: UpdateInfoView
   installDetails?: InstallDetailsView
   hardware?: string
@@ -57,7 +60,11 @@ export interface ShellControls {
   reloadSettings(): Promise<void>
 }
 
-/** Everything the shell shows, read from the bridge and kept current. Undefined until the server state is known. */
+/**
+ * Everything the shell shows, read from the bridge and kept current. Undefined
+ * until `info` is known and, on a bridge with a local server, its state too.
+ * The local reads are optional: a client-only bridge has none of them.
+ */
 export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] {
   const [server] = useLive<ServerSnapshot>(b.getServer, b.onServer)
   const [info] = useLive<LauncherInfo>(b.info, undefined)
@@ -116,10 +123,16 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
     reloadSettings,
   }
 
-  if (!server) return [undefined, controls]
+  // Client-only mode is picked from `info` only: before it answers the
+  // capabilities read as the desktop set, so the shell waits for it. A local
+  // server also needs its state first (as before).
+  if (!info) return [undefined, controls]
+  const capabilities = capabilitiesOf(info)
+  if (capabilities.localServer && !server) return [undefined, controls]
   return [
     {
       server,
+      capabilities,
       info,
       updater,
       install,
