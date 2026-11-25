@@ -3,7 +3,7 @@
 // the link and shows the confirmation phrase the server shows too.
 import { useId, useRef, useState } from 'react'
 import { Button, Icon } from '@localai/ui-kit'
-import { useBridge } from './bridge'
+import { hasLocal, useBridge } from './bridge'
 import { S } from './strings'
 
 type Phase = { kind: 'idle' } | { kind: 'pairing' } | { kind: 'paired'; phrase: string }
@@ -55,7 +55,8 @@ export function InviteForm(p: InviteFormProps) {
       return
     }
     setPhase({ kind: 'idle' })
-    const base = S.invite.failed[r.reason] ?? S.invite.failed['pair-failed']
+    // Without a local server there is nothing to install: the app itself lacks P2P.
+    const base = r.reason === 'no-binary' && !hasLocal(b) ? S.clientApp.noP2P : (S.invite.failed[r.reason] ?? S.invite.failed['pair-failed'])
     setError(r.detail ? `${base} ${r.detail}` : base)
   }
 

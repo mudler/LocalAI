@@ -837,6 +837,12 @@ export const S = {
     tryAgain: 'Try again',
   },
 
+  // The app without a local server (the mobile client).
+  clientApp: {
+    /** Pairing answered `no-binary`: the app was built without the P2P library. */
+    noP2P: 'P2P is not available in this build of the app.',
+  },
+
   time: {
     justNow: 'just now',
     minutes: (n: number) => (n === 1 ? '1 minute ago' : `${n} minutes ago`),
