@@ -58,6 +58,9 @@ func ensureLibLoaded() {
 		purego.RegisterLibFunc(&CppStreamFeed, lib, "parakeet_capi_stream_feed")
 		purego.RegisterLibFunc(&CppStreamFinalize, lib, "parakeet_capi_stream_finalize")
 		purego.RegisterLibFunc(&CppStreamFree, lib, "parakeet_capi_stream_free")
+		if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_caps"); err == nil && sym != 0 {
+			purego.RegisterLibFunc(&CppStreamCaps, lib, "parakeet_capi_stream_caps")
+		}
 		if sym, err := purego.Dlsym(lib, "parakeet_capi_stream_feed_json"); err == nil && sym != 0 {
 			purego.RegisterLibFunc(&CppStreamFeedJSON, lib, "parakeet_capi_stream_feed_json")
 			purego.RegisterLibFunc(&CppStreamFinalizeJSON, lib, "parakeet_capi_stream_finalize_json")
@@ -249,6 +252,55 @@ var _ = Describe("ParakeetCpp", func() {
 		It("errors on a non-existent input rather than passing the path through", func() {
 			_, _, err := convertToWavMono16k(filepath.Join(GinkgoT().TempDir(), "missing.mp3"))
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("AudioTranscription with the realtime EOU model", func() {
+		It("transcribes every utterance of the clip, not only the one before the first <EOU>", func() {
+			modelPath := os.Getenv("PARAKEET_BACKEND_TEST_STREAM_MODEL")
+			audioPath := os.Getenv("PARAKEET_BACKEND_TEST_WAV")
+			if modelPath == "" || audioPath == "" {
+				Skip("set PARAKEET_BACKEND_TEST_STREAM_MODEL (the realtime EOU model) and PARAKEET_BACKEND_TEST_WAV")
+			}
+			ensureLibLoaded()
+
+			p := &ParakeetCpp{}
+			Expect(p.Load(&pb.ModelOptions{ModelFile: modelPath})).To(Succeed())
+			defer func() { _ = p.Free() }()
+
+			one, err := p.AudioTranscription(context.Background(), &pb.TranscriptRequest{Dst: audioPath})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.Fields(one.Text)).ToNot(BeEmpty())
+
+			// The same speech twice with 1.5s of silence between: two
+			// utterances, each ended by an <EOU>.
+			pcm, _, err := decodeWavMono16k(audioPath)
+			Expect(err).ToNot(HaveOccurred())
+			data := make([]int, 0, 2*len(pcm)+24000)
+			for _, v := range pcm {
+				data = append(data, int(v*32767))
+			}
+			data = append(data, make([]int, 24000)...)
+			for _, v := range pcm {
+				data = append(data, int(v*32767))
+			}
+			twice := filepath.Join(GinkgoT().TempDir(), "twice.wav")
+			f, err := os.Create(twice)
+			Expect(err).ToNot(HaveOccurred())
+			enc := wav.NewEncoder(f, 16000, 16, 1, 1)
+			Expect(enc.Write(&audio.IntBuffer{
+				Format:         &audio.Format{NumChannels: 1, SampleRate: 16000},
+				SourceBitDepth: 16,
+				Data:           data,
+			})).To(Succeed())
+			Expect(enc.Close()).To(Succeed())
+			Expect(f.Close()).To(Succeed())
+
+			two, err := p.AudioTranscription(context.Background(), &pb.TranscriptRequest{Dst: twice})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(strings.Fields(two.Text))).To(BeNumerically(">=", 2*len(strings.Fields(one.Text))-2),
+				"got %q for twice %q", two.Text, one.Text)
+			Expect(two.Text).ToNot(ContainSubstring("<EOU>"))
 		})
 	})
 
