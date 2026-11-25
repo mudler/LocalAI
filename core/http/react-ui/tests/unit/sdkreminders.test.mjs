@@ -9,10 +9,10 @@ const make = (host) => createHostSDK({
 
 test('an add-on reads the reminders of its own items, asked under its own ID', async () => {
   const asked = []
-  const sdk = make({ reminders: async (source) => { asked.push(source); return [{ id: 'r1', item_id: '42', watch_id: 'w1', due: '2026-11-26T14:45:00Z', skipped: false, extra: 'x' }] } })
+  const sdk = make({ reminders: async (source) => { asked.push(source); return [{ id: 'r1', item_id: '42', watch_id: 'w1', due: '2026-11-26T14:45:00Z', item_time: '2026-11-26T15:00:00Z', skipped: false, extra: 'x' }] } })
   const rows = await sdk.reminders.list()
   assert.deepEqual(asked, ['calendar'])
-  assert.deepEqual(rows, [{ id: 'r1', itemId: '42', watchId: 'w1', due: '2026-11-26T14:45:00Z', skipped: false }])
+  assert.deepEqual(rows, [{ id: 'r1', itemId: '42', watchId: 'w1', due: '2026-11-26T14:45:00Z', itemTime: '2026-11-26T15:00:00Z', skipped: false }])
 })
 
 test('a host without watches gives no reminders, and skip says it is unavailable', async () => {

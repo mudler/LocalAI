@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { chatTriggersApi } from '../utils/api'
-import { localInput, offsetParts, retimePatch, undoPatch, whenText } from '../utils/watch'
+import { localInput, reminderOffsetWords, retimePatch, undoPatch, whenText } from '../utils/watch'
 import { Button, Callout, LoadError, SkeletonRows, Tag } from './ui'
 
 // The upcoming reminders of a watch, with one verb per action: Snooze (only
 // when due soon), Skip, Change time… and Open. Each action can be undone from
 // the line that says what happened, which a screen reader hears too.
-// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 export default function WatchReminders({ watch }) {
   const { t, i18n } = useTranslation('chats')
   const [list, setList] = useState(null)
@@ -31,6 +30,7 @@ export default function WatchReminders({ watch }) {
   useEffect(() => { load() }, [load])
 
   const act = async (r, action, body, say) => {
+    if (busy) return // one change at a time: a second submit would race the first
     setBusy(`${r.id}:${action}`)
     setFailed('')
     try {
@@ -61,13 +61,6 @@ export default function WatchReminders({ watch }) {
   if (error) return <LoadError title={t('watch.loadFailed', { message: error.message })} error={error} onRetry={load} />
   if (!list) return <SkeletonRows count={2} />
 
-  const offsetText = (r) => {
-    if (r.adjusted === 'quiet') return t('watch.adjQuiet')
-    if (r.adjusted === 'all_day') return t('watch.adjAllDay')
-    const o = offsetParts(r.offset_minutes)
-    return t(`watch.${o.key}`, { count: o.count })
-  }
-
   return (
     <div className="aj-reminders" data-testid="watch-reminders">
       <span className="sr-only" role="status" aria-live="polite">{done?.text || ''}</span>
@@ -86,7 +79,7 @@ export default function WatchReminders({ watch }) {
               <div className="aj-reminder__text">
                 <span className="aj-name">{r.title}</span>
                 <span className="aj-sub__text" data-testid="reminder-due">
-                  {r.due ? t('watch.dueLine', { when: when(r.due), offset: offsetText(r) }) : t('watch.started')}
+                  {r.due ? t('watch.dueLine', { when: when(r.due), offset: reminderOffsetWords(t, r) }) : t('watch.started')}
                 </span>
                 <span className="ag-muted ag-small">{r.task}</span>
                 {r.skipped && <Tag>{t('watch.skipped')}</Tag>}
@@ -100,7 +93,7 @@ export default function WatchReminders({ watch }) {
                 }}>
                   <label className="sr-only" htmlFor={`rem-at-${r.id}`}>{t('watch.newTime')}</label>
                   <input id={`rem-at-${r.id}`} name="at" type="datetime-local" className="dk-input" defaultValue={localInput(r.due, zone)} required />
-                  <Button size="sm" type="submit" busy={busy === `${r.id}:retime`}>{t('watch.saveTime')}</Button>
+                  <Button size="sm" type="submit" disabled={!!busy} busy={busy === `${r.id}:retime`}>{t('watch.saveTime')}</Button>
                   <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>{t('watch.cancel')}</Button>
                 </form>
               ) : (

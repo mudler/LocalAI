@@ -800,7 +800,6 @@ export const chatTriggersApi = {
   patchReminder: (id, rid, body, source) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}${q({ source })}`, { method: 'PATCH', body: JSON.stringify(body) }),
   // The reminders of your watches for the items of one add-on: { reminders: [{ item_id, watch_id, id, due, ... }] }.
   sourceReminders: (source) => fetchJSON(`/api/chats/triggers/reminders${q({ source })}`),
-  removeReminder: (id, rid) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}`, { method: 'DELETE' }),
 }
 
 // The changes a model proposed to your memory, profile and other files, and

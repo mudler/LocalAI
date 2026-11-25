@@ -62,7 +62,7 @@ test.describe('Watches', () => {
     await page.getByLabel('An event is added').check()
     await page.getByLabel('Remind me').selectOption('-30')
     await page.getByLabel('Task defaults').fill('For calls with other people, prepare a brief 30 min ahead.')
-    await page.getByRole('button', { name: 'Save', exact: true }).first().click()
+    await page.getByRole('button', { name: 'Save watch', exact: true }).first().click()
     await expect(page).toHaveURL(/\/app\/triggers\/t\d+$/)
     const post = s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/triggers')
     expect(post.body.kind).toBe('event')

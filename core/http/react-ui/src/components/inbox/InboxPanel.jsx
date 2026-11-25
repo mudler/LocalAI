@@ -90,7 +90,7 @@ function InboxItem({ n, day, t, locale, fresh, busy, chatsOn, onOpen, onRead, on
   const target = targetOf(n, chatsOn)
   const noChats = linkDisabled(n, chatsOn)
   const source = sourceOf(n)
-  const text = textOf(n, t)
+  const text = textOf(n, t, locale)
   const body = bodyOf(n, text)
   const name = n.read ? text.title : t('inbox.itemUnread', { title: text.title })
   const cls = ['nx-item', !n.read && 'is-unread', isFailed && 'is-failed', fresh && 'is-fresh'].filter(Boolean).join(' ')

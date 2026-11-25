@@ -252,7 +252,7 @@ function runText(t, n, p) {
 
 // The title and body of a notification as the list shows them. Items without a
 // code, and codes or params that are not understood, show what the server stored.
-export function textOf(n, t) {
+export function textOf(n, t, locale) {
   const stored = { title: n?.title || '', body: n?.body || '' }
   const p = n?.params
   if (!n?.code || !p || typeof p !== 'object') return stored
@@ -280,7 +280,7 @@ export function textOf(n, t) {
       }
     }
   } else if (typeof n.code === 'string' && n.code.startsWith('watch.')) {
-    out = watchText(t, n, p)
+    out = watchText(t, n, p, locale)
   }
   return out || stored
 }
@@ -292,15 +292,16 @@ export const WATCH_CODES = ['set', 'changed', 'cancelled', 'snoozed', 'snoozeUnd
 const WATCH_TIMED = ['set', 'changed', 'snoozed', 'restored', 'next', 'moved', 'movedBy', 'lastKnown']
 
 // The line of a watch in the language of the person: the title stays the
-// watch's name, the body is worded from the code. A code this build does not
-// know, or a timed line without its time, keeps the stored English line.
-function watchText(t, n, p) {
+// watch's name, the body is worded from the code, and a time is written in
+// the locale of the page. A code this build does not know, or a timed line
+// without its time, keeps the stored English line.
+function watchText(t, n, p, locale) {
   const code = n.code.slice('watch.'.length)
   const title = typeof p.title === 'string' ? p.title : ''
   if (!WATCH_CODES.includes(code) || !title) return null
   let when = ''
   if (WATCH_TIMED.includes(code)) {
-    when = typeof p.at === 'string' ? whenText(p.at, typeof p.zone === 'string' && p.zone ? p.zone : undefined) : ''
+    when = typeof p.at === 'string' ? whenText(p.at, typeof p.zone === 'string' && p.zone ? p.zone : undefined, new Date(), locale) : ''
     if (!when) return null
   }
   return { title: n.title || '', body: t(`inbox.codes.watch.${code}`, { title, when }) }

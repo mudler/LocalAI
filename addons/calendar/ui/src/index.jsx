@@ -29,9 +29,25 @@ export function createAddon(sdk) {
   const monthLabel = (date) => fmt({ month: 'long', year: 'numeric' }, date)
   const shortWeekday = (date) => fmt({ weekday: 'short' }, date)
   const when = (o) => (o.allDay ? t('calendar.allDay') : `${timePart(o.start)}${timePart(o.end) ? `–${timePart(o.end)}` : ''}`)
-  // The time of a reminder, in the zone of the calendar: "Thu 15:45".
+  // The time of a reminder, in the zone of the calendar: "Thu 15:45". h23,
+  // not hour12: false, which some engines write as 24:05 after midnight.
   const bellTime = (iso, zone) => {
-    try { return new Intl.DateTimeFormat(lang(), { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: zone || undefined }).format(new Date(iso)) } catch { return iso }
+    try { return new Intl.DateTimeFormat(lang(), { weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: zone || undefined }).format(new Date(iso)) } catch { return iso }
+  }
+  // The day of an instant in a zone: "2026-11-12".
+  const dayIn = (iso, zone) => {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: zone || undefined, year: 'numeric', month: '2-digit', day: '2-digit' })
+        .formatToParts(new Date(iso)).map((x) => [x.type, x.value]))
+      return `${p.year}-${p.month}-${p.day}`
+    } catch { return '' }
+  }
+  // The bell of one occurrence. The reminder of a repeating event is for one
+  // occurrence, the one at its item time; the others have no bell.
+  const bellOf = (bells, o, zone) => {
+    const b = bells && bells[o.id]
+    if (!b || !b.itemTime) return b || null
+    return dayIn(b.itemTime, o.zone || zone) === (o.occurrence || String(o.start || '').slice(0, 10)) ? b : null
   }
   // The reminders of the owner's watches, by event ID. A host without watches
   // gives none, and the page shows no bell.
@@ -216,7 +232,7 @@ export function createAddon(sdk) {
     if (groups.length === 0) return h('p', { className: 'cal-empty', 'data-testid': 'calendar-empty' }, t('calendar.agenda.empty', { days: AGENDA_DAYS }))
     return h('div', { className: 'cal-agenda', 'data-testid': 'calendar-agenda' }, groups.map((g) => h('section', { key: g.date, className: 'cal-agenda__day' },
       h('h3', null, dayLabel(g.date)),
-      h('ul', null, g.items.map((o, i) => h(EventLine, { key: `${o.id}${o.occurrence}${i}`, o, onOpen: onPick, bell: bells && bells[o.id], zone }))))))
+      h('ul', null, g.items.map((o, i) => h(EventLine, { key: `${o.id}${o.occurrence}${i}`, o, onOpen: onPick, bell: bellOf(bells, o, zone), zone }))))))
   }
 
   function Component({ page }) {
@@ -294,7 +310,7 @@ export function createAddon(sdk) {
           h('button', { type: 'button', className: 'btn btn-primary', onClick: () => create(), 'data-testid': 'calendar-new' }, t('calendar.new')))),
       more ? h('p', { className: 'cal-hint', role: 'status' }, t('calendar.truncated')) : null,
       form ? h(EventForm, { key: form.id || 'new', initial: form, zone, onSaved: reload, onCancel: () => setForm(null) }) : null,
-      picked ? h(Detail, { key: picked.id + picked.occurrence, o: picked, onEdit: edit, onDeleted: reload, onClose: () => setPicked(null), bell: bells[picked.id], zone, onBellChanged: async () => setBells(await readBells()) }) : null,
+      picked ? h(Detail, { key: picked.id + picked.occurrence, o: picked, onEdit: edit, onDeleted: reload, onClose: () => setPicked(null), bell: bellOf(bells, picked, zone), zone, onBellChanged: async () => setBells(await readBells()) }) : null,
       view === 'month'
         ? h(Month, { cursor, today, occurrences: occ, onPick: setPicked, onDay: create })
         : h(Agenda, { occurrences: occ, onPick: setPicked, bells, zone }),

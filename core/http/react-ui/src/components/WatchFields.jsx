@@ -1,12 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Callout } from './ui'
-import { OFFSET_CHOICES, offsetParts } from '../utils/watch'
+import { OFFSET_CHOICES, offsetWords } from '../utils/watch'
 
 // The Watch section of the trigger form: which add-on to watch, which of its
 // changes, and the reminder rule. It takes the place of the schedule section
 // for a watch. Only add-ons that report their changes are offered; with none,
 // the section says how to get one.
-// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 export default function WatchFields({ watch, zone, sources, onChange, problem }) {
   const { t } = useTranslation('chats')
   const set = (field, value) => onChange({ ...watch, [field]: value })
@@ -18,10 +17,7 @@ export default function WatchFields({ watch, zone, sources, onChange, problem })
     )
   }
   const source = (sources || []).find((s) => s.id === watch.source)
-  const offsetLabel = (m) => {
-    const o = offsetParts(m)
-    return t(`watch.${o.key}`, { count: o.count })
-  }
+  const offsetLabel = (m) => offsetWords(t, m)
   const toggleType = (type) => {
     const has = watch.types.includes(type)
     set('types', has ? watch.types.filter((x) => x !== type) : [...watch.types, type])

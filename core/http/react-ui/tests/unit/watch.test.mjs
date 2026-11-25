@@ -6,7 +6,17 @@ import { fileURLToPath } from 'node:url'
 
 import { jobLine, jobMark } from '../../src/utils/agentJobs.js'
 import { runTone } from '../../src/utils/chatTrigger.js'
-import { deniedWords, emptyWatch, localInput, offsetParts, retimePatch, undoPatch, watchForm, watchPayload, watchProblem, whenText } from '../../src/utils/watch.js'
+import { emptyWatch, localInput, offsetParts, offsetWords, reminderOffsetWords, retimePatch, ruleOffsetWords, undoPatch, watchForm, watchPayload, watchProblem, whenText } from '../../src/utils/watch.js'
+
+// Words the owner must never read: internal terms of the host. A watch is
+// never called a trigger, except as the name of the page.
+const DENIED_WORDS = ['payload', 'reconcil', 'actor', 'dedupe', 'event id', ' key', 'webhook']
+
+// The denied words a text holds, lower case; empty when it is clean.
+function deniedWords(text) {
+  const lower = ` ${String(text || '').toLowerCase()}`
+  return DENIED_WORDS.filter((w) => lower.includes(w))
+}
 
 test('a watch rule goes to the form and back unchanged', () => {
   const stored = { source: 'calendar', watch: { offset_minutes: -30, all_day: 'none', quiet_from: '22:00', quiet_to: '07:00', tasks: 'brief for calls', types: ['calendar.event.created'] } }
@@ -43,11 +53,37 @@ test('an offset is said in the largest whole unit', () => {
 
 test('a due time is the weekday and time in the zone, with the date when far away', () => {
   const now = new Date('2026-11-25T09:00:00Z')
-  assert.equal(whenText('2026-11-26T14:45:00Z', 'UTC', now, 'en-GB'), 'Thu 14:45')
-  assert.equal(whenText('2026-11-26T14:45:00Z', 'Europe/Rome', now, 'en-GB'), 'Thu 15:45')
-  assert.match(whenText('2026-12-10T14:45:00Z', 'UTC', now, 'en-GB'), /10 Dec/)
+  assert.equal(whenText('2026-11-26T14:45:00Z', 'UTC', now, 'en-GB', 'UTC'), 'Thu 14:45')
+  assert.equal(whenText('2026-11-26T14:45:00Z', 'Europe/Rome', now, 'en-GB', 'Europe/Rome'), 'Thu 15:45')
+  assert.match(whenText('2026-12-10T14:45:00Z', 'UTC', now, 'en-GB', 'UTC'), /10 Dec/)
   assert.equal(whenText('', 'UTC', now), '')
   assert.equal(localInput('2026-11-26T14:45:00Z', 'Europe/Rome'), '2026-11-26T15:45')
+})
+
+test('a due time after midnight reads 00, never 24', () => {
+  const now = new Date('2026-11-25T09:00:00Z')
+  assert.equal(whenText('2026-11-26T00:05:00Z', 'UTC', now, 'en-US', 'UTC'), 'Thu 00:05')
+  assert.equal(whenText('2026-11-26T00:05:00Z', 'UTC', now, 'it', 'UTC').endsWith('00:05'), true)
+  assert.equal(localInput('2026-11-26T00:05:00Z', 'UTC'), '2026-11-26T00:05')
+})
+
+test('a due time names its zone when the viewer\'s clock reads another time', () => {
+  const now = new Date('2026-11-25T09:00:00Z')
+  const there = whenText('2026-11-26T14:45:00Z', 'Europe/Rome', now, 'en-GB', 'America/New_York')
+  assert.match(there, /15:45/, there)
+  assert.match(there, /CET|GMT\+1/, there)
+  assert.equal(whenText('2026-11-26T14:45:00Z', 'Europe/Berlin', now, 'en-GB', 'Europe/Rome'), 'Thu 15:45', 'the same clock needs no zone')
+})
+
+test('the offset of a rule and of a reminder are said the same way everywhere', () => {
+  const t = (key, o) => (o && 'count' in o ? `${key}:${o.count}` : key)
+  assert.equal(offsetWords(t, -15), 'watch.minutesBefore:15')
+  assert.equal(offsetWords(t, -60, 'chats:'), 'chats:watch.hoursBefore:1')
+  assert.equal(ruleOffsetWords(t, { no_default: true }), 'watch.none')
+  assert.equal(ruleOffsetWords(t, { offset_minutes: -1440 }), 'watch.daysBefore:1')
+  assert.equal(reminderOffsetWords(t, { adjusted: 'quiet', offset_minutes: -15 }), 'watch.adjQuiet')
+  assert.equal(reminderOffsetWords(t, { adjusted: 'all_day' }), 'watch.adjAllDay')
+  assert.equal(reminderOffsetWords(t, { offset_minutes: 0 }), 'watch.atTime:0')
 })
 
 test('each action has an undo that sends the old values back', () => {

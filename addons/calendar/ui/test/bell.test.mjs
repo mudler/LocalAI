@@ -79,3 +79,15 @@ test('bell: an event without a reminder has no reminder in its details', async (
   assert.equal(m.el.querySelector('[data-testid="calendar-reminder"]'), null)
   await m.close()
 })
+
+test('bell: a repeating event shows the bell only on the occurrence its reminder is for', async () => {
+  const day1 = { ...yoga, occurrence: '2026-11-12', repeat: { freq: 'daily' } }
+  const day2 = { ...yoga, start: '2026-11-13T18:00', end: '2026-11-13T19:00', occurrence: '2026-11-13', repeat: { freq: 'daily' } }
+  const forDay2 = { ...bell, due: '2026-11-13T17:45:00Z', itemTime: '2026-11-13T18:00:00Z' }
+  const m = await mount({}, 'CalendarAgenda', { occurrences: [day1, day2], onPick() {}, bells: { 'ev-2': forDay2 }, zone: 'UTC' })
+  const lines = [...m.el.querySelectorAll('[data-testid="calendar-event"]')]
+  assert.equal(lines.length, 2)
+  assert.equal(lines[0].querySelector('[data-testid="calendar-bell"]'), null, 'the first occurrence has no reminder')
+  assert.ok(lines[1].querySelector('[data-testid="calendar-bell"]'))
+  await m.close()
+})

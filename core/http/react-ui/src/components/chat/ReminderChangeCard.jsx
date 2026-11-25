@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { offsetParts, whenText } from '../../utils/watch'
+import { reminderOffsetWords, whenText } from '../../utils/watch'
 import Icon from '../Icon'
 import { Button } from '../ui'
 
@@ -9,14 +9,7 @@ import { Button } from '../ui'
 function reminderWhen(r, t, lang, zone) {
   if (!r) return t('watch.change.none')
   if (!r.due) return t('watch.started')
-  let offset
-  if (r.adjusted === 'quiet') offset = t('watch.adjQuiet')
-  else if (r.adjusted === 'all_day') offset = t('watch.adjAllDay')
-  else {
-    const o = offsetParts(r.offset_minutes)
-    offset = t(`watch.${o.key}`, { count: o.count })
-  }
-  return t('watch.dueLine', { when: whenText(r.due, zone || undefined, new Date(), lang), offset })
+  return t('watch.dueLine', { when: whenText(r.due, zone || undefined, new Date(), lang), offset: reminderOffsetWords(t, r) })
 }
 
 // The body of the change card for a change of a reminder that the model
@@ -24,7 +17,6 @@ function reminderWhen(r, t, lang, zone) {
 // time and task before and after, with Approve, Edit (the watch page, where
 // the time is changed by hand) and Not now. Once answered it is a receipt;
 // an applied change has Undo while it can be undone.
-// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 export default function ReminderChangeCard({ view, busy, apply, dismiss, undo, alert }) {
   const { t, i18n } = useTranslation('chats')
   const { op, reminder } = view

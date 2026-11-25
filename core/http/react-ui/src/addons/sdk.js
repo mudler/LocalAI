@@ -452,7 +452,8 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
         const rows = await host.reminders(addonId)
         return (Array.isArray(rows) ? rows : []).map((r) => Object.freeze({
           id: String(r.id || ''), itemId: String(r.item_id || ''), watchId: String(r.watch_id || ''),
-          due: typeof r.due === 'string' ? r.due : null, skipped: r.skipped === true,
+          due: typeof r.due === 'string' ? r.due : null, itemTime: typeof r.item_time === 'string' ? r.item_time : null,
+          skipped: r.skipped === true,
         }))
       },
       async skip(watchId, id) {

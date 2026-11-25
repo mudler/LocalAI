@@ -39,7 +39,7 @@ import ReportsTo from '../components/agents/ReportsTo'
 import EventHook, { EventSentence } from '../components/chat/EventHook'
 import WatchFields from '../components/WatchFields'
 import WatchReminders from '../components/WatchReminders'
-import { emptyWatch, offsetParts, watchProblem } from '../utils/watch'
+import { emptyWatch, offsetWords, watchProblem } from '../utils/watch'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import DeliveryField from '../components/agents/DeliveryField'
@@ -493,7 +493,7 @@ const show = (v) => displayValue(v === false ? 'false' : v)
 
 // eslint-disable-next-line no-unused-vars
 function TaskForm({ id, isNew }) {
-  const { t } = useTranslation(['agents', 'chats'])
+  const { t, i18n } = useTranslation(['agents', 'chats'])
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const location = useLocation()
@@ -504,6 +504,8 @@ function TaskForm({ id, isNew }) {
     return start
   })
   const [sources, setSources] = useState(null)
+  const [sourcesError, setSourcesError] = useState(null)
+  const [sourcesAttempt, setSourcesAttempt] = useState(0)
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState(null)
   const [attempt, setAttempt] = useState(0)
@@ -515,14 +517,18 @@ function TaskForm({ id, isNew }) {
   const [next, setNext] = useState({ text: '', error: '' })
   const initial = useRef(isNew ? triggerPayload(task) : null)
   const isWatch = !!task.watch
-  // The add-ons a watch can watch, in the language of the page.
-  const { i18n } = useTranslation()
+  // The add-ons a watch can watch, in the language of the page. A failed read
+  // says so: an empty list would tell the owner that no add-on reports
+  // changes.
   useEffect(() => {
     if (!isWatch) return undefined
     let live = true
-    chatTriggersApi.sources(i18n.language).then((r) => { if (live) setSources(r.sources || []) }).catch(() => { if (live) setSources([]) })
+    setSourcesError(null)
+    chatTriggersApi.sources(i18n.language)
+      .then((r) => { if (live) setSources(r.sources || []) })
+      .catch((err) => { if (live) setSourcesError(err) })
     return () => { live = false }
-  }, [isWatch, i18n.language])
+  }, [isWatch, i18n.language, sourcesAttempt])
   const watchIssue = isWatch ? watchProblem(task.watch, sources) : ''
   // Where the runs report. The stored trigger shows where it reports now; the
   // choice starts there, and only a changed choice is sent, so a save that
@@ -678,9 +684,9 @@ function TaskForm({ id, isNew }) {
     if (sid === 'prompt') return task.prompt.trim() ? { state: 'ready', text: firstLine(task.prompt, 70) } : { state: 'needs', text: t('jobs.edit.summary.promptEmpty') }
     if (sid === 'schedule' && isWatch) {
       if (watchIssue) return { state: 'needs', text: t(watchIssue === 'quiet' ? 'chats:watch.problemQuiet' : 'chats:watch.problemSource') }
-      const o = task.watch.offset === 'none' ? null : offsetParts(Number(task.watch.offset))
+      const offset = task.watch.offset === 'none' ? t('chats:watch.none') : offsetWords(t, Number(task.watch.offset), 'chats:')
       const src = (sources || []).find((x) => x.id === task.watch.source)
-      return { state: 'ready', text: t('chats:watch.summary', { source: src?.title || task.watch.source, offset: o ? t(`chats:watch.${o.key}`, { count: o.count }) : t('chats:watch.none') }) }
+      return { state: 'ready', text: t('chats:watch.summary', { source: src?.title || task.watch.source, offset }) }
     }
     if (sid === 'schedule') {
       if (next.error) return { state: 'needs', text: next.error }
@@ -785,7 +791,7 @@ function TaskForm({ id, isNew }) {
   }
 
   const leave = () => navigate(isNew ? '/app/triggers' : `/app/triggers/${encodeURIComponent(id)}`)
-  const saveLabel = isWatch ? t('chats:watch.saveTime') : isNew ? t('jobs.edit.create') : t('jobs.edit.save')
+  const saveLabel = isWatch ? t('chats:watch.save') : isNew ? t('jobs.edit.create') : t('jobs.edit.save')
 
   const renderSection = (sid) => {
     if (sid === 'basics') {
@@ -857,7 +863,9 @@ function TaskForm({ id, isNew }) {
     if (sid === 'schedule' && isWatch) {
       return (
         <>
-          <WatchFields watch={task.watch} zone={task.zone} sources={sources} onChange={(w) => set('watch', w)} problem={tried ? watchIssue : ''} />
+          {sourcesError
+            ? <LoadError title={t('chats:watch.sourcesFailed')} error={sourcesError} onRetry={() => setSourcesAttempt((n) => n + 1)} />
+            : <WatchFields watch={task.watch} zone={task.zone} sources={sources} onChange={(w) => set('watch', w)} problem={tried ? watchIssue : ''} />}
           <div className="dk-field">
             <label className="dk-label" htmlFor="aj-zone-w">{t('chats:triggersPage.zone')}</label>
             <input id="aj-zone-w" className="dk-input" value={task.zone} onChange={(e) => set('zone', e.target.value)} />

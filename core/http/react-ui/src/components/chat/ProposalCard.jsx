@@ -6,7 +6,7 @@ import { useWellKnown } from '../../hooks/useWellKnown'
 import { widgetList } from '../../utils/wellKnown'
 import { plainSummary } from '../../utils/widgetTrigger'
 import { ActsSummary } from '../TriggerActs'
-import { offsetParts } from '../../utils/watch'
+import { ruleOffsetWords } from '../../utils/watch'
 import Icon from '../Icon'
 import { Button } from '../ui'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
@@ -38,7 +38,7 @@ function Plan({ p, t }) {
   const tokens = cost.estimated_tokens || 0
 
   let when
-  if (p.watch) when = t('watch.summary', { source: p.source, offset: p.watch.no_default ? t('watch.none') : t(`watch.${offsetParts(p.watch.offset_minutes).key}`, { count: offsetParts(p.watch.offset_minutes).count }) })
+  if (p.watch) when = t('watch.summary', { source: p.source, offset: ruleOffsetWords(t, p.watch) })
   else if (p.kind === 'event') when = <EventSentence trigger={p} />
   else if (p.kind === 'file') when = t('proposal.plan.whenFile', { folder: p.folder })
   else if (first) when = t('proposal.plan.when', { schedule: plainSummary(p), zone, when: first })
@@ -69,9 +69,7 @@ function Plan({ p, t }) {
     : t(mode === 'proposal.plan.deliveryModeOnChange' ? 'proposal.plan.tellsOnChange' : mode === 'proposal.plan.deliveryModeOnProblem' ? 'proposal.plan.tellsOnProblem' : 'proposal.plan.tellsEvery')
   let does = firstSentence(p.prompt)
   if (p.watch) {
-    const o = p.watch.no_default ? null : offsetParts(p.watch.offset_minutes)
-    const offset = o ? t(`watch.${o.key}`, { count: o.count }) : t('watch.none')
-    does = t('proposal.plan.doesWatch', { source: p.source, offset })
+    does = t('proposal.plan.doesWatch', { source: p.source, offset: ruleOffsetWords(t, p.watch) })
   }
   const rows = [
     ['when', when],
