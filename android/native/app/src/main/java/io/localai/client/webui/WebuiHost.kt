@@ -41,6 +41,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.WebViewCompat
 import io.localai.client.R
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /** What the WebUI view tells the client core (through the WebuiView plugin). */
 interface WebuiEvents {
@@ -70,6 +72,8 @@ class WebuiHost(
 ) {
     private val permissions = PermissionStoreHolder()
     private val main = Handler(Looper.getMainLooper())
+    private val downloads: ExecutorService = Executors.newSingleThreadExecutor()
+    private val downloadResolver = DownloadResolver()
 
     private var webView: WebView? = null
 
@@ -211,6 +215,7 @@ class WebuiHost(
     }
 
     fun onDestroy() {
+        downloads.shutdownNow()
         close()
         runtimeLauncher?.unregister()
         fileLauncher?.unregister()
@@ -568,12 +573,30 @@ class WebuiHost(
         }
         if ((scheme != "http" && scheme != "https") || WebuiPolicy.httpOrigin(url) == null) return
         val name = WebuiPolicy.sanitizeFileName(URLUtil.guessFileName(url, contentDisposition, mimeType))
+        val origin = serverOrigin
+        // The sign-in cookie goes only to the server itself.
+        val cookie = if (origin != null && WebuiPolicy.httpOrigin(url) == origin) Profiles.cookieManager(wv).getCookie(url) else null
+        if (origin == null || cookie == null) {
+            enqueue(url, null, name, userAgent, mimeType)
+            return
+        }
+        // Redirects are followed first, off the UI thread, so the cookie never
+        // reaches another host through DownloadManager's own redirects.
+        downloads.execute {
+            val t = downloadResolver.resolve(url, origin, cookie, userAgent)
+            main.post { enqueue(t.url, t.cookie, name, userAgent, mimeType) }
+        }
+    }
+
+    private fun enqueue(url: String, cookie: String?, name: String, userAgent: String?, mimeType: String?) {
+        val scheme = url.toUri().scheme?.lowercase()
+        if (scheme != "http" && scheme != "https") {
+            toast(R.string.webui_download_failed)
+            return
+        }
         try {
             val req = DownloadManager.Request(url.toUri())
-            // The sign-in cookie goes only to the server itself.
-            if (WebuiPolicy.httpOrigin(url) == serverOrigin) {
-                Profiles.cookieManager(wv).getCookie(url)?.let { req.addRequestHeader("Cookie", it) }
-            }
+            cookie?.let { req.addRequestHeader("Cookie", it) }
             if (!userAgent.isNullOrEmpty()) req.addRequestHeader("User-Agent", userAgent)
             if (!mimeType.isNullOrEmpty()) req.setMimeType(mimeType)
             req.setTitle(name)
