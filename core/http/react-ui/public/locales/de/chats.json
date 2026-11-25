@@ -1671,5 +1671,21 @@
       "createdTitle": "{{name}} ist bereit",
       "done": "Fertig"
     }
+  },
+  "incognito": {
+    "label": "Inkognito",
+    "levelLabel": "Inkognito-Stufe",
+    "levels": {
+      "memory-off": "Ohne Gedächtnis",
+      "zero-retention": "Keine Speicherung"
+    },
+    "describe": {
+      "memory-off": "Dieser Chat liest und speichert kein Gedächtnis. Er erscheint in keiner Liste und endet, wenn du ihn verlässt. Protokolle und Traces bleiben wie gewohnt.",
+      "zero-retention": "Der Server behält nichts von diesem Chat, nur Nutzungszähler. Er liest und speichert kein Gedächtnis, nimmt keine Anhänge an und endet, wenn du ihn verlässt."
+    },
+    "blocked": "In einem Inkognito-Chat nicht verfügbar",
+    "discardTitle": "Inkognito-Chat beenden?",
+    "discardMessage": "Der Chat wird gelöscht und kann nicht wieder geöffnet werden.",
+    "discardConfirm": "Chat beenden"
   }
 }
