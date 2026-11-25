@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -528,6 +529,10 @@ func (h *Changes) knowledgeGate(ctx context.Context, c builtins.Chat, scope *str
 // the server can add to collections, the Knowledge switch of the chat is on,
 // and an agent has at least one collection on its list.
 func (s *Service) knowledgeOffered(ctx context.Context, c builtins.Chat) bool {
+	// Knowledge is long-term memory: an incognito chat writes none.
+	if !privacy.Allows(ctx, privacy.StoreMemory) || s.incognito.Level(c.Actor.ChatID).Incognito() {
+		return false
+	}
 	if !s.knowledgeAvailable(ctx, c.Actor.Principal) || slices.Contains(c.GroupsOff, builtins.GroupCollections) {
 		return false
 	}
