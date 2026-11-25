@@ -325,6 +325,11 @@ export class ClientCore {
     }
   }
 
+  /** The config store, shared with the APK updater (its daily-check settings live in the same file). */
+  configStore(): ConfigStore {
+    return this.store
+  }
+
   /** The updater's state: a downloaded update brings the bar's update pill. */
   setUpdaterStatus(status: UpdaterStatus): void {
     this.webuiDispatch({ type: 'inputs', patch: { updateReady: status.phase === 'downloaded' } })

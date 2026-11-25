@@ -27,6 +27,7 @@ import type {
   WebuiViewState,
 } from '../../shared/types'
 import type {
+  ApkUpdateView,
   Bridge,
   BridgeExtras,
   InstallDetailsView,
@@ -77,6 +78,8 @@ export interface FakeState {
   pickedFolder?: string | { refused: FolderRefusal }
   /** What a QR scan reads. Undefined: the scan was cancelled. */
   scan?: string
+  /** What the APK update sheet reads. Default: no offer, installs allowed. */
+  apkUpdate?: ApkUpdateView
 }
 
 export const ENDPOINT = 'http://127.0.0.1:8080'
@@ -195,6 +198,8 @@ export interface FakeBridge extends Bridge {
   emitOpenSwitcher(): void
   /** A link or shared text reached the app. */
   emitInviteLink(text: string): void
+  /** The updater state changed. */
+  emitUpdater(s: UpdaterStatus): void
 }
 
 type Listener<T> = Set<(v: T) => void>
@@ -471,6 +476,9 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     stopWorker: () => rec('stopWorker', { ...(s.worker as WorkerView), running: false, status: 'idle' as const }),
     scanInvite: () => rec('scanInvite', s.scan),
     onInviteLink: (cb) => sub(ls.invite, cb),
+    getApkUpdate: () => rec('getApkUpdate', s.apkUpdate ?? { canInstall: true }),
+    openInstallSettings: () => rec('openInstallSettings', undefined),
+    getDevApp: () => rec('getDevApp', undefined),
   }
 
   const pick = opts.extras ?? true
@@ -499,6 +507,10 @@ export function fakeBridge(state: FakeState, opts: { extras?: boolean | Optional
     },
     emitOpenSwitcher: () => ls.switcher.forEach((cb) => cb()),
     emitInviteLink: (text: string) => ls.invite.forEach((cb) => cb(text)),
+    emitUpdater: (v: UpdaterStatus) => {
+      s.updater = v
+      ls.updater.forEach((cb) => cb(v))
+    },
   }) as FakeBridge
 }
 

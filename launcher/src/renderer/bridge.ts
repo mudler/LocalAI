@@ -40,6 +40,16 @@ export interface WorkerView {
   message?: string
 }
 
+/** The app update of an APK (`selfUpdate: 'apk'`), as the update sheet shows it. */
+export interface ApkUpdateView {
+  /** The newer release, once a check found one. `downloaded`: the file is checked and ready to install. */
+  offer?: { version: string; size: number; notesUrl: string; downloaded: boolean }
+  /** Android lets this app install updates ("Allow from this source" is on). */
+  canInstall: boolean
+  /** Android has the update: it installs it (`installing`), or showed its own confirmation (`confirm`). */
+  install?: 'installing' | 'confirm'
+}
+
 /** Channels the other lanes add. All optional; see the comment at the top. */
 export interface BridgeExtras {
   // distributed worker
@@ -54,6 +64,12 @@ export interface BridgeExtras {
   scanInvite(): Promise<string | undefined>
   /** Texts that reach the app from a `localai://pair` link or the share sheet, including the one it was opened with. */
   onInviteLink(cb: (text: string) => void): () => void
+  // app updates of an APK (the Android app)
+  getApkUpdate(): Promise<ApkUpdateView>
+  /** Opens the Android screen where the person allows this app to install updates. */
+  openInstallSettings(): Promise<void>
+  /** Opens the download of the development app (a separate app) in the browser. */
+  getDevApp(): Promise<void>
 }
 
 /**
@@ -92,4 +108,5 @@ export function missingExtras(b: Bridge): (keyof BridgeExtras)[] {
 /** Optional methods that no main-process channel answers yet. */
 export const EXTRA_NAMES: (keyof BridgeExtras)[] = [
   'getWorker', 'onWorker', 'setRunMode', 'testWorker', 'startWorker', 'stopWorker', 'scanInvite', 'onInviteLink',
+  'getApkUpdate', 'openInstallSettings', 'getDevApp',
 ]
