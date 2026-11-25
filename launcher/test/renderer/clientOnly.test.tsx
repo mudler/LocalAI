@@ -3,7 +3,7 @@
 // it. A call to a missing local method throws a TypeError in the shell: the
 // test fails on any console.error and on any unhandled rejection, so an
 // unguarded call is caught.
-import { fireEvent, render, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/App'
 import { LOCAL_SERVER_METHODS } from '../../src/shared/apiGroups'
@@ -111,6 +111,34 @@ describe('first connect', () => {
     expect(screen.getByTestId('invite-notice').textContent).toContain('This is not a LocalAI invite link.')
     expect(document.querySelector('[data-screen="first-connect"]')).toBeTruthy()
     expect(screen.queryByLabelText('Invite link')).toBeNull()
+    expect(called(b, 'addServerByInvite')).toHaveLength(0)
+  })
+
+  it('a scanner without a camera or without the camera permission says so, not "not an invite"', async () => {
+    for (const [code, text] of [
+      ['no-camera', 'This device has no camera.'],
+      ['permission-denied', 'The app may not use the camera.'],
+    ]) {
+      const b = await renderClient()
+      b.scanInvite = async () => {
+        throw Object.assign(new Error('scanner refused'), { code })
+      }
+      fireEvent.click(screen.getAllByTestId('first-connect-scan').at(-1)!)
+      await settle()
+      const notice = screen.getAllByTestId('invite-notice').at(-1)!.textContent ?? ''
+      expect(notice).toContain(text)
+      expect(notice).not.toContain('not a LocalAI invite')
+      expect(called(b, 'addServerByInvite')).toHaveLength(0)
+      cleanup()
+    }
+  })
+
+  it('a shared link wrapped in <>, quotes and a full stop still opens the invite step', async () => {
+    const b = await renderClient()
+    b.emitInviteLink(`"<${INVITE}>".`)
+    await settle()
+    expect((screen.getByLabelText('Invite link') as HTMLTextAreaElement).value).toBe(INVITE)
+    expect(screen.queryByTestId('invite-notice')).toBeNull()
     expect(called(b, 'addServerByInvite')).toHaveLength(0)
   })
 

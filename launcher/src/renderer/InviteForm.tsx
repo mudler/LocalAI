@@ -6,7 +6,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, Icon } from '@localai/ui-kit'
 import { hasLocal, useBridge } from './bridge'
-import { invitePreview, isInviteText, type InvitePreviewView } from './invitePreview'
+import { cleanInviteText, invitePreview, isInviteText, scanErrorMessage, type InvitePreviewView } from './invitePreview'
 import { S } from './strings'
 import { clockTime } from './viewModel'
 
@@ -126,18 +126,19 @@ export function InviteForm(p: InviteFormProps) {
     let text: string | undefined
     try {
       text = await p.onScan()
-    } catch {
-      setError(S.invitePreview.scanFailed)
+    } catch (e) {
+      setError(scanErrorMessage(e))
       return
     } finally {
       setScanning(false)
     }
     if (text === undefined) return
-    if (!isInviteText(text, p.now ?? Date.now())) {
+    const link = cleanInviteText(text)
+    if (!isInviteText(link, p.now ?? Date.now())) {
       setError(S.invitePreview.notInvite)
       return
     }
-    fill(text.trim())
+    fill(link)
   }
 
   const linkId = `${ids}-link`

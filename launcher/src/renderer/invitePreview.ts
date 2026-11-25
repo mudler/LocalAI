@@ -4,6 +4,7 @@
 import { linkRoutes, readInvite, type InviteProblem } from '../core/p2pInvite'
 import type { Capabilities } from '../shared/types'
 import type { Bridge } from './bridge'
+import { S } from './strings'
 
 export type { InviteProblem }
 
@@ -47,6 +48,45 @@ export function invitePreview(link: string, now: number): InvitePreviewView | { 
 export function isInviteText(text: string, now: number): boolean {
   const v = invitePreview(text, now)
   return v !== undefined && !('problem' in v && v.problem === 'invite-invalid')
+}
+
+// Pairs a messenger or a QR code may wrap a link in: <...>, straight and
+// curly double and single quotes.
+const WRAPPERS: [string, string][] = [
+  ['<', '>'],
+  ['"', '"'],
+  ["'", "'"],
+  ['\u201c', '\u201d'],
+  ['\u2018', '\u2019'],
+]
+
+/**
+ * Text from the share sheet or a QR code without what is often around a
+ * link in a message: spaces, surrounding <> or quotes, a trailing full stop.
+ * Only the outside is touched; the link itself is not changed.
+ */
+export function cleanInviteText(text: string): string {
+  let t = text.trim()
+  for (;;) {
+    const before = t
+    if (t.endsWith('.')) t = t.slice(0, -1).trimEnd()
+    for (const [open, close] of WRAPPERS) {
+      if (t.length >= 2 && t.startsWith(open) && t.endsWith(close)) t = t.slice(open.length, -close.length).trim()
+    }
+    if (t === before) return t
+  }
+}
+
+/**
+ * The message for a scan that failed. The scanner's own reasons (no camera,
+ * camera permission refused) get their own text: a failed scan is never
+ * "not an invite".
+ */
+export function scanErrorMessage(e: unknown): string {
+  const code = typeof e === 'object' && e !== null ? (e as { code?: unknown }).code : undefined
+  if (code === 'no-camera') return S.invitePreview.scanNoCamera
+  if (code === 'permission-denied') return S.invitePreview.scanPermissionDenied
+  return S.invitePreview.scanFailed
 }
 
 /** The QR scan the invite screens offer: only where the platform says it can scan and the bridge has a scanner. */

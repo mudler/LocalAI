@@ -850,6 +850,8 @@ export const S = {
     close: 'Close',
     scan: 'Scan QR code',
     scanFailed: 'The QR code could not be scanned. Check that the app may use the camera, then try again.',
+    scanNoCamera: 'This device has no camera. Paste the invite link instead.',
+    scanPermissionDenied: 'The app may not use the camera. Allow the camera for LocalAI in the Android settings, or paste the invite link.',
     unnamed: 'LocalAI server',
     kind: { device: 'Device invite · works once', remote: 'Remote invite' } as Record<string, string>,
     left: (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`,

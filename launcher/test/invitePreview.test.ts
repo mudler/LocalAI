@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { invitePreview, isInviteText } from '../src/renderer/invitePreview'
+import { cleanInviteText, invitePreview, isInviteText, scanErrorMessage } from '../src/renderer/invitePreview'
 
 const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
 const NOW = new Date(2026, 10, 14, 14, 30).getTime()
@@ -51,5 +51,35 @@ describe('invitePreview', () => {
     expect(isInviteText('hello', NOW)).toBe(false)
     expect(isInviteText('', NOW)).toBe(false)
     expect(isInviteText('https://example.com/?x=localai://pair', NOW)).toBe(false)
+  })
+})
+
+describe('cleanInviteText', () => {
+  it('drops spaces, surrounding <> and quotes, and a trailing full stop', () => {
+    const l = link()
+    expect(cleanInviteText(`  ${l}\n`)).toBe(l)
+    expect(cleanInviteText(`<${l}>`)).toBe(l)
+    expect(cleanInviteText(`"${l}"`)).toBe(l)
+    expect(cleanInviteText(`'${l}'`)).toBe(l)
+    expect(cleanInviteText(`\u201c${l}\u201d`)).toBe(l)
+    expect(cleanInviteText(`${l}.`)).toBe(l)
+    expect(cleanInviteText(`"<${l}>".`)).toBe(l)
+    expect(isInviteText(cleanInviteText(`<${l}>.`), NOW)).toBe(true)
+  })
+
+  it('leaves other text and unmatched marks alone', () => {
+    expect(cleanInviteText('hello')).toBe('hello')
+    expect(cleanInviteText('<abc')).toBe('<abc')
+    expect(cleanInviteText('')).toBe('')
+  })
+})
+
+describe('scanErrorMessage', () => {
+  it('gives the scanner reasons their own text, and a generic one otherwise', () => {
+    expect(scanErrorMessage({ code: 'no-camera' })).toContain('no camera')
+    expect(scanErrorMessage({ code: 'permission-denied' })).toContain('may not use the camera')
+    expect(scanErrorMessage(new Error('boom'))).toContain('could not be scanned')
+    expect(scanErrorMessage(undefined)).toContain('could not be scanned')
+    for (const m of [scanErrorMessage({ code: 'no-camera' }), scanErrorMessage({ code: 'permission-denied' })]) expect(m).not.toContain('not a LocalAI invite')
   })
 })

@@ -3,7 +3,7 @@ import type { ShellInsets, ShellScreen } from '../shared/types'
 import { Button, Callout, Icon } from '@localai/ui-kit'
 import { FirstChooseScreen, FirstConnectScreen, RemoteUnreachableScreen, SwitchFailedCard, SwitchingCard } from './screens/ServerScreens'
 import { InviteForm } from './InviteForm'
-import { inviteScanner, isInviteText } from './invitePreview'
+import { cleanInviteText, inviteScanner, isInviteText, scanErrorMessage } from './invitePreview'
 import { ServerForm } from './ServerForm'
 import type { ShellScreenId } from './bridge'
 import { useBridge } from './bridge'
@@ -105,11 +105,11 @@ export function Shell({ now }: { now?: number }) {
   useEffect(() => {
     if (!incoming || !base) return
     setIncoming(undefined)
-    if (!isInviteText(incoming.text, now ?? Date.now())) {
+    const link = cleanInviteText(incoming.text)
+    if (!isInviteText(link, now ?? Date.now())) {
       setNotice(S.invitePreview.notInvite)
       return
     }
-    const link = incoming.text.trim()
     setNotice(undefined)
     setPopover(null)
     if (base === 'first-connect') {
@@ -215,8 +215,8 @@ export function Shell({ now }: { now?: number }) {
     try {
       const text = await scanner()
       if (text !== undefined) setIncoming({ text, seq: ++incomingSeq.current })
-    } catch {
-      setNotice(S.invitePreview.scanFailed)
+    } catch (e) {
+      setNotice(scanErrorMessage(e))
     }
   }
   const leaveInvite = () => {
