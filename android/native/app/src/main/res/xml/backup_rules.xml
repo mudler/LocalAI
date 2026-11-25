@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Android 11 and earlier. Keep in step with data_extraction_rules.xml.
+     - The P2P identity lives in noBackupFilesDir, which Android never backs up.
+     - WebView data (cookies and sign-in sessions of every server profile) stays
+       on this device: app_webview/ holds the default profile and every named
+       profile (the app sets no data directory suffix).
+     - webui_profiles names the WebUI view profiles of this device only.
+     - p2p_plugin holds "notification permission asked": a new phone must ask again. -->
+<full-backup-content>
+    <exclude domain="root" path="app_webview/" />
+    <exclude domain="sharedpref" path="webui_profiles.xml" />
+    <exclude domain="sharedpref" path="p2p_plugin.xml" />
+</full-backup-content>

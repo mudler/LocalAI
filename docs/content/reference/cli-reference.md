@@ -235,6 +235,8 @@ See [Authentication & Authorization]({{%relref "/administration/authentication" 
 |-----------|---------|-------------|----------------------|
 | `--disable-chats` | `false` | Turn off the chats: the `/api/chats` API, saved agents, triggers, connectors and the agent tasks and jobs. Nothing of them starts | `$LOCALAI_DISABLE_CHATS` |
 | `--chats-auto-resume` | `false` | Resume a chat turn that a restart interrupted, with no click. It retries up to 3 times (after 15 seconds, 1 minute and 5 minutes), within 30 minutes of the interruption. Off by default: a person or the page resumes it. See [If a frontend dies]({{% relref "/administration/chats-deployment#clusters" %}}) | `$LOCALAI_CHATS_AUTO_RESUME` |
+| `--incognito` | | Whether web UI sessions may start incognito chats: `allow` or `forbid`. Empty: `allow`. See [Incognito chats]({{% relref "/features/chats-and-agents/incognito" %}}) | `$LOCALAI_INCOGNITO` |
+| `--incognito-max-level` | | The highest incognito level the server honours: `memory-off` or `zero-retention`. Empty: `zero-retention` | `$LOCALAI_INCOGNITO_MAX_LEVEL` |
 | `--disable-triggers` | `false` | Turn off triggers. Chats stay on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--disable-connector-talkback` | `false` | Turn off the tool with which an agent writes to a chat of its connection, and the reports of triggers to a channel (the rest of the connectors stays on) | `$LOCALAI_DISABLE_CONNECTOR_TALKBACK` |

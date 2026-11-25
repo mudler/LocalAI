@@ -41,7 +41,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 		if appConfig.EnableTracing {
 			trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 			startTime = time.Now()
-			traceID = trace.BeginBackendTrace(trace.BackendTrace{
+			traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{
 				Timestamp: startTime,
 				Type:      trace.BackendTraceScore,
 				ModelName: modelConfig.Name,
@@ -60,7 +60,7 @@ func ModelSystemOne(requestJSON string, loader *model.ModelLoader, modelConfig c
 			if err != nil {
 				errStr = "native decision backend failed"
 			}
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),

@@ -1,7 +1,9 @@
 // Pure mapping from the bridge state to what the shell shows. No React, no
 // bridge calls: every rule here is a function of its inputs, so the tests can
 // walk every server, install, updater and sandbox state.
+import { capabilitiesOf } from '../shared/apiGroups'
 import type {
+  Capabilities,
   InstallFailReason,
   InstallStateView,
   LauncherInfo,
@@ -23,7 +25,10 @@ import { S } from './strings'
 export type Tone = 'ok' | 'warn' | 'error' | 'idle' | 'accent'
 
 export interface ShellInput {
-  server: ServerSnapshot
+  /** The local server. Missing on a bridge without one. */
+  server?: ServerSnapshot
+  /** What the app can do. Missing means the set `info` gives, and the desktop set without it. */
+  capabilities?: Capabilities
   info?: LauncherInfo
   updater?: UpdaterStatus
   install?: InstallStateView
@@ -41,6 +46,11 @@ export interface ShellInput {
   /** The saved servers, the default and a switch under way. */
   servers?: ServersView
   updateInfo?: UpdateInfoView
+}
+
+/** The app runs a LocalAI server on this device. Without capabilities, the desktop answer. */
+export function localServer(i: ShellInput): boolean {
+  return (i.capabilities ?? capabilitiesOf(i.info)).localServer
 }
 
 // ---- the WebUI view as the main process reports it -------------------------------
@@ -167,10 +177,13 @@ export type BaseScreen =
   | 'first-choose'
   /** The remote default does not answer. */
   | 'remote-unreachable'
+  /** No local server and no server to show: add one (the app without a local server). */
+  | 'first-connect'
 
 /** The screen the state asks for, before the person opens one from the bar. */
 export function baseScreen(i: ShellInput): BaseScreen {
-  const state = i.server.state
+  if (!localServer(i)) return clientScreen(i)
+  const state = i.server?.state
   if (i.worker?.running) return 'worker'
   if (installBusy(i.install)) return 'installing'
   if (i.install?.kind === 'failed' && i.install.reason !== 'cancelled' && !i.installFailureSeen) return 'installing'
@@ -192,6 +205,20 @@ export function baseScreen(i: ShellInput): BaseScreen {
   return 'web'
 }
 
+/**
+ * Without a local server only a saved default can be shown. A default id that
+ * names no saved row (the core sends `local` then) asks for a server, so the
+ * area is never blank.
+ */
+function clientScreen(i: ShellInput): BaseScreen {
+  if (isRemote(i)) return i.webui?.remote ? 'remote-unreachable' : 'web'
+  // A switch from the first screen: it stays under the switching card.
+  if (i.servers?.switching) return 'first-connect'
+  const v = i.servers
+  if (v && v.rows.some((r) => r.id === v.defaultId)) return 'web'
+  return 'first-connect'
+}
+
 // ---- the status chip of the bar -----------------------------------------------
 
 export interface ChipView {
@@ -207,7 +234,8 @@ export interface ChipView {
 }
 
 export function chipView(i: ShellInput): ChipView {
-  if (i.worker?.running) {
+  const local = localServer(i)
+  if (local && i.worker?.running) {
     return { kind: 'worker', tone: 'ok', label: S.chip.worker, address: hostOf(i.worker.config.serverUrl), busy: false }
   }
   if (i.servers?.switching) {
@@ -218,12 +246,13 @@ export function chipView(i: ShellInput): ChipView {
     if (currentRow(i)?.insecure) return { kind: 'remote', tone: 'warn', label: S.chip.remoteInsecure, address: remoteHost(i), icon: 'warning', insecure: true, busy: false }
     return { kind: 'remote', tone: 'accent', label: S.chip.remote, address: remoteHost(i), icon: 'globe', busy: false }
   }
+  if (!local) return { kind: 'remote', tone: 'idle', label: S.chip.noServer, busy: false }
   if (installBusy(i.install)) {
-    const label = i.server.state === 'not-installed' && !i.installedVersion ? S.chip.installing : S.chip.updating
+    const label = i.server?.state === 'not-installed' && !i.installedVersion ? S.chip.installing : S.chip.updating
     return { kind: 'local', tone: 'accent', label, busy: true }
   }
-  const address = addressOf(i.server.endpoint)
-  switch (i.server.state) {
+  const address = addressOf(i.server?.endpoint ?? '')
+  switch (i.server?.state) {
     case 'ready':
       // Until LocalAI is on show the person sees "Starting", as on the first run screen.
       if (viewLoading(i)) return { kind: 'local', tone: 'accent', label: S.chip.starting, busy: true }
@@ -247,19 +276,24 @@ export function currentRow(i: ShellInput) {
   return i.servers?.rows.find((r) => r.isCurrent)
 }
 
-/** The Development channel is on and the window shows This computer: the chip stays in the bar. */
+/**
+ * The Development channel is on and the window shows This computer: the chip
+ * stays in the bar. A client-only app has no This computer; there the channel
+ * is the app's own (the development app), so the chip always shows with it.
+ */
 export function devChipShown(i: ShellInput): boolean {
+  if (!localServer(i)) return i.updateInfo?.channel === 'dev'
   return i.updateInfo?.channel === 'dev' && !isRemote(i) && !i.worker?.running
 }
 
 /** "This computer: running" next to a remote, when the user keeps the local server on. */
 export function keepLocalNote(i: ShellInput): boolean {
-  return isRemote(i) && !!i.servers?.keepLocal && i.servers.rows.find((r) => r.kind === 'local')?.status === 'running'
+  return localServer(i) && isRemote(i) && !!i.servers?.keepLocal && i.servers.rows.find((r) => r.kind === 'local')?.status === 'running'
 }
 
 /** The server is ready and the WebUI view is still loading in this window. */
 export function viewLoading(i: ShellInput): boolean {
-  return i.server.state === 'ready' && !!i.webui && !isRemote(i) && !inBrowser(i) && (!viewUp(i) || !i.webui.loaded)
+  return localServer(i) && i.server?.state === 'ready' && !!i.webui && !isRemote(i) && !inBrowser(i) && (!viewUp(i) || !i.webui.loaded)
 }
 
 export function hostOf(url: string): string {
@@ -278,11 +312,12 @@ export interface BarActions {
 }
 
 export function barActions(i: ShellInput): BarActions {
+  if (!localServer(i)) return { stopRestart: false, backToComputer: false, logs: false }
   const remote = isRemote(i)
   const local = !remote && !i.worker?.running
-  const freshInstall = i.server.state === 'not-installed' && !installBusy(i.install) && i.install?.kind !== 'failed'
+  const freshInstall = i.server?.state === 'not-installed' && !installBusy(i.install) && i.install?.kind !== 'failed'
   return {
-    stopRestart: local && i.server.state === 'ready' && !installBusy(i.install) && !viewLoading(i),
+    stopRestart: local && i.server?.state === 'ready' && !installBusy(i.install) && !viewLoading(i),
     backToComputer: false,
     logs: !remote && !freshInstall,
   }
@@ -297,8 +332,14 @@ export type UpdateOffer =
 
 /** The update the bar pill offers. A server update comes first: it is what the person runs. */
 export function updateOffer(i: ShellInput): UpdateOffer {
+  if (!localServer(i)) {
+    // An APK app opens its update sheet from the pill, which downloads first when needed.
+    const apk = (i.capabilities ?? capabilitiesOf(i.info)).selfUpdate === 'apk'
+    const ready = i.updater?.phase === 'downloaded' || (apk && i.updater?.phase === 'available')
+    return ready ? { kind: 'launcher', version: i.updater?.version } : null
+  }
   if (installBusy(i.install)) return null
-  if (i.install?.kind === 'update-available' && i.server.state !== 'not-installed') {
+  if (i.install?.kind === 'update-available' && i.server?.state !== 'not-installed') {
     return { kind: 'server', version: i.install.version, installed: i.install.installed ?? i.installedVersion }
   }
   if (i.updater?.phase === 'downloaded') return { kind: 'launcher', version: i.updater.version }
@@ -397,7 +438,7 @@ export type BarNeed = 'failed' | 'update' | 'sandbox-notice' | 'remote'
 /** The states that bring a hidden bar back by itself, because they need the person. */
 export function barNeeds(i: ShellInput): BarNeed[] {
   const needs: BarNeed[] = []
-  if (i.server.state === 'failed') needs.push('failed')
+  if (localServer(i) && i.server?.state === 'failed') needs.push('failed')
   if (updateOffer(i)) needs.push('update')
   if (i.sandbox?.notice.kind === 'shown') needs.push('sandbox-notice')
   if (isRemote(i)) needs.push('remote')
@@ -422,7 +463,8 @@ export type DotTone = 'ok' | 'warn' | 'error' | 'idle'
 
 /** The corner dot of a hidden bar: green ready, amber working or sandbox off, red failed, grey stopped. */
 export function dotTone(i: ShellInput): DotTone {
-  const s = i.server.state
+  if (!localServer(i)) return isRemote(i) ? 'ok' : 'idle'
+  const s = i.server?.state
   if (s === 'failed' || (i.install?.kind === 'failed' && !i.installFailureSeen)) return 'error'
   if (s === 'starting' || s === 'stopping' || installBusy(i.install) || viewLoading(i)) return 'warn'
   if (isRemote(i) || i.worker?.running) return sandboxOff(i) ? 'warn' : 'ok'
@@ -560,8 +602,8 @@ export interface FirstRunView {
 }
 
 export function firstRunView(i: ShellInput, hardware?: string): FirstRunView {
-  const ready = i.server.state === 'ready'
-  const address = addressOf(i.server.endpoint)
+  const ready = i.server?.state === 'ready'
+  const address = addressOf(i.server?.endpoint ?? '')
   const steps: StepView[] = [{ label: S.firstRun.installed(i.installedVersion), status: 'done' }]
   if (hardware) steps.push({ label: hardware, status: 'done' })
   steps.push(ready ? { label: S.firstRun.started(address), status: 'done' } : { label: S.firstRun.starting(address), status: 'active' })

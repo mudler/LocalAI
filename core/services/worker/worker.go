@@ -56,9 +56,8 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	ml := model.NewModelLoader(systemState)
 	ml.SetBackendLoggingEnabled(true)
 
-	// Register already-installed backends
-	if err := gallery.RegisterBackends(systemState, ml); err != nil {
-		return fmt.Errorf("registering installed backends: %w", err)
+	if err := registerInstalledBackends(systemState, ml); err != nil {
+		return err
 	}
 
 	// Parse galleries config
@@ -352,6 +351,22 @@ func Run(ctx *cliContext.Context, cfg *Config) error {
 	regClient.GracefulDeregister(nodeID)
 	supervisor.stopAllBackends(false)
 	nodes.ShutdownFileTransferServer(httpServer)
+	return nil
+}
+
+// registerInstalledBackends cleans what a crash in the middle of a backend
+// install or upgrade left in the backends directory, then registers the
+// installed backends. The worker calls it before it subscribes to install
+// events or serves its control routes, so no install of this process can
+// run at the same time as the sweep. The sweep is best-effort: it logs what
+// it cannot clean and never fails the start.
+func registerInstalledBackends(systemState *system.SystemState, ml *model.ModelLoader) error {
+	if removed, restored := gallery.SweepSwapLeftovers(systemState); len(removed) > 0 || len(restored) > 0 {
+		xlog.Info("Cleaned the backends directory after an interrupted update", "removed", removed, "restored", restored)
+	}
+	if err := gallery.RegisterBackends(systemState, ml); err != nil {
+		return fmt.Errorf("registering installed backends: %w", err)
+	}
 	return nil
 }
 

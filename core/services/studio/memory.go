@@ -209,6 +209,9 @@ const (
 	// stopped, disabled or removed. Memory stays off until they pick again;
 	// the notes are never moved to another provider on their own.
 	MemoryOffProvider = "memory_provider_unavailable"
+	// MemoryOffIncognito: the chat is incognito (memory-off or
+	// zero-retention): it reads and saves no notes, whatever the switches say.
+	MemoryOffIncognito = "memory_off_incognito"
 )
 
 // MemoryState says whether memory works for a chat, and when it does not,
@@ -236,6 +239,9 @@ func memoryOff(code, by string) MemoryState { return MemoryState{Code: code, By:
 // is the Memory add-on, for the person who never chose.
 func (s *Service) memoryState(ctx context.Context, rec session.ChatRecord, legacy legacyMemory) MemoryState {
 	switch {
+	case s.chatPrivacy(ctx, rec).Incognito():
+		// An incognito chat is detached from memory before any switch is read.
+		return memoryOff(MemoryOffIncognito, "incognito")
 	case slices.Contains(rec.BuiltinsOff, builtins.GroupMemory):
 		// A private chat.
 		return memoryOff(MemoryOffChat, "chat")
@@ -511,6 +517,8 @@ func memoryOffLine(st MemoryState) string {
 		where = "for this agent"
 	case "provider":
 		where = "because the add-on that serves it is not available"
+	case "incognito":
+		where = "because this chat is incognito"
 	}
 	return "Memory is off " + where + ", so notes are neither read nor saved. If asked to remember something, say that memory is off and that the user can turn it on again; do not try to save it any other way."
 }
@@ -558,6 +566,8 @@ func memoryReason(st MemoryState, rec session.ChatRecord) MemoryReason {
 		out.Reason = "The add-on that serves memory is not available, so memory is off until you pick a provider."
 		out.Provider, out.ProviderTitle = st.Provider, st.ProviderTitle
 		out.Fix = &Fix{Kind: FixOpenMemorySettings, Target: "memory"}
+	case MemoryOffIncognito:
+		out.Reason = "Memory is off because this chat is incognito."
 	case MemoryOffFiles:
 		out.Reason = "Memory needs files, and files are off on this server."
 		out.Fix = &Fix{Kind: FixOpenServerSetting, Target: "files"}

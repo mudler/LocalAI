@@ -110,7 +110,7 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 		if appConfig.EnableTracing {
 			trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 			startTime = time.Now()
-			traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceScore, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(prompt, 200)})
+			traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceScore, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(prompt, 200)})
 		}
 		defer trace.CancelBackendTrace(traceID)
 		resp, err := b.Score(ctx, &pb.ScoreRequest{
@@ -127,7 +127,7 @@ func ModelScore(prompt string, candidates []string, opts ScoreOptions, loader *m
 			if err != nil {
 				errStr = err.Error()
 			}
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  time.Since(startTime),

@@ -2214,3 +2214,20 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-greeting .wk-avatar { margin-top: 2px; }
 .cx-greeting b { display: block; font-size: var(--fs-small); color: var(--dk-text); }
 .cx-greeting p { margin: 2px 0 0; font-family: var(--cx-font, var(--font-sans)); font-size: var(--fs-lead); line-height: 1.6; color: var(--dk-text); }
+
+/* The incognito switch over the thread. Off, it is one quiet row; on, it is a
+   band of its own colour, so the state of the chat cannot be missed. */
+.cx-incognito {
+  margin: var(--sp-2) 16px 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--dk-radius-2);
+  color: var(--dk-muted);
+}
+.cx-incognito--on {
+  background: color-mix(in srgb, var(--dk-text) 88%, transparent);
+  color: var(--dk-card);
+}
+.cx-incognito__row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.cx-incognito__label { font-weight: 600; }
+.cx-incognito__level { font-size: var(--fs-small); }
+.cx-incognito__desc { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }

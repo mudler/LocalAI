@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: MIT
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+// Build inputs, all optional on the command line (-P<name>=<value>):
+//   localaiVersionName     versionName (default 0.0.0-local)
+//   localaiVersionCode     versionCode (default 1)
+//   localaiAbis            comma-separated ABIs (default arm64-v8a; CI test builds add x86_64)
+//   localaiUpdateBase      base URL of the update feed (default the GitHub releases of LocalAI;
+//                          https only, http:// only together with localaiSignWithDebug=true)
+//   localaiRequireSigning  true: a missing release signing value fails the build
+//   localaiSignWithDebug   true: release builds use the debug key (test APKs only)
+// Release signing reads ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD,
+// ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD from the environment.
+def prop = { String name, String fallback ->
+    project.hasProperty(name) ? project.property(name).toString().trim() : fallback
+}
+
+def localaiVersionName = prop('localaiVersionName', '0.0.0-local')
+def localaiVersionCode = prop('localaiVersionCode', '1')
+if (!(localaiVersionCode ==~ /[1-9][0-9]{0,9}/) || localaiVersionCode.toLong() > 2100000000L) {
+    throw new GradleException("localaiVersionCode must be a whole number from 1 to 2100000000, got '${localaiVersionCode}'")
+}
+def localaiAbis = prop('localaiAbis', 'arm64-v8a').split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+def knownAbis = ['arm64-v8a', 'x86_64']
+if (localaiAbis.isEmpty() || !knownAbis.containsAll(localaiAbis)) {
+    throw new GradleException("localaiAbis must name ABIs from ${knownAbis}, got '${prop('localaiAbis', '')}'")
+}
+def requireSigning = prop('localaiRequireSigning', 'false') == 'true'
+def signWithDebug = prop('localaiSignWithDebug', 'false') == 'true'
+def localaiUpdateBase = prop('localaiUpdateBase', 'https://github.com/mudler/LocalAI/releases')
+// The updater trusts what this feed names, so it is never plain HTTP. The one
+// exception is a test APK signed with the debug key (localaiSignWithDebug),
+// which may read a local test feed (launcher/scripts/fake-release-server.mjs).
+def feedSchemeOk = localaiUpdateBase.startsWith('https://') || (signWithDebug && localaiUpdateBase.startsWith('http://'))
+if (!feedSchemeOk || localaiUpdateBase.contains('"')) {
+    throw new GradleException("localaiUpdateBase must be an https:// URL (http:// only with localaiSignWithDebug=true), got '${localaiUpdateBase}'")
+}
+def signingEnv = ['ANDROID_KEYSTORE_FILE', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+        .collectEntries { [(it): System.getenv(it) ?: ''] }
+def missingSigning = signingEnv.findAll { it.value.isEmpty() }.keySet()
+def haveReleaseKey = missingSigning.isEmpty()
+if (requireSigning && signWithDebug) {
+    throw new GradleException('localaiRequireSigning and localaiSignWithDebug cannot both be true')
+}
+if (requireSigning && !haveReleaseKey) {
+    throw new GradleException("release signing is required but these are not set: ${missingSigning.join(', ')}")
+}
+
+// The P2P library (gomobile AAR) is built separately. Without it the app still
+// builds, and the P2P plugin reports that P2P is unavailable.
+def p2pAar = file('../../p2pmobile/build/p2pmobile.aar')
+
+android {
+    namespace = "io.localai.client"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode localaiVersionCode.toInteger()
+        versionName localaiVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters(*localaiAbis)
+        }
+        buildConfigField "String", "UPDATE_FEED_BASE", "\"${localaiUpdateBase}\""
+        buildConfigField "boolean", "P2P_LIBRARY", "${p2pAar.exists()}"
+        aaptOptions {
+            // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+            // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildFeatures {
+        buildConfig = true
+    }
+    flavorDimensions = ["channel"]
+    productFlavors {
+        stable {
+            dimension "channel"
+            applicationId "io.localai.client"
+            buildConfigField "String", "CHANNEL", "\"stable\""
+        }
+        dev {
+            dimension "channel"
+            applicationId "io.localai.client.dev"
+            buildConfigField "String", "CHANNEL", "\"dev\""
+        }
+    }
+    signingConfigs {
+        if (haveReleaseKey) {
+            release {
+                storeFile file(signingEnv.ANDROID_KEYSTORE_FILE)
+                storePassword signingEnv.ANDROID_KEYSTORE_PASSWORD
+                keyAlias signingEnv.ANDROID_KEY_ALIAS
+                keyPassword signingEnv.ANDROID_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (signWithDebug) {
+                signingConfig signingConfigs.debug
+            } else if (haveReleaseKey) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    lint {
+        abortOnError = true
+    }
+    sourceSets {
+        // The WebUI policy fixture the desktop tests use; the Kotlin port of the
+        // policy is checked against the same file (classpath resource webui-policy.json).
+        test.resources.srcDirs += ['../../../launcher/test/fixtures']
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
+    }
+}
+
+repositories {
+    flatDir {
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    if (p2pAar.exists()) {
+        implementation files(p2pAar)
+    }
+    // Every library the app's plugins use is declared here, once.
+    implementation "com.squareup.okhttp3:okhttp:$okhttpVersion"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    implementation "com.journeyapps:zxing-android-embedded:$zxingEmbeddedVersion"
+    testImplementation "junit:junit:$junitVersion"
+    testImplementation "com.squareup.okhttp3:mockwebserver:$okhttpVersion"
+    testImplementation "com.squareup.okhttp3:okhttp-tls:$okhttpVersion"
+    // android.jar's org.json is a stub in JVM unit tests; this is the real one.
+    testImplementation "org.json:json:$orgJsonVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-web:$androidxEspressoCoreVersion"
+    androidTestImplementation "androidx.test:runner:$androidxTestRunnerVersion"
+    androidTestImplementation "androidx.test:rules:$androidxTestRulesVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'

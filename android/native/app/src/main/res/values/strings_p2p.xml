@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Strings of the P2P foreground service. -->
+<resources>
+    <string name="p2p_channel_name">P2P connection</string>
+    <string name="p2p_channel_description">Shown while the app keeps a P2P connection to your servers open.</string>
+    <string name="p2p_notification_title">LocalAI</string>
+    <string name="p2p_notification_one">Connected to %1$s over P2P</string>
+    <plurals name="p2p_notification_many">
+        <item quantity="one">Connected to %1$d server over P2P</item>
+        <item quantity="other">Connected to %1$d servers over P2P</item>
+    </plurals>
+    <string name="p2p_disconnect">Disconnect</string>
+</resources>

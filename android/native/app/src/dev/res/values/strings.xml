@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- The development app installs next to the stable app: its own name tells them apart. -->
+<resources>
+    <string name="app_name">LocalAI Dev</string>
+    <string name="title_activity_main">LocalAI Dev</string>
+</resources>

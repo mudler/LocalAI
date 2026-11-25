@@ -23,8 +23,18 @@ export interface StatusBarProps {
   popover: BarPopover
   setPopover: (p: BarPopover) => void
   launcherVersion?: string
+  /** About names the version line "App", not "Launcher" (a client-only app). */
+  appLabel?: boolean
+  /** About shows this application ID (a client-only app that has one). */
+  applicationId?: string
   serverVersion?: string
+  /** About leaves out the server line while its version is not known (a client app). Default: shows "Unknown". */
+  hideUnknownServerVersion?: boolean
+  /** The app updates without a restart of its own (an APK): the pill says "Update to <version>". */
+  appUpdate?: boolean
   canOpenInBrowser: boolean
+  /** The menu offers Connect (sharing the local server). Default: true. */
+  canConnect?: boolean
   onStop: () => void
   onRestart: () => void
   onLogs: () => void
@@ -88,7 +98,7 @@ export function StatusBar(p: StatusBarProps) {
       {p.keepLocalNote && <span className="dk-small dk-muted" data-testid="keep-local-note">{S.bar.localRunning}</span>}
       {p.offer && (
         <Button size="sm" variant="secondary" icon="arrow-up" onClick={p.onUpdate} data-testid="bar-update">
-          {p.offer.kind === 'server' ? S.bar.updateTo(p.offer.version) : S.bar.restartToUpdate}
+          {p.offer.kind === 'server' || (p.appUpdate && p.offer.version) ? S.bar.updateTo(p.offer.version ?? '') : S.bar.restartToUpdate}
         </Button>
       )}
       {p.sandboxOff && (
@@ -155,7 +165,7 @@ export function StatusBar(p: StatusBarProps) {
           open={p.popover === 'menu'}
           onClose={close}
           trigger={menuBtn}
-          items={menuItems({ remote: false, canOpenInBrowser: p.canOpenInBrowser, serverVersion: p.serverVersion })}
+          items={menuItems({ remote: false, canOpenInBrowser: p.canOpenInBrowser, serverVersion: p.serverVersion, connect: p.canConnect })}
           onPick={(a) => {
             if (a === 'about') {
               p.setPopover('about')
@@ -168,10 +178,20 @@ export function StatusBar(p: StatusBarProps) {
         <Popover open={p.popover === 'about'} onClose={close} trigger={menuBtn} kind="popover" className="dk-popover--end lnr-about" role="dialog" labelledBy={aboutId}>
           <strong id={aboutId}>{S.about.title}</strong>
           <dl className="lnr-about__list dk-small">
-            <dt className="dk-muted">{S.about.server}</dt>
-            <dd className="dk-mono">{p.serverVersion ?? S.about.unknown}</dd>
-            <dt className="dk-muted">{S.about.launcher}</dt>
+            {(p.serverVersion !== undefined || !p.hideUnknownServerVersion) && (
+              <>
+                <dt className="dk-muted">{S.about.server}</dt>
+                <dd className="dk-mono">{p.serverVersion ?? S.about.unknown}</dd>
+              </>
+            )}
+            <dt className="dk-muted">{p.appLabel ? S.about.app : S.about.launcher}</dt>
             <dd className="dk-mono">{p.launcherVersion ?? S.about.unknown}</dd>
+            {p.applicationId && (
+              <>
+                <dt className="dk-muted">{S.about.applicationId}</dt>
+                <dd className="dk-mono">{p.applicationId}</dd>
+              </>
+            )}
             {p.channel && (
               <>
                 <dt className="dk-muted">{S.about.channel}</dt>

@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { DESKTOP_CAPABILITIES } from '../shared/apiGroups'
 import { CHANNEL_KIND, type EventChannel, type EventContract } from '../shared/ipc'
 import type { FolderPickResult } from '../shared/types'
 import { isStrippedVar } from './childEnv'
@@ -22,7 +23,8 @@ import { GithubReleasesProvider, RedirectFirstProvider } from './updateProvider'
 import { platformTarget } from './platform'
 import { resolveLayout } from './paths'
 import { findFreePort, hardwareSummary, portProcess } from './hostTools'
-import { externalUrl, partitionForOrigin } from './webuiPolicy'
+import { externalUrl } from '../core/webuiPolicy'
+import { partitionForOrigin } from './webuiPartition'
 import { WebuiHost } from './webuiView'
 import { DesktopNotifier } from './notifyGlue'
 import { WebuiCredentials } from './webuiCredential'
@@ -367,6 +369,7 @@ function registerIpc(c: LauncherCore) {
       trayActive: trayCreated,
       sandboxed: !app.commandLine.hasSwitch('no-sandbox'),
       configNotice: c.configNotice,
+      capabilities: DESKTOP_CAPABILITIES,
     }),
     listModels,
     // Deep link: /app or /app?model=<id>, in the WebUI view (or the browser when it is not embedded).

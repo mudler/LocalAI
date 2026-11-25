@@ -57,6 +57,7 @@ func ModelTTS(
 	appConfig *config.ApplicationConfig,
 	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
+	defer hideOutputFor(ctx, loader, modelConfig)()
 	// model.WithContext(ctx) overrides the app-context default set in
 	// ModelOptions so distributed routing decisions reach the request's
 	// X-LocalAI-Node holder via distributedhdr.Stamp.
@@ -106,7 +107,7 @@ func ModelTTS(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -132,7 +133,7 @@ func ModelTTS(
 				maps.Copy(data, snippet)
 			}
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
@@ -169,6 +170,7 @@ func ModelTTSStream(
 	modelConfig config.ModelConfig,
 	audioCallback func([]byte) error,
 ) error {
+	defer hideOutputFor(ctx, loader, modelConfig)()
 	opts := ModelOptions(modelConfig, appConfig, model.WithContext(ctx))
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
@@ -207,7 +209,7 @@ func ModelTTSStream(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceTTS, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(text, 200)})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -308,7 +310,7 @@ func ModelTTSStream(
 				maps.Copy(data, snippet)
 			}
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

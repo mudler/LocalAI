@@ -5,7 +5,7 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { guard, isTrustedSender, UntrustedSenderError, type FrameInfo, type TrustedShell } from '../src/main/ipcGuard'
-import { partitionForOrigin } from '../src/main/webuiPolicy'
+import { partitionForOrigin } from '../src/main/webuiPartition'
 
 // ---- a fake Electron, just enough for webuiView.ts -----------------------------
 

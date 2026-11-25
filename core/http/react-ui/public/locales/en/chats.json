@@ -1986,5 +1986,21 @@
       "createdTitle": "{{name}} is ready",
       "done": "Done"
     }
+  },
+  "incognito": {
+    "label": "Incognito",
+    "levelLabel": "Incognito level",
+    "levels": {
+      "memory-off": "Memory off",
+      "zero-retention": "Zero retention"
+    },
+    "describe": {
+      "memory-off": "This chat does not read or save memory. It is not listed and ends when you leave it. Logs and traces are kept as usual.",
+      "zero-retention": "Nothing of this chat is kept on the server, only usage counts. It reads and saves no memory, takes no attachments, and ends when you leave it."
+    },
+    "blocked": "Not available in an incognito chat",
+    "discardTitle": "End the incognito chat?",
+    "discardMessage": "The chat is deleted and cannot be opened again.",
+    "discardConfirm": "End chat"
   }
 }

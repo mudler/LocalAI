@@ -45,14 +45,15 @@ type child struct {
 	background bool
 }
 
-// chatTools is the hook that gives every chat its host tools. A conversation
+// chatToolsAll gives every chat its host tools (chatTools then applies the
+// privacy level of the chat). A conversation
 // gets the host tools plus spawn_agent; a sub-agent gets only the tools its
 // parent chose and never spawn_agent. A sub-agent started from a saved agent
 // gets what the agent grants instead, read from the store like any chat with
 // an agent, so it needs no tool list in memory. Every tool is built from the
 // chat's access for the turn: its actor is fenced when the chat's agent has a
 // folder.
-func (s *Service) chatTools(ctx context.Context, x session.Access) (session.TurnTools, error) {
+func (s *Service) chatToolsAll(ctx context.Context, x session.Access) (session.TurnTools, error) {
 	a := x.Actor()
 	if s.d.Files.Available() && x.Place().Primary() == "" {
 		// An access without a folder was never resolved for this chat

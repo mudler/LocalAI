@@ -1,0 +1,795 @@
+{
+  "schema": 1,
+  "navigation": [
+    {
+      "url": "https://ai.example.com/app/chat?model=a&q=b#bottom",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://AI.Example.COM/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://ai.example.com:443/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8080/app/models?q=x#top",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "http://2130706433:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "https://ai.example.com:8443/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://ai.example.com:8443/app"
+      }
+    },
+    {
+      "url": "http://ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://ai.example.com/app"
+      }
+    },
+    {
+      "url": "http://192.0.2.10/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://192.0.2.10/app"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8081/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://192.0.2.10:8081/app"
+      }
+    },
+    {
+      "url": "https://192.0.2.10:8080/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://192.0.2.10:8080/app"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41874/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://127.0.0.1:41874/app"
+      }
+    },
+    {
+      "url": "http://localhost:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://localhost:41873/app"
+      }
+    },
+    {
+      "url": "https://other.example.org/page?x=1",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://other.example.org/page?x=1"
+      }
+    },
+    {
+      "url": "http://other.example.org/page",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://other.example.org/page"
+      }
+    },
+    {
+      "url": "https://b\u00fccher.example/",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "https://xn--bcher-kva.example/"
+      }
+    },
+    {
+      "url": "http://[2001:db8::1]:8080/app",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://[2001:db8::1]:8080/app"
+      }
+    },
+    {
+      "url": "http://[::1]:41873/app",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "http://[::1]:41873/app"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com?subject=hi",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "external",
+        "url": "mailto:someone@example.com?subject=hi"
+      }
+    },
+    {
+      "url": "https://user:secret@ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "https://user@other.example.org/",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme javascript:"
+      }
+    },
+    {
+      "url": "data:text/html,<p>hi</p>",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme data:"
+      }
+    },
+    {
+      "url": "file:///etc/hosts",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme file:"
+      }
+    },
+    {
+      "url": "blob:https://ai.example.com/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme blob:"
+      }
+    },
+    {
+      "url": "about:blank",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme about:"
+      }
+    },
+    {
+      "url": "intent://scan/#Intent;scheme=zxing;package=com.example.scanner;end",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme intent:"
+      }
+    },
+    {
+      "url": "localai://pair?token=abc",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "scheme localai:"
+      }
+    },
+    {
+      "url": "http://",
+      "origin": "https://ai.example.com",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "not a URL"
+      }
+    },
+    {
+      "url": "not a url",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "main",
+      "expect": {
+        "action": "deny",
+        "reason": "not a URL"
+      }
+    },
+    {
+      "url": "about:blank",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "about:srcdoc",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:https://ai.example.com/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:https://other.example.org/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to blob:"
+      }
+    },
+    {
+      "url": "https://other.example.org/embed",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to https:"
+      }
+    },
+    {
+      "url": "https://ai.example.com/app/preview",
+      "origin": "https://ai.example.com",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "blob:http://192.0.2.10:8080/0b6c3f0e-1111-4222-8333-944445555666",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "sub",
+      "expect": {
+        "action": "allow"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "http://192.0.2.10:8080",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to javascript:"
+      }
+    },
+    {
+      "url": "data:text/html,<p>hi</p>",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to data:"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com",
+      "origin": "http://127.0.0.1:41873",
+      "frame": "sub",
+      "expect": {
+        "action": "deny",
+        "reason": "subframe to mailto:"
+      }
+    }
+  ],
+  "windowOpen": [
+    {
+      "url": "https://ai.example.com/app",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "same-view",
+        "url": "https://ai.example.com/app"
+      }
+    },
+    {
+      "url": "https://ai.example.com/app/chat/1",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "same-view",
+        "url": "https://ai.example.com/app/chat/1"
+      }
+    },
+    {
+      "url": "https://ai.example.com/apps",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/apps"
+      }
+    },
+    {
+      "url": "https://ai.example.com/api/x",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/api/x"
+      }
+    },
+    {
+      "url": "https://ai.example.com/swagger",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://ai.example.com/swagger"
+      }
+    },
+    {
+      "url": "https://other.example.org/docs",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "https://other.example.org/docs"
+      }
+    },
+    {
+      "url": "javascript:alert(1)",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "none",
+        "reason": "scheme javascript:"
+      }
+    },
+    {
+      "url": "mailto:someone@example.com",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "external",
+        "url": "mailto:someone@example.com"
+      }
+    },
+    {
+      "url": "http://192.0.2.10:8080/app/chat/2",
+      "origin": "http://192.0.2.10:8080",
+      "expect": {
+        "route": "same-view",
+        "url": "http://192.0.2.10:8080/app/chat/2"
+      }
+    },
+    {
+      "url": "http://127.0.0.1:41873/api/x",
+      "origin": "http://127.0.0.1:41873",
+      "expect": {
+        "route": "external",
+        "url": "http://127.0.0.1:41873/api/x"
+      }
+    },
+    {
+      "url": "https://user:secret@other.example.org/",
+      "origin": "https://ai.example.com",
+      "expect": {
+        "route": "none",
+        "reason": "credentials in URL"
+      }
+    },
+    {
+      "url": "not a url",
+      "origin": "http://127.0.0.1:41873",
+      "expect": {
+        "route": "none",
+        "reason": "not a URL"
+      }
+    }
+  ],
+  "permission": [
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "video"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio",
+          "video"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "screen"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio",
+          "screen"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": false
+      },
+      "origin": "https://ai.example.com",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": false
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "allow"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "deny"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "http://192.0.2.10:8080": {
+          "media": "allow"
+        }
+      },
+      "expect": "ask"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://other.example.org/embed",
+        "topUrl": "https://ai.example.com/app/chat",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "media",
+        "requestingUrl": "https://ai.example.com/app/chat",
+        "topUrl": "https://other.example.org/",
+        "mediaTypes": [
+          "audio"
+        ],
+        "userGesture": true
+      },
+      "origin": "https://ai.example.com",
+      "store": {
+        "https://ai.example.com": {
+          "media": "allow"
+        }
+      },
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "clipboard-sanitized-write",
+        "requestingUrl": "http://192.0.2.10:8080/app",
+        "topUrl": "http://192.0.2.10:8080/app",
+        "userGesture": true
+      },
+      "origin": "http://192.0.2.10:8080",
+      "store": {},
+      "expect": "allow"
+    },
+    {
+      "request": {
+        "permission": "clipboard-sanitized-write",
+        "requestingUrl": "http://192.0.2.10:8080/app",
+        "topUrl": "http://192.0.2.10:8080/app",
+        "userGesture": false
+      },
+      "origin": "http://192.0.2.10:8080",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "geolocation",
+        "requestingUrl": "http://127.0.0.1:41873/app",
+        "topUrl": "http://127.0.0.1:41873/app",
+        "userGesture": true
+      },
+      "origin": "http://127.0.0.1:41873",
+      "store": {},
+      "expect": "deny"
+    },
+    {
+      "request": {
+        "permission": "notifications",
+        "requestingUrl": "http://127.0.0.1:41873/app",
+        "topUrl": "http://127.0.0.1:41873/app",
+        "userGesture": true
+      },
+      "origin": "http://127.0.0.1:41873",
+      "store": {},
+      "expect": "deny"
+    }
+  ],
+  "fileName": [
+    {
+      "name": "model.gguf",
+      "expect": "model.gguf"
+    },
+    {
+      "name": "a/b/c.txt",
+      "expect": "c.txt"
+    },
+    {
+      "name": "..\\evil.exe",
+      "expect": "evil.exe"
+    },
+    {
+      "name": ".hidden",
+      "expect": "hidden"
+    },
+    {
+      "name": "name. ",
+      "expect": "name"
+    },
+    {
+      "name": "CON",
+      "expect": "_CON"
+    },
+    {
+      "name": "lpt1.txt",
+      "expect": "_lpt1.txt"
+    },
+    {
+      "name": "invoice\u202egpj.exe",
+      "expect": "invoicegpj.exe"
+    },
+    {
+      "name": "bell\u0007\u0000tab\t.txt",
+      "expect": "belltab.txt"
+    },
+    {
+      "name": "zero\u200bwidth\u2066iso\u2069.txt",
+      "expect": "zerowidthiso.txt"
+    },
+    {
+      "name": "a<b>:c|d?.txt",
+      "expect": "a_b__c_d_.txt"
+    },
+    {
+      "name": "quote\"star*.txt",
+      "expect": "quote_star_.txt"
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.gguf",
+      "expect": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.gguf"
+    },
+    {
+      "name": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "expect": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    },
+    {
+      "name": "",
+      "expect": "download"
+    },
+    {
+      "name": "",
+      "fallback": "model.gguf",
+      "expect": "model.gguf"
+    },
+    {
+      "name": "   ",
+      "expect": "download"
+    },
+    {
+      "name": "...",
+      "fallback": "file",
+      "expect": "file"
+    }
+  ]
+}

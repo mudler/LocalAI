@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -2694,17 +2695,27 @@ func (r *NodeRegistry) ListModelSchedulings(ctx context.Context) ([]ModelSchedul
 	return configs, err
 }
 
-// ListAutoScalingConfigs returns scheduling configs where auto-scaling is enabled.
-// The replica reconciler acts on these, so a rule whose alias this frontend
-// resolves from an outdated config keeps the stored target instead (see
-// applyCurrentTarget).
+// ListAutoScalingConfigs returns the scheduling configs where auto-scaling is
+// enabled, leaving out every rule that another rule overrides (see
+// markShadowed). The replica reconciler acts on these, so a rule whose alias
+// this frontend resolves from an outdated config keeps the stored target
+// instead (see applyCurrentTarget).
+//
+// Every rule is read, not only the auto-scaling ones, because a rule without
+// replica bounds can still govern a model: the router places that model by it
+// alone, so an alias rule it overrides must not scale the model elsewhere.
 func (r *NodeRegistry) ListAutoScalingConfigs(ctx context.Context) ([]ModelSchedulingConfig, error) {
 	var configs []ModelSchedulingConfig
-	err := r.db.WithContext(ctx).Where("min_replicas > 0 OR max_replicas > 0 OR spread_all = ?", true).Find(&configs).Error
+	if err := r.db.WithContext(ctx).Find(&configs).Error; err != nil {
+		return nil, err
+	}
 	for i := range configs {
 		r.applyCurrentTarget(ctx, &configs[i])
 	}
-	return configs, err
+	markShadowed(configs)
+	return slices.DeleteFunc(configs, func(cfg ModelSchedulingConfig) bool {
+		return cfg.Shadowed || (cfg.MinReplicas <= 0 && cfg.MaxReplicas <= 0 && !cfg.SpreadAll)
+	}), nil
 }
 
 // DeleteModelScheduling removes a scheduling config by model name.
@@ -2714,11 +2725,31 @@ func (r *NodeRegistry) DeleteModelScheduling(ctx context.Context, modelName stri
 
 // CountLoadedReplicas returns the number of loaded replicas for a model.
 func (r *NodeRegistry) CountLoadedReplicas(ctx context.Context, modelName string) (int64, error) {
+	return r.CountLoadedReplicasMatching(ctx, modelName, nil)
+}
+
+// CountLoadedReplicasMatching returns the number of loaded replicas for a
+// model on nodes whose labels match selector. An empty selector matches every
+// node. Unlike FindNodesBySelector it does not look at node health, so a
+// replica on a node that briefly misses a heartbeat still counts.
+func (r *NodeRegistry) CountLoadedReplicasMatching(ctx context.Context, modelName string, selector map[string]string) (int64, error) {
 	var count int64
 	err := currentModelRevision(r.db.WithContext(ctx).Model(&NodeModel{})).
+		Scopes(onNodesMatching(selector)).
 		Where("node_models.model_name = ? AND node_models.state = ?", modelName, "loaded").
 		Count(&count).Error
 	return count, err
+}
+
+// onNodesMatching limits a node_models query to rows on nodes whose labels
+// match selector. An empty selector leaves the query unchanged.
+func onNodesMatching(selector map[string]string) func(*gorm.DB) *gorm.DB {
+	return func(db *gorm.DB) *gorm.DB {
+		for k, v := range selector {
+			db = db.Where("EXISTS (SELECT 1 FROM node_labels WHERE node_labels.node_id = node_models.node_id AND node_labels.key = ? AND node_labels.value = ?)", k, v)
+		}
+		return db
+	}
 }
 
 // FindNodesWithFreeSlot returns healthy backend nodes that have at least one

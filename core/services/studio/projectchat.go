@@ -249,6 +249,9 @@ func (s *Service) resolveHome(ctx context.Context, user string, rec session.Chat
 // defaults apply to new chats only. The project of another user, an unknown
 // one and a chat of another user are not found; an archived project is refused.
 func (s *Service) SetChatProject(ctx context.Context, user, chatID, projectID string) error {
+	if err := s.refuseIncognito(chatID); err != nil {
+		return err
+	}
 	p := principal(user)
 	rec, err := s.getChatEffective(ctx, p, chatID)
 	if err != nil {

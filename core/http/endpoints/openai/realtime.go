@@ -2541,6 +2541,15 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 			if runResolve {
 				joinResolve()
 			}
+			xlog.Warn("realtime: transcription of a committed turn failed",
+				"item_id", itemID,
+				"audio_s", float64(len(utt))/(localSampleRate*2),
+				"error", err)
+			// The item-level failed event lets a client close this turn's
+			// entry, which it would otherwise wait on for a completed event
+			// that never comes. The generic error event is kept for clients
+			// that only watch those.
+			sendTranscriptionFailed(t, itemID, err)
 			sendError(t, "transcription_failed", err.Error(), "", "event_TODO")
 			return
 		}
@@ -2554,6 +2563,30 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		// any-to-any model path is added here, join the gate before responding.
 		sendNotImplemented(t, "any-to-any models")
 		return
+	}
+
+	// The VAD heard speech in this turn, so an empty transcript means the
+	// words were lost somewhere between the audio buffer and the model, or
+	// the model recognized nothing. Either way the client gets a completed
+	// event with no text and no other sign of trouble, so leave a trace of
+	// it here.
+	if transcript == "" && session.InputAudioTranscription != nil {
+		source := "file"
+		switch {
+		case gated != nil:
+			source = "retranscribe_gate"
+		case live != nil:
+			source = "live_stream"
+		}
+		model := ""
+		if session.ModelConfig != nil {
+			model = session.ModelConfig.Pipeline.Transcription
+		}
+		xlog.Warn("realtime: committed turn produced an empty transcript",
+			"item_id", itemID,
+			"audio_s", float64(len(utt))/(localSampleRate*2),
+			"source", source,
+			"model", model)
 	}
 
 	// EOU language tags (e.g. "<de-DE>") are STT metadata: they stay in the
@@ -2738,6 +2771,22 @@ func writeWindowWAV(pcm []byte, sampleRate int) (string, error) {
 	}
 	_ = f.Sync()
 	return f.Name(), nil
+}
+
+// sendTranscriptionFailed tells the client that the transcription of the
+// committed item failed (conversation.item.input_audio_transcription.failed,
+// as in the OpenAI Realtime API).
+func sendTranscriptionFailed(t Transport, itemID string, err error) {
+	sendEvent(t, types.ConversationItemInputAudioTranscriptionFailedEvent{
+		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+		ItemID:          itemID,
+		ContentIndex:    0,
+		Error: types.Error{
+			Type:    "server_error",
+			Code:    "transcription_failed",
+			Message: err.Error(),
+		},
+	})
 }
 
 // writeUtteranceWAV persists raw 16 kHz mono PCM to a temp WAV for the

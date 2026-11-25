@@ -211,6 +211,8 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 For real-time use, load a cache-aware streaming model (e.g. `realtime_eou_120m-v1-*.gguf`) and pass `-F stream=true`. Deltas are emitted as the audio is decoded, with end-of-utterance events closing each segment.
 
+A request without `stream=true` to a model that emits end-of-utterance tokens is also decoded as a stream, with one segment per utterance. The offline decode of such a model stops at the first end-of-utterance token, so a file with more than one sentence would otherwise return only the first one. The `vad:true` and `guard_*` options keep the offline decode.
+
 ### Diarization and sound classification
 
 The same backend also serves the `/v1/audio/diarization` and `/v1/audio/classification` endpoints, and can attach a diarization or sound model to a live transcription session. `options:` accepts paths relative to the models directory, or absolute:

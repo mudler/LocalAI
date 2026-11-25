@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/cloudproxy"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -611,7 +612,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if !config.TemplateConfig.UseTokenizerTemplate {
 			predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
 
-			xlog.Debug("Prompt (after templating)", "prompt", predInput)
+			xlog.Debug("Prompt (after templating)", "prompt", privacy.Redact(c.Request().Context(), predInput))
 			if config.Grammar != "" {
 				xlog.Debug("Grammar", "grammar", config.Grammar)
 			}
@@ -720,7 +721,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							input.Cancel()
 							continue
 						}
-						xlog.Debug("Sending chunk", "chunk", string(respData))
+						xlog.Debug("Sending chunk", "chunk", privacy.Redact(c.Request().Context(), string(respData)))
 						_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
 						if err != nil {
 							xlog.Debug("Sending chunk failed", "error", err)
@@ -1251,7 +1252,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							if mcpExecutor == nil || !mcpExecutor.IsTool(tc.FunctionCall.Name) {
 								continue
 							}
-							xlog.Debug("Executing MCP tool", "tool", tc.FunctionCall.Name, "arguments", tc.FunctionCall.Arguments, "iteration", mcpIteration)
+							xlog.Debug("Executing MCP tool", "tool", tc.FunctionCall.Name, "arguments", privacy.Redact(c.Request().Context(), tc.FunctionCall.Arguments), "iteration", mcpIteration)
 							toolResult, toolErr := mcpExecutor.ExecuteTool(c.Request().Context(), tc.FunctionCall.Name, tc.FunctionCall.Arguments)
 							if toolErr != nil {
 								xlog.Error("MCP tool execution failed", "tool", tc.FunctionCall.Name, "error", toolErr)
@@ -1312,7 +1313,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Usage:   &usage,
 				}
 				respData, _ := json.Marshal(resp)
-				xlog.Debug("Response", "response", string(respData))
+				xlog.Debug("Response", "response", privacy.Redact(c.Request().Context(), string(respData)))
 
 				middleware.StampUsage(c, input.Model, usage.PromptTokens, usage.CompletionTokens)
 
@@ -1348,9 +1349,9 @@ func handleQuestion(config *config.ModelConfig, funcResults []functions.FuncCall
 		switch message := m.(type) {
 		case string:
 			if message != "" {
-				xlog.Debug("Reply received from LLM", "message", message)
+				xlog.Debug("Reply received from LLM", "message", config.FunctionsConfig.LogText(message))
 				message = backend.Finetune(*config, prompt, message)
-				xlog.Debug("Reply received from LLM(finetuned)", "message", message)
+				xlog.Debug("Reply received from LLM(finetuned)", "message", config.FunctionsConfig.LogText(message))
 
 				return message, nil
 			}

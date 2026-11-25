@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/services/studio/executionrequest"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	model "github.com/mudler/LocalAI/pkg/addons/model/executionstatus"
@@ -95,6 +96,9 @@ func (s *Service) executionScope(ctx context.Context, user, conversation string)
 }
 func (s *Service) productScope(ctx context.Context, x session.Access) (context.Context, func()) {
 	a := x.Actor()
+	// Every tool call and model request of an incognito chat carries its
+	// level, so whatever the turn reaches keeps only what the level allows.
+	ctx = privacy.WithLevel(ctx, s.incognito.Level(a.ChatID))
 	return s.executionScope(ctx, a.Principal, a.ChatID)
 }
 

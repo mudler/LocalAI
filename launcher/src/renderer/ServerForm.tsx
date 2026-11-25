@@ -24,7 +24,20 @@ export interface ServerFormProps {
   onCancel: () => void
   /** The sheet's Remove… button (edit only). */
   onRemove?: () => void
+  /** The app can pair over P2P: offers "Have an invite link?". Default true. */
+  p2p?: boolean
+  /** Open on the invite form with this link filled in (a link from outside). */
+  initialInvite?: string
+  /** Scans an invite QR code (see InviteForm). */
+  onScan?: () => Promise<string | undefined>
+  /** A fixed clock for the invite countdown (tests). */
+  now?: number
+  /** The app has no local server (the Android app): a certificate card explains private CAs. Default false. */
+  client?: boolean
 }
+
+/** The certificate problems that a private CA installed on the phone fixes. */
+const CA_FIXES = new Set(['self-signed', 'untrusted'])
 
 const hostOf = (text: string) => {
   try {
@@ -44,7 +57,7 @@ export function ServerForm(p: ServerFormProps) {
   const [error, setError] = useState<string>()
   const [details, setDetails] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const [byInvite, setByInvite] = useState(false)
+  const [byInvite, setByInvite] = useState(p.initialInvite !== undefined)
   const token = useRef(0)
 
   const hint = addressHint(address, p.servers, p.editing?.id)
@@ -110,6 +123,7 @@ export function ServerForm(p: ServerFormProps) {
         <input
           id={addrId}
           className="dk-input dk-input--mono"
+          inputMode="url"
           value={address}
           placeholder={S.servers.addressPlaceholder}
           spellCheck={false}
@@ -203,6 +217,15 @@ export function ServerForm(p: ServerFormProps) {
             <strong>{card.title}</strong>
             <p className="lnr-result__p">{card.body}</p>
             {card.next && <p className="lnr-result__p"><strong>{S.testResult.next}</strong> {card.next}</p>}
+            {/* Only the Android bridge has the CA help, and the hint names the Android settings. */}
+            {p.client && b.openCertificateHelp && phase.result.status === 'tls' && CA_FIXES.has(phase.result.reason) && (
+              <p className="lnr-result__p" data-testid="ca-hint">
+                {S.androidSettings.caHint}{' '}
+                <button type="button" className="lnr-link" onClick={() => void b.openCertificateHelp?.().catch(() => undefined)}>
+                  {S.androidSettings.caHelp}
+                </button>
+              </p>
+            )}
             {phase.result.status === 'ok' && <p className="lnr-result__p dk-muted">{S.testResult.testedNow}</p>}
             <div className="lnr-row lnr-row--tight lnr-result__actions">
               {card.actions.includes('edit') && (
@@ -220,10 +243,20 @@ export function ServerForm(p: ServerFormProps) {
     </>
   )
 
-  const inviteSwitch = !p.editing && (
+  const inviteSwitch = !p.editing && p.p2p !== false && (
     <button type="button" className="lnr-link" onClick={() => setByInvite(true)} data-testid="use-invite">{S.invite.useInvite}</button>
   )
-  const invite = <InviteForm makeDefault={p.makeDefault} onDone={p.onDone} onCancel={p.onCancel} onUseAddress={() => setByInvite(false)} />
+  const invite = (
+    <InviteForm
+      makeDefault={p.makeDefault}
+      initialLink={p.initialInvite}
+      onScan={p.onScan}
+      now={p.now}
+      onDone={p.onDone}
+      onCancel={p.onCancel}
+      onUseAddress={() => setByInvite(false)}
+    />
+  )
 
   if (byInvite && p.variant === 'page') {
     return (

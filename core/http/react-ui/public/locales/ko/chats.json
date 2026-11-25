@@ -1671,5 +1671,21 @@
       "createdTitle": "{{name}} 준비됨",
       "done": "완료"
     }
+  },
+  "incognito": {
+    "label": "시크릿",
+    "levelLabel": "시크릿 수준",
+    "levels": {
+      "memory-off": "메모리 끔",
+      "zero-retention": "보관 안 함"
+    },
+    "describe": {
+      "memory-off": "이 채팅은 메모리를 읽거나 저장하지 않습니다. 목록에 표시되지 않으며 나가면 종료됩니다. 로그와 추적은 평소처럼 보관됩니다.",
+      "zero-retention": "서버는 이 채팅의 내용을 보관하지 않고 사용량만 기록합니다. 메모리를 읽거나 저장하지 않고 첨부 파일을 받지 않으며 나가면 종료됩니다."
+    },
+    "blocked": "시크릿 채팅에서는 사용할 수 없습니다",
+    "discardTitle": "시크릿 채팅을 끝낼까요?",
+    "discardMessage": "채팅이 삭제되며 다시 열 수 없습니다.",
+    "discardConfirm": "채팅 끝내기"
   }
 }

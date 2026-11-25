@@ -322,6 +322,20 @@ body {
 .lnr-result__p { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
 .lnr-result__actions { margin-top: var(--sp-2); }
 
+/* The invite preview: what the link says, before Pair. */
+.lnr-ipreview__tools { margin-top: var(--sp-2); }
+.lnr-ipreview { margin-top: var(--sp-2); padding: var(--sp-3); background: var(--dk-card); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); }
+.lnr-ipreview__head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.lnr-ipreview__icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.lnr-ipreview__label { overflow-wrap: anywhere; }
+.lnr-ipreview__kind { margin: 0; font-size: var(--fs-meta); color: var(--dk-muted); }
+.lnr-ipreview__left { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lnr-ipreview__facts { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); margin: 0; font-size: var(--fs-small); }
+.lnr-ipreview__facts dt { color: var(--dk-muted); }
+.lnr-ipreview__facts dd { margin: 0; font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.lnr-ipreview__relay { margin-top: var(--sp-2); }
+.lnr-ipreview__relaynote { display: block; margin: var(--sp-1) 0 var(--sp-2); }
+
 /* First run: two cards. */
 .lnr-center--firstchoose { padding-top: 36px; }
 .lnr-choice { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); width: 640px; max-width: 100%; text-align: left; }
@@ -330,6 +344,11 @@ body {
 .lnr-choice__icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-md); background: var(--dk-accent-wash); color: var(--dk-accent-text); }
 .lnr-choice__title { margin: var(--sp-2) 0 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
 .lnr-choice__p { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
+/* First connect (no local server): one column of choices, each card is the button. */
+.lnr-choice--list { grid-template-columns: 1fr; width: 480px; }
+button.lnr-choice__card { font: inherit; color: inherit; text-align: start; cursor: pointer; }
+button.lnr-choice__card:hover { border-color: var(--dk-accent-text); }
+button.lnr-choice__card:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
 .lnr-first__foot { display: flex; gap: var(--sp-2); max-width: 520px; margin-top: var(--sp-4); }
 .lnr-center--connectfirst { padding-top: var(--sp-6); justify-content: flex-start; }
 

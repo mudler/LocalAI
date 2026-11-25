@@ -6,6 +6,9 @@
 // WebUI view always uses the loopback URL (serverLaunch.endpointFor), so it
 // keeps working either way.
 import type os from 'node:os'
+import { isLoopbackHost } from '../core/address'
+
+export { normalizeAddress, isLoopbackHost } from '../core/address'
 
 export interface HostPort {
   host: string
@@ -18,26 +21,6 @@ export function splitAddress(address: string): HostPort {
   if (i < 0 || address.endsWith(']')) return { host: address, port: 8080 }
   const port = Number(address.slice(i + 1))
   return { host: address.slice(0, i), port: Number.isInteger(port) && port > 0 && port <= 65535 ? port : 8080 }
-}
-
-/**
- * A saved address is host:port. An older or hand-edited config may hold a URL
- * ("http://localhost:8080/"); the server rejects that with "too many colons",
- * so the scheme and any path are dropped. Anything else is returned as is.
- */
-export function normalizeAddress(address: string): string {
-  const m = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(address.trim())
-  if (!m) return address
-  const hp = m[1].replace(/^[^@]*@/, '')
-  if (hp === '') return '127.0.0.1:8080'
-  const i = hp.lastIndexOf(':')
-  return i < 0 || hp.endsWith(']') ? `${hp}:8080` : hp
-}
-
-export function isLoopbackHost(host: string): boolean {
-  const h = host.replace(/^\[|\]$/g, '').toLowerCase()
-  if (h === 'localhost' || h === '::1') return true
-  return /^127(\.\d{1,3}){3}$/.test(h)
 }
 
 /** An empty host (":8080"), a wildcard or a LAN address all reach past this computer. */

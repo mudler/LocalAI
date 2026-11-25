@@ -176,6 +176,8 @@ type RunCMD struct {
 	DisablePageArea       bool   `env:"LOCALAI_DISABLE_PAGE_AREA" default:"false" help:"Turn off the page area of Home for all users (it can be switched on again in the runtime settings)" group:"assistant"`
 	ChatsHostExec         string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. An add-on that runs commands in isolation replaces it" group:"assistant"`
 	ChatsAutoResume       bool   `env:"LOCALAI_CHATS_AUTO_RESUME" default:"false" help:"Go on by itself with a chat turn that a restart interrupted: up to 3 tries, after 15 seconds, 1 minute and 5 minutes, and only within 30 minutes of the interruption. Off: a person, or the page, resumes it" group:"assistant"`
+	Incognito             string `env:"LOCALAI_INCOGNITO" default:"" enum:",allow,forbid" help:"Whether web UI sessions may start incognito conversations: allow or forbid. Empty: allow. It can be changed in the runtime settings" group:"assistant"`
+	IncognitoMaxLevel     string `env:"LOCALAI_INCOGNITO_MAX_LEVEL" default:"" enum:",memory-off,zero-retention" help:"The highest incognito level the server honours: memory-off (no long-term memory, logs and traces stay) or zero-retention (no persisted content, usage counters only). Empty: zero-retention" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -769,6 +771,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.ChatsHostExec != "" {
 		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
+	}
+	if r.Incognito != "" {
+		opts = append(opts, config.WithIncognito(r.Incognito))
+	}
+	if r.IncognitoMaxLevel != "" {
+		opts = append(opts, config.WithIncognitoMaxLevel(r.IncognitoMaxLevel))
 	}
 	if r.ChatsAutoResume {
 		opts = append(opts, config.WithChatsAutoResume(true))

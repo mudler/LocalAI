@@ -1,6 +1,6 @@
 // Settings > Updates (mock screens 30 to 33): the server and launcher updates,
 // and the update channel of This computer.
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Button, Callout, Icon, Switch } from '@localai/ui-kit'
 import type { UpdateChannelName } from '../../shared/types'
 import { useBridge } from '../bridge'
@@ -9,16 +9,118 @@ import { Card, Field, fieldIds } from '../parts'
 import { S } from '../strings'
 import type { ShellControls, ShellData } from '../useLauncher'
 import { serverVersion, timeAgo } from '../viewModel'
+import { ApkUpdateSheet } from './ApkUpdateSheet'
 
 const CHANNELS: UpdateChannelName[] = ['stable', 'rc', 'dev']
 
 export function UpdatesTab({ data, controls, now }: { data: ShellData; controls: ShellControls; now: number }) {
+  if (data.capabilities.selfUpdate === 'apk') return <ApkUpdatesTab data={data} controls={controls} now={now} />
+  return <DesktopUpdatesTab data={data} controls={controls} now={now} />
+}
+
+/**
+ * The Android app (no release-candidate row): the app
+ * version, its channel, the checks, and for the stable app the way to the
+ * development app. One channel per app: the development app has its own
+ * application ID, so there is nothing to switch.
+ */
+function ApkUpdatesTab({ data, controls, now }: { data: ShellData; controls: ShellControls; now: number }) {
+  const b = useBridge()
+  const ids = useId()
+  const [sheet, setSheet] = useState(false)
+  const info = data.updateInfo
+  const up = data.updater
+  const phase = up?.phase ?? 'idle'
+  const channel = info?.channel ?? 'stable'
+  // A check (Check now, or the daily one on resume) saves its time: read it again when the phase settles.
+  const { setUpdateInfo } = controls
+  useEffect(() => {
+    if (phase === 'checking') return
+    let live = true
+    void b.getUpdateInfo?.().then(
+      (i) => {
+        if (live && i) setUpdateInfo(i)
+      },
+      () => undefined,
+    )
+    return () => {
+      live = false
+    }
+  }, [b, phase, setUpdateInfo])
+  const offerVersion = phase === 'available' || phase === 'downloaded' || phase === 'downloading' ? up?.version : undefined
+  const phaseText = (() => {
+    const t = S.apkUpdate.phase[phase]
+    return typeof t === 'function' ? (phase === 'downloading' ? (t as (p?: number) => string)(up?.percent) : (t as (v?: string) => string)(up?.version)) : t
+  })()
+  const checked = info?.checkedAt ? S.settings.checkedAgo(timeAgo(info.checkedAt, now)) : undefined
+  // "Checked 2 hours ago · up to date" when the check succeeded; otherwise the updater's own words.
+  const note =
+    phase === 'error' && up?.message
+      ? up.message
+      : phase === 'not-available' && checked
+        ? `${checked} · ${S.apkUpdate.upToDate}`
+        : phase === 'idle' && checked
+          ? checked
+          : phaseText
+
+  return (
+    <>
+      <Card title={S.settings.updates}>
+        {data.info && (
+          <Field name={S.apkUpdate.appVersion(data.info.version)} note={note}>
+            <span className="lnr-grow" />
+            <Button size="sm" busy={phase === 'checking'} disabled={phase === 'downloading'} onClick={() => void b.checkForLauncherUpdate()} data-testid="apk-check">
+              {S.settings.checkNow}
+            </Button>
+            {offerVersion && b.getApkUpdate && (
+              <Button size="sm" variant="primary" onClick={() => setSheet(true)} data-testid="apk-open-sheet">
+                {S.apkUpdate.updateTo(offerVersion)}
+              </Button>
+            )}
+          </Field>
+        )}
+        <Field name={S.apkUpdate.channelName} note={channel === 'dev' ? S.apkUpdate.devChannelNote : S.apkUpdate.channelNote}>
+          <span className="lnr-grow" />
+          <strong data-testid="apk-channel">{S.apkUpdate.channel[channel]}</strong>
+        </Field>
+        {b.setAutoCheck && info && (
+          <Field id={`${ids}-auto`} name={S.settings.autoCheck} note={S.apkUpdate.autoCheckNote}>
+            <span className="lnr-grow" />
+            <Switch
+              checked={info.autoCheck}
+              onChange={async (v) => {
+                const r = await b.setAutoCheck?.(v)
+                if (r) controls.setUpdateInfo(r)
+              }}
+              {...fieldIds(`${ids}-auto`)}
+            />
+          </Field>
+        )}
+        {channel === 'stable' && b.getDevApp && (
+          <Field name={S.apkUpdate.devApp} note={S.apkUpdate.devAppNote}>
+            <span className="lnr-grow" />
+            <Button size="sm" icon="flask" onClick={() => void b.getDevApp?.()} data-testid="get-dev-app">
+              {S.apkUpdate.getDevApp}
+            </Button>
+          </Field>
+        )}
+      </Card>
+      {sheet && data.info && (
+        <ApkUpdateSheet installed={data.info.version} channel={S.apkUpdate.channelShort[channel]} updater={up} onClose={() => setSheet(false)} />
+      )}
+    </>
+  )
+}
+
+function DesktopUpdatesTab({ data, controls, now }: { data: ShellData; controls: ShellControls; now: number }) {
   const b = useBridge()
   const ids = useId()
   const [checking, setChecking] = useState(false)
   const [dialog, setDialog] = useState<'confirm-dev' | 'back-to-stable' | null>(null)
   const [understood, setUnderstood] = useState(false)
   const info = data.updateInfo
+  // The server rows and the channels update a local server through the desktop updater; other apps show the launcher row only.
+  const serverRows = data.capabilities.localServer && data.capabilities.selfUpdate === 'electron'
   const channel: UpdateChannelName = info?.channel ?? 'stable'
   const dev = channel === 'dev'
   // The live server list decides; the flag in the update info can be stale after the default changes.
@@ -72,42 +174,44 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
 
   return (
     <>
-      {remote && (
+      {serverRows && remote && (
         <Callout tone="info" icon="info" title={S.channel.remoteTitle(defaultName)} testId="channel-remote-strip">
           <span className="lnr-block">{S.channel.remoteBody}</span>
         </Callout>
       )}
-      {dev && !remote && (
+      {serverRows && dev && !remote && (
         <Callout tone="warn" icon="flask" title={S.channel.onDevTitle} testId="channel-dev-strip">
           <span className="lnr-block">{S.channel.onDevBody}</span>
         </Callout>
       )}
 
       <Card title={S.settings.updates}>
-        <Field name={dev && info?.devBuild ? S.channel.devBuild(info.devBuild) : S.settings.serverVersion(version)} note={serverNote || undefined}>
-          <span className="lnr-grow" />
-          <Button
-            size="sm"
-            busy={checking}
-            disabled={remote}
-            onClick={async () => {
-              setChecking(true)
-              try {
-                controls.setInstall(await b.checkServerUpdate())
-                if (b.getUpdateInfo) controls.setUpdateInfo(await b.getUpdateInfo())
-              } finally {
-                setChecking(false)
-              }
-            }}
-          >
-            {S.settings.checkNow}
-          </Button>
-          {offer && !remote && (
-            <Button size="sm" variant="primary" onClick={() => void b.installServer({ stopFirst: true })}>
-              {S.settings.updateTo(offer)}
+        {serverRows && (
+          <Field name={dev && info?.devBuild ? S.channel.devBuild(info.devBuild) : S.settings.serverVersion(version)} note={serverNote || undefined}>
+            <span className="lnr-grow" />
+            <Button
+              size="sm"
+              busy={checking}
+              disabled={remote}
+              onClick={async () => {
+                setChecking(true)
+                try {
+                  if (b.checkServerUpdate) controls.setInstall(await b.checkServerUpdate())
+                  if (b.getUpdateInfo) controls.setUpdateInfo(await b.getUpdateInfo())
+                } finally {
+                  setChecking(false)
+                }
+              }}
+            >
+              {S.settings.checkNow}
             </Button>
-          )}
-        </Field>
+            {offer && !remote && (
+              <Button size="sm" variant="primary" onClick={() => void b.installServer?.({ stopFirst: true })}>
+                {S.settings.updateTo(offer)}
+              </Button>
+            )}
+          </Field>
+        )}
         {b.setAutoCheck && info && (
           <Field id={`${ids}-auto`} name={S.settings.autoCheck} note={S.settings.autoCheckNote}>
             <span className="lnr-grow" />
@@ -121,10 +225,12 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
             />
           </Field>
         )}
-        <Field name={S.settings.previous} note={S.settings.previousNote(info?.previousVersion)}>
-          <span className="lnr-grow" />
-          <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer({ stopFirst: true })}>{S.settings.rollBack}</Button>
-        </Field>
+        {serverRows && (
+          <Field name={S.settings.previous} note={S.settings.previousNote(info?.previousVersion)}>
+            <span className="lnr-grow" />
+            <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer?.({ stopFirst: true })}>{S.settings.rollBack}</Button>
+          </Field>
+        )}
         {data.info && (
           <Field name={S.settings.launcherVersion(data.info.version)} note={launcherNote}>
             <span className="lnr-grow" />
@@ -139,7 +245,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
         )}
       </Card>
 
-      {b.setUpdateChannel && info && (
+      {serverRows && b.setUpdateChannel && info && (
         <Card title={S.channel.title}>
           <p className="dk-small dk-muted lnr-card__lead">{S.channel.sub}</p>
           <div role="radiogroup" aria-label={S.channel.groupLabel} className="lnr-radios">

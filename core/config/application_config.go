@@ -540,6 +540,15 @@ type ApplicationConfig struct {
 	// at startup or in a later runtime settings change, does not override it.
 	AdminOffByDeprecatedOption bool
 
+	// Incognito is the setting incognito: allow (empty) or forbid. It decides
+	// whether web UI sessions may start incognito conversations. Read at each
+	// request, see IncognitoPolicy.
+	Incognito string
+	// IncognitoMaxLevelName is the setting incognito_max_level: memory-off or
+	// zero-retention (empty). An administrator who needs audit logs allows
+	// memory isolation only. See IncognitoMaxLevel.
+	IncognitoMaxLevelName string
+
 	// ChatsToolSearch is the setting chats_tool_search: whether the large
 	// LocalAI tool groups and the deferred add-on tools are replaced by the
 	// three tool-search tools. One of

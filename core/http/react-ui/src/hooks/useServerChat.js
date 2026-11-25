@@ -7,6 +7,7 @@ import { pushUsage } from '../utils/chatFoot'
 import { savedFailure } from '../utils/chatFailure'
 import { newOptimistic, adoptedSeq } from '../utils/optimisticSend'
 import { emitSound } from '../utils/soundBus'
+import { rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -44,6 +45,9 @@ export function useServerChat({ seed = null } = {}) {
   // Unknown until the list answers; only an explicit false shows the notice.
   const [persistent, setPersistent] = useState(true)
   const [imageModel, setImageModel] = useState('')
+  // The server's incognito setting ({ policy, max_level }), null until the
+  // list answers or when the server does not say.
+  const [incognitoSetting, setIncognitoSetting] = useState(null)
   const [files, setFiles] = useState({ on: true, reason: '' })
   // The chat this page created and the last turn it saw start ({ chat, turn }):
   // what the preview pane counts as new does not depend on when the page reads
@@ -151,6 +155,7 @@ export function useServerChat({ seed = null } = {}) {
       setPersistent(data.persistent !== false)
       setFiles({ on: data.files !== false, reason: data.files_reason || '' })
       setImageModel(data.image_model || '')
+      setIncognitoSetting(data.incognito || null)
     } catch (e) {
       setError(e.message)
     }
@@ -401,9 +406,20 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, closeStream, connect, refreshChat])
 
   // switches are the drafted switches of the new chat (useChatSwitches).
-  const createChat = useCallback(async (model, agentId, switches, projectId) => {
+  // incognito is the level of an incognito chat ('' for a normal one): the
+  // create request carries the marker, and the server keeps the chat in its
+  // memory only. It refuses a level it does not offer (403).
+  const createChat = useCallback(async (model, agentId, switches, projectId, incognito = '') => {
     setError('')
-    const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined, projectId || undefined)
+    if (incognito) setIncognitoMarker(incognito)
+    let created
+    try {
+      created = await chatsApi.create(model, undefined, agentId, false, switches || undefined, incognito ? undefined : (projectId || undefined))
+    } catch (e) {
+      if (incognito) setIncognitoMarker('')
+      throw e
+    }
+    if (incognito) rememberIncognitoChat(created.id, created.incognito || incognito)
     setMadeHere(created.id)
     await refreshList()
     return created.id
@@ -610,7 +626,7 @@ export function useServerChat({ seed = null } = {}) {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, madeHere, startedTurn, reconnecting, pausedSteps,
+    chats, persistent, imageModel, incognitoSetting, files, activeId, detail, messages, live, notes, error, failure, failureSaved, resuming, loading, usage, usageHistory, firstTokenMs, readPace, ticks, madeHere, startedTurn, reconnecting, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     // The server resumes an interrupted turn by itself (see utils/turnResume.js).

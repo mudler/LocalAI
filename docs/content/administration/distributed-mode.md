@@ -1511,6 +1511,12 @@ All fields are optional and composable:
 - Replicas only: auto-scale across all nodes
 - Both: auto-scale on matching nodes only
 
+With a node selector, the reconciler counts only the replicas on matching nodes.
+A replica on a node that does not match, for example one loaded before the
+selector changed, does not count toward `min_replicas`, so the reconciler loads
+another replica on a matching node. The reconciler does not unload the replica
+on the other node; unload it yourself when you no longer need it.
+
 ### Upgrade strategy
 
 `upgrade_strategy` says how an upgrade of a gallery model (`POST /api/models/upgrade/{name}`)

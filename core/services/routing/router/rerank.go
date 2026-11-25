@@ -73,7 +73,7 @@ func NewRerankClassifier(policies []ScorePolicy, reranker backend.Reranker, cach
 // query is trimmed to the most recent turns that fit alongside the longest
 // policy description. nil tokenizer / non-positive context leaves trimming
 // off. Returns the receiver for chaining at construction.
-func (c *RerankClassifier) WithTokenTrim(tokenize func(string) (int, error), maxContextTokens int) *RerankClassifier {
+func (c *RerankClassifier) WithTokenTrim(tokenize Tokenizer, maxContextTokens int) *RerankClassifier {
 	c.budget = &lazyBudget{tokenize: tokenize, maxContext: maxContextTokens, extras: c.documents}
 	return c
 }
@@ -89,7 +89,7 @@ func (c *RerankClassifier) Classify(ctx context.Context, p Probe) (Decision, err
 	}
 
 	start := time.Now()
-	query := trimmedProbeText(p, c.budget, identityRender)
+	query := trimmedProbeText(ctx, p, c.budget, identityRender)
 	key := cacheKey(query)
 	if hit, ok := c.cache.get(key); ok {
 		return Decision{Labels: hit, Score: 1.0, Latency: time.Since(start)}, nil

@@ -2,9 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   PHONE_MAX_WIDTH, autoOpenTarget, closedKey, isClosed, previewableBlocks, setClosed, targetKey,
 } from '../utils/previewPane'
+import { isIncognitoChat } from '../utils/incognito'
 
 function browserStorage() {
   try { return window.localStorage } catch { return null }
+}
+
+// The storage for one chat: none for an incognito chat, which leaves nothing
+// in the browser.
+function storageFor(chatId) {
+  return isIncognitoChat(chatId) ? null : browserStorage()
 }
 
 function phoneNow() {
@@ -80,7 +87,7 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
     const k = targetKey(target)
     if (!k || seen.current.has(k)) return
     seen.current.add(k)
-    if (phoneNow() || blocked || isClosed(browserStorage(), key, chatId)) return
+    if (phoneNow() || blocked || isClosed(storageFor(chatId), key, chatId)) return
     setOpen(true)
     ask(target, 'auto')
     setAnnouncement(target.name)
@@ -89,7 +96,7 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
   // Opening by hand forgets that the pane was closed in this chat.
   const reopen = useCallback(() => {
     setOpen(true)
-    setClosed(browserStorage(), key, chatId, false)
+    setClosed(storageFor(chatId), key, chatId, false)
   }, [key, chatId])
   const openFile = useCallback((path) => {
     if (!path) return
@@ -104,14 +111,14 @@ export function useChatPreviewPane({ chatId, userId, files, loaded, messages, re
   const close = useCallback(() => {
     setOpen(false)
     setAnnouncement('')
-    setClosed(browserStorage(), key, chatId, true)
+    setClosed(storageFor(chatId), key, chatId, true)
   }, [key, chatId])
   // Gives the side to another panel: it closes without the "closed by the
   // person" mark, so the pane may open by itself again later.
   const hide = useCallback(() => { setOpen(false); setAnnouncement('') }, [])
   const toggle = useCallback(() => { if (open) close(); else reopen() }, [open, close, reopen])
   // A deleted chat leaves nothing behind.
-  const forget = useCallback((id) => setClosed(browserStorage(), key, id, false), [key])
+  const forget = useCallback((id) => setClosed(storageFor(id), key, id, false), [key])
 
   return { open, focus, blocks, announcement, openFile, openBlock, close, hide, toggle, forget }
 }

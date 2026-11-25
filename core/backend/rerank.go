@@ -81,7 +81,7 @@ func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.Mod
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceRerank, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(request.Query, 200)})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceRerank, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(request.Query, 200)})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -98,7 +98,7 @@ func Rerank(ctx context.Context, request *proto.RerankRequest, loader *model.Mod
 			errStr = err.Error()
 		}
 
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),

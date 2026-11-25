@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/turncoord"
@@ -172,6 +173,46 @@ var _ = Describe("vadTick", func() {
 		// sample: no gap (undercount) and no re-feed (overcount) across the
 		// trim's cursor rebase.
 		Expect(total).To(Equal(91*rate-1), "fed samples = all audio seen minus the held-back tail sample")
+	})
+
+	It("transcribes the turn's audio when the live stream ends before its final transcript", func() {
+		// semantic_vad on a backend that decodes slower than real time: the
+		// live stream had decoded only the first words when the commit came,
+		// and Close gave up on the backlog. The rest of the turn must come
+		// from the commit audio, not be dropped.
+		call := 0
+		m := &fakeModel{
+			vadFn: func(req *schema.VADRequest) (*schema.VADResponse, error) {
+				call++
+				if call == 1 {
+					return &schema.VADResponse{Segments: []schema.VADSegment{{Start: 0.2, End: 0}}}, nil
+				}
+				// Clip coordinates (the scan is the last 3s of 4s): speech
+				// ends at 1.3s of the buffer, 2.7s of trailing silence.
+				return &schema.VADResponse{Segments: []schema.VADSegment{{Start: 0.1, End: 0.3}}}, nil
+			},
+			liveCloseErr:    backend.ErrLiveTranscriptIncomplete,
+			transcribeFinal: &schema.TranscriptionResult{Text: "the start of the turn and the rest of it"},
+		}
+		session, tr, sink := newHarness(semanticHigh, m)
+		session.InputAudioBuffer = pcm(1.4)
+		vadTick(sink, 0.5) // speech: opens the turn and its live stream
+		Expect(m.liveOpened).To(Equal(1))
+		m.liveSession.onEvent(backend.LiveTranscriptionEvent{Delta: "the start of"})
+
+		session.InputAudioBuffer = append(session.InputAudioBuffer, pcm(2.6)...)
+		vadTick(sink, 0.5) // 2.7s of silence > high eagerness (2s): commit
+
+		Expect(tr.countEvents(types.ServerEventTypeInputAudioBufferCommitted)).To(Equal(1))
+		session.respSink.wait()
+		var completed []types.ConversationItemInputAudioTranscriptionCompletedEvent
+		for _, e := range tr.events() {
+			if c, ok := e.(types.ConversationItemInputAudioTranscriptionCompletedEvent); ok {
+				completed = append(completed, c)
+			}
+		}
+		Expect(completed).To(HaveLen(1))
+		Expect(completed[0].Transcript).To(Equal("the start of the turn and the rest of it"))
 	})
 
 	It("bounds memory when the VAD backend keeps failing", func() {

@@ -602,7 +602,16 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 			}
 		}
 		if !ok {
-			return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+			// The listing leaves out a meta whose concrete is gone. Look for
+			// that meta directory on disk, so that it can still be removed.
+			dir, found, err := findOrphanMeta(systemState.Backend.BackendsPath, name)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return fmt.Errorf("backend %q: %w", name, ErrBackendNotFound)
+			}
+			backend = SystemBackend{Name: dir, IsMeta: true}
 		}
 	}
 
@@ -668,9 +677,86 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 		} else {
 			return statErr
 		}
+		return os.RemoveAll(backendDirectory)
 	}
 
-	return os.RemoveAll(backendDirectory)
+	if err := os.RemoveAll(backendDirectory); err != nil {
+		return err
+	}
+	// A meta that points at the removed concrete has nothing left to run.
+	// Kept, it would make Exists(meta) true, and an install of the meta
+	// would return early as "already installed".
+	return removeMetasFor(systemState.Backend.BackendsPath, filepath.Base(backendDirectory))
+}
+
+// removeMetasFor removes every meta backend directory in backendsPath whose
+// metadata points at the concrete backend.
+func removeMetasFor(backendsPath, concrete string) error {
+	entries, err := os.ReadDir(backendsPath)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || isSwapDir(e.Name()) {
+			continue
+		}
+		dir := filepath.Join(backendsPath, e.Name())
+		metadata, err := readBackendMetadata(dir)
+		if err != nil {
+			// The concrete is already gone: one unreadable directory must
+			// not fail the delete or stop the check of the others.
+			xlog.Warn("Could not read backend metadata while removing the metas of a deleted backend", "dir", e.Name(), "error", err)
+			continue
+		}
+		if metadata == nil || metadata.MetaBackendFor != concrete {
+			continue
+		}
+		xlog.Debug("Deleting meta backend of the deleted concrete backend", "meta", e.Name(), "concrete", concrete)
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// findOrphanMeta finds the directory in backendsPath of the meta backend
+// called name whose concrete backend directory is missing.
+func findOrphanMeta(backendsPath, name string) (string, bool, error) {
+	entries, err := os.ReadDir(backendsPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	for _, e := range entries {
+		if !e.IsDir() || isSwapDir(e.Name()) {
+			continue
+		}
+		metadata, err := readBackendMetadata(filepath.Join(backendsPath, e.Name()))
+		if err != nil {
+			return "", false, err
+		}
+		if metadata == nil || metadata.MetaBackendFor == "" {
+			continue
+		}
+		if e.Name() != name && metadata.Name != name {
+			continue
+		}
+		if !concreteMissing(backendsPath, metadata.MetaBackendFor) {
+			continue
+		}
+		return e.Name(), true, nil
+	}
+	return "", false, nil
+}
+
+// concreteMissing reports whether the concrete backend directory of a meta
+// is gone from basePath. Any other stat error counts as present, so that an
+// unreadable directory does not hide a meta.
+func concreteMissing(basePath, concrete string) bool {
+	_, err := os.Stat(filepath.Join(basePath, concrete))
+	return errors.Is(err, os.ErrNotExist)
 }
 
 // BackendAvailability answers whether a backend can serve models for this
@@ -923,8 +1009,10 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 				backendCandidate{name: dir, runFile: run, isSystem: entry.isSystem, metadata: entry.metadata})
 		}
 
-		// Meta backends indirection
-		if entry.metadata.MetaBackendFor != "" {
+		// Meta backends indirection. A meta whose concrete directory is
+		// gone is left out: Exists and Get must not report a backend that
+		// has nothing to run. DeleteBackendFromSystem still finds it on disk.
+		if entry.metadata.MetaBackendFor != "" && !concreteMissing(entry.basePath, entry.metadata.MetaBackendFor) {
 			backends[entry.metadata.Name] = SystemBackend{
 				Name:     entry.metadata.Name,
 				RunFile:  filepath.Join(entry.basePath, entry.metadata.MetaBackendFor, runFile),

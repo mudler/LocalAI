@@ -63,6 +63,28 @@ var _ = Describe("SweepSwapLeftovers", func() {
 		Expect(read("piper.failed")).To(Equal("v2"))
 	})
 
+	It("removes only the staged builds, never a backend or a previous build", func() {
+		build("piper", "v1")
+		build("piper.install-tmp", "v2")
+		build("piper.install-backup", "v0")
+		build("kokoro", "v2")
+		build("kokoro.upgrade-tmp", "v3")
+		build("kokoro.backup", "v1")
+		build("whisper.failed", "v2")
+		build(".install-tmp", "x")
+		build(".upgrade-tmp", "x")
+		removed, restored := gallery.SweepSwapLeftovers(&system.SystemState{Backend: system.Backend{BackendsPath: dir}})
+		Expect(removed).To(ConsistOf("piper.install-tmp", "kokoro.upgrade-tmp"))
+		Expect(restored).To(BeEmpty())
+		for name, version := range map[string]string{
+			"piper": "v1", "piper.install-backup": "v0", "kokoro": "v2",
+			"kokoro.backup": "v1", "whisper.failed": "v2",
+			".install-tmp": "x", ".upgrade-tmp": "x",
+		} {
+			Expect(read(name)).To(Equal(version), name)
+		}
+	})
+
 	It("does nothing without a backends directory", func() {
 		removed, restored := gallery.SweepSwapLeftovers(&system.SystemState{Backend: system.Backend{BackendsPath: filepath.Join(dir, "missing")}})
 		Expect(removed).To(BeEmpty())

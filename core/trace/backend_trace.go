@@ -1,6 +1,7 @@
 package trace
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/emirpasic/gods/v2/queues/circularbuffer"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/trace/tracepersist"
 	"github.com/mudler/xlog"
@@ -215,6 +217,26 @@ func advanceBackendTraceID(id string) {
 	}
 	for current := backendTraceIDSeq.Load(); n > current && !backendTraceIDSeq.CompareAndSwap(current, n); current = backendTraceIDSeq.Load() {
 	}
+}
+
+// RecordBackendTraceFor is RecordBackendTrace for the request of ctx. A
+// zero-retention request records nothing: a backend trace carries the
+// prompt and the output.
+func RecordBackendTraceFor(ctx context.Context, trace BackendTrace) {
+	if !privacy.Allows(ctx, privacy.StoreTrace) {
+		return
+	}
+	RecordBackendTrace(trace)
+}
+
+// BeginBackendTraceFor is BeginBackendTrace for the request of ctx. A
+// zero-retention request gets no trace and the empty ID; its summary would
+// show the start of the prompt in the Traces page.
+func BeginBackendTraceFor(ctx context.Context, t BackendTrace) string {
+	if !privacy.Allows(ctx, privacy.StoreTrace) {
+		return ""
+	}
+	return BeginBackendTrace(t)
 }
 
 func RecordBackendTrace(trace BackendTrace) {
