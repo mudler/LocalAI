@@ -76,7 +76,7 @@ internal fun jsonString(s: String): String {
             c == '\n' -> b.append("\\n")
             c == '\r' -> b.append("\\r")
             c == '\t' -> b.append("\\t")
-            c < ' ' || c in ' '..' ' -> b.append("\\u").append(c.code.toString(16).padStart(4, '0'))
+            c < ' ' || c in '\u2028'..'\u2029' -> b.append("\\u").append(c.code.toString(16).padStart(4, '0'))
             else -> b.append(c)
         }
     }
