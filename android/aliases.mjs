@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 // The module aliases of the app, shared by vite.config.mts and vitest.config.ts.
-// tsconfig.json lists the same roots under "paths"; keep the three in step.
+// tsconfig.json "paths" mirrors them by hand; keep them in step. One exception:
+// tsconfig maps only "@localai/ui-kit/*", not the bare "@localai/ui-kit", so the
+// type check uses the launcher's typed declaration (renderer/kit.d.ts) instead
+// of the kit's untyped JavaScript.
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 

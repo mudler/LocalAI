@@ -17,6 +17,8 @@
       "@launcher/renderer/*": ["../launcher/src/renderer/*"],
       "@launcher/shared/*": ["../launcher/src/shared/*"],
       "@launcher/core/*": ["../launcher/src/core/*"],
+      "@localai/ui-kit/*": ["../core/http/react-ui/packages/ui-kit/*"],
+      "@webui/*": ["../core/http/react-ui/src/*"],
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"],
       "react-dom": ["./node_modules/@types/react-dom"],

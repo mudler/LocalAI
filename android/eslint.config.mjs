@@ -40,6 +40,8 @@ export default tseslint.config(
             { group: ['**/launcher/src/main', '**/launcher/src/main/**'], message: 'The desktop main process is not shared with the app.' },
             { group: ['**/launcher/src/preload', '**/launcher/src/preload/**'], message: 'The desktop preload is not shared with the app.' },
             { group: ['@launcher/*', '!@launcher/renderer', '!@launcher/shared', '!@launcher/core'], message: 'Only @launcher/renderer, @launcher/shared and @launcher/core exist.' },
+            // A ".." segment would walk out of an allowed root (for example to src/main).
+            { regex: '^@launcher/(.*/)?\\.\\.(/|$)', message: 'No ".." through a @launcher/* alias.' },
           ],
         },
       ],

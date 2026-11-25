@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: MIT
 // The Android versionCode of a build.
 //
-//   node scripts/version-code.mjs stable 4.3.0   -> 403000099
-//   node scripts/version-code.mjs dev            -> minutes since 2026-01-01T00:00:00Z
+//   node scripts/version-code.mjs stable 4.3.0   -> 400300099
+//   node scripts/version-code.mjs dev            -> minutes since 2026-01-01T00:00:00Z (at least 1)
 //
 // Stable: ((MAJOR*1000+MINOR)*1000+PATCH)*100+99. The last two digits leave room
 // below each release (there is no RC channel in v1, so only 99 is used).
 // Dev has its own application ID, so it needs no order against stable: whole
 // minutes since a fixed epoch rise with every build and do not reset when the
-// workflow is renamed, as run numbers would.
+// workflow is renamed, as run numbers would. Android needs a versionCode of
+// at least 1, so the first minute counts as 1.
 
 import { pathToFileURL } from 'node:url'
 
@@ -31,7 +32,7 @@ export function stableVersionCode(version) {
 export function devVersionCode(now) {
   const minutes = Math.floor((now.getTime() - DEV_EPOCH_MS) / 60_000)
   if (!Number.isInteger(minutes) || minutes < 0) throw new Error(`build time before 2026-01-01: ${now.toISOString()}`)
-  return minutes
+  return Math.max(1, minutes)
 }
 
 function main(argv) {

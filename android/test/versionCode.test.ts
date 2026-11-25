@@ -22,8 +22,10 @@ describe('stableVersionCode', () => {
 })
 
 describe('devVersionCode', () => {
-  it('counts whole minutes since 2026-01-01T00:00:00Z', () => {
-    expect(devVersionCode(new Date('2026-01-01T00:00:00Z'))).toBe(0)
+  it('counts whole minutes since 2026-01-01T00:00:00Z, never below 1', () => {
+    expect(devVersionCode(new Date('2026-01-01T00:00:00Z'))).toBe(1)
+    expect(devVersionCode(new Date('2026-01-01T00:00:59Z'))).toBe(1)
+    expect(devVersionCode(new Date('2026-01-01T00:02:00Z'))).toBe(2)
     expect(devVersionCode(new Date('2026-01-01T01:30:59Z'))).toBe(90)
   })
 
