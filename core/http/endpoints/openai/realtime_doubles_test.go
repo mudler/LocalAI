@@ -96,10 +96,12 @@ type fakeModel struct {
 
 	// TranscribeLive scripting: liveErr makes the open fail (degrade path);
 	// liveEvents are delivered to onEvent synchronously at open;
-	// liveCloseEvents are delivered during Close (the finalize flush).
+	// liveCloseEvents are delivered during Close (the finalize flush);
+	// liveCloseErr is what Close returns (a stream cut before its Final).
 	liveErr         error
 	liveEvents      []backend.LiveTranscriptionEvent
 	liveCloseEvents []backend.LiveTranscriptionEvent
+	liveCloseErr    error
 	liveOpened      int
 	liveSession     *fakeLiveSession
 
@@ -296,7 +298,7 @@ func (m *fakeModel) TranscribeLive(_ context.Context, _ string, onEvent func(bac
 	for _, ev := range m.liveEvents {
 		onEvent(ev)
 	}
-	m.liveSession = &fakeLiveSession{onEvent: onEvent, closeEvents: m.liveCloseEvents}
+	m.liveSession = &fakeLiveSession{onEvent: onEvent, closeEvents: m.liveCloseEvents, closeErr: m.liveCloseErr}
 	return m.liveSession, nil
 }
 
@@ -310,6 +312,7 @@ func (m *fakeModel) Warmup(ctx context.Context) error { return nil }
 type fakeLiveSession struct {
 	onEvent     func(backend.LiveTranscriptionEvent)
 	closeEvents []backend.LiveTranscriptionEvent
+	closeErr    error
 	fed         [][]float32
 	feedErr     error
 	closed      int
@@ -328,5 +331,5 @@ func (s *fakeLiveSession) Close() error {
 	for _, ev := range s.closeEvents {
 		s.onEvent(ev)
 	}
-	return nil
+	return s.closeErr
 }
