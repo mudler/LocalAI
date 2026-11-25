@@ -267,17 +267,40 @@ describe('settings', () => {
     }
   })
 
-  it('Updates shows the launcher only: no server version, rollback or channels', async () => {
-    await renderClient()
+  it('Updates shows the app only: no server version, rollback or channel radios', async () => {
+    const b = await renderClient()
     await openSettings()
     fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
     await settle()
-    expect(screen.getByText('Launcher 4.1.3')).toBeTruthy()
-    expect(screen.getByText('Check automatically')).toBeTruthy()
+    const tab = within(screen.getByRole('tabpanel'))
+    expect(tab.getByText('LocalAI for Android 4.1.3')).toBeTruthy()
+    expect(tab.queryByText(/^Launcher/)).toBeNull()
+    expect(tab.queryByText(/^LocalAI server/)).toBeNull()
+    expect(tab.getByText('Check automatically')).toBeTruthy()
+    expect(tab.getByText('Once a day, when the app opens')).toBeTruthy()
+    expect(tab.getByTestId('apk-channel').textContent).toBe('Stable')
     expect(screen.queryByTestId('channel-stable')).toBeNull()
+    expect(screen.queryByTestId('channel-rc')).toBeNull()
     expect(screen.queryByRole('radiogroup')).toBeNull()
-    expect(within(screen.getByRole('tabpanel')).queryByText(/^LocalAI/)).toBeNull()
     expect(screen.queryByRole('button', { name: 'Roll back' })).toBeNull()
+    fireEvent.click(tab.getByRole('button', { name: 'Get the development app' }))
+    await settle()
+    expect(called(b, 'getDevApp')).toHaveLength(1)
+    fireEvent.click(tab.getByRole('button', { name: 'Check now' }))
+    await settle()
+    expect(called(b, 'checkForLauncherUpdate')).toHaveLength(1)
+  })
+
+  it('the development app names its channel and offers no development app', async () => {
+    await renderClient((s) => {
+      s.updateInfo = { autoCheck: true, channel: 'dev', devConfirmed: true, remoteDefault: false }
+    })
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+    await settle()
+    expect(screen.getByTestId('apk-channel').textContent).toBe('Development (separate app)')
+    expect(screen.queryByRole('button', { name: 'Get the development app' })).toBeNull()
+    expect(screen.queryByRole('radiogroup')).toBeNull()
   })
 
   it('removing the default server says the app asks for a server', async () => {
@@ -297,6 +320,135 @@ describe('settings', () => {
     fireEvent.click(screen.getByTestId('remove-confirm'))
     await settle()
     expect(called(b, 'removeServer')[0]?.args).toEqual([GPU.id])
+  })
+
+  it('says when it is up to date', async () => {
+    await renderClient((s) => {
+      s.updateInfo = { autoCheck: true, channel: 'stable', devConfirmed: true, remoteDefault: false, checkedAt: NOW - 2 * 3_600_000 }
+      s.updater = { phase: 'not-available' }
+    })
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+    await settle()
+    expect(screen.getByText('Checked 2 hours ago · up to date')).toBeTruthy()
+  })
+})
+
+describe('app update (APK)', () => {
+  const OFFER = { version: '4.2.0', size: 41_000_000, notesUrl: 'https://github.com/mudler/LocalAI/releases/tag/v4.2.0', downloaded: true }
+
+  it('the bar pill opens the update sheet; it does not install', async () => {
+    const b = await renderClient((s) => {
+      s.updater = { phase: 'downloaded', version: '4.2.0' }
+      s.apkUpdate = { offer: OFFER, canInstall: true }
+    })
+    fireEvent.click(bar().getByRole('button', { name: 'Update to 4.2.0' }))
+    await settle()
+    const sheet = within(screen.getByTestId('apk-update-sheet'))
+    expect(sheet.getByText('LocalAI 4.2.0 is available')).toBeTruthy()
+    expect(sheet.getByText('You have 4.1.3 · 41 MB · Stable')).toBeTruthy()
+    expect(sheet.getByText('Downloaded. SHA-256 and signature match this app.')).toBeTruthy()
+    expect(sheet.getByText('LocalAI closes and opens again on 4.2.0. Your servers and sign-ins stay.')).toBeTruthy()
+    expect(sheet.getByText(/On Android 12 and later the update installs with no more questions/)).toBeTruthy()
+    expect(sheet.queryByTestId('apk-consent')).toBeNull()
+    expect(called(b, 'installLauncherUpdate')).toHaveLength(0)
+    fireEvent.click(sheet.getByRole('button', { name: 'Update now' }))
+    await settle()
+    expect(called(b, 'installLauncherUpdate')).toHaveLength(1)
+  })
+
+  it('shows the consent step when Android does not allow installs yet', async () => {
+    const b = await renderClient((s) => {
+      s.updater = { phase: 'downloaded', version: '4.2.0' }
+      s.apkUpdate = { offer: OFFER, canInstall: false }
+    })
+    fireEvent.click(bar().getByRole('button', { name: 'Update to 4.2.0' }))
+    await settle()
+    const sheet = within(screen.getByTestId('apk-update-sheet'))
+    expect(sheet.getByText('Allow updates from LocalAI (one time)')).toBeTruthy()
+    expect(sheet.getByText('Allow from this source')).toBeTruthy()
+    expect((sheet.getByRole('button', { name: 'Update now' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(sheet.getByRole('button', { name: 'Open Android settings' }))
+    await settle()
+    expect(called(b, 'openInstallSettings')).toHaveLength(1)
+    expect(called(b, 'installLauncherUpdate')).toHaveLength(0)
+
+    // Back from the settings with the switch on: the sheet reads its view again.
+    b.state.apkUpdate = { offer: OFFER, canInstall: true }
+    document.dispatchEvent(new Event('visibilitychange'))
+    await settle()
+    expect(sheet.queryByTestId('apk-consent')).toBeNull()
+    expect((sheet.getByRole('button', { name: 'Update now' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('follows the install: installing, then the Android dialog, then a failure message', async () => {
+    const b = await renderClient((s) => {
+      s.updater = { phase: 'downloaded', version: '4.2.0' }
+      s.apkUpdate = { offer: OFFER, canInstall: true, install: 'installing' }
+    })
+    fireEvent.click(bar().getByRole('button', { name: 'Update to 4.2.0' }))
+    await settle()
+    const sheet = within(screen.getByTestId('apk-update-sheet'))
+    expect(sheet.getByText('Installing… LocalAI restarts by itself.')).toBeTruthy()
+    expect(sheet.queryByRole('button', { name: 'Update now' })).toBeNull()
+
+    b.state.apkUpdate = { offer: OFFER, canInstall: true, install: 'confirm' }
+    b.emitUpdater({ phase: 'downloaded', version: '4.2.0' })
+    await settle()
+    expect(sheet.getByTestId('apk-confirm')).toBeTruthy()
+    expect(sheet.getByRole('button', { name: 'Update now' })).toBeTruthy()
+
+    b.state.apkUpdate = { offer: OFFER, canInstall: true }
+    b.emitUpdater({ phase: 'downloaded', version: '4.2.0', message: 'The update was not installed: aborted.' })
+    await settle()
+    expect(sheet.getByText('The update was not installed: aborted.')).toBeTruthy()
+    fireEvent.click(sheet.getByRole('button', { name: 'Later' }))
+    await settle()
+    expect(screen.queryByTestId('apk-update-sheet')).toBeNull()
+  })
+
+  it('an available update opens the sheet from Settings > Updates, and Update now downloads first', async () => {
+    const b = await renderClient((s) => {
+      s.updater = { phase: 'available', version: '4.2.0' }
+      s.apkUpdate = { offer: { ...OFFER, downloaded: false }, canInstall: true }
+    })
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Updates' }))
+    await settle()
+    fireEvent.click(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Update to 4.2.0' }))
+    await settle()
+    const sheet = within(screen.getByTestId('apk-update-sheet'))
+    expect(sheet.queryByText('Downloaded. SHA-256 and signature match this app.')).toBeNull()
+    fireEvent.click(sheet.getByRole('button', { name: 'Update now' }))
+    await settle()
+    expect(called(b, 'installLauncherUpdate')).toHaveLength(1)
+  })
+})
+
+describe('about', () => {
+  const openAbout = async () => {
+    fireEvent.click(bar().getByRole('button', { name: 'Menu' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /About LocalAI/ }))
+    await settle()
+    return within(screen.getByRole('dialog', { name: 'About LocalAI' }))
+  }
+
+  it('shows the version of the server on show, from its last test', async () => {
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [{ ...GPU, version: '4.0.2' }], defaultId: GPU.id })
+    })
+    const about = await openAbout()
+    expect(about.getByText('LocalAI server')).toBeTruthy()
+    expect(about.getByText('4.0.2')).toBeTruthy()
+  })
+
+  it('leaves the server line out while the version is not known', async () => {
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    })
+    const about = await openAbout()
+    expect(about.queryByText('LocalAI server')).toBeNull()
+    expect(about.queryByText('Unknown')).toBeNull()
   })
 })
 

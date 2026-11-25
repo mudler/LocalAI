@@ -5,44 +5,23 @@
 // call on the core, a listener is a core event.
 import type { BridgeExtras } from '@launcher/renderer/bridge'
 import type { CoreApi, ServersApi } from '@launcher/shared/apiGroups'
-import type { Capabilities, LauncherInfo, UpdateInfoView, UpdaterStatus } from '@launcher/shared/types'
+import type { Capabilities, LauncherInfo } from '@launcher/shared/types'
+import type { AndroidUpdater } from '../core/androidUpdater'
 import type { ClientCore } from '../core/clientCore'
 import type { ClientEvent } from '../core/events'
 import type { AppLinksPlugin, ScannerPlugin } from '../plugins/definitions'
 
+export { idleUpdater, type AndroidUpdater } from '../core/androidUpdater'
+
 export const ANDROID_CAPABILITIES: Capabilities = { localServer: false, p2p: true, selfUpdate: 'apk', qrScan: true }
-
-/**
- * The APK updater (its own lane). Until it lands, `idleUpdater` stands in:
- * nothing to check, nothing offered.
- */
-export interface AndroidUpdater {
-  status(): UpdaterStatus
-  on(cb: (s: UpdaterStatus) => void): () => void
-  info(): UpdateInfoView
-  check(now: number): Promise<void>
-  install(): Promise<void>
-  setAutoCheck(on: boolean): Promise<UpdateInfoView>
-}
-
-export function idleUpdater(): AndroidUpdater {
-  const info: UpdateInfoView = { autoCheck: false, channel: 'stable', devConfirmed: true, remoteDefault: false }
-  return {
-    status: () => ({ phase: 'idle' }),
-    on: () => () => undefined,
-    info: () => ({ ...info }),
-    check: async () => undefined,
-    install: async () => undefined,
-    setAutoCheck: async () => ({ ...info }),
-  }
-}
 
 /**
  * The Android bridge: every core and servers method except the desktop
  * notifications (later work), plus the invite scan and incoming links when
  * the plugins are given.
  */
-export type AndroidBridge = CoreApi & Omit<ServersApi, 'setDesktopNotifications'> & Partial<Pick<BridgeExtras, 'scanInvite' | 'onInviteLink'>>
+export type AndroidBridge = CoreApi & Omit<ServersApi, 'setDesktopNotifications'> & Partial<Pick<BridgeExtras, 'scanInvite' | 'onInviteLink'>> &
+  Pick<BridgeExtras, 'getApkUpdate' | 'openInstallSettings' | 'getDevApp'>
 
 /** Where invites come from outside the form: links and shared text, and the QR scanner. */
 export interface InviteSources {
@@ -167,6 +146,10 @@ export function createAndroidBridge(core: ClientCore, deps: AndroidBridgeDeps): 
     // One channel per app (the development app has its own application ID).
     setUpdateChannel: async () => ({ ok: true, info: u.info() }),
     openReleaseNotes: (version) => core.openExternal(releaseNotesUrl(version)),
+    // From the update sheet's "Update now" only; the bar's pill opens the sheet.
     installLauncherUpdate: () => u.install(),
+    getApkUpdate: () => u.apkUpdate(),
+    openInstallSettings: () => u.openInstallSettings(),
+    getDevApp: () => u.getDevApp(),
   }
 }

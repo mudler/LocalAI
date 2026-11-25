@@ -8,6 +8,7 @@ import { ServerForm } from './ServerForm'
 import type { ShellScreenId } from './bridge'
 import { useBridge } from './bridge'
 import type { MenuAction } from './BarMenu'
+import { ApkUpdateSheet } from './screens/ApkUpdateSheet'
 import { ConnectScreen } from './screens/ConnectScreen'
 import { LogsScreen } from './screens/LogsScreen'
 import { SettingsScreen, type SettingsTab } from './screens/SettingsScreen'
@@ -69,6 +70,7 @@ export function Shell({ now }: { now?: number }) {
   const [firstInvite, setFirstInvite] = useState<{ link: string; seq: number }>()
   const [settingsSeq, setSettingsSeq] = useState(0)
   const [notice, setNotice] = useState<string>()
+  const [apkSheet, setApkSheet] = useState(false)
   const [tick, setTick] = useState(() => now ?? Date.now())
   const startAfterInstall = useRef(false)
   const guideOpened = useRef(false)
@@ -207,6 +209,9 @@ export function Shell({ now }: { now?: number }) {
   const local = !isRemote(data)
   // The app runs no LocalAI server on this device (the mobile client).
   const clientOnly = !data.capabilities.localServer
+  const apk = data.capabilities.selfUpdate === 'apk'
+  // A client knows the version of the server it shows only from that server's last test.
+  const aboutServerVersion = clientOnly ? currentRow(data)?.version : undefined
   const scanner = inviteScanner(b, data.capabilities)
   // A scan from the first-connect screen goes the same way as a link from outside.
   const scanFirst = async () => {
@@ -257,7 +262,9 @@ export function Shell({ now }: { now?: number }) {
   const update = () => {
     if (offer?.kind === 'server') void b.installServer?.({ stopFirst: true })
     else if (offer?.kind === 'launcher') {
-      if (b.installLauncherUpdate) void b.installLauncherUpdate()
+      // An APK installs only from the sheet's "Update now", after the consent step if Android needs it.
+      if (apk && b.getApkUpdate) setApkSheet(true)
+      else if (b.installLauncherUpdate) void b.installLauncherUpdate()
       else open('settings', 'general')
     }
   }
@@ -522,7 +529,9 @@ export function Shell({ now }: { now?: number }) {
             popover={popover}
             setPopover={setPopover}
             launcherVersion={data.info?.version}
-            serverVersion={version}
+            serverVersion={clientOnly ? aboutServerVersion : version}
+            hideUnknownServerVersion={clientOnly}
+            appUpdate={apk}
             canOpenInBrowser={!!b.openWebuiInBrowser && (data.server?.state === 'ready' || !local)}
             canConnect={!clientOnly}
             onStop={() => void b.stop?.()}
@@ -544,6 +553,14 @@ export function Shell({ now }: { now?: number }) {
           />
         )}
       </div>
+      {apkSheet && data.info && (
+        <ApkUpdateSheet
+          installed={data.info.version}
+          channel={S.apkUpdate.channelShort[data.updateInfo?.channel ?? 'stable']}
+          updater={data.updater}
+          onClose={() => setApkSheet(false)}
+        />
+      )}
       {/* Over the WebUI the main process draws the dot in its own view; here only over shell screens. */}
       {!barShown && !web && base !== 'first-choose' && <CornerDot tone={dotTone(data)} stateLabel={chip.label} onShow={() => void b.setStatusBarVisible(true).then(controls.setStatusBarSaved)} />}
     </div>

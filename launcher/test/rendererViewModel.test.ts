@@ -422,6 +422,14 @@ describe('client-only (no local server)', () => {
     expect(updateOffer(client({ updater: { phase: 'downloaded', version: '2.0.0' } }))).toEqual({ kind: 'launcher', version: '2.0.0' })
   })
 
+  it('an APK app offers an available update too (the sheet downloads it on Update now)', () => {
+    expect(updateOffer(client({ updater: { phase: 'available', version: '2.0.0' } }))).toEqual({ kind: 'launcher', version: '2.0.0' })
+    expect(updateOffer(client({ capabilities: { ...CLIENT, selfUpdate: 'none' }, updater: { phase: 'available', version: '2.0.0' } }))).toBeNull()
+    for (const phase of ['checking', 'downloading', 'error', 'not-available', 'idle'] as const) {
+      expect(updateOffer(client({ updater: { phase, version: '2.0.0' } }))).toBeNull()
+    }
+  })
+
   it('shows no local notes', () => {
     const servers = serversView({ rows: [GPU, localRow({ isDefault: false, isCurrent: false })], defaultId: GPU.id, keepLocal: true })
     const i = client({ servers, webui: remote, updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } })

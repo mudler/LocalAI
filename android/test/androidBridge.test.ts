@@ -113,6 +113,25 @@ describe('createAndroidBridge', () => {
     expect(await bridge.setUpdateChannel('dev')).toEqual({ ok: true, info })
   })
 
+  it('passes the update sheet calls to the APK updater', async () => {
+    const { core, p } = await rig()
+    const calls: string[] = []
+    const updater = {
+      ...idleUpdater(),
+      apkUpdate: async () => ({ canInstall: true }),
+      openInstallSettings: async () => void calls.push('openInstallSettings'),
+      getDevApp: async () => void calls.push('getDevApp'),
+      install: async () => void calls.push('install'),
+    }
+    const bridge = createAndroidBridge(core, { clipboard: async () => undefined, updater, info: { version: '5.0.2' } })
+    expect(await bridge.getApkUpdate()).toEqual({ canInstall: true })
+    await bridge.openInstallSettings()
+    await bridge.getDevApp()
+    await bridge.installLauncherUpdate()
+    expect(calls).toEqual(['openInstallSettings', 'getDevApp', 'install'])
+    expect(p.opened).toEqual([])
+  })
+
   it('opens release notes for a version on GitHub', async () => {
     const { bridge, p } = await rig()
     await bridge.openReleaseNotes('5.1.0')

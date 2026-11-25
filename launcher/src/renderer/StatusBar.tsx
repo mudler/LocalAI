@@ -24,6 +24,10 @@ export interface StatusBarProps {
   setPopover: (p: BarPopover) => void
   launcherVersion?: string
   serverVersion?: string
+  /** About leaves out the server line while its version is not known (a client app). Default: shows "Unknown". */
+  hideUnknownServerVersion?: boolean
+  /** The app updates without a restart of its own (an APK): the pill says "Update to <version>". */
+  appUpdate?: boolean
   canOpenInBrowser: boolean
   /** The menu offers Connect (sharing the local server). Default: true. */
   canConnect?: boolean
@@ -90,7 +94,7 @@ export function StatusBar(p: StatusBarProps) {
       {p.keepLocalNote && <span className="dk-small dk-muted" data-testid="keep-local-note">{S.bar.localRunning}</span>}
       {p.offer && (
         <Button size="sm" variant="secondary" icon="arrow-up" onClick={p.onUpdate} data-testid="bar-update">
-          {p.offer.kind === 'server' ? S.bar.updateTo(p.offer.version) : S.bar.restartToUpdate}
+          {p.offer.kind === 'server' || (p.appUpdate && p.offer.version) ? S.bar.updateTo(p.offer.version ?? '') : S.bar.restartToUpdate}
         </Button>
       )}
       {p.sandboxOff && (
@@ -170,8 +174,12 @@ export function StatusBar(p: StatusBarProps) {
         <Popover open={p.popover === 'about'} onClose={close} trigger={menuBtn} kind="popover" className="dk-popover--end lnr-about" role="dialog" labelledBy={aboutId}>
           <strong id={aboutId}>{S.about.title}</strong>
           <dl className="lnr-about__list dk-small">
-            <dt className="dk-muted">{S.about.server}</dt>
-            <dd className="dk-mono">{p.serverVersion ?? S.about.unknown}</dd>
+            {(p.serverVersion !== undefined || !p.hideUnknownServerVersion) && (
+              <>
+                <dt className="dk-muted">{S.about.server}</dt>
+                <dd className="dk-mono">{p.serverVersion ?? S.about.unknown}</dd>
+              </>
+            )}
             <dt className="dk-muted">{S.about.launcher}</dt>
             <dd className="dk-mono">{p.launcherVersion ?? S.about.unknown}</dd>
             {p.channel && (

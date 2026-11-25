@@ -327,7 +327,12 @@ export type UpdateOffer =
 
 /** The update the bar pill offers. A server update comes first: it is what the person runs. */
 export function updateOffer(i: ShellInput): UpdateOffer {
-  if (!localServer(i)) return i.updater?.phase === 'downloaded' ? { kind: 'launcher', version: i.updater.version } : null
+  if (!localServer(i)) {
+    // An APK app opens its update sheet from the pill, which downloads first when needed.
+    const apk = (i.capabilities ?? capabilitiesOf(i.info)).selfUpdate === 'apk'
+    const ready = i.updater?.phase === 'downloaded' || (apk && i.updater?.phase === 'available')
+    return ready ? { kind: 'launcher', version: i.updater?.version } : null
+  }
   if (installBusy(i.install)) return null
   if (i.install?.kind === 'update-available' && i.server?.state !== 'not-installed') {
     return { kind: 'server', version: i.install.version, installed: i.install.installed ?? i.installedVersion }

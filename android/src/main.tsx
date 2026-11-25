@@ -8,11 +8,12 @@ import { App } from '@launcher/renderer/App'
 import '@launcher/renderer/styles'
 import './mobile.css'
 import { IME_CLASS, installMobileShell, onKeyboardChange } from './mobileShell'
-import { createAndroidBridge, idleUpdater } from './bridge/androidBridge'
+import { createAndroidBridge } from './bridge/androidBridge'
+import { appSelf, createAndroidUpdater, idleUpdater, type AndroidUpdater } from './core/androidUpdater'
 import { ClientCore, NO_P2P } from './core/clientCore'
 import { capacitorFileApi } from './core/configIO'
 import { startLifecycle } from './lifecycle'
-import { AppLinks, NativeHttp, P2P, Scanner, WebuiView } from './plugins'
+import { AppLinks, NativeHttp, P2P, Scanner, Updater, WebuiView } from './plugins'
 import { nativeServerChecks } from './plugins/nativeTransport'
 
 // The phone layout classes go on before anything renders.
@@ -44,13 +45,29 @@ async function main(): Promise<void> {
   startLifecycle(core)
   core.setKeyboardOpen(document.documentElement.classList.contains(IME_CLASS))
   onKeyboardChange(window, (open) => core.setKeyboardOpen(open))
+  const updater = await appUpdater(core)
   const bridge = createAndroidBridge(core, {
     clipboard: (text) => Clipboard.write({ string: text }),
-    updater: idleUpdater(),
+    updater,
     info: { version },
     invites: { appLinks: AppLinks, scanner: Scanner },
   })
   createRoot(document.getElementById('root')!).render(<App bridge={bridge} />)
+  // The daily update check: on open and on every return to the screen.
+  void updater.maybeAutoCheck(Date.now())
+  void CapApp.addListener('appStateChange', ({ isActive }) => {
+    if (isActive) void updater.maybeAutoCheck(Date.now())
+  }).catch(() => undefined)
+}
+
+/** The APK updater over the Updater plugin; without the plugin (a web preview) nothing is offered. */
+async function appUpdater(core: ClientCore): Promise<AndroidUpdater> {
+  try {
+    const self = appSelf(await Updater.appInfo())
+    return createAndroidUpdater({ plugin: Updater, store: core.configStore(), self, openExternal: (url) => core.openExternal(url) })
+  } catch {
+    return idleUpdater()
+  }
 }
 
 void main().catch((e) => {
