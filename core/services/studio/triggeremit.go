@@ -213,7 +213,11 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 		return err
 	}
 	now := h.o.Clock()
+	// The write lock keeps an owner's change on the watch page and this
+	// event from overwriting each other's reminder on this frontend.
+	h.wmu.Lock()
 	out, err := triggers.Reconcile(ctx, h.o.Store, w, ev, now)
+	h.wmu.Unlock()
 	if err != nil {
 		return err
 	}

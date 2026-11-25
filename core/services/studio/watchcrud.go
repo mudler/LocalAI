@@ -159,6 +159,18 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 	if lerr != nil {
 		loc = time.UTC
 	}
+	// Read the reminder again under the write lock, so a change of the
+	// thing reconciled meanwhile is kept and this change applies on top.
+	h.wmu.Lock()
+	locked := true
+	defer func() {
+		if locked {
+			h.wmu.Unlock()
+		}
+	}()
+	if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
+		return ReminderView{}, triggers.ErrNotFound
+	}
 	rem := *r.Reminder
 	var line string
 	switch {
@@ -207,6 +219,8 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		if err := h.o.Store.PutTrigger(ctx, r); err != nil {
 			return ReminderView{}, err
 		}
+		h.wmu.Unlock() // recordAction may pause the watch, which takes the lock
+		locked = false
 		h.recordAction(ctx, w, now, line)
 		h.Notify()
 	}

@@ -88,6 +88,21 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 		return nil
 	}
 	if planned.After(t.Since) && now.Sub(planned) > lateGrace {
+		// A reminder due at or after the start of its thing has nothing left
+		// to prepare for once the thing has begun: after an outage it is
+		// missed, not sent late.
+		if limit, ok := startOf(*t.Reminder); ok && !tm.Due.Before(limit) && !now.Before(limit) {
+			run.Status, run.Reason, run.Ended = StatusSkipped, ReasonMissed, now.UTC()
+			claimed, err := r.o.Store.Claim(ctx, run)
+			if err != nil || !claimed {
+				return err
+			}
+			r.prune(ctx, t.ID, now)
+			if r.o.Missed != nil {
+				r.o.Missed(t, run)
+			}
+			return nil
+		}
 		run.Reason = ReasonLate
 	}
 	if err := r.admit(ctx, t, &run, now, false, false); err != nil {

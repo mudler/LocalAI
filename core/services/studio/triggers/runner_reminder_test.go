@@ -113,6 +113,39 @@ var _ = Describe("the reminder pass", func() {
 		Expect(r.host.startCount()).To(Equal(0))
 	})
 
+	It("says missed, not late, for a reminder at the time of a thing that began during an outage", func() {
+		var missed []string
+		var mu sync.Mutex
+		r := newRig(func(o *triggers.Options) {
+			o.Missed = func(t triggers.Trigger, _ triggers.Run) { mu.Lock(); missed = append(missed, t.ID); mu.Unlock() }
+		})
+		anchor := t0.Add(time.Hour)
+		r.put(watchOf("w"))
+		rem := reminderOf("r", "w", anchor)
+		rem.Reminder.Offset = 0
+		r.put(rem)
+		r.at(anchor.Add(48 * time.Hour)) // the first pass after two days down
+		run := r.latest("r")
+		Expect(run.Status).To(Equal(triggers.StatusSkipped))
+		Expect(run.Reason).To(Equal(triggers.ReasonMissed))
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(missed).To(Equal([]string{"r"}))
+	})
+
+	It("fires a reminder at the time of its thing on time", func() {
+		r := newRig()
+		anchor := t0.Add(time.Hour)
+		r.put(watchOf("w"))
+		rem := reminderOf("r", "w", anchor)
+		rem.Reminder.Offset = 0
+		r.put(rem)
+		r.at(anchor)
+		run := r.latest("r")
+		Expect(run.Status).To(Equal(triggers.StatusRunning))
+		Expect(run.Reason).To(BeEmpty())
+	})
+
 	It("says nothing for a thing that had begun before its reminder was set", func() {
 		r := newRig()
 		anchor := t0.Add(-time.Hour)
