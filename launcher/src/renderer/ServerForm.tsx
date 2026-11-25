@@ -110,6 +110,7 @@ export function ServerForm(p: ServerFormProps) {
         <input
           id={addrId}
           className="dk-input dk-input--mono"
+          inputMode="url"
           value={address}
           placeholder={S.servers.addressPlaceholder}
           spellCheck={false}
