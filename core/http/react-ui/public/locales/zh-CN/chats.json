@@ -1745,6 +1745,11 @@
     "doneUndo": "已撤销。",
     "loadFailed": "无法读取提醒：{{message}}",
     "history": "历史",
-    "viewWatch": "查看监视"
+    "viewWatch": "查看监视",
+    "saved": "监视已保存。",
+    "nameRequired": "监视需要一个名称。",
+    "promptRequired": "写下监视要做什么。",
+    "promptHint": "每次监视运行都从这段文字开始。",
+    "enabledHint": "关闭的监视会保留提醒，等它重新开启后再提醒。"
   }
 }

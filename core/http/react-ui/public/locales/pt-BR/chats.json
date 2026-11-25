@@ -1745,6 +1745,11 @@
     "doneUndo": "Desfeito.",
     "loadFailed": "Não foi possível ler os lembretes: {{message}}",
     "history": "Histórico",
-    "viewWatch": "Ver a vigia"
+    "viewWatch": "Ver a vigia",
+    "saved": "Vigia salva.",
+    "nameRequired": "Uma vigia precisa de um nome.",
+    "promptRequired": "Escreva o que a vigia deve fazer.",
+    "promptHint": "Este texto inicia cada execução da vigia.",
+    "enabledHint": "Uma vigia desligada mantém seus lembretes; eles esperam até ela voltar."
   }
 }

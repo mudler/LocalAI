@@ -1745,6 +1745,11 @@
     "doneUndo": "Diurungkan.",
     "loadFailed": "Pengingat tidak dapat dibaca: {{message}}",
     "history": "Riwayat",
-    "viewWatch": "Lihat pantauan"
+    "viewWatch": "Lihat pantauan",
+    "saved": "Pantauan disimpan.",
+    "nameRequired": "Pantauan perlu nama.",
+    "promptRequired": "Tulis apa yang harus dilakukan pantauan.",
+    "promptHint": "Teks ini memulai setiap jalannya pantauan.",
+    "enabledHint": "Pantauan yang mati menyimpan pengingatnya; pengingat menunggu sampai pantauan aktif lagi."
   }
 }

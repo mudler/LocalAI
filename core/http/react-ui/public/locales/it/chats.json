@@ -1745,6 +1745,11 @@
     "doneUndo": "Annullato.",
     "loadFailed": "Impossibile leggere i promemoria: {{message}}",
     "history": "Cronologia",
-    "viewWatch": "Vedi la sorveglianza"
+    "viewWatch": "Vedi la sorveglianza",
+    "saved": "Sorveglianza salvata.",
+    "nameRequired": "Una sorveglianza ha bisogno di un nome.",
+    "promptRequired": "Scrivi cosa deve fare la sorveglianza.",
+    "promptHint": "Questo testo avvia ogni esecuzione della sorveglianza.",
+    "enabledHint": "Una sorveglianza spenta tiene i suoi promemoria; aspettano che torni attiva."
   }
 }

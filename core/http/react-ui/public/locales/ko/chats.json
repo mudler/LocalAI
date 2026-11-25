@@ -1745,6 +1745,11 @@
     "doneUndo": "되돌렸습니다.",
     "loadFailed": "알림을 읽을 수 없습니다: {{message}}",
     "history": "기록",
-    "viewWatch": "감시 보기"
+    "viewWatch": "감시 보기",
+    "saved": "감시를 저장했습니다.",
+    "nameRequired": "감시에는 이름이 필요합니다.",
+    "promptRequired": "감시가 할 일을 적어 주세요.",
+    "promptHint": "감시가 실행될 때마다 이 글로 시작합니다.",
+    "enabledHint": "꺼진 감시는 알림을 유지하며, 다시 켜질 때까지 기다립니다."
   }
 }

@@ -2060,6 +2060,11 @@
     "doneUndo": "Undone.",
     "loadFailed": "The reminders could not be read: {{message}}",
     "history": "History",
-    "viewWatch": "View watch"
+    "viewWatch": "View watch",
+    "saved": "Watch saved.",
+    "nameRequired": "A watch needs a name.",
+    "promptRequired": "Write what the watch should do.",
+    "promptHint": "This text starts each run of the watch.",
+    "enabledHint": "A watch that is off keeps its reminders; they wait until it is back on."
   }
 }

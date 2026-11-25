@@ -1745,6 +1745,11 @@
     "doneUndo": "Rückgängig gemacht.",
     "loadFailed": "Die Erinnerungen konnten nicht gelesen werden: {{message}}",
     "history": "Verlauf",
-    "viewWatch": "Beobachtung ansehen"
+    "viewWatch": "Beobachtung ansehen",
+    "saved": "Beobachtung gespeichert.",
+    "nameRequired": "Eine Beobachtung braucht einen Namen.",
+    "promptRequired": "Schreib, was die Beobachtung tun soll.",
+    "promptHint": "Dieser Text startet jeden Lauf der Beobachtung.",
+    "enabledHint": "Eine ausgeschaltete Beobachtung behält ihre Erinnerungen; sie warten, bis sie wieder an ist."
   }
 }

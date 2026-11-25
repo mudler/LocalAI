@@ -1745,6 +1745,11 @@
     "doneUndo": "Annulé.",
     "loadFailed": "Impossible de lire les rappels : {{message}}",
     "history": "Historique",
-    "viewWatch": "Voir la veille"
+    "viewWatch": "Voir la veille",
+    "saved": "Veille enregistrée.",
+    "nameRequired": "Une veille a besoin d'un nom.",
+    "promptRequired": "Écrivez ce que la veille doit faire.",
+    "promptHint": "Ce texte démarre chaque exécution de la veille.",
+    "enabledHint": "Une veille désactivée garde ses rappels ; ils attendent qu'elle soit réactivée."
   }
 }

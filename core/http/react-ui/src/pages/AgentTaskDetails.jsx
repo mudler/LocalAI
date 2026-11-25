@@ -707,8 +707,8 @@ function TaskForm({ id, isNew }) {
 
   const save = async (e) => {
     e?.preventDefault?.()
-    if (!task.name?.trim()) { addToast(t('jobs.edit.nameRequired'), 'warning'); setOpen(prev => new Set([...prev, 'basics'])); return }
-    if (!task.prompt.trim()) { addToast(t('jobs.edit.promptRequired'), 'warning'); setOpen(prev => new Set([...prev, 'prompt'])); return }
+    if (!task.name?.trim()) { addToast(t(isWatch ? 'chats:watch.nameRequired' : 'jobs.edit.nameRequired'), 'warning'); setOpen(prev => new Set([...prev, 'basics'])); return }
+    if (!task.prompt.trim()) { addToast(t(isWatch ? 'chats:watch.promptRequired' : 'jobs.edit.promptRequired'), 'warning'); setOpen(prev => new Set([...prev, 'prompt'])); return }
     // The server refuses a folder outside the agent's folders; say so before the request, in the section.
     if (rawProblem) {
       setTried(true)
@@ -731,7 +731,7 @@ function TaskForm({ id, isNew }) {
     try {
       if (isNew) {
         const made = await chatTriggersApi.create(payload)
-        addToast(t('jobs.edit.created'), 'success')
+        addToast(t(isWatch ? 'chats:watch.saved' : 'jobs.edit.created'), 'success')
         if (made?.watch) {
           // A watch has no hook to set up: open it.
           initial.current = payload
@@ -746,7 +746,7 @@ function TaskForm({ id, isNew }) {
         }
       } else {
         await chatTriggersApi.update(id, payload)
-        addToast(t('jobs.edit.updated'), 'success')
+        addToast(t(isWatch ? 'chats:watch.saved' : 'jobs.edit.updated'), 'success')
       }
       initial.current = payload
       navigate('/app/triggers')
@@ -785,7 +785,7 @@ function TaskForm({ id, isNew }) {
   }
 
   const leave = () => navigate(isNew ? '/app/triggers' : `/app/triggers/${encodeURIComponent(id)}`)
-  const saveLabel = isNew ? t('jobs.edit.create') : t('jobs.edit.save')
+  const saveLabel = isWatch ? t('chats:watch.saveTime') : isNew ? t('jobs.edit.create') : t('jobs.edit.save')
 
   const renderSection = (sid) => {
     if (sid === 'basics') {
@@ -829,7 +829,7 @@ function TaskForm({ id, isNew }) {
             />
             <div>
               <span className="dk-label">{t('jobs.edit.enabled')}</span>
-              <p className="dk-hint" id="aj-enabled-h">{t('jobs.edit.enabledHint')}</p>
+              <p className="dk-hint" id="aj-enabled-h">{t(isWatch ? 'chats:watch.enabledHint' : 'jobs.edit.enabledHint')}</p>
             </div>
           </div>
         </div>
@@ -849,7 +849,7 @@ function TaskForm({ id, isNew }) {
               placeholder={t('jobs.edit.promptPlaceholder')}
               required
             />
-            <p className="dk-hint">{t('jobs.edit.promptHint')}</p>
+            <p className="dk-hint">{t(isWatch ? 'chats:watch.promptHint' : 'jobs.edit.promptHint')}</p>
           </div>
         </div>
       )
@@ -964,6 +964,7 @@ function TaskForm({ id, isNew }) {
           diff={diff}
           isNew={isNew}
           saving={saving}
+          saveLabel={saveLabel}
           onSave={() => { setPreview(null); save() }}
           onClose={() => setPreview(null)}
         />
@@ -974,7 +975,7 @@ function TaskForm({ id, isNew }) {
 
 // What the next run would send, and what differs from the saved trigger.
 // eslint-disable-next-line no-unused-vars
-function PreviewSheet({ tab, onTab, task, next, diff, isNew, saving, onSave, onClose }) {
+function PreviewSheet({ tab, onTab, task, next, diff, isNew, saving, saveLabel, onSave, onClose }) {
   const { t } = useTranslation(['agents', 'chats'])
 
   return (
@@ -990,7 +991,7 @@ function PreviewSheet({ tab, onTab, task, next, diff, isNew, saving, onSave, onC
       footer={(
         <>
           <button type="button" className="dk-btn dk-btn--secondary" onClick={onClose}>{t('jobs.edit.close')}</button>
-          <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={onSave}>{isNew ? t('jobs.edit.create') : t('jobs.edit.save')}</button>
+          <button type="button" className="dk-btn dk-btn--primary" disabled={saving} onClick={onSave}>{saveLabel}</button>
         </>
       )}
     >

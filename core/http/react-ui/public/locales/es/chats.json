@@ -1745,6 +1745,11 @@
     "doneUndo": "Deshecho.",
     "loadFailed": "No se pudieron leer los recordatorios: {{message}}",
     "history": "Historial",
-    "viewWatch": "Ver la vigilancia"
+    "viewWatch": "Ver la vigilancia",
+    "saved": "Vigilancia guardada.",
+    "nameRequired": "Una vigilancia necesita un nombre.",
+    "promptRequired": "Escribe qué debe hacer la vigilancia.",
+    "promptHint": "Este texto inicia cada ejecución de la vigilancia.",
+    "enabledHint": "Una vigilancia apagada conserva sus recordatorios; esperan hasta que vuelva a estar activa."
   }
 }
