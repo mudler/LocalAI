@@ -33,6 +33,23 @@ function useLive<T>(get: (() => Promise<T>) | undefined, on: ((cb: (v: T) => voi
   return [v, setV]
 }
 
+/** The launcher info, read once, and whether the read failed. */
+function useInfo(b: Bridge): [LauncherInfo | undefined, boolean] {
+  const [info, setInfo] = useState<LauncherInfo>()
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let live = true
+    b.info().then(
+      (x) => live && setInfo(x),
+      () => live && setFailed(true),
+    )
+    return () => {
+      live = false
+    }
+  }, [b])
+  return [info, failed]
+}
+
 export interface ShellData extends ShellInput {
   capabilities: Capabilities
   updateInfo?: UpdateInfoView
@@ -67,7 +84,7 @@ export interface ShellControls {
  */
 export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] {
   const [server] = useLive<ServerSnapshot>(b.getServer, b.onServer)
-  const [info] = useLive<LauncherInfo>(b.info, undefined)
+  const [info, infoFailed] = useInfo(b)
   const [updater] = useLive<UpdaterStatus>(b.getUpdater, b.onUpdater)
   const [sandbox, setSandbox] = useLive<SandboxView>(b.getSandboxState, b.onSandbox)
   const [settings, setSettings] = useLive<LauncherSettings>(b.getSettings, undefined)
@@ -124,9 +141,10 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   }
 
   // Client-only mode is picked from `info` only: before it answers the
-  // capabilities read as the desktop set, so the shell waits for it. A local
-  // server also needs its state first (as before).
-  if (!info) return [undefined, controls]
+  // capabilities read as the desktop set, so the shell waits for it. A failed
+  // `info()` means the desktop set, as a missing value does. A local server
+  // also needs its state first (as before).
+  if (!info && !infoFailed) return [undefined, controls]
   const capabilities = capabilitiesOf(info)
   if (capabilities.localServer && !server) return [undefined, controls]
   return [
