@@ -466,6 +466,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// the role of the exempt-path logic inside the middleware.
 	e.Use(authMiddleware)
 
+	// The incognito level of a web UI request: after auth, which it reads, and
+	// before every route middleware that keeps something (traces, usage).
+	e.Use(httpMiddleware.Incognito(application.ApplicationConfig(), application.AuthDB() != nil))
+
 	// Feature and model access control (after auth middleware, before routes)
 	if application.AuthDB() != nil {
 		e.Use(auth.RequireRouteFeature(application.AuthDB()))
