@@ -189,11 +189,21 @@ func (r *redialer) learn(p peer.ID) {
 
 // addressesChanged closes the connections that use an address this host no
 // longer has (they are dead, and a dial would reuse them), then redials.
+//
+// When the interface addresses cannot be read, it keeps every connection: a
+// failed lookup says nothing about which addresses are gone (on Android 11
+// and later, apps cannot read them at all), so closing would drop live
+// connections. The redial still runs.
 func (r *redialer) addressesChanged() {
 	for _, p := range r.n.h.Network().Peers() {
 		r.learn(p)
 	}
-	ips, _ := r.localIPs()
+	ips, err := r.localIPs()
+	if err != nil {
+		xlog.Debug("p2p: cannot read the interface addresses; keeping the direct connections", "error", err)
+		r.redialAll()
+		return
+	}
 	for _, c := range r.n.h.Network().Conns() {
 		if isRelayed(c.LocalMultiaddr()) || !r.gate.Allowed(c.RemotePeer()) {
 			continue

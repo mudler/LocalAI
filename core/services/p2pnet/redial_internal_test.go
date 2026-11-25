@@ -182,6 +182,36 @@ var _ = Describe("Redial of paired peers", func() {
 		server.redial.addressesChanged()
 		Eventually(func() network.Connectedness { return server.h.Network().Connectedness(client.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
 	})
+	It("keeps the direct connections and still redials when the interface addresses cannot be read", func() {
+		server, connected, sg, _ := pairedPair()
+		conns := connectPaired(server, connected)
+
+		// A second paired peer that is cached but not connected.
+		cg2 := NewAllowlist()
+		waiting := newRedialHost(cg2)
+		sg.Allow(waiting.ID())
+		cg2.AllowConn(server.ID())
+		server.redial.cache.put(waiting.ID(), waiting.h.Addrs())
+		Expect(server.h.Network().Connectedness(waiting.ID())).ToNot(Equal(network.Connected))
+
+		server.redial.interfaceAddrs = func() ([]net.Addr, error) {
+			return nil, errors.New("route ip+net: netlinkrib: permission denied")
+		}
+
+		server.redial.addressesChanged()
+
+		Eventually(func() network.Connectedness { return server.h.Network().Connectedness(waiting.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
+		Consistently(func() bool {
+			for _, c := range conns {
+				if c.IsClosed() {
+					return true
+				}
+			}
+			return false
+		}, "500ms", "50ms").Should(BeFalse(), "a failed lookup is not a lost address")
+		Expect(server.h.Network().Connectedness(connected.ID())).To(Equal(network.Connected))
+	})
+
 	// The test hosts listen on loopback, which localIPs never reports, so
 	// their connections count as using an address the host no longer has.
 	DescribeTable("closes the direct connections on an address this host no longer has, then redials",
