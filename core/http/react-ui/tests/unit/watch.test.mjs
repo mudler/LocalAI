@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { jobLine, jobMark } from '../../src/utils/agentJobs.js'
+import { runTone } from '../../src/utils/chatTrigger.js'
 import { deniedWords, emptyWatch, localInput, offsetParts, retimePatch, undoPatch, watchForm, watchPayload, watchProblem, whenText } from '../../src/utils/watch.js'
 
 test('a watch rule goes to the form and back unchanged', () => {
@@ -76,4 +78,10 @@ test('the words of the watch and the proposal card hold no internal term', () =>
   }
   assert.deepEqual(deniedWords('Moved the reminder for "Standup" to Thu 15:45.'), [])
   assert.deepEqual(deniedWords('the payload key'), ['payload', ' key'])
+})
+
+test('a row of what a watch did shows as done, with its line', () => {
+  assert.equal(jobMark('handled'), 'done')
+  assert.equal(runTone('handled'), 'done')
+  assert.deepEqual(jobLine({ status: 'handled', reason: 'Moved the reminder for "Standup" to Thu 15:45.' }), { kind: 'done', text: 'Moved the reminder for "Standup" to Thu 15:45.' })
 })

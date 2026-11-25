@@ -187,7 +187,7 @@ export function triggerPayload(v) {
 
 /** A short word for the state of a run. */
 export function runTone(status) {
-  if (status === 'done') return 'done'
+  if (status === 'done' || status === 'handled') return 'done'
   if (status === 'failed') return 'failed'
   if (status === 'skipped') return 'skipped'
   return 'going'
