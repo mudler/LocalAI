@@ -100,18 +100,22 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			return model, err
 		}
 
-		o, err := o.finalized()
+		// Local cold loads outlive the initiating request so a client
+		// disconnecting mid-load does not cancel option finalization or the
+		// backend LoadModel RPC, kill the backend process, or arm the failure
+		// cooldown.
+		loadOpts, err := o.withoutCancel().finalized()
 		if err != nil {
 			return nil, err
 		}
-		uri := ml.GetAllExternalBackends(o)[backend]
+		uri := ml.GetAllExternalBackends(loadOpts)[backend]
 		start := time.Now()
 		started := BackendLoadEvent{ModelID: modelID, ModelName: modelName, Backend: backend, BackendURI: uri}
 		finish, admissionErr := ml.notifyLoadStarted(started)
 		if admissionErr != nil {
 			return nil, admissionErr
 		}
-		m, err := ml.spawnGRPCModel(backend, uri, o, modelID, modelName, modelFile)
+		m, err := ml.spawnGRPCModel(backend, uri, loadOpts, modelID, modelName, modelFile)
 		completed := BackendLoadEvent{
 			ModelID:    modelID,
 			ModelName:  modelName,
@@ -219,7 +223,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 
 	xlog.Debug("GRPC: Loading model", "modelID", modelID, "backend", backend)
 
-	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, options)
+	res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(detachedLoadContext(o.context), options)
 	if err != nil {
 		ml.stopLoadProcess(client, modelID)
 		return nil, outdatedBackend(backend, fmt.Errorf("could not load model: %w", err))
@@ -368,8 +372,17 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	if modelFileName == "" {
 		modelFileName = o.model
 	}
-	model, err := ml.LoadModelWithFile(o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
+	model, err := ml.loadModelWithFileContext(o.context, o.modelID, o.model, modelFileName, ml.grpcModel(backend, o))
 	if err != nil {
+		var waitCanceled *loadWaitCanceledError
+		if errors.As(err, &waitCanceled) {
+			// The caller stopped waiting because its own context ended; the
+			// detached cold load continues in the background (or never started
+			// if ctx was already canceled). Never tear down the model or log
+			// this as a backend load failure.
+			xlog.Debug("Client canceled while waiting for model load", "modelID", o.modelID, "error", waitCanceled.err, "backend", o.backendString)
+			return nil, waitCanceled.err
+		}
 		// Defensive cleanup applies only to local cold loads. In distributed
 		// mode Load() calls backendLoader on every request and SmartRouter
 		// owns failed-load cleanup on workers; calling StopGRPC here runs
@@ -529,6 +542,12 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		return client, nil
 	}
 
+	// Avoid evicting healthy resident models or starting a cold load when the
+	// caller's request context has already ended.
+	if o.context != nil && o.context.Err() != nil {
+		return nil, o.context.Err()
+	}
+
 	// Evict any loaded model that shares a concurrency group with the
 	// requested one before applying the global LRU cap — group eviction may
 	// already make room, and otherwise LRU might evict an unrelated model
@@ -597,6 +616,9 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			}
 			return model, nil
 		} else if modelerr != nil {
+			if o.context != nil && o.context.Err() != nil && errors.Is(modelerr, o.context.Err()) {
+				return nil, modelerr
+			}
 			err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
 			xlog.Info("Fails", "backend", key, "error", modelerr.Error())
 		} else if model == nil {

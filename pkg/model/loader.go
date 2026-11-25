@@ -84,11 +84,29 @@ type BackendLoadEvent struct {
 	Err        error
 }
 
+type inFlightLoad struct {
+	done  chan struct{}
+	model *Model
+	err   error
+}
+
+// loadWaitCanceledError marks an error returned because the caller's context
+// ended before a local cold load started or while waiting for it to finish.
+// Unwrapping yields the underlying context error so callers still match
+// context.Canceled / context.DeadlineExceeded, while backendLoader can tell a
+// detached caller abort apart from a real backend load failure.
+type loadWaitCanceledError struct {
+	err error
+}
+
+func (e *loadWaitCanceledError) Error() string { return e.err.Error() }
+func (e *loadWaitCanceledError) Unwrap() error { return e.err }
+
 type ModelLoader struct {
 	ModelPath                string
 	mu                       sync.Mutex
 	store                    ModelStore
-	loading                  map[string]chan struct{} // tracks models currently being loaded
+	loading                  map[string]*inFlightLoad // tracks models currently being loaded
 	operations               *modelOperationLocks
 	wd                       *WatchDog
 	externalBackends         map[string]string
@@ -229,7 +247,7 @@ func NewModelLoader(system *system.SystemState) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:                system.Model.ModelsPath,
 		store:                    NewInMemoryModelStore(),
-		loading:                  make(map[string]chan struct{}),
+		loading:                  make(map[string]*inFlightLoad),
 		operations:               newModelOperationLocks(),
 		externalBackends:         make(map[string]string),
 		lruEvictionMaxRetries:    30,              // Default: 30 retries
@@ -564,19 +582,38 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 }
 
 func (ml *ModelLoader) LoadModelWithFile(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	return ml.loadModelWithFileContext(context.Background(), modelID, modelName, modelFileName, loader)
+}
+
+func (ml *ModelLoader) loadModelWithFileContext(ctx context.Context, modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if modelFileName == "" {
 		modelFileName = modelName
 	}
-	release := ml.operations.acquire(modelID, false)
-	defer release()
-	return ml.loadModel(modelID, modelName, modelFileName, loader, true)
+	release, err := ml.operations.acquireContext(ctx, modelID, false)
+	if err != nil {
+		return nil, &loadWaitCanceledError{err: err}
+	}
+	return ml.loadModel(ctx, modelID, modelName, modelFileName, loader, true, release)
 }
 
 // loadModel is the implementation behind LoadModelWithFile. checkCooldown gates fresh,
 // independent load triggers behind the per-model failure cooldown; it is set to
 // false for the coalesced retry of an in-flight burst (a follower whose leader
 // just failed), which is not a new trigger and should still get its one retry.
-func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error), checkCooldown bool) (*Model, error) {
+//
+// release is the shared per-model operation lock acquired by the caller; loadModel
+// owns it and releases it unless it transfers ownership to a detached local load
+// goroutine or a recursive follower retry.
+func (ml *ModelLoader) loadModel(ctx context.Context, modelID, modelName, modelFileName string, loader func(string, string, string) (*Model, error), checkCooldown bool, release func()) (*Model, error) {
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+
 	ml.mu.Lock()
 	distributed := ml.modelRouter != nil
 	blocked := ml.blockedLoads[modelID]
@@ -655,11 +692,16 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 	}
 
 	// Check if another goroutine is already loading this model
-	if loadingChan, isLoading := ml.loading[modelID]; isLoading {
+	if flight, isLoading := ml.loading[modelID]; isLoading {
 		ml.mu.Unlock()
-		// Wait for the other goroutine to finish loading
+		// Wait for the other goroutine to finish loading, or return early if
+		// this caller's context is canceled without disturbing the load.
 		xlog.Debug("Waiting for model to be loaded by another request", "modelID", modelID)
-		<-loadingChan
+		select {
+		case <-flight.done:
+		case <-ctx.Done():
+			return nil, &loadWaitCanceledError{err: ctx.Err()}
+		}
 		// Now check if the model is loaded
 		model := ml.checkIsLoaded(modelID)
 		if model != nil {
@@ -667,45 +709,70 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 		}
 		// If still not loaded, the other goroutine failed. Retry once as part of
 		// this burst, bypassing the cooldown gate (we are not a new trigger).
-		return ml.loadModel(modelID, modelName, modelFileName, loader, false)
+		retryRelease := release
+		release = nil
+		return ml.loadModel(ctx, modelID, modelName, modelFileName, loader, false, retryRelease)
 	}
 
-	// Mark this model as loading (create a channel that will be closed when done)
-	loadingChan := make(chan struct{})
-	ml.loading[modelID] = loadingChan
+	// Don't spawn a new cold load for a request whose context has already ended.
+	if err := ctx.Err(); err != nil {
+		ml.mu.Unlock()
+		return nil, &loadWaitCanceledError{err: err}
+	}
+
+	// Mark this model as loading and hand ownership of the per-model shared
+	// operation lock to the background goroutine so ShutdownModel / BlockLoads
+	// still wait for the load even if the initiating client disconnects.
+	flight := &inFlightLoad{done: make(chan struct{})}
+	ml.loading[modelID] = flight
+	bgRelease := release
+	release = nil
 	ml.mu.Unlock()
 
-	// Ensure we clean up the loading state when done
-	defer func() {
-		ml.mu.Lock()
-		delete(ml.loading, modelID)
-		close(loadingChan)
-		ml.mu.Unlock()
-	}()
-
-	// Load the model (this can take a long time, no lock held)
 	modelFile := filepath.Join(ml.ModelPath, modelFileName)
 	xlog.Debug("Loading model in memory from file", "file", modelFile)
 
-	model, err := loader(modelID, modelName, modelFile)
-	if err != nil {
-		ml.recordLoadFailure(modelID, err)
-		// %w keeps the cause (a missing backend) visible to errors.Is.
-		return nil, fmt.Errorf("failed to load model with internal loader: %w", err)
+	go func() {
+		// Cleanup order (LIFO): remove from loading map, release the per-model
+		// operation lock so ShutdownModel/BlockLoads observe the finished store
+		// state, and finally close flight.done to wake waiting callers.
+		defer close(flight.done)
+		defer bgRelease()
+		defer func() {
+			ml.mu.Lock()
+			delete(ml.loading, modelID)
+			ml.mu.Unlock()
+		}()
+
+		model, err := loader(modelID, modelName, modelFile)
+		if err != nil {
+			ml.recordLoadFailure(modelID, err)
+			// %w keeps the cause (a missing backend) visible to errors.Is.
+			flight.err = fmt.Errorf("failed to load model with internal loader: %w", err)
+			return
+		}
+
+		if model == nil {
+			ml.recordLoadFailure(modelID, nil)
+			flight.err = fmt.Errorf("loader didn't return a model")
+			return
+		}
+
+		// Add to models map and reset any prior failure cooldown for this model.
+		ml.mu.Lock()
+		ml.clearLoadFailure(modelID)
+		ml.store.Set(modelID, model)
+		ml.mu.Unlock()
+
+		flight.model = model
+	}()
+
+	select {
+	case <-flight.done:
+		return flight.model, flight.err
+	case <-ctx.Done():
+		return nil, &loadWaitCanceledError{err: ctx.Err()}
 	}
-
-	if model == nil {
-		ml.recordLoadFailure(modelID, nil)
-		return nil, fmt.Errorf("loader didn't return a model")
-	}
-
-	// Add to models map and reset any prior failure cooldown for this model.
-	ml.mu.Lock()
-	ml.clearLoadFailure(modelID)
-	ml.store.Set(modelID, model)
-	ml.mu.Unlock()
-
-	return model, nil
 }
 
 func (ml *ModelLoader) ShutdownModel(modelName string) error {
