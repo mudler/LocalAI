@@ -1651,6 +1651,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
 	out.Credentials = slices.Clone(c.Credentials)
 	out.Provides = slices.Clone(c.Provides)
+	out.Events = slices.Clone(c.Events)
 	if c.ModelSearch != nil {
 		ms := *c.ModelSearch
 		ms.Sorts, ms.Filters = slices.Clone(ms.Sorts), slices.Clone(ms.Filters)
