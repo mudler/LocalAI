@@ -100,6 +100,10 @@ type redialer struct {
 	gate  allowed
 	cache *addrCache
 	sem   chan struct{}
+	// interfaceAddrs lists the addresses of this host's interfaces. It is a
+	// field so that tests can make the lookup fail; the default is
+	// net.InterfaceAddrs.
+	interfaceAddrs func() ([]net.Addr, error)
 
 	mu       sync.Mutex
 	inflight map[peer.ID]bool
@@ -117,7 +121,7 @@ func (n *Host) startRedial(w *addrWatcher) error {
 	if err != nil {
 		return err
 	}
-	r := &redialer{n: n, gate: g, cache: newAddrCache(), sem: make(chan struct{}, redialParallel), inflight: map[peer.ID]bool{}}
+	r := &redialer{n: n, gate: g, cache: newAddrCache(), sem: make(chan struct{}, redialParallel), interfaceAddrs: net.InterfaceAddrs, inflight: map[peer.ID]bool{}}
 	n.redial = r
 	n.wg.Go(func() {
 		defer func() { _ = sub.Close() }()
@@ -189,7 +193,7 @@ func (r *redialer) addressesChanged() {
 	for _, p := range r.n.h.Network().Peers() {
 		r.learn(p)
 	}
-	ips := localIPs()
+	ips, _ := r.localIPs()
 	for _, c := range r.n.h.Network().Conns() {
 		if isRelayed(c.LocalMultiaddr()) || !r.gate.Allowed(c.RemotePeer()) {
 			continue
@@ -284,18 +288,20 @@ func (n *Host) Learn(p peer.ID) {
 }
 
 // localIPs returns the unicast addresses of the interfaces of this machine.
-func localIPs() map[string]bool {
-	out := map[string]bool{}
-	addrs, err := net.InterfaceAddrs()
+// A failed lookup is an error and not an empty set, because the caller must
+// not read "unknown" as "no addresses".
+func (r *redialer) localIPs() (map[string]bool, error) {
+	addrs, err := r.interfaceAddrs()
 	if err != nil {
-		return out
+		return nil, err
 	}
+	out := map[string]bool{}
 	for _, a := range addrs {
 		if ipn, ok := a.(*net.IPNet); ok && !ipn.IP.IsLoopback() {
 			out[ipn.IP.String()] = true
 		}
 	}
-	return out
+	return out, nil
 }
 
 // Redial dials p at its cached addresses unless it is connected. It does
