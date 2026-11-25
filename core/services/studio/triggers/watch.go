@@ -142,6 +142,11 @@ type Reminder struct {
 	// Skipped is a due time the owner skipped: the reminder does not fire at
 	// it. A new due time (the thing moved, a snooze) fires again.
 	Skipped time.Time `json:",omitzero"`
+	// SetBy is the ID of the run that last set or changed the reminder with
+	// set_reminder. The heads-up of that run offers buttons for this
+	// reminder, and a reply to the heads-up ("earlier", "no reminder") finds
+	// it by this ID, whatever changed the reminder since.
+	SetBy string `json:",omitempty"`
 }
 
 // Validate checks a reminder's own fields.

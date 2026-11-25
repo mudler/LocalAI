@@ -65,9 +65,11 @@ func (h *Triggers) headsUpActions(ctx context.Context, w triggers.Trigger, run t
 	}, v.T("reminder.headsup_hint")
 }
 
-// setInRun is the one reminder of the watch that the run set or changed.
+// setInRun is the one reminder of the watch that the run set or changed. The
+// reminder records the run (Reminder.SetBy), so a later change of the
+// reminder, by the owner or by a move of its item, does not lose it.
 func (h *Triggers) setInRun(ctx context.Context, w triggers.Trigger, run triggers.Run) (triggers.Trigger, bool) {
-	if run.Started.IsZero() {
+	if run.ID == "" {
 		return triggers.Trigger{}, false
 	}
 	list, err := h.o.Store.Reminders(ctx, w.ID)
@@ -76,7 +78,7 @@ func (h *Triggers) setInRun(ctx context.Context, w triggers.Trigger, run trigger
 	}
 	var found []triggers.Trigger
 	for _, r := range list {
-		if !r.Since.Before(run.Started) {
+		if r.Reminder.SetBy == run.ID {
 			found = append(found, r)
 		}
 	}

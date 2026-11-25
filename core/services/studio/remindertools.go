@@ -442,6 +442,11 @@ func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in Remi
 	} else {
 		rem = *cur.Reminder
 	}
+	if in.ChatID != "" {
+		if run, err := h.o.Store.RunByChat(ctx, in.ChatID); err == nil {
+			rem.SetBy = run.ID
+		}
+	}
 	if in.Title != "" {
 		rem.Title = thingLine(in.Title, triggers.MaxThingTitle)
 	}

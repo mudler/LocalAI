@@ -90,9 +90,17 @@ var _ = Describe("the buttons of a heads-up in a messaging app", func() {
 		Expect(sh.trg.PutTrigger(ctx, w)).To(Succeed())
 		now := sh.clock.Now()
 		due := now.Add(5 * time.Hour)
+		// rem1 was set by the run "wr" and changed before it, as far as its
+		// last-change time says; rem2 changed after the run but was not set
+		// by it. The reply finds rem1 by the run it records.
 		rem := triggers.Trigger{ID: "rem1", Owner: alice, Name: "Call", Prompt: "remind me", Enabled: true, Kind: triggers.KindReminder, TZ: "UTC",
-			Model: "m", Route: route, Since: now, Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:1", Title: "Call", Anchor: due, Offset: -15 * time.Minute, Task: "remind me"}}
+			Model: "m", Route: route, Since: now.Add(-time.Hour), Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:1", Title: "Call", Anchor: due,
+				Offset: -15 * time.Minute, Task: "remind me", SetBy: "wr"}}
 		Expect(sh.trg.PutTrigger(ctx, rem)).To(Succeed())
+		other := triggers.Trigger{ID: "rem2", Owner: alice, Name: "Other", Prompt: "remind me", Enabled: true, Kind: triggers.KindReminder, TZ: "UTC",
+			Model: "m", Route: route, Since: now.Add(time.Minute), Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:2", Title: "Other", Anchor: due,
+				Offset: -15 * time.Minute, Task: "remind me"}}
+		Expect(sh.trg.PutTrigger(ctx, other)).To(Succeed())
 		_, err := sh.trg.Claim(ctx, triggers.Run{ID: "wr", TriggerID: "w1", DueKey: "event@x", Due: now, Status: triggers.StatusDone, ChatID: "c1", Started: now, Ended: now})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -101,6 +109,8 @@ var _ = Describe("the buttons of a heads-up in a messaging app", func() {
 		Expect(bot.answers()[0]).To(HavePrefix("Moved. I'll remind you at"))
 		got, _ := sh.trg.GetTrigger(ctx, "rem1")
 		Expect(got.Reminder.Offset).To(Equal(-time.Hour))
+		untouched, _ := sh.trg.GetTrigger(ctx, "rem2")
+		Expect(untouched.Reminder.Offset).To(Equal(-15*time.Minute), "a reminder the run did not set is not the one the reply answers")
 
 		bot.mu.Lock()
 		bot.updates = append(bot.updates, map[string]any{"update_id": 2, "callback_query": map[string]any{

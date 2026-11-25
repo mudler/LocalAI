@@ -128,6 +128,7 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(rem.Reminder.Anchor).To(Equal(due))
 		Expect(rem.Reminder.Title).To(Equal("Pay the rent"), "the host gave the facts of the item")
 		Expect(rem.Reminder.Offset).To(Equal(-15*time.Minute), "the watch's default")
+		Expect(rem.Reminder.SetBy).To(Equal(run.ID), "the reminder records the run that set it, for a reply to that run's message")
 		Expect(r.bodies()).To(ConsistOf("My notes | Set the reminder for \"Pay the rent\": Wed 08:45."),
 			"the owner made the item and the model set the usual reminder: no heads-up, one line")
 
