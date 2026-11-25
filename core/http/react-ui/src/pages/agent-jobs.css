@@ -291,3 +291,9 @@ div.aj-group > .aj-group__title { margin-bottom: 0; }
 @media (max-width: 639px) {
   .aj-fence__row { flex-direction: column; }
 }
+
+/* Connections that offer no channel for reports, under the delivery picker. */
+.aj-delivery-unusable {
+  margin: 0;
+  padding-left: 1.25em;
+}

@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Permissões"
+        "acts": "Permissões",
+        "delivery": "Relatórios"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "O nome de uma pasta não pode conter \"..\".",
         "outside": "Este agente só pode observar pastas dentro das suas: {{folders}}.",
         "noFolders": "Este agente não tem nenhuma pasta utilizável. Escolha uma pasta nas configurações do agente."
+      },
+      "delivery": {
+        "now": "Envia relatórios agora para",
+        "where": "Onde as execuções enviam relatórios",
+        "mode": "Quando enviar",
+        "always": "A cada execução",
+        "keep": "Manter: {{place}}",
+        "origin": "O chat onde foi proposto",
+        "hint": "Só aparecem os canais que você aprovou nas suas conexões, em conexões autorizadas a escrever em canais.",
+        "fromChat": "Este gatilho foi proposto em um chat de um app de mensagens: os relatórios ficam nessa conexão.",
+        "loadFailed": "Não foi possível ler as conexões: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "desligada",
+          "addon_off": "o complemento dela não está em execução",
+          "tool_only": "um serviço para ferramentas, não recebe relatórios",
+          "talkback_off": "sem permissão para escrever em canais",
+          "no_channel": "nenhum canal aprovado"
+        }
       }
     },
     "subtitle": "Inicie um agente por agenda ou quando um arquivo chegar. Cada execução é um chat que você pode abrir.",

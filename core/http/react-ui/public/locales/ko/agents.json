@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "권한"
+        "acts": "권한",
+        "delivery": "보고"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "폴더 이름에 \"..\"를 넣을 수 없습니다.",
         "outside": "이 에이전트는 자신의 폴더 안에 있는 폴더만 감시할 수 있습니다: {{folders}}.",
         "noFolders": "이 에이전트에는 사용할 수 있는 폴더가 없습니다. 에이전트 설정에서 폴더를 선택하세요."
+      },
+      "delivery": {
+        "now": "현재 보고 위치",
+        "where": "실행 결과를 보고할 곳",
+        "mode": "보고 시점",
+        "always": "실행할 때마다",
+        "keep": "유지: {{place}}",
+        "origin": "제안된 채팅",
+        "hint": "채널에 쓸 수 있는 연결에서 내가 승인한 채널만 표시됩니다.",
+        "fromChat": "이 트리거는 메시징 앱의 채팅에서 제안되었습니다. 보고는 그 연결에 남습니다.",
+        "loadFailed": "연결을 읽을 수 없습니다: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "꺼짐",
+          "addon_off": "애드온이 실행 중이 아님",
+          "tool_only": "도구용 서비스라 보고를 받을 수 없음",
+          "talkback_off": "채널에 쓸 수 없음",
+          "no_channel": "승인된 채널 없음"
+        }
       }
     },
     "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다.",

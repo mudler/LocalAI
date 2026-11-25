@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Permissions"
+        "acts": "Permissions",
+        "delivery": "Rapports"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "Un nom de dossier ne peut pas contenir « .. ».",
         "outside": "Cet agent ne peut surveiller que des dossiers à l’intérieur des siens : {{folders}}.",
         "noFolders": "Cet agent n’a aucun dossier utilisable. Choisissez un dossier dans les réglages de l’agent."
+      },
+      "delivery": {
+        "now": "Envoie actuellement ses rapports à",
+        "where": "Où les exécutions envoient leurs rapports",
+        "mode": "Quand envoyer un rapport",
+        "always": "À chaque exécution",
+        "keep": "Conserver : {{place}}",
+        "origin": "Le chat où il a été proposé",
+        "hint": "Seuls les canaux que vous avez approuvés dans vos connexions sont listés, sur les connexions autorisées à écrire dans les canaux.",
+        "fromChat": "Ce déclencheur a été proposé dans un chat d'une application de messagerie : ses rapports restent sur cette connexion.",
+        "loadFailed": "Impossible de lire les connexions : {{message}}",
+        "unusable": "{{name}} : {{reason}}",
+        "reason": {
+          "off": "désactivée",
+          "addon_off": "son module complémentaire ne tourne pas",
+          "tool_only": "un service pour les outils, il ne peut pas recevoir de rapports",
+          "talkback_off": "non autorisée à écrire dans les canaux",
+          "no_channel": "aucun canal approuvé"
+        }
       }
     },
     "subtitle": "Lancez un agent selon un horaire ou à l'arrivée d'un fichier. Chaque exécution est un chat que vous pouvez ouvrir.",

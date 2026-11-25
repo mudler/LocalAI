@@ -774,6 +774,9 @@ export const chatTriggersApi = {
   rotateSecret: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/secret`, {}),
   runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
   preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
+  // Where a trigger can report: { connections: [{ id, kind, kind_title, addon, name, enabled, can_receive_reports, talkback_allowed,
+  // channels: [{ id, label, current }], reason }], from_chat, connectors_off }. trigger marks the channel it reports to now.
+  destinations: (agentId, trigger) => fetchJSON(`/api/chats/triggers/destinations${q({ agent_id: agentId, trigger })}`),
   proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
   // One proposal and what became of it: { state: pending|accepted|declined|expired|undone, trigger, answered_at, can_undo, undo_blocked }.
   proposal: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`),
