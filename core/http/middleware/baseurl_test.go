@@ -332,3 +332,54 @@ var _ = Describe("BaseURL", func() {
 		})
 	})
 })
+
+var _ = Describe("BaseHrefPath", func() {
+	baseHref := func(app *echo.Echo, ext string, header map[string]string) string {
+		got := ""
+		app.GET("/x", func(c echo.Context) error {
+			if ext != "" {
+				c.Set("_external_base_url", ext)
+			}
+			got = BaseHrefPath(c)
+			return nil
+		})
+		req := httptest.NewRequest("GET", "/x", nil)
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+		app.ServeHTTP(httptest.NewRecorder(), req)
+		return got
+	}
+
+	It("has no scheme or host when an untrusted TLS proxy sets the forwarded headers", func() {
+		got := baseHref(echoTrusting(""), "", map[string]string{
+			"X-Forwarded-Proto": "https",
+			"X-Forwarded-Host":  "proxy.example",
+		})
+		Expect(got).To(Equal("/"))
+	})
+
+	It("keeps the forwarded prefix of a trusted proxy", func() {
+		got := baseHref(trustedEcho(), "", map[string]string{
+			"X-Forwarded-Proto":  "https",
+			"X-Forwarded-Host":   "proxy.example",
+			"X-Forwarded-Prefix": "/llm",
+		})
+		Expect(got).To(Equal("/llm/"))
+	})
+
+	It("keeps the path of the external base URL when the proxy strips it", func() {
+		Expect(baseHref(echoTrusting(""), "https://ext.example/sub", nil)).To(Equal("/sub/"))
+		Expect(baseHref(echoTrusting(""), "https://ext.example/sub/", nil)).To(Equal("/sub/"))
+	})
+
+	It("never returns a protocol-relative path", func() {
+		Expect(baseHref(echoTrusting(""), "https://ext.example//evil.example", nil)).To(Equal("/evil.example/"))
+	})
+
+	It("escapes characters that do not belong in a path", func() {
+		got := baseHref(trustedEcho(), "", map[string]string{"X-Forwarded-Prefix": `/a"b c`})
+		Expect(got).ToNot(ContainSubstring(`"`))
+		Expect(got).ToNot(ContainSubstring(" "))
+	})
+})

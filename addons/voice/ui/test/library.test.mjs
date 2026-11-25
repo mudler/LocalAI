@@ -93,7 +93,12 @@ test('ctx: audioUrl adds the path prefix of the page, read from the base element
     const ctx = mod.__ctxFor(sdk)
     assert.equal(ctx.basePath, '/prefix')
     assert.equal(createApi(ctx).voiceProfiles.audioUrl('a/b'), '/prefix/api/voice-profiles/a%2Fb/audio')
+    // The server sends a path-only href, resolved against the page address.
+    globalThis.document = { querySelector: (sel) => (sel === 'base[href]' ? { getAttribute: () => '/prefix/' } : null) }
+    globalThis.location = { href: 'https://host.test/prefix/app/voice' }
+    assert.equal(mod.__ctxFor(sdk).basePath, '/prefix')
   } finally {
+    delete globalThis.location
     if (saved === undefined) delete globalThis.document
     else globalThis.document = saved
   }
