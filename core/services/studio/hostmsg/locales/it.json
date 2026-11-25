@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} è stato rimosso, quindi ho annullato il suo promemoria.",
   "watch.woken_by": "{title} è cambiato. Controllo se il suo promemoria va ancora bene.",
   "reminder.failed": "Promemoria: {title}. (L'attività {task} non è stata completata.)",
-  "reminder.failed_at": "Promemoria: {title} alle {when}. (L'attività {task} non è stata completata.)"
+  "reminder.failed_at": "Promemoria: {title} alle {when}. (L'attività {task} non è stata completata.)",
+  "reminder.unchanged": "Non ho potuto cambiare questo promemoria. Cambialo dalla pagina della sorveglianza."
 }

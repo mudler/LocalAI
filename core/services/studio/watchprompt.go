@@ -95,10 +95,7 @@ func lifecycleWords(l string) string {
 func itemLine(w triggers.Trigger, f watchFacts) string {
 	when := "it has no time"
 	if at, err := time.Parse(time.RFC3339, f.At); err == nil {
-		loc, lerr := w.Location()
-		if lerr != nil {
-			loc = time.UTC
-		}
+		loc := w.LocationOrUTC()
 		when = "its time is " + at.In(loc).Format("Mon 2 Jan 2006 15:04 MST")
 		if f.AllDay {
 			when = "it lasts all day on " + at.In(loc).Format("Mon 2 Jan 2006")
@@ -153,17 +150,14 @@ func (h *Triggers) reminderBrief(ctx context.Context, r triggers.Trigger, run tr
 	if err != nil {
 		w = triggers.Trigger{TZ: r.TZ, Source: strings.SplitN(rem.Key, ":", 2)[0]}
 	}
-	loc, lerr := w.Location()
-	if lerr != nil {
-		loc = time.UTC
-	}
+	loc := w.LocationOrUTC()
 	var b strings.Builder
 	fmt.Fprintf(&b, "This is the reminder for an item (key %s, title as data: %q) of a watch on %s.", rem.Key, rem.Title, w.Source)
 	if !rem.Anchor.IsZero() {
 		fmt.Fprintf(&b, " The item's time is %s.", rem.Anchor.In(loc).Format("Mon 2 Jan 2006 15:04 MST"))
 	}
 	if w.Watch != nil {
-		tm := triggers.PlanReminder(*rem, w.Watch, loc, h.o.Clock())
+		tm := triggers.PlanFor(w, *rem, h.o.Clock())
 		if !tm.Due.IsZero() {
 			fmt.Fprintf(&b, " The reminder time is %s.", tm.Due.In(loc).Format("Mon 15:04"))
 		}

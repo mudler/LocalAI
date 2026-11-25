@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} se ha eliminado, así que he cancelado su recordatorio.",
   "watch.woken_by": "{title} ha cambiado. Compruebo si su recordatorio sigue valiendo.",
   "reminder.failed": "Recordatorio: {title}. (La tarea {task} no terminó.)",
-  "reminder.failed_at": "Recordatorio: {title} a las {when}. (La tarea {task} no terminó.)"
+  "reminder.failed_at": "Recordatorio: {title} a las {when}. (La tarea {task} no terminó.)",
+  "reminder.unchanged": "No pude cambiar este recordatorio. Cámbialo en la página de la vigilancia."
 }

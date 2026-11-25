@@ -125,13 +125,23 @@ func (c *Connectors) sendPost(ctx context.Context, b connectors.Binding, it outI
 	defer cancel()
 	req := contract.ConnectorRequest{Op: contract.ConnectorOpSend, Token: it.token, Chat: it.Chat, Thread: it.Thread, Text: it.Text}
 	if len(it.Actions) > 0 {
-		if k := c.kindOf(ctx, b); k != nil && k.Actions {
-			req.Actions = it.Actions
-		} else if it.Hint != "" {
-			req.Text += "\n" + it.Hint
-		}
+		k := c.kindOf(ctx, b)
+		req.Text, req.Actions = withActions(it.Text, it.Actions, it.Hint, k != nil && k.Actions)
 	}
 	return c.send(ctx, b, req)
+}
+
+// withActions gives the text and the buttons of a message: the buttons for a
+// kind that shows them, when the contract takes them; otherwise the text with
+// the hint that stands for them as one more line.
+func withActions(text string, actions []contract.MessageAction, hint string, buttons bool) (string, []contract.MessageAction) {
+	if buttons && contract.ValidMessageActions(actions) == nil {
+		return text, actions
+	}
+	if hint != "" {
+		text += "\n" + hint
+	}
+	return text, nil
 }
 
 // drain sends the queue of a binding as the limit allows, then stops.

@@ -123,7 +123,8 @@ func (h *Handlers) PatchWatchReminder(c echo.Context) error {
 	p := studiosvc.ReminderPatch{SnoozeFor: time.Duration(req.SnoozeMinutes) * time.Minute, SnoozedTo: req.SnoozedTo, Skip: req.Skip, At: req.At, Task: req.Task,
 		Source: c.QueryParam("source")}
 	if req.OffsetMinutes != nil {
-		p.Offset = (time.Duration(*req.OffsetMinutes) * time.Minute).String()
+		off := time.Duration(*req.OffsetMinutes) * time.Minute
+		p.Offset = &off
 	}
 	v, err := host.PatchReminder(c.Request().Context(), userID(c), c.Param("id"), c.Param("rid"), p)
 	if err != nil {

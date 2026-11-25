@@ -72,7 +72,7 @@ func (h *Triggers) ProposeReminder(ctx context.Context, user, chatID string, w t
 	rec.Change = triggers.Change{Op: triggers.ChangeCreate, Chat: chatID}
 	if !p.isNew {
 		if reminderStamp(p.cur) == reminderStamp(p.next) {
-			return reminderErr("nothing changes: the reminder already has these values")
+			return triggers.Trigger{}, reminderErr("nothing changes: the reminder already has these values")
 		}
 		rec.Change.Op, rec.Change.Target, rec.Change.Stamp = triggers.ChangeUpdate, p.cur.ID, reminderStamp(p.cur)
 	}
@@ -106,43 +106,48 @@ func (h *Triggers) reminderWatch(ctx context.Context, user string, rec triggers.
 
 // applyReminderChange is ApplyChange for a change of a reminder.
 func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (triggers.Trigger, error) {
-	h.wmu.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			h.wmu.Unlock()
-		}
-	}()
-	rec, err := h.ownedChange(ctx, user, id)
+	t, act, err := h.applyReminderChangeLocked(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	h.record(ctx, act)
+	return t, nil
+}
+
+// applyReminderChangeLocked applies the change under the write lock, and
+// gives the action to record once the lock is let go.
+func (h *Triggers) applyReminderChangeLocked(ctx context.Context, user, id string) (triggers.Trigger, reminderAction, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	fail := func(err error) (triggers.Trigger, reminderAction, error) {
+		return triggers.Trigger{}, reminderAction{}, err
+	}
+	rec, err := h.ownedChange(ctx, user, id)
+	if err != nil {
+		return fail(err)
+	}
 	if rec.Outcome != "" {
-		return triggers.Trigger{}, ErrProposalAnswered
+		return fail(ErrProposalAnswered)
 	}
 	w, err := h.reminderWatch(ctx, user, rec)
 	if err != nil {
-		return triggers.Trigger{}, fmt.Errorf("%w: the watch was removed", ErrChangeStale)
+		return fail(fmt.Errorf("%w: the watch was removed", ErrChangeStale))
 	}
 	var live triggers.Trigger
 	if rec.Change.Op == triggers.ChangeCreate {
 		if _, err := h.o.Store.ReminderByKey(ctx, w.ID, rec.Reminder.Key); err == nil {
-			return triggers.Trigger{}, fmt.Errorf("%w: the item has a reminder since; ask for the change again", ErrChangeStale)
+			return fail(fmt.Errorf("%w: the item has a reminder since; ask for the change again", ErrChangeStale))
 		}
 	} else {
 		live, err = h.o.Store.GetTrigger(ctx, rec.Change.Target)
 		if err != nil || !live.IsReminder() || live.Reminder.ParentID != w.ID {
-			return triggers.Trigger{}, fmt.Errorf("%w: the reminder was removed", ErrChangeStale)
+			return fail(fmt.Errorf("%w: the reminder was removed", ErrChangeStale))
 		}
 		if reminderStamp(live) != rec.Change.Stamp {
-			return triggers.Trigger{}, fmt.Errorf("%w: ask for the change again", ErrChangeStale)
+			return fail(fmt.Errorf("%w: ask for the change again", ErrChangeStale))
 		}
 	}
 	now := h.o.Clock()
-	loc, lerr := w.Location()
-	if lerr != nil {
-		loc = time.UTC
-	}
 	var next triggers.Trigger
 	var line watchText
 	if rec.Change.Op == triggers.ChangeDelete {
@@ -159,26 +164,26 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 		}
 		// The person may answer later than the change was asked for: the
 		// time is worked out again now.
-		tm := triggers.PlanReminder(rem, w.Watch, loc, now)
+		tm := triggers.PlanFor(w, rem, now)
 		if tm.Skip || tm.None {
-			return triggers.Trigger{}, bad("the item has already started, so the reminder cannot be set")
+			return fail(bad("the item has already started, so the reminder cannot be set"))
 		}
 		rem.Adjusted = tm.Adjusted
 		next = reminderTrigger(base, w, rem)
 		next.Since = now.UTC()
 		if err := next.Validate(); err != nil {
-			return triggers.Trigger{}, bad("%v", err)
+			return fail(bad("%v", err))
 		}
 		line = reminderSetLine(w, rec.Change.Op == triggers.ChangeCreate, rem.Title, tm.Due, now)
 	}
 	at := now.UTC()
 	if err := h.claimChange(ctx, rec, "", triggers.OutcomeAccepted, at); err != nil {
-		return triggers.Trigger{}, err
+		return fail(err)
 	}
 	if rec.Change.Op == triggers.ChangeDelete {
 		if err := h.o.Store.DeleteTrigger(ctx, live.ID); err != nil {
 			h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
-			return triggers.Trigger{}, err
+			return fail(err)
 		}
 		if run := h.currentRunner(); run != nil {
 			_ = run.Cancel(ctx, live.ID)
@@ -186,9 +191,9 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 	} else if err := h.o.Store.PutTrigger(ctx, next); err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
 		if errors.Is(err, triggers.ErrDuplicate) || errors.Is(err, triggers.ErrConflict) {
-			return triggers.Trigger{}, fmt.Errorf("%w: ask for the change again", ErrChangeStale)
+			return fail(fmt.Errorf("%w: ask for the change again", ErrChangeStale))
 		}
-		return triggers.Trigger{}, err
+		return fail(err)
 	}
 	// The record keeps the reminder as it was, for Undo, and the stamp of the
 	// reminder the change left, to tell a later edit.
@@ -208,14 +213,11 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 	if err := h.o.Store.PutTrigger(ctx, kept); err != nil {
 		h.log.Warn("studio: could not keep the copy that undoes a reminder change", "change", rec.ID, "error", err)
 	}
-	h.wmu.Unlock() // the record below may pause the watch, which takes the lock
-	locked = false
-	h.recordAction(ctx, w, now, line)
-	h.Notify()
+	act := reminderAction{w: w, now: now, line: line}
 	if rec.Change.Op == triggers.ChangeDelete {
-		return live, nil
+		return live, act, nil
 	}
-	return next, nil
+	return next, act, nil
 }
 
 // reminderUndoBlock says why an applied change of a reminder cannot be
@@ -247,31 +249,40 @@ func (h *Triggers) reminderUndoBlock(ctx context.Context, rec triggers.Trigger) 
 // reminder is cancelled, a changed one gets its time and task back and a
 // cancelled one is set again.
 func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (triggers.Trigger, error) {
-	h.wmu.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			h.wmu.Unlock()
-		}
-	}()
-	rec, err := h.ownedChange(ctx, user, id)
+	t, act, err := h.undoReminderChangeLocked(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	h.record(ctx, act)
+	return t, nil
+}
+
+// undoReminderChangeLocked undoes the change under the write lock, and gives
+// the action to record once the lock is let go.
+func (h *Triggers) undoReminderChangeLocked(ctx context.Context, user, id string) (triggers.Trigger, reminderAction, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	fail := func(err error) (triggers.Trigger, reminderAction, error) {
+		return triggers.Trigger{}, reminderAction{}, err
+	}
+	rec, err := h.ownedChange(ctx, user, id)
+	if err != nil {
+		return fail(err)
+	}
 	if rec.Outcome != triggers.OutcomeAccepted {
-		return triggers.Trigger{}, ErrProposalAnswered
+		return fail(ErrProposalAnswered)
 	}
 	if block := h.reminderUndoBlock(ctx, rec); block != "" {
-		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[block])
+		return fail(fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[block]))
 	}
 	w, err := h.reminderWatch(ctx, user, rec)
 	if err != nil {
-		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[UndoRemoved])
+		return fail(fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[UndoRemoved]))
 	}
 	now := h.o.Clock()
 	at := now.UTC()
 	if err := h.claimChange(ctx, rec, triggers.OutcomeAccepted, triggers.OutcomeUndone, at); err != nil {
-		return triggers.Trigger{}, err
+		return fail(err)
 	}
 	var t triggers.Trigger
 	var line watchText
@@ -305,29 +316,21 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 		t = reminderTrigger(base, w, rem)
 		t.Since = at
 		err = h.o.Store.PutTrigger(ctx, t)
-		loc, lerr := w.Location()
-		if lerr != nil {
-			loc = time.UTC
-		}
-		due := triggers.PlanReminder(rem, w.Watch, loc, now).Due
+		due := triggers.PlanFor(w, rem, now).Due
 		line = watchSay(w, "restored", rem.Title, due, fmt.Sprintf("Put back the reminder for %q: %s.", rem.Title, whenText(w, due, now)))
 	}
 	if err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeUndone)
 		if errors.Is(err, triggers.ErrDuplicate) || errors.Is(err, triggers.ErrConflict) {
-			return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[UndoEdited])
+			return fail(fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[UndoEdited]))
 		}
-		return triggers.Trigger{}, err
+		return fail(err)
 	}
 	rec.Outcome, rec.OutcomeAt = triggers.OutcomeUndone, at
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		h.log.Warn("studio: could not mark a reminder change undone", "change", rec.ID, "error", err)
 	}
-	h.wmu.Unlock()
-	locked = false
-	h.recordAction(ctx, w, now, line)
-	h.Notify()
-	return t, nil
+	return t, reminderAction{w: w, now: now, line: line}, nil
 }
 
 var reminderUndoText = map[string]string{
@@ -400,10 +403,7 @@ func (h *Triggers) reminderChangeStatus(ctx context.Context, user string, rec tr
 // reminderChangeNote is how the model hears of a reminder change it asked
 // for in a chat.
 func reminderChangeNote(t triggers.Trigger) string {
-	title := t.Reminder.Title
-	if len(title) > 60 {
-		title = title[:60]
-	}
+	title := cutRunes(t.Reminder.Title, 60)
 	what := "the change to the reminder for " + fmt.Sprintf("%q", title)
 	switch t.Change.Op {
 	case triggers.ChangeCreate:

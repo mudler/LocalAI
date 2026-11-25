@@ -70,6 +70,21 @@ func newFlowRig(f *flowScript, rule triggers.WatchRule) *flowRig {
 	return &flowRig{trigRig: r, f: f, watch: w}
 }
 
+// raceStore runs before once, just before the first write of a reminder:
+// the moment another frontend may write the same reminder.
+type raceStore struct {
+	triggers.Store
+	before func()
+}
+
+func (s *raceStore) PutTrigger(ctx context.Context, t triggers.Trigger) error {
+	if f := s.before; f != nil && t.IsReminder() {
+		s.before = nil
+		f()
+	}
+	return s.Store.PutTrigger(ctx, t)
+}
+
 func (r *flowRig) emit(lifecycle, id string, due time.Time, extra, cred string) {
 	Expect(r.host.Emit(context.Background(), studio.EmitInput{Owner: alice, Addon: "notes", Decl: notesDecl(lifecycle),
 		Payload: notesPayload(id, "Pay the rent", due, extra), CredentialID: cred})).To(Succeed())
@@ -244,6 +259,31 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(r.bodies()).To(ContainElement("My notes | The reminder for \"Pay the rent\" was removed with its watch."))
 	})
 
+	It("keeps the reminders of a paused watch in step with their items, with no run", func() {
+		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
+		due := r.sh.clock.Now().Add(26 * time.Hour)
+		r.emit("created", "1", due, "", "")
+		r.modelRun()
+		_, err := r.host.SetReminder(ctx, r.watch, studio.ReminderInput{Key: "notes:2", Anchor: due.Format(time.RFC3339), Title: "Call Sam"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.host.SetTriggerEnabled(ctx, alice, r.watch.ID, false)
+		Expect(err).NotTo(HaveOccurred())
+		seen := len(r.f.seen)
+		r.emit("updated", "1", due.Add(time.Hour), "now with Sam", contract.ClientCredentialPrefix+"phone")
+		rem, err := r.reminder("1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rem.Reminder.Anchor).To(Equal(due.Add(time.Hour)), "a move while paused is kept")
+		r.emit("deleted", "2", time.Time{}, "", "")
+		_, err = r.reminder("2")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "a removal while paused cancels the reminder")
+		r.emit("created", "3", due, "", "")
+		_, err = r.reminder("3")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+		Expect(r.f.seen).To(HaveLen(seen), "no model run while paused")
+		runs, _ := r.sh.trg.ListRuns(ctx, rem.ID, 10)
+		Expect(runs).To(BeEmpty(), "no early run of a reminder on hold")
+	})
+
 	It("lets the owner snooze, skip and re-time a reminder, and undo each", func() {
 		r := newFlowRig(&flowScript{}, triggers.WatchRule{Offset: -15 * time.Minute})
 		due := r.sh.clock.Now().Add(time.Hour)
@@ -270,7 +310,8 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(runs).To(BeEmpty(), "a skipped time does not fire")
 		got, _ = r.host.PatchReminder(ctx, alice, r.watch.ID, v.ID, studio.ReminderPatch{Skip: &no})
 		Expect(got.Skipped).To(BeFalse())
-		got, err = r.host.PatchReminder(ctx, alice, r.watch.ID, v.ID, studio.ReminderPatch{Offset: "-5m"})
+		fiveBefore := -5 * time.Minute
+		got, err = r.host.PatchReminder(ctx, alice, r.watch.ID, v.ID, studio.ReminderPatch{Offset: &fiveBefore})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Due).To(Equal(due.Add(-5 * time.Minute)))
 		Expect(r.host.DeleteReminder(ctx, alice, r.watch.ID, v.ID)).To(Succeed())
@@ -326,6 +367,30 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(r.h.ToolNames(run.ChatID)).NotTo(ContainElement(studio.SetReminderName))
 		watchRun := r.modelRun()
 		Expect(r.h.ToolNames(watchRun.ChatID)).To(ContainElements(studio.SetReminderName, studio.CancelReminderName, studio.ListRemindersName))
+	})
+
+	It("changes the reminder that another frontend made for the same item meanwhile", func() {
+		sh := newShared()
+		race := &raceStore{Store: sh.trg}
+		sh.trg = race
+		r := sh.rig((&flowScript{}).script, studio.TriggerOptions{Sources: notesSource})
+		w, err := r.host.CreateTrigger(ctx, alice, studio.TriggerInput{Name: "My notes", Prompt: "Keep me on top of my notes.",
+			Kind: triggers.KindEvent, Source: "notes", TZ: "UTC", Model: "m", Enabled: true, Watch: &triggers.WatchRule{Offset: -15 * time.Minute}})
+		Expect(err).NotTo(HaveOccurred())
+		due := sh.clock.Now().Add(26 * time.Hour)
+		race.before = func() {
+			other := triggers.Trigger{ID: "other", Owner: w.Owner, Name: "Pay the rent", Prompt: "remind me", Enabled: true, Kind: triggers.KindReminder,
+				TZ: "UTC", Since: sh.clock.Now(), Reminder: &triggers.Reminder{ParentID: w.ID, Key: "notes:1", Title: "Pay the rent", Anchor: due,
+					Offset: -15 * time.Minute, Task: "remind me"}}
+			Expect(race.Store.PutTrigger(ctx, other)).To(Succeed())
+		}
+		got, err := r.host.SetReminder(ctx, w, studio.ReminderInput{Key: "notes:1", Anchor: due.Format(time.RFC3339), Offset: "-30m"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("other"), "the write became a change of the reminder made meanwhile")
+		Expect(got.Reminder.Offset).To(Equal(-30 * time.Minute))
+		list, err := sh.trg.Reminders(ctx, w.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
 	})
 
 	It("refuses a key of another source and a time after the item began", func() {

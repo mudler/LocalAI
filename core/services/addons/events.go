@@ -4,7 +4,7 @@ package addons
 import (
 	"context"
 	"slices"
-	"sort"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -40,7 +40,7 @@ func (m *Manager) EventSources(ctx context.Context) ([]EventSource, error) {
 		}
 		out = append(out, src)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].AddonID < out[j].AddonID })
+	slices.SortFunc(out, func(a, b EventSource) int { return strings.Compare(a.AddonID, b.AddonID) })
 	return out, nil
 }
 
@@ -52,13 +52,9 @@ func (m *Manager) DeclaredEvent(ctx context.Context, addonID, typ string) (contr
 		return contract.EventDeclaration{}, false, err
 	}
 	for _, s := range srcs {
-		if s.AddonID != addonID {
-			continue
-		}
-		for _, d := range s.Events {
-			if d.Type == typ {
-				return d, true, nil
-			}
+		if s.AddonID == addonID {
+			d, ok := contract.Capabilities{Events: s.Events}.FindEvent(typ)
+			return d, ok, nil
 		}
 	}
 	return contract.EventDeclaration{}, false, nil

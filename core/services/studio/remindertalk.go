@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,10 +22,13 @@ const (
 	reminderActionPrefix = "reminder:"
 	verbSnooze5          = "snooze5"
 	verbSnooze30         = "snooze30"
-	verbSkip             = "skip"
-	verbOK               = "ok"
-	verbEarlier          = "early60"
-	verbNone             = "none"
+	// verbSnoozeFor is a reply word with a number of minutes; it has no
+	// button.
+	verbSnoozeFor = "snooze"
+	verbSkip      = "skip"
+	verbOK        = "ok"
+	verbEarlier   = "early60"
+	verbNone      = "none"
 	// replyWindow is how long after a reminder a bare word still answers it.
 	replyWindow = 2 * time.Hour
 )
@@ -107,7 +111,7 @@ func reminderWord(text string) (verb string, minutes int, ok bool) {
 	if m := minutesRE.FindStringSubmatch(t); m != nil {
 		n, err := strconv.Atoi(m[1])
 		if err == nil && n > 0 && n <= 24*60 {
-			return "snooze", n, true
+			return verbSnoozeFor, n, true
 		}
 	}
 	return "", 0, false
@@ -154,36 +158,53 @@ func (c *Connectors) answerReminder(ctx context.Context, b connectors.Binding, m
 		}
 		r, verb, minutes = got, vb, n
 	}
+	w, err := h.o.Store.GetTrigger(ctx, r.Reminder.ParentID)
+	if err != nil {
+		return h.reminderFailed(v, err), true
+	}
+	now := h.o.Clock()
 	switch {
 	case verb == verbEarlier:
-		view, err := h.PatchReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID, ReminderPatch{Offset: "-60m"})
+		hourBefore := -time.Hour
+		view, err := h.PatchReminder(ctx, r.Owner, w.ID, r.ID, ReminderPatch{Offset: &hourBefore})
 		if err != nil {
-			return v.T("reminder.gone"), true
+			return h.reminderFailed(v, err), true
 		}
-		w, _ := h.o.Store.GetTrigger(ctx, r.Reminder.ParentID)
-		return v.T("reminder.retimed", "when", whenText(w, view.Due, h.o.Clock())), true
+		return v.T("reminder.retimed", "when", whenText(w, view.Due, now)), true
 	case verb == verbNone:
-		if err := h.DeleteReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID); err != nil {
-			return v.T("reminder.gone"), true
+		if err := h.DeleteReminder(ctx, r.Owner, w.ID, r.ID); err != nil {
+			return h.reminderFailed(v, err), true
 		}
 		return v.T("reminder.cancelled"), true
 	case verb == verbOK:
 		return v.T("reminder.noted"), true
 	case verb == verbSkip:
 		yes := true
-		if _, err := h.PatchReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID, ReminderPatch{Skip: &yes}); err != nil {
-			return v.T("reminder.gone"), true
+		if _, err := h.PatchReminder(ctx, r.Owner, w.ID, r.ID, ReminderPatch{Skip: &yes}); err != nil {
+			return h.reminderFailed(v, err), true
 		}
 		return v.T("reminder.skipped"), true
 	case minutes > 0:
-		view, err := h.PatchReminder(ctx, r.Owner, r.Reminder.ParentID, r.ID, ReminderPatch{SnoozeFor: time.Duration(minutes) * time.Minute})
+		view, err := h.PatchReminder(ctx, r.Owner, w.ID, r.ID, ReminderPatch{SnoozeFor: time.Duration(minutes) * time.Minute})
 		if err != nil {
-			return v.T("reminder.gone"), true
+			return h.reminderFailed(v, err), true
 		}
-		w, _ := h.o.Store.GetTrigger(ctx, r.Reminder.ParentID)
-		return v.T("reminder.snoozed", "when", whenText(w, view.Due, h.o.Clock())), true
+		return v.T("reminder.snoozed", "when", whenText(w, view.Due, now)), true
 	}
 	return v.T("reminder.gone"), true
+}
+
+// reminderFailed answers a button or a word whose change did not apply: the
+// reminder is gone, or it stays as it was. An error that is not a refusal is
+// logged.
+func (h *Triggers) reminderFailed(v hostmsg.Voice, err error) string {
+	if errors.Is(err, triggers.ErrNotFound) {
+		return v.T("reminder.gone")
+	}
+	if !errors.Is(err, ErrBadTrigger) {
+		h.log.Warn("studio: could not apply the answer to a reminder", "error", err)
+	}
+	return v.T("reminder.unchanged")
 }
 
 // lastReminderIn is the reminder of the owner that reported last in a chat of

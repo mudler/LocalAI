@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} wurde entfernt, deshalb habe ich die Erinnerung abgesagt.",
   "watch.woken_by": "{title} hat sich geändert. Ich prüfe, ob die Erinnerung noch passt.",
   "reminder.failed": "Erinnerung: {title}. (Die Aufgabe {task} wurde nicht fertig.)",
-  "reminder.failed_at": "Erinnerung: {title} um {when}. (Die Aufgabe {task} wurde nicht fertig.)"
+  "reminder.failed_at": "Erinnerung: {title} um {when}. (Die Aufgabe {task} wurde nicht fertig.)",
+  "reminder.unchanged": "Ich konnte diese Erinnerung nicht ändern. Ändere sie auf der Seite der Beobachtung."
 }

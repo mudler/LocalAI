@@ -74,11 +74,7 @@ func reminderView(w, r triggers.Trigger, now time.Time) ReminderView {
 	rem := *r.Reminder
 	v := ReminderView{ID: r.ID, Key: rem.Key, Title: rem.Title, Link: rem.Link, Task: rem.Task, Anchor: rem.Anchor, Offset: rem.Offset,
 		Lead: rem.Lead, At: rem.At, SnoozedTo: rem.SnoozedTo, AllDay: rem.AllDay}
-	loc, err := w.Location()
-	if err != nil {
-		loc = time.UTC
-	}
-	tm := triggers.PlanReminder(rem, w.Watch, loc, now)
+	tm := triggers.PlanFor(w, rem, now)
 	if !tm.None && !tm.Skip {
 		v.Due, v.Start, v.Adjusted, v.Skipped = tm.Due, tm.Start, tm.Adjusted, tm.Skipped
 		v.Snoozable = !tm.Skipped && tm.Due.Sub(now) <= snoozeWindow
@@ -128,9 +124,11 @@ type ReminderPatch struct {
 	SnoozedTo *string
 	// Skip skips the coming due time; false takes the skip back.
 	Skip *bool
-	// At and Offset re-time the reminder as set_reminder does.
-	At, Offset string
-	Task       *string
+	// At and Offset re-time the reminder as set_reminder does: At is a time
+	// in the words of the tool, Offset a time relative to the item's.
+	At     string
+	Offset *time.Duration
+	Task   *string
 	// Source, when set, is the add-on whose page asks (sdk.reminders.skip):
 	// a reminder of a watch on another source is refused as missing, so a
 	// page changes only the reminders of its own items.
@@ -150,59 +148,49 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 	if err != nil || !r.IsReminder() || r.Reminder.ParentID != w.ID {
 		return ReminderView{}, triggers.ErrNotFound
 	}
-	if p.At != "" || p.Offset != "" {
-		if _, err := h.SetReminder(ctx, w, ReminderInput{Key: r.Reminder.Key, At: p.At, Offset: p.Offset}); err != nil {
-			if errors.Is(err, errReminder) {
-				return ReminderView{}, bad("%s", strings.TrimPrefix(err.Error(), errReminder.Error()+": "))
-			}
-			return ReminderView{}, err
+	if p.At != "" || p.Offset != nil {
+		_, err := h.SetReminder(ctx, w, ReminderInput{Key: r.Reminder.Key, At: p.At, offset: p.Offset})
+		if why, ok := reminderRefusal(err); ok {
+			return ReminderView{}, bad("%s", why)
 		}
-		if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil {
+		if err != nil {
 			return ReminderView{}, err
 		}
 	}
 	now := h.o.Clock()
-	loc, lerr := w.Location()
-	if lerr != nil {
-		loc = time.UTC
-	}
-	// Read the reminder again under the write lock, so a change of the
-	// thing reconciled meanwhile is kept and this change applies on top. The
-	// lock covers this process; the version check of the store covers
-	// another frontend, and a refused write reads the reminder again.
-	h.wmu.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			h.wmu.Unlock()
-		}
-	}()
-	var line watchText
-	for attempt := 0; ; attempt++ {
-		if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
-			return ReminderView{}, triggers.ErrNotFound
-		}
-		if line, err = applyReminderPatch(&r, w, p, loc, now); err != nil {
-			return ReminderView{}, err
-		}
-		if line.Code == "" {
-			break
-		}
-		err = h.o.Store.PutTrigger(ctx, r)
-		if err == nil {
-			break
-		}
-		if !errors.Is(err, triggers.ErrConflict) || attempt == maxReminderRetries {
-			return ReminderView{}, err
-		}
+	r, line, err := h.writePatch(ctx, w, reminderID, p, now)
+	if err != nil {
+		return ReminderView{}, err
 	}
 	if line.Code != "" {
-		h.wmu.Unlock() // recordAction may pause the watch, which takes the lock
-		locked = false
-		h.recordAction(ctx, w, now, line)
-		h.Notify()
+		h.record(ctx, reminderAction{w: w, now: now, line: line})
 	}
 	return reminderView(w, r, now), nil
+}
+
+// writePatch applies the owner's change p to the reminder under the write
+// lock, and gives the reminder as it is now and the line of the watch's
+// history, with no Code when nothing changed. It reads the reminder again
+// under the lock, so a change of the thing reconciled meanwhile is kept and
+// this change applies on top. The lock covers this process; the version
+// check of the store covers another frontend, and a refused write reads the
+// reminder again.
+func (h *Triggers) writePatch(ctx context.Context, w triggers.Trigger, reminderID string, p ReminderPatch, now time.Time) (triggers.Trigger, watchText, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	var r triggers.Trigger
+	var line watchText
+	err := triggers.RetryOnConflict(func() error {
+		var err error
+		if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
+			return triggers.ErrNotFound
+		}
+		if line, err = applyReminderPatch(&r, w, p, w.LocationOrUTC(), now); err != nil || line.Code == "" {
+			return err
+		}
+		return h.o.Store.PutTrigger(ctx, r)
+	})
+	return r, line, err
 }
 
 // applyReminderPatch applies the owner's change p to the reminder r and gives
@@ -232,7 +220,7 @@ func applyReminderPatch(r *triggers.Trigger, w triggers.Trigger, p ReminderPatch
 	}
 	if p.Skip != nil {
 		if *p.Skip {
-			tm := triggers.PlanReminder(rem, w.Watch, loc, now)
+			tm := triggers.PlanFor(w, rem, now)
 			rem.Skipped = tm.Due
 			line = watchSay(w, "skipped", rem.Title, time.Time{}, fmt.Sprintf("Skipped the reminder for %q.", rem.Title))
 		} else {

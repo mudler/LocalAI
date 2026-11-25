@@ -106,10 +106,7 @@ func thingLine(s string, max int) string {
 		}
 		return r
 	}, s)
-	if r := []rune(s); len(r) > max {
-		s = string(r[:max])
-	}
-	return s
+	return triggers.CutText(s, max)
 }
 
 // stampWithout is a short fingerprint of the payload with the given paths
@@ -117,21 +114,8 @@ func thingLine(s string, max int) string {
 // have the same stamp.
 func stampWithout(doc any, drop []string) string {
 	for _, p := range drop {
-		if p == "" {
-			continue
-		}
-		segs := strings.Split(p, ".")
-		cur := doc
-		for i, seg := range segs {
-			m, ok := cur.(map[string]any)
-			if !ok {
-				break
-			}
-			if i == len(segs)-1 {
-				delete(m, seg)
-				break
-			}
-			cur = m[seg]
+		if p != "" {
+			triggers.DropPath(doc, p)
 		}
 	}
 	raw, _ := json.Marshal(doc) // map keys are sorted: the text is canonical
@@ -166,13 +150,15 @@ func (h *Triggers) ActorOf(ctx context.Context, owner, chatID, credentialID stri
 // Emit hands an event of an add-on to the owner's triggers: each watch that
 // takes it reconciles its reminder with no model, or starts its model run for
 // a thing it has no reminder for; each plain event trigger that matches runs
-// as for the hook. A run of a watch or of one of its reminders never wakes
-// that watch. The event reaches only the owner's own triggers.
+// as for the hook. A paused watch still moves and cancels the reminders it
+// holds, so they are right when it is back, but starts no run. A run of a
+// watch or of one of its reminders never wakes that watch. The event reaches
+// only the owner's own triggers.
 func (h *Triggers) Emit(ctx context.Context, in EmitInput) error {
 	if in.Owner == "" || in.Addon == "" {
 		return fmt.Errorf("%w: no owner", ErrEventNotDeclared)
 	}
-	if len(in.Payload) > triggers.MaxEventBody {
+	if len(in.Payload) > contract.MaxEventPayload {
 		return fmt.Errorf("%w: the payload is too large", ErrEventNotDeclared)
 	}
 	th, err := ThingOf(in.Addon, in.Decl, in.Payload)
@@ -199,7 +185,10 @@ func (h *Triggers) Emit(ctx context.Context, in EmitInput) error {
 	parentOf := func(id string) string { return parents[id] }
 	var errs []error
 	for _, t := range list {
-		if t.Kind != triggers.KindEvent || !t.Enabled || t.IsChange() || !t.MatchesEvent(ev) {
+		if t.Kind != triggers.KindEvent || t.IsChange() || !t.MatchesEvent(ev) {
+			continue
+		}
+		if !t.Enabled && (!t.IsWatch() || t.Proposed) {
 			continue
 		}
 		if triggers.Guarded(t, actor, parentOf) {
@@ -236,6 +225,19 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 	if err != nil {
 		return err
 	}
+	if !w.Enabled {
+		// A paused watch keeps its reminders in step with their items but
+		// starts no run: a new item waits for no decision, and a change
+		// beyond the time does not wake a reminder that is on hold.
+		switch {
+		case out.Action == triggers.ActionModel:
+			return nil
+		case out.Action == triggers.ActionWoken && out.Moved:
+			out.Action = triggers.ActionRetimed
+		case out.Action == triggers.ActionWoken:
+			out.Action = triggers.ActionUnchanged
+		}
+	}
 	switch out.Action {
 	case triggers.ActionModel:
 		_, err := h.PublishRun(ctx, w.ID, watchRunEvent(ev))
@@ -265,7 +267,9 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 // watch's channel (decision C); the owner's own change is not.
 func (h *Triggers) recordWatch(ctx context.Context, w triggers.Trigger, key string, now time.Time, out triggers.Outcome, actor triggers.Actor) {
 	line, message := watchSays(w, out, now)
-	loud := !actor.ByOwner()
+	// A paused watch says nothing on its channel; its history and the Inbox
+	// still get the line.
+	loud := !actor.ByOwner() && w.Enabled
 	row := triggers.Run{ID: newID(), TriggerID: w.ID, DueKey: key, Due: now.UTC(), Status: triggers.StatusHandled,
 		Reason: triggers.CutReason(line.Text), Ended: now.UTC()}
 	claimed, err := h.o.Store.Claim(ctx, row)
@@ -348,10 +352,7 @@ func (h *Triggers) sayOnChannel(ctx context.Context, w triggers.Trigger, m watch
 // whenText writes a time for the owner, in the watch's zone: "Thu 15:45", or
 // with the date when it is more than six days away.
 func whenText(w triggers.Trigger, t, now time.Time) string {
-	loc, err := w.Location()
-	if err != nil {
-		loc = time.UTC
-	}
+	loc := w.LocationOrUTC()
 	t, now = t.In(loc), now.In(loc)
 	if t.Sub(now) > 6*24*time.Hour || t.Before(now.Add(-24*time.Hour)) {
 		return t.Format("Mon 2 Jan 15:04")

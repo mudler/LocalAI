@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} was removed, so I cancelled its reminder.",
   "watch.woken_by": "{title} changed. I'm checking whether its reminder still fits.",
   "reminder.failed": "Reminder: {title}. (The task {task} did not finish.)",
-  "reminder.failed_at": "Reminder: {title} at {when}. (The task {task} did not finish.)"
+  "reminder.failed_at": "Reminder: {title} at {when}. (The task {task} did not finish.)",
+  "reminder.unchanged": "I could not change this reminder. Change it on the watch's page."
 }

@@ -1,8 +1,8 @@
 package studio_test
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,6 +60,17 @@ var _ = Describe("the buttons of a reminder in a messaging app", func() {
 		tap(bot, 2, "reminder:nope:skip")
 		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
 		Expect(bot.answers()[1]).To(Equal("This reminder is no longer there."))
+	})
+
+	It("says that nothing changed, not that the reminder is gone, when a change is refused", func() {
+		r, bot, rem := setup()
+		got, err := r.sh.trg.GetTrigger(ctx, rem.ID)
+		Expect(err).NotTo(HaveOccurred())
+		got.Reminder.Anchor = r.sh.clock.Now().Add(-time.Minute) // the item has begun
+		Expect(r.sh.trg.PutTrigger(ctx, got)).To(Succeed())
+		tap(bot, 1, "reminder:rem1:early60")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("I could not change this reminder. Change it on the watch's page."))
 	})
 
 	It("takes the words of a button in the chat that just got a reminder, and leaves other text to the agent", func() {

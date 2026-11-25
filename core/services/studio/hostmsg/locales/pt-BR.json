@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} foi removido, então cancelei o lembrete.",
   "watch.woken_by": "{title} mudou. Estou verificando se o lembrete ainda serve.",
   "reminder.failed": "Lembrete: {title}. (A tarefa {task} não terminou.)",
-  "reminder.failed_at": "Lembrete: {title} às {when}. (A tarefa {task} não terminou.)"
+  "reminder.failed_at": "Lembrete: {title} às {when}. (A tarefa {task} não terminou.)",
+  "reminder.unchanged": "Não consegui mudar este lembrete. Mude-o na página da vigia."
 }

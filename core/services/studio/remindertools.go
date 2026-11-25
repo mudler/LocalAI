@@ -174,18 +174,14 @@ func (s *Service) setReminderChatTool(ctx context.Context, c builtins.Chat, watc
 	h := s.triggers
 	rec, err := h.ProposeReminder(ctx, c.Actor.Principal, c.Actor.ChatID, w, ReminderInput{Key: in.Key, Offset: in.Offset, At: in.At, In: in.In,
 		Task: in.Task, Lead: in.Lead, Anchor: in.Anchor, Title: in.Title})
+	if why, ok := reminderRefusal(err); ok {
+		return "Not proposed: " + why, nil
+	}
 	if err != nil {
-		if errors.Is(err, errReminder) {
-			return "Not proposed: " + strings.TrimPrefix(err.Error(), errReminder.Error()+": "), nil
-		}
 		return "", toolErr(err)
 	}
 	h.changeCard(ctx, c.Actor, rec)
-	loc, lerr := w.Location()
-	if lerr != nil {
-		loc = time.UTC
-	}
-	due := triggers.PlanReminder(*rec.Reminder, w.Watch, loc, h.o.Clock()).Due
+	due := triggers.PlanFor(w, *rec.Reminder, h.o.Clock()).Due
 	return fmt.Sprintf("Asked to set the reminder for %q at %s. Nothing changes until the user presses Approve on the card in the chat; do not say it is set until they do.",
 		rec.Reminder.Title, whenText(w, due, h.o.Clock())), nil
 }
@@ -302,7 +298,7 @@ func parseSpan(s string) (time.Duration, error) {
 
 // thingFacts finds what the host knows about an item of the run's events: the
 // outer fields of the payload that the host wrote (see watchRunPayload), never
-// the add-on's data.
+// the add-on's data. The newest event of the item wins.
 func (h *Triggers) thingFacts(ctx context.Context, chatID, key string) (watchFacts, bool) {
 	run, err := h.o.Store.RunByChat(ctx, chatID)
 	if err != nil {
@@ -310,19 +306,10 @@ func (h *Triggers) thingFacts(ctx context.Context, chatID, key string) (watchFac
 	}
 	var found watchFacts
 	ok := false
-	visit := func(raw []byte) {
-		var f watchFacts
-		if json.Unmarshal(raw, &f) == nil && f.Watch && f.Key == key {
+	for _, f := range factsOf(run.Payload) {
+		if f.Key == key {
 			found, ok = f, true
 		}
-	}
-	var items []json.RawMessage
-	if json.Unmarshal([]byte(run.Payload), &items) == nil {
-		for _, it := range items {
-			visit(it)
-		}
-	} else {
-		visit([]byte(run.Payload))
 	}
 	return found, ok
 }
@@ -337,8 +324,11 @@ func (s *Service) setReminderTool(ctx context.Context, c builtins.Chat, w trigge
 	h := s.triggers
 	r, err := h.SetReminder(ctx, w, ReminderInput{Key: in.Key, Offset: in.Offset, At: in.At, In: in.In, Task: in.Task, Lead: in.Lead,
 		Anchor: in.Anchor, Title: in.Title, ChatID: c.Actor.ChatID})
+	if why, ok := reminderRefusal(err); ok {
+		return "Not set: " + why, nil
+	}
 	if err != nil {
-		return "Not set: " + err.Error(), nil
+		return "", toolErr(err)
 	}
 	return h.reminderResult(w, r), nil
 }
@@ -350,54 +340,78 @@ type ReminderInput struct {
 	// ChatID is the chat of the run that asks, to read what the event said
 	// about the item. Empty for a request of the owner.
 	ChatID string
+	// offset is Offset for a caller that has it as a duration already.
+	offset *time.Duration
 }
 
-// errReminder is a refusal of a reminder that its asker can fix.
-var errReminder = errors.New("studio: reminder")
+// reminderError is a refusal of a reminder that its asker can fix. Its text
+// is written for them: the model of a run, or the person through the API.
+type reminderError struct{ why string }
+
+func (e reminderError) Error() string { return e.why }
+
+// reminderErr makes a reminderError.
+func reminderErr(format string, a ...any) error {
+	return reminderError{why: fmt.Sprintf(format, a...)}
+}
+
+// reminderRefusal gives the text of a reminderError in err, and false for
+// any other error, nil included.
+func reminderRefusal(err error) (string, bool) {
+	var re reminderError
+	if errors.As(err, &re) {
+		return re.why, true
+	}
+	return "", false
+}
 
 // SetReminder creates or replaces the reminder of the watch w for one item.
 func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in ReminderInput) (triggers.Trigger, error) {
 	now := h.o.Clock()
-	h.wmu.Lock()
-	locked := true
-	defer func() {
-		if locked {
-			h.wmu.Unlock()
-		}
-	}()
-	var p reminderPlan
-	for attempt := 0; ; attempt++ {
-		var err error
-		if p, err = h.planReminder(ctx, w, in, now); err != nil {
-			return triggers.Trigger{}, err
-		}
-		err = h.o.Store.PutTrigger(ctx, p.next)
-		if err == nil {
-			break
-		}
-		switch {
-		case errors.Is(err, triggers.ErrConflict) && attempt < maxReminderRetries:
-			continue // another frontend wrote it meanwhile: plan again on top
-		case errors.Is(err, triggers.ErrDuplicate):
-			return reminderErr("this watch already has a reminder for the item")
-		}
+	p, err := h.storeReminder(ctx, w, in, now)
+	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	// The record below may pause the watch, which takes the write lock.
-	h.wmu.Unlock()
-	locked = false
-	h.recordAction(ctx, w, now, p.line(w, now))
-	h.Notify()
+	h.record(ctx, reminderAction{w: w, now: now, line: p.line(w, now)})
 	return p.next, nil
 }
 
-// maxReminderRetries is how many times a write of a reminder is planned again
-// after the store said another writer changed it (triggers.ErrConflict).
-const maxReminderRetries = 3
+// storeReminder plans the reminder and writes it, under the write lock. A
+// write that another frontend beat is planned again on top of what it wrote:
+// a change of the reminder (ErrConflict), or the reminder it made for the
+// same item meanwhile (ErrDuplicate), which this write then changes.
+func (h *Triggers) storeReminder(ctx context.Context, w triggers.Trigger, in ReminderInput, now time.Time) (reminderPlan, error) {
+	h.wmu.Lock()
+	defer h.wmu.Unlock()
+	var p reminderPlan
+	err := triggers.RetryOnConflict(func() error {
+		var err error
+		if p, err = h.planReminder(ctx, w, in, now); err != nil {
+			return err
+		}
+		err = h.o.Store.PutTrigger(ctx, p.next)
+		if p.isNew && errors.Is(err, triggers.ErrDuplicate) {
+			return triggers.ErrConflict
+		}
+		return err
+	})
+	return p, err
+}
 
-// reminderErr is a refusal of a reminder that its asker can fix.
-func reminderErr(format string, a ...any) (triggers.Trigger, error) {
-	return triggers.Trigger{}, fmt.Errorf("%w: %s", errReminder, fmt.Sprintf(format, a...))
+// reminderAction is an action on the reminders of a watch, to record once
+// the write lock is let go.
+type reminderAction struct {
+	w    triggers.Trigger
+	now  time.Time
+	line watchText
+}
+
+// record writes the action to the watch's history and the Inbox. The caller
+// must not hold the write lock: the per-minute limit may pause the watch,
+// which takes it.
+func (h *Triggers) record(ctx context.Context, a reminderAction) {
+	h.recordAction(ctx, a.w, a.now, a.line)
+	h.Notify()
 }
 
 // reminderPlan is the reminder of a watch for one item as a request leaves
@@ -428,21 +442,18 @@ func reminderCancelledLine(w triggers.Trigger, title string) watchText {
 	return watchSay(w, "cancelled", title, time.Time{}, fmt.Sprintf("Cancelled the reminder for %q.", title))
 }
 
-// planReminder works out the reminder of the watch w for one item as in
-// leaves it, from the reminder that is stored now. It stores nothing.
+// planReminder works out the reminder of the watch w for one item as the
+// request in leaves it, from the reminder that is stored now. It stores
+// nothing.
 func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in ReminderInput, now time.Time) (reminderPlan, error) {
 	bad := func(format string, a ...any) (reminderPlan, error) {
-		_, err := reminderErr(format, a...)
-		return reminderPlan{}, err
+		return reminderPlan{}, reminderErr(format, a...)
 	}
 	key := strings.TrimSpace(in.Key)
 	if !strings.HasPrefix(key, w.Source+":") || len(key) <= len(w.Source)+1 {
 		return bad("the key must be an item of this watch's source, such as %s:42", w.Source)
 	}
-	loc, err := w.Location()
-	if err != nil {
-		loc = time.UTC
-	}
+	loc := w.LocationOrUTC()
 	cur, err := h.o.Store.ReminderByKey(ctx, w.ID, key)
 	isNew := errors.Is(err, triggers.ErrNotFound)
 	if err != nil && !isNew {
@@ -489,6 +500,8 @@ func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in Remi
 			return bad("in must be a delay such as 20m or 3d")
 		}
 		rem.At = now.Add(d).UTC()
+	case in.offset != nil:
+		rem.Offset, rem.At = *in.offset, time.Time{}
 	case in.Offset != "":
 		if rem.Offset, err = parseSpan(in.Offset); err != nil {
 			return bad("%v", err)
@@ -511,7 +524,7 @@ func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in Remi
 	if rem.Task == "" {
 		rem.Task = "remind me"
 	}
-	tm := triggers.PlanReminder(rem, w.Watch, loc, now)
+	tm := triggers.PlanFor(w, rem, now)
 	switch {
 	case tm.Skip:
 		return bad("the item has already started, so no reminder is set")
@@ -561,11 +574,7 @@ func (h *Triggers) recordAction(ctx context.Context, w triggers.Trigger, now tim
 // reminderResult tells the model when the owner will hear, once.
 func (h *Triggers) reminderResult(w triggers.Trigger, r triggers.Trigger) string {
 	now := h.o.Clock()
-	loc, _ := w.Location()
-	if loc == nil {
-		loc = time.UTC
-	}
-	tm := triggers.PlanReminder(*r.Reminder, w.Watch, loc, now)
+	tm := triggers.PlanFor(w, *r.Reminder, now)
 	out := fmt.Sprintf("Reminder set for %q at %s.", r.Reminder.Title, whenText(w, tm.Due, now))
 	if r.Reminder.Lead > 0 {
 		out += fmt.Sprintf(" The task starts %s earlier.", triggers.ShortDuration(r.Reminder.Lead))

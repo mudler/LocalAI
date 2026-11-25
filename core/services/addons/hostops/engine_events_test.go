@@ -82,7 +82,7 @@ var _ = Describe("events.emit", func() {
 
 	It("refuses a payload larger than 256 KiB", func() {
 		live("op1", owner)
-		big := strings.Repeat("x", MaxEventPayload)
+		big := strings.Repeat("x", contract.MaxEventPayload)
 		code, _ := f.call("secret", "op1", "events.emit", fmt.Sprintf(`{"type":"notes.item.created","payload":{"t":%q}}`, big))
 		Expect(code).NotTo(Equal(http.StatusOK))
 		Expect(host.calls).To(BeEmpty())

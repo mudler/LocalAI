@@ -78,24 +78,9 @@ func (t Trigger) MatchesEvent(ev Event) bool {
 // its decimal index. It returns the scalar as text, or false when the path is
 // missing or ends at an object, an array or null.
 func lookupPath(doc any, path string) (string, bool) {
-	cur := doc
-	for _, seg := range strings.Split(path, ".") {
-		switch v := cur.(type) {
-		case map[string]any:
-			next, ok := v[seg]
-			if !ok {
-				return "", false
-			}
-			cur = next
-		case []any:
-			i, err := strconv.Atoi(seg)
-			if err != nil || i < 0 || i >= len(v) {
-				return "", false
-			}
-			cur = v[i]
-		default:
-			return "", false
-		}
+	cur, ok := walkPath(doc, strings.Split(path, "."))
+	if !ok {
+		return "", false
 	}
 	switch v := cur.(type) {
 	case string:
@@ -108,6 +93,52 @@ func lookupPath(doc any, path string) (string, bool) {
 		return strconv.FormatFloat(v, 'f', -1, 64), true
 	}
 	return "", false
+}
+
+// walkPath follows the segments of a dot path through a decoded payload: a
+// segment is the key of an object or the index of an array. It gives the
+// value at the end, and false for a path that is not there.
+func walkPath(doc any, segs []string) (any, bool) {
+	cur := doc
+	for _, seg := range segs {
+		switch v := cur.(type) {
+		case map[string]any:
+			next, ok := v[seg]
+			if !ok {
+				return nil, false
+			}
+			cur = next
+		case []any:
+			i, err := strconv.Atoi(seg)
+			if err != nil || i < 0 || i >= len(v) {
+				return nil, false
+			}
+			cur = v[i]
+		default:
+			return nil, false
+		}
+	}
+	return cur, true
+}
+
+// DropPath takes the value at a dot path out of a decoded payload, in place:
+// the key of an object is deleted, and the element of an array becomes null
+// so the others keep their places. A path that is not there changes nothing.
+func DropPath(doc any, path string) {
+	segs := strings.Split(path, ".")
+	parent, ok := walkPath(doc, segs[:len(segs)-1])
+	if !ok {
+		return
+	}
+	last := segs[len(segs)-1]
+	switch v := parent.(type) {
+	case map[string]any:
+		delete(v, last)
+	case []any:
+		if i, err := strconv.Atoi(last); err == nil && i >= 0 && i < len(v) {
+			v[i] = nil
+		}
+	}
 }
 
 // TrimPayload makes the text of a payload for a run and its prompt. Valid JSON
@@ -293,15 +324,9 @@ func LookupPath(doc any, path string) (string, bool) { return lookupPath(doc, pa
 // payload, at most max of them; an entry that is not such a time is passed
 // over.
 func LookupTimes(doc any, path string, max int) []time.Time {
-	cur := doc
-	for _, seg := range strings.Split(path, ".") {
-		m, ok := cur.(map[string]any)
-		if !ok {
-			return nil
-		}
-		if cur, ok = m[seg]; !ok {
-			return nil
-		}
+	cur, ok := walkPath(doc, strings.Split(path, "."))
+	if !ok {
+		return nil
 	}
 	list, ok := cur.([]any)
 	if !ok {

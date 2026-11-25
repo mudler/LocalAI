@@ -11,10 +11,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// MaxEventPayload is the largest payload of one events.emit call, in bytes:
-// the size the hook of an event trigger reads.
-const MaxEventPayload = 256 << 10
-
 // MaxEventDedupe bounds the dedupe key an add-on gives.
 const MaxEventDedupe = 200
 
@@ -70,8 +66,8 @@ func RegisterEvents(b *Broker, h EventHost) error {
 			return nil, fmt.Errorf("%w: type", ErrBadRequest)
 		case len(p) == 0 || p[0] != '{' || !json.Valid(p):
 			return nil, fmt.Errorf("%w: payload must be a JSON object", ErrBadRequest)
-		case len(p) > MaxEventPayload:
-			return nil, fmt.Errorf("%w: payload is larger than %d bytes", ErrBadRequest, MaxEventPayload)
+		case len(p) > contract.MaxEventPayload:
+			return nil, fmt.Errorf("%w: payload is larger than %d bytes", ErrBadRequest, contract.MaxEventPayload)
 		case len(a.DedupeKey) > MaxEventDedupe || strings.ContainsFunc(a.DedupeKey, func(r rune) bool { return r < 0x20 || r == 0x7f }):
 			return nil, fmt.Errorf("%w: dedupe_key", ErrBadRequest)
 		}

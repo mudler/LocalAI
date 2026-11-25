@@ -201,5 +201,6 @@
   "watch.removed_by": "{title} a été supprimé, j'ai donc annulé son rappel.",
   "watch.woken_by": "{title} a changé. Je vérifie si son rappel convient encore.",
   "reminder.failed": "Rappel : {title}. (La tâche {task} ne s'est pas terminée.)",
-  "reminder.failed_at": "Rappel : {title} à {when}. (La tâche {task} ne s'est pas terminée.)"
+  "reminder.failed_at": "Rappel : {title} à {when}. (La tâche {task} ne s'est pas terminée.)",
+  "reminder.unchanged": "Je n'ai pas pu modifier ce rappel. Modifiez-le sur la page de la veille."
 }

@@ -32,6 +32,9 @@ const (
 	MaxEventLabelChars = 80
 	// MaxEventLinkLen bounds the route of the add-on page that opens a thing.
 	MaxEventLinkLen = 200
+	// MaxEventPayload is the largest payload of one events.emit call, in
+	// bytes: the size the hook of an event trigger reads.
+	MaxEventPayload = 256 << 10
 )
 
 // EventDeclaration says what one event type of an add-on means, so the host
