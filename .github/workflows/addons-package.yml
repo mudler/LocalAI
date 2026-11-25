@@ -49,12 +49,23 @@ name: 'add-on packages'
 # release event group by SHA, so they never share the master group and are never
 # replaced.
 #
-# Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds and
-# signs the guest image and exposes its reference by digest as the output
-# "image" (<repository>@sha256:<digest>). The package job passes it to the
-# Sandbox package as SANDBOX_GUEST_IMAGE; a publishing event fails without it.
-# An event that publishes nothing pushes no image, so its Sandbox leg is a
-# local-check build.
+# Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds the
+# guest images and exposes their references by digest as the outputs "image",
+# "image_media" and "image_office" (<repository>@sha256:<digest>). The package
+# job passes them to the Sandbox package as SANDBOX_GUEST_IMAGE and
+# SANDBOX_GUEST_IMAGE_MEDIA/_OFFICE; a publishing event fails without the base
+# one. An event that publishes nothing pushes no image, so its Sandbox leg is a
+# local-check build. The executable keeps these digests for good, so no tag
+# that names them may move: sandbox-images.yml reuses a tag that exists, a
+# v<semver> tag push gives the images release tags of their own, and the
+# release event builds no image and stamps the images of the tag push.
+#
+# Two runs of a release. The tag push builds, publishes and signs every
+# package and renders the release catalog. The release event of the same tag
+# runs the workflow again for the promote job and to attach the catalog. Its
+# publish job waits until the tag push has published <id>-<version> and adopts
+# that index (--adopt-existing), so it never publishes an index of its own,
+# and the catalog pins the digests that the registry holds.
 #
 # Sandbox on macOS. The darwin/arm64 leg runs on a macOS runner, so the build,
 # the ad hoc signing with the virtualization entitlement (codesign, by
@@ -436,7 +447,8 @@ jobs:
     needs: [plan, validate, package]
     if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # A release event waits here for the tag push run (see the push step).
+    timeout-minutes: ${{ github.event_name == 'release' && 280 || 60 }}
     concurrency:
       group: addons-publish-${{ matrix.addon }}-${{ needs.plan.outputs.immutable }}
       cancel-in-progress: false
@@ -483,9 +495,24 @@ jobs:
         id: push
         env:
           IMMUTABLE: ${{ needs.plan.outputs.immutable }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -eu
-          go run ./scripts/addons/cmd/addonpkg target --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --tag "$IMMUTABLE"
+          target=$(go run ./scripts/addons/cmd/addonpkg target --repository "$ADDON_OCI_REPOSITORY" --addon "$ADDON" --tag "$IMMUTABLE" | sed -n 's/^target=//p')
+          echo "target=$target"
+          if [ "$EVENT" = release ]; then
+            # The tag push run of this release publishes the version, and its
+            # catalog pins what it published. The release event rebuilt the
+            # package, but a rebuild differs in bytes, so it only adopts the
+            # published index: wait until the tag push has pushed it, never
+            # push first.
+            deadline=$(( $(date +%s) + 260 * 60 ))
+            until docker buildx imagetools inspect --raw "$target" > /dev/null 2>&1; do
+              [ "$(date +%s)" -lt "$deadline" ] || { echo "timed out waiting for the tag push run to publish $target" >&2; exit 1; }
+              echo "waiting for the tag push run to publish $target"
+              sleep 60
+            done
+          fi
           go run ./scripts/addons/cmd/addonpkg publish --config "addons/$ADDON/package/platforms.yaml" \
             --layout merged --repository "$ADDON_OCI_REPOSITORY" --tag "$IMMUTABLE" --adopt-existing | tee push.txt
           echo "digest=$(sed -n 's/^digest=//p' push.txt)" >> "$GITHUB_OUTPUT"
@@ -601,9 +628,11 @@ jobs:
   catalog:
     name: render the release catalog
     # Only the push of a v<semver> tag: the entries are pinned to the version
-    # that run published and signed. A release event rebuilds the packages and
-    # adopts the published ones, so its own layout is not the pinned content.
-    needs: [plan, publish]
+    # that run published and signed. The entries take the manifests from the
+    # merged layouts and the digests from the registry (catalog.sh
+    # --pin-registry): a re-run whose rebuild was adopted did not push the
+    # digests of its own layout.
+    needs: [plan, publish, sandbox-image]
     if: needs.plan.outputs.publish == 'true' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -637,10 +666,27 @@ jobs:
             --version "$VERSION" --signer-ref "$REF" --owner-repo "$OWNER_REPO" \
             --merged-root roots --out addons-index.yaml
           grep -c '^- id:' addons-index.yaml
+      - name: List the guest images of the Sandbox package
+        # The references that package.sh stamped into the Sandbox executable.
+        # The release-index job checks that the registry still serves them.
+        env:
+          IMAGE: ${{ needs.sandbox-image.outputs.image }}
+          IMAGE_MEDIA: ${{ needs.sandbox-image.outputs.image_media }}
+          IMAGE_OFFICE: ${{ needs.sandbox-image.outputs.image_office }}
+        run: |
+          set -eu
+          : > sandbox-guest-images.txt
+          for ref in "$IMAGE" "$IMAGE_MEDIA" "$IMAGE_OFFICE"; do
+            [ -z "$ref" ] || echo "$ref" >> sandbox-guest-images.txt
+          done
+          cat sandbox-guest-images.txt
+          grep -qE '@sha256:[0-9a-f]{64}$' sandbox-guest-images.txt
       - uses: actions/upload-artifact@v7
         with:
           name: addons-release-index
-          path: addons-index.yaml
+          path: |
+            addons-index.yaml
+            sandbox-guest-images.txt
           if-no-files-found: error
           # The longest the service keeps an artifact. The release must be
           # published within this time of the tag.
@@ -697,4 +743,38 @@ jobs:
           done
           gh run download "$run" --name addons-release-index --dir index
           test -s index/addons-index.yaml
-          gh release upload "$TAG" index/addons-index.yaml --clobber
+      - name: Check that the registry serves every pinned digest
+        # A host installs a package by the digest of the catalog and pulls the
+        # guest images by the digests stamped in the Sandbox executable, both
+        # without credentials. A registry serves a digest only while a tag
+        # names it, so check each one anonymously before the catalog is public.
+        run: |
+          set -eu
+          refs=$(awk '
+            /^  artifact: "oci:\/\// { a = $2; gsub(/"/, "", a); sub(/^oci:\/\//, "", a); sub(/:[^:\/]*$/, "", a) }
+            /^  digest: "sha256:/ { d = $2; gsub(/"/, "", d); print a "@" d }
+          ' index/addons-index.yaml)
+          entries=$(grep -c '^- id:' index/addons-index.yaml)
+          [ "$(printf '%s\n' "$refs" | grep -c '@sha256:')" -eq "$entries" ] || {
+            echo "the catalog has $entries entries but not as many pinned digests" >&2
+            exit 1
+          }
+          # An index from a tag run before this check has no list of guest images.
+          if [ -f index/sandbox-guest-images.txt ]; then
+            refs="$refs
+          $(cat index/sandbox-guest-images.txt)"
+          fi
+          missing=0
+          for ref in $refs; do
+            if docker buildx imagetools inspect --raw "$ref" > /dev/null 2> inspect.err; then
+              echo "ok $ref"
+            else
+              echo "the registry does not serve $ref: $(cat inspect.err)" >&2
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+      - name: Attach the catalog
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" index/addons-index.yaml --clobber
