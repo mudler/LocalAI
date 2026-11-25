@@ -122,7 +122,7 @@ If a remote server is the default, the app opens it at once. It does not install
 
 To change the server, use the switcher in the status bar. The shortcut is Ctrl+Shift+S, or Cmd+Shift+S on macOS. If you pick a server in the switcher, it becomes the default. If you pick This computer, the app starts it, and installs it first when it is missing.
 
-The app does not save the password or the API key of a remote server. You sign in again in the web interface when the server asks. The API key of the server on this computer is kept encrypted when your system has a keyring. Without a keyring, the app keeps it for the current session only.
+The app does not save the password or the API key of a remote server. You sign in again in the web interface when the server asks. GitHub and OIDC sign-in work in the window: the pages of the identity provider that the server's sign-in redirects to open in the app, for at most 10 minutes, and the app keeps the session. The API key of the server on this computer is kept encrypted when your system has a keyring. Without a keyring, the app keeps it for the current session only.
 
 If the address is plain `http`, the app shows a warning and a **Remote, not encrypted** chip in the status bar.
 

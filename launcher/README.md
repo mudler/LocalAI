@@ -825,6 +825,18 @@ the strictest settings (`webuiView.ts`; the decisions are in
   and the server's own `blob:` URLs, nothing else, and they never open the
   browser. The session also cancels every document request to another origin,
   also after a redirect.
+- OAuth and OIDC sign-in is the one exception (`OAuthSignInFlow` in
+  `src/core/webuiPolicy.ts`). A main-frame navigation to
+  `/api/auth/oidc/login` or `/api/auth/github/login` on the server origin
+  waits 30 seconds for a redirect. The first redirect of the main frame to
+  another `http` or `https` origin then lets that origin load in the main
+  frame, so the `oauth_state` cookie and the session cookie stay in the
+  view's partition. More redirects can add origins, at most 5 in all; a link
+  that a provider page follows adds none. The exception ends on a return to
+  the server origin, after 10 minutes (the life of the `oauth_state`
+  cookie), when the launcher navigates the view, and when the view closes or
+  shows another server. Subframes, windows, permissions, downloads, other
+  schemes and URLs with user info keep the rules above.
 - `window.open` and `target=_blank` never create a window. `/app` pages of
   the server open in the view; other server pages and other origins open in
   the browser.
@@ -847,11 +859,16 @@ box): the form warns, and the bar keeps an amber "Remote, not encrypted" chip
 for as long as that server is shown. Credentials in an address and other
 schemes are refused. Each origin keeps its own session partition.
 
-Known limits: a sign-in that redirects to another origin (an identity
-provider) opens in the system browser, so it cannot complete inside the view;
-use Open in browser for it. This is by decision: the view never shows a page
-of an origin the user did not choose. A `javascript:` link runs inside the page itself
-(same origin, no new rights), as in any browser.
+Known limits: an identity provider page is a page of an origin the user did
+not choose. It loads in the view only for the sign-in that the server's login
+route started, in the main frame only, and with no permissions. A provider
+that moves to another origin by script (not by a redirect) opens that origin
+in the system browser, and the sign-in does not complete in the view; use
+Open in browser for it. A provider page gets no permission (camera,
+notifications and the like), and its passkey or security-key prompt may not
+work in the view; choose another sign-in method of the provider then. A
+`javascript:` link runs inside the page itself (same origin, no new rights),
+as in any browser.
 
 ### Desktop notifications
 
