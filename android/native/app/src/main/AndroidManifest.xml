@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- WebView getUserMedia audio capture needs it next to RECORD_AUDIO (install-time, no prompt). -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
