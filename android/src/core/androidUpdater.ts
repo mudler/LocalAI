@@ -27,6 +27,8 @@ export interface AndroidUpdater {
   setAutoCheck(on: boolean): Promise<UpdateInfoView>
   /** On open and on resume: the daily check, then the download. Never the install. */
   maybeAutoCheck(now: number): Promise<void>
+  /** Sends the current state again, so open views read theirs (back from the Android settings). */
+  refresh(): void
   offer(): ApkOffer | undefined
   apkUpdate(): Promise<ApkUpdateView>
   openInstallSettings(): Promise<void>
@@ -46,6 +48,7 @@ export function idleUpdater(): AndroidUpdater {
     install: async () => undefined,
     setAutoCheck: async () => ({ ...info }),
     maybeAutoCheck: async () => undefined,
+    refresh: () => undefined,
     offer: () => undefined,
     apkUpdate: async () => ({ canInstall: false }),
     openInstallSettings: async () => undefined,
@@ -271,6 +274,7 @@ export function createAndroidUpdater(p: { plugin: UpdaterPlugin; store: ConfigSt
       await u.check(now)
       if (state.phase === 'available') await u.download()
     },
+    refresh: () => set({ ...state }),
     offer: () => (current ? { ...current } : undefined),
     async apkUpdate() {
       const canInstall = await allowedToInstall()

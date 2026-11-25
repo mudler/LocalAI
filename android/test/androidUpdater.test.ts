@@ -389,6 +389,19 @@ describe('install', () => {
     expect(plugin.count('openInstallSettings')).toBe(1)
     expect(opened).toEqual([DEV_APP_URL])
   })
+
+  it('refresh sends the current state again, so the sheet re-reads the consent on resume', async () => {
+    const { u, plugin, seen } = await downloaded(false)
+    await u.install()
+    expect((await u.apkUpdate()).canInstall).toBe(false)
+    plugin.allowed = true
+    const before = seen.length
+    u.refresh()
+    expect(seen.length).toBe(before + 1)
+    expect(seen[seen.length - 1]).toEqual(u.status())
+    expect((await u.apkUpdate()).canInstall).toBe(true)
+    expect(plugin.count('install')).toBe(0)
+  })
 })
 
 describe('automatic check', () => {

@@ -56,7 +56,11 @@ async function main(): Promise<void> {
   // The daily update check: on open and on every return to the screen.
   void updater.maybeAutoCheck(Date.now())
   void CapApp.addListener('appStateChange', ({ isActive }) => {
-    if (isActive) void updater.maybeAutoCheck(Date.now())
+    if (!isActive) return
+    // Back from the Android settings: an open update sheet reads the install consent again
+    // (the WebView does not always fire visibilitychange on resume).
+    updater.refresh()
+    void updater.maybeAutoCheck(Date.now())
   }).catch(() => undefined)
 }
 
