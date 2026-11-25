@@ -3,6 +3,8 @@ package privacy_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -104,6 +106,25 @@ var _ = Describe("privacy levels", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(l).To(Equal(privacy.Normal))
 		})
+	})
+
+	It("redacts content of a zero-retention request only", func() {
+		zr := privacy.WithLevel(context.Background(), privacy.ZeroRetention)
+		mo := privacy.WithLevel(context.Background(), privacy.MemoryOff)
+		Expect(privacy.Redact(zr, "secret prompt")).To(Equal(privacy.Redacted))
+		Expect(privacy.Redact(mo, "secret prompt")).To(Equal("secret prompt"))
+	})
+
+	It("discards the files of a zero-retention request and keeps the others", func() {
+		dir := GinkgoT().TempDir()
+		a, b := filepath.Join(dir, "a.wav"), filepath.Join(dir, "b.wav")
+		Expect(os.WriteFile(a, []byte("x"), 0o600)).To(Succeed())
+		Expect(os.WriteFile(b, []byte("x"), 0o600)).To(Succeed())
+		privacy.Discard(privacy.WithLevel(context.Background(), privacy.MemoryOff), a)
+		Expect(a).To(BeAnExistingFile())
+		privacy.Discard(privacy.WithLevel(context.Background(), privacy.ZeroRetention), a, b, a, "", filepath.Join(dir, "missing"))
+		Expect(a).ToNot(BeAnExistingFile())
+		Expect(b).ToNot(BeAnExistingFile())
 	})
 
 	It("parses the policy and the maximum", func() {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/trace"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -649,6 +650,19 @@ func LoadOptionsFinalizer(configs ModelConfigGetter) func(ctx context.Context, m
 		}
 		return nil
 	}
+}
+
+// withRequestPrivacy drops every cache that would outlive a request that may
+// not keep content: the prompt cache file of the model goes, and the backend
+// is told with NoPromptCache (see backend.proto).
+func withRequestPrivacy(ctx context.Context, opts *pb.PredictOptions) {
+	if privacy.Allows(ctx, privacy.StoreContent) {
+		return
+	}
+	opts.NoPromptCache = true
+	opts.PromptCachePath = ""
+	opts.PromptCacheAll = false
+	opts.PromptCacheRO = false
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {

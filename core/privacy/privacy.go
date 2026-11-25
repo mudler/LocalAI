@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -222,4 +223,35 @@ func Decide(r Request) (Level, error) {
 		return Normal, fmt.Errorf("%w: %s is above the maximum %s", ErrAboveMax, l, maxLevel)
 	}
 	return l, nil
+}
+
+// Discard removes the files a handler wrote for its answer when the request
+// may not keep content: a generated file that was already sent to the client
+// must not stay in the generated-content directory. Empty paths and missing
+// files are skipped. A normal request keeps its files.
+func Discard(ctx context.Context, paths ...string) {
+	if Allows(ctx, StoreContent) {
+		return
+	}
+	seen := map[string]bool{}
+	for _, p := range paths {
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		_ = os.Remove(p)
+	}
+}
+
+// Redacted is what Redact writes in place of content.
+const Redacted = "[redacted: zero-retention]"
+
+// Redact returns s, or Redacted when the request may not keep content. Use it
+// for every log line that would print a prompt, a message or an answer, at
+// any level: logs are kept by whatever collects them.
+func Redact(ctx context.Context, s string) string {
+	if Allows(ctx, StoreContent) {
+		return s
+	}
+	return Redacted
 }

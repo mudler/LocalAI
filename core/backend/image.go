@@ -66,7 +66,7 @@ func ImageGeneration(ctx context.Context, height, width, step, seed int, positiv
 		originalFn := fn
 		fn = func() error {
 			startTime := time.Now()
-			traceID := trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceImageGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(positive_prompt, 200)})
+			traceID := trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceImageGeneration, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: trace.TruncateString(positive_prompt, 200)})
 			defer trace.CancelBackendTrace(traceID)
 			err := originalFn()
 			duration := time.Since(startTime)
@@ -76,7 +76,7 @@ func ImageGeneration(ctx context.Context, height, width, step, seed int, positiv
 				errStr = err.Error()
 			}
 
-			trace.RecordBackendTrace(trace.BackendTrace{
+			trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 				ID:        traceID,
 				Timestamp: startTime,
 				Duration:  duration,

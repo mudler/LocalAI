@@ -15,6 +15,7 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	openaiEndpoint "github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -55,6 +56,15 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		// Check if storage is disabled for this request
 		shouldStore := true
 		if input.Store != nil && !*input.Store {
+			shouldStore = false
+		}
+		// A zero-retention request keeps no response, so it cannot point at
+		// one either: a kept chain would be content held for later. It is
+		// refused rather than answered without the earlier turns.
+		if !privacy.Allows(c.Request().Context(), privacy.StoreConversation) {
+			if input.PreviousResponseID != "" {
+				return sendOpenResponsesError(c, 400, "invalid_request", "previous_response_id is not available in a zero-retention incognito conversation: send the whole conversation as input", "previous_response_id")
+			}
 			shouldStore = false
 		}
 
@@ -222,7 +232,7 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 
 		// Template the prompt
 		predInput := evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
-		xlog.Debug("Open Responses - Prompt (after templating)", "prompt", predInput)
+		xlog.Debug("Open Responses - Prompt (after templating)", "prompt", privacy.Redact(c.Request().Context(), predInput))
 
 		// Handle background mode
 		isBackground := input.Background != nil && *input.Background

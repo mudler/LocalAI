@@ -38,7 +38,7 @@ type patternDetector struct {
 // Detect runs the compiled patterns and maps each match onto a pii.NEREntity.
 // When tracing is enabled it records a pattern_pii BackendTrace so the matches
 // (group, byte range, text) show in the Traces UI alongside NER detections.
-func (d *patternDetector) Detect(_ context.Context, text string) ([]pii.NEREntity, error) {
+func (d *patternDetector) Detect(ctx context.Context, text string) ([]pii.NEREntity, error) {
 	tracing := d.appConfig != nil && d.appConfig.EnableTracing
 	var start time.Time
 	if tracing {
@@ -57,7 +57,7 @@ func (d *patternDetector) Detect(_ context.Context, text string) ([]pii.NEREntit
 	}
 
 	if tracing {
-		trace.RecordBackendTrace(patternPIITrace(d.modelName, text, traceEnts, start))
+		trace.RecordBackendTraceFor(ctx, patternPIITrace(d.modelName, text, traceEnts, start))
 	}
 	return out, nil
 }

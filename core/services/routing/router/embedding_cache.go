@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/privacy"
 	"github.com/mudler/xlog"
 )
 
@@ -199,6 +200,12 @@ func (c *EmbeddingCacheClassifier) Classify(ctx context.Context, p Probe) (Decis
 	// clearly committed.
 	if decision.Score < c.confidenceThreshold {
 		c.lowConfidence.Add(1)
+		return decision, nil
+	}
+
+	// The vector is derived from the prompt: a zero-retention request reads
+	// the cache but adds nothing to it.
+	if !privacy.Allows(ctx, privacy.StoreContent) {
 		return decision, nil
 	}
 

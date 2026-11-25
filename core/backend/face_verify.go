@@ -40,7 +40,7 @@ func FaceVerify(
 	if appConfig.EnableTracing {
 		trace.InitBackendTracingIfEnabled(appConfig.TracingMaxItems, appConfig.TracingMaxBodyBytes)
 		startTime = time.Now()
-		traceID = trace.BeginBackendTrace(trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceFaceVerify, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "face verification"})
+		traceID = trace.BeginBackendTraceFor(ctx, trace.BackendTrace{Timestamp: startTime, Type: trace.BackendTraceFaceVerify, ModelName: modelConfig.Name, Backend: modelConfig.Backend, Summary: "face verification"})
 	}
 	defer trace.CancelBackendTrace(traceID)
 
@@ -57,7 +57,7 @@ func FaceVerify(
 		if err != nil {
 			errStr = err.Error()
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		trace.RecordBackendTraceFor(ctx, trace.BackendTrace{
 			ID:        traceID,
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
