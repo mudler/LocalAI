@@ -83,7 +83,7 @@ func normTrigger(t Trigger) Trigger {
 	}
 	if t.Reminder != nil {
 		r := *t.Reminder
-		r.Anchor, r.At, r.SnoozedTo = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo)
+		r.Anchor, r.At, r.SnoozedTo, r.Skipped = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo), utc(r.Skipped)
 		t.Reminder = &r
 	}
 	t.Route.ProposedAt, t.Route.Expires, t.Route.Until = utc(t.Route.ProposedAt), utc(t.Route.Expires), utc(t.Route.Until)

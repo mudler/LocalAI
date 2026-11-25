@@ -139,6 +139,9 @@ type Reminder struct {
 	// SnoozedTo, when set, is a due time the owner chose that wins over the
 	// computed one until the thing moves.
 	SnoozedTo time.Time `json:",omitzero"`
+	// Skipped is a due time the owner skipped: the reminder does not fire at
+	// it. A new due time (the thing moved, a snooze) fires again.
+	Skipped time.Time `json:",omitzero"`
 }
 
 // Validate checks a reminder's own fields.

@@ -59,6 +59,7 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 			out.HookPath = hookPath(t.ID)
 		}
 	}
+	out.Watch = watchRuleOut(t.Watch)
 	if t.Kind == triggers.KindFile || t.Kind == triggers.KindEvent {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
@@ -99,7 +100,7 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 	in := studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap, RunLimit: runLimit,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled,
-		Source: req.Source, EventType: req.EventType, Matches: req.Matches}
+		Source: req.Source, EventType: req.EventType, Matches: req.Matches, Watch: watchRuleIn(req.Watch)}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
 	if req.Acts != nil {
 		in.Acts = req.Acts

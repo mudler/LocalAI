@@ -34,6 +34,8 @@ type Timing struct {
 	// None says that the rule sets no reminder (an all-day thing under the
 	// all-day rule none).
 	None bool
+	// Skipped says that the owner skipped this due time.
+	Skipped bool
 }
 
 // PlanReminder computes when the reminder r fires at now. rule is the watch's
@@ -62,6 +64,10 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 		a := r.Anchor.In(loc)
 		tm.Due = time.Date(a.Year(), a.Month(), a.Day(), allDayHour, 0, 0, 0, loc)
 		tm.Adjusted = AdjustedAllDay
+	case r.Anchor.IsZero():
+		// A thing with no time left (an event with no occurrence ahead) and
+		// no time of its own: nothing to remind of.
+		return Timing{None: true}
 	default:
 		tm.Due = r.Anchor.Add(r.Offset)
 	}
@@ -73,6 +79,9 @@ func PlanReminder(r Reminder, rule *WatchRule, owner *time.Location, now time.Ti
 	tm.Due = tm.Due.UTC()
 	if started(r, now) {
 		return Timing{Due: tm.Due, Skip: true}
+	}
+	if !r.Skipped.IsZero() && r.Skipped.Equal(tm.Due) {
+		tm.Skipped = true
 	}
 	tm.Start = tm.Due.Add(-r.Lead)
 	if tm.Start.Before(now) {

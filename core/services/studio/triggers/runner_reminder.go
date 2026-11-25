@@ -55,7 +55,7 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 		loc = time.UTC
 	}
 	tm := PlanReminder(*t.Reminder, parent.Watch, loc, now)
-	if tm.None || tm.Due.IsZero() {
+	if tm.None || tm.Skipped || tm.Due.IsZero() {
 		return nil
 	}
 	key := ReminderPrefix + tm.Due.Format(time.RFC3339)

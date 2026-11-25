@@ -268,3 +268,23 @@ func joinMerged(events []mergedEvent, dropped, budget int) string {
 	b.WriteByte(']')
 	return b.String()
 }
+
+// DecodePayload reads a JSON payload for LookupPath. Numbers keep their
+// text, so a large id loses no digits.
+func DecodePayload(raw []byte) (any, error) {
+	var doc any
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, fmt.Errorf("trailing data after the payload")
+	}
+	return doc, nil
+}
+
+// LookupPath follows a dot path through a decoded payload and gives the
+// scalar there as text; false for a missing path or one that ends at an
+// object, an array or null.
+func LookupPath(doc any, path string) (string, bool) { return lookupPath(doc, path) }

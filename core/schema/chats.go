@@ -1694,6 +1694,8 @@ type ChatsTrigger struct {
 	Binding string `json:"binding,omitempty"`
 	// Delivery says where the answer of each run goes.
 	Delivery ChatsTriggerDelivery `json:"delivery"`
+	// Watch is the reminder rule of a watch; absent on any other trigger.
+	Watch *ChatsWatchRule `json:"watch,omitempty"`
 }
 
 // ChatsTriggerDelivery is where the answer of each run of a trigger goes.
@@ -1839,6 +1841,9 @@ type ChatsTriggerWrite struct {
 	// trigger reports now (the Inbox for a new trigger); {"target": "inbox"}
 	// sends the reports back to the Inbox. It is refused on a proposal.
 	Delivery *ChatsTriggerDeliveryWrite `json:"delivery,omitempty"`
+	// Watch makes an event trigger of an add-on a watch. Left out on an
+	// update, a watch keeps its rule.
+	Watch *ChatsWatchRule `json:"watch,omitempty"`
 }
 
 // ChatsTriggerDeliveryWrite is where the runs of a trigger report, as the owner

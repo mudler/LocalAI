@@ -144,7 +144,7 @@ func reminderOf(raw string) *Reminder {
 	if json.Unmarshal([]byte(raw), &r) != nil {
 		return nil
 	}
-	r.Anchor, r.At, r.SnoozedTo = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo)
+	r.Anchor, r.At, r.SnoozedTo, r.Skipped = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo), utc(r.Skipped)
 	return &r
 }
 
