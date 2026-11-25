@@ -116,7 +116,7 @@
     if (start && chips.some(function (c) { return c.dataset.cat === start; })) apply(start);
   }
   // Download block: pick the desktop app file for the visitor's system. The markup lists
-  // all three direct links; this only chooses the primary button. macOS is always the
+  // all four direct links; this only chooses the primary button. macOS is always the
   // Apple silicon DMG, since a browser cannot tell the two Mac chips apart. A Linux visitor
   // whose CPU the browser does not report gets the list and no guess. Other systems get
   // the list and a line that points to the container and the script.
@@ -144,7 +144,7 @@
     function fromUA() {
       var ua = navigator.userAgent || '';
       if (/iPhone|iPad|iPod|Android/i.test(ua)) return 'mobile';
-      if (/Windows|Win64|WOW64/i.test(ua)) return 'other';
+      if (/Windows|Win64|WOW64/i.test(ua)) return 'win';
       if (/Mac OS X|Macintosh/i.test(ua)) return 'mac';
       if (/CrOS/i.test(ua)) return 'other';
       if (/Linux|X11/i.test(ua)) {
@@ -154,16 +154,17 @@
       return 'other';
     }
     function apply(kind) {
-      if (kind === 'mac') show('mac');
+      if (kind === 'mac' || kind === 'win') show(kind);
       else if (kind === 'linux-x64' || kind === 'linux-arm64') show(kind);
       else if (kind === 'linux') { show(null, 'Choose your processor'); say('Your browser does not tell us the processor of this computer. Pick the file for it.'); }
-      else { show(null, 'Desktop app downloads'); say('The desktop app is for macOS and Linux. On other systems, use the container or the install script.'); }
+      else { show(null, 'Desktop app downloads'); say('The desktop app is for macOS, Linux and Windows. On other systems, use the container or the install script.'); }
     }
     var uad = navigator.userAgentData;
     if (uad && uad.getHighEntropyValues) {
       uad.getHighEntropyValues(['architecture', 'bitness', 'platform']).then(function (v) {
         var plat = (v.platform || uad.platform || '').toLowerCase();
         if (/mac/.test(plat)) apply('mac');
+        else if (/windows/.test(plat)) apply('win');
         else if (/linux/.test(plat)) {
           var a = (v.architecture || '').toLowerCase();
           if (a === 'x86' && v.bitness !== '32') apply('linux-x64');
