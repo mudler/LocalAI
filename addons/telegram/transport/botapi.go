@@ -292,16 +292,21 @@ func (t *API) Updates(ctx context.Context, token string, offset int64, timeoutSe
 
 func (t *API) updates(ctx context.Context, token string, offset int64, timeoutSeconds int) ([]update, error) {
 	var raw []struct {
-		ID      int64           `json:"update_id"`
-		Message json.RawMessage `json:"message"`
+		ID       int64           `json:"update_id"`
+		Message  json.RawMessage `json:"message"`
+		Callback *tgCallback     `json:"callback_query"`
 	}
-	params := map[string]any{"offset": offset, "timeout": timeoutSeconds, "allowed_updates": []string{"message"}}
+	params := map[string]any{"offset": offset, "timeout": timeoutSeconds, "allowed_updates": []string{"message", "callback_query"}}
 	if err := t.call(ctx, token, "getUpdates", params, time.Duration(timeoutSeconds)*time.Second, &raw); err != nil {
 		return nil, err
 	}
 	out := make([]update, 0, len(raw))
 	for _, r := range raw {
 		u := contract.ConnectorMessage{Cursor: r.ID}
+		if r.Callback != nil {
+			out = append(out, update{ConnectorMessage: t.tapped(ctx, token, u, *r.Callback)})
+			continue
+		}
 		var m tgMessage
 		if len(r.Message) == 0 || string(r.Message) == "null" || json.Unmarshal(r.Message, &m) != nil {
 			u.Skip = true
@@ -425,24 +430,27 @@ func textParams(chatID int64, text, parseMode string) map[string]any {
 // Send sends plain text and returns the ID of the message. The caller splits
 // the text to the limit of Telegram. A thread other than 0 is the topic of a
 // forum.
-func (t *API) Send(ctx context.Context, token string, chatID, thread int64, text string) (int64, error) {
-	return t.send(ctx, token, chatID, thread, text, "")
+func (t *API) Send(ctx context.Context, token string, chatID, thread int64, text string, actions ...contract.MessageAction) (int64, error) {
+	return t.send(ctx, token, chatID, thread, text, "", actions)
 }
 
 // SendMarkdown sends Markdown as MarkdownV2 and returns the ID of the
 // message. A model writes the Markdown, so Telegram may still refuse what it
 // becomes; the message then goes as plain text. The caller splits the text
 // to the limit of Telegram.
-func (t *API) SendMarkdown(ctx context.Context, token string, chatID, thread int64, md string) (int64, error) {
-	id, err := t.send(ctx, token, chatID, thread, MarkdownV2(md), markdownV2)
+func (t *API) SendMarkdown(ctx context.Context, token string, chatID, thread int64, md string, actions ...contract.MessageAction) (int64, error) {
+	id, err := t.send(ctx, token, chatID, thread, MarkdownV2(md), markdownV2, actions)
 	if refusedBecause(err, "can't parse entities") {
-		return t.send(ctx, token, chatID, thread, PlainText(md), "")
+		return t.send(ctx, token, chatID, thread, PlainText(md), "", actions)
 	}
 	return id, err
 }
 
-func (t *API) send(ctx context.Context, token string, chatID, thread int64, text, parseMode string) (int64, error) {
+func (t *API) send(ctx context.Context, token string, chatID, thread int64, text, parseMode string, actions []contract.MessageAction) (int64, error) {
 	params := textParams(chatID, text, parseMode)
+	if kb := keyboard(actions); kb != nil {
+		params["reply_markup"] = kb
+	}
 	if thread != 0 {
 		params["message_thread_id"] = thread
 	}
@@ -568,4 +576,69 @@ func (t *API) Typing(ctx context.Context, token string, chatID, thread int64) er
 		params["message_thread_id"] = thread
 	}
 	return t.call(ctx, token, "sendChatAction", params, 0, nil)
+}
+
+// tgCallback is the tap on a button of a message of the bot.
+type tgCallback struct {
+	ID   string `json:"id"`
+	From struct {
+		ID        int64  `json:"id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Username  string `json:"username"`
+	} `json:"from"`
+	Message *struct {
+		ID     int64 `json:"message_id"`
+		Thread int64 `json:"message_thread_id"`
+		Topic  bool  `json:"is_topic_message"`
+		Chat   struct {
+			ID    int64  `json:"id"`
+			Type  string `json:"type"`
+			Title string `json:"title"`
+		} `json:"chat"`
+	} `json:"message"`
+	Data string `json:"data"`
+}
+
+// keyboard is the inline keyboard of the actions of a message: one row, one
+// button each, whose callback data is the action ID.
+func keyboard(actions []contract.MessageAction) map[string]any {
+	if len(actions) == 0 {
+		return nil
+	}
+	row := make([]map[string]string, 0, len(actions))
+	for _, a := range actions {
+		row = append(row, map[string]string{"text": a.Label, "callback_data": a.ID})
+	}
+	return map[string]any{"inline_keyboard": [][]map[string]string{row}}
+}
+
+// tapped turns a tap on a button into an update with the action ID, and
+// answers the tap so the button stops waiting. A tap on a message that is
+// gone, or with no data, is skipped.
+func (t *API) tapped(ctx context.Context, token string, u contract.ConnectorMessage, cb tgCallback) contract.ConnectorMessage {
+	if cb.ID != "" {
+		// Best effort: a lost answer only leaves the button spinning a while.
+		_ = t.call(ctx, token, "answerCallbackQuery", map[string]any{"callback_query_id": cb.ID}, 0, nil)
+	}
+	if cb.Message == nil || cb.Data == "" {
+		u.Skip = true
+		return u
+	}
+	m := cb.Message
+	u.Chat, u.Direct = strconv.FormatInt(m.Chat.ID, 10), m.Chat.Type == "private"
+	if !u.Direct {
+		u.ChatName = m.Chat.Title
+		// A tap is aimed at the bot's own message: it is addressed to the bot.
+		u.Mention = true
+	}
+	if m.Topic && m.Thread != 0 {
+		u.Thread = strconv.FormatInt(m.Thread, 10)
+	}
+	u.ReplyTo = strconv.FormatInt(m.ID, 10)
+	u.SenderID = strconv.FormatInt(cb.From.ID, 10)
+	u.SenderName = strings.TrimSpace(cb.From.FirstName + " " + cb.From.LastName)
+	u.SenderUsername = cb.From.Username
+	u.Action = cb.Data
+	return u
 }

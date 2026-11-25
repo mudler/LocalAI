@@ -181,5 +181,14 @@
   "trigchange.done.delete": "{name} borrado.",
   "trigchange.done.pause": "{name} en pausa. No se ejecuta hasta que se reanude.",
   "trigchange.done.resume": "{name} reanudado: {when}.",
-  "trigchange.done.withdraw": "Propuesta {name} retirada. Nunca se ejecutó."
+  "trigchange.done.withdraw": "Propuesta {name} retirada. Nunca se ejecutó.",
+  "reminder.snooze": "Posponer 5 min",
+  "reminder.later": "En 30 min",
+  "reminder.skip": "Omitir",
+  "reminder.ok": "Entendido",
+  "reminder.hint": "Responde \"snooze\", \"30 min\" o \"skip\".",
+  "reminder.snoozed": "Pospuesto. Te lo recuerdo a las {when}.",
+  "reminder.skipped": "Omitido. No te lo recordaré.",
+  "reminder.noted": "Vale.",
+  "reminder.gone": "Este recordatorio ya no existe."
 }

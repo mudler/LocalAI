@@ -199,6 +199,10 @@ type ConnectorKind struct {
 	// grant to a role. A sensitive name may be listed to explain the pairing
 	// path, but it is never granted to a role.
 	Permissions []string `json:"permissions,omitempty"`
+	// Actions says that the kind shows the actions of a message as buttons
+	// and reports a tap (ConnectorMessage.Action). Without it the host
+	// writes a one-line hint with the words to reply instead. Level 12.
+	Actions bool `json:"actions,omitempty"`
 }
 
 // TokenGuard holds back a credential by its prefix until the person chose
@@ -462,6 +466,9 @@ type ConnectorMessage struct {
 	// such a file. An add-on that cannot tell the kinds leaves it out; a
 	// binding that accepts only some kinds then reads none of the files.
 	MediaKinds []string `json:"mediaKinds,omitempty"`
+	// Action is the ID of a button of a message of the bot that the sender
+	// tapped. The update has no text then, or the label of the button.
+	Action string `json:"action,omitempty"`
 }
 
 // ConnectorInbound is the argument object of ConnectorInboundOp. It names the
@@ -510,6 +517,10 @@ type ConnectorRequest struct {
 	// send_file. media: the add-on writes the file with ConnectorFilePutOp.
 	// send_file: the add-on reads the file with ConnectorFileGetOp.
 	Transfer *ConnectorTransfer `json:"transfer,omitempty"`
+	// Actions are the buttons of a message the host sends (op send), at
+	// most MaxMessageActions. A kind that declares actions shows them; a tap
+	// comes back as a ConnectorMessage with Action set.
+	Actions []MessageAction `json:"actions,omitempty"`
 }
 
 // ConnectorError is a failure the add-on reports. The host maps the code to

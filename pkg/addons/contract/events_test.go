@@ -2,6 +2,8 @@
 package contract
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -66,5 +68,19 @@ var _ = Describe("Event declarations", func() {
 		Expect(strictJSON([]byte(raw), &d, 4096)).To(Succeed())
 		Expect(d.Label.Default()).To(Equal("An item is removed"))
 		Expect(d.Anchor).To(BeNil())
+	})
+})
+
+var _ = Describe("Message actions", func() {
+	It("takes up to four buttons with short unique ids and labels", func() {
+		ok := []MessageAction{{ID: "reminder:r1:snooze", Label: "Snooze 5 min"}, {ID: "reminder:r1:skip", Label: "Skip"}}
+		Expect(ValidMessageActions(ok)).To(Succeed())
+		Expect(ValidMessageActions(nil)).To(Succeed())
+		five := append(ok, MessageAction{ID: "a", Label: "A"}, MessageAction{ID: "b", Label: "B"}, MessageAction{ID: "c", Label: "C"})
+		Expect(ValidMessageActions(five)).To(MatchError(ContainSubstring("at most 4")))
+		Expect(ValidMessageActions([]MessageAction{{ID: "x", Label: "A"}, {ID: "x", Label: "B"}})).NotTo(Succeed())
+		Expect(ValidMessageActions([]MessageAction{{ID: "has space", Label: "A"}})).NotTo(Succeed())
+		Expect(ValidMessageActions([]MessageAction{{ID: "x", Label: ""}})).NotTo(Succeed())
+		Expect(ValidMessageActions([]MessageAction{{ID: strings.Repeat("x", 65), Label: "A"}})).NotTo(Succeed())
 	})
 })

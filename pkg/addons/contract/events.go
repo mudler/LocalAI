@@ -165,3 +165,53 @@ func relativeRoute(r string) bool {
 	}
 	return plainText(r, MaxEventLinkLen) && !strings.ContainsAny(r, " \"'`")
 }
+
+// Limits of the actions of a message.
+const (
+	// MaxMessageActions is the most buttons one message carries.
+	MaxMessageActions = 4
+	// MaxActionID bounds the ID of an action: a platform sends it back, and
+	// Telegram allows 64 bytes.
+	MaxActionID = 64
+	// MaxActionLabel bounds the label of a button, in characters.
+	MaxActionLabel = 40
+)
+
+// MessageAction is one button of a message the host sends: the ID comes
+// back when the person taps it, the label is what they read.
+type MessageAction struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+var actionIDRE = regexp.MustCompile(`^[A-Za-z0-9:_.-]+$`)
+
+// ValidMessageActions checks the actions of a message.
+func ValidMessageActions(a []MessageAction) error {
+	if len(a) > MaxMessageActions {
+		return fmt.Errorf("a message has at most %d actions", MaxMessageActions)
+	}
+	seen := map[string]bool{}
+	for _, x := range a {
+		if len(x.ID) == 0 || len(x.ID) > MaxActionID || !actionIDRE.MatchString(x.ID) || seen[x.ID] {
+			return fmt.Errorf("an action needs a short unique id")
+		}
+		seen[x.ID] = true
+		if !plainText(x.Label, MaxActionLabel) || strings.TrimSpace(x.Label) == "" {
+			return fmt.Errorf("an action needs a short label")
+		}
+	}
+	return nil
+}
+
+// usesConnectorActions reports whether a connector kind declares actions.
+func (m Manifest) usesConnectorActions() bool {
+	if c := m.Capabilities.Connector; c != nil {
+		for _, k := range c.Kinds {
+			if k.Actions {
+				return true
+			}
+		}
+	}
+	return false
+}

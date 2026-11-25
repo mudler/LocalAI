@@ -181,5 +181,14 @@
   "trigchange.done.delete": "{name} gelöscht.",
   "trigchange.done.pause": "{name} pausiert. Es läuft nicht, bis es fortgesetzt wird.",
   "trigchange.done.resume": "{name} fortgesetzt: {when}.",
-  "trigchange.done.withdraw": "Vorschlag {name} zurückgezogen. Er ist nie gelaufen."
+  "trigchange.done.withdraw": "Vorschlag {name} zurückgezogen. Er ist nie gelaufen.",
+  "reminder.snooze": "5 Min. später",
+  "reminder.later": "In 30 Min.",
+  "reminder.skip": "Überspringen",
+  "reminder.ok": "Verstanden",
+  "reminder.hint": "Antworte \"snooze\", \"30 min\" oder \"skip\".",
+  "reminder.snoozed": "Verschoben. Ich erinnere dich um {when}.",
+  "reminder.skipped": "Übersprungen. Daran erinnere ich dich nicht.",
+  "reminder.noted": "Ok.",
+  "reminder.gone": "Diese Erinnerung gibt es nicht mehr."
 }

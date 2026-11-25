@@ -181,5 +181,14 @@
   "trigchange.done.delete": "Deleted {name}.",
   "trigchange.done.pause": "Paused {name}. It does not run until it is resumed.",
   "trigchange.done.resume": "Resumed {name}: {when}.",
-  "trigchange.done.withdraw": "Withdrew the proposal {name}. It never ran."
+  "trigchange.done.withdraw": "Withdrew the proposal {name}. It never ran.",
+  "reminder.snooze": "Snooze 5 min",
+  "reminder.later": "In 30 min",
+  "reminder.skip": "Skip",
+  "reminder.ok": "Got it",
+  "reminder.hint": "Reply \"snooze\", \"30 min\" or \"skip\".",
+  "reminder.snoozed": "Snoozed. I'll remind you at {when}.",
+  "reminder.skipped": "Skipped. I won't remind you of this one.",
+  "reminder.noted": "OK.",
+  "reminder.gone": "This reminder is no longer there."
 }

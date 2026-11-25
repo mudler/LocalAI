@@ -137,7 +137,8 @@ func (r VersionRange) isHostAPI() bool {
 // "wsl2" runs a Linux executable in WSL 2 on Windows).
 // Level 11: capabilities.toolDefinitions[].deferred (a chat offers the tool
 // through the tool search).
-// Level 12: capabilities.events (event types an add-on reports to watches).
+// Level 12: capabilities.events (event types an add-on reports to watches) and
+// capabilities.connector.kinds[].actions (buttons on a message).
 const HostFeatureLevel uint64 = 12
 
 // BaseFeatureLevel is the level of a manifest that sets no featureLevel.
@@ -177,7 +178,7 @@ func (m Manifest) RequiredFeatureLevel() uint64 {
 // usedFeatureLevel is the lowest level that holds every optional field the
 // manifest uses.
 func (m Manifest) usedFeatureLevel() uint64 {
-	if len(m.Capabilities.Events) > 0 {
+	if len(m.Capabilities.Events) > 0 || m.usesConnectorActions() {
 		return 12
 	}
 	for _, d := range m.Capabilities.ToolDefinitions {

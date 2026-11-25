@@ -33,6 +33,10 @@ var (
 // Post is one message the host writes to a chat of a binding.
 type Post struct {
 	Binding, Chat, Thread, Text string
+	// Actions are the buttons of the message. A kind that does not show
+	// buttons gets Hint as one more line instead.
+	Actions []contract.MessageAction
+	Hint    string
 	// OnFail is called, from another goroutine, when a message that waited in
 	// the queue could not be sent. A message that goes at once reports its
 	// error as the result of Connectors.Post.
@@ -119,7 +123,15 @@ func (c *Connectors) Post(ctx context.Context, p Post) (queued bool, err error) 
 func (c *Connectors) sendPost(ctx context.Context, b connectors.Binding, it outItem) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	return c.send(ctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpSend, Token: it.token, Chat: it.Chat, Thread: it.Thread, Text: it.Text})
+	req := contract.ConnectorRequest{Op: contract.ConnectorOpSend, Token: it.token, Chat: it.Chat, Thread: it.Thread, Text: it.Text}
+	if len(it.Actions) > 0 {
+		if k := c.kindOf(ctx, b); k != nil && k.Actions {
+			req.Actions = it.Actions
+		} else if it.Hint != "" {
+			req.Text += "\n" + it.Hint
+		}
+	}
+	return c.send(ctx, b, req)
 }
 
 // drain sends the queue of a binding as the limit allows, then stops.

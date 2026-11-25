@@ -208,6 +208,12 @@ func (h *Triggers) DeliveryOf(ctx context.Context, t triggers.Trigger) DeliveryV
 // returns false so that the Inbox gets the notice. fallback runs when a queued
 // message cannot be sent later.
 func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body string, fallback func()) bool {
+	return h.deliverChannelWith(ctx, t, body, nil, "", fallback)
+}
+
+// deliverChannelWith is deliverChannel with the buttons of the message, and
+// the hint that replaces them on a connection that shows none.
+func (h *Triggers) deliverChannelWith(ctx context.Context, t triggers.Trigger, body string, actions []contract.MessageAction, hint string, fallback func()) bool {
 	c := h.svc.connectors
 	refuse := func(why string) bool {
 		h.audit(ctx, proposals.ActionDeliver, t, "refused: "+why)
@@ -237,7 +243,7 @@ func (h *Triggers) deliverChannel(ctx context.Context, t triggers.Trigger, body 
 	case !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: t.Owner, Agent: t.AgentID}):
 		return refuse("capability off")
 	}
-	queued, err := c.Send(ctx, Outgoing{Binding: b.ID, Chat: t.Route.Channel, Text: body, Kind: SendDelivery, Capability: contract.CapTalkbackChannels,
+	queued, err := c.Send(ctx, Outgoing{Binding: b.ID, Chat: t.Route.Channel, Text: body, Actions: actions, Hint: hint, Kind: SendDelivery, Capability: contract.CapTalkbackChannels,
 		OnFail: func(error) {
 			h.audit(context.Background(), proposals.ActionDeliver, t, "failed; sent to the Inbox")
 			fallback()

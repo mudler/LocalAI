@@ -181,5 +181,14 @@
   "trigchange.done.delete": "Eliminato {name}.",
   "trigchange.done.pause": "{name} è in pausa. Non parte finché non lo riprendi.",
   "trigchange.done.resume": "{name} ripreso: {when}.",
-  "trigchange.done.withdraw": "Proposta {name} ritirata. Non è mai partita."
+  "trigchange.done.withdraw": "Proposta {name} ritirata. Non è mai partita.",
+  "reminder.snooze": "Rimanda 5 min",
+  "reminder.later": "Tra 30 min",
+  "reminder.skip": "Salta",
+  "reminder.ok": "Ok",
+  "reminder.hint": "Rispondi \"snooze\", \"30 min\" o \"skip\".",
+  "reminder.snoozed": "Rimandato. Te lo ricordo alle {when}.",
+  "reminder.skipped": "Saltato. Non te lo ricorderò.",
+  "reminder.noted": "Ok.",
+  "reminder.gone": "Questo promemoria non c'è più."
 }
