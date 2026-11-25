@@ -365,12 +365,20 @@ func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in Remin
 			h.wmu.Unlock()
 		}
 	}()
-	p, err := h.planReminder(ctx, w, in, now)
-	if err != nil {
-		return triggers.Trigger{}, err
-	}
-	if err := h.o.Store.PutTrigger(ctx, p.next); err != nil {
-		if errors.Is(err, triggers.ErrDuplicate) {
+	var p reminderPlan
+	for attempt := 0; ; attempt++ {
+		var err error
+		if p, err = h.planReminder(ctx, w, in, now); err != nil {
+			return triggers.Trigger{}, err
+		}
+		err = h.o.Store.PutTrigger(ctx, p.next)
+		if err == nil {
+			break
+		}
+		switch {
+		case errors.Is(err, triggers.ErrConflict) && attempt < maxReminderRetries:
+			continue // another frontend wrote it meanwhile: plan again on top
+		case errors.Is(err, triggers.ErrDuplicate):
 			return reminderErr("this watch already has a reminder for the item")
 		}
 		return triggers.Trigger{}, err
@@ -382,6 +390,10 @@ func (h *Triggers) SetReminder(ctx context.Context, w triggers.Trigger, in Remin
 	h.Notify()
 	return p.next, nil
 }
+
+// maxReminderRetries is how many times a write of a reminder is planned again
+// after the store said another writer changed it (triggers.ErrConflict).
+const maxReminderRetries = 3
 
 // reminderErr is a refusal of a reminder that its asker can fix.
 func reminderErr(format string, a ...any) (triggers.Trigger, error) {

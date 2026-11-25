@@ -13,6 +13,11 @@ var ErrNotFound = errors.New("triggers: not found")
 // has another reminder for the same thing.
 var ErrDuplicate = errors.New("triggers: the watch has a reminder for this thing")
 
+// ErrConflict is returned by PutTrigger for a reminder that changed in the
+// store since the caller read it (its Reminder.Rev is not the stored one).
+// The caller reads it again and applies its change on top.
+var ErrConflict = errors.New("triggers: the reminder changed since it was read")
+
 // Retention says which finished runs Store.PruneRuns removes. A run that is
 // queued or running is never removed.
 type Retention struct {
@@ -62,7 +67,8 @@ type Store interface {
 	AllTriggers(ctx context.Context) ([]Trigger, error)
 	// ReminderByKey returns the reminder of a watch for a thing, or
 	// ErrNotFound. PutTrigger refuses a second reminder of the same watch and
-	// key with ErrDuplicate.
+	// key with ErrDuplicate, and a reminder whose Reminder.Rev is not the
+	// stored one with ErrConflict; it stores the reminder with the next Rev.
 	ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error)
 	// Reminders returns the reminders of a watch, sorted by ID.
 	Reminders(ctx context.Context, parentID string) ([]Trigger, error)

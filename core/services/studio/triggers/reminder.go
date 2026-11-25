@@ -183,6 +183,22 @@ type Outcome struct {
 // no reminder goes to the watch's model run (ActionModel), except a removal,
 // which needs nothing (ActionNone). An event with no Thing is for the model.
 func Reconcile(ctx context.Context, st Store, watch Trigger, ev Event, now time.Time) (Outcome, error) {
+	// Another frontend, or the owner, may write the reminder between the read
+	// and the write: the store refuses the stale write and the event is
+	// applied again on top of the new version.
+	for attempt := 0; ; attempt++ {
+		out, err := reconcileOnce(ctx, st, watch, ev, now)
+		if !errors.Is(err, ErrConflict) || attempt == maxConflictRetries {
+			return out, err
+		}
+	}
+}
+
+// maxConflictRetries is how many times a writer of a reminder reads it again
+// after ErrConflict before it gives up.
+const maxConflictRetries = 3
+
+func reconcileOnce(ctx context.Context, st Store, watch Trigger, ev Event, now time.Time) (Outcome, error) {
 	th := ev.Thing
 	if th == nil {
 		return Outcome{Action: ActionModel}, nil

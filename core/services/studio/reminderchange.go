@@ -37,7 +37,9 @@ func reminderStamp(t triggers.Trigger) string {
 	if t.Reminder == nil {
 		return ""
 	}
-	raw, _ := json.Marshal(t.Reminder)
+	r := *t.Reminder
+	r.Rev = 0 // the store's version, not part of what the reminder does
+	raw, _ := json.Marshal(r)
 	sum := sha256.Sum256([]byte(t.Prompt + "|" + string(raw)))
 	return hex.EncodeToString(sum[:8])
 }
@@ -148,6 +150,10 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 			base = triggers.Trigger{ID: newID(), Owner: w.Owner}
 		}
 		rem := *rec.Reminder
+		rem.Rev = 0
+		if base.Reminder != nil {
+			rem.Rev = base.Reminder.Rev // the version checked against the stamp above
+		}
 		// The person may answer later than the change was asked for: the
 		// time is worked out again now.
 		tm := triggers.PlanReminder(rem, w.Watch, loc, now)
@@ -180,7 +186,7 @@ func (h *Triggers) applyReminderChange(ctx context.Context, user, id string) (tr
 		}
 	} else if err := h.o.Store.PutTrigger(ctx, next); err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
-		if errors.Is(err, triggers.ErrDuplicate) {
+		if errors.Is(err, triggers.ErrDuplicate) || errors.Is(err, triggers.ErrConflict) {
 			return triggers.Trigger{}, fmt.Errorf("%w: ask for the change again", ErrChangeStale)
 		}
 		return triggers.Trigger{}, err
@@ -285,13 +291,14 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 	default:
 		base := triggers.Trigger{ID: rec.Change.Target, Owner: w.Owner}
 		rem := *rec.Reminder
+		rem.Rev = 0 // a cancelled reminder is created again
 		if rec.Change.Op == triggers.ChangeUpdate {
 			live, gerr := h.o.Store.GetTrigger(ctx, rec.Change.Target)
 			if gerr != nil {
 				err = gerr
 				break
 			}
-			base = live
+			base, rem.Rev = live, live.Reminder.Rev
 		}
 		t = reminderTrigger(base, w, rem)
 		t.Since = at
@@ -304,7 +311,7 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 	}
 	if err != nil {
 		h.releaseChange(ctx, rec, triggers.OutcomeUndone)
-		if errors.Is(err, triggers.ErrDuplicate) {
+		if errors.Is(err, triggers.ErrDuplicate) || errors.Is(err, triggers.ErrConflict) {
 			return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, reminderUndoText[UndoEdited])
 		}
 		return triggers.Trigger{}, err

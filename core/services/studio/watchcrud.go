@@ -160,7 +160,9 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		loc = time.UTC
 	}
 	// Read the reminder again under the write lock, so a change of the
-	// thing reconciled meanwhile is kept and this change applies on top.
+	// thing reconciled meanwhile is kept and this change applies on top. The
+	// lock covers this process; the version check of the store covers
+	// another frontend, and a refused write reads the reminder again.
 	h.wmu.Lock()
 	locked := true
 	defer func() {
@@ -168,15 +170,43 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 			h.wmu.Unlock()
 		}
 	}()
-	if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
-		return ReminderView{}, triggers.ErrNotFound
+	var line string
+	for attempt := 0; ; attempt++ {
+		if r, err = h.o.Store.GetTrigger(ctx, reminderID); err != nil || !r.IsReminder() {
+			return ReminderView{}, triggers.ErrNotFound
+		}
+		if line, err = applyReminderPatch(&r, w, p, loc, now); err != nil {
+			return ReminderView{}, err
+		}
+		if line == "" {
+			break
+		}
+		err = h.o.Store.PutTrigger(ctx, r)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, triggers.ErrConflict) || attempt == maxReminderRetries {
+			return ReminderView{}, err
+		}
 	}
+	if line != "" {
+		h.wmu.Unlock() // recordAction may pause the watch, which takes the lock
+		locked = false
+		h.recordAction(ctx, w, now, line)
+		h.Notify()
+	}
+	return h.reminderView(w, r, now), nil
+}
+
+// applyReminderPatch applies the owner's change p to the reminder r and gives
+// the line of the watch's history, "" when nothing changes.
+func applyReminderPatch(r *triggers.Trigger, w triggers.Trigger, p ReminderPatch, loc *time.Location, now time.Time) (string, error) {
 	rem := *r.Reminder
 	var line string
 	switch {
 	case p.SnoozeFor > 0:
 		if p.SnoozeFor > 24*time.Hour {
-			return ReminderView{}, bad("snooze for at most a day")
+			return "", bad("snooze for at most a day")
 		}
 		rem.SnoozedTo = now.Add(p.SnoozeFor).UTC()
 		line = fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, rem.SnoozedTo, now))
@@ -187,7 +217,7 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		} else {
 			at, err := parseWhen(*p.SnoozedTo, loc)
 			if err != nil {
-				return ReminderView{}, bad("%v", err)
+				return "", bad("%v", err)
 			}
 			rem.SnoozedTo = at
 			line = fmt.Sprintf("Snoozed the reminder for %q to %s.", rem.Title, whenText(w, at, now))
@@ -211,20 +241,14 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		rem.Task, r.Prompt = task, task
 		line = fmt.Sprintf("Changed the task of the reminder for %q.", rem.Title)
 	}
-	if line != "" {
-		r.Reminder = &rem
-		if err := r.Validate(); err != nil {
-			return ReminderView{}, bad("%v", err)
-		}
-		if err := h.o.Store.PutTrigger(ctx, r); err != nil {
-			return ReminderView{}, err
-		}
-		h.wmu.Unlock() // recordAction may pause the watch, which takes the lock
-		locked = false
-		h.recordAction(ctx, w, now, line)
-		h.Notify()
+	if line == "" {
+		return "", nil
 	}
-	return h.reminderView(w, r, now), nil
+	r.Reminder = &rem
+	if err := r.Validate(); err != nil {
+		return "", bad("%v", err)
+	}
+	return line, nil
 }
 
 // DeleteReminder cancels a reminder of the user's watch.

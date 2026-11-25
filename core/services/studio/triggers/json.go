@@ -104,6 +104,17 @@ func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 				return ErrDuplicate
 			}
 		}
+		// Compare and set the version, as the database store does.
+		var stored int64
+		if o, ok := s.d.Triggers[t.ID]; ok && o.Reminder != nil && !o.IsChange() {
+			stored = o.Reminder.Rev
+		}
+		if _, ok := s.d.Triggers[t.ID]; ok && stored != t.Reminder.Rev {
+			return ErrConflict
+		}
+		rem := *t.Reminder
+		rem.Rev = stored + 1
+		t.Reminder = &rem
 	}
 	old, had := s.d.Triggers[t.ID]
 	s.d.Triggers[t.ID] = normTrigger(t)

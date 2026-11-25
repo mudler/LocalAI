@@ -147,6 +147,12 @@ type Reminder struct {
 	// reminder, and a reply to the heads-up ("earlier", "no reminder") finds
 	// it by this ID, whatever changed the reminder since.
 	SetBy string `json:",omitempty"`
+	// Rev is the version of the stored reminder. The store sets it, and
+	// PutTrigger refuses with ErrConflict a reminder whose Rev is not the
+	// stored one: two writers (two frontends, the reconciler and the
+	// owner) that read the same version cannot both write, so neither undoes
+	// the other's change.
+	Rev int64 `json:",omitempty"`
 }
 
 // Validate checks a reminder's own fields.

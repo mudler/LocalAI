@@ -59,6 +59,8 @@ var _ = Describe("the reminder pass", func() {
 		rem := r.put(reminderOf("r", "w", anchor))
 		r.at(anchor.Add(-15 * time.Minute))
 		r.finish(r.latest("r"), triggers.StatusDone, "")
+		rem, err := r.store.GetTrigger(ctx, rem.ID) // a write starts from the stored version
+		Expect(err).NotTo(HaveOccurred())
 		rem.Reminder.Anchor = anchor.Add(24 * time.Hour)
 		rem.Since = r.clock.Now()
 		Expect(r.store.PutTrigger(ctx, rem)).To(Succeed())

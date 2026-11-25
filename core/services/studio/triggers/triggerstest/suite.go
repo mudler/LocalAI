@@ -109,6 +109,8 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(got.ID).To(Equal("r1"))
 		Expect(got.Reminder.Anchor.Equal(anchor)).To(BeTrue())
 		got.Reminder.Anchor = anchor
+		Expect(got.Reminder.Rev).To(Equal(int64(1)), "the store versions a reminder")
+		got.Reminder.Rev = 0
 		Expect(*got.Reminder).To(Equal(*r.Reminder))
 		got.Reminder.Title = "changed by the caller"
 		again, _ := s.GetTrigger(ctx, "r1")
@@ -127,7 +129,9 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		}
 		Expect(s.PutTrigger(ctx, mk("r1", "w1", "notes:1"))).To(Succeed())
 		Expect(s.PutTrigger(ctx, mk("r2", "w1", "notes:1"))).To(MatchError(triggers.ErrDuplicate))
-		Expect(s.PutTrigger(ctx, mk("r1", "w1", "notes:1"))).To(Succeed(), "the same reminder may be written again")
+		again, err := s.GetTrigger(ctx, "r1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.PutTrigger(ctx, again)).To(Succeed(), "the same reminder may be written again")
 		Expect(s.PutTrigger(ctx, mk("r3", "w2", "notes:1"))).To(Succeed(), "another watch may remind of the same thing")
 		Expect(s.PutTrigger(ctx, mk("r4", "w1", "notes:2"))).To(Succeed())
 		Expect(s.PutTrigger(ctx, sample("t1", "1", "Plain"))).To(Succeed(), "triggers that are not reminders never collide")
@@ -139,6 +143,34 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(list[1].ID).To(Equal("r4"))
 		Expect(s.DeleteTrigger(ctx, "r1")).To(Succeed())
 		Expect(s.PutTrigger(ctx, mk("r2", "w1", "notes:1"))).To(Succeed(), "the key is free once the reminder is gone")
+	})
+
+	It("refuses a write of a reminder that changed since it was read", func() {
+		s := newStore()
+		r := triggers.Trigger{ID: "r1", Owner: "1", Name: "R", Prompt: "Remind me.", Enabled: true, Kind: triggers.KindReminder, Since: base,
+			Reminder: &triggers.Reminder{ParentID: "w1", Key: "notes:1", At: base.Add(time.Hour), Task: "remind me"}}
+		Expect(s.PutTrigger(ctx, r)).To(Succeed())
+		a, _ := s.GetTrigger(ctx, "r1")
+		b, _ := s.GetTrigger(ctx, "r1")
+		a.Reminder.Task = "first writer"
+		Expect(s.PutTrigger(ctx, a)).To(Succeed())
+		b.Reminder.Task = "second writer, from an old read"
+		Expect(s.PutTrigger(ctx, b)).To(MatchError(triggers.ErrConflict))
+		got, _ := s.GetTrigger(ctx, "r1")
+		Expect(got.Reminder.Task).To(Equal("first writer"), "the stale write changed nothing")
+		Expect(got.Reminder.Rev).To(Equal(int64(2)))
+		got.Reminder.Task = "after a fresh read"
+		Expect(s.PutTrigger(ctx, got)).To(Succeed())
+		rec := got
+		rec.ID, rec.Change = "c1", triggers.Change{Op: triggers.ChangeUpdate, Target: "r1"}
+		rec.Reminder.Rev = 0
+		Expect(s.PutTrigger(ctx, rec)).To(Succeed(), "a change record that holds a reminder is not versioned")
+		Expect(s.PutTrigger(ctx, rec)).To(Succeed())
+		list, _ := s.Reminders(ctx, "w1")
+		Expect(list).To(HaveLen(1), "a change record is not a reminder of the watch")
+		Expect(s.DeleteTrigger(ctx, "r1")).To(Succeed())
+		fresh := r
+		Expect(s.PutTrigger(ctx, fresh)).To(Succeed(), "a removed reminder can be created again")
 	})
 
 	It("does not count a handled row against the daily limit", func() {

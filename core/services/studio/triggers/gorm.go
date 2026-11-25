@@ -63,6 +63,9 @@ type triggerRow struct {
 	Reminder string
 	ParentID *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:1;size:128"`
 	ThingKey *string `gorm:"uniqueIndex:idx_studio_triggers_thing,priority:2;size:255"`
+	// ReminderRev is Reminder.Rev as a column, so a write of a reminder can
+	// compare and set it in one statement.
+	ReminderRev int64 `gorm:"not null;default:0"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -122,7 +125,7 @@ func (r triggerRow) trigger() Trigger {
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
 		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts),
 		Source: r.Source, EventType: r.EventType, Matches: matchesOf(r.Matches), Secret: r.Secret,
-		Watch: watchOf(r.Watch), Reminder: reminderOf(r.Reminder)}
+		Watch: watchOf(r.Watch), Reminder: reminderOf(r.Reminder, r.ReminderRev)}
 }
 
 func watchOf(raw string) *WatchRule {
@@ -136,7 +139,7 @@ func watchOf(raw string) *WatchRule {
 	return &w
 }
 
-func reminderOf(raw string) *Reminder {
+func reminderOf(raw string, rev int64) *Reminder {
 	if raw == "" {
 		return nil
 	}
@@ -144,6 +147,7 @@ func reminderOf(raw string) *Reminder {
 	if json.Unmarshal([]byte(raw), &r) != nil {
 		return nil
 	}
+	r.Rev = rev
 	r.Anchor, r.At, r.SnoozedTo, r.Skipped = utc(r.Anchor), utc(r.At), utc(r.SnoozedTo), utc(r.Skipped)
 	return &r
 }
@@ -218,20 +222,56 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	if t.Watch != nil {
 		row.Watch = jsonText(t.Watch)
 	}
+	if t.IsReminder() {
+		return s.putReminder(ctx, row, t)
+	}
 	if t.Reminder != nil {
-		row.Reminder = jsonText(t.Reminder)
 		// A change record holds the reminder a chat proposed; it stays out of
 		// the index, so it never stands in for the watch's reminder.
-		if !t.IsChange() {
-			parent, key := t.Reminder.ParentID, t.Reminder.Key
-			row.ParentID, row.ThingKey = &parent, &key
+		row.Reminder = jsonText(t.Reminder)
+	}
+	return s.db.WithContext(ctx).Save(&row).Error
+}
+
+// putReminder writes a reminder if the stored one still has the version the
+// caller read (compare and set), or creates it.
+func (s *gormStore) putReminder(ctx context.Context, row triggerRow, t Trigger) error {
+	rem := *t.Reminder
+	prev := rem.Rev
+	rem.Rev = prev + 1
+	row.Reminder, row.ReminderRev = jsonText(rem), rem.Rev
+	parent, key := rem.ParentID, rem.Key
+	row.ParentID, row.ThingKey = &parent, &key
+	db := s.db.WithContext(ctx)
+	res := db.Model(&triggerRow{}).Where("id = ? AND reminder_rev = ?", row.ID, prev).Select("*").Updates(&row)
+	if res.Error != nil {
+		if dberr.IsUniqueViolation(res.Error) {
+			return ErrDuplicate
 		}
+		return res.Error
 	}
-	err := s.db.WithContext(ctx).Save(&row).Error
-	if err != nil && t.Reminder != nil && dberr.IsUniqueViolation(err) {
-		return ErrDuplicate
+	if res.RowsAffected > 0 {
+		return nil
 	}
-	return err
+	var n int64
+	if err := db.Model(&triggerRow{}).Where("id = ?", row.ID).Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return ErrConflict
+	}
+	if err := db.Create(&row).Error; err != nil {
+		if dberr.IsUniqueViolation(err) {
+			// Another writer made the reminder for this thing, or this very
+			// reminder, between the update and the create.
+			if again := db.Model(&triggerRow{}).Where("id = ?", row.ID).Count(&n).Error; again == nil && n > 0 {
+				return ErrConflict
+			}
+			return ErrDuplicate
+		}
+		return err
+	}
+	return nil
 }
 
 func (s *gormStore) ReminderByKey(ctx context.Context, parentID, key string) (Trigger, error) {
