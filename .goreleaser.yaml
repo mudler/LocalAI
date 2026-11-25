@@ -65,6 +65,12 @@ notarize:
       sign:
         certificate: "{{.Env.MACOS_SIGN_P12}}"
         password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+        # The server compiles WebAssembly to native code at run time (wazero,
+        # used by go-pdfium to read PDFs). wazero maps that memory without
+        # MAP_JIT, so the hardened runtime kills the process unless it holds
+        # allow-unsigned-executable-memory; allow-jit alone does not cover it.
+        # `make osx-signed` signs with the same file.
+        entitlements: ./Entitlements.plist
       notarize:
         issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
         key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"

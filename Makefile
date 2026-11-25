@@ -243,6 +243,7 @@ dev-dist-single:
 dist:
 	$(GORELEASER) build --clean
 
+## Entitlements.plist is also the file GoReleaser signs the release binary with.
 osx-signed: build
 	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
