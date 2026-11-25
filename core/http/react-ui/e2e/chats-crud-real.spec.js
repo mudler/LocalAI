@@ -51,6 +51,10 @@ test.describe('Skills, agents, triggers and connectors against the real server',
   })
 
   test('an agent is created, edited, used to start a chat, and deleted', async ({ page }) => {
+    // Four page loads, the wizard, two edits and a chat take about 7 s on an
+    // idle machine and 17 s with eight workers busy. The coverage run on a CI
+    // runner went past the default 30 s, at a different step each time.
+    test.setTimeout(60_000)
     const name = unique('agent')
     await offerMockModel(page)
     // The delete at the end waits out an 8 second Undo window. The page clock
