@@ -3,10 +3,12 @@
 // groups over the client core, and no local-server method, so the shell runs
 // in its client-only mode. Everything is in the same page: a call is a method
 // call on the core, a listener is a core event.
+import type { BridgeExtras } from '@launcher/renderer/bridge'
 import type { CoreApi, ServersApi } from '@launcher/shared/apiGroups'
 import type { Capabilities, LauncherInfo, UpdateInfoView, UpdaterStatus } from '@launcher/shared/types'
 import type { ClientCore } from '../core/clientCore'
 import type { ClientEvent } from '../core/events'
+import type { AppLinksPlugin, ScannerPlugin } from '../plugins/definitions'
 
 export const ANDROID_CAPABILITIES: Capabilities = { localServer: false, p2p: true, selfUpdate: 'apk', qrScan: true }
 
@@ -35,13 +37,56 @@ export function idleUpdater(): AndroidUpdater {
   }
 }
 
-/** The Android bridge: every core and servers method except the desktop notifications (later work). */
-export type AndroidBridge = CoreApi & Omit<ServersApi, 'setDesktopNotifications'>
+/**
+ * The Android bridge: every core and servers method except the desktop
+ * notifications (later work), plus the invite scan and incoming links when
+ * the plugins are given.
+ */
+export type AndroidBridge = CoreApi & Omit<ServersApi, 'setDesktopNotifications'> & Partial<Pick<BridgeExtras, 'scanInvite' | 'onInviteLink'>>
+
+/** Where invites come from outside the form: links and shared text, and the QR scanner. */
+export interface InviteSources {
+  appLinks: AppLinksPlugin
+  scanner: ScannerPlugin
+}
 
 export interface AndroidBridgeDeps {
   clipboard(text: string): Promise<void>
   updater: AndroidUpdater
   info: { version: string }
+  invites?: InviteSources
+}
+
+/**
+ * Texts from the AppLinks plugin as one feed: the link the app was opened
+ * with (taken once), then every new link or shared text. It listens from the
+ * start, so a text that comes before the shell subscribes is kept (the latest
+ * one) and given to the next subscriber. The shell decides what the text is.
+ */
+export function inviteLinkFeed(appLinks: AppLinksPlugin): (cb: (text: string) => void) => () => void {
+  const subs = new Set<(text: string) => void>()
+  let pending: string | undefined
+  const deliver = (text: string) => {
+    if (subs.size === 0) pending = text
+    else for (const cb of [...subs]) cb(text)
+  }
+  // Without the native plugin (a web preview) there is nothing to listen to.
+  void appLinks.addListener('link', (x) => deliver(x.text)).catch(() => undefined)
+  void appLinks
+    .takeInitial()
+    .then((r) => {
+      if (r.text) deliver(r.text)
+    })
+    .catch(() => undefined)
+  return (cb) => {
+    subs.add(cb)
+    if (pending !== undefined) {
+      const text = pending
+      pending = undefined
+      cb(text)
+    }
+    return () => void subs.delete(cb)
+  }
 }
 
 const RELEASES = 'https://github.com/mudler/LocalAI/releases'
@@ -59,8 +104,19 @@ export function createAndroidBridge(core: ClientCore, deps: AndroidBridgeDeps): 
     })
   const u = deps.updater
   u.on((s) => core.setUpdaterStatus(s))
+  const inv = deps.invites
+  const invites: Partial<Pick<BridgeExtras, 'scanInvite' | 'onInviteLink'>> = inv
+    ? {
+        scanInvite: async () => {
+          const r = await inv.scanner.scan()
+          return r.cancelled ? undefined : r.text
+        },
+        onInviteLink: inviteLinkFeed(inv.appLinks),
+      }
+    : {}
 
   return {
+    ...invites,
     // ---- core
     info: async (): Promise<LauncherInfo> => {
       const notice = core.configNotice()
