@@ -22,7 +22,8 @@ export const ANDROID_CAPABILITIES: Capabilities = { localServer: false, p2p: tru
  */
 export type AndroidBridge = CoreApi & Omit<ServersApi, 'setDesktopNotifications'> & Partial<Pick<BridgeExtras, 'scanInvite' | 'onInviteLink'>> &
   Pick<BridgeExtras, 'getApkUpdate' | 'openInstallSettings' | 'getDevApp'> &
-  Pick<BridgeExtras, 'getP2PKeepInBackground' | 'setP2PKeepInBackground' | 'onP2PKeepInBackground' | 'openCertificateHelp'>
+  Partial<Pick<BridgeExtras, 'getP2PKeepInBackground' | 'setP2PKeepInBackground' | 'onP2PKeepInBackground'>> &
+  Pick<BridgeExtras, 'openCertificateHelp'>
 
 /** The docs section on private CAs, which the certificate test card links to. */
 export const CERTIFICATE_HELP_URL = 'https://localai.io/docs/start/install/android/#certificates-and-private-cas'
@@ -157,9 +158,16 @@ export function createAndroidBridge(core: ClientCore, deps: AndroidBridgeDeps): 
     getDevApp: () => u.getDevApp(),
 
     // ---- Android settings
-    getP2PKeepInBackground: async () => core.p2pKeepInBackground(),
-    setP2PKeepInBackground: (on) => core.setP2PKeepInBackground(on),
-    onP2PKeepInBackground: (cb) => listen('p2pKeep', (e) => cb(e.on)),
+    // Without the P2P library the switch would do nothing: Settings shows it
+    // only when these methods exist. The core knows this before the bridge
+    // is made (ClientCore.open waits for the P2P check).
+    ...(core.p2pAvailable()
+      ? {
+          getP2PKeepInBackground: async () => core.p2pKeepInBackground(),
+          setP2PKeepInBackground: (on: boolean) => core.setP2PKeepInBackground(on),
+          onP2PKeepInBackground: (cb: (on: boolean) => void) => listen('p2pKeep', (e) => cb(e.on)),
+        }
+      : {}),
     openCertificateHelp: () => core.openExternal(CERTIFICATE_HELP_URL),
   }
 }

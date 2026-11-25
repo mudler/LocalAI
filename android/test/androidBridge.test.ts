@@ -136,7 +136,12 @@ describe('createAndroidBridge', () => {
   it('reads, sets and follows "Keep P2P connection in the background"', async () => {
     const p = fakePlatform({ p2pVersion: P2P_LIBRARY_VERSION })
     p.p2p.keep = true
-    const { bridge } = await rig(p)
+    const { bridge: b } = await rig(p)
+    // With the P2P library, the bridge has the three methods.
+    const bridge = b as Required<typeof b>
+    expect(typeof b.getP2PKeepInBackground).toBe('function')
+    expect(typeof b.setP2PKeepInBackground).toBe('function')
+    expect(typeof b.onP2PKeepInBackground).toBe('function')
     expect(await bridge.getP2PKeepInBackground()).toBe(true)
     const seen: boolean[] = []
     const off = bridge.onP2PKeepInBackground((on) => seen.push(on))
@@ -150,6 +155,15 @@ describe('createAndroidBridge', () => {
     off()
     p.p2p.emit('keepInBackground', { on: false })
     expect(seen).toEqual([false, true])
+  })
+
+  it('has no "Keep P2P connection in the background" methods when the build has no P2P library', async () => {
+    // fakePlatform() answers version() with an error: no P2P library.
+    const { bridge } = await rig()
+    const b = bridge as unknown as Record<string, unknown>
+    for (const k of ['getP2PKeepInBackground', 'setP2PKeepInBackground', 'onP2PKeepInBackground']) expect(k in b, k).toBe(false)
+    // The CA help does not need P2P.
+    expect(typeof b.openCertificateHelp).toBe('function')
   })
 
   it('opens the docs about private CAs, and nothing else, for the certificate help', async () => {

@@ -371,6 +371,11 @@ export class ClientCore {
       })
   }
 
+  /** The P2P library loaded and has the expected version. Known once `open` returns. */
+  p2pAvailable(): boolean {
+    return this.tunnels.available()
+  }
+
   /** "Keep P2P connection in the background", as the native side has it. */
   p2pKeepInBackground(): boolean {
     return this.tunnels.keepInBackground()
