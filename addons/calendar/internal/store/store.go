@@ -528,16 +528,33 @@ type SearchHit struct {
 // start in its zone, or midnight of its day for an all-day event. ok is false
 // for an event with no occurrence left.
 func (s *Store) NextStart(ctx context.Context, owner string, e Event) (time.Time, bool, error) {
+	starts, err := s.NextStarts(ctx, owner, e, 1)
+	if err != nil || len(starts) == 0 {
+		return time.Time{}, false, err
+	}
+	return starts[0], true, nil
+}
+
+// NextStarts is the starts of up to n occurrences of an event that have not
+// begun, soonest first, within five years. An all-day occurrence counts as
+// not begun until its day is over.
+func (s *Store) NextStarts(ctx context.Context, owner string, e Event, n int) ([]time.Time, error) {
 	sk, err := s.skips(ctx, owner)
 	if err != nil {
-		return time.Time{}, false, err
+		return nil, err
 	}
 	loc, err := LoadZone(e.Zone)
 	if err != nil {
-		return time.Time{}, false, nil
+		return nil, nil
 	}
 	now := s.Now()
-	for _, o := range Expand(e, now, now.AddDate(5, 0, 0), loc, sk[e.ID], 8) {
+	var out []time.Time
+	// Some occurrences at the start may have begun already: ask for a few
+	// more than n.
+	for _, o := range Expand(e, now, now.AddDate(5, 0, 0), loc, sk[e.ID], n+8) {
+		if len(out) == n {
+			break
+		}
 		wall, err := parseLocal(o.Start, o.AllDay)
 		if err != nil {
 			continue
@@ -551,7 +568,7 @@ func (s *Store) NextStart(ctx context.Context, owner string, e Event) (time.Time
 		} else if !at.After(now) {
 			continue // begun: the reminder is for the next one
 		}
-		return at, true, nil
+		out = append(out, at)
 	}
-	return time.Time{}, false, nil
+	return out, nil
 }

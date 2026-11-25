@@ -147,6 +147,10 @@ type Reminder struct {
 	// reminder, and a reply to the heads-up ("earlier", "no reminder") finds
 	// it by this ID, whatever changed the reminder since.
 	SetBy string `json:",omitempty"`
+	// Following are the starts of the later occurrences of the thing, as its
+	// add-on last gave them, soonest first. When the thing's time has passed,
+	// the runner moves the reminder to the next of them (see Advance).
+	Following []time.Time `json:",omitempty"`
 	// Rev is the version of the stored reminder. The store sets it, and
 	// PutTrigger refuses with ErrConflict a reminder whose Rev is not the
 	// stored one: two writers (two frontends, the reconciler and the
@@ -218,6 +222,9 @@ type Thing struct {
 	AllDay    bool
 	// Stamp is a fingerprint of the payload without its time fields.
 	Stamp string
+	// Following are the starts of the later occurrences of a thing that
+	// repeats, soonest first, all after Anchor.
+	Following []time.Time
 }
 
 // The lifecycles of a Thing. They are the words of the add-on contract.

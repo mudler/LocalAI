@@ -68,6 +68,49 @@ var _ = Describe("the reminder pass", func() {
 		Expect(r.runs("r")).To(HaveLen(2))
 	})
 
+	It("moves the reminder of a repeating thing to its next occurrence, also after a failed run", func() {
+		var mu sync.Mutex
+		var advanced []time.Time
+		r := newRig(func(o *triggers.Options) {
+			o.Advanced = func(t triggers.Trigger) { mu.Lock(); advanced = append(advanced, t.Reminder.Anchor); mu.Unlock() }
+		})
+		anchor := t0.Add(time.Hour)
+		day := 24 * time.Hour
+		r.put(watchOf("w"))
+		rem := reminderOf("r", "w", anchor)
+		rem.Reminder.Following = []time.Time{anchor.Add(day), anchor.Add(2 * day)}
+		r.put(rem)
+		r.at(anchor.Add(-15 * time.Minute))
+		first := r.latest("r")
+		r.at(anchor.Add(time.Minute))
+		got, _ := r.store.GetTrigger(ctx, "r")
+		Expect(got.Reminder.Anchor).To(Equal(anchor), "the run of this occurrence is still going")
+		r.finish(first, triggers.StatusFailed, "the task failed")
+		r.after(time.Minute)
+		got, _ = r.store.GetTrigger(ctx, "r")
+		Expect(got.Reminder.Anchor).To(Equal(anchor.Add(day)), "a failed run does not stop the series")
+		Expect(got.Reminder.Following).To(Equal([]time.Time{anchor.Add(2 * day)}))
+		r.at(anchor.Add(day - 15*time.Minute))
+		Expect(r.runs("r")).To(HaveLen(2), "the next occurrence fires at its time")
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(advanced).To(Equal([]time.Time{anchor.Add(day)}))
+	})
+
+	It("skips the occurrences that passed while the server was down", func() {
+		anchor := t0.Add(time.Hour)
+		day := 24 * time.Hour
+		r := newRig()
+		r.put(watchOf("w"))
+		rem := reminderOf("r", "w", anchor)
+		rem.Reminder.Following = []time.Time{anchor.Add(day), anchor.Add(2 * day), anchor.Add(3 * day)}
+		r.put(rem)
+		r.at(anchor.Add(2*day + time.Hour))
+		got, _ := r.store.GetTrigger(ctx, "r")
+		Expect(got.Reminder.Anchor).To(Equal(anchor.Add(3 * day)))
+		Expect(r.runs("r")).To(HaveLen(1), "one missed line for the occurrence it held, none for the ones in between")
+	})
+
 	It("holds the reminders of a paused watch, and starts them once it is back", func() {
 		r := newRig()
 		anchor := t0.Add(time.Hour)

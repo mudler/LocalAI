@@ -183,8 +183,14 @@ func (h *Triggers) reminderBrief(ctx context.Context, r triggers.Trigger, run tr
 	}
 	b.WriteString("First read the item again with the source's tools. If it is gone, answer exactly " + SilentMark + ". " +
 		"If its time moved, set the reminder again with " + SetReminderName + " and answer exactly " + SilentMark + ". " +
-		"Otherwise do the task and answer with the result for the owner, short. " +
-		"If the item repeats, then call " + SetReminderName + " with anchor set to the start of its next occurrence. ")
+		"Otherwise do the task and answer with the result for the owner, short. ")
+	if len(rem.Following) == 0 {
+		// The source gave no later occurrences, so the host cannot move the
+		// reminder of a repeating item by itself.
+		b.WriteString("If the item repeats, then call " + SetReminderName + " with anchor set to the start of its next occurrence. ")
+	} else {
+		b.WriteString("The host moves this reminder to the item's next occurrence by itself; do not set it. ")
+	}
 	if r.Route.TargetOrDefault() == triggers.TargetChannel {
 		b.WriteString("Your answer goes to a channel others may read: do not quote private mail, files or notes there. ")
 	}

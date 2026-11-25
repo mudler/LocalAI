@@ -45,6 +45,9 @@ func (r *Runner) reminderPass(ctx context.Context, trs []Trigger, now time.Time)
 		if err := r.reminderOne(ctx, t, parent, now); err != nil {
 			errs = append(errs, err)
 		}
+		if err := r.advance(ctx, t, parent, now); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -115,4 +118,58 @@ func (r *Runner) reminderOne(ctx context.Context, t, parent Trigger, now time.Ti
 func (r *Runner) parentOn(ctx context.Context, t Trigger) bool {
 	p, err := r.o.Store.GetTrigger(ctx, t.Reminder.ParentID)
 	return err == nil && p.Enabled
+}
+
+// advance moves the reminder of a thing that repeats to its next occurrence
+// once the time of the current one has passed: after the thing began, after
+// the reminder's own time, and after its run ended. It needs no model and
+// does not depend on the run: a failed or missed run does not stop the
+// series. The next occurrence is the first of Reminder.Following that is
+// still ahead, so a server that was down for days does not send the ones it
+// missed. A reminder set to a fixed time (At) is left alone.
+func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) error {
+	rem := t.Reminder
+	if len(rem.Following) == 0 || rem.Anchor.IsZero() || !rem.At.IsZero() || now.Before(rem.Anchor) {
+		return nil
+	}
+	loc, err := parent.Location()
+	if err != nil {
+		loc = time.UTC
+	}
+	if tm := PlanReminder(*rem, parent.Watch, loc, now); !tm.Due.IsZero() && now.Before(tm.Due) {
+		return nil // a reminder after the start of the thing has not come yet
+	}
+	if runs, err := r.o.Store.ListRuns(ctx, t.ID, 1); err != nil {
+		return err
+	} else if len(runs) == 1 && !runs[0].Status.Final() {
+		return nil // the run of this occurrence is still going
+	}
+	cur, err := r.o.Store.GetTrigger(ctx, t.ID)
+	if err != nil || !cur.IsReminder() || !cur.Reminder.Anchor.Equal(rem.Anchor) {
+		return nil // removed or changed since the pass read it
+	}
+	next := *cur.Reminder
+	i := 0
+	for i < len(next.Following) && !next.Following[i].After(now) {
+		i++
+	}
+	if i == len(next.Following) {
+		next.Following = nil // no known occurrence is ahead: stop looking
+	} else {
+		next.Anchor, next.Following = next.Following[i], next.Following[i+1:]
+		next.SnoozedTo, next.Skipped = time.Time{}, time.Time{}
+		cur.Since = now.UTC()
+	}
+	moved := !next.Anchor.Equal(rem.Anchor)
+	cur.Reminder = &next
+	if err := r.o.Store.PutTrigger(ctx, cur); err != nil {
+		if errors.Is(err, ErrConflict) {
+			return nil // another writer won; the next pass looks again
+		}
+		return err
+	}
+	if moved && r.o.Advanced != nil {
+		r.o.Advanced(cur)
+	}
+	return nil
 }

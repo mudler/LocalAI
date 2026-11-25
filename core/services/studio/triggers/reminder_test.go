@@ -151,12 +151,15 @@ var _ = Describe("Reconcile", func() {
 
 	It("re-times the reminder from the new time of the thing, with no model, and drops a snooze", func() {
 		moved := anchor.Add(2 * time.Hour)
-		out, err := triggers.Reconcile(ctx, st, watch, thing(triggers.LifecycleUpdated, moved, "s1"), now)
+		ev := thing(triggers.LifecycleUpdated, moved, "s1")
+		ev.Thing.Following = []time.Time{moved.Add(24 * time.Hour)}
+		out, err := triggers.Reconcile(ctx, st, watch, ev, now)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Action).To(Equal(triggers.ActionRetimed))
 		Expect(out.Moved).To(BeTrue())
 		got, _ := st.ReminderByKey(ctx, "w", "notes:7")
 		Expect(got.Reminder.Anchor).To(Equal(moved))
+		Expect(got.Reminder.Following).To(Equal([]time.Time{moved.Add(24 * time.Hour)}), "the later occurrences come with each event")
 		Expect(got.Reminder.SnoozedTo.IsZero()).To(BeTrue())
 		Expect(got.Since).To(Equal(now))
 		tm := triggers.PlanReminder(*got.Reminder, watch.Watch, time.UTC, now)

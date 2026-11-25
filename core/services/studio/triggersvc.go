@@ -281,7 +281,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 func (h *Triggers) newRunner() (*triggers.Runner, error) {
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: h.svc.admin,
-		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff, Missed: h.tellMissed,
+		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted, Pause: h.switchOff, Missed: h.tellMissed, Advanced: h.tellAdvanced,
 		Retention: h.o.Retention, MaxDailyCap: func() int { return h.Limits().MaxDailyCap },
 		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}

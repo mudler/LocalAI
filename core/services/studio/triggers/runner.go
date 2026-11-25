@@ -111,6 +111,9 @@ type Options struct {
 	// ran (the host was down past it): the reminder did not fire, and the
 	// host tells the owner in one line.
 	Missed func(t Trigger, r Run)
+	// Advanced is called when a pass moved the reminder of a repeating thing
+	// to its next occurrence; t is the reminder as it is now.
+	Advanced func(t Trigger)
 	Logf   func(format string, args ...any)
 }
 

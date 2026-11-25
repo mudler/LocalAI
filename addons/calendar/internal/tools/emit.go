@@ -32,6 +32,9 @@ type eventPayload struct {
 	ID        string        `json:"id"`
 	Title     string        `json:"title"`
 	Next      string        `json:"next,omitempty"`
+	// Following are the starts of the occurrences after next, for a
+	// repeating event: the host moves a reminder on to them by itself.
+	Following []string `json:"following,omitempty"`
 	Start     string        `json:"start,omitempty"`
 	End       string        `json:"end,omitempty"`
 	AllDay    bool          `json:"allDay"`
@@ -41,6 +44,10 @@ type eventPayload struct {
 	Notes     string        `json:"notes,omitempty"`
 	Repeat    *store.Repeat `json:"repeat,omitempty"`
 }
+
+// followingCount is how many occurrences after the next one an event
+// carries: the most the host reads.
+const followingCount = 64
 
 // emit reports one change. A failure is logged and never fails the change:
 // the calendar is the owner's data, and a watch that misses one change still
@@ -52,9 +59,12 @@ func (r *Runtime) emit(ctx context.Context, operationID, owner, typ string, e st
 	p := eventPayload{ID: e.ID, Title: e.Title}
 	if typ != EventDeleted {
 		p.Start, p.End, p.AllDay, p.Zone, p.Place, p.Attendees, p.Notes, p.Repeat = e.Start, e.End, e.AllDay, e.Zone, e.Place, e.Attendees, e.Notes, e.Repeat
-		next, ok, err := r.Store.NextStart(ctx, owner, e)
-		if err == nil && ok {
-			p.Next = next.Format(time.RFC3339)
+		starts, err := r.Store.NextStarts(ctx, owner, e, followingCount+1)
+		if err == nil && len(starts) > 0 {
+			p.Next = starts[0].Format(time.RFC3339)
+			for _, t := range starts[1:] {
+				p.Following = append(p.Following, t.Format(time.RFC3339))
+			}
 		}
 	}
 	dedupe := e.ID + "@" + typ + "@" + e.Updated + "@" + p.Next

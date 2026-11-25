@@ -54,6 +54,7 @@ var _ = Describe("Event declarations", func() {
 		Entry("an empty anchor time", func(d *EventDeclaration) { d.Anchor.Time = "" }, "anchor.time"),
 		Entry("a bad zone path", func(d *EventDeclaration) { d.Anchor.Zone = "a b" }, "anchor.zone"),
 		Entry("a bad moves path", func(d *EventDeclaration) { d.Anchor.Moves = []string{"item.end", "a..b"} }, "anchor.moves"),
+		Entry("a bad following path", func(d *EventDeclaration) { d.Anchor.Following = "item..later" }, "anchor.following"),
 		Entry("a type of another add-on", func(d *EventDeclaration) { d.Type = "calendar.event.created" }, "must start with"),
 		Entry("a link that leaves the page", func(d *EventDeclaration) { d.Link = "https://example.com/x" }, "link"),
 		Entry("no label", func(d *EventDeclaration) { d.Label = Localized{} }, "label"),

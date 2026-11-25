@@ -48,6 +48,21 @@ var _ = Describe("ThingOf", func() {
 		Expect(th.Lifecycle).To(Equal("created"))
 	})
 
+	It("reads the later occurrences of a repeating thing, in order, out of the stamp", func() {
+		d := notesDecl("updated")
+		d.Anchor.Following = "item.later"
+		due := time.Date(2026, 11, 26, 14, 0, 0, 0, time.UTC)
+		payload := func(later ...string) []byte {
+			raw, _ := json.Marshal(map[string]any{"item": map[string]any{"id": "1", "name": "X", "due": due.Format(time.RFC3339), "later": later}})
+			return raw
+		}
+		th, err := studio.ThingOf("notes", d, payload("2026-11-27T14:00:00Z", "not a time", "2026-11-25T14:00:00Z", "2026-11-28T14:00:00Z"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(th.Following).To(Equal([]time.Time{due.Add(24 * time.Hour), due.Add(48 * time.Hour)}), "only later times, in order")
+		other, _ := studio.ThingOf("notes", d, payload("2026-11-29T14:00:00Z"))
+		Expect(other.Stamp).To(Equal(th.Stamp), "the list moves with time; it is not a change of the thing")
+	})
+
 	It("gives the same stamp to payloads that differ only in time, and another for any other change", func() {
 		a, _ := studio.ThingOf("notes", notesDecl("updated"), notesPayload("1", "X", time.Date(2026, 11, 26, 14, 0, 0, 0, time.UTC), "a"))
 		b, _ := studio.ThingOf("notes", notesDecl("updated"), notesPayload("1", "X", time.Date(2026, 11, 27, 9, 0, 0, 0, time.UTC), "a"))

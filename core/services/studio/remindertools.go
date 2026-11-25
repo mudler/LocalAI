@@ -445,6 +445,7 @@ func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in Remi
 		if in.ChatID != "" {
 			if f, ok := h.thingFacts(ctx, in.ChatID, key); ok {
 				rem.Title, rem.Zone, rem.AllDay, rem.Stamp = f.Title, f.Zone, f.AllDay, f.Stamp
+				rem.Following = f.Following
 				if f.At != "" {
 					rem.Anchor, _ = time.Parse(time.RFC3339, f.At)
 				}

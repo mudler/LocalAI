@@ -74,7 +74,21 @@ func ThingOf(addon string, d contract.EventDeclaration, payload []byte) (*trigge
 				th.AllDay = true
 			}
 		}
-	}
+		if a.Following != "" {
+			drop = append(drop, a.Following)
+			if !th.Anchor.IsZero() {
+				for _, t := range triggers.LookupTimes(doc, a.Following, contract.MaxAnchorFollowing) {
+					// Only later occurrences, in order: the list is the add-on's.
+					last := th.Anchor
+					if n := len(th.Following); n > 0 {
+						last = th.Following[n-1]
+					}
+					if t.After(last) {
+						th.Following = append(th.Following, t)
+					}
+				}
+			}
+		}	}
 	if d.Link != "" {
 		th.Link = "/app/addons/" + url.PathEscape(addon) + "/" + strings.ReplaceAll(d.Link, "{key}", url.QueryEscape(id))
 	}
@@ -382,6 +396,23 @@ func (h *Triggers) limitChanges(ctx context.Context, w triggers.Trigger, now tim
 	h.switchOff(w, fmt.Sprintf("it changed more than %d reminders in one minute", triggers.MaxChangesPerMinute))
 }
 
+// tellAdvanced is Options.Advanced: one line in the watch's history and the
+// Inbox when the reminder of a repeating item moved to its next occurrence.
+func (h *Triggers) tellAdvanced(t triggers.Trigger) {
+	ctx := context.Background()
+	w, err := h.o.Store.GetTrigger(ctx, t.Reminder.ParentID)
+	if err != nil {
+		return
+	}
+	now := h.o.Clock()
+	due := h.dueText(w, t, now)
+	if due == "" {
+		return
+	}
+	h.recordAction(ctx, w, now, fmt.Sprintf("Set the reminder for the next %q: %s.", t.Reminder.Title, due))
+	h.Notify()
+}
+
 // tellMissed is Options.Missed: one Inbox line under the watch for a reminder
 // whose thing began while the server was down. No late reminder is sent.
 func (h *Triggers) tellMissed(t triggers.Trigger, _ triggers.Run) {
@@ -419,6 +450,7 @@ type watchFacts struct {
 	Zone      string          `json:"zone,omitempty"`
 	AllDay    bool            `json:"all_day,omitempty"`
 	Stamp     string          `json:"stamp,omitempty"`
+	Following []time.Time     `json:"following,omitempty"`
 	By        string          `json:"by,omitempty"`
 	Data      json.RawMessage `json:"data,omitempty"`
 }
@@ -427,6 +459,7 @@ func watchRunPayload(ev triggers.Event) []byte {
 	f := watchFacts{Watch: true, By: actorWords(ev.Actor)}
 	if th := ev.Thing; th != nil {
 		f.Lifecycle, f.Key, f.Title, f.Zone, f.AllDay, f.Stamp = th.Lifecycle, th.Key, th.Title, th.Zone, th.AllDay, th.Stamp
+		f.Following = th.Following
 		if !th.Anchor.IsZero() {
 			f.At = th.Anchor.Format(time.RFC3339)
 		}

@@ -32,7 +32,7 @@ A chat can propose a watch too. The proposal card lists what the watch does and 
 - **A thing moves.** The reminder moves with it, with no model run. Your own change gives one Inbox line. A change by someone else gives a short message.
 - **A thing changes in more than its time** (new attendees, say). The reminder's agent runs early, can change the task or the time, and the reminder still fires at its time.
 - **A thing is removed.** The reminder is cancelled, with one Inbox line.
-- **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, the agent then sets the reminder of the next occurrence.
+- **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, LocalAI then moves the reminder to the next occurrence by itself, with one Inbox line, also when the task failed. Occurrences that passed while the server was down are not sent.
 
 A change made by a watch's own run never wakes that watch. More than 30 reminder changes in a minute pause the watch and tell you.
 

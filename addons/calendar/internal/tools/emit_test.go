@@ -100,6 +100,7 @@ var _ = Describe("the calendar's reports of changes", func() {
 		out := act(map[string]any{"tool": "event-create", "title": "Standup", "start": "2026-11-05T09:30", "repeat": map[string]any{"freq": "daily", "until": "2026-11-07"}})
 		id := out["event"].(map[string]any)["id"].(string)
 		Expect(em.got[0].event["next"]).To(Equal("2026-11-06T09:30:00+01:00"), "today's has begun: the next is tomorrow")
+		Expect(em.got[0].event["following"]).To(Equal([]any{"2026-11-07T09:30:00+01:00"}), "the later occurrences, for the host to move a reminder on")
 		act(map[string]any{"tool": "event-delete", "id": id, "occurrence": "2026-11-06"})
 		Expect(em.got[1].typ).To(Equal(tools.EventUpdated))
 		Expect(em.got[1].event["next"]).To(Equal("2026-11-07T09:30:00+01:00"))
@@ -111,6 +112,7 @@ var _ = Describe("the calendar's reports of changes", func() {
 		act(map[string]any{"tool": "event-create", "title": "Holiday", "start": "2026-11-08", "allDay": true})
 		Expect(em.got[0].event["next"]).To(Equal("2026-11-08T00:00:00+01:00"))
 		Expect(em.got[0].event["allDay"]).To(BeTrue())
+		Expect(em.got[0].event).NotTo(HaveKey("following"), "an event that does not repeat has no later occurrence")
 	})
 
 	It("keeps the change when the report fails, and works with no host at all", func() {
@@ -137,6 +139,7 @@ var _ = Describe("the calendar's reports of changes", func() {
 		Expect(d.Anchor.Time).To(Equal("event.next"))
 		Expect(d.Anchor.Zone).To(Equal("event.zone"))
 		Expect(d.Anchor.AllDay).To(Equal("event.allDay"))
+		Expect(d.Anchor.Following).To(Equal("event.following"))
 		Expect(d.Anchor.Moves).To(ConsistOf("event.start", "event.end"), "a move must not count as a change beyond the time")
 		Expect(m.Capabilities.HostOperations.Optional).To(ContainElement(contract.EventsEmitOp))
 	})

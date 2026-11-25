@@ -553,6 +553,7 @@
         "key": "event.id",
         "anchor": {
           "time": "event.next",
+          "following": "event.following",
           "zone": "event.zone",
           "allDay": "event.allDay",
           "moves": [
@@ -580,6 +581,7 @@
         "key": "event.id",
         "anchor": {
           "time": "event.next",
+          "following": "event.following",
           "zone": "event.zone",
           "allDay": "event.allDay",
           "moves": [

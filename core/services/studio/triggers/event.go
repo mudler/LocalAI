@@ -288,3 +288,35 @@ func DecodePayload(raw []byte) (any, error) {
 // scalar there as text; false for a missing path or one that ends at an
 // object, an array or null.
 func LookupPath(doc any, path string) (string, bool) { return lookupPath(doc, path) }
+
+// LookupTimes reads a list of RFC 3339 times at a dot path of a decoded
+// payload, at most max of them; an entry that is not such a time is passed
+// over.
+func LookupTimes(doc any, path string, max int) []time.Time {
+	cur := doc
+	for _, seg := range strings.Split(path, ".") {
+		m, ok := cur.(map[string]any)
+		if !ok {
+			return nil
+		}
+		if cur, ok = m[seg]; !ok {
+			return nil
+		}
+	}
+	list, ok := cur.([]any)
+	if !ok {
+		return nil
+	}
+	var out []time.Time
+	for _, v := range list {
+		if len(out) == max {
+			break
+		}
+		if s, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339, s); err == nil {
+				out = append(out, t.UTC())
+			}
+		}
+	}
+	return out
+}

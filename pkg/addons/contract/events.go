@@ -74,10 +74,20 @@ type EventAnchor struct {
 	// its end or its local start. The host leaves them, and the paths above,
 	// out of the fingerprint that tells a move from any other change.
 	Moves []string `json:"moves,omitempty"`
+	// Following is an optional path to a list of RFC 3339 times: the starts
+	// of the occurrences that come after Time, for a thing that repeats. When
+	// the thing's time has passed, the host moves its reminder to the next of
+	// them by itself, with no model, so a series goes on even when one run
+	// fails. The host reads at most MaxAnchorFollowing of them.
+	Following string `json:"following,omitempty"`
 }
 
 // MaxAnchorMoves bounds EventAnchor.Moves.
 const MaxAnchorMoves = 8
+
+// MaxAnchorFollowing is how many later occurrences the host reads from
+// EventAnchor.Following.
+const MaxAnchorFollowing = 64
 
 var eventTypeRE = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z][a-z0-9_-]*)+$`)
 
@@ -152,6 +162,9 @@ func validateEvents(id string, c Capabilities) error {
 			}
 			if a.AllDay != "" && !ValidEventPath(a.AllDay) {
 				return bad("anchor.allDay must be a dot path into the payload")
+			}
+			if a.Following != "" && !ValidEventPath(a.Following) {
+				return bad("anchor.following must be a dot path into the payload")
 			}
 			if len(a.Moves) > MaxAnchorMoves {
 				return bad("anchor.moves lists at most %d paths", MaxAnchorMoves)
