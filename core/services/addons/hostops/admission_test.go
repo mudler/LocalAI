@@ -46,6 +46,7 @@ func registeredBuiltinOperations() []string {
 	Expect(RegisterClientJobs(b, admissionClientJobs{})).To(Succeed())
 	Expect(RegisterClientList(b, admissionClientLister{})).To(Succeed())
 	Expect(RegisterClientFolders(b, &ClientFolderHost{Files: files.New(&admissionWorkspaceStore{}), Grants: admissionGrants{}})).To(Succeed())
+	Expect(RegisterEvents(b, &fakeEvents{})).To(Succeed())
 	// Each registration error is checked above, so a duplicate cannot be hidden
 	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
 	return b.Ops()
