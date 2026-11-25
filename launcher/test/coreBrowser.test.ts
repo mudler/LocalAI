@@ -6,6 +6,8 @@ import { migrateConfig, type LauncherConfig, type LoadResult } from '../src/core
 import { ConfigStore, showStatusBar, withShowStatusBar, type ConfigIO } from '../src/core/configStore'
 import { newRemoteId } from '../src/core/serversConfig'
 import { parseForwardState, parsePairJson } from '../src/core/p2pInvite'
+import { parseChecksums } from '../src/core/checksums'
+import { DEV_RELEASE_TAG, devBuildLabel, parseDevBuild } from '../src/core/devFeed'
 
 const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
 
@@ -87,5 +89,21 @@ describe('invite parsing and the server list', () => {
     expect(parseForwardState('{"state":"up","path":"none"}')).toEqual({ state: 'up' })
     expect(parseForwardState('{"state":"down","error":"x"}')).toEqual({ state: 'down', error: 'x' })
     expect(parseForwardState('not json')).toBeUndefined()
+  })
+})
+
+describe('checksums and the development feed names', () => {
+  it('parseChecksums reads a sha256sum line', () => {
+    const hash = 'ab'.repeat(32)
+    const sums = parseChecksums(`${hash}  LocalAI-Android.apk\n`)
+    expect(sums.get('LocalAI-Android.apk')).toBe(hash)
+    expect(sums.size).toBe(1)
+  })
+
+  it('parseDevBuild reads the sha, the date and the subject', () => {
+    const b = parseDevBuild({ name: 'Development build', body: 'sha 0a1b2c3d4e5f\ndate 2026-10-02\nAdd the client shell', published_at: '2026-10-02T08:30:00Z' })
+    expect(b).toEqual({ id: '0a1b2c3', date: '2026-10-02', subject: 'Development build' })
+    expect(devBuildLabel(b!)).toBe('2026-10-02 (0a1b2c3)')
+    expect(DEV_RELEASE_TAG).toBe('dev-master')
   })
 })
