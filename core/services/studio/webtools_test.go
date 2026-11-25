@@ -235,7 +235,9 @@ var _ = Describe("the one registry of built-in tools", func() {
 		for _, t := range tools {
 			ids = append(ids, t.ID)
 			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch;  send_message: by the capability of the binding and the operator switch; load_skill: every chat with skills gets it; page_errors and open_page: offered when the files and pages are on; the goal tools: by the goal; the tool groups: by the chat's switch
-				if t.ID == "load_skill" || t.ID == "page_errors" || t.ID == "open_page" || t.ID == "goal_done" || t.ID == "goal_blocked" || t.ID == studio.SendMessageName {
+				if t.ID == "load_skill" || t.ID == "page_errors" || t.ID == "open_page" || t.ID == "goal_done" || t.ID == "goal_blocked" || t.ID == studio.SendMessageName ||
+					// the reminder tools: offered only in the runs of a watch and its reminders, never in a chat with a switch
+					t.ID == studio.SetReminderName || t.ID == studio.CancelReminderName || t.ID == studio.ListRemindersName {
 					Expect(t.Group).To(BeEmpty(), t.ID)
 				} else if t.External {
 					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents, builtins.GroupMemory), t.ID)

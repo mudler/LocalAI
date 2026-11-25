@@ -64,7 +64,7 @@ func (s *Service) registerReminderTools() error {
 		{ListRemindersName, "List reminders", listRemindersDescription, listRemindersSchema, true, s.listRemindersTool},
 	} {
 		err := s.builtins.Register(builtins.Tool{
-			ID: tool.id, Group: builtins.GroupTriggers, Label: tool.label, Description: tool.desc, Unlisted: true, ReadOnly: tool.readOnly,
+			ID: tool.id, Label: tool.label, Description: tool.desc, Unlisted: true, ReadOnly: tool.readOnly,
 			Enabled: func() bool { return s.triggers != nil },
 			Build: func(ctx context.Context, c builtins.Chat) (session.Tool, bool, string) {
 				w, why := s.watchOfRun(ctx, c)
