@@ -37,7 +37,8 @@ export interface InviteSources {
 export interface AndroidBridgeDeps {
   clipboard(text: string): Promise<void>
   updater: AndroidUpdater
-  info: { version: string }
+  /** The app version and, when the Updater plugin answered, its application ID (shown in About). */
+  info: { version: string; applicationId?: string }
   invites?: InviteSources
 }
 
@@ -111,6 +112,7 @@ export function createAndroidBridge(core: ClientCore, deps: AndroidBridgeDeps): 
         sandboxed: true,
         capabilities: ANDROID_CAPABILITIES,
         ...(notice ? { configNotice: notice } : {}),
+        ...(deps.info.applicationId ? { applicationId: deps.info.applicationId } : {}),
       }
     },
     copyText: (text) => deps.clipboard(text),

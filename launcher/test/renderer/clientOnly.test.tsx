@@ -468,6 +468,19 @@ describe('about', () => {
     expect(about.getByText('4.0.2')).toBeTruthy()
   })
 
+  it('labels the version "App" and shows the application ID', async () => {
+    await renderClient((s) => {
+      s.info = { ...s.info, version: '5.0.2', applicationId: 'io.localai.client.dev' }
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    })
+    const about = await openAbout()
+    expect(about.queryByText('Launcher')).toBeNull()
+    expect(about.getByText('App')).toBeTruthy()
+    expect(about.getByText('5.0.2')).toBeTruthy()
+    expect(about.getByText('Application ID')).toBeTruthy()
+    expect(about.getByText('io.localai.client.dev')).toBeTruthy()
+  })
+
   it('leaves the server line out while the version is not known', async () => {
     await renderClient((s) => {
       s.servers = serversView({ rows: [GPU], defaultId: GPU.id })

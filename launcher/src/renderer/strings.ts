@@ -52,6 +52,9 @@ export const S = {
   about: {
     title: 'About LocalAI',
     launcher: 'Launcher',
+    /** The version line of a client-only app (the Android app). */
+    app: 'App',
+    applicationId: 'Application ID',
     server: 'LocalAI server',
     notInstalled: 'Not installed',
     unknown: 'Unknown',

@@ -529,6 +529,8 @@ export function Shell({ now }: { now?: number }) {
             popover={popover}
             setPopover={setPopover}
             launcherVersion={data.info?.version}
+            appLabel={clientOnly}
+            applicationId={clientOnly ? data.info?.applicationId : undefined}
             serverVersion={clientOnly ? aboutServerVersion : version}
             hideUnknownServerVersion={clientOnly}
             appUpdate={apk}

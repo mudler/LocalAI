@@ -49,6 +49,15 @@ describe('createAndroidBridge', () => {
     expect(info.configNotice).toBeUndefined()
   })
 
+  it('passes the application ID on in info when the app knows it', async () => {
+    const core = await ClientCore.open(fakePlatform())
+    cores.push(core)
+    const bridge = createAndroidBridge(core, { clipboard: async () => undefined, updater: idleUpdater(), info: { version: '5.0.2', applicationId: 'io.localai.client' } })
+    expect(await bridge.info()).toMatchObject({ version: '5.0.2', applicationId: 'io.localai.client' })
+    const { bridge: without } = await rig()
+    expect('applicationId' in (await without.info())).toBe(false)
+  })
+
   it('passes a recovered config on in info', async () => {
     const { bridge } = await rig(fakePlatform({ files: { [CONFIG_FILE]: '[]' } }))
     expect((await bridge.info()).configNotice).toEqual({ status: 'recovered', reason: 'config file is not a JSON object' })
