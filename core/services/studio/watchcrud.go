@@ -131,6 +131,10 @@ type ReminderPatch struct {
 	// At and Offset re-time the reminder as set_reminder does.
 	At, Offset string
 	Task       *string
+	// Source, when set, is the add-on whose page asks (sdk.reminders.skip):
+	// a reminder of a watch on another source is refused as missing, so a
+	// page changes only the reminders of its own items.
+	Source string
 }
 
 // PatchReminder applies a change of the owner to a reminder of their watch.
@@ -138,6 +142,9 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 	w, err := h.owned(ctx, user, watchID)
 	if err != nil {
 		return ReminderView{}, err
+	}
+	if p.Source != "" && (!w.IsWatch() || w.Source != p.Source) {
+		return ReminderView{}, triggers.ErrNotFound
 	}
 	r, err := h.o.Store.GetTrigger(ctx, reminderID)
 	if err != nil || !r.IsReminder() || r.Reminder.ParentID != w.ID {
@@ -312,6 +319,9 @@ type SourceReminder struct {
 // SourceReminders lists the reminders of the user's watches for the items of
 // one add-on, so its page can mark them (the bell of the calendar).
 func (h *Triggers) SourceReminders(ctx context.Context, user, source string) ([]SourceReminder, error) {
+	if strings.TrimSpace(source) == "" {
+		return nil, bad("give the add-on whose reminders to list")
+	}
 	all, err := h.o.Store.ListTriggers(ctx, principal(user))
 	if err != nil {
 		return nil, err

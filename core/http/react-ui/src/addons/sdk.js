@@ -458,7 +458,9 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
       async skip(watchId, id) {
         alive()
         if (typeof host.skipReminder !== 'function') throw new AddonSdkError('unavailable', 'This host has no reminders')
-        return host.skipReminder(String(watchId), String(id))
+        // The host names the add-on, so the server refuses a reminder of a
+        // watch on another add-on's items.
+        return host.skipReminder(addonId, String(watchId), String(id))
       },
     }),
     navigation: Object.freeze({

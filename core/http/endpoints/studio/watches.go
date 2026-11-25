@@ -105,6 +105,7 @@ func (h *Handlers) WatchReminders(c echo.Context) error {
 // @Tags chats
 // @Param id path string true "the watch's id"
 // @Param rid path string true "the reminder's id"
+// @Param source query string false "the add-on whose page asks; a reminder of a watch on another add-on is not found"
 // @Param request body schema.ChatsReminderPatch true "the change"
 // @Success 200 {object} schema.ChatsReminder "The reminder after the change"
 // @Failure 400 {object} schema.ErrorResponse "The change is not valid"
@@ -119,7 +120,8 @@ func (h *Handlers) PatchWatchReminder(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return failTrigger(c, studiosvc.ErrBadTrigger)
 	}
-	p := studiosvc.ReminderPatch{SnoozeFor: time.Duration(req.SnoozeMinutes) * time.Minute, SnoozedTo: req.SnoozedTo, Skip: req.Skip, At: req.At, Task: req.Task}
+	p := studiosvc.ReminderPatch{SnoozeFor: time.Duration(req.SnoozeMinutes) * time.Minute, SnoozedTo: req.SnoozedTo, Skip: req.Skip, At: req.At, Task: req.Task,
+		Source: c.QueryParam("source")}
 	if req.OffsetMinutes != nil {
 		p.Offset = (time.Duration(*req.OffsetMinutes) * time.Minute).String()
 	}
@@ -152,7 +154,7 @@ func (h *Handlers) DeleteWatchReminder(c echo.Context) error {
 // SourceReminders lists the reminders of your watches for the items of one
 // add-on.
 // @Summary List the reminders for the items of an add-on.
-// @Description The page of an add-on marks its items that have a reminder (the bell of the calendar). source is the add-on ID.
+// @Description The page of an add-on marks its items that have a reminder (the bell of the calendar). source is the add-on ID; it is required.
 // @Tags chats
 // @Param source query string true "the add-on ID"
 // @Success 200 {object} schema.ChatsSourceReminders "The reminders"

@@ -21,9 +21,9 @@ test('a host without watches gives no reminders, and skip says it is unavailable
   await assert.rejects(() => sdk.reminders.skip('w1', 'r1'))
 })
 
-test('skip goes to the host with the watch and the reminder', async () => {
+test('skip goes to the host with the own ID of the add-on, the watch and the reminder', async () => {
   const got = []
-  const sdk = make({ skipReminder: async (w, r) => { got.push([w, r]); return { ok: true } } })
+  const sdk = make({ skipReminder: async (source, w, r) => { got.push([source, w, r]); return { ok: true } } })
   await sdk.reminders.skip('w1', 'r1')
-  assert.deepEqual(got, [['w1', 'r1']])
+  assert.deepEqual(got, [['calendar', 'w1', 'r1']], 'the server checks the watch against this ID')
 })

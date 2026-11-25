@@ -294,6 +294,15 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		Expect(other).To(BeEmpty())
 		bobs, _ := r.host.SourceReminders(ctx, "bob", "notes")
 		Expect(bobs).To(BeEmpty())
+		_, err = r.host.SourceReminders(ctx, alice, "")
+		Expect(err).To(MatchError(studio.ErrBadTrigger), "a page lists only under an add-on")
+
+		yes := true
+		_, err = r.host.PatchReminder(ctx, alice, list[0].WatchID, list[0].View.ID, studio.ReminderPatch{Skip: &yes, Source: "calendar"})
+		Expect(err).To(MatchError(triggers.ErrNotFound), "another add-on's page cannot skip a reminder of this watch")
+		got, err := r.host.PatchReminder(ctx, alice, list[0].WatchID, list[0].View.ID, studio.ReminderPatch{Skip: &yes, Source: "notes"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Skipped).To(BeTrue())
 	})
 
 	It("keeps reminders out of the trigger list and the trigger limit", func() {

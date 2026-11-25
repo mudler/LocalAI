@@ -59,8 +59,8 @@ A reminder whose time passed while the server was down fires late, with a note, 
 | `POST /api/chats/triggers` with `kind: "event"`, `source` and `watch` | Makes a watch. `watch` is `{offset_minutes, no_default, all_day, quiet_from, quiet_to, tasks, types}`. |
 | `GET /api/chats/triggers/sources` | The add-ons a watch can watch, with their event types. |
 | `GET /api/chats/triggers/{id}/reminders` | The reminders of a watch, soonest first. |
-| `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). |
+| `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). With `?source=<add-on>`, a reminder of a watch on another add-on is not found: an add-on page skips a reminder with `sdk.reminders.skip(watchId, id)`, which always sends its own ID. |
 | `DELETE /api/chats/triggers/{id}/reminders/{rid}` | Cancels a reminder. |
-| `GET /api/chats/triggers/reminders?source=<add-on>` | The reminders of your watches for the items of one add-on, with the item ID and the watch. An add-on page reads them with `sdk.reminders.list()`. |
+| `GET /api/chats/triggers/reminders?source=<add-on>` | The reminders of your watches for the items of one add-on, with the item ID and the watch. `source` is required. An add-on page reads them with `sdk.reminders.list()`. |
 
 For add-on authors: an add-on declares its event types and reports its changes with the `events.emit` host operation. See [Events]({{% relref "/addons/contract-reference/host-operations#events" %}}).

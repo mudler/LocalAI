@@ -92,5 +92,5 @@ export const host = Object.freeze({
   subscribeLanguage,
   api: gatewayApi,
   reminders: (source) => chatTriggersApi.sourceReminders(source).then((r) => r.reminders || []),
-  skipReminder: (watchId, id) => chatTriggersApi.patchReminder(watchId, id, { skip: true }),
+  skipReminder: (source, watchId, id) => chatTriggersApi.patchReminder(watchId, id, { skip: true }, source),
 })
