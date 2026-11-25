@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ func dataBlock(fs []watchFacts) string {
 
 // watchBrief is the part of the first message of a watch run that the host
 // writes after the watch's prompt.
-func (h *Triggers) watchBrief(w triggers.Trigger, run triggers.Run) string {
+func watchBrief(w triggers.Trigger, run triggers.Run) string {
 	fs := factsOf(run.Payload)
 	var b strings.Builder
 	b.WriteString("You are a watch on " + w.Source + ". These items need a decision:\n")
@@ -199,20 +200,18 @@ func (h *Triggers) reminderBrief(ctx context.Context, r triggers.Trigger, run tr
 }
 
 // plainReminder is what the owner gets on time when the task of a reminder
-// failed: the reminder itself, and one line that the task did not finish.
+// failed: the reminder itself, and one line that the task did not finish, in
+// the language of the chat it goes to.
 func (h *Triggers) plainReminder(ctx context.Context, r triggers.Trigger) string {
 	rem := r.Reminder
+	v := h.voiceOf(ctx, r)
+	task := strconv.Quote(rem.Task)
+	if rem.Anchor.IsZero() {
+		return v.T("reminder.failed", "title", rem.Title, "task", task)
+	}
 	w, err := h.o.Store.GetTrigger(ctx, rem.ParentID)
 	if err != nil {
 		w = r
 	}
-	loc, lerr := w.Location()
-	if lerr != nil {
-		loc = time.UTC
-	}
-	text := "Reminder: " + rem.Title
-	if !rem.Anchor.IsZero() {
-		text += " at " + rem.Anchor.In(loc).Format("Mon 15:04")
-	}
-	return text + ". (The task \"" + rem.Task + "\" did not finish.)"
+	return v.T("reminder.failed_at", "title", rem.Title, "when", rem.Anchor.In(w.LocationOrUTC()).Format("Mon 15:04"), "task", task)
 }

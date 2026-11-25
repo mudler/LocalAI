@@ -195,5 +195,11 @@
   "reminder.none": "Sem lembrete",
   "reminder.headsup_hint": "Responda \"earlier\" ou \"no reminder\".",
   "reminder.retimed": "Movido. Eu te lembro às {when}.",
-  "reminder.cancelled": "Cancelado. Sem lembrete para este."
+  "reminder.cancelled": "Cancelado. Sem lembrete para este.",
+  "watch.moved_by": "{title} foi movido. Eu te lembro às {when}.",
+  "watch.moved_by_started": "{title} foi movido e já começou.",
+  "watch.removed_by": "{title} foi removido, então cancelei o lembrete.",
+  "watch.woken_by": "{title} mudou. Estou verificando se o lembrete ainda serve.",
+  "reminder.failed": "Lembrete: {title}. (A tarefa {task} não terminou.)",
+  "reminder.failed_at": "Lembrete: {title} às {when}. (A tarefa {task} não terminou.)"
 }

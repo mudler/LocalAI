@@ -195,5 +195,11 @@
   "reminder.none": "Keine Erinnerung",
   "reminder.headsup_hint": "Antworte \"earlier\" oder \"no reminder\".",
   "reminder.retimed": "Verlegt. Ich erinnere dich um {when}.",
-  "reminder.cancelled": "Abgesagt. Dafür gibt es keine Erinnerung."
+  "reminder.cancelled": "Abgesagt. Dafür gibt es keine Erinnerung.",
+  "watch.moved_by": "{title} wurde verschoben. Ich erinnere dich um {when}.",
+  "watch.moved_by_started": "{title} wurde verschoben und hat schon begonnen.",
+  "watch.removed_by": "{title} wurde entfernt, deshalb habe ich die Erinnerung abgesagt.",
+  "watch.woken_by": "{title} hat sich geändert. Ich prüfe, ob die Erinnerung noch passt.",
+  "reminder.failed": "Erinnerung: {title}. (Die Aufgabe {task} wurde nicht fertig.)",
+  "reminder.failed_at": "Erinnerung: {title} um {when}. (Die Aufgabe {task} wurde nicht fertig.)"
 }

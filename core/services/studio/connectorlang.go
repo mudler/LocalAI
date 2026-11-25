@@ -170,11 +170,16 @@ func (c *Connectors) voiceOf(ctx context.Context, bindingID, sender, chat string
 	return c.voice(ctx, b, sender, chat)
 }
 
-// voiceOf is the voice of the chat where a trigger was proposed: it has no
-// sender, so the language of the chat decides.
+// voiceOf is the voice of the chat where a trigger was proposed, or of the
+// channel it reports to when it was made in Studio: it has no sender, so the
+// language of the chat decides.
 func (h *Triggers) voiceOf(ctx context.Context, t triggers.Trigger) hostmsg.Voice {
 	if c := h.svc.connectors; c != nil {
-		return c.voiceOf(ctx, t.Route.Binding, "", t.Route.Chat)
+		chat := t.Route.Chat
+		if t.Route.Binding == "" && t.Route.TargetOrDefault() == triggers.TargetChannel {
+			chat = t.Route.Channel
+		}
+		return c.voiceOf(ctx, t.Route.ChannelBinding(), "", chat)
 	}
 	return hostmsg.Voice{}
 }

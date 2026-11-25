@@ -195,5 +195,11 @@
   "reminder.none": "Nessun promemoria",
   "reminder.headsup_hint": "Rispondi \"earlier\" o \"no reminder\".",
   "reminder.retimed": "Spostato. Te lo ricordo alle {when}.",
-  "reminder.cancelled": "Annullato. Nessun promemoria per questo."
+  "reminder.cancelled": "Annullato. Nessun promemoria per questo.",
+  "watch.moved_by": "{title} è stato spostato. Te lo ricordo alle {when}.",
+  "watch.moved_by_started": "{title} è stato spostato ed è già iniziato.",
+  "watch.removed_by": "{title} è stato rimosso, quindi ho annullato il suo promemoria.",
+  "watch.woken_by": "{title} è cambiato. Controllo se il suo promemoria va ancora bene.",
+  "reminder.failed": "Promemoria: {title}. (L'attività {task} non è stata completata.)",
+  "reminder.failed_at": "Promemoria: {title} alle {when}. (L'attività {task} non è stata completata.)"
 }

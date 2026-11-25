@@ -195,5 +195,11 @@
   "reminder.none": "No reminder",
   "reminder.headsup_hint": "Reply \"earlier\" or \"no reminder\".",
   "reminder.retimed": "Moved. I'll remind you at {when}.",
-  "reminder.cancelled": "Cancelled. There is no reminder for this one."
+  "reminder.cancelled": "Cancelled. There is no reminder for this one.",
+  "watch.moved_by": "{title} was moved. I'll remind you at {when}.",
+  "watch.moved_by_started": "{title} was moved and has already started.",
+  "watch.removed_by": "{title} was removed, so I cancelled its reminder.",
+  "watch.woken_by": "{title} changed. I'm checking whether its reminder still fits.",
+  "reminder.failed": "Reminder: {title}. (The task {task} did not finish.)",
+  "reminder.failed_at": "Reminder: {title} at {when}. (The task {task} did not finish.)"
 }

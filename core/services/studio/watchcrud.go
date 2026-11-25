@@ -70,7 +70,7 @@ type ReminderView struct {
 // snoozeWindow is how close a reminder must be for the page to offer Snooze.
 const snoozeWindow = 2 * time.Hour
 
-func (h *Triggers) reminderView(w, r triggers.Trigger, now time.Time) ReminderView {
+func reminderView(w, r triggers.Trigger, now time.Time) ReminderView {
 	rem := *r.Reminder
 	v := ReminderView{ID: r.ID, Key: rem.Key, Title: rem.Title, Link: rem.Link, Task: rem.Task, Anchor: rem.Anchor, Offset: rem.Offset,
 		Lead: rem.Lead, At: rem.At, SnoozedTo: rem.SnoozedTo, AllDay: rem.AllDay}
@@ -103,7 +103,7 @@ func (h *Triggers) Reminders(ctx context.Context, user, watchID string) ([]Remin
 	now := h.o.Clock()
 	out := make([]ReminderView, 0, len(list))
 	for _, r := range list {
-		out = append(out, h.reminderView(w, r, now))
+		out = append(out, reminderView(w, r, now))
 	}
 	slices.SortStableFunc(out, func(a, b ReminderView) int {
 		switch {
@@ -202,7 +202,7 @@ func (h *Triggers) PatchReminder(ctx context.Context, user, watchID, reminderID 
 		h.recordAction(ctx, w, now, line)
 		h.Notify()
 	}
-	return h.reminderView(w, r, now), nil
+	return reminderView(w, r, now), nil
 }
 
 // applyReminderPatch applies the owner's change p to the reminder r and gives
@@ -280,7 +280,7 @@ func (h *Triggers) holdReminders(ctx context.Context, w triggers.Trigger) {
 	}
 	now := h.o.Clock()
 	for _, r := range list {
-		if h.dueText(w, r, now) == "" {
+		if dueText(w, r, now) == "" {
 			continue // nothing left to hold
 		}
 		h.watchNote(ctx, w, watchSay(w, "onHold", r.Reminder.Title, time.Time{}, fmt.Sprintf("The reminder for %q is on hold while this watch is paused.", r.Reminder.Title)))
@@ -345,7 +345,7 @@ func (h *Triggers) SourceReminders(ctx context.Context, user, source string) ([]
 		if !ok || !found {
 			continue
 		}
-		out = append(out, SourceReminder{ItemID: item, WatchID: w.ID, View: h.reminderView(w, r, now)})
+		out = append(out, SourceReminder{ItemID: item, WatchID: w.ID, View: reminderView(w, r, now)})
 	}
 	return out, nil
 }

@@ -653,7 +653,7 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		parts = append(parts, h.reminderBrief(ctx, t, run))
 		return strings.Join(parts, "\n\n"), nil
 	case t.IsWatch() && len(factsOf(run.Payload)) > 0:
-		parts = append(parts, h.watchBrief(t, run))
+		parts = append(parts, watchBrief(t, run))
 		return strings.Join(parts, "\n\n"), nil
 	}
 	if run.Payload != "" {

@@ -195,5 +195,11 @@
   "reminder.none": "Pas de rappel",
   "reminder.headsup_hint": "Répondez \"earlier\" ou \"no reminder\".",
   "reminder.retimed": "Déplacé. Je vous le rappelle à {when}.",
-  "reminder.cancelled": "Annulé. Pas de rappel pour celui-ci."
+  "reminder.cancelled": "Annulé. Pas de rappel pour celui-ci.",
+  "watch.moved_by": "{title} a été déplacé. Je vous le rappelle à {when}.",
+  "watch.moved_by_started": "{title} a été déplacé et a déjà commencé.",
+  "watch.removed_by": "{title} a été supprimé, j'ai donc annulé son rappel.",
+  "watch.woken_by": "{title} a changé. Je vérifie si son rappel convient encore.",
+  "reminder.failed": "Rappel : {title}. (La tâche {task} ne s'est pas terminée.)",
+  "reminder.failed_at": "Rappel : {title} à {when}. (La tâche {task} ne s'est pas terminée.)"
 }

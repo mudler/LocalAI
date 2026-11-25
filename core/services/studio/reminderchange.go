@@ -350,7 +350,7 @@ func (h *Triggers) reminderChangeStatus(ctx context.Context, user string, rec tr
 	}
 	now := h.o.Clock()
 	view := func(r triggers.Trigger) *ReminderView {
-		rv := h.reminderView(w, r, now)
+		rv := reminderView(w, r, now)
 		return &rv
 	}
 	var live triggers.Trigger

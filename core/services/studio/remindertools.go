@@ -626,7 +626,7 @@ func (s *Service) listRemindersTool(ctx context.Context, _ builtins.Chat, w trig
 	now := h.o.Clock()
 	var b strings.Builder
 	for _, r := range list {
-		due := h.dueText(w, r, now)
+		due := dueText(w, r, now)
 		if due == "" {
 			due = "no time (already started)"
 		}

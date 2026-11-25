@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -263,7 +264,8 @@ func (h *Triggers) watchEvent(ctx context.Context, w triggers.Trigger, ev trigge
 // line in the Inbox. A change that someone else made is also said on the
 // watch's channel (decision C); the owner's own change is not.
 func (h *Triggers) recordWatch(ctx context.Context, w triggers.Trigger, key string, now time.Time, out triggers.Outcome, actor triggers.Actor) {
-	line, loud := h.watchLine(w, out, now), !actor.ByOwner()
+	line, message := watchSays(w, out, now)
+	loud := !actor.ByOwner()
 	row := triggers.Run{ID: newID(), TriggerID: w.ID, DueKey: key, Due: now.UTC(), Status: triggers.StatusHandled,
 		Reason: triggers.CutReason(line.Text), Ended: now.UTC()}
 	claimed, err := h.o.Store.Claim(ctx, row)
@@ -277,22 +279,25 @@ func (h *Triggers) recordWatch(ctx context.Context, w triggers.Trigger, key stri
 		h.watchNote(ctx, w, line)
 	case w.Route.TargetOrDefault() == triggers.TargetInbox:
 		// The Inbox is the watch's channel: the one line is the message.
-		h.watchNote(ctx, w, h.watchMessage(w, out, now))
+		h.watchNote(ctx, w, message)
 	default:
 		h.watchNote(ctx, w, line)
-		h.sayOnChannel(ctx, w, h.watchMessage(w, out, now).Text)
+		h.sayOnChannel(ctx, w, message)
 	}
 }
 
 // watchText is one line that a watch writes for the owner: Text is the
 // English line, kept in the watch's history and as the Inbox fallback, and
 // Code ("watch.<what>") with Params (title, and at and zone for a time) lets
-// the interface word it in the owner's language. A message on a channel of
-// a messaging app is sent as Text: the host has no language for it.
+// the interface word it in the owner's language. Key and Args, when set, are
+// the same sentence as a key of the host message catalog, for a message on a
+// channel of a messaging app.
 type watchText struct {
 	Code   string
 	Params map[string]any
 	Text   string
+	Key    string
+	Args   []any
 }
 
 // watchSay makes a line of the watch w about the item title; at is the time
@@ -308,6 +313,13 @@ func watchSay(w triggers.Trigger, code, title string, at time.Time, text string)
 	return watchText{Code: "watch." + code, Params: p, Text: text}
 }
 
+// saying adds to t the key of the host message catalog that says it in a
+// chat, with its arguments.
+func (t watchText) saying(key string, args ...any) watchText {
+	t.Key, t.Args = key, args
+	return t
+}
+
 // watchNote adds one Inbox line under the watch: its name is the title, so the
 // lines of one watch group together, and the link opens the watch.
 func (h *Triggers) watchNote(ctx context.Context, w triggers.Trigger, line watchText) {
@@ -321,15 +333,16 @@ func (h *Triggers) watchNote(ctx context.Context, w triggers.Trigger, line watch
 	}
 }
 
-// sayOnChannel sends a short message on the channel a watch reports to. A
-// watch that reports to the Inbox has its line there already.
-func (h *Triggers) sayOnChannel(ctx context.Context, w triggers.Trigger, text string) {
-	if w.Route.TargetOrDefault() == triggers.TargetInbox || text == "" {
+// sayOnChannel sends a short message on the channel a watch reports to, in
+// the language of that chat. A watch that reports to the Inbox has its line
+// there already.
+func (h *Triggers) sayOnChannel(ctx context.Context, w triggers.Trigger, m watchText) {
+	if w.Route.TargetOrDefault() == triggers.TargetInbox || m.Key == "" {
 		return
 	}
 	always := w
 	always.Route.Mode = triggers.ModeAlways
-	h.report(ctx, always, triggers.Run{}, text)
+	h.report(ctx, always, triggers.Run{}, h.voiceOf(ctx, w).T(m.Key, m.Args...))
 }
 
 // whenText writes a time for the owner, in the watch's zone: "Thu 15:45", or
@@ -348,59 +361,49 @@ func whenText(w triggers.Trigger, t, now time.Time) string {
 
 // dueText is the due time of a reminder as the owner reads it, or "" when it
 // sets none.
-func (h *Triggers) dueText(w, r triggers.Trigger, now time.Time) string {
-	text, _ := h.dueOf(w, r, now)
+func dueText(w, r triggers.Trigger, now time.Time) string {
+	text, _ := dueOf(w, r, now)
 	return text
 }
 
 // dueOf is dueText with the due time itself, zero when there is none.
-func (h *Triggers) dueOf(w, r triggers.Trigger, now time.Time) (string, time.Time) {
+func dueOf(w, r triggers.Trigger, now time.Time) (string, time.Time) {
 	if r.Reminder == nil {
 		return "", time.Time{}
 	}
-	loc, err := w.Location()
-	if err != nil {
-		loc = time.UTC
-	}
-	tm := triggers.PlanReminder(*r.Reminder, w.Watch, loc, now)
+	tm := triggers.PlanFor(w, *r.Reminder, now)
 	if tm.None || tm.Skip || tm.Due.IsZero() {
 		return "", time.Time{}
 	}
 	return whenText(w, tm.Due, now), tm.Due
 }
 
-// watchLine is the history and Inbox line of an action of the reconciler.
-func (h *Triggers) watchLine(w triggers.Trigger, out triggers.Outcome, now time.Time) watchText {
+// watchSays gives what the watch says of an action of the reconciler: the
+// line of its history and the Inbox, and the short message for a change that
+// someone else made. An action that says nothing gives two zero lines.
+func watchSays(w triggers.Trigger, out triggers.Outcome, now time.Time) (line, message watchText) {
 	title := thingTitle(out)
+	quoted := strconv.Quote(title)
 	switch out.Action {
 	case triggers.ActionRetimed:
-		if due, at := h.dueOf(w, out.After, now); due != "" {
-			return watchSay(w, "moved", title, at, fmt.Sprintf("Moved the reminder for %q to %s.", title, due))
+		if due, at := dueOf(w, out.After, now); due != "" {
+			return watchSay(w, "moved", title, at, fmt.Sprintf("Moved the reminder for %s to %s.", quoted, due)),
+				watchSay(w, "movedBy", title, at, fmt.Sprintf("%s was moved. I'll remind you at %s.", quoted, due)).
+					saying("watch.moved_by", "title", quoted, "when", due)
 		}
-		return watchSay(w, "movedStarted", title, time.Time{}, fmt.Sprintf("%q moved; it has already started, so there is no reminder.", title))
+		return watchSay(w, "movedStarted", title, time.Time{}, fmt.Sprintf("%s moved; it has already started, so there is no reminder.", quoted)),
+			watchSay(w, "movedByStarted", title, time.Time{}, fmt.Sprintf("%s was moved and has already started.", quoted)).
+				saying("watch.moved_by_started", "title", quoted)
 	case triggers.ActionCancelled:
-		return watchSay(w, "removed", title, time.Time{}, fmt.Sprintf("Cancelled the reminder for %q: it was removed.", title))
+		return watchSay(w, "removed", title, time.Time{}, fmt.Sprintf("Cancelled the reminder for %s: it was removed.", quoted)),
+			watchSay(w, "removedBy", title, time.Time{}, fmt.Sprintf("%s was removed, so I cancelled its reminder.", quoted)).
+				saying("watch.removed_by", "title", quoted)
 	case triggers.ActionWoken:
-		return watchSay(w, "woken", title, time.Time{}, fmt.Sprintf("%q changed. Checking its reminder now.", title))
+		return watchSay(w, "woken", title, time.Time{}, fmt.Sprintf("%s changed. Checking its reminder now.", quoted)),
+			watchSay(w, "wokenBy", title, time.Time{}, fmt.Sprintf("%s changed. I'm checking whether its reminder still fits.", quoted)).
+				saying("watch.woken_by", "title", quoted)
 	}
-	return watchText{}
-}
-
-// watchMessage is the short message for a change that someone else made.
-func (h *Triggers) watchMessage(w triggers.Trigger, out triggers.Outcome, now time.Time) watchText {
-	title := thingTitle(out)
-	switch out.Action {
-	case triggers.ActionRetimed:
-		if due, at := h.dueOf(w, out.After, now); due != "" {
-			return watchSay(w, "movedBy", title, at, fmt.Sprintf("%q was moved. I'll remind you at %s.", title, due))
-		}
-		return watchSay(w, "movedByStarted", title, time.Time{}, fmt.Sprintf("%q was moved and has already started.", title))
-	case triggers.ActionCancelled:
-		return watchSay(w, "removedBy", title, time.Time{}, fmt.Sprintf("%q was removed, so I cancelled its reminder.", title))
-	case triggers.ActionWoken:
-		return watchSay(w, "wokenBy", title, time.Time{}, fmt.Sprintf("%q changed. I'm checking whether its reminder still fits.", title))
-	}
-	return watchText{}
+	return watchText{}, watchText{}
 }
 
 func thingTitle(out triggers.Outcome) string {
@@ -437,7 +440,7 @@ func (h *Triggers) tellAdvanced(ctx context.Context, t triggers.Trigger, moved, 
 	}
 	now := h.o.Clock()
 	title := t.Reminder.Title
-	due, at := h.dueOf(w, t, now)
+	due, at := dueOf(w, t, now)
 	var line watchText
 	switch {
 	case !moved:
