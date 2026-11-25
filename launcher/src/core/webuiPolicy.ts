@@ -1,6 +1,8 @@
 // The security policy of the WebUI view, as pure decisions. No Electron import:
 // webuiView.ts calls these from the Electron handlers, and the tests call them
-// with hostile input under plain Node.
+// with hostile input under plain Node. The Android client has a Kotlin port
+// (WebuiPolicy.kt, OAuthSignInFlow.kt) that must pass the same cases: a change
+// here goes with a change there and a new test/fixtures/webui-policy.json.
 //
 // The WebUI view renders server pages, model output and MCP app frames, so
 // everything it asks for is untrusted:
