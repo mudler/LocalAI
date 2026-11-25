@@ -93,7 +93,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
             onClick={async () => {
               setChecking(true)
               try {
-                controls.setInstall(await b.checkServerUpdate())
+                if (b.checkServerUpdate) controls.setInstall(await b.checkServerUpdate())
                 if (b.getUpdateInfo) controls.setUpdateInfo(await b.getUpdateInfo())
               } finally {
                 setChecking(false)
@@ -103,7 +103,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
             {S.settings.checkNow}
           </Button>
           {offer && !remote && (
-            <Button size="sm" variant="primary" onClick={() => void b.installServer({ stopFirst: true })}>
+            <Button size="sm" variant="primary" onClick={() => void b.installServer?.({ stopFirst: true })}>
               {S.settings.updateTo(offer)}
             </Button>
           )}
@@ -123,7 +123,7 @@ export function UpdatesTab({ data, controls, now }: { data: ShellData; controls:
         )}
         <Field name={S.settings.previous} note={S.settings.previousNote(info?.previousVersion)}>
           <span className="lnr-grow" />
-          <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer({ stopFirst: true })}>{S.settings.rollBack}</Button>
+          <Button size="sm" disabled={remote} onClick={() => void b.rollbackServer?.({ stopFirst: true })}>{S.settings.rollBack}</Button>
         </Field>
         {data.info && (
           <Field name={S.settings.launcherVersion(data.info.version)} note={launcherNote}>

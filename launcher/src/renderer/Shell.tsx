@@ -112,7 +112,7 @@ export function Shell({ now }: { now?: number }) {
   useEffect(() => {
     if (data?.install?.kind === 'done' && startAfterInstall.current) {
       startAfterInstall.current = false
-      void b.start()
+      void b.start?.()
     }
     if (data?.install?.kind === 'failed') startAfterInstall.current = false
   }, [b, data?.install?.kind])
@@ -120,7 +120,7 @@ export function Shell({ now }: { now?: number }) {
   // First run ends when LocalAI is on show; the welcome steps do not come back.
   useEffect(() => {
     if (base === 'web' && data?.settings?.showWelcome && data.server.state === 'ready') {
-      void b.saveSettings({ showWelcome: false }).then((r) => controls.setSettings(r.settings))
+      void b.saveSettings?.({ showWelcome: false }).then((r) => controls.setSettings(r.settings))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [b, base, data?.settings?.showWelcome, data?.server.state])
@@ -190,7 +190,7 @@ export function Shell({ now }: { now?: number }) {
     if (add) setServersOpen({ kind: 'add' })
   }
   const update = () => {
-    if (offer?.kind === 'server') void b.installServer({ stopFirst: true })
+    if (offer?.kind === 'server') void b.installServer?.({ stopFirst: true })
     else if (offer?.kind === 'launcher') {
       if (b.installLauncherUpdate) void b.installLauncherUpdate()
       else open('settings', 'general')
@@ -251,7 +251,7 @@ export function Shell({ now }: { now?: number }) {
             details={data.installDetails}
             onInstall={() => {
               startAfterInstall.current = true
-              void b.installServer()
+              void b.installServer?.()
             }}
           />
         )
@@ -264,7 +264,7 @@ export function Shell({ now }: { now?: number }) {
             previous={data.installedVersion}
             rate={data.downloadRate}
             onSeen={controls.markInstallFailureSeen}
-            onRetry={() => void b.installServer({ stopFirst: data.server.state !== 'not-installed' })}
+            onRetry={() => void b.installServer?.({ stopFirst: data.server.state !== 'not-installed' })}
             onLogs={() => open('logs')}
           />
         )
@@ -396,7 +396,7 @@ export function Shell({ now }: { now?: number }) {
                 </>
               )}
             </span>
-            {banner === 'stopped' && <Button size="sm" variant="primary" onClick={() => void b.start()}>{S.banner.start}</Button>}
+            {banner === 'stopped' && <Button size="sm" variant="primary" onClick={() => void b.start?.()}>{S.banner.start}</Button>}
           </div>
         )}
         {barShown && (
@@ -412,8 +412,8 @@ export function Shell({ now }: { now?: number }) {
             launcherVersion={data.info?.version}
             serverVersion={version}
             canOpenInBrowser={!!b.openWebuiInBrowser && (data.server.state === 'ready' || !local)}
-            onStop={() => void b.stop()}
-            onRestart={() => void b.restart()}
+            onStop={() => void b.stop?.()}
+            onRestart={() => void b.restart?.()}
             onLogs={() => open(screen === 'logs' ? null : 'logs')}
             onUpdate={update}
             servers={data.servers}

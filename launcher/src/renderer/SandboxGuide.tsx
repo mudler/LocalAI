@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type RefObject } from 'react'
 import { Button, Callout, Icon } from '@localai/ui-kit'
 import type { SandboxPlanView, SandboxView } from '../shared/types'
-import { useBridge } from './bridge'
+import { hasLocal, useBridge } from './bridge'
 import { Code } from './parts'
 import { Popover } from './Popover'
 import { S } from './strings'
@@ -43,7 +43,7 @@ export function SandboxGuide({
     setNotAvailable(false)
     setRemovePlan(undefined)
     let live = true
-    void b.getSandboxSetupPlan('setup').then((p) => live && setPlan(p)).catch(() => undefined)
+    void b.getSandboxSetupPlan?.('setup').then((p) => live && setPlan(p)).catch(() => undefined)
     return () => {
       live = false
     }
@@ -52,6 +52,7 @@ export function SandboxGuide({
   const g = guideView(sandbox, plan)
 
   const setUp = async () => {
+    if (!hasLocal(b)) return
     setBusy(true)
     try {
       const r = await b.runSandboxSetup()
@@ -62,12 +63,16 @@ export function SandboxGuide({
     }
   }
   const notNow = async () => {
+    if (!hasLocal(b)) return
     onSandbox(await b.dismissSandboxNotice())
     onClose()
     trigger.current?.focus()
   }
-  const askRemove = async () => setRemovePlan(await b.getSandboxSetupPlan('remove'))
+  const askRemove = async () => {
+    if (hasLocal(b)) setRemovePlan(await b.getSandboxSetupPlan('remove'))
+  }
   const remove = async () => {
+    if (!hasLocal(b)) return
     setBusy(true)
     try {
       onSandbox(await b.runSandboxRemove())

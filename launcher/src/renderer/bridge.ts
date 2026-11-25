@@ -5,6 +5,14 @@
 // that needs it otherwise, so the shell also runs on a fake or older bridge.
 import { createContext, useContext } from 'react'
 import type { LauncherApi } from '../shared/types'
+import {
+  LOCAL_OPTIONAL_METHODS,
+  LOCAL_REQUIRED_METHODS,
+  SERVERS_METHODS,
+  type CoreApi,
+  type LocalServerApi,
+  type ServersApi,
+} from '../shared/apiGroups'
 
 /** The shell screens a person opens from the bar. */
 export type ShellScreenId = 'logs' | 'settings' | 'connect' | 'worker-settings'
@@ -43,22 +51,25 @@ export interface BridgeExtras {
   stopWorker(): Promise<WorkerView>
 }
 
-/** LauncherApi methods the shell can do without (it hides the control). */
-export const OPTIONAL_API = [
-  'getWebui', 'onWebui', 'setShellScreen', 'setOverlay', 'setInsets', 'openWebuiInBrowser', 'connectRemote',
-  'backToLocal', 'reloadWebui', 'resetWebuiPermissions',
-  'getWindowSettings', 'setOpenInBrowser', 'setDesktopNotifications',
-  'getUpdateInfo', 'setAutoCheck', 'setUpdateChannel', 'backToStable',
-  'getServers', 'onServers', 'onOpenSwitcher', 'testServer', 'addServer', 'addServerByInvite', 'updateServer', 'removeServer', 'setDefaultServer', 'cancelSwitch', 'retryRemote', 'setKeepLocalRunning',
-  'openReleaseNotes', 'getInstallDetails', 'installLauncherUpdate', 'relaunch',
-  'findFreePort', 'showPortProcess', 'pickFolder', 'getHardwareSummary',
-  'getNetwork', 'getNetworkPlan', 'setNetworkExposed', 'regenerateApiKey', 'dismissKeyNotice', 'revealApiKey', 'copyApiKey',
-  'getEnvVars', 'setEnvVar', 'deleteEnvVar', 'getSecretStorageState',
-  'getRegistryCredentials', 'saveRegistryCredential', 'removeRegistryCredential', 'testRegistryCredential',
-] as const satisfies readonly (keyof LauncherApi)[]
+/**
+ * LauncherApi methods a desktop bridge may lack (the shell hides the control):
+ * the servers group and the optional local-server methods. Kept for the fake
+ * bridge's `extras` option.
+ */
+export const OPTIONAL_API = [...SERVERS_METHODS, ...LOCAL_OPTIONAL_METHODS] as const satisfies readonly (keyof LauncherApi)[]
 export type OptionalApi = (typeof OPTIONAL_API)[number]
 
-export type Bridge = Omit<LauncherApi, OptionalApi> & Partial<Pick<LauncherApi, OptionalApi>> & Partial<BridgeExtras>
+/**
+ * Every bridge has the core group. The servers group and the local-server
+ * group are optional: a client-only bridge has no local-server methods, and a
+ * fake or older desktop bridge may lack some of the others.
+ */
+export type Bridge = CoreApi & Partial<ServersApi> & Partial<LocalServerApi> & Partial<BridgeExtras>
+
+/** The bridge runs a LocalAI server on this device: it has every required local-server method. */
+export function hasLocal(b: Bridge): b is Bridge & Pick<LocalServerApi, (typeof LOCAL_REQUIRED_METHODS)[number]> {
+  return LOCAL_REQUIRED_METHODS.every((k) => typeof b[k] === 'function')
+}
 
 export const BridgeContext = createContext<Bridge | null>(null)
 

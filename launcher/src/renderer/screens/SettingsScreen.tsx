@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Callout, EmptyState, Page, StatusChip, Switch } from '@localai/ui-kit'
 import type { FolderKind, LauncherSettings, LoginItemView, ServerLogLevel } from '../../shared/types'
-import { useBridge, type NetworkView } from '../bridge'
+import { hasLocal, useBridge, type NetworkView } from '../bridge'
 import { Card, Field, fieldIds } from '../parts'
 import { EnvVarsField } from './EnvVarsField'
 import { RegistryCredentialsField } from './RegistryCredentialsField'
@@ -70,6 +70,7 @@ export function SettingsScreen({
 
   const saveNow = async (p: Partial<LauncherSettings>) => {
     setError(undefined)
+    if (!hasLocal(b)) return undefined
     try {
       const r = await b.saveSettings(p)
       controls.setSettings(r.settings)
@@ -88,7 +89,7 @@ export function SettingsScreen({
       if (!r) return
       setEdits({})
       if (running && r.restartRequired) {
-        await b.restart()
+        await b.restart?.()
         setRestartNote(false)
       }
     } finally {
@@ -314,7 +315,7 @@ export function SettingsScreen({
             tone="info"
             role="status"
             title={S.settings.savedRestart}
-            actions={running && <Button size="sm" onClick={async () => { await b.restart(); setRestartNote(false) }}>{S.settings.restartNow}</Button>}
+            actions={running && <Button size="sm" onClick={async () => { await b.restart?.(); setRestartNote(false) }}>{S.settings.restartNow}</Button>}
           />
         )}
         {panels[tab]}

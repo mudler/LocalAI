@@ -92,16 +92,16 @@ export function useShellData(b: Bridge): [ShellData | undefined, ShellControls] 
   }, [])
   useEffect(() => {
     let live = true
-    void b.getInstallState().then((v) => live && setInstall(v)).catch(() => undefined)
-    const off = b.onInstall(setInstall)
+    void b.getInstallState?.().then((v) => live && setInstall(v)).catch(() => undefined)
+    const off = b.onInstall?.(setInstall)
     return () => {
       live = false
-      off()
+      off?.()
     }
   }, [b, setInstall])
 
   const reloadSettings = useCallback(async () => {
-    setSettings(await b.getSettings())
+    if (b.getSettings) setSettings(await b.getSettings())
   }, [b, setSettings])
 
   const controls: ShellControls = {

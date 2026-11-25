@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Page, SearchField, Segmented, Switch } from '@localai/ui-kit'
 import type { LogLevelName, LogLineView } from '../../shared/types'
-import { useBridge } from '../bridge'
+import { hasLocal, useBridge } from '../bridge'
 import { CopyButton } from '../parts'
 import { S } from '../strings'
 import { clockTime } from '../viewModel'
@@ -33,11 +33,11 @@ export function LogsScreen() {
 
   useEffect(() => {
     let live = true
-    void b.queryLogs({ limit: KEEP }).then((l) => live && setLines(l)).catch(() => undefined)
-    const off = b.onLogs((more) => setLines((cur) => [...cur, ...more].slice(-KEEP)))
+    void b.queryLogs?.({ limit: KEEP }).then((l) => live && setLines(l)).catch(() => undefined)
+    const off = b.onLogs?.((more) => setLines((cur) => [...cur, ...more].slice(-KEEP)))
     return () => {
       live = false
-      off()
+      off?.()
     }
   }, [b])
 
@@ -48,6 +48,7 @@ export function LogsScreen() {
   }, [shown, follow])
 
   const exportLogs = async () => {
+    if (!hasLocal(b)) return
     try {
       const r = await b.exportLogs()
       setExported(r.status === 'saved' ? S.logs.exported(r.fileName) : undefined)
