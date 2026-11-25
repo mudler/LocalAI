@@ -303,6 +303,18 @@ describe('settings', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull()
   })
 
+  it('the development app shows the Development chip in the bar, the stable app does not', async () => {
+    const { unmount } = render(<App bridge={fakeClientBridge({ ...baseState(), servers: serversView({ rows: [GPU], defaultId: GPU.id }), updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true, remoteDefault: true } })} now={NOW} />)
+    await settle()
+    expect(bar().getByTestId('dev-chip').textContent).toBe('Development')
+    unmount()
+    await renderClient((s) => {
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+      s.updateInfo = { autoCheck: true, channel: 'stable', devConfirmed: false, remoteDefault: true }
+    })
+    expect(bar().queryByTestId('dev-chip')).toBeNull()
+  })
+
   it('removing the default server says the app asks for a server', async () => {
     const b = await renderClient((s) => {
       s.servers = serversView({ rows: [GPU, OTHER], defaultId: GPU.id })

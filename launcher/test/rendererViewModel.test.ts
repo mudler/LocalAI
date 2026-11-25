@@ -434,7 +434,13 @@ describe('client-only (no local server)', () => {
     const servers = serversView({ rows: [GPU, localRow({ isDefault: false, isCurrent: false })], defaultId: GPU.id, keepLocal: true })
     const i = client({ servers, webui: remote, updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } })
     expect(keepLocalNote(i)).toBe(false)
-    expect(devChipShown(client({ updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } }))).toBe(false)
+  })
+
+  it('shows the Development chip for the development app, whatever server is on show', () => {
+    expect(devChipShown(client({ updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } }))).toBe(true)
+    expect(devChipShown(client({ webui: remote, updateInfo: { autoCheck: true, channel: 'dev', devConfirmed: true } }))).toBe(true)
+    expect(devChipShown(client({ updateInfo: { autoCheck: true, channel: 'stable', devConfirmed: false } }))).toBe(false)
+    expect(devChipShown(client({}))).toBe(false)
   })
 
   it('treats a missing capabilities value as the desktop set', () => {

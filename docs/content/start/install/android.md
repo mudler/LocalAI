@@ -136,7 +136,7 @@ Android can show its dialog on Android 12 and later too. For example, it does so
 
 The development app follows the rolling [`dev-master` pre-release](https://github.com/mudler/LocalAI/releases/tag/dev-master), made from the `master` branch. It is not supported. It can have bugs and change without notice.
 
-The development app is a separate app (`io.localai.client.dev`), with its own icon, servers and sign-ins. It installs next to the stable app (`io.localai.client`). The two apps never update each other. The development app updates itself only from `dev-master`, and its version looks like `5.0.2-dev.42`.
+The development app is a separate app (`io.localai.client.dev`), with its own name (**LocalAI Dev**), servers and sign-ins. It has the same icon as the stable app, and its status bar shows a **Development** chip. It installs next to the stable app (`io.localai.client`). The two apps never update each other. The development app updates itself only from `dev-master`, and its version looks like `5.0.2-dev.42`.
 
 To get it, open **Settings > Updates** in the stable app and select **Get the development app**. The browser downloads `LocalAI-Android-dev.apk`, and you install it as in [Install the app](#install-the-app). You can also download it from the `dev-master` release.
 
