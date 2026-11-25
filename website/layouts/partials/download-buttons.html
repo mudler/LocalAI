@@ -2,7 +2,7 @@
        platforms that are not ready. Called with a dict: `site` is the page context and `cls` is
        the button class list. While data/home.yaml `download.released` is false, the latest
        release holds the older launcher, so the buttons open the dev-master pre-release page.
-       After it, the block lists the three direct links (the names the release workflow attaches,
+       After it, the block lists the four direct links (the names the release workflow attaches,
        .github/workflows/launcher-electron-release.yaml) and js/main.js picks one as the primary
        button from the visitor's system. Without JavaScript the list is all there is. */ -}}
 {{- $gh := .site.Site.Params.github -}}
@@ -20,11 +20,12 @@
       <li><a class="dlb__opt" data-dl-os="mac" href="{{ $dl }}/LocalAI.dmg"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-apple"/></svg><span class="dlb__t">macOS, Apple silicon</span><span class="dlb__file">LocalAI.dmg</span></a></li>
       <li><a class="dlb__opt" data-dl-os="linux-x64" href="{{ $dl }}/LocalAI-Launcher-x86_64.AppImage"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-linux"/></svg><span class="dlb__t">Linux x86-64</span><span class="dlb__file">LocalAI-Launcher-x86_64.AppImage</span></a></li>
       <li><a class="dlb__opt" data-dl-os="linux-arm64" href="{{ $dl }}/LocalAI-Launcher-arm64.AppImage"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-linux"/></svg><span class="dlb__t">Linux ARM64</span><span class="dlb__file">LocalAI-Launcher-arm64.AppImage</span></a></li>
+      <li><a class="dlb__opt" data-dl-os="win" href="{{ $dl }}/LocalAI-Launcher-Setup-x64.exe"><svg class="dlb__ico" aria-hidden="true" focusable="false"><use href="#os-windows"/></svg><span class="dlb__t">Windows x64 (experimental)</span><span class="dlb__file">LocalAI-Launcher-Setup-x64.exe</span></a></li>
     </ul>
   </div>
   <p class="fine dlb__msg" data-dl-msg hidden></p>
   <p class="fine dlb__soon">Not for your system? Use the <a href="{{ .site.Site.Params.docsURL }}start/install/containers/">container</a> or the <a href="{{ "get-started/" | relURL }}">install script</a>. <a href="{{ $gh }}/releases">All releases</a></p>
-  <p class="fine dlb__soon">Windows, Android and iPhone: coming soon.</p>
+  <p class="fine dlb__soon">Android and iPhone: coming soon.</p>
 </div>
 {{- else }}
 <div class="acts dlb">
