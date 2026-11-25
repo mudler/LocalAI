@@ -232,4 +232,32 @@ describe('RemoteServers with no local server', () => {
     r.servers.openDefaultRemote()
     expect(r.events).toEqual([])
   })
+
+  it('pauses the watch on an unreachable default and checks once on resume', async () => {
+    let checks = 0
+    const r = await rig({
+      config: (c) => withDefaultTarget({ ...c, extra: { ...c.extra, remotes: [{ id: 'srv_00000001', name: 'Office', url: 'https://ai.example.com' }] } }, 'srv_00000001'),
+      check: async () => {
+        checks++
+        return { status: 'unreachable', reason: 'refused' }
+      },
+    })
+    r.servers.openDefaultRemote()
+    await Promise.resolve()
+    expect(checks).toBe(1)
+    r.servers.pauseMonitor()
+    r.servers.resumeMonitor()
+    await Promise.resolve()
+    expect(checks).toBe(2)
+    r.servers.stopAll()
+  })
+
+  it('resume does nothing when the default is local', async () => {
+    let checks = 0
+    const r = await rig({ check: async () => (checks++, { status: 'ok', secure: true }) })
+    r.servers.resumeMonitor()
+    await Promise.resolve()
+    expect(checks).toBe(0)
+    expect(r.events).toEqual([])
+  })
 })
