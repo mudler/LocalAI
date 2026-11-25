@@ -168,9 +168,9 @@ the UI kit, the P2P packages and `go.mod`/`go.sum`. Jobs:
 | `version` | The dev version and `versionCode`. |
 | `web` | Lint, type check, vitest and the web bundle. |
 | `p2p-aar` | Vet, test and build the P2P library for arm64 and x86_64. Checks the 16 KB alignment of the native libraries. A cache skips the build when the Go inputs did not change. |
-| `apk` | Gradle lint, unit tests and the APK, with the AAR. |
+| `apk` | Gradle lint, unit tests and the APK, with the AAR. Fails when the APK has no `lib/arm64-v8a/libgojni.so`, debug or signed. |
 | `emulator-smoke` | The smoke test on an API 34 x86_64 emulator against the fake server. |
-| `publish` | Attaches the dev APK to the `dev-master` pre-release. Runs only when publishing is on. |
+| `publish` | Attaches the dev APK to the `dev-master` pre-release. Runs only when publishing is on, and only after `apk` and `emulator-smoke` pass. |
 
 Pull requests, manual runs and `master` pushes while publishing is off build
 a debug APK of the `dev` flavor (`arm64-v8a` and `x86_64`). The APK is a
