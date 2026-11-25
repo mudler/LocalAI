@@ -133,6 +133,26 @@ function withRemotes(c: LauncherConfig, list: RemoteServer[]): LauncherConfig {
   return { ...c, extra: { ...c.extra, [REMOTES_KEY]: list } }
 }
 
+/**
+ * Desktop only. The desktop forwarder always listens on 127.0.0.1, so a
+ * server over P2P whose stored host is another loopback address could never
+ * connect there. Such an entry comes only from a hand-edited file; the
+ * desktop drops it on read, like any other entry it cannot use.
+ */
+export function withoutP2PHosts(c: LauncherConfig): { config: LauncherConfig; dropped: number } {
+  const raw = c.extra[REMOTES_KEY]
+  if (!Array.isArray(raw)) return { config: c, dropped: 0 }
+  const kept = raw.filter((e: unknown) => {
+    if (typeof e !== 'object' || e === null) return true
+    const p2p = (e as Record<string, unknown>).p2p
+    if (typeof p2p !== 'object' || p2p === null) return true
+    const host = (p2p as Record<string, unknown>).host
+    return host === undefined || host === '127.0.0.1'
+  })
+  if (kept.length === raw.length) return { config: c, dropped: 0 }
+  return { config: withRemotes(c, kept), dropped: raw.length - kept.length }
+}
+
 /** The default target; a missing value or an id that names no saved server is `local`. */
 export function defaultTarget(c: LauncherConfig): string {
   const v = c.extra[DEFAULT_TARGET_KEY]

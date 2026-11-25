@@ -12,6 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { KNOWN_KEYS, migrateConfig, serializeConfig, type LauncherConfig, type LoadResult } from '../core/configTypes'
+import { withoutP2PHosts } from '../core/serversConfig'
 import { homeLayout, type LauncherLayout } from './paths'
 
 export { KNOWN_KEYS, migrateConfig, serializeConfig } from '../core/configTypes'
@@ -126,10 +127,13 @@ export async function loadConfig(opts: ConfigOptions = {}): Promise<LoadResult> 
     }
   }
 
-  const { config, invalidKeys } = migrate(parsed, { home: opts.home, layout: opts.layout })
+  const migrated = migrate(parsed, { home: opts.home, layout: opts.layout })
+  const invalidKeys = migrated.invalidKeys
+  const { config, dropped } = withoutP2PHosts(migrated.config)
   const present = Object.keys(parsed as Record<string, unknown>)
   log(`config: loaded keys [${present.join(', ')}]`)
   if (invalidKeys.length) log(`config: wrong type, default used for [${invalidKeys.join(', ')}]`)
+  if (dropped) log(`config: ignored ${dropped} P2P server(s) with a host other than 127.0.0.1`)
   return { config, status: 'ok', invalidKeys }
 }
 
