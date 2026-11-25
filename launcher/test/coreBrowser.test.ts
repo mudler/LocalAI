@@ -4,6 +4,10 @@
 import { describe, expect, it } from 'vitest'
 import { migrateConfig, type LauncherConfig, type LoadResult } from '../src/core/configTypes'
 import { ConfigStore, showStatusBar, withShowStatusBar, type ConfigIO } from '../src/core/configStore'
+import { newRemoteId } from '../src/core/serversConfig'
+import { parseForwardState, parsePairJson } from '../src/core/p2pInvite'
+
+const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
 
 const D = { modelsPath: '/data/models', backendsPath: '/data/backends' }
 
@@ -60,5 +64,28 @@ describe('ConfigStore over a ConfigIO', () => {
   it('migrateConfig uses the given folder defaults', () => {
     expect(migrateConfig({}, D).config.models_path).toBe('/data/models')
     expect(migrateConfig({}, D).config.backends_path).toBe('/data/backends')
+  })
+})
+
+describe('invite parsing and the server list', () => {
+  it('newRemoteId works with the browser random source', () => {
+    const id = newRemoteId((n) => crypto.getRandomValues(new Uint8Array(n)))
+    expect(id).toMatch(/^srv_[0-9a-f]{8}$/)
+  })
+
+  it('newRemoteId gives the same id for the same bytes as before', () => {
+    expect(newRemoteId(() => new Uint8Array([0, 1, 16, 255]))).toBe('srv_000110ff')
+  })
+
+  it('parsePairJson reads the CLI and the mobile library answer', () => {
+    expect(parsePairJson(`{"kind":"device","phrase":"a b c d","server":{"peer_id":"${PEER}","name":"Home"}}`)).toEqual({ kind: 'device', phrase: 'a b c d', serverName: 'Home', peer: PEER })
+    expect(parsePairJson('{"phrase":"x","server":{"peer_id":"bad"}}')).toBeUndefined()
+  })
+
+  it('parseForwardState maps the forwarder lines', () => {
+    expect(parseForwardState('{"state":"listening"}')).toEqual({ state: 'ready' })
+    expect(parseForwardState('{"state":"up","path":"none"}')).toEqual({ state: 'up' })
+    expect(parseForwardState('{"state":"down","error":"x"}')).toEqual({ state: 'down', error: 'x' })
+    expect(parseForwardState('not json')).toBeUndefined()
   })
 })

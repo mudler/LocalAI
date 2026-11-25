@@ -6,7 +6,7 @@ import type { ChildProcess } from 'node:child_process'
 import { describe, expect, it, vi } from 'vitest'
 import { migrate } from '../src/main/config'
 import { backoffMs, linkRoutes, pair, readInvite, TunnelSupervisor, type RunCommand, type TunnelStatus } from '../src/main/p2pRemote'
-import { addP2PRemote, remotes, updateRemote } from '../src/main/serversConfig'
+import { addP2PRemote, remotes, updateRemote } from '../src/core/serversConfig'
 
 const PEER = '12D3KooWQ6jWKvb3LfQwPzbNxQmPqYGSmrW3Fq2PTSaAVoiBAJGm'
 const NOW = Date.UTC(2026, 10, 17)

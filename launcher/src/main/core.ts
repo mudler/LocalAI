@@ -155,7 +155,7 @@ import {
   withUpdateChannel,
   type RemoteServer,
   type UpdateChannel,
-} from './serversConfig'
+} from '../core/serversConfig'
 import { isInsecureRemote, testServer as runTest, type TestResult } from './testConnection'
 import {
   httpOrigin,
