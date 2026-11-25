@@ -869,6 +869,17 @@ export const S = {
     serversEmptyClient: 'Add a LocalAI server to use its models in this app.',
   },
 
+  /** Android app only: the P2P background switch in Settings > General and the private CA hint on the test card. */
+  androidSettings: {
+    p2pCard: 'P2P',
+    // Same words as the Android docs page ("P2P in the background").
+    keepP2P: 'Keep P2P connection in the background',
+    keepP2PNote: 'Keeps P2P servers connected when you leave the app. Uses more battery and shows a notification.',
+    keepP2PFailed: 'The setting could not be changed. Try again.',
+    caHint: 'A server with a private certificate authority (CA) works after you install that CA in the Android settings.',
+    caHelp: 'How to install a CA',
+  },
+
   /** App updates of the Android app (selfUpdate 'apk'): Settings > Updates and the update sheet (mock 08). */
   apkUpdate: {
     appVersion: (v: string) => `LocalAI for Android ${v}`,

@@ -224,6 +224,18 @@ describe('logs', () => {
 })
 
 describe('settings', () => {
+  it('the desktop has no "Keep P2P connection in the background" switch, even with every bridge method', async () => {
+    const b = await renderShell('settings')
+    openMenu('Settings')
+    await settle()
+    for (const tab of ['General', 'Servers']) {
+      fireEvent.click(screen.getByRole('tab', { name: tab }))
+      await settle()
+      expect(screen.queryByRole('switch', { name: 'Keep P2P connection in the background' })).toBeNull()
+    }
+    expect(called(b, 'getP2PKeepInBackground')).toHaveLength(0)
+  })
+
   it('shows the updates, window, sandbox and startup rows', async () => {
     const b = await renderShell('settings')
     openMenu('Settings')

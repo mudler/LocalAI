@@ -7,6 +7,7 @@ import { EnvVarsField } from './EnvVarsField'
 import { RegistryCredentialsField } from './RegistryCredentialsField'
 import { ServersTab, type ServersOpen } from './ServersTab'
 import { inviteScanner } from '../invitePreview'
+import { P2PKeepCard } from './P2PKeepCard'
 import { UpdatesTab } from './UpdatesTab'
 import { S } from '../strings'
 import type { ShellControls, ShellData } from '../useLauncher'
@@ -208,6 +209,9 @@ export function SettingsScreen({
           </Field>
         )}
       </Card>
+
+      {/* The desktop keeps its tunnels while it runs: the switch is for the client app only. */}
+      {clientOnly && data.capabilities.p2p && b.getP2PKeepInBackground && <P2PKeepCard />}
 
       {settings && !clientOnly && (
         <Card title={S.settings.startup}>

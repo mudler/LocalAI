@@ -489,6 +489,123 @@ describe('client leftovers', () => {
   })
 })
 
+describe('keep P2P connection in the background', () => {
+  const KEEP = 'Keep P2P connection in the background'
+  const keepSwitch = () => screen.queryByRole('switch', { name: KEEP })
+
+  it('is in Settings on the client with P2P, off by default, and a tap calls the setter', async () => {
+    const b = await renderClient()
+    await openSettings()
+    const sw = keepSwitch()
+    expect(sw).toBeTruthy()
+    expect(sw!.getAttribute('aria-checked')).toBe('false')
+    expect(screen.getByText('Keeps P2P servers connected when you leave the app. Uses more battery and shows a notification.')).toBeTruthy()
+    expect(called(b, 'getP2PKeepInBackground')).toHaveLength(1)
+    fireEvent.click(sw!)
+    await settle()
+    expect(called(b, 'setP2PKeepInBackground').map((c) => c.args)).toEqual([[true]])
+    expect(keepSwitch()!.getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('follows a change from Android, such as Disconnect in the notification', async () => {
+    const b = await renderClient((s) => void (s.p2pKeep = true))
+    await openSettings()
+    expect(keepSwitch()!.getAttribute('aria-checked')).toBe('true')
+    b.emitP2PKeep(false)
+    await settle()
+    expect(keepSwitch()!.getAttribute('aria-checked')).toBe('false')
+    expect(called(b, 'setP2PKeepInBackground')).toHaveLength(0)
+  })
+
+  it('a change that fails says so and keeps the switch as Android has it', async () => {
+    const b = await renderClient()
+    b.setP2PKeepInBackground = async () => {
+      throw new Error('plugin gone')
+    }
+    await openSettings()
+    fireEvent.click(keepSwitch()!)
+    await settle()
+    expect(screen.getByRole('alert').textContent).toContain('The setting could not be changed. Try again.')
+    expect(keepSwitch()!.getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('is not there without P2P, or on a bridge without the methods', async () => {
+    const noP2P = fakeClientBridge(baseState())
+    noP2P.state.info = { ...noP2P.state.info, capabilities: { localServer: false, p2p: false, selfUpdate: 'apk', qrScan: false } }
+    noP2P.state.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    noP2P.state.webui = remoteWebui
+    const { unmount } = render(<App bridge={noP2P} now={NOW} />)
+    await settle()
+    await openSettings()
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy()
+    expect(keepSwitch()).toBeNull()
+    expect(called(noP2P, 'getP2PKeepInBackground')).toHaveLength(0)
+    unmount()
+    const old = fakeClientBridge(baseState())
+    delete old.getP2PKeepInBackground
+    delete old.setP2PKeepInBackground
+    delete old.onP2PKeepInBackground
+    old.state.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+    old.state.webui = remoteWebui
+    render(<App bridge={old} now={NOW} />)
+    await settle()
+    await openSettings()
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeTruthy()
+    expect(keepSwitch()).toBeNull()
+  })
+})
+
+describe('certificate test card', () => {
+  const testAddress = async (b: FakeBridge) => {
+    fireEvent.click(screen.getByTestId('first-connect-address'))
+    await settle()
+    type('Server address', 'https://gpu.example.com')
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await settle()
+    expect(called(b, 'testServer')).toHaveLength(1)
+    return within(screen.getByTestId('test-result'))
+  }
+
+  for (const reason of ['self-signed', 'untrusted'] as const) {
+    it(`explains a private CA for "${reason}" and links the help page`, async () => {
+      const b = await renderClient((s) => void (s.testResult = { status: 'tls', reason }))
+      const card = await testAddress(b)
+      expect(card.getByText('The certificate is not trusted')).toBeTruthy()
+      expect(card.getByTestId('ca-hint').textContent).toContain(
+        'A server with a private certificate authority (CA) works after you install that CA in the Android settings.',
+      )
+      fireEvent.click(card.getByRole('button', { name: 'How to install a CA' }))
+      await settle()
+      expect(called(b, 'openCertificateHelp')).toHaveLength(1)
+    })
+  }
+
+  it('gives no CA hint for an expired certificate', async () => {
+    const b = await renderClient((s) => void (s.testResult = { status: 'tls', reason: 'expired' }))
+    const card = await testAddress(b)
+    expect(card.getByText('The certificate is not trusted')).toBeTruthy()
+    expect(card.queryByTestId('ca-hint')).toBeNull()
+  })
+
+  it('also shows the hint in the add sheet of Settings > Servers', async () => {
+    const b = await renderClient((s) => {
+      s.servers = serversView({ rows: [GPU], defaultId: GPU.id })
+      s.webui = remoteWebui
+      s.testResult = { status: 'tls', reason: 'self-signed' }
+    })
+    await openSettings()
+    fireEvent.click(screen.getByRole('tab', { name: 'Servers' }))
+    await settle()
+    fireEvent.click(screen.getByTestId('add-server'))
+    await settle()
+    type('Server address', 'https://office.example.net')
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    await settle()
+    expect(called(b, 'testServer')).toHaveLength(1)
+    expect(within(screen.getByTestId('test-result')).getByTestId('ca-hint')).toBeTruthy()
+  })
+})
+
 describe('unreachable default', () => {
   it('offers "Choose another server", which opens the switcher', async () => {
     await renderClient((s) => {

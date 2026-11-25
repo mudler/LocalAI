@@ -355,7 +355,7 @@ export function Shell({ now }: { now?: number }) {
       case 'first-choose':
         return firstStep === 'connect' ? (
           <div className="lnr-center lnr-center--connectfirst">
-            <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} now={now} onDone={() => setFirstStep('choose')} onCancel={() => setFirstStep('choose')} />
+            <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} client={!data.capabilities.localServer} now={now} onDone={() => setFirstStep('choose')} onCancel={() => setFirstStep('choose')} />
           </div>
         ) : (
           <FirstChooseScreen onComputer={() => setFirstStep('computer')} onServer={() => setFirstStep('connect')} sizeNote={data.installDetails?.size ? S.first.computerNote.replace('1.1 GB', formatBytes(data.installDetails.size)) : undefined} />
@@ -364,7 +364,7 @@ export function Shell({ now }: { now?: number }) {
         if (connectStep === 'address') {
           return (
             <div className="lnr-center lnr-center--connectfirst">
-              <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} onScan={scanner} now={now} onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} />
+              <ServerForm variant="page" servers={data.servers?.rows ?? []} makeDefault p2p={data.capabilities.p2p} client={!data.capabilities.localServer} onScan={scanner} now={now} onDone={() => setConnectStep('choose')} onCancel={() => setConnectStep('choose')} />
             </div>
           )
         }

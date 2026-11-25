@@ -213,6 +213,7 @@ export function ServersTab({
           servers={view.rows}
           editing={editing}
           p2p={p2p}
+          client={!localServer}
           onScan={onScan}
           now={now}
           initialInvite={sheet.kind === 'invite' ? sheet.link : undefined}
