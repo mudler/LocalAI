@@ -74,6 +74,11 @@ on:
         required: false
         default: ''
         type: string
+      cuda-docker-arch:
+        description: 'CUDA architectures (CMAKE_CUDA_ARCHITECTURES, semicolon-separated). Empty keeps the upstream default list.'
+        required: false
+        default: ''
+        type: string
       builder-base-image:
         description: |
           Pre-built builder base image (e.g. quay.io/go-skynet/ci-cache:base-grpc-cuda-13-amd64).
@@ -196,6 +201,7 @@ jobs:
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
+            CUDA_DOCKER_ARCH=${{ inputs.cuda-docker-arch }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
@@ -269,6 +275,7 @@ jobs:
             BACKEND=${{ inputs.backend }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
             AMDGPU_TARGETS=${{ inputs.amdgpu-targets }}
+            CUDA_DOCKER_ARCH=${{ inputs.cuda-docker-arch }}
             APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
             APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
             DEPS_REFRESH=${{ steps.deps_refresh.outputs.key }}
