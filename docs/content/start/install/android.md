@@ -76,10 +76,9 @@ These sign-in methods work:
 
 - User name and password.
 - API key.
+- GitHub or OIDC sign-in. The sign-in page of the identity provider opens in the app, and the app keeps the session. While you sign in, the app shows the pages of the identity provider that the server's sign-in redirects to, for at most 10 minutes. When you are back on the server, other addresses open in your browser again.
 
-{{% callout style="warning" %}}
-Servers that allow only OAuth sign-in (GitHub or OIDC) are not supported in this version of the app. The sign-in page of the identity provider opens in your browser, and the app does not get the session. Use a password or an API key on such a server, or ask the server owner to turn on one of them.
-{{% /callout %}}
+If an identity provider page opens in your browser instead, the provider moved to another address without a redirect. The sign-in does not complete in the app then: use a password or an API key on that server. Passkeys and security keys of the identity provider do not work in the app; choose another sign-in method of the provider.
 
 ## Certificates and private CAs
 

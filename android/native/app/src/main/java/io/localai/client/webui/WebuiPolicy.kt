@@ -77,8 +77,17 @@ object WebuiPolicy {
 
     // ---- navigation -------------------------------------------------------------
 
-    /** Decides a navigation the page started (link, form, location, redirect). */
-    fun decideNavigation(url: String, serverOrigin: String, subframe: Boolean): Navigation {
+    /**
+     * Decides a navigation the page started (link, form, location, redirect).
+     * `allowedOrigins` are http(s) origins an OAuth/OIDC sign-in allows for the
+     * main frame for a while (see OAuthSignInFlow); they never apply to a subframe.
+     */
+    fun decideNavigation(
+        url: String,
+        serverOrigin: String,
+        subframe: Boolean,
+        allowedOrigins: Set<String> = emptySet(),
+    ): Navigation {
         if (isServerOrigin(url, serverOrigin)) return Navigation.Allow
         val p = parse(url) ?: return Navigation.Deny("not a URL")
         if (subframe) {
@@ -92,11 +101,37 @@ object WebuiPolicy {
         }
         if (p.http != null) {
             if (p.http.hasCredentials) return Navigation.Deny("credentials in URL")
+            if (p.http.origin in allowedOrigins) return Navigation.Allow
             return Navigation.External(p.href)
         }
         if (p.scheme == "mailto") return Navigation.External(p.href)
         // javascript:, file:, data:, blob:, about:, intent:, custom schemes.
         return Navigation.Deny("scheme ${p.scheme}:")
+    }
+
+    // ---- OAuth / OIDC sign-in ---------------------------------------------------
+
+    /**
+     * Server routes that start an OAuth/OIDC sign-in: they set the `oauth_state`
+     * cookie on the server origin and redirect to the identity provider.
+     */
+    private val OAUTH_LOGIN_PATHS = setOf("/api/auth/oidc/login", "/api/auth/github/login")
+
+    /** How long a navigation to a login route waits for the server's redirect to the identity provider. */
+    const val OAUTH_PENDING_TIMEOUT_MS = 30_000L
+
+    /** How long a sign-in stays open: the server's `oauth_state` cookie lives 10 minutes. */
+    const val OAUTH_SIGNIN_TIMEOUT_MS = 10 * 60 * 1000L
+
+    /** The most identity provider origins one sign-in can go through. */
+    const val OAUTH_MAX_ORIGINS = 5
+
+    /** True when `url` is a route on `serverOrigin` that starts an OAuth/OIDC sign-in. */
+    fun isOAuthLoginUrl(url: String, serverOrigin: String): Boolean {
+        val p = parse(url) ?: return false
+        val http = p.http ?: return false
+        if (http.hasCredentials || http.origin != serverOrigin) return false
+        return http.path in OAUTH_LOGIN_PATHS
     }
 
     // ---- new windows ------------------------------------------------------------

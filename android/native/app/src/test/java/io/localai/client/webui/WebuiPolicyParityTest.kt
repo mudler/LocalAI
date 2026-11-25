@@ -40,17 +40,71 @@ class WebuiPolicyParityTest {
             val origin = c.getString("origin")
             val frame = c.getString("frame")
             val expect = c.getJSONObject("expect")
-            val label = "navigation url=${JSONObject.quote(url)} origin=$origin frame=$frame"
-            val got = WebuiPolicy.decideNavigation(url, origin, subframe = frame == "sub")
-            when (val action = expect.getString("action")) {
-                "allow" -> assertEquals(label, WebuiPolicy.Navigation.Allow, got)
-                "external" -> assertEquals(label, WebuiPolicy.Navigation.External(expect.getString("url")), got)
-                "deny" -> assertTrue("$label: expected deny, got $got", got is WebuiPolicy.Navigation.Deny)
-                else -> throw AssertionError("$label: unknown action $action")
-            }
+            val allowed = strings(c.optJSONArray("allowedOrigins")).toSet()
+            val label = "navigation url=${JSONObject.quote(url)} origin=$origin frame=$frame allowedOrigins=$allowed"
+            val got = WebuiPolicy.decideNavigation(url, origin, subframe = frame == "sub", allowedOrigins = allowed)
+            assertNavigation(label, expect, got)
             checked++
         }
         assertEquals("every navigation case checked", all.size, checked)
+    }
+
+    @Test
+    fun oauthLimits() {
+        val l = fixture.getJSONObject("oauthLimits")
+        assertEquals(l.getLong("pendingTimeoutMs"), WebuiPolicy.OAUTH_PENDING_TIMEOUT_MS)
+        assertEquals(l.getLong("signInTimeoutMs"), WebuiPolicy.OAUTH_SIGNIN_TIMEOUT_MS)
+        assertEquals(l.getInt("maxOrigins"), WebuiPolicy.OAUTH_MAX_ORIGINS)
+    }
+
+    @Test
+    fun oauthLogin() {
+        val all = cases("oauthLogin")
+        assertTrue("no oauthLogin cases", all.isNotEmpty())
+        for (c in all) {
+            val url = c.getString("url")
+            val origin = c.getString("origin")
+            assertEquals("oauthLogin url=${JSONObject.quote(url)} origin=$origin", c.getBoolean("expect"), WebuiPolicy.isOAuthLoginUrl(url, origin))
+        }
+    }
+
+    @Test
+    fun oauthFlow() {
+        val all = cases("oauthFlow")
+        assertTrue("no oauthFlow cases", all.isNotEmpty())
+        var steps = 0
+        for (c in all) {
+            val name = c.getString("name")
+            val flow = OAuthSignInFlow(c.getString("origin"))
+            val arr = c.getJSONArray("steps")
+            for (i in 0 until arr.length()) {
+                val step = arr.getJSONObject(i)
+                val event = step.getString("event")
+                val url = step.optString("url", "")
+                val subframe = step.optString("frame", "main") == "sub"
+                val at = step.getLong("at")
+                val expect = step.getJSONObject("expect")
+                val label = "oauthFlow \"$name\" step $i $event url=${JSONObject.quote(url)} subframe=$subframe at=$at"
+                val got = when (event) {
+                    "navigate" -> flow.onNavigate(url, subframe, at)
+                    "redirect" -> flow.onRedirect(url, subframe, at)
+                    "request" -> flow.onBeforeRequest(url, subframe, at)
+                    "load" -> { flow.onLoad(url, at); null }
+                    "loadFailed" -> { flow.onLoadFailed(at); null }
+                    "reset" -> { flow.reset(); null }
+                    else -> throw AssertionError("$label: unknown event")
+                }
+                val decision = expect.optJSONObject("decision")
+                if (decision == null) {
+                    assertEquals("$label: no decision expected", null, got)
+                } else {
+                    assertNavigation(label, decision, got ?: throw AssertionError("$label: no decision"))
+                }
+                assertEquals("$label: phase", expect.getString("phase"), flow.phase().name.lowercase())
+                steps++
+            }
+        }
+        assertTrue("oauthFlow steps checked", steps > 0)
     }
 
     @Test
@@ -128,10 +182,12 @@ class WebuiPolicyParityTest {
     fun fixtureCaseCounts() {
         // A fixture that loses cases silently would make the parity weaker; the
         // counts move only together with launcher/test/webuiPolicyCases.ts.
-        assertEquals(40, cases("navigation").size)
+        assertEquals(52, cases("navigation").size)
         assertEquals(12, cases("windowOpen").size)
         assertEquals(18, cases("permission").size)
         assertEquals(18, cases("fileName").size)
+        assertEquals(16, cases("oauthLogin").size)
+        assertEquals(17, cases("oauthFlow").size)
     }
 
     @Test
@@ -160,6 +216,18 @@ class WebuiPolicyParityTest {
         assertEquals(WebuiPolicy.WindowOpen.External("https://ai.example.com/api"),
             WebuiPolicy.decideWindowOpen("https://AI.example.com:443/api", "https://ai.example.com"))
     }
+
+    private fun assertNavigation(label: String, expect: JSONObject, got: WebuiPolicy.Navigation) {
+        when (val action = expect.getString("action")) {
+            "allow" -> assertEquals(label, WebuiPolicy.Navigation.Allow, got)
+            "external" -> assertEquals(label, WebuiPolicy.Navigation.External(expect.getString("url")), got)
+            "deny" -> assertTrue("$label: expected deny, got $got", got is WebuiPolicy.Navigation.Deny)
+            else -> throw AssertionError("$label: unknown action $action")
+        }
+    }
+
+    private fun strings(a: JSONArray?): List<String> =
+        if (a == null) emptyList() else (0 until a.length()).map { a.getString(it) }
 
     private fun storeOf(o: JSONObject): Map<String, Map<String, String>> =
         o.keys().asSequence().associateWith { origin ->

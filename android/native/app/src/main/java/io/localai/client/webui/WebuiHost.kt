@@ -96,6 +96,20 @@ class WebuiHost(
     @Volatile
     internal var serverOrigin: String? = null
         private set
+
+    /**
+     * The OAuth/OIDC sign-in of the view, bound to `serverOrigin`; read from
+     * WebView threads too. A new origin gets a new one.
+     */
+    @Volatile
+    internal var oauthFlow: OAuthSignInFlow? = null
+        private set
+
+    private fun lockTo(origin: String?) {
+        oauthFlow?.reset()
+        serverOrigin = origin
+        oauthFlow = origin?.let { OAuthSignInFlow(it) }
+    }
     private var profile: String? = null
     private var lastUrl: String? = null
 
@@ -144,7 +158,7 @@ class WebuiHost(
         if (p2pBlocked(origin)) {
             // The client core waits for the forwarder; this is the native backstop.
             destroyWebView()
-            serverOrigin = origin
+            lockTo(origin)
             this.profile = profile
             lastUrl = url
             events.loadFailed(-1, P2P_NOT_LISTENING)
@@ -153,11 +167,13 @@ class WebuiHost(
         val current = webView
         if (current != null && origin == serverOrigin && profile == this.profile) {
             lastUrl = url
+            // The app navigates: a sign-in the page started is over.
+            oauthFlow?.reset()
             current.loadUrl(url)
             return
         }
         destroyWebView()
-        serverOrigin = origin
+        lockTo(origin)
         this.profile = profile
         lastUrl = url
         if (!webViewRecentEnough()) {
@@ -187,6 +203,8 @@ class WebuiHost(
                     return
                 }
                 lastUrl = url
+                // The app navigates: a sign-in the page started is over.
+                oauthFlow?.reset()
                 val wv = webView
                 if (wv != null) wv.loadUrl(url) else reload()
             }
@@ -197,7 +215,7 @@ class WebuiHost(
 
     fun close() {
         destroyWebView()
-        serverOrigin = null
+        lockTo(null)
         profile = null
         lastUrl = null
     }
@@ -216,7 +234,7 @@ class WebuiHost(
         val origin = serverOrigin ?: return
         val p = profile ?: return
         val url = lastUrl ?: return
-        serverOrigin = null
+        lockTo(null)
         show(origin, url, p)
     }
 
@@ -365,6 +383,8 @@ class WebuiHost(
         runtimeRequest = null
         fileCallback?.onReceiveValue(null)
         fileCallback = null
+        // A sign-in never outlives its view.
+        oauthFlow?.reset()
         val wv = webView ?: return
         webView = null
         Profiles.cookieManager(wv).flush()
@@ -418,12 +438,16 @@ class WebuiHost(
         if (WebuiPolicy.httpOrigin(url) == serverOrigin) lastUrl = url
     }
 
-    internal fun pageLoaded(view: WebView) {
-        if (view === webView) events.loaded()
+    internal fun pageLoaded(view: WebView, url: String?) {
+        if (view !== webView) return
+        oauthFlow?.onLoad(url ?: view.url ?: "", SystemClock.elapsedRealtime())
+        events.loaded()
     }
 
     internal fun pageFailed(view: WebView, code: Int, description: String) {
-        if (view === webView) events.loadFailed(code, description)
+        if (view !== webView) return
+        oauthFlow?.onLoadFailed(SystemClock.elapsedRealtime())
+        events.loadFailed(code, description)
     }
 
     internal fun renderProcessGone(view: WebView, reason: String) {
@@ -434,6 +458,7 @@ class WebuiHost(
         }
         // Keep origin, profile and URL: reload() brings the view back.
         dismissPermissionPrompt()
+        oauthFlow?.reset()
         webView = null
         container.removeView(view)
         view.destroy()

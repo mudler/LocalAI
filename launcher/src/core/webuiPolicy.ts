@@ -1,12 +1,15 @@
 // The security policy of the WebUI view, as pure decisions. No Electron import:
 // webuiView.ts calls these from the Electron handlers, and the tests call them
-// with hostile input under plain Node.
+// with hostile input under plain Node. The Android client has a Kotlin port
+// (WebuiPolicy.kt, OAuthSignInFlow.kt) that must pass the same cases: a change
+// here goes with a change there and a new test/fixtures/webui-policy.json.
 //
 // The WebUI view renders server pages, model output and MCP app frames, so
 // everything it asks for is untrusted:
-//   - navigation stays on the one server origin the user chose; any other
-//     http, https or mailto link opens in the system browser; every other
-//     scheme is refused;
+//   - navigation stays on the one server origin the user chose (plus the
+//     identity provider origin(s) for the duration of an OAuth/OIDC sign-in
+//     started from the server's login route); any other http, https or mailto
+//     link opens in the system browser; every other scheme is refused;
 //   - no page ever creates a window;
 //   - permissions are refused unless the server origin asks for microphone,
 //     camera or clipboard write in response to a user action;
@@ -68,6 +71,12 @@ export type NavigationDecision =
 export interface NavigationContext {
   /** The main frame of the view, or a subframe (iframe) inside it. */
   frame: 'main' | 'sub'
+  /**
+   * Additional http/https origins temporarily allowed for main-frame
+   * navigation (for example, an OAuth/OIDC identity provider during sign-in).
+   * Never applies to subframes.
+   */
+  allowedOrigins?: ReadonlySet<string>
 }
 
 /**
@@ -93,12 +102,156 @@ export function decideNavigation(url: string, serverOrigin: string, ctx: Navigat
   }
   if (u.protocol === 'http:' || u.protocol === 'https:') {
     if (u.username !== '' || u.password !== '') return { action: 'deny', reason: 'credentials in URL' }
+    if (ctx.allowedOrigins && ctx.allowedOrigins.size > 0) {
+      const origin = httpOrigin(u.href)
+      if (origin !== undefined && ctx.allowedOrigins.has(origin)) return { action: 'allow' }
+    }
     const ext = externalUrl(u.href)
     return ext ? { action: 'external', url: ext } : { action: 'deny', reason: 'bad http URL' }
   }
   if (u.protocol === 'mailto:') return { action: 'external', url: u.href }
   // javascript:, file:, data:, blob:, about:, chrome:, devtools:, custom protocols.
   return { action: 'deny', reason: `scheme ${u.protocol}` }
+}
+
+// ---- OAuth / OIDC sign-in flow --------------------------------------------------
+
+/**
+ * Server routes that start an OAuth/OIDC sign-in flow: they set the
+ * `oauth_state` cookie on the server origin and redirect to the identity
+ * provider (see `core/http/routes/auth.go`).
+ */
+const OAUTH_LOGIN_PATHS: ReadonlySet<string> = new Set(['/api/auth/oidc/login', '/api/auth/github/login'])
+
+/** How long a navigation to a login route waits for the server's redirect to the IdP. */
+export const OAUTH_PENDING_TIMEOUT_MS = 30_000
+
+/** How long an active OAuth/OIDC sign-in flow stays open (matches the server's 10 min `oauth_state` cookie). */
+export const OAUTH_SIGNIN_TIMEOUT_MS = 10 * 60 * 1000
+
+/** Maximum distinct cross-origin IdP hosts allowed in a single federated sign-in chain. */
+export const OAUTH_MAX_ORIGINS = 5
+
+/** True when `url` is a LocalAI OAuth/OIDC login initiation route on `serverOrigin`. */
+export function isOAuthLoginUrl(url: string, serverOrigin: string): boolean {
+  if (!isServerOrigin(url, serverOrigin)) return false
+  return OAUTH_LOGIN_PATHS.has(new URL(url).pathname)
+}
+
+type OAuthFlowState =
+  | { phase: 'idle' }
+  | { phase: 'pending'; expiresAt: number }
+  | { phase: 'active'; origins: ReadonlySet<string>; expiresAt: number }
+
+/**
+ * Tracks a single OAuth/OIDC sign-in flow for one WebUI view.
+ *
+ * The server's `/api/auth/oidc/login` and `/api/auth/github/login` routes set
+ * an `HttpOnly` `oauth_state` cookie in the view's session and redirect to the
+ * identity provider. Allowing main-frame navigation to the provider origin(s)
+ * only for the duration of that sign-in keeps the state cookie and resulting
+ * session cookie in the launcher's partition while keeping every other policy
+ * boundary intact (subframes, permissions, downloads, windows, non-http
+ * schemes, and cross-origin links outside the flow).
+ */
+export class OAuthSignInFlow {
+  private state: OAuthFlowState = { phase: 'idle' }
+
+  constructor(private readonly serverOrigin: string) {}
+
+  get phase(): OAuthFlowState['phase'] {
+    return this.state.phase
+  }
+
+  /** Resets the flow immediately (view closed, server switched, or launcher-initiated navigation). */
+  reset(): void {
+    this.state = { phase: 'idle' }
+  }
+
+  private expire(nowMs: number): void {
+    if (this.state.phase !== 'idle' && nowMs > this.state.expiresAt) {
+      this.state = { phase: 'idle' }
+    }
+  }
+
+  /** Decides a `will-frame-navigate` event and updates the flow state. */
+  onNavigate(url: string, frame: NavigationContext['frame'], nowMs: number): NavigationDecision {
+    this.expire(nowMs)
+    if (frame === 'sub') return decideNavigation(url, this.serverOrigin, { frame: 'sub' })
+    if (isOAuthLoginUrl(url, this.serverOrigin)) {
+      this.state = { phase: 'pending', expiresAt: nowMs + OAUTH_PENDING_TIMEOUT_MS }
+      return { action: 'allow' }
+    }
+    if (isServerOrigin(url, this.serverOrigin)) {
+      this.state = { phase: 'idle' }
+      return { action: 'allow' }
+    }
+    if (this.state.phase === 'active') {
+      return decideNavigation(url, this.serverOrigin, { frame: 'main', allowedOrigins: this.state.origins })
+    }
+    // A cross-origin navigation while awaiting a login redirect cancels the pending state.
+    if (this.state.phase === 'pending') this.state = { phase: 'idle' }
+    return decideNavigation(url, this.serverOrigin, { frame: 'main' })
+  }
+
+  /** Decides a `will-redirect` event and updates the flow state. */
+  onRedirect(url: string, frame: NavigationContext['frame'], nowMs: number): NavigationDecision {
+    this.expire(nowMs)
+    if (frame === 'sub') return decideNavigation(url, this.serverOrigin, { frame: 'sub' })
+    if (isOAuthLoginUrl(url, this.serverOrigin)) {
+      this.state = { phase: 'pending', expiresAt: nowMs + OAUTH_PENDING_TIMEOUT_MS }
+      return { action: 'allow' }
+    }
+    if (isServerOrigin(url, this.serverOrigin)) {
+      this.state = { phase: 'idle' }
+      return { action: 'allow' }
+    }
+    const targetOrigin = httpOrigin(url)
+    if (targetOrigin !== undefined) {
+      if (this.state.phase === 'pending') {
+        this.state = { phase: 'active', origins: new Set([targetOrigin]), expiresAt: nowMs + OAUTH_SIGNIN_TIMEOUT_MS }
+        return { action: 'allow' }
+      }
+      if (this.state.phase === 'active') {
+        if (this.state.origins.has(targetOrigin)) return { action: 'allow' }
+        if (this.state.origins.size < OAUTH_MAX_ORIGINS) {
+          const origins = new Set(this.state.origins)
+          origins.add(targetOrigin)
+          this.state = { ...this.state, origins }
+          return { action: 'allow' }
+        }
+      }
+    } else if (this.state.phase === 'pending') {
+      this.state = { phase: 'idle' }
+    }
+    const allowedOrigins = this.state.phase === 'active' ? this.state.origins : undefined
+    return decideNavigation(url, this.serverOrigin, { frame: 'main', allowedOrigins })
+  }
+
+  /** Decides a `webRequest.onBeforeRequest` mainFrame/subFrame check without expanding allowed origins. */
+  onBeforeRequest(url: string, frame: NavigationContext['frame'], nowMs: number): NavigationDecision {
+    this.expire(nowMs)
+    if (frame === 'sub') return decideNavigation(url, this.serverOrigin, { frame: 'sub' })
+    const allowedOrigins = this.state.phase === 'active' ? this.state.origins : undefined
+    return decideNavigation(url, this.serverOrigin, { frame: 'main', allowedOrigins })
+  }
+
+  /** Called on `did-finish-load` for the view's current URL. */
+  onLoad(currentUrl: string, nowMs: number): void {
+    this.expire(nowMs)
+    if (this.state.phase === 'pending') {
+      // The login route rendered a page (for example an error) without redirecting to an IdP.
+      this.state = { phase: 'idle' }
+    } else if (this.state.phase === 'active' && isServerOrigin(currentUrl, this.serverOrigin)) {
+      this.state = { phase: 'idle' }
+    }
+  }
+
+  /** Called on main-frame `did-fail-load` (excluding ERR_ABORTED). */
+  onLoadFailed(nowMs: number): void {
+    this.expire(nowMs)
+    if (this.state.phase === 'pending') this.state = { phase: 'idle' }
+  }
 }
 
 // ---- new windows ----------------------------------------------------------------
