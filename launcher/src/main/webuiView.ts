@@ -15,7 +15,7 @@
 //     the shell view's main frame (see test/webuiSecurity.test.ts).
 import path from 'node:path'
 import { dialog, WebContentsView, type BaseWindow, type Session, type WebContents } from 'electron'
-import type { WebuiEffect, WebuiEvent } from './webuiState'
+import type { WebuiEffect, WebuiEvent } from '../core/webuiState'
 import {
   decideNavigation,
   decidePermission,
@@ -24,13 +24,15 @@ import {
   GESTURE_INPUT_TYPES,
   hasRecentGesture,
   isServerOrigin,
-  partitionForOrigin,
   sanitizeFileName,
   type PermissionChoice,
   type PermissionStore,
-} from './webuiPolicy'
+} from '../core/webuiPolicy'
+import { partitionForOrigin } from './webuiPartition'
 import { cornerDotPage, DOT_CLICK_URL, type Rect } from './windowLayout'
 import type { DotTone } from '../shared/types'
+
+export { partitionForOrigin }
 
 /** Chromium's net error for a navigation that was cancelled (by us, or by a new navigation). */
 const ERR_ABORTED = -3

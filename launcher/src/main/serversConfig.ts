@@ -3,7 +3,7 @@
 // Electron import. Keys that only this launcher writes live in `extra`.
 import crypto from 'node:crypto'
 import type { LauncherConfig } from './config'
-import { validateRemoteOrigin } from './webuiPolicy'
+import { validateRemoteOrigin } from '../core/webuiPolicy'
 import type { P2PTarget } from './p2pRemote'
 
 export interface RemoteServer {

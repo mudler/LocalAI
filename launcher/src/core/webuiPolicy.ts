@@ -11,7 +11,6 @@
 //   - permissions are refused unless the server origin asks for microphone,
 //     camera or clipboard write in response to a user action;
 //   - downloads always go through the native save dialog with a cleaned name.
-import { createHash } from 'node:crypto'
 
 // ---- origins ------------------------------------------------------------------
 
@@ -339,15 +338,4 @@ export function validateRemoteOrigin(input: string): RemoteOriginResult {
   if (u.username !== '' || u.password !== '') return { ok: false, reason: 'credentials' }
   if (u.hostname === '') return { ok: false, reason: 'invalid-url' }
   return { ok: true, origin: u.origin, host: u.host }
-}
-
-// ---- sessions -------------------------------------------------------------------
-
-/**
- * The persistent session partition of the view for one origin. Cookies,
- * storage and logins of each server stay apart, and apart from the shell.
- * A hash, so the partition name never carries a host name to disk.
- */
-export function partitionForOrigin(origin: string): string {
-  return `persist:webui-${createHash('sha256').update(origin).digest('hex').slice(0, 24)}`
 }

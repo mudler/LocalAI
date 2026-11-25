@@ -10,7 +10,7 @@
 import { loadConfig, saveConfig, type ConfigOptions, type LauncherConfig, type LoadResult } from './config'
 import { CRED_ID } from './secretStore'
 import { matchProblem, usernameProblem } from '../shared/registryMatch'
-import { parsePermissionStore, validateRemoteOrigin, type PermissionStore } from './webuiPolicy'
+import { parsePermissionStore, validateRemoteOrigin, type PermissionStore } from '../core/webuiPolicy'
 
 /** Show the slim status bar under the WebUI. Missing means true. */
 export const SHOW_STATUS_BAR_KEY = 'show_status_bar'

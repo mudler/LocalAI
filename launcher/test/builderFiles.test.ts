@@ -76,8 +76,8 @@ describe('electron-builder files list', () => {
 
   it('reaches the modules added by the later lanes from the entry points', () => {
     const rel = sources.map((s) => path.relative(root, s))
-    for (const m of ['webuiView', 'webuiPolicy', 'webuiState', 'windowLayout', 'sandboxProbe', 'sandboxSetup', 'hostTools', 'selfUpdate', 'updaterStatus']) {
-      expect(rel).toContain(`src/main/${m}.ts`)
+    for (const m of ['main/webuiView', 'core/webuiPolicy', 'core/webuiState', 'main/windowLayout', 'main/sandboxProbe', 'main/sandboxSetup', 'main/hostTools', 'main/selfUpdate', 'main/updaterStatus']) {
+      expect(rel).toContain(`src/${m}.ts`)
     }
   })
 

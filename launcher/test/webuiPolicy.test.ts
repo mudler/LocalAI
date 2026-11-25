@@ -10,14 +10,14 @@ import {
   isLocalOrPrivateHost,
   isServerOrigin,
   parsePermissionStore,
-  partitionForOrigin,
   recall,
   remember,
   resetPermissions,
   sanitizeFileName,
   validateRemoteOrigin,
   type PermissionRequestInfo,
-} from '../src/main/webuiPolicy'
+} from '../src/core/webuiPolicy'
+import { partitionForOrigin } from '../src/main/webuiPartition'
 
 const SERVER = 'http://127.0.0.1:8080'
 const LOCALHOST = 'http://localhost:8080'

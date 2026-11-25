@@ -7,23 +7,13 @@
 import http from 'node:http'
 import https from 'node:https'
 import { isLoopbackHost } from './network'
+import type { TestResult, TlsReason } from '../core/testClassify'
+
+export type { TestResult, TlsReason, UnreachableReason } from '../core/testClassify'
 
 export const TEST_TIMEOUT_MS = 8000
 const MAX_BODY = 64 * 1024
 const MAX_HOPS = 3
-
-export type TlsReason = 'expired' | 'not-yet-valid' | 'self-signed' | 'name-mismatch' | 'untrusted'
-export type UnreachableReason = 'timeout' | 'refused' | 'dns' | 'network'
-
-export type TestResult =
-  /** It answered and it is LocalAI. `secure` is false for plain http. */
-  | { status: 'ok'; version?: string; secure: boolean }
-  /** It answered and asks for a sign-in (401, 403 or the WebUI login page). Still reachable. */
-  | { status: 'needs-signin' }
-  | { status: 'not-localai'; reason: 'answer' | 'redirect' }
-  | { status: 'tls'; reason: TlsReason }
-  | { status: 'unreachable'; reason: UnreachableReason }
-  | { status: 'cancelled' }
 
 export interface TestOptions {
   timeoutMs?: number

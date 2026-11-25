@@ -80,6 +80,9 @@ describe('core import boundary', () => {
   it('src/core and src/shared import no Node, Electron or main-process module', () => {
     const files = listTs(['src/core', 'src/shared'])
     expect(files.some((f) => f.endsWith('core/address.ts'))).toBe(true)
+    expect(files.map((f) => path.basename(f))).toEqual(
+      expect.arrayContaining(['webuiPolicy.ts', 'webuiState.ts', 'notifications.ts', 'remoteMonitor.ts', 'testClassify.ts']),
+    )
     expect(Object.fromEntries(files.map((f) => [f, forbiddenImports(read(f))]).filter(([, v]) => v.length))).toEqual({})
   })
 })

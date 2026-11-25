@@ -131,10 +131,10 @@ import { applySettings, checkDataFolder, toSettings, type FolderProbe } from './
 import { ServerSupervisor, type SupervisorOptions } from './supervisor'
 import { releasePageUrl, type PlatformTarget } from './updateProvider'
 import { chatUrl } from './models'
-import { resolveLink, type NotifyTarget } from './notifications'
+import { resolveLink, type NotifyTarget } from '../core/notifications'
 import type { LoginItemResult } from './loginItem'
-import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from './webuiState'
-import { RemoteMonitor, REMOTE_RETRY_MS } from './remoteMonitor'
+import { WebuiModel, type WebuiEffect, type WebuiEvent, type WebuiInputs } from '../core/webuiState'
+import { RemoteMonitor, REMOTE_RETRY_MS } from '../core/remoteMonitor'
 import { freePort, linkRoutes, pair, readInvite, runCommand, TunnelSupervisor, type RunCommand, type SpawnFn, type TunnelStatus } from './p2pRemote'
 import {
   addP2PRemote,
@@ -165,7 +165,7 @@ import {
   validateRemoteOrigin,
   type PermissionChoice,
   type PermissionStore,
-} from './webuiPolicy'
+} from '../core/webuiPolicy'
 
 export type Emit = <C extends keyof EventContract>(channel: C, payload: EventContract[C]) => void
 

@@ -3,7 +3,7 @@
 // in notifications.ts and are tested there.
 import { app, Notification } from 'electron'
 import type { LauncherCore } from './core'
-import { formatNotification, Notifier, shouldSuppress, type InboxItem, type NotifyTarget } from './notifications'
+import { formatNotification, Notifier, shouldSuppress, type InboxItem, type NotifyTarget } from '../core/notifications'
 
 export interface NotifyGlueDeps {
   core(): LauncherCore | undefined

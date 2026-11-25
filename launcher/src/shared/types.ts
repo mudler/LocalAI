@@ -474,7 +474,7 @@ export interface WebuiViewState {
   remote: RemoteStatusView | null
 }
 
-/** The remote server of the window does not answer (see main/remoteMonitor.ts). */
+/** The remote server of the window does not answer (see core/remoteMonitor.ts). */
 export interface RemoteStatusView {
   kind: 'unreachable'
   /** A short plain reason: "timed out", "refused", "name not found", "network", "not LocalAI", "certificate". */

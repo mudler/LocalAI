@@ -5,7 +5,7 @@
 // server on its own: switching is the user's choice. While the server
 // answers, nothing is polled.
 import type { RemoteStatusView } from '../shared/types'
-import type { TestResult } from './testConnection'
+import type { TestResult } from './testClassify'
 
 export const REMOTE_RETRY_MS = 30_000
 
@@ -33,7 +33,7 @@ export interface MonitorDeps {
 export class RemoteMonitor {
   private gen = 0
   private origin: string | undefined
-  private timer: NodeJS.Timeout | undefined
+  private timer: ReturnType<typeof setTimeout> | undefined
 
   constructor(private readonly d: MonitorDeps) {}
 
@@ -71,6 +71,6 @@ export class RemoteMonitor {
     const wait = this.d.retryMs ?? REMOTE_RETRY_MS
     this.d.onStatus({ kind: 'unreachable', reason: reasonText(r), at, nextAt: at + wait })
     this.timer = setTimeout(() => void this.tick(gen), wait)
-    this.timer.unref?.()
+    ;(this.timer as { unref?: () => void }).unref?.()
   }
 }
