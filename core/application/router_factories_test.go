@@ -217,7 +217,7 @@ var _ = Describe("router_factories lazy config resolution", func() {
 			Expect(tc).NotTo(BeNil())
 
 			removeCfg("tok-test")
-			_, err := tc("anything")
+			_, err := tc(context.Background(), "anything")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no longer available"))
 		})

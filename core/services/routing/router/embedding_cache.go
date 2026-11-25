@@ -109,7 +109,7 @@ func NewEmbeddingCacheClassifier(inner Classifier, embedder backend.Embedder, st
 // probe embeds the most recent turns that fit instead of a caller-chosen size.
 // nil tokenizer / non-positive context leaves trimming off. Returns the
 // receiver for chaining at construction.
-func (c *EmbeddingCacheClassifier) WithTokenTrim(tokenize func(string) (int, error), maxContextTokens int) *EmbeddingCacheClassifier {
+func (c *EmbeddingCacheClassifier) WithTokenTrim(tokenize Tokenizer, maxContextTokens int) *EmbeddingCacheClassifier {
 	c.budget = &lazyBudget{tokenize: tokenize, maxContext: maxContextTokens}
 	return c
 }
@@ -152,7 +152,7 @@ func (c *EmbeddingCacheClassifier) Classify(ctx context.Context, p Probe) (Decis
 	}
 	start := time.Now()
 
-	vec, err := c.embedder.Embed(ctx, trimmedProbeText(p, c.budget, identityRender))
+	vec, err := c.embedder.Embed(ctx, trimmedProbeText(ctx, p, c.budget, identityRender))
 	if err != nil {
 		c.embedderErrors.Add(1)
 		xlog.Warn("router: embedding cache embed failed", "error", err)

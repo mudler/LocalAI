@@ -57,7 +57,9 @@ func ForwardViaBackend(
 		if statusCode != 0 {
 			data["status"] = statusCode
 		}
-		trace.RecordBackendTrace(trace.BackendTrace{
+		// The trace carries the request body: a zero-retention request
+		// records none.
+		trace.RecordBackendTraceFor(c.Request().Context(), trace.BackendTrace{
 			Timestamp: startTime,
 			Duration:  time.Since(startTime),
 			Type:      trace.BackendTraceLLM,
