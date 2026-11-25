@@ -29,3 +29,9 @@ indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Patches must keep the line endings and trailing spaces of the files they change.
+[backend/cpp/audio-cpp/patches/*.patch]
+end_of_line = unset
+trim_trailing_whitespace = false
+insert_final_newline = unset
