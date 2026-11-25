@@ -84,6 +84,8 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"event_type":{"type":"string","maxLength":80,"description":"With kind event: the event type to take, such as pull_request. Leave it out for every type."},` +
 	`"matches":{"type":"array","maxItems":8,"items":{"type":"string"},"description":"With kind event: tests on the event's JSON, each field=value, such as action=opened. All must hold."},` +
 	`"condition":{"type":"string","maxLength":300,"description":"With kind event: one sentence that the run checks, such as the PR touches core/. The run stops if it does not hold."},` +
+	`"watch":{"type":"object","description":"With kind event and source set to an add-on that reports its changes (such as calendar): make a watch, which keeps a reminder for each item of the add-on. offset_minutes is the default reminder time, negative before the item (-15). tasks are the person's task defaults in their words. quiet_from and quiet_to are quiet hours, HH:MM.","properties":{` +
+	`"offset_minutes":{"type":"integer"},"no_default":{"type":"boolean"},"all_day":{"type":"string","enum":["morning","none"]},"quiet_from":{"type":"string"},"quiet_to":{"type":"string"},"tasks":{"type":"string","maxLength":1000}}},` +
 	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"}, {\"at\": \"18:00\"} or {\"at\": \"2026-11-15 09:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
@@ -499,7 +501,15 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		EventType string          `json:"event_type"`
 		Matches   []string        `json:"matches"`
 		Condition string          `json:"condition"`
-		Delivery  *struct {
+		Watch     *struct {
+			Offset    int    `json:"offset_minutes"`
+			NoDefault bool   `json:"no_default"`
+			AllDay    string `json:"all_day"`
+			QuietFrom string `json:"quiet_from"`
+			QuietTo   string `json:"quiet_to"`
+			Tasks     string `json:"tasks"`
+		} `json:"watch"`
+		Delivery *struct {
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
 			Channel string `json:"channel"`
@@ -532,6 +542,9 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	if args.Condition != "" && args.Kind != string(triggers.KindEvent) {
 		return "", errors.New("condition is only for kind event")
 	}
+	if args.Watch != nil && args.Kind != string(triggers.KindEvent) {
+		return "", errors.New("watch is only for kind event, with source set to an add-on that reports its changes")
+	}
 	switch {
 	case args.Kind == string(triggers.KindEvent):
 		if c.Origin == session.OriginConnector {
@@ -541,6 +554,10 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 			return "", errors.New("an event trigger has no when: it runs when the sender calls")
 		}
 		in.Kind, in.Source, in.EventType, in.Matches = triggers.KindEvent, args.Source, args.EventType, args.Matches
+		if w := args.Watch; w != nil {
+			in.Watch = &triggers.WatchRule{Offset: time.Duration(w.Offset) * time.Minute, NoDefault: w.NoDefault, AllDay: w.AllDay,
+				QuietFrom: w.QuietFrom, QuietTo: w.QuietTo, Tasks: w.Tasks}
+		}
 		if args.Condition != "" {
 			cond := strings.TrimSpace(args.Condition)
 			switch {

@@ -333,3 +333,34 @@ var _ = Describe("a watch, end to end with a scripted model", func() {
 		_ = notify.KindRunEnded
 	})
 })
+
+var _ = Describe("a watch proposed in a chat", func() {
+	ctx := context.Background()
+
+	It("waits as a proposal with its rule, and becomes a watch once approved", func() {
+		c := &callScript{}
+		r := newShared().rig(c.script, studio.TriggerOptions{Sources: notesSource})
+		chat := create(r.svc, alice)
+		res := c.call(r, chat, "propose_trigger", `{"name":"My notes","prompt":"Keep me on top of my notes.","kind":"event","source":"notes","watch":{"offset_minutes":-30,"tasks":"prep calls"}}`)
+		Expect(res.Err).To(BeNil(), "%+v", res)
+		card := lastCard(r, chat)
+		v, err := r.host.ProposalStatus(ctx, alice, card.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Trigger.IsWatch()).To(BeTrue())
+		Expect(v.Trigger.Watch.Offset).To(Equal(-30 * time.Minute))
+		Expect(v.Trigger.Enabled).To(BeFalse(), "a proposal runs nothing")
+		made, err := r.host.ConfirmProposal(ctx, alice, card.ID, "UTC")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(made.IsWatch()).To(BeTrue())
+		Expect(made.Enabled).To(BeTrue())
+		res = c.call(r, chat, "propose_trigger", `{"name":"Bad","prompt":"p","when":"daily 08:00","watch":{"offset_minutes":-5}}`)
+		Expect(res.Out + errText(res.Err)).To(ContainSubstring("watch is only for kind event"))
+	})
+})
+
+func errText(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

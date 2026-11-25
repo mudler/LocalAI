@@ -1,0 +1,59 @@
++++
+url = "/features/chats-watches/"
+disableToc = false
+title = "Watches and reminders"
+description = "Get reminders for the things in your add-ons, such as calendar events, that follow the thing when it moves."
+weight = 15
+devbuild = "feature"
++++
+
+A watch follows the changes of an add-on that keeps your own data, such as the Calendar add-on, and keeps a reminder for each thing in it. When you add an event, the watch sets a reminder. When the event moves, the reminder moves with it. When the event is removed, the reminder goes too. Watches are on the **Triggers** page.
+
+## Make a watch
+
+On the Triggers page, choose **New watch**. The form is the trigger form, with a **Watch** section instead of the schedule:
+
+| Field | What it does |
+|---|---|
+| Watch | The add-on to watch. Only add-ons that report their changes are listed. With none installed, the section says how to get one. |
+| Changes to take | Which changes start the watch: an event is added, changes, is removed. None ticked takes every change. |
+| Remind me | The default reminder time: at the time of the thing, or some minutes, hours or days before. "No default reminder" sets one only when your task defaults call for it. |
+| Things that last all day | A reminder at 08:00 on the day, or none. |
+| Quiet hours | A start and an end, in the time zone of the watch. A reminder that falls inside moves to the start of the quiet hours, the evening before. |
+| Task defaults | Plain words for what a reminder does, such as "for calls with other people, prepare a brief 30 min ahead". |
+
+The rest of the form is the same as for a trigger: the agent and model, where the runs report (the Inbox or a channel of a messaging app), the daily limit and what a run may do. You approve a watch once. That covers every reminder it sets, moves and cancels later, within the permissions you gave it. You can change the permissions at any time with **Edit permissions** on the watch's page.
+
+A chat can propose a watch too. The proposal card lists what the watch does and when it tells you, with **Approve**, **Edit** and **Not now**.
+
+## What happens
+
+- **A thing is added.** The watch's agent reads it once and sets a reminder, usually the default time. It may adjust the time for one thing (a call with other people gets a brief with a lead time, a thing in your quiet hours moves to the evening before) and says so. It sends you a message only when it adds something: someone else added the thing, it planned a task, or the thing clashes with another one. Otherwise you get one line in the Inbox.
+- **A thing moves.** The reminder moves with it, with no model run. Your own change gives one Inbox line. A change by someone else gives a short message.
+- **A thing changes in more than its time** (new attendees, say). The reminder's agent runs early, can change the task or the time, and the reminder still fires at its time.
+- **A thing is removed.** The reminder is cancelled, with one Inbox line.
+- **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, the agent then sets the reminder of the next occurrence.
+
+A change made by a watch's own run never wakes that watch. More than 30 reminder changes in a minute pause the watch and tell you.
+
+## The watch's page
+
+The page of a watch shows whether it is on, what it watches, where it reports and its upcoming reminders. Each reminder has **Snooze** (when it is due soon), **Skip**, **Change time…** and **Open**, which opens the thing in its add-on. Each action can be undone. The history lists every action, the quiet ones too. Pausing a watch holds its reminders; deleting it removes them. Both are listed in the Inbox.
+
+In a messaging app that shows buttons (Telegram), a reminder comes with **Snooze 5 min**, **In 30 min**, **Skip** and **Got it**. In other apps, reply "snooze", "30 min" or "skip" to the reminder.
+
+## When the server was down
+
+A reminder whose time passed while the server was down fires late, with a note, when the thing has not begun yet. When the thing has begun, you get one Inbox line, "Missed: …", and no late reminder.
+
+## API
+
+| Method and path | What it does |
+|---|---|
+| `POST /api/chats/triggers` with `kind: "event"`, `source` and `watch` | Makes a watch. `watch` is `{offset_minutes, no_default, all_day, quiet_from, quiet_to, tasks, types}`. |
+| `GET /api/chats/triggers/sources` | The add-ons a watch can watch, with their event types. |
+| `GET /api/chats/triggers/{id}/reminders` | The reminders of a watch, soonest first. |
+| `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). |
+| `DELETE /api/chats/triggers/{id}/reminders/{rid}` | Cancels a reminder. |
+
+For add-on authors: an add-on declares its event types and reports its changes with the `events.emit` host operation. See [Events]({{% relref "/addons/contract-reference/host-operations#events" %}}).
