@@ -307,6 +307,15 @@ export class ClientCore {
     this.emit({ kind: 'updater', status })
   }
 
+  /** One step back in the WebUI history. False when the page has no history (or the call failed). */
+  async webuiGoBack(): Promise<boolean> {
+    try {
+      return (await this.p.webui.goBack()).handled
+    } catch {
+      return false
+    }
+  }
+
   /** Opens the server switcher (a shortcut from outside the shell). */
   openSwitcher(): void {
     this.emit({ kind: 'openSwitcher' })
