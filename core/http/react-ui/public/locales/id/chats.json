@@ -870,7 +870,9 @@
         "wokenBy": "\"{{title}}\" berubah. Saya memeriksa apakah pengingatnya masih cocok.",
         "missed": "Terlewat: {{title}}. Server mati pada waktu pengingat.",
         "onHold": "Pengingat untuk \"{{title}}\" menunggu selama pantauan ini dijeda.",
-        "dropped": "Pengingat untuk \"{{title}}\" dihapus bersama pantauannya."
+        "dropped": "Pengingat untuk \"{{title}}\" dihapus bersama pantauannya.",
+        "lastKnown": "Pengingat untuk \"{{title}}\" berikutnya dipasang: {{when}}. Ini waktu terakhir yang diketahui; perubahan item memasang yang berikutnya.",
+        "seriesEnded": "Tidak ada waktu berikutnya untuk \"{{title}}\" yang diketahui, jadi sekarang tidak ada pengingat. Perubahan item memasang yang berikutnya."
       }
     },
     "tabs": {

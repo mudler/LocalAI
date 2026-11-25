@@ -47,6 +47,9 @@ func reminderStamp(t triggers.Trigger) string {
 // ReminderChange is a change of a reminder as the chat card shows it.
 type ReminderChange struct {
 	WatchID, WatchName, Title string
+	// WatchZone is the time zone of the watch, in which the card writes the
+	// times, as the watch page does.
+	WatchZone string
 	// Before and After are the reminder before and after the change; nil
 	// when there is none (a new reminder has no Before, a cancel no After).
 	Before, After *ReminderView
@@ -274,6 +277,9 @@ func (h *Triggers) undoReminderChange(ctx context.Context, user, id string) (tri
 	var line watchText
 	switch rec.Change.Op {
 	case triggers.ChangeCreate:
+		// The delete is not versioned: an edit that another frontend makes
+		// between the undo check and the delete is dropped with the
+		// reminder, which is what undoing its creation asks for.
 		live, gerr := h.o.Store.GetTrigger(ctx, rec.Change.Target)
 		if gerr == nil {
 			err = h.o.Store.DeleteTrigger(ctx, live.ID)
@@ -337,7 +343,7 @@ func (h *Triggers) reminderChangeStatus(ctx context.Context, user string, rec tr
 	v.Reminder = rc
 	w, werr := h.reminderWatch(ctx, user, rec)
 	if werr == nil {
-		rc.WatchName = w.Name
+		rc.WatchName, rc.WatchZone = w.Name, w.TZ
 		v.Before = w
 	} else {
 		w = triggers.Trigger{ID: rec.Reminder.ParentID, Owner: rec.Owner, TZ: rec.TZ}

@@ -211,14 +211,19 @@ func (h *Triggers) lastReminderIn(ctx context.Context, b connectors.Binding, cha
 	return best, !at.IsZero()
 }
 
-// lastHeadsUpIn is the reminder that the last run of a watch of the owner set,
-// when that run reported in this chat of the binding within replyWindow.
+// lastHeadsUpIn is the reminder that the newest heads-up of a watch of the
+// owner set, when that heads-up was reported in this chat of the binding
+// within replyWindow. Every watch on the chat is looked at, so with two
+// watches on one chat the reply goes to the heads-up the owner got last, and
+// a run that is still going does not hide an earlier one that ended.
 func (h *Triggers) lastHeadsUpIn(ctx context.Context, b connectors.Binding, chat string) (triggers.Trigger, bool) {
 	all, err := h.o.Store.ListTriggers(ctx, principal(b.Owner))
 	if err != nil {
 		return triggers.Trigger{}, false
 	}
 	now := h.o.Clock()
+	var best triggers.Trigger
+	var at time.Time
 	for _, w := range all {
 		if !w.IsWatch() || w.Route.ChannelBinding() != b.ID || (w.Route.Channel != chat && w.Route.Chat != chat) {
 			continue
@@ -228,17 +233,17 @@ func (h *Triggers) lastHeadsUpIn(ctx context.Context, b connectors.Binding, chat
 			continue
 		}
 		for _, run := range runs {
-			if run.Status == triggers.StatusHandled || run.ChatID == "" {
-				continue
+			if run.Status == triggers.StatusHandled || run.ChatID == "" || run.Ended.IsZero() {
+				continue // a history line, or a run that has not reported yet
 			}
-			if run.Ended.IsZero() || now.Sub(run.Ended) > replyWindow {
-				break
+			if now.Sub(run.Ended) > replyWindow || !run.Ended.After(at) {
+				break // the runs are newest first: the rest are older still
 			}
 			if r, ok := h.setInRun(ctx, w, run); ok {
-				return r, true
+				best, at = r, run.Ended
 			}
-			break
+			break // only the newest report of this watch is the heads-up a reply answers
 		}
 	}
-	return triggers.Trigger{}, false
+	return best, !at.IsZero()
 }

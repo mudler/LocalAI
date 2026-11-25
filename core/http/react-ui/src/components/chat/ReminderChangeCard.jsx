@@ -4,8 +4,9 @@ import Icon from '../Icon'
 import { Button } from '../ui'
 
 // When a reminder fires, in the words of the watch page: "Thu 15:45, 15 min
-// before". A missing reminder (before a new one, after a cancel) is "none".
-function reminderWhen(r, t, lang) {
+// before", in the zone of the watch. A missing reminder (before a new one,
+// after a cancel) is "none".
+function reminderWhen(r, t, lang, zone) {
   if (!r) return t('watch.change.none')
   if (!r.due) return t('watch.started')
   let offset
@@ -15,7 +16,7 @@ function reminderWhen(r, t, lang) {
     const o = offsetParts(r.offset_minutes)
     offset = t(`watch.${o.key}`, { count: o.count })
   }
-  return t('watch.dueLine', { when: whenText(r.due, undefined, new Date(), lang), offset })
+  return t('watch.dueLine', { when: whenText(r.due, zone || undefined, new Date(), lang), offset })
 }
 
 // The body of the change card for a change of a reminder that the model
@@ -42,7 +43,7 @@ export default function ReminderChangeCard({ view, busy, apply, dismiss, undo, a
             <span data-testid="change-title">{title}</span>
           </p>
           {view.kind === 'applied' && reminder.after && (
-            <p className="cx-receipt__sub" data-testid="change-when">{reminderWhen(reminder.after, t, i18n.language)}</p>
+            <p className="cx-receipt__sub" data-testid="change-when">{reminderWhen(reminder.after, t, i18n.language, reminder.watch_zone)}</p>
           )}
           {view.kind === 'applied' && !view.canUndo && view.blocked && (
             <p className="cx-help" data-testid="change-blocked">{t(`watch.change.blocked.${view.blocked}`, { defaultValue: '' })}</p>
@@ -64,7 +65,7 @@ export default function ReminderChangeCard({ view, busy, apply, dismiss, undo, a
   const before = reminder.before || null
   const after = reminder.after || null
   const rows = [['watch', t('watch.change.watch'), reminder.watch_name || '', null]]
-  rows.push(['when', t('watch.change.when'), reminderWhen(before, t, i18n.language), reminderWhen(after, t, i18n.language)])
+  rows.push(['when', t('watch.change.when'), reminderWhen(before, t, i18n.language, reminder.watch_zone), reminderWhen(after, t, i18n.language, reminder.watch_zone)])
   if ((before?.task || '') !== (after?.task || '') && op !== 'delete') {
     rows.push(['task', t('watch.change.task'), before?.task || t('watch.change.none'), after?.task || t('watch.change.none')])
   }

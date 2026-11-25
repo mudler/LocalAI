@@ -232,7 +232,7 @@ func reconcileOnce(ctx context.Context, st Store, watch Trigger, ev Event, now t
 	out.Moved = !th.Anchor.Equal(rem.Anchor) || th.AllDay != rem.AllDay || th.Zone != rem.Zone
 	changed := rem.Stamp != "" && th.Stamp != "" && th.Stamp != rem.Stamp
 	rem.Anchor, rem.Zone, rem.AllDay = th.Anchor.UTC(), th.Zone, th.AllDay
-	rem.Following = th.Following
+	rem.Following, rem.Repeats = th.Following, len(th.Following) > 0
 	if th.Stamp != "" {
 		rem.Stamp = th.Stamp
 	}

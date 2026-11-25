@@ -870,7 +870,9 @@
         "wokenBy": "\"{{title}}\" è cambiato. Controllo se il promemoria va ancora bene.",
         "missed": "Perso: {{title}}. Il server era spento all'ora del promemoria.",
         "onHold": "Il promemoria per \"{{title}}\" è in attesa finché questa sorveglianza è in pausa.",
-        "dropped": "Il promemoria per \"{{title}}\" è stato rimosso con la sua sorveglianza."
+        "dropped": "Il promemoria per \"{{title}}\" è stato rimosso con la sua sorveglianza.",
+        "lastKnown": "Promemoria per il prossimo \"{{title}}\" impostato: {{when}}. È l'ultima data nota; una modifica dell'elemento imposta le successive.",
+        "seriesEnded": "Non si conosce una data successiva di \"{{title}}\", quindi ora non ha promemoria. Una modifica dell'elemento imposta il prossimo."
       }
     },
     "tabs": {

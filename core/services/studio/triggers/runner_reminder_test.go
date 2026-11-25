@@ -71,8 +71,14 @@ var _ = Describe("the reminder pass", func() {
 	It("moves the reminder of a repeating thing to its next occurrence, also after a failed run", func() {
 		var mu sync.Mutex
 		var advanced []time.Time
+		var ends [][2]bool
 		r := newRig(func(o *triggers.Options) {
-			o.Advanced = func(t triggers.Trigger) { mu.Lock(); advanced = append(advanced, t.Reminder.Anchor); mu.Unlock() }
+			o.Advanced = func(t triggers.Trigger, moved, last bool) {
+				mu.Lock()
+				advanced = append(advanced, t.Reminder.Anchor)
+				ends = append(ends, [2]bool{moved, last})
+				mu.Unlock()
+			}
 		})
 		anchor := t0.Add(time.Hour)
 		day := 24 * time.Hour
@@ -93,8 +99,22 @@ var _ = Describe("the reminder pass", func() {
 		r.at(anchor.Add(day - 15*time.Minute))
 		Expect(r.runs("r")).To(HaveLen(2), "the next occurrence fires at its time")
 		mu.Lock()
-		defer mu.Unlock()
 		Expect(advanced).To(Equal([]time.Time{anchor.Add(day)}))
+		Expect(ends).To(Equal([][2]bool{{true, false}}))
+		mu.Unlock()
+
+		// The last known occurrence is said once it is taken, and the owner
+		// hears when none is left after it.
+		r.finish(r.latest("r"), triggers.StatusDone, "")
+		r.at(anchor.Add(day + time.Minute))
+		r.at(anchor.Add(2*day - 15*time.Minute))
+		r.finish(r.latest("r"), triggers.StatusFailed, "the task failed")
+		r.at(anchor.Add(2*day + time.Minute))
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(ends).To(Equal([][2]bool{{true, false}, {true, true}, {false, true}}))
+		got, _ = r.store.GetTrigger(ctx, "r")
+		Expect(got.Reminder.Following).To(BeEmpty())
 	})
 
 	It("skips the occurrences that passed while the server was down", func() {

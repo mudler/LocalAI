@@ -151,6 +151,9 @@ type Reminder struct {
 	// add-on last gave them, soonest first. When the thing's time has passed,
 	// the runner moves the reminder to the next of them (see Advance).
 	Following []time.Time `json:",omitempty"`
+	// Repeats says that the add-on gave later occurrences of the thing, so
+	// the runner says so when it has used them all up (see Advance).
+	Repeats bool `json:",omitempty"`
 	// Rev is the version of the stored reminder. The store sets it, and
 	// PutTrigger refuses with ErrConflict a reminder whose Rev is not the
 	// stored one: two writers (two frontends, the reconciler and the

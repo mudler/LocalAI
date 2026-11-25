@@ -112,8 +112,12 @@ type Options struct {
 	// host tells the owner in one line.
 	Missed func(t Trigger, r Run)
 	// Advanced is called when a pass moved the reminder of a repeating thing
-	// to its next occurrence; t is the reminder as it is now.
-	Advanced func(t Trigger)
+	// to its next occurrence (moved), or found that none of the occurrences
+	// it knows is ahead (moved false); t is the reminder as it is now. last
+	// says that no occurrence after t's is known: the add-on sends more with
+	// the next change of the thing, so the owner must hear that the series
+	// stops here unless that happens.
+	Advanced func(t Trigger, moved, last bool)
 	Logf   func(format string, args ...any)
 }
 

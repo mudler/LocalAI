@@ -1,6 +1,7 @@
 package studio_test
 
 import (
+	"fmt"
 	"context"
 	"time"
 
@@ -121,5 +122,39 @@ var _ = Describe("the buttons of a heads-up in a messaging app", func() {
 		Expect(bot.answers()[1]).To(Equal("Cancelled. There is no reminder for this one."))
 		_, err = sh.trg.GetTrigger(ctx, "rem1")
 		Expect(err).To(MatchError(triggers.ErrNotFound))
+	})
+
+	It("answers the heads-up the owner got last when two watches share the chat", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("Hello from the agent."), nil)
+		b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		route := triggers.Route{Connection: b.ID, Target: triggers.TargetChannel, Channel: "11"}
+		now := sh.clock.Now()
+		due := now.Add(5 * time.Hour)
+		for i, name := range []string{"A first", "B second"} {
+			wid, rid, run := fmt.Sprintf("w%d", i), fmt.Sprintf("rem%d", i), fmt.Sprintf("run%d", i)
+			Expect(sh.trg.PutTrigger(ctx, triggers.Trigger{ID: wid, Owner: alice, Name: name, Prompt: "Watch.", Enabled: true, Kind: triggers.KindEvent,
+				Source: "notes", TZ: "UTC", Model: "m", Watch: &triggers.WatchRule{Offset: -15 * time.Minute}, Route: route})).To(Succeed())
+			Expect(sh.trg.PutTrigger(ctx, triggers.Trigger{ID: rid, Owner: alice, Name: name, Prompt: "remind me", Enabled: true, Kind: triggers.KindReminder,
+				TZ: "UTC", Model: "m", Route: route, Since: now, Reminder: &triggers.Reminder{ParentID: wid, Key: "notes:" + rid, Title: name, Anchor: due,
+					Offset: -15 * time.Minute, Task: "remind me", SetBy: run}})).To(Succeed())
+			ended := now.Add(time.Duration(i) * time.Minute) // B's heads-up came last
+			_, err := sh.trg.Claim(ctx, triggers.Run{ID: run, TriggerID: wid, DueKey: "event@" + run, Due: ended, Status: triggers.StatusDone,
+				ChatID: "c" + run, Started: ended, Ended: ended})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		// A run of the first watch that is still going does not hide its
+		// older heads-up, and does not win over the newer one.
+		_, err := sh.trg.Claim(ctx, triggers.Run{ID: "busy", TriggerID: "w0", DueKey: "event@busy", Due: now.Add(2 * time.Minute), Status: triggers.StatusRunning,
+			ChatID: "cbusy", Started: now.Add(2 * time.Minute)})
+		Expect(err).NotTo(HaveOccurred())
+		sh.clock.Advance(3 * time.Minute)
+
+		bot.say(1, 11, "Ada", "ada", "no reminder")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		_, err = sh.trg.GetTrigger(ctx, "rem1")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "the reply answers the newest heads-up")
+		_, err = sh.trg.GetTrigger(ctx, "rem0")
+		Expect(err).NotTo(HaveOccurred(), "the other watch's reminder stays")
 	})
 })

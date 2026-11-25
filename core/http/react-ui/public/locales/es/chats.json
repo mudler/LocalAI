@@ -870,7 +870,9 @@
         "wokenBy": "\"{{title}}\" cambió. Reviso si su recordatorio todavía encaja.",
         "missed": "Perdido: {{title}}. El servidor estaba apagado a la hora del recordatorio.",
         "onHold": "El recordatorio de \"{{title}}\" espera mientras esta vigilancia está en pausa.",
-        "dropped": "El recordatorio de \"{{title}}\" se eliminó con su vigilancia."
+        "dropped": "El recordatorio de \"{{title}}\" se eliminó con su vigilancia.",
+        "lastKnown": "Recordatorio del próximo \"{{title}}\" puesto: {{when}}. Es la última fecha conocida; un cambio del elemento pone las siguientes.",
+        "seriesEnded": "No se conoce una fecha posterior de \"{{title}}\", así que ahora no tiene recordatorio. Un cambio del elemento pone el siguiente."
       }
     },
     "tabs": {

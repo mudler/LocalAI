@@ -439,7 +439,9 @@
         "wokenBy": "\"{{title}}\" changed. I'm checking whether its reminder still fits.",
         "missed": "Missed: {{title}}. The server was down at the reminder time.",
         "onHold": "The reminder for \"{{title}}\" is on hold while this watch is paused.",
-        "dropped": "The reminder for \"{{title}}\" was removed with its watch."
+        "dropped": "The reminder for \"{{title}}\" was removed with its watch.",
+        "lastKnown": "Set the reminder for the next \"{{title}}\": {{when}}. It is the last time known; a change of the item sets the ones after it.",
+        "seriesEnded": "No later time of \"{{title}}\" is known, so it has no reminder now. A change of the item sets the next one."
       }
     },
     "tabs": {

@@ -129,7 +129,7 @@ func (r *Runner) parentOn(ctx context.Context, t Trigger) bool {
 // missed. A reminder set to a fixed time (At) is left alone.
 func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) error {
 	rem := t.Reminder
-	if len(rem.Following) == 0 || rem.Anchor.IsZero() || !rem.At.IsZero() || now.Before(rem.Anchor) {
+	if (len(rem.Following) == 0 && !rem.Repeats) || rem.Anchor.IsZero() || !rem.At.IsZero() || now.Before(rem.Anchor) {
 		return nil
 	}
 	loc, err := parent.Location()
@@ -154,10 +154,12 @@ func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) 
 		i++
 	}
 	if i == len(next.Following) {
-		next.Following = nil // no known occurrence is ahead: stop looking
+		// No known occurrence is ahead: say it once and stop looking.
+		next.Following, next.Repeats = nil, false
 	} else {
 		next.Anchor, next.Following = next.Following[i], next.Following[i+1:]
 		next.SnoozedTo, next.Skipped = time.Time{}, time.Time{}
+		next.Repeats = true // it had later occurrences: say so when they run out
 		cur.Since = now.UTC()
 	}
 	moved := !next.Anchor.Equal(rem.Anchor)
@@ -168,8 +170,8 @@ func (r *Runner) advance(ctx context.Context, t, parent Trigger, now time.Time) 
 		}
 		return err
 	}
-	if moved && r.o.Advanced != nil {
-		r.o.Advanced(cur)
+	if r.o.Advanced != nil {
+		r.o.Advanced(cur, moved, len(next.Following) == 0)
 	}
 	return nil
 }

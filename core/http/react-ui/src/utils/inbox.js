@@ -288,8 +288,8 @@ export function textOf(n, t) {
 // The codes of the lines a watch writes, after "watch.". Each has the title of
 // the item and, for some, the time of the reminder in the watch's zone.
 export const WATCH_CODES = ['set', 'changed', 'cancelled', 'snoozed', 'snoozeUndone', 'skipped', 'skipUndone', 'taskChanged', 'restored',
-  'next', 'moved', 'movedStarted', 'removed', 'woken', 'movedBy', 'movedByStarted', 'removedBy', 'wokenBy', 'missed', 'onHold', 'dropped']
-const WATCH_TIMED = ['set', 'changed', 'snoozed', 'restored', 'next', 'moved', 'movedBy']
+  'next', 'moved', 'movedStarted', 'removed', 'woken', 'movedBy', 'movedByStarted', 'removedBy', 'wokenBy', 'missed', 'onHold', 'dropped', 'lastKnown', 'seriesEnded']
+const WATCH_TIMED = ['set', 'changed', 'snoozed', 'restored', 'next', 'moved', 'movedBy', 'lastKnown']
 
 // The line of a watch in the language of the person: the title stays the
 // watch's name, the body is worded from the code. A code this build does not

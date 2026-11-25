@@ -870,7 +870,9 @@
         "wokenBy": "„{{title}}\" hat sich geändert. Ich prüfe, ob die Erinnerung noch passt.",
         "missed": "Verpasst: {{title}}. Der Server war zur Erinnerungszeit aus.",
         "onHold": "Die Erinnerung für „{{title}}\" wartet, solange diese Beobachtung pausiert ist.",
-        "dropped": "Die Erinnerung für „{{title}}\" wurde mit ihrer Beobachtung entfernt."
+        "dropped": "Die Erinnerung für „{{title}}\" wurde mit ihrer Beobachtung entfernt.",
+        "lastKnown": "Erinnerung für das nächste „{{title}}\" gesetzt: {{when}}. Das ist der letzte bekannte Termin; eine Änderung des Eintrags setzt die folgenden.",
+        "seriesEnded": "Für „{{title}}\" ist kein späterer Termin bekannt, daher gibt es jetzt keine Erinnerung. Eine Änderung des Eintrags setzt die nächste."
       }
     },
     "tabs": {

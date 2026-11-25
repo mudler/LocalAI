@@ -32,7 +32,7 @@ A chat can propose a watch too. The proposal card lists what the watch does and 
 - **A thing moves.** The reminder moves with it, with no model run. Your own change gives one Inbox line. A change by someone else gives a short message.
 - **A thing changes in more than its time** (new attendees, say). The reminder's agent runs early, can change the task or the time, and the reminder still fires at its time.
 - **A thing is removed.** The reminder is cancelled, with one Inbox line.
-- **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, LocalAI then moves the reminder to the next occurrence by itself, with one Inbox line, also when the task failed. Occurrences that passed while the server was down are not sent.
+- **The reminder fires.** The run starts the lead time before the reminder time, reads the thing again, and does its task. If the task fails or runs out of time, you still get the plain reminder on time. For a repeating event, LocalAI then moves the reminder to the next occurrence by itself, with one Inbox line, also when the task failed. Occurrences that passed while the server was down are not sent. LocalAI knows the next 64 occurrences from the add-on and learns more with each change of the event; when it reaches the last one it knows, the Inbox says so.
 
 The Inbox lines of a watch are in the language you chose for the interface. The short message that LocalAI itself sends to a channel of a messaging app when someone else changed an item is in English for now; what the agent writes is in the language of the conversation.
 
@@ -48,6 +48,10 @@ You can also change a reminder by asking in a chat in Studio, for example "remin
 
 In a messaging app that shows buttons (Telegram), a reminder comes with **Snooze 5 min**, **In 30 min**, **Skip** and **Got it**. In other apps, reply "snooze", "30 min" or "skip" to the reminder.
 
+## With several frontends
+
+Watches and reminders are kept in the database that all frontends share, so every frontend shows and changes the same reminders. A reminder has a version: when two frontends (or the owner and a moved item) change the same reminder at once, the store keeps the first write and the other one reads the reminder again and applies its change on top. A run of a reminder is claimed once in the database, so it fires on one frontend only.
+
 ## When the server was down
 
 A reminder whose time passed while the server was down fires late, with a note, when the thing has not begun yet. When the thing has begun, you get one Inbox line, "Missed: …", and no late reminder.
@@ -59,7 +63,7 @@ A reminder whose time passed while the server was down fires late, with a note, 
 | `POST /api/chats/triggers` with `kind: "event"`, `source` and `watch` | Makes a watch. `watch` is `{offset_minutes, no_default, all_day, quiet_from, quiet_to, tasks, types}`. |
 | `GET /api/chats/triggers/sources` | The add-ons a watch can watch, with their event types. |
 | `GET /api/chats/triggers/{id}/reminders` | The reminders of a watch, soonest first. |
-| `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). With `?source=<add-on>`, a reminder of a watch on another add-on is not found: an add-on page skips a reminder with `sdk.reminders.skip(watchId, id)`, which always sends its own ID. |
+| `PATCH /api/chats/triggers/{id}/reminders/{rid}` | Snooze (`snooze_minutes`, or `snoozed_to`; empty takes it back), skip (`skip`), re-time (`at` or `offset_minutes`) or change the task (`task`). With `?source=<add-on>`, a reminder of a watch on another add-on is not found: an add-on page skips a reminder with `sdk.reminders.skip(watchId, id)`, which always sends its own ID. This keeps a well-behaved add-on page to its own items; it is not a security boundary, since an add-on page runs in the same session as the rest of the interface. |
 | `DELETE /api/chats/triggers/{id}/reminders/{rid}` | Cancels a reminder. |
 | `GET /api/chats/triggers/reminders?source=<add-on>` | The reminders of your watches for the items of one add-on, with the item ID and the watch. `source` is required. An add-on page reads them with `sdk.reminders.list()`. |
 

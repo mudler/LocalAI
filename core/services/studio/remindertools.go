@@ -454,7 +454,7 @@ func (h *Triggers) planReminder(ctx context.Context, w triggers.Trigger, in Remi
 		if in.ChatID != "" {
 			if f, ok := h.thingFacts(ctx, in.ChatID, key); ok {
 				rem.Title, rem.Zone, rem.AllDay, rem.Stamp = f.Title, f.Zone, f.AllDay, f.Stamp
-				rem.Following = f.Following
+				rem.Following, rem.Repeats = f.Following, len(f.Following) > 0
 				if f.At != "" {
 					rem.Anchor, _ = time.Parse(time.RFC3339, f.At)
 				}
@@ -596,7 +596,9 @@ func (s *Service) cancelReminderTool(ctx context.Context, _ builtins.Chat, w tri
 	return "Cancelled.", nil
 }
 
-// CancelReminder removes the reminder of the watch w for an item.
+// CancelReminder removes the reminder of the watch w for an item. The delete
+// is not versioned: a change another frontend makes meanwhile goes with the
+// reminder, which is what a cancel asks for.
 func (h *Triggers) CancelReminder(ctx context.Context, w triggers.Trigger, key string) error {
 	r, err := h.o.Store.ReminderByKey(ctx, w.ID, strings.TrimSpace(key))
 	if err != nil {

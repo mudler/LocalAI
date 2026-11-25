@@ -428,19 +428,32 @@ func (h *Triggers) limitChanges(ctx context.Context, w triggers.Trigger, now tim
 }
 
 // tellAdvanced is Options.Advanced: one line in the watch's history and the
-// Inbox when the reminder of a repeating item moved to its next occurrence.
-func (h *Triggers) tellAdvanced(t triggers.Trigger) {
+// Inbox when the reminder of a repeating item moved to its next occurrence,
+// and when the occurrences the add-on gave run out, so a series never stops
+// without a word (the failure rules of the spec).
+func (h *Triggers) tellAdvanced(t triggers.Trigger, moved, last bool) {
 	ctx := context.Background()
 	w, err := h.o.Store.GetTrigger(ctx, t.Reminder.ParentID)
 	if err != nil {
 		return
 	}
 	now := h.o.Clock()
+	title := t.Reminder.Title
 	due, at := h.dueOf(w, t, now)
-	if due == "" {
+	var line watchText
+	switch {
+	case !moved:
+		line = watchSay(w, "seriesEnded", title, time.Time{},
+			fmt.Sprintf("No later time of %q is known, so it has no reminder now. A change of the item sets the next one.", title))
+	case due == "":
 		return
+	case last:
+		line = watchSay(w, "lastKnown", title, at,
+			fmt.Sprintf("Set the reminder for the next %q: %s. It is the last time known; a change of the item sets the ones after it.", title, due))
+	default:
+		line = watchSay(w, "next", title, at, fmt.Sprintf("Set the reminder for the next %q: %s.", title, due))
 	}
-	h.recordAction(ctx, w, now, watchSay(w, "next", t.Reminder.Title, at, fmt.Sprintf("Set the reminder for the next %q: %s.", t.Reminder.Title, due)))
+	h.recordAction(ctx, w, now, line)
 	h.Notify()
 }
 

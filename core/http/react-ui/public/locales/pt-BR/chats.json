@@ -870,7 +870,9 @@
         "wokenBy": "\"{{title}}\" mudou. Estou vendo se o lembrete ainda serve.",
         "missed": "Perdido: {{title}}. O servidor estava desligado na hora do lembrete.",
         "onHold": "O lembrete de \"{{title}}\" está em espera enquanto esta vigia está pausada.",
-        "dropped": "O lembrete de \"{{title}}\" foi removido com a vigia."
+        "dropped": "O lembrete de \"{{title}}\" foi removido com a vigia.",
+        "lastKnown": "Lembrete do próximo \"{{title}}\" definido: {{when}}. É a última data conhecida; uma alteração do item define as seguintes.",
+        "seriesEnded": "Nenhuma data posterior de \"{{title}}\" é conhecida, então ele está sem lembrete. Uma alteração do item define o próximo."
       }
     },
     "tabs": {

@@ -116,6 +116,7 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 
 var triggerRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "trigger not found", triggers.ErrNotFound),
+	fixed(http.StatusConflict, typeConflict, "the reminder changed meanwhile; try again", triggers.ErrConflict),
 	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadTrigger.Error()+": ", studiosvc.ErrBadTrigger),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrTooManyChanges, studiosvc.ErrChangeStale),
@@ -569,7 +570,7 @@ func changeOut(ctx context.Context, host *studiosvc.Triggers, v studiosvc.Change
 		out.LastRun = &r
 	}
 	if rc := v.Reminder; rc != nil {
-		out.Reminder = &schema.ChatsReminderChange{WatchID: rc.WatchID, WatchName: rc.WatchName, Title: rc.Title}
+		out.Reminder = &schema.ChatsReminderChange{WatchID: rc.WatchID, WatchName: rc.WatchName, WatchZone: rc.WatchZone, Title: rc.Title}
 		if rc.Before != nil {
 			b := reminderOut(*rc.Before)
 			out.Reminder.Before = &b

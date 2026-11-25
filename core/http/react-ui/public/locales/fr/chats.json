@@ -870,7 +870,9 @@
         "wokenBy": "« {{title}} » a changé. Je vérifie si son rappel convient encore.",
         "missed": "Manqué : {{title}}. Le serveur était arrêté à l'heure du rappel.",
         "onHold": "Le rappel de « {{title}} » attend tant que cette veille est en pause.",
-        "dropped": "Le rappel de « {{title}} » a été supprimé avec sa veille."
+        "dropped": "Le rappel de « {{title}} » a été supprimé avec sa veille.",
+        "lastKnown": "Rappel du prochain « {{title}} » mis : {{when}}. C'est la dernière date connue ; une modification de l'élément met les suivantes.",
+        "seriesEnded": "Aucune date suivante de « {{title}} » n'est connue, il n'a donc pas de rappel. Une modification de l'élément met le prochain."
       }
     },
     "tabs": {

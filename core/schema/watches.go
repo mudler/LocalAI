@@ -49,6 +49,7 @@ type ChatsWatchSources struct {
 type ChatsReminderChange struct {
 	WatchID   string         `json:"watch_id"`
 	WatchName string         `json:"watch_name,omitempty"`
+	WatchZone string         `json:"watch_zone,omitempty"`
 	Title     string         `json:"title"`
 	Before    *ChatsReminder `json:"before,omitempty"`
 	After     *ChatsReminder `json:"after,omitempty"`
