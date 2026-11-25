@@ -2,6 +2,8 @@ package p2pnet
 
 import (
 	"context"
+	"errors"
+	"net"
 	"path/filepath"
 	"strconv"
 
@@ -108,6 +110,29 @@ var _ = Describe("Redial of paired peers", func() {
 		return
 	}
 
+	// addrsOf returns an interface address source that lists ips.
+	addrsOf := func(ips ...string) func() ([]net.Addr, error) {
+		return func() ([]net.Addr, error) {
+			out := make([]net.Addr, 0, len(ips))
+			for _, ip := range ips {
+				out = append(out, &net.IPNet{IP: net.ParseIP(ip), Mask: net.CIDRMask(24, 32)})
+			}
+			return out, nil
+		}
+	}
+
+	// connectPaired connects server to client through the redialer and
+	// returns the direct connections between them.
+	connectPaired := func(server, client *Host) []network.Conn {
+		GinkgoHelper()
+		server.redial.cache.put(client.ID(), client.h.Addrs())
+		server.Redial(client.ID())
+		Eventually(func() network.Connectedness { return server.h.Network().Connectedness(client.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
+		conns := server.h.Network().ConnsToPeer(client.ID())
+		Expect(conns).ToNot(BeEmpty())
+		return conns
+	}
+
 	It("dials a paired peer at the cached address when it is not connected", func() {
 		server, client, _, _ := pairedPair()
 		server.redial.cache.put(client.ID(), client.h.Addrs())
@@ -156,5 +181,76 @@ var _ = Describe("Redial of paired peers", func() {
 		server.redial.cache.put(client.ID(), client.h.Addrs())
 		server.redial.addressesChanged()
 		Eventually(func() network.Connectedness { return server.h.Network().Connectedness(client.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
+	})
+	It("keeps the direct connections and still redials when the interface addresses cannot be read", func() {
+		server, connected, sg, _ := pairedPair()
+		conns := connectPaired(server, connected)
+
+		// A second paired peer that is cached but not connected.
+		cg2 := NewAllowlist()
+		waiting := newRedialHost(cg2)
+		sg.Allow(waiting.ID())
+		cg2.AllowConn(server.ID())
+		server.redial.cache.put(waiting.ID(), waiting.h.Addrs())
+		Expect(server.h.Network().Connectedness(waiting.ID())).ToNot(Equal(network.Connected))
+
+		server.redial.interfaceAddrs = func() ([]net.Addr, error) {
+			return nil, errors.New("route ip+net: netlinkrib: permission denied")
+		}
+
+		server.redial.addressesChanged()
+
+		Eventually(func() network.Connectedness { return server.h.Network().Connectedness(waiting.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
+		Consistently(func() bool {
+			for _, c := range conns {
+				if c.IsClosed() {
+					return true
+				}
+			}
+			return false
+		}, "500ms", "50ms").Should(BeFalse(), "a failed lookup is not a lost address")
+		Expect(server.h.Network().Connectedness(connected.ID())).To(Equal(network.Connected))
+	})
+
+	// The test hosts listen on loopback, which localIPs never reports, so
+	// their connections count as using an address the host no longer has.
+	DescribeTable("closes the direct connections on an address this host no longer has, then redials",
+		func(source func() ([]net.Addr, error)) {
+			server, client, _, _ := pairedPair()
+			conns := connectPaired(server, client)
+			server.redial.interfaceAddrs = source
+
+			server.redial.addressesChanged()
+
+			for _, c := range conns {
+				Eventually(c.IsClosed, "5s", "50ms").Should(BeTrue())
+			}
+			Eventually(func() network.Connectedness { return server.h.Network().Connectedness(client.ID()) }, "10s", "50ms").Should(Equal(network.Connected))
+		},
+		Entry("an address list without the connection's IP", addrsOf("192.0.2.1")),
+		Entry("an empty address list", addrsOf()),
+	)
+})
+
+var _ = Describe("Local IPs of the redialer", func() {
+	It("keeps the non-loopback addresses of the interfaces", func() {
+		r := &redialer{interfaceAddrs: func() ([]net.Addr, error) {
+			return []net.Addr{
+				&net.IPNet{IP: net.ParseIP("192.0.2.7"), Mask: net.CIDRMask(24, 32)},
+				&net.IPNet{IP: net.ParseIP("127.0.0.1"), Mask: net.CIDRMask(8, 32)},
+				&net.IPAddr{IP: net.ParseIP("192.0.2.9")}, // not an *net.IPNet: ignored
+			}, nil
+		}}
+		ips, err := r.localIPs()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ips).To(Equal(map[string]bool{"192.0.2.7": true}))
+	})
+
+	It("returns the error of the lookup, not an empty set", func() {
+		lookupErr := errors.New("netlinkrib: permission denied")
+		r := &redialer{interfaceAddrs: func() ([]net.Addr, error) { return nil, lookupErr }}
+		ips, err := r.localIPs()
+		Expect(err).To(MatchError(lookupErr))
+		Expect(ips).To(BeNil())
 	})
 })
