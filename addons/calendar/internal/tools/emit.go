@@ -29,12 +29,12 @@ type Emitter interface {
 // is the start of the next occurrence that has not begun (RFC 3339): the time
 // a reminder is for. It is absent when no occurrence is left.
 type eventPayload struct {
-	ID        string        `json:"id"`
-	Title     string        `json:"title"`
-	Next      string        `json:"next,omitempty"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Next  string `json:"next,omitempty"`
 	// Following are the starts of the occurrences after next, for a
 	// repeating event: the host moves a reminder on to them by itself.
-	Following []string `json:"following,omitempty"`
+	Following []string      `json:"following,omitempty"`
 	Start     string        `json:"start,omitempty"`
 	End       string        `json:"end,omitempty"`
 	AllDay    bool          `json:"allDay"`
