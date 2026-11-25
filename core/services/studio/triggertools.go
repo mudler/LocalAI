@@ -601,7 +601,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	} else if d := args.Delivery; d != nil {
 		// A chat in Studio may name a connection of the owner; every check of a
 		// channel runs now, while the person is there to hear the reason.
-		if in.Route, err = h.checkStudioDelivery(ctx, c, studioDeliveryArgs{Target: d.Target, Connection: d.Connection, Channel: d.Channel, Mode: d.Mode}); err != nil {
+		if in.Route, err = h.checkStudioDelivery(ctx, chatAsker(c), studioDeliveryArgs{Target: d.Target, Connection: d.Connection, Channel: d.Channel, Mode: d.Mode}); err != nil {
 			return "", err
 		}
 	}

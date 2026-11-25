@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Permessi"
+        "acts": "Permessi",
+        "delivery": "Report"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "Il nome di una cartella non può contenere \"..\".",
         "outside": "Questo agente può osservare solo cartelle all’interno delle proprie: {{folders}}.",
         "noFolders": "Questo agente non ha alcuna cartella utilizzabile. Scegli una cartella nelle impostazioni dell’agente."
+      },
+      "delivery": {
+        "now": "Ora invia i report a",
+        "where": "Dove inviare i report",
+        "mode": "Quando inviarli",
+        "always": "A ogni esecuzione",
+        "keep": "Mantieni: {{place}}",
+        "origin": "La chat in cui è stato proposto",
+        "hint": "Sono elencati solo i canali che hai approvato nelle tue connessioni, su connessioni autorizzate a scrivere nei canali.",
+        "fromChat": "Questo trigger è stato proposto in una chat di un'app di messaggistica: i suoi report restano su quella connessione.",
+        "loadFailed": "Impossibile leggere le connessioni: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "disattivata",
+          "addon_off": "il suo add-on non è in esecuzione",
+          "tool_only": "un servizio per gli strumenti, non può ricevere report",
+          "talkback_off": "non autorizzata a scrivere nei canali",
+          "no_channel": "nessun canale approvato"
+        }
       }
     },
     "subtitle": "Avvia un agente secondo un orario o quando arriva un file. Ogni esecuzione è una chat che puoi aprire.",

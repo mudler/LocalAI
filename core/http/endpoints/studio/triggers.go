@@ -107,6 +107,9 @@ func triggerIn(req schema.ChatsTriggerWrite) (studiosvc.TriggerInput, error) {
 	if req.Plan != nil {
 		in.Reads, in.Writes, in.Widget = req.Plan.Reads, req.Plan.Writes, req.Plan.Widget
 	}
+	if d := req.Delivery; d != nil {
+		in.Delivery = &studiosvc.DeliveryPatch{Target: d.Target, Mode: d.Mode, Channel: d.Channel, Connection: d.Connection}
+	}
 	return in, nil
 }
 
@@ -148,7 +151,7 @@ func (h *Handlers) ListTriggers(c echo.Context) error {
 
 // CreateTrigger creates a trigger.
 // @Summary Create a trigger.
-// @Description kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go.
+// @Description kind is schedule (schedule: "daily 08:00", "weekdays 09:30", "weekly mon,thu 09:30", "monthly 15 08:00", "once 2026-12-24 18:00" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go. delivery sets where the runs report (the Inbox when left out): a channel of one of your connections, from GET /api/chats/triggers/destinations.
 // @Tags chats
 // @Param request body schema.ChatsTriggerWrite true "the trigger"
 // @Success 201 {object} schema.ChatsTriggerCreated "The trigger, with its secret when it is an event trigger"
@@ -176,6 +179,37 @@ func (h *Handlers) CreateTrigger(c echo.Context) error {
 	}
 	out := schema.ChatsTriggerCreated{ChatsTrigger: triggerOut(c.Request().Context(), host, t, false), Secret: t.Secret}
 	return c.JSON(http.StatusCreated, out)
+}
+
+// TriggerDestinations lists where a trigger can report.
+// @Summary List where a trigger can report.
+// @Description Your messaging connections, with the channels you approved for each one that can receive the report of a trigger now. Pass agent_id, the agent the trigger runs as, because the permission to write in channels can depend on it. Pass trigger, the id of the trigger you edit, to mark the channel it reports to now (current); a trigger that a chat of a messaging app proposed lists only its own connection, with from_chat set. Use an id from here in delivery on POST or PUT /api/chats/triggers. No credential or sender is listed.
+// @Tags chats
+// @Param agent_id query string false "the agent the trigger runs as"
+// @Param trigger query string false "the id of the trigger you edit"
+// @Success 200 {object} schema.ChatsTriggerDestinations "Your connections as places for reports"
+// @Failure 404 {object} schema.ErrorResponse "No such trigger"
+// @Router /api/chats/triggers/destinations [get]
+func (h *Handlers) TriggerDestinations(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	d, err := host.Destinations(c.Request().Context(), userID(c), c.QueryParam("agent_id"), c.QueryParam("trigger"))
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	out := schema.ChatsTriggerDestinations{Connections: make([]schema.ChatsTriggerDestination, 0, len(d.Connections)), FromChat: d.FromChat, ConnectorsOff: d.ConnectorsOff}
+	for _, x := range d.Connections {
+		row := schema.ChatsTriggerDestination{ID: x.ID, Kind: x.Kind, KindTitle: x.KindTitle, Addon: x.Addon, Name: x.Name, Enabled: x.Enabled,
+			CanReceiveReports: x.CanReceiveReports, TalkbackAllowed: x.TalkbackAllowed, Reason: x.Reason,
+			Channels: make([]schema.ChatsTriggerDestinationChannel, 0, len(x.Channels))}
+		for _, ch := range x.Channels {
+			row.Channels = append(row.Channels, schema.ChatsTriggerDestinationChannel{ID: ch.ID, Label: ch.Label, Current: ch.Current})
+		}
+		out.Connections = append(out.Connections, row)
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // RotateTriggerSecret makes a new secret for an event trigger.
@@ -220,7 +254,7 @@ func (h *Handlers) GetTrigger(c echo.Context) error {
 
 // UpdateTrigger replaces a trigger.
 // @Summary Replace a trigger.
-// @Description The body replaces every field. A change of when it runs, or switching it on, means it runs nothing for the time before the change.
+// @Description The body replaces every field, except delivery: leave it out to keep where the trigger reports, or send it to move the reports (target inbox clears a channel). A new place is checked as on create; the same place with another mode is not checked again. A change of when it runs, or switching it on, means it runs nothing for the time before the change.
 // @Tags chats
 // @Param id path string true "the trigger's id"
 // @Param request body schema.ChatsTriggerWrite true "the trigger"

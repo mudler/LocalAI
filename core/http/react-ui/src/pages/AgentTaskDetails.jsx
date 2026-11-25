@@ -38,6 +38,9 @@ import ReportsTo from '../components/agents/ReportsTo'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import EventHook, { EventSentence } from '../components/chat/EventHook'
 import { useAddonIcons } from '../hooks/useAddonIcons'
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+import DeliveryField from '../components/agents/DeliveryField'
+import { deliveryChoice, deliveryModeLabel, deliveryOptionLabel, deliveryOptions, deliveryPayload, unusableConnections } from '../utils/triggerDelivery'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import SideSheet from '../components/SideSheet'
@@ -279,6 +282,7 @@ const SECTIONS = [
   { id: 'basics', keys: ['name', 'agent_id', 'model', 'enabled'] },
   { id: 'prompt', keys: ['prompt'] },
   { id: 'schedule', keys: ['kind', 'schedule', 'time_zone', 'folder', 'quiet_seconds', 'source', 'event_type', 'matches'] },
+  { id: 'delivery', keys: ['delivery'] },
   { id: 'acts', keys: ['acts'] },
   { id: 'limits', keys: ['daily_cap', 'run_limit'] },
 ]
@@ -484,6 +488,15 @@ function TaskForm({ id, isNew }) {
   const location = useLocation()
   const [next, setNext] = useState({ text: '', error: '' })
   const initial = useRef(isNew ? triggerPayload(emptyTrigger()) : null)
+  // Where the runs report. The stored trigger shows where it reports now; the
+  // choice starts there, and only a changed choice is sent, so a save that
+  // leaves it alone keeps the place as it is.
+  const [stored, setStored] = useState(null)
+  const [delivery, setDelivery] = useState(() => deliveryChoice(null))
+  const initialDelivery = useRef(deliveryChoice(null))
+  const [destinations, setDestinations] = useState(null)
+  const [destError, setDestError] = useState(null)
+  const icons = useAddonIcons()
 
   useEffect(() => {
     // Suggestions are best effort.
@@ -500,6 +513,9 @@ function TaskForm({ id, isNew }) {
         const loaded = triggerForm(found)
         initial.current = triggerPayload(loaded)
         setTask(loaded)
+        setStored(found)
+        initialDelivery.current = deliveryChoice(found)
+        setDelivery(deliveryChoice(found))
       } else {
         addToast(t('jobs.task.missingTitle'), 'error')
       }
@@ -550,8 +566,38 @@ function TaskForm({ id, isNew }) {
     return () => { live = false; clearTimeout(timer) }
   }, [previewText, previewZone, t])
 
-  const payload = useMemo(() => triggerPayload(task), [task])
-  const diff = diffConfig(initial.current || {}, payload).map(d => ({ key: d.key, before: show(d.before), after: show(d.after) }))
+  // The places this trigger can report to, for the agent it runs as: the
+  // permission to write in channels can depend on the agent.
+  const destAgent = task.agentId
+  useEffect(() => {
+    if (loading) return undefined
+    let live = true
+    chatTriggersApi.destinations(destAgent, isNew ? undefined : id)
+      .then((r) => { if (live) { setDestinations(r); setDestError(null) } })
+      .catch((e) => { if (live) setDestError(e) })
+    return () => { live = false }
+  }, [destAgent, id, isNew, loading])
+  const fromChat = !!destinations?.from_chat
+  const keepable = stored?.delivery?.target === 'channel'
+  const options = useMemo(() => deliveryOptions(destinations, { keepable }), [destinations, keepable])
+  // A choice that the list no longer offers (the agent changed) falls back to where it started.
+  const choice = options.some((o) => o.key === delivery.key) || !destinations ? delivery : { ...delivery, key: initialDelivery.current.key }
+  const deliveryBody = deliveryPayload(choice, initialDelivery.current, { fromChat })
+  const choiceText = (c) => {
+    const o = options.find((x) => x.key === c.key) || { kind: c.key === 'keep' ? 'keep' : c.key }
+    const where = deliveryOptionLabel(o, stored, t)
+    return c.mode === 'always' ? where : `${where} · ${deliveryModeLabel(c.mode, t)}`
+  }
+
+  const payload = useMemo(() => {
+    const body = triggerPayload(task)
+    if (deliveryBody) body.delivery = deliveryBody
+    return body
+    // deliveryBody is a new object each render; its JSON is the dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task, JSON.stringify(deliveryBody)])
+  const diff = diffConfig(initial.current || {}, { ...payload, delivery: undefined }).map(d => ({ key: d.key, before: show(d.before), after: show(d.after) }))
+  if (deliveryBody) diff.push({ key: 'delivery', before: choiceText(initialDelivery.current), after: choiceText(choice) })
   const changedKeys = new Set(diff.map(d => d.key))
   const changed = (section) => (initial.current ? section.keys.filter(k => changedKeys.has(k)).length : 0)
   const dirty = !!initial.current && diff.length > 0
@@ -607,6 +653,7 @@ function TaskForm({ id, isNew }) {
       }
       return { state: 'ready', text: scheduleText(task.schedule) }
     }
+    if (sid === 'delivery') return { state: 'ready', text: choiceText(choice) }
     if (sid === 'acts') {
       if (status.readOnly) return { state: 'ready', text: t('chats:triggerActs.readOnly') }
       return { state: 'ready', text: t('jobs.edit.summary.acts', { count: status.held.length }) }
@@ -760,6 +807,12 @@ function TaskForm({ id, isNew }) {
           {next.text && <p className="aj-words" data-testid="trigger-preview">{next.text}</p>}
           {next.error && <p className="dk-field-error" role="alert">{next.error}</p>}
         </div>
+      )
+    }
+    if (sid === 'delivery') {
+      return (
+        <DeliveryField value={choice} onChange={setDelivery} options={options} unusable={unusableConnections(destinations)}
+          trigger={stored} fromChat={fromChat} error={destError} icons={icons} />
       )
     }
     if (sid === 'acts') {

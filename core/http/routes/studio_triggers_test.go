@@ -22,6 +22,7 @@ var _ = Describe("Chats triggers endpoints", func() {
 		Entry("list", http.MethodGet, "/api/chats/triggers"),
 		Entry("create", http.MethodPost, "/api/chats/triggers"),
 		Entry("preview", http.MethodGet, "/api/chats/triggers/preview?when=daily+08:00"),
+		Entry("destinations", http.MethodGet, "/api/chats/triggers/destinations"),
 		Entry("proposals", http.MethodGet, "/api/chats/triggers/proposals"),
 		Entry("confirm", http.MethodPost, "/api/chats/triggers/proposals/p1/confirm"),
 		Entry("dismiss", http.MethodDelete, "/api/chats/triggers/proposals/p1"),

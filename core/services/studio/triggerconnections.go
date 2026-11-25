@@ -44,6 +44,8 @@ type connectionRow struct {
 	TalkbackAllowed  bool                `json:"talkback_allowed"`
 	Channels         []connectionChannel `json:"channels,omitempty"`
 	Why              string              `json:"why,omitempty"`
+	// addon and reason are for the trigger form, not for the model.
+	addon, reason string
 }
 
 // kindCanReceive says whether bindings of a kind can be the destination of a
@@ -117,16 +119,35 @@ func (h *Triggers) connectionName(ctx context.Context, id string) string {
 	return ""
 }
 
-// listConnectionsTool answers list_connections for the owner of the chat.
-func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (string, error) {
+// Reasons why a connection of the owner cannot receive the report of a
+// trigger, for a screen. The model reads the sentence of connectionRow.Why.
+const (
+	// DestinationOff: the owner switched the connection off.
+	DestinationOff = "off"
+	// DestinationAddonOff: the add-on of the connection does not run.
+	DestinationAddonOff = "addon_off"
+	// DestinationToolOnly: the connection is a service that agents only use as
+	// a tool.
+	DestinationToolOnly = "tool_only"
+	// DestinationTalkbackOff: the owner does not let the connection write in
+	// channels, or talk-back is off on this server.
+	DestinationTalkbackOff = "talkback_off"
+	// DestinationNoChannel: the owner approved no channel for the connection.
+	DestinationNoChannel = "no_channel"
+)
+
+// connectionRows lists the connections of owner as destinations of a report of
+// a trigger that runs as agentID. list_connections and the trigger form both
+// read it, so the model and the owner see the same rules.
+func (h *Triggers) connectionRows(ctx context.Context, owner, agentID string) ([]connectionRow, error) {
 	conns := h.svc.connectors
 	if conns == nil {
-		return "", errors.New("connections to messaging apps are off on this server")
+		return nil, errors.New("connections to messaging apps are off on this server")
 	}
-	owner := principal(c.Actor.Principal)
+	owner = principal(owner)
 	all, err := conns.o.Store.ListBindings(ctx, owner)
 	if err != nil {
-		return "", errors.New("the connections could not be read")
+		return nil, errors.New("the connections could not be read")
 	}
 	rows := make([]connectionRow, 0, len(all))
 	for _, b := range all {
@@ -134,21 +155,21 @@ func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (st
 			continue
 		}
 		k := conns.kindOf(ctx, b)
-		row := connectionRow{ID: b.ID, Kind: b.Kind, Name: b.Name, Enabled: b.Enabled, CanReceiveReport: conns.canReceiveReports(ctx, b)}
+		row := connectionRow{ID: b.ID, Kind: b.Kind, Name: b.Name, Enabled: b.Enabled, CanReceiveReport: conns.canReceiveReports(ctx, b), addon: b.AddonID}
 		if k != nil {
 			row.KindTitle = k.Title
 		}
 		switch {
 		case k == nil:
-			row.Why = "the add-on of this connection is not running"
+			row.Why, row.reason = "the add-on of this connection is not running", DestinationAddonOff
 			row.CanReceiveReport = false
 		case !row.CanReceiveReport:
-			row.Why = "this connection is a service that agents use as a tool; it cannot receive a report"
+			row.Why, row.reason = "this connection is a service that agents use as a tool; it cannot receive a report", DestinationToolOnly
 		}
 		if row.CanReceiveReport {
-			row.TalkbackAllowed = h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: owner, Agent: c.AgentID})
+			row.TalkbackAllowed = h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: owner, Agent: agentID})
 			if !row.TalkbackAllowed {
-				row.Why = "the owner does not let this connection write in channels, or talk-back is off on this server"
+				row.Why, row.reason = "the owner does not let this connection write in channels, or talk-back is off on this server", DestinationTalkbackOff
 			} else {
 				for _, ch := range b.Channels {
 					if ch.Approved && len(row.Channels) < connectors.MaxChannels {
@@ -156,14 +177,23 @@ func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (st
 					}
 				}
 				if len(row.Channels) == 0 {
-					row.Why = "the owner approved no channel for this connection"
+					row.Why, row.reason = "the owner approved no channel for this connection", DestinationNoChannel
 				}
 			}
 		}
 		rows = append(rows, row)
 	}
 	slices.SortFunc(rows, func(a, b connectionRow) int { return strings.Compare(a.ID, b.ID) })
-	can, cannot := conns.receivingKinds(ctx)
+	return rows, nil
+}
+
+// listConnectionsTool answers list_connections for the owner of the chat.
+func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (string, error) {
+	rows, err := h.connectionRows(ctx, c.Actor.Principal, c.AgentID)
+	if err != nil {
+		return "", err
+	}
+	can, cannot := h.svc.connectors.receivingKinds(ctx)
 	out, _ := json.Marshal(map[string]any{
 		"connections":                    rows,
 		"how_to_use":                     "Pass delivery {target: \"channel\", connection: the id, channel: the id or the label of one of its channels} to propose_trigger or update_trigger. Only a connection with can_receive_reports, talkback_allowed and a channel qualifies.",
@@ -171,6 +201,90 @@ func (h *Triggers) listConnectionsTool(ctx context.Context, c builtins.Chat) (st
 		"service_only_kinds":             cannot,
 	})
 	return string(out), nil
+}
+
+// TriggerDestination is a connection of the owner as a place where the runs
+// of a trigger can report. Channels lists only the channels the owner
+// approved, and only when the connection can report there now.
+type TriggerDestination struct {
+	ID, Kind, KindTitle, Addon, Name string
+	Enabled, CanReceiveReports       bool
+	TalkbackAllowed                  bool
+	Channels                         []TriggerDestinationChannel
+	// Reason is one of the Destination* codes when no channel of the
+	// connection can be chosen, or "".
+	Reason string
+}
+
+// TriggerDestinationChannel is an approved channel of a connection. Current
+// says that the trigger asked about reports there now.
+type TriggerDestinationChannel struct {
+	ID, Label string
+	Current   bool
+}
+
+// TriggerDestinations is what the trigger form can choose from.
+type TriggerDestinations struct {
+	// Connections are the owner's connections. For a trigger that a messaging
+	// app proposed, only the connection that proposed it is listed: its
+	// reports stay on that connection.
+	Connections []TriggerDestination
+	// FromChat says that the trigger was proposed in a chat of a messaging
+	// app: it can report to that chat (target origin), to a channel of the
+	// same connection, or to the Inbox.
+	FromChat bool
+	// ConnectorsOff says that this server runs no connections at all.
+	ConnectorsOff bool
+}
+
+// Destinations lists where a trigger of user can report, for the trigger form.
+// agentID is the agent the trigger runs as (the capability check names it);
+// triggerID, when set, names the trigger being edited, which marks its
+// current channel and, for a trigger from a messaging app, keeps the list to
+// its own connection. Nothing here carries a credential or a sender.
+func (h *Triggers) Destinations(ctx context.Context, user, agentID, triggerID string) (TriggerDestinations, error) {
+	owner := principal(user)
+	var (
+		out     TriggerDestinations
+		current triggers.Route
+		edited  bool
+	)
+	if triggerID != "" {
+		t, err := h.owned(ctx, owner, triggerID)
+		if err != nil {
+			return TriggerDestinations{}, err
+		}
+		current, edited = t.Route, true
+		out.FromChat = t.Route.FromConnector()
+		if agentID == "" {
+			agentID = t.AgentID
+		}
+	}
+	if h.svc.connectors == nil {
+		out.ConnectorsOff = true
+		return out, nil
+	}
+	rows, err := h.connectionRows(ctx, owner, agentID)
+	if err != nil {
+		return TriggerDestinations{}, err
+	}
+	for _, r := range rows {
+		if out.FromChat && r.ID != current.Binding {
+			continue
+		}
+		d := TriggerDestination{ID: r.ID, Kind: r.Kind, KindTitle: r.KindTitle, Addon: r.addon, Name: r.Name, Enabled: r.Enabled,
+			CanReceiveReports: r.CanReceiveReport, TalkbackAllowed: r.TalkbackAllowed, Reason: r.reason}
+		if !r.Enabled && d.Reason == "" {
+			// Setting a channel of a connection that is off is refused.
+			d.Reason, r.Channels = DestinationOff, nil
+		}
+		for _, ch := range r.Channels {
+			cur := edited && current.TargetOrDefault() == triggers.TargetChannel && current.ChannelBinding() == r.ID && current.Channel == ch.ID
+			d.Channels = append(d.Channels, TriggerDestinationChannel{ID: ch.ID, Label: ch.Label, Current: cur})
+		}
+		out.Connections = append(out.Connections, d)
+	}
+	return out, nil
 }
 
 // destinationNote ends the descriptions of propose_trigger and update_trigger in
@@ -207,7 +321,7 @@ type studioDeliveryArgs struct {
 // is on, whose kind can receive a report, that the owner lets write in channels,
 // and for a channel the owner approved: the same rules as a trigger from a
 // messaging app, plus the first three.
-func (h *Triggers) checkStudioDelivery(ctx context.Context, c builtins.Chat, d studioDeliveryArgs) (triggers.Route, error) {
+func (h *Triggers) checkStudioDelivery(ctx context.Context, a deliveryAsker, d studioDeliveryArgs) (triggers.Route, error) {
 	switch d.Mode {
 	case "", triggers.ModeAlways, triggers.ModeOnChange, triggers.ModeOnProblem:
 	default:
@@ -227,7 +341,7 @@ func (h *Triggers) checkStudioDelivery(ctx context.Context, c builtins.Chat, d s
 	default:
 		return triggers.Route{}, errors.New(`delivery.target must be "inbox" or "channel"`)
 	}
-	id, err := h.checkConnectionChannel(ctx, c, d.Connection, d.Channel)
+	id, err := h.checkConnectionChannel(ctx, a, d.Connection, d.Channel)
 	if err != nil {
 		return triggers.Route{}, err
 	}
@@ -239,7 +353,7 @@ func (h *Triggers) checkStudioDelivery(ctx context.Context, c builtins.Chat, d s
 // one of the owner's, on, of a kind that can receive a report, allowed to write
 // in channels, and channel must be one that the owner approved. It returns the
 // ID of the channel.
-func (h *Triggers) checkConnectionChannel(ctx context.Context, c builtins.Chat, connection, channel string) (string, error) {
+func (h *Triggers) checkConnectionChannel(ctx context.Context, a deliveryAsker, connection, channel string) (string, error) {
 	conns := h.svc.connectors
 	if conns == nil {
 		return "", errors.New("connections to messaging apps are off on this server")
@@ -247,7 +361,7 @@ func (h *Triggers) checkConnectionChannel(ctx context.Context, c builtins.Chat, 
 	if strings.TrimSpace(connection) == "" {
 		return "", errors.New("delivery.connection is needed with the target channel: call list_connections and pass the id of a connection that can receive reports")
 	}
-	owner := principal(c.Actor.Principal)
+	owner := principal(a.Owner)
 	b, ok := conns.ownBinding(ctx, owner, connection)
 	if !ok {
 		return "", fmt.Errorf("%q is not one of the user's connections; call list_connections and use an id from it", connection)
@@ -263,14 +377,14 @@ func (h *Triggers) checkConnectionChannel(ctx context.Context, c builtins.Chat, 
 	if !b.Enabled {
 		return "", fmt.Errorf("the connection %q is switched off, so it cannot receive a report; tell the user to switch it on or choose another", b.Name)
 	}
-	if !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: owner, Agent: c.AgentID}) {
+	if !h.svc.allowCap(ctx, CapabilityRequest{Capability: contract.CapTalkbackChannels, Binding: b.ID, Owner: owner, Agent: a.Agent}) {
 		return "", fmt.Errorf("the owner does not let the connection %q write in channels, or talk-back is off on this server, so a trigger cannot report there; keep the Inbox", b.Name)
 	}
-	return h.checkChannelTargetOf(ctx, c, b.ID, channel)
+	return h.checkChannelTargetOf(ctx, a, b.ID, channel)
 }
 
 // checkStudioPatch is checkChangedDelivery for a trigger made in Studio.
-func (h *Triggers) checkStudioPatch(ctx context.Context, c builtins.Chat, target triggers.Trigger, kind, mode, channel, connection string) (*DeliveryPatch, error) {
+func (h *Triggers) checkStudioPatch(ctx context.Context, a deliveryAsker, target triggers.Trigger, kind, mode, channel, connection string) (*DeliveryPatch, error) {
 	if kind == "" && mode == "" && channel == "" && connection == "" {
 		return nil, errors.New("delivery needs a target, a connection and a channel, or a mode")
 	}
@@ -287,13 +401,13 @@ func (h *Triggers) checkStudioPatch(ctx context.Context, c builtins.Chat, target
 		return nil, errors.New("delivery.target origin is for a trigger that a messaging app proposed; here use inbox, or channel with a connection")
 	case eff != triggers.TargetChannel:
 		// inbox: the target and the mode go through the proposal checks.
-		if _, err := h.checkStudioDelivery(ctx, c, studioDeliveryArgs{Target: kind, Mode: mode}); err != nil {
+		if _, err := h.checkStudioDelivery(ctx, a, studioDeliveryArgs{Target: kind, Mode: mode}); err != nil {
 			return nil, err
 		}
 	case kind == "" && connection == "" && channel == "":
 		// Only the mode changes; the destination was checked when it was set and is
 		// checked again at each delivery.
-		if _, err := h.checkStudioDelivery(ctx, c, studioDeliveryArgs{Mode: mode}); err != nil {
+		if _, err := h.checkStudioDelivery(ctx, a, studioDeliveryArgs{Mode: mode}); err != nil {
 			return nil, err
 		}
 	default:
@@ -301,7 +415,7 @@ func (h *Triggers) checkStudioPatch(ctx context.Context, c builtins.Chat, target
 		if conn == "" {
 			conn = target.Route.Connection
 		}
-		r, err := h.checkStudioDelivery(ctx, c, studioDeliveryArgs{Target: triggers.TargetChannel, Connection: conn, Channel: channel, Mode: mode})
+		r, err := h.checkStudioDelivery(ctx, a, studioDeliveryArgs{Target: triggers.TargetChannel, Connection: conn, Channel: channel, Mode: mode})
 		if err != nil {
 			return nil, err
 		}

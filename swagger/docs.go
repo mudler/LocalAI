@@ -10820,7 +10820,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "kind is schedule (schedule: \"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go.",
+                "description": "kind is schedule (schedule: \"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields; time_zone: an IANA name), file (folder: a path inside your files) or event (source: the sender name; event_type and matches narrow the events it takes). It runs nothing for the time before it was saved. At most 50 triggers. The response to an event trigger has secret, the key that signs its events: it is shown here and when you rotate it, and never again. hook_path is where the events go. delivery sets where the runs report (the Inbox when left out): a channel of one of your connections, from GET /api/chats/triggers/destinations.",
                 "tags": [
                     "chats"
                 ],
@@ -10956,6 +10956,43 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "The change cannot be undone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/destinations": {
+            "get": {
+                "description": "Your messaging connections, with the channels you approved for each one that can receive the report of a trigger now. Pass agent_id, the agent the trigger runs as, because the permission to write in channels can depend on it. Pass trigger, the id of the trigger you edit, to mark the channel it reports to now (current); a trigger that a chat of a messaging app proposed lists only its own connection, with from_chat set. Use an id from here in delivery on POST or PUT /api/chats/triggers. No credential or sender is listed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List where a trigger can report.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the agent the trigger runs as",
+                        "name": "agent_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the id of the trigger you edit",
+                        "name": "trigger",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Your connections as places for reports",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerDestinations"
+                        }
+                    },
+                    "404": {
+                        "description": "No such trigger",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -11216,7 +11253,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field. A change of when it runs, or switching it on, means it runs nothing for the time before the change.",
+                "description": "The body replaces every field, except delivery: leave it out to keep where the trigger reports, or send it to move the reports (target inbox clears a channel). A new place is checked as on create; the same place with another mode is not checked again. A change of when it runs, or switching it on, means it runs nothing for the time before the change.",
                 "tags": [
                     "chats"
                 ],
@@ -38568,6 +38605,109 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsTriggerDeliveryWrite": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string"
+                },
+                "connection": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "on_change",
+                        "on_problem"
+                    ]
+                },
+                "target": {
+                    "type": "string",
+                    "enum": [
+                        "inbox",
+                        "channel",
+                        "origin"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsTriggerDestination": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "can_receive_reports": {
+                    "type": "boolean"
+                },
+                "channels": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsTriggerDestinationChannel"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "kind_title": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "addon_off",
+                        "tool_only",
+                        "talkback_off",
+                        "no_channel"
+                    ]
+                },
+                "talkback_allowed": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsTriggerDestinationChannel": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTriggerDestinations": {
+            "type": "object",
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsTriggerDestination"
+                    }
+                },
+                "connectors_off": {
+                    "type": "boolean"
+                },
+                "from_chat": {
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.ChatsTriggerList": {
             "type": "object",
             "properties": {
@@ -38697,6 +38837,14 @@ const docTemplate = `{
                 },
                 "daily_cap": {
                     "type": "integer"
+                },
+                "delivery": {
+                    "description": "Delivery is where the runs report. Leave it out to keep where the\ntrigger reports now (the Inbox for a new trigger); {\"target\": \"inbox\"}\nsends the reports back to the Inbox. It is refused on a proposal.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTriggerDeliveryWrite"
+                        }
+                    ]
                 },
                 "enabled": {
                     "type": "boolean"

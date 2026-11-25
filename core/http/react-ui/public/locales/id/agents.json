@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Izin"
+        "acts": "Izin",
+        "delivery": "Laporan"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "Nama folder tidak boleh berisi \"..\".",
         "outside": "Agen ini hanya dapat memantau folder di dalam foldernya sendiri: {{folders}}.",
         "noFolders": "Agen ini tidak punya folder yang dapat dipakai. Pilih folder di pengaturan agen."
+      },
+      "delivery": {
+        "now": "Saat ini melapor ke",
+        "where": "Tempat laporan dikirim",
+        "mode": "Kapan melapor",
+        "always": "Setiap kali berjalan",
+        "keep": "Pertahankan: {{place}}",
+        "origin": "Chat tempat pemicu ini diusulkan",
+        "hint": "Hanya kanal yang Anda setujui pada koneksi Anda yang ditampilkan, pada koneksi yang diizinkan menulis di kanal.",
+        "fromChat": "Pemicu ini diusulkan di chat aplikasi pesan: laporannya tetap di koneksi itu.",
+        "loadFailed": "Koneksi tidak dapat dibaca: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "dimatikan",
+          "addon_off": "add-on-nya tidak berjalan",
+          "tool_only": "layanan untuk alat, tidak dapat menerima laporan",
+          "talkback_off": "tidak diizinkan menulis di kanal",
+          "no_channel": "tidak ada kanal yang disetujui"
+        }
       }
     },
     "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka.",

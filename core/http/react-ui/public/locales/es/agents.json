@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "Permisos"
+        "acts": "Permisos",
+        "delivery": "Informes"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "El nombre de una carpeta no puede contener \"..\".",
         "outside": "Este agente solo puede vigilar carpetas dentro de las suyas: {{folders}}.",
         "noFolders": "Este agente no tiene ninguna carpeta utilizable. Elige una carpeta en los ajustes del agente."
+      },
+      "delivery": {
+        "now": "Ahora informa a",
+        "where": "Dónde informan las ejecuciones",
+        "mode": "Cuándo informar",
+        "always": "En cada ejecución",
+        "keep": "Mantener: {{place}}",
+        "origin": "El chat donde se propuso",
+        "hint": "Solo se muestran los canales que aprobaste en tus conexiones, en conexiones que pueden escribir en canales.",
+        "fromChat": "Este disparador se propuso en un chat de una app de mensajería: sus informes se quedan en esa conexión.",
+        "loadFailed": "No se pudieron leer las conexiones: {{message}}",
+        "unusable": "{{name}}: {{reason}}",
+        "reason": {
+          "off": "desactivada",
+          "addon_off": "su complemento no está en ejecución",
+          "tool_only": "un servicio para herramientas, no puede recibir informes",
+          "talkback_off": "no puede escribir en canales",
+          "no_channel": "ningún canal aprobado"
+        }
       }
     },
     "subtitle": "Inicia un agente según un horario o cuando llega un archivo. Cada ejecución es un chat que puedes abrir.",

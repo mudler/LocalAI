@@ -107,13 +107,16 @@ func (c *Connectors) checkDestination(ctx context.Context, owner, agentID, conne
 // ownerSend is one message to a channel of a connection of the owner.
 type ownerSend struct {
 	Owner, Agent, Connection, Channel, Thread, Text string
-	// Kind is SendStudio or SendLoopReport, for the audit.
+	// Kind is SendStudio, SendTriggerRun or SendLoopReport, for the audit.
 	Kind string
 	// Limit is the key of a rate limit to take once the destination passed; empty:
 	// none.
 	Limit string
 	// OnFail is called when a message that waited in the queue is not sent.
 	OnFail func(error)
+	// OnSent, when set, is called with the destination once the message was
+	// sent or queued, so the caller can say where it went.
+	OnSent func(b connectors.Binding, ch connectors.Channel, queued bool)
 }
 
 // errSendRate is the refusal of the per-chat limit.
@@ -146,6 +149,9 @@ func (c *Connectors) sendToOwner(ctx context.Context, o ownerSend) (queued bool,
 		err = errors.New("too many messages wait to be sent; try later")
 	case err != nil:
 		err = fmt.Errorf("the message was not sent: %w", err)
+	}
+	if err == nil && o.OnSent != nil {
+		o.OnSent(b, ch, queued)
 	}
 	return queued, err
 }

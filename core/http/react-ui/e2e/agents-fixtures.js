@@ -132,6 +132,8 @@ export const DRAFT_TOOLS = {
 export async function installAgents(page, {
   agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
   models, collections = ['handbook', 'notes'], bindings = [], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
+  // Where a trigger can report: the answer of GET /api/chats/triggers/destinations.
+  destinations = { connections: [] },
 } = {}) {
   await mockChat(page, { models })
   const s = {
@@ -298,6 +300,11 @@ export async function installAgents(page, {
       return route.fulfill({ status: 201, json: t })
     }
     return route.fulfill({ json: { triggers: s.triggers } })
+  })
+  // Registered last, so it wins over the route of one trigger.
+  await page.route(/\/api\/chats\/triggers\/destinations(\?.*)?$/, route => {
+    rec(route.request())
+    return route.fulfill({ json: destinations })
   })
 
   // Skills.

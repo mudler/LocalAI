@@ -558,7 +558,8 @@
         "prompt": "What to do",
         "schedule": "When",
         "limits": "Limits",
-        "acts": "权限"
+        "acts": "权限",
+        "delivery": "报告"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -602,6 +603,25 @@
         "dots": "文件夹名称不能包含“..”。",
         "outside": "此智能体只能监视其自身文件夹内的文件夹：{{folders}}。",
         "noFolders": "此智能体没有可用的文件夹。请在智能体设置中选择文件夹。"
+      },
+      "delivery": {
+        "now": "当前报告到",
+        "where": "运行结果报告到",
+        "mode": "何时报告",
+        "always": "每次运行",
+        "keep": "保留：{{place}}",
+        "origin": "提出它的聊天",
+        "hint": "只列出你在连接中批准的频道，且该连接允许在频道中发言。",
+        "fromChat": "此触发器是在消息应用的聊天中提出的：它的报告留在该连接上。",
+        "loadFailed": "无法读取连接：{{message}}",
+        "unusable": "{{name}}：{{reason}}",
+        "reason": {
+          "off": "已关闭",
+          "addon_off": "其插件未运行",
+          "tool_only": "仅供工具使用的服务，无法接收报告",
+          "talkback_off": "不允许在频道中发言",
+          "no_channel": "没有已批准的频道"
+        }
       }
     },
     "subtitle": "按计划或在文件到达时启动智能体。每次运行都是一个可以打开的聊天。",

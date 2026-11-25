@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { installAgents } from './agents-fixtures.js'
+import { installAgents, TRIGGERS } from './agents-fixtures.js'
 
 // The triggers pages: the list with its history, a trigger, and the form.
 
@@ -215,6 +215,63 @@ test.describe('Trigger form', () => {
     await page.getByTestId('task-preview').getByRole('button', { name: 'Save trigger' }).click()
     await expect(page).toHaveURL(/\/app\/triggers$/)
     expect(s.calls.find(c => c.method === 'PUT')).toMatchObject({ url: '/api/chats/triggers/t1', body: { name: 'Morning digest 2', schedule: 'weekdays 09:00', agent_id: 'a1' } })
+  })
+
+  const DESTINATIONS = {
+    connections: [
+      { id: 'c1', kind: 'telegram', kind_title: 'Telegram', addon: 'telegram', name: 'Team bot', enabled: true, can_receive_reports: true, talkback_allowed: true,
+        channels: [{ id: '-100', label: 'General' }, { id: '-200', label: 'Ops' }] },
+      { id: 'c2', kind: 'code', name: 'Code host', enabled: true, can_receive_reports: false, talkback_allowed: false, channels: [], reason: 'tool_only' },
+    ],
+  }
+
+  test('moves the reports of a trigger to an approved channel, and sends the delivery only when it changed', async ({ page }) => {
+    const s = await installAgents(page, { destinations: DESTINATIONS })
+    await page.goto('/app/triggers/t1/edit')
+    const fold = page.locator('[data-section="delivery"]')
+    await expect(fold).toContainText('Inbox')
+    await fold.locator('.ag-fold__button').click()
+    await expect(page.getByTestId('aj-delivery').getByTestId('reports-to')).toHaveAttribute('data-kind', 'inbox')
+    await expect(page.getByTestId('aj-delivery-unusable')).toContainText('Code host (code): a service for tools')
+    const where = page.getByLabel('Where runs report')
+    await expect(where.locator('option')).toHaveText(['Inbox', 'Channel General', 'Channel Ops'])
+    expect(s.calls.find(c => c.url === '/api/chats/triggers/destinations')?.search).toContain('trigger=t1')
+    await where.selectOption({ label: 'Channel Ops' })
+    await page.getByLabel('When to report').selectOption('on_change')
+    await page.screenshot({ path: 'test-results/trigger-form-delivery.png', fullPage: true })
+    await page.getByTestId('task-preview-open').click()
+    await page.getByTestId('task-preview').getByRole('tab', { name: /Changes/ }).click()
+    await expect(page.getByTestId('task-preview-changes').locator('[data-key="delivery"]')).toContainText('Channel Ops')
+    await page.getByTestId('task-preview').getByRole('button', { name: 'Save trigger' }).click()
+    await expect(page).toHaveURL(/\/app\/triggers$/)
+    expect(s.calls.find(c => c.method === 'PUT').body.delivery).toEqual({ target: 'channel', connection: 'c1', channel: '-200', mode: 'on_change' })
+  })
+
+  test('leaves the delivery out of a save that does not touch it', async ({ page }) => {
+    const s = await installAgents(page, { destinations: DESTINATIONS })
+    await page.goto('/app/triggers/t1/edit')
+    await page.locator('[data-section="basics"] .ag-fold__button').click()
+    await page.getByLabel('Name', { exact: true }).fill('Renamed')
+    await page.getByRole('button', { name: 'Save trigger' }).first().click()
+    await expect(page).toHaveURL(/\/app\/triggers$/)
+    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('delivery')
+  })
+
+  test('keeps the channel a trigger reports to, or clears it back to the Inbox', async ({ page }) => {
+    const triggers = structuredClone(TRIGGERS)
+    triggers[0].delivery = { target: 'channel', channel_label: 'General', connection_name: 'Team bot', connection_kind_title: 'Telegram', connection_id: 'c1', state: 'ok', mode: 'always' }
+    const dest = structuredClone(DESTINATIONS)
+    dest.connections[0].channels[0].current = true
+    const s = await installAgents(page, { triggers, destinations: dest })
+    await page.goto('/app/triggers/t1/edit')
+    await page.locator('[data-section="delivery"] .ag-fold__button').click()
+    const where = page.getByLabel('Where runs report')
+    await expect(where.locator('option')).toHaveText(['Keep: Channel General - Team bot (Telegram)', 'Inbox', 'Channel Ops'])
+    await expect(where).toHaveValue('keep')
+    await where.selectOption({ label: 'Inbox' })
+    await page.getByRole('button', { name: 'Save trigger' }).first().click()
+    await expect(page).toHaveURL(/\/app\/triggers$/)
+    expect(s.calls.find(c => c.method === 'PUT').body.delivery).toEqual({ target: 'inbox', mode: 'always' })
   })
 
   test('sets the time limit of a run, shows it as a default when empty, and keeps it on save', async ({ page }) => {
