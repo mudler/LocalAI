@@ -6,6 +6,7 @@ import { useWellKnown } from '../../hooks/useWellKnown'
 import { widgetList } from '../../utils/wellKnown'
 import { plainSummary } from '../../utils/widgetTrigger'
 import { ActsSummary } from '../TriggerActs'
+import { offsetParts } from '../../utils/watch'
 import Icon from '../Icon'
 import { Button } from '../ui'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
@@ -59,16 +60,28 @@ function Plan({ p, t }) {
       ? t('proposal.plan.deliveryChannelIn', { channel: d.channel_label, connection: d.connection_name })
       : t('proposal.plan.deliveryChannel', { channel: d.channel_label })
   }
+  // When the runs speak up: a watch only when it adds something (it decides
+  // per item); any other trigger by its delivery mode.
   const mode = deliveryModeKey(d)
-  if (mode) delivery = `${delivery}. ${t(mode)}`
+  const tells = p.watch
+    ? t('proposal.plan.tellsWatch')
+    : t(mode === 'proposal.plan.deliveryModeOnChange' ? 'proposal.plan.tellsOnChange' : mode === 'proposal.plan.deliveryModeOnProblem' ? 'proposal.plan.tellsOnProblem' : 'proposal.plan.tellsEvery')
+  let does = firstSentence(p.prompt)
+  if (p.watch) {
+    const o = p.watch.no_default ? null : offsetParts(p.watch.offset_minutes)
+    const offset = o ? t(`watch.${o.key}`, { count: o.count }) : t('watch.none')
+    does = t('proposal.plan.doesWatch', { source: p.source, offset })
+  }
   const rows = [
     ['when', when],
+    does && ['does', does],
     ['runsAs', p.model ? t('proposal.plan.runsAsModel', { model: p.model }) : t('proposal.plan.runsAs')],
     p.plan?.reads && ['reads', p.plan.reads],
     p.plan?.writes && ['writes', widget
       ? <><code>{p.plan.writes}</code>{t('proposal.plan.writesWidget', { widget: widget.title })}</>
       : <code>{p.plan.writes}</code>],
     ['delivery', delivery],
+    ['tellsYou', tells],
     ['cost', costText],
     p.run_limit && ['limit', limitText],
     ['acts', <ActsSummary key="acts" trigger={p} compact />],
@@ -84,6 +97,12 @@ function Plan({ p, t }) {
       ))}
     </dl>
   )
+}
+
+// firstSentence is the opening of what a run does, short enough for one row.
+function firstSentence(text) {
+  const s = String(text || '').trim().split(/(?<=[.!?])\s/)[0] || ''
+  return s.length > 140 ? `${s.slice(0, 139)}…` : s
 }
 
 // A trigger the model proposed in this chat: a tool line whose card is of kind
@@ -237,9 +256,9 @@ export default function ProposalCard({ id, t, tick = 0 }) {
           <button type="button" className="cx-btn cx-btn--primary" disabled={!!busy} onClick={() => act('create', async () => {
             const made = await chatTriggersApi.confirm(p.id, browserZone())
             setSecret(made?.secret || '')
-          }, t(p.kind === 'event' ? 'event.announceAccepted' : 'proposal.announce.accepted', { name: p.name }))}>{t('proposal.create')}</button>
+          }, t(p.kind === 'event' ? 'event.announceAccepted' : 'proposal.announce.accepted', { name: p.name }))}>{t('proposal.approve')}</button>
           <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit({ name: p.name, when: p.kind === 'file' ? p.folder || '' : p.schedule || '' })}>{t('proposal.edit')}</button>
-          <button type="button" className="cx-btn" disabled={!!busy} onClick={() => act('dismiss', () => chatTriggersApi.dismiss(p.id), t('proposal.announce.declined', { name: p.name }))}>{t('proposal.dismiss')}</button>
+          <button type="button" className="cx-btn" disabled={!!busy} onClick={() => act('dismiss', () => chatTriggersApi.dismiss(p.id), t('proposal.announce.declined', { name: p.name }))}>{t('proposal.notNow')}</button>
         </span>
       )}
       {alert}

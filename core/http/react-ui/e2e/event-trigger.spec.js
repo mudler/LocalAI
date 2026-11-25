@@ -4,7 +4,7 @@ import { PID, SECRET, ROTATED, eventTrigger, serveEventProposal } from './event-
 
 // The card of an event trigger that a chat proposes: what it says before it is
 // created, the hook URL, the secret shown once with a copy button and a curl
-// example after Create trigger, and what is left after a reload (the URL, and
+// example after Approve, and what is left after a reload (the URL, and
 // Rotate secret, but not the secret). The API is stubbed by a small model of
 // the server; that the server shows the secret only once is tested in Go.
 
@@ -32,7 +32,7 @@ for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone',
       const row = card(page).locator('[data-row="when"]')
       await expect(row.getByTestId('event-sentence')).toHaveText('When github sends pull_request where action=opened')
       await expect(row.locator('code')).toHaveText(['github', 'pull_request', 'action=opened'])
-      await expect(card(page).getByRole('button', { name: 'Create trigger' })).toBeVisible()
+      await expect(card(page).getByRole('button', { name: 'Approve' })).toBeVisible()
       // It is not a schedule: no first run, no time zone.
       await expect(row).not.toContainText('First run')
       await card(page).scrollIntoViewIfNeeded()
@@ -41,10 +41,10 @@ for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone',
       expect(box.x + box.width).toBeLessThanOrEqual(size.width)
     })
 
-    test('after Create trigger the card shows the URL, the secret once and a curl example', async ({ page, context }) => {
+    test('after Approve the card shows the URL, the secret once and a curl example', async ({ page, context }) => {
       await context.grantPermissions(['clipboard-read', 'clipboard-write'])
       const s = await open(page)
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await expect(card(page)).toHaveAttribute('data-state', 'accepted')
       await expect(card(page)).toContainText('Listening:')
 
@@ -83,7 +83,7 @@ for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone',
 
     test('after a reload the URL is still there and the secret is gone', async ({ page }) => {
       await open(page)
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await expect(page.getByTestId('hook-secret')).toHaveText(SECRET)
       await page.reload()
       await expect(card(page)).toHaveAttribute('data-state', 'accepted')
@@ -100,7 +100,7 @@ for (const [name, size] of [['desktop', { width: 1280, height: 900 }], ['phone',
 
     test('Rotate secret asks first, then shows the new secret once', async ({ page }) => {
       const s = await open(page)
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await page.reload()
       await expect(page.getByTestId('hook-secret')).toHaveCount(0)
 

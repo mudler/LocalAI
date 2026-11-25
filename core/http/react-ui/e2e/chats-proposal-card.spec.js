@@ -171,7 +171,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
 
     test('accepting leaves a receipt in place, undo takes it back, and the state survives a reload', async ({ page }) => {
       const s = await open(page)
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await expect(card(page)).toHaveAttribute('data-state', 'accepted')
       await expect(card(page).getByTestId('receipt-when')).toHaveText('Every Monday at 09:00 (Europe/Rome)')
       await expect(card(page)).toContainText('Scheduled:')
@@ -200,7 +200,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
 
     test('a trigger that already ran cannot be undone, and the card says so', async ({ page }) => {
       await open(page, { undoRefusal: 'It already ran once; remove it from the Triggers page.' })
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await card(page).getByRole('button', { name: 'Undo' }).click()
       await expect(card(page).getByTestId('receipt-blocked')).toHaveText('It already ran once; remove it from the Triggers page.')
       await expect(card(page).getByRole('button', { name: 'Undo' })).toHaveCount(0)
@@ -210,7 +210,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
 
     test('a failed accept says why in the card and keeps the proposal', async ({ page }) => {
       await open(page, { confirmFails: true })
-      await card(page).getByRole('button', { name: 'Create trigger' }).click()
+      await card(page).getByRole('button', { name: 'Approve' }).click()
       await expect(card(page).getByRole('alert')).toContainText('the folder does not exist in your files any more')
       await expect(card(page)).toHaveAttribute('data-state', 'proposed')
       await page.screenshot({ path: `test-results/proposal-${name}-error.png` })
@@ -218,7 +218,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
 
     test('declining leaves a quiet line that can be restored', async ({ page }) => {
       await open(page)
-      await card(page).getByRole('button', { name: 'Dismiss' }).click()
+      await card(page).getByRole('button', { name: 'Not now' }).click()
       await expect(card(page)).toHaveAttribute('data-state', 'declined')
       await expect(card(page)).toContainText('Declined:')
       await expect(page.getByRole('status').filter({ hasText: 'Declined Monday digest.' })).toHaveCount(1)
@@ -233,7 +233,7 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
 
 test('the receipt is reachable and undoable from the keyboard', async ({ page }) => {
   await open(page)
-  await card(page).getByRole('button', { name: 'Create trigger' }).focus()
+  await card(page).getByRole('button', { name: 'Approve' }).focus()
   await page.keyboard.press('Enter')
   await expect(card(page)).toHaveAttribute('data-state', 'accepted')
   await card(page).getByRole('link', { name: 'View trigger' }).focus()

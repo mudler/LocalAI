@@ -168,7 +168,10 @@ export default function AgentJobs() {
         title={t('jobs.title')}
         supporting={t('jobs.subtitle')}
         actions={!off && !emptyTasks && (
-          <Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.newTask')}</Button>
+          <>
+            <Button variant="secondary" icon="clock" onClick={() => navigate('/app/triggers/new?watch=1')} data-testid="new-watch">{t('chats:watch.new')}</Button>
+            <Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.newTask')}</Button>
+          </>
         )}
       />
       <AgentViews />

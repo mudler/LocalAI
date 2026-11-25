@@ -347,7 +347,7 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
           {!voice && <button type="button" className="cx-btn" disabled={!!busy} onClick={() => setEdit(p.content || '')}>{t('changes.edit')}</button>}
           <button type="button" className="cx-btn" disabled={!!busy}
             onClick={() => act('dismiss', () => chatChangesApi.dismiss(p.id), t('changes.announce.dismissed'))}
-          >{t('proposal.dismiss')}</button>
+          >{t('proposal.notNow')}</button>
         </span>
       )}
       {alert}

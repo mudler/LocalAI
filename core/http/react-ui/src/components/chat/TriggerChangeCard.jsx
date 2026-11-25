@@ -175,7 +175,7 @@ export default function TriggerChangeCard({ id, t, tick = 0 }) {
         ))}
         <button type="button" className="cx-btn" disabled={!!busy}
           onClick={() => act('dismiss', () => chatTriggersApi.dismissChange(id), t(isDelete ? 'change.announce.kept' : 'change.announce.dismissed', { name }))}
-        >{t(isDelete ? 'change.keep' : 'proposal.dismiss')}</button>
+        >{t(isDelete ? 'change.keep' : 'proposal.notNow')}</button>
       </span>
       {alert}
     </div>

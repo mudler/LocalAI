@@ -297,3 +297,14 @@ div.aj-group > .aj-group__title { margin-bottom: 0; }
   margin: 0;
   padding-left: 1.25em;
 }
+
+/* Watches: the reminders under a watch and the rule fields of the form. The
+   rows wrap, so the page works at phone width. */
+.aj-reminder-list { list-style: none; margin: 0; padding: 0; }
+.aj-reminder { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3) 0; border-top: 1px solid var(--dk-edge); }
+.aj-reminder:first-child { border-top: 0; }
+.aj-reminder__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 220px; }
+.aj-reminder .aj-acts { flex-wrap: wrap; }
+.aj-reminders { display: flex; flex-direction: column; gap: var(--sp-3); }
+.aj-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.aj-check { display: flex; align-items: center; gap: var(--sp-2); }

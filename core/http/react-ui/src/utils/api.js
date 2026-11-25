@@ -790,6 +790,14 @@ export const chatTriggersApi = {
   applyChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/apply`, {}),
   undoChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/undo`, {}),
   dismissChange: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`, { method: 'DELETE' }),
+  // The add-ons a watch can watch: { sources: [{ id, title, events: [{ type, lifecycle, label }] }] }.
+  sources: (lang) => fetchJSON(`/api/chats/triggers/sources${q({ lang })}`),
+  // The reminders of a watch, soonest first: { reminders: [{ id, title, link, task, due, start, item_time, all_day,
+  // offset_minutes, lead_minutes, at, snoozed_to, skipped, adjusted, snoozable }] }.
+  reminders: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders`),
+  // Snooze, skip, re-time or change the task of a reminder; send the old values back to undo.
+  patchReminder: (id, rid, body) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  removeReminder: (id, rid) => fetchJSON(`/api/chats/triggers/${enc2(id)}/reminders/${enc2(rid)}`, { method: 'DELETE' }),
 }
 
 // The changes a model proposed to your memory, profile and other files, and

@@ -37,6 +37,9 @@ import { ActsEditor, ActsSummary } from '../components/TriggerActs'
 import ReportsTo from '../components/agents/ReportsTo'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import EventHook, { EventSentence } from '../components/chat/EventHook'
+import WatchFields from '../components/WatchFields'
+import WatchReminders from '../components/WatchReminders'
+import { emptyWatch, offsetParts, watchProblem } from '../utils/watch'
 import { useAddonIcons } from '../hooks/useAddonIcons'
 // eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
 import DeliveryField from '../components/agents/DeliveryField'
@@ -200,15 +203,26 @@ function TaskView({ id }) {
           )}
           <dt>{t('jobs.task.model')}</dt>
           <dd className="ag-facts__model">{task.model || agent?.model || <span className="ag-muted">{t('jobs.tasks.noModel')}</span>}</dd>
-          <dt>{t('jobs.task.schedule')}</dt>
-          <dd>
+          {task.watch && (
+            <>
+              <dt>{t('chats:watch.watches')}</dt>
+              <dd data-testid="watch-source">{task.source}</dd>
+              <dt>{t('chats:watch.state')}</dt>
+              <dd data-testid="watch-state">{off ? t('chats:watch.paused') : t('chats:watch.on')}</dd>
+            </>
+          )}
+          {!task.watch && <dt>{t('jobs.task.schedule')}</dt>}
+          {!task.watch && <dd>
             {task.kind === 'file' ? t('jobs.task.watches', { folder: task.folder }) : task.kind === 'event' ? <EventSentence trigger={task} /> : task.summary}
             {task.next_run && !off ? <span className="ag-muted"> · {t('chats:triggersPage.next', { time: formatNext(task.next_run, task.time_zone) })}</span> : null}
-          </dd>
+          </dd>}
           <dt>{t('jobs.reports.label')}</dt>
           <dd data-testid="task-reports"><ReportsTo trigger={task} icons={icons} /></dd>
           <dt>{t('jobs.task.acts')}</dt>
-          <dd data-testid="task-acts"><ActsSummary trigger={task} /></dd>
+          <dd data-testid="task-acts">
+            <ActsSummary trigger={task} />
+            {task.watch && <> <Link className="ag-link" to={`/app/triggers/${encodeURIComponent(task.id)}/edit`} data-testid="watch-permissions">{t('chats:watch.permissions')}</Link></>}
+          </dd>
           <dt>{t('jobs.task.cap')}</dt>
           <dd className="ag-facts__model">{task.daily_cap || '-'}</dd>
           <dt>{t('jobs.task.runLimit')}</dt>
@@ -219,7 +233,13 @@ function TaskView({ id }) {
           </dd>
         </dl>
 
-        {task.kind === 'event' && task.hook_path && (
+        {task.watch && (
+          <section className="ag-sec" aria-labelledby="aj-reminders-h">
+            <div className="ag-section-head"><h2 className="ag-h2" id="aj-reminders-h">{t('chats:watch.reminders')}</h2></div>
+            <WatchReminders watch={task} />
+          </section>
+        )}
+        {task.kind === 'event' && task.hook_path && !task.watch && (
           <section className="ag-sec" aria-labelledby="aj-hook-h">
             <div className="ag-section-head"><h2 className="ag-h2" id="aj-hook-h">{t('chats:event.hook.title')}</h2></div>
             <EventHook trigger={task} secret={secret} onSecret={setSecret} />
@@ -476,7 +496,14 @@ function TaskForm({ id, isNew }) {
   const { t } = useTranslation(['agents', 'chats'])
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
-  const [task, setTask] = useState(emptyTrigger)
+  const location = useLocation()
+  // A new watch starts from "New watch" on the Triggers page (?watch=1).
+  const [task, setTask] = useState(() => {
+    const start = emptyTrigger()
+    if (isNew && new URLSearchParams(location.search).get('watch') === '1') start.watch = emptyWatch()
+    return start
+  })
+  const [sources, setSources] = useState(null)
   const [loading, setLoading] = useState(!isNew)
   const [loadError, setLoadError] = useState(null)
   const [attempt, setAttempt] = useState(0)
@@ -485,9 +512,18 @@ function TaskForm({ id, isNew }) {
   const [preview, setPreview] = useState(null)
   const { agents, projects, ready } = useAgentProjects()
   const [folders, setFolders] = useState([])
-  const location = useLocation()
   const [next, setNext] = useState({ text: '', error: '' })
-  const initial = useRef(isNew ? triggerPayload(emptyTrigger()) : null)
+  const initial = useRef(isNew ? triggerPayload(task) : null)
+  const isWatch = !!task.watch
+  // The add-ons a watch can watch, in the language of the page.
+  const { i18n } = useTranslation()
+  useEffect(() => {
+    if (!isWatch) return undefined
+    let live = true
+    chatTriggersApi.sources(i18n.language).then((r) => { if (live) setSources(r.sources || []) }).catch(() => { if (live) setSources([]) })
+    return () => { live = false }
+  }, [isWatch, i18n.language])
+  const watchIssue = isWatch ? watchProblem(task.watch, sources) : ''
   // Where the runs report. The stored trigger shows where it reports now; the
   // choice starts there, and only a changed choice is sent, so a save that
   // leaves it alone keeps the place as it is.
@@ -640,6 +676,12 @@ function TaskForm({ id, isNew }) {
       return { state: 'ready', text: who ? t('jobs.edit.summary.basics', { name: task.name, model: who }) : t('jobs.edit.summary.basicsNoModel', { name: task.name }) }
     }
     if (sid === 'prompt') return task.prompt.trim() ? { state: 'ready', text: firstLine(task.prompt, 70) } : { state: 'needs', text: t('jobs.edit.summary.promptEmpty') }
+    if (sid === 'schedule' && isWatch) {
+      if (watchIssue) return { state: 'needs', text: t(watchIssue === 'quiet' ? 'chats:watch.problemQuiet' : 'chats:watch.problemSource') }
+      const o = task.watch.offset === 'none' ? null : offsetParts(Number(task.watch.offset))
+      const src = (sources || []).find((x) => x.id === task.watch.source)
+      return { state: 'ready', text: t('chats:watch.summary', { source: src?.title || task.watch.source, offset: o ? t(`chats:watch.${o.key}`, { count: o.count }) : t('chats:watch.none') }) }
+    }
     if (sid === 'schedule') {
       if (next.error) return { state: 'needs', text: next.error }
       if (task.schedule.preset === 'file') {
@@ -674,6 +716,12 @@ function TaskForm({ id, isNew }) {
       setOpen(prev => new Set([...prev, 'schedule']))
       return
     }
+    if (watchIssue) {
+      setTried(true)
+      addToast(t(watchIssue === 'quiet' ? 'chats:watch.problemQuiet' : 'chats:watch.problemSource'), 'warning')
+      setOpen(prev => new Set([...prev, 'schedule']))
+      return
+    }
     if (payload.kind === 'event' && !payload.source) {
       addToast(t('chats:event.form.sourceEmpty'), 'warning')
       setOpen(prev => new Set([...prev, 'schedule']))
@@ -684,6 +732,12 @@ function TaskForm({ id, isNew }) {
       if (isNew) {
         const made = await chatTriggersApi.create(payload)
         addToast(t('jobs.edit.created'), 'success')
+        if (made?.watch) {
+          // A watch has no hook to set up: open it.
+          initial.current = payload
+          navigate(`/app/triggers/${encodeURIComponent(made.id)}`)
+          return
+        }
         if (made?.secret) {
           // An event trigger: show its secret before leaving the page.
           initial.current = payload
@@ -800,6 +854,17 @@ function TaskForm({ id, isNew }) {
         </div>
       )
     }
+    if (sid === 'schedule' && isWatch) {
+      return (
+        <>
+          <WatchFields watch={task.watch} zone={task.zone} sources={sources} onChange={(w) => set('watch', w)} problem={tried ? watchIssue : ''} />
+          <div className="dk-field">
+            <label className="dk-label" htmlFor="aj-zone-w">{t('chats:triggersPage.zone')}</label>
+            <input id="aj-zone-w" className="dk-input" value={task.zone} onChange={(e) => set('zone', e.target.value)} />
+          </div>
+        </>
+      )
+    }
     if (sid === 'schedule') {
       return (
         <div className="aj-form">
@@ -847,7 +912,7 @@ function TaskForm({ id, isNew }) {
         <div className="ag-edit__head">
           <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {t('jobs.edit.back')}</button>
           <PageHeader
-            title={isNew ? t('jobs.edit.titleNew') : t('jobs.edit.titleEdit', { name: task.name })}
+            title={isWatch ? (isNew ? t('chats:watch.titleNew') : t('chats:watch.titleEdit', { name: task.name })) : isNew ? t('jobs.edit.titleNew') : t('jobs.edit.titleEdit', { name: task.name })}
             supporting={isNew ? t('jobs.edit.subNew') : t('jobs.edit.subEdit')}
             actions={(
               <div className="ag-edit__acts">
@@ -872,7 +937,7 @@ function TaskForm({ id, isNew }) {
                 <h2 className="ag-fold__h">
                   <button type="button" className="ag-fold__button" aria-expanded={isOpen} aria-controls={`aj-fold-${s.id}`} onClick={() => toggleSection(s.id)}>
                     <span className="ag-ready" data-state={info.state} aria-hidden="true"><Icon name={info.state === 'needs' ? 'warning' : 'check'} /></span>
-                    <span className="ag-fold__title">{t(`jobs.edit.sections.${s.id}`)}</span>
+                    <span className="ag-fold__title">{isWatch && s.id === 'schedule' ? t('chats:watch.section') : t(`jobs.edit.sections.${s.id}`)}</span>
                     <span className="ag-fold__sum">{info.text}</span>
                     {n > 0 ? <span className="ag-badge-changed">{t('jobs.edit.changed', { count: n })}</span> : <span />}
                     <Icon name="chevron-down" className="ag-fold__chev" />
