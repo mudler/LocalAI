@@ -976,6 +976,15 @@ Two outcomes are deliberately **not** errors:
 On a mixed fleet, every stop against a worker that predates the reply costs the full 15-second wait before falling back. Upgrading the workers removes the delay.
 {{% /callout %}}
 
+### Memory settings across frontends
+
+The settings of **Settings → Models in memory** (models kept loaded, eviction, **Swap models when memory is full**, the watchdog, the memory reclaimer and the GPU memory budget) are cluster settings in distributed mode. They are stored once in the database and every frontend applies the same values. The keys and names do not change: `POST /api/settings` takes them as in single mode.
+
+- **Where they live.** A save through any frontend stores the memory keys in the `cluster_shared_settings` table and sends them to the other frontends over the bus, so a request served by another frontend sees the new values at once. The other keys of the same request (threads, galleries and so on) stay settings of the frontend that took the request, in its `runtime_settings.json`, as before.
+- **Precedence.** The stored value wins over a frontend's environment and its `runtime_settings.json`. A frontend's environment (for example `LOCALAI_MAX_ACTIVE_BACKENDS`) only seeds the store when it is empty, on the first start of the cluster. When a later frontend starts with a different value in its environment, it logs a warning once and uses the stored value. Change the values in Settings, not in the environment. Single mode is unchanged: there the environment wins over the file.
+- **Revisions.** `GET /api/settings` returns `memory_scope: "cluster"` and `memory_revision`. A save may send that `memory_revision` back: when another admin saved in between, the answer is `409` and nothing is stored. A save without `memory_revision` merges its keys over the stored ones, so two admins who change different keys at the same time both keep their change.
+- **Distributed state.** Shared (`syncstate` map `settings.memory` with the database as the store). A frontend re-reads the store every 30 seconds and after a reconnect of the bus, so a missed update is repaired. A frontend that cannot open the store logs an error and keeps its local values, like single mode.
+
 ### Per-node VRAM budget
 
 Each worker advertises its detected VRAM, and the SmartRouter uses that number when picking a node with enough free memory. You can cap the VRAM a node offers for placement so it never gets scheduled beyond a chosen limit, leaving headroom for other workloads on that machine.

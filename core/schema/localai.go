@@ -613,6 +613,9 @@ type SettingsResponse struct {
 	Error           string `json:"error,omitempty"`
 	Message         string `json:"message,omitempty"`
 	RestartRequired bool   `json:"restart_required"`
+	// MemoryRevision is the revision of the cluster memory settings after a
+	// save (distributed mode), or the current one on a 409.
+	MemoryRevision int64 `json:"memory_revision,omitempty"`
 }
 
 // RouterDecideRequest is the input for POST /api/router/decide — the

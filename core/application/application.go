@@ -43,6 +43,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/backendupdates"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
+	"github.com/mudler/LocalAI/core/services/clustersettings"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
 	"github.com/mudler/LocalAI/core/services/failover/distsync"
@@ -278,6 +279,13 @@ type Application struct {
 	// failoverLock is the probe-leader lock this frontend holds or tries
 	// for; nil when failoverSync is nil.
 	failoverLock *advisorylock.HeldLock
+
+	// clusterSettings holds the memory settings every frontend shares in
+	// distributed mode; nil in standalone mode.
+	clusterSettings *clustersettings.Service
+	// watchdogReady is set once the boot watchdog exists, so a cluster
+	// settings change before it only updates the config.
+	watchdogReady atomic.Bool
 
 	// Upgrade checker (background service for detecting backend upgrades)
 	upgradeChecker *UpgradeChecker
@@ -869,6 +877,7 @@ func (a *Application) Shutdown() error {
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
+		a.stopClusterSettings()
 		a.stopUpgradeRuns()
 		a.distributed.Shutdown()
 		if a.modelLoader != nil {

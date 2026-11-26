@@ -352,6 +352,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 		// Before failoverManager.Run starts below: the gate and sync must be
 		// in place for its first tick.
 		application.startFailoverDistributed(options.Context)
+		// Before the watchdog starts: in distributed mode the stored memory
+		// settings win over env and the file.
+		application.startClusterSettings(options.Context)
 		// Wire remote model unloader so ShutdownModel works for remote nodes
 		// Uses NATS to tell serve-backend nodes to Free + kill their backend process
 		application.modelLoader.SetRemoteUnloader(distSvc.Unloader)
@@ -641,6 +644,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Initialize watchdog with current settings (after loading from file)
 	initializeWatchdog(application, options)
+	application.watchdogReady.Store(true)
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {

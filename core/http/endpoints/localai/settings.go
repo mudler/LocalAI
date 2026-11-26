@@ -2,12 +2,14 @@ package localai
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/clustersettings"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/vram"
@@ -37,6 +40,24 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		appConfig := app.ApplicationConfig()
 		settings := appConfig.ToRuntimeSettings()
+		if cs := app.ClusterSettings(); cs != nil {
+			// The memory settings are the cluster's: report the stored
+			// revision, which a save may send back as memory_revision.
+			_, rev := cs.Memory()
+			projection, err := settingsProjection(settings)
+			if err != nil {
+				return err
+			}
+			projection["memory_scope"] = json.RawMessage(`"cluster"`)
+			projection["memory_revision"] = json.RawMessage(strconv.FormatInt(rev, 10))
+			if appConfig.Addons.Enabled {
+				for _, key := range addonHostSettingsKeys {
+					delete(projection, key)
+				}
+				projection["addon_host_settings_authority"] = json.RawMessage(`"owner_required"`)
+			}
+			return c.JSON(http.StatusOK, projection)
+		}
 		if appConfig.Addons.Enabled {
 			// Do not expose stale local values as policy, even when the owner is
 			// unavailable. Unrelated settings remain readable without an owner RPC.
@@ -59,6 +80,32 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		return c.JSON(http.StatusOK, settings)
 	}
+}
+
+// settingsProjection is settings as a JSON object, for a response that adds
+// or removes keys.
+func settingsProjection(settings config.RuntimeSettings) (map[string]json.RawMessage, error) {
+	body, err := json.Marshal(settings) // #nosec G117 -- authenticated administrator settings response
+	if err != nil {
+		return nil, err
+	}
+	var projection map[string]json.RawMessage
+	if err := json.Unmarshal(body, &projection); err != nil {
+		return nil, err
+	}
+	return projection, nil
+}
+
+// memoryRevision reads the optional memory_revision of a settings body: the
+// revision of the cluster memory settings the client read.
+func memoryRevision(body []byte) (*int64, error) {
+	var probe struct {
+		MemoryRevision *int64 `json:"memory_revision"`
+	}
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return nil, err
+	}
+	return probe.MemoryRevision, nil
 }
 
 // UpdateSettingsEndpoint updates settings, saves to file, and applies immediately
@@ -246,6 +293,36 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 
 		if msg := validateP2PSettings(app, settings); msg != "" {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
+		}
+
+		// In distributed mode the memory settings are stored once for the
+		// cluster and applied on every frontend by the cluster settings
+		// service; they never reach this frontend's file.
+		var memoryRev int64
+		if cs := app.ClusterSettings(); cs != nil {
+			memory, rest := config.SplitMemorySettings(settings)
+			if !memory.IsEmpty() {
+				expected, err := memoryRevision(body)
+				if err != nil {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: "Invalid memory_revision: " + err.Error()})
+				}
+				_, rev, err := cs.UpdateMemory(c.Request().Context(), memory, expected, actor(c))
+				if errors.Is(err, clustersettings.ErrStaleRevision) {
+					return c.JSON(http.StatusConflict, schema.SettingsResponse{
+						Success:        false,
+						Error:          "The memory settings were changed by someone else. Reload the settings and apply again.",
+						MemoryRevision: rev,
+					})
+				}
+				if err != nil {
+					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{Success: false, Error: "Failed to store the cluster memory settings: " + err.Error()})
+				}
+				memoryRev = rev
+			}
+			settings = rest
+			if rest.IsEmpty() {
+				return c.JSON(http.StatusOK, schema.SettingsResponse{Success: true, Message: "Settings updated successfully", MemoryRevision: memoryRev})
+			}
 		}
 
 		// Save to file
@@ -460,6 +537,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			Success:         true,
 			Message:         "Settings updated successfully",
 			RestartRequired: restartRequired,
+			MemoryRevision:  memoryRev,
 		})
 	}
 }

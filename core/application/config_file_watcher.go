@@ -202,6 +202,11 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		// field previously changed via the API looks env-set to the
 		// baseline comparison, so a manual file edit of that field lands
 		// on the next restart instead of hot-applying.
+		if appConfig.Distributed.Enabled {
+			// The cluster store owns the memory settings in distributed
+			// mode; a stale copy in the file must not override it.
+			_, settings = config.SplitMemorySettings(settings)
+		}
 		prevGalleries, prevBackendGalleries := appConfig.Galleries, appConfig.BackendGalleries
 		appConfig.ApplyRuntimeSettingsAtStartup(&settings)
 		gallery.ResetGalleryModelCacheIfChanged(prevGalleries, prevBackendGalleries, appConfig)
