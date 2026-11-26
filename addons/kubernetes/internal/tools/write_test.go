@@ -58,6 +58,67 @@ var _ = Describe("the apply step of a write", func() {
 		Expect(patches).To(Equal(1), "the scale was written once")
 	})
 
+	It("writes an operation once when two applies pass the first journal check together", func() {
+		g := newRig(deployment("team-a", "web", 2))
+		p, err := g.preview("op", tools.ToolScale, scaleArgs)
+		Expect(err).NotTo(HaveOccurred())
+		e := g.env("op", tools.ToolScale, scaleArgs)
+
+		// Both applies read the journal, find nothing, and then wait inside
+		// inspect until both are there. Only the check of the journal under
+		// the lock, after inspect, keeps the second one from writing. Each
+		// apply talks to its own fake cluster with the same objects, since
+		// a fake cluster runs one reactor at a time.
+		var block atomic.Bool
+		arrived, release := make(chan struct{}, 2), make(chan struct{})
+		var clusters []*kubetest.Cluster
+		for range 2 {
+			k := kubetest.New(deployment("team-a", "web", 2))
+			k.Prepend("get", "deployments", func(k8stesting.Action) (bool, runtime.Object, error) {
+				if block.Load() {
+					arrived <- struct{}{}
+					<-release
+				}
+				return false, nil, nil
+			})
+			clusters = append(clusters, k)
+		}
+		var next atomic.Int32
+		g.rt.Factory = func(*rest.Config) (*kubeapi.Client, error) {
+			return clusters[int(next.Add(1)-1)%2].Client(), nil
+		}
+		block.Store(true)
+		states := make(chan contract.ReceiptState, 2)
+		for range 2 {
+			go func() {
+				defer GinkgoRecover()
+				rc, err := g.rt.Apply(ctx, e, p.Revision)
+				Expect(err).NotTo(HaveOccurred())
+				states <- rc.State
+			}()
+		}
+		Eventually(arrived).Should(Receive())
+		Eventually(arrived).Should(Receive())
+		block.Store(false)
+		close(release)
+		var got []contract.ReceiptState
+		for range 2 {
+			var st contract.ReceiptState
+			Eventually(states, 5*time.Second).Should(Receive(&st))
+			got = append(got, st)
+		}
+		Expect(got).To(ConsistOf(contract.ReceiptCommitted, contract.ReceiptUnknown))
+		patches := 0
+		for _, k := range clusters {
+			for _, a := range k.Dyn.Actions() {
+				if a.GetVerb() == "patch" {
+					patches++
+				}
+			}
+		}
+		Expect(patches).To(Equal(1), "the scale was written once")
+	})
+
 	It("does not hold up a write to another cluster while one cluster is slow", func() {
 		slow := kubetest.New(deployment("team-a", "web", 2))
 		fast := kubetest.New(deployment("team-a", "web", 2))
@@ -118,4 +179,3 @@ var _ = Describe("the apply step of a write", func() {
 		Eventually(done, 5*time.Second).Should(BeClosed())
 	})
 })
-
