@@ -75,8 +75,9 @@ func (r *NodeRegistry) localViewIsCurrent(ctx context.Context, name string) (boo
 	return accepted == local, nil
 }
 
-// applyCurrentTarget is applyTarget for the writers of shared scheduling state:
-// the replica reconciler and RefreshSchedulingTargets. It derives the target
+// applyCurrentTarget is applyTarget for the writers of shared scheduling state
+// (the replica reconciler and RefreshSchedulingTargets) and for the router's
+// lookup of the governing rule (aliasRuleFor). It derives the target
 // from this frontend's alias mapping only when that mapping is current. When
 // this frontend is behind the cluster, it keeps the target_model stored by a
 // frontend that is current, so a stale frontend can neither rewrite the stored
@@ -136,6 +137,12 @@ func (r *NodeRegistry) GetGoverningScheduling(ctx context.Context, modelName str
 // skipping the rule named by exclude. Returns nil when no alias rule resolves
 // there.
 //
+// Each rule's target is resolved by applyCurrentTarget, the same function the
+// reconciler uses. A frontend whose model config is behind the cluster keeps
+// the target stored by a current frontend. Resolving from the local config
+// alone made the router and the reconciler disagree about which rule governs a
+// model, and an outdated frontend then placed the model as if it had no rule.
+//
 // Several names can resolve to one model, but placement governs a single
 // shared load, so exactly one rule can win. Ordering by creation time (then by
 // name, so rules written in the same transaction still order the same way)
@@ -160,7 +167,7 @@ func (r *NodeRegistry) aliasRuleFor(ctx context.Context, targetModel, exclude st
 		if cfg.ModelName == targetModel || cfg.ModelName == exclude {
 			continue
 		}
-		r.applyTarget(cfg)
+		r.applyCurrentTarget(ctx, cfg)
 		if cfg.Target() == targetModel {
 			return cfg, nil
 		}

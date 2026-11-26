@@ -174,6 +174,11 @@ type ReplicaReconciler struct {
 	scaleUpFailures map[string]scaleUpFailure
 	// now is the clock used for backoff windows. Tests replace it.
 	now func() time.Time
+	// schedulable is the set of healthy backend nodes seen on the previous
+	// tick. A node that joins it (registered, approved, recovered, resumed)
+	// can hold a replica that failed to load before, so every backoff ends.
+	// nil until the first tick.
+	schedulable map[string]struct{}
 }
 
 // scaleUpFailure is the backoff state of one model.
@@ -880,6 +885,15 @@ func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
 		xlog.Warn("Reconciler: failed to refresh scheduling targets", "error", err)
 	}
 
+	// A node that joined since the last tick ends every scale-up backoff.
+	// Reading the node table here, rather than hooking the registry writes,
+	// sees a node that registered or recovered through any frontend.
+	if healthy, err := rc.registry.FindNodesBySelector(ctx, nil); err != nil {
+		xlog.Debug("Reconciler: failed to list schedulable nodes", "error", err)
+	} else {
+		rc.observeSchedulableNodes(extractNodeIDs(healthy))
+	}
+
 	configs, err := rc.registry.ListAutoScalingConfigs(ctx)
 	if err != nil {
 		xlog.Warn("Reconciler: failed to list auto-scaling configs", "error", err)
@@ -891,6 +905,34 @@ func (rc *ReplicaReconciler) reconcile(ctx context.Context) {
 			return // context cancelled
 		}
 		rc.reconcileModel(ctx, cfg)
+	}
+}
+
+// observeSchedulableNodes records the healthy backend nodes of this tick. When a
+// node is in the set that was not in it on the previous tick, it clears the
+// scale-up backoff of every model: the failure that started a backoff may have
+// been "no node could take it", and a new node changes that answer. The first
+// call only records the set.
+func (rc *ReplicaReconciler) observeSchedulableNodes(ids []string) {
+	seen := make(map[string]struct{}, len(ids))
+	joined := ""
+	for _, id := range ids {
+		seen[id] = struct{}{}
+		if _, before := rc.schedulable[id]; !before && rc.schedulable != nil && joined == "" {
+			joined = id
+		}
+	}
+	rc.schedulable = seen
+	if joined == "" {
+		return
+	}
+	rc.scaleUpMu.Lock()
+	cleared := len(rc.scaleUpFailures)
+	clear(rc.scaleUpFailures)
+	rc.scaleUpMu.Unlock()
+	if cleared > 0 {
+		xlog.Info("Reconciler: a node became schedulable; retrying models that were backing off",
+			"node", joined, "models", cleared)
 	}
 }
 
@@ -1179,6 +1221,13 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 	scheduled := 0
 	for i := 0; i < count; i++ {
 		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
+		if errors.Is(err, ErrLoadInProgress) {
+			// Another owner is loading the model. Nothing failed: leave the
+			// backoff as it is and look again on the next tick.
+			xlog.Info("Reconciler: model is being loaded by another owner; retrying on the next tick",
+				"model", model, "detail", err)
+			break
+		}
 		if err != nil {
 			state.count++
 			delay := scaleUpBackoffDelay(state.count)

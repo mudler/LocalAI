@@ -147,14 +147,23 @@ func applyBackendAdmission(err error, code int, c echo.Context) int {
 	return http.StatusTooManyRequests
 }
 
-// applyNoAvailableNodes maps scheduler "no available nodes" errors to 503.
-// When the cluster has no healthy node to serve a model — all are full, a
-// node selector excludes every candidate, or eviction could not free a slot —
-// the request is retryable, not a server bug. Without this the error fell
-// through to 500, which tells clients something is broken when they just
-// need to wait for a node.
-func applyNoAvailableNodes(err error, code int) int {
+// noAvailableNodesRetryAfter is the Retry-After of a request that found no
+// node for its model. Failover, a node that recovers, or the reconciler can
+// change that within seconds, so the client is told to come back soon.
+const noAvailableNodesRetryAfter = "10"
+
+// applyNoAvailableNodes maps scheduler "no available nodes" errors to 503 with
+// a Retry-After header. When the cluster has no healthy node to serve a model
+// (all are full, no node has enough free memory, a node selector excludes
+// every candidate, the model's scheduling rule cannot be read, or eviction
+// could not free a slot) the request is retryable, not a server bug. Without
+// this the error fell through to 500, which tells clients something is broken
+// when they just need to wait for a node.
+func applyNoAvailableNodes(err error, code int, c echo.Context) int {
 	if errors.Is(err, nodes.ErrNoAvailableNodes) {
+		if c.Response().Header().Get("Retry-After") == "" {
+			c.Response().Header().Set("Retry-After", noAvailableNodesRetryAfter)
+		}
 		return http.StatusServiceUnavailable
 	}
 	return code
@@ -286,7 +295,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			code = applyModelLoadCooldown(err, code, c)
 			code = applyModelLoadsBlocked(err, code, c)
 			code = applyBackendAdmission(err, code, c)
-			code = applyNoAvailableNodes(err, code)
+			code = applyNoAvailableNodes(err, code, c)
 
 			// Handle 404 errors: serve React SPA for HTML requests, JSON otherwise
 			if code == http.StatusNotFound {
@@ -325,7 +334,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.
 			code = applyModelLoading(err, code, c)
-			code = applyNoAvailableNodes(err, code)
+			code = applyNoAvailableNodes(err, code, c)
 			c.NoContent(code)
 		}
 	}

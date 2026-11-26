@@ -30,8 +30,8 @@ The SmartRouter uses **idle-first** scheduling with **preemptive eviction**:
 1. If the model is already loaded on a node, use it (per-model gRPC address).
 2. Drop any node without room to **store** the model on its models filesystem (see [Disk headroom](#disk-headroom)).
 3. If no node has the model, prefer nodes with enough free VRAM.
-4. Fall back to idle nodes (zero models), then least-loaded nodes.
-5. If no node has capacity, **evict the least-recently-used model with zero in-flight requests** to free a node.
+4. When the model has a size estimate and no node has that much free VRAM, **evict idle models on the one node where that makes room** (fewest evictions first). The models that eviction protects (in-flight requests, `min_replicas` floors, pinned models and failover targets) are never evicted for it. Nodes that report no GPU memory at all (CPU-only workers) stay eligible, since their fit cannot be judged from VRAM. When nothing can make room, the request fails with `503`, a `Retry-After` header and `no node has enough free memory for model ...`. The model is never placed on a GPU node that is known to lack the room. The registry does not know the memory of each replica, so the plan charges each loaded replica an equal share of the node's used VRAM; the worker's next heartbeat reports the real figure.
+5. A model with no size estimate falls back to idle nodes (zero models), then least-loaded nodes, then, if no node has capacity, **evicts the least-recently-used model with zero in-flight requests** to free a node.
 6. If all models are busy, wait (with a timeout) for a model to become idle, then evict.
 7. When two nodes fit equally well, the **carrier weight** breaks the tie (see [Carrier weights](#carrier-weights)). A node that a frontend reaches only over a data-limited public relay is a last resort.
 8. Send the `backend.install` request, with the backend name and the model ID, to the worker. The worker starts a new gRPC process on a dynamic port.
@@ -1475,6 +1475,20 @@ curl -X POST http://frontend:8080/api/nodes/scheduling \
 
 Without a node selector, models can schedule on any healthy node (default behavior).
 
+Placement is strict. A load, from a request or from the replica reconciler, only
+goes to a node that matches the rule that governs the model:
+
+- When no matching node is healthy, the request fails with `503` and a
+  `Retry-After` header. It never falls back to a node the selector excludes;
+  use [failover chains]({{% relref "/models/model-failover" %}}) to serve the model elsewhere.
+- When the rule cannot be read (for example during a database timeout), the
+  request fails with the same retryable `503`. It is not treated as "no rule".
+- A selector that is not valid JSON blocks placement instead of matching every
+  node.
+
+Every cold-load placement logs one `Placed cold load` line with the node, the
+key of the governing rule and its selector.
+
 In the WebUI, the node selector field completes what you type against the labels
 your cluster actually reports: start typing a key and the matching label keys
 appear inline, then the value field offers only the values that key takes. A key
@@ -1509,6 +1523,7 @@ The **Replica Reconciler** runs as a background process on the frontend:
 - **Scale down**: Removes idle replicas after 5 minutes of inactivity
 - **Maintain minimum**: Ensures `min_replicas` are always loaded (recovers from node failures)
 - **Eviction protection**: Models with auto-scaling enabled are never evicted below `min_replicas`
+- **Backoff**: A scale-up that fails is retried after 30 seconds, doubling up to 10 minutes. A load that another owner is running (for example one that a request started) is not a failure: the reconciler retries on its next pass. A node that becomes schedulable (it registers, is approved, recovers or is resumed after a drain) ends every backoff, so the next pass tries again at once. The backoff and the set of nodes it compares against are kept in memory by each frontend (documented per-instance state): the reconciler pass runs on one frontend at a time, and a frontend that takes over starts with no backoff, which is safe.
 - **Restart-safe**: Per-model load metadata (backend type + `ModelOptions`) is persisted in the `model_load_infos` PostgreSQL table on the first successful dispatch, so a frontend restart or rolling upgrade does not require a fresh inference request to repopulate state before the reconciler can scale up replacement replicas.
 
 All fields are optional and composable:
@@ -1601,8 +1616,8 @@ way (see [Model configs across frontends](#model-configs-across-frontends)).
 The rule's stored target therefore follows the alias only through frontends
 whose copy of the alias config matches the
 [configuration revision](#model-configuration-revisions) the cluster accepted.
-A frontend that is behind uses the stored target for the replica reconciler and
-does not write it, so two frontends cannot overwrite the rule's target against
+A frontend that is behind uses the stored target, for the replica reconciler and
+for the router's own placement, and does not write it, so two frontends cannot overwrite the rule's target against
 each other, and a frontend that is behind cannot reload the model the alias
 used to point at.
 

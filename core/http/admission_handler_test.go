@@ -49,8 +49,20 @@ var _ = Describe("No available nodes", func() {
 				fmt.Errorf("no healthy nodes available: %w",
 					errors.Join(nodes.ErrEvictionBusy, nodes.ErrNoAvailableNodes))))
 
-		code := applyNoAvailableNodes(wrapped, http.StatusInternalServerError)
+		c, rec := newNoNodesContext()
+		code := applyNoAvailableNodes(wrapped, http.StatusInternalServerError, c)
 		Expect(code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Header().Get("Retry-After")).To(Equal(noAvailableNodesRetryAfter))
+	})
+
+	It("maps an unreadable scheduling rule to 503 with Retry-After", func() {
+		wrapped := fmt.Errorf("no available nodes: %w: %w",
+			nodes.ErrSchedulingRuleUnavailable, nodes.ErrNoAvailableNodes)
+
+		c, rec := newNoNodesContext()
+		code := applyNoAvailableNodes(wrapped, http.StatusInternalServerError, c)
+		Expect(code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Header().Get("Retry-After")).ToNot(BeEmpty())
 	})
 
 	It("maps selector-mismatch chain to 503", func() {
@@ -59,12 +71,22 @@ var _ = Describe("No available nodes", func() {
 				fmt.Errorf("no healthy nodes match selector for model bar: {\"gpu.vendor\":\"tpu\"}: %w",
 					nodes.ErrNoAvailableNodes)))
 
-		code := applyNoAvailableNodes(wrapped, http.StatusInternalServerError)
+		c, _ := newNoNodesContext()
+		code := applyNoAvailableNodes(wrapped, http.StatusInternalServerError, c)
 		Expect(code).To(Equal(http.StatusServiceUnavailable))
 	})
 
 	It("passes through unrelated errors unchanged", func() {
-		code := applyNoAvailableNodes(errors.New("database timeout"), http.StatusInternalServerError)
+		c, rec := newNoNodesContext()
+		code := applyNoAvailableNodes(errors.New("database timeout"), http.StatusInternalServerError, c)
 		Expect(code).To(Equal(http.StatusInternalServerError))
+		Expect(rec.Header().Get("Retry-After")).To(BeEmpty())
 	})
 })
+
+func newNoNodesContext() (echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec), rec
+}

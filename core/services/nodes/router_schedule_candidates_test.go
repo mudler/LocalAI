@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,6 +81,18 @@ var _ = Describe("ScheduleAndLoadModel candidate nodes", func() {
 		Expect(installedOn()).To(ConsistOf(busy.ID))
 	})
 
+	It("reports a load that another owner holds as in progress, not as a failure", func() {
+		register("node-a", nil)
+		_, claimed, err := registry.ClaimLoadJob(ctx, modelName, "another-replica")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(claimed).To(BeTrue())
+
+		_, err = router.ScheduleAndLoadModel(ctx, modelName, nil)
+
+		Expect(err).To(MatchError(ErrLoadInProgress))
+		Expect(installedOn()).To(BeEmpty())
+	})
+
 	It("fails rather than leave the candidates when none matches the model's rule", func() {
 		gpu := register("gpu-node", map[string]string{"tier": "gpu"})
 		cpu := register("cpu-node", map[string]string{"tier": "cpu"})
@@ -90,5 +103,25 @@ var _ = Describe("ScheduleAndLoadModel candidate nodes", func() {
 		Expect(err).To(MatchError(ErrNoAvailableNodes))
 		Expect(installedOn()).NotTo(ContainElement(gpu.ID))
 		Expect(installedOn()).To(BeEmpty())
+	})
+})
+
+// The request path reads the model's rule before it routes. A rule it cannot
+// read is not "no rule": treating it as one placed the model on any node.
+var _ = Describe("Route when the governing rule cannot be read", func() {
+	It("answers with a retryable error and places nothing", func() {
+		reg := &fakeModelRouter{findAndLockErr: errors.New("not found")}
+		reg.getModelSchedErr = errors.New("canceling statement due to statement timeout")
+		reg.findIdleNode = &BackendNode{ID: "node-b", Name: "node-b", Address: "node-b:50051"}
+		unloader := &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "127.0.0.1:9001"}}
+		backend := &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
+		router := NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: &stubClientFactory{client: backend}})
+
+		_, err := router.Route(context.Background(), "model-x", "model-x.gguf", "llama-cpp", "", &pb.ModelOptions{}, false)
+
+		Expect(err).To(MatchError(ErrNoAvailableNodes))
+		Expect(err).To(MatchError(ErrSchedulingRuleUnavailable))
+		Expect(unloader.installCalls).To(BeEmpty())
+		Expect(reg.findAndLockCandidates).To(BeEmpty(), "no replica is chosen without the rule either")
 	})
 })

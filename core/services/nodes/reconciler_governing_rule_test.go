@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"errors"
 	"runtime"
 	"time"
 
@@ -9,6 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/core/services/workerctl"
+	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
 
@@ -121,5 +125,137 @@ var _ = Describe("ReplicaReconciler and the governing rule", func() {
 			Expect(db.Model(&NodeModel{}).Where("model_name = ? AND node_id = ?", "qwen3", gpu.ID).Count(&onGPU).Error).To(Succeed())
 			Expect(onGPU).To(BeNumerically("==", 1), "the only replica on a selected node is the floor")
 		})
+	})
+})
+
+// ruleReadFailingRegistry is a registry whose scheduling rule cannot be read,
+// as during a database statement timeout. Everything else works.
+type ruleReadFailingRegistry struct {
+	*NodeRegistry
+}
+
+func (r ruleReadFailingRegistry) GetGoverningScheduling(context.Context, string) (*ModelSchedulingConfig, error) {
+	return nil, errors.New("canceling statement due to statement timeout")
+}
+
+// A load, from a request or from the reconciler, must only land on a node that
+// matches the rule that governs the model. When the rule cannot be read, or
+// this frontend resolves the rule's alias from an outdated config, the router
+// used to place the model on any healthy node.
+var _ = Describe("Strict placement by the governing rule", func() {
+	var (
+		ctx      context.Context
+		db       *gorm.DB
+		registry *NodeRegistry
+		unloader *fakeUnloader
+		gpu, cpu *BackendNode
+	)
+
+	BeforeEach(func() {
+		if runtime.GOOS == "darwin" {
+			Skip("testcontainers requires Docker, not available on macOS CI")
+		}
+		ctx = context.Background()
+		db = testutil.SetupTestDB()
+		var err error
+		registry, err = NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		unloader = &fakeUnloader{installReply: &workerctl.BackendInstallReply{Success: true, Address: "127.0.0.1:9001"}}
+
+		register := func(name string, labels map[string]string) *BackendNode {
+			node := &BackendNode{Name: name, NodeType: NodeTypeBackend, Address: name + ":50051", MaxReplicasPerModel: 4}
+			Expect(registry.Register(ctx, node, true)).To(Succeed())
+			fetched, err := registry.GetByName(ctx, name)
+			Expect(err).ToNot(HaveOccurred())
+			for k, v := range labels {
+				Expect(registry.SetNodeLabel(ctx, fetched.ID, k, v)).To(Succeed())
+			}
+			return fetched
+		}
+		// The matching node is busy and the other one is idle, so the idle-first
+		// scheduler picks the wrong node unless the rule narrows the pool.
+		gpu = register("node-a", map[string]string{"gpu.vendor": "nvidia"})
+		cpu = register("node-b", map[string]string{"gpu.vendor": "amd"})
+		Expect(registry.SetNodeModel(ctx, gpu.ID, "other-model", 0, "loaded", "", 0)).To(Succeed())
+
+		blob, err := proto.Marshal(&pb.ModelOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(registry.UpsertModelLoadInfo(ctx, "model-x", "llama-cpp", blob)).To(Succeed())
+	})
+
+	newRouter := func(reg ModelRouter) *SmartRouter {
+		backend := &stubBackend{healthResult: true, loadResult: &pb.Result{Success: true}}
+		return NewSmartRouter(reg, SmartRouterOptions{Unloader: unloader, ClientFactory: &stubClientFactory{client: backend}, DB: db})
+	}
+
+	installedOn := func() []string {
+		unloader.mu.Lock()
+		defer unloader.mu.Unlock()
+		ids := []string{}
+		for _, c := range unloader.installCalls {
+			ids = append(ids, c.nodeID)
+		}
+		return ids
+	}
+
+	It("fails with a retryable error when the rule cannot be read", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "model-x", MinReplicas: 1, NodeSelector: `{"gpu.vendor":"nvidia"}`})).To(Succeed())
+		router := newRouter(ruleReadFailingRegistry{registry})
+
+		_, err := router.ScheduleAndLoadModel(ctx, "model-x", nil)
+
+		Expect(err).To(MatchError(ErrNoAvailableNodes), "the HTTP layer answers 503 for it")
+		Expect(err).To(MatchError(ErrSchedulingRuleUnavailable))
+		Expect(installedOn()).To(BeEmpty())
+	})
+
+	It("places by the stored target when this frontend's alias is outdated", func() {
+		// A current frontend wrote the rule for alias "production", which now
+		// points at model-x. This frontend still resolves the alias to the
+		// model it used to point at.
+		current, err := NewNodeRegistry(db)
+		Expect(err).ToNot(HaveOccurred())
+		current.SetAliasResolver(&revisionAliasResolver{
+			fakeAliasResolver: fakeAliasResolver{aliases: map[string]string{"production": "model-x"}},
+			revisions:         map[string]string{"production": "rev-new"},
+		})
+		_, err = current.AdvanceModelConfigRevision(ctx, "production", "rev-new")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(current.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "production", MinReplicas: 2, NodeSelector: `{"gpu.vendor":"nvidia"}`})).To(Succeed())
+
+		registry.SetAliasResolver(&revisionAliasResolver{
+			fakeAliasResolver: fakeAliasResolver{aliases: map[string]string{"production": "model-old"}},
+			revisions:         map[string]string{"production": "rev-old"},
+		})
+
+		rule, err := registry.GetGoverningScheduling(ctx, "model-x")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rule).ToNot(BeNil(), "the outdated frontend finds the rule through the stored target")
+		Expect(rule.ModelName).To(Equal("production"))
+
+		node, err := newRouter(registry).ScheduleAndLoadModel(ctx, "model-x", nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(node.ID).To(Equal(gpu.ID))
+		Expect(installedOn()).To(ConsistOf(gpu.ID))
+		Expect(installedOn()).ToNot(ContainElement(cpu.ID))
+	})
+
+	It("fails with a retryable error when no matching node is healthy", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "model-x", MinReplicas: 1, NodeSelector: `{"gpu.vendor":"nvidia"}`})).To(Succeed())
+		Expect(registry.MarkDraining(ctx, gpu.ID)).To(Succeed())
+
+		_, err := newRouter(registry).ScheduleAndLoadModel(ctx, "model-x", nil)
+
+		Expect(err).To(MatchError(ErrNoAvailableNodes))
+		Expect(installedOn()).To(BeEmpty(), "never falls back to a node the rule excludes")
+	})
+
+	It("does not treat a selector it cannot parse as no selector", func() {
+		Expect(registry.SetModelScheduling(ctx, &ModelSchedulingConfig{ModelName: "model-x", NodeSelector: `{not json`})).To(Succeed())
+
+		_, err := newRouter(registry).ScheduleAndLoadModel(ctx, "model-x", nil)
+
+		Expect(err).To(MatchError(ErrNoAvailableNodes))
+		Expect(installedOn()).To(BeEmpty())
 	})
 })

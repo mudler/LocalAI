@@ -127,6 +127,13 @@ func (j *ModelLoadJob) Ref() LoadJobRef { return LoadJobRef{j.TrackingKey, j.Gen
 // failed, or now belongs to another generation. An owner that sees it must stop.
 var ErrStaleLoadJob = errors.New("stale model load job ownership")
 
+// ErrLoadInProgress means another attempt holds the model's load job: it is
+// running, or it failed and keeps the model for its stop window. The caller did
+// nothing wrong and nothing failed, so it retries later instead of counting a
+// failure. The reconciler relies on this: a slow load that a request started
+// must not push the reconciler into a long backoff.
+var ErrLoadInProgress = errors.New("the model is already being loaded by another owner")
+
 // ErrLoadLeaseExpired means the owner could not extend its lease before the
 // lease it last held ran out. The owner stops its own work: it must not outlive
 // a lease it can no longer extend.
