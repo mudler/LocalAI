@@ -1810,6 +1810,10 @@
   },
   "incognito": {
     "label": "Incógnito",
+    "stateOff": "Incógnito: desactivado",
+    "stateOn": "Incógnito: {{level}}",
+    "about": "Un chat privado: no aparece en la lista y termina cuando lo dejas.",
+    "aboutLocked": "Este chat es de incógnito. Desactívalo para terminar el chat; su nivel no se puede cambiar.",
     "levelLabel": "Nivel de incógnito",
     "levels": {
       "memory-off": "Sin memoria",
@@ -1820,6 +1824,7 @@
       "zero-retention": "El servidor no guarda nada de este chat, solo los contadores de uso. No lee ni guarda memoria, no acepta adjuntos y termina cuando lo dejas."
     },
     "blocked": "No disponible en un chat de incógnito",
+    "noProject": "Un chat de incógnito no pertenece a ningún proyecto.",
     "discardTitle": "¿Terminar el chat de incógnito?",
     "discardMessage": "El chat se elimina y no se puede volver a abrir.",
     "discardConfirm": "Terminar chat"

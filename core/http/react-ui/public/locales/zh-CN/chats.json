@@ -1810,6 +1810,10 @@
   },
   "incognito": {
     "label": "无痕",
+    "stateOff": "无痕：关闭",
+    "stateOn": "无痕：{{level}}",
+    "about": "私密聊天：不会出现在列表中，离开后即结束。",
+    "aboutLocked": "此聊天为无痕模式。关闭后聊天即结束；级别无法更改。",
     "levelLabel": "无痕级别",
     "levels": {
       "memory-off": "关闭记忆",
@@ -1820,6 +1824,7 @@
       "zero-retention": "服务器不保留此对话的任何内容，只记录用量。它不读取也不保存记忆，不接受附件，离开后即结束。"
     },
     "blocked": "无痕对话中不可用",
+    "noProject": "无痕聊天不属于任何项目。",
     "discardTitle": "结束无痕对话？",
     "discardMessage": "对话将被删除，且无法再次打开。",
     "discardConfirm": "结束对话"

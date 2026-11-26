@@ -1810,6 +1810,10 @@
   },
   "incognito": {
     "label": "Navigation privée",
+    "stateOff": "Navigation privée : désactivée",
+    "stateOn": "Navigation privée : {{level}}",
+    "about": "Un chat privé : il n'est pas listé et se termine quand vous le quittez.",
+    "aboutLocked": "Ce chat est en navigation privée. Désactivez-la pour terminer le chat ; son niveau ne peut pas changer.",
     "levelLabel": "Niveau de confidentialité",
     "levels": {
       "memory-off": "Sans mémoire",
@@ -1820,6 +1824,7 @@
       "zero-retention": "Le serveur ne conserve rien de ce chat, seulement les compteurs d'utilisation. Il ne lit ni n'enregistre la mémoire, n'accepte aucune pièce jointe et se termine quand vous le quittez."
     },
     "blocked": "Indisponible dans un chat privé",
+    "noProject": "Un chat en navigation privée n'appartient à aucun projet.",
     "discardTitle": "Terminer le chat privé ?",
     "discardMessage": "Le chat est supprimé et ne peut plus être rouvert.",
     "discardConfirm": "Terminer le chat"

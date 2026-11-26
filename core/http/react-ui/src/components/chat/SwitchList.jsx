@@ -27,10 +27,21 @@ import './switchlist.css'
 //   openRef              a ref that gets { open() }, for a slash command
 //   onOpen(menu)         called with the menu element once it is open
 //   disabled             the chip cannot open the menu (title says why)
+//   data                 { name: value } drawn as data-name on the root
+//   className            more classes on the root
+//   foot                 the trigger is a ghost button of the composer's
+//                        bottom bar (the attach button's size) instead of a
+//                        chip: the icon alone, or the icon and the label when
+//                        label is set; ariaLabel names it. The menu opens
+//                        under the button, or over it when there is no room
+//                        under it.
+//   accent               with foot: the button is the primary (accent) one,
+//                        for a mode that is on (incognito)
 //   children(close)      the menu content
-export function SwitchPopover({ icon, label, title, count, dot, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, children }) {
+export function SwitchPopover({ icon, label, title, count, dot, describedBy, testId, menuClassName = '', openRef, onOpen, disabled = false, data = {}, className = '', foot = false, accent = false, ariaLabel, children }) {
   const [open, setOpen] = useState(false)
   const [alignEnd, setAlignEnd] = useState(false)
+  const [above, setAbove] = useState(false)
   const ref = useRef(null)
   const buttonRef = useRef(null)
   const menuRef = useRef(null)
@@ -50,13 +61,25 @@ export function SwitchPopover({ icon, label, title, count, dot, describedBy, tes
   // As in ListPicker: a menu wider than the room to the right of its chip
   // hangs from the chip's right edge instead.
   useLayoutEffect(() => {
-    if (!open) { setAlignEnd(false); return }
+    if (!open) { setAlignEnd(false); setAbove(false); return }
     const menu = menuRef.current
     const root = ref.current
     if (!menu || !root || typeof window === 'undefined') return
     const box = root.getBoundingClientRect()
     setAlignEnd(box.left + menu.offsetWidth > window.innerWidth - 8 && box.right - menu.offsetWidth >= 8)
-  }, [open])
+    if (!foot) return
+    // The foot menu grows when its content changes (a switch that shows more
+    // rows), so its side is measured again then.
+    const place = () => {
+      const b = root.getBoundingClientRect()
+      setAbove(b.bottom + 6 + menu.offsetHeight > window.innerHeight - 8 && b.top - 6 - menu.offsetHeight >= 8)
+    }
+    place()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(place)
+    ro.observe(menu)
+    return () => ro.disconnect()
+  }, [open, foot])
 
   useEffect(() => {
     if (!open) return undefined
@@ -74,31 +97,53 @@ export function SwitchPopover({ icon, label, title, count, dot, describedBy, tes
     }
   }, [open])
 
+  const attrs = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined).map(([k, v]) => [`data-${k}`, v]))
   return (
-    <div className="list-picker swl-pop" ref={ref} data-testid={testId}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className="home-chip"
-        title={title}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-describedby={open || disabled ? describedBy : undefined}
-        data-testid={`${testId}-button`}
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {icon && <Icon name={icon} />}
-        {dot && <span className="home-dot" aria-hidden="true" />}
-        <span className="home-chip__text">{label}</span>
-        {count > 0 && <span className="home-chip__count" data-testid={`${testId}-count`}>{count}</span>}
-        <Icon name="chevron-down" className="home-chip__caret" />
-      </button>
+    <div className={`list-picker swl-pop ${className}`.trim()} ref={ref} data-testid={testId} {...attrs}>
+      {foot ? (
+        <Button
+          ref={buttonRef}
+          variant={accent ? 'primary' : 'ghost'}
+          size="sm"
+          icon={icon}
+          className="home-attach-btn"
+          title={title}
+          aria-label={ariaLabel}
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-describedby={open || disabled ? describedBy : undefined}
+          data-testid={`${testId}-button`}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {label || undefined}
+        </Button>
+      ) : (
+        <button
+          ref={buttonRef}
+          type="button"
+          className="home-chip"
+          title={title}
+          aria-haspopup="true"
+          aria-expanded={open}
+          aria-describedby={open || disabled ? describedBy : undefined}
+          data-testid={`${testId}-button`}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {icon && <Icon name={icon} />}
+          {dot && <span className="home-dot" aria-hidden="true" />}
+          <span className="home-chip__text">{label}</span>
+          {count > 0 && <span className="home-chip__count" data-testid={`${testId}-count`}>{count}</span>}
+          <Icon name="chevron-down" className="home-chip__caret" />
+        </button>
+      )}
       {open && !disabled && (
         <div
           ref={menuRef}
           className={`home-menu swl-menu ${menuClassName}`.trim()}
           data-align={alignEnd ? 'end' : undefined}
+          data-side={above ? 'top' : undefined}
           role="group"
           aria-label={title}
           data-testid={`${testId}-menu`}
@@ -168,12 +213,13 @@ export function SwitchGroup({ title, icon, count, actions, intro, testId, childr
 //   meta          a muted text before the switch ("4 tools")
 //   reason        why the switch is disabled (drawn under the name)
 //   title         the tooltip of the row; else the name and the text
+//   switchTestId  the data-testid of the switch
 //   data          data-* attributes of the row
 //   extra         a control under the row (the connection of an add-on); it
 //                 sits outside the label, so using it never toggles the switch
 export function SwitchRow({
   name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
-  stacked = false, testId, descTestId, blurbTestId, data = {}, extra, extraId, nested = false,
+  stacked = false, testId, switchTestId, descTestId, blurbTestId, data = {}, extra, extraId, nested = false,
 }) {
   const nameId = useId()
   const descId = useId()
@@ -212,6 +258,7 @@ export function SwitchRow({
         labelledBy={nameId}
         describedBy={[line ? descId : '', extraId || ''].filter(Boolean).join(' ') || undefined}
         onChange={onChange}
+        testId={switchTestId}
       />
     </div>
   )

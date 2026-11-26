@@ -1810,6 +1810,10 @@
   },
   "incognito": {
     "label": "Anônimo",
+    "stateOff": "Anônimo: desativado",
+    "stateOn": "Anônimo: {{level}}",
+    "about": "Um chat privado: não aparece na lista e termina quando você sai dele.",
+    "aboutLocked": "Este chat é anônimo. Desative para encerrar o chat; o nível não pode mudar.",
     "levelLabel": "Nível anônimo",
     "levels": {
       "memory-off": "Sem memória",
@@ -1820,6 +1824,7 @@
       "zero-retention": "O servidor não guarda nada deste chat, apenas contagens de uso. Não lê nem salva memória, não aceita anexos e termina quando você sai dele."
     },
     "blocked": "Indisponível em um chat anônimo",
+    "noProject": "Um chat anônimo não pertence a nenhum projeto.",
     "discardTitle": "Encerrar o chat anônimo?",
     "discardMessage": "O chat é excluído e não pode ser aberto de novo.",
     "discardConfirm": "Encerrar chat"

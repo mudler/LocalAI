@@ -75,7 +75,8 @@ import { Button, Callout, LoadError } from '../components/ui'
 import './home.css'
 import Icon from '../components/Icon'
 import { idsText, resultParts } from '../utils/remotes'
-import IncognitoBar from '../components/chat/IncognitoBar'
+// eslint-disable-next-line no-unused-vars
+import { IncognitoButton, IncognitoNote } from '../components/chat/Incognito'
 import { ZERO_RETENTION, incognitoLevels, offeredLevel, rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 
 const DOCS_URL = 'https://localai.io'
@@ -804,11 +805,6 @@ export default function Home() {
           )}
           {!chatServer.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
           {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
-          <IncognitoBar
-            levels={incognitoLevels(chatServer.incognito)}
-            level={incognito}
-            onChange={(l) => setIncognito(l ? offeredLevel(chatServer.incognito, l) : '')}
-          />
           <ChatComposer
             composer={composer}
             sandboxProfile={sandboxProfile}
@@ -830,10 +826,18 @@ export default function Home() {
               />
             )}
             chips={<ReasoningChips effort={draftEffort} onEffort={setDraftEffort} />}
+            incognito={incognito}
             pickerDisabled={firstRun}
             pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}
             live={<LiveButton live={liveHome} />}
+            mode={(
+              <IncognitoButton
+                levels={incognitoLevels(chatServer.incognito)}
+                level={incognito}
+                onChange={(l) => setIncognito(l ? offeredLevel(chatServer.incognito, l) : '')}
+              />
+            )}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}
@@ -847,6 +851,7 @@ export default function Home() {
             textareaTestId="home-input"
             sendTestId="home-send"
           />
+          <IncognitoNote level={incognito} />
           {isAdmin && addonProjection.diagnostics.length > 0 && (
             <details data-testid="addon-command-diagnostics">
               <summary>{t('slash.commandDiagnostics')}</summary>

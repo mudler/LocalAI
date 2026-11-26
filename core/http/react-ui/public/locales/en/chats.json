@@ -2125,6 +2125,10 @@
   },
   "incognito": {
     "label": "Incognito",
+    "stateOff": "Incognito: off",
+    "stateOn": "Incognito: {{level}}",
+    "about": "A private chat: it is not listed and ends when you leave it.",
+    "aboutLocked": "This chat is incognito. Turn it off to end the chat; its level cannot change.",
     "levelLabel": "Incognito level",
     "levels": {
       "memory-off": "Memory off",
@@ -2135,6 +2139,7 @@
       "zero-retention": "Nothing of this chat is kept on the server, only usage counts. It reads and saves no memory, takes no attachments, and ends when you leave it."
     },
     "blocked": "Not available in an incognito chat",
+    "noProject": "An incognito chat belongs to no project.",
     "discardTitle": "End the incognito chat?",
     "discardMessage": "The chat is deleted and cannot be opened again.",
     "discardConfirm": "End chat"

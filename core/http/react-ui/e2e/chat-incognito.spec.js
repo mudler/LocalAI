@@ -1,10 +1,11 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome } from './home-fixtures.js'
 
-// The incognito switch of Home and the chat page, with the API stubbed: the
-// switch shows only when the server allows incognito, every request of the
-// incognito chat carries the marker, nothing of the chat reaches the browser
-// storage, and leaving the chat ends it on the server.
+// The incognito button of the composer's bottom bar on Home and on the chat
+// page, with the API stubbed: it shows only when the server allows it, every
+// request of the incognito chat carries the marker, a zero-retention chat
+// takes no attachment, nothing of the chat reaches the browser storage, and
+// leaving the chat ends it on the server.
 
 const SENTINEL = 'INCOGNITO-SENTINEL-4711'
 
@@ -60,11 +61,31 @@ test.describe('Incognito chats', () => {
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
     const bar = page.getByTestId('chat-incognito')
     await expect(bar).toBeVisible()
+    const chip = page.getByTestId('chat-incognito-button')
+    const attach = page.getByRole('button', { name: 'Attach file' })
+    // Off, it is an icon of the bottom bar, named by its state.
+    await expect(page.locator('.home-cmd__foot').getByTestId('chat-incognito-button')).toBeVisible()
+    await expect(chip).toHaveAttribute('aria-label', 'Incognito: off')
+    await expect(chip).toHaveText('')
+    await expect(attach).toBeVisible()
+    await expect(page.getByTestId('chat-incognito-note')).toHaveCount(0)
+    await chip.click()
+    // The menu opens with the focus on the switch.
+    await expect(page.getByTestId('chat-incognito-switch')).toBeFocused()
     await page.getByTestId('chat-incognito-switch').click()
     await expect(page.getByTestId('chat-incognito-desc')).toContainText('memory')
     await page.getByTestId('chat-incognito-level-zero-retention').click()
     await expect(bar).toHaveAttribute('data-level', 'zero-retention')
     await expect(page.getByTestId('chat-incognito-desc')).toContainText('only usage counts')
+    // Closed, the button names the level and the line under the composer
+    // says what it keeps. An incognito chat belongs to no project.
+    await page.keyboard.press('Escape')
+    await expect(chip).toBeFocused()
+    await expect(chip).toHaveText('Zero retention')
+    await expect(chip).toHaveAttribute('aria-label', 'Incognito: Zero retention')
+    await expect(page.getByTestId('chat-incognito-note')).toContainText('only usage counts')
+    await expect(page.getByTestId('project-picker-incognito')).toBeVisible()
+    await expect(attach).toHaveCount(0)
 
     await page.getByTestId('home-input').fill(SENTINEL)
     // The box of an incognito chat is never written to the browser storage.
@@ -81,6 +102,14 @@ test.describe('Incognito chats', () => {
     await page.waitForTimeout(600)
     expect(await storageHas(page, SENTINEL)).toBe(false)
 
+    // The open chat keeps its level and takes no attachment: the menu offers
+    // no level to pick.
+    await expect(page.getByTestId('chat-incognito-note')).toContainText('only usage counts')
+    await expect(attach).toHaveCount(0)
+    await expect(page.locator('.cx-dock .home-cmd__foot').getByTestId('chat-incognito-button')).toHaveText('Zero retention')
+    await page.getByTestId('chat-incognito-button').click()
+    await expect(page.getByTestId('chat-incognito-level')).toHaveCount(0)
+    await expect(page.getByTestId('chat-incognito-level-name')).toHaveText('Zero retention')
     // Turning the switch off asks, then ends the chat on the server.
     await page.getByTestId('chat-incognito-switch').click()
     await page.getByRole('button', { name: 'End chat' }).click()
@@ -88,7 +117,7 @@ test.describe('Incognito chats', () => {
     expect(await storageHas(page, SENTINEL)).toBe(false)
   })
 
-  test('the switch is hidden when the server forbids incognito', async ({ page }) => {
+  test('the button is hidden when the server forbids incognito', async ({ page }) => {
     await server(page, { policy: 'forbid' })
     await page.goto('/app')
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
@@ -98,8 +127,10 @@ test.describe('Incognito chats', () => {
   test('a server that offers memory-off only shows no level picker', async ({ page }) => {
     await server(page, { maxLevel: 'memory-off' })
     await page.goto('/app')
+    await page.getByTestId('chat-incognito-button').click()
     await page.getByTestId('chat-incognito-switch').click()
     await expect(page.getByTestId('chat-incognito')).toHaveAttribute('data-level', 'memory-off')
     await expect(page.getByTestId('chat-incognito-level')).toHaveCount(0)
+    await expect(page.getByTestId('chat-incognito-level-name')).toHaveText('Memory off')
   })
 })

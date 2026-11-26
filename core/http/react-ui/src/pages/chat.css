@@ -1352,6 +1352,11 @@ button.cx-step__head:hover,
   .cx-dock .home-cmd__top { flex-wrap: nowrap; }
   /* An empty chat has the draft menus too: its chips wrap, as on Home. */
   .cx-conv[data-empty] .cx-dock .home-cmd__top { flex-wrap: wrap; }
+  /* In an open chat the incognito pill is its icon, square like the other
+     icon buttons: the bar has no room for the level, and the line under the
+     composer names it. */
+  .cx-conv:not([data-empty]) .cx-dock .cx-incognito-ctl .ui-btn__label { display: none; }
+  .cx-conv:not([data-empty]) .cx-dock .cx-incognito-ctl[data-level] .dk-btn { padding: 0; width: var(--dk-btn-h); }
   .cx-foot { padding-top: 6px; }
   .cx-find { width: calc(100% - 24px); margin-bottom: 6px; }
   .cx-menu { top: 56px; }
@@ -2215,19 +2220,44 @@ html[data-handoff='fade']::view-transition-new(root) {
 .cx-greeting b { display: block; font-size: var(--fs-small); color: var(--dk-text); }
 .cx-greeting p { margin: 2px 0 0; font-family: var(--cx-font, var(--font-sans)); font-size: var(--fs-lead); line-height: 1.6; color: var(--dk-text); }
 
-/* The incognito switch over the thread. Off, it is one quiet row; on, it is a
-   band of its own colour, so the state of the chat cannot be missed. */
+/* Incognito (components/chat/Incognito.jsx). The button sits in the bottom
+   bar of the composer, after Live. Off, it is the attach button's ghost icon;
+   while its menu is open it keeps the hover background. On, it is a small
+   pill in the accent that names the level. The composer card takes a faint
+   wash of the accent, and a line under it says what the level keeps. Only
+   the background of the card changes: it keeps its own edge, focus ring and
+   drop ring. */
+.cx-incognito-ctl .dk-btn--ghost[aria-expanded="true"] { background: var(--dk-hover); }
+/* On, the button is the kit's primary button (Incognito.jsx); the only
+   change is the pill shape that marks it as a state, not an action. */
+.cx-incognito-ctl[data-level] .dk-btn { border-radius: var(--radius-full); }
+/* The menu of the button opens over it when there is no room under it. */
+.cx-incognito-ctl .home-menu[data-side="top"] { top: auto; bottom: calc(100% + 6px); }
+.home-cmd:has(.cx-incognito-ctl[data-level]) {
+  background: color-mix(in srgb, var(--dk-accent-wash) 55%, var(--dk-card));
+}
+/* The menu: the switch row, then the level and what it keeps. */
 .cx-incognito {
-  margin: var(--sp-2) 16px 0;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--dk-radius-2);
-  color: var(--dk-muted);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-top: 1px solid var(--color-border-divider);
 }
-.cx-incognito--on {
-  background: color-mix(in srgb, var(--dk-text) 88%, transparent);
-  color: var(--dk-card);
+.cx-incognito--off { padding: 0; border-top: 0; }
+.cx-incognito__heading { font-size: var(--fs-meta); font-weight: 600; color: var(--color-text-secondary); }
+.cx-incognito__level { font-size: var(--fs-small); font-weight: 500; color: var(--color-text-primary); }
+.cx-incognito__desc { margin: 0; font-size: var(--fs-meta); line-height: 1.45; color: var(--color-text-secondary); }
+/* The line under the composer. */
+.cx-incognito-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 0;
+  padding: 0 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+  line-height: 1.45;
 }
-.cx-incognito__row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.cx-incognito__label { font-weight: 600; }
-.cx-incognito__level { font-size: var(--fs-small); }
-.cx-incognito__desc { margin: var(--sp-1) 0 0; font-size: var(--fs-small); }
+.cx-incognito-note .lai-icon { flex: none; width: 14px; height: 14px; margin-top: 1px; color: var(--dk-accent-text); }
+.cx-incognito-note__title { font-weight: 600; color: var(--dk-accent-text); }

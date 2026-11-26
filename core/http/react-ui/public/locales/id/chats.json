@@ -1810,6 +1810,10 @@
   },
   "incognito": {
     "label": "Penyamaran",
+    "stateOff": "Penyamaran: mati",
+    "stateOn": "Penyamaran: {{level}}",
+    "about": "Chat pribadi: tidak tercantum dan berakhir saat Anda meninggalkannya.",
+    "aboutLocked": "Chat ini dalam mode penyamaran. Matikan untuk mengakhiri chat; tingkatnya tidak dapat diubah.",
     "levelLabel": "Tingkat penyamaran",
     "levels": {
       "memory-off": "Tanpa memori",
@@ -1820,6 +1824,7 @@
       "zero-retention": "Server tidak menyimpan apa pun dari chat ini, hanya hitungan penggunaan. Chat tidak membaca atau menyimpan memori, tidak menerima lampiran, dan berakhir saat Anda meninggalkannya."
     },
     "blocked": "Tidak tersedia di chat penyamaran",
+    "noProject": "Chat penyamaran tidak termasuk dalam proyek apa pun.",
     "discardTitle": "Akhiri chat penyamaran?",
     "discardMessage": "Chat dihapus dan tidak dapat dibuka lagi.",
     "discardConfirm": "Akhiri chat"

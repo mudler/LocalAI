@@ -81,7 +81,7 @@ import '../../pages/chat.css'
 export default function ChatComposer({
   composer, chatId = null, activeChat = null, filesOn = true, loadedIds, imageModel = '',
   onPickModel, pickerRef, pickerDisabled = false, pickerPlaceholder, egress = null, sandboxProfile = null, toolsExtra, chips,
-  slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, toolbarSlot = null, ...rest
+  slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, toolbarSlot = null, incognito = '', ...rest
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
@@ -96,7 +96,7 @@ export default function ChatComposer({
   const fencedAgent = folderState(pickedAgent) !== 'none'
   useEffect(() => { if (fencedAgent && projectId && setProjectId) setProjectId('') }, [fencedAgent, projectId, setProjectId])
   useEffect(() => { if (fencedAgent && pulledDraft?.length && setPulledDraft) setPulledDraft([]) }, [fencedAgent, pulledDraft, setPulledDraft])
-  const startProject = !chatId && projectId && !fencedAgent ? (projectList.projects || []).find(p => p.id === projectId) : null
+  const startProject = !chatId && projectId && !fencedAgent && !incognito ? (projectList.projects || []).find(p => p.id === projectId) : null
 
   const [fitOpenCount, setFitOpenCount] = useState(0)
   const modelNames = useMemo(() => models.map(m => m.id), [models])
@@ -264,10 +264,16 @@ export default function ChatComposer({
           <>
             <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!chatId} />
             <AgentFolderChip agent={pickedAgent} />
-            {!chatId && setProjectId && !fencedAgent && <ProjectPicker list={projectList} value={projectId || ''} onChange={setProjectId} pulled={pulledDraft} onPulled={setPulledDraft} />}
-            {!chatId && setProjectId && fencedAgent && projectList.status === 'ready' && (
+            {!chatId && setProjectId && !fencedAgent && !incognito && <ProjectPicker list={projectList} value={projectId || ''} onChange={setProjectId} pulled={pulledDraft} onPulled={setPulledDraft} />}
+            {!chatId && setProjectId && fencedAgent && !incognito && projectList.status === 'ready' && (
               <span className="home-chip" aria-disabled="true" title={tp('composer.fencedHint')} data-testid="project-picker-fenced">
                 <Icon name="layers" /> <span className="home-chip__text">{tp('composer.fencedLabel')}</span>
+              </span>
+            )}
+            {!chatId && setProjectId && incognito && projectList.status === 'ready' && (
+              <span className="home-chip" aria-disabled="true" title={tc('incognito.noProject')} data-testid="project-picker-incognito">
+                <Icon name="layers" /> <span className="home-chip__text">{tp('composer.fencedLabel')}</span>
+                <span className="sr-only">{tc('incognito.noProject')}</span>
               </span>
             )}
             {chips}

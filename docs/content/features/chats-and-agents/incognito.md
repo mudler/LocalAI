@@ -18,11 +18,11 @@ Both levels apply to a plain chat, a chat with a [saved agent]({{% relref "/feat
 
 ## Start an incognito chat
 
-1. On Home or on a new chat, turn on **Incognito** above the message box.
+1. On Home or on a new chat, press the **Incognito** button (the incognito icon) in the bottom bar of the message box, after **Live**, and turn on the switch.
 2. Pick the level. **Memory off** is the default.
 3. Send your message.
 
-While the chat is incognito, a dark band over the thread shows the level and what it does. The chat is not in the chats list or in the search.
+While the chat is incognito, the button becomes a pill that names the level, the message box takes a tint of the accent colour, and a line under it says what the level keeps. An incognito chat belongs to no project, so the project chip shows **No project**. The chat is not in the chats list or in the search.
 
 The chat ends when you leave it: when you open another chat, go back to Home, close the tab, or turn **Incognito** off (the page asks first). The server deletes it then. If the page cannot tell the server, the server deletes the chat after one hour without use, and when it restarts.
 
@@ -64,8 +64,8 @@ Everything of **Memory off**, and also:
 
 The setting **Incognito chats** (`incognito`) is `allow` (default) or `forbid`:
 
-- `allow`: the chat page shows the switch.
-- `forbid`: the switch is hidden, and the server answers `403` to an incognito request from the web page, so the page never shows an incognito state that the server does not honour.
+- `allow`: Home and the chat page show the **Incognito** button.
+- `forbid`: the button is hidden, and the server answers `403` to an incognito request from the web page, so the page never shows an incognito state that the server does not honour.
 
 The setting **Highest incognito level** (`incognito_max_level`) is `zero-retention` (default) or `memory-off`. Pick `memory-off` when you need audit logs and traces of every chat: people can still keep chats out of memory, but not out of the logs. A request for a higher level gets `403`.
 

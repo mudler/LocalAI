@@ -61,6 +61,7 @@ function Marked({ text, upto }) {
 //   extras       a node drawn after the attach buttons (the add-on slot)
 //   live         a node drawn after the dictate button (the Live button). It is
 //                hidden while dictation records or transcribes.
+//   mode         a node drawn after the Live button (the incognito button)
 //   dock         a node that takes the place of the message box (the Live
 //                dock); dictation is hidden while it shows. message and
 //                onSubmit stay as they are.
@@ -70,7 +71,7 @@ export default function HomeComposer({
   placeholder, slashContext, onRunAction, slash,
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   rows = 3, strictEnter = false, testId = 'home-composer',
-  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras, live, dock,
+  textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras, live, mode, dock,
   attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, onClearFiles,
 }) {
   const { t } = useTranslation('home')
@@ -324,6 +325,7 @@ export default function HomeComposer({
             />
           )}
           {dictation === 'idle' ? live : null}
+          {mode}
           {extras}
         </div>
         <span className="home-input-hint">{dock ? '' : hint || t('input.enterHint')}</span>

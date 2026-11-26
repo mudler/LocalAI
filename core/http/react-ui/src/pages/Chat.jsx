@@ -104,7 +104,8 @@ import { applyFind, clearFind } from '../components/chat/findInThread'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
-import IncognitoBar from '../components/chat/IncognitoBar'
+// eslint-disable-next-line no-unused-vars
+import { IncognitoButton, IncognitoNote } from '../components/chat/Incognito'
 import { incognitoBlocks, incognitoChatLevel, incognitoLevels, offeredLevel, rememberIncognitoChat, setIncognitoMarker } from '../utils/incognito'
 // eslint-disable-next-line no-unused-vars
 import ChatsMenu from '../components/ChatsMenu'
@@ -1173,6 +1174,26 @@ function ChatPage() {
     }
   }
 
+  const incognitoButton = (
+    <IncognitoButton
+      levels={activeId ? [] : incognitoLevels(chat.incognitoSetting)}
+      level={incognitoLevel}
+      locked={Boolean(activeId)}
+      onChange={(l) => setIncognitoDraft(l ? offeredLevel(chat.incognitoSetting, l) : '')}
+      onTurnOff={() => setConfirmDialog({
+        title: tc('incognito.discardTitle'),
+        message: tc('incognito.discardMessage'),
+        confirmLabel: tc('incognito.discardConfirm'),
+        danger: true,
+        onConfirm: () => {
+          setConfirmDialog(null)
+          setIncognitoDraft('')
+          navigate('/app')
+        },
+      })}
+    />
+  )
+
   const composerChips = (
     <>
       {activeChat?.kind !== 'subagent' && <ReasoningChips effort={effortNow} onEffort={setEffort} openRef={effortRef} />}
@@ -1446,23 +1467,6 @@ function ChatPage() {
           )
         })()}
 
-        <IncognitoBar
-          levels={activeId ? [] : incognitoLevels(chat.incognitoSetting)}
-          level={incognitoLevel}
-          locked={Boolean(activeId)}
-          onChange={(l) => setIncognitoDraft(l ? offeredLevel(chat.incognitoSetting, l) : '')}
-          onTurnOff={() => setConfirmDialog({
-            title: tc('incognito.discardTitle'),
-            message: tc('incognito.discardMessage'),
-            confirmLabel: tc('incognito.discardConfirm'),
-            danger: true,
-            onConfirm: () => {
-              setConfirmDialog(null)
-              setIncognitoDraft('')
-              navigate('/app')
-            },
-          })}
-        />
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && (
@@ -1641,7 +1645,7 @@ function ChatPage() {
               composer={composer}
               chatId={activeId}
               activeChat={activeChat}
-              filesOn={chat.files.on}
+              filesOn={chat.files.on && !incognitoBlocked.attach}
               loadedIds={loadedIds}
               imageModel={chat.imageModel}
               onPickModel={pickModel}
@@ -1653,6 +1657,7 @@ function ChatPage() {
               slotContext={composerSlotContext}
               toolbarSlot={<WorkspaceSlot name="composerToolbar" onTool={handleSend} onCommand={fillComposer} />}
               onDictateError={(m) => addToast(m, 'error')}
+              mode={incognitoButton}
               live={activeId && !liveOn ? <LiveButton live={liveVoice} onNeedSetup={openLiveSetup} buttonRef={liveButtonRef} /> : null}
               dock={activeId && liveOn ? <LiveDock live={liveVoice} waiting={chat.running} onTypeInstead={typeInsteadOfLive} onEnd={endLive} /> : null}
               onSubmit={handleSend}
@@ -1676,7 +1681,9 @@ function ChatPage() {
               textareaTestId="chat-input"
               sendId="chat-submit-btn"
               sendTestId="chat-send"
+              incognito={incognitoLevel}
             />
+            <IncognitoNote level={incognitoLevel} />
             <ChatFoot
               state={footState}
               status={status}
