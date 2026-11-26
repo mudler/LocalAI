@@ -70,6 +70,7 @@ Changes to watchdog settings are applied immediately by restarting the watchdog 
 - **Force Eviction When Busy**: Allow evicting models even when they have active API calls (default: disabled for safety). **Warning:** Enabling this can interrupt active requests
 - **LRU Eviction Max Retries**: Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)
 - **LRU Eviction Retry Interval**: Interval between retries when waiting for busy models (default: `1s`)
+- **Swap models when memory is full** (`model_swap`, default on, applies at once): when a new model needs room (the active model limit is reached, or a loaded model holds the same concurrency group), unload the least recently used idle model to make room. When off, LocalAI never unloads a model for another one: the request waits for the LRU retry window (retries x interval) and, if no room frees up, gets `503` with a `Retry-After` header. The idle watchdog and the memory reclaimer still unload models. The flag is `--model-swap` (`--no-model-swap`, environment `LOCALAI_MODEL_SWAP=false`)
 
 > **Note:** The "Single Backend" setting is deprecated. Use "Max Active Backends" set to `1` for single-backend behavior.
 
@@ -80,7 +81,7 @@ By default, LocalAI will skip evicting models that have active API calls to prev
 1. The system will wait for models to become idle
 2. It will retry eviction up to the configured maximum number of retries
 3. The retry interval determines how long to wait between attempts
-4. If all retries are exhausted, the system will proceed (which may cause out-of-memory errors if resources are truly exhausted)
+4. If all retries are exhausted, the system will proceed (which may cause out-of-memory errors if resources are truly exhausted). With **Swap models when memory is full** off, the request gets `503` with `Retry-After` instead
 
 You can configure these settings via the web UI or through environment variables. See [VRAM Management]({{%relref "/models/vram-management" %}}) for more details.
 

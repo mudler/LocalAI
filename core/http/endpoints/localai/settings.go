@@ -378,6 +378,11 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			xlog.Info("Updated LRU eviction retry settings", "maxRetries", maxRetries, "retryInterval", retryInterval)
 		}
 
+		if settings.ModelSwap != nil {
+			app.ModelLoader().SetModelSwap(appConfig.ModelSwapEnabled())
+			xlog.Info("Updated model swap setting", "modelSwap", appConfig.ModelSwapEnabled())
+		}
+
 		// Update Open Responses store TTL dynamically
 		if settings.OpenResponsesStoreTTL != nil {
 			ttl := time.Duration(0)

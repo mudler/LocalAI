@@ -736,6 +736,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 func initializeWatchdog(application *Application, options *config.ApplicationConfig) {
 	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
 	lruLimit := options.GetEffectiveMaxActiveBackends()
+	application.ModelLoader().SetModelSwap(options.ModelSwapEnabled())
 
 	// Create watchdog if enabled OR if LRU limit is set OR if memory reclaimer is enabled
 	if options.WatchDog || lruLimit > 0 || options.MemoryReclaimerEnabled {

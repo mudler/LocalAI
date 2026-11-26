@@ -33,6 +33,7 @@ type RuntimeSettings struct {
 	SizeAwareEviction        *bool   `json:"size_aware_eviction,omitempty"`         // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    *int    `json:"lru_eviction_max_retries,omitempty"`    // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval *string `json:"lru_eviction_retry_interval,omitempty"` // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
+	ModelSwap                *bool   `json:"model_swap,omitempty"`                  // Unload a model to make room for another when the limit or memory is reached (default: true)
 
 	// Performance settings
 	Threads                     *int `json:"threads,omitempty"`

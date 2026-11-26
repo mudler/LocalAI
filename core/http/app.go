@@ -138,6 +138,18 @@ func applyModelLoadsBlocked(err error, code int, c echo.Context) int {
 	return http.StatusServiceUnavailable
 }
 
+// applyModelSwapDisabled maps a load refused because model swap is off and no
+// room is free to 503 with a Retry-After header (whole seconds, floor 1).
+func applyModelSwapDisabled(err error, code int, c echo.Context) int {
+	var swapErr *model.ModelSwapDisabledError
+	if !errors.As(err, &swapErr) {
+		return code
+	}
+	secs := max(int(math.Ceil(swapErr.RetryAfter.Seconds())), 1)
+	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	return http.StatusServiceUnavailable
+}
+
 func applyBackendAdmission(err error, code int, c echo.Context) int {
 	var capacityErr *corebackend.BackendAdmissionError
 	if !errors.As(err, &capacityErr) {
@@ -294,6 +306,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 			code = applyModelLoadCooldown(err, code, c)
 			code = applyModelLoadsBlocked(err, code, c)
+			code = applyModelSwapDisabled(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			code = applyNoAvailableNodes(err, code, c)
 
@@ -330,6 +343,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 			code = applyModelLoadCooldown(err, code, c)
 			code = applyModelLoadsBlocked(err, code, c)
+			code = applyModelSwapDisabled(err, code, c)
 			code = applyBackendAdmission(err, code, c)
 			// Opaque errors deliberately withhold the body, so a still-loading
 			// model gets the status and Retry-After but no progress detail.

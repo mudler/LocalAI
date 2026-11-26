@@ -53,3 +53,21 @@ var _ = Describe("A model whose loads are blocked by an upgrade", func() {
 		Expect(applyModelLoadsBlocked(http.ErrAbortHandler, http.StatusInternalServerError, c)).To(Equal(http.StatusInternalServerError))
 	})
 })
+
+// A load refused because model swap is off and no room is free waits for an
+// idle model to go: 503 with Retry-After, not a failed load.
+var _ = Describe("A load refused with model swap off", func() {
+	It("is answered 503 with Retry-After", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)
+		code := applyModelSwapDisabled(&model.ModelSwapDisabledError{ModelID: "m", RetryAfter: 1500 * time.Millisecond}, http.StatusInternalServerError, c)
+		Expect(code).To(Equal(http.StatusServiceUnavailable))
+		Expect(rec.Header().Get("Retry-After")).To(Equal("2"))
+		Expect(rec.Header().Get(model.LoadFailedHeader)).To(BeEmpty())
+	})
+	It("leaves other errors alone", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)
+		Expect(applyModelSwapDisabled(http.ErrAbortHandler, http.StatusInternalServerError, c)).To(Equal(http.StatusInternalServerError))
+	})
+})

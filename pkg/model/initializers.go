@@ -470,6 +470,36 @@ func (ml *ModelLoader) enforceGroupExclusivity(modelID string) {
 	}, maxRetries, retryInterval, "group-exclusivity")
 }
 
+// waitForRoom is the load gate with model swap off. It never unloads a
+// model: it waits up to the LRU retry window for room to free up (an idle
+// unload, a stop) and then refuses with a retryable error, so the request
+// does not load over the limit.
+func (ml *ModelLoader) waitForRoom(modelID string) error {
+	if ml.wd == nil {
+		return nil
+	}
+	ml.mu.Lock()
+	maxRetries := ml.lruEvictionMaxRetries
+	retryInterval := ml.lruEvictionRetryInterval
+	ml.mu.Unlock()
+
+	for attempt := 0; ; attempt++ {
+		if !ml.wd.NeedsRoom(modelID, ml.GetLoadingCount()) {
+			return nil
+		}
+		if attempt >= maxRetries-1 {
+			break
+		}
+		time.Sleep(retryInterval)
+	}
+	retryAfter := retryInterval * time.Duration(max(maxRetries, 1))
+	if retryAfter < time.Second {
+		retryAfter = time.Second
+	}
+	xlog.Info("[ModelLoader] Model swap is off and no room is free; refusing the load", "model", modelID)
+	return &ModelSwapDisabledError{ModelID: modelID, RetryAfter: retryAfter}
+}
+
 // updateModelLastUsed updates the last used time for a model (for LRU tracking)
 func (ml *ModelLoader) updateModelLastUsed(m *Model) {
 	if ml.wd == nil || m == nil {
@@ -533,10 +563,14 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	// requested one before applying the global LRU cap — group eviction may
 	// already make room, and otherwise LRU might evict an unrelated model
 	// only for the group check to immediately evict another.
-	ml.enforceGroupExclusivity(o.modelID)
+	if ml.ModelSwapEnabled() {
+		ml.enforceGroupExclusivity(o.modelID)
 
-	// Enforce LRU limit before loading a new model
-	ml.enforceLRULimit()
+		// Enforce LRU limit before loading a new model
+		ml.enforceLRULimit()
+	} else if err := ml.waitForRoom(o.modelID); err != nil {
+		return nil, err
+	}
 
 	// if a backend is defined, return the loader directly
 	if o.backendString != "" {

@@ -139,6 +139,28 @@ func (wd *WatchDog) GetLRULimit() int {
 	return wd.lruLimit
 }
 
+// NeedsRoom reports whether loading requestedModel now would need another
+// model unloaded: the LRU limit is reached (counting pendingLoads) or a
+// loaded model shares a concurrency group with it. Model swap off uses it to
+// wait without evicting.
+func (wd *WatchDog) NeedsRoom(requestedModel string, pendingLoads int) bool {
+	wd.Lock()
+	defer wd.Unlock()
+	if wd.lruLimit > 0 && len(wd.addressModelMap)+pendingLoads+1 > wd.lruLimit {
+		return true
+	}
+	groups := wd.modelGroups[requestedModel]
+	if len(groups) == 0 {
+		return false
+	}
+	for _, name := range wd.addressModelMap {
+		if name != requestedModel && groupsOverlap(groups, wd.modelGroups[name]) {
+			return true
+		}
+	}
+	return false
+}
+
 // SetMemoryReclaimer updates the memory reclaimer settings dynamically
 func (wd *WatchDog) SetMemoryReclaimer(enabled bool, threshold float64) {
 	wd.Lock()

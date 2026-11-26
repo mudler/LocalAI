@@ -156,6 +156,7 @@ type RunCMD struct {
 	ForceEvictionWhenBusy              bool          `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
 	SizeAwareEviction                  bool          `env:"LOCALAI_SIZE_AWARE_EVICTION,SIZE_AWARE_EVICTION" default:"false" help:"Evict the largest loaded model first rather than the least-recently-used one, keeping small utility models resident and maximizing freed memory per eviction" group:"backends"`
 	LRUEvictionMaxRetries              int           `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
+	ModelSwap                          bool          `env:"LOCALAI_MODEL_SWAP,MODEL_SWAP" default:"true" negatable:"" help:"Unload the least recently used idle model to make room for another when the active model limit or the memory is reached. When false, the request waits for the LRU retry window, then gets a 503 with Retry-After (default: true)" group:"backends"`
 	LRUEvictionRetryInterval           string        `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	ModelLoadFailureCooldown           string        `env:"LOCALAI_MODEL_LOAD_FAILURE_COOLDOWN,MODEL_LOAD_FAILURE_COOLDOWN" default:"10s" help:"After a model load fails, refuse new load attempts for that model for this long (returned as HTTP 503 + Retry-After) so a client polling a broken model doesn't respawn a crashing backend every request. Doubles per consecutive failure up to 5m; reset on success. Set to 0 to disable (e.g., 10s, 30s)" group:"backends"`
 	DisableGalleryEndpoint             bool          `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
@@ -937,6 +938,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.LRUEvictionMaxRetries > 0 {
 		opts = append(opts, config.WithLRUEvictionMaxRetries(r.LRUEvictionMaxRetries))
+	}
+	if !r.ModelSwap {
+		opts = append(opts, config.DisableModelSwap)
 	}
 	if r.LRUEvictionRetryInterval != "" {
 		dur, err := time.ParseDuration(r.LRUEvictionRetryInterval)

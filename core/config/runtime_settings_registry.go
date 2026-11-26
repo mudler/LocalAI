@@ -248,6 +248,10 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **string { return &s.LRUEvictionRetryInterval },
 		func(o *ApplicationConfig) *time.Duration { return &o.LRUEvictionRetryInterval },
 		"1s"),
+	field("model_swap",
+		func(s *RuntimeSettings) **bool { return &s.ModelSwap },
+		func(o *ApplicationConfig) bool { return !o.DisableModelSwap },
+		func(o *ApplicationConfig, v bool) { o.DisableModelSwap = !v }),
 
 	// Performance.
 	field("threads",

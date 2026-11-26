@@ -310,6 +310,10 @@ type ApplicationConfig struct {
 	SizeAwareEviction        bool          // Evict largest models first rather than least-recently-used (default: false)
 	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
 	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
+	// DisableModelSwap stops a load from unloading another model to make
+	// room. The load waits for the LRU retry window, then fails with a
+	// retryable 503. Stored negated so the zero value keeps swap on.
+	DisableModelSwap bool
 
 	// ModelLoadFailureCooldown is the base cooldown applied after a model load
 	// fails: new load attempts for that model are refused (HTTP 503 + Retry-After)
@@ -928,6 +932,14 @@ func WithSizeAwareEviction(enabled bool) AppOption {
 		o.SizeAwareEviction = enabled
 	}
 }
+
+// DisableModelSwap turns model swap off (see ApplicationConfig.DisableModelSwap).
+var DisableModelSwap = func(o *ApplicationConfig) {
+	o.DisableModelSwap = true
+}
+
+// ModelSwapEnabled reports whether a load may unload another model to make room.
+func (o *ApplicationConfig) ModelSwapEnabled() bool { return !o.DisableModelSwap }
 
 // WithLRUEvictionMaxRetries sets the maximum number of retries when waiting for busy models to become idle
 func WithLRUEvictionMaxRetries(maxRetries int) AppOption {

@@ -94,13 +94,16 @@ type ModelLoader struct {
 	externalBackends         map[string]string
 	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
 	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
-	onUnloadHooks            []ModelUnloadHook
-	loadObserver             func(BackendLoadEvent)
-	loadLifecycleObserver    func(BackendLoadEvent) (func(BackendLoadEvent), error)
-	remoteUnloader           RemoteModelUnloader
-	modelRouter              ModelRouter // distributed mode: route to remote node
-	backendLogs              *BackendLogStore
-	backendLoggingEnabled    atomic.Bool
+	// modelSwapDisabled stops the loader from unloading a model to make
+	// room for another. Stored negated so the zero value keeps swap on.
+	modelSwapDisabled     bool
+	onUnloadHooks         []ModelUnloadHook
+	loadObserver          func(BackendLoadEvent)
+	loadLifecycleObserver func(BackendLoadEvent) (func(BackendLoadEvent), error)
+	remoteUnloader        RemoteModelUnloader
+	modelRouter           ModelRouter // distributed mode: route to remote node
+	backendLogs           *BackendLogStore
+	backendLoggingEnabled atomic.Bool
 	// stoppingProcs marks backend processes that LocalAI is stopping on
 	// purpose (model unload / graceful shutdown), keyed by the
 	// *process.Process pointer. The exit-watcher goroutine in startProcess
@@ -181,6 +184,29 @@ func (e *ModelLoadCooldownError) Error() string {
 	return fmt.Sprintf("model %q load is in cooldown after a recent failure; retry after %s",
 		e.ModelID, e.RetryAfter.Round(time.Second))
 }
+
+// ErrModelSwapDisabled is the sentinel of ModelSwapDisabledError, for
+// errors.Is checks.
+var ErrModelSwapDisabled = errors.New("model swap is disabled and no room is free")
+
+// ModelSwapDisabledError is returned when a load needs another model unloaded
+// (the active model limit is reached or a concurrency group is held) and
+// model swap is off. The HTTP layer maps it to 503 with a Retry-After header:
+// room may free up when a model goes idle and the watchdog unloads it.
+type ModelSwapDisabledError struct {
+	ModelID    string
+	RetryAfter time.Duration
+}
+
+func (e *ModelSwapDisabledError) Error() string {
+	return fmt.Sprintf("cannot load model %q: %s; retry after %s",
+		e.ModelID, ErrModelSwapDisabled, e.RetryAfter.Round(time.Second))
+}
+
+func (e *ModelSwapDisabledError) Is(target error) bool { return target == ErrModelSwapDisabled }
+
+// RetryLater marks the refusal as a wait, not a fault of the request.
+func (e *ModelSwapDisabledError) RetryLater() bool { return true }
 
 // ModelLoadsBlockedError is returned when a load is refused because the
 // model's files are being replaced (a model upgrade). The HTTP layer maps it
@@ -408,6 +434,22 @@ func (ml *ModelLoader) BackendLoggingEnabled() bool {
 }
 
 // SetLRUEvictionRetrySettings updates the LRU eviction retry settings
+// SetModelSwap turns model swap on or off. With swap off, a load that needs
+// room waits for the LRU retry window and then fails with a
+// ModelSwapDisabledError; no other model is unloaded for it.
+func (ml *ModelLoader) SetModelSwap(enabled bool) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.modelSwapDisabled = !enabled
+}
+
+// ModelSwapEnabled reports whether a load may unload other models.
+func (ml *ModelLoader) ModelSwapEnabled() bool {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	return !ml.modelSwapDisabled
+}
+
 func (ml *ModelLoader) SetLRUEvictionRetrySettings(maxRetries int, retryInterval time.Duration) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
