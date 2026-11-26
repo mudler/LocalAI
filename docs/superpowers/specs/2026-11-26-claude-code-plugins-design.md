@@ -183,6 +183,7 @@ it.
 | `marketplace_id` | string, PK | |
 | `sha` | string | Source SHA of the snapshot (empty for `url`). |
 | `body` | blob | The raw `marketplace.json`, at most 1 MiB. |
+| `body_sha256` | string | SHA-256 of `body`. A refresh of a `url` marketplace compares it to detect a change. |
 | `entries` | JSON | Normalized entries: name, source, description, version, category, tags, homepage, author, strict, and `supported` with a reason. |
 | `skipped` | JSON | Entries nib skipped, with reasons. |
 | `fetched_at` | time | |
@@ -391,21 +392,54 @@ These cover more than 99% of the entries in the surveyed repositories.
 
 ### 8.3 The curated marketplace
 
-LocalAI ships one default marketplace: a curated list (owner decision 4).
+LocalAI ships one default marketplace: a curated list (owner decision 4). It
+lives in this repository.
 
-- **Where:** a dedicated public git repository (recommended; see Open
-  question 1). The default location is a constant in the server and can be
-  replaced by the flag `--plugin-marketplaces` (environment
-  `LOCALAI_PLUGIN_MARKETPLACES`, a comma-separated list) that seeds defaults at
-  first start.
-- **Seeding:** at first start the server adds it as a default marketplace. If an
-  administrator removes it, a tombstone keeps it removed. The host-wide
-  "official libraries" switch suspends it as it suspends the default add-on
-  libraries.
-- **Format:** a normal `.claude-plugin/marketplace.json`, so any client of the
-  format can use it too. Each entry that points outside the repository has a
-  full `sha`. LocalAI-specific metadata goes under `metadata.localai` of the
-  entry, which other clients ignore:
+**Location.** `plugins/.claude-plugin/marketplace.json`, with in-repository
+plugins next to it (`plugins/localai/`). Reasons for a top-level `plugins/`
+folder:
+
+- One folder holds the marketplace, the in-repository plugins and the CI
+  schema, so one path filter (`plugins/**`) covers every change.
+- `plugins/` is a valid marketplace root in the format (`.claude-plugin/` at
+  its top), so a client that reads a folder can use a checkout of it.
+- `gallery/` holds the YAML indexes of the model, backend and add-on
+  libraries. A plugin marketplace is JSON in another format with plugin source
+  folders, so it does not belong there.
+
+**How servers fetch it.** As a `url` marketplace: one HTTP GET of the raw file,
+no clone of this repository.
+
+```
+https://raw.githubusercontent.com/mudler/LocalAI/<ref>/plugins/.claude-plugin/marketplace.json
+```
+
+`<ref>` is `v<semver>` for a release build and `master` for any other build. The
+rule is the one of the official add-on library (`catalog.OfficialLibraryURL`
+and the release version check next to it): a build whose version matches
+`v<semver>` reads the index of its tag, and a source build reads master. The
+model gallery default reads master in every build, so the add-on library is the
+precedent here. `plugins.CuratedMarketplaceURL(version string) string` computes
+the URL. A release server therefore sees new curated SHAs with the next
+release. An administrator who wants them sooner adds the master URL as a second
+marketplace.
+
+A `url` marketplace has no source SHA. A refresh detects a change by the
+SHA-256 of the body (`plugin_marketplace_snapshots.body_sha256`).
+
+The flag `--plugin-marketplaces` (environment `LOCALAI_PLUGIN_MARKETPLACES`,
+comma-separated) replaces the default list at first start.
+
+**Seeding.** At first start the server adds the curated marketplace with ID
+`localai` as a default. If an administrator removes it, a tombstone keeps it
+removed. The host-wide "official libraries" switch suspends it, as it suspends
+the default add-on libraries.
+
+**Entries.** A `url` marketplace cannot use relative sources (spec 8.2, and the
+format says the same). So every entry, the in-repository plugin included, is a
+`github` or `git-subdir` source with a full 40-hex `sha`. Upstream plugins are
+referenced at their own repository and SHA, never copied. LocalAI metadata goes
+under `metadata.localai`, which other clients ignore:
 
 ```json
 {
@@ -413,35 +447,137 @@ LocalAI ships one default marketplace: a curated list (owner decision 4).
   "owner": {"name": "LocalAI"},
   "plugins": [
     {
-      "name": "superpowers",
-      "source": {"source": "github", "repo": "obra/superpowers",
-                 "sha": "<40 hex>"},
-      "description": "Planning, TDD and review skills with a session bootstrap.",
+      "name": "python-development",
+      "source": {"source": "git-subdir", "url": "https://github.com/wshobson/agents.git",
+                 "path": "plugins/python-development", "sha": "<40 hex>"},
+      "description": "Python skills: project layout, testing, typing, packaging, performance.",
       "category": "development",
-      "metadata": {"localai": {"tested": "P2", "notes": "needs hooks for the bootstrap"}}
+      "metadata": {"localai": {"license": "MIT", "runsCode": false, "phase": "P0",
+                               "reviewed": "2026-11-26"}}
+    },
+    {
+      "name": "localai",
+      "source": {"source": "git-subdir", "url": "https://github.com/mudler/LocalAI.git",
+                 "path": "plugins/localai", "sha": "<40 hex>"},
+      "description": "Use a LocalAI server: API, models and gallery, add-ons.",
+      "metadata": {"localai": {"license": "MIT", "runsCode": false, "phase": "P0"}}
     }
   ]
 }
 ```
 
-- **Rules for an entry:** a license that allows use; a full SHA; it parses with
-  `local-ai plugins validate`; a person read the code files at that SHA; and it
-  was tried with a local model. The repository CI runs `local-ai plugins
-  validate` on every entry and refuses an entry with no `sha`.
-- **Update:** a pull request that moves the SHA. The server sees the new SHA at
-  the next refresh and offers the update (section 9.4).
+**Fetching the in-repository plugin.** The `localai` entry is a `git-subdir`
+source, fetched as a partial, sparse clone: `--filter=blob:none`, a sparse
+checkout of `plugins/localai`, and a shallow fetch of the pinned SHA. Git then
+downloads the trees of that one commit and the blobs of that one folder only.
 
-Initial content candidates, each subject to a license and code review:
+The other option was a GitHub tarball of the commit (`codeload.github.com`),
+filtered to the folder. It is not chosen: GitHub has no tarball of a subfolder,
+so the server would download the whole repository archive to keep one folder,
+and it would need a GitHub-only source path next to the git one. The partial
+clone uses the `git-subdir` source of the format, works with any git host and
+goes through `claudeplugin.Fetch`. nib does not add `--filter=blob:none` yet
+(gap N10, section 21). Until it does, the hardened `GitFunc` of section 15.2
+adds it to every `fetch`.
 
-| Candidate | Components | Phase where it works fully |
+**The pinned SHA of the in-repository plugin.** A commit cannot hold its own
+SHA. A pull request that changes `plugins/localai/` leaves the `sha` of the
+`localai` entry as it is. After the merge, a bot workflow
+(`.agents/ci-bot-pull-requests.md`) opens a pull request that sets the `sha` to
+the merge commit. CI checks that the tree at the pinned SHA equals the folder in
+the branch, and reports a mismatch as a warning on the first pull request and
+as an error on every other one.
+
+**CI.** `.github/workflows/plugins-marketplace.yml` runs on pull requests that
+touch `plugins/**`:
+
+1. Schema: `marketplace.json` passes `plugins/marketplace.schema.json`: the
+   format's fields, plus `metadata.localai` with `license` (an SPDX ID),
+   `runsCode`, `phase` and `reviewed`.
+2. Pins: every entry has a full SHA. npm, archive, command and relative
+   sources are refused.
+3. Resolve: every entry is fetched at its SHA with the partial, sparse clone
+   above, through the same `fetch` package as the server.
+4. License: the fetched folder, or the repository root at that SHA, has a
+   license file whose SPDX ID equals `metadata.localai.license`.
+5. Validate: `local-ai plugins validate` on every fetched plugin and on
+   `plugins/localai/` of the branch. `runsCode` must equal the computed code
+   reasons.
+
+A change of a pinned SHA is a pull request like any other. The server sees it at
+the next refresh of a build that reads that ref, and offers the update
+(section 9.4).
+
+### 8.4 Curated content, first cut
+
+Sources read for this list: the plugin repositories `anthropics/claude-plugins-official`
+(`0fbfda5`), `obra/superpowers` (`22f0b46`), `wshobson/agents` (`c96b5f6`),
+`anthropics/claude-code`, `thedotmack/claude-mem` and
+`Piebald-AI/claude-code-lsps`. The license column is from the license file in
+the plugin folder or at the repository root. The pins of the first pull request
+are the SHAs of that day, read again at that time.
+
+Columns: S skills, C commands, A agents. "Local fit" says whether the text is
+short enough and free of tools that LocalAI drops (section 11.1).
+
+#### P0 list (text-only, works in P0)
+
+| Plugin | Source | Contributes | License | Code | Earliest | Local fit | Verdict |
+|---|---|---|---|---|---|---|---|
+| `localai` | this repository, `plugins/localai` | S 3, C 1 (below) | MIT | no | P0 | yes, written for it | Keep. The reference plugin and the end-to-end fixture. |
+| `frontend-design` | claude-plugins-official, `plugins/frontend-design` | S 1 (9 KB) | Apache-2.0 | no | P0 | yes: one short skill, no special tools | Keep. |
+| `python-development` | wshobson/agents, `plugins/python-development` | S 16 (each at most 12 KB), A 3 (`opus`) | MIT | no | P0 skills, P1 agents | yes: skills load one at a time | Keep. |
+| `developer-essentials` | wshobson/agents, `plugins/developer-essentials` | S 11 (each at most 14 KB), A 1 | MIT | no | P0 skills, P1 agent | yes | Keep. Some skills are niche (Bazel, Nx, Turborepo); the per-skill switch covers that. |
+| `documentation-standards` | wshobson/agents, `plugins/documentation-standards` | S 2 (20 KB in all) | MIT | no | P0 | yes | Keep. |
+| `shell-scripting` | wshobson/agents, `plugins/shell-scripting` | S 3, A 2 (`sonnet`) | MIT | no | P0 skills, P1 agents | yes; the largest file is 18 KB | Keep. Fits the Sandbox's `bash`. |
+| `unit-testing` | wshobson/agents, `plugins/unit-testing` | C 1, A 2 (`sonnet`) | MIT | no | P0 command, P1 agents | yes | Keep. |
+
+#### Later list
+
+| Plugin | Source | Contributes | License | Code | Earliest | Local fit | Verdict |
+|---|---|---|---|---|---|---|---|
+| `superpowers` | obra/superpowers | S 15 (350 KB in all), SessionStart hook | MIT | yes (hook) | P0 skills with an admin install; full in P2 | medium: long skills, some name `TodoWrite` (dropped) | Keep for P2. Its value depends on the hook that loads the bootstrap skill. |
+| `code-simplifier` | claude-plugins-official | A 1 (3 KB, `opus`) | Apache-2.0 | no | P1 | yes, with an `opus` tier mapped | Keep for P1. |
+| `feature-dev` | claude-plugins-official | C 1, A 3 | Apache-2.0 | no | P1 | medium: the command names `TodoWrite` and parallel agents | Keep for P1, after a trial with a local model. |
+| `security-guidance` | claude-plugins-official | PreToolUse hook (Python) | Apache-2.0 | yes | P2 | yes: no prompt cost | Keep for P2. A clear first test of the hook contract. |
+| `explanatory-output-style`, `learning-output-style` | claude-plugins-official | SessionStart hook | Apache-2.0 | yes | P2 | yes | Keep for P2, as examples of context hooks. |
+| `commit-commands` | claude-plugins-official | C 3 with shell injections, `gh` | Apache-2.0 | yes (injections) | P1 | medium: needs `git` and `gh` in the Sandbox | Keep for P1, admin install. |
+| `context7` | claude-plugins-official, `external_plugins/context7` | HTTP MCP, no key | Apache-2.0 (the config); the service has its own terms | no | P0 | yes | Keep as opt-in in P0 or later: it sends queries to an outside service, which a local-first default should not do. |
+| `github` | claude-plugins-official, `external_plugins/github` | HTTP MCP with a token from `${GITHUB_PERSONAL_ACCESS_TOKEN}` | Apache-2.0 (the config) | no | P1 | yes | Keep for P1 with a curated `strict: false` entry that moves the token to a sensitive `userConfig` value, because LocalAI does not pass the server's environment (section 10.4). |
+| `serena` | claude-plugins-official, `external_plugins/serena` | stdio MCP (`uvx`) | upstream server license to check | yes | P3 | medium: many tools | Review in P3. |
+
+#### Skipped
+
+| Plugin | Source | License | Reason |
+|---|---|---|---|
+| Plugins of `anthropics/claude-code` (`plugins/`) | anthropics/claude-code | "All rights reserved", commercial terms | The license does not allow this use. |
+| `claude-mem` | thedotmack/claude-mem | Apache-2.0 | Hooks plus a worker service and its own database on the host. Does not fit the Sandbox model. |
+| LSP plugins (`*-lsp`) | claude-plugins-official; Piebald-AI/claude-code-lsps | Apache-2.0; Piebald has no license file at the root | LSP is not supported. |
+| `skill-creator` | claude-plugins-official | Apache-2.0 | 72 KB, evaluation steps with parallel agents. The built-in `writing-skills` covers it. |
+| `plugin-dev` | claude-plugins-official | Apache-2.0 | 478 KB, many `AskUserQuestion` and agent calls; about authoring for another client. |
+| `code-review`, `pr-review-toolkit` | claude-plugins-official | Apache-2.0 | Built on many parallel agents and `gh`; heavy for local models. Revisit after P1 trials. |
+| `ralph-loop` | claude-plugins-official | Apache-2.0 | A `Stop` hook that loops on purpose; it conflicts with the loop cap of section 13.2. |
+| `hookify`, `claude-security`, `code-modernization` | claude-plugins-official | Apache-2.0 | Hook-heavy with many agents. Revisit after P2. |
+| `playwright` and other stdio MCP plugins that need a browser or a cloud account | claude-plugins-official | config Apache-2.0 | Heavy runtimes or outside accounts. Revisit per plugin in P3. |
+
+#### The `localai` plugin
+
+`plugins/localai/`, MIT like this repository. Its skills teach an agent to use a
+LocalAI server through its HTTP API and CLI. They target agents outside the
+server (for example a terminal agent that talks to LocalAI) and chats that
+want the API view. Inside LocalAI chats, the built-in `localai` skill and the
+client tools already cover the in-chat path, so an administrator installs this
+plugin for everyone only when it helps; it starts off for each user.
+
+| Component | Name | Content |
 |---|---|---|
-| `obra/superpowers` | skills, commands, agents, a SessionStart hook | Skills in P0; the bootstrap hook in P2. |
-| Selected plugins of `wshobson/agents` | agents, commands, skills | Commands in P0; agents in P1. |
-| Skill-only and command-only plugins from public plugin directories, such as commit, review and frontend-design helpers | skills, commands | P0. |
-| A small `localai` plugin in the curated repository itself (relative source) | skills that teach LocalAI tools and the Sandbox | P0. It is also the end-to-end fixture. |
+| Skill | `localai:api` | The OpenAI-compatible endpoints (chat, completions, embeddings, images, audio), the LocalAI endpoints, authentication with an API key, and `curl` examples. |
+| Skill | `localai:models` | Find a model in the gallery, install it, follow the job, write or change a model configuration, use aliases. |
+| Skill | `localai:addons` | What add-ons are, how an administrator installs one, the Sandbox and its profiles, and where plugins fit. |
+| Command | `localai:install-model` | `/localai:install-model <name>`: find the model in the gallery and install it, with `argument-hint: <model name>`. |
 
-Plugins that need a heavy worker or the host (for example memory plugins that
-run their own service) are not candidates.
+Each skill stays under 8 KB so that a small model can read it whole. The docs
+pages stay the canonical home; the skills link to them and keep only the steps.
 
 ## 9. Install, update and permissions
 
@@ -944,7 +1080,9 @@ reaches plugin code.
   (`GIT_LFS_SKIP_SMUDGE=1`);
 - `GIT_TERMINAL_PROMPT=0`, an empty `HOME` and no system config, so no
   credential helper or user config applies;
-- shallow (`--depth 1`), sparse for `git-subdir`;
+- shallow (`--depth 1`) and partial (`--filter=blob:none`), with a sparse
+  checkout for `git-subdir`, so only the blobs of the plugin folder are
+  downloaded (gap N10 until nib does it);
 - a timeout of 120 s per fetch and a cap of 200 MiB on the scratch folder;
 - a scratch folder under the data path, never `/tmp`, removed when the job ends.
 
@@ -1178,6 +1316,13 @@ Gaps to close in nib, by the phase that needs them:
 | N7 | File-path hooks inside a marketplace entry are not supported (`load.go` reports them). | P2 (soft) |
 | N8 | `LoadMarketplace` runs `git rev-parse` when it finds `.git`. Document it, or add an option to skip it. LocalAI uses `ParseMarketplace` and is not blocked. | none |
 | N9 | nib's own CLI (`cmd/plugin.go`) and `plugin.LoadManifest` still use the older adapter, and the older hook runner is off contract (any non-zero exit blocks, 30 s timeout, nib payloads). This affects `local-ai chat plugin`, not Studio. | nib only |
+| N10 | `checkout` in `fetch.go` makes a shallow fetch with a sparse checkout but no partial clone filter. A shallow fetch still downloads every blob of the commit, so a `git-subdir` plugin in a large repository (this one) downloads the whole tree. Add `--filter=blob:none` to the fetch, at least when a sparse path is set. Also, when a server refuses a fetch by SHA, the fallback fetches the full history of the ref; it should stay shallow (`--depth` with a deepen loop) or fail. LocalAI's `GitFunc` adds the filter until then. | P0b (soft) |
+
+`url` marketplaces are supported: `MarketplaceSource` has the kind `url`, and
+`FetchMarketplace` downloads only `marketplace.json` for it, with no SHA and
+no relative sources. LocalAI fetches the bytes itself (section 8.1) and parses
+them with `ParseMarketplace`, so it is not blocked by the size limits that
+`FetchMarketplace` does not set.
 
 LocalAI does not need a nib `chat.Session` option for plugins: Studio maps the
 components itself, and nib's skills, hooks and MCP stay off in Studio's
@@ -1185,27 +1330,14 @@ session.
 
 ## 22. Open questions
 
-1. **Where the curated marketplace lives.**
-   - (a) A new public repository next to LocalAI, for example
-     `mudler/localai-plugins`.
-   - (b) A repository in a new `localai-org` organisation.
-   - (c) A file in this repository, `gallery/plugins/marketplace.json`.
+1. **Where the curated marketplace lives.** Resolved (owner, 2026-11-26): in
+   this repository, at `plugins/.claude-plugin/marketplace.json`, fetched as a
+   `url` marketplace from the raw file at the release tag or master
+   (section 8.3).
 
-   **Recommendation: (a).** A marketplace is a git repository in the format, so
-   any client can add it. A separate repository keeps curation pull requests
-   out of the LocalAI queue, has its own CI with `local-ai plugins validate`,
-   and is small to fetch. Option (c) would make every server fetch this large
-   repository at each refresh. Option (b) works too, but it needs a new
-   organisation for one repository; a repository moves with a redirect if one
-   is made later. Entries reference upstream plugins by `git-subdir` or
-   `github` with a full SHA and do not copy them, so authors keep their
-   history and licenses stay with the code.
-
-2. **Initial content.** The candidates in section 8.3 need a license check and
-   a code read. **Recommendation:** start with the small `localai` plugin and
-   three to five skill-only or command-only plugins for P0; add
-   `obra/superpowers` when P2 ships, because its value depends on its
-   `SessionStart` hook.
+2. **Initial content.** The first cut is in section 8.4. **Recommendation:**
+   ship the P0 list with P0d after a trial of each plugin with a local model,
+   and add each later-list plugin in the phase that makes it work.
 
 3. **Default of `FeaturePlugins`.** **Recommendation:** on by default, with
    `plugins_user_installs` as the switch for personal installs. Owner

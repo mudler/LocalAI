@@ -55,6 +55,7 @@ released version in `go.mod`.
 | N3: hook runner with an executor | F2 to merge against nib; F2 can ship its local copy first |
 | N4: stable `Skipped` reason codes | D4 (translated reasons); without it D4 shows the raw text |
 | N6: `CodeFiles()` | none; B2 computes it locally |
+| N10: partial clone filter in `checkout` | none; B3's `GitFunc` adds `--filter=blob:none` |
 
 Lane N0 (in the nib repo, not this one) closes N1, N2 and N4 before P0b
 merges, and N3 before P2 merges.
@@ -66,15 +67,15 @@ merges, and N3 before P2 merges.
 | P0a | nib adapter (in progress, nib repo) | N0 | 3 d |
 | P0b | Plugins service: marketplaces, SHA-pinned installs, shared store, DB, distributed | B1 to B6 | 6 d |
 | P0c | Studio: plugin skill layer, commands, http MCP per user, tool map, toggles | C1 to C5 | 4.5 d |
-| P0d | REST, MCP tool, CLI, UI, docs, curated marketplace, end to end | D1 to D7 | 7 d |
+| P0d | REST, MCP tool, CLI, UI, docs, curated marketplace, end to end | D1 to D7 | 8.25 d |
 | P1 | Plugin agents, model tiers, userConfig and sealed secrets, shell injections and `@file` | E1 to E5 | 6 d |
 | P2 | Hooks in the Sandbox under the hook contract, `CLAUDE_PLUGIN_DATA` | F1 to F6 | 10 d |
 | P3 | stdio MCP in the Sandbox, `bin/`, runtimes, output styles | G1 to G4 | 5.5 d |
 
-The P0 total (6 + 4.5 + 7 = 17.5 d) is above the scope estimate of 11 d for
+The P0 total (6 + 4.5 + 8.25 = 18.75 d) is above the scope estimate of 11 d for
 P0b to P0d. The difference is the API and UI surfaces that the repo rules ask
 for (instructions, route registry, MCP parity, i18n, render-smoke specs) and
-the two-frontend tests.
+the two-frontend tests, and the curated marketplace with its CI in this repository.
 
 ---
 
@@ -161,7 +162,8 @@ folder. GC keeps referenced and young packages. Each code file rule of spec
 
 **Do:**
 
-- `Git() claudeplugin.GitFunc`: the options of spec 15.2.
+- `Git() claudeplugin.GitFunc`: the options of spec 15.2, including
+  `--filter=blob:none` on every `fetch` until nib closes N10.
 - `FetchPlugin(ctx, mkt *claudeplugin.Marketplace, e *claudeplugin.Entry, sha string, scratch string) (*claudeplugin.FetchResult, error)`.
 - `FetchMarketplace(ctx, kind, location, ref string, scratch string) (body []byte, sha string, err error)`.
 - `ResolveRef(ctx, gitURL, ref string) (string, error)`: through nib's
@@ -170,7 +172,8 @@ folder. GC keeps referenced and young packages. Each code file rule of spec
   at startup.
 
 **Tests:** a local git fixture (a test option allows `file://`): pin by SHA,
-a moved ref resolves to the new SHA, `git-subdir` checks out only the subfolder,
+a moved ref resolves to the new SHA, `git-subdir` checks out only the subfolder
+and the object store holds no blob from outside it (partial clone),
 a repository with a `post-checkout` hook and a `.gitattributes` filter that must
 not run, a repository over the size cap fails and leaves no scratch folder,
 `ssh://` and `http://` refused, the HTTP fetch of a JSON URL with a redirect to
@@ -181,13 +184,17 @@ not run, a repository over the size cap fails and leaves no scratch folder,
 **Files:** new `core/services/plugins/marketplaces.go`, `refresh.go`.
 
 **Do:** add, change, remove (tombstone for a default), list; seed defaults at
-first start; the "official libraries" switch suspends defaults; refresh one
+first start, with the curated `url` marketplace from
+`CuratedMarketplaceURL(internal.Version)` (spec 8.3: the `v<semver>` tag for a
+release build, master otherwise, as for the official add-on library);
+change detection of a `url` marketplace by `body_sha256`; the "official libraries" switch suspends defaults; refresh one
 marketplace (spec 8.1: parse with `ParseMarketplace`, set `Root` and `SHA`,
 keep the old snapshot on failure); the refresh loop every 6 hours under
 `advisorylock.TryWithLockCtx(KeyPluginsRefresh)`, which also marks installs
 with `update_available` (spec 9.4) and runs B2's GC.
 
-**Tests:** seeding only on a fresh store; tombstone survives a restart; the
+**Tests:** `CuratedMarketplaceURL` gives the tag for `v1.2.3` and master for an
+empty version and for `v1.2.3-14-gabc1234`; seeding only on a fresh store; tombstone survives a restart; the
 official switch suspends and restores; a failed refresh keeps the old snapshot
 and sets `last_error`; entries with npm, archive and command sources are
 listed with `supported: false`; two instances on `testutil.NewFakeBus()` and one
@@ -355,7 +362,7 @@ plugin granted; unattended runs gate them with `act.spend`.
 | D4 | UI: Plugins tab and dialogs | 2 d | D1 contract (can mock) | D2, D3, D5 | N4 (soft) |
 | D5 | UI: chat surfaces | 0.75 d | C2, C3, D1 | D2, D3, D4 | no |
 | D6 | Docs page, end-to-end and privacy tests | 1 d | all of P0 | D7 | no |
-| D7 | Curated marketplace repository | 0.25 d here, plus work in that repository | D3 `validate`, Open question 1 | D6 | N1 |
+| D7 | Curated marketplace in `plugins/`, `localai` plugin, CI | 1.5 d | D3 `validate`, B3 | D6 | N1 |
 
 D4 and D5 touch different UI files (`components/plugins/` and the Add-ons page
 for D4; `components/chat/` and `utils/slashCommands.js` for D5). D4 can start
@@ -444,15 +451,43 @@ the scan).
 use a skill and a command, update, remove. The incognito scan covers the plugin
 tables.
 
-### D7: curated marketplace repository
+### D7: curated marketplace in this repository
 
-Work in the new repository chosen in Open question 1, not in this one. This
-lane only records the location in B6's default constant and in the docs.
+**Files:** new `plugins/.claude-plugin/marketplace.json`,
+`plugins/marketplace.schema.json`, `plugins/README.md` (the entry rules of
+spec 8.3), `plugins/localai/` (`.claude-plugin/plugin.json`,
+`skills/{api,models,addons}/SKILL.md`, `commands/install-model.md`); new
+`.github/workflows/plugins-marketplace.yml`; new bot workflow
+`.github/workflows/plugins-bump-localai.yml`; `core/services/plugins/curated.go`
+(`CuratedMarketplaceURL`, if B4 did not add it);
+`docs/content/features/plugins.md` (the curated list and how to propose an
+entry).
 
-**Do in the new repository:** `.claude-plugin/marketplace.json`, the `localai`
-plugin as a relative source, a README with the entry rules (spec 8.3), CI that
-runs `local-ai plugins validate --marketplace` and refuses an entry with no
-`sha`. Entries of spec 8.3 that pass the license and code review.
+**Do:**
+
+- The P0 list of spec 8.4 as `git-subdir` or `github` entries with full SHAs
+  read on the day of the pull request, and `metadata.localai` (`license`,
+  `runsCode`, `phase`, `reviewed`). No relative sources: a `url` marketplace
+  cannot use them.
+- The `localai` plugin of spec 8.4, each skill under 8 KB, linking to the docs
+  pages instead of copying them.
+- The CI workflow of spec 8.3 on pull requests with `paths: plugins/**`:
+  schema, pins, resolve at each SHA with the partial, sparse clone, license
+  file against `metadata.localai.license`, `local-ai plugins validate`,
+  `runsCode` against the computed code reasons. It reuses the build cache of
+  the existing Go workflows (`.agents/ci-caching.md`).
+- The bot workflow on pushes to master that change `plugins/localai/`: it
+  opens a pull request that sets the `localai` entry's `sha` to the merge
+  commit, with the GitHub App token of `.agents/ci-bot-pull-requests.md`.
+- Before each P0 entry goes in, a trial with a local model in a chat: load
+  each skill, run each command. Record the result in the pull request.
+
+**Tests:** the workflow fails on a fixture marketplace with a missing `sha`, a
+relative source, a wrong SPDX ID, and a plugin with code marked
+`runsCode: false`; it passes on the real file. The pinned-SHA check warns on a
+pull request that changes `plugins/localai/` and fails on any other pull
+request with a mismatch. The end-to-end test of D6 installs `localai` from a
+fixture copy of the file.
 
 ---
 
