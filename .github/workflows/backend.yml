@@ -396,3 +396,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-windows) }}
+
+  # Fails when a llama.cpp-family image build ran longer than 4h, well before
+  # GitHub kills the job at 6h, and writes the slowest jobs to the run summary.
+  build-timings:
+    needs: [backend-jobs-multiarch, backend-jobs-singlearch-1, backend-jobs-singlearch-2, backend-jobs-singlearch-3, backend-jobs-singlearch-4]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/ci
+      - name: Backend build timings
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/ci/backend-build-timings.sh "${{ github.run_id }}" "${{ github.run_attempt }}"

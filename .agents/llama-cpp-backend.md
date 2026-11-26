@@ -15,7 +15,8 @@ Every llama-cpp image ships `llama-cpp-cpu-all`: ggml built with `GGML_BACKEND_D
 - The variants must come from the same llama.cpp commit as the GPU tree. The Makefile checks this through the `LLAMA_VERSION` file the stage writes.
 - Keep the stage on the oldest glibc of any builder image. The script refuses a variant that needs a newer glibc or libstdc++ than Ubuntu 22.04 has.
 - turboquant, bonsai and olala build a llama.cpp fork and use the same stage with their own pin (`CPU_VARIANTS_VERSION_VAR`, and `OLALA_CMAKE_ARGS` for olala's CPU flags) and their own patches. The variants of a fork come from that fork, never from upstream. ik-llama-cpp has its own ggml without the backend loader, so it keeps per-instruction-set binaries.
-- `llama-cpp-grpc` and `llama-cpp-rpc-server` are separate static builds and still compile their own CPU backend.
+- `llama-cpp-grpc` and `llama-cpp-rpc-server` come from the same tree as `llama-cpp-cpu-all` in the image builds (`CPU_ALL_RPC=ON`, set by the `.docker/*-compile.sh` scripts of llama-cpp, bonsai, turboquant and olala). That tree also builds `libggml-rpc.so` and `ggml-rpc-server`, and both binaries find the RPC backend through the backend registry. Do not go back to a separate static grpc tree: it compiles the GPU backend a second time for every CUDA or HIP arch, which was half of each GPU build and took the ROCm images to GitHub's 6h job limit. The Darwin and Windows builds still call the static `llama-cpp-grpc` target.
+- `backend.yml` and `backend_pr.yml` end with a `build-timings` job (`scripts/ci/backend-build-timings.sh`). It writes the slowest image jobs to the run summary and fails when a llama.cpp-family job ran longer than 4h.
 
 ## NCCL (CUDA images)
 

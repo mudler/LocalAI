@@ -25,8 +25,10 @@ BUILD_TARGET=$(/LocalAI/.docker/turboquant-build-target.sh "${TARGETARCH}" "${BU
 # run time. See .docker/llama-cpp-compile.sh.
 CPU_VARIANTS_DIR=/LocalAI/backend/cpp/turboquant/cpu-variants
 ls "$CPU_VARIANTS_DIR"/libggml-cpu-*.so > /dev/null
-make "$BUILD_TARGET" CPU_VARIANTS_DIR="$CPU_VARIANTS_DIR"
-make turboquant-grpc
-make turboquant-rpc-server
+# CPU_ALL_RPC=ON builds the RPC backend and ggml-rpc-server in the same tree, so
+# turboquant-grpc and turboquant-rpc-server come out of this one build. Building them in their own
+# static tree compiled the whole GPU backend a second time, which was half the job time.
+make "$BUILD_TARGET" CPU_VARIANTS_DIR="$CPU_VARIANTS_DIR" CPU_ALL_RPC=ON
+test -x turboquant-grpc && test -x turboquant-rpc-server
 
 ccache -s || true
