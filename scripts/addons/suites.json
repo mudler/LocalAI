@@ -889,7 +889,8 @@
           "reads the declarations from JSON with a plain or a translated label",
           "carries a kubeconfig with an embedded RSA client certificate and key",
           "refuses a repeated key",
-          "accepts more than eight settings"
+          "refuses more than eight settings that are not approval settings",
+          "does not count against the cap of eight other settings"
         ]
       },
       {
