@@ -33,7 +33,19 @@ describe('readInvite', () => {
   it('reads the routes of a link', () => {
     const a = encodeURIComponent('/ip4/192.0.2.1/tcp/4001')
     const r = encodeURIComponent(`/ip4/192.0.2.9/tcp/4001/p2p/${PEER}`)
-    expect(linkRoutes(link(`&a=${a}&r=${r}`))).toEqual({ addrs: ['/ip4/192.0.2.1/tcp/4001'], relays: [`/ip4/192.0.2.9/tcp/4001/p2p/${PEER}`] })
+    expect(linkRoutes(link(`&a=${a}&r=${r}`))).toEqual({ addrs: ['/ip4/192.0.2.1/tcp/4001'], relays: [`/ip4/192.0.2.9/tcp/4001/p2p/${PEER}`], hints: [] })
+  })
+
+  it('reads the relay hints of a link apart from its relays, at most two', () => {
+    const hint = (n: number) => `/ip4/198.51.100.${n}/tcp/4001/p2p/${PEER}`
+    const r = encodeURIComponent(`/ip4/192.0.2.9/tcp/4001/p2p/${PEER}`)
+    const h = [1, 2, 3].map((n) => `&h=${encodeURIComponent(hint(n))}`).join('')
+    expect(linkRoutes(link(`&r=${r}${h}`))).toEqual({ addrs: [], relays: [`/ip4/192.0.2.9/tcp/4001/p2p/${PEER}`], hints: [hint(1), hint(2)] })
+    expect(linkRoutes(link(`&h=${encodeURIComponent(hint(1))}`))).toEqual({ addrs: [], relays: [], hints: [hint(1)] })
+  })
+
+  it('does not take a relay hint for an open relay', () => {
+    expect(readInvite(link(`&h=${encodeURIComponent(`/ip4/198.51.100.1/tcp/4001/p2p/${PEER}`)}`), NOW)).toMatchObject({ ok: true, info: { openRelay: false } })
   })
 })
 

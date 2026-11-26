@@ -47,6 +47,11 @@ export interface P2PTarget {
   addrs: string[]
   relays: string[]
   /**
+   * Public relays of the link (key `h`) that only help the two peers find
+   * each other for a hole punch: they never carry data. Missing means none.
+   */
+  hints?: string[]
+  /**
    * The loopback address the forwarder listens on, `127.x.y.z`. Missing
    * means 127.0.0.1 (the desktop). The Android app gives each server its own
    * host, so two servers never share an origin, and so never a sign-in cookie.
@@ -88,10 +93,14 @@ export function parsePairJson(text: string): PairResult | undefined {
   }
 }
 
-/** Reads the relays and addresses of a link, as the pair command saved them. */
-export function linkRoutes(link: string): { addrs: string[]; relays: string[] } {
+/**
+ * Reads the relays, relay hints and addresses of a link, as the pair command
+ * saved them. Hints (key `h`, at most 2) stay apart from relays: a hint is
+ * never a carrier relay and never an open one.
+ */
+export function linkRoutes(link: string): { addrs: string[]; relays: string[]; hints: string[] } {
   const q = new URLSearchParams(link.trim().slice(INVITE_PREFIX.length))
-  return { addrs: q.getAll('a').slice(0, 2), relays: q.getAll('r').slice(0, 3) }
+  return { addrs: q.getAll('a').slice(0, 2), relays: q.getAll('r').slice(0, 3), hints: q.getAll('h').slice(0, 2) }
 }
 
 export type TunnelState = 'starting' | 'ready' | 'up' | 'down' | 'stopped' | 'failed'
