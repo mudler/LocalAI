@@ -114,7 +114,10 @@ var _ = BeforeSuite(func() {
 	// tools run as if an administrator had allowed every write tool but exec.
 	_, err := pols.SetDefault(writable)
 	Expect(err).NotTo(HaveOccurred())
-	rt = tools.New(kubeapi.NewFactory(), pols).WithDataDir(GinkgoT().TempDir())
+	// The API server listens on the loopback interface, which the add-on
+	// refuses to dial. The suite uses the factory that allows it, which only
+	// the kubernetes_e2e build tag builds.
+	rt = tools.New(kubeapi.NewLoopbackFactory(), pols).WithDataDir(GinkgoT().TempDir())
 	rt.Admin = admin{}
 })
 
@@ -409,6 +412,13 @@ var _ = Describe("the tools against a real API server", Ordered, func() {
 		Expect(errors.As(err, &up)).To(BeTrue(), fmt.Sprint(err))
 		Expect(up.Status).To(Equal(403))
 		Expect(err.Error()).To(ContainSubstring("403 Forbidden"))
+	})
+
+	It("the add-on's own factory refuses an API server on the loopback interface, named localhost", func() {
+		own := tools.New(kubeapi.NewFactory(), pols)
+		_, err := own.Read(bg, env(cred, tools.ToolCheck, nil))
+		Expect(err).To(MatchError(ContainSubstring("loopback")))
+		noLeak(err.Error())
 	})
 
 	It("the credential never appears in any result", func() {

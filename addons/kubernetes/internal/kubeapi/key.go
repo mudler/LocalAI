@@ -74,7 +74,7 @@ func validContext(name string) bool {
 // An IP address that is loopback, link-local, unspecified or multicast is
 // refused: the credential would go to a service of the host or of its
 // network, such as a cloud metadata endpoint. Host names are not resolved
-// here; the client checks every address it dials (see SafeDialer).
+// here; the client checks every address it dials (see dial.go).
 func NormalizeServer(s string) (string, error) {
 	u, err := url.Parse(s)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
@@ -93,7 +93,7 @@ func NormalizeServer(s string) (string, error) {
 			return "", errNotHTTPS
 		}
 		ip = ip.Unmap()
-		if localAddr(ip) {
+		if blocked(ip) {
 			return "", ErrLocalServer
 		}
 		host = ip.String()

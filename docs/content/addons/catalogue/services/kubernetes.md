@@ -49,7 +49,11 @@ The kubeconfig is the sealed secret of the connection, at most 16 KiB. The add-o
 - names a local file (`certificate-authority`, `client-certificate`, `client-key`, `tokenFile`). Embed the data with the `-data` fields;
 - turns off certificate checks (`insecure-skip-tls-verify: true`) or uses a proxy (`proxy-url`);
 - uses a user name and a password;
-- names a server by a loopback, link-local, unspecified or multicast IP address, such as `127.0.0.1`, `::1` or `169.254.169.254`. The credential would go to a service of the LocalAI host or of its network. There is no setting to allow these addresses.
+- names a server by a loopback, link-local, unspecified or multicast IP address, such as `127.0.0.1`, `::1` or `169.254.169.254`, also when it is written inside a NAT64 address (`64:ff9b::7f00:1`). The credential would go to a service of the LocalAI host or of its network. There is no setting to allow these addresses.
+
+A host name can resolve to such an address too: `localhost`, a DNS record that points at `127.0.0.1` or at a metadata address, or a form that only the system resolver reads as an address, such as `2130706433`. So the add-on also checks the address of every connection after the name is resolved, and refuses the same addresses. It connects directly: it does not use `HTTP_PROXY`, `HTTPS_PROXY` or another proxy setting of the LocalAI host. The WebSocket connection of `exec` cannot use that check, so the add-on resolves the name and checks its addresses just before `exec` connects; a name whose DNS answer changes in that short time can still pass, and the SPDY fallback of `exec` is checked when it connects.
+
+For a local cluster made by kind, do not use the kubeconfig that names `127.0.0.1` or `localhost`. When LocalAI runs in a container on the `kind` Docker network, use `kind get kubeconfig --internal`, which names the server by its container (`https://<cluster>-control-plane:6443`). Otherwise, set `networking.apiServerAddress` in the kind configuration to an address of the host that is not loopback, such as its LAN address, and use the kubeconfig that kind writes. The certificate of the API server covers that address.
 
 The add-on never reads a file on the LocalAI host because a kubeconfig names it. The kubeconfig is never in a result, an error, a log or a preview.
 

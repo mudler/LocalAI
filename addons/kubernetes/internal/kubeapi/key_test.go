@@ -60,7 +60,8 @@ var _ = Describe("the key of a connection", func() {
 
 	It("refuses a loopback, link-local, unspecified or multicast address", func() {
 		for _, in := range []string{"https://127.0.0.1:6443", "https://127.1.2.3", "https://[::1]:6443", "https://169.254.169.254",
-			"https://[fe80::1]:6443", "https://0.0.0.0:6443", "https://[::]:443", "https://224.0.0.1", "https://[::ffff:127.0.0.1]:6443"} {
+			"https://[fe80::1]:6443", "https://0.0.0.0:6443", "https://[::]:443", "https://224.0.0.1", "https://[::ffff:127.0.0.1]:6443",
+			"https://[64:ff9b::7f00:1]", "https://[64:ff9b::a9fe:a9fe]", "https://0.1.2.3"} {
 			_, err := kubeapi.NormalizeServer(in)
 			Expect(err).To(HaveOccurred(), in)
 			_, err = kubeapi.ParseKey(in + "#context=dev")

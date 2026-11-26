@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -18,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream"
+	httpstreamspdy "k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -90,9 +93,17 @@ type Applier interface {
 // Factory builds the client of a cluster from its config.
 type Factory func(cfg *rest.Config) (*Client, error)
 
-// NewFactory returns the factory of real clients.
-func NewFactory() Factory {
+// NewFactory returns the factory of real clients. Every connection checks
+// the address it dials and refuses an address of the host or of its local
+// link (see dial.go), and no client uses a proxy.
+func NewFactory() Factory { return newFactory(false) }
+
+func newFactory(allowLoopback bool) Factory {
 	return func(cfg *rest.Config) (*Client, error) {
+		cfg = rest.CopyConfig(cfg)
+		d := dialer(allowLoopback)
+		cfg.Dial = d.DialContext
+		cfg.Proxy = noProxy
 		typed, err := kubernetes.NewForConfig(cfg)
 		if err != nil {
 			return nil, err
@@ -107,7 +118,7 @@ func NewFactory() Factory {
 			Typed: typed, Dynamic: dyn, Discovery: disc, Mapper: mapper,
 			Logs:    podLogs{typed},
 			Metrics: metrics{typed.CoreV1().RESTClient()},
-			Exec:    execer{cfg: cfg, typed: typed},
+			Exec:    execer{cfg: cfg, typed: typed, dialer: d, allowLoopback: allowLoopback},
 			Writer:  writer{dyn},
 		}, nil
 	}
@@ -193,8 +204,10 @@ func (m metrics) Pods(ctx context.Context, ns string) ([]Usage, error) {
 }
 
 type execer struct {
-	cfg   *rest.Config
-	typed kubernetes.Interface
+	cfg           *rest.Config
+	typed         kubernetes.Interface
+	dialer        *net.Dialer
+	allowLoopback bool
 }
 
 // cappedBuffer keeps the first MaxText bytes and drops the rest, so a command
@@ -226,11 +239,32 @@ func (c *cappedBuffer) text() (string, bool) {
 func (e execer) Exec(ctx context.Context, ns, pod, container string, cmd []string) (ExecResult, error) {
 	req := e.typed.CoreV1().RESTClient().Post().Resource("pods").Namespace(ns).Name(pod).SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{Container: container, Command: cmd, Stdout: true, Stderr: true}, scheme.ParameterCodec)
+	// The WebSocket executor dials with its own dialer, so the address is
+	// checked before it starts; the SPDY fallback dials with the checked
+	// dialer.
+	if err := checkResolved(ctx, e.cfg.Host, e.allowLoopback); err != nil {
+		return ExecResult{}, err
+	}
 	ws, err := remotecommand.NewWebSocketExecutor(e.cfg, http.MethodGet, req.URL().String())
 	if err != nil {
 		return ExecResult{}, err
 	}
-	sp, err := remotecommand.NewSPDYExecutor(e.cfg, http.MethodPost, req.URL())
+	tlsConfig, err := rest.TLSConfigFor(e.cfg)
+	if err != nil {
+		return ExecResult{}, err
+	}
+	// The upgrade transport gives the SPDY round tripper the checked dialer
+	// and no proxy.
+	up, err := httpstreamspdy.NewRoundTripperWithConfig(httpstreamspdy.RoundTripperConfig{PingPeriod: 5 * time.Second,
+		UpgradeTransport: &http.Transport{DialContext: e.dialer.DialContext, TLSClientConfig: tlsConfig}})
+	if err != nil {
+		return ExecResult{}, err
+	}
+	rt, err := rest.HTTPWrappersForConfig(e.cfg, up)
+	if err != nil {
+		return ExecResult{}, err
+	}
+	sp, err := remotecommand.NewSPDYExecutorForTransports(rt, up, http.MethodPost, req.URL())
 	if err != nil {
 		return ExecResult{}, err
 	}

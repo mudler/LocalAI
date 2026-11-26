@@ -140,8 +140,10 @@ func startCluster() *cluster {
 		"--service-account-issuer", "https://kubernetes.default.svc", "--service-account-key-file", pub,
 		"--service-account-signing-key-file", priv, "--service-cluster-ip-range", "10.0.0.0/24",
 		"--disable-admission-plugins", "ServiceAccount", "--allow-privileged=true")
-	// The add-on refuses a loopback address, so the specs name the server
-	// by host name; the serving certificate covers it.
+	// The add-on refuses a server written as a loopback address, so the
+	// specs name the server by host name; the serving certificate covers it.
+	// The client still refuses to dial a loopback address, so the suite uses
+	// kubeapi.NewLoopbackFactory.
 	c.server = fmt.Sprintf("https://localhost:%d", apiPort)
 	pool := x509.NewCertPool()
 	Expect(pool.AppendCertsFromPEM(c.ca)).To(BeTrue())
