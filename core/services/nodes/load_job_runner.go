@@ -75,7 +75,11 @@ func (r *SmartRouter) routeViaLoadJob(ctx context.Context, att *routeAttempt) (*
 		// registration is caught by the authority check inside waitForLoadJob.
 		ref := job.Ref()
 		waiter := r.loadWaiterChan(loadWaiterKey(ref))
-		if err := r.waitForLoadJob(waitCtx, ref, waiter); err != nil {
+		served, err := r.waitForLoadJob(waitCtx, att, ref, waiter)
+		if served != nil {
+			return served, nil
+		}
+		if err != nil {
 			// The caller's own context is still live, so it was the wait budget
 			// that ran out, not the client giving up: answer with progress.
 			if ctx.Err() == nil && waitCtx.Err() != nil {
@@ -385,13 +389,19 @@ func (r *SmartRouter) startLoadJobHeartbeat(parent context.Context, ref LoadJobR
 // The waiter is bound to one generation. When the job row is gone, or belongs to
 // another generation, the attempt it waited for is over: the caller re-runs the
 // warm path and, if the model is still missing, claims again.
-func (r *SmartRouter) waitForLoadJob(ctx context.Context, ref LoadJobRef, waiter <-chan struct{}) error {
+//
+// On every poll the waiter also tries the warm path. A replica of the model may
+// become ready on another node that matches the rule while this job is still
+// running, for example one the reconciler loaded, or a faster node. The request
+// is served from it at once and the job keeps running. Without this a request
+// waited for the slowest load in the cluster, not the first ready replica.
+func (r *SmartRouter) waitForLoadJob(ctx context.Context, att *routeAttempt, ref LoadJobRef, waiter <-chan struct{}) (*RouteResult, error) {
 	defer r.releaseLoadWaiter(loadWaiterKey(ref), waiter)
 
 	// The registration may have come after the job ended; ask the authority
 	// before sleeping on the hint.
 	if done, err := r.checkLoadWait(ctx, ref); done {
-		return err
+		return nil, err
 	}
 
 	ticker := time.NewTicker(loadJobPollInterval)
@@ -402,15 +412,20 @@ func (r *SmartRouter) waitForLoadJob(ctx context.Context, ref LoadJobRef, waiter
 		case <-waiter:
 			waiter = nil // closed: do not spin on it
 			if done, err := r.checkLoadWait(ctx, ref); done {
-				return err
+				return nil, err
 			}
 		case <-ctx.Done():
 			// The client gave up. The job is unaffected: it is owned by the job
 			// record, not by this request.
-			return ctx.Err()
+			return nil, ctx.Err()
 		case <-ticker.C:
+			if result := r.tryWarmPath(ctx, att); result != nil {
+				xlog.Info("Served a waiting request from a replica that became ready; the load job keeps running",
+					"model", ref.TrackingKey, "node", result.Node.Name)
+				return result, nil
+			}
 			if done, err := r.checkLoadWait(ctx, ref); done {
-				return err
+				return nil, err
 			}
 		}
 	}

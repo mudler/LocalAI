@@ -200,6 +200,7 @@ A cold load in distributed mode is a long-running background job: install the ba
 So the load does **not** run on the request. The first request for an unloaded model claims a durable **model load job** (that claim takes milliseconds and is the only part that holds the per-model advisory lock) and the job then runs in the background on the frontend replica that claimed it. Every other request for the same model, on any replica, attaches to that job as a waiter:
 
 - It is **served the moment the model is ready**, with no client-side retry. A model already 90% staged usually needs no second request.
+- It is also served by **any ready replica** of the model on a node that matches the model's rule, checked on every poll (every 2 seconds). When another node finishes first (for example a replica the reconciler loaded), the request is served from it and stops waiting; the job it waited on keeps running.
 - It never starts a duplicate load and never blocks on the database lock. (Before this split, concurrent requests blocked on `pg_advisory_lock` for the whole load and were killed by the PostgreSQL role's `statement_timeout` (`SQLSTATE 57014`) so from the operator's seat the model simply never loaded.)
 - If the load fails, the waiter gets the *real* cause (`worker out of disk`), not an anonymous timeout.
 - If the client disconnects, the load keeps going. It belongs to the job record, not to the request.

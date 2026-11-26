@@ -120,6 +120,63 @@ var _ = Describe("Route cold-load jobs", func() {
 		}, 5*time.Second, 50*time.Millisecond).Should(BeNil())
 	})
 
+	It("serves a waiter from a replica that became ready on another node", func() {
+		// The job loads slowly on one node. Meanwhile a replica of the same
+		// model becomes ready on another matching node (the reconciler loaded
+		// it, or a slow node finished first). The waiter must not wait for the
+		// slow job: any ready replica serves it.
+		other := &BackendNode{Name: "worker-2", NodeType: NodeTypeBackend, Address: "10.0.0.2:50051",
+			TotalVRAM: 64_000_000_000, AvailableVRAM: 64_000_000_000}
+		Expect(registry.Register(context.Background(), other, true)).To(Succeed())
+
+		release := make(chan struct{})
+		defer func() {
+			select {
+			case <-release:
+			default:
+				close(release)
+			}
+		}()
+		backend.loadHook = func(*pb.ModelOptions) { <-release }
+		router := newRouter()
+
+		type routed struct {
+			res *RouteResult
+			err error
+		}
+		done := make(chan routed, 1)
+		go func() {
+			defer GinkgoRecover()
+			res, err := router.Route(context.Background(), "big-model", "models/big.gguf", "llama-cpp", "",
+				&pb.ModelOptions{Model: "models/big.gguf"}, false)
+			done <- routed{res, err}
+		}()
+
+		var job *ModelLoadJob
+		Eventually(func() string {
+			job, _ = registry.GetLoadJob(context.Background(), "big-model")
+			if job == nil {
+				return ""
+			}
+			return job.NodeID
+		}, 10*time.Second, 50*time.Millisecond).ShouldNot(BeEmpty())
+		readyOn := other.ID
+		if job.NodeID == other.ID {
+			readyOn = node.ID
+		}
+		Expect(registry.SetNodeModel(context.Background(), readyOn, "big-model", 1, "loaded", "10.0.0.9:9001", 0)).To(Succeed())
+
+		var got routed
+		Eventually(done, 10*time.Second).Should(Receive(&got), "served before the slow job ends")
+		Expect(got.err).ToNot(HaveOccurred())
+		Expect(got.res.Node.ID).To(Equal(readyOn))
+		got.res.Release()
+
+		current, err := registry.GetLoadJob(context.Background(), "big-model")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(current).ToNot(BeNil(), "the job keeps running; only the wait ended")
+	})
+
 	It("reports the load's real failure to every waiter", func() {
 		release := make(chan struct{})
 		unloader.installHook = func() { <-release }
