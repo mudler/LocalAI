@@ -29,13 +29,14 @@ type fileState struct {
 	Installs     map[string]Install     `json:"installs"`
 	// UserStates is keyed by principal, then install ID.
 	UserStates map[string]map[string]UserState `json:"userStates"`
+	Tokens     map[string]Token                `json:"tokens"`
 }
 
 func newFileState() *fileState {
 	return &fileState{
 		Marketplaces: map[string]Marketplace{}, Snapshots: map[string]Snapshot{},
 		Packages: map[string]Package{}, Installs: map[string]Install{},
-		UserStates: map[string]map[string]UserState{},
+		UserStates: map[string]map[string]UserState{}, Tokens: map[string]Token{},
 	}
 }
 
@@ -84,6 +85,9 @@ func (s *FileStore) load() (*fileState, error) {
 	}
 	if st.UserStates == nil {
 		st.UserStates = fresh.UserStates
+	}
+	if st.Tokens == nil {
+		st.Tokens = fresh.Tokens
 	}
 	return st, nil
 }
@@ -305,19 +309,61 @@ func (s *FileStore) UserStates(_ context.Context, principal string) ([]UserState
 }
 
 func (s *FileStore) SaveUserState(_ context.Context, us UserState) error {
-	if us.Principal == "" || us.InstallID == "" {
-		return fmt.Errorf("%w: a user state needs a principal and an install", ErrInvalid)
+	return s.write(func(st *fileState) error { return fileTx{st}.SaveUserState(us) })
+}
+
+func (s *FileStore) PutToken(_ context.Context, t Token) error {
+	if err := validToken(t); err != nil {
+		return err
 	}
 	return s.write(func(st *fileState) error {
-		if _, ok := st.Installs[us.InstallID]; !ok {
-			return ErrNotFound
+		if _, ok := st.Tokens[t.ID]; ok {
+			return ErrConflict
 		}
-		if st.UserStates[us.Principal] == nil {
-			st.UserStates[us.Principal] = map[string]UserState{}
-		}
-		st.UserStates[us.Principal][us.InstallID] = us
+		st.Tokens[t.ID] = t
 		return nil
 	})
+}
+
+func (s *FileStore) Token(_ context.Context, id string, now time.Time) (Token, error) {
+	var out Token
+	err := s.read(func(st *fileState) error {
+		t, ok := st.Tokens[id]
+		if !ok || !t.ExpiresAt.After(now) {
+			return ErrNotFound
+		}
+		out = t
+		return nil
+	})
+	return out, err
+}
+
+func (s *FileStore) TakeToken(_ context.Context, id string, now time.Time) (Token, error) {
+	var out Token
+	err := s.write(func(st *fileState) error {
+		t, ok := st.Tokens[id]
+		if !ok || !t.ExpiresAt.After(now) {
+			return ErrNotFound
+		}
+		delete(st.Tokens, id)
+		out = t
+		return nil
+	})
+	return out, err
+}
+
+func (s *FileStore) DeleteExpiredTokens(_ context.Context, now time.Time) (int, error) {
+	n := 0
+	err := s.write(func(st *fileState) error {
+		for id, t := range st.Tokens {
+			if !t.ExpiresAt.After(now) {
+				delete(st.Tokens, id)
+				n++
+			}
+		}
+		return nil
+	})
+	return n, err
 }
 
 func (s *FileStore) MarkNeedsReenable(_ context.Context, installID string) error {
@@ -416,6 +462,20 @@ func (t fileTx) DeleteInstall(id string) error {
 	for _, m := range t.st.UserStates {
 		delete(m, id)
 	}
+	return nil
+}
+
+func (t fileTx) SaveUserState(us UserState) error {
+	if us.Principal == "" || us.InstallID == "" {
+		return fmt.Errorf("%w: a user state needs a principal and an install", ErrInvalid)
+	}
+	if _, ok := t.st.Installs[us.InstallID]; !ok {
+		return ErrNotFound
+	}
+	if t.st.UserStates[us.Principal] == nil {
+		t.st.UserStates[us.Principal] = map[string]UserState{}
+	}
+	t.st.UserStates[us.Principal][us.InstallID] = us
 	return nil
 }
 

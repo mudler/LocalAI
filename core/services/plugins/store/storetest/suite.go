@@ -398,5 +398,108 @@ func Run(newStore NewStore) {
 			got, _ = s.UserState(ctx, "u1", "i2")
 			Expect(got.NeedsReenable).To(BeTrue())
 		})
+
+		It("saves a user state inside a transaction, rolled back with it", func() {
+			s := newStore()
+			Expect(create(ctx, s, install("i1", "fmt@tools", store.ScopeInstance, "", digest('a')))).To(Succeed())
+			Expect(s.InstallTx(ctx, func(tx store.Tx) error {
+				return tx.SaveUserState(store.UserState{Principal: "u1", InstallID: "i1", Enabled: true})
+			})).To(Succeed())
+			got, err := s.UserState(ctx, "u1", "i1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Enabled).To(BeTrue())
+
+			boom := errors.New("boom")
+			Expect(s.InstallTx(ctx, func(tx store.Tx) error {
+				Expect(tx.SaveUserState(store.UserState{Principal: "u2", InstallID: "i1", Enabled: true})).To(Succeed())
+				return boom
+			})).To(MatchError(boom))
+			_, err = s.UserState(ctx, "u2", "i1")
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+
+			err = s.InstallTx(ctx, func(tx store.Tx) error {
+				return tx.SaveUserState(store.UserState{Principal: "u1", InstallID: "missing"})
+			})
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+		})
+	})
+
+	Describe("preview tokens", func() {
+		tok := func(id string, expires time.Time) store.Token {
+			return store.Token{
+				ID: id, Kind: store.TokenInstall, Principal: "u1", PluginID: "fmt@tools",
+				SHA: "0123456789abcdef0123456789abcdef01234567", Digest: digest('a'), RunsCode: true,
+				CodeFiles: []string{"hooks/hooks.json"}, ExpiresAt: expires, CreatedAt: base,
+			}
+		}
+
+		It("round-trips, and a take is single use", func() {
+			s := newStore()
+			Expect(s.PutToken(ctx, tok("t1", base.Add(15*time.Minute)))).To(Succeed())
+			Expect(errors.Is(s.PutToken(ctx, tok("t1", base.Add(time.Minute))), store.ErrConflict)).To(BeTrue())
+			got, err := s.Token(ctx, "t1", base)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Principal).To(Equal("u1"))
+			Expect(got.RunsCode).To(BeTrue())
+			Expect(got.CodeFiles).To(Equal([]string{"hooks/hooks.json"}))
+			Expect(got.ExpiresAt).To(BeTemporally("==", base.Add(15*time.Minute)))
+
+			got, err = s.TakeToken(ctx, "t1", base)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Digest).To(Equal(digest('a')))
+			_, err = s.TakeToken(ctx, "t1", base)
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+			_, err = s.Token(ctx, "t1", base)
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+		})
+
+		It("does not give an expired token and deletes the expired ones", func() {
+			s := newStore()
+			Expect(s.PutToken(ctx, tok("old", base.Add(time.Minute)))).To(Succeed())
+			Expect(s.PutToken(ctx, tok("new", base.Add(time.Hour)))).To(Succeed())
+			later := base.Add(2 * time.Minute)
+			_, err := s.Token(ctx, "old", later)
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+			_, err = s.TakeToken(ctx, "old", later)
+			Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue())
+			n, err := s.DeleteExpiredTokens(ctx, later)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(1))
+			_, err = s.Token(ctx, "new", later)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("refuses an invalid token", func() {
+			s := newStore()
+			bad := tok("t", base.Add(time.Minute))
+			bad.Kind = store.TokenUpdate
+			Expect(errors.Is(s.PutToken(ctx, bad), store.ErrInvalid)).To(BeTrue())
+			bad = tok("", base.Add(time.Minute))
+			Expect(errors.Is(s.PutToken(ctx, bad), store.ErrInvalid)).To(BeTrue())
+		})
+
+		It("gives a token to one of two concurrent takes", func() {
+			s := newStore()
+			Expect(s.PutToken(ctx, tok("t", base.Add(time.Hour)))).To(Succeed())
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			won := 0
+			for range 4 {
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					if _, err := s.TakeToken(ctx, "t", base); err == nil {
+						mu.Lock()
+						won++
+						mu.Unlock()
+					} else {
+						Expect(errors.Is(err, store.ErrNotFound)).To(BeTrue(), "%v", err)
+					}
+				}()
+			}
+			wg.Wait()
+			Expect(won).To(Equal(1))
+		})
 	})
 }

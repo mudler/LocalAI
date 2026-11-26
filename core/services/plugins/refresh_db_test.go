@@ -132,3 +132,71 @@ var _ = Describe("Refresh with two frontends and one database", func() {
 		Expect(m.RefreshedAt).NotTo(BeZero())
 	})
 })
+
+var _ = Describe("Installs with two frontends and one database", func() {
+	It("gives one install for two concurrent installs, and shows it in the other frontend's turn view", func() {
+		ctx := context.Background()
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "plugins.db"))
+		ff := newFakeFetcher()
+		repo := &pluginRepo{versions: map[string]map[string]string{shaA: pluginFiles(textPlugin, "v1")}}
+		ff.plugins["fmt"] = repo.fetch
+		ff.refs["https://github.com/o/fmt.git#"] = shaA
+		ff.setMarketplace("owner/team", marketplaceJSON("team", githubEntry("fmt", "o/fmt", "")), shaA, nil)
+		clk := &testClock{now: time.Date(2026, 11, 26, 9, 0, 0, 0, time.UTC)}
+		ws := newWorkspace(clk.Now)
+		frontend := func() (*plugins.Service, *recordQueue) {
+			st, err := store.NewGormStore(db)
+			Expect(err).NotTo(HaveOccurred())
+			q := &recordQueue{errs: map[string]error{}}
+			s, err := plugins.New(plugins.Options{Store: st, DB: db, Fetcher: ff, Queue: q, Now: clk.Now, Workspace: ws, Root: "/plugins"})
+			Expect(err).NotTo(HaveOccurred())
+			return s, q
+		}
+		a, qa := frontend()
+		b, qb := frontend()
+		_, err := a.AddMarketplace(ctx, admin, plugins.AddMarketplaceRequest{Source: "owner/team"})
+		Expect(err).NotTo(HaveOccurred())
+
+		pa, err := a.Inspect(ctx, admin, "fmt@team")
+		Expect(err).NotTo(HaveOccurred())
+		pb, err := b.Inspect(ctx, admin, "fmt@team")
+		Expect(err).NotTo(HaveOccurred())
+
+		var wg sync.WaitGroup
+		jobs := make([]string, 2)
+		for i, c := range []struct {
+			s   *plugins.Service
+			tok string
+		}{{a, pa.Token}, {b, pb.Token}} {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				// Both pass the early check; the lock and the transaction
+				// decide.
+				jobs[i], _ = c.s.Install(ctx, admin, c.tok, store.ScopeInstance)
+			}()
+		}
+		wg.Wait()
+		var failed int
+		for i, q := range []*recordQueue{qa, qb} {
+			if jobs[i] == "" || q.err(jobs[i]) != nil {
+				failed++
+			}
+		}
+		Expect(failed).To(Equal(1))
+		st, err := store.NewGormStore(db)
+		Expect(err).NotTo(HaveOccurred())
+		list, err := st.Installs(ctx, store.InstallFilter{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+
+		Expect(st.SaveUserState(ctx, store.UserState{Principal: user.ID, InstallID: list[0].ID, Enabled: true})).To(Succeed())
+		for _, s := range []*plugins.Service{a, b} {
+			view, err := s.TurnView(ctx, user.ID, plugins.ChatRef{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(view).To(HaveLen(1))
+			Expect(view[0].PluginID).To(Equal("fmt@team"))
+		}
+	})
+})

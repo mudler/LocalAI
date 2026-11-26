@@ -102,6 +102,28 @@ type userStateRow struct {
 
 func (userStateRow) TableName() string { return "plugin_user_state" }
 
+type tokenRow struct {
+	ID        string `gorm:"primaryKey;size:64"`
+	Kind      string `gorm:"size:16"`
+	Principal string `gorm:"size:255"`
+	PluginID  string `gorm:"size:255"`
+	InstallID string `gorm:"size:64"`
+	SHA       string `gorm:"column:sha;size:64"`
+	Digest    string `gorm:"column:digest;size:80"`
+	RunsCode  bool
+	CodeFiles string
+	ExpiresAt time.Time `gorm:"index"`
+	CreatedAt time.Time
+}
+
+func (tokenRow) TableName() string { return "plugin_preview_tokens" }
+
+func (r tokenRow) token() (Token, error) {
+	t := Token{ID: r.ID, Kind: r.Kind, Principal: r.Principal, PluginID: r.PluginID, InstallID: r.InstallID,
+		SHA: r.SHA, Digest: r.Digest, RunsCode: r.RunsCode, ExpiresAt: r.ExpiresAt, CreatedAt: r.CreatedAt}
+	return t, fromJSON(r.CodeFiles, &t.CodeFiles)
+}
+
 // GormStore keeps the records in the database that every frontend shares.
 type GormStore struct{ db *gorm.DB }
 
@@ -113,7 +135,7 @@ func NewGormStore(db *gorm.DB) (*GormStore, error) {
 		return nil, errors.New("plugins store: nil *gorm.DB")
 	}
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&marketplaceRow{}, &snapshotRow{}, &packageRow{}, &installRow{}, &userStateRow{})
+		return db.AutoMigrate(&marketplaceRow{}, &snapshotRow{}, &packageRow{}, &installRow{}, &userStateRow{}, &tokenRow{})
 	}); err != nil {
 		return nil, fmt.Errorf("plugins store: migrate: %w", err)
 	}
@@ -372,24 +394,61 @@ func (s *GormStore) UserStates(ctx context.Context, principal string) ([]UserSta
 }
 
 func (s *GormStore) SaveUserState(ctx context.Context, us UserState) error {
-	if us.Principal == "" || us.InstallID == "" {
-		return fmt.Errorf("%w: a user state needs a principal and an install", ErrInvalid)
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error { return gormTx{tx}.SaveUserState(us) })
+}
+
+func (s *GormStore) PutToken(ctx context.Context, t Token) error {
+	if err := validToken(t); err != nil {
+		return err
 	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var n int64
-		if err := tx.Model(&installRow{}).Where("id = ?", us.InstallID).Count(&n).Error; err != nil {
-			return err
+	files, err := toJSON(t.CodeFiles)
+	if err != nil {
+		return err
+	}
+	row := tokenRow{ID: t.ID, Kind: t.Kind, Principal: t.Principal, PluginID: t.PluginID, InstallID: t.InstallID,
+		SHA: t.SHA, Digest: t.Digest, RunsCode: t.RunsCode, CodeFiles: files, ExpiresAt: t.ExpiresAt, CreatedAt: t.CreatedAt}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		if isUniqueViolation(err) {
+			return ErrConflict
 		}
-		if n == 0 {
+		return err
+	}
+	return nil
+}
+
+func (s *GormStore) Token(ctx context.Context, id string, now time.Time) (Token, error) {
+	var r tokenRow
+	if err := s.db.WithContext(ctx).Where("id = ? AND expires_at > ?", id, now).Take(&r).Error; err != nil {
+		return Token{}, notFound(err)
+	}
+	return r.token()
+}
+
+func (s *GormStore) TakeToken(ctx context.Context, id string, now time.Time) (Token, error) {
+	var out Token
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var r tokenRow
+		if err := tx.Where("id = ? AND expires_at > ?", id, now).Take(&r).Error; err != nil {
+			return notFound(err)
+		}
+		// The delete decides which of two concurrent takes wins.
+		res := tx.Where("id = ?", id).Delete(&tokenRow{})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
 			return ErrNotFound
 		}
-		row := userStateRow{Principal: us.Principal, InstallID: us.InstallID, Enabled: us.Enabled,
-			NeedsReenable: us.NeedsReenable, Config: string(us.Config), Secrets: us.Secrets, UpdatedAt: us.UpdatedAt}
-		return tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "principal"}, {Name: "install_id"}},
-			UpdateAll: true,
-		}).Create(&row).Error
+		var err error
+		out, err = r.token()
+		return err
 	})
+	return out, err
+}
+
+func (s *GormStore) DeleteExpiredTokens(ctx context.Context, now time.Time) (int, error) {
+	res := s.db.WithContext(ctx).Where("expires_at <= ?", now).Delete(&tokenRow{})
+	return int(res.RowsAffected), res.Error
 }
 
 func (s *GormStore) MarkNeedsReenable(ctx context.Context, installID string) error {
@@ -496,6 +555,25 @@ func (t gormTx) DeleteInstall(id string) error {
 		return ErrNotFound
 	}
 	return t.db.Where("install_id = ?", id).Delete(&userStateRow{}).Error
+}
+
+func (t gormTx) SaveUserState(us UserState) error {
+	if us.Principal == "" || us.InstallID == "" {
+		return fmt.Errorf("%w: a user state needs a principal and an install", ErrInvalid)
+	}
+	var n int64
+	if err := t.db.Model(&installRow{}).Where("id = ?", us.InstallID).Count(&n).Error; err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	row := userStateRow{Principal: us.Principal, InstallID: us.InstallID, Enabled: us.Enabled,
+		NeedsReenable: us.NeedsReenable, Config: string(us.Config), Secrets: us.Secrets, UpdatedAt: us.UpdatedAt}
+	return t.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "principal"}, {Name: "install_id"}},
+		UpdateAll: true,
+	}).Create(&row).Error
 }
 
 func (t gormTx) MarkNeedsReenable(installID string) error {

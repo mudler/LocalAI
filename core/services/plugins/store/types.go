@@ -213,6 +213,48 @@ type UserState struct {
 	UpdatedAt     time.Time
 }
 
+// Kinds of preview token.
+const (
+	TokenInstall = "install"
+	TokenUpdate  = "update"
+)
+
+// Token is a preview token: the result of an inspect or an update preview
+// that one principal may confirm once before it expires.
+type Token struct {
+	// ID is the SHA-256 (hex) of the secret given to the client.
+	ID        string
+	Kind      string // TokenInstall or TokenUpdate
+	Principal string
+	PluginID  string
+	// InstallID is the install that an update token changes.
+	InstallID string
+	SHA       string
+	Digest    string
+	RunsCode  bool
+	// CodeFiles are the code files a confirmation must name: the changed
+	// code files of an update that needs a review of code.
+	CodeFiles []string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
+func validToken(t Token) error {
+	if t.ID == "" || t.Principal == "" || t.PluginID == "" || t.ExpiresAt.IsZero() {
+		return fmt.Errorf("%w: a token needs an ID, a principal, a plugin and an expiry", ErrInvalid)
+	}
+	switch t.Kind {
+	case TokenInstall:
+	case TokenUpdate:
+		if t.InstallID == "" {
+			return fmt.Errorf("%w: an update token needs an install", ErrInvalid)
+		}
+	default:
+		return fmt.Errorf("%w: unknown token kind %q", ErrInvalid, t.Kind)
+	}
+	return nil
+}
+
 // validInstall checks the rules of a new or changed install.
 func validInstall(in Install) error {
 	if in.ID == "" || in.PluginID == "" {

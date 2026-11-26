@@ -99,20 +99,26 @@ type Options struct {
 	Version         string
 	RefreshInterval time.Duration
 	Now             func() time.Time
+	// Queue runs install, update and rollback jobs. Nil runs them at once.
+	Queue Queue
+	// UserInstalls reports the plugins_user_installs setting. Nil means on.
+	UserInstalls func() bool
 }
 
 // Service is the Plugins service. It keeps no state across requests.
 type Service struct {
-	st       store.Store
-	db       *gorm.DB
-	fetcher  Fetcher
-	ws       content.Workspace
-	root     string
-	limits   func() content.Limits
-	official func() bool
-	defaults []DefaultMarketplace
-	interval time.Duration
-	now      func() time.Time
+	st           store.Store
+	db           *gorm.DB
+	fetcher      Fetcher
+	ws           content.Workspace
+	root         string
+	limits       func() content.Limits
+	official     func() bool
+	defaults     []DefaultMarketplace
+	interval     time.Duration
+	now          func() time.Time
+	queue        Queue
+	userInstalls func() bool
 }
 
 // New returns a Service.
@@ -123,6 +129,13 @@ func New(o Options) (*Service, error) {
 	s := &Service{
 		st: o.Store, db: o.DB, fetcher: o.Fetcher, ws: o.Workspace, root: o.Root,
 		limits: o.Limits, official: o.Official, interval: o.RefreshInterval, now: o.Now,
+		queue: o.Queue, userInstalls: o.UserInstalls,
+	}
+	if s.queue == nil {
+		s.queue = inlineQueue{}
+	}
+	if s.userInstalls == nil {
+		s.userInstalls = func() bool { return true }
 	}
 	if s.limits == nil {
 		s.limits = content.DefaultLimits

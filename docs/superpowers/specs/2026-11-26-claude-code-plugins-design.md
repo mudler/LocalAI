@@ -229,6 +229,35 @@ Unique key: (`plugin_id`, `scope`, `owner`). A plugin ID installed for everyone
 cannot also be installed for one user: the request answers 409 and names the
 instance install.
 
+An instance install of a plugin ID that users installed for themselves
+replaces their `user` installs in the same transaction (decision, 2026-11-26).
+Each of those users gets a `plugin_user_state` row of the instance install
+with `enabled = true`, and `needs_reenable = true` when the instance version
+runs code, because their own installs were text-only. Their `userConfig`
+values are not carried over: sealed values are bound to the install ID.
+Reason: an administrator who installs for everyone must not fail on the
+personal installs of users, and the users who chose the plugin keep it.
+
+### 6.4a `plugin_preview_tokens`
+
+One row per open preview of an inspect or an update preview (section 9.3).
+Rows, not memory, so any frontend can confirm a preview that another one
+made.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | string, PK | SHA-256 of the secret that the client holds. The secret is never stored. |
+| `kind` | string | `install` or `update`. |
+| `principal` | string | The only user who can confirm it. |
+| `plugin_id`, `install_id` | string | `install_id` for an update. |
+| `sha`, `digest` | string | What was reviewed. |
+| `runs_code` | bool | |
+| `code_files` | JSON | The changed code files an update approval must name. |
+| `expires_at`, `created_at` | time | 15 minutes. The refresh tick deletes expired rows. |
+
+A confirmation takes the row and deletes it in one transaction, so a token
+works once.
+
 ### 6.5 `plugin_user_state`
 
 | Column | Type | Notes |
@@ -340,7 +369,7 @@ The feature page under `docs/content/` states the same table.
 | Marketplaces, snapshots, packages, installs, user state | Stateless per request | Rows in the database (or the file store in standalone). Every frontend reads them per request and per turn. |
 | Package files | Shared, immutable | Workspace store, by digest. |
 | Marketplace refresh | Single runner | `advisorylock.TryWithLockCtx` with a new key `KeyPluginsRefresh` (the next free number in `keys.go`) every 6 hours. Tick-shaped and idempotent, so leadership need not be sticky. |
-| Install, update or remove of one plugin ID | Single runner per key | `HeldLock` on `KeyFromString("plugin-change:" + pluginID + ":" + scope + ":" + owner)` for the length of the change. |
+| Install, update or remove of one plugin ID | Single runner per key | `HeldLock` on `KeyFromString("plugin-change:" + pluginID)` for the length of the change. The key has no scope or owner, so an instance install and a user install of one plugin ID never run at once. A server without a database uses a process mutex per plugin ID. |
 | Package garbage collection | Single runner | Same lock key as the refresh, after it. Deletes a package that no install references and that is older than 24 hours. |
 | Install jobs and their progress | Per instance, documented | A `galleryop` operation runs on the frontend that took the request, as add-on installs do. The row shows on every frontend; byte progress shows only on that frontend. A restart fails the job as `interrupted`; it is never resumed by itself. |
 | Fetch scratch folders | Per instance | Under the data path, removed when the job ends and at startup. |
@@ -653,7 +682,10 @@ per-user enable. Administrator rights cover the rest.
    (`EnqueuePluginOp`, key `plugin:<plugin-id>`). The job takes the per-plugin
    `HeldLock`, fetches again at the same SHA, and refuses when the digest
    differs from the token's digest. It writes the package (section 7.3), then
-   the package row and the install row in one transaction.
+   the package row and the install row in one transaction. The checked files go into the workspace store under
+   their digest (section 7.3), so that every frontend can show them for
+   review. A package folder that no install takes has no row and goes at the
+   collection after 24 hours.
 
 Code files are:
 
@@ -1149,6 +1181,13 @@ add-on group. Administrator routes add `auth.RequireAdmin()`. Errors use
 | `GET /api/plugins/installs/{id}/me` | user | Own state: enabled, config, which secrets are set. |
 | `PUT /api/plugins/installs/{id}/me` | user | `{"enabled": true, "config": {...}, "secrets": {...}}`. |
 | `PUT /api/chats/{id}/plugins` | user | `{"off": ["<install-id>"]}`. |
+
+Errors of the service map to status codes: a taken install key
+(`store.ErrConflict`) and a user install of a plugin installed for everyone
+(`*store.InstanceInstalledError`, which names the install) answer 409; an
+invalid or used preview token, 400; `ErrNeedsAdmin`, `ErrCodeForEveryone` and
+`ErrBlocked`, 403 with the reason; `ErrNotHumanSurface`, `403
+not_human_surface`.
 
 Job progress uses the existing `GET /api/operations` rows (new flag
 `isPlugin`) and `POST /api/operations/{jobID}/cancel`.

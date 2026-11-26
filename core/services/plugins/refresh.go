@@ -273,8 +273,8 @@ type TickResult struct {
 	GC        content.GCResult
 }
 
-// RefreshTick refreshes the marketplaces that are due, then deletes the
-// packages that no install uses. One frontend runs it at a time, under
+// RefreshTick refreshes the marketplaces that are due, deletes the expired
+// preview tokens, then deletes the packages that no install uses. One frontend runs it at a time, under
 // advisorylock.KeyPluginsRefresh; the due check makes a second tick in the
 // same interval do nothing, so leadership need not be sticky.
 func (s *Service) RefreshTick(ctx context.Context) (TickResult, error) {
@@ -295,6 +295,9 @@ func (s *Service) RefreshTick(ctx context.Context) (TickResult, error) {
 				continue
 			}
 			res.Refreshed = append(res.Refreshed, m.ID)
+		}
+		if _, err := s.st.DeleteExpiredTokens(ctx, now); err != nil {
+			xlog.Warn("plugins: delete expired preview tokens", "error", err)
 		}
 		if s.ws.Files == nil || s.root == "" {
 			return nil

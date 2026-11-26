@@ -47,6 +47,17 @@ type Store interface {
 	// MarkNeedsReenable sets NeedsReenable on every user state of the
 	// install.
 	MarkNeedsReenable(ctx context.Context, installID string) error
+
+	// PutToken stores a preview token. The ID is a hash of the secret that
+	// the client holds, never the secret.
+	PutToken(ctx context.Context, t Token) error
+	// Token returns a token that has not expired at now, or ErrNotFound.
+	Token(ctx context.Context, id string, now time.Time) (Token, error)
+	// TakeToken returns and deletes a token that has not expired at now, or
+	// returns ErrNotFound. Of two concurrent takes, one gets the token.
+	TakeToken(ctx context.Context, id string, now time.Time) (Token, error)
+	// DeleteExpiredTokens deletes the tokens that expired before now.
+	DeleteExpiredTokens(ctx context.Context, now time.Time) (int, error)
 }
 
 // Tx is the view of the store inside InstallTx.
@@ -63,4 +74,6 @@ type Tx interface {
 	// DeleteInstall removes an install and its user states.
 	DeleteInstall(id string) error
 	MarkNeedsReenable(installID string) error
+	// SaveUserState creates or replaces a state. The install must exist.
+	SaveUserState(s UserState) error
 }
