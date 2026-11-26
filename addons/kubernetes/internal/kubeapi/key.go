@@ -71,11 +71,19 @@ func validContext(name string) bool {
 // same server another way still finds it. Writing the result again gives the
 // same result.
 //
-// An IP address that is loopback, link-local, unspecified or multicast is
-// refused: the credential would go to a service of the host or of its
-// network, such as a cloud metadata endpoint. Host names are not resolved
-// here; the client checks every address it dials (see dial.go).
+// An IP address that is loopback, link-local, unspecified, multicast or a
+// cloud metadata endpoint is refused: the credential would go to a service of
+// the host or of its network. Host names are not resolved here; the client
+// checks every address it dials (see dial.go). An internationalized host name
+// is not converted to punycode: a server written in Unicode and the same
+// server in punycode are two keys.
 func NormalizeServer(s string) (string, error) {
+	// A bare ? or # leaves no query or fragment in the parsed URL, but the
+	// page reads it as one and refuses it; the add-on refuses it too, so
+	// both write a server the same way.
+	if strings.ContainsAny(s, "?#") {
+		return "", errNotHTTPS
+	}
 	u, err := url.Parse(s)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
 		return "", errNotHTTPS
@@ -128,4 +136,4 @@ var errNotHTTPS = errors.New("the server must be an https URL with no path")
 
 // ErrLocalServer means the server is an address of the host or of its local
 // link.
-var ErrLocalServer = errors.New("the server must not be a loopback, link-local, unspecified or multicast address")
+var ErrLocalServer = errors.New("the server must not be a loopback, link-local, unspecified, multicast or cloud metadata address")

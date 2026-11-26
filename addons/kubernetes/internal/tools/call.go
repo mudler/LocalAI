@@ -56,3 +56,6 @@ func (r *Runtime) newCall(ctx context.Context, env contract.Envelope, clusterArg
 	}
 	return &call{r: r, ctx: ctx, key: conn.Key(), conn: conn, c: c, pol: pol}, nil
 }
+
+// close closes the idle connections of the client of the call.
+func (c *call) close() { c.c.Close() }

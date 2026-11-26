@@ -30,6 +30,7 @@ var _ = Describe("the key of a connection", func() {
 			"http://cluster.example:6443#context=prod",
 			"https://cluster.example:6443/api#context=prod",
 			"https://cluster.example:6443?x=1#context=prod",
+			"https://cluster.example:6443?#context=prod",
 			"https://user@cluster.example:6443#context=prod",
 			"https://cluster.example:6443#context=",
 			"https://cluster.example:6443",
@@ -41,6 +42,11 @@ var _ = Describe("the key of a connection", func() {
 		} {
 			_, err := kubeapi.ParseKey(k)
 			Expect(errors.Is(err, kubeapi.ErrBadKey)).To(BeTrue(), k)
+		}
+		// A bare ? or # is a query or a fragment too, as the page reads it.
+		for _, s := range []string{"https://cluster.example?", "https://cluster.example#", "https://cluster.example:6443/?", "https://cluster.example/#"} {
+			_, err := kubeapi.NormalizeServer(s)
+			Expect(err).To(HaveOccurred(), s)
 		}
 	})
 

@@ -54,10 +54,15 @@ func (r *Runtime) parseWrite(ctx context.Context, env contract.Envelope) (writeO
 		return nil, nil, err
 	}
 	if !c.pol.ToolEnabled(tool) {
+		c.close()
 		return nil, nil, policy.Refuse(policy.RuleWriteTools, "%s is disabled by the connection policy", tool)
 	}
 	op, err := c.parseOp(tool, args)
-	return op, c, err
+	if err != nil {
+		c.close()
+		return nil, nil, err
+	}
+	return op, c, nil
 }
 
 func (c *call) parseOp(tool string, args map[string]json.RawMessage) (writeOp, error) {
@@ -98,6 +103,7 @@ func (r *Runtime) Preview(ctx context.Context, env contract.Envelope) (contract.
 	if err != nil {
 		return contract.Preview{}, translate(err)
 	}
+	defer c.close()
 	sample, rev, err := op.inspect(c)
 	if err != nil {
 		return contract.Preview{}, translate(err)
@@ -133,6 +139,7 @@ func (r *Runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 	if op == nil {
 		return rc, err
 	}
+	defer c.close()
 	c.deadline = deadline
 	out, err := op.apply(c)
 	r.applyMu.Lock()
@@ -170,6 +177,14 @@ func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract
 	if err != nil {
 		return nil, nil, contract.Receipt{}, translate(err)
 	}
+	// The call is handed to Apply only when the write goes ahead; Apply
+	// closes it then.
+	handed := false
+	defer func() {
+		if !handed {
+			c.close()
+		}
+	}()
 	_, now, err := op.inspect(c)
 	if err != nil {
 		return nil, nil, contract.Receipt{}, translate(err)
@@ -188,6 +203,7 @@ func (r *Runtime) begin(ctx context.Context, env contract.Envelope, rev contract
 	if err := j.Begin(opID, r.now()); err != nil {
 		return nil, nil, contract.Receipt{}, err
 	}
+	handed = true
 	return op, c, contract.Receipt{}, nil
 }
 

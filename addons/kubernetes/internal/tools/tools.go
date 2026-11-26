@@ -206,6 +206,7 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	if err != nil {
 		return contract.Result{}, err
 	}
+	defer c.close()
 	c.deadline = deadline
 	var data any
 	switch tool {

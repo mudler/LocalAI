@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	httpstreamspdy "k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
@@ -45,6 +46,8 @@ type Client struct {
 	Metrics   MetricsReader
 	Exec      Execer
 	Writer    Applier
+
+	closeIdle func()
 }
 
 // LogReader streams the log of a container.
@@ -104,11 +107,19 @@ func newFactory(allowLoopback bool) Factory {
 		d := dialer(allowLoopback)
 		cfg.Dial = d.DialContext
 		cfg.Proxy = noProxy
-		typed, err := kubernetes.NewForConfig(cfg)
+		// A config with its own Dial skips the transport cache of
+		// client-go, so each client built from it would open its own
+		// connections. The clients of a call share one HTTP client
+		// instead, and the call closes its idle connections when it ends.
+		hc, err := rest.HTTPClientFor(cfg)
 		if err != nil {
 			return nil, err
 		}
-		dyn, err := dynamic.NewForConfig(cfg)
+		typed, err := kubernetes.NewForConfigAndClient(cfg, hc)
+		if err != nil {
+			return nil, err
+		}
+		dyn, err := dynamic.NewForConfigAndClient(cfg, hc)
 		if err != nil {
 			return nil, err
 		}
@@ -116,10 +127,11 @@ func newFactory(allowLoopback bool) Factory {
 		mapper := restmapper.NewShortcutExpander(restmapper.NewDeferredDiscoveryRESTMapper(disc), disc, nil)
 		return &Client{
 			Typed: typed, Dynamic: dyn, Discovery: disc, Mapper: mapper,
-			Logs:    podLogs{typed},
-			Metrics: metrics{typed.CoreV1().RESTClient()},
-			Exec:    execer{cfg: cfg, typed: typed, dialer: d, allowLoopback: allowLoopback},
-			Writer:  writer{dyn},
+			Logs:      podLogs{typed},
+			Metrics:   metrics{typed.CoreV1().RESTClient()},
+			Exec:      execer{cfg: cfg, typed: typed, dialer: d, allowLoopback: allowLoopback},
+			Writer:    writer{dyn},
+			closeIdle: func() { utilnet.CloseIdleConnectionsFor(hc.Transport) },
 		}, nil
 	}
 }
@@ -307,4 +319,12 @@ func (w writer) Apply(ctx context.Context, gvr schema.GroupVersionResource, ns s
 func (w writer) Patch(ctx context.Context, gvr schema.GroupVersionResource, ns, name string, pt types.PatchType, data []byte, dryRun bool) (*unstructured.Unstructured, error) {
 	return w.dyn.Resource(gvr).Namespace(ns).Patch(ctx, name, pt, data,
 		metav1.PatchOptions{FieldManager: FieldManager, DryRun: dryRunOf(dryRun)})
+}
+
+// Close closes the idle connections of the client. A call closes its client
+// when it ends.
+func (c *Client) Close() {
+	if c != nil && c.closeIdle != nil {
+		c.closeIdle()
+	}
 }

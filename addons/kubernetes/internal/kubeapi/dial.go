@@ -49,13 +49,23 @@ func checkDial(address string, allowLoopback bool) error {
 // address in their last 32 bits.
 var nat64 = []netip.Prefix{netip.MustParsePrefix("64:ff9b::/96"), netip.MustParsePrefix("64:ff9b:1::/48")}
 
+// metadata are cloud metadata endpoints outside the link-local ranges: the
+// IPv6 endpoint of AWS and the endpoint of Alibaba Cloud.
+var metadata = []netip.Prefix{netip.MustParsePrefix("fd00:ec2::254/128"), netip.MustParsePrefix("100.100.100.200/32")}
+
 // blocked reports an address of the host or of its local link: loopback,
-// link-local, unspecified, multicast, 0.0.0.0/8, or an IPv4 address of these
-// kinds carried in a NAT64 or an IPv4-compatible IPv6 address.
+// link-local, unspecified, multicast, 0.0.0.0/8, a cloud metadata endpoint,
+// or an IPv4 address of these kinds carried in a NAT64 or an
+// IPv4-compatible IPv6 address.
 func blocked(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	if localAddr(ip) || (ip.Is4() && ip.As4()[0] == 0) {
 		return true
+	}
+	for _, p := range metadata {
+		if p.Contains(ip) {
+			return true
+		}
 	}
 	if !ip.Is6() {
 		return false
