@@ -71,4 +71,52 @@ var _ = Describe("the key of a connection", func() {
 			Expect(err).NotTo(HaveOccurred(), in)
 		}
 	})
+
+	It("writes an IP address in its canonical form", func() {
+		for in, want := range map[string]string{
+			"https://[2001:db8::1]":          "https://[2001:db8::1]",
+			"https://[2001:DB8:0:0::1]":      "https://[2001:db8::1]",
+			"https://[2001:0db8::0001]":      "https://[2001:db8::1]",
+			"https://[2001:db8:0:0:0:0:0:1]": "https://[2001:db8::1]",
+			"https://[::ffff:10.0.0.1]":      "https://10.0.0.1",
+			"https://[::ffff:a00:1]:6443":    "https://10.0.0.1:6443",
+			"https://10.0.0.1":               "https://10.0.0.1",
+			"https://[2001:db8::1]:0443":     "https://[2001:db8::1]",
+		} {
+			s, err := kubeapi.NormalizeServer(in)
+			Expect(err).NotTo(HaveOccurred(), in)
+			Expect(s).To(Equal(want), in)
+		}
+	})
+
+	It("reads the port as a number", func() {
+		for in, want := range map[string]string{
+			"https://cluster.example:0443":  "https://cluster.example",
+			"https://cluster.example:00443": "https://cluster.example",
+			"https://cluster.example:06443": "https://cluster.example:6443",
+			"https://cluster.example:80":    "https://cluster.example:80",
+		} {
+			s, err := kubeapi.NormalizeServer(in)
+			Expect(err).NotTo(HaveOccurred(), in)
+			Expect(s).To(Equal(want), in)
+		}
+		for _, in := range []string{"https://cluster.example:0", "https://cluster.example:65536", "https://cluster.example:+443", "https://cluster.example:99999999999999999999"} {
+			_, err := kubeapi.NormalizeServer(in)
+			Expect(err).To(HaveOccurred(), in)
+		}
+	})
+
+	It("is idempotent, also with many trailing dots", func() {
+		for _, in := range []string{"https://x.example.", "https://x.example..", "https://X.Example...:0443/", "https://[2001:db8:0::1]", "https://[::ffff:10.0.0.1]:06443"} {
+			a, err := kubeapi.NormalizeServer(in)
+			Expect(err).NotTo(HaveOccurred(), in)
+			b, err := kubeapi.NormalizeServer(a)
+			Expect(err).NotTo(HaveOccurred(), a)
+			Expect(b).To(Equal(a), in)
+		}
+		s, _ := kubeapi.NormalizeServer("https://x.example..")
+		Expect(s).To(Equal("https://x.example"))
+		_, err := kubeapi.NormalizeServer("https://...")
+		Expect(err).To(HaveOccurred())
+	})
 })
