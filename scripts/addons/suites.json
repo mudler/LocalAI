@@ -492,7 +492,6 @@
           "is valid for a tool that shadows bash",
           "is valid with a key, its values and a default among them",
           "refuses a bad key, bad values and a default that is not allowed",
-          "refuses a repeated key and too many settings",
           "fixes the values and the default of a role the host reads",
           "answers whether a value is allowed",
           "is tools.write for a tool that is not a read, in an add-on that holds a credential",
@@ -887,7 +886,10 @@
           "a link that leaves the page",
           "no label",
           "refuses the same type twice",
-          "reads the declarations from JSON with a plain or a translated label"
+          "reads the declarations from JSON with a plain or a translated label",
+          "carries a kubeconfig with an embedded RSA client certificate and key",
+          "refuses a repeated key",
+          "accepts more than eight settings"
         ]
       },
       {
@@ -1200,7 +1202,11 @@
           "checks every pinned digest and guest image before it attaches the catalog",
           "passes when every digest is served, after retrying a dropped connection",
           "fails on a guest image the registry does not serve",
-          "fails when a digest cannot be checked"
+          "fails when a digest cannot be checked",
+          "audits actual host calls and strict package contract for kubernetes",
+          "translates the title and the description of kubernetes in every main language",
+          "gives every translated connector kind of kubernetes the fields of its English kind, and no others",
+          "has consistent package files for kubernetes"
         ]
       },
       {
@@ -2451,7 +2457,8 @@
           "refuses the cookie in named-user mode",
           "answers 202 with the run and no job, and the run later runs the caller's recorded operation",
           "is the one another frontend runs when it takes the run over",
-          "is dropped on the owner when the item ends without starting it, so the add-on is free again"
+          "is dropped on the owner when the item ends without starting it, so the add-on is free again",
+          "serves and stores every setting of an add-on that declares more than eight"
         ]
       },
       {
@@ -3504,7 +3511,8 @@
           "refuses the cookie in named-user mode",
           "answers 202 with the run and no job, and the run later runs the caller's recorded operation",
           "is the one another frontend runs when it takes the run over",
-          "is dropped on the owner when the item ends without starting it, so the add-on is free again"
+          "is dropped on the owner when the item ends without starting it, so the add-on is free again",
+          "serves and stores every setting of an add-on that declares more than eight"
         ]
       }
     ]
@@ -4082,7 +4090,8 @@
           "refuses the cookie in named-user mode",
           "answers 202 with the run and no job, and the run later runs the caller's recorded operation",
           "is the one another frontend runs when it takes the run over",
-          "is dropped on the owner when the item ends without starting it, so the add-on is free again"
+          "is dropped on the owner when the item ends without starting it, so the add-on is free again",
+          "serves and stores every setting of an add-on that declares more than eight"
         ]
       }
     ]
@@ -4690,7 +4699,8 @@
           "refuses the cookie in named-user mode",
           "answers 202 with the run and no job, and the run later runs the caller's recorded operation",
           "is the one another frontend runs when it takes the run over",
-          "is dropped on the owner when the item ends without starting it, so the add-on is free again"
+          "is dropped on the owner when the item ends without starting it, so the add-on is free again",
+          "serves and stores every setting of an add-on that declares more than eight"
         ]
       }
     ]
