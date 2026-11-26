@@ -143,13 +143,15 @@ func PodEnv(u *unstructured.Unstructured) {
 
 // EnvPair masks the env of the live object and of the result of a write, and
 // marks a hidden value that the write changes, so the card shows a change
-// that the masking would otherwise hide.
+// that the masking would otherwise hide. An env var is matched by its place
+// in the list and its name: two vars of one name in one container stay apart,
+// and a change to either of them shows.
 func EnvPair(live, next *unstructured.Unstructured) {
 	old := map[string]any{}
 	if live != nil {
 		containers(live.Object, "", func(at string, c map[string]any) {
-			for name, v := range secretEnv(c) {
-				old[at+"\x00"+name] = v
+			for k, v := range secretEnv(c) {
+				old[at+"\x00"+k] = v
 			}
 		})
 		PodEnv(live)
@@ -159,13 +161,39 @@ func EnvPair(live, next *unstructured.Unstructured) {
 	}
 	containers(next.Object, "", func(at string, c map[string]any) {
 		changed := map[string]bool{}
-		for name, v := range secretEnv(c) {
-			if was, ok := old[at+"\x00"+name]; !ok || was != v {
-				changed[name] = true
+		for k, v := range secretEnv(c) {
+			if was, ok := old[at+"\x00"+k]; !ok || was != v {
+				changed[k] = true
 			}
 		}
 		hideEnv(c, changed)
 	})
+}
+
+// HiddenEnv returns the env vars whose inline value the masking hides, each
+// as the name of its container and its own name. A server-side apply that
+// sets one of them again can tell, by a conflict, whether a guess of the
+// value is right.
+func HiddenEnv(u *unstructured.Unstructured) map[string]bool {
+	out := map[string]bool{}
+	if u == nil {
+		return out
+	}
+	containers(u.Object, "", func(_ string, c map[string]any) {
+		cname, _ := c["name"].(string)
+		env, _ := c["env"].([]any)
+		for _, e := range env {
+			m, ok := e.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, _ := m["name"].(string)
+			if _, has := m["value"]; has && secretName.MatchString(name) {
+				out[cname+"/"+name] = true
+			}
+		}
+	})
+	return out
 }
 
 // containers calls fn for each container of any container list at any
@@ -193,26 +221,29 @@ func containers(v any, path string, fn func(at string, c map[string]any)) {
 }
 
 // secretEnv returns the inline values of the env vars whose name looks
-// secret.
+// secret, keyed by envKey.
 func secretEnv(container map[string]any) map[string]any {
 	out := map[string]any{}
 	env, _ := container["env"].([]any)
-	for _, e := range env {
+	for i, e := range env {
 		m, ok := e.(map[string]any)
 		if !ok {
 			continue
 		}
 		name, _ := m["name"].(string)
 		if v, has := m["value"]; has && secretName.MatchString(name) {
-			out[name] = v
+			out[envKey(i, name)] = v
 		}
 	}
 	return out
 }
 
+// envKey is the place of an env var in its list and its name.
+func envKey(i int, name string) string { return fmt.Sprintf("%d:%s", i, name) }
+
 func hideEnv(container map[string]any, changed map[string]bool) {
 	env, _ := container["env"].([]any)
-	for _, e := range env {
+	for i, e := range env {
 		m, ok := e.(map[string]any)
 		if !ok {
 			continue
@@ -220,7 +251,7 @@ func hideEnv(container map[string]any, changed map[string]bool) {
 		name, _ := m["name"].(string)
 		if _, has := m["value"]; has && secretName.MatchString(name) {
 			m["value"] = Hidden
-			if changed[name] {
+			if changed[envKey(i, name)] {
 				m["value"] = Hidden + " (new value)"
 			}
 		}

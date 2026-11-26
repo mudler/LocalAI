@@ -140,4 +140,26 @@ var _ = Describe("masking", func() {
 		cb, _ := created.MarshalJSON()
 		Expect(string(cb)).To(ContainSubstring("*** (new value)"))
 	})
+
+	It("keeps two env vars of one name apart, so a change to the second one shows", func() {
+		mk := func(second string) *unstructured.Unstructured {
+			return &unstructured.Unstructured{Object: map[string]any{"spec": map[string]any{"containers": []any{
+				map[string]any{"name": "app", "env": []any{env("API_TOKEN", "first"), env("API_TOKEN", second)}}}}}}
+		}
+		live, next := mk("old"), mk("new")
+		mask.EnvPair(live, next)
+		b, _ := next.MarshalJSON()
+		Expect(string(b)).To(ContainSubstring(`{"name":"API_TOKEN","value":"***"},{"name":"API_TOKEN","value":"*** (new value)"}`))
+		Expect(string(b)).NotTo(ContainSubstring("new\""))
+
+		same, again := mk("old"), mk("old")
+		mask.EnvPair(same, again)
+		ab, _ := again.MarshalJSON()
+		Expect(string(ab)).NotTo(ContainSubstring("(new value)"))
+	})
+
+	It("lists the hidden env vars by container and name", func() {
+		Expect(mask.HiddenEnv(widget())).To(Equal(map[string]bool{"init/github_token": true, "app/DB_PASSWORD": true, "app/Api_Key": true, "app/CLIENT_SECRET": true}))
+		Expect(mask.HiddenEnv(nil)).To(BeEmpty())
+	})
 })
