@@ -313,6 +313,8 @@ The `avatarforcing-cpp` backend runs [avatarforcing.cpp](https://github.com/mudl
 | Gallery model | Inputs | Output |
 |---------------|--------|--------|
 | `avatarforcing` | portrait (`start_image`), speech (`audio`) | 512x512 video at 25 FPS, with the speech as its audio track |
+| `avatarforcing-f32` | the same | the same, from the float32 weights |
+| `avatarforcing-q8_0` | the same | the same, from Q8_0 weights |
 
 {{% callout style="warning" %}}
 The `avatarforcing` weights are licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Use them for non-commercial purposes only. The backend code is MIT.
@@ -326,7 +328,21 @@ LocalAI publishes this backend for the CPU (x86_64 and ARM64) and for NVIDIA CUD
 local-ai models install avatarforcing
 ```
 
-The model is a 1.2 GB float32 GGUF. LocalAI installs the backend when it first loads the model.
+LocalAI installs the backend when it first loads the model.
+
+The weights come in three files. The three gallery entries are builds of one model: `avatarforcing` lists the other two as variants, so the install picker offers all three.
+
+| File | Size | Notes |
+|------|------|-------|
+| F16 (`avatarforcing`) | 700 MB | The default file of the `avatarforcing` entry |
+| F32 (`avatarforcing-f32`) | 1.2 GB | The reference precision of the port |
+| Q8_0 (`avatarforcing-q8_0`) | 490 MB | The smallest file, with lower fidelity: the motion drifts from the F32 output over the length of a clip |
+
+When you install `avatarforcing` without choosing a build, LocalAI picks the largest build that fits in memory. On most hosts, that is F32. To get a specific file, choose it in the picker, install its entry by name, or pass the build:
+
+```bash
+local-ai models install avatarforcing --variant avatarforcing
+```
 
 ### Generate a talking-head video
 
@@ -344,8 +360,8 @@ curl http://localhost:8080/video \
 The model is driven by the audio, so `prompt` is not used and you can omit it.
 
 - **Portrait.** Use one face near the centre of the image. The model does not detect faces. A 512x512 PNG or JPEG goes to the model as it is. The backend crops any other image to a centred square and scales it to 512x512.
-- **Audio.** Any format that ffmpeg reads, for example WAV, MP3 or FLAC. The video has the length of the audio, up to `max_seconds` (30 seconds by default). Clips shorter than 2 seconds still give a video of the clip length.
-- **Speed.** On a 16-core x86_64 CPU, a 2.6 second clip takes about 45 seconds with the default settings. On an NVIDIA Jetson Thor GPU, the engine runs faster than real time.
+- **Audio.** Any format that ffmpeg reads, for example WAV, MP3 or FLAC. The video has the length of the audio, up to `max_seconds` (30 seconds by default). The video is at least 2 seconds long: the backend pads shorter audio with silence to 2 seconds.
+- **Speed.** On a 16-core x86_64 CPU, a 2.6 second clip takes about 45 seconds with the F32 file and the default settings. On an NVIDIA Jetson Thor GPU, the engine runs faster than real time.
 
 `width`, `height`, `fps` and `num_frames` have no effect: the model renders 512x512 at 25 FPS, and the audio sets the length. `end_image` and the reference inputs are refused.
 
@@ -365,7 +381,7 @@ Values in `params` take precedence over the request fields. An unknown `params` 
 
 ### Model configuration
 
-The gallery entry writes this config. To change a default, add `options:` with entries in `key:value` form, for example `options: [backend:cpu, nfe:4]`.
+The `avatarforcing` gallery entry writes this config. The other entries differ only in `name` and the model file. To change a default, add `options:` with entries in `key:value` form, for example `options: [backend:cpu, nfe:4]`.
 
 ```yaml
 name: avatarforcing
@@ -378,7 +394,7 @@ known_input_modalities:
 known_output_modalities:
   - video
 parameters:
-  model: avatarforcing-cpp/avatarforcing-f32.gguf
+  model: avatarforcing-cpp/avatarforcing-f16.gguf
 ```
 
 | Option | Default | Meaning |
