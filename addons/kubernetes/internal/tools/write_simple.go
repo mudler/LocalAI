@@ -131,11 +131,11 @@ func (o *restartOp) inspect(c *call) (map[string]any, uint64, error) {
 
 func (o *restartOp) apply(c *call) (map[string]any, error) {
 	at := c.r.now().UTC().Format(time.RFC3339)
+	// A merge patch of one annotation, with no resourceVersion: the API
+	// server applies it to the current object and never answers 409, so
+	// there is nothing to retry.
 	body, _ := json.Marshal(map[string]any{"spec": map[string]any{"template": map[string]any{"metadata": map[string]any{"annotations": map[string]any{restartedAt: at}}}}})
-	err := retryConflict(func() error {
-		_, err := c.c.Dynamic.Resource(o.gvr).Namespace(o.Namespace).Patch(c.ctx, o.Name, types.MergePatchType, body, metav1.PatchOptions{FieldManager: fieldManager})
-		return err
-	})
+	_, err := c.c.Dynamic.Resource(o.gvr).Namespace(o.Namespace).Patch(c.ctx, o.Name, types.MergePatchType, body, metav1.PatchOptions{FieldManager: fieldManager})
 	if err != nil {
 		return nil, err
 	}

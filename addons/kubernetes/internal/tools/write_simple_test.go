@@ -118,35 +118,44 @@ var _ = Describe("the guarded writes", func() {
 		Expect(*g.deploy("team-b", "api").Spec.Replicas).To(BeNumerically("==", 2))
 	})
 
-	It("retries scale and rollout restart once on a conflict and no other write", func() {
-		for _, tc := range []struct {
-			tool string
-			args map[string]any
-		}{
-			{tools.ToolScale, scaleArgs},
-			{tools.ToolRolloutRestart, map[string]any{"kind": "Deployment", "namespace": "team-a", "name": "web"}},
-		} {
-			g := newRig(deployment("team-a", "web", 2))
-			conflicts := 0
-			g.k.Prepend("patch", "deployments", func(k8stesting.Action) (bool, runtime.Object, error) {
-				if conflicts == 0 {
-					conflicts++
-					return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "deployments"}, "web", nil)
-				}
-				return false, nil, nil
-			})
-			rc, _ := g.run("op", tc.tool, tc.args)
-			Expect(rc.State).To(Equal(contract.ReceiptCommitted), tc.tool)
-			Expect(conflicts).To(Equal(1))
-		}
-		g := newRig(pod("team-a", "p", "n", time.Hour))
+	It("retries scale once on a conflict and no other write", func() {
+		g := newRig(deployment("team-a", "web", 2))
+		conflicts := 0
+		g.k.Prepend("patch", "deployments", func(k8stesting.Action) (bool, runtime.Object, error) {
+			if conflicts == 0 {
+				conflicts++
+				return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "deployments"}, "web", nil)
+			}
+			return false, nil, nil
+		})
+		rc, _ := g.run("op", tools.ToolScale, scaleArgs)
+		Expect(rc.State).To(Equal(contract.ReceiptCommitted))
+		Expect(conflicts).To(Equal(1))
+
+		// rollout-restart sends a merge patch with no resourceVersion, so the
+		// API server never answers it with a conflict; it is sent once.
+		g = newRig(deployment("team-a", "web", 2))
+		restarts := 0
+		restart := map[string]any{"kind": "Deployment", "namespace": "team-a", "name": "web"}
+		g.k.Prepend("patch", "deployments", func(a k8stesting.Action) (bool, runtime.Object, error) {
+			restarts++
+			Expect(string(a.(k8stesting.PatchAction).GetPatch())).NotTo(ContainSubstring("resourceVersion"))
+			return true, nil, apierrors.NewConflict(schema.GroupResource{Group: "apps", Resource: "deployments"}, "web", nil)
+		})
+		p, err := g.preview("op", tools.ToolRolloutRestart, restart)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = g.apply("op", tools.ToolRolloutRestart, restart, p)
+		Expect(err).To(MatchError(ContainSubstring("409 Conflict")))
+		Expect(restarts).To(Equal(1))
+
+		g = newRig(pod("team-a", "p", "n", time.Hour))
 		calls := 0
 		g.k.Prepend("delete", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
 			calls++
 			return true, nil, apierrors.NewConflict(schema.GroupResource{Resource: "pods"}, "p", nil)
 		})
-		p, _ := g.preview("op", tools.ToolDeletePod, map[string]any{"namespace": "team-a", "name": "p"})
-		_, err := g.apply("op", tools.ToolDeletePod, map[string]any{"namespace": "team-a", "name": "p"}, p)
+		p, _ = g.preview("op", tools.ToolDeletePod, map[string]any{"namespace": "team-a", "name": "p"})
+		_, err = g.apply("op", tools.ToolDeletePod, map[string]any{"namespace": "team-a", "name": "p"}, p)
 		Expect(err).To(MatchError(ContainSubstring("409 Conflict")))
 		Expect(calls).To(Equal(1))
 	})

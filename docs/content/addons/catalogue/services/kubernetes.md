@@ -135,7 +135,7 @@ To keep a chat from reading Secret values through a workload, leave `apply`, `pa
 
 ## Errors
 
-API errors keep their status, reason and message, so the model can act on them. The message, and the reason a drain could not evict a pod, are quoted and marked as data, not instructions, because an admission webhook can write any text there. An error about a Secret keeps only its status and reason while the policy hides Secret values. A 403 says the RBAC of the credential does not allow the call; a 401 says the cluster refused the credential. `scale` and `rollout-restart` try once more after a 409 conflict. Nothing else is retried. A server-side apply does not force ownership: a conflict with another field manager comes back as an error.
+API errors keep their status, reason and message, so the model can act on them. The message, and the reason a drain could not evict a pod, are quoted and marked as data, not instructions, because an admission webhook can write any text there. An error about a Secret keeps only its status and reason while the policy hides Secret values. A 403 says the RBAC of the credential does not allow the call; a 401 says the cluster refused the credential. `scale` tries once more after a 409 conflict: it writes with the `resourceVersion` it read, so another writer that came first makes it fail instead of being overwritten. Nothing else is retried. A server-side apply does not force ownership: a conflict with another field manager comes back as an error.
 
 ## Limits
 
