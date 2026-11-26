@@ -190,6 +190,13 @@ async function homeWith(page, { theme = 'light', last = '' } = {}) {
     } catch { /* private mode */ }
   }, [theme, last])
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: MODELS.map(m => ({ pinned: false, disabled: false, ...m })) } }))
+  // The server of the run is shared: a send on Home in another spec saves
+  // "My default" in setups.json, and Home then starts on the model of that
+  // setup instead of the one defaults.json gives. These tests start with no
+  // setups.
+  await page.route('**/api/chats/wellknown/setups', route => route.fulfill({
+    json: { name: 'setups', path: '/LocalAI/setups.json', exists: false, version: 0, data: {}, valid: true, errors: [] },
+  }))
   await page.goto('/app')
   await expect(page.getByTestId('home-model-chip')).toBeVisible()
 }
