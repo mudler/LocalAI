@@ -138,6 +138,20 @@ llama-cpp-fallback: llama.cpp
 # builds the variants in the same tree (local builds, macOS).
 CPU_VARIANTS_DIR?=
 
+# CPU_ALL_RPC=ON also builds the RPC backend (libggml-rpc.so) and ggml-rpc-server in the
+# cpu-all tree, and ships that tree's grpc-server as llama-cpp-grpc and its
+# ggml-rpc-server as llama-cpp-rpc-server. Both find the RPC backend through the backend
+# registry (add_rpc_devices and rpc-server.cpp call ggml_backend_reg_by_name("RPC")), so
+# a GGML_BACKEND_DL tree serves them as it serves the CPU and GPU backends. The image
+# build sets it: without it the llama-cpp-grpc target compiles the GPU backend a second
+# time (statically, for every CUDA or HIP arch), which was half of each GPU build.
+# Off by default for the Darwin and Windows builds, which call llama-cpp-grpc directly.
+CPU_ALL_RPC?=OFF
+ifeq ($(CPU_ALL_RPC),ON)
+CPU_ALL_RPC_CMAKE_ARGS:=-DGGML_RPC=ON
+CPU_ALL_RPC_TARGET:=--target ggml-rpc-server
+endif
+
 # Single-build CPU backend using ggml's CPU_ALL_VARIANTS. Produces ONE grpc-server
 # plus a set of dlopen-able libggml-cpu-*.so (sandybridge/haswell/skylakex/...) that
 # ggml's backend registry selects from at runtime by probing host CPU features.
@@ -158,11 +172,15 @@ llama-cpp-cpu-all: llama.cpp
 	$(info ${GREEN}I llama-cpp build info:cpu-all-variants${RESET})
 ifneq ($(strip $(CPU_VARIANTS_DIR)),)
 	test "$$(cat $(CPU_VARIANTS_DIR)/LLAMA_VERSION)" = "$(LLAMA_VERSION)" || { echo "CPU variants in $(CPU_VARIANTS_DIR) were built for another llama.cpp commit than $(LLAMA_VERSION)" >&2; exit 1; }
-	$(MAKE) SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU=OFF" TARGET="--target grpc-server --target ggml" VARIANT="llama-cpp-cpu-all-build" build-llama-cpp-grpc-server
+	$(MAKE) SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU=OFF $(CPU_ALL_RPC_CMAKE_ARGS)" TARGET="--target grpc-server --target ggml $(CPU_ALL_RPC_TARGET)" VARIANT="llama-cpp-cpu-all-build" build-llama-cpp-grpc-server
 else
-	$(MAKE) SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" VARIANT="llama-cpp-cpu-all-build" build-llama-cpp-grpc-server
+	$(MAKE) SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON $(CPU_ALL_RPC_CMAKE_ARGS)" TARGET="--target grpc-server --target ggml $(CPU_ALL_RPC_TARGET)" VARIANT="llama-cpp-cpu-all-build" build-llama-cpp-grpc-server
 endif
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/grpc-server llama-cpp-cpu-all
+ifeq ($(CPU_ALL_RPC),ON)
+	cp -fv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/grpc-server llama-cpp-grpc
+	cp -fv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/llama.cpp/build/bin/ggml-rpc-server llama-cpp-rpc-server
+endif
 	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
 	find $(CURRENT_MAKEFILE_DIR)/../llama-cpp-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
 ifneq ($(strip $(CPU_VARIANTS_DIR)),)

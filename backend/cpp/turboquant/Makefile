@@ -83,6 +83,16 @@ turboquant-fallback:
 # Unset, the variants are built in tree.
 CPU_VARIANTS_DIR?=
 
+# CPU_ALL_RPC=ON builds the RPC backend and ggml-rpc-server in the cpu-all tree too and
+# ships them as turboquant-grpc and turboquant-rpc-server, so the GPU backend is compiled once
+# instead of a second time for the static turboquant-grpc tree. See CPU_ALL_RPC in
+# backend/cpp/llama-cpp/Makefile.
+CPU_ALL_RPC?=OFF
+ifeq ($(CPU_ALL_RPC),ON)
+CPU_ALL_RPC_CMAKE_ARGS:=-DGGML_RPC=ON
+CPU_ALL_RPC_TARGET:=--target ggml-rpc-server
+endif
+
 turboquant-cpu-all:
 	rm -rf $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
 	cp -rf $(LLAMA_CPP_DIR) $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build
@@ -100,15 +110,19 @@ turboquant-cpu-all:
 	bash $(CURRENT_MAKEFILE_DIR)/apply-patches.sh $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/llama.cpp $(PATCHES_DIR)
 ifneq ($(strip $(CPU_VARIANTS_DIR)),)
 	test "$$(cat $(CPU_VARIANTS_DIR)/LLAMA_VERSION)" = "$(TURBOQUANT_VERSION)" || { echo "CPU variants in $(CPU_VARIANTS_DIR) were built for another commit than $(TURBOQUANT_VERSION)" >&2; exit 1; }
-	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU=OFF" TARGET="--target grpc-server --target ggml" \
+	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU=OFF $(CPU_ALL_RPC_CMAKE_ARGS)" TARGET="--target grpc-server --target ggml $(CPU_ALL_RPC_TARGET)" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build grpc-server
 else
-	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON" TARGET="--target grpc-server --target ggml" \
+	SHARED_LIBS=ON EXTRA_CMAKE_ARGS="-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON $(CPU_ALL_RPC_CMAKE_ARGS)" TARGET="--target grpc-server --target ggml $(CPU_ALL_RPC_TARGET)" \
 	LLAMA_REPO=$(LLAMA_REPO) LLAMA_VERSION=$(TURBOQUANT_VERSION) \
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build grpc-server
 endif
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server turboquant-cpu-all
+ifeq ($(CPU_ALL_RPC),ON)
+	cp -fv $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/grpc-server turboquant-grpc
+	cp -fv $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/llama.cpp/build/bin/ggml-rpc-server turboquant-rpc-server
+endif
 	rm -rf ggml-shared-libs && mkdir -p ggml-shared-libs
 	find $(CURRENT_MAKEFILE_DIR)/../turboquant-cpu-all-build/llama.cpp/build \( -name '*.so*' -o -name '*.dylib' \) -exec cp -av {} ggml-shared-libs/ \;
 ifneq ($(strip $(CPU_VARIANTS_DIR)),)

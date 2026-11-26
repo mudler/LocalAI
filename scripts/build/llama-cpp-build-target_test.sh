@@ -31,4 +31,16 @@ MAKEFILE="$CURDIR/../../backend/cpp/llama-cpp/Makefile"
 grep -q -- '-DGGML_CPU=OFF' "$MAKEFILE" || { echo "FAIL: Makefile does not build the GPU tree with -DGGML_CPU=OFF"; exit 1; }
 grep -q 'CPU_VARIANTS_DIR' "$CURDIR/../../.docker/llama-cpp-compile.sh" || { echo "FAIL: compile script does not pass CPU_VARIANTS_DIR"; exit 1; }
 
+# The RPC binaries must come out of the cpu-all tree. A separate static grpc tree
+# compiles the whole GPU backend (every CUDA or HIP arch) a second time, which
+# doubled the GPU image builds and pushed the ROCm ones to the 6h job limit.
+for fork in llama-cpp bonsai turboquant olala; do
+  script="$CURDIR/../../.docker/${fork}-compile.sh"
+  grep -q 'CPU_ALL_RPC=ON' "$script" || { echo "FAIL: $script does not build the RPC binaries in the cpu-all tree"; exit 1; }
+  if grep -Eq "^make ${fork}-(grpc|rpc-server)" "$script"; then
+    echo "FAIL: $script builds a second, static grpc tree"; exit 1
+  fi
+  grep -q 'CPU_ALL_RPC_TARGET' "$CURDIR/../../backend/cpp/${fork}/Makefile" || { echo "FAIL: backend/cpp/${fork}/Makefile has no CPU_ALL_RPC mode"; exit 1; }
+done
+
 echo "PASS: every llama.cpp image flavor selects the CPU variant build"

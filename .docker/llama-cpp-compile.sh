@@ -38,8 +38,10 @@ if [ "$BUILD_TARGET" = "llama-cpp-cpu-all" ]; then
 else
   set --
 fi
-make "$BUILD_TARGET" "$@"
-make llama-cpp-grpc
-make llama-cpp-rpc-server
+# CPU_ALL_RPC=ON builds the RPC backend and ggml-rpc-server in the same tree, so
+# llama-cpp-grpc and llama-cpp-rpc-server come out of this one build. Building them in their own
+# static tree compiled the whole GPU backend a second time, which was half the job time.
+make "$BUILD_TARGET" "$@" CPU_ALL_RPC=ON
+test -x llama-cpp-grpc && test -x llama-cpp-rpc-server
 
 ccache -s || true

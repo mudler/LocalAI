@@ -30,8 +30,10 @@ cd /LocalAI/backend/cpp/olala
 # run time, for CPU-only and GPU images alike. See .docker/llama-cpp-compile.sh.
 CPU_VARIANTS_DIR=/LocalAI/backend/cpp/olala/cpu-variants
 ls "$CPU_VARIANTS_DIR"/libggml-cpu-*.so > /dev/null
-make olala-cpu-all CPU_VARIANTS_DIR="$CPU_VARIANTS_DIR"
-make olala-grpc
-make olala-rpc-server
+# CPU_ALL_RPC=ON builds the RPC backend and ggml-rpc-server in the same tree, so
+# olala-grpc and olala-rpc-server come out of this one build. Building them in their own
+# static tree compiled the whole GPU backend a second time, which was half the job time.
+make olala-cpu-all CPU_VARIANTS_DIR="$CPU_VARIANTS_DIR" CPU_ALL_RPC=ON
+test -x olala-grpc && test -x olala-rpc-server
 
 ccache -s || true
