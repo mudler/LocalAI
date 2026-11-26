@@ -80,6 +80,37 @@ colibri supports only the model families it has an engine for (GLM-5.x, Qwen3.6,
 DeepSeek V4, Kimi K3, MiMo, Inkling, OLMoE and others). See the
 [colibri README](https://github.com/JustVugg/colibri) for the list.
 
+The model gallery has the models that colibri's own setup offers (`coli setup`), with every
+file pinned to a Hugging Face commit and checked by SHA-256. Install one with:
+
+```bash
+local-ai models install qwen3.6-35b-a3b-colibri
+```
+
+| Gallery name | Model | Download | RAM: minimum, as measured |
+|---|---|---|---|
+| `qwen3.6-35b-a3b-colibri` | Qwen3.6-35B-A3B, colibri int4 container | 23 GB | 10 GB, 20 GB |
+| `qwen3-coder-30b-a3b-colibri` | Qwen3-Coder-30B-A3B, colibri int4 container | 19 GB | 8 GB, 18 GB |
+| `inkling-2-mini-ud-q4_k_xl-colibri` | Inkling-2-Mini, Unsloth UD-Q4_K_XL GGUF | 18 GB | 6 GB, 21 GB |
+| `inkling-2-mini-ud-iq2_xxs-colibri` | Inkling-2-Mini, Unsloth UD-IQ2_XXS GGUF | 9 GB | 4 GB, 12 GB |
+| `qwen3.8-flash-next-ud-iq2_xs-colibri` | Qwen3.8-Flash-Next, Unsloth UD-IQ2_XS GGUF with the MTP head | 80 GB | 16 GB, 54 GB |
+| `qwen3.8-flash-next-ud-iq3_xxs-colibri` | Qwen3.8-Flash-Next, Unsloth UD-IQ3_XXS GGUF with the MTP head | 88 GB | 16 GB, 62 GB |
+| `deepseek-v4-flash-reap-150b-colibri` | DeepSeek V4 Flash REAP 150B, official weight format | 85 GB | 16 GB, 32 GB |
+| `deepseek-v4-flash-colibri` | DeepSeek V4 Flash 284B, official checkpoint | 167 GB | 16 GB, 32 GB |
+| `qwen3.8-flash-next-fp8-colibri` | Qwen3.8-Flash-Next, official FP8 checkpoint | 186 GB | 24 GB, 32 GB |
+| `mimo-v2.6-flash-colibri` | MiMo-V2.6 Flash 309B, official checkpoint | 172 GB | 32 GB, 52 GB |
+| `glm-5.3-colibri` | GLM-5.3 744B, colibri int4 container | 419 GB | 16 GB, 24 GB |
+| `glm-5.2-colibri` | GLM-5.2 744B, colibri int4 container with the MTP head | 429 GB | 16 GB, 24 GB |
+| `inkling-colibri` | Inkling 975B, colibri container | 514 GB | 120 GB, 128 GB |
+| `mimo-v2.6-pro-colibri` | MiMo-V2.6 Pro 1.02T, official checkpoint | 564 GB | 54 GB, 64 GB |
+
+The RAM figures are colibri's (`coli setup`'s catalog): the minimum to start the model, and the
+amount at which colibri measured it. For the models larger than RAM, put them on a fast NVMe SSD:
+colibri reads the experts from disk while it answers. LocalAI has not run these entries yet.
+colibri's Kimi K3 entries are not in the gallery, because they need a tokenizer step after the
+download that the backend does not run, and its Qwen-Image entries are not, because this backend
+generates text only.
+
 To use a GGUF model from the import form, choose `colibri` as the backend. A model config by
 hand:
 
@@ -163,4 +194,5 @@ colibri is licensed under the Apache License 2.0. The images contain the upstrea
 archive without changes (the CUDA images replace its engines with ones compiled from the same
 release's source), a portable CPython from
 [python-build-standalone](https://github.com/astral-sh/python-build-standalone), and in the
-CUDA images the NVIDIA CUDA runtime and cuBLAS libraries, which keep their own licence.
+CUDA images the NVIDIA CUDA runtime and cuBLAS libraries, which keep their own licence. Each
+model in the gallery has its own licence, which its entry names.
