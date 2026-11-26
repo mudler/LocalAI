@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/journal"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/addons/sdk/idle"
 	"github.com/mudler/LocalAI/pkg/addons/sdk/protocol"
@@ -82,6 +83,7 @@ func PageTools() []string { return []string{ToolGetPolicy, ToolSetPolicy} }
 func Declared() []string {
 	return append(append(ReadTools(), WriteTools()...), PageTools()...)
 }
+
 // Admin tells whether the user of a request is an administrator. The host
 // answers; the add-on never decides it.
 type Admin interface {
@@ -92,6 +94,7 @@ type Admin interface {
 type Runtime struct {
 	idle.Runtime
 	Factory kubeapi.Factory
+	Policy  *policy.Store
 	// Admin may be nil: the policy can then not be changed.
 	Admin Admin
 	// Now is the clock; a test fixes it.
@@ -105,7 +108,12 @@ type Runtime struct {
 
 // New returns a runtime. Receipts of changes live in memory until WithDataDir
 // gives it a directory.
-func New(f kubeapi.Factory) *Runtime { return &Runtime{Factory: f} }
+func New(f kubeapi.Factory, pol *policy.Store) *Runtime {
+	if pol == nil {
+		pol = policy.Open("")
+	}
+	return &Runtime{Factory: f, Policy: pol}
+}
 
 // WithDataDir keeps the journal of changes in dir.
 func (r *Runtime) WithDataDir(dir string) *Runtime { r.dir = dir; return r }
@@ -130,6 +138,8 @@ var _ contract.Runtime = (*Runtime)(nil)
 
 // MaxPayload bounds the JSON of one result.
 const MaxPayload = 512 << 10
+
+const policyUnreadable = "the policy of the add-on cannot be read: an administrator must fix it on the add-on page"
 
 type wrapped struct {
 	Source    string   `json:"source"`
@@ -174,6 +184,12 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	if err != nil {
 		return contract.Result{}, err
 	}
+	switch tool {
+	case ToolGetPolicy:
+		return r.getPolicy(ctx, env)
+	case ToolSetPolicy:
+		return r.setPolicy(ctx, env, args)
+	}
 	if !slices.Contains(ReadTools(), tool) {
 		return contract.Result{}, bad("unknown tool")
 	}
@@ -198,7 +214,10 @@ func (r *Runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 // server keeps its status, reason and message, so the model can act on it.
 func translate(err error) error {
 	var st apierrors.APIStatus
+	var refusal *policy.Refusal
 	switch {
+	case errors.As(err, &refusal):
+		return bad("%s", refusal.Error())
 	case errors.As(err, &st):
 		return kubeapi.Describe(err)
 	case errors.Is(err, protocol.ErrBadRequest), errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):

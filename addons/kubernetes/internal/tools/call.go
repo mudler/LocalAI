@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -16,6 +17,7 @@ type call struct {
 	key      string
 	conn     kubeapi.Conn
 	c        *kubeapi.Client
+	pol      policy.Policy
 	warnings []string
 }
 
@@ -41,9 +43,13 @@ func (r *Runtime) newCall(ctx context.Context, env contract.Envelope, clusterArg
 	if err != nil {
 		return nil, bad("%s. Ask the person to fix the connection", err.Error())
 	}
+	pol, err := r.Policy.Get(conn.Key())
+	if err != nil {
+		return nil, bad("%s", policyUnreadable)
+	}
 	c, err := r.Factory(cfg)
 	if err != nil {
 		return nil, bad("the client of the cluster could not be built")
 	}
-	return &call{r: r, ctx: ctx, key: conn.Key(), conn: conn, c: c}, nil
+	return &call{r: r, ctx: ctx, key: conn.Key(), conn: conn, c: c, pol: pol}, nil
 }

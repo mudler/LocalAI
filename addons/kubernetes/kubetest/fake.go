@@ -12,7 +12,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -103,8 +102,8 @@ var listKinds = map[schema.GroupVersionResource]string{
 	{Group: "apps", Version: "v1", Resource: "daemonsets"}: "DaemonSetList", {Group: "apps", Version: "v1", Resource: "replicasets"}: "ReplicaSetList",
 	{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}: "PodDisruptionBudgetList", {Group: "batch", Version: "v1", Resource: "jobs"}: "JobList",
 	{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}: "ClusterRoleList",
-	{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}: "RoleList",
-	{Group: "example.com", Version: "v1", Resource: "widgets"}: "WidgetList",
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "roles"}:        "RoleList",
+	{Group: "example.com", Version: "v1", Resource: "widgets"}:                    "WidgetList",
 }
 
 // New returns a cluster with the objects in it.
@@ -361,7 +360,7 @@ func (w writer) Patch(_ context.Context, gvr schema.GroupVersionResource, ns, na
 		typed, serr := scheme.Scheme.New(live.GroupVersionKind())
 		if serr != nil {
 			return nil, &apierrors.StatusError{ErrStatus: metav1.Status{Status: metav1.StatusFailure, Code: http.StatusUnsupportedMediaType,
-				Reason: metav1.StatusReasonUnsupportedMediaType, Message: fmt.Sprintf("the body of the request was in an unknown format - accepted media types include: application/json-patch+json, application/merge-patch+json, application/apply-patch+yaml")}}
+				Reason: metav1.StatusReasonUnsupportedMediaType, Message: "the body of the request was in an unknown format - accepted media types include: application/json-patch+json, application/merge-patch+json, application/apply-patch+yaml"}}
 		}
 		out, err = strategicpatch.StrategicMergePatch(base, data, typed)
 	default:

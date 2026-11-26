@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/addons/internal/connector"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/kubeapi"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/platform"
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/addons/sdk/hostclient"
@@ -38,7 +39,7 @@ func (a hostAdmin) IsAdmin(ctx context.Context, operationID string) bool {
 
 func main() {
 	os.Exit(protocol.Run(os.Args, func(st protocol.Startup) contract.Runtime {
-		rt := tools.New(kubeapi.NewFactory()).WithDataDir(st.DataDir)
+		rt := tools.New(kubeapi.NewFactory(), policy.Open(st.DataDir)).WithDataDir(st.DataDir)
 		rt.Admin = hostAdmin{hostclient.New(st)}
 		return runtime{Runtime: rt}
 	}))

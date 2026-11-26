@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/kubernetes/internal/policy"
 	"github.com/mudler/LocalAI/addons/kubernetes/internal/tools"
 	"github.com/mudler/LocalAI/addons/kubernetes/kubetest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -48,6 +49,7 @@ func (f adminFn) IsAdmin(context.Context, string) bool { return f() }
 type rig struct {
 	k     *kubetest.Cluster
 	rt    *tools.Runtime
+	pol   *policy.Store
 	admin bool
 	cred  string
 	key   string
@@ -56,7 +58,8 @@ type rig struct {
 
 func newRig(objs ...runtime.Object) *rig {
 	g := &rig{k: kubetest.New(objs...), cred: kubeconfig, key: key, now: time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)}
-	g.rt = tools.New(g.k.Factory())
+	g.pol = policy.Open("")
+	g.rt = tools.New(g.k.Factory(), g.pol)
 	g.rt.Now = func() time.Time { return g.now }
 	g.rt.Admin = adminFn(func() bool { return g.admin })
 	return g
@@ -104,4 +107,10 @@ func (g *rig) mustRead(tool string, args map[string]any) map[string]any {
 	r, err := g.read(tool, args)
 	Expect(err).NotTo(HaveOccurred())
 	return r.Data
+}
+
+// setPolicy stores the policy of the rig's cluster.
+func (g *rig) setPolicy(p policy.Policy) {
+	_, err := g.pol.Set(key, p)
+	Expect(err).NotTo(HaveOccurred())
 }
