@@ -129,6 +129,26 @@ var _ = Describe("immutable packages", func() {
 		Expect(e).To(HaveOccurred())
 		Expect(filepath.Join(receipt.Directory, "bin/sample")).To(BeAnExistingFile())
 	})
+	It("names the check that refused a package, and keeps ErrPackage for the caller", func() {
+		// A digest that does not match the downloaded bytes.
+		i, r := fixture(archive(nil, m), func(r *catalog.Release, _ *catalog.Source) {
+			r.Digest = "sha256:" + strings.Repeat("0", 64)
+		})
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+		Expect(e.Error()).To(ContainSubstring("does not match its digest"))
+	})
+	It("names a package folder that other users can open", func() {
+		if runtime.GOOS == "windows" {
+			Skip("Windows has no mode bits; the folder is made private instead")
+		}
+		i, r := fixture(archive(nil, m))
+		Expect(os.MkdirAll(i.Root, 0o700)).To(Succeed())
+		Expect(os.Chmod(i.Root, 0o755)).To(Succeed())
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+		Expect(e.Error()).To(ContainSubstring("private to the LocalAI user"))
+	})
 	It("refuses a package that needs a newer feature level, from the entry and from the manifest", func() {
 		i, r := fixture(archive(nil, m), func(r *catalog.Release, _ *catalog.Source) { r.Requires.FeatureLevel = 2 })
 		_, e := i.Stage(context.Background(), r, nil)
@@ -658,6 +678,8 @@ var _ = Describe("trusted signed staging", func() {
 				Expect(receipt.Digest).To(Equal(digest))
 			} else {
 				Expect(e).To(MatchError(ErrPackage))
+				// The log names the check that refused the package.
+				Expect(e.Error()).To(ContainSubstring("signature check"))
 				entries, e := os.ReadDir(i.Root)
 				Expect(e).NotTo(HaveOccurred())
 				Expect(entries).To(HaveLen(1))

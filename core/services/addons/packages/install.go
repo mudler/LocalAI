@@ -111,7 +111,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	// with the source repository. A shared signing workflow matches a pattern
 	// for every repository that calls it, so a pattern alone is refused.
 	if !r.Policy.ValidForAddon() || r.EntryKind() != catalog.KindAddon {
-		return out, ErrPackage
+		return out, refused("the library entry has no valid add-on signer policy", nil)
 	}
 	// The entry says what the package needs. A host that is too old refuses
 	// before it downloads anything; the manifest is checked again below.
@@ -119,7 +119,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		return out, &contract.FeatureLevelRefusal{Need: need, Host: i.Host.EffectiveFeatureLevel()}
 	}
 	if !r.Equal(trusted) || (r.Digest == "" && !r.Mutable) || r.OS != i.Host.OS || r.Arch != i.Host.Arch {
-		return out, ErrPackage
+		return out, refused("the release does not match its library entry or this platform", nil)
 	}
 	// A mutable entry (a development image) has no digest in the library. The
 	// same helper as for backends resolves its tag to a digest here; from then
@@ -128,25 +128,25 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if r.Mutable {
 		pin, e := catalog.Pin(ctx, r, i.Lookup)
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("resolving the tag of the development build", e)
 		}
 		r.Digest = pin.Digest
 	}
 	root, e := filepath.Abs(i.Root)
 	if e != nil || i.Root == "" {
-		return out, ErrPackage
+		return out, refused("the package folder path", e)
 	}
 	if e = os.MkdirAll(root, 0700); e != nil {
 		return out, e
 	}
 	info, e := os.Lstat(root)
 	if e != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return out, ErrPackage
+		return out, refused("the package folder is not a plain folder", e)
 	}
 	// On Windows, which has no mode bits, the folder is made private to the
 	// current user (a new folder has the access control list of its parent).
 	if _, e = fsperm.RequirePrivate(root, info); e != nil {
-		return out, ErrPackage
+		return out, refused("the package folder must be private to the LocalAI user", e)
 	}
 	dir, e := os.MkdirTemp(root, "stage-")
 	if e != nil {
@@ -166,7 +166,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if strings.HasPrefix(r.Artifact, "oci://") {
 		ref, e := name.ParseReference(strings.TrimPrefix(r.Artifact, "oci://"))
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("parsing the artifact reference", e)
 		}
 		pinned := ref.Context().Digest(r.Digest).Name()
 		transport := boundTransport{ctx: ctx, base: httpclient.New().Transport, allowLoopbackHTTP: r.AllowLoopbackHTTP}
@@ -177,32 +177,32 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 				verifier, e = cosignverify.NewVerifierWithTrustedMaterial(r.Policy.CosignPolicy(), nil, transport, i.SignatureTrust)
 			}
 			if e != nil {
-				return out, ErrPackage
+				return out, refused("setting up the signature check", e)
 			}
 			if e = verifier.VerifyImage(ctx, pinned); e != nil {
-				return out, ErrPackage
+				return out, refused("signature check", e)
 			}
 			verification = "sha256+sigstore"
 		}
 		img, e := oci.GetImage(pinned, r.OS+"/"+r.Arch, nil, transport)
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("fetching the image", e)
 		}
 		want, e := expectedImageDigest(pinned, r, transport)
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("reading the image digest", e)
 		}
 		digest, e := img.Digest()
 		if e != nil || digest.String() != want {
-			return out, ErrPackage
+			return out, refused("the image digest does not match the library entry", e)
 		}
 		cfg, e := img.ConfigFile()
 		if e != nil || cfg.OS != r.OS || cfg.Architecture != r.Arch {
-			return out, ErrPackage
+			return out, refused("the image platform does not match the library entry", e)
 		}
 		layers, e := img.Layers()
 		if e != nil || len(layers) > i.fileLimit() {
-			return out, ErrPackage
+			return out, refused("reading the image layers", e)
 		}
 		// The sizes are read first so every report carries the total.
 		var total int64
@@ -210,7 +210,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		for n, layer := range layers {
 			size, e := layer.Size()
 			if e != nil || size < 0 || size > i.byteLimit()-total {
-				return out, ErrPackage
+				return out, refused("a layer size is unreadable or over the size limit", e)
 			}
 			sizes[n] = size
 			total += size
@@ -221,11 +221,11 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			size := sizes[n]
 			h, e := layer.Digest()
 			if e != nil || h.Algorithm != "sha256" {
-				return out, ErrPackage
+				return out, refused("a layer digest is not sha256", e)
 			}
 			rc, e := layer.Compressed()
 			if e != nil {
-				return out, ErrPackage
+				return out, refused("downloading a layer", e)
 			}
 			f, e := i.download(ctx, &progressReader{r: rc, done: downloaded, total: total, report: report}, h.String(), root)
 			_ = rc.Close()
@@ -252,11 +252,11 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		// HTTP archives have a catalog-pinned SHA256. Sigstore image signatures are
 		// not archive signatures; fail closed instead of silently dropping policy.
 		if r.Policy.RequireSignature {
-			return out, ErrPackage
+			return out, refused("an archive cannot carry an image signature", nil)
 		}
 		req, e := http.NewRequestWithContext(ctx, http.MethodGet, r.Artifact, nil)
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("building the archive request", e)
 		}
 		// The archive is pinned by its SHA256, so a redirect changes where
 		// the bytes come from and never what is accepted; only the release
@@ -267,11 +267,11 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		}
 		resp, e := httpclient.New(opts...).Do(req)
 		if e != nil {
-			return out, ErrPackage
+			return out, refused("downloading the archive", e)
 		}
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != 200 {
-			return out, ErrPackage
+			return out, refused(fmt.Sprintf("the archive download answered HTTP %d", resp.StatusCode), nil)
 		}
 		total := max(resp.ContentLength, 0)
 		report(Progress{Phase: "download", Total: total})
@@ -295,10 +295,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	// A mutable entry names a moving tag, so the version the library shows is a
 	// label; the package says which build it is, and the digest pins it.
 	if m.ID != r.ID || (!r.Mutable && m.Version != r.Version) {
-		return out, ErrPackage
+		return out, refused(fmt.Sprintf("the package is %s %s, the library entry %s %s", m.ID, m.Version, r.ID, r.Version), nil)
 	}
 	if _, e = os.Lstat(filepath.Join(dir, "receipt.json")); !os.IsNotExist(e) {
-		return out, ErrPackage
+		return out, refused("the package carries a receipt.json", nil)
 	}
 	if e = ctx.Err(); e != nil {
 		return out, e
@@ -418,7 +418,7 @@ func (i *Installer) download(ctx context.Context, r io.Reader, digest, root stri
 		return f, e
 	}
 	if n > i.byteLimit() || fmt.Sprintf("sha256:%x", h.Sum(nil)) != digest {
-		return f, ErrPackage
+		return f, refused("the download does not match its digest or is over the size limit", nil)
 	}
 	_, err = f.Seek(0, 0)
 	return f, err
@@ -558,4 +558,18 @@ func runnable(goos string, info os.FileInfo, name string, inWSL bool) bool {
 		return strings.EqualFold(path.Ext(name), ".exe")
 	}
 	return info.Mode()&0100 != 0
+}
+
+// refused is ErrPackage with the check that failed and, when there is one, the
+// error behind it. Callers still match ErrPackage, and the API still answers
+// with its fixed text; the detail is for the log of the owner, which before
+// showed the same "invalid or unverified addon package" for every check.
+func refused(check string, cause error) error {
+	if cause == nil {
+		return fmt.Errorf("%w: %s", ErrPackage, check)
+	}
+	// %v and not %w: the cause names the check for a person, and must not
+	// change how a caller classifies the failure (a wrapped context error
+	// would read as a cancellation).
+	return fmt.Errorf("%w: %s: %v", ErrPackage, check, cause)
 }
