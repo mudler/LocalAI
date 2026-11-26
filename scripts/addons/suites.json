@@ -1504,7 +1504,9 @@
       "takes the Linux program of a package that runs in WSL 2 on Windows, without .exe",
       "needs the .exe extension on Windows, which has no execute bit",
       "follows the redirect to an allowed https host",
-      "still checks the pinned digest of the redirected bytes"
+      "still checks the pinned digest of the redirected bytes",
+      "names the check that refused a package, and keeps ErrPackage for the caller",
+      "names a package folder that other users can open"
     ],
     "report": ".cache/addons/logs/packages.json"
   },
