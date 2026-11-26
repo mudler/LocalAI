@@ -395,6 +395,17 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
+## Boots the container image LOCALAI_IMAGE (name:tag) in each user setup of
+## tests/e2e-container-users and installs a signed add-on and a backend in
+## each one. Needs Docker and network access to the official registries. Pick
+## setups with CONTAINER_USERS_LABELS, for example read-only-root.
+## No flake attempts: a failure must show, and the suite retries network
+## errors only.
+CONTAINER_USERS_LABELS?=
+.PHONY: test-e2e-container-users
+test-e2e-container-users:
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo -v --timeout 80m $(if $(CONTAINER_USERS_LABELS),--label-filter='$(CONTAINER_USERS_LABELS)') ./tests/e2e-container-users
+
 # Distributed architecture e2e (PostgreSQL + NATS via testcontainers).
 # Includes NatsJWT specs (JWT-enabled NATS). Requires Docker.
 # VLLMMultinode is excluded here; use test-e2e-vllm-multinode for that.

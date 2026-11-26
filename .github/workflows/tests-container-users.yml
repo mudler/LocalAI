@@ -1,0 +1,136 @@
+---
+# Boots the CPU container image, built from the commit under test, in the user
+# setups people run it with (default, LOCALAI_UID, docker --user, bind mounts
+# of the host user, read-only root) and checks in each one that LocalAI starts,
+# logs the folders it cannot write, and installs a signed add-on and a backend
+# from the official libraries. This catches a container that starts cleanly
+# but cannot install anything, as in #13507.
+#
+# The image is built here with the same build arguments and the same registry
+# cache as the CPU image of image_build.yml, so an unchanged base costs only
+# the Go build. Set the `image` input of a manual run to test a published image
+# instead (for example quay.io/go-skynet/local-ai:master).
+#
+# Concurrency: see .agents/ci-caching.md, section "Concurrency".
+name: 'tests-container-users'
+
+on:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Published image to test instead of building one (empty: build from this commit)'
+        required: false
+        default: ''
+        type: string
+  pull_request:
+    paths:
+      - 'entrypoint.sh'
+      - 'Dockerfile*'
+      - 'pkg/oci/cosignverify/**'
+      - 'pkg/system/**'
+      - 'core/services/addons/**'
+      - 'core/gallery/**'
+      - 'tests/e2e-container-users/**'
+      - '.github/workflows/tests-container-users.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'entrypoint.sh'
+      - 'Dockerfile*'
+      - 'pkg/oci/cosignverify/**'
+      - 'pkg/system/**'
+      - 'core/services/addons/**'
+      - 'core/gallery/**'
+      - 'tests/e2e-container-users/**'
+      - '.github/workflows/tests-container-users.yml'
+
+concurrency:
+  group: ci-tests-container-users-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
+permissions:
+  contents: read
+
+jobs:
+  container-users:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      LOCALAI_USERMODES_LOG_DIR: ${{ github.workspace }}/container-users-logs
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+
+      - name: Configure apt mirror on runner
+        id: apt_mirror
+        if: inputs.image == ''
+        uses: ./.github/actions/configure-apt-mirror
+
+      - name: Free disk space
+        if: inputs.image == ''
+        uses: ./.github/actions/free-disk-space
+        with:
+          mode: hosted
+
+      - name: Set up build disk
+        if: inputs.image == ''
+        uses: ./.github/actions/setup-build-disk
+
+      - name: Set up Docker Buildx
+        if: inputs.image == ''
+        uses: docker/setup-buildx-action@master
+
+      # The build arguments and the cache match the CPU image of
+      # image_build.yml, so the cache that the master builds write is reused.
+      - name: Build the CPU image
+        if: inputs.image == ''
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: |
+            BUILD_TYPE=
+            CUDA_MAJOR_VERSION=
+            CUDA_MINOR_VERSION=
+            BASE_IMAGE=ubuntu:24.04
+            MAKEFLAGS=--jobs=4 --output-sync=target
+            SKIP_DRIVERS=false
+            UBUNTU_VERSION=2404
+            UBUNTU_CODENAME=noble
+            APT_MIRROR=${{ steps.apt_mirror.outputs.effective-mirror }}
+            APT_PORTS_MIRROR=${{ steps.apt_mirror.outputs.effective-ports-mirror }}
+          cache-from: type=registry,ref=quay.io/go-skynet/ci-cache:cache-localai-amd64
+          platforms: linux/amd64
+          load: true
+          tags: local-ai:container-users
+
+      - name: Pull the published image
+        if: inputs.image != ''
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: docker pull "$IMAGE"
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Test
+        env:
+          LOCALAI_IMAGE: ${{ inputs.image != '' && inputs.image || 'local-ai:container-users' }}
+        run: |
+          id
+          make test-e2e-container-users
+
+      - name: Upload the container logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-users-logs
+          path: ${{ env.LOCALAI_USERMODES_LOG_DIR }}
+          if-no-files-found: ignore
+          retention-days: 7
