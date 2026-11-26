@@ -200,7 +200,10 @@ the model's backend is `llama-cpp` (or a build of it, or no backend at all),
 the **Interactive** tab has a **Runtime tuning** section with the badge
 `llama.cpp`.
 
-- **Quick setup.** One choice between three setups and **Custom**. Each setup
+- **Quick setup.** One choice between three setups and **Custom**.
+
+  ![The Quick setup of Runtime tuning: Balanced is current; Long prompts needs about 940 MB more memory and More concurrent users about 480 MB less, with the KV cache and compute buffer sizes of the current settings below.](../../images/engine-settings/quick-setup.png)
+ Each setup
   says what it does and how much more or less memory it needs than the current
   values. The figure is an estimate of the KV cache and the compute buffers,
   beside the weights, from the model file. The section also shows the current
