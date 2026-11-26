@@ -920,13 +920,14 @@ test-extra-backend-llama-cpp: docker-build-llama-cpp
 	$(MAKE) test-extra-backend
 
 ## Paged serving (paged_kv): admission, preemption with resume by recompute,
-## the prefill budget and the prompt cache. The 2048-token pool holds about two of the
-## overcommit requests, and the small output reserve makes the parity requests
-## outgrow the pool, so both the waiting and the preemption paths run on CPU.
+## the prefill budget and the prompt cache. The 1024-token pool holds about
+## three of the overcommit requests, and the small output reserve makes the
+## parity requests outgrow the pool, so both the waiting and the preemption
+## paths run on CPU.
 test-extra-backend-llama-cpp-paged: docker-build-llama-cpp
 	BACKEND_IMAGE=local-ai-backend:llama-cpp \
-	BACKEND_TEST_CTX_SIZE=2048 \
-	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:32 \
+	BACKEND_TEST_CTX_SIZE=1024 \
+	BACKEND_TEST_OPTIONS=paged_kv,parallel:4,kv_output_reserve:16,prefill_budget:16 \
 	BACKEND_TEST_CAPS=health,load,paged_overcommit,paged_parity,paged_budget,paged_cache \
 	$(MAKE) test-extra-backend
 
