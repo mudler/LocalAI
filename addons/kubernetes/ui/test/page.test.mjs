@@ -49,8 +49,8 @@ users:
 const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body })
 const kinds = { kinds: [{ kind: 'kubernetes', addon_id: 'kubernetes', tool_only: true, agent_optional: true, title: 'Kubernetes' }], capabilities: [] }
 const WRITE_TOOLS = ['scale', 'rollout-restart', 'rollout-undo', 'delete-pod', 'cordon', 'uncordon', 'drain', 'apply', 'patch', 'exec']
-// The built-in default: reads, no write.
-const DEFAULTS = { namespaces: ['*'], writeTools: [], readSecretValues: false }
+// The built-in default: reads, Secret values included, no write.
+const DEFAULTS = { namespaces: ['*'], writeTools: [], readSecretValues: true }
 
 function ConfirmDialog({ open, title, onConfirm }) {
   if (!open) return null
@@ -177,7 +177,7 @@ test('kubernetes page: an administrator saves the policy of a cluster; exec is m
   await click(h.q('kubernetes-policy-ns-add'))
   await click(h.q('kubernetes-policy-save'))
   const set = h.reads.find((a) => a.tool === 'set-policy')
-  assert.deepEqual(set, { tool: 'set-policy', key: SERVER, namespaces: ['team-a'], writeTools: ['exec'], readSecretValues: false })
+  assert.deepEqual(set, { tool: 'set-policy', key: SERVER, namespaces: ['team-a'], writeTools: ['exec'], readSecretValues: true })
   assert.ok(h.q('kubernetes-policy-saved'))
   assert.equal(h.q('kubernetes-policy-own').textContent, 'This cluster has its own policy.')
 })
@@ -194,7 +194,7 @@ test('kubernetes page: an administrator sets the default policy of the clusters 
   await click(h.q('kubernetes-policy-tool-scale'))
   await click(h.q('kubernetes-policy-save'))
   const set = h.reads.find((a) => a.tool === 'set-policy')
-  assert.deepEqual(set, { tool: 'set-policy', default: true, namespaces: ['*'], writeTools: ['scale'], readSecretValues: false })
+  assert.deepEqual(set, { tool: 'set-policy', default: true, namespaces: ['*'], writeTools: ['scale'], readSecretValues: true })
   assert.match(h.q('kubernetes-policy-own').textContent, /An administrator set this default/)
 })
 

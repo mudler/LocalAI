@@ -17,9 +17,9 @@ export const MAX_NAMESPACES = 50
 const LABEL = /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/
 
 // The built-in default of the add-on: reads in every namespace, no write tool,
-// Secret values hidden. It applies to a cluster with no policy until an
+// Secret values shown. It applies to a cluster with no policy until an
 // administrator sets a default policy.
-export const DEFAULTS = Object.freeze({ namespaces: [ALL], writeTools: [], readSecretValues: false })
+export const DEFAULTS = Object.freeze({ namespaces: [ALL], writeTools: [], readSecretValues: true })
 
 // The entry of the editor that edits the default policy.
 export const DEFAULT_KEY = 'default'

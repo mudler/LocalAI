@@ -62,9 +62,10 @@ type rig struct {
 func newRig(objs ...runtime.Object) *rig {
 	g := &rig{k: kubetest.New(objs...), cred: kubeconfig, key: key, now: time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC)}
 	g.pol = policy.Open("")
-	// The tests of the write tools need writes on: the administrator set a
-	// default policy that allows every write tool but exec.
-	_, err := g.pol.SetDefault(policy.Policy{Namespaces: []string{policy.All}, WriteTools: writes})
+	// The tests of the write tools need writes on, and the tests of the
+	// masking need Secret values off: the administrator set a default policy
+	// that allows every write tool but exec and hides Secret values.
+	_, err := g.pol.SetDefault(policy.Policy{Namespaces: []string{policy.All}, WriteTools: writes, ReadSecretValues: false})
 	Expect(err).NotTo(HaveOccurred())
 	g.rt = tools.New(g.k.Factory(), g.pol)
 	g.rt.Now = func() time.Time { return g.now }

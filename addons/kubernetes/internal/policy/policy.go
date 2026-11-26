@@ -11,8 +11,9 @@
 // cluster shares one policy, and renaming a context of the kubeconfig does
 // not change it. A cluster with no policy of its own uses the default policy,
 // which an administrator can set too. Out of the box that default allows
-// reads in every namespace and no write at all, so a new cluster can be read
-// and cannot be changed until an administrator decides.
+// reads in every namespace, Secret values included, and no write at all, so
+// a new cluster can be read and cannot be changed until an administrator
+// decides.
 //
 // The file lives in the data folder of the add-on, like the settings of the
 // other add-ons.
@@ -80,9 +81,19 @@ type Policy struct {
 }
 
 // Defaults is the default policy out of the box: every namespace may be read,
-// no write tool works and Secret values are hidden.
+// no write tool works, and Secret values are shown. An administrator can turn
+// the values off for a cluster, or in the default policy.
 func Defaults() Policy {
-	return Policy{Namespaces: []string{All}, WriteTools: []string{}}
+	return Policy{Namespaces: []string{All}, WriteTools: []string{}, ReadSecretValues: true}
+}
+
+// Damaged is the policy of every cluster while the file cannot be read: the
+// defaults with Secret values hidden, since the damaged file may have hidden
+// them and a damaged file must never widen access.
+func Damaged() Policy {
+	p := Defaults()
+	p.ReadSecretValues = false
+	return p
 }
 
 var label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
@@ -297,8 +308,9 @@ func migrate(in file) state {
 }
 
 // Get returns the policy of one cluster: its own, or the default policy. A
-// file that cannot be read gives every cluster the built-in Defaults, which
-// allow no write, so a damaged file never widens what a write can do.
+// file that cannot be read gives every cluster the Damaged policy, which
+// allows no write and hides Secret values, so a damaged file never widens
+// access.
 func (s *Store) Get(key string) (Policy, error) {
 	server, err := ServerKey(key)
 	if err != nil {
@@ -307,6 +319,9 @@ func (s *Store) Get(key string) (Policy, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	st := s.read()
+	if st.broken {
+		return Damaged(), nil
+	}
 	if p, ok := st.f.Clusters[server]; ok {
 		return p, nil
 	}
@@ -325,7 +340,7 @@ type View struct {
 	Default    Policy
 	DefaultSet bool
 	// Broken means the file could not be read; every cluster uses the
-	// built-in Defaults until an administrator saves.
+	// Damaged policy until an administrator saves.
 	Broken bool
 	// Legacy lists entries of the old per-context key that were not
 	// migrated.
@@ -343,6 +358,9 @@ func (s *Store) View() View {
 	}
 	if st.f.Default != nil {
 		v.Default, v.DefaultSet = *st.f.Default, true
+	}
+	if st.broken {
+		v.Default = Damaged()
 	}
 	if v.Legacy == nil {
 		v.Legacy = []string{}

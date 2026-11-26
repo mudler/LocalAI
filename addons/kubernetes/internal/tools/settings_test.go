@@ -22,6 +22,7 @@ var _ = Describe("the policy tools of the page", func() {
 		Expect(d["clusters"]).To(HaveKey(server))
 		Expect(d["defaultSet"]).To(BeTrue())
 		Expect(d["builtinDefault"]).To(HaveKeyWithValue("writeTools", BeEmpty()))
+		Expect(d["builtinDefault"]).To(HaveKeyWithValue("readSecretValues", BeTrue()))
 		Expect(d["writeTools"]).To(HaveLen(10))
 		g.admin = true
 		Expect(g.mustRead(tools.ToolGetPolicy, nil)["admin"]).To(BeTrue())
@@ -98,6 +99,14 @@ var _ = Describe("the policy tools of the page", func() {
 		Expect(p.Namespaces).To(Equal([]string{"*"}), "a field the page leaves out stays")
 	})
 
+	It("shows Secret values of a cluster no administrator configured", func() {
+		g := newRig(secret("team-a", "db"))
+		g.pol = policy.Open("")
+		g.rt = tools.New(g.k.Factory(), g.pol)
+		out := g.mustRead(tools.ToolGet, map[string]any{"kind": "secret", "namespace": "team-a", "name": "db"})
+		Expect(out["yaml"]).To(ContainSubstring("c2VjcmV0LXZhbHVl"))
+	})
+
 	It("denies every write of a cluster no administrator configured", func() {
 		g := newRig(deployment("team-a", "web", 1))
 		g.pol = policy.Open("")
@@ -137,7 +146,7 @@ var _ = Describe("the policy tools of the page", func() {
 		g.admin = true
 		g.mustRead(tools.ToolSetPolicy, map[string]any{"key": key, "readSecretValues": true})
 		p, _ := g.pol.Get(key)
-		Expect(p.WriteTools).To(BeEmpty(), "a partial save starts from the built-in default")
+		Expect(p.WriteTools).To(BeEmpty(), "a partial save starts from the policy of a damaged file")
 		r, err := g.rt.Read(ctx, g.env("op", tools.ToolGetPolicy, nil))
 		Expect(err).NotTo(HaveOccurred())
 		var out reply

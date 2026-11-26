@@ -99,23 +99,25 @@ An administrator sets a policy for each cluster on the add-on page. The add-on c
 |---|---|---|
 | `namespaces` | `*` | The namespaces the tools may read and change. A namespaced call outside the list is refused. A list across all namespaces returns only the allowed ones, whatever the selectors say. `check` also stays inside the list. |
 | `writeTools` | none | The write tools that work. A disabled tool is still offered to the model and answers that the policy disabled it. |
-| `readSecretValues` | off | When off, the tools hide Secret values. See [Secret values](#secret-values) for what that covers and what it does not. |
+| `readSecretValues` | on | When on, the tools show Secret values to the model. When off, they hide them. See [Secret values](#secret-values) for what hiding covers and what it does not. |
 
 The policy of a cluster is keyed by its server URL, written one way: the host in lower case without a trailing dot, the port left out when it is 443, and no trailing slash. Every context and every connection of one server share one policy, so renaming a context in the kubeconfig, or writing `:443`, does not change which policy applies.
 
-A cluster with no policy of its own uses the **default policy**. Out of the box the default allows reads in every namespace and **no write**: the page shows such a cluster as "Not configured: writes are off" until an administrator saves a policy for it. An administrator can also change the default policy itself: choose **Default for clusters with no policy** in the cluster list.
+A cluster with no policy of its own uses the **default policy**. Out of the box the default allows reads in every namespace, Secret values included, and **no write**: the page shows such a cluster as "Not configured: writes are off" until an administrator saves a policy for it. An administrator can also change the default policy itself: choose **Default for clusters with no policy** in the cluster list.
 
 Cluster-scoped objects are always readable. The only cluster-scoped writes are `cordon`, `uncordon` and `drain` of a node. `apply` and `patch` of a cluster-scoped kind (a Namespace, a ClusterRole, a CustomResourceDefinition) are refused.
 
 A refusal names its rule, for example `refused by the connection policy (namespaces)`.
 
-The policy is kept in `policy.json` in the data folder of the add-on. If that file cannot be read, every cluster uses the built-in default (reads only, no write) until an administrator saves a policy again; a damaged file never gives more than that. The next save keeps the damaged file aside as `policy.json.damaged-<time>` and starts a new file, and a save that names only some rules takes the others from the built-in default.
+The policy is kept in `policy.json` in the data folder of the add-on. If that file cannot be read, every cluster gets reads only: no write, and Secret values hidden, until an administrator saves a policy again. A damaged file never gives more than that. The next save keeps the damaged file aside as `policy.json.damaged-<time>` and starts a new file, and a save that names only some rules takes the others from that reads-only policy.
 
 Policies saved by an earlier build were keyed by server and context. They move to the key of their server by themselves. When two contexts of one server had different policies, neither applies: the page lists them, the server uses the default policy, and saving a policy for that server removes them.
 
 With several frontends, the add-on runs on the add-on owner, and every frontend sends its tool calls there. So there is one policy file, on the instance that runs the add-on owner.
 
 ## Secret values
+
+The model sees Secret values unless an administrator turns `readSecretValues` off, for one cluster or in the default policy. A value the model reads goes to the model and stays in the chat history.
 
 With `readSecretValues` off, "hidden" means that the read tools (`get`, `describe`, `list`) and the diffs and results of the write tools do not show a value:
 
@@ -131,7 +133,7 @@ With `readSecretValues` off, "hidden" means that the read tools (`get`, `describ
 - what a workload shows. A pod that a chat creates with `apply` can mount a Secret or print it, and its `logs` then show the value. `exec` output is not filtered: a command can print a Secret that the container holds;
 - what the cluster itself puts in events or in the status of an object.
 
-To keep a chat from reading Secret values through a workload, leave `apply`, `patch` and `exec` off for that cluster, or limit the RBAC of the credential. `exec` is off by default, and out of the box every write tool is off.
+To keep a chat from reading Secret values through a workload as well, turn `readSecretValues` off and leave `apply`, `patch` and `exec` off for that cluster, or limit the RBAC of the credential. Out of the box every write tool is off.
 
 ## Errors
 

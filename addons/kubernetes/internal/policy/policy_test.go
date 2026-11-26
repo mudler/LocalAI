@@ -14,14 +14,14 @@ import (
 const key = "https://cluster.example:6443#context=dev"
 
 var _ = Describe("the policy of a cluster", func() {
-	It("defaults allow reads in every namespace, no write tool, and no Secret values", func() {
+	It("defaults allow reads in every namespace, Secret values included, and no write tool", func() {
 		d := policy.Defaults()
 		Expect(d.AllNamespaces()).To(BeTrue())
 		Expect(d.NamespaceAllowed("anything")).To(BeTrue())
 		for _, t := range policy.WriteTools {
 			Expect(d.ToolEnabled(t)).To(BeFalse(), t)
 		}
-		Expect(d.ReadSecretValues).To(BeFalse())
+		Expect(d.ReadSecretValues).To(BeTrue())
 	})
 
 	It("normalizes and refuses bad input", func() {
@@ -125,7 +125,8 @@ var _ = Describe("the policy of a cluster", func() {
 			Expect(os.WriteFile(path, []byte(broken), 0o600)).To(Succeed())
 			p, err := policy.Open(dir).Get(key)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(p).To(Equal(policy.Defaults()), broken)
+			Expect(p).To(Equal(policy.Damaged()), broken)
+			Expect(p.ReadSecretValues).To(BeFalse(), "a damaged file never shows Secret values")
 			Expect(policy.Open(dir).View().Broken).To(BeTrue(), broken)
 		}
 		s := policy.Open(dir)
@@ -150,7 +151,7 @@ var _ = Describe("the policy of a cluster", func() {
 	It("changes its hash with the policy", func() {
 		a := policy.Defaults()
 		b := policy.Defaults()
-		b.ReadSecretValues = true
+		b.ReadSecretValues = false
 		Expect(a.Hash()).NotTo(Equal(b.Hash()))
 		Expect(a.Hash()).To(Equal(policy.Defaults().Hash()))
 	})

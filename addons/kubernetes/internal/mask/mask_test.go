@@ -11,6 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+// hiding is a policy with Secret values turned off.
+var hiding = policy.Policy{Namespaces: []string{policy.All}}
+
 var (
 	secrets = kubeapi.Target{GVR: schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, Kind: "Secret", Namespaced: true}
 	widgets = kubeapi.Target{GVR: schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}, Kind: "Widget", Namespaced: true}
@@ -41,7 +44,7 @@ func widget() *unstructured.Unstructured {
 var _ = Describe("masking", func() {
 	It("hides Secret data and stringData, keeps keys, type and byte length", func() {
 		s := secret()
-		mask.Apply(s, secrets, policy.Defaults())
+		mask.Apply(s, secrets, hiding)
 		Expect(s.Object["data"]).To(Equal(map[string]any{"password": "<12 bytes>"}))
 		Expect(s.Object["stringData"]).To(Equal(map[string]any{"user": "<5 bytes>"}))
 		Expect(s.Object["type"]).To(Equal("Opaque"))
@@ -52,13 +55,13 @@ var _ = Describe("masking", func() {
 		a := s.GetAnnotations()
 		a["kubernetes.io/service-account.name"] = "builder"
 		s.SetAnnotations(a)
-		mask.Apply(s, secrets, policy.Defaults())
+		mask.Apply(s, secrets, hiding)
 		Expect(s.GetAnnotations()).To(Equal(map[string]string{"team": "<1 bytes>", "kubernetes.io/service-account.name": "builder"}))
 	})
 
 	It("masks inline env values by name, case-insensitive, at any depth", func() {
 		w := widget()
-		mask.Apply(w, widgets, policy.Defaults())
+		mask.Apply(w, widgets, hiding)
 		y := w.Object["spec"].(map[string]any)["jobs"].([]any)[0].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
 		app := y["containers"].([]any)[0].(map[string]any)["env"].([]any)
 		for i := range 3 {
@@ -70,7 +73,7 @@ var _ = Describe("masking", func() {
 
 	It("leaves non-secret env and secretKeyRef refs alone", func() {
 		w := widget()
-		mask.Apply(w, widgets, policy.Defaults())
+		mask.Apply(w, widgets, hiding)
 		y := w.Object["spec"].(map[string]any)["jobs"].([]any)[0].(map[string]any)["template"].(map[string]any)["spec"].(map[string]any)
 		app := y["containers"].([]any)[0].(map[string]any)["env"].([]any)
 		Expect(app[3].(map[string]any)["value"]).To(Equal("prod"))
@@ -78,9 +81,9 @@ var _ = Describe("masking", func() {
 		Expect(app[4].(map[string]any)).NotTo(HaveKey("value"))
 	})
 
-	It("does nothing when readSecretValues is true", func() {
+	It("does nothing when readSecretValues is true, as in the defaults", func() {
 		p := policy.Defaults()
-		p.ReadSecretValues = true
+		Expect(p.ReadSecretValues).To(BeTrue())
 		s := secret()
 		mask.Apply(s, secrets, p)
 		Expect(s.Object["data"]).To(Equal(map[string]any{"password": "c2VjcmV0LXZhbHVl"}))
@@ -113,7 +116,7 @@ var _ = Describe("masking", func() {
 			"Pod":         {Object: map[string]any{"kind": "Pod", "spec": map[string]any{"containers": []any{map[string]any{"name": "app", "env": []any{env("API_TOKEN", "tok-1")}}}}}},
 		}
 		for kind, u := range kinds {
-			mask.Apply(u, widgets, policy.Defaults())
+			mask.Apply(u, widgets, hiding)
 			b, _ := u.MarshalJSON()
 			Expect(string(b)).NotTo(ContainSubstring("tok-1"), kind)
 			Expect(string(b)).To(ContainSubstring(mask.Hidden), kind)

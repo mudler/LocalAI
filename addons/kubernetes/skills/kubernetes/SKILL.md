@@ -40,9 +40,11 @@ A cluster that no administrator configured allows reads and no write. If every w
 
 ## Secrets
 
-Unless the policy shows them, Secret values are hidden in what the read tools and the write diffs return: you see the keys and the length of each value, and the annotations of a Secret show only their length. Inline environment values whose name looks secret show `***`; a changed one shows `*** (new value)`. A `json` patch of a Secret may not copy, move or test a value: use a `merge` patch to change one.
+By default you see Secret values. Quote one only when the person asked for it, and never copy one into a write they did not ask for.
 
-The hiding does not cover workloads, `exec` or logs. Never use them to read a Secret value: do not create a pod that mounts or prints a Secret, and do not print one with `exec`. If the person needs a value, tell them to read it themselves.
+An administrator can hide them for a cluster. Then the read tools and the write diffs show the keys and the length of each value, and the annotations of a Secret show only their length. Inline environment values whose name looks secret show `***`; a changed one shows `*** (new value)`. A `json` patch of a Secret may not copy, move or test a value: use a `merge` patch to change one.
+
+The hiding does not cover workloads, `exec` or logs. When values are hidden, never use them to read one: do not create a pod that mounts or prints a Secret, and do not print one with `exec`. If the person needs a value, tell them to read it themselves.
 
 ## Errors
 

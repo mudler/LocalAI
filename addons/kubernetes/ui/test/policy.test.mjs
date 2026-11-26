@@ -9,7 +9,7 @@ test('kubernetes policy: the defaults match the add-on', () => {
   assert.deepEqual(WRITE_TOOLS, ['scale', 'rollout-restart', 'rollout-undo', 'delete-pod', 'cordon', 'uncordon', 'drain', 'apply', 'patch', 'exec'])
   const writes = manifest.capabilities.toolDefinitions.filter((d) => d.kind === 'write').map((d) => d.name)
   assert.deepEqual(writes, WRITE_TOOLS)
-  assert.deepEqual(DEFAULTS, { namespaces: ['*'], writeTools: [], readSecretValues: false })
+  assert.deepEqual(DEFAULTS, { namespaces: ['*'], writeTools: [], readSecretValues: true })
   // A cluster with no policy of its own uses the default policy.
   const server = 'https://cluster.example:6443'
   const open = { namespaces: ['*'], writeTools: ['scale'], readSecretValues: false }
